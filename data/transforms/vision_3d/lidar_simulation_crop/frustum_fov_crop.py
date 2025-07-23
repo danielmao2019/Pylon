@@ -1,18 +1,17 @@
-from typing import Dict, Union, Tuple
 import torch
 import numpy as np
 from data.transforms.vision_3d.lidar_simulation_crop.base_fov_crop import BaseFOVCrop
 
 
-class PerspectiveFOVCrop(BaseFOVCrop):
-    """Perspective field-of-view cropping for camera frustum simulation.
+class FrustumFOVCrop(BaseFOVCrop):
+    """Frustum field-of-view cropping for camera frustum simulation.
     
-    Uses perspective projection to create rectangular frustum-shaped cropping regions
+    Uses perspective projection to create frustum-shaped cropping regions
     that match camera image boundaries exactly. This enables pixel-wise correspondence
     between cropped point clouds and RGB images taken from the same camera pose.
     
     Key characteristics:
-    - Creates rectangular/pyramidal frustum coverage areas
+    - Creates pyramidal frustum coverage areas
     - Uses perspective projection with depth clipping planes
     - Ensures pixel-wise correspondence with camera images
     - Angular constraints applied in projected image space
@@ -20,16 +19,14 @@ class PerspectiveFOVCrop(BaseFOVCrop):
 
     def __init__(
         self,
-        fov: Tuple[Union[int, float], Union[int, float]] = (90.0, 60.0),
+        fov: tuple,
         near_clip: float = 0.1,
         far_clip: float = 1000.0
     ):
-        """Initialize perspective FOV crop.
+        """Initialize frustum FOV crop.
         
         Args:
             fov: Tuple of (horizontal_fov, vertical_fov) in degrees
-                - horizontal_fov: Horizontal field of view total angle 
-                - vertical_fov: Vertical field of view total angle
             near_clip: Near clipping plane distance (minimum depth)
             far_clip: Far clipping plane distance (maximum depth)
         """
@@ -41,37 +38,38 @@ class PerspectiveFOVCrop(BaseFOVCrop):
         self.near_clip = float(near_clip)
         self.far_clip = float(far_clip)
         
-        # Pre-compute tangent values for efficiency
-        self.h_tan_half = np.tan(np.radians(self.horizontal_fov / 2))
-        self.v_tan_half = np.tan(np.radians(self.vertical_fov / 2))
+        # Pre-compute tangent values for efficiency - consistent usage of self.fov
+        horizontal_fov, vertical_fov = self.fov
+        self.h_tan_half = np.tan(np.radians(horizontal_fov / 2))
+        self.v_tan_half = np.tan(np.radians(vertical_fov / 2))
 
     def _validate_fov_ranges(self, horizontal_fov: float, vertical_fov: float) -> None:
-        """Validate FOV ranges for perspective cropping.
+        """Validate FOV ranges for frustum cropping.
         
         Args:
             horizontal_fov: Horizontal FOV in degrees
             vertical_fov: Vertical FOV in degrees
         """
-        # Perspective FOV is limited to realistic camera ranges (< 180°)
+        # Frustum FOV is limited to realistic camera ranges (< 180°)
         assert 0 < horizontal_fov <= 180, f"horizontal_fov must be in (0, 180], got {horizontal_fov}"
         assert 0 < vertical_fov <= 180, f"vertical_fov must be in (0, 180], got {vertical_fov}"
 
     def _apply_fov_constraints(self, sensor_frame_positions: torch.Tensor) -> torch.Tensor:
-        """Apply perspective field-of-view constraints using camera frustum geometry.
+        """Apply frustum field-of-view constraints using camera frustum geometry.
         
-        Camera coordinate system convention (matching LiDAR FOV crop):
+        Camera coordinate system convention (matching ellipsoidal FOV crop):
         - X: forward (positive into the scene, depth) 
         - Y: left (positive to the left in image)
         - Z: up (positive upward in image)
         
-        This matches the sensor frame convention used by SphericalFOVCrop where 
+        This matches the sensor frame convention used by EllipsoidFOVCrop where 
         sensor is at origin looking down +X axis.
         
         Args:
             sensor_frame_positions: Point positions in sensor coordinate frame [N, 3]
             
         Returns:
-            Boolean mask [N] indicating points within camera frustum
+            Boolean mask [N] indicating points within frustum
         """
         x, y, z = sensor_frame_positions[:, 0], sensor_frame_positions[:, 1], sensor_frame_positions[:, 2]
         
@@ -96,7 +94,7 @@ class PerspectiveFOVCrop(BaseFOVCrop):
         image_y = valid_y / valid_x  # horizontal on image (left/right)
         image_z = valid_z / valid_x  # vertical on image (up/down)
         
-        # 3. Apply rectangular frustum constraints in projected space
+        # 3. Apply frustum constraints in projected space
         # FOV defines the angular limits, which translate to tangent limits in projected space
         h_mask = torch.abs(image_y) <= self.h_tan_half  # horizontal FOV constraint
         v_mask = torch.abs(image_z) <= self.v_tan_half  # vertical FOV constraint
