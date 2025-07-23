@@ -31,6 +31,7 @@ def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
                 step=1,
                 value=0,
                 marks={i: str(i) for i in range(max_epoch)},
+                updatemode='drag'
             ),
         ], style={'width': '33%', 'display': 'inline-block'}),
 
@@ -52,7 +53,8 @@ def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
                 step=5,
                 value=25,
                 marks={i: f'{i}%' for i in range(5, 100, 10)},
-                tooltip={"placement": "bottom", "always_visible": True}
+                tooltip={"placement": "bottom", "always_visible": True},
+                updatemode='drag'
             ),
         ], style={'width': '33%', 'display': 'inline-block', 'float': 'right'}),
     ], style={'padding': '20px'})
