@@ -12,7 +12,6 @@ import tempfile
 import json
 import pytest
 from utils.automation.progress_tracking.runner_detection import detect_runner_type
-from conftest import create_epoch_files
 
 
 # ============================================================================
@@ -34,7 +33,7 @@ def test_detect_runner_type_evaluator_pattern():
         assert runner_type == 'evaluator'
 
 
-def test_detect_runner_type_trainer_pattern():
+def test_detect_runner_type_trainer_pattern(create_epoch_files):
     """Test detection of trainer based on epoch_0/validation_scores.json structure."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern: epoch_0/validation_scores.json
@@ -44,7 +43,7 @@ def test_detect_runner_type_trainer_pattern():
         assert runner_type == 'trainer'
 
 
-def test_detect_runner_type_evaluator_takes_precedence():
+def test_detect_runner_type_evaluator_takes_precedence(create_epoch_files):
     """Test that evaluator pattern takes precedence over trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create both patterns
