@@ -1,14 +1,15 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
 import copy
 import threading
 import logging
-import hashlib
+import xxhash
 from collections import OrderedDict
 import torch
 import psutil
+from data.cache.base_cache import BaseCache
 
 
-class CPUDatasetCache:
+class CPUDatasetCache(BaseCache):
     """A thread-safe CPU memory cache manager for dataset items with LRU eviction policy."""
 
     def __init__(
@@ -29,6 +30,9 @@ class CPUDatasetCache:
 
         self.max_memory_percent = max_memory_percent
         self.enable_validation = enable_validation
+        
+        # Track which keys have been validated this session (first-access-only)
+        self.validated_keys: Set[int] = set()
 
         # Initialize cache structures
         self.cache = OrderedDict()  # LRU cache with key -> value mapping
@@ -36,8 +40,6 @@ class CPUDatasetCache:
         self.memory_usage = {}  # key -> memory usage in bytes
         self.total_memory = 0  # Total memory usage in bytes
 
-        # Validation failures counter
-        self.validation_failures = 0
 
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -81,7 +83,7 @@ class CPUDatasetCache:
         return result
 
     def _compute_checksum(self, value: Dict[str, Any]) -> str:
-        """Compute a checksum for a cached item."""
+        """Compute a fast checksum for a cached item using xxhash."""
         def prepare_for_hash(item):
             if isinstance(item, torch.Tensor):
                 return item.cpu().numpy().tobytes()
@@ -92,41 +94,46 @@ class CPUDatasetCache:
             return item
 
         hashable_data = prepare_for_hash(value)
-        return hashlib.sha256(str(hashable_data).encode()).hexdigest()
+        return xxhash.xxh64(str(hashable_data).encode()).hexdigest()
 
-    def _validate_item(self, key: int, value: Dict[str, Any]) -> bool:
-        """Validate a cached item against its stored checksum."""
+    def _validate_item(self, idx: int, value: Dict[str, Any]) -> bool:
+        """Validate a cached item against its stored checksum (first-access-only per session)."""
         if not self.enable_validation:
             return True
+        
+        # Only validate on first access per session
+        if idx in self.validated_keys:
+            return True
 
-        if key not in self.checksums:
+        if idx not in self.checksums:
             return False
 
         current_checksum = self._compute_checksum(value)
-        is_valid = current_checksum == self.checksums[key]
+        is_valid = current_checksum == self.checksums[idx]
 
         if not is_valid:
-            self.validation_failures += 1
-            raise ValueError(f"Cache validation failed for key {key} - data corruption detected")
-
+            raise ValueError(f"Cache validation failed for idx {idx} - data corruption detected")
+        
+        # Mark as validated for this session
+        self.validated_keys.add(idx)
         return is_valid
 
-    def get(self, key: int) -> Optional[Dict[str, Any]]:
+    def get(self, idx: int) -> Optional[Dict[str, Any]]:
         """Thread-safe cache retrieval with LRU update and validation."""
         with self.lock:
-            if key in self.cache:
-                value = self.cache[key]
+            if idx in self.cache:
+                value = self.cache[idx]
 
-                if self._validate_item(key, value):
+                if self._validate_item(idx, value):
                     # Update LRU order
-                    self.cache.move_to_end(key)
-                    self.logger.debug(f"Current LRU order after get({key}): {list(self.cache.keys())}")
+                    self.cache.move_to_end(idx)
+                    self.logger.debug(f"Current LRU order after get({idx}): {list(self.cache.keys())}")
                     return copy.deepcopy(value)
                 else:
                     # Remove invalid item
-                    self.logger.debug(f"Removing invalid key {key} from cache")
-                    self.cache.pop(key)
-                    self.checksums.pop(key, None)
+                    self.logger.debug(f"Removing invalid idx {idx} from cache")
+                    self.cache.pop(idx)
+                    self.checksums.pop(idx, None)
 
             return None
 
@@ -147,7 +154,7 @@ class CPUDatasetCache:
         overhead = 1024  # 1KB overhead for Python objects
         return memory + overhead
 
-    def put(self, key: int, value: Dict[str, Any]) -> None:
+    def put(self, idx: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache insertion with memory management and checksum computation."""
         with self.lock:
             # Make a copy and calculate its memory
@@ -155,11 +162,11 @@ class CPUDatasetCache:
             new_item_memory = self._calculate_item_memory(copied_value)
 
             # Remove old entry if it exists
-            if key in self.cache:
-                old_memory = self.memory_usage.pop(key)
+            if idx in self.cache:
+                old_memory = self.memory_usage.pop(idx)
                 self.total_memory -= old_memory
-                self.cache.pop(key)
-                self.checksums.pop(key, None)
+                self.cache.pop(idx)
+                self.checksums.pop(idx, None)
 
             # Calculate current max cache size in bytes
             max_cache_bytes = int((self.max_memory_percent / 100.0) * psutil.virtual_memory().total)
@@ -174,13 +181,26 @@ class CPUDatasetCache:
                 self.checksums.pop(evict_key, None)
 
             # Store new item
-            self.cache[key] = copied_value
-            self.memory_usage[key] = new_item_memory
+            self.cache[idx] = copied_value
+            self.memory_usage[idx] = new_item_memory
             self.total_memory += new_item_memory
 
             if self.enable_validation:
-                self.checksums[key] = self._compute_checksum(copied_value)
+                self.checksums[idx] = self._compute_checksum(copied_value)
 
+    def clear(self) -> None:
+        """Clear all cached items."""
+        with self.lock:
+            self.cache.clear()
+            self.checksums.clear()
+            self.memory_usage.clear()
+            self.validated_keys.clear()
+            self.total_memory = 0
+    
+    def get_size(self) -> int:
+        """Get number of cached items."""
+        return len(self.cache)
+    
     def _get_memory_usage(self) -> float:
         """Get current memory usage percentage."""
         return psutil.Process().memory_percent()

@@ -6,7 +6,7 @@ import subprocess
 import os
 import random
 import json
-import hashlib
+import xxhash
 import torch
 from data.cache import CombinedDatasetCache
 from data.transforms.compose import Compose
@@ -30,8 +30,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         base_seed: int = 0,
-        use_cpu_cache: Optional[bool] = True,
-        use_disk_cache: Optional[bool] = True,
+        use_cpu_cache: bool = True,
+        use_disk_cache: bool = True,
         max_cache_memory_percent: float = 80.0,
         enable_cpu_validation: bool = False,
         enable_disk_validation: bool = False,
@@ -251,7 +251,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         """Generate deterministic hash from dataset configuration."""
         version_dict = self._get_cache_version_dict()
         hash_str = json.dumps(version_dict, sort_keys=True)
-        return hashlib.sha256(hash_str.encode()).hexdigest()[:16]
+        return xxhash.xxh64(hash_str.encode()).hexdigest()[:16]
 
     def _init_device(self, device: Union[str, torch.device]) -> None:
         if isinstance(device, str):

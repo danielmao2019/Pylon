@@ -1,12 +1,15 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
 import os
+import json
 import threading
 import logging
-import hashlib
+import xxhash
 import torch
+from datetime import datetime
+from data.cache.base_cache import BaseCache
 
 
-class DiskDatasetCache:
+class DiskDatasetCache(BaseCache):
     """A thread-safe disk-based cache manager for dataset items with per-datapoint files."""
 
     def __init__(
@@ -25,18 +28,25 @@ class DiskDatasetCache:
         self.version_hash = version_hash
         self.enable_validation = enable_validation
         
+        # Track which keys have been validated this session (first-access-only)
+        self.validated_keys: Set[int] = set()
+        
         # Create version-specific directory
         self.version_dir = os.path.join(cache_dir, version_hash)
         os.makedirs(self.version_dir, exist_ok=True)
         
-        # Validation failures counter
-        self.validation_failures = 0
+        # Metadata file path
+        self.metadata_file = os.path.join(cache_dir, 'cache_metadata.json')
+        
         
         # Setup logging
         self.logger = logging.getLogger(__name__)
         
         # Initialize lock
         self._init_lock()
+        
+        # Update metadata
+        self._update_metadata()
 
     def _init_lock(self):
         """Initialize the thread lock. Called both at init and after unpickling."""
@@ -62,7 +72,7 @@ class DiskDatasetCache:
         return os.path.join(self.version_dir, f"{idx}.pt")
 
     def _compute_checksum(self, value: Dict[str, Any]) -> str:
-        """Compute a checksum for a cached item."""
+        """Compute a fast checksum for a cached item using xxhash."""
         def prepare_for_hash(item):
             if isinstance(item, torch.Tensor):
                 return item.cpu().numpy().tobytes()
@@ -73,20 +83,25 @@ class DiskDatasetCache:
             return item
 
         hashable_data = prepare_for_hash(value)
-        return hashlib.sha256(str(hashable_data).encode()).hexdigest()
+        return xxhash.xxh64(str(hashable_data).encode()).hexdigest()
 
-    def _validate_item(self, value: Dict[str, Any], stored_checksum: str) -> bool:
-        """Validate a cached item against its stored checksum."""
+    def _validate_item(self, idx: int, value: Dict[str, Any], stored_checksum: str) -> bool:
+        """Validate a cached item against its stored checksum (first-access-only per session)."""
         if not self.enable_validation:
+            return True
+        
+        # Only validate on first access per session
+        if idx in self.validated_keys:
             return True
 
         current_checksum = self._compute_checksum(value)
         is_valid = current_checksum == stored_checksum
 
         if not is_valid:
-            self.validation_failures += 1
             raise ValueError(f"Disk cache validation failed - data corruption detected")
-
+        
+        # Mark as validated for this session
+        self.validated_keys.add(idx)
         return is_valid
 
     def exists(self, idx: int) -> bool:
@@ -114,7 +129,7 @@ class DiskDatasetCache:
                 
                 if self.enable_validation:
                     stored_checksum = cached_data.get('checksum', '')
-                    if not self._validate_item(value, stored_checksum):
+                    if not self._validate_item(idx, value, stored_checksum):
                         # Remove corrupted file
                         os.remove(cache_filepath)
                         return None
@@ -170,3 +185,40 @@ class DiskDatasetCache:
         if not os.path.exists(self.version_dir):
             return 0
         return len([f for f in os.listdir(self.version_dir) if f.endswith('.pt')])
+    
+    def _update_metadata(self) -> None:
+        """Update cache metadata JSON file with current version info."""
+        with self.lock:
+            # Load existing metadata
+            metadata = {}
+            if os.path.exists(self.metadata_file):
+                try:
+                    with open(self.metadata_file, 'r') as f:
+                        metadata = json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    metadata = {}
+            
+            # Update with current version info
+            metadata[self.version_hash] = {
+                'created_at': datetime.now().isoformat(),
+                'cache_dir': self.cache_dir,
+                'version_dir': self.version_dir,
+                'enable_validation': self.enable_validation,
+            }
+            
+            # Write updated metadata
+            try:
+                with open(self.metadata_file, 'w') as f:
+                    json.dump(metadata, f, indent=2, sort_keys=True)
+            except IOError as e:
+                self.logger.warning(f"Failed to update cache metadata: {e}")
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        """Get metadata for all cache versions."""
+        if os.path.exists(self.metadata_file):
+            try:
+                with open(self.metadata_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return {}
+        return {}

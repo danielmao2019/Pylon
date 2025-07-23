@@ -76,3 +76,13 @@ class BaseRandomDataset(BaseDataset):
 
         meta_info = {'seed': seed}
         return inputs, labels, meta_info
+    
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'num_examples': self.num_examples,
+            'gen_func_config': str(self.gen_func_config),  # Convert to string for hashing
+            'initial_seed': self.initial_seed,
+        })
+        return version_dict

@@ -1,8 +1,6 @@
 from typing import Dict, Any, Optional
-import os
-import copy
-from .cpu_dataset_cache import CPUDatasetCache
-from .disk_dataset_cache import DiskDatasetCache
+from data.cache.cpu_dataset_cache import CPUDatasetCache
+from data.cache.disk_dataset_cache import DiskDatasetCache
 
 
 class CombinedDatasetCache:
