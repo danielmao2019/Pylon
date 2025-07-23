@@ -4,6 +4,7 @@ from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 from .range_crop import RangeCrop
 from .fov_crop import FOVCrop
+from .camera_frustum_crop import CameraFrustumCrop
 from .occlusion_crop import OcclusionCrop
 
 
@@ -26,7 +27,8 @@ class LiDARSimulationCrop(BaseTransform):
         ray_density_factor: float = 0.8,
         apply_range_filter: bool = True,
         apply_fov_filter: bool = True, 
-        apply_occlusion_filter: bool = False
+        apply_occlusion_filter: bool = False,
+        crop_mode: str = "lidar"
     ):
         """Initialize LiDAR simulation crop transform.
         
@@ -39,6 +41,7 @@ class LiDARSimulationCrop(BaseTransform):
             apply_range_filter: Whether to apply range-based filtering
             apply_fov_filter: Whether to apply field-of-view filtering
             apply_occlusion_filter: Whether to apply occlusion simulation (ray-casting)
+            crop_mode: Cropping mode - "lidar" for cone-shaped LiDAR FOV, "camera" for rectangular camera frustum
         """
         # Validate inputs
         assert isinstance(max_range, (int, float)), f"max_range must be numeric, got {type(max_range)}"
@@ -61,6 +64,9 @@ class LiDARSimulationCrop(BaseTransform):
         assert isinstance(apply_fov_filter, bool), f"apply_fov_filter must be bool, got {type(apply_fov_filter)}"
         assert isinstance(apply_occlusion_filter, bool), f"apply_occlusion_filter must be bool, got {type(apply_occlusion_filter)}"
         
+        assert isinstance(crop_mode, str), f"crop_mode must be str, got {type(crop_mode)}"
+        assert crop_mode in ["lidar", "camera"], f"crop_mode must be 'lidar' or 'camera', got {crop_mode}"
+        
         # Store parameters
         self.max_range = float(max_range)
         self.horizontal_fov = float(horizontal_fov)
@@ -69,19 +75,29 @@ class LiDARSimulationCrop(BaseTransform):
         self.apply_fov_filter = apply_fov_filter
         self.apply_occlusion_filter = apply_occlusion_filter
         self.ray_density_factor = float(ray_density_factor)
+        self.crop_mode = crop_mode
         
         # Initialize crop components
         self.range_crop = RangeCrop(max_range=max_range) if apply_range_filter else None
-        self.fov_crop = FOVCrop(horizontal_fov=horizontal_fov, vertical_fov=vertical_fov) if apply_fov_filter else None
+        
+        # Choose FOV crop implementation based on mode
+        if apply_fov_filter:
+            if crop_mode == "lidar":
+                self.fov_crop = FOVCrop(horizontal_fov=horizontal_fov, vertical_fov=vertical_fov)
+            elif crop_mode == "camera":
+                self.fov_crop = CameraFrustumCrop(horizontal_fov=horizontal_fov, vertical_fov=vertical_fov)
+        else:
+            self.fov_crop = None
+            
         self.occlusion_crop = OcclusionCrop(ray_density_factor=ray_density_factor) if apply_occlusion_filter else None
 
     def _call_single(self, pc: Dict[str, torch.Tensor], sensor_extrinsics: torch.Tensor, 
                     *args, **kwargs) -> Dict[str, torch.Tensor]:
-        """Apply LiDAR simulation crop to point cloud.
+        """Apply sensor simulation crop to point cloud.
         
         Args:
             pc: Point cloud dictionary with 'pos' key and optional feature keys
-            sensor_extrinsics: 4x4 sensor pose matrix (world-to-sensor transform)
+            sensor_extrinsics: 4x4 sensor pose matrix (sensor-to-world transform)
             
         Returns:
             Cropped point cloud dictionary

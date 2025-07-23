@@ -52,6 +52,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         lidar_apply_range_filter: bool = False,
         lidar_apply_fov_filter: bool = True,
         lidar_apply_occlusion_filter: bool = False,
+        lidar_crop_mode: str = "camera",
         **kwargs,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
@@ -72,6 +73,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             lidar_apply_range_filter: Whether to apply range-based filtering for LiDAR (default: False)
             lidar_apply_fov_filter: Whether to apply field-of-view filtering for LiDAR (default: True)  
             lidar_apply_occlusion_filter: Whether to apply occlusion simulation for LiDAR (default: False)
+            lidar_crop_mode: Cropping mode - "lidar" for cone-shaped LiDAR FOV, "camera" for rectangular camera frustum (default: "camera")
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.total_dataset_size = dataset_size
@@ -92,6 +94,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         self.lidar_apply_range_filter = lidar_apply_range_filter
         self.lidar_apply_fov_filter = lidar_apply_fov_filter
         self.lidar_apply_occlusion_filter = lidar_apply_occlusion_filter
+        self.lidar_crop_mode = lidar_crop_mode
         
         # Initialize transform-to-overlap cache
         if cache_filepath is not None:
@@ -723,7 +726,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             ray_density_factor=0.8,  # Default value
             apply_range_filter=self.lidar_apply_range_filter,
             apply_fov_filter=self.lidar_apply_fov_filter,
-            apply_occlusion_filter=self.lidar_apply_occlusion_filter
+            apply_occlusion_filter=self.lidar_apply_occlusion_filter,
+            crop_mode=self.lidar_crop_mode
         )
         
         # Store sensor extrinsics for LiDAR cropping
