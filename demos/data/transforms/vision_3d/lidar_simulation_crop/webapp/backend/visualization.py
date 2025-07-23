@@ -207,6 +207,7 @@ class LiDARVisualizationBackend:
                 - range_max: Maximum range for range_only cropping
                 - h_fov: Horizontal FOV for fov_only cropping
                 - v_fov_span: Vertical FOV span for fov_only cropping
+                - fov_mode: FOV mode for fov_only cropping ('ellipsoid' or 'frustum')
             
         Returns:
             LiDARSimulationCrop configuration object
@@ -224,9 +225,11 @@ class LiDARVisualizationBackend:
         elif crop_type == 'fov_only':
             h_fov = params.get('h_fov', 80.0)
             v_fov_span = params.get('v_fov_span', 40.0)  # Total span around center (0)
+            fov_mode = params.get('fov_mode', 'ellipsoid')  # Default to ellipsoid mode
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 fov=(h_fov, v_fov_span),  # (horizontal_fov, vertical_fov)
+                fov_crop_mode=fov_mode,  # ellipsoid or frustum
                 ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=True,
@@ -258,7 +261,7 @@ class LiDARVisualizationBackend:
             yaw: Camera yaw rotation in degrees [-180, 180]
             pitch: Camera pitch rotation in degrees [-90, 90]
             roll: Camera roll rotation in degrees [-180, 180]
-            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov_span)
+            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov_span, fov_mode)
             
         Returns:
             Dictionary with processed data including original points, cropped points,
@@ -319,7 +322,7 @@ class LiDARVisualizationBackend:
             yaw: Camera yaw rotation in degrees
             pitch: Camera pitch rotation in degrees
             roll: Camera roll rotation in degrees
-            **crop_params: Dynamic crop parameters
+            **crop_params: Dynamic crop parameters (including fov_mode for fov_only)
             
         Returns:
             Plotly Figure object
@@ -406,11 +409,18 @@ class LiDARVisualizationBackend:
                 self._add_range_visualization(fig, sensor_pos, crop_config.max_range)
                 
             elif crop_type == 'fov_only' and crop_config.apply_fov_filter:
-                self._add_fov_visualization(fig, sensor_pos, sensor_rot, crop_config)
+                fov_mode = crop_params.get('fov_mode', 'ellipsoid')
+                self._add_fov_visualization(fig, sensor_pos, sensor_rot, crop_config, fov_mode)
+            
+            # Create title with FOV mode information
+            title_parts = [f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()}"]
+            if crop_type == 'fov_only' and 'fov_mode' in crop_params:
+                fov_mode = crop_params['fov_mode']
+                title_parts[0] += f" ({fov_mode.title()})"
             
             # Set layout with fixed axis ranges for consistent scaling
             fig.update_layout(
-                title=f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()}<br>"
+                title=f"{title_parts[0]}<br>"
                       f"<sub>{pose_description} | Points: {len(original_np):,} → {len(cropped_np):,} ({reduction:.1f}% reduction)</sub>",
                 scene=dict(
                     xaxis=dict(
@@ -471,8 +481,106 @@ class LiDARVisualizationBackend:
         ))
     
     def _add_fov_visualization(self, fig: go.Figure, sensor_pos: np.ndarray, 
-                             sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop) -> None:
-        """Add FOV frustum visualization to the figure.
+                             sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop, fov_mode: str = 'ellipsoid') -> None:
+        """Add FOV visualization to the figure.
+        
+        Args:
+            fig: Plotly figure to add to
+            sensor_pos: Sensor position [3]
+            sensor_rot: Sensor rotation matrix [3x3]
+            crop_config: LiDAR configuration object
+            fov_mode: FOV mode ('ellipsoid' or 'frustum')
+        """
+        if fov_mode == 'ellipsoid':
+            self._add_ellipsoid_fov_visualization(fig, sensor_pos, sensor_rot, crop_config)
+        elif fov_mode == 'frustum':
+            self._add_frustum_fov_visualization(fig, sensor_pos, sensor_rot, crop_config)
+    
+    def _add_ellipsoid_fov_visualization(self, fig: go.Figure, sensor_pos: np.ndarray, 
+                                       sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop) -> None:
+        """Add ellipsoidal FOV visualization to the figure.
+        
+        Args:
+            fig: Plotly figure to add to
+            sensor_pos: Sensor position [3]
+            sensor_rot: Sensor rotation matrix [3x3]
+            crop_config: LiDAR configuration object
+        """
+        # For ellipsoid mode, draw cone-like shape with curved edges
+        horizontal_fov, vertical_fov = crop_config.fov
+        h_fov_half = horizontal_fov / 2
+        h_fov_min = np.radians(-h_fov_half)
+        h_fov_max = np.radians(h_fov_half)
+        
+        v_fov_half = vertical_fov / 2
+        v_fov_min = np.radians(-v_fov_half)
+        v_fov_max = np.radians(v_fov_half)
+        
+        frustum_length = 8.0
+        
+        # Create curved edge visualization for ellipsoidal shape
+        # Generate points along the ellipsoidal boundary
+        angles_h = np.linspace(h_fov_min, h_fov_max, 10)
+        angles_v = np.linspace(v_fov_min, v_fov_max, 10)
+        
+        # Draw ellipsoidal boundary curves
+        edge_colors = ['orange', 'darkorange']
+        
+        # Horizontal boundary curves (at top and bottom of vertical FOV)
+        for i, v_angle in enumerate([v_fov_min, v_fov_max]):
+            boundary_points = []
+            for h_angle in angles_h:
+                # Point in sensor coordinates (forward = +X)
+                x = frustum_length * np.cos(v_angle) * np.cos(h_angle)
+                y = frustum_length * np.cos(v_angle) * np.sin(h_angle)
+                z = frustum_length * np.sin(v_angle)
+                
+                # Transform to world coordinates
+                local_point = np.array([x, y, z])
+                world_point = sensor_rot @ local_point + sensor_pos
+                boundary_points.append(world_point)
+            
+            boundary_points = np.array(boundary_points)
+            fig.add_trace(go.Scatter3d(
+                x=boundary_points[:, 0],
+                y=boundary_points[:, 1],
+                z=boundary_points[:, 2],
+                mode='lines',
+                line=dict(color=edge_colors[i % len(edge_colors)], width=3),
+                name='Ellipsoid Boundary' if i == 0 else None,
+                showlegend=(i == 0),
+                hoverinfo='skip'
+            ))
+        
+        # Vertical boundary curves (at left and right of horizontal FOV)
+        for i, h_angle in enumerate([h_fov_min, h_fov_max]):
+            boundary_points = []
+            for v_angle in angles_v:
+                # Point in sensor coordinates (forward = +X)
+                x = frustum_length * np.cos(v_angle) * np.cos(h_angle)
+                y = frustum_length * np.cos(v_angle) * np.sin(h_angle)
+                z = frustum_length * np.sin(v_angle)
+                
+                # Transform to world coordinates
+                local_point = np.array([x, y, z])
+                world_point = sensor_rot @ local_point + sensor_pos
+                boundary_points.append(world_point)
+            
+            boundary_points = np.array(boundary_points)
+            fig.add_trace(go.Scatter3d(
+                x=boundary_points[:, 0],
+                y=boundary_points[:, 1],
+                z=boundary_points[:, 2],
+                mode='lines',
+                line=dict(color=edge_colors[i % len(edge_colors)], width=3),
+                name=None,
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+    
+    def _add_frustum_fov_visualization(self, fig: go.Figure, sensor_pos: np.ndarray, 
+                                     sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop) -> None:
+        """Add frustum FOV visualization to the figure.
         
         Args:
             fig: Plotly figure to add to
@@ -481,11 +589,12 @@ class LiDARVisualizationBackend:
             crop_config: LiDAR configuration object
         """
         # Convert total FOV angles to half-angles for symmetric ranges
-        h_fov_half = crop_config.horizontal_fov / 2
+        horizontal_fov, vertical_fov = crop_config.fov
+        h_fov_half = horizontal_fov / 2
         h_fov_min = np.radians(-h_fov_half)
         h_fov_max = np.radians(h_fov_half)
         
-        v_fov_half = crop_config.vertical_fov / 2
+        v_fov_half = vertical_fov / 2
         v_fov_min = np.radians(-v_fov_half)
         v_fov_max = np.radians(v_fov_half)
         
@@ -620,7 +729,8 @@ class LiDARVisualizationBackend:
             },
             'fov_only': {
                 'h_fov': 80.0,
-                'v_fov_span': 40.0
+                'v_fov_span': 40.0,
+                'fov_mode': 'ellipsoid'
             },
             'occlusion_only': {}
         }

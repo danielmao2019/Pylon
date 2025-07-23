@@ -229,6 +229,22 @@ class LiDARVisualizationLayout:
                     disabled=False,  # Initially enabled for fov_only default
                     updatemode='drag'
                 )
+            ], style={'marginBottom': 12}),
+            
+            # FOV Mode selection (for fov_only)
+            html.Div([
+                html.Label("FOV Mode", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Dropdown(
+                    id='fov-mode-dropdown',
+                    options=[
+                        {'label': 'Ellipsoid (LiDAR-style)', 'value': 'ellipsoid'},
+                        {'label': 'Frustum (Camera-style)', 'value': 'frustum'}
+                    ],
+                    value=crop_defaults['fov_only']['fov_mode'],
+                    style={'width': '100%', 'fontSize': '12px'},
+                    clearable=False,
+                    disabled=False  # Initially enabled for fov_only default
+                )
             ], style={'marginBottom': 12})
         ])
     
@@ -322,5 +338,6 @@ class LiDARVisualizationLayout:
             # Crop parameter sliders
             'range_max': 'range-max-slider',
             'h_fov': 'h-fov-slider',
-            'v_fov_span': 'v-fov-span-slider'
+            'v_fov_span': 'v-fov-span-slider',
+            'fov_mode': 'fov-mode-dropdown'
         }

@@ -41,12 +41,13 @@ class LiDARVisualizationCallbacks:
              Input(self.control_ids['roll'], 'value'),
              Input(self.control_ids['range_max'], 'value'),
              Input(self.control_ids['h_fov'], 'value'),
-             Input(self.control_ids['v_fov_span'], 'value')]
+             Input(self.control_ids['v_fov_span'], 'value'),
+             Input(self.control_ids['fov_mode'], 'value')]
         )
         def update_visualization(cloud_name: str, crop_type: str, 
                                azimuth: float, elevation: float, distance: float,
                                yaw: float, pitch: float, roll: float,
-                               range_max: float, h_fov: float, v_fov_span: float) -> Tuple[go.Figure, List[Any]]:
+                               range_max: float, h_fov: float, v_fov_span: float, fov_mode: str) -> Tuple[go.Figure, List[Any]]:
             """Update the main 3D plot and info panel based on control selections.
             
             Args:
@@ -61,6 +62,7 @@ class LiDARVisualizationCallbacks:
                 range_max: Maximum range for range cropping
                 h_fov: Horizontal FOV for FOV cropping
                 v_fov_span: Vertical FOV span for FOV cropping
+                fov_mode: FOV mode for FOV cropping ('ellipsoid' or 'frustum')
                 
             Returns:
                 Tuple of (figure, info_panel_children)
@@ -72,6 +74,7 @@ class LiDARVisualizationCallbacks:
             elif crop_type == 'fov_only':
                 crop_params['h_fov'] = h_fov
                 crop_params['v_fov_span'] = v_fov_span
+                crop_params['fov_mode'] = fov_mode
             # occlusion_only doesn't need additional params
             
             # Create the 3D plot
@@ -92,22 +95,23 @@ class LiDARVisualizationCallbacks:
         @callback(
             [Output(self.control_ids['range_max'], 'disabled'),
              Output(self.control_ids['h_fov'], 'disabled'),
-             Output(self.control_ids['v_fov_span'], 'disabled')],
+             Output(self.control_ids['v_fov_span'], 'disabled'),
+             Output(self.control_ids['fov_mode'], 'disabled')],
             [Input(self.control_ids['crop_type'], 'value')]
         )
-        def update_crop_slider_states(crop_type: str) -> Tuple[bool, bool, bool]:
-            """Enable/disable crop parameter sliders based on crop type.
+        def update_crop_slider_states(crop_type: str) -> Tuple[bool, bool, bool, bool]:
+            """Enable/disable crop parameter controls based on crop type.
             
             Args:
                 crop_type: Selected crop type
                 
             Returns:
-                Tuple of (range_disabled, h_fov_disabled, v_fov_span_disabled)
+                Tuple of (range_disabled, h_fov_disabled, v_fov_span_disabled, fov_mode_disabled)
             """
             range_disabled = crop_type != 'range_only'
             fov_disabled = crop_type != 'fov_only'
             
-            return range_disabled, fov_disabled, fov_disabled
+            return range_disabled, fov_disabled, fov_disabled, fov_disabled
     
     def _create_info_content(self, cloud_name: str, crop_type: str, 
                             azimuth: float, elevation: float, distance: float,
@@ -219,9 +223,10 @@ class LiDARVisualizationCallbacks:
             active_filters.append(f"Range ≤ {range_val:.1f}m")
         
         if crop_config.apply_fov_filter:
-            h_fov = crop_params.get('h_fov', crop_config.horizontal_fov)
-            v_fov_span = crop_params.get('v_fov_span', crop_config.vertical_fov)
-            active_filters.append(f"FOV {h_fov:.0f}°×{v_fov_span:.0f}°")
+            h_fov, v_fov_span = crop_config.fov
+            fov_mode = crop_params.get('fov_mode', 'ellipsoid')
+            fov_mode_label = fov_mode.title()
+            active_filters.append(f"FOV {h_fov:.0f}°×{v_fov_span:.0f}° ({fov_mode_label})")
         
         if crop_config.apply_occlusion_filter:
             active_filters.append("Occlusion filtering")
@@ -252,7 +257,7 @@ class LiDARVisualizationCallbacks:
         """
         descriptions = {
             'range_only': "Distance-based filtering removes points beyond maximum range",
-            'fov_only': "Field-of-view filtering removes points outside sensor cone",
+            'fov_only': "Field-of-view filtering removes points outside sensor coverage area",
             'occlusion_only': "Occlusion filtering removes points blocked by other points"
         }
         return descriptions.get(crop_type, "Combined filtering approach")
