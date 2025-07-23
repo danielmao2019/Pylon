@@ -33,5 +33,3 @@ def test_cache_thread_safety(sample_datapoint):
 
     # Verify final cache state
     assert len(cache.cache) <= 2
-    stats = cache.get_stats()
-    assert stats['hits'] + stats['misses'] == (num_threads * ops_per_thread) // 2

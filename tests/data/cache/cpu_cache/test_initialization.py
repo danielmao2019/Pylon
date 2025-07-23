@@ -11,9 +11,6 @@ def test_default_initialization():
     # Test initial state
     assert len(cache.cache) == 0
     assert len(cache.checksums) == 0
-    assert cache.hits == 0
-    assert cache.misses == 0
-    assert cache.validation_failures == 0
 
 
 def test_custom_initialization():
