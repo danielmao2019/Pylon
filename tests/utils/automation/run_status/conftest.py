@@ -205,29 +205,3 @@ def setup_realistic_experiment_structure(temp_root: str, experiments: List[tuple
 
 # Standard expected files for most tests
 EXPECTED_FILES = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-
-
-# ============================================================================
-# PYTEST FIXTURES (Optional - for commonly used test setup)
-# ============================================================================
-
-@pytest.fixture
-def temp_experiment_setup():
-    """Fixture that provides a temporary directory with basic experiment structure."""
-    with tempfile.TemporaryDirectory() as temp_root:
-        logs_dir = os.path.join(temp_root, "logs")
-        configs_dir = os.path.join(temp_root, "configs")
-        os.makedirs(logs_dir, exist_ok=True)
-        os.makedirs(configs_dir, exist_ok=True)
-        
-        original_cwd = os.getcwd()
-        os.chdir(temp_root)
-        
-        try:
-            yield {
-                'temp_root': temp_root,
-                'logs_dir': logs_dir,
-                'configs_dir': configs_dir
-            }
-        finally:
-            os.chdir(original_cwd)
