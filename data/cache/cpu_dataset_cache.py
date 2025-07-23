@@ -8,8 +8,8 @@ import torch
 import psutil
 
 
-class DatasetCache:
-    """A thread-safe cache manager for dataset items with LRU eviction policy."""
+class CPUDatasetCache:
+    """A thread-safe CPU memory cache manager for dataset items with LRU eviction policy."""
 
     def __init__(
         self,
@@ -36,9 +36,7 @@ class DatasetCache:
         self.memory_usage = {}  # key -> memory usage in bytes
         self.total_memory = 0  # Total memory usage in bytes
 
-        # Statistics
-        self.hits = 0
-        self.misses = 0
+        # Validation failures counter
         self.validation_failures = 0
 
         # Setup logging
@@ -120,7 +118,6 @@ class DatasetCache:
                 value = self.cache[key]
 
                 if self._validate_item(key, value):
-                    self.hits += 1
                     # Update LRU order
                     self.cache.move_to_end(key)
                     self.logger.debug(f"Current LRU order after get({key}): {list(self.cache.keys())}")
@@ -131,7 +128,6 @@ class DatasetCache:
                     self.cache.pop(key)
                     self.checksums.pop(key, None)
 
-            self.misses += 1
             return None
 
     @staticmethod
@@ -188,15 +184,3 @@ class DatasetCache:
     def _get_memory_usage(self) -> float:
         """Get current memory usage percentage."""
         return psutil.Process().memory_percent()
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get cache statistics including validation metrics."""
-        with self.lock:
-            return {
-                "size": len(self.cache),
-                "hits": self.hits,
-                "misses": self.misses,
-                "hit_rate": self.hits / (self.hits + self.misses + 1e-6),
-                "memory_usage": self._get_memory_usage(),
-                "validation_failures": self.validation_failures
-            }
