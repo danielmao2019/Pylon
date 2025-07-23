@@ -292,12 +292,24 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     def _get_cache_param_key(self) -> tuple:
         """Generate cache parameter key for transform caching.
         
+        Includes all parameters that affect the transform generation and cropping behavior.
         Can be overridden by subclasses to include additional parameters.
         
         Returns:
             Cache parameter key tuple
         """
-        return (self.rotation_mag, self.translation_mag, self.matching_radius)
+        return (
+            self.rotation_mag, 
+            self.translation_mag, 
+            self.matching_radius,
+            # LiDAR cropping parameters that affect results
+            self.lidar_max_range,
+            self.lidar_fov,
+            self.lidar_fov_crop_mode,
+            self.lidar_apply_range_filter,
+            self.lidar_apply_fov_filter,
+            self.lidar_apply_occlusion_filter
+        )
     
     def _load_datapoint(self, idx: int) -> tuple:
         """Load a synthetic datapoint using the modular pipeline.
