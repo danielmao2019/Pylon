@@ -3,8 +3,8 @@ import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 from data.transforms.vision_3d.lidar_simulation_crop.range_crop import RangeCrop
-from data.transforms.vision_3d.lidar_simulation_crop.fov_crop import FOVCrop
-from data.transforms.vision_3d.lidar_simulation_crop.camera_frustum_crop import CameraFrustumCrop
+from data.transforms.vision_3d.lidar_simulation_crop.spherical_fov_crop import SphericalFOVCrop
+from data.transforms.vision_3d.lidar_simulation_crop.perspective_fov_crop import PerspectiveFOVCrop
 from data.transforms.vision_3d.lidar_simulation_crop.occlusion_crop import OcclusionCrop
 
 
@@ -37,25 +37,25 @@ class LiDARSimulationCrop(BaseTransform):
             fov: Tuple of (horizontal_fov, vertical_fov) in degrees
                 - horizontal_fov: Horizontal field of view total angle (360° for spinning, ~120° for solid-state)
                 - vertical_fov: Vertical field of view total angle (e.g., 40° means [-20°, +20°])
-            fov_crop_mode: Cropping mode - "lidar" for cone-shaped LiDAR FOV, "camera" for rectangular camera frustum
+            fov_crop_mode: Cropping mode - "lidar" for cone-shaped spherical FOV, "camera" for rectangular perspective frustum
             ray_density_factor: Fraction of ray length to check for occlusion (0.8 = check 80%)
             apply_range_filter: Whether to apply range-based filtering
             apply_fov_filter: Whether to apply field-of-view filtering
             apply_occlusion_filter: Whether to apply occlusion simulation (ray-casting)
         """
-        # Validate inputs
+        # Validate inputs in parameter order
         assert isinstance(max_range, (int, float)), f"max_range must be numeric, got {type(max_range)}"
         assert max_range > 0, f"max_range must be positive, got {max_range}"
         
         assert isinstance(fov, tuple), f"fov must be tuple, got {type(fov)}"
         assert len(fov) == 2, f"fov must be tuple of length 2, got length {len(fov)}"
         horizontal_fov, vertical_fov = fov
-        
         assert isinstance(horizontal_fov, (int, float)), f"horizontal_fov must be numeric, got {type(horizontal_fov)}"
-        assert 0 < horizontal_fov <= 360, f"horizontal_fov must be in (0, 360], got {horizontal_fov}"
-        
         assert isinstance(vertical_fov, (int, float)), f"vertical_fov must be numeric, got {type(vertical_fov)}"
-        assert 0 < vertical_fov <= 180, f"vertical_fov must be in (0, 180], got {vertical_fov}"
+        # Note: FOV range validation is delegated to the specific FOV crop classes
+        
+        assert isinstance(fov_crop_mode, str), f"fov_crop_mode must be str, got {type(fov_crop_mode)}"
+        assert fov_crop_mode in ["lidar", "camera"], f"fov_crop_mode must be 'lidar' or 'camera', got {fov_crop_mode}"
         
         assert isinstance(ray_density_factor, (int, float)), f"ray_density_factor must be numeric, got {type(ray_density_factor)}"
         assert 0.1 <= ray_density_factor <= 1.0, f"ray_density_factor must be in [0.1, 1.0], got {ray_density_factor}"
@@ -64,18 +64,18 @@ class LiDARSimulationCrop(BaseTransform):
         assert isinstance(apply_fov_filter, bool), f"apply_fov_filter must be bool, got {type(apply_fov_filter)}"
         assert isinstance(apply_occlusion_filter, bool), f"apply_occlusion_filter must be bool, got {type(apply_occlusion_filter)}"
         
-        assert isinstance(fov_crop_mode, str), f"fov_crop_mode must be str, got {type(fov_crop_mode)}"
-        assert fov_crop_mode in ["lidar", "camera"], f"fov_crop_mode must be 'lidar' or 'camera', got {fov_crop_mode}"
-        
-        # Store parameters
+        # Store parameters in init argument order
         self.max_range = float(max_range)
-        self.horizontal_fov = float(horizontal_fov)
-        self.vertical_fov = float(vertical_fov)
+        self.fov = (float(horizontal_fov), float(vertical_fov))  # Store as tuple (consistent format)
+        self.fov_crop_mode = fov_crop_mode
+        self.ray_density_factor = float(ray_density_factor)
         self.apply_range_filter = apply_range_filter
         self.apply_fov_filter = apply_fov_filter
         self.apply_occlusion_filter = apply_occlusion_filter
-        self.ray_density_factor = float(ray_density_factor)
-        self.fov_crop_mode = fov_crop_mode
+        
+        # Also provide individual access for backward compatibility
+        self.horizontal_fov = float(horizontal_fov)
+        self.vertical_fov = float(vertical_fov)
         
         # Initialize crop components
         self.range_crop = RangeCrop(max_range=max_range) if apply_range_filter else None
@@ -83,9 +83,9 @@ class LiDARSimulationCrop(BaseTransform):
         # Choose FOV crop implementation based on mode
         if apply_fov_filter:
             if fov_crop_mode == "lidar":
-                self.fov_crop = FOVCrop(fov=(horizontal_fov, vertical_fov))
+                self.fov_crop = SphericalFOVCrop(fov=self.fov)
             elif fov_crop_mode == "camera":
-                self.fov_crop = CameraFrustumCrop(fov=(horizontal_fov, vertical_fov))
+                self.fov_crop = PerspectiveFOVCrop(fov=self.fov)
         else:
             self.fov_crop = None
             
