@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 from abc import ABC
 import os
 import json
@@ -42,13 +42,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         rotation_mag: float = 45.0,
         translation_mag: float = 0.5,
         matching_radius: float = 0.05,
-        overlap_range: Tuple[float, float] = (0.3, 1.0),
+        overlap_range: tuple = (0.3, 1.0),
         min_points: int = 512,
         max_trials: int = 1000,
         cache_filepath: Optional[str] = None,
         lidar_max_range: float = 6.0,
-        lidar_fov: Tuple[Union[int, float], Union[int, float]] = (120.0, 60.0),
-        lidar_fov_crop_mode: str = "camera",
+        lidar_fov: tuple = (120.0, 60.0),
+        lidar_fov_crop_mode: str = "frustum",
         lidar_apply_range_filter: bool = False,
         lidar_apply_fov_filter: bool = True,
         lidar_apply_occlusion_filter: bool = False,
@@ -68,9 +68,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             cache_filepath: Path to cache file (if None, no caching is used)
             lidar_max_range: Maximum LiDAR sensor range in meters
             lidar_fov: Tuple of (horizontal_fov, vertical_fov) in degrees
-                - horizontal_fov: LiDAR horizontal field of view in degrees
-                - vertical_fov: LiDAR vertical FOV total angle in degrees (e.g., 60.0 means [-30.0, +30.0])
-            lidar_fov_crop_mode: Cropping mode - "lidar" for cone-shaped spherical FOV, "camera" for rectangular perspective frustum (default: "camera")
+            lidar_fov_crop_mode: Cropping mode - "ellipsoid" for ellipsoidal FOV, "frustum" for camera frustum (default: "frustum")
             lidar_apply_range_filter: Whether to apply range-based filtering for LiDAR (default: False)
             lidar_apply_fov_filter: Whether to apply field-of-view filtering for LiDAR (default: True)  
             lidar_apply_occlusion_filter: Whether to apply occlusion simulation for LiDAR (default: False)
@@ -89,7 +87,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Store LiDAR parameters
         self.lidar_max_range = float(lidar_max_range)
-        self.lidar_fov = tuple(lidar_fov)
+        self.lidar_fov = lidar_fov
         self.lidar_fov_crop_mode = lidar_fov_crop_mode
         self.lidar_apply_range_filter = lidar_apply_range_filter
         self.lidar_apply_fov_filter = lidar_apply_fov_filter
@@ -273,7 +271,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             with open(self.cache_filepath, 'w') as f:
                 json.dump(serializable_cache, f, indent=2)
     
-    def _get_file_cache_key(self, file_pair_annotation: Dict[str, Any]) -> str:
+    def _get_file_cache_key(self, file_pair_annotation: dict) -> str:
         """Generate cache key for file pair.
         
         Uses both source and target file paths to ensure unique keys
@@ -291,7 +289,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
         return file_hash
     
-    def _get_cache_param_key(self) -> Tuple:
+    def _get_cache_param_key(self) -> tuple:
         """Generate cache parameter key for transform caching.
         
         Can be overridden by subclasses to include additional parameters.
@@ -301,7 +299,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         """
         return (self.rotation_mag, self.translation_mag, self.matching_radius)
     
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(self, idx: int) -> tuple:
         """Load a synthetic datapoint using the modular pipeline.
         
         Clean flow: generate transforms if needed, then get specific transform.
@@ -393,7 +391,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return inputs, labels, meta_info
 
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    def _load_file_pair_data(self, file_pair_annotation: dict) -> tuple:
         """Load point cloud data for both source and target files.
         
         Handles both single-temporal and bi-temporal datasets:
@@ -427,7 +425,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return src_pc_data, tgt_pc_data
     
-    def _get_indices(self, idx: int) -> Tuple[int, int]:
+    def _get_indices(self, idx: int) -> tuple:
         """Get file index and transform index from dataset index.
         
         Args:
@@ -441,7 +439,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_idx = annotation['pair_idx']
         return file_idx, transform_idx
     
-    def _get_pair(self, file_idx: int, transform_idx: int, valid_transforms: List[Dict[str, Any]]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor, Dict[str, Any]]:
+    def _get_pair(self, file_idx: int, transform_idx: int, valid_transforms: list) -> tuple:
         """Get a transformed point cloud pair using cached transform params.
         
         Args:
@@ -544,7 +542,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             f"needed_count={needed_count}."
         )
     
-    def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
+    def _process_single_transform(self, args: tuple) -> dict:
         """Process a single transform.
         
         Args:
@@ -593,7 +591,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'seed': seed
         }
     
-    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
+    def _sample_transform(self, seed: int, file_idx: int) -> dict:
         """Sample transform parameters with configurable cropping method.
         
         Args:
@@ -639,7 +637,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return config
     
-    def _build_transform(self, transform_params: Dict[str, Any]) -> Tuple[torch.Tensor, Any]:
+    def _build_transform(self, transform_params: dict) -> tuple:
         """Build transform matrix and crop object from parameters.
         
         Args:
@@ -734,9 +732,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return transform_matrix, crop_transform
     
-    def _apply_transform(self, src_pc_data: Dict[str, torch.Tensor], tgt_pc_data: Dict[str, torch.Tensor], 
+    def _apply_transform(self, src_pc_data: dict, tgt_pc_data: dict, 
                         transform_matrix: torch.Tensor, crop_transform: Any, 
-                        transform_params: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+                        transform_params: dict) -> tuple:
         """Apply transform to create source and target point clouds.
         
         Standard PCR convention: source + gt_transform = target
