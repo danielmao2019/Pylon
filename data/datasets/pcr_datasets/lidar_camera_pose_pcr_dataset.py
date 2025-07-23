@@ -192,27 +192,16 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     # =========================================================================
     
     def _get_cache_param_key(self) -> Tuple:
-        """Generate cache parameter key including camera_count and LiDAR parameters.
+        """Generate cache parameter key including camera_count.
         
-        Extends parent class to include camera_count and all LiDAR cropping parameters in cache key,
-        ensuring cache invalidation when any cropping behavior changes.
+        Extends parent class to include camera_count in cache key,
+        ensuring cache invalidation when camera_count changes.
         
         Returns:
             Cache parameter key tuple
         """
-        return (
-            self.rotation_mag, 
-            self.translation_mag, 
-            self.matching_radius, 
-            self.camera_count,
-            # LiDAR cropping parameters that affect results
-            self.lidar_max_range,
-            self.lidar_fov,
-            self.lidar_fov_crop_mode,
-            self.lidar_apply_range_filter,
-            self.lidar_apply_fov_filter,
-            self.lidar_apply_occlusion_filter
-        )
+        parent_key = super()._get_cache_param_key()
+        return parent_key + (self.camera_count,)
 
     def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
         """Sample transform parameters using scene-specific camera poses.
