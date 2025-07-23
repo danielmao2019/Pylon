@@ -2,7 +2,7 @@ import pytest
 import torch
 import psutil
 import copy
-from data.cache import DatasetCache
+from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 @pytest.fixture
@@ -40,13 +40,13 @@ def sample_datapoint(sample_tensor):
 def three_item_cache(sample_datapoint):
     """Create a cache configured to hold exactly 3 items."""
     # Calculate memory needed for 3 items
-    item_memory = DatasetCache._calculate_item_memory(sample_datapoint)
+    item_memory = CPUDatasetCache._calculate_item_memory(sample_datapoint)
     total_memory_needed = item_memory * 3
 
     # Set percentage to allow exactly 3 items
     max_percent = (total_memory_needed / psutil.virtual_memory().total) * 100
 
-    return DatasetCache(max_memory_percent=max_percent)
+    return CPUDatasetCache(max_memory_percent=max_percent)
 
 
 @pytest.fixture

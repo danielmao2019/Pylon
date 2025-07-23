@@ -1,11 +1,11 @@
 import pytest
 import torch
-from data.cache import DatasetCache
+from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 def test_cache_put_and_get(sample_datapoint):
     """Test basic put and get operations."""
-    cache = DatasetCache()
+    cache = CPUDatasetCache()
 
     # Test put
     cache.put(0, sample_datapoint)
@@ -25,7 +25,7 @@ def test_cache_put_and_get(sample_datapoint):
 
 def test_cache_deep_copy_isolation(sample_datapoint):
     """Test that cached items are properly isolated through deep copying."""
-    cache = DatasetCache()
+    cache = CPUDatasetCache()
 
     # Test 1: Modifying original data
     cache.put(0, sample_datapoint)
@@ -48,7 +48,7 @@ def test_cache_deep_copy_isolation(sample_datapoint):
 
 def test_cache_validation(sample_datapoint):
     """Test cache validation mechanism."""
-    cache = DatasetCache(enable_validation=True)
+    cache = CPUDatasetCache(enable_validation=True)
 
     # Test normal validation
     cache.put(0, sample_datapoint)

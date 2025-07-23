@@ -1,10 +1,10 @@
 import pytest
-from data.cache import DatasetCache
+from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 def test_cache_stats(sample_datapoint):
     """Test cache statistics."""
-    cache = DatasetCache()
+    cache = CPUDatasetCache()
 
     # Initial stats
     stats = cache.get_stats()
@@ -60,7 +60,7 @@ def test_cache_stats(sample_datapoint):
 ])
 def test_cache_stats_scenarios(sample_datapoint, scenario, actions, expected_stats):
     """Test various cache statistics scenarios."""
-    cache = DatasetCache()
+    cache = CPUDatasetCache()
 
     # Perform actions
     for action, key in actions:

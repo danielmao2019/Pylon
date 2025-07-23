@@ -1,19 +1,19 @@
 import pytest
 import psutil
-from data.cache import DatasetCache
+from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 @pytest.fixture
 def cache_with_items(sample_datapoint):
     """Create a cache with initial items."""
     # Calculate memory needed for 3 items
-    item_memory = DatasetCache._calculate_item_memory(sample_datapoint)
+    item_memory = CPUDatasetCache._calculate_item_memory(sample_datapoint)
     total_memory_needed = item_memory * 3
 
     # Set percentage to allow exactly 3 items
     max_percent = (total_memory_needed / psutil.virtual_memory().total) * 100
 
-    cache = DatasetCache(max_memory_percent=max_percent)
+    cache = CPUDatasetCache(max_memory_percent=max_percent)
     for i in range(3):
         cache.put(i, sample_datapoint)
     return cache

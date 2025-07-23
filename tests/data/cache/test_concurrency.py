@@ -1,11 +1,11 @@
 import torch
 import threading
-from data.cache import DatasetCache
+from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 def test_cache_thread_safety(sample_datapoint):
     """Test thread safety of cache operations."""
-    cache = DatasetCache()
+    cache = CPUDatasetCache()
     num_threads = 3
     ops_per_thread = 6
     errors = []

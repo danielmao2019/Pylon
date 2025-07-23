@@ -1,10 +1,10 @@
 import pytest
-from data.cache import DatasetCache
+from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 def test_default_initialization():
     """Test cache initialization with default parameters."""
-    cache = DatasetCache()
+    cache = CPUDatasetCache()
     assert cache.max_memory_percent == 80.0
     assert cache.enable_validation is True
 
@@ -18,7 +18,7 @@ def test_default_initialization():
 
 def test_custom_initialization():
     """Test cache initialization with custom parameters."""
-    cache = DatasetCache(max_memory_percent=50.0, enable_validation=False)
+    cache = CPUDatasetCache(max_memory_percent=50.0, enable_validation=False)
     assert cache.max_memory_percent == 50.0
     assert cache.enable_validation is False
 
@@ -30,4 +30,4 @@ def test_custom_initialization():
 def test_invalid_initialization(invalid_percent, error_msg):
     """Test initialization with invalid parameters."""
     with pytest.raises(ValueError, match=error_msg):
-        DatasetCache(max_memory_percent=invalid_percent)
+        CPUDatasetCache(max_memory_percent=invalid_percent)
