@@ -128,14 +128,8 @@ class CPUDatasetCache(BaseCache):
                     # Update LRU order
                     self.cache.move_to_end(idx)
                     self.logger.debug(f"Current LRU order after get({idx}): {list(self.cache.keys())}")
-                    result = copy.deepcopy(value)
-                    
-                    # Move tensors to specified device if requested
-                    if device is not None:
-                        from utils.ops import apply_tensor_op
-                        result = apply_tensor_op(func=lambda x: x.to(device), inputs=result)
-                    
-                    return result
+                    # CPU cache always returns data on CPU, no device transfer
+                    return copy.deepcopy(value)
                 else:
                     # Remove invalid item
                     self.logger.debug(f"Removing invalid idx {idx} from cache")
@@ -164,8 +158,12 @@ class CPUDatasetCache(BaseCache):
     def put(self, idx: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache insertion with memory management and checksum computation."""
         with self.lock:
-            # Make a copy and calculate its memory
+            # Make a copy and transfer tensors to CPU if needed
             copied_value = copy.deepcopy(value)
+            # Ensure all tensors are on CPU for CPU cache storage
+            from utils.ops import apply_tensor_op
+            copied_value = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=copied_value)
+            
             new_item_memory = self._calculate_item_memory(copied_value)
 
             # Remove old entry if it exists

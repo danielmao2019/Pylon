@@ -6,7 +6,7 @@ import xxhash
 import torch
 from datetime import datetime
 from data.cache.base_cache import BaseCache
-from utils.io import load_json, save_json
+from utils.io.json import safe_load_json, safe_save_json
 
 
 class DiskDatasetCache(BaseCache):
@@ -194,8 +194,8 @@ class DiskDatasetCache(BaseCache):
             metadata = {}
             if os.path.exists(self.metadata_file):
                 try:
-                    metadata = load_json(self.metadata_file)
-                except (FileNotFoundError, IOError, ValueError):
+                    metadata = safe_load_json(self.metadata_file)
+                except (FileNotFoundError, IOError, ValueError, RuntimeError):
                     metadata = {}
             
             # Update with current version info
@@ -208,15 +208,15 @@ class DiskDatasetCache(BaseCache):
             
             # Write updated metadata
             try:
-                save_json(metadata, self.metadata_file)
-            except IOError as e:
+                safe_save_json(metadata, self.metadata_file)
+            except (IOError, RuntimeError) as e:
                 self.logger.warning(f"Failed to update cache metadata: {e}")
     
     def get_metadata(self) -> Dict[str, Any]:
         """Get metadata for all cache versions."""
         if os.path.exists(self.metadata_file):
             try:
-                return load_json(self.metadata_file)
-            except (FileNotFoundError, IOError, ValueError):
+                return safe_load_json(self.metadata_file)
+            except (FileNotFoundError, IOError, ValueError, RuntimeError):
                 return {}
         return {}

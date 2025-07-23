@@ -306,7 +306,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # Try to get raw datapoint from cache first
         raw_datapoint = None
         if self.cache is not None:
-            raw_datapoint = self.cache.get(idx, device=str(self.device))
+            raw_datapoint = self.cache.get(idx, device=self.device)
 
         # If not in cache, load from disk and cache it
         if raw_datapoint is None:

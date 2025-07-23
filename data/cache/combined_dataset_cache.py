@@ -65,11 +65,9 @@ class CombinedDatasetCache:
         if self.disk_cache is not None:
             value = self.disk_cache.get(idx, device=device)
             if value is not None:
-                # Populate CPU cache for future access (store on CPU for cache)
+                # Populate CPU cache for future access (CPU cache put handles device transfer to CPU)
                 if self.cpu_cache is not None:
-                    # Store in CPU cache without device transfer (will be applied on next CPU cache hit)
-                    cpu_value = self.disk_cache.get(idx, device='cpu') if device != 'cpu' else value
-                    self.cpu_cache.put(idx, cpu_value)
+                    self.cpu_cache.put(idx, value)
                 return value
         
         # Not found in either cache
