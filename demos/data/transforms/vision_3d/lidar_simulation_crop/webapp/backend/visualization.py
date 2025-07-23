@@ -129,7 +129,7 @@ class LiDARVisualizationBackend:
         - Elevation: Vertical angle from horizon (0° = horizontal, +90° = up, -90° = down) 
         - Distance: Distance from origin
         - Yaw: Camera left/right rotation around its local Z-axis (looking direction)
-        - Pitch: Camera up/down rotation around its local Y-axis (tilt)
+        - Pitch: Camera up/down rotation around its local Y-axis (negative = look down, positive = look up)
         - Roll: Camera twist rotation around its local X-axis (forward direction)
         
         Args:
@@ -137,7 +137,7 @@ class LiDARVisualizationBackend:
             elevation: Vertical angle from horizon in degrees [-90, 90]
             distance: Distance from origin [1, 20]
             yaw: Camera yaw rotation in degrees [-180, 180] (left/right turn)
-            pitch: Camera pitch rotation in degrees [-90, 90] (up/down tilt)
+            pitch: Camera pitch rotation in degrees [-90, 90] (negative = look down, positive = look up)
             roll: Camera roll rotation in degrees [-180, 180] (twist)
             
         Returns:
@@ -183,11 +183,11 @@ class LiDARVisualizationBackend:
             [0, np.sin(roll_rad), np.cos(roll_rad)]
         ])
         
-        # Pitch: rotation around left axis (+Y) 
+        # Pitch: rotation around left axis (+Y) - negative pitch looks down
         R_pitch = np.array([
-            [np.cos(pitch_rad), 0, np.sin(pitch_rad)],
+            [np.cos(-pitch_rad), 0, np.sin(-pitch_rad)],
             [0, 1, 0],
-            [-np.sin(pitch_rad), 0, np.cos(pitch_rad)]
+            [-np.sin(-pitch_rad), 0, np.cos(-pitch_rad)]
         ])
         
         # Yaw: rotation around up axis (+Z)
