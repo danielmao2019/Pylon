@@ -118,7 +118,7 @@ class CPUDatasetCache(BaseCache):
         self.validated_keys.add(idx)
         return is_valid
 
-    def get(self, idx: int) -> Optional[Dict[str, Any]]:
+    def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Thread-safe cache retrieval with LRU update and validation."""
         with self.lock:
             if idx in self.cache:
@@ -128,7 +128,14 @@ class CPUDatasetCache(BaseCache):
                     # Update LRU order
                     self.cache.move_to_end(idx)
                     self.logger.debug(f"Current LRU order after get({idx}): {list(self.cache.keys())}")
-                    return copy.deepcopy(value)
+                    result = copy.deepcopy(value)
+                    
+                    # Move tensors to specified device if requested
+                    if device is not None:
+                        from utils.ops import apply_tensor_op
+                        result = apply_tensor_op(func=lambda x: x.to(device), inputs=result)
+                    
+                    return result
                 else:
                     # Remove invalid item
                     self.logger.debug(f"Removing invalid idx {idx} from cache")

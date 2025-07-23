@@ -306,7 +306,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # Try to get raw datapoint from cache first
         raw_datapoint = None
         if self.cache is not None:
-            raw_datapoint = self.cache.get(idx)
+            raw_datapoint = self.cache.get(idx, device=str(self.device))
 
         # If not in cache, load from disk and cache it
         if raw_datapoint is None:
@@ -326,6 +326,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
 
+        # Apply device transfer only if not already on target device (cache may have done this)
         datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=raw_datapoint)
         transformed_datapoint = self.transforms(datapoint, seed=(self.base_seed, idx))
         return transformed_datapoint

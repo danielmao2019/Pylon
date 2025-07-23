@@ -77,7 +77,7 @@ conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
 conda install -c conda-forge -y opencv pycocotools rasterio imageio plyfile
 pip install open3d laspy
 conda install -c conda-forge -y matplotlib dash plotly pandas psutil pytest tqdm ftfy regex easydict
-pip install rich paramiko jsbeautifier fvcore triton
+pip install rich paramiko jsbeautifier fvcore triton xxhash
 ```
 
 ### 4.3. Segmentation related

@@ -1,12 +1,12 @@
 from typing import Dict, Any, Optional, Set
 import os
-import json
 import threading
 import logging
 import xxhash
 import torch
 from datetime import datetime
 from data.cache.base_cache import BaseCache
+from utils.io import load_json, save_json
 
 
 class DiskDatasetCache(BaseCache):
@@ -108,7 +108,7 @@ class DiskDatasetCache(BaseCache):
         """Check if cache file exists for given index."""
         return os.path.exists(self._get_cache_filepath(idx))
 
-    def get(self, idx: int) -> Optional[Dict[str, Any]]:
+    def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Thread-safe cache retrieval from disk with validation."""
         cache_filepath = self._get_cache_filepath(idx)
         
@@ -117,8 +117,9 @@ class DiskDatasetCache(BaseCache):
         
         with self.lock:
             try:
-                # Load from disk
-                cached_data = torch.load(cache_filepath, map_location='cpu')
+                # Load from disk directly to target device if specified
+                map_location = device if device is not None else 'cpu'
+                cached_data = torch.load(cache_filepath, map_location=map_location)
                 
                 # Extract value and checksum
                 value = {
@@ -193,14 +194,13 @@ class DiskDatasetCache(BaseCache):
             metadata = {}
             if os.path.exists(self.metadata_file):
                 try:
-                    with open(self.metadata_file, 'r') as f:
-                        metadata = json.load(f)
-                except (json.JSONDecodeError, IOError):
+                    metadata = load_json(self.metadata_file)
+                except (FileNotFoundError, IOError, ValueError):
                     metadata = {}
             
             # Update with current version info
             metadata[self.version_hash] = {
-                'created_at': datetime.now().isoformat(),
+                'created_at': datetime.now(),  # datetime will be serialized by save_json
                 'cache_dir': self.cache_dir,
                 'version_dir': self.version_dir,
                 'enable_validation': self.enable_validation,
@@ -208,8 +208,7 @@ class DiskDatasetCache(BaseCache):
             
             # Write updated metadata
             try:
-                with open(self.metadata_file, 'w') as f:
-                    json.dump(metadata, f, indent=2, sort_keys=True)
+                save_json(metadata, self.metadata_file)
             except IOError as e:
                 self.logger.warning(f"Failed to update cache metadata: {e}")
     
@@ -217,8 +216,7 @@ class DiskDatasetCache(BaseCache):
         """Get metadata for all cache versions."""
         if os.path.exists(self.metadata_file):
             try:
-                with open(self.metadata_file, 'r') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
+                return load_json(self.metadata_file)
+            except (FileNotFoundError, IOError, ValueError):
                 return {}
         return {}

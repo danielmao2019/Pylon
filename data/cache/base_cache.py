@@ -6,11 +6,12 @@ class BaseCache(ABC):
     """Abstract base class for all cache implementations."""
     
     @abstractmethod
-    def get(self, idx: int) -> Optional[Dict[str, Any]]:
+    def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Retrieve item from cache.
         
         Args:
             idx: Index of the datapoint
+            device: Device to load tensors to (e.g., 'cuda:0', 'cpu')
             
         Returns:
             Cached datapoint or None if not found

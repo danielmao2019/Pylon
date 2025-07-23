@@ -49,7 +49,7 @@ class CombinedDatasetCache:
         else:
             self.disk_cache = None
 
-    def get(self, idx: int) -> Optional[Dict[str, Any]]:
+    def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get item from cache hierarchy: CPU → Disk → None.
         
@@ -57,17 +57,19 @@ class CombinedDatasetCache:
         """
         # Try CPU cache first (fastest)
         if self.cpu_cache is not None:
-            value = self.cpu_cache.get(idx)
+            value = self.cpu_cache.get(idx, device=device)
             if value is not None:
                 return value
         
         # Try disk cache
         if self.disk_cache is not None:
-            value = self.disk_cache.get(idx)
+            value = self.disk_cache.get(idx, device=device)
             if value is not None:
-                # Populate CPU cache for future access
+                # Populate CPU cache for future access (store on CPU for cache)
                 if self.cpu_cache is not None:
-                    self.cpu_cache.put(idx, value)
+                    # Store in CPU cache without device transfer (will be applied on next CPU cache hit)
+                    cpu_value = self.disk_cache.get(idx, device='cpu') if device != 'cpu' else value
+                    self.cpu_cache.put(idx, cpu_value)
                 return value
         
         # Not found in either cache

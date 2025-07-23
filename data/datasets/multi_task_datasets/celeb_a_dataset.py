@@ -101,6 +101,15 @@ class CelebADataset(BaseDataset):
                 attribute_labels.append(attributes)
         return attribute_labels
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # use_landmarks affects which labels are loaded
+        version_dict.update({
+            'use_landmarks': self.use_landmarks,
+        })
+        return version_dict
+
     # ====================================================================================================
     # load methods
     # ====================================================================================================

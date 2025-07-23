@@ -25,6 +25,11 @@ class WHU_BD_Dataset(BaseDataset):
         assert all(os.path.basename(x) == os.path.basename(y) for x, y in zip(image_filepaths, label_filepaths))
         self.annotations = list(map(lambda x: {'image': x[0], 'label': x[1]}, zip(image_filepaths, label_filepaths)))
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        # WHU_BD_Dataset has no additional parameters beyond BaseDataset
+        return super()._get_cache_version_dict()
+
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:

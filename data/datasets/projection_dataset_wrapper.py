@@ -27,6 +27,16 @@ class ProjectionDatasetWrapper(torch.utils.data.Dataset):
                 assert type(mapping[group][idx][0]) == type(mapping[group][idx][1]) == str, f"{tuple(type(elem) for elem in mapping[group][idx])=}"
         self.mapping: Dict[str, List[Tuple[str, str]]] = mapping
 
+    def get_cache_version_hash(self) -> str:
+        """Get cache version hash delegating to the wrapped dataset.
+        
+        Returns:
+            str: 16-character hexadecimal hash string
+        """
+        # ProjectionDatasetWrapper delegates cache versioning to the wrapped dataset
+        # The mapping doesn't affect cache content since it's just a projection
+        return self.dataset.get_cache_version_hash()
+
     def __len__(self) -> int:
         return len(self.dataset)
 

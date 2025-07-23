@@ -99,7 +99,17 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
             self.file_pair_annotations.append(annotation)
         
         print(f"Found {len(self.file_pair_annotations)} OFF files for split '{self.split}'")
-    
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # ModelNet40Dataset has categories that affect which files are loaded
+        version_dict.update({
+            'categories': sorted(self.CATEGORIES),
+            'asymmetric_categories': sorted(self.ASYMMETRIC_CATEGORIES),
+        })
+        return version_dict
+
     def get_category_from_path(self, file_path: str) -> str:
         """Extract category from file path.
         
