@@ -66,3 +66,9 @@ class SYSU_CD_Dataset(BaseDataset):
         }
         meta_info = self.annotations[idx]
         return inputs, labels, meta_info
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # SYSU_CD_Dataset uses standard loading without dataset-specific parameters
+        return version_dict

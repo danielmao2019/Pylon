@@ -175,3 +175,11 @@ class KC3DDataset(BaseDataset):
         Load meta information for the datapoint.
         """
         return {}
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'use_ground_truth_registration': self.use_ground_truth_registration,
+        })
+        return version_dict

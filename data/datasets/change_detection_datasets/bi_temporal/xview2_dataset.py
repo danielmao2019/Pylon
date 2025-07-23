@@ -89,6 +89,12 @@ class xView2Dataset(BaseDataset):
             },
         } for img_1, img_2, lbl_1, lbl_2 in zip(img_1_filepaths, img_2_filepaths, lbl_1_filepaths, lbl_2_filepaths)]
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # xView2Dataset uses standard loading without dataset-specific parameters
+        return version_dict
+
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:

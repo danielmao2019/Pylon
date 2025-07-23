@@ -88,6 +88,11 @@ class KITTIDataset(BaseDataset):
             self.annotations.remove({'seq': '08', 't0': 15, 't1': 58})
         save_json(self.annotations, os.path.join(self.annotations_cache_root, f'{self.split}.json'))
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        # KITTIDataset has no additional parameters beyond BaseDataset
+        return super()._get_cache_version_dict()
+
     def get_video_odometry(self, seq: str, indices: Optional[List[int]] = None) -> np.ndarray:
         data_path = os.path.join(self.data_root, 'poses', f'{seq}.txt')
         if data_path not in self.seq_pose_cache:

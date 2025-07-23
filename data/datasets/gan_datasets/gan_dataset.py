@@ -10,6 +10,17 @@ class GANDataset(BaseSyntheticDataset):
         self.latent_dim = latent_dim
         super(GANDataset, self).__init__(source=source, dataset_size=len(source), **kwargs)
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # GANDataset has parameters that affect data generation
+        version_dict.update({
+            'synthetic_ratio': self.synthetic_ratio,
+            'latent_dim': self.latent_dim,
+            'base_dataset_config': self.base_dataset_config,
+        })
+        return version_dict
+
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:

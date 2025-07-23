@@ -58,6 +58,12 @@ class MultiTaskFacialLandmarkDataset(BaseDataset):
                 all_labels.append(labels)
         return all_labels
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # MultiTaskFacialLandmarkDataset uses standard loading without dataset-specific parameters
+        return version_dict
+
     ####################################################################################################
     ####################################################################################################
 

@@ -606,3 +606,15 @@ class Urb3DCDDataset(BaseDataset):
 
         if pc2.shape[0] > 0:
             pc2.sub_(mean2)  # Center at mean
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'version': self.version,
+            'patched': self.patched,
+            'sample_per_epoch': self.sample_per_epoch,
+            'fix_samples': self.fix_samples,
+            'radius': self.radius,
+        })
+        return version_dict

@@ -22,6 +22,23 @@ class PPSLDataset(BaseSyntheticDataset):
         self.colorjit = torchvision.transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0.2)
         self.affine = torchvision.transforms.RandomAffine(degrees=(-5, 5), scale=(1, 1.02), translate=(0.02, 0.02), shear=(-5, 5))
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # PPSLDataset uses ColorJitter and RandomAffine transforms
+        # Note: The exact transform parameters are hardcoded in __init__
+        version_dict.update({
+            'colorjit_brightness': 0.7,
+            'colorjit_contrast': 0.7,
+            'colorjit_saturation': 0.7,
+            'colorjit_hue': 0.2,
+            'affine_degrees': (-5, 5),
+            'affine_scale': (1, 1.02),
+            'affine_translate': (0.02, 0.02),
+            'affine_shear': (-5, 5),
+        })
+        return version_dict
+
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:

@@ -144,3 +144,12 @@ class OSCDDataset(BaseDataset):
         assert change_map.ndim == 2, f"{change_map.shape=}"
         labels = {'change_map': change_map}
         return labels
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # bands parameter affects which spectral bands are loaded
+        version_dict.update({
+            'bands': self.bands,
+        })
+        return version_dict

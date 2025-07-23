@@ -36,6 +36,18 @@ class I3PEDataset(BaseSyntheticDataset):
         self.exchange_ratio = exchange_ratio
         super(I3PEDataset, self).__init__(**kwargs)
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'exchange_ratio': self.exchange_ratio,
+            'n_segments': self.n_segments,
+            'eps': self.eps,
+            'min_samples': self.min_samples,
+            'scale_factors': self.scale_factors,
+        })
+        return version_dict
+
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:

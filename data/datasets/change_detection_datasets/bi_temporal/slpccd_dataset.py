@@ -495,3 +495,16 @@ class SLPCCDDataset(BaseDataset):
         meta_info = self._prepare_meta_info(idx, pc_data)
 
         return inputs, labels, meta_info
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'num_points': self.num_points,
+            'random_subsample': self.random_subsample,
+            'use_hierarchy': self.use_hierarchy,
+            'hierarchy_levels': self.hierarchy_levels,
+            'knn_size': self.knn_size,
+            'cross_knn_size': self.cross_knn_size,
+        })
+        return version_dict

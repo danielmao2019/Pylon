@@ -17,6 +17,15 @@ class Bi2SingleTemporal(BaseSyntheticDataset):
             source, 2*len(source), transforms_cfg, use_cache, device,
         )
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # Bi2SingleTemporal depends on the source dataset's version
+        version_dict.update({
+            'source_version': self.source.get_cache_version_hash(),
+        })
+        return version_dict
+
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:

@@ -142,6 +142,11 @@ class CityScapesDataset(BaseDataset):
         } for idx in range(len(image_paths))]
         self._filter_dataset_(remove_indices=self.REMOVE_INDICES[self.split])
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        # CityScapesDataset has no additional parameters beyond BaseDataset
+        return super()._get_cache_version_dict()
+
     def _filter_dataset_(self, remove_indices: List[int], cache: Optional[bool] = True) -> None:
         if not cache:
             remove_indices = []

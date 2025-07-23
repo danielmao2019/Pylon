@@ -109,6 +109,11 @@ class NYUv2Dataset(BaseDataset):
             'edge': edge_filepaths[idx],
         } for idx in range(len(image_filepaths))]
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        # NYUv2Dataset has no additional parameters beyond BaseDataset
+        return super()._get_cache_version_dict()
+
     # ====================================================================================================
     # load methods
     # ====================================================================================================
