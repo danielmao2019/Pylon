@@ -279,13 +279,3 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
         return config_files, work_dirs, system_monitor
     
     return _setup_realistic_experiment_structure
-
-
-# ============================================================================
-# COMMON TEST CONSTANTS
-# ============================================================================
-
-@pytest.fixture
-def EXPECTED_FILES():
-    """Fixture that provides standard expected files for most tests."""
-    return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
