@@ -8,14 +8,14 @@ Add a disk-based caching mechanism alongside the existing RAM cache to enable pe
 ### 1. Cache Directory Structure
 ```
 <data_root>_cache/
-├── <dataset_version_hash>/
-│   ├── 0.pt
-│   ├── 1.pt
-│   ├── 2.pt
-│   └── ...
-└── cache_metadata.json
+└── <dataset_version_hash>/     # e.g., "a7f8c9d2b4e6f1a3"
+    ├── 0.pt                    # Individual datapoint files
+    ├── 1.pt
+    ├── 2.pt
+    └── ...
 ```
 Cache directory is always `<data_root>_cache` (sibling to data root, no overrides allowed).
+No cache_metadata.json for simplicity.
 
 ### 2. Dataset Version Hashing
 To handle different dataset configurations, we'll create a deterministic hash:
@@ -138,14 +138,26 @@ Note: Cache directory is always `<data_root>_cache`, no override option.
 - **Single File Per Datapoint**: Efficient for small batch sizes
 - **Parallel Access**: Multiple processes can read cache files simultaneously
 
-### 7. Implementation Order
-1. Rename `DatasetCache` to `RAMDatasetCache` and remove statistics
-2. Implement version hash generation utility
-3. Create `DiskDatasetCache` class
-4. Create `CombinedDatasetCache` class
-5. Modify `BaseDataset` to use combined cache
-6. Update dataset loading logic with cache hierarchy
-7. Add cache management utilities (clear old versions)
+### 7. Implementation Status ✅ COMPLETED
+
+1. ✅ Renamed `DatasetCache` to `CPUDatasetCache` and removed statistics
+2. ✅ Implemented hierarchical version hash generation with `_get_cache_version_dict()`
+3. ✅ Created `DiskDatasetCache` class with:
+   - Per-datapoint file storage (idx.pt)
+   - Optional checksum validation (default: False for performance)
+   - Atomic writes with temp files
+   - Thread-safe operations
+4. ✅ Created `CombinedDatasetCache` class with cache hierarchy: CPU → Disk → Source
+5. ✅ Modified `BaseDataset` to use combined cache with new parameters:
+   - `use_cpu_cache: bool = True`
+   - `use_disk_cache: bool = True` 
+   - `enable_cpu_validation: bool = False`
+   - `enable_disk_validation: bool = False`
+6. ✅ Updated dataset loading logic with cache hierarchy
+7. ✅ Added hierarchical cache version methods to dataset classes:
+   - `BaseDataset._get_cache_version_dict()` - base implementation
+   - `SyntheticTransformPCRDataset._get_cache_version_dict()` - adds synthetic params
+   - `LiDARCameraPosePCRDataset._get_cache_version_dict()` - adds camera_count
 
 ### 8. Considerations
 - **Thread Safety**: Use file locks for write operations

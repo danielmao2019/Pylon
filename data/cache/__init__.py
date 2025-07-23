@@ -1,3 +1,14 @@
-from .dataset_cache import DatasetCache
+"""
+DATA.CACHE API
+"""
 
-__all__ = ['DatasetCache']
+from .cpu_dataset_cache import CPUDatasetCache
+from .disk_dataset_cache import DiskDatasetCache
+from .combined_dataset_cache import CombinedDatasetCache
+
+
+__all__ = [
+    'CPUDatasetCache',
+    'DiskDatasetCache',
+    'CombinedDatasetCache',
+]
