@@ -10,6 +10,7 @@ import tempfile
 import json
 import pytest
 from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
+from utils.automation.progress_tracking.base_progress_tracker import ProgressInfo
 
 
 # ============================================================================
@@ -34,10 +35,21 @@ def test_trainer_progress_tracker_invalid_work_dir_type():
     assert "work_dir must be str" in str(exc_info.value)
 
 
-def test_trainer_progress_tracker_malformed_progress_json():
+def test_trainer_progress_tracker_malformed_progress_json(create_real_config):
     """Test that malformed progress.json fails fast and loud."""
-    with tempfile.TemporaryDirectory() as work_dir:
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_malformed_trainer")
+        config_path = os.path.join(configs_dir, "test_malformed_trainer.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        
         config = {'epochs': 100, 'model': 'test_model'}
+        
+        # Create real config
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
         
         # Create malformed progress.json
         progress_file = os.path.join(work_dir, "progress.json")
@@ -46,6 +58,16 @@ def test_trainer_progress_tracker_malformed_progress_json():
         
         tracker = TrainerProgressTracker(work_dir, config)
         
-        # Should fail fast and loud with JSONDecodeError when trying to read malformed JSON
-        with pytest.raises(json.JSONDecodeError):
-            tracker.get_progress()
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
+            # Malformed JSON should raise exception since file exists but is malformed
+            with pytest.raises(RuntimeError) as exc_info:
+                tracker.get_progress()
+            
+            # Should raise RuntimeError about JSON loading error
+            assert "Error loading JSON" in str(exc_info.value)
+        finally:
+            os.chdir(original_cwd)
