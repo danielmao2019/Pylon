@@ -90,6 +90,25 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Calculate pairs per source file after annotations are initialized
         self._calculate_pairs_per_file()
     
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'rotation_mag': self.rotation_mag,
+            'translation_mag': self.translation_mag,
+            'matching_radius': self.matching_radius,
+            'dataset_size': self.total_dataset_size,
+            'overlap_range': self.overlap_range,
+            'min_points': self.min_points,
+            'lidar_max_range': self.lidar_max_range,
+            'lidar_horizontal_fov': self.lidar_horizontal_fov,
+            'lidar_vertical_fov': self.lidar_vertical_fov,
+            'lidar_apply_range_filter': self.lidar_apply_range_filter,
+            'lidar_apply_fov_filter': self.lidar_apply_fov_filter,
+            'lidar_apply_occlusion_filter': self.lidar_apply_occlusion_filter,
+        })
+        return version_dict
+    
     def _init_annotations(self) -> None:
         """Initialize file pair annotations - to be implemented by subclasses.
         
