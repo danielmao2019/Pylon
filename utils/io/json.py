@@ -68,8 +68,8 @@ def serialize_object(obj: Any) -> Any:
     return apply_op(func=_serialize_item, inputs=obj)
 
 
-def load_json(filepath: str) -> Any:
-    """Load JSON from file.
+def _load_json(filepath: str) -> Any:
+    """Load JSON from file (private function - use safe_load_json instead).
     
     Args:
         filepath: Path to JSON file to load
@@ -101,14 +101,14 @@ def safe_load_json(filepath: str) -> Any:
             assert os.path.exists(filepath), f"File does not exist: {filepath}"
             assert os.path.getsize(filepath) > 0, f"File is empty: {filepath}"
             
-            return load_json(filepath)
+            return _load_json(filepath)
     except Exception as e:
         # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error loading JSON from {filepath}: {e}") from e
 
 
-def save_json(obj: Any, filepath: str) -> None:
-    """Save object to JSON file with automatic serialization.
+def _save_json(obj: Any, filepath: str) -> None:
+    """Save object to JSON file with automatic serialization (private function - use safe_save_json instead).
     
     Automatically handles dataclasses, torch.Tensor, numpy.ndarray, 
     datetime, and all nested data structures without requiring manual conversion.
@@ -152,7 +152,7 @@ def safe_save_json(obj: Any, filepath: str) -> None:
                 os.path.isdir(os.path.dirname(filepath))
             ), f"Directory does not exist for file: {filepath}, directory: {os.path.dirname(filepath)}"
             
-            save_json(obj, filepath)
+            _save_json(obj, filepath)
     except Exception as e:
         # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error saving JSON to {filepath}: {e}") from e
