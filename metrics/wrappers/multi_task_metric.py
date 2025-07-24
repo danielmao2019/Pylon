@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 import torch
 from metrics.base_metric import BaseMetric
 from utils.builders import build_from_config
@@ -57,7 +57,7 @@ class MultiTaskMetric(BaseMetric):
             scores[task] = self.task_metrics[task](task_datapoint)
         return scores
 
-    def summarize(self, output_path: Optional[str] = None) -> Dict[str, float]:
+    def summarize(self, output_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         r"""Summarize each metric.
         """
         # call each task buffer summary
