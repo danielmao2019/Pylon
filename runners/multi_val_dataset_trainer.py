@@ -96,8 +96,9 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             safe_save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
 
             # set best checkpoint
+            best_checkpoint: Optional[str] = None
             try:
-                best_checkpoint: str = self._find_best_checkpoint_()
+                best_checkpoint = self._find_best_checkpoint_()
                 soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
                 if os.path.isfile(soft_link):
                     os.system(' '.join(["rm", soft_link]))
