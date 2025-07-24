@@ -43,12 +43,19 @@
 - [5. Web Interface](#5-web-interface)
   - [5.1. UI Design](#51-ui-design)
   - [5.2. Active Knowledge Confirmation System](#52-active-knowledge-confirmation-system)
-  - [5.3. Technical Stack](#53-technical-stack)
-    - [5.3.1. Core Dependencies](#531-core-dependencies)
-  - [5.4. Implementation Timeline](#54-implementation-timeline)
-  - [5.5. Usage Example: Learning from Code Repository](#55-usage-example-learning-from-code-repository)
-    - [5.5.1. Detailed Example: Understanding FastAPI Repository](#551-detailed-example-understanding-fastapi-repository)
-  - [5.6. Core Design Principles](#56-core-design-principles)
+- [6. Development and Implementation](#6-development-and-implementation)
+  - [6.1. Technical Stack](#61-technical-stack)
+    - [6.1.1. Core Dependencies](#611-core-dependencies)
+  - [6.2. Implementation Timeline](#62-implementation-timeline)
+  - [6.3. Core Design Principles](#63-core-design-principles)
+- [7. Usage Examples and Use Cases](#7-usage-examples-and-use-cases)
+  - [7.1. Learning from Code Repository](#71-learning-from-code-repository)
+    - [7.1.1. Detailed Example: Understanding FastAPI Repository](#711-detailed-example-understanding-fastapi-repository)
+  - [7.2. Research Paper Analysis](#72-research-paper-analysis)
+  - [7.3. Multi-Source Enterprise Knowledge Base](#73-multi-source-enterprise-knowledge-base)
+  - [7.4. Legacy System Understanding](#74-legacy-system-understanding)
+  - [7.5. Educational Support](#75-educational-support)
+  - [7.6. API and Integration Assistant](#76-api-and-integration-assistant)
 
 ---
 
@@ -85,7 +92,7 @@ struct RawInformation {
 ```
 Information Source Types:
   - GitHubRepo: Code repositories (AST parsing, documentation, dependencies)
-  - UserInteraction: Confirmations and corrections (bidirectional, verified)
+  - UserInteraction: Confirmations, corrections, chat sessions, and self-validation (bidirectional, verified)
   - PDFDocument: Papers and documents (text, structure, references)
   - Database: Structured data (records, relationships, metadata)
   - KnowledgeBaseSource: Recursive meta-analysis of existing knowledge
@@ -100,17 +107,34 @@ GitHubRepo Details:
   Output: RawInformation with file locations and code elements
 
 UserInteraction Details:
-  Purpose: Treat user responses as information source
+  Purpose: Treat all user interactions and chat sessions as information sources
+  
   Components:
     - UserResponse: Stores question-answer pairs with timestamps
     - UserQuestion: Queued questions with knowledge context
-    - Pending questions queue for user confirmations
+    - ChatSession: Complete conversation history as knowledge source
+    - SelfValidation: Bot's own hypothesis testing and script outputs
     - Response storage with confidence tracking
+    
+  Information Types Captured:
+    - Direct user confirmations and corrections (explicit knowledge)
+    - Chat conversation flow and context (implicit knowledge patterns)
+    - Bot self-generated debugging scripts with informative outputs
+    - Self-proposed hypotheses and their validation results
+    - User expertise demonstrations through detailed explanations
+    
   Special Features:
     - Bidirectional interaction (bot asks, user responds)
     - Context preservation (question → response relationships)
     - Automatic confidence = 1.0 (user statements always verified)
+    - Self-validation: Bot treats its own validated hypotheses as VERIFIED knowledge
+    - Chat mining: Extract implicit knowledge from conversation patterns
     - Integration with curiosity engine for question generation
+    
+  Self-Learning Examples:
+    - Bot generates test script → validates hypothesis → adds result as VERIFIED knowledge
+    - Bot proposes architectural insight → tests against codebase → confirms/refutes
+    - Bot analyzes its own reasoning chains → improves future inference patterns
 
 KnowledgeBaseSource Details:
   Purpose: Treat existing knowledge base as information source for meta-analysis
@@ -1020,9 +1044,11 @@ Benefits:
 
 ---
 
-### 5.3. Technical Stack
+## 6. Development and Implementation
 
-#### 5.3.1. Core Dependencies
+### 6.1. Technical Stack
+
+#### 6.1.1. Core Dependencies
 
 ```
 Knowledge & Retrieval:
@@ -1048,7 +1074,7 @@ Future Extensions:
   - SQLAlchemy - Database connections and ORM
 ```
 
-### 5.4. Implementation Timeline
+### 6.2. Implementation Timeline
 
 ```
 Phase 1 (Weeks 1-2): Core Knowledge System
@@ -1066,7 +1092,19 @@ Phase 3 (Weeks 5-6): User Interface & Integration
   - Testing, optimization, and deployment
 ```
 
-### 5.5. Usage Example: Learning from Code Repository
+### 6.3. Core Design Principles
+
+1. **Unified Information Sources**: All sources (files, databases, user input) use same interface
+2. **Rigorous Evidence-Based Inference**: No guessing - only provable inferences with clear confidence levels  
+3. **Continuous Knowledge Building**: Knowledge grows during conversation, not just initialization
+4. **Transparent Reasoning**: Full provenance tracking from sources to conclusions
+5. **Active Curiosity**: System asks clarifying questions to resolve uncertainty
+
+This creates a learning system that builds layered understanding through iterative inference and user interaction.
+
+## 7. Usage Examples and Use Cases
+
+### 7.1. Learning from Code Repository
 
 **Multi-Layer Knowledge Building Process:**
 
@@ -1094,7 +1132,7 @@ Phase 3 (Weeks 5-6): User Interface & Integration
    bot: "Based on github_repo and user_interaction: [enhanced response]"
 ```
 
-#### 5.5.1. Detailed Example: Understanding FastAPI Repository
+#### 7.1.1. Detailed Example: Understanding FastAPI Repository
 
 **Initial Facts (Direct Extraction):**
 ```
@@ -1119,12 +1157,161 @@ Phase 3 (Weeks 5-6): User Interface & Integration
 - Framework designed for API development with automatic documentation (OpenAPI integration detected)
 ```
 
-### 5.6. Core Design Principles
+### 7.2. Research Paper Analysis
 
-1. **Unified Information Sources**: All sources (files, databases, user input) use same interface
-2. **Rigorous Evidence-Based Inference**: No guessing - only provable inferences with clear confidence levels  
-3. **Continuous Knowledge Building**: Knowledge grows during conversation, not just initialization
-4. **Transparent Reasoning**: Full provenance tracking from sources to conclusions
-5. **Active Curiosity**: System asks clarifying questions to resolve uncertainty
+**Use Case**: Academic research and literature review
 
-This creates a learning system that builds layered understanding through iterative inference and user interaction.
+```
+Scenario: Analyzing ML Research Papers
+
+1. Source Input:
+   - Upload research paper PDFs from a conference (e.g., NeurIPS 2024)
+   - System extracts: abstracts, methodologies, results, references
+   - Builds knowledge about techniques, datasets, performance metrics
+
+2. Knowledge Building:
+   - Identifies common themes across papers
+   - Maps relationships between authors and research groups
+   - Tracks evolution of techniques over time
+   - Builds knowledge about state-of-the-art methods
+
+3. User Interaction:
+   user: "What are the main trends in transformer architectures this year?"
+   bot: "Based on analysis of 15 papers: [synthesized insights]
+        ❓ I noticed a pattern toward efficient attention mechanisms. Does this align with your understanding?"
+   
+   user: "Yes, also seeing more work on sparse attention"
+   bot: [Updates knowledge with user expertise → enhances future analysis]
+
+4. Continuous Learning:
+   - User corrections refine understanding of research trends
+   - Bot generates comparative analyses between papers
+   - Self-validates insights by cross-referencing multiple sources
+```
+
+### 7.3. Multi-Source Enterprise Knowledge Base
+
+**Use Case**: Corporate knowledge management and documentation
+
+```
+Scenario: Enterprise Software Documentation
+
+1. Multi-Source Integration:
+   - Company GitHub repositories (multiple projects)
+   - Internal wiki and documentation databases
+   - User manual PDFs and API specifications
+   - Employee expertise through chat interactions
+
+2. Knowledge Synthesis:
+   - Maps relationships between different software components
+   - Understands API dependencies across projects
+   - Builds knowledge about deployment procedures and troubleshooting
+   - Learns company-specific terminology and practices
+
+3. Expert Knowledge Capture:
+   user: "The deployment script needs specific environment variables"
+   bot: "I see deployment configs but unclear on the variables. Can you clarify?"
+   user: "DATABASE_URL and REDIS_HOST are required for production"
+   bot: [Adds as VERIFIED knowledge → updates deployment documentation understanding]
+
+4. Self-Validation Loop:
+   - Bot generates quick verification scripts to test deployment procedures
+   - Validates API endpoint availability and dependencies
+   - Proposes configuration improvements based on cross-project analysis
+   - Treats successful validations as new VERIFIED knowledge
+```
+
+### 7.4. Legacy System Understanding
+
+**Use Case**: Technical debt analysis and system modernization
+
+```
+Scenario: Legacy Codebase Analysis
+
+1. Deep Code Analysis:
+   - Large legacy codebase with minimal documentation
+   - Mixed programming languages and outdated frameworks
+   - Complex interdependencies and unclear business logic
+
+2. Incremental Understanding:
+   - BFS: Broad understanding of system components and data flow
+   - DFS: Deep dive into critical business logic modules
+   - Pattern recognition: Identifies code smells and architectural issues
+
+3. Expert Knowledge Integration:
+   user: "This module handles customer billing calculations"
+   bot: "I see complex financial logic but unclear on tax handling. How does that work?"
+   user: "Tax rates are loaded from external service at startup"
+   bot: [Updates architectural understanding → identifies external dependencies]
+
+4. Modernization Insights:
+   - Bot proposes refactoring opportunities based on pattern analysis
+   - Identifies modules that could benefit from modern frameworks
+   - Self-generates test cases to validate understanding of business logic
+   - Treats successful test validations as confidence in proposed changes
+```
+
+### 7.5. Educational Support
+
+**Use Case**: Personalized learning and tutoring
+
+```
+Scenario: Computer Science Learning
+
+1. Adaptive Learning Sources:
+   - Textbook PDFs and course materials
+   - Code examples and programming assignments
+   - Student questions and areas of confusion
+   - Progress tracking through interaction patterns
+
+2. Personalized Knowledge Building:
+   - Identifies student's knowledge gaps through questioning patterns
+   - Builds understanding of student's learning style and pace
+   - Adapts explanations based on student's background knowledge
+
+3. Interactive Learning:
+   user: "I don't understand how recursion works"
+   bot: "Let me explain with examples. [provides explanation]
+        ❓ Does the tree traversal example help clarify the concept?"
+   
+   user: "The tree example is confusing, I understand it better with numbers"
+   bot: [Updates student learning profile → adapts to prefer mathematical examples]
+
+4. Self-Assessment:
+   - Bot generates practice problems tailored to student's level
+   - Validates student understanding through targeted questions
+   - Self-evaluates explanation effectiveness based on student responses
+   - Continuously refines teaching approach based on interaction success
+```
+
+### 7.6. API and Integration Assistant
+
+**Use Case**: Developer productivity and API integration
+
+```
+Scenario: Third-Party API Integration
+
+1. Multi-Source API Knowledge:
+   - API documentation and specifications
+   - Code examples and SDK documentation
+   - Developer forum discussions and troubleshooting guides
+   - User experience and integration challenges
+
+2. Integration Expertise:
+   - Understands authentication flows and rate limiting
+   - Knows common integration patterns and best practices
+   - Builds knowledge about error handling and edge cases
+
+3. Development Support:
+   user: "How do I handle pagination with this API?"
+   bot: "Based on the docs: [explains pagination approach]
+        ❓ I generated a code snippet for cursor-based pagination. Want me to test it?"
+   
+   bot: [Generates test script → validates pagination logic → adds as VERIFIED knowledge]
+
+4. Continuous Improvement:
+   - User feedback on integration challenges updates best practices
+   - Bot learns from successful integration patterns
+   - Self-validates API responses and error handling approaches
+   - Builds comprehensive integration knowledge base over time
+```
