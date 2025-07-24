@@ -417,6 +417,132 @@ class QueryResult:
         return "\n".join(response)
 ```
 
+### Interactive User Confirmation
+
+```python
+class InteractiveKnowledgeConfirmation:
+    """Allows chat bot to ask user for confirmation on uncertain knowledge"""
+    
+    def __init__(self):
+        self.pending_confirmations = []  # Queue of knowledge awaiting confirmation
+        self.confirmation_history = []   # Track what user has confirmed
+        
+    def generate_confirmation_question(self, knowledge: Knowledge) -> str:
+        """Convert uncertain knowledge into a question for the user"""
+        
+        if knowledge.status == KnowledgeStatus.DEDUCED:
+            return f"I deduced that {knowledge.content}. Is this correct?"
+            
+        elif knowledge.status == KnowledgeStatus.UNKNOWN:
+            return f"I'm unsure about: {knowledge.content}. Can you clarify?"
+            
+        elif knowledge.status == KnowledgeStatus.CONFLICTED:
+            conflicts = [e.content for e in knowledge.evidence]
+            return f"I found conflicting information:\n" + \
+                   "\n".join(f"- {c}" for c in conflicts) + \
+                   "\nWhich is correct?"
+                   
+    def process_user_confirmation(self, 
+                                  knowledge: Knowledge, 
+                                  user_response: str) -> Knowledge:
+        """Update knowledge based on user confirmation"""
+        
+        if user_response.lower() in ['yes', 'correct', 'true']:
+            # User confirmed - upgrade to VERIFIED with user as source
+            return Knowledge(
+                content=knowledge.content,
+                knowledge_type=knowledge.type,
+                source='user_confirmed',
+                status=KnowledgeStatus.VERIFIED,
+                evidence=[knowledge],  # Keep original as evidence
+                confidence=1.0
+            )
+        elif user_response.lower() in ['no', 'incorrect', 'false']:
+            # User denied - mark as incorrect
+            return Knowledge(
+                content=f"INCORRECT: {knowledge.content}",
+                knowledge_type='user_correction',
+                source='user_confirmed',
+                status=KnowledgeStatus.VERIFIED,
+                evidence=[knowledge],
+                confidence=1.0
+            )
+        else:
+            # User provided clarification
+            return Knowledge(
+                content=user_response,  # User's clarification becomes the knowledge
+                knowledge_type='user_provided',
+                source='user_confirmed',
+                status=KnowledgeStatus.VERIFIED,
+                evidence=[knowledge],
+                confidence=1.0
+            )
+
+class KnowledgeChatBot:
+    """Extended with confirmation capabilities"""
+    
+    def __init__(self):
+        # ... existing init ...
+        self.confirmation_system = InteractiveKnowledgeConfirmation()
+        self.awaiting_confirmation = False
+        self.confirmation_context = None
+        
+    def chat(self, user_input: str) -> str:
+        """Handle both questions and confirmations"""
+        
+        # Check if we're waiting for a confirmation
+        if self.awaiting_confirmation and self.confirmation_context:
+            # Process confirmation
+            updated_knowledge = self.confirmation_system.process_user_confirmation(
+                self.confirmation_context,
+                user_input
+            )
+            self.knowledge_base.update_knowledge(self.confirmation_context, updated_knowledge)
+            self.awaiting_confirmation = False
+            self.confirmation_context = None
+            return f"Thank you! I've updated my knowledge: {updated_knowledge.content}"
+            
+        # Normal question processing
+        result = self.query_engine.answer(user_input, self.knowledge_base)
+        
+        # Check if we should ask for confirmation
+        if result.has_uncertain_knowledge():
+            uncertain_item = result.get_most_relevant_uncertain()
+            question = self.confirmation_system.generate_confirmation_question(uncertain_item)
+            self.awaiting_confirmation = True
+            self.confirmation_context = uncertain_item
+            
+            return f"{result.generate_response()}\n\n❓ {question}"
+            
+        return result.generate_response()
+```
+
+### Confirmation Flow Example
+
+```
+User: "What's the purpose of the Parser class?"
+
+Bot: "Based on the code analysis:
+VERIFIED FACTS:
+✓ Parser class is defined in parser.py (Source: file_analysis)
+
+LOGICAL DEDUCTIONS:
+→ Parser appears to process input data (Derived from: 2 sources)
+
+❓ I deduced that Parser appears to process input data. Is this correct?"
+
+User: "Yes, but specifically it parses configuration files"
+
+Bot: "Thank you! I've updated my knowledge: Yes, but specifically it parses configuration files"
+
+User: "How does the Parser work?"
+
+Bot: "VERIFIED FACTS:
+✓ Parser class is defined in parser.py (Source: file_analysis)
+✓ Parser parses configuration files (Source: user_confirmed)
+..."
+```
+
 ## System Architecture
 
 ### Core Components
