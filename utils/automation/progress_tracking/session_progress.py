@@ -50,11 +50,9 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> Pro
     
     # Double-check if progress file was created while we were waiting
     # (safe_load_json handles its own locking)
-    try:
+    if os.path.exists(progress_file):
         data = safe_load_json(progress_file)
         return ProgressInfo(**data)
-    except:
-        pass
     
     # Count completed epochs (original logic)
     completed_epochs = 0

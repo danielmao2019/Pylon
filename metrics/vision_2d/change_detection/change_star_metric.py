@@ -3,7 +3,7 @@ import torch
 from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
 from metrics.wrappers import SingleTaskMetric
 from utils.input_checks import check_write_file
-from utils.io.json import save_json
+from utils.io.json import safe_save_json
 from utils.ops.dict_as_tensor import transpose_buffer
 
 
@@ -105,5 +105,5 @@ class ChangeStarMetric(SingleTaskMetric):
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
-            save_json(obj=result, filepath=output_path)
+            safe_save_json(obj=result, filepath=output_path)
         return result

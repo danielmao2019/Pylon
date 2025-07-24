@@ -6,7 +6,7 @@ import torch
 import threading
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.builders import build_from_config
-from utils.io import save_json
+from utils.io.json import safe_save_json
 
 
 class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
@@ -57,7 +57,7 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             return
 
         # Wait for previous after-val operations to complete
-        if self.after_val_thread and self.after_val_thread.is_alive():
+        if self.after_val_thread is not None and self.after_val_thread.is_alive():
             self.after_val_thread.join()
 
         # init time
@@ -93,11 +93,12 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             os.makedirs(epoch_root, exist_ok=True)
 
             # save validation scores to disk
-            save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
+            safe_save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
 
             # set best checkpoint
+            best_checkpoint: Optional[str] = None
             try:
-                best_checkpoint: str = self._find_best_checkpoint_()
+                best_checkpoint = self._find_best_checkpoint_()
                 soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
                 if os.path.isfile(soft_link):
                     os.system(' '.join(["rm", soft_link]))

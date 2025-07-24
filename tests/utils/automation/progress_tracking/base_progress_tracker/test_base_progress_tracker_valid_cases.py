@@ -149,17 +149,17 @@ def test_base_progress_tracker_saves_progress_json(ConcreteProgressTracker):
         assert saved_progress['total_epochs'] == progress.total_epochs
 
 
-def test_base_progress_tracker_handles_json_save_errors(ConcreteProgressTracker):
-    """Test graceful handling of JSON save errors."""
+def test_base_progress_tracker_fails_fast_on_json_save_errors(ConcreteProgressTracker):
+    """Test that JSON save errors fail fast and loud."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Make work_dir readonly to cause save error
         os.chmod(work_dir, 0o444)  # Read-only
         
         try:
             tracker = ConcreteProgressTracker(work_dir)
-            # Should not crash even if can't save progress.json
-            progress = tracker.get_progress()
-            assert progress.completed_epochs == 10
+            # Should fail fast and loud when can't save progress.json
+            with pytest.raises(RuntimeError, match="Error saving JSON"):
+                tracker.get_progress()
         finally:
             # Restore permissions for cleanup
             os.chmod(work_dir, 0o755)
