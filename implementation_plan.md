@@ -571,98 +571,43 @@ class KnowledgeChatBot:
 
 ### Knowledge Representation
 
-```python
-class Knowledge:
-    """Single piece of knowledge with metadata"""
-    def __init__(self, content: str, knowledge_type: str, source: str, 
-                 confidence: float = 1.0, derivation: List['Knowledge'] = None):
-        self.content = content
-        self.type = knowledge_type  # 'fact', 'relationship', 'inference', 'deep_inference'
-        self.source = source
-        self.confidence = confidence
-        self.derivation = derivation or []  # How this knowledge was derived
-        
-class KnowledgeBase:
-    """Stores all knowledge with efficient retrieval"""
-    def __init__(self):
-        self.facts = []          # Direct information from sources
-        self.relationships = []  # Connections between facts
-        self.inferences = []     # First-level inferences
-        self.deep_insights = []  # Multi-level inferences
-        self.knowledge_graph = nx.DiGraph()  # NetworkX graph for relationships
-```
+*Note: The complete Knowledge and KnowledgeBase implementations with rigorous confidence system are defined in the "Rigorous Knowledge Building Design" section above.*
+
+Key features of the knowledge representation:
+- **Knowledge Status System**: VERIFIED, DEDUCED, UNKNOWN, CONFLICTED
+- **Evidence Tracking**: Each knowledge item tracks its derivation sources
+- **Confidence Scoring**: Automatic confidence assignment based on status
+- **User Confirmation**: Knowledge can be upgraded to VERIFIED via user input
 
 ### Inference Engine
 
+*Note: The rigorous inference implementation is defined as `RigorousInferenceEngine` in the "Rigorous Knowledge Building Design" section above.*
+
+The inference engine implements both BFS and DFS strategies with rigorous evidence requirements:
+
 ```python
-class InferenceEngine:
-    """Builds new knowledge from existing knowledge"""
+class InferenceEngine(RigorousInferenceEngine):
+    """Builds new knowledge using rigorous evidence-based inference"""
     
-    def __init__(self):
-        self.inference_rules = self._load_inference_rules()
-        self.inference_depth = 5  # Maximum inference chain length
-        
     def expand(self, initial_knowledge: KnowledgeBase, 
                strategy: str = "breadth_first") -> KnowledgeBase:
-        """Expand knowledge through inference"""
+        """Expand knowledge through rigorous inference with BFS/DFS strategies"""
         
         if strategy == "breadth_first":
-            return self._breadth_first_expansion(initial_knowledge)
+            return breadth_first_inference(initial_knowledge)
         elif strategy == "depth_first":
-            return self._depth_first_expansion(initial_knowledge)
+            return depth_first_inference(initial_knowledge, focus_area="general")
         else:
-            return self._hybrid_expansion(initial_knowledge)
-            
-    def _breadth_first_expansion(self, knowledge: KnowledgeBase) -> KnowledgeBase:
-        """Explore all immediate inferences at each level"""
-        current_level = knowledge.facts + knowledge.relationships
-        
-        for depth in range(self.inference_depth):
-            next_level = []
-            
-            # Generate all possible inferences from current level
-            for k1 in current_level:
-                for k2 in current_level:
-                    if k1 != k2:
-                        inference = self._try_infer(k1, k2)
-                        if inference and self._is_valid_inference(inference):
-                            next_level.append(inference)
-                            knowledge.add_inference(inference, depth)
-                            
-            if not next_level:
-                break  # No new inferences possible
-                
-            current_level = next_level
-            
-        return knowledge
-        
-    def _try_infer(self, knowledge1: Knowledge, knowledge2: Knowledge) -> Optional[Knowledge]:
-        """Try to infer new knowledge from two pieces of existing knowledge"""
-        
-        # Example inference rules
-        if knowledge1.type == 'class_definition' and knowledge2.type == 'inheritance':
-            if knowledge2.content.startswith(knowledge1.content):
-                return Knowledge(
-                    content=f"{knowledge1.content} is a base class in an inheritance hierarchy",
-                    knowledge_type='inference',
-                    source='inferred',
-                    confidence=0.9,
-                    derivation=[knowledge1, knowledge2]
-                )
-                
-        if knowledge1.type == 'function_call' and knowledge2.type == 'function_definition':
-            if knowledge1.content.split('(')[0] == knowledge2.content.split('(')[0]:
-                return Knowledge(
-                    content=f"Function {knowledge1.content.split('(')[0]} is actively used in the codebase",
-                    knowledge_type='inference',
-                    source='inferred',
-                    confidence=0.95,
-                    derivation=[knowledge1, knowledge2]
-                )
-                
-        # Add more inference rules...
-        return None
+            # Hybrid: BFS first for broad coverage, then DFS for deep insights
+            broad_knowledge = breadth_first_inference(initial_knowledge)
+            return depth_first_inference(broad_knowledge, focus_area="architecture")
 ```
+
+Key principles:
+- **Only rigorous inferences**: Uses exact matching, no guessing
+- **Evidence tracking**: Every inference cites its source evidence  
+- **Status management**: Properly categorizes as VERIFIED, DEDUCED, UNKNOWN, or CONFLICTED
+- **Strategy support**: Both breadth-first and depth-first knowledge building
 
 ## Source Parsing (Phase 1: GitHub Repositories)
 
@@ -942,22 +887,15 @@ sqlalchemy>=2.0.0          # Database connections
 bot = KnowledgeChatBot()
 
 # 1. User provides a source
-bot.add_source("https://github.com/fastapi/fastapi", strategy="breadth_first")
-# System builds knowledge layers:
-# - Facts: "Class FastAPI exists", "Function get() defined"
-# - Relationships: "FastAPI inherits from Starlette"  
-# - Inferences: "FastAPI is a web framework"
-# - Deep insights: "FastAPI emphasizes type safety and modern Python features"
+bot.add_source("https://github.com/your-repo/your-project", strategy="breadth_first")
+# System builds knowledge layers (see detailed FastAPI example in Knowledge Building Examples section)
 
 # 2. User asks questions
 response = bot.chat("What is the architecture of this project?")
-# Returns: "Based on my analysis, this project follows a framework architecture where
-# FastAPI (main class) inherits from Starlette for web functionality and integrates
-# Pydantic for data validation. The architecture emphasizes..."
+# Returns detailed analysis based on inferred knowledge from the source
 
-response = bot.chat("How does routing work?")
-# Returns: "From the codebase, routing is handled through decorator functions like
-# @app.get() and @app.post(). These decorators are defined in..."
+response = bot.chat("How does routing work?") 
+# Returns specific implementation details discovered through code analysis
 ```
 
 ## Knowledge Building Examples
