@@ -121,16 +121,35 @@ Layer 1: [All possible inferences from Layer 0]
 Layer 2: [All possible inferences from Layer 1]
 ...continue until no new knowledge
 
-Algorithm:
+Flexible Inference Algorithm:
   current_layer = all_facts_and_relationships
   while current_layer has items and depth < MAX_DEPTH:
     next_layer = []
-    for each pair (k1, k2) in current_layer:
-      if can_infer_rigorously(k1, k2):
-        new_knowledge = infer(k1, k2)
-        next_layer.add(new_knowledge)
+    
+    // Try different inference patterns:
+    for each knowledge_item k in current_layer:
+      // Unary inferences (single item analysis)
+      unary_inferences = try_unary_inference(k)
+      next_layer.add_all(unary_inferences)
+      
+      // Binary inferences (pairs)
+      for each other_item k2 in current_layer where k2 != k:
+        binary_inference = try_binary_inference(k, k2)
+        if binary_inference: next_layer.add(binary_inference)
+        
+        // Triplet inferences (three items needed)
+        for each third_item k3 in current_layer where k3 != k and k3 != k2:
+          triplet_inference = try_triplet_inference(k, k2, k3)
+          if triplet_inference: next_layer.add(triplet_inference)
+          
     current_layer = next_layer
     depth++
+
+Inference Pattern Examples:
+  Unary:    "function_definition" → "this_is_a_utility_function" (pattern analysis)
+  Binary:   "class_def" + "inheritance" → "inheritance_relationship"  
+  Triplet:  "import" + "class_def" + "usage" → "external_dependency_pattern"
+  N-ary:    Multiple related functions → "module_functionality_pattern"
 ```
 
 **BFS Result Example:**
@@ -153,10 +172,24 @@ Algorithm:
   stack = [seed_knowledge_for_focus_area]
   while stack not empty and depth < MAX_DEPTH:
     current = stack.pop()
+    
+    // Try all inference patterns for current knowledge
     best_next = find_strongest_inference_from(current, focus_area)
+    // This could be unary, binary, triplet, etc. - whatever fits best
+    
     if best_next and not already_known(best_next):
-      knowledge_base.add(best_next)
-      stack.push(best_next)  // Continue this reasoning chain
+      knowledge_base.add(best_next)  // Add to knowledge base immediately
+      stack.push(best_next)          // Continue this reasoning chain
+
+Key Differences from BFS:
+  - BFS: Collects all inferences in next_layer, then adds all to knowledge_base
+  - DFS: Adds each inference to knowledge_base immediately as found
+  - BFS: Explores broadly across all domains  
+  - DFS: Follows deep reasoning chains in specific domain
+  
+Both strategies update knowledge_base, but:
+  - BFS: Batch updates after each complete layer
+  - DFS: Incremental updates as reasoning chain develops
 ```
 
 **DFS Result Example (focus_area='architecture'):**
@@ -276,102 +309,66 @@ General Rules:
 
 ### Information Processing Flow
 
-```python
-class KnowledgeBase:
-    """Unified knowledge storage treating all sources equally"""
-    
-    def __init__(self):
-        self.verified_knowledge = []    # High confidence knowledge
-        self.deduced_knowledge = []     # Logically derived knowledge  
-        self.unknown_items = []         # Cannot determine from evidence
-        self.conflicts = []             # Contradictory evidence
-        self.source_tracker = {}        # Track which knowledge came from which sources
-        
-    def add_knowledge(self, knowledge: Knowledge):
-        """Route knowledge to appropriate collection based on status"""
-        # Track source
-        source_type = knowledge.source.split(':')[0]
-        if source_type not in self.source_tracker:
-            self.source_tracker[source_type] = []
-        self.source_tracker[source_type].append(knowledge)
-        
-        # Route by status
-        if knowledge.status == KnowledgeStatus.VERIFIED:
-            self.verified_knowledge.append(knowledge)
-        elif knowledge.status == KnowledgeStatus.DEDUCED:
-            self.deduced_knowledge.append(knowledge)
-        elif knowledge.status == KnowledgeStatus.UNKNOWN:
-            self.unknown_items.append(knowledge)
-        elif knowledge.status == KnowledgeStatus.CONFLICTED:
-            self.conflicts.append(knowledge)
-            
-    def get_knowledge_by_source(self, source_type: str) -> List[Knowledge]:
-        """Get all knowledge from a specific source type"""
-        return self.source_tracker.get(source_type, [])
-        
-    def query_with_uncertainty(self, question: str) -> QueryResult:
-        """Return answer with explicit uncertainty information"""
-        
-        # Search all knowledge types
-        verified_matches = self._search(question, self.verified_knowledge)
-        deduced_matches = self._search(question, self.deduced_knowledge)  
-        unknown_matches = self._search(question, self.unknown_items)
-        conflict_matches = self._search(question, self.conflicts)
-        
-        return QueryResult(
-            verified_facts=verified_matches,
-            deduced_facts=deduced_matches,
-            unknown_areas=unknown_matches,
-            conflicts=conflict_matches
-        )
+**Knowledge Base with Conflict Detection:**
 
-class QueryResult:
-    def __init__(self, verified_facts, deduced_facts, unknown_areas, conflicts):
-        self.verified_facts = verified_facts      # 100% certain
-        self.deduced_facts = deduced_facts        # Logically sound
-        self.unknown_areas = unknown_areas        # Cannot determine
-        self.conflicts = conflicts                # Contradictory evidence
-        
-    def has_uncertain_knowledge(self) -> bool:
-        """Check if there are areas that need user clarification"""
-        return len(self.unknown_areas) > 0 or len(self.conflicts) > 0 or len(self.deduced_facts) > 0
-        
-    def get_most_relevant_uncertain(self) -> Knowledge:
-        """Get the most relevant uncertain knowledge for user clarification"""
-        if self.conflicts:
-            return self.conflicts[0]  # Conflicts are highest priority
-        elif self.unknown_areas:
-            return self.unknown_areas[0]  # Unknown areas next
-        elif self.deduced_facts:
-            return self.deduced_facts[0]  # Deductions can be confirmed
-        return None
-        
-    def generate_response(self) -> str:
-        """Generate response that clearly indicates certainty levels and sources"""
-        response = []
-        
-        if self.verified_facts:
-            response.append("VERIFIED FACTS:")
-            for fact in self.verified_facts:
-                source_type = fact.source.split(':')[0]
-                response.append(f"✓ {fact.content} (Source: {source_type})")
-                
-        if self.deduced_facts:
-            response.append("\nLOGICAL DEDUCTIONS:")
-            for deduction in self.deduced_facts:
-                response.append(f"→ {deduction.content} (Derived from: {len(deduction.evidence)} sources)")
-                
-        if self.unknown_areas:
-            response.append("\nUNCLEAR AREAS:")
-            for unknown in self.unknown_areas:
-                response.append(f"? {unknown.content}")
-                
-        if self.conflicts:
-            response.append("\nCONFLICTING INFORMATION:")
-            for conflict in self.conflicts:
-                response.append(f"⚠ {conflict.content}")
-                
-        return "\n".join(response)
+```
+KnowledgeBase.add_knowledge(new_knowledge):
+
+  1. Conflict Detection:
+     - Check if new knowledge contradicts existing knowledge
+     - Compare content semantically (not just exact match)
+     - Identify potential conflicts across all confidence levels
+     
+  2. Conflict Resolution Strategy:
+     if no_conflict:
+       - Add to appropriate collection by status
+       - Update source tracking
+     elif conflict_detected:
+       - Create CONFLICTED knowledge item
+       - Include all conflicting sources as evidence
+       - Mark original conflicting items as superseded
+       - Add conflict to conflicts collection
+     elif supports_existing:
+       - Strengthen confidence of existing knowledge
+       - Add as supporting evidence
+       
+  3. Knowledge Collections:
+     - verified_knowledge: High confidence facts
+     - deduced_knowledge: Logical inferences  
+     - unknown_items: Cannot determine from evidence
+     - conflicts: Contradictory information
+     - source_tracker: Maps source_type → knowledge items
+
+  4. Conflict Detection Examples:
+     - "Parser handles JSON" vs "Parser handles XML" → CONFLICT
+     - "Function foo() takes 2 args" vs "Function foo() takes 3 args" → CONFLICT  
+     - "Class A inherits B" + "Class A inherits B" → SUPPORT (strengthen)
+```
+
+**Query Result Structure:**
+
+```
+QueryResult represents chat bot response with uncertainty levels:
+
+Data Structure:
+  - verified_facts: 100% certain knowledge
+  - deduced_facts: Logically sound inferences  
+  - unknown_areas: Cannot determine from evidence
+  - conflicts: Contradictory information
+
+Response Generation Strategy:
+  1. Check for uncertain knowledge (unknown/conflicts/deductions)
+  2. If uncertain knowledge exists: generate clarification question
+  3. Format response with clear confidence indicators:
+     "✓ VERIFIED FACTS: ..." 
+     "→ LOGICAL DEDUCTIONS: ..."
+     "? UNCLEAR AREAS: ..."
+     "⚠ CONFLICTING INFORMATION: ..."
+
+Uncertainty Priority for User Questions:
+  1. Conflicts (highest priority - contradictory sources)
+  2. Unknown areas (missing information)  
+  3. Deductions (can be confirmed by user)
 ```
 
 ### Unified Information Flow Example
@@ -439,93 +436,101 @@ class RawInformation:
 
 ### Information Source Types
 
-```python
-class GitHubRepoSource(InformationSource):
-    def __init__(self, repo_path: str):
-        self.repo_path = repo_path
-        
-    def get_source_type(self) -> str:
-        return 'github_repo'
-        
-    def extract_information(self) -> List[RawInformation]:
-        # Extract from files, README, dependencies...
-        return raw_info_list
+**Source Implementation Plans:**
 
-class UserInteractionSource(InformationSource):
-    """User confirmations, clarifications, and corrections as information source"""
-    
-    def __init__(self):
-        self.pending_questions = Queue()
-        self.user_responses = []
-        
-    def get_source_type(self) -> str:
-        return 'user_interaction'
-        
-    def extract_information(self) -> List[RawInformation]:
-        """Convert user responses into raw information"""
-        raw_info = []
-        for response in self.user_responses:
-            raw_info.append(RawInformation(
-                content=response.content,
-                info_type='user_statement',
-                source_metadata={
-                    'question_context': response.original_question,
-                    'confidence': 1.0,
-                    'user_provided': True
-                }
-            ))
-        return raw_info
-        
-    def add_user_response(self, question: str, response: str):
-        """Add user response as new information"""
-        self.user_responses.append(UserResponse(question, response))
-        
-    def has_pending_questions(self) -> bool:
-        return not self.pending_questions.empty()
-        
-    def get_next_question(self) -> str:
-        return self.pending_questions.get()
-        
-    def ask_user(self, question: str, context: Knowledge):
-        """Queue a question for the user"""
-        self.pending_questions.put(UserQuestion(question, context))
+```
+GitHubRepoSource:
+  Purpose: Extract information from code repositories
+  Data Extraction:
+    - Parse Python/Java/etc. files using AST parsers
+    - Extract README.md, documentation files
+    - Parse requirements.txt, package.json for dependencies
+    - Identify project structure and organization
+  Output: RawInformation with file locations and code elements
 
-class DatabaseSource(InformationSource):
-    def get_source_type(self) -> str:
-        return 'database'
-        
-class PDFSource(InformationSource):
-    def get_source_type(self) -> str:
-        return 'pdf_document'
+UserInteractionSource:
+  Purpose: Treat user responses as information source
+  Data Management:
+    - Queue system for pending questions to user
+    - Storage for user responses with question context
+    - Convert user statements to RawInformation format
+  Special Features:
+    - Bidirectional interaction (bot asks, user responds)
+    - Context preservation (what question led to response)
+    - Confidence = 1.0 (user statements are always verified)
+
+PDFSource:
+  Purpose: Extract information from PDF documents  
+  Data Extraction:
+    - Text extraction with layout preservation
+    - Table and figure identification
+    - Reference and citation parsing
+    - Section structure analysis
+  Output: RawInformation with page numbers and document structure
+
+DatabaseSource:
+  Purpose: Query structured databases for information
+  Data Access:
+    - SQL query generation based on schema analysis
+    - Record retrieval with relationship mapping
+    - Metadata extraction (constraints, relationships)
+  Output: RawInformation with database provenance
+
+Source Extension Strategy:
+  - All sources implement same InformationSource interface
+  - Adding new source type = implement 3 methods:
+    * get_source_type() → string identifier
+    * extract_information() → list of RawInformation
+    * is_available() → boolean availability check
 ```
 
 ### Core Components
 
 ```
-Main ChatBot Architecture:
+Hybrid Chat Bot Architecture: Knowledge Base + RAG
 
-class KnowledgeChatBot:
-  components:
-    - knowledge_base: stores all knowledge with source tracking
-    - inference_engine: builds new knowledge from existing knowledge
-    - information_sources: list of all sources (github, pdf, user, etc.)
-    - query_engine: answers questions based on knowledge
+ChatBot Response Strategy Decision Tree:
 
-  key methods:
-    add_information_source(source):
-      - Add any source type to the system
-      - Extract raw information from source  
-      - Convert to structured knowledge
-      - Run inference to build derived knowledge
-      
-    chat(user_input):
-      - If user responding to bot question: process as new information source
-      - If normal question: query knowledge base and generate response
-      - If uncertain knowledge found: ask user for clarification
-      - Return response with source citations
+1. Query Analysis:
+   - Is this about general concepts/relationships? → Use Knowledge Base
+   - Is this asking for specific document excerpts? → Use RAG  
+   - Is this combining multiple sources? → Use Knowledge Base
+   - Is user pointing to specific document/section? → Use RAG
 
-  information flow:
-    Source → RawInformation → Knowledge → Inference → Enhanced Knowledge → Answers
+2. Knowledge Base Mode (for conceptual understanding):
+   - Query pre-built knowledge with inferences
+   - Get relationships, patterns, high-level insights
+   - Provides synthesized understanding across sources
+   - Best for: "How does X work?", "What's the architecture?"
+
+3. RAG Mode (for specific information retrieval):
+   - Direct semantic search on raw source content
+   - Return specific passages/code snippets  
+   - No inference, just retrieval + generation
+   - Best for: "Show me the login function", "Quote from page 5"
+
+4. Hybrid Mode (combine both):
+   - Use knowledge base for context/relationships
+   - Use RAG for specific supporting evidence
+   - Synthesize both in response
+
+Implementation Plan:
+  chat(user_input):
+    strategy = determine_response_strategy(user_input)
+    
+    if strategy == "knowledge_base":
+      return query_knowledge_base(user_input)
+    elif strategy == "rag":  
+      return direct_rag_query(user_input)
+    elif strategy == "hybrid":
+      knowledge_context = query_knowledge_base(user_input)
+      specific_evidence = direct_rag_query(user_input)
+      return synthesize_response(knowledge_context, specific_evidence)
+
+Strategy Examples:
+  "What's the overall architecture?" → Knowledge Base (uses inferences)
+  "Show me the parse() function code" → RAG (direct retrieval)
+  "How does parsing work and show examples" → Hybrid (concept + evidence)
 ```
 
 ### Knowledge Representation
@@ -715,54 +720,43 @@ class UserInteractionSource(InformationSource):
 
 ## Query Engine
 
-```python
-class QueryEngine:
-    """Answer questions using built knowledge"""
-    
-    def __init__(self):
-        self.llm = self._init_llm()
-        self.embeddings = SentenceTransformer('all-MiniLM-L6-v2')
-        
-    def answer(self, question: str, knowledge_base: KnowledgeBase) -> str:
-        """Generate answer from knowledge base"""
-        
-        # Find relevant knowledge
-        relevant_facts = self._find_relevant_knowledge(question, knowledge_base.facts)
-        relevant_relationships = self._find_relevant_knowledge(question, knowledge_base.relationships)
-        relevant_inferences = self._find_relevant_knowledge(question, knowledge_base.inferences)
-        relevant_deep_insights = self._find_relevant_knowledge(question, knowledge_base.deep_insights)
-        
-        # Build context
-        context = self._build_context(
-            relevant_facts, 
-            relevant_relationships,
-            relevant_inferences,
-            relevant_deep_insights
-        )
-        
-        # Generate response
-        response = self.llm.generate(
-            prompt=self._build_prompt(question, context),
-            max_tokens=500
-        )
-        
-        return response
-        
-    def _build_prompt(self, question: str, context: str) -> str:
-        return f"""You are a knowledge assistant that answers ONLY based on the provided knowledge.
+**Query Processing Implementation Plan:**
 
-Available Knowledge:
-{context}
+```
+QueryEngine Purpose: Convert user questions into responses using knowledge base
 
-Question: {question}
+Components:
+  - LLM Interface: GPT-4 or local model for text generation
+  - Embedding Model: all-MiniLM-L6-v2 for semantic similarity
+  - Knowledge Retrieval: Vector search + keyword matching
+  - Response Generation: Prompt engineering with source constraints
 
-Instructions:
-1. Answer ONLY using the provided knowledge
-2. If the knowledge doesn't contain the answer, say so
-3. Cite specific sources when possible
-4. Distinguish between facts, relationships, and inferences
+Query Processing Pipeline:
+  1. Question Analysis:
+     - Determine query type (conceptual vs specific)
+     - Choose strategy (knowledge_base vs RAG vs hybrid)
+     
+  2. Knowledge Retrieval:
+     - Semantic search using embeddings
+     - Keyword matching for exact terms
+     - Retrieve from appropriate knowledge collections (verified, deduced, etc.)
+     
+  3. Context Building:
+     - Rank retrieved knowledge by relevance
+     - Organize by confidence level (verified → deduced → unknown)
+     - Include source citations
+     
+  4. Response Generation:
+     - Build LLM prompt with retrieved context
+     - Enforce source-only constraint (no external knowledge)
+     - Generate response with uncertainty indicators
+     - Return QueryResult with confidence levels
 
-Answer:"""
+Response Format Strategy:
+  - Always cite sources ("Based on github_repo and user_interaction...")
+  - Clearly indicate confidence levels (✓ → ? ⚠)
+  - Ask clarifying questions when uncertain knowledge found
+  - Never hallucinate or use external knowledge
 ```
 
 ## Web Interface
