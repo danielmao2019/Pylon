@@ -56,6 +56,7 @@
   - [7.4. Legacy System Understanding](#74-legacy-system-understanding)
   - [7.5. Educational Support](#75-educational-support)
   - [7.6. API and Integration Assistant](#76-api-and-integration-assistant)
+  - [7.7. Team Onboarding Assistant](#77-team-onboarding-assistant)
 
 ---
 
@@ -1314,4 +1315,84 @@ Scenario: Third-Party API Integration
    - Bot learns from successful integration patterns
    - Self-validates API responses and error handling approaches
    - Builds comprehensive integration knowledge base over time
+```
+
+### 7.7. Team Onboarding Assistant
+
+**Use Case**: Accelerating new team member onboarding and knowledge transfer
+
+```
+Scenario: Research Team with Rotating Members
+
+1. Team Lead Setup:
+   - Deploy chat bot with access to project GitHub repositories
+   - Add published research papers and conference presentations
+   - Include technical documentation and design decisions
+   - Initialize with existing team knowledge through conversations
+
+2. Knowledge Base Foundation:
+   - Code architecture and implementation patterns
+   - Research methodology and experimental setups
+   - Publication history and key contributions
+   - Team conventions and development practices
+   - External dependencies and integration points
+
+3. New Member Onboarding:
+   new_member: "What's the main contribution of this project?"
+   bot: "Based on published papers and codebase analysis:
+        ✓ VERIFIED: Novel attention mechanism for efficient transformers (Paper: ICML 2024)
+        ✓ VERIFIED: 40% reduction in computational cost (Code: benchmarks/efficiency_tests.py)
+        → DEDUCED: Focus on practical applications in mobile deployment
+        ❓ I noticed optimization for mobile constraints. Is this the main deployment target?"
+
+   new_member: "Yes, we're targeting mobile applications specifically"
+   bot: [Updates project focus understanding → enhances future explanations]
+
+4. Continuous Team Knowledge Capture:
+   - Departing members can have exit conversations with bot
+   - Knowledge about design decisions and rationale preserved
+   - Bot learns institutional knowledge that typically gets lost
+   - Self-validates understanding by cross-referencing with code patterns
+
+5. Common Onboarding Questions:
+   "How do I set up the development environment?"
+   → Bot provides step-by-step setup based on README + team experience
+   
+   "What are the current research directions?"
+   → Bot synthesizes from recent commits, paper drafts, and team discussions
+   
+   "Who worked on the attention mechanism implementation?"
+   → Bot traces code history and publication authorship
+   
+   "What are the known limitations of our approach?"
+   → Bot identifies issues from code comments, paper discussions, and team conversations
+
+6. Knowledge Evolution:
+   - Each new team member's questions identify knowledge gaps
+   - Bot learns common onboarding pain points and improves explanations
+   - Team knowledge becomes more explicit and accessible over time
+   - Self-generates onboarding checklists based on question patterns
+
+7. Team Lead Benefits:
+   - Reduced time spent on repetitive explanations
+   - Consistent knowledge transfer regardless of team lead availability
+   - Institutional knowledge preservation across team changes
+   - Identification of documentation gaps through question analysis
+   - Faster integration of new members into productive work
+
+Example Interaction Flow:
+
+Day 1: "What does this project do?"
+→ High-level overview from papers and documentation
+
+Day 3: "How is the attention mechanism implemented?"
+→ Detailed code walkthrough with references to publications
+
+Week 2: "I'm getting an error in the training loop, what's wrong?"
+→ Debugging assistance based on code patterns and team experience
+
+Month 1: "I have an idea for improving the efficiency, has this been tried before?"
+→ Historical context from past experiments and design decisions
+
+This creates a living knowledge repository that grows with the team and preserves valuable institutional knowledge.
 ```
