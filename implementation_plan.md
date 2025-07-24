@@ -594,28 +594,23 @@ Key features of the knowledge representation:
 - **Confidence Scoring**: Automatic confidence assignment based on status
 - **User Confirmation**: Knowledge can be upgraded to VERIFIED via user input
 
-### Inference Engine
-
-*Note: The rigorous inference implementation is defined as `RigorousInferenceEngine` in the "Rigorous Knowledge Building Design" section above.*
+### Inference Engine Design
 
 The inference engine implements both BFS and DFS strategies with rigorous evidence requirements:
 
-```python
-class InferenceEngine(RigorousInferenceEngine):
-    """Builds new knowledge using rigorous evidence-based inference"""
-    
-    def expand(self, initial_knowledge: KnowledgeBase, 
-               strategy: str = "breadth_first") -> KnowledgeBase:
-        """Expand knowledge through rigorous inference with BFS/DFS strategies"""
-        
-        if strategy == "breadth_first":
-            return breadth_first_inference(initial_knowledge)
-        elif strategy == "depth_first":
-            return depth_first_inference(initial_knowledge, focus_area="general")
-        else:
-            # Hybrid: BFS first for broad coverage, then DFS for deep insights
-            broad_knowledge = breadth_first_inference(initial_knowledge)
-            return depth_first_inference(broad_knowledge, focus_area="architecture")
+```
+Purpose: Build new knowledge using rigorous evidence-based inference
+
+Strategy Implementation:
+  - Breadth-First: Expand knowledge layer by layer across all domains
+  - Depth-First: Follow reasoning chains deep in specific focus areas
+  - Hybrid: BFS for broad coverage, then DFS for deep insights
+
+Evidence Requirements:
+  - Only rigorous inferences using exact matching
+  - Every inference must cite source evidence
+  - Proper categorization as VERIFIED/DEDUCED/UNKNOWN/CONFLICTED
+  - No guessing or fuzzy matching allowed
 ```
 
 Key principles:
@@ -626,147 +621,40 @@ Key principles:
 
 ## Information Source Implementations
 
-### GitHub Repository Source
+### GitHub Repository Source Design
 
-```python
-class GitHubRepoSource(InformationSource):
-    """Extract information from GitHub repositories"""
-    
-    def __init__(self, repo_path: str):
-        self.repo_path = repo_path
-        
-    def get_source_type(self) -> str:
-        return 'github_repo'
-        
-    def is_available(self) -> bool:
-        return os.path.exists(self.repo_path)
-        
-    def extract_information(self) -> List[RawInformation]:
-        """Extract all information from repository"""
-        raw_info = []
-        
-        # Extract repository structure
-        for root, dirs, files in os.walk(self.repo_path):
-            for file in files:
-                if file.endswith('.py'):
-                    file_path = os.path.join(root, file)
-                    file_info = self._parse_python_file(file_path)
-                    raw_info.extend(file_info)
-                    
-        # Extract documentation
-        readme_path = os.path.join(self.repo_path, 'README.md')
-        if os.path.exists(readme_path):
-            raw_info.extend(self._parse_readme(readme_path))
-            
-        # Extract dependencies
-        requirements_path = os.path.join(self.repo_path, 'requirements.txt')
-        if os.path.exists(requirements_path):
-            raw_info.extend(self._parse_requirements(requirements_path))
-            
-        return raw_info
-        
-    def _parse_python_file(self, file_path: str) -> List[RawInformation]:
-        """Parse a Python file into raw information"""
-        with open(file_path, 'r') as f:
-            content = f.read()
-            
-        tree = ast.parse(content)
-        raw_info = []
-        
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                raw_info.append(RawInformation(
-                    content=f"Class {node.name} defined",
-                    info_type='class_definition',
-                    source_metadata={
-                        'location': f"{file_path}:{node.lineno}",
-                        'class_name': node.name,
-                        'file_path': file_path
-                    }
-                ))
-                
-                # Check for inheritance
-                for base in node.bases:
-                    if isinstance(base, ast.Name):
-                        raw_info.append(RawInformation(
-                            content=f"{node.name} inherits from {base.id}",
-                            info_type='inheritance_declaration',
-                            source_metadata={
-                                'location': f"{file_path}:{node.lineno}",
-                                'child_class': node.name,
-                                'parent_class': base.id
-                            }
-                        ))
-                        
-            elif isinstance(node, ast.FunctionDef):
-                raw_info.append(RawInformation(
-                    content=f"Function {node.name} defined",
-                    info_type='function_definition',
-                    source_metadata={
-                        'location': f"{file_path}:{node.lineno}",
-                        'function_name': node.name,
-                        'file_path': file_path
-                    }
-                ))
-                
-        return raw_info
+```
+Purpose: Extract information from code repositories
 
-### User Interaction Source (Detailed Implementation)
+Information Extraction Strategy:
+  - Parse Python files using AST (Abstract Syntax Tree)
+  - Extract README.md and documentation files
+  - Analyze requirements.txt for dependencies
+  - Identify project structure and organization
 
-class UserResponse:
-    def __init__(self, question: str, response: str):
-        self.question = question
-        self.response = response
-        self.timestamp = datetime.now()
+Output: RawInformation with file locations and code elements
+  - Class definitions with inheritance relationships
+  - Function definitions with locations
+  - Import statements and dependencies
+  - Documentation content and structure
+```
 
-class UserQuestion:
-    def __init__(self, question: str, context: Knowledge):
-        self.question = question
-        self.context = context
-        self.timestamp = datetime.now()
+### User Interaction Source Design
 
-class UserInteractionSource(InformationSource):
-    """User responses as an information source"""
-    
-    def __init__(self):
-        self.pending_questions = Queue()
-        self.user_responses = []
-        
-    def get_source_type(self) -> str:
-        return 'user_interaction'
-        
-    def is_available(self) -> bool:
-        return len(self.user_responses) > 0
-        
-    def extract_information(self) -> List[RawInformation]:
-        """Convert user responses into raw information"""
-        raw_info = []
-        for response in self.user_responses:
-            raw_info.append(RawInformation(
-                content=response.response,
-                info_type='user_statement',
-                source_metadata={
-                    'question_context': response.question,
-                    'timestamp': response.timestamp.isoformat(),
-                    'confidence': 1.0,
-                    'user_provided': True
-                }
-            ))
-        return raw_info
-        
-    def add_user_response(self, question: str, response: str):
-        """Add user response as new information"""
-        self.user_responses.append(UserResponse(question, response))
-        
-    def has_pending_questions(self) -> bool:
-        return not self.pending_questions.empty()
-        
-    def get_next_question(self) -> UserQuestion:
-        return self.pending_questions.get()
-        
-    def ask_user(self, question: str, context: Knowledge):
-        """Queue a question for the user"""
-        self.pending_questions.put(UserQuestion(question, context))
+```
+Purpose: Treat user responses as information source
+
+Components:
+  - UserResponse: Stores question-answer pairs with timestamps
+  - UserQuestion: Queued questions with knowledge context
+  - Pending questions queue for user confirmations
+  - Response storage with confidence tracking
+
+Special Features:
+  - Bidirectional interaction (bot asks, user responds)
+  - Context preservation (question → response relationships)
+  - Automatic confidence = 1.0 (user statements always verified)
+  - Integration with curiosity engine for question generation
 ```
 
 ---
@@ -844,338 +732,101 @@ Response Format Strategy:
 
 # Part III: Development
 
-## Web Interface
+## Web Interface Design
 
-**Web UI Implementation Plan:**
+**UI Layout Strategy:**
 
 ```
-import streamlit as st
-
-def main():
-    st.title("🧠 Knowledge Chat Bot")
-    st.markdown("I learn from sources you provide and answer questions about them!")
+Two-Column Web Interface:
+  Left Column (2/3 width): Main Chat Interface
+    - Chat history with message bubbles
+    - Knowledge metadata expandable for each bot response
+    - Text input for user questions
     
-    # Initialize bot in session state
-    if 'bot' not in st.session_state:
-        st.session_state.bot = KnowledgeChatBot()
-        st.session_state.messages = []
-        st.session_state.pending_confirmations = []
-        
-    # Create two-column layout
-    col1, col2 = st.columns([2, 1])
+  Right Column (1/3 width): Knowledge Confirmation Panel
+    - Pending confirmation questions with context
+    - Correct/Wrong buttons for quick feedback
+    - Comment boxes for detailed corrections
+    - Learning progress statistics and charts
     
-    with col1:
-        # Main chat interface
-        st.header("💬 Chat")
-        
-        # Display chat history
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.write(message["content"])
-                
-                # Show knowledge sources used in response
-                if message["role"] == "assistant" and "knowledge_used" in message:
-                    with st.expander("🧠 Knowledge Used"):
-                        for knowledge_item in message["knowledge_used"]:
-                            st.write(f"**{knowledge_item['type']}** ({knowledge_item['confidence']})")
-                            st.write(f"└─ {knowledge_item['content']}")
-                            st.write(f"   *Source: {knowledge_item['source']}*")
-                
-        # Chat input
-        if prompt := st.chat_input("Ask me anything about the loaded sources..."):
-            # Add user message
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.write(prompt)
-                
-            # Generate response with curiosity
-            with st.chat_message("assistant"):
-                with st.spinner("🤔 Thinking and building knowledge..."):
-                    # Chat bot processes with curiosity enabled
-                    response_data = st.session_state.bot.chat_with_curiosity(prompt)
-                    
-                    # Display main response
-                    st.write(response_data["response"])
-                    
-                    # Add any new confirmation questions to pending list
-                    if response_data["confirmation_questions"]:
-                        st.session_state.pending_confirmations.extend(
-                            response_data["confirmation_questions"]
-                        )
-                    
-                    # Store message with knowledge metadata
-                    st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": response_data["response"],
-                        "knowledge_used": response_data["knowledge_used"]
-                    })
-    
-    with col2:
-        # Knowledge Confirmation Panel
-        st.header("🔍 Knowledge Confirmations")
-        st.markdown("*Help me learn by confirming or correcting my understanding*")
-        
-        if st.session_state.pending_confirmations:
-            for idx, confirmation in enumerate(st.session_state.pending_confirmations):
-                with st.container():
-                    st.write(f"**Question {idx + 1}:**")
-                    st.write(confirmation["question"])
-                    
-                    # Show the knowledge context
-                    with st.expander("Context"):
-                        st.write(f"**Knowledge:** {confirmation['knowledge_content']}")
-                        st.write(f"**Source:** {confirmation['knowledge_source']}")
-                        st.write(f"**Confidence:** {confirmation['confidence']}")
-                    
-                    # Buttons for response
-                    col_correct, col_wrong = st.columns(2)
-                    
-                    with col_correct:
-                        if st.button("✅ Correct", key=f"correct_{idx}"):
-                            # Process positive confirmation
-                            st.session_state.bot.process_confirmation(
-                                confirmation_id=confirmation["id"],
-                                is_correct=True,
-                                user_comment=""
-                            )
-                            st.session_state.pending_confirmations.pop(idx)
-                            st.experimental_rerun()
-                    
-                    with col_wrong:
-                        if st.button("❌ Wrong", key=f"wrong_{idx}"):
-                            # Show comment box for correction
-                            st.session_state[f"show_comment_{idx}"] = True
-                    
-                    # Comment box for corrections
-                    if st.session_state.get(f"show_comment_{idx}", False):
-                        correction = st.text_area(
-                            "Please provide the correct information:",
-                            key=f"correction_{idx}",
-                            placeholder="E.g., 'Parser actually handles JSON files, not XML files'"
-                        )
-                        
-                        col_submit, col_cancel = st.columns(2)
-                        with col_submit:
-                            if st.button("Submit Correction", key=f"submit_{idx}"):
-                                # Process negative confirmation with correction
-                                st.session_state.bot.process_confirmation(
-                                    confirmation_id=confirmation["id"],
-                                    is_correct=False,
-                                    user_comment=correction
-                                )
-                                st.session_state.pending_confirmations.pop(idx)
-                                st.session_state[f"show_comment_{idx}"] = False
-                                st.experimental_rerun()
-                        
-                        with col_cancel:
-                            if st.button("Cancel", key=f"cancel_{idx}"):
-                                st.session_state[f"show_comment_{idx}"] = False
-                                st.experimental_rerun()
-                    
-                    st.divider()
-        else:
-            st.info("No pending confirmations. I'll ask questions as I learn!")
-        
-        # Knowledge Building Status
-        st.subheader("📊 Learning Progress")
-        
-        if 'bot' in st.session_state:
-            knowledge_stats = st.session_state.bot.get_knowledge_stats()
-            
-            st.metric("Verified Facts", knowledge_stats["verified_count"])
-            st.metric("Deduced Knowledge", knowledge_stats["deduced_count"])
-            st.metric("Conflicts Resolved", knowledge_stats["conflicts_resolved"])
-            st.metric("User Confirmations", knowledge_stats["user_confirmations"])
-            
-            # Show confidence distribution
-            st.write("**Confidence Distribution:**")
-            confidence_chart_data = {
-                "High (>0.9)": knowledge_stats["high_confidence"],
-                "Medium (0.5-0.9)": knowledge_stats["medium_confidence"], 
-                "Low (<0.5)": knowledge_stats["low_confidence"]
-            }
-            st.bar_chart(confidence_chart_data)
-    
-    # Sidebar for source management
-    with st.sidebar:
-        st.header("📚 Knowledge Sources")
-        
-        # Add new source
-        source_type = st.selectbox(
-            "Source Type",
-            ["GitHub Repository", "PDF Paper", "Database (Coming Soon)"]
-        )
-        
-        if source_type == "GitHub Repository":
-            source_input = st.text_input("Repository URL or Path")
-            
-            inference_strategy = st.radio(
-                "Knowledge Building Strategy",
-                ["Breadth-First (Explore all connections)", 
-                 "Depth-First (Follow reasoning chains)",
-                 "Hybrid (Balanced approach)"]
-            )
-            
-            if st.button("🔄 Build Knowledge"):
-                with st.spinner("Building knowledge... This may take a few minutes."):
-                    # Show progress
-                    progress_bar = st.progress(0)
-                    status = st.empty()
-                    
-                    status.text("📖 Reading source files...")
-                    progress_bar.progress(25)
-                    
-                    status.text("🧩 Extracting facts and relationships...")
-                    progress_bar.progress(50)
-                    
-                    status.text("💡 Inferring new knowledge...")
-                    progress_bar.progress(75)
-                    
-                    # Add source
-                    source_id = st.session_state.bot.add_source(source_input)
-                    
-                    status.text("✅ Knowledge building complete!")
-                    progress_bar.progress(100)
-                    
-                    st.success(f"Added source: {source_id}")
-                    
-        # Show loaded sources
-        st.subheader("Loaded Sources")
-        for source in st.session_state.bot.knowledge_base.list_sources():
-            st.write(f"• {source['name']}")
-            with st.expander("Knowledge Stats"):
-                st.write(f"Facts: {source['fact_count']}")
-                st.write(f"Relationships: {source['relationship_count']}")
-                st.write(f"Inferences: {source['inference_count']}")
-                st.write(f"Deep Insights: {source['deep_insight_count']}")
-
-if __name__ == "__main__":
-    main()
+  Sidebar: Source Management
+    - Add new sources (GitHub, PDF, Database)
+    - Select knowledge building strategy (BFS/DFS/Hybrid)
+    - View loaded sources with statistics
 ```
 
 ## Active Knowledge Confirmation System
 
-**Curiosity Engine Implementation Plan:**
+**Curiosity Engine Design:**
 
 ```
-CuriosityEngine Purpose: Generate confirmation questions during knowledge building
+Purpose: Generate confirmation questions during knowledge building and chat
 
 Components:
-  - Uncertainty Detector: Identifies knowledge that needs confirmation
-  - Question Generator: Creates natural language questions for users
-  - Context Tracker: Maintains question-knowledge relationships
-  - Confirmation Processor: Updates knowledge based on user feedback
+  - Uncertainty Detector: Identifies knowledge needing confirmation
+  - Question Generator: Creates natural language questions
+  - Context Tracker: Links questions to knowledge items
+  - Confirmation Processor: Updates knowledge from user feedback
 
-Curiosity Triggers (when to ask questions):
-  1. Low Confidence Deductions (confidence < 0.8)
-  2. Conflicting Information Detected
-  3. Pattern Recognition Uncertainty  
-  4. Cross-Source Inconsistencies
-  5. Missing Critical Information
+Curiosity Triggers:
+  - Low confidence deductions (< 0.8)
+  - Conflicting information detected
+  - Pattern recognition uncertainty
+  - Cross-source inconsistencies
+  - Missing critical information
 
-Question Generation Strategy:
-  - For deductions: "I deduced X from Y. Is this correct?"
-  - For conflicts: "I found conflicting info: A vs B. Which is correct?"
-  - For patterns: "I noticed pattern X. Does this make sense?"
-  - For gaps: "I couldn't determine X from the sources. Can you clarify?"
-
-Active Confirmation Process:
-  1. During knowledge building/inference:
-     - Check each new knowledge item for uncertainty
-     - Generate confirmation question if needed
-     - Add to pending confirmations queue
-     
-  2. During response generation:
-     - Identify knowledge used in response
-     - Mark uncertain knowledge for potential confirmation
-     - Include confirmation requests in response
-     
-  3. User feedback processing:
-     - Positive confirmation → upgrade confidence to VERIFIED
-     - Negative confirmation → create CONFLICTED knowledge
-     - User corrections → add new VERIFIED knowledge from user input
+Question Types:
+  - Deductions: "I deduced X from Y. Is this correct?"
+  - Conflicts: "Found conflicting info: A vs B. Which is correct?"
+  - Patterns: "I noticed pattern X. Does this make sense?"
+  - Gaps: "Couldn't determine X from sources. Can you clarify?"
 ```
 
-**Verbose Knowledge Display Implementation Plan:**
+**Verbose Knowledge Display Design:**
 
 ```
-KnowledgeTracker Purpose: Track and display knowledge used in responses
+Purpose: Show users exactly which knowledge was used in responses
 
-Response Enhancement Strategy:
-  1. Knowledge Extraction During Response:
-     - Track which knowledge items are retrieved
-     - Record confidence levels and sources
-     - Identify reasoning chains used
-     
-  2. Knowledge Metadata Collection:
-     - For each knowledge item used:
-       * Content summary
-       * Confidence level (VERIFIED/DEDUCED/etc.)
-       * Original source (github_repo, user_interaction, etc.)
-       * Evidence chain (how it was derived)
-       
-  3. User-Friendly Knowledge Display:
-     - Group by confidence level (Verified → Deduced → Uncertain)
-     - Color-code by reliability (Green/Yellow/Red)
-     - Show source attribution with clickable links
-     - Expandable detail view with evidence chain
+Knowledge Tracking Strategy:
+  - Record which knowledge items retrieved for each response
+  - Track confidence levels and original sources
+  - Maintain evidence chains showing how knowledge was derived
 
-Verbose Response Format:
-  Main Response: [Standard chat response]
-  
-  Knowledge Used:
-    ✅ VERIFIED (Source: github_repo)
-    ├─ "Class Parser defined in parser.py:15"
-    └─ Evidence: Direct AST parsing
-    
-    🔍 DEDUCED (Confidence: 0.85, Source: inference_engine)  
-    ├─ "Parser handles configuration files"
-    └─ Evidence: Function name patterns + usage analysis
-    
-    ❓ UNCERTAIN (Needs confirmation)
-    ├─ "Parser uses JSON format" 
-    └─ Evidence: Import statement analysis (inconclusive)
+Display Format:
+  - Group by confidence (Verified → Deduced → Uncertain)
+  - Color-code by reliability (Green/Yellow/Red)
+  - Show source attribution and evidence chains
+  - Expandable details for full context
 
-Correction Mechanism:
-  - Click "This understanding is wrong" → open correction dialog
-  - User provides correct information → processed as user_interaction source
-  - Knowledge base updated → re-runs relevant inferences
-  - Response regenerated with corrected knowledge
+User Correction Flow:
+  - User clicks "This understanding is wrong"
+  - Correction dialog opens with comment box
+  - User input processed as new verified knowledge
+  - Knowledge base updated and inferences re-run
 ```
 
-**Integration with Chat Bot Architecture:**
+**Enhanced Chat Architecture:**
 
 ```
-Enhanced ChatBot with Active Confirmation:
+Active Confirmation Integration:
 
-chat_with_curiosity(user_input):
-  1. Process user input for new information sources
-  2. Generate response using current knowledge
-  3. SIMULTANEOUSLY: Generate confirmation questions
-     - Run uncertainty analysis on knowledge used
-     - Create confirmation questions for uncertain items
-     - Add to pending confirmations queue
-  4. Return enhanced response with:
-     - Main response text
-     - Knowledge metadata (for verbose display)
-     - Confirmation questions (for confirmation panel)
+chat_with_curiosity() method:
+  - Process user input for new information
+  - Generate response using current knowledge
+  - Simultaneously generate confirmation questions
+  - Return response + knowledge metadata + confirmations
 
-process_confirmation(confirmation_id, is_correct, user_comment):
-  1. Locate original knowledge item
-  2. If correct: upgrade confidence → VERIFIED status
-  3. If incorrect: 
-     - Mark original knowledge as CONFLICTED
-     - Process user_comment as new information source
-     - Build new VERIFIED knowledge from user input
-     - Trigger inference on corrected knowledge
-  4. Update knowledge base and refresh affected responses
+process_confirmation() method:
+  - Locate original knowledge item
+  - Update confidence based on user feedback
+  - Process corrections as new verified knowledge
+  - Trigger inference updates on corrected knowledge
 
-Key Benefits:
+Benefits:
   - Continuous learning during conversation
-  - User corrections improve future responses
-  - Transparent reasoning visible to users
+  - Transparent reasoning builds user trust
   - Active curiosity prevents knowledge gaps
-  - Builds trust through explainable AI
+  - User corrections improve future responses
 ```
 
 ---
