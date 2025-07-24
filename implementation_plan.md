@@ -1,25 +1,68 @@
-# Knowledge Chat Bot Implementation Plan
+# Knowledge Chat Bot Implementation Plan <!-- omit in toc -->
 
-## Project Overview
+## Table of Contents <!-- omit in toc -->
 
-A chat bot that builds deep, layered knowledge from provided sources. Users provide sources (repositories, papers, databases) → the bot builds knowledge through iterative inference → users can then ask anything about those sources.
-
-## Document Structure
-
-**Chapter 1: Information Sources** - Unified source architecture, types, and data extraction  
-**Chapter 2: Knowledge Building** - Data structures, processing, validation, continuous expansion, and inference  
-**Chapter 3: Chat Bot System** - Query processing, response generation, and knowledge integration  
-**Chapter 4: Web Interface** - UI design, active confirmation system, and implementation
+- [1. Project Overview](#1-project-overview)
+- [2. Information Sources](#2-information-sources)
+  - [2.1. Core Architecture: Unified Information Source Model](#21-core-architecture-unified-information-source-model)
+    - [2.1.1. Information Source Interface](#211-information-source-interface)
+  - [2.2. Information Source Types](#22-information-source-types)
+    - [2.2.1. Unified Source Architecture](#221-unified-source-architecture)
+  - [2.3. Information Processing Pipeline](#23-information-processing-pipeline)
+    - [2.3.1. Source Processing Examples](#231-source-processing-examples)
+    - [2.3.2. Benefits of This Approach](#232-benefits-of-this-approach)
+- [3. Knowledge Building](#3-knowledge-building)
+  - [3.1. Data Structure (Knowledge Representation)](#31-data-structure-knowledge-representation)
+    - [3.1.1. Knowledge Confidence System](#311-knowledge-confidence-system)
+    - [3.1.2. Conflict Detection and Resolution](#312-conflict-detection-and-resolution)
+  - [3.2. Information Processing into Knowledge](#32-information-processing-into-knowledge)
+    - [3.2.1. Raw Information to Knowledge Conversion](#321-raw-information-to-knowledge-conversion)
+    - [3.2.2. Knowledge Base Addition Process](#322-knowledge-base-addition-process)
+  - [3.3. User Source and Knowledge Validation](#33-user-source-and-knowledge-validation)
+    - [3.3.1. Real-Time Validation During Response Generation](#331-real-time-validation-during-response-generation)
+    - [3.3.2. Validation During Knowledge Building](#332-validation-during-knowledge-building)
+    - [3.3.3. UserInteraction Source Advanced Features](#333-userinteraction-source-advanced-features)
+  - [3.4. Continuous Knowledge Building (Expansion/Correction)](#34-continuous-knowledge-building-expansioncorrection)
+    - [3.4.1. 🎯 **Core Design Innovation: Dynamic Knowledge Evolution**](#341--core-design-innovation-dynamic-knowledge-evolution)
+    - [3.4.2. Continuous Expansion Mechanisms](#342-continuous-expansion-mechanisms)
+    - [3.4.3. Knowledge Correction and Refinement](#343-knowledge-correction-and-refinement)
+    - [3.4.4. Expansion Through Multiple Trigger Types](#344-expansion-through-multiple-trigger-types)
+    - [3.4.5. 🔄 **The Continuous Learning Loop**](#345--the-continuous-learning-loop)
+  - [3.5. Inference System (BFS, DFS, Rigorous)](#35-inference-system-bfs-dfs-rigorous)
+    - [3.5.1. Breadth-First Knowledge Building](#351-breadth-first-knowledge-building)
+      - [3.5.1.1. **Depth-First Knowledge Building**](#3511-depth-first-knowledge-building)
+      - [3.5.1.2. **Strategy Comparison**](#3512-strategy-comparison)
+  - [3.6. System Components](#36-system-components)
+    - [3.6.1. Knowledge Representation System](#361-knowledge-representation-system)
+    - [3.6.2. Rigorous Inference Engine](#362-rigorous-inference-engine)
+    - [3.6.3. Information Processing Flow](#363-information-processing-flow)
+    - [3.6.4. Unified Information Flow Example](#364-unified-information-flow-example)
+    - [3.6.5. Core System Components](#365-core-system-components)
+- [4. Chat Bot System](#4-chat-bot-system)
+  - [4.1. Query Processing](#41-query-processing)
+- [5. Web Interface](#5-web-interface)
+  - [5.1. UI Design](#51-ui-design)
+  - [5.2. Active Knowledge Confirmation System](#52-active-knowledge-confirmation-system)
+  - [5.3. Technical Stack](#53-technical-stack)
+    - [5.3.1. Core Dependencies](#531-core-dependencies)
+  - [5.4. Implementation Timeline](#54-implementation-timeline)
+  - [5.5. Usage Example: Learning from Code Repository](#55-usage-example-learning-from-code-repository)
+    - [5.5.1. Detailed Example: Understanding FastAPI Repository](#551-detailed-example-understanding-fastapi-repository)
+  - [5.6. Core Design Principles](#56-core-design-principles)
 
 ---
 
-# Chapter 1: Information Sources
+## 1. Project Overview
 
-## Core Architecture: Unified Information Source Model
+A chat bot that builds deep, layered knowledge from provided sources. Users provide sources (repositories, papers, databases) → the bot builds knowledge through iterative inference → users can then ask anything about those sources.
+
+## 2. Information Sources
+
+### 2.1. Core Architecture: Unified Information Source Model
 
 All information sources implement the same interface to maintain consistency:
 
-### Information Source Interface
+#### 2.1.1. Information Source Interface
 
 ```
 interface InformationSource {
@@ -35,9 +78,9 @@ struct RawInformation {
 }
 ```
 
-## Information Source Types
+### 2.2. Information Source Types
 
-### Unified Source Architecture
+#### 2.2.1. Unified Source Architecture
 
 ```
 Information Source Types:
@@ -91,7 +134,7 @@ Common Interface:
   - is_available() → Availability check
 ```
 
-## Information Processing Pipeline
+### 2.3. Information Processing Pipeline
 
 ```
 Multiple Information Sources → Extract RawInformation → Convert to Knowledge
@@ -110,7 +153,7 @@ Database Records           Structured data            Domain facts
                     Ready for Questions
 ```
 
-### Source Processing Examples
+#### 2.3.1. Source Processing Examples
 
 ```
 // All information sources follow same interface (including knowledge base itself):
@@ -130,7 +173,7 @@ for each source:
     inference_engine.infer_new_knowledge()     // Build derived knowledge
 ```
 
-### Benefits of This Approach
+#### 2.3.2. Benefits of This Approach
 
 - **🔄 Extensibility**: Adding new source types is trivial
 - **🎯 Consistency**: Same rigorous processing for all information
@@ -138,13 +181,11 @@ for each source:
 - **📊 Traceability**: All knowledge clearly shows its source
 - **⚡ Scalability**: Unlimited source types with same architecture
 
----
+## 3. Knowledge Building
 
-# Chapter 2: Knowledge Building
+### 3.1. Data Structure (Knowledge Representation)
 
-## 1. Data Structure (Knowledge Representation)
-
-### Knowledge Confidence System
+#### 3.1.1. Knowledge Confidence System
 
 ```
 Knowledge Confidence Levels:
@@ -173,7 +214,7 @@ Knowledge Collections:
   - source_tracker: Maps source_type → knowledge items for traceability
 ```
 
-### Conflict Detection and Resolution
+#### 3.1.2. Conflict Detection and Resolution
 
 ```
 Conflict Detection Strategy:
@@ -202,9 +243,9 @@ Conflict Detection Strategy:
      - "Class A inherits B" + "Class A inherits B" → SUPPORT (strengthen confidence)
 ```
 
-## 2. Information Processing into Knowledge
+### 3.2. Information Processing into Knowledge
 
-### Raw Information to Knowledge Conversion
+#### 3.2.1. Raw Information to Knowledge Conversion
 
 ```
 Processing Pipeline:
@@ -233,7 +274,7 @@ Step 3: Knowledge Base Integration
   - Trigger inference engine for related knowledge discovery
 ```
 
-### Knowledge Base Addition Process
+#### 3.2.2. Knowledge Base Addition Process
 
 ```
 knowledge_base.add(new_knowledge):
@@ -269,9 +310,9 @@ knowledge_base.add(new_knowledge):
      - Update inference priority queues
 ```
 
-## 3. User Source and Knowledge Validation
+### 3.3. User Source and Knowledge Validation
 
-### Real-Time Validation During Response Generation
+#### 3.3.1. Real-Time Validation During Response Generation
 
 ```
 Knowledge Validation in Chat Flow:
@@ -305,7 +346,7 @@ Knowledge Validation in Chat Flow:
    - Next questions can leverage enhanced understanding
 ```
 
-### Validation During Knowledge Building
+#### 3.3.2. Validation During Knowledge Building
 
 ```
 Active Knowledge Building with Validation:
@@ -355,7 +396,7 @@ Scenario 3: Knowledge Gap Identification
     - Update architectural understanding
 ```
 
-### UserInteraction Source Advanced Features
+#### 3.3.3. UserInteraction Source Advanced Features
 
 ```
 Advanced User Source Capabilities:
@@ -382,14 +423,14 @@ Advanced User Source Capabilities:
    user response → knowledge validation → enhanced understanding → better questions → more targeted user engagement → deeper knowledge building
 ```
 
-## 4. Continuous Knowledge Building (Expansion/Correction) 
+### 3.4. Continuous Knowledge Building (Expansion/Correction) 
 
-### 🎯 **Core Design Innovation: Dynamic Knowledge Evolution**
+#### 3.4.1. 🎯 **Core Design Innovation: Dynamic Knowledge Evolution**
 
 **Traditional Approach**: Static knowledge base built once, only retrieval during chat  
 **Our Revolutionary Approach**: Knowledge base continuously grows and evolves during every interaction
 
-### Continuous Expansion Mechanisms
+#### 3.4.2. Continuous Expansion Mechanisms
 
 ```
 1. **Conversational Knowledge Growth**
@@ -436,7 +477,7 @@ Advanced User Source Capabilities:
    → Propagates correction throughout knowledge network
 ```
 
-### Knowledge Correction and Refinement
+#### 3.4.3. Knowledge Correction and Refinement
 
 ```
 Correction Propagation System:
@@ -478,7 +519,7 @@ Correction Propagation System:
    → Improve future inference accuracy
 ```
 
-### Expansion Through Multiple Trigger Types
+#### 3.4.4. Expansion Through Multiple Trigger Types
 
 ```
 Knowledge Expansion Triggers:
@@ -518,7 +559,7 @@ Knowledge Expansion Triggers:
    → Enables sophisticated multi-source responses
 ```
 
-### 🔄 **The Continuous Learning Loop**
+#### 3.4.5. 🔄 **The Continuous Learning Loop**
 
 ```
 Ongoing Knowledge Evolution:
@@ -542,9 +583,9 @@ Enhanced Knowledge Base: Continuously improving understanding
 
 **This design makes the chat bot a true learning partner, not just a static Q&A system.**
 
-## 5. Inference System (BFS, DFS, Rigorous)
+### 3.5. Inference System (BFS, DFS, Rigorous)
 
-### Breadth-First Knowledge Building
+#### 3.5.1. Breadth-First Knowledge Building
 
 ```
 BFS Strategy: Build wide knowledge first, then deep insights
@@ -594,7 +635,7 @@ Layer 2: [Parser_is_main_component, parse_analyze_pipeline_pattern]
 Layer 3: [codebase_follows_modular_design]
 ```
 
-#### 2. **Depth-First Knowledge Building** 
+##### 3.5.1.1. **Depth-First Knowledge Building** 
 *Follow one reasoning chain as deep as possible before exploring alternatives*
 
 ```
@@ -635,7 +676,7 @@ Chain 2: function_def(@app.get) → decorator_pattern → routing_mechanism →
          RESTful_API_design → HTTP_method_mapping → API_endpoint_architecture
 ```
 
-#### 3. **Strategy Comparison**
+##### 3.5.1.2. **Strategy Comparison**
 
 | Aspect | Breadth-First | Depth-First |
 |--------|---------------|-------------|
@@ -658,9 +699,9 @@ Strategy Selection:
     use breadth_first  // Default to comprehensive
 ```
 
-## System Components
+### 3.6. System Components
 
-### Knowledge Representation System
+#### 3.6.1. Knowledge Representation System
 
 ```
 Knowledge Confidence Levels:
@@ -696,7 +737,7 @@ Conflict Detection and Resolution:
      - "Class A inherits B" + "Class A inherits B" → SUPPORT (strengthen)
 ```
 
-### Rigorous Inference Engine
+#### 3.6.2. Rigorous Inference Engine
 
 ```
 Purpose: Build new knowledge using rigorous evidence-based inference
@@ -745,7 +786,7 @@ Handling Uncertainty:
   - If no rigorous rule applies → create nothing (don't guess)
 ```
 
-### Information Processing Flow
+#### 3.6.3. Information Processing Flow
 
 **Knowledge Base with Conflict Detection:**
 
@@ -785,7 +826,7 @@ KnowledgeBase.add_knowledge(new_knowledge):
 
 *Note: Response structure and query processing details are covered in the Query Processing section.*
 
-### Unified Information Flow Example
+#### 3.6.4. Unified Information Flow Example
 
 ```
 User: "What's the purpose of the Parser class?"
@@ -814,7 +855,7 @@ Bot: "VERIFIED FACTS:
 
 
 
-### Core System Components
+#### 3.6.5. Core System Components
 
 ```
 Chat Bot Processing Flow:
@@ -837,13 +878,9 @@ Chat Bot Processing Flow:
    - Hybrid Mode: Combine knowledge base + RAG, discover new connections
 ```
 
+## 4. Chat Bot System
 
-
----
-
-# Chapter 3: Chat Bot System
-
-## Query Processing
+### 4.1. Query Processing
 
 **Response Generation Strategy:**
 
@@ -866,11 +903,9 @@ Key Constraints:
   - Generate clarification questions for uncertain knowledge
 ```
 
----
+## 5. Web Interface
 
-# Chapter 4: Web Interface
-
-## UI Design
+### 5.1. UI Design
 
 **UI Layout Strategy:**
 
@@ -893,7 +928,7 @@ Two-Column Web Interface:
     - View loaded sources with statistics
 ```
 
-## Active Knowledge Confirmation System
+### 5.2. Active Knowledge Confirmation System
 
 **Curiosity Engine Design:**
 
@@ -985,9 +1020,9 @@ Benefits:
 
 ---
 
-## Technical Stack
+### 5.3. Technical Stack
 
-### Core Dependencies
+#### 5.3.1. Core Dependencies
 
 ```
 Knowledge & Retrieval:
@@ -1013,7 +1048,7 @@ Future Extensions:
   - SQLAlchemy - Database connections and ORM
 ```
 
-## Implementation Timeline
+### 5.4. Implementation Timeline
 
 ```
 Phase 1 (Weeks 1-2): Core Knowledge System
@@ -1031,7 +1066,7 @@ Phase 3 (Weeks 5-6): User Interface & Integration
   - Testing, optimization, and deployment
 ```
 
-## Usage Example: Learning from Code Repository
+### 5.5. Usage Example: Learning from Code Repository
 
 **Multi-Layer Knowledge Building Process:**
 
@@ -1059,7 +1094,7 @@ Phase 3 (Weeks 5-6): User Interface & Integration
    bot: "Based on github_repo and user_interaction: [enhanced response]"
 ```
 
-### Detailed Example: Understanding FastAPI Repository
+#### 5.5.1. Detailed Example: Understanding FastAPI Repository
 
 **Initial Facts (Direct Extraction):**
 ```
@@ -1084,7 +1119,7 @@ Phase 3 (Weeks 5-6): User Interface & Integration
 - Framework designed for API development with automatic documentation (OpenAPI integration detected)
 ```
 
-## Core Design Principles
+### 5.6. Core Design Principles
 
 1. **Unified Information Sources**: All sources (files, databases, user input) use same interface
 2. **Rigorous Evidence-Based Inference**: No guessing - only provable inferences with clear confidence levels  
