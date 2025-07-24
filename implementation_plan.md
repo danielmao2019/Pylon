@@ -4,6 +4,15 @@
 
 A chat bot that builds deep, layered knowledge from provided sources. Users provide sources (repositories, papers, databases) → the bot builds knowledge through iterative inference → users can then ask anything about those sources.
 
+## Document Structure
+
+1. **Core Concept** - Iterative knowledge building with BFS/DFS strategies
+2. **Rigorous Knowledge Building** - Evidence-based system with user confirmation  
+3. **System Architecture** - Component relationships and core implementations
+4. **Implementation Details** - Source parsing, query engine, web interface
+5. **Technical Stack & Timeline** - Dependencies and 6-week development plan
+6. **Examples & Design Decisions** - Practical usage and key principles
+
 ## Core Concept: Iterative Knowledge Building
 
 ### The Knowledge Building Process
@@ -137,7 +146,9 @@ def choose_strategy(source_type: str, user_intent: str) -> str:
 
 ## Rigorous Knowledge Building Design
 
-### Knowledge Confidence System
+### Core Rigorous System
+
+#### Knowledge Confidence System
 
 ```python
 from enum import Enum
@@ -174,7 +185,7 @@ class Knowledge:
             self.confidence = 0.0
 ```
 
-### Rigorous Inference Rules
+#### Rigorous Inference Rules
 
 ```python
 class RigorousInferenceEngine:
@@ -257,7 +268,7 @@ class RigorousInferenceEngine:
         )
 ```
 
-### Rigorous Evidence Standards
+#### Rigorous Evidence Standards
 
 ```python
 class EvidenceStandards:
@@ -322,7 +333,9 @@ class EvidenceStandards:
         )
 ```
 
-### Unknown and Conflict Handling
+### Uncertainty and User Interaction
+
+#### Unknown and Conflict Handling
 
 ```python
 class KnowledgeBase:
@@ -393,7 +406,7 @@ class QueryResult:
         return "\n".join(response)
 ```
 
-### Interactive User Confirmation
+#### Interactive User Confirmation
 
 ```python
 class InteractiveKnowledgeConfirmation:
@@ -457,7 +470,7 @@ class InteractiveKnowledgeConfirmation:
 ```
 *Note: The complete KnowledgeChatBot implementation with confirmation capabilities is shown in the System Architecture section.*
 
-### Confirmation Flow Example
+#### Confirmation Flow Example
 
 ```
 User: "What's the purpose of the Parser class?"
