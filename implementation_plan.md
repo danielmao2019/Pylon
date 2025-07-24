@@ -6,28 +6,119 @@ A chat bot that builds deep, layered knowledge from provided sources. Users prov
 
 ## Document Structure
 
-1. **Core Concept** - Iterative knowledge building with BFS/DFS strategies
-2. **Rigorous Knowledge Building** - Evidence-based system treating all sources equally
-3. **System Architecture** - Unified information source model with user interaction as a source type
-4. **Implementation Details** - Information source implementations, query engine, web interface  
-5. **Technical Stack & Timeline** - Dependencies and 6-week development plan
-6. **Examples & Design Decisions** - Practical usage showing source equality
+**Part I: System Design**
+1. **Key Innovation** - User interaction as an information source (unified source model)
+2. **Core Architecture** - Information source interface and knowledge building process
+3. **Knowledge Building** - Rigorous evidence-based inference (BFS/DFS strategies)
 
-## Core Concept: Iterative Knowledge Building
+**Part II: Implementation**
+4. **System Components** - Knowledge representation, inference engine, information processing
+5. **Source Implementations** - GitHub repos, user interaction, PDFs, databases  
+6. **User Interface** - Web interface and query processing
 
-### The Knowledge Building Process
+**Part III: Development** 
+7. **Technical Stack** - Dependencies and implementation timeline
+8. **Usage & Examples** - Practical workflows, detailed examples, and design decisions
+
+---
+
+# Part I: System Design
+
+## Key Innovation: User Interaction as Information Source
+
+### The Unified Source Insight
+
+**Traditional chat bots**: User confirmation is handled as a special "interaction system"  
+**Our approach**: User responses are just another **information source**, equal to files, databases, and web pages
+
+```python
+# All information sources are equal:
+github_source = GitHubRepoSource("/path/to/repo")     # Static source
+user_source = UserInteractionSource()                 # Interactive source  
+pdf_source = PDFSource("/path/to/paper.pdf")         # Static source
+database_source = DatabaseSource("connection_str")    # Dynamic source
+
+# Same processing for all:
+for source in [github_source, user_source, pdf_source, database_source]:
+    raw_information = source.extract_information()
+    knowledge = convert_to_knowledge(raw_information)
+    knowledge_base.add_knowledge(knowledge)
+    inference_engine.build_new_knowledge(knowledge_base)
+```
+
+### Benefits of This Approach
+
+- **🔄 Extensibility**: Adding new source types is trivial
+- **🎯 Consistency**: Same rigorous processing for all information
+- **🧠 Simplicity**: No special cases or complex interaction handling  
+- **📊 Traceability**: All knowledge clearly shows its source
+- **⚡ Scalability**: Unlimited source types with same architecture
+
+### Information Source Equality Examples
+
+| Traditional Approach | Our Unified Approach |
+|---------------------|---------------------|
+| Read GitHub repo → Extract facts | `github_source.extract_information()` |
+| Read PDF → Extract content | `pdf_source.extract_information()` |
+| Query database → Get records | `database_source.extract_information()` |
+| **Special confirmation system** | `user_source.extract_information()` ✨ |
+
+**The key insight**: Whether information comes from a file, database, or user response doesn't matter - it's all just `RawInformation` that gets processed the same way.
+
+## Core Architecture: Unified Information Source Model
+
+### Information Source Interface
+
+All information sources implement the same contract:
+
+```python
+class InformationSource(ABC):
+    """Abstract base for all information sources"""
+    
+    @abstractmethod
+    def get_source_type(self) -> str:
+        """Return source type: 'github_repo', 'pdf', 'database', 'user_interaction'"""
+        pass
+        
+    @abstractmethod
+    def extract_information(self) -> List[RawInformation]:
+        """Extract raw information from this source"""
+        pass
+        
+    @abstractmethod
+    def is_available(self) -> bool:
+        """Check if source is ready to provide information"""
+        pass
+
+class RawInformation:
+    """Single piece of raw information from any source"""
+    def __init__(self, content: str, info_type: str, source_metadata: Dict):
+        self.content = content
+        self.info_type = info_type  # 'file_content', 'user_statement', 'database_record'
+        self.source_metadata = source_metadata  # source-specific details
+        self.timestamp = datetime.now()
+```
+
+### The Unified Knowledge Building Process
 
 ```
-User provides source → Extract raw information → Build initial knowledge
-                                                           ↓
-                                                  Infer new knowledge
-                                                           ↓
-                                                  Infer deeper knowledge
-                                                           ↓
-                                                  ... (iterative process)
-                                                           ↓
-                                                  Ready for questions
+Multiple Information Sources → Extract RawInformation → Convert to Knowledge
+     ↓                              ↓                        ↓
+GitHub Repo                  File contents             Facts about code
+PDF Documents               Text + structure          Research findings  
+User Interaction            Confirmations             User clarifications
+Database Records           Structured data            Domain facts
+     ↓                              ↓                        ↓
+                    All sources feed into same pipeline
+                              ↓
+                    Rigorous Inference Engine
+                              ↓
+                    Enhanced Knowledge Base
+                              ↓
+                    Ready for Questions
 ```
+
+## Knowledge Building: Rigorous Evidence-Based Inference
 
 ### Knowledge Inference Strategies (BFS/DFS Analogies)
 
@@ -144,9 +235,13 @@ def choose_strategy(source_type: str, user_intent: str) -> str:
         return 'breadth_first'  # Default to comprehensive
 ```
 
-## Rigorous Knowledge Building Design
+---
 
-### Core Rigorous System
+# Part II: Implementation
+
+## System Components
+
+### Knowledge Representation System
 
 #### Knowledge Confidence System
 
@@ -1007,6 +1102,10 @@ if __name__ == "__main__":
     main()
 ```
 
+---
+
+# Part III: Development
+
 ## Technical Stack
 
 ### Core Dependencies
@@ -1061,7 +1160,7 @@ sqlalchemy>=2.0.0          # Database connections
 - Inference rule tuning
 - Performance optimization
 
-## Usage Example
+## Usage & Examples
 
 ```python
 # User workflow with unified information sources
@@ -1107,7 +1206,7 @@ for info_list in [github_info, user_info, pdf_info, db_info]:
     bot.inference_engine.expand_knowledge_base(bot.knowledge_base)
 ```
 
-## Knowledge Building Examples
+### Detailed Knowledge Building Examples
 
 ### Example: Understanding FastAPI Repository
 
