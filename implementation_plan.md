@@ -135,30 +135,6 @@ def choose_strategy(source_type: str, user_intent: str) -> str:
         return 'breadth_first'  # Default to comprehensive
 ```
 
-## Component Relationship Clarification
-
-### KnowledgeChatBot.chat vs QueryEngine.answer
-
-```python
-class KnowledgeChatBot:
-    def chat(self, question: str) -> str:
-        """User-facing interface with validation"""
-        if not self.knowledge_base.has_sources():
-            return "Please add a source first. I need something to learn from!"
-        # Delegate to query engine
-        return self.query_engine.answer(question, self.knowledge_base)
-
-class QueryEngine:
-    def answer(self, question: str, knowledge_base: KnowledgeBase) -> str:
-        """Core query processing engine that does the actual work"""
-        # 1. Search relevant knowledge across all layers
-        # 2. Build context from layered knowledge  
-        # 3. Generate LLM response with source constraints
-        # 4. Return structured answer with citations
-```
-
-**Relationship**: `chat()` is a thin wrapper that validates and delegates to `answer()` which handles the core logic.
-
 ## Rigorous Knowledge Building Design
 
 ### Knowledge Confidence System
@@ -478,44 +454,8 @@ class InteractiveKnowledgeConfirmation:
                 confidence=1.0
             )
 
-class KnowledgeChatBot:
-    """Extended with confirmation capabilities"""
-    
-    def __init__(self):
-        # ... existing init ...
-        self.confirmation_system = InteractiveKnowledgeConfirmation()
-        self.awaiting_confirmation = False
-        self.confirmation_context = None
-        
-    def chat(self, user_input: str) -> str:
-        """Handle both questions and confirmations"""
-        
-        # Check if we're waiting for a confirmation
-        if self.awaiting_confirmation and self.confirmation_context:
-            # Process confirmation
-            updated_knowledge = self.confirmation_system.process_user_confirmation(
-                self.confirmation_context,
-                user_input
-            )
-            self.knowledge_base.update_knowledge(self.confirmation_context, updated_knowledge)
-            self.awaiting_confirmation = False
-            self.confirmation_context = None
-            return f"Thank you! I've updated my knowledge: {updated_knowledge.content}"
-            
-        # Normal question processing
-        result = self.query_engine.answer(user_input, self.knowledge_base)
-        
-        # Check if we should ask for confirmation
-        if result.has_uncertain_knowledge():
-            uncertain_item = result.get_most_relevant_uncertain()
-            question = self.confirmation_system.generate_confirmation_question(uncertain_item)
-            self.awaiting_confirmation = True
-            self.confirmation_context = uncertain_item
-            
-            return f"{result.generate_response()}\n\n❓ {question}"
-            
-        return result.generate_response()
 ```
+*Note: The complete KnowledgeChatBot implementation with confirmation capabilities is shown in the System Architecture section.*
 
 ### Confirmation Flow Example
 
@@ -545,17 +485,29 @@ Bot: "VERIFIED FACTS:
 
 ## System Architecture
 
+### Component Relationship Clarification
+
+#### KnowledgeChatBot.chat vs QueryEngine.answer
+
+**Relationship**: `KnowledgeChatBot.chat()` is a thin wrapper that validates and delegates to `QueryEngine.answer()` which handles the core logic:
+- `chat()` - User-facing interface with validation
+- `answer()` - Core query processing engine that searches knowledge, builds context, and generates LLM responses
+
 ### Core Components
 
 ```python
 class KnowledgeChatBot:
-    """Main chat bot that builds and queries knowledge"""
+    """Main chat bot that builds and queries knowledge with confirmation capabilities"""
     
     def __init__(self):
         self.knowledge_base = KnowledgeBase()
         self.inference_engine = InferenceEngine()
         self.source_parser = SourceParser()
         self.query_engine = QueryEngine()
+        # Confirmation system
+        self.confirmation_system = InteractiveKnowledgeConfirmation()
+        self.awaiting_confirmation = False
+        self.confirmation_context = None
         
     def add_source(self, source_path: str, source_type: str = "auto"):
         """Add a source and build knowledge from it"""
@@ -571,12 +523,37 @@ class KnowledgeChatBot:
         print("✅ Knowledge building complete!")
         return self.knowledge_base.add_source(source_path, expanded_knowledge)
         
-    def chat(self, question: str) -> str:
-        """Answer questions based on built knowledge"""
+    def chat(self, user_input: str) -> str:
+        """Handle both questions and confirmations"""
+        
+        # Check if we're waiting for a confirmation
+        if self.awaiting_confirmation and self.confirmation_context:
+            # Process confirmation
+            updated_knowledge = self.confirmation_system.process_user_confirmation(
+                self.confirmation_context,
+                user_input
+            )
+            self.knowledge_base.update_knowledge(self.confirmation_context, updated_knowledge)
+            self.awaiting_confirmation = False
+            self.confirmation_context = None
+            return f"Thank you! I've updated my knowledge: {updated_knowledge.content}"
+            
+        # Normal question processing
         if not self.knowledge_base.has_sources():
             return "Please add a source first. I need something to learn from!"
             
-        return self.query_engine.answer(question, self.knowledge_base)
+        result = self.query_engine.answer(user_input, self.knowledge_base)
+        
+        # Check if we should ask for confirmation
+        if result.has_uncertain_knowledge():
+            uncertain_item = result.get_most_relevant_uncertain()
+            question = self.confirmation_system.generate_confirmation_question(uncertain_item)
+            self.awaiting_confirmation = True
+            self.confirmation_context = uncertain_item
+            
+            return f"{result.generate_response()}\n\n❓ {question}"
+            
+        return result.generate_response()
 ```
 
 ### Knowledge Representation
