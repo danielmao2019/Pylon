@@ -286,10 +286,8 @@ Strategy Selection:
 
 ### Knowledge Representation System
 
-#### Knowledge Confidence System
-
 ```
-Knowledge Status Types:
+Knowledge Confidence Levels:
   VERIFIED   - 100% certain from direct evidence (confidence = 1.0)
   DEDUCED    - Logically derived, no assumptions (confidence = 0.95)
   UNKNOWN    - Cannot determine from evidence (confidence = 0.0)
@@ -304,61 +302,71 @@ Knowledge Structure:
     evidence: [list of supporting knowledge items]
     confidence: 1.0
   }
+
+Conflict Detection and Resolution:
+  1. Conflict Detection:
+     - Check if new knowledge contradicts existing knowledge
+     - Compare content semantically (not just exact match)
+     - Identify potential conflicts across all confidence levels
+     
+  2. Conflict Resolution Strategy:
+     if no_conflict: Add to appropriate collection by status
+     elif conflict_detected: Create CONFLICTED knowledge item with all sources
+     elif supports_existing: Strengthen confidence of existing knowledge
+     
+  3. Conflict Examples:
+     - "Parser handles JSON" vs "Parser handles XML" → CONFLICT
+     - "Function foo() takes 2 args" vs "Function foo() takes 3 args" → CONFLICT  
+     - "Class A inherits B" + "Class A inherits B" → SUPPORT (strengthen)
 ```
 
-#### Rigorous Inference Rules
+### Rigorous Inference Engine
 
 ```
-Inference Rules (only build knowledge that can be PROVEN):
+Purpose: Build new knowledge using rigorous evidence-based inference
 
-Rule 1: Function Usage
-  if (k1 = function_definition AND k2 = function_call):
-    if exact_name_match(k1.name, k2.name):
-      create VERIFIED knowledge: "Function X is called at location Y"
+Strategy Implementation:
+  - Breadth-First: Expand knowledge layer by layer across all domains
+  - Depth-First: Follow reasoning chains deep in specific focus areas
+  - Hybrid: BFS for broad coverage, then DFS for deep insights
 
-Rule 2: Class Inheritance  
-  if (k1 = class_definition AND k2 = inheritance_declaration):
-    if exact_parent_match(k1.name, k2.parent):
-      create VERIFIED knowledge: "Class X is base class for Y"
+Evidence Requirements:
+  - Only rigorous inferences using exact matching
+  - Every inference must cite source evidence
+  - Proper categorization as VERIFIED/DEDUCED/UNKNOWN/CONFLICTED
+  - No guessing or fuzzy matching allowed
 
-Rule 3: Import Usage
-  if (k1 = import_statement AND k2 = symbol_usage):
-    if import_provides_symbol(k1, k2.symbol):
-      create VERIFIED knowledge: "Module X is used via symbol Y"
+Flexible Inference Patterns:
+  - Unary: Single knowledge item analysis (e.g., "function_definition" → "utility_function")
+  - Binary: Pairs of knowledge items (e.g., "class_def" + "inheritance" → "inheritance_relationship")
+  - Triplet: Three items needed (e.g., "import" + "class_def" + "usage" → "dependency_pattern")
+  - N-ary: Multiple related items → higher-level patterns
 
+Rigorous Inference Rules (only build knowledge that can be PROVEN):
+  Rule 1: Function Usage
+    if (k1 = function_definition AND k2 = function_call):
+      if exact_name_match(k1.name, k2.name):
+        create VERIFIED knowledge: "Function X is called at location Y"
+
+  Rule 2: Class Inheritance  
+    if (k1 = class_definition AND k2 = inheritance_declaration):
+      if exact_parent_match(k1.name, k2.parent):
+        create VERIFIED knowledge: "Class X is base class for Y"
+
+  Rule 3: Import Usage
+    if (k1 = import_statement AND k2 = symbol_usage):
+      if import_provides_symbol(k1, k2.symbol):
+        create VERIFIED knowledge: "Module X is used via symbol Y"
+
+Evidence Standards by Inference Type:
+  function_usage: Requires exactly 2 pieces of evidence (function_definition + function_call)
+  inheritance_relationship: Must have class_definition + inheritance_declaration  
+  dependency_usage: Must have import_statement + symbol_usage
+  
 Handling Uncertainty:
   - If evidence insufficient → create UNKNOWN knowledge
   - If sources contradict → create CONFLICTED knowledge  
   - If no rigorous rule applies → create nothing (don't guess)
-```
-
-#### Rigorous Evidence Standards
-
-```
-Evidence Requirements by Inference Type:
-
-function_usage:
-  - Requires exactly 2 pieces of evidence
-  - Must have function_definition + function_call  
-  - Names must match exactly (no fuzzy matching)
-  - Both must have valid location information
-
-inheritance_relationship:
-  - Requires exactly 2 pieces of evidence
-  - Must have class_definition + inheritance_declaration
-  - Parent class name must match exactly
-  - Must use explicit "class Child(Parent):" syntax
-
-dependency_usage:
-  - Requires exactly 2 pieces of evidence  
-  - Must have import_statement + symbol_usage
-  - Import must actually provide the used symbol
-  - No inferring imports from usage alone
-
-General Rules:
-  - Unknown inference types → not rigorous (return false)
-  - Missing required evidence → not rigorous
-  - Fuzzy/approximate matches → not rigorous
 ```
 
 ### Information Processing Flow
@@ -429,64 +437,6 @@ Bot: "VERIFIED FACTS:
 ```
 
 
-### Knowledge Representation System
-
-**Knowledge Status System:**
-```
-Knowledge Confidence Levels:
-  VERIFIED   - 100% certain from direct evidence (confidence = 1.0)
-  DEDUCED    - Logically derived, no assumptions (confidence = 0.95)
-  UNKNOWN    - Cannot determine from evidence (confidence = 0.0)
-  CONFLICTED - Multiple contradictory sources (confidence = 0.0)
-
-Knowledge Structure:
-  {
-    content: "Class Parser is defined in parser.py"
-    type: "class_definition" 
-    source: "github_repo:parser.py:15"
-    status: VERIFIED
-    evidence: [list of supporting knowledge items]
-    confidence: 1.0
-  }
-
-Conflict Detection and Resolution:
-  1. Conflict Detection:
-     - Check if new knowledge contradicts existing knowledge
-     - Compare content semantically (not just exact match)
-     - Identify potential conflicts across all confidence levels
-     
-  2. Conflict Resolution Strategy:
-     if no_conflict: Add to appropriate collection by status
-     elif conflict_detected: Create CONFLICTED knowledge item with all sources
-     elif supports_existing: Strengthen confidence of existing knowledge
-     
-  3. Conflict Examples:
-     - "Parser handles JSON" vs "Parser handles XML" → CONFLICT
-     - "Function foo() takes 2 args" vs "Function foo() takes 3 args" → CONFLICT  
-     - "Class A inherits B" + "Class A inherits B" → SUPPORT (strengthen)
-```
-
-**Rigorous Inference Engine:**
-```
-Purpose: Build new knowledge using rigorous evidence-based inference
-
-Strategy Implementation:
-  - Breadth-First: Expand knowledge layer by layer across all domains
-  - Depth-First: Follow reasoning chains deep in specific focus areas
-  - Hybrid: BFS for broad coverage, then DFS for deep insights
-
-Evidence Requirements:
-  - Only rigorous inferences using exact matching
-  - Every inference must cite source evidence
-  - Proper categorization as VERIFIED/DEDUCED/UNKNOWN/CONFLICTED
-  - No guessing or fuzzy matching allowed
-
-Flexible Inference Patterns:
-  - Unary: Single knowledge item analysis (e.g., "function_definition" → "utility_function")
-  - Binary: Pairs of knowledge items (e.g., "class_def" + "inheritance" → "inheritance_relationship")
-  - Triplet: Three items needed (e.g., "import" + "class_def" + "usage" → "dependency_pattern")
-  - N-ary: Multiple related items → higher-level patterns
-```
 
 ### Core System Components
 
@@ -546,46 +496,6 @@ Common Interface:
   - extract_information() → RawInformation list  
   - is_available() → Availability check
 ```
-
-### GitHub Repository Source Details
-
-```
-Purpose: Extract information from code repositories
-
-Information Extraction Strategy:
-  - Parse Python files using AST (Abstract Syntax Tree)
-  - Extract README.md and documentation files
-  - Analyze requirements.txt for dependencies
-  - Identify project structure and organization
-
-Output: RawInformation with file locations and code elements
-  - Class definitions with inheritance relationships
-  - Function definitions with locations
-  - Import statements and dependencies
-  - Documentation content and structure
-```
-
-### User Interaction Source Details
-
-```
-Purpose: Treat user responses as information source
-
-Components:
-  - UserResponse: Stores question-answer pairs with timestamps
-  - UserQuestion: Queued questions with knowledge context
-  - Pending questions queue for user confirmations
-  - Response storage with confidence tracking
-
-Special Features:
-  - Bidirectional interaction (bot asks, user responds)
-  - Context preservation (question → response relationships)
-  - Automatic confidence = 1.0 (user statements always verified)
-  - Integration with curiosity engine for question generation
-```
-
----
-
-# Part II (continued): Query Processing
 
 ## Query Processing
 
