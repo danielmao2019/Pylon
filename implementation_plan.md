@@ -859,7 +859,143 @@ def main():
     if 'bot' not in st.session_state:
         st.session_state.bot = KnowledgeChatBot()
         st.session_state.messages = []
+        st.session_state.pending_confirmations = []
         
+    # Create two-column layout
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Main chat interface
+        st.header("💬 Chat")
+        
+        # Display chat history
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
+                
+                # Show knowledge sources used in response
+                if message["role"] == "assistant" and "knowledge_used" in message:
+                    with st.expander("🧠 Knowledge Used"):
+                        for knowledge_item in message["knowledge_used"]:
+                            st.write(f"**{knowledge_item['type']}** ({knowledge_item['confidence']})")
+                            st.write(f"└─ {knowledge_item['content']}")
+                            st.write(f"   *Source: {knowledge_item['source']}*")
+                
+        # Chat input
+        if prompt := st.chat_input("Ask me anything about the loaded sources..."):
+            # Add user message
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.write(prompt)
+                
+            # Generate response with curiosity
+            with st.chat_message("assistant"):
+                with st.spinner("🤔 Thinking and building knowledge..."):
+                    # Chat bot processes with curiosity enabled
+                    response_data = st.session_state.bot.chat_with_curiosity(prompt)
+                    
+                    # Display main response
+                    st.write(response_data["response"])
+                    
+                    # Add any new confirmation questions to pending list
+                    if response_data["confirmation_questions"]:
+                        st.session_state.pending_confirmations.extend(
+                            response_data["confirmation_questions"]
+                        )
+                    
+                    # Store message with knowledge metadata
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": response_data["response"],
+                        "knowledge_used": response_data["knowledge_used"]
+                    })
+    
+    with col2:
+        # Knowledge Confirmation Panel
+        st.header("🔍 Knowledge Confirmations")
+        st.markdown("*Help me learn by confirming or correcting my understanding*")
+        
+        if st.session_state.pending_confirmations:
+            for idx, confirmation in enumerate(st.session_state.pending_confirmations):
+                with st.container():
+                    st.write(f"**Question {idx + 1}:**")
+                    st.write(confirmation["question"])
+                    
+                    # Show the knowledge context
+                    with st.expander("Context"):
+                        st.write(f"**Knowledge:** {confirmation['knowledge_content']}")
+                        st.write(f"**Source:** {confirmation['knowledge_source']}")
+                        st.write(f"**Confidence:** {confirmation['confidence']}")
+                    
+                    # Buttons for response
+                    col_correct, col_wrong = st.columns(2)
+                    
+                    with col_correct:
+                        if st.button("✅ Correct", key=f"correct_{idx}"):
+                            # Process positive confirmation
+                            st.session_state.bot.process_confirmation(
+                                confirmation_id=confirmation["id"],
+                                is_correct=True,
+                                user_comment=""
+                            )
+                            st.session_state.pending_confirmations.pop(idx)
+                            st.experimental_rerun()
+                    
+                    with col_wrong:
+                        if st.button("❌ Wrong", key=f"wrong_{idx}"):
+                            # Show comment box for correction
+                            st.session_state[f"show_comment_{idx}"] = True
+                    
+                    # Comment box for corrections
+                    if st.session_state.get(f"show_comment_{idx}", False):
+                        correction = st.text_area(
+                            "Please provide the correct information:",
+                            key=f"correction_{idx}",
+                            placeholder="E.g., 'Parser actually handles JSON files, not XML files'"
+                        )
+                        
+                        col_submit, col_cancel = st.columns(2)
+                        with col_submit:
+                            if st.button("Submit Correction", key=f"submit_{idx}"):
+                                # Process negative confirmation with correction
+                                st.session_state.bot.process_confirmation(
+                                    confirmation_id=confirmation["id"],
+                                    is_correct=False,
+                                    user_comment=correction
+                                )
+                                st.session_state.pending_confirmations.pop(idx)
+                                st.session_state[f"show_comment_{idx}"] = False
+                                st.experimental_rerun()
+                        
+                        with col_cancel:
+                            if st.button("Cancel", key=f"cancel_{idx}"):
+                                st.session_state[f"show_comment_{idx}"] = False
+                                st.experimental_rerun()
+                    
+                    st.divider()
+        else:
+            st.info("No pending confirmations. I'll ask questions as I learn!")
+        
+        # Knowledge Building Status
+        st.subheader("📊 Learning Progress")
+        
+        if 'bot' in st.session_state:
+            knowledge_stats = st.session_state.bot.get_knowledge_stats()
+            
+            st.metric("Verified Facts", knowledge_stats["verified_count"])
+            st.metric("Deduced Knowledge", knowledge_stats["deduced_count"])
+            st.metric("Conflicts Resolved", knowledge_stats["conflicts_resolved"])
+            st.metric("User Confirmations", knowledge_stats["user_confirmations"])
+            
+            # Show confidence distribution
+            st.write("**Confidence Distribution:**")
+            confidence_chart_data = {
+                "High (>0.9)": knowledge_stats["high_confidence"],
+                "Medium (0.5-0.9)": knowledge_stats["medium_confidence"], 
+                "Low (<0.5)": knowledge_stats["low_confidence"]
+            }
+            st.bar_chart(confidence_chart_data)
+    
     # Sidebar for source management
     with st.sidebar:
         st.header("📚 Knowledge Sources")
@@ -912,32 +1048,134 @@ def main():
                 st.write(f"Relationships: {source['relationship_count']}")
                 st.write(f"Inferences: {source['inference_count']}")
                 st.write(f"Deep Insights: {source['deep_insight_count']}")
-    
-    # Main chat interface
-    st.header("💬 Chat")
-    
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
-            
-    # Chat input
-    if prompt := st.chat_input("Ask me anything about the loaded sources..."):
-        # Add user message
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.write(prompt)
-            
-        # Generate response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = st.session_state.bot.chat(prompt)
-                st.write(response)
-                
-        st.session_state.messages.append({"role": "assistant", "content": response})
 
 if __name__ == "__main__":
     main()
+```
+
+## Active Knowledge Confirmation System
+
+**Curiosity Engine Implementation Plan:**
+
+```
+CuriosityEngine Purpose: Generate confirmation questions during knowledge building
+
+Components:
+  - Uncertainty Detector: Identifies knowledge that needs confirmation
+  - Question Generator: Creates natural language questions for users
+  - Context Tracker: Maintains question-knowledge relationships
+  - Confirmation Processor: Updates knowledge based on user feedback
+
+Curiosity Triggers (when to ask questions):
+  1. Low Confidence Deductions (confidence < 0.8)
+  2. Conflicting Information Detected
+  3. Pattern Recognition Uncertainty  
+  4. Cross-Source Inconsistencies
+  5. Missing Critical Information
+
+Question Generation Strategy:
+  - For deductions: "I deduced X from Y. Is this correct?"
+  - For conflicts: "I found conflicting info: A vs B. Which is correct?"
+  - For patterns: "I noticed pattern X. Does this make sense?"
+  - For gaps: "I couldn't determine X from the sources. Can you clarify?"
+
+Active Confirmation Process:
+  1. During knowledge building/inference:
+     - Check each new knowledge item for uncertainty
+     - Generate confirmation question if needed
+     - Add to pending confirmations queue
+     
+  2. During response generation:
+     - Identify knowledge used in response
+     - Mark uncertain knowledge for potential confirmation
+     - Include confirmation requests in response
+     
+  3. User feedback processing:
+     - Positive confirmation → upgrade confidence to VERIFIED
+     - Negative confirmation → create CONFLICTED knowledge
+     - User corrections → add new VERIFIED knowledge from user input
+```
+
+**Verbose Knowledge Display Implementation Plan:**
+
+```
+KnowledgeTracker Purpose: Track and display knowledge used in responses
+
+Response Enhancement Strategy:
+  1. Knowledge Extraction During Response:
+     - Track which knowledge items are retrieved
+     - Record confidence levels and sources
+     - Identify reasoning chains used
+     
+  2. Knowledge Metadata Collection:
+     - For each knowledge item used:
+       * Content summary
+       * Confidence level (VERIFIED/DEDUCED/etc.)
+       * Original source (github_repo, user_interaction, etc.)
+       * Evidence chain (how it was derived)
+       
+  3. User-Friendly Knowledge Display:
+     - Group by confidence level (Verified → Deduced → Uncertain)
+     - Color-code by reliability (Green/Yellow/Red)
+     - Show source attribution with clickable links
+     - Expandable detail view with evidence chain
+
+Verbose Response Format:
+  Main Response: [Standard chat response]
+  
+  Knowledge Used:
+    ✅ VERIFIED (Source: github_repo)
+    ├─ "Class Parser defined in parser.py:15"
+    └─ Evidence: Direct AST parsing
+    
+    🔍 DEDUCED (Confidence: 0.85, Source: inference_engine)  
+    ├─ "Parser handles configuration files"
+    └─ Evidence: Function name patterns + usage analysis
+    
+    ❓ UNCERTAIN (Needs confirmation)
+    ├─ "Parser uses JSON format" 
+    └─ Evidence: Import statement analysis (inconclusive)
+
+Correction Mechanism:
+  - Click "This understanding is wrong" → open correction dialog
+  - User provides correct information → processed as user_interaction source
+  - Knowledge base updated → re-runs relevant inferences
+  - Response regenerated with corrected knowledge
+```
+
+**Integration with Chat Bot Architecture:**
+
+```
+Enhanced ChatBot with Active Confirmation:
+
+chat_with_curiosity(user_input):
+  1. Process user input for new information sources
+  2. Generate response using current knowledge
+  3. SIMULTANEOUSLY: Generate confirmation questions
+     - Run uncertainty analysis on knowledge used
+     - Create confirmation questions for uncertain items
+     - Add to pending confirmations queue
+  4. Return enhanced response with:
+     - Main response text
+     - Knowledge metadata (for verbose display)
+     - Confirmation questions (for confirmation panel)
+
+process_confirmation(confirmation_id, is_correct, user_comment):
+  1. Locate original knowledge item
+  2. If correct: upgrade confidence → VERIFIED status
+  3. If incorrect: 
+     - Mark original knowledge as CONFLICTED
+     - Process user_comment as new information source
+     - Build new VERIFIED knowledge from user input
+     - Trigger inference on corrected knowledge
+  4. Update knowledge base and refresh affected responses
+
+Key Benefits:
+  - Continuous learning during conversation
+  - User corrections improve future responses
+  - Transparent reasoning visible to users
+  - Active curiosity prevents knowledge gaps
+  - Builds trust through explainable AI
 ```
 
 ---
