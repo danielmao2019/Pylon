@@ -4,7 +4,7 @@ from typing import Tuple, List, Dict
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file
-from utils.io import save_json
+from utils.io.json import safe_save_json
 from utils.object_detection import pairwise_iou
 from utils.ops import transpose_buffer
 
@@ -183,5 +183,5 @@ class ObjectDetectionMetric(SingleTaskMetric):
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
-            save_json(obj=result, filepath=output_path)
+            safe_save_json(obj=result, filepath=output_path)
         return result

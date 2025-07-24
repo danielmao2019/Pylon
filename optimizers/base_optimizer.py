@@ -2,7 +2,7 @@ from typing import List, Any, Optional, Dict
 from abc import ABC, abstractmethod
 import torch
 from utils.input_checks import check_write_file
-from utils.io import save_json
+from utils.io.json import safe_save_json
 
 
 class BaseOptimizer(ABC):
@@ -43,5 +43,5 @@ class BaseOptimizer(ABC):
         assert len(self.buffer) == 0
         if output_path is not None:
             check_write_file(path=output_path)
-            save_json(obj=self.buffer, filepath=output_path)
+            safe_save_json(obj=self.buffer, filepath=output_path)
         return self.buffer

@@ -3,7 +3,7 @@ from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
 import time
 import os
-from utils.io.json import save_json
+from utils.io.json import safe_save_json
 
 
 @dataclass  
@@ -81,9 +81,5 @@ class BaseProgressTracker(ABC):
     
     def _save_progress_cache(self, progress: ProgressInfo) -> None:
         """Save progress info to progress.json for fast subsequent access."""
-        try:
-            progress_file = os.path.join(self.work_dir, "progress.json")
-            save_json(progress.to_dict(), progress_file)
-        except Exception:
-            # Don't fail the main operation if cache save fails
-            pass
+        progress_file = os.path.join(self.work_dir, "progress.json")
+        safe_save_json(progress.to_dict(), progress_file)

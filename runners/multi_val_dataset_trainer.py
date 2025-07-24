@@ -6,7 +6,7 @@ import torch
 import threading
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.builders import build_from_config
-from utils.io import save_json
+from utils.io.json import safe_save_json
 
 
 class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
@@ -93,7 +93,7 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             os.makedirs(epoch_root, exist_ok=True)
 
             # save validation scores to disk
-            save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
+            safe_save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
 
             # set best checkpoint
             try:

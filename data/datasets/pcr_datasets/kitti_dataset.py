@@ -3,8 +3,7 @@ import os
 import glob
 import numpy as np
 import torch
-import json
-import jsbeautifier
+from utils.io.json import safe_save_json
 import open3d as o3d
 from data.datasets.base_dataset import BaseDataset
 
@@ -87,8 +86,7 @@ class KITTIDataset(BaseDataset):
                     curr_time += 1
         if self.split == 'test':
             self.annotations.remove({'seq': '08', 't0': 15, 't1': 58})
-        with open(os.path.join(self.annotations_cache_root, f'{self.split}.json'), 'w') as f:
-            f.write(jsbeautifier.beautify(json.dumps(self.annotations), jsbeautifier.default_options()))
+        safe_save_json(self.annotations, os.path.join(self.annotations_cache_root, f'{self.split}.json'))
 
     def get_video_odometry(self, seq: str, indices: Optional[List[int]] = None) -> np.ndarray:
         data_path = os.path.join(self.data_root, 'poses', f'{seq}.txt')

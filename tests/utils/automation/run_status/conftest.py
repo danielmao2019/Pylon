@@ -11,9 +11,8 @@ import json
 import pytest
 import torch
 from unittest.mock import Mock
-from utils.automation.progress_tracking import ProgressInfo
 from utils.monitor.system_monitor import SystemMonitor
-from utils.io.json import save_json
+from utils.io.json import safe_save_json
 
 
 # ============================================================================
@@ -83,7 +82,7 @@ def create_progress_json():
             "early_stopped_at_epoch": early_stopped_at_epoch
         }
         progress_file = os.path.join(work_dir, "progress.json")
-        save_json(progress_data, progress_file)
+        safe_save_json(progress_data, progress_file)
     
     return _create_progress_json
 
