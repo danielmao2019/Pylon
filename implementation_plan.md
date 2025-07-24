@@ -6,13 +6,140 @@ A chat bot that builds deep, layered knowledge from provided sources. Users prov
 
 ## Document Structure
 
-**System Design:** Core innovation, information sources, architecture, and knowledge building strategies  
-**Implementation:** System components and query processing  
-**Development:** UI design, technical stack, timeline, and usage examples
+**Chapter 1: Information Sources** - Unified source architecture, types, and data extraction  
+**Chapter 2: Knowledge Building** - Representation, inference strategies, and query processing  
+**Chapter 3: Web Interface** - UI design, active confirmation system, and implementation
 
 ---
 
-# Part I: System Design
+# Chapter 1: Information Sources
+
+## Core Architecture: Unified Information Source Model
+
+All information sources implement the same interface to maintain consistency:
+
+### Information Source Interface
+
+```
+interface InformationSource {
+    get_source_type() -> string        // "github_repo", "pdf", "user_interaction"
+    extract_information() -> [RawInfo] // Extract all available information
+    is_available() -> boolean          // Check if source is ready
+}
+
+struct RawInformation {
+    content: string           // The actual information content
+    type: string             // "file_content", "user_statement", "database_record"
+    source_metadata: dict    // Source-specific details (file path, timestamp, etc.)
+}
+```
+
+## Information Source Types
+
+### Unified Source Architecture
+
+```
+Information Source Types:
+  - GitHubRepo: Code repositories (AST parsing, documentation, dependencies)
+  - UserInteraction: Confirmations and corrections (bidirectional, verified)
+  - PDFDocument: Papers and documents (text, structure, references)
+  - Database: Structured data (records, relationships, metadata)
+  - KnowledgeBaseSource: Recursive meta-analysis of existing knowledge
+
+GitHubRepo Details:
+  Purpose: Extract information from code repositories
+  Data Extraction:
+    - Parse Python files using AST (Abstract Syntax Tree)
+    - Extract README.md and documentation files
+    - Analyze requirements.txt for dependencies
+    - Identify project structure and organization
+  Output: RawInformation with file locations and code elements
+
+UserInteraction Details:
+  Purpose: Treat user responses as information source
+  Components:
+    - UserResponse: Stores question-answer pairs with timestamps
+    - UserQuestion: Queued questions with knowledge context
+    - Pending questions queue for user confirmations
+    - Response storage with confidence tracking
+  Special Features:
+    - Bidirectional interaction (bot asks, user responds)
+    - Context preservation (question → response relationships)
+    - Automatic confidence = 1.0 (user statements always verified)
+    - Integration with curiosity engine for question generation
+
+KnowledgeBaseSource Details:
+  Purpose: Treat existing knowledge base as information source for meta-analysis
+  
+  Data Extraction Strategy:
+    - Pattern Analysis: Identify recurring patterns in existing knowledge
+    - Relationship Mining: Find implicit connections between knowledge items  
+    - Architectural Inference: Derive system-level insights from component knowledge
+    - Abstraction Building: Create higher-level concepts from detailed facts
+  
+  Extraction Examples:
+    Raw Knowledge: [10 function definitions, 5 class definitions, 8 imports]
+    → Meta Knowledge: "This module follows object-oriented design patterns"
+    
+    Raw Knowledge: [error handling in 15 functions, try-catch patterns, logging calls]  
+    → Meta Knowledge: "System has comprehensive error handling architecture"
+
+Common Interface:
+  - get_source_type() → Source identifier
+  - extract_information() → RawInformation list  
+  - is_available() → Availability check
+```
+
+## Information Processing Pipeline
+
+```
+Multiple Information Sources → Extract RawInformation → Convert to Knowledge
+     ↓                              ↓                        ↓
+GitHub Repo                  File contents             Facts about code
+PDF Documents               Text + structure          Research findings  
+User Interaction            Confirmations             User clarifications
+Database Records           Structured data            Domain facts
+     ↓                              ↓                        ↓
+                    All sources feed into same pipeline
+                              ↓
+                    Rigorous Inference Engine
+                              ↓
+                    Enhanced Knowledge Base
+                              ↓
+                    Ready for Questions
+```
+
+### Source Processing Examples
+
+```
+// All information sources follow same interface (including knowledge base itself):
+sources = [
+    GitHubRepo("/path/to/repo"),        // Static: files, structure, dependencies
+    UserInteraction(),                  // Interactive: confirmations, clarifications  
+    PDFDocument("/path/to/paper"),      // Static: text, references, figures
+    Database("connection_string"),      // Dynamic: records, relationships
+    KnowledgeBaseSource(existing_kb)   // Recursive: knowledge-on-knowledge building
+]
+
+// Same processing pipeline for all sources (including recursive):
+for each source:
+    raw_info = source.extract_information()     // Source-specific extraction
+    knowledge = convert_to_knowledge(raw_info)  // Standardize format
+    knowledge_base.add(knowledge)               // Store with source tracking
+    inference_engine.infer_new_knowledge()     // Build derived knowledge
+```
+
+### Benefits of This Approach
+
+- **🔄 Extensibility**: Adding new source types is trivial
+- **🎯 Consistency**: Same rigorous processing for all information
+- **🧠 Simplicity**: No special cases or complex interaction handling  
+- **📊 Traceability**: All knowledge clearly shows its source
+- **⚡ Scalability**: Unlimited source types with same architecture
+
+---
+
+# Chapter 2: Knowledge Building
 
 ## Key Innovation: Continuous Knowledge Building
 
@@ -51,152 +178,7 @@ Scenario 3: Knowledge-on-Knowledge Building
   → Higher-level understanding emerges from existing knowledge
 ```
 
-```
-// All information sources follow same interface (including knowledge base itself):
-sources = [
-    GitHubRepo("/path/to/repo"),        // Static: files, structure, dependencies
-    UserInteraction(),                  // Interactive: confirmations, clarifications  
-    PDFDocument("/path/to/paper"),      // Static: text, references, figures
-    Database("connection_string"),      // Dynamic: records, relationships
-    KnowledgeBaseSource(existing_kb)   // Recursive: knowledge-on-knowledge building
-]
-
-// Same processing pipeline for all sources (including recursive):
-for each source:
-    raw_info = source.extract_information()     // Source-specific extraction
-    knowledge = convert_to_knowledge(raw_info)  // Standardize format
-    knowledge_base.add(knowledge)               // Store with source tracking
-    inference_engine.infer_new_knowledge()     // Build derived knowledge
-    
-// Recursive Knowledge Building:
-// The knowledge_base itself can be treated as an information source
-// to build higher-level meta-knowledge and architectural insights
-```
-
-### Recursive Knowledge Building Design
-
-```
-KnowledgeBaseSource Implementation Plan:
-
-Purpose: Treat existing knowledge base as information source for meta-analysis
-
-Data Extraction Strategy:
-  - Pattern Analysis: Identify recurring patterns in existing knowledge
-  - Relationship Mining: Find implicit connections between knowledge items  
-  - Architectural Inference: Derive system-level insights from component knowledge
-  - Abstraction Building: Create higher-level concepts from detailed facts
-
-Extraction Examples:
-  Raw Knowledge: [10 function definitions, 5 class definitions, 8 imports]
-  →
-  Meta Knowledge: "This module follows object-oriented design patterns"
-  
-  Raw Knowledge: [error handling in 15 functions, try-catch patterns, logging calls]  
-  →
-  Meta Knowledge: "System has comprehensive error handling architecture"
-
-Recursive Trigger Conditions:
-  - Knowledge base reaches certain size threshold
-  - User asks architectural/pattern questions
-  - Periodic meta-analysis runs
-  - New domain of knowledge added (trigger cross-domain analysis)
-```
-
-### Benefits of This Approach
-
-- **🔄 Extensibility**: Adding new source types is trivial
-- **🎯 Consistency**: Same rigorous processing for all information
-- **🧠 Simplicity**: No special cases or complex interaction handling  
-- **📊 Traceability**: All knowledge clearly shows its source
-- **⚡ Scalability**: Unlimited source types with same architecture
-
-### Information Source Equality Examples
-
-| Traditional Approach | Our Unified Approach |
-|---------------------|---------------------|
-| Read GitHub repo → Extract facts | `github_source.extract_information()` |
-| Read PDF → Extract content | `pdf_source.extract_information()` |
-| Query database → Get records | `database_source.extract_information()` |
-| **Special confirmation system** | `user_source.extract_information()` ✨ |
-
-**The key insight**: Whether information comes from a file, database, or user response doesn't matter - it's all just `RawInformation` that gets processed the same way.
-
-## Core Architecture: Unified Information Source Model
-
-### Information Source Interface
-
-All information sources implement the same contract:
-
-```
-interface InformationSource {
-    get_source_type() -> string        // "github_repo", "pdf", "user_interaction"
-    extract_information() -> [RawInfo] // Extract all available information
-    is_available() -> boolean          // Check if source is ready
-}
-
-struct RawInformation {
-    content: string           // The actual information content
-    type: string             // "file_content", "user_statement", "database_record"
-    source_metadata: dict    // Source-specific details (file path, timestamp, etc.)
-}
-```
-
-## Information Sources: The Foundation
-
-All information sources implement the same interface to maintain consistency:
-
-### Unified Source Architecture
-
-```
-Information Source Types:
-  - GitHubRepo: Code repositories (AST parsing, documentation, dependencies)
-  - UserInteraction: Confirmations and corrections (bidirectional, verified)
-  - PDFDocument: Papers and documents (text, structure, references)
-  - Database: Structured data (records, relationships, metadata)
-  - KnowledgeBaseSource: Recursive meta-analysis of existing knowledge
-
-KnowledgeBaseSource Details:
-  Purpose: Treat existing knowledge base as information source for meta-analysis
-  
-  Data Extraction Strategy:
-    - Pattern Analysis: Identify recurring patterns in existing knowledge
-    - Relationship Mining: Find implicit connections between knowledge items  
-    - Architectural Inference: Derive system-level insights from component knowledge
-    - Abstraction Building: Create higher-level concepts from detailed facts
-  
-  Extraction Examples:
-    Raw Knowledge: [10 function definitions, 5 class definitions, 8 imports]
-    → Meta Knowledge: "This module follows object-oriented design patterns"
-    
-    Raw Knowledge: [error handling in 15 functions, try-catch patterns, logging calls]  
-    → Meta Knowledge: "System has comprehensive error handling architecture"
-
-Common Interface:
-  - get_source_type() → Source identifier
-  - extract_information() → RawInformation list  
-  - is_available() → Availability check
-```
-
-### The Unified Knowledge Building Process
-
-```
-Multiple Information Sources → Extract RawInformation → Convert to Knowledge
-     ↓                              ↓                        ↓
-GitHub Repo                  File contents             Facts about code
-PDF Documents               Text + structure          Research findings  
-User Interaction            Confirmations             User clarifications
-Database Records           Structured data            Domain facts
-     ↓                              ↓                        ↓
-                    All sources feed into same pipeline
-                              ↓
-                    Rigorous Inference Engine
-                              ↓
-                    Enhanced Knowledge Base
-                              ↓
-                    Ready for Questions
-```
-
-## Knowledge Building: Rigorous Evidence-Based Inference
+## Knowledge Representation System
 
 ### Knowledge Inference Strategies (BFS/DFS Analogies)
 
@@ -313,10 +295,6 @@ Strategy Selection:
   else:
     use breadth_first  // Default to comprehensive
 ```
-
----
-
-# Part II: Implementation
 
 ## System Components
 
@@ -524,9 +502,9 @@ Key Constraints:
 
 ---
 
-# Part III: Development
+# Chapter 3: Web Interface
 
-## Web Interface Design
+## UI Design
 
 **UI Layout Strategy:**
 
