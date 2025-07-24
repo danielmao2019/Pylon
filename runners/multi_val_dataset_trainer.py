@@ -57,7 +57,7 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             return
 
         # Wait for previous after-val operations to complete
-        if self.after_val_thread and self.after_val_thread.is_alive():
+        if self.after_val_thread is not None and self.after_val_thread.is_alive():
             self.after_val_thread.join()
 
         # init time
