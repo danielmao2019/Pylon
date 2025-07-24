@@ -986,4 +986,399 @@ repositories:
    - Repository indexing error recovery
    - Cross-repository consistency validation
 
-This enhanced plan creates a **universal multi-repository chat bot system** that can handle diverse content types from pure software frameworks to research-heavy repositories with published papers, providing expert-level assistance tailored to each repository's unique characteristics and user needs.
+## Extended Design: Universal Knowledge Source Architecture
+
+### **Knowledge Source Abstraction Layer**
+
+The system evolves from a "multi-repository" approach to a **"multi-knowledge-source"** architecture that can seamlessly integrate diverse information sources:
+
+#### **Knowledge Source Types**
+```python
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Optional
+
+class KnowledgeSource(ABC):
+    """Abstract base class for all knowledge sources"""
+    
+    def __init__(self, source_config: Dict[str, Any]):
+        self.source_id = source_config['id']
+        self.source_type = source_config['type']
+        self.name = source_config['name']
+        self.priority = source_config.get('priority', 1.0)
+        
+    @abstractmethod
+    def search(self, query: str, filters: Dict[str, Any] = None) -> List[Document]:
+        """Search within this knowledge source"""
+        pass
+        
+    @abstractmethod
+    def get_metadata_schema(self) -> Dict[str, str]:
+        """Return the metadata schema for this source"""
+        pass
+        
+    @abstractmethod
+    def supports_content_type(self, content_type: str) -> bool:
+        """Check if source supports specific content types"""
+        pass
+
+class FileRepositorySource(KnowledgeSource):
+    """File-based repository knowledge source (existing implementation)"""
+    
+    def __init__(self, source_config: Dict[str, Any]):
+        super().__init__(source_config)
+        self.repo_path = source_config['path']
+        self.content_processors = self._load_processors()
+        
+    def search(self, query: str, filters: Dict[str, Any] = None) -> List[Document]:
+        """Search files in repository"""
+        # Existing vector search implementation
+        
+    def supports_content_type(self, content_type: str) -> bool:
+        return content_type in ['source_code', 'documentation', 'pdf_files', 'configs']
+
+class PaperDatabaseSource(KnowledgeSource):
+    """Structured academic paper database source"""
+    
+    def __init__(self, source_config: Dict[str, Any]):
+        super().__init__(source_config)
+        self.db_connection = self._setup_database_connection(source_config)
+        self.vector_index = self._setup_vector_index()
+        
+    def search(self, query: str, filters: Dict[str, Any] = None) -> List[Document]:
+        """Search structured paper database"""
+        # Hybrid search: vector similarity + SQL filtering
+        
+        sql_filters = self._build_sql_filters(filters)
+        vector_results = self._vector_search(query)
+        
+        # Combine structured filtering with semantic search
+        papers = self._execute_hybrid_query(vector_results, sql_filters)
+        
+        return [self._paper_to_document(paper) for paper in papers]
+        
+    def supports_content_type(self, content_type: str) -> bool:
+        return content_type in ['academic_papers', 'abstracts', 'full_text', 'citations']
+        
+    def _paper_to_document(self, paper_record: Dict) -> Document:
+        """Convert database record to unified Document format"""
+        return Document(
+            content=f"{paper_record['title']}\n\nAbstract: {paper_record['abstract']}\n\nFull Text: {paper_record.get('full_text', 'Not available')}",
+            metadata={
+                'source_type': 'paper_database',
+                'source_id': self.source_id,
+                'content_type': 'academic_paper',
+                'paper_id': paper_record['id'],
+                'title': paper_record['title'],
+                'authors': paper_record['authors'],
+                'venue': paper_record['venue'],
+                'year': paper_record['year'],
+                'url': paper_record.get('url'),
+                'doi': paper_record.get('doi'),
+                'citations_count': paper_record.get('citations_count'),
+                'research_domains': paper_record.get('keywords', []),
+                'database_source': paper_record.get('source_database', 'Unknown')
+            }
+        )
+```
+
+#### **Universal Knowledge Manager**
+```python
+class UniversalKnowledgeManager:
+    """Orchestrates multiple knowledge sources"""
+    
+    def __init__(self, config_path: str):
+        self.sources = {}
+        self.source_priority_matrix = {}
+        self.cross_source_relationships = {}
+        self._load_configuration(config_path)
+        
+    def _load_configuration(self, config_path: str):
+        """Load configuration for all knowledge sources"""
+        config = load_yaml(config_path)
+        
+        for source_config in config['knowledge_sources']:
+            source = self._create_knowledge_source(source_config)
+            self.sources[source.source_id] = source
+            
+        # Configure cross-source relationships
+        self.cross_source_relationships = config.get('cross_source_relationships', {})
+        
+    def _create_knowledge_source(self, config: Dict) -> KnowledgeSource:
+        """Factory method for creating knowledge sources"""
+        source_type = config['type']
+        
+        if source_type == 'file_repository':
+            return FileRepositorySource(config)
+        elif source_type == 'paper_database':
+            return PaperDatabaseSource(config)
+        elif source_type == 'web_knowledge_base':
+            return WebKnowledgeBaseSource(config)
+        else:
+            raise ValueError(f"Unknown source type: {source_type}")
+            
+    def search(self, query: str, context: Dict[str, Any] = None) -> List[Document]:
+        """Intelligent cross-source search"""
+        
+        # Analyze query to determine optimal source selection
+        query_analysis = self._analyze_query(query, context)
+        
+        # Select relevant sources based on query type
+        relevant_sources = self._select_sources(query_analysis)
+        
+        # Execute parallel search across selected sources
+        all_results = []
+        for source_id in relevant_sources:
+            source = self.sources[source_id]
+            results = source.search(query, query_analysis.get('filters', {}))
+            all_results.extend(results)
+            
+        # Rank and merge results across sources
+        return self._rank_cross_source_results(all_results, query_analysis)
+        
+    def _analyze_query(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze query to determine search strategy"""
+        analysis = {
+            'query_type': 'unknown',
+            'content_preferences': [],
+            'temporal_constraints': None,
+            'source_preferences': [],
+            'filters': {}
+        }
+        
+        # Implementation examples:
+        if 'paper' in query.lower() or 'research' in query.lower():
+            analysis['query_type'] = 'research_oriented'
+            analysis['content_preferences'] = ['academic_papers', 'abstracts']
+            analysis['source_preferences'] = ['paper_database']
+            
+        if 'implementation' in query.lower() or 'code' in query.lower():
+            analysis['query_type'] = 'implementation_oriented'  
+            analysis['content_preferences'] = ['source_code', 'documentation']
+            analysis['source_preferences'] = ['file_repository']
+            
+        if 'recent' in query.lower() or 'latest' in query.lower():
+            analysis['temporal_constraints'] = {'min_year': 2020}
+            
+        return analysis
+        
+    def _select_sources(self, query_analysis: Dict[str, Any]) -> List[str]:
+        """Select optimal sources based on query analysis"""
+        
+        if query_analysis['query_type'] == 'research_oriented':
+            # Prioritize paper databases for research queries
+            return [sid for sid, source in self.sources.items() 
+                   if isinstance(source, PaperDatabaseSource)] + \
+                   [sid for sid, source in self.sources.items() 
+                   if isinstance(source, FileRepositorySource)]
+                   
+        elif query_analysis['query_type'] == 'implementation_oriented':
+            # Prioritize file repositories for implementation queries
+            return [sid for sid, source in self.sources.items() 
+                   if isinstance(source, FileRepositorySource)] + \
+                   [sid for sid, source in self.sources.items() 
+                   if isinstance(source, PaperDatabaseSource)]
+        else:
+            # Search all sources for general queries
+            return list(self.sources.keys())
+```
+
+### **Configuration Schema for Mixed Knowledge Sources**
+
+```yaml
+# universal_knowledge_config.yaml
+knowledge_sources:
+  # File-based repository sources
+  - id: "pylon_framework"
+    type: "file_repository"
+    name: "Pylon Deep Learning Framework"
+    path: "/home/daniel/repos/Pylon-chat-bot"
+    priority: 0.8
+    content_types: ["source_code", "documentation", "configs"]
+    
+  # Paper database sources  
+  - id: "cv_papers_db"
+    type: "paper_database"
+    name: "Computer Vision Papers Database"
+    priority: 0.9
+    connection:
+      type: "postgresql"  # or "sqlite", "mongodb", etc.
+      host: "localhost"
+      database: "cv_papers"
+      table: "papers"
+    schema:
+      title_column: "title"
+      authors_column: "authors"
+      abstract_column: "abstract"
+      full_text_column: "full_text"
+      year_column: "publication_year"
+      venue_column: "venue"
+      url_column: "paper_url"
+      keywords_column: "research_keywords"
+    vector_index:
+      embedding_model: "allenai/scibert_scivocab_uncased"
+      indexed_columns: ["title", "abstract", "full_text"]
+      
+  - id: "arxiv_papers_db"
+    type: "paper_database" 
+    name: "ArXiv Papers Database"
+    priority: 0.7
+    connection:
+      type: "sqlite"
+      database_path: "/data/arxiv_papers.db"
+    temporal_coverage:
+      start_year: 2018
+      end_year: 2024
+      
+# Cross-source relationships and preferences
+cross_source_relationships:
+  # When discussing Pylon implementations, also search for related papers
+  pylon_framework:
+    related_sources: ["cv_papers_db"]
+    relationship_types: ["theoretical_background", "comparative_analysis"]
+    
+  # When discussing papers, look for implementation examples
+  cv_papers_db:
+    related_sources: ["pylon_framework"]
+    relationship_types: ["implementation_examples", "practical_applications"]
+
+# Query routing preferences  
+query_routing:
+  research_keywords: ["paper", "research", "study", "analysis", "survey"]
+  implementation_keywords: ["code", "implementation", "example", "tutorial"]
+  theoretical_keywords: ["algorithm", "method", "approach", "technique"]
+  
+# Response generation preferences
+response_preferences:
+  citation_style: "academic"  # Include proper citations for database sources
+  cross_reference: true       # Reference related sources in responses
+  source_attribution: "detailed"  # Always specify source type and location
+```
+
+### **Enhanced Query Examples for Mixed Sources**
+
+#### **Cross-Source Research Queries**
+```python
+# Example queries that benefit from multiple source types:
+
+query_examples = {
+    "theory_to_implementation": {
+        "query": "How is attention mechanism implemented in change detection models?",
+        "source_routing": [
+            "cv_papers_db",     # Find theoretical papers on attention in change detection
+            "pylon_framework"   # Find implementation examples in Pylon
+        ],
+        "expected_response": "Combines theoretical background from papers with concrete code examples"
+    },
+    
+    "comparative_analysis": {
+        "query": "How do recent change detection papers compare to Pylon's implementations?",
+        "source_routing": [
+            "cv_papers_db",     # Recent papers (2022-2024)
+            "arxiv_papers_db", # Latest preprints  
+            "pylon_framework"   # Pylon's model implementations
+        ],
+        "expected_response": "Comparative analysis citing specific papers and code references"
+    },
+    
+    "literature_review": {
+        "query": "What are the latest developments in 3D change detection?",
+        "source_routing": [
+            "cv_papers_db",     # Published papers
+            "arxiv_papers_db"  # Recent preprints
+        ],
+        "filters": {
+            "year": {"min": 2022},
+            "keywords": ["3D", "change detection", "point cloud"]
+        }
+    }
+}
+```
+
+### **Database-Specific Features**
+
+#### **Advanced Database Querying**
+```python
+class DatabaseQueryOptimizer:
+    """Optimize queries for structured paper databases"""
+    
+    def __init__(self, db_source: PaperDatabaseSource):
+        self.db_source = db_source
+        
+    def build_hybrid_query(self, semantic_query: str, filters: Dict) -> Dict:
+        """Build hybrid semantic + structured query"""
+        
+        # SQL filters for structured attributes
+        sql_conditions = []
+        if 'year' in filters:
+            if 'min' in filters['year']:
+                sql_conditions.append(f"publication_year >= {filters['year']['min']}")
+            if 'max' in filters['year']:
+                sql_conditions.append(f"publication_year <= {filters['year']['max']}")
+                
+        if 'venue' in filters:
+            venues = "', '".join(filters['venue'])
+            sql_conditions.append(f"venue IN ('{venues}')")
+            
+        if 'authors' in filters:
+            authors = "', '".join(filters['authors'])
+            sql_conditions.append(f"authors LIKE ANY(ARRAY['{authors}'])")
+            
+        # Semantic search on text fields
+        vector_query = {
+            'query_text': semantic_query,
+            'search_fields': ['title', 'abstract', 'full_text'],
+            'similarity_threshold': 0.7
+        }
+        
+        return {
+            'sql_filters': sql_conditions,
+            'vector_search': vector_query,
+            'limit': 50
+        }
+        
+    def execute_temporal_analysis(self, query: str, time_range: tuple) -> Dict:
+        """Analyze trends over time from database"""
+        
+        # Example: "How has attention mechanism usage evolved in change detection?"
+        years = list(range(time_range[0], time_range[1] + 1))
+        
+        trends = {}
+        for year in years:
+            year_results = self.db_source.search(
+                query, 
+                filters={'year': {'min': year, 'max': year}}
+            )
+            trends[year] = {
+                'paper_count': len(year_results),
+                'top_venues': self._extract_top_venues(year_results),
+                'key_concepts': self._extract_key_concepts(year_results)
+            }
+            
+        return trends
+```
+
+### **Implementation Extensibility**
+
+The architecture is designed for easy extension to additional knowledge source types:
+
+```python
+# Future knowledge source types can be easily added:
+
+class WebKnowledgeBaseSource(KnowledgeSource):
+    """Web-based knowledge sources (Wikipedia, documentation sites, etc.)"""
+    pass
+    
+class ConferenceAPISource(KnowledgeSource):
+    """Live conference APIs (ACL Anthology, IEEE Xplore, etc.)"""
+    pass
+    
+class CitationGraphSource(KnowledgeSource):
+    """Citation networks and academic graphs"""
+    pass
+    
+class VersionControlSource(KnowledgeSource):
+    """Git history, commit messages, issue trackers"""
+    pass
+```
+
+This design creates a **Universal Knowledge Management System** that can seamlessly integrate file-based repositories with structured databases, providing a foundation for comprehensive research and development assistance that spans from theoretical papers to practical implementations.
