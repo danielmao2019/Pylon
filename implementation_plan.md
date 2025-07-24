@@ -20,50 +20,401 @@ User provides source → Extract raw information → Build initial knowledge
                                                   Ready for questions
 ```
 
-### Knowledge Inference Strategies
+### Knowledge Inference Strategies (BFS/DFS Analogies)
 
 #### 1. **Breadth-First Knowledge Building**
+*Explore all immediate inferences at each layer before going deeper*
+
 ```python
-def breadth_first_inference(initial_knowledge):
-    """Explore all immediate inferences before going deeper"""
-    knowledge_queue = Queue()
-    knowledge_queue.put(initial_knowledge)
-    all_knowledge = KnowledgeGraph()
+def breadth_first_inference(knowledge_base: KnowledgeBase) -> KnowledgeBase:
+    """
+    BFS Strategy: Build wide knowledge first, then deep insights
     
-    while not knowledge_queue.empty():
-        current = knowledge_queue.get()
+    Layer 1: All direct facts and relationships
+    Layer 2: All immediate inferences from Layer 1  
+    Layer 3: All inferences from Layer 2
+    ...continue until no new knowledge can be inferred
+    """
+    current_layer = knowledge_base.get_facts() + knowledge_base.get_relationships()
+    inference_depth = 0
+    
+    while current_layer and inference_depth < MAX_DEPTH:
+        next_layer = []
         
-        # Infer all possible new knowledge from current
-        new_inferences = infer_from(current)
+        # Try to infer from ALL pairs in current layer
+        for knowledge1 in current_layer:
+            for knowledge2 in current_layer:
+                if knowledge1 != knowledge2:
+                    inference = try_rigorous_inference(knowledge1, knowledge2)
+                    if inference and not knowledge_base.contains(inference):
+                        next_layer.append(inference)
+                        knowledge_base.add_inference(inference, layer=inference_depth+1)
         
-        for inference in new_inferences:
-            if not all_knowledge.contains(inference):
-                all_knowledge.add(inference)
-                knowledge_queue.put(inference)
-                
-    return all_knowledge
+        # Move to next layer
+        current_layer = next_layer
+        inference_depth += 1
+        
+    return knowledge_base
 ```
 
-#### 2. **Depth-First Knowledge Building**
+**BFS Result Example:**
+```
+Layer 0: [function_def(parse), function_def(analyze), class_def(Parser)]
+Layer 1: [Parser_uses_parse, Parser_uses_analyze, parse_calls_analyze] 
+Layer 2: [Parser_is_main_component, parse_analyze_pipeline_pattern]
+Layer 3: [codebase_follows_modular_design]
+```
+
+#### 2. **Depth-First Knowledge Building** 
+*Follow one reasoning chain as deep as possible before exploring alternatives*
+
 ```python
-def depth_first_inference(initial_knowledge, direction):
-    """Follow one line of reasoning as deep as possible"""
-    knowledge_stack = Stack()
-    knowledge_stack.push((initial_knowledge, direction))
-    all_knowledge = KnowledgeGraph()
+def depth_first_inference(knowledge_base: KnowledgeBase, focus_area: str) -> KnowledgeBase:
+    """
+    DFS Strategy: Pick a domain/concept and infer as deeply as possible
     
-    while not knowledge_stack.empty():
-        current, direction = knowledge_stack.pop()
+    Focus areas could be: 'architecture', 'data_flow', 'error_handling', etc.
+    """
+    
+    # Start with facts related to focus area
+    seed_knowledge = knowledge_base.get_facts_by_domain(focus_area)
+    inference_stack = [(k, 0) for k in seed_knowledge]  # (knowledge, depth)
+    
+    while inference_stack:
+        current_knowledge, depth = inference_stack.pop()
         
-        # Infer along specific direction
-        inference = infer_along_direction(current, direction)
-        
-        if inference and not all_knowledge.contains(inference):
-            all_knowledge.add(inference)
-            # Continue in same direction
-            knowledge_stack.push((inference, direction))
+        if depth >= MAX_DEPTH:
+            continue
             
-    return all_knowledge
+        # Find the BEST next inference for this reasoning chain
+        best_inference = find_strongest_inference_from(
+            current_knowledge, 
+            focus_area, 
+            knowledge_base
+        )
+        
+        if best_inference and not knowledge_base.contains(best_inference):
+            knowledge_base.add_inference(best_inference, chain_depth=depth+1)
+            # Continue this specific reasoning chain
+            inference_stack.append((best_inference, depth+1))
+            
+    return knowledge_base
+```
+
+**DFS Result Example (focus_area='architecture'):**
+```
+Chain 1: class_def(FastAPI) → inherits(Starlette) → web_framework_pattern → 
+         ASGI_architecture → async_request_handling → high_performance_design
+
+Chain 2: function_def(@app.get) → decorator_pattern → routing_mechanism → 
+         RESTful_API_design → HTTP_method_mapping → API_endpoint_architecture
+```
+
+#### 3. **Strategy Comparison**
+
+| Aspect | Breadth-First | Depth-First |
+|--------|---------------|-------------|
+| **Coverage** | Comprehensive across all domains | Deep in specific domains |
+| **Knowledge Type** | Broad understanding | Specialized expertise |
+| **Use Case** | General Q&A about entire codebase | Focused analysis (architecture, security, etc.) |
+| **Processing Time** | Longer (explores everything) | Faster (focused exploration) |
+| **Result Quality** | Well-rounded knowledge | Deep domain insights |
+
+**Strategy Selection Logic:**
+```python
+def choose_strategy(source_type: str, user_intent: str) -> str:
+    """Choose BFS vs DFS based on source and intended use"""
+    
+    if user_intent in ['overview', 'general_understanding', 'exploration']:
+        return 'breadth_first'
+    elif user_intent in ['architecture_analysis', 'security_review', 'performance_analysis']:
+        return 'depth_first'
+    elif source_type == 'large_codebase':
+        return 'hybrid'  # BFS first, then DFS on key areas
+    else:
+        return 'breadth_first'  # Default to comprehensive
+```
+
+## Component Relationship Clarification
+
+### KnowledgeChatBot.chat vs QueryEngine.answer
+
+```python
+class KnowledgeChatBot:
+    def chat(self, question: str) -> str:
+        """User-facing interface with validation"""
+        if not self.knowledge_base.has_sources():
+            return "Please add a source first. I need something to learn from!"
+        # Delegate to query engine
+        return self.query_engine.answer(question, self.knowledge_base)
+
+class QueryEngine:
+    def answer(self, question: str, knowledge_base: KnowledgeBase) -> str:
+        """Core query processing engine that does the actual work"""
+        # 1. Search relevant knowledge across all layers
+        # 2. Build context from layered knowledge  
+        # 3. Generate LLM response with source constraints
+        # 4. Return structured answer with citations
+```
+
+**Relationship**: `chat()` is a thin wrapper that validates and delegates to `answer()` which handles the core logic.
+
+## Rigorous Knowledge Building Design
+
+### Knowledge Confidence System
+
+```python
+from enum import Enum
+from typing import List, Optional, Union
+
+class KnowledgeStatus(Enum):
+    VERIFIED = "verified"      # 100% certain from direct evidence
+    DEDUCED = "deduced"        # Logically derived with no assumptions  
+    UNKNOWN = "unknown"        # Cannot be determined from evidence
+    CONFLICTED = "conflicted"  # Multiple contradictory evidence sources
+
+class Knowledge:
+    def __init__(self, 
+                 content: str, 
+                 knowledge_type: str, 
+                 source: str,
+                 status: KnowledgeStatus,
+                 evidence: List['Knowledge'] = None,
+                 confidence_score: float = None):
+        self.content = content
+        self.type = knowledge_type
+        self.source = source  
+        self.status = status
+        self.evidence = evidence or []
+        
+        # Confidence score based on status
+        if status == KnowledgeStatus.VERIFIED:
+            self.confidence = 1.0
+        elif status == KnowledgeStatus.DEDUCED:
+            self.confidence = 0.95
+        elif status == KnowledgeStatus.UNKNOWN:
+            self.confidence = 0.0
+        elif status == KnowledgeStatus.CONFLICTED:
+            self.confidence = 0.0
+```
+
+### Rigorous Inference Rules
+
+```python
+class RigorousInferenceEngine:
+    """Only builds knowledge that can be PROVEN from evidence"""
+    
+    def _try_infer(self, k1: Knowledge, k2: Knowledge) -> Optional[Knowledge]:
+        """Attempt inference - return None if not rigorous enough"""
+        
+        # Rule 1: Function Usage Verification
+        if (k1.type == 'function_definition' and k2.type == 'function_call'):
+            if self._exact_function_match(k1, k2):
+                return Knowledge(
+                    content=f"Function '{k1.function_name}' is called at {k2.location}",
+                    knowledge_type='verified_usage',
+                    source='verified_inference',
+                    status=KnowledgeStatus.VERIFIED,
+                    evidence=[k1, k2]
+                )
+                
+        # Rule 2: Inheritance Verification  
+        if (k1.type == 'class_definition' and k2.type == 'inheritance_declaration'):
+            if self._exact_inheritance_match(k1, k2):
+                return Knowledge(
+                    content=f"Class '{k1.class_name}' is a base class for '{k2.child_class}'",
+                    knowledge_type='inheritance_relationship',
+                    source='verified_inference', 
+                    status=KnowledgeStatus.VERIFIED,
+                    evidence=[k1, k2]
+                )
+                
+        # Rule 3: Import-Usage Connection
+        if (k1.type == 'import_statement' and k2.type == 'symbol_usage'):
+            if self._exact_import_usage_match(k1, k2):
+                return Knowledge(
+                    content=f"Module '{k1.module_name}' is actively used via '{k2.symbol_name}'",
+                    knowledge_type='dependency_usage',
+                    source='verified_inference',
+                    status=KnowledgeStatus.VERIFIED,
+                    evidence=[k1, k2]
+                )
+                
+        # If no rigorous rule applies, don't guess
+        return None
+        
+    def _exact_function_match(self, definition: Knowledge, call: Knowledge) -> bool:
+        """Verify exact function name match - no assumptions"""
+        def_name = self._extract_function_name(definition.content)
+        call_name = self._extract_function_name(call.content)
+        return def_name == call_name and def_name is not None
+        
+    def _handle_insufficient_evidence(self, k1: Knowledge, k2: Knowledge) -> Optional[Knowledge]:
+        """Create UNKNOWN knowledge when evidence is insufficient"""
+        
+        # Example: Similar function names but not exact match
+        if (k1.type == 'function_definition' and k2.type == 'function_call'):
+            def_name = self._extract_function_name(k1.content)
+            call_name = self._extract_function_name(k2.content)
+            
+            if def_name and call_name and self._similar_but_not_exact(def_name, call_name):
+                return Knowledge(
+                    content=f"UNKNOWN: Relationship between function '{def_name}' and call '{call_name}' - similar names but cannot verify exact match",
+                    knowledge_type='unknown_relationship',
+                    source='insufficient_evidence',
+                    status=KnowledgeStatus.UNKNOWN,
+                    evidence=[k1, k2]
+                )
+                
+        return None
+        
+    def _handle_conflicting_evidence(self, evidences: List[Knowledge]) -> Knowledge:
+        """Create CONFLICTED knowledge when sources contradict"""
+        
+        conflicting_contents = [e.content for e in evidences]
+        return Knowledge(
+            content=f"CONFLICTED: Multiple contradictory statements found: {conflicting_contents}",
+            knowledge_type='conflicted_information',
+            source='conflicting_evidence',
+            status=KnowledgeStatus.CONFLICTED,
+            evidence=evidences
+        )
+```
+
+### Rigorous Evidence Standards
+
+```python
+class EvidenceStandards:
+    """Defines what counts as 'rigorous enough' evidence"""
+    
+    @staticmethod
+    def is_rigorous_enough(inference_type: str, evidence: List[Knowledge]) -> bool:
+        """Determine if evidence meets rigor standards for inference type"""
+        
+        standards = {
+            'function_usage': EvidenceStandards._verify_function_usage,
+            'inheritance_relationship': EvidenceStandards._verify_inheritance,
+            'dependency_usage': EvidenceStandards._verify_dependency,
+            'architectural_pattern': EvidenceStandards._verify_pattern,
+        }
+        
+        if inference_type not in standards:
+            return False  # Unknown inference types are not rigorous
+            
+        return standards[inference_type](evidence)
+        
+    @staticmethod 
+    def _verify_function_usage(evidence: List[Knowledge]) -> bool:
+        """Function usage requires exact name match and valid locations"""
+        if len(evidence) != 2:
+            return False
+            
+        definition, call = evidence
+        return (
+            definition.type == 'function_definition' and
+            call.type == 'function_call' and
+            definition.function_name == call.function_name and
+            definition.function_name is not None and
+            call.location is not None
+        )
+        
+    @staticmethod
+    def _verify_inheritance(evidence: List[Knowledge]) -> bool:
+        """Inheritance requires explicit 'class Child(Parent):' syntax"""
+        if len(evidence) != 2:
+            return False
+            
+        parent, inheritance = evidence
+        return (
+            parent.type == 'class_definition' and
+            inheritance.type == 'inheritance_declaration' and
+            parent.class_name == inheritance.parent_class and
+            parent.class_name is not None
+        )
+        
+    @staticmethod
+    def _verify_dependency(evidence: List[Knowledge]) -> bool:
+        """Dependency usage requires import + actual symbol usage"""
+        if len(evidence) != 2:
+            return False
+            
+        import_stmt, usage = evidence
+        return (
+            import_stmt.type == 'import_statement' and
+            usage.type == 'symbol_usage' and
+            import_stmt.provides_symbol(usage.symbol_name)
+        )
+```
+
+### Unknown and Conflict Handling
+
+```python
+class KnowledgeBase:
+    def __init__(self):
+        self.verified_knowledge = []    # High confidence knowledge
+        self.deduced_knowledge = []     # Logically derived knowledge  
+        self.unknown_items = []         # Cannot determine from evidence
+        self.conflicts = []             # Contradictory evidence
+        
+    def add_knowledge(self, knowledge: Knowledge):
+        """Route knowledge to appropriate collection based on status"""
+        if knowledge.status == KnowledgeStatus.VERIFIED:
+            self.verified_knowledge.append(knowledge)
+        elif knowledge.status == KnowledgeStatus.DEDUCED:
+            self.deduced_knowledge.append(knowledge)
+        elif knowledge.status == KnowledgeStatus.UNKNOWN:
+            self.unknown_items.append(knowledge)
+        elif knowledge.status == KnowledgeStatus.CONFLICTED:
+            self.conflicts.append(knowledge)
+            
+    def query_with_uncertainty(self, question: str) -> QueryResult:
+        """Return answer with explicit uncertainty information"""
+        
+        # Search all knowledge types
+        verified_matches = self._search(question, self.verified_knowledge)
+        deduced_matches = self._search(question, self.deduced_knowledge)  
+        unknown_matches = self._search(question, self.unknown_items)
+        conflict_matches = self._search(question, self.conflicts)
+        
+        return QueryResult(
+            verified_facts=verified_matches,
+            deduced_facts=deduced_matches,
+            unknown_areas=unknown_matches,
+            conflicts=conflict_matches
+        )
+
+class QueryResult:
+    def __init__(self, verified_facts, deduced_facts, unknown_areas, conflicts):
+        self.verified_facts = verified_facts      # 100% certain
+        self.deduced_facts = deduced_facts        # Logically sound
+        self.unknown_areas = unknown_areas        # Cannot determine
+        self.conflicts = conflicts                # Contradictory evidence
+        
+    def generate_response(self) -> str:
+        """Generate response that clearly indicates certainty levels"""
+        response = []
+        
+        if self.verified_facts:
+            response.append("VERIFIED FACTS:")
+            for fact in self.verified_facts:
+                response.append(f"✓ {fact.content} (Source: {fact.source})")
+                
+        if self.deduced_facts:
+            response.append("\nLOGICAL DEDUCTIONS:")
+            for deduction in self.deduced_facts:
+                response.append(f"→ {deduction.content} (Derived from: {len(deduction.evidence)} sources)")
+                
+        if self.unknown_areas:
+            response.append("\nUNCLEAR AREAS:")
+            for unknown in self.unknown_areas:
+                response.append(f"? {unknown.content}")
+                
+        if self.conflicts:
+            response.append("\nCONFLICTING INFORMATION:")
+            for conflict in self.conflicts:
+                response.append(f"⚠ {conflict.content}")
+                
+        return "\n".join(response)
 ```
 
 ## System Architecture
