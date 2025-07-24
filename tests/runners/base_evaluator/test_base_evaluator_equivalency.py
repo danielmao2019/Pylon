@@ -11,7 +11,7 @@ from metrics.base_metric import BaseMetric
 from runners.base_evaluator import BaseEvaluator
 from utils.logging.text_logger import TextLogger
 from utils.ops import transpose_buffer
-from utils.io import save_json
+from utils.io.json import safe_save_json
 from data.collators.base_collator import BaseCollator
 
 
@@ -202,7 +202,7 @@ class SimpleTestMetric(BaseMetric):
         }
 
         if output_path:
-            save_json(obj=result, filepath=output_path)
+            safe_save_json(obj=result, filepath=output_path)
 
         return result
 
