@@ -31,19 +31,21 @@ A chat bot that builds deep, layered knowledge from provided sources. Users prov
 **Traditional chat bots**: User confirmation is handled as a special "interaction system"  
 **Our approach**: User responses are just another **information source**, equal to files, databases, and web pages
 
-```python
-# All information sources are equal:
-github_source = GitHubRepoSource("/path/to/repo")     # Static source
-user_source = UserInteractionSource()                 # Interactive source  
-pdf_source = PDFSource("/path/to/paper.pdf")         # Static source
-database_source = DatabaseSource("connection_str")    # Dynamic source
+```
+// All information sources follow same interface:
+sources = [
+    GitHubRepo("/path/to/repo"),     // Static: files, structure, dependencies
+    UserInteraction(),               // Interactive: confirmations, clarifications  
+    PDFDocument("/path/to/paper"),   // Static: text, references, figures
+    Database("connection_string")    // Dynamic: records, relationships
+]
 
-# Same processing for all:
-for source in [github_source, user_source, pdf_source, database_source]:
-    raw_information = source.extract_information()
-    knowledge = convert_to_knowledge(raw_information)
-    knowledge_base.add_knowledge(knowledge)
-    inference_engine.build_new_knowledge(knowledge_base)
+// Same processing pipeline for all sources:
+for each source:
+    raw_info = source.extract_information()     // Source-specific extraction
+    knowledge = convert_to_knowledge(raw_info)  // Standardize format
+    knowledge_base.add(knowledge)               // Store with source tracking
+    inference_engine.infer_new_knowledge()     // Build derived knowledge
 ```
 
 ### Benefits of This Approach
@@ -71,32 +73,18 @@ for source in [github_source, user_source, pdf_source, database_source]:
 
 All information sources implement the same contract:
 
-```python
-class InformationSource(ABC):
-    """Abstract base for all information sources"""
-    
-    @abstractmethod
-    def get_source_type(self) -> str:
-        """Return source type: 'github_repo', 'pdf', 'database', 'user_interaction'"""
-        pass
-        
-    @abstractmethod
-    def extract_information(self) -> List[RawInformation]:
-        """Extract raw information from this source"""
-        pass
-        
-    @abstractmethod
-    def is_available(self) -> bool:
-        """Check if source is ready to provide information"""
-        pass
+```
+interface InformationSource {
+    get_source_type() -> string        // "github_repo", "pdf", "user_interaction"
+    extract_information() -> [RawInfo] // Extract all available information
+    is_available() -> boolean          // Check if source is ready
+}
 
-class RawInformation:
-    """Single piece of raw information from any source"""
-    def __init__(self, content: str, info_type: str, source_metadata: Dict):
-        self.content = content
-        self.info_type = info_type  # 'file_content', 'user_statement', 'database_record'
-        self.source_metadata = source_metadata  # source-specific details
-        self.timestamp = datetime.now()
+struct RawInformation {
+    content: string           // The actual information content
+    type: string             // "file_content", "user_statement", "database_record"
+    source_metadata: dict    // Source-specific details (file path, timestamp, etc.)
+}
 ```
 
 ### The Unified Knowledge Building Process
@@ -125,36 +113,24 @@ Database Records           Structured data            Domain facts
 #### 1. **Breadth-First Knowledge Building**
 *Explore all immediate inferences at each layer before going deeper*
 
-```python
-def breadth_first_inference(knowledge_base: KnowledgeBase) -> KnowledgeBase:
-    """
-    BFS Strategy: Build wide knowledge first, then deep insights
-    
-    Layer 1: All direct facts and relationships
-    Layer 2: All immediate inferences from Layer 1  
-    Layer 3: All inferences from Layer 2
-    ...continue until no new knowledge can be inferred
-    """
-    current_layer = knowledge_base.get_facts() + knowledge_base.get_relationships()
-    inference_depth = 0
-    
-    while current_layer and inference_depth < MAX_DEPTH:
-        next_layer = []
-        
-        # Try to infer from ALL pairs in current layer
-        for knowledge1 in current_layer:
-            for knowledge2 in current_layer:
-                if knowledge1 != knowledge2:
-                    inference = try_rigorous_inference(knowledge1, knowledge2)
-                    if inference and not knowledge_base.contains(inference):
-                        next_layer.append(inference)
-                        knowledge_base.add_inference(inference, layer=inference_depth+1)
-        
-        # Move to next layer
-        current_layer = next_layer
-        inference_depth += 1
-        
-    return knowledge_base
+```
+BFS Strategy: Build wide knowledge first, then deep insights
+
+Layer 0: [Facts from all sources] 
+Layer 1: [All possible inferences from Layer 0]
+Layer 2: [All possible inferences from Layer 1]
+...continue until no new knowledge
+
+Algorithm:
+  current_layer = all_facts_and_relationships
+  while current_layer has items and depth < MAX_DEPTH:
+    next_layer = []
+    for each pair (k1, k2) in current_layer:
+      if can_infer_rigorously(k1, k2):
+        new_knowledge = infer(k1, k2)
+        next_layer.add(new_knowledge)
+    current_layer = next_layer
+    depth++
 ```
 
 **BFS Result Example:**
@@ -168,37 +144,19 @@ Layer 3: [codebase_follows_modular_design]
 #### 2. **Depth-First Knowledge Building** 
 *Follow one reasoning chain as deep as possible before exploring alternatives*
 
-```python
-def depth_first_inference(knowledge_base: KnowledgeBase, focus_area: str) -> KnowledgeBase:
-    """
-    DFS Strategy: Pick a domain/concept and infer as deeply as possible
-    
-    Focus areas could be: 'architecture', 'data_flow', 'error_handling', etc.
-    """
-    
-    # Start with facts related to focus area
-    seed_knowledge = knowledge_base.get_facts_by_domain(focus_area)
-    inference_stack = [(k, 0) for k in seed_knowledge]  # (knowledge, depth)
-    
-    while inference_stack:
-        current_knowledge, depth = inference_stack.pop()
-        
-        if depth >= MAX_DEPTH:
-            continue
-            
-        # Find the BEST next inference for this reasoning chain
-        best_inference = find_strongest_inference_from(
-            current_knowledge, 
-            focus_area, 
-            knowledge_base
-        )
-        
-        if best_inference and not knowledge_base.contains(best_inference):
-            knowledge_base.add_inference(best_inference, chain_depth=depth+1)
-            # Continue this specific reasoning chain
-            inference_stack.append((best_inference, depth+1))
-            
-    return knowledge_base
+```
+DFS Strategy: Pick a domain and infer as deeply as possible
+
+Focus areas: 'architecture', 'data_flow', 'error_handling', etc.
+
+Algorithm:
+  stack = [seed_knowledge_for_focus_area]
+  while stack not empty and depth < MAX_DEPTH:
+    current = stack.pop()
+    best_next = find_strongest_inference_from(current, focus_area)
+    if best_next and not already_known(best_next):
+      knowledge_base.add(best_next)
+      stack.push(best_next)  // Continue this reasoning chain
 ```
 
 **DFS Result Example (focus_area='architecture'):**
@@ -221,18 +179,16 @@ Chain 2: function_def(@app.get) → decorator_pattern → routing_mechanism →
 | **Result Quality** | Well-rounded knowledge | Deep domain insights |
 
 **Strategy Selection Logic:**
-```python
-def choose_strategy(source_type: str, user_intent: str) -> str:
-    """Choose BFS vs DFS based on source and intended use"""
-    
-    if user_intent in ['overview', 'general_understanding', 'exploration']:
-        return 'breadth_first'
-    elif user_intent in ['architecture_analysis', 'security_review', 'performance_analysis']:
-        return 'depth_first'
-    elif source_type == 'large_codebase':
-        return 'hybrid'  # BFS first, then DFS on key areas
-    else:
-        return 'breadth_first'  # Default to comprehensive
+```
+Strategy Selection:
+  if user_intent = "overview" or "general_understanding":
+    use breadth_first  // Wide coverage across all domains
+  elif user_intent = "architecture_analysis" or "security_review":
+    use depth_first    // Deep dive into specific area
+  elif source_type = "large_codebase":
+    use hybrid         // BFS first, then DFS on key areas
+  else:
+    use breadth_first  // Default to comprehensive
 ```
 
 ---
@@ -245,187 +201,77 @@ def choose_strategy(source_type: str, user_intent: str) -> str:
 
 #### Knowledge Confidence System
 
-```python
-from enum import Enum
-from typing import List, Optional, Union
+```
+Knowledge Status Types:
+  VERIFIED   - 100% certain from direct evidence (confidence = 1.0)
+  DEDUCED    - Logically derived, no assumptions (confidence = 0.95)
+  UNKNOWN    - Cannot determine from evidence (confidence = 0.0)
+  CONFLICTED - Multiple contradictory sources (confidence = 0.0)
 
-class KnowledgeStatus(Enum):
-    VERIFIED = "verified"      # 100% certain from direct evidence
-    DEDUCED = "deduced"        # Logically derived with no assumptions  
-    UNKNOWN = "unknown"        # Cannot be determined from evidence
-    CONFLICTED = "conflicted"  # Multiple contradictory evidence sources
-
-class Knowledge:
-    def __init__(self, 
-                 content: str, 
-                 knowledge_type: str, 
-                 source: str,
-                 status: KnowledgeStatus,
-                 evidence: List['Knowledge'] = None,
-                 confidence_score: float = None):
-        self.content = content
-        self.type = knowledge_type
-        self.source = source  
-        self.status = status
-        self.evidence = evidence or []
-        
-        # Confidence score based on status
-        if status == KnowledgeStatus.VERIFIED:
-            self.confidence = 1.0
-        elif status == KnowledgeStatus.DEDUCED:
-            self.confidence = 0.95
-        elif status == KnowledgeStatus.UNKNOWN:
-            self.confidence = 0.0
-        elif status == KnowledgeStatus.CONFLICTED:
-            self.confidence = 0.0
+Knowledge Structure:
+  {
+    content: "Class Parser is defined in parser.py"
+    type: "class_definition" 
+    source: "github_repo:parser.py:15"
+    status: VERIFIED
+    evidence: [list of supporting knowledge items]
+    confidence: 1.0
+  }
 ```
 
 #### Rigorous Inference Rules
 
-```python
-class RigorousInferenceEngine:
-    """Only builds knowledge that can be PROVEN from evidence"""
-    
-    def _try_infer(self, k1: Knowledge, k2: Knowledge) -> Optional[Knowledge]:
-        """Attempt inference - return None if not rigorous enough"""
-        
-        # Rule 1: Function Usage Verification
-        if (k1.type == 'function_definition' and k2.type == 'function_call'):
-            if self._exact_function_match(k1, k2):
-                return Knowledge(
-                    content=f"Function '{k1.function_name}' is called at {k2.location}",
-                    knowledge_type='verified_usage',
-                    source='verified_inference',
-                    status=KnowledgeStatus.VERIFIED,
-                    evidence=[k1, k2]
-                )
-                
-        # Rule 2: Inheritance Verification  
-        if (k1.type == 'class_definition' and k2.type == 'inheritance_declaration'):
-            if self._exact_inheritance_match(k1, k2):
-                return Knowledge(
-                    content=f"Class '{k1.class_name}' is a base class for '{k2.child_class}'",
-                    knowledge_type='inheritance_relationship',
-                    source='verified_inference', 
-                    status=KnowledgeStatus.VERIFIED,
-                    evidence=[k1, k2]
-                )
-                
-        # Rule 3: Import-Usage Connection
-        if (k1.type == 'import_statement' and k2.type == 'symbol_usage'):
-            if self._exact_import_usage_match(k1, k2):
-                return Knowledge(
-                    content=f"Module '{k1.module_name}' is actively used via '{k2.symbol_name}'",
-                    knowledge_type='dependency_usage',
-                    source='verified_inference',
-                    status=KnowledgeStatus.VERIFIED,
-                    evidence=[k1, k2]
-                )
-                
-        # If no rigorous rule applies, don't guess
-        return None
-        
-    def _exact_function_match(self, definition: Knowledge, call: Knowledge) -> bool:
-        """Verify exact function name match - no assumptions"""
-        def_name = self._extract_function_name(definition.content)
-        call_name = self._extract_function_name(call.content)
-        return def_name == call_name and def_name is not None
-        
-    def _handle_insufficient_evidence(self, k1: Knowledge, k2: Knowledge) -> Optional[Knowledge]:
-        """Create UNKNOWN knowledge when evidence is insufficient"""
-        
-        # Example: Similar function names but not exact match
-        if (k1.type == 'function_definition' and k2.type == 'function_call'):
-            def_name = self._extract_function_name(k1.content)
-            call_name = self._extract_function_name(k2.content)
-            
-            if def_name and call_name and self._similar_but_not_exact(def_name, call_name):
-                return Knowledge(
-                    content=f"UNKNOWN: Relationship between function '{def_name}' and call '{call_name}' - similar names but cannot verify exact match",
-                    knowledge_type='unknown_relationship',
-                    source='insufficient_evidence',
-                    status=KnowledgeStatus.UNKNOWN,
-                    evidence=[k1, k2]
-                )
-                
-        return None
-        
-    def _handle_conflicting_evidence(self, evidences: List[Knowledge]) -> Knowledge:
-        """Create CONFLICTED knowledge when sources contradict"""
-        
-        conflicting_contents = [e.content for e in evidences]
-        return Knowledge(
-            content=f"CONFLICTED: Multiple contradictory statements found: {conflicting_contents}",
-            knowledge_type='conflicted_information',
-            source='conflicting_evidence',
-            status=KnowledgeStatus.CONFLICTED,
-            evidence=evidences
-        )
+```
+Inference Rules (only build knowledge that can be PROVEN):
+
+Rule 1: Function Usage
+  if (k1 = function_definition AND k2 = function_call):
+    if exact_name_match(k1.name, k2.name):
+      create VERIFIED knowledge: "Function X is called at location Y"
+
+Rule 2: Class Inheritance  
+  if (k1 = class_definition AND k2 = inheritance_declaration):
+    if exact_parent_match(k1.name, k2.parent):
+      create VERIFIED knowledge: "Class X is base class for Y"
+
+Rule 3: Import Usage
+  if (k1 = import_statement AND k2 = symbol_usage):
+    if import_provides_symbol(k1, k2.symbol):
+      create VERIFIED knowledge: "Module X is used via symbol Y"
+
+Handling Uncertainty:
+  - If evidence insufficient → create UNKNOWN knowledge
+  - If sources contradict → create CONFLICTED knowledge  
+  - If no rigorous rule applies → create nothing (don't guess)
 ```
 
 #### Rigorous Evidence Standards
 
-```python
-class EvidenceStandards:
-    """Defines what counts as 'rigorous enough' evidence"""
-    
-    @staticmethod
-    def is_rigorous_enough(inference_type: str, evidence: List[Knowledge]) -> bool:
-        """Determine if evidence meets rigor standards for inference type"""
-        
-        standards = {
-            'function_usage': EvidenceStandards._verify_function_usage,
-            'inheritance_relationship': EvidenceStandards._verify_inheritance,
-            'dependency_usage': EvidenceStandards._verify_dependency,
-            'architectural_pattern': EvidenceStandards._verify_pattern,
-        }
-        
-        if inference_type not in standards:
-            return False  # Unknown inference types are not rigorous
-            
-        return standards[inference_type](evidence)
-        
-    @staticmethod 
-    def _verify_function_usage(evidence: List[Knowledge]) -> bool:
-        """Function usage requires exact name match and valid locations"""
-        if len(evidence) != 2:
-            return False
-            
-        definition, call = evidence
-        return (
-            definition.type == 'function_definition' and
-            call.type == 'function_call' and
-            definition.function_name == call.function_name and
-            definition.function_name is not None and
-            call.location is not None
-        )
-        
-    @staticmethod
-    def _verify_inheritance(evidence: List[Knowledge]) -> bool:
-        """Inheritance requires explicit 'class Child(Parent):' syntax"""
-        if len(evidence) != 2:
-            return False
-            
-        parent, inheritance = evidence
-        return (
-            parent.type == 'class_definition' and
-            inheritance.type == 'inheritance_declaration' and
-            parent.class_name == inheritance.parent_class and
-            parent.class_name is not None
-        )
-        
-    @staticmethod
-    def _verify_dependency(evidence: List[Knowledge]) -> bool:
-        """Dependency usage requires import + actual symbol usage"""
-        if len(evidence) != 2:
-            return False
-            
-        import_stmt, usage = evidence
-        return (
-            import_stmt.type == 'import_statement' and
-            usage.type == 'symbol_usage' and
-            import_stmt.provides_symbol(usage.symbol_name)
-        )
+```
+Evidence Requirements by Inference Type:
+
+function_usage:
+  - Requires exactly 2 pieces of evidence
+  - Must have function_definition + function_call  
+  - Names must match exactly (no fuzzy matching)
+  - Both must have valid location information
+
+inheritance_relationship:
+  - Requires exactly 2 pieces of evidence
+  - Must have class_definition + inheritance_declaration
+  - Parent class name must match exactly
+  - Must use explicit "class Child(Parent):" syntax
+
+dependency_usage:
+  - Requires exactly 2 pieces of evidence  
+  - Must have import_statement + symbol_usage
+  - Import must actually provide the used symbol
+  - No inferring imports from usage alone
+
+General Rules:
+  - Unknown inference types → not rigorous (return false)
+  - Missing required evidence → not rigorous
+  - Fuzzy/approximate matches → not rigorous
 ```
 
 ### Information Processing Flow
@@ -655,120 +501,31 @@ class PDFSource(InformationSource):
 
 ### Core Components
 
-```python
+```
+Main ChatBot Architecture:
+
 class KnowledgeChatBot:
-    """Main chat bot that builds knowledge from multiple information sources"""
-    
-    def __init__(self):
-        self.knowledge_base = KnowledgeBase()
-        self.inference_engine = InferenceEngine()
-        self.information_sources = []  # List of all information sources
-        self.query_engine = QueryEngine()
-        
-    def add_information_source(self, source: InformationSource):
-        """Add any type of information source"""
-        self.information_sources.append(source)
-        self._build_knowledge_from_source(source)
-        
-    def add_github_repo(self, repo_path: str):
-        """Convenience method for adding GitHub repo"""
-        source = GitHubRepoSource(repo_path)
-        self.add_information_source(source)
-        
-    def add_pdf(self, pdf_path: str):
-        """Convenience method for adding PDF"""
-        source = PDFSource(pdf_path)
-        self.add_information_source(source)
-        
-    def _get_user_source(self) -> UserInteractionSource:
-        """Get or create user interaction source"""
-        for source in self.information_sources:
-            if isinstance(source, UserInteractionSource):
-                return source
-        # Create user source if doesn't exist
-        user_source = UserInteractionSource()
-        self.information_sources.append(user_source)
-        return user_source
-        
-    def _build_knowledge_from_source(self, source: InformationSource):
-        """Build knowledge from any information source"""
-        print(f"📚 Processing {source.get_source_type()} source...")
-        
-        # Extract raw information
-        raw_info = source.extract_information()
-        
-        # Convert to initial knowledge
-        print("🧠 Building initial knowledge...")
-        initial_knowledge = self._raw_to_knowledge(raw_info, source.get_source_type())
-        
-        # Add to knowledge base
-        for knowledge in initial_knowledge:
-            self.knowledge_base.add_knowledge(knowledge)
-            
-        # Run inference to build new knowledge
-        print("🔄 Inferring new knowledge...")
-        self.inference_engine.expand_knowledge_base(self.knowledge_base)
-        
-        print("✅ Knowledge building complete!")
-        
-    def _raw_to_knowledge(self, raw_info: List[RawInformation], source_type: str) -> List[Knowledge]:
-        """Convert raw information to Knowledge objects"""
-        knowledge_list = []
-        for info in raw_info:
-            knowledge = Knowledge(
-                content=info.content,
-                knowledge_type=self._determine_knowledge_type(info),
-                source=f"{source_type}:{info.source_metadata.get('location', 'unknown')}",
-                status=KnowledgeStatus.VERIFIED,  # Raw information is always verified
-                evidence=[]
-            )
-            knowledge_list.append(knowledge)
-        return knowledge_list
-        
-    def chat(self, user_input: str) -> str:
-        """Handle user interaction - questions and responses to bot questions"""
-        
-        user_source = self._get_user_source()
-        
-        # Check if we have pending questions for the user
-        if user_source.has_pending_questions():
-            # User is responding to our question
-            question = user_source.get_next_question()
-            user_source.add_user_response(question.question, user_input)
-            
-            # Process this new user information
-            self._build_knowledge_from_source(user_source)
-            
-            return "Thank you! I've learned from your response. What else would you like to know?"
-            
-        # Normal question processing
-        if not self.information_sources:
-            return "Please add an information source first. I need something to learn from!"
-            
-        result = self.query_engine.answer(user_input, self.knowledge_base)
-        
-        # Check if we need to ask user for clarification
-        if result.has_uncertain_knowledge():
-            uncertain_item = result.get_most_relevant_uncertain()
-            question = self._generate_clarification_question(uncertain_item)
-            user_source.ask_user(question, uncertain_item)
-            
-            return f"{result.generate_response()}\n\n❓ {question}"
-            
-        return result.generate_response()
-        
-    def _generate_clarification_question(self, knowledge: Knowledge) -> str:
-        """Generate question to clarify uncertain knowledge"""
-        if knowledge.status == KnowledgeStatus.DEDUCED:
-            return f"I deduced that {knowledge.content}. Is this correct?"
-        elif knowledge.status == KnowledgeStatus.UNKNOWN:
-            return f"I'm unsure about: {knowledge.content}. Can you clarify?"
-        elif knowledge.status == KnowledgeStatus.CONFLICTED:
-            conflicts = [e.content for e in knowledge.evidence]
-            return f"I found conflicting information:\n" + \
-                   "\n".join(f"- {c}" for c in conflicts) + \
-                   "\nWhich is correct?"
-        return f"Can you help me understand: {knowledge.content}?"
+  components:
+    - knowledge_base: stores all knowledge with source tracking
+    - inference_engine: builds new knowledge from existing knowledge
+    - information_sources: list of all sources (github, pdf, user, etc.)
+    - query_engine: answers questions based on knowledge
+
+  key methods:
+    add_information_source(source):
+      - Add any source type to the system
+      - Extract raw information from source  
+      - Convert to structured knowledge
+      - Run inference to build derived knowledge
+      
+    chat(user_input):
+      - If user responding to bot question: process as new information source
+      - If normal question: query knowledge base and generate response
+      - If uncertain knowledge found: ask user for clarification
+      - Return response with source citations
+
+  information flow:
+    Source → RawInformation → Knowledge → Inference → Enhanced Knowledge → Answers
 ```
 
 ### Knowledge Representation
@@ -1162,48 +919,49 @@ sqlalchemy>=2.0.0          # Database connections
 
 ## Usage & Examples
 
-```python
-# User workflow with unified information sources
-bot = KnowledgeChatBot()
+```
+User Workflow with Unified Sources:
 
-# 1. Add multiple information sources
-bot.add_github_repo("/path/to/repo")  # Static source
-bot.add_pdf("/path/to/paper.pdf")     # Static source  
-# User interactions will be added automatically as an information source
+1. Setup:
+   bot = KnowledgeChatBot()
+   bot.add_github_repo("/path/to/repo")    // Add static source
+   bot.add_pdf("/path/to/paper.pdf")       // Add static source
+   // User interaction source created automatically
 
-# 2. User asks questions - bot learns from both static sources AND user responses
-response = bot.chat("What is the architecture of this project?")
-# Bot may ask for clarification: "I deduced X. Is this correct?"
+2. Interactive Learning:
+   user: "What is the architecture of this project?"
+   bot: "Based on code analysis: [response] 
+        ❓ I deduced X. Is this correct?"
+   
+   user: "Yes, but specifically it uses microservices"
+   bot: [processes user response as new information source]
+        "Thank you! I've learned from your response."
+   
+   user: "How does authentication work?"
+   bot: "Based on github_repo and user_interaction sources: [enhanced response]"
 
-response = bot.chat("Yes, but specifically it uses microservices")
-# Bot processes user response as new information and rebuilds knowledge
-
-response = bot.chat("How does the authentication work?")
-# Now bot has knowledge from: repo files + user clarification + inference
-# Returns: "Based on github_repo and user_interaction sources: ..."
-
-# 3. All information sources are treated equally in knowledge building
-print(bot.knowledge_base.get_knowledge_by_source('github_repo'))      # Code analysis
-print(bot.knowledge_base.get_knowledge_by_source('user_interaction'))  # User responses
-print(bot.knowledge_base.get_knowledge_by_source('pdf_document'))      # Paper content
+3. Source Equality Demonstration:
+   knowledge_by_source = {
+     'github_repo': [facts from code analysis],
+     'user_interaction': [facts from user responses],
+     'pdf_document': [facts from paper content]
+   }
+   // All sources processed identically through same pipeline
 ```
 
 ### Information Source Equality
 
-The key insight is that **all information sources are equal**:
+**Key insight**: All sources are just different ways to get information:
 
-```python
-# These are all just different ways to get RawInformation:
-github_info = github_source.extract_information()  # From files
-user_info = user_source.extract_information()      # From user responses  
-pdf_info = pdf_source.extract_information()        # From documents
-db_info = database_source.extract_information()    # From records
-
-# All get processed the same way:
-for info_list in [github_info, user_info, pdf_info, db_info]:
-    knowledge = bot._raw_to_knowledge(info_list, source_type)
-    bot.knowledge_base.add_knowledge(knowledge)
-    bot.inference_engine.expand_knowledge_base(bot.knowledge_base)
+```
+Information Extraction (all sources equal):
+  GitHubRepo.extract()     → RawInformation about code
+  UserInteraction.extract() → RawInformation about clarifications  
+  PDFDocument.extract()    → RawInformation about research
+  Database.extract()       → RawInformation about records
+  
+Processing Pipeline (identical for all):
+  RawInformation → Knowledge → Inference → Enhanced Knowledge
 ```
 
 ### Detailed Knowledge Building Examples
@@ -1249,15 +1007,15 @@ Source Code → AST Parse → Extract Classes/Functions → Identify Patterns
 
 ## Key Design Decisions
 
-1. **Iterative Knowledge Building**: The system doesn't just store information - it actively builds new knowledge through inference
+1. **Unified Information Sources**: User interaction treated as information source, not special system - enables clean, extensible architecture
 
-2. **Source Constraint**: The bot only knows what you teach it - no external knowledge leaks
+2. **Rigorous Inference Only**: System never guesses - builds knowledge only from provable evidence, creates UNKNOWN/CONFLICTED states for uncertainty
 
-3. **Transparent Reasoning**: Users can see how knowledge was derived (fact → inference → deep insight)
+3. **Source Equality**: All information (files, user responses, databases) processed through identical pipeline - no special cases
 
-4. **Flexible Inference**: Support both breadth-first (explore all options) and depth-first (follow reasoning chains) strategies
+4. **Iterative Knowledge Building**: System actively builds new knowledge through BFS/DFS inference strategies, not just storage
 
-5. **Progressive Learning**: Each source adds to existing knowledge, enabling cross-source insights
+5. **Transparent Provenance**: Every piece of knowledge tracked to its source with confidence levels - users see reasoning chain
 
 ## Future Extensions
 
