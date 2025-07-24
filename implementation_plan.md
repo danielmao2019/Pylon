@@ -6,20 +6,9 @@ A chat bot that builds deep, layered knowledge from provided sources. Users prov
 
 ## Document Structure
 
-**Part I: System Design**
-1. **Key Innovation** - User interaction as an information source (unified source model)
-2. **Core Architecture** - Information source interface and knowledge building process
-3. **Knowledge Building** - Rigorous evidence-based inference (BFS/DFS strategies)
-
-**Part II: Implementation**
-4. **System Components** - Knowledge representation, inference engine, information processing
-5. **Information Sources** - GitHub repos, user interaction, PDFs, databases, recursive sources
-6. **Query Processing** - Response strategies, query engine, result generation
-
-**Part III: Development** 
-7. **User Interface** - Web interface and interaction design
-8. **Technical Stack** - Dependencies and implementation timeline  
-9. **Usage & Examples** - Practical workflows, detailed examples, and design decisions
+**System Design:** Core innovation, architecture, and knowledge building strategies  
+**Implementation:** Components, information sources, and query processing  
+**Development:** UI design, technical stack, timeline, and usage examples
 
 ---
 
@@ -439,165 +428,45 @@ Bot: "VERIFIED FACTS:
 ..."
 ```
 
-## System Architecture
 
-### Unified Information Source Model
+### Knowledge Representation System
 
-The chat bot treats all information equally, whether from:
-- **Static sources**: GitHub repos, PDFs, databases, web pages
-- **Interactive sources**: User confirmations, clarifications, corrections
-
-```python
-class InformationSource(ABC):
-    """Abstract base for all information sources"""
-    
-    @abstractmethod
-    def get_source_type(self) -> str:
-        """Return source type: 'github_repo', 'pdf', 'database', 'user_interaction'"""
-        pass
-        
-    @abstractmethod
-    def extract_information(self) -> List[RawInformation]:
-        """Extract raw information from this source"""
-        pass
-        
-    @abstractmethod
-    def is_available(self) -> bool:
-        """Check if source is ready to provide information"""
-        pass
-
-class RawInformation:
-    """Single piece of raw information from any source"""
-    def __init__(self, content: str, info_type: str, source_metadata: Dict):
-        self.content = content
-        self.info_type = info_type  # 'file_content', 'user_statement', 'database_record'
-        self.source_metadata = source_metadata  # source-specific details
-        self.timestamp = datetime.now()
+**Knowledge Status System:**
 ```
+Knowledge Confidence Levels:
+  VERIFIED   - 100% certain from direct evidence (confidence = 1.0)
+  DEDUCED    - Logically derived, no assumptions (confidence = 0.95)
+  UNKNOWN    - Cannot determine from evidence (confidence = 0.0)
+  CONFLICTED - Multiple contradictory sources (confidence = 0.0)
 
-### Information Source Types
+Knowledge Structure:
+  {
+    content: "Class Parser is defined in parser.py"
+    type: "class_definition" 
+    source: "github_repo:parser.py:15"
+    status: VERIFIED
+    evidence: [list of supporting knowledge items]
+    confidence: 1.0
+  }
 
-**Source Implementation Plans:**
-
-```
-GitHubRepoSource:
-  Purpose: Extract information from code repositories
-  Data Extraction:
-    - Parse Python/Java/etc. files using AST parsers
-    - Extract README.md, documentation files
-    - Parse requirements.txt, package.json for dependencies
-    - Identify project structure and organization
-  Output: RawInformation with file locations and code elements
-
-UserInteractionSource:
-  Purpose: Treat user responses as information source
-  Data Management:
-    - Queue system for pending questions to user
-    - Storage for user responses with question context
-    - Convert user statements to RawInformation format
-  Special Features:
-    - Bidirectional interaction (bot asks, user responds)
-    - Context preservation (what question led to response)
-    - Confidence = 1.0 (user statements are always verified)
-
-PDFSource:
-  Purpose: Extract information from PDF documents  
-  Data Extraction:
-    - Text extraction with layout preservation
-    - Table and figure identification
-    - Reference and citation parsing
-    - Section structure analysis
-  Output: RawInformation with page numbers and document structure
-
-DatabaseSource:
-  Purpose: Query structured databases for information
-  Data Access:
-    - SQL query generation based on schema analysis
-    - Record retrieval with relationship mapping
-    - Metadata extraction (constraints, relationships)
-  Output: RawInformation with database provenance
-
-Source Extension Strategy:
-  - All sources implement same InformationSource interface
-  - Adding new source type = implement 3 methods:
-    * get_source_type() → string identifier
-    * extract_information() → list of RawInformation
-    * is_available() → boolean availability check
-```
-
-### Core Components
-
-```
-Continuous Knowledge Building Chat Bot Architecture:
-
-ChatBot Processing Flow:
-
-1. Input Analysis:
-   - Is user providing new information? → Process as new information source
-   - Is user pointing to new document? → Add document source + build knowledge  
-   - Is user asking question? → Determine response strategy + potentially build new knowledge
-   - Is user confirming/correcting? → Update knowledge + trigger inference
-
-2. Continuous Knowledge Building Triggers:
-   - User confirmation/correction → Add to UserInteractionSource → Infer
-   - User mentions new document → Create new source → Extract + Infer  
-   - Knowledge base size threshold → Trigger recursive analysis → Meta-knowledge
-   - Pattern questions → Analyze existing patterns → Derive insights
-
-3. Response Strategy (with knowledge building):
-   Knowledge Base Mode:
-     - Query existing knowledge
-     - If gaps found → mark for user clarification (builds future knowledge)
+Conflict Detection and Resolution:
+  1. Conflict Detection:
+     - Check if new knowledge contradicts existing knowledge
+     - Compare content semantically (not just exact match)
+     - Identify potential conflicts across all confidence levels
      
-   RAG Mode:  
-     - Direct source retrieval
-     - Extract relevant content → potentially add to knowledge base
+  2. Conflict Resolution Strategy:
+     if no_conflict: Add to appropriate collection by status
+     elif conflict_detected: Create CONFLICTED knowledge item with all sources
+     elif supports_existing: Strengthen confidence of existing knowledge
      
-   Hybrid Mode:
-     - Combine knowledge base + RAG
-     - New connections discovered → add to knowledge base
-
-4. Dynamic Implementation:
-   chat(user_input):
-     // First: Check if this builds knowledge
-     new_sources = detect_new_information_sources(user_input)
-     for source in new_sources:
-       build_knowledge_from_source(source)  // Continuous building
-       
-     // Then: Generate response  
-     strategy = determine_response_strategy(user_input)
-     response = generate_response(strategy, user_input)
-     
-     // Finally: Learn from interaction
-     interaction_knowledge = extract_interaction_knowledge(user_input, response)  
-     if interaction_knowledge:
-       knowledge_base.add(interaction_knowledge)
-       
-Examples of Continuous Building:
-  "Read doc.pdf and explain the methodology" 
-    → Add PDFSource(doc.pdf) → Build knowledge → Answer with new knowledge
-    
-  "The Parser actually handles JSON, not XML"
-    → Update knowledge with user correction → Trigger inference on JSON handling
-    
-  "What patterns do you see in this codebase?"  
-    → Trigger recursive analysis → Build meta-knowledge → Answer with insights
+  3. Conflict Examples:
+     - "Parser handles JSON" vs "Parser handles XML" → CONFLICT
+     - "Function foo() takes 2 args" vs "Function foo() takes 3 args" → CONFLICT  
+     - "Class A inherits B" + "Class A inherits B" → SUPPORT (strengthen)
 ```
 
-### Knowledge Representation
-
-*Note: The complete Knowledge and KnowledgeBase implementations with rigorous confidence system are defined in the "Rigorous Knowledge Building Design" section above.*
-
-Key features of the knowledge representation:
-- **Knowledge Status System**: VERIFIED, DEDUCED, UNKNOWN, CONFLICTED
-- **Evidence Tracking**: Each knowledge item tracks its derivation sources
-- **Confidence Scoring**: Automatic confidence assignment based on status
-- **User Confirmation**: Knowledge can be upgraded to VERIFIED via user input
-
-### Inference Engine Design
-
-The inference engine implements both BFS and DFS strategies with rigorous evidence requirements:
-
+**Rigorous Inference Engine:**
 ```
 Purpose: Build new knowledge using rigorous evidence-based inference
 
@@ -611,17 +480,74 @@ Evidence Requirements:
   - Every inference must cite source evidence
   - Proper categorization as VERIFIED/DEDUCED/UNKNOWN/CONFLICTED
   - No guessing or fuzzy matching allowed
+
+Flexible Inference Patterns:
+  - Unary: Single knowledge item analysis (e.g., "function_definition" → "utility_function")
+  - Binary: Pairs of knowledge items (e.g., "class_def" + "inheritance" → "inheritance_relationship")
+  - Triplet: Three items needed (e.g., "import" + "class_def" + "usage" → "dependency_pattern")
+  - N-ary: Multiple related items → higher-level patterns
 ```
 
-Key principles:
-- **Only rigorous inferences**: Uses exact matching, no guessing
-- **Evidence tracking**: Every inference cites its source evidence  
-- **Status management**: Properly categorizes as VERIFIED, DEDUCED, UNKNOWN, or CONFLICTED
-- **Strategy support**: Both breadth-first and depth-first knowledge building
+### Core System Components
 
-## Information Source Implementations
+```
+Chat Bot Processing Flow:
 
-### GitHub Repository Source Design
+1. Input Analysis:
+   - New information provided → Process as information source
+   - New document referenced → Add source + build knowledge  
+   - Question asked → Determine response strategy + build knowledge
+   - Confirmation/correction → Update knowledge + trigger inference
+
+2. Knowledge Building Triggers:
+   - User confirmations/corrections → Build verified knowledge
+   - New documents mentioned → Extract + infer knowledge
+   - Knowledge base growth → Trigger meta-analysis
+   - Pattern questions → Analyze existing knowledge patterns
+
+3. Response Strategies:
+   - Knowledge Base Mode: Query existing knowledge, mark gaps for clarification
+   - RAG Mode: Direct source retrieval with potential knowledge building
+   - Hybrid Mode: Combine knowledge base + RAG, discover new connections
+```
+
+
+## Information Sources
+
+All information sources implement the same interface to maintain consistency:
+
+**Unified Source Architecture:**
+```
+Information Source Types:
+  - GitHubRepo: Code repositories (AST parsing, documentation, dependencies)
+  - UserInteraction: Confirmations and corrections (bidirectional, verified)
+  - PDFDocument: Papers and documents (text, structure, references)
+  - Database: Structured data (records, relationships, metadata)
+  - KnowledgeBaseSource: Recursive meta-analysis of existing knowledge
+
+KnowledgeBaseSource Details:
+  Purpose: Treat existing knowledge base as information source for meta-analysis
+  
+  Data Extraction Strategy:
+    - Pattern Analysis: Identify recurring patterns in existing knowledge
+    - Relationship Mining: Find implicit connections between knowledge items  
+    - Architectural Inference: Derive system-level insights from component knowledge
+    - Abstraction Building: Create higher-level concepts from detailed facts
+  
+  Extraction Examples:
+    Raw Knowledge: [10 function definitions, 5 class definitions, 8 imports]
+    → Meta Knowledge: "This module follows object-oriented design patterns"
+    
+    Raw Knowledge: [error handling in 15 functions, try-catch patterns, logging calls]  
+    → Meta Knowledge: "System has comprehensive error handling architecture"
+
+Common Interface:
+  - get_source_type() → Source identifier
+  - extract_information() → RawInformation list  
+  - is_available() → Availability check
+```
+
+### GitHub Repository Source Details
 
 ```
 Purpose: Extract information from code repositories
@@ -639,7 +565,7 @@ Output: RawInformation with file locations and code elements
   - Documentation content and structure
 ```
 
-### User Interaction Source Design
+### User Interaction Source Details
 
 ```
 Purpose: Treat user responses as information source
@@ -661,71 +587,27 @@ Special Features:
 
 # Part II (continued): Query Processing
 
-## Response Strategy Framework
+## Query Processing
 
-**Query Processing Implementation Plan:**
+**Response Generation Strategy:**
 
 ```
-QueryEngine Purpose: Convert user questions into responses using knowledge base
-
-Components:
-  - LLM Interface: GPT-4 or local model for text generation
-  - Embedding Model: all-MiniLM-L6-v2 for semantic similarity
-  - Knowledge Retrieval: Vector search + keyword matching
-  - Response Generation: Prompt engineering with source constraints
-
 Query Processing Pipeline:
-  1. Question Analysis:
-     - Determine query type (conceptual vs specific)
-     - Choose strategy (knowledge_base vs RAG vs hybrid)
-     
-  2. Knowledge Retrieval:
-     - Semantic search using embeddings
-     - Keyword matching for exact terms
-     - Retrieve from appropriate knowledge collections (verified, deduced, etc.)
-     
-  3. Context Building:
-     - Rank retrieved knowledge by relevance
-     - Organize by confidence level (verified → deduced → unknown)
-     - Include source citations
-     
-  4. Response Generation:
-     - Build LLM prompt with retrieved context
-     - Enforce source-only constraint (no external knowledge)
-     - Generate response with uncertainty indicators
-     - Return QueryResult with confidence levels
-```
+  1. Question Analysis → Determine query type and response strategy
+  2. Knowledge Retrieval → Semantic search + keyword matching from knowledge base
+  3. Context Building → Rank by relevance and confidence level
+  4. Response Generation → LLM prompt with source constraints and uncertainty indicators
 
-## Query Result Structure
+Response Format with Confidence Levels:
+  ✓ VERIFIED FACTS: Direct evidence from sources
+  → LOGICAL DEDUCTIONS: Rigorous inferences with evidence
+  ? UNCLEAR AREAS: Insufficient evidence for determination
+  ⚠ CONFLICTING INFORMATION: Contradictory sources requiring clarification
 
-**Response Format with Uncertainty Handling:**
-
-```
-QueryResult Data Structure:
-  - verified_facts: 100% certain knowledge
-  - deduced_facts: Logically sound inferences  
-  - unknown_areas: Cannot determine from evidence
-  - conflicts: Contradictory information
-
-Response Generation Strategy:
-  1. Check for uncertain knowledge (unknown/conflicts/deductions)
-  2. If uncertain knowledge exists: generate clarification question
-  3. Format response with clear confidence indicators:
-     "✓ VERIFIED FACTS: ..." 
-     "→ LOGICAL DEDUCTIONS: ..."
-     "? UNCLEAR AREAS: ..."
-     "⚠ CONFLICTING INFORMATION: ..."
-
-Uncertainty Priority for User Questions:
-  1. Conflicts (highest priority - contradictory sources)
-  2. Unknown areas (missing information)  
-  3. Deductions (can be confirmed by user)
-
-Response Format Strategy:
-  - Always cite sources ("Based on github_repo and user_interaction...")
-  - Clearly indicate confidence levels (✓ → ? ⚠)
-  - Ask clarifying questions when uncertain knowledge found
-  - Never hallucinate or use external knowledge
+Key Constraints:
+  - Only use information from provided sources (no external knowledge)
+  - Always cite sources and show confidence levels
+  - Generate clarification questions for uncertain knowledge
 ```
 
 ---
@@ -768,12 +650,28 @@ Components:
   - Context Tracker: Links questions to knowledge items
   - Confirmation Processor: Updates knowledge from user feedback
 
-Curiosity Triggers:
-  - Low confidence deductions (< 0.8)
-  - Conflicting information detected
-  - Pattern recognition uncertainty
-  - Cross-source inconsistencies
-  - Missing critical information
+Curiosity Triggers (when to ask questions):
+  1. Low Confidence Deductions (confidence < 0.8)
+  2. Conflicting Information Detected
+  3. Pattern Recognition Uncertainty  
+  4. Cross-Source Inconsistencies
+  5. Missing Critical Information
+
+Active Confirmation Process:
+  1. During knowledge building/inference:
+     - Check each new knowledge item for uncertainty
+     - Generate confirmation question if needed
+     - Add to pending confirmations queue
+     
+  2. During response generation:
+     - Identify knowledge used in response
+     - Mark uncertain knowledge for potential confirmation
+     - Include confirmation requests in response
+     
+  3. User feedback processing:
+     - Positive confirmation → upgrade confidence to VERIFIED
+     - Negative confirmation → create CONFLICTED knowledge
+     - User corrections → add new VERIFIED knowledge from user input
 
 Question Types:
   - Deductions: "I deduced X from Y. Is this correct?"
@@ -831,114 +729,83 @@ Benefits:
 
 ---
 
-# Part III: Development
-
 ## Technical Stack
 
 ### Core Dependencies
-```txt
-# Knowledge storage and retrieval
-chromadb>=0.4.0              # Vector database
-sentence-transformers>=2.2.0  # Embeddings
-networkx>=3.0                # Knowledge graph
 
-# LLM integration  
-openai>=1.0.0               # Or use local models
-langchain>=0.1.0            # LLM orchestration
+```
+Knowledge & Retrieval:
+  - ChromaDB (dev), Qdrant (production) - Vector databases
+  - all-MiniLM-L6-v2 - Embedding model for semantic similarity
+  - NetworkX - Knowledge graph representation
 
-# Source parsing
-gitpython>=3.1.0            # Git operations
-ast                         # Python parsing
-tree-sitter>=0.20.0         # Multi-language parsing
+LLM Integration:
+  - GPT-4 or local models - Text generation
+  - LangChain - LLM orchestration and prompt management
 
-# Web interface
-streamlit>=1.25.0           # Web UI
-streamlit-chat>=0.1.0       # Chat components
+Source Parsing:
+  - GitPython - Git repository operations
+  - AST (built-in) - Python code parsing
+  - tree-sitter - Multi-language parsing support
 
-# Future sources
-PyMuPDF>=1.23.0            # PDF parsing
-sqlalchemy>=2.0.0          # Database connections
+Web Interface:
+  - Streamlit - Web UI framework
+  - streamlit-chat - Chat components
+
+Future Extensions:
+  - PyMuPDF - PDF parsing and text extraction
+  - SQLAlchemy - Database connections and ORM
 ```
 
 ## Implementation Timeline
 
-### Week 1-2: Core Knowledge System
-- Knowledge representation classes
-- Basic inference engine with rules
-- Source management system
+```
+Phase 1 (Weeks 1-2): Core Knowledge System
+  - Knowledge representation with confidence levels
+  - Basic inference engine and source management
 
-### Week 3: GitHub Repository Parser  
-- Python file parsing with AST
-- Documentation extraction
-- Dependency analysis
+Phase 2 (Weeks 3-4): Information Processing  
+  - GitHub repository parser with AST
+  - Inference engine enhancement (BFS/DFS strategies)
+  - Confidence scoring and validation
 
-### Week 4: Inference Engine Enhancement
-- Breadth-first inference
-- Depth-first inference  
-- Confidence scoring
+Phase 3 (Weeks 5-6): User Interface & Integration
+  - Streamlit chat interface with confirmation panel
+  - LLM integration and curiosity engine
+  - Testing, optimization, and deployment
+```
 
-### Week 5: Query System & UI
-- LLM integration with prompts
-- Streamlit chat interface
-- Progress tracking for knowledge building
+## Usage Example: Learning from Code Repository
 
-### Week 6: Testing & Optimization
-- Knowledge validation
-- Inference rule tuning
-- Performance optimization
-
-## Usage & Examples
+**Multi-Layer Knowledge Building Process:**
 
 ```
-User Workflow with Unified Sources:
+1. System Setup:
+   - Add GitHub repository as information source  
+   - User interaction source created automatically
+   - Initial facts extracted via AST parsing
 
-1. Setup:
-   bot = KnowledgeChatBot()
-   bot.add_github_repo("/path/to/repo")    // Add static source
-   bot.add_pdf("/path/to/paper.pdf")       // Add static source
-   // User interaction source created automatically
+2. Knowledge Building Layers:
+   Layer 0: Direct Facts (class definitions, functions, imports, documentation)
+   Layer 1: Basic Relationships (inheritance, dependencies, cross-references)  
+   Layer 2: Architectural Insights (design patterns, framework identification)
+   Layer 3: Meta-Knowledge (system architecture, design philosophy)
 
-2. Interactive Learning:
+3. Interactive Learning Flow:
    user: "What is the architecture of this project?"
-   bot: "Based on code analysis: [response] 
-        ❓ I deduced X. Is this correct?"
+   bot: "Based on code analysis: [response with confidence levels]
+        ❓ I deduced X uses microservices. Is this correct?"
    
-   user: "Yes, but specifically it uses microservices"
-   bot: [processes user response as new information source]
-        "Thank you! I've learned from your response."
+   user: "Yes, specifically REST microservices with Docker"
+   bot: [Processes correction as verified knowledge → triggers inference]
    
-   user: "How does authentication work?"
-   bot: "Based on github_repo and user_interaction sources: [enhanced response]"
-
-3. Source Equality Demonstration:
-   knowledge_by_source = {
-     'github_repo': [facts from code analysis],
-     'user_interaction': [facts from user responses],
-     'pdf_document': [facts from paper content]
-   }
-   // All sources processed identically through same pipeline
+   user: "How does authentication work?"  
+   bot: "Based on github_repo and user_interaction: [enhanced response]"
 ```
 
-### Information Source Equality
+### Detailed Example: Understanding FastAPI Repository
 
-**Key insight**: All sources are just different ways to get information:
-
-```
-Information Extraction (all sources equal):
-  GitHubRepo.extract()     → RawInformation about code
-  UserInteraction.extract() → RawInformation about clarifications  
-  PDFDocument.extract()    → RawInformation about research
-  Database.extract()       → RawInformation about records
-  
-Processing Pipeline (identical for all):
-  RawInformation → Knowledge → Inference → Enhanced Knowledge
-```
-
-### Detailed Knowledge Building Examples
-
-### Example: Understanding FastAPI Repository
-
-#### Initial Facts (Direct Extraction)
+**Initial Facts (Direct Extraction):**
 ```
 - Class FastAPI defined in main.py:15
 - Function get() defined in routing.py:45
@@ -947,58 +814,26 @@ Processing Pipeline (identical for all):
 - Import statement: from pydantic import BaseModel
 ```
 
-#### First-Level Inferences
+**First-Level Inferences:**
 ```
 - FastAPI is a web framework (from inheritance + HTTP method functions)
 - Project uses Pydantic for data validation (from imports + usage patterns)
 - Decorator pattern used for routing (from @app.get decorator analysis)
 ```
 
-#### Deep Inferences (Multi-Level)
+**Deep Inferences (Multi-Level):**
 ```
 - FastAPI emphasizes type safety (Pydantic integration + type hints usage)
 - Architecture follows dependency injection pattern (from decorator analysis + parameter inspection)
 - Framework designed for API development with automatic documentation (OpenAPI integration detected)
 ```
 
-### Knowledge Evolution Flow
+## Core Design Principles
 
-```
-Source Code → AST Parse → Extract Classes/Functions → Identify Patterns
-                                    ↓
-                            Build Relationships (imports, inheritance)
-                                    ↓
-                            Infer Purpose (web framework, API, etc.)
-                                    ↓
-                        Infer Design Philosophy (type safety, modern Python)
-                                    ↓
-                    Deep Architectural Understanding (DI, auto-docs, etc.)
-```
+1. **Unified Information Sources**: All sources (files, databases, user input) use same interface
+2. **Rigorous Evidence-Based Inference**: No guessing - only provable inferences with clear confidence levels  
+3. **Continuous Knowledge Building**: Knowledge grows during conversation, not just initialization
+4. **Transparent Reasoning**: Full provenance tracking from sources to conclusions
+5. **Active Curiosity**: System asks clarifying questions to resolve uncertainty
 
-## Key Design Decisions
-
-1. **Unified Information Sources**: User interaction treated as information source, not special system - enables clean, extensible architecture
-
-2. **Rigorous Inference Only**: System never guesses - builds knowledge only from provable evidence, creates UNKNOWN/CONFLICTED states for uncertainty
-
-3. **Source Equality**: All information (files, user responses, databases) processed through identical pipeline - no special cases
-
-4. **Iterative Knowledge Building**: System actively builds new knowledge through BFS/DFS inference strategies, not just storage
-
-5. **Transparent Provenance**: Every piece of knowledge tracked to its source with confidence levels - users see reasoning chain
-
-## Future Extensions
-
-### Additional Source Types
-- **PDF Papers**: Academic paper parsing with equation extraction
-- **Databases**: Structured data with schema understanding
-- **APIs**: Live data integration with endpoint discovery
-- **Documentation Sites**: Web scraping with content understanding
-
-### Advanced Inference
-- **Cross-Source Synthesis**: Finding connections between different sources
-- **Temporal Knowledge**: Understanding how knowledge evolves over time
-- **Uncertainty Quantification**: Confidence levels for inferred knowledge
-- **Knowledge Validation**: Consistency checking across sources
-
-This design creates a true learning system that builds understanding layer by layer, exactly as envisioned!
+This creates a learning system that builds layered understanding through iterative inference and user interaction.
