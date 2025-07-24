@@ -7,11 +7,11 @@ A chat bot that builds deep, layered knowledge from provided sources. Users prov
 ## Document Structure
 
 1. **Core Concept** - Iterative knowledge building with BFS/DFS strategies
-2. **Rigorous Knowledge Building** - Evidence-based system with user confirmation  
-3. **System Architecture** - Component relationships and core implementations
-4. **Implementation Details** - Source parsing, query engine, web interface
+2. **Rigorous Knowledge Building** - Evidence-based system treating all sources equally
+3. **System Architecture** - Unified information source model with user interaction as a source type
+4. **Implementation Details** - Information source implementations, query engine, web interface  
 5. **Technical Stack & Timeline** - Dependencies and 6-week development plan
-6. **Examples & Design Decisions** - Practical usage and key principles
+6. **Examples & Design Decisions** - Practical usage showing source equality
 
 ## Core Concept: Iterative Knowledge Building
 
@@ -333,20 +333,28 @@ class EvidenceStandards:
         )
 ```
 
-### Uncertainty and User Interaction
-
-#### Unknown and Conflict Handling
+### Information Processing Flow
 
 ```python
 class KnowledgeBase:
+    """Unified knowledge storage treating all sources equally"""
+    
     def __init__(self):
         self.verified_knowledge = []    # High confidence knowledge
         self.deduced_knowledge = []     # Logically derived knowledge  
         self.unknown_items = []         # Cannot determine from evidence
         self.conflicts = []             # Contradictory evidence
+        self.source_tracker = {}        # Track which knowledge came from which sources
         
     def add_knowledge(self, knowledge: Knowledge):
         """Route knowledge to appropriate collection based on status"""
+        # Track source
+        source_type = knowledge.source.split(':')[0]
+        if source_type not in self.source_tracker:
+            self.source_tracker[source_type] = []
+        self.source_tracker[source_type].append(knowledge)
+        
+        # Route by status
         if knowledge.status == KnowledgeStatus.VERIFIED:
             self.verified_knowledge.append(knowledge)
         elif knowledge.status == KnowledgeStatus.DEDUCED:
@@ -356,6 +364,10 @@ class KnowledgeBase:
         elif knowledge.status == KnowledgeStatus.CONFLICTED:
             self.conflicts.append(knowledge)
             
+    def get_knowledge_by_source(self, source_type: str) -> List[Knowledge]:
+        """Get all knowledge from a specific source type"""
+        return self.source_tracker.get(source_type, [])
+        
     def query_with_uncertainty(self, question: str) -> QueryResult:
         """Return answer with explicit uncertainty information"""
         
@@ -379,14 +391,29 @@ class QueryResult:
         self.unknown_areas = unknown_areas        # Cannot determine
         self.conflicts = conflicts                # Contradictory evidence
         
+    def has_uncertain_knowledge(self) -> bool:
+        """Check if there are areas that need user clarification"""
+        return len(self.unknown_areas) > 0 or len(self.conflicts) > 0 or len(self.deduced_facts) > 0
+        
+    def get_most_relevant_uncertain(self) -> Knowledge:
+        """Get the most relevant uncertain knowledge for user clarification"""
+        if self.conflicts:
+            return self.conflicts[0]  # Conflicts are highest priority
+        elif self.unknown_areas:
+            return self.unknown_areas[0]  # Unknown areas next
+        elif self.deduced_facts:
+            return self.deduced_facts[0]  # Deductions can be confirmed
+        return None
+        
     def generate_response(self) -> str:
-        """Generate response that clearly indicates certainty levels"""
+        """Generate response that clearly indicates certainty levels and sources"""
         response = []
         
         if self.verified_facts:
             response.append("VERIFIED FACTS:")
             for fact in self.verified_facts:
-                response.append(f"✓ {fact.content} (Source: {fact.source})")
+                source_type = fact.source.split(':')[0]
+                response.append(f"✓ {fact.content} (Source: {source_type})")
                 
         if self.deduced_facts:
             response.append("\nLOGICAL DEDUCTIONS:")
@@ -406,78 +433,14 @@ class QueryResult:
         return "\n".join(response)
 ```
 
-#### Interactive User Confirmation
-
-```python
-class InteractiveKnowledgeConfirmation:
-    """Allows chat bot to ask user for confirmation on uncertain knowledge"""
-    
-    def __init__(self):
-        self.pending_confirmations = []  # Queue of knowledge awaiting confirmation
-        self.confirmation_history = []   # Track what user has confirmed
-        
-    def generate_confirmation_question(self, knowledge: Knowledge) -> str:
-        """Convert uncertain knowledge into a question for the user"""
-        
-        if knowledge.status == KnowledgeStatus.DEDUCED:
-            return f"I deduced that {knowledge.content}. Is this correct?"
-            
-        elif knowledge.status == KnowledgeStatus.UNKNOWN:
-            return f"I'm unsure about: {knowledge.content}. Can you clarify?"
-            
-        elif knowledge.status == KnowledgeStatus.CONFLICTED:
-            conflicts = [e.content for e in knowledge.evidence]
-            return f"I found conflicting information:\n" + \
-                   "\n".join(f"- {c}" for c in conflicts) + \
-                   "\nWhich is correct?"
-                   
-    def process_user_confirmation(self, 
-                                  knowledge: Knowledge, 
-                                  user_response: str) -> Knowledge:
-        """Update knowledge based on user confirmation"""
-        
-        if user_response.lower() in ['yes', 'correct', 'true']:
-            # User confirmed - upgrade to VERIFIED with user as source
-            return Knowledge(
-                content=knowledge.content,
-                knowledge_type=knowledge.type,
-                source='user_confirmed',
-                status=KnowledgeStatus.VERIFIED,
-                evidence=[knowledge],  # Keep original as evidence
-                confidence=1.0
-            )
-        elif user_response.lower() in ['no', 'incorrect', 'false']:
-            # User denied - mark as incorrect
-            return Knowledge(
-                content=f"INCORRECT: {knowledge.content}",
-                knowledge_type='user_correction',
-                source='user_confirmed',
-                status=KnowledgeStatus.VERIFIED,
-                evidence=[knowledge],
-                confidence=1.0
-            )
-        else:
-            # User provided clarification
-            return Knowledge(
-                content=user_response,  # User's clarification becomes the knowledge
-                knowledge_type='user_provided',
-                source='user_confirmed',
-                status=KnowledgeStatus.VERIFIED,
-                evidence=[knowledge],
-                confidence=1.0
-            )
-
-```
-*Note: The complete KnowledgeChatBot implementation with confirmation capabilities is shown in the System Architecture section.*
-
-#### Confirmation Flow Example
+### Unified Information Flow Example
 
 ```
 User: "What's the purpose of the Parser class?"
 
-Bot: "Based on the code analysis:
+Bot: "Based on analysis from multiple sources:
 VERIFIED FACTS:
-✓ Parser class is defined in parser.py (Source: file_analysis)
+✓ Parser class is defined in parser.py (Source: github_repo)
 
 LOGICAL DEDUCTIONS:
 → Parser appears to process input data (Derived from: 2 sources)
@@ -486,87 +449,231 @@ LOGICAL DEDUCTIONS:
 
 User: "Yes, but specifically it parses configuration files"
 
-Bot: "Thank you! I've updated my knowledge: Yes, but specifically it parses configuration files"
+Bot: [Processes user response as new information source]
+"Thank you! I've learned from your response. What else would you like to know?"
 
 User: "How does the Parser work?"
 
 Bot: "VERIFIED FACTS:
-✓ Parser class is defined in parser.py (Source: file_analysis)
-✓ Parser parses configuration files (Source: user_confirmed)
+✓ Parser class is defined in parser.py (Source: github_repo)
+✓ Parser parses configuration files (Source: user_interaction)
 ..."
 ```
 
 ## System Architecture
 
-### Component Relationship Clarification
+### Unified Information Source Model
 
-#### KnowledgeChatBot.chat vs QueryEngine.answer
+The chat bot treats all information equally, whether from:
+- **Static sources**: GitHub repos, PDFs, databases, web pages
+- **Interactive sources**: User confirmations, clarifications, corrections
 
-**Relationship**: `KnowledgeChatBot.chat()` is a thin wrapper that validates and delegates to `QueryEngine.answer()` which handles the core logic:
-- `chat()` - User-facing interface with validation
-- `answer()` - Core query processing engine that searches knowledge, builds context, and generates LLM responses
+```python
+class InformationSource(ABC):
+    """Abstract base for all information sources"""
+    
+    @abstractmethod
+    def get_source_type(self) -> str:
+        """Return source type: 'github_repo', 'pdf', 'database', 'user_interaction'"""
+        pass
+        
+    @abstractmethod
+    def extract_information(self) -> List[RawInformation]:
+        """Extract raw information from this source"""
+        pass
+        
+    @abstractmethod
+    def is_available(self) -> bool:
+        """Check if source is ready to provide information"""
+        pass
+
+class RawInformation:
+    """Single piece of raw information from any source"""
+    def __init__(self, content: str, info_type: str, source_metadata: Dict):
+        self.content = content
+        self.info_type = info_type  # 'file_content', 'user_statement', 'database_record'
+        self.source_metadata = source_metadata  # source-specific details
+        self.timestamp = datetime.now()
+```
+
+### Information Source Types
+
+```python
+class GitHubRepoSource(InformationSource):
+    def __init__(self, repo_path: str):
+        self.repo_path = repo_path
+        
+    def get_source_type(self) -> str:
+        return 'github_repo'
+        
+    def extract_information(self) -> List[RawInformation]:
+        # Extract from files, README, dependencies...
+        return raw_info_list
+
+class UserInteractionSource(InformationSource):
+    """User confirmations, clarifications, and corrections as information source"""
+    
+    def __init__(self):
+        self.pending_questions = Queue()
+        self.user_responses = []
+        
+    def get_source_type(self) -> str:
+        return 'user_interaction'
+        
+    def extract_information(self) -> List[RawInformation]:
+        """Convert user responses into raw information"""
+        raw_info = []
+        for response in self.user_responses:
+            raw_info.append(RawInformation(
+                content=response.content,
+                info_type='user_statement',
+                source_metadata={
+                    'question_context': response.original_question,
+                    'confidence': 1.0,
+                    'user_provided': True
+                }
+            ))
+        return raw_info
+        
+    def add_user_response(self, question: str, response: str):
+        """Add user response as new information"""
+        self.user_responses.append(UserResponse(question, response))
+        
+    def has_pending_questions(self) -> bool:
+        return not self.pending_questions.empty()
+        
+    def get_next_question(self) -> str:
+        return self.pending_questions.get()
+        
+    def ask_user(self, question: str, context: Knowledge):
+        """Queue a question for the user"""
+        self.pending_questions.put(UserQuestion(question, context))
+
+class DatabaseSource(InformationSource):
+    def get_source_type(self) -> str:
+        return 'database'
+        
+class PDFSource(InformationSource):
+    def get_source_type(self) -> str:
+        return 'pdf_document'
+```
 
 ### Core Components
 
 ```python
 class KnowledgeChatBot:
-    """Main chat bot that builds and queries knowledge with confirmation capabilities"""
+    """Main chat bot that builds knowledge from multiple information sources"""
     
     def __init__(self):
         self.knowledge_base = KnowledgeBase()
         self.inference_engine = InferenceEngine()
-        self.source_parser = SourceParser()
+        self.information_sources = []  # List of all information sources
         self.query_engine = QueryEngine()
-        # Confirmation system
-        self.confirmation_system = InteractiveKnowledgeConfirmation()
-        self.awaiting_confirmation = False
-        self.confirmation_context = None
         
-    def add_source(self, source_path: str, source_type: str = "auto"):
-        """Add a source and build knowledge from it"""
-        print("📚 Parsing source...")
-        raw_data = self.source_parser.parse(source_path, source_type)
+    def add_information_source(self, source: InformationSource):
+        """Add any type of information source"""
+        self.information_sources.append(source)
+        self._build_knowledge_from_source(source)
         
+    def add_github_repo(self, repo_path: str):
+        """Convenience method for adding GitHub repo"""
+        source = GitHubRepoSource(repo_path)
+        self.add_information_source(source)
+        
+    def add_pdf(self, pdf_path: str):
+        """Convenience method for adding PDF"""
+        source = PDFSource(pdf_path)
+        self.add_information_source(source)
+        
+    def _get_user_source(self) -> UserInteractionSource:
+        """Get or create user interaction source"""
+        for source in self.information_sources:
+            if isinstance(source, UserInteractionSource):
+                return source
+        # Create user source if doesn't exist
+        user_source = UserInteractionSource()
+        self.information_sources.append(user_source)
+        return user_source
+        
+    def _build_knowledge_from_source(self, source: InformationSource):
+        """Build knowledge from any information source"""
+        print(f"📚 Processing {source.get_source_type()} source...")
+        
+        # Extract raw information
+        raw_info = source.extract_information()
+        
+        # Convert to initial knowledge
         print("🧠 Building initial knowledge...")
-        initial_knowledge = self.knowledge_base.build_initial(raw_data)
+        initial_knowledge = self._raw_to_knowledge(raw_info, source.get_source_type())
         
+        # Add to knowledge base
+        for knowledge in initial_knowledge:
+            self.knowledge_base.add_knowledge(knowledge)
+            
+        # Run inference to build new knowledge
         print("🔄 Inferring new knowledge...")
-        expanded_knowledge = self.inference_engine.expand(initial_knowledge)
+        self.inference_engine.expand_knowledge_base(self.knowledge_base)
         
         print("✅ Knowledge building complete!")
-        return self.knowledge_base.add_source(source_path, expanded_knowledge)
+        
+    def _raw_to_knowledge(self, raw_info: List[RawInformation], source_type: str) -> List[Knowledge]:
+        """Convert raw information to Knowledge objects"""
+        knowledge_list = []
+        for info in raw_info:
+            knowledge = Knowledge(
+                content=info.content,
+                knowledge_type=self._determine_knowledge_type(info),
+                source=f"{source_type}:{info.source_metadata.get('location', 'unknown')}",
+                status=KnowledgeStatus.VERIFIED,  # Raw information is always verified
+                evidence=[]
+            )
+            knowledge_list.append(knowledge)
+        return knowledge_list
         
     def chat(self, user_input: str) -> str:
-        """Handle both questions and confirmations"""
+        """Handle user interaction - questions and responses to bot questions"""
         
-        # Check if we're waiting for a confirmation
-        if self.awaiting_confirmation and self.confirmation_context:
-            # Process confirmation
-            updated_knowledge = self.confirmation_system.process_user_confirmation(
-                self.confirmation_context,
-                user_input
-            )
-            self.knowledge_base.update_knowledge(self.confirmation_context, updated_knowledge)
-            self.awaiting_confirmation = False
-            self.confirmation_context = None
-            return f"Thank you! I've updated my knowledge: {updated_knowledge.content}"
+        user_source = self._get_user_source()
+        
+        # Check if we have pending questions for the user
+        if user_source.has_pending_questions():
+            # User is responding to our question
+            question = user_source.get_next_question()
+            user_source.add_user_response(question.question, user_input)
+            
+            # Process this new user information
+            self._build_knowledge_from_source(user_source)
+            
+            return "Thank you! I've learned from your response. What else would you like to know?"
             
         # Normal question processing
-        if not self.knowledge_base.has_sources():
-            return "Please add a source first. I need something to learn from!"
+        if not self.information_sources:
+            return "Please add an information source first. I need something to learn from!"
             
         result = self.query_engine.answer(user_input, self.knowledge_base)
         
-        # Check if we should ask for confirmation
+        # Check if we need to ask user for clarification
         if result.has_uncertain_knowledge():
             uncertain_item = result.get_most_relevant_uncertain()
-            question = self.confirmation_system.generate_confirmation_question(uncertain_item)
-            self.awaiting_confirmation = True
-            self.confirmation_context = uncertain_item
+            question = self._generate_clarification_question(uncertain_item)
+            user_source.ask_user(question, uncertain_item)
             
             return f"{result.generate_response()}\n\n❓ {question}"
             
         return result.generate_response()
+        
+    def _generate_clarification_question(self, knowledge: Knowledge) -> str:
+        """Generate question to clarify uncertain knowledge"""
+        if knowledge.status == KnowledgeStatus.DEDUCED:
+            return f"I deduced that {knowledge.content}. Is this correct?"
+        elif knowledge.status == KnowledgeStatus.UNKNOWN:
+            return f"I'm unsure about: {knowledge.content}. Can you clarify?"
+        elif knowledge.status == KnowledgeStatus.CONFLICTED:
+            conflicts = [e.content for e in knowledge.evidence]
+            return f"I found conflicting information:\n" + \
+                   "\n".join(f"- {c}" for c in conflicts) + \
+                   "\nWhich is correct?"
+        return f"Can you help me understand: {knowledge.content}?"
 ```
 
 ### Knowledge Representation
@@ -609,75 +716,149 @@ Key principles:
 - **Status management**: Properly categorizes as VERIFIED, DEDUCED, UNKNOWN, or CONFLICTED
 - **Strategy support**: Both breadth-first and depth-first knowledge building
 
-## Source Parsing (Phase 1: GitHub Repositories)
+## Information Source Implementations
+
+### GitHub Repository Source
 
 ```python
-class GitHubRepoParser:
-    """Parse GitHub repositories into knowledge"""
+class GitHubRepoSource(InformationSource):
+    """Extract information from GitHub repositories"""
     
-    def parse(self, repo_path: str) -> Dict:
+    def __init__(self, repo_path: str):
+        self.repo_path = repo_path
+        
+    def get_source_type(self) -> str:
+        return 'github_repo'
+        
+    def is_available(self) -> bool:
+        return os.path.exists(self.repo_path)
+        
+    def extract_information(self) -> List[RawInformation]:
         """Extract all information from repository"""
-        knowledge_data = {
-            'facts': [],
-            'relationships': [],
-            'metadata': {}
-        }
+        raw_info = []
         
         # Extract repository structure
-        for root, dirs, files in os.walk(repo_path):
+        for root, dirs, files in os.walk(self.repo_path):
             for file in files:
                 if file.endswith('.py'):
                     file_path = os.path.join(root, file)
-                    file_knowledge = self._parse_python_file(file_path)
-                    knowledge_data['facts'].extend(file_knowledge['facts'])
-                    knowledge_data['relationships'].extend(file_knowledge['relationships'])
+                    file_info = self._parse_python_file(file_path)
+                    raw_info.extend(file_info)
                     
         # Extract documentation
-        readme_path = os.path.join(repo_path, 'README.md')
+        readme_path = os.path.join(self.repo_path, 'README.md')
         if os.path.exists(readme_path):
-            knowledge_data['facts'].extend(self._parse_readme(readme_path))
+            raw_info.extend(self._parse_readme(readme_path))
             
         # Extract dependencies
-        requirements_path = os.path.join(repo_path, 'requirements.txt')
+        requirements_path = os.path.join(self.repo_path, 'requirements.txt')
         if os.path.exists(requirements_path):
-            knowledge_data['facts'].extend(self._parse_requirements(requirements_path))
+            raw_info.extend(self._parse_requirements(requirements_path))
             
-        return knowledge_data
+        return raw_info
         
-    def _parse_python_file(self, file_path: str) -> Dict:
-        """Parse a Python file into knowledge"""
+    def _parse_python_file(self, file_path: str) -> List[RawInformation]:
+        """Parse a Python file into raw information"""
         with open(file_path, 'r') as f:
             content = f.read()
             
         tree = ast.parse(content)
-        facts = []
-        relationships = []
+        raw_info = []
         
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                facts.append(Knowledge(
+                raw_info.append(RawInformation(
                     content=f"Class {node.name} defined",
-                    knowledge_type='class_definition',
-                    source=f"{file_path}:{node.lineno}"
+                    info_type='class_definition',
+                    source_metadata={
+                        'location': f"{file_path}:{node.lineno}",
+                        'class_name': node.name,
+                        'file_path': file_path
+                    }
                 ))
                 
                 # Check for inheritance
                 for base in node.bases:
                     if isinstance(base, ast.Name):
-                        relationships.append(Knowledge(
+                        raw_info.append(RawInformation(
                             content=f"{node.name} inherits from {base.id}",
-                            knowledge_type='inheritance',
-                            source=f"{file_path}:{node.lineno}"
+                            info_type='inheritance_declaration',
+                            source_metadata={
+                                'location': f"{file_path}:{node.lineno}",
+                                'child_class': node.name,
+                                'parent_class': base.id
+                            }
                         ))
                         
             elif isinstance(node, ast.FunctionDef):
-                facts.append(Knowledge(
+                raw_info.append(RawInformation(
                     content=f"Function {node.name} defined",
-                    knowledge_type='function_definition',
-                    source=f"{file_path}:{node.lineno}"
+                    info_type='function_definition',
+                    source_metadata={
+                        'location': f"{file_path}:{node.lineno}",
+                        'function_name': node.name,
+                        'file_path': file_path
+                    }
                 ))
                 
-        return {'facts': facts, 'relationships': relationships}
+        return raw_info
+
+### User Interaction Source (Detailed Implementation)
+
+class UserResponse:
+    def __init__(self, question: str, response: str):
+        self.question = question
+        self.response = response
+        self.timestamp = datetime.now()
+
+class UserQuestion:
+    def __init__(self, question: str, context: Knowledge):
+        self.question = question
+        self.context = context
+        self.timestamp = datetime.now()
+
+class UserInteractionSource(InformationSource):
+    """User responses as an information source"""
+    
+    def __init__(self):
+        self.pending_questions = Queue()
+        self.user_responses = []
+        
+    def get_source_type(self) -> str:
+        return 'user_interaction'
+        
+    def is_available(self) -> bool:
+        return len(self.user_responses) > 0
+        
+    def extract_information(self) -> List[RawInformation]:
+        """Convert user responses into raw information"""
+        raw_info = []
+        for response in self.user_responses:
+            raw_info.append(RawInformation(
+                content=response.response,
+                info_type='user_statement',
+                source_metadata={
+                    'question_context': response.question,
+                    'timestamp': response.timestamp.isoformat(),
+                    'confidence': 1.0,
+                    'user_provided': True
+                }
+            ))
+        return raw_info
+        
+    def add_user_response(self, question: str, response: str):
+        """Add user response as new information"""
+        self.user_responses.append(UserResponse(question, response))
+        
+    def has_pending_questions(self) -> bool:
+        return not self.pending_questions.empty()
+        
+    def get_next_question(self) -> UserQuestion:
+        return self.pending_questions.get()
+        
+    def ask_user(self, question: str, context: Knowledge):
+        """Queue a question for the user"""
+        self.pending_questions.put(UserQuestion(question, context))
 ```
 
 ## Query Engine
@@ -883,19 +1064,47 @@ sqlalchemy>=2.0.0          # Database connections
 ## Usage Example
 
 ```python
-# User workflow
+# User workflow with unified information sources
 bot = KnowledgeChatBot()
 
-# 1. User provides a source
-bot.add_source("https://github.com/your-repo/your-project", strategy="breadth_first")
-# System builds knowledge layers (see detailed FastAPI example in Knowledge Building Examples section)
+# 1. Add multiple information sources
+bot.add_github_repo("/path/to/repo")  # Static source
+bot.add_pdf("/path/to/paper.pdf")     # Static source  
+# User interactions will be added automatically as an information source
 
-# 2. User asks questions
+# 2. User asks questions - bot learns from both static sources AND user responses
 response = bot.chat("What is the architecture of this project?")
-# Returns detailed analysis based on inferred knowledge from the source
+# Bot may ask for clarification: "I deduced X. Is this correct?"
 
-response = bot.chat("How does routing work?") 
-# Returns specific implementation details discovered through code analysis
+response = bot.chat("Yes, but specifically it uses microservices")
+# Bot processes user response as new information and rebuilds knowledge
+
+response = bot.chat("How does the authentication work?")
+# Now bot has knowledge from: repo files + user clarification + inference
+# Returns: "Based on github_repo and user_interaction sources: ..."
+
+# 3. All information sources are treated equally in knowledge building
+print(bot.knowledge_base.get_knowledge_by_source('github_repo'))      # Code analysis
+print(bot.knowledge_base.get_knowledge_by_source('user_interaction'))  # User responses
+print(bot.knowledge_base.get_knowledge_by_source('pdf_document'))      # Paper content
+```
+
+### Information Source Equality
+
+The key insight is that **all information sources are equal**:
+
+```python
+# These are all just different ways to get RawInformation:
+github_info = github_source.extract_information()  # From files
+user_info = user_source.extract_information()      # From user responses  
+pdf_info = pdf_source.extract_information()        # From documents
+db_info = database_source.extract_information()    # From records
+
+# All get processed the same way:
+for info_list in [github_info, user_info, pdf_info, db_info]:
+    knowledge = bot._raw_to_knowledge(info_list, source_type)
+    bot.knowledge_base.add_knowledge(knowledge)
+    bot.inference_engine.expand_knowledge_base(bot.knowledge_base)
 ```
 
 ## Knowledge Building Examples
