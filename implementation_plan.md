@@ -13,39 +13,104 @@ A chat bot that builds deep, layered knowledge from provided sources. Users prov
 
 **Part II: Implementation**
 4. **System Components** - Knowledge representation, inference engine, information processing
-5. **Source Implementations** - GitHub repos, user interaction, PDFs, databases  
-6. **User Interface** - Web interface and query processing
+5. **Information Sources** - GitHub repos, user interaction, PDFs, databases, recursive sources
+6. **Query Processing** - Response strategies, query engine, result generation
 
 **Part III: Development** 
-7. **Technical Stack** - Dependencies and implementation timeline
-8. **Usage & Examples** - Practical workflows, detailed examples, and design decisions
+7. **User Interface** - Web interface and interaction design
+8. **Technical Stack** - Dependencies and implementation timeline  
+9. **Usage & Examples** - Practical workflows, detailed examples, and design decisions
 
 ---
 
 # Part I: System Design
 
-## Key Innovation: User Interaction as Information Source
+## Key Innovation: Continuous Knowledge Building
 
-### The Unified Source Insight
+### The Dynamic Knowledge Insight
 
-**Traditional chat bots**: User confirmation is handled as a special "interaction system"  
-**Our approach**: User responses are just another **information source**, equal to files, databases, and web pages
+**Traditional chat bots**: Knowledge is static after initialization, only retrieval during chat  
+**Our approach**: Knowledge continuously grows during conversation through multiple mechanisms:
+
+1. **User Interaction as Information Source**: Confirmations, clarifications treated as new information
+2. **On-Demand Source Processing**: User points to new docs → immediate knowledge building  
+3. **Recursive Knowledge Building**: Knowledge base itself becomes source for higher-level knowledge
+4. **Conversational Learning**: Every chat interaction potentially adds new knowledge
+
+### Continuous Knowledge Building Scenarios
 
 ```
-// All information sources follow same interface:
+Scenario 1: User Confirmation
+  user: "What does Parser do?"
+  bot: "I deduced Parser handles files. Is this correct?"  
+  user: "Yes, specifically XML files"
+  → User response becomes new VERIFIED knowledge
+  → Triggers inference to build XML-related knowledge
+  → Knowledge base grows during conversation
+
+Scenario 2: User Points to New Document  
+  user: "Read this PDF and tell me about the methodology"
+  → System immediately processes PDF as new information source
+  → Builds knowledge from PDF content
+  → Runs inference to connect with existing knowledge
+  → Knowledge base expands in real-time
+
+Scenario 3: Knowledge-on-Knowledge Building
+  → Existing knowledge base contains facts about functions
+  → System analyzes knowledge patterns to infer architectural insights  
+  → Knowledge base becomes source for meta-knowledge
+  → Higher-level understanding emerges from existing knowledge
+```
+
+```
+// All information sources follow same interface (including knowledge base itself):
 sources = [
-    GitHubRepo("/path/to/repo"),     // Static: files, structure, dependencies
-    UserInteraction(),               // Interactive: confirmations, clarifications  
-    PDFDocument("/path/to/paper"),   // Static: text, references, figures
-    Database("connection_string")    // Dynamic: records, relationships
+    GitHubRepo("/path/to/repo"),        // Static: files, structure, dependencies
+    UserInteraction(),                  // Interactive: confirmations, clarifications  
+    PDFDocument("/path/to/paper"),      // Static: text, references, figures
+    Database("connection_string"),      // Dynamic: records, relationships
+    KnowledgeBaseSource(existing_kb)   // Recursive: knowledge-on-knowledge building
 ]
 
-// Same processing pipeline for all sources:
+// Same processing pipeline for all sources (including recursive):
 for each source:
     raw_info = source.extract_information()     // Source-specific extraction
     knowledge = convert_to_knowledge(raw_info)  // Standardize format
     knowledge_base.add(knowledge)               // Store with source tracking
     inference_engine.infer_new_knowledge()     // Build derived knowledge
+    
+// Recursive Knowledge Building:
+// The knowledge_base itself can be treated as an information source
+// to build higher-level meta-knowledge and architectural insights
+```
+
+### Recursive Knowledge Building Design
+
+```
+KnowledgeBaseSource Implementation Plan:
+
+Purpose: Treat existing knowledge base as information source for meta-analysis
+
+Data Extraction Strategy:
+  - Pattern Analysis: Identify recurring patterns in existing knowledge
+  - Relationship Mining: Find implicit connections between knowledge items  
+  - Architectural Inference: Derive system-level insights from component knowledge
+  - Abstraction Building: Create higher-level concepts from detailed facts
+
+Extraction Examples:
+  Raw Knowledge: [10 function definitions, 5 class definitions, 8 imports]
+  →
+  Meta Knowledge: "This module follows object-oriented design patterns"
+  
+  Raw Knowledge: [error handling in 15 functions, try-catch patterns, logging calls]  
+  →
+  Meta Knowledge: "System has comprehensive error handling architecture"
+
+Recursive Trigger Conditions:
+  - Knowledge base reaches certain size threshold
+  - User asks architectural/pattern questions
+  - Periodic meta-analysis runs
+  - New domain of knowledge added (trigger cross-domain analysis)
 ```
 
 ### Benefits of This Approach
@@ -182,14 +247,14 @@ Algorithm:
       stack.push(best_next)          // Continue this reasoning chain
 
 Key Differences from BFS:
-  - BFS: Collects all inferences in next_layer, then adds all to knowledge_base
-  - DFS: Adds each inference to knowledge_base immediately as found
-  - BFS: Explores broadly across all domains  
+  - BFS: Explores broadly across all domains at each layer
   - DFS: Follows deep reasoning chains in specific domain
+  - Both strategies add knowledge to knowledge_base immediately when found
   
-Both strategies update knowledge_base, but:
-  - BFS: Batch updates after each complete layer
-  - DFS: Incremental updates as reasoning chain develops
+Knowledge Base Update Pattern (Same for Both):
+  - When new knowledge inferred → immediately add to knowledge_base
+  - This enables incremental knowledge building during inference
+  - No difference in update timing between BFS and DFS
 ```
 
 **DFS Result Example (focus_area='architecture'):**
@@ -345,31 +410,7 @@ KnowledgeBase.add_knowledge(new_knowledge):
      - "Class A inherits B" + "Class A inherits B" → SUPPORT (strengthen)
 ```
 
-**Query Result Structure:**
-
-```
-QueryResult represents chat bot response with uncertainty levels:
-
-Data Structure:
-  - verified_facts: 100% certain knowledge
-  - deduced_facts: Logically sound inferences  
-  - unknown_areas: Cannot determine from evidence
-  - conflicts: Contradictory information
-
-Response Generation Strategy:
-  1. Check for uncertain knowledge (unknown/conflicts/deductions)
-  2. If uncertain knowledge exists: generate clarification question
-  3. Format response with clear confidence indicators:
-     "✓ VERIFIED FACTS: ..." 
-     "→ LOGICAL DEDUCTIONS: ..."
-     "? UNCLEAR AREAS: ..."
-     "⚠ CONFLICTING INFORMATION: ..."
-
-Uncertainty Priority for User Questions:
-  1. Conflicts (highest priority - contradictory sources)
-  2. Unknown areas (missing information)  
-  3. Deductions (can be confirmed by user)
-```
+*Note: Response structure and query processing details are covered in the Query Processing section.*
 
 ### Unified Information Flow Example
 
@@ -487,50 +528,60 @@ Source Extension Strategy:
 ### Core Components
 
 ```
-Hybrid Chat Bot Architecture: Knowledge Base + RAG
+Continuous Knowledge Building Chat Bot Architecture:
 
-ChatBot Response Strategy Decision Tree:
+ChatBot Processing Flow:
 
-1. Query Analysis:
-   - Is this about general concepts/relationships? → Use Knowledge Base
-   - Is this asking for specific document excerpts? → Use RAG  
-   - Is this combining multiple sources? → Use Knowledge Base
-   - Is user pointing to specific document/section? → Use RAG
+1. Input Analysis:
+   - Is user providing new information? → Process as new information source
+   - Is user pointing to new document? → Add document source + build knowledge  
+   - Is user asking question? → Determine response strategy + potentially build new knowledge
+   - Is user confirming/correcting? → Update knowledge + trigger inference
 
-2. Knowledge Base Mode (for conceptual understanding):
-   - Query pre-built knowledge with inferences
-   - Get relationships, patterns, high-level insights
-   - Provides synthesized understanding across sources
-   - Best for: "How does X work?", "What's the architecture?"
+2. Continuous Knowledge Building Triggers:
+   - User confirmation/correction → Add to UserInteractionSource → Infer
+   - User mentions new document → Create new source → Extract + Infer  
+   - Knowledge base size threshold → Trigger recursive analysis → Meta-knowledge
+   - Pattern questions → Analyze existing patterns → Derive insights
 
-3. RAG Mode (for specific information retrieval):
-   - Direct semantic search on raw source content
-   - Return specific passages/code snippets  
-   - No inference, just retrieval + generation
-   - Best for: "Show me the login function", "Quote from page 5"
+3. Response Strategy (with knowledge building):
+   Knowledge Base Mode:
+     - Query existing knowledge
+     - If gaps found → mark for user clarification (builds future knowledge)
+     
+   RAG Mode:  
+     - Direct source retrieval
+     - Extract relevant content → potentially add to knowledge base
+     
+   Hybrid Mode:
+     - Combine knowledge base + RAG
+     - New connections discovered → add to knowledge base
 
-4. Hybrid Mode (combine both):
-   - Use knowledge base for context/relationships
-   - Use RAG for specific supporting evidence
-   - Synthesize both in response
-
-Implementation Plan:
-  chat(user_input):
-    strategy = determine_response_strategy(user_input)
+4. Dynamic Implementation:
+   chat(user_input):
+     // First: Check if this builds knowledge
+     new_sources = detect_new_information_sources(user_input)
+     for source in new_sources:
+       build_knowledge_from_source(source)  // Continuous building
+       
+     // Then: Generate response  
+     strategy = determine_response_strategy(user_input)
+     response = generate_response(strategy, user_input)
+     
+     // Finally: Learn from interaction
+     interaction_knowledge = extract_interaction_knowledge(user_input, response)  
+     if interaction_knowledge:
+       knowledge_base.add(interaction_knowledge)
+       
+Examples of Continuous Building:
+  "Read doc.pdf and explain the methodology" 
+    → Add PDFSource(doc.pdf) → Build knowledge → Answer with new knowledge
     
-    if strategy == "knowledge_base":
-      return query_knowledge_base(user_input)
-    elif strategy == "rag":  
-      return direct_rag_query(user_input)
-    elif strategy == "hybrid":
-      knowledge_context = query_knowledge_base(user_input)
-      specific_evidence = direct_rag_query(user_input)
-      return synthesize_response(knowledge_context, specific_evidence)
-
-Strategy Examples:
-  "What's the overall architecture?" → Knowledge Base (uses inferences)
-  "Show me the parse() function code" → RAG (direct retrieval)
-  "How does parsing work and show examples" → Hybrid (concept + evidence)
+  "The Parser actually handles JSON, not XML"
+    → Update knowledge with user correction → Trigger inference on JSON handling
+    
+  "What patterns do you see in this codebase?"  
+    → Trigger recursive analysis → Build meta-knowledge → Answer with insights
 ```
 
 ### Knowledge Representation
@@ -718,7 +769,11 @@ class UserInteractionSource(InformationSource):
         self.pending_questions.put(UserQuestion(question, context))
 ```
 
-## Query Engine
+---
+
+# Part II (continued): Query Processing
+
+## Response Strategy Framework
 
 **Query Processing Implementation Plan:**
 
@@ -751,6 +806,32 @@ Query Processing Pipeline:
      - Enforce source-only constraint (no external knowledge)
      - Generate response with uncertainty indicators
      - Return QueryResult with confidence levels
+```
+
+## Query Result Structure
+
+**Response Format with Uncertainty Handling:**
+
+```
+QueryResult Data Structure:
+  - verified_facts: 100% certain knowledge
+  - deduced_facts: Logically sound inferences  
+  - unknown_areas: Cannot determine from evidence
+  - conflicts: Contradictory information
+
+Response Generation Strategy:
+  1. Check for uncertain knowledge (unknown/conflicts/deductions)
+  2. If uncertain knowledge exists: generate clarification question
+  3. Format response with clear confidence indicators:
+     "✓ VERIFIED FACTS: ..." 
+     "→ LOGICAL DEDUCTIONS: ..."
+     "? UNCLEAR AREAS: ..."
+     "⚠ CONFLICTING INFORMATION: ..."
+
+Uncertainty Priority for User Questions:
+  1. Conflicts (highest priority - contradictory sources)
+  2. Unknown areas (missing information)  
+  3. Deductions (can be confirmed by user)
 
 Response Format Strategy:
   - Always cite sources ("Based on github_repo and user_interaction...")
@@ -759,9 +840,15 @@ Response Format Strategy:
   - Never hallucinate or use external knowledge
 ```
 
+---
+
+# Part III: Development
+
 ## Web Interface
 
-```python
+**Web UI Implementation Plan:**
+
+```
 import streamlit as st
 
 def main():
