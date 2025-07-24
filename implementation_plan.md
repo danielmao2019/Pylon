@@ -6,8 +6,8 @@ A chat bot that builds deep, layered knowledge from provided sources. Users prov
 
 ## Document Structure
 
-**System Design:** Core innovation, architecture, and knowledge building strategies  
-**Implementation:** Components, information sources, and query processing  
+**System Design:** Core innovation, information sources, architecture, and knowledge building strategies  
+**Implementation:** System components and query processing  
 **Development:** UI design, technical stack, timeline, and usage examples
 
 ---
@@ -139,6 +139,42 @@ struct RawInformation {
     type: string             // "file_content", "user_statement", "database_record"
     source_metadata: dict    // Source-specific details (file path, timestamp, etc.)
 }
+```
+
+## Information Sources: The Foundation
+
+All information sources implement the same interface to maintain consistency:
+
+### Unified Source Architecture
+
+```
+Information Source Types:
+  - GitHubRepo: Code repositories (AST parsing, documentation, dependencies)
+  - UserInteraction: Confirmations and corrections (bidirectional, verified)
+  - PDFDocument: Papers and documents (text, structure, references)
+  - Database: Structured data (records, relationships, metadata)
+  - KnowledgeBaseSource: Recursive meta-analysis of existing knowledge
+
+KnowledgeBaseSource Details:
+  Purpose: Treat existing knowledge base as information source for meta-analysis
+  
+  Data Extraction Strategy:
+    - Pattern Analysis: Identify recurring patterns in existing knowledge
+    - Relationship Mining: Find implicit connections between knowledge items  
+    - Architectural Inference: Derive system-level insights from component knowledge
+    - Abstraction Building: Create higher-level concepts from detailed facts
+  
+  Extraction Examples:
+    Raw Knowledge: [10 function definitions, 5 class definitions, 8 imports]
+    → Meta Knowledge: "This module follows object-oriented design patterns"
+    
+    Raw Knowledge: [error handling in 15 functions, try-catch patterns, logging calls]  
+    → Meta Knowledge: "System has comprehensive error handling architecture"
+
+Common Interface:
+  - get_source_type() → Source identifier
+  - extract_information() → RawInformation list  
+  - is_available() → Availability check
 ```
 
 ### The Unified Knowledge Building Process
@@ -462,40 +498,6 @@ Chat Bot Processing Flow:
 ```
 
 
-## Information Sources
-
-All information sources implement the same interface to maintain consistency:
-
-**Unified Source Architecture:**
-```
-Information Source Types:
-  - GitHubRepo: Code repositories (AST parsing, documentation, dependencies)
-  - UserInteraction: Confirmations and corrections (bidirectional, verified)
-  - PDFDocument: Papers and documents (text, structure, references)
-  - Database: Structured data (records, relationships, metadata)
-  - KnowledgeBaseSource: Recursive meta-analysis of existing knowledge
-
-KnowledgeBaseSource Details:
-  Purpose: Treat existing knowledge base as information source for meta-analysis
-  
-  Data Extraction Strategy:
-    - Pattern Analysis: Identify recurring patterns in existing knowledge
-    - Relationship Mining: Find implicit connections between knowledge items  
-    - Architectural Inference: Derive system-level insights from component knowledge
-    - Abstraction Building: Create higher-level concepts from detailed facts
-  
-  Extraction Examples:
-    Raw Knowledge: [10 function definitions, 5 class definitions, 8 imports]
-    → Meta Knowledge: "This module follows object-oriented design patterns"
-    
-    Raw Knowledge: [error handling in 15 functions, try-catch patterns, logging calls]  
-    → Meta Knowledge: "System has comprehensive error handling architecture"
-
-Common Interface:
-  - get_source_type() → Source identifier
-  - extract_information() → RawInformation list  
-  - is_available() → Availability check
-```
 
 ## Query Processing
 
