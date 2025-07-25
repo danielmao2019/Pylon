@@ -13,17 +13,31 @@ from utils.automation.progress_tracking.base_progress_tracker import BaseProgres
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
-def test_base_progress_tracker_input_validation(ConcreteProgressTracker):
-    """Test input validation during initialization."""
+def test_base_progress_tracker_trainer_input_validation(TrainerProgressTrackerForTesting):
+    """Test input validation during TrainerProgressTracker initialization."""
     # Test invalid work_dir type
     with pytest.raises(AssertionError) as exc_info:
-        ConcreteProgressTracker(123)  # Integer instead of string
+        TrainerProgressTrackerForTesting(123)  # Integer instead of string
     assert "work_dir must be str" in str(exc_info.value)
     
     # Test nonexistent work_dir
     nonexistent_dir = "/this/path/does/not/exist"
     with pytest.raises(AssertionError) as exc_info:
-        ConcreteProgressTracker(nonexistent_dir)
+        TrainerProgressTrackerForTesting(nonexistent_dir)
+    assert "work_dir does not exist" in str(exc_info.value)
+
+
+def test_base_progress_tracker_evaluator_input_validation(EvaluatorProgressTrackerForTesting):
+    """Test input validation during EvaluatorProgressTracker initialization."""
+    # Test invalid work_dir type
+    with pytest.raises(AssertionError) as exc_info:
+        EvaluatorProgressTrackerForTesting(123)  # Integer instead of string
+    assert "work_dir must be str" in str(exc_info.value)
+    
+    # Test nonexistent work_dir
+    nonexistent_dir = "/this/path/does/not/exist"
+    with pytest.raises(AssertionError) as exc_info:
+        EvaluatorProgressTrackerForTesting(nonexistent_dir)
     assert "work_dir does not exist" in str(exc_info.value)
 
 
