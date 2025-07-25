@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 from optimizers import BaseOptimizer
 from utils.builders import build_from_config
 from utils.input_checks import check_write_file
-from utils.io.json import safe_save_json
+from utils.io.json import save_json
 
 
 class MultiPartOptimizer(BaseOptimizer):
@@ -46,5 +46,5 @@ class MultiPartOptimizer(BaseOptimizer):
         }
         if output_path is not None:
             check_write_file(path=output_path)
-            safe_save_json(obj=result, filepath=output_path)
+            save_json(obj=result, filepath=output_path)
         return result
