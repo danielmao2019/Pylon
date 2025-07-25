@@ -7,7 +7,7 @@ from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import Synthetic
 
 
 # Create a concrete implementation for testing
-class TestSyntheticTransformPCRDataset(SyntheticTransformPCRDataset):
+class ConcreteSyntheticTransformPCRDataset(SyntheticTransformPCRDataset):
     """Concrete implementation for testing."""
     
     def _init_annotations(self) -> None:
@@ -22,7 +22,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
     """Test that SyntheticTransformPCRDataset instances with different parameters have different hashes."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Same parameters should have same hash
-        dataset1a = TestSyntheticTransformPCRDataset(
+        dataset1a = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
             dataset_size=100,
             rotation_mag=45.0,
@@ -30,7 +30,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             matching_radius=0.05,
             split='train'
         )
-        dataset1b = TestSyntheticTransformPCRDataset(
+        dataset1b = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
             dataset_size=100,
             rotation_mag=45.0,
@@ -41,7 +41,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
         
         # Different rotation_mag should have different hash
-        dataset2 = TestSyntheticTransformPCRDataset(
+        dataset2 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
             dataset_size=100,
             rotation_mag=30.0,  # Different
@@ -52,7 +52,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
         
         # Different translation_mag should have different hash
-        dataset3 = TestSyntheticTransformPCRDataset(
+        dataset3 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
             dataset_size=100,
             rotation_mag=45.0,
@@ -63,7 +63,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
         
         # Different matching_radius should have different hash
-        dataset4 = TestSyntheticTransformPCRDataset(
+        dataset4 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
             dataset_size=100,
             rotation_mag=45.0,
@@ -74,7 +74,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
         
         # Different dataset_size should have different hash
-        dataset5 = TestSyntheticTransformPCRDataset(
+        dataset5 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
             dataset_size=200,  # Different
             rotation_mag=45.0,
@@ -85,7 +85,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
         assert dataset1a.get_cache_version_hash() != dataset5.get_cache_version_hash()
         
         # Different LiDAR parameters should have different hash
-        dataset6 = TestSyntheticTransformPCRDataset(
+        dataset6 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
             dataset_size=100,
             rotation_mag=45.0,
@@ -125,12 +125,12 @@ def test_all_parameters_affect_version_hash():
             ('lidar_apply_occlusion_filter', True),  # Different from default False
         ]
         
-        dataset1 = TestSyntheticTransformPCRDataset(**base_args)
+        dataset1 = ConcreteSyntheticTransformPCRDataset(**base_args)
         
         for param_name, new_value in parameter_variants:
             modified_args = base_args.copy()
             modified_args[param_name] = new_value
-            dataset2 = TestSyntheticTransformPCRDataset(**modified_args)
+            dataset2 = ConcreteSyntheticTransformPCRDataset(**modified_args)
             
             assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
                 f"Parameter {param_name} should affect cache version hash"
@@ -145,7 +145,7 @@ def test_comprehensive_no_hash_collisions():
         for dataset_size in [50, 100, 200]:
             for rotation_mag in [30.0, 45.0, 60.0]:
                 for translation_mag in [0.3, 0.5, 0.7]:
-                    datasets.append(TestSyntheticTransformPCRDataset(
+                    datasets.append(ConcreteSyntheticTransformPCRDataset(
                         data_root=temp_dir,
                         dataset_size=dataset_size,
                         rotation_mag=rotation_mag,
