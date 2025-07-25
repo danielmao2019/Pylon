@@ -3,7 +3,7 @@ UTILS.IO API
 """
 from utils.io.image import load_image
 from utils.io.point_cloud import load_point_cloud
-from utils.io.json import serialize_tensor, safe_save_json, safe_load_json
+from utils.io.json import serialize_tensor, safe_save_json, safe_load_json, atomic_json_update
 
 
 __all__ = (
@@ -12,4 +12,5 @@ __all__ = (
     'serialize_tensor',
     'safe_save_json',
     'safe_load_json',
+    'atomic_json_update',
 )
