@@ -1,8 +1,10 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, List
 import os
 import glob
 import torch
+import numpy as np
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
+from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 from utils.point_cloud_ops import normalize_point_cloud
 
 
@@ -109,20 +111,103 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         category = self.get_category_from_path(file_path)
         return category in self.ASYMMETRIC_CATEGORIES
 
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __init__(
+        self,
+        data_root: str,
+        dataset_size: int,
+        keep_ratio: float = 0.7,
+        **kwargs,
+    ) -> None:
+        """Initialize ModelNet40 dataset with RandomPointCrop.
+        
+        Args:
+            data_root: Path to ModelNet40 root directory
+            dataset_size: Total number of synthetic pairs to generate
+            keep_ratio: Fraction of points to keep after cropping (0.0 to 1.0)
+            **kwargs: Additional arguments passed to parent class
+        """
+        self.keep_ratio = keep_ratio
+        super().__init__(
+            data_root=data_root,
+            dataset_size=dataset_size,
+            **kwargs,
+        )
+    
+    def _get_cache_param_key(self) -> tuple:
+        """Generate cache parameter key including ModelNet40-specific parameters.
+        
+        Returns:
+            Cache parameter key tuple
+        """
+        parent_key = super()._get_cache_param_key()
+        return parent_key + (self.keep_ratio,)
+    
+    def _sample_transform(self, seed: int, file_idx: int) -> dict:
+        """Sample transform parameters for ModelNet40 with RandomPointCrop.
+        
+        Args:
+            seed: Random seed for deterministic sampling
+            file_idx: Index of file pair (unused for ModelNet40)
+            
+        Returns:
+            Dictionary containing transform parameters
+        """
+        generator = torch.Generator()
+        generator.manual_seed(seed)
+        
+        # Sample SE(3) transformation parameters
+        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
+        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
+        
+        # Generate crop seed for deterministic cropping
+        crop_seed = (seed * 31 + 42) % (2**32)
+        
+        return {
+            'rotation_angles': rotation_angles.tolist(),
+            'translation': translation.tolist(),
+            'seed': seed,
+            'crop_seed': crop_seed,
+            'keep_ratio': self.keep_ratio,
+        }
+    
+    def _build_transform(self, transform_params: dict) -> tuple:
+        """Build transform matrix and RandomPointCrop from parameters.
+        
+        Args:
+            transform_params: Transform configuration dictionary
+            
+        Returns:
+            Tuple of (transform_matrix, crop_transform)
+        """
+        # Build SE(3) transformation matrix using parent helper
+        transform_matrix = self._build_transform_matrix(
+            rotation_angles=transform_params['rotation_angles'],
+            translation=transform_params['translation']
+        )
+        
+        # Create RandomPointCrop transform
+        crop_transform = RandomPointCrop(
+            keep_ratio=transform_params['keep_ratio'],
+            viewpoint=None,  # Random viewpoint
+            limit=500.0  # Default limit
+        )
+        
+        return transform_matrix, crop_transform
+    
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Load and normalize ModelNet40 point cloud data.
         
         Args:
             file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
-            Tuple of (src_pc_normalized, tgt_pc_normalized) point cloud position tensors
+            Tuple of (src_pc_dict, tgt_pc_dict) normalized point cloud dictionaries
         """
-        # Load point clouds using parent method
-        src_pc_raw, tgt_pc_raw = super()._load_file_pair_data(file_pair_annotation)
+        # Load point clouds using parent method (returns dictionaries)
+        src_pc_dict, tgt_pc_dict = super()._load_file_pair_data(file_pair_annotation)
         
-        # Apply ModelNet40-specific normalization
-        src_pc_normalized = normalize_point_cloud(src_pc_raw)
-        tgt_pc_normalized = normalize_point_cloud(tgt_pc_raw)
+        # Apply ModelNet40-specific normalization to position data
+        src_pc_dict['pos'] = normalize_point_cloud(src_pc_dict['pos'])
+        tgt_pc_dict['pos'] = normalize_point_cloud(tgt_pc_dict['pos'])
         
-        return src_pc_normalized, tgt_pc_normalized
+        return src_pc_dict, tgt_pc_dict
