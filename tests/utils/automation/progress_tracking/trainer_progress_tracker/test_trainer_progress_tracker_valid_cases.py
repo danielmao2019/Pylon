@@ -218,8 +218,8 @@ def test_trainer_progress_tracker_caching(create_progress_json):
         progress2 = tracker.get_progress()
         assert progress2 == progress1
         
-        # Force refresh should bypass cache
-        progress3 = tracker.get_progress(force_refresh=True)
+        # Force progress recompute should bypass cache
+        progress3 = tracker.get_progress(force_progress_recompute=True)
         assert progress3.completed_epochs == 42  # Same result but forced recalculation
 
 
@@ -284,7 +284,7 @@ def test_trainer_progress_tracker_deterministic(create_progress_json):
         # Multiple calls should give same result
         results = []
         for _ in range(5):
-            progress = tracker.get_progress(force_refresh=True)
+            progress = tracker.get_progress(force_progress_recompute=True)
             results.append(progress)
         
         # All results should be identical
