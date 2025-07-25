@@ -46,6 +46,27 @@ This isn't just about following best practices - it's about respecting your time
 
 The name of this library is inspired by the protoss structure [Pylon](https://starcraft.fandom.com/wiki/Pylon) from the video game StarCraft II. Pylon serves as a fundamental structure for protoss players as it generates power fields in which other protoss units and structures could be deployed.
 
+## Nexus: Knowledge Intelligence Companion
+
+Complementing Pylon is **Nexus**, an intelligent knowledge chat bot that builds deep understanding from research sources. Just as the protoss [Nexus](https://starcraft.fandom.com/wiki/Nexus) serves as the central command structure that coordinates all strategic operations, our Nexus serves as the intelligence hub that transforms information into knowledge.
+
+### The Perfect Symbiosis
+
+**Pylon** (Deep Learning Framework):
+- Provides foundational computational power for AI research
+- Enables advanced computer vision algorithms and training pipelines
+- Creates the essential infrastructure for research breakthroughs
+
+**Nexus** (Knowledge Chat Bot):
+- Serves as the central intelligence hub for understanding research
+- Processes and synthesizes information from repositories, papers, and documentation
+- Builds layered knowledge through iterative inference and user interaction
+- Provides strategic insights and deep understanding of complex systems
+
+Together, Pylon and Nexus create a complete research ecosystem: Pylon powers the computation, Nexus provides the intelligence.
+
+*Note: Nexus is currently in private development and will be released as open source in the future.*
+
 ## Documentation
 
 All documentation can be found in the [docs](docs/) directory. For environment setup instructions, see [docs/environment_setup.md](docs/environment_setup.md).
