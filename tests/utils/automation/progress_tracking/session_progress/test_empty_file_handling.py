@@ -32,11 +32,9 @@ def test_empty_progress_json_file_detection():
         # Test that get_session_progress raises exception for empty file
         expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
         
-        with pytest.raises(RuntimeError) as exc_info:
+        # Should raise RuntimeError from load_json about empty file
+        with pytest.raises(RuntimeError, match="Error loading JSON.*File is empty"):
             get_session_progress(work_dir, expected_files)
-        
-        # Should raise RuntimeError about empty file
-        assert "File is empty" in str(exc_info.value)
 
 
 def test_non_empty_progress_json_loading():
@@ -184,9 +182,9 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
             progress_file = os.path.join(work_dir, "progress.json")
             os.rename(empty_file, progress_file)
             
-            with pytest.raises(RuntimeError) as exc_info:
+            # Should raise RuntimeError from load_json about empty file
+            with pytest.raises(RuntimeError, match="Error loading JSON.*File is empty"):
                 get_session_progress(work_dir, expected_files)
-            assert "File is empty" in str(exc_info.value)
             
             # Whitespace file - should raise exception since file exists but is malformed JSON
             os.rename(progress_file, empty_file)  # Move back
