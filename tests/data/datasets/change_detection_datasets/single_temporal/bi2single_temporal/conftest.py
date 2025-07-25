@@ -15,8 +15,12 @@ def create_dummy_levir_cd_files():
             os.makedirs(os.path.join(split_dir, 'B'), exist_ok=True)
             os.makedirs(os.path.join(split_dir, 'label'), exist_ok=True)
             
-            # Create dummy files
-            for filename in ['test_1.png']:
+            # Create dummy files to match LEVIR-CD expected sizes
+            dataset_sizes = {'train': 445, 'test': 128}
+            num_files = dataset_sizes.get(split, 1)  # Default to 1 if split not recognized
+            
+            for i in range(num_files):
+                filename = f'test_{i:04d}.png'
                 for subdir in ['A', 'B', 'label']:
                     with open(os.path.join(split_dir, subdir, filename), 'w') as f:
                         f.write('dummy')

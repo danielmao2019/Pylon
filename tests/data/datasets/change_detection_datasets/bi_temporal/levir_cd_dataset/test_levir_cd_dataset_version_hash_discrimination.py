@@ -64,8 +64,8 @@ def test_split_variants(create_dummy_levir_structure):
             f"All split variants should produce different hashes, got: {hashes}"
 
 
-def test_cache_stability_with_file_changes(create_dummy_levir_structure):
-    """Test that cache hash remains stable when files are added (correct caching behavior)."""
+def test_cache_stability_with_file_modifications(create_dummy_levir_structure):
+    """Test that cache hash remains stable when file contents are modified (correct caching behavior)."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create first structure
         create_dummy_levir_structure(temp_dir)
@@ -75,10 +75,11 @@ def test_cache_stability_with_file_changes(create_dummy_levir_structure):
             split='train'
         )
         
-        # Add an additional file to the structure
+        # Modify content of existing files (without changing count)
         split_dir = os.path.join(temp_dir, 'train')
-        filename = 'test_9999.png'
+        filename = 'test_0000.png'  # Modify existing file
         
+        # Overwrite existing files with different content
         img_a = Image.fromarray(np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8))
         img_b = Image.fromarray(np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8))
         label = Image.fromarray(np.random.randint(0, 2, (256, 256), dtype=np.uint8))
@@ -92,8 +93,8 @@ def test_cache_stability_with_file_changes(create_dummy_levir_structure):
             split='train'
         )
         
-        # Should have same hashes - cache version reflects configuration, not file count
-        # This ensures cache stability when data files are added/modified
+        # Should have same hashes - cache version reflects configuration, not file content
+        # This ensures cache stability when data file contents are modified
         assert dataset1.get_cache_version_hash() == dataset2.get_cache_version_hash()
 
 

@@ -48,8 +48,8 @@ def test_bi2single_temporal_version_dict_functionality(create_dummy_levir_cd_fil
         assert version_dict['class_name'] == 'Bi2SingleTemporal'
         
         # Should contain base synthetic dataset parameters
-        assert 'source_class_name' in version_dict
-        assert version_dict['source_class_name'] == 'LevirCdDataset'
+        assert 'source_class' in version_dict
+        assert version_dict['source_class'] == 'LevirCdDataset'
         
         # Should contain Bi2SingleTemporal specific parameters
         assert 'source_version' in version_dict

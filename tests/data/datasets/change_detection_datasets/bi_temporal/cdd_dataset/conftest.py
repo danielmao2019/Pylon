@@ -20,17 +20,29 @@ def create_dummy_cdd_files():
                 for subdir in ['A', 'B', 'OUT']:
                     os.makedirs(os.path.join(base_path, subdir), exist_ok=True)
                     
-                    # Create dummy files
+                    # Create efficient dummy files using minimal I/O
+                    # Split total size between regular and with_shift folders
+                    dataset_sizes = {'train': 26000, 'val': 6998, 'test': 7000}
+                    total_files = dataset_sizes[split]
+                    
+                    # Split files between regular and with_shift (roughly half each)
+                    if folder_type == 'regular':
+                        num_files = total_files // 2
+                    else:  # with_shift
+                        num_files = total_files - (total_files // 2)  # Remainder goes to with_shift
+                    
                     file_ext = '.jpg' if split == 'train' else '.bmp'
                     if folder_type == 'with_shift' and split != 'train':
                         file_ext = '.bmp'
                     elif folder_type == 'regular':
                         file_ext = '.jpg'
                     
-                    for filename in [f'test_1{file_ext}']:
-                        filepath = os.path.join(base_path, subdir, filename)
-                        with open(filepath, 'wb') as f:
-                            f.write(b'dummy_image_data')
+                    # Create files efficiently using batch operations
+                    import subprocess
+                    filenames = [f'test_{i:06d}{file_ext}' for i in range(num_files)]
+                    
+                    # Use touch command for fast file creation (much faster than Python loops)
+                    subprocess.run(['touch'] + [os.path.join(base_path, subdir, f) for f in filenames], check=True)
 
 
     
