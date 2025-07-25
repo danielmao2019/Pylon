@@ -4,7 +4,7 @@ import torchvision
 from metrics.common import ConfusionMatrix
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file, check_semantic_segmentation
-from utils.io.json import safe_save_json
+from utils.io.json import save_json
 from utils.ops import transpose_buffer
 
 
@@ -134,5 +134,5 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
-            safe_save_json(obj=result, filepath=output_path)
+            save_json(obj=result, filepath=output_path)
         return result
