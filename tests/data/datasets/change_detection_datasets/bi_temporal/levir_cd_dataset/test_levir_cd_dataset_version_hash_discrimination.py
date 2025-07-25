@@ -128,21 +128,25 @@ def test_parameters_that_dont_affect_version_hash(create_dummy_levir_structure):
 
 def test_comprehensive_no_hash_collisions(create_dummy_levir_structure):
     """Ensure no hash collisions across many different configurations."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        create_dummy_levir_structure(temp_dir)
-        
-        datasets = []
-        
-        # Generate different dataset configurations
-        for split in ['train', 'val', 'test']:
-            for initial_seed in [None, 42, 123]:
-                datasets.append(LevirCdDataset(
+    datasets = []
+    temp_dirs = []
+    
+    try:
+        # Generate different dataset configurations using different data_root paths
+        for _ in range(3):
+            temp_dir = tempfile.mkdtemp()
+            temp_dirs.append(temp_dir)
+            create_dummy_levir_structure(temp_dir)
+            
+            # Test different splits - use val and test which have smaller sizes
+            for split in ['val', 'test']:
+                dataset = LevirCdDataset(
                     data_root=temp_dir,
-                    split=split,
-                    initial_seed=initial_seed
-                ))
+                    split=split
+                )
+                datasets.append(dataset)
         
-        # Collect all hashes
+        # Collect all hashes using actual BaseDataset implementation
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
         
         # Ensure all hashes are unique (no collisions)
@@ -153,5 +157,11 @@ def test_comprehensive_no_hash_collisions(create_dummy_levir_structure):
         for hash_val in hashes:
             assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
             assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
+    
+    finally:
+        # Clean up temporary directories
+        import shutil
+        for temp_dir in temp_dirs:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 

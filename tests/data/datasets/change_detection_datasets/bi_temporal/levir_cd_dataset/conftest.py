@@ -24,8 +24,9 @@ def create_dummy_levir_structure():
             os.makedirs(b_dir, exist_ok=True)
             os.makedirs(label_dir, exist_ok=True)
             
-            # Create dummy image files
-            num_files = 3 if split == 'train' else 2
+            # Create dummy image files to match expected dataset sizes
+            dataset_sizes = {'train': 445, 'val': 64, 'test': 128}
+            num_files = dataset_sizes[split]
             for i in range(num_files):
                 filename = f'test_{i:04d}.png'
                 
