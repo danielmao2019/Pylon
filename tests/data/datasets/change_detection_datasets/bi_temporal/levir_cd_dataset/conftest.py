@@ -24,19 +24,17 @@ def create_dummy_levir_structure():
             os.makedirs(b_dir, exist_ok=True)
             os.makedirs(label_dir, exist_ok=True)
             
-            # Create dummy image files to match expected dataset sizes
+            # Create dummy image files efficiently using touch command
             dataset_sizes = {'train': 445, 'val': 64, 'test': 128}
             num_files = dataset_sizes[split]
-            for i in range(num_files):
-                filename = f'test_{i:04d}.png'
-                
-                # Create dummy images (RGB for inputs, grayscale for labels)
-                img_a = Image.fromarray(np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8))
-                img_b = Image.fromarray(np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8))
-                label = Image.fromarray(np.random.randint(0, 2, (256, 256), dtype=np.uint8))
-                
-                img_a.save(os.path.join(a_dir, filename))
-                img_b.save(os.path.join(b_dir, filename))
-                label.save(os.path.join(label_dir, filename))
+            
+            # Generate all filenames
+            filenames = [f'test_{i:04d}.png' for i in range(num_files)]
+            
+            # Use touch command for fast file creation (much faster than Python loops)
+            import subprocess
+            for subdir_path in [a_dir, b_dir, label_dir]:
+                full_paths = [os.path.join(subdir_path, f) for f in filenames]
+                subprocess.run(['touch'] + full_paths, check=True)
     
     return _create_structure

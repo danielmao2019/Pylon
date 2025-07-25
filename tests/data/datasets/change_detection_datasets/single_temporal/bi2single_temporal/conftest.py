@@ -15,14 +15,17 @@ def create_dummy_levir_cd_files():
             os.makedirs(os.path.join(split_dir, 'B'), exist_ok=True)
             os.makedirs(os.path.join(split_dir, 'label'), exist_ok=True)
             
-            # Create dummy files to match LEVIR-CD expected sizes
+            # Create dummy files efficiently using touch command
             dataset_sizes = {'train': 445, 'test': 128}
             num_files = dataset_sizes.get(split, 1)  # Default to 1 if split not recognized
             
-            for i in range(num_files):
-                filename = f'test_{i:04d}.png'
-                for subdir in ['A', 'B', 'label']:
-                    with open(os.path.join(split_dir, subdir, filename), 'w') as f:
-                        f.write('dummy')
+            # Generate all filenames
+            filenames = [f'test_{i:04d}.png' for i in range(num_files)]
+            
+            # Use touch command for fast file creation (much faster than Python loops)
+            import subprocess
+            for subdir in ['A', 'B', 'label']:
+                full_paths = [os.path.join(split_dir, subdir, f) for f in filenames]
+                subprocess.run(['touch'] + full_paths, check=True)
     
     return _create_files

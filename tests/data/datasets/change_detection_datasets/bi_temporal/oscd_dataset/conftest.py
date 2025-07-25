@@ -35,20 +35,18 @@ def create_dummy_oscd_files():
                 phase_dir = os.path.join(city_dir, img_phase)
                 os.makedirs(phase_dir, exist_ok=True)
                 
-                # Create dummy TIF files (multiple per phase)
-                for i in range(2):
-                    tif_file = os.path.join(phase_dir, f'patch_{i+1}.tif')
-                    with open(tif_file, 'w') as f:
-                        f.write('dummy tiff data')
+                # Create dummy TIF files efficiently
+                import subprocess
+                tif_files = [os.path.join(phase_dir, f'patch_{i+1}.tif') for i in range(2)]
+                subprocess.run(['touch'] + tif_files, check=True)
             
             # Create pair directory with PNG files
             pair_dir = os.path.join(city_dir, 'pair')
             os.makedirs(pair_dir, exist_ok=True)
             
-            for img_file in ['img1.png', 'img2.png']:
-                png_file = os.path.join(pair_dir, img_file)
-                with open(png_file, 'w') as f:
-                    f.write('dummy png data')
+            # Create PNG files efficiently
+            png_files = [os.path.join(pair_dir, img_file) for img_file in ['img1.png', 'img2.png']]
+            subprocess.run(['touch'] + png_files, check=True)
             
             # Create dates.txt file
             dates_file = os.path.join(city_dir, 'dates.txt')
@@ -61,14 +59,12 @@ def create_dummy_oscd_files():
             cm_dir = os.path.join(train_city_labels, 'cm')
             os.makedirs(cm_dir, exist_ok=True)
             
-            # Create both TIF and PNG label files
-            tif_label_file = os.path.join(cm_dir, f'{city}-cm.tif')
-            with open(tif_label_file, 'w') as f:
-                f.write('dummy tif label data')
-                
-            png_label_file = os.path.join(cm_dir, 'cm.png')
-            with open(png_label_file, 'w') as f:
-                f.write('dummy png label data')
+            # Create label files efficiently
+            label_files = [
+                os.path.join(cm_dir, f'{city}-cm.tif'),
+                os.path.join(cm_dir, 'cm.png')
+            ]
+            subprocess.run(['touch'] + label_files, check=True)
         
         # Create city directories for test cities
         for city in ['bastia', 'montpellier']:
@@ -79,20 +75,17 @@ def create_dummy_oscd_files():
                 phase_dir = os.path.join(city_dir, img_phase)
                 os.makedirs(phase_dir, exist_ok=True)
                 
-                # Create dummy TIF files
-                for i in range(2):
-                    tif_file = os.path.join(phase_dir, f'patch_{i+1}.tif')
-                    with open(tif_file, 'w') as f:
-                        f.write('dummy tiff data')
+                # Create dummy TIF files efficiently
+                tif_files = [os.path.join(phase_dir, f'patch_{i+1}.tif') for i in range(2)]
+                subprocess.run(['touch'] + tif_files, check=True)
             
             # Create pair directory with PNG files
             pair_dir = os.path.join(city_dir, 'pair')
             os.makedirs(pair_dir, exist_ok=True)
             
-            for img_file in ['img1.png', 'img2.png']:
-                png_file = os.path.join(pair_dir, img_file)
-                with open(png_file, 'w') as f:
-                    f.write('dummy png data')
+            # Create PNG files efficiently
+            png_files = [os.path.join(pair_dir, img_file) for img_file in ['img1.png', 'img2.png']]
+            subprocess.run(['touch'] + png_files, check=True)
             
             # Create dates.txt file
             dates_file = os.path.join(city_dir, 'dates.txt')
@@ -105,13 +98,11 @@ def create_dummy_oscd_files():
             cm_dir = os.path.join(test_city_labels, 'cm')
             os.makedirs(cm_dir, exist_ok=True)
             
-            # Create both TIF and PNG label files
-            tif_label_file = os.path.join(cm_dir, f'{city}-cm.tif')
-            with open(tif_label_file, 'w') as f:
-                f.write('dummy tif label data')
-                
-            png_label_file = os.path.join(cm_dir, 'cm.png')
-            with open(png_label_file, 'w') as f:
-                f.write('dummy png label data')
+            # Create label files efficiently
+            label_files = [
+                os.path.join(cm_dir, f'{city}-cm.tif'),
+                os.path.join(cm_dir, 'cm.png')
+            ]
+            subprocess.run(['touch'] + label_files, check=True)
     
     return _create_files
