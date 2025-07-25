@@ -4,16 +4,16 @@ import pytest
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 
 
-def test_oscd_dataset_has_version_dict_method(oscd_dataset):
+def test_oscd_dataset_has_version_dict_method(oscd_dataset_train):
     """Test that OSCDDataset has _get_cache_version_dict method."""
     # Method should exist
-    assert hasattr(oscd_dataset, '_get_cache_version_dict')
-    assert callable(getattr(oscd_dataset, '_get_cache_version_dict'))
+    assert hasattr(oscd_dataset_train, '_get_cache_version_dict')
+    assert callable(getattr(oscd_dataset_train, '_get_cache_version_dict'))
 
 
-def test_oscd_dataset_version_dict_structure(oscd_dataset):
+def test_oscd_dataset_version_dict_structure(oscd_dataset_train):
     """Test the structure and content of _get_cache_version_dict output."""
-    version_dict = oscd_dataset._get_cache_version_dict()
+    version_dict = oscd_dataset_train._get_cache_version_dict()
     
     # Should return a dictionary
     assert isinstance(version_dict, dict)
@@ -26,10 +26,10 @@ def test_oscd_dataset_version_dict_structure(oscd_dataset):
     assert version_dict['split'] == 'train'
 
 
-def test_oscd_dataset_version_dict_consistency(oscd_dataset):
+def test_oscd_dataset_version_dict_consistency(oscd_dataset_train):
     """Test that _get_cache_version_dict returns consistent results."""
     # Multiple calls should return the same result
-    version_dict1 = oscd_dataset._get_cache_version_dict()
-    version_dict2 = oscd_dataset._get_cache_version_dict()
+    version_dict1 = oscd_dataset_train._get_cache_version_dict()
+    version_dict2 = oscd_dataset_train._get_cache_version_dict()
     
     assert version_dict1 == version_dict2

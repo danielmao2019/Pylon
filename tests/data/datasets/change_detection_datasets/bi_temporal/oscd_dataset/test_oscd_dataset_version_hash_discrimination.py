@@ -1,45 +1,33 @@
 """Test cache version discrimination for OSCDDataset."""
 
 import pytest
-import tempfile
-import os
-import json
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 
 
-# Real OSCD dataset path
-OSCD_DATA_ROOT = os.environ.get('OSCD_DATA_ROOT', './data/datasets/soft_links/OSCD')
-
-
-def test_oscd_dataset_version_discrimination():
+def test_oscd_dataset_version_discrimination(oscd_dataset_train, oscd_dataset_test):
     """Test that OSCDDataset produces different hashes for different parameters."""
     
-    # Same parameters should produce same hash
-    dataset1a = OSCDDataset(data_root=OSCD_DATA_ROOT, split='train')
-    dataset1b = OSCDDataset(data_root=OSCD_DATA_ROOT, split='train')
-    assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
+    # Same parameters should produce same hash - create another instance with same params
+    dataset_train_copy = OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train')
+    assert oscd_dataset_train.get_cache_version_hash() == dataset_train_copy.get_cache_version_hash()
     
     # Different split should produce different hash
-    dataset2 = OSCDDataset(data_root=OSCD_DATA_ROOT, split='test')
-    assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
+    assert oscd_dataset_train.get_cache_version_hash() != oscd_dataset_test.get_cache_version_hash()
 
 
 
 
-def test_oscd_dataset_comprehensive_no_hash_collisions():
+def test_oscd_dataset_comprehensive_no_hash_collisions(oscd_dataset_train, oscd_dataset_test):
     """Test that different OSCD configurations produce unique hashes."""
     
-    # Test various parameter combinations (note: OSCD only has 'train' and 'test' splits)
-    configs = [
-        {'data_root': OSCD_DATA_ROOT, 'split': 'train'},
-        {'data_root': OSCD_DATA_ROOT, 'split': 'test'},
-    ]
-    
+    # Collect hashes from different configurations
+    datasets = [oscd_dataset_train, oscd_dataset_test]
     hashes = []
-    for config in configs:
-        dataset = OSCDDataset(**config)
+    
+    for dataset in datasets:
         hash_val = dataset.get_cache_version_hash()
-        assert hash_val not in hashes, f"Hash collision detected for config {config}"
+        assert hash_val not in hashes, f"Hash collision detected for dataset {dataset}"
         hashes.append(hash_val)
     
+    assert len(hashes) == len(datasets), "Some datasets produced duplicate hashes"
     print(f"Generated {len(hashes)} unique hashes for OSCD dataset configurations")

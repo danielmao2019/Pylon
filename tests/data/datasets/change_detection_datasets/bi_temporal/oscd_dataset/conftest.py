@@ -5,7 +5,7 @@ from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSC
 
 
 @pytest.fixture
-def oscd_dataset():
+def oscd_dataset_train():
     """Fixture for creating an OSCDDataset instance with train split."""
     return OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train')
 
