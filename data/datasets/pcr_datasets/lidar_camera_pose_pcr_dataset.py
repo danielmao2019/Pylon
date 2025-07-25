@@ -5,6 +5,7 @@ import numpy as np
 from typing import Tuple, Dict, Any, List, Optional
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 from data.transforms.vision_3d.pcr_translation import PCRTranslation
+from data.transforms.vision_3d import LiDARSimulationCrop
 
 
 class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
@@ -31,6 +32,12 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         transforms_json_filepaths: List[str],
         dataset_size: int,
         camera_count: Optional[int] = None,
+        lidar_max_range: float = 6.0,
+        lidar_fov: tuple = (120.0, 60.0),
+        lidar_fov_crop_mode: str = "frustum",
+        lidar_apply_range_filter: bool = False,
+        lidar_apply_fov_filter: bool = True,
+        lidar_apply_occlusion_filter: bool = False,
         **kwargs,
     ) -> None:
         """Initialize LiDAR camera pose PCR dataset.
@@ -41,6 +48,12 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             dataset_size: Total number of synthetic pairs to generate
             camera_count: Optional number of camera poses to randomly sample from the union. 
                          If None, use all available camera poses.
+            lidar_max_range: Maximum LiDAR sensor range in meters
+            lidar_fov: Tuple of (horizontal_fov, vertical_fov) in degrees
+            lidar_fov_crop_mode: Cropping mode - "ellipsoid" or "frustum"
+            lidar_apply_range_filter: Whether to apply range-based filtering
+            lidar_apply_fov_filter: Whether to apply field-of-view filtering
+            lidar_apply_occlusion_filter: Whether to apply occlusion simulation
             **kwargs: Additional arguments passed to parent class
         """
         # Validate inputs
@@ -60,6 +73,14 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         self.pc_filepaths = pc_filepaths
         self.transforms_json_filepaths = transforms_json_filepaths
         self.camera_count = camera_count
+        
+        # Store LiDAR parameters
+        self.lidar_max_range = float(lidar_max_range)
+        self.lidar_fov = lidar_fov
+        self.lidar_fov_crop_mode = lidar_fov_crop_mode
+        self.lidar_apply_range_filter = lidar_apply_range_filter
+        self.lidar_apply_fov_filter = lidar_apply_fov_filter
+        self.lidar_apply_occlusion_filter = lidar_apply_occlusion_filter
         
         # Initialize per-scene camera pose storage
         self.scene_camera_poses: Dict[str, List[np.ndarray]] = {}  # camera poses organized by scene filepath
@@ -192,36 +213,39 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     # =========================================================================
     
     def _get_cache_param_key(self) -> Tuple:
-        """Generate cache parameter key including camera_count.
+        """Generate cache parameter key including LiDAR and camera parameters.
         
-        Extends parent class to include camera_count in cache key,
-        ensuring cache invalidation when camera_count changes.
+        Extends parent class to include camera_count and LiDAR parameters
+        in cache key, ensuring cache invalidation when these change.
         
         Returns:
             Cache parameter key tuple
         """
         parent_key = super()._get_cache_param_key()
-        return parent_key + (self.camera_count,)
-
-    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
-        """Sample transform parameters using scene-specific camera poses.
+        return parent_key + (
+            self.camera_count,
+            self.lidar_max_range,
+            self.lidar_fov,
+            self.lidar_fov_crop_mode,
+            self.lidar_apply_range_filter,
+            self.lidar_apply_fov_filter,
+            self.lidar_apply_occlusion_filter
+        )
+    
+    def _sample_crop(self, seed: int, file_idx: int) -> Dict[str, Any]:
+        """Sample LiDAR crop parameters using scene-specific camera poses.
         
         Args:
             seed: Random seed for deterministic sampling
             file_idx: Index of file pair for scene-specific camera pose sampling
         
         Returns:
-            Dictionary containing transform parameters including scene-specific camera pose
+            Dictionary containing LiDAR crop parameters
         """
-        
         generator = torch.Generator()
         generator.manual_seed(seed)
         
-        # Sample SE(3) transformation parameters for synthetic misalignment
-        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
-        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
-        
-        # Get scene-specific camera poses using file_idx from kwargs
+        # Get scene-specific camera poses using file_idx
         file_pair_annotation = self.file_pair_annotations[file_idx]
         pc_filepath = file_pair_annotation['src_filepath']
         scene_camera_poses = self.scene_camera_poses[pc_filepath]
@@ -255,17 +279,95 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         crop_seed = (seed * 31 + 42) % (2**32)
         
         return {
-            'rotation_angles': rotation_angles.tolist(),
-            'translation': translation.tolist(),
             'sensor_position': sensor_position.tolist(),
             'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
             'lidar_fov': self.lidar_fov,
-            'seed': seed,
             'crop_seed': crop_seed,
             'camera_pose_idx': camera_pose_idx,
             'scene_filepath': pc_filepath,
         }
+    
+    def _build_crop(self, crop_params: dict) -> LiDARSimulationCrop:
+        """Build LiDAR crop transform from parameters.
+        
+        Args:
+            crop_params: Crop configuration dictionary
+            
+        Returns:
+            LiDAR crop transform object with sensor extrinsics
+        """
+        # Build 4x4 extrinsics matrix from sampled pose parameters
+        sensor_position = torch.tensor(crop_params['sensor_position'], dtype=torch.float32, device=self.device)
+        euler_angles = torch.tensor(crop_params['sensor_euler_angles'], dtype=torch.float32, device=self.device)
+        
+        # Convert Euler angles to rotation matrix
+        cos_vals = torch.cos(euler_angles)
+        sin_vals = torch.sin(euler_angles)
+        
+        # ZYX Euler angle convention (yaw, pitch, roll)
+        R_z = torch.tensor([
+            [cos_vals[2], -sin_vals[2], 0],
+            [sin_vals[2], cos_vals[2], 0],
+            [0, 0, 1]
+        ], dtype=torch.float32, device=self.device)
+        
+        R_y = torch.tensor([
+            [cos_vals[1], 0, sin_vals[1]],
+            [0, 1, 0],
+            [-sin_vals[1], 0, cos_vals[1]]
+        ], dtype=torch.float32, device=self.device)
+        
+        R_x = torch.tensor([
+            [1, 0, 0],
+            [0, cos_vals[0], -sin_vals[0]],
+            [0, sin_vals[0], cos_vals[0]]
+        ], dtype=torch.float32, device=self.device)
+        
+        rotation_matrix = R_z @ R_y @ R_x
+        
+        # Build 4x4 extrinsics matrix
+        sensor_extrinsics = torch.eye(4, dtype=torch.float32, device=self.device)
+        sensor_extrinsics[:3, :3] = rotation_matrix
+        sensor_extrinsics[:3, 3] = sensor_position
+        
+        # Create LiDAR crop transform with configurable filter settings
+        crop_transform = LiDARSimulationCrop(
+            max_range=crop_params['lidar_max_range'],
+            fov=crop_params['lidar_fov'],
+            ray_density_factor=0.8,  # Default value
+            apply_range_filter=self.lidar_apply_range_filter,
+            apply_fov_filter=self.lidar_apply_fov_filter,
+            apply_occlusion_filter=self.lidar_apply_occlusion_filter,
+            fov_crop_mode=self.lidar_fov_crop_mode
+        )
+        
+        # Store sensor extrinsics for LiDAR cropping
+        crop_transform._sensor_extrinsics = sensor_extrinsics
+        
+        return crop_transform
+    
+    def _apply_crop(self, crop_transform: LiDARSimulationCrop, pc_data: dict, crop_params: dict) -> dict:
+        """Apply LiDAR crop transform with sensor extrinsics.
+        
+        Override parent to handle LiDAR-specific signature.
+        
+        Args:
+            crop_transform: LiDAR crop transform object
+            pc_data: Point cloud dictionary
+            crop_params: Crop configuration parameters
+            
+        Returns:
+            Cropped point cloud dictionary
+        """
+        # Use crop_seed for deterministic cropping
+        crop_seed = crop_params['crop_seed']
+        generator = torch.Generator(device=self.device)
+        generator.manual_seed(crop_seed)
+        
+        # LiDAR cropping requires sensor extrinsics parameter
+        sensor_extrinsics = crop_transform._sensor_extrinsics
+        return crop_transform._call_single(pc_data, sensor_extrinsics, generator=generator)
 
     # =========================================================================
     # Data loading methods (override parent behavior)

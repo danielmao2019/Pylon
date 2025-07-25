@@ -3,6 +3,7 @@ import os
 import glob
 import torch
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
+from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 from utils.point_cloud_ops import normalize_point_cloud
 
 
@@ -41,6 +42,28 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         'sofa', 'stairs', 'stool', 'table', 'tent', 'toilet', 'tv_stand', 'wardrobe', 'xbox'
     ]
 
+    def __init__(
+        self,
+        data_root: str,
+        dataset_size: int,
+        keep_ratio: float = 0.7,
+        **kwargs,
+    ) -> None:
+        """Initialize ModelNet40 dataset with RandomPointCrop.
+        
+        Args:
+            data_root: Path to ModelNet40 root directory
+            dataset_size: Total number of synthetic pairs to generate
+            keep_ratio: Fraction of points to keep after cropping (0.0 to 1.0)
+            **kwargs: Additional arguments passed to parent class
+        """
+        self.keep_ratio = keep_ratio
+        super().__init__(
+            data_root=data_root,
+            dataset_size=dataset_size,
+            **kwargs,
+        )
+    
     def _init_annotations(self) -> None:
         """Initialize file pair annotations with OFF file paths.
         
@@ -97,32 +120,84 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         # Fallback: extract from parent directory
         return os.path.basename(os.path.dirname(os.path.dirname(file_path)))
 
-    def is_asymmetric_object(self, file_path: str) -> bool:
-        """Check if object belongs to asymmetric category.
+    def _get_cache_param_key(self) -> tuple:
+        """Generate cache parameter key including ModelNet40-specific parameters.
         
-        Args:
-            file_path: Path to OFF file
-            
         Returns:
-            True if object is asymmetric, False otherwise
+            Cache parameter key tuple
         """
-        category = self.get_category_from_path(file_path)
-        return category in self.ASYMMETRIC_CATEGORIES
+        parent_key = super()._get_cache_param_key()
+        return parent_key + (self.keep_ratio,)
 
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Load and normalize ModelNet40 point cloud data.
         
         Args:
             file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
-            Tuple of (src_pc_normalized, tgt_pc_normalized) point cloud position tensors
+            Tuple of (src_pc_dict, tgt_pc_dict) normalized point cloud dictionaries
         """
-        # Load point clouds using parent method
-        src_pc_raw, tgt_pc_raw = super()._load_file_pair_data(file_pair_annotation)
+        # Load point clouds using parent method (returns dictionaries)
+        src_pc_dict, tgt_pc_dict = super()._load_file_pair_data(file_pair_annotation)
         
-        # Apply ModelNet40-specific normalization
-        src_pc_normalized = normalize_point_cloud(src_pc_raw)
-        tgt_pc_normalized = normalize_point_cloud(tgt_pc_raw)
+        # Apply ModelNet40-specific normalization to position data
+        src_pc_dict['pos'] = normalize_point_cloud(src_pc_dict['pos'])
+        tgt_pc_dict['pos'] = normalize_point_cloud(tgt_pc_dict['pos'])
         
-        return src_pc_normalized, tgt_pc_normalized
+        return src_pc_dict, tgt_pc_dict
+
+    def _sample_crop(self, seed: int, file_idx: int) -> dict:
+        """Sample crop parameters for ModelNet40 with RandomPointCrop.
+        
+        Args:
+            seed: Random seed for deterministic sampling
+            file_idx: Index of file pair (unused for ModelNet40)
+            
+        Returns:
+            Dictionary containing crop parameters
+        """
+        _ = file_idx  # Suppress unused parameter warning
+        # Generate crop seed for deterministic cropping
+        crop_seed = (seed * 31 + 42) % (2**32)
+        
+        return {
+            'crop_seed': crop_seed,
+            'keep_ratio': self.keep_ratio,
+        }
+    
+    def _build_crop(self, crop_params: dict) -> RandomPointCrop:
+        """Build RandomPointCrop transform from parameters.
+        
+        Args:
+            crop_params: Crop configuration dictionary
+            
+        Returns:
+            RandomPointCrop transform object
+        """
+        # Create RandomPointCrop transform
+        crop_transform = RandomPointCrop(
+            keep_ratio=crop_params['keep_ratio'],
+            viewpoint=None,  # Random viewpoint
+            limit=500.0  # Default limit
+        )
+        
+        return crop_transform
+    
+    def _apply_crop(self, crop_transform: RandomPointCrop, pc_data: dict, crop_params: dict) -> dict:
+        """Apply RandomPointCrop transform to point cloud data.
+        
+        Args:
+            crop_transform: RandomPointCrop transform object
+            pc_data: Point cloud dictionary
+            crop_params: Crop configuration parameters
+            
+        Returns:
+            Cropped point cloud dictionary
+        """
+        # Use crop_seed for deterministic cropping
+        crop_seed = crop_params['crop_seed']
+        generator = torch.Generator(device=self.device)
+        generator.manual_seed(crop_seed)
+        
+        return crop_transform._call_single(pc_data, generator=generator)
