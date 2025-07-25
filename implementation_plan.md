@@ -1734,8 +1734,8 @@ This MVP progression ensures you have a working chat bot quickly, with each enha
 ### 9.1. Critical Implementation Notes
 
 **Key Architecture Decisions:**
-- **Repository Structure**: Create modular Python package with clear separation: `nexus/sources/`, `nexus/knowledge/`, `nexus/inference/`, `nexus/chat/`, `nexus/web/`
-- **Configuration Management**: Use Pydantic for all configuration classes to maintain type safety
+- **Repository Structure**: Create modular Python package with clear separation: `Nexus/sources/`, `Nexus/knowledge/`, `Nexus/chat/`, `Nexus/web/`
+- **Configuration Management**: Use Pydantic (Python library for data validation with type hints) for all configuration classes to maintain type safety
 - **Error Handling**: Follow fail-fast principle - use assertions for input validation, only catch expected exceptions
 - **Testing Strategy**: Test each MVP increment independently with integration tests
 
@@ -1756,10 +1756,12 @@ This MVP progression ensures you have a working chat bot quickly, with each enha
 
 **Code Organization:**
 ```
-nexus/
+Nexus/
 ├── sources/           # Information source implementations
-├── knowledge/         # Knowledge representation and storage
-├── inference/         # BFS/DFS inference engines  
+├── knowledge/         # Knowledge representation, storage, and inference
+│   ├── representation/  # Knowledge data structures and confidence levels
+│   ├── storage/        # Knowledge base management and conflict resolution
+│   └── inference/      # BFS/DFS inference engines and strategies
 ├── chat/             # Query processing and response generation
 ├── web/              # Streamlit interface components
 ├── utils/            # Shared utilities and helpers
