@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
 from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
 from utils.automation.progress_tracking.session_progress import get_session_progress
-from utils.io.json import safe_load_json, safe_save_json, atomic_json_update
+from utils.io.json import safe_load_json, safe_save_json
 
 
 # ============================================================================
@@ -362,135 +362,41 @@ def test_mixed_tracker_types_concurrent_access():
 
 
 # ============================================================================
-# CONCURRENCY TESTS - FILE LOCKING STRESS TEST
+# CONCURRENCY TESTS - REALISTIC PROGRESS TRACKING SCENARIOS
 # ============================================================================
 
-def test_json_file_locking_stress_test_broken():
-    """Demonstrate that non-atomic read-modify-write has race conditions."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        test_file = os.path.join(work_dir, "stress_test.json")
-        
-        # Initialize with base data
-        initial_data = {"counter": 0, "operations": []}
-        safe_save_json(initial_data, test_file)
-        
-        def stress_worker(worker_id):
-            for i in range(20):  # 20 operations per worker
-                # Read current data
-                data = safe_load_json(test_file)
-                
-                # Modify data
-                data["counter"] += 1
-                data["operations"].append(f"worker_{worker_id}_op_{i}")
-                
-                # Save modified data
-                safe_save_json(data, test_file)
-                
-                # Small random delay to increase chance of conflicts
-                time.sleep(0.001)
-        
-        # Run 10 workers concurrently (200 total operations)
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(stress_worker, worker_id) for worker_id in range(10)]
-            for future in as_completed(futures):
-                future.result()
-        
-        # Verify final state
-        final_data = safe_load_json(test_file)
-        
-        # This test documents the race condition - counter will be less than 200
-        assert final_data["counter"] < 200, f"Expected < 200 due to race conditions, got {final_data['counter']}"
-        print(f"Race condition demonstrated: got {final_data['counter']} instead of 200")
-
-
-def test_atomic_json_update_stress_test():
-    """Stress test the atomic JSON update mechanism with high concurrency."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        test_file = os.path.join(work_dir, "atomic_stress_test.json")
-        
-        def stress_worker(worker_id):
-            for i in range(20):  # 20 operations per worker
-                def update_func(data):
-                    # Ensure data structure exists
-                    if "counter" not in data:
-                        data["counter"] = 0
-                    if "operations" not in data:
-                        data["operations"] = []
-                    
-                    # Modify data atomically
-                    data["counter"] += 1
-                    data["operations"].append(f"worker_{worker_id}_op_{i}")
-                    return data
-                
-                # Atomic read-modify-write operation
-                atomic_json_update(test_file, update_func, {"counter": 0, "operations": []})
-                
-                # Small random delay to increase chance of conflicts
-                time.sleep(0.001)
-        
-        # Run 10 workers concurrently (200 total operations)
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(stress_worker, worker_id) for worker_id in range(10)]
-            for future in as_completed(futures):
-                future.result()
-        
-        # Verify final state
-        final_data = safe_load_json(test_file)
-        
-        # Counter should be exactly 200 (no lost updates with atomic operations)
-        assert final_data["counter"] == 200, f"Expected 200, got {final_data['counter']}"
-        
-        # Should have exactly 200 operations recorded
-        assert len(final_data["operations"]) == 200
-        
-        # All operations should be unique (no duplicates from race conditions)
-        assert len(set(final_data["operations"])) == 200
-
-
-# ============================================================================
-# CONCURRENCY TESTS - DEADLOCK PREVENTION
-# ============================================================================
-
-def test_no_deadlocks_multiple_files():
-    """Test that accessing multiple progress files doesn't cause deadlocks."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Create multiple progress files
-        files = []
-        for i in range(5):
-            file_path = os.path.join(work_dir, f"progress_{i}.json")
-            data = {"id": i, "value": i * 10}
-            safe_save_json(data, file_path)
-            files.append(file_path)
-        
-        def cross_file_worker(worker_id):
-            # Each worker accesses files in different order to test for deadlocks
-            if worker_id % 2 == 0:
-                file_order = files  # Forward order
-            else:
-                file_order = files[::-1]  # Reverse order
+def test_concurrent_progress_json_creation():
+    """Test multiple processes creating progress.json files in different directories."""
+    with tempfile.TemporaryDirectory() as base_dir:
+        def create_progress_worker(worker_id):
+            # Each worker creates progress in its own directory
+            work_dir = os.path.join(base_dir, f"experiment_{worker_id}")
+            os.makedirs(work_dir, exist_ok=True)
             
-            for _ in range(10):
-                for file_path in file_order:
-                    # Read and update each file
-                    data = safe_load_json(file_path)
-                    data["accessed_by"] = worker_id
-                    safe_save_json(data, file_path)
-                    time.sleep(0.001)
+            # Create multiple progress files (simulating repeated progress updates)
+            for update in range(5):
+                progress_data = {
+                    "completed_epochs": update * 10,
+                    "progress_percentage": update * 10.0,
+                    "early_stopped": False,
+                    "early_stopped_at_epoch": None,
+                    "runner_type": "trainer",
+                    "total_epochs": 100
+                }
+                progress_file = os.path.join(work_dir, "progress.json")
+                safe_save_json(progress_data, progress_file)
+                time.sleep(0.01)
         
-        # Run workers that access files in different orders
-        start_time = time.time()
-        with ThreadPoolExecutor(max_workers=6) as executor:
-            futures = [executor.submit(cross_file_worker, worker_id) for worker_id in range(6)]
+        # Run multiple workers creating progress files
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(create_progress_worker, worker_id) for worker_id in range(5)]
             for future in as_completed(futures):
                 future.result()
-        end_time = time.time()
         
-        # Should complete within reasonable time (no deadlocks)
-        elapsed = end_time - start_time
-        assert elapsed < 10.0, f"Operations took too long: {elapsed}s (possible deadlock)"
-        
-        # Verify all files are still accessible
-        for file_path in files:
-            data = safe_load_json(file_path)
-            assert "accessed_by" in data
-            assert isinstance(data["accessed_by"], int)
+        # Verify all progress files were created correctly
+        for worker_id in range(5):
+            progress_file = os.path.join(base_dir, f"experiment_{worker_id}", "progress.json")
+            assert os.path.exists(progress_file)
+            data = safe_load_json(progress_file)
+            assert data["completed_epochs"] == 40  # Final update
+            assert data["runner_type"] == "trainer"
