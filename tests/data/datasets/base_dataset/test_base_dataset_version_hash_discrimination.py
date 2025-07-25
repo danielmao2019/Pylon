@@ -55,3 +55,17 @@ def test_comprehensive_version_discrimination(mock_dataset_class):
             assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
 
 
+def test_base_dataset_get_cache_version_hash_method(mock_dataset_class):
+    """Test that BaseDataset has get_cache_version_hash method."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dataset = mock_dataset_class(data_root=temp_dir, split='train')
+        
+        # Method should exist and return a string
+        assert hasattr(dataset, 'get_cache_version_hash')
+        assert callable(getattr(dataset, 'get_cache_version_hash'))
+        
+        hash_val = dataset.get_cache_version_hash()
+        assert isinstance(hash_val, str)
+        assert len(hash_val) == 16  # xxhash produces 16-character hex strings
+
+
