@@ -90,58 +90,87 @@ This is a **classic file-level race condition** that requires **inter-process co
 - ✅ **Performance**: No blocking operations
 - ✅ **Reliable**: Filesystem-level atomicity guarantees
 
-### Final Clean Implementation
+### Final Implementation
 
-**Simplified API with only two essential methods:**
+**Clean atomic API with assertion-based validation:**
 
 ```python
 def load_json(filepath: str) -> Any:
     """Load JSON from file with error handling."""
     try:
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"File does not exist: {filepath}")
-        if os.path.getsize(filepath) == 0:
-            raise ValueError(f"File is empty: {filepath}")
-        
+        # Input validation with assertions - fail fast!
+        assert os.path.exists(filepath), f"File does not exist: {filepath}"
+        assert os.path.getsize(filepath) > 0, f"File is empty: {filepath}"
+
+        # Load JSON
         with open(filepath, 'r') as f:
             return json.load(f)
+
     except Exception as e:
+        # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error loading JSON from {filepath}: {e}") from e
 
 def save_json(obj: Any, filepath: str) -> None:
-    """Save object to JSON file using atomic writes."""
+    """Save object to JSON file using atomic writes and automatic serialization."""
     try:
-        # Create temp file in same directory (for atomic rename)
-        temp_fd, temp_filepath = tempfile.mkstemp(
-            suffix='.tmp', prefix='json_', 
-            dir=os.path.dirname(filepath) or '.'
-        )
+        # Auto-create directory if it doesn't exist
+        target_dir = os.path.dirname(filepath)
+        if target_dir:
+            os.makedirs(target_dir, exist_ok=True)
+        
+        # Atomic write using temp file + rename
+        temp_fd = None
+        temp_filepath = None
         
         try:
-            os.close(temp_fd)
+            # Create temp file in same directory as target file
+            # (rename is only atomic within the same filesystem)
+            temp_fd, temp_filepath = tempfile.mkstemp(
+                suffix='.tmp', 
+                prefix='json_', 
+                dir=target_dir or '.'
+            )
             
-            # Write serialized data to temp file
+            # Close the file descriptor - we'll use our own file operations
+            os.close(temp_fd)
+            temp_fd = None
+            
+            # Serialize and write to temporary file
             serialized_obj = serialize_object(obj)
             with open(temp_filepath, 'w') as f:
-                f.write(jsbeautifier.beautify(json.dumps(serialized_obj)))
+                f.write(jsbeautifier.beautify(
+                    json.dumps(serialized_obj), 
+                    jsbeautifier.default_options()
+                ))
             
-            # Atomic rename - prevents all race conditions
+            # Atomic rename - this prevents race conditions
             os.rename(temp_filepath, filepath)
-            temp_filepath = None  # Success
+            temp_filepath = None  # Success - no cleanup needed
             
-        except Exception:
-            # Cleanup on failure
-            if temp_filepath and os.path.exists(temp_filepath):
-                os.remove(temp_filepath)
+        except Exception as e:
+            # Cleanup temp file if something went wrong
+            if temp_fd is not None:
+                try:
+                    os.close(temp_fd)
+                except:
+                    pass
+            if temp_filepath is not None and os.path.exists(temp_filepath):
+                try:
+                    os.remove(temp_filepath)
+                except:
+                    pass
             raise
             
     except Exception as e:
+        # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error saving JSON to {filepath}: {e}") from e
-
-# Backward compatibility aliases
-safe_load_json = load_json
-safe_save_json = save_json
 ```
+
+**Key Design Decisions:**
+- **Assertions for validation**: Following CLAUDE.md fail-fast principles with clear error messages
+- **Try-catch wrapper**: Provides consistent RuntimeError interface with filepath context
+- **Auto-directory creation**: Eliminates common setup errors
+- **Comprehensive cleanup**: Ensures no temp files are left behind on failures
 
 ## ✅ Implementation Complete
 
