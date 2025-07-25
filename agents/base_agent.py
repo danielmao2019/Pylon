@@ -15,12 +15,14 @@ class BaseAgent(ABC):
         gpu_pool: List[Tuple[str, List[int]]] = [],
         user_names: Dict[str, str] = {},
         timeout: int = 5,
+        force_progress_recompute: bool = False,
     ) -> None:
         self.config_files = config_files
         self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
+        self.force_progress_recompute = force_progress_recompute
         self._init_system_monitor(gpu_pool, timeout)
         self.user_names = user_names
 

@@ -62,6 +62,49 @@ def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, 
         assert progress.early_stopped_at_epoch == 57
 
 
+def test_get_session_progress_force_progress_recompute(create_progress_json, create_epoch_files, create_real_config, EXPECTED_FILES):
+    """Test that force_progress_recompute bypasses cached progress.json and recomputes from filesystem."""
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_force_recompute")
+        config_path = os.path.join(configs_dir, "test_force_recompute.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = EXPECTED_FILES
+        
+        # Create outdated progress.json showing 2 completed epochs
+        create_progress_json(work_dir, completed_epochs=2, early_stopped=False, tot_epochs=100)
+        
+        # But actually create 5 completed epochs on filesystem
+        for epoch_idx in range(5):
+            create_epoch_files(work_dir, epoch_idx)
+        
+        # Create real config (needed for slow path)
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
+            # Normal call should use cached progress.json
+            progress_cached = get_session_progress(work_dir, expected_files, force_progress_recompute=False)
+            assert progress_cached.completed_epochs == 2  # From cached progress.json
+            assert progress_cached.progress_percentage == 2.0
+            
+            # Force recompute should bypass cache and recompute from filesystem
+            progress_recomputed = get_session_progress(work_dir, expected_files, force_progress_recompute=True)
+            assert progress_recomputed.completed_epochs == 5  # From actual filesystem
+            assert progress_recomputed.progress_percentage == 5.0
+            assert progress_recomputed.early_stopped == False
+            assert progress_recomputed.early_stopped_at_epoch is None
+            
+        finally:
+            os.chdir(original_cwd)
+
+
 @pytest.mark.parametrize("completed_epochs,expected_completed", [
     (0, 0),      # No epochs completed
     (1, 1),      # One epoch completed  

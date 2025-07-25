@@ -26,6 +26,7 @@ class Launcher(BaseAgent):
         project_dir: str = "",
         conda_env: str = "",
         keep_tmux: Optional[bool] = False,
+        force_progress_recompute: bool = False,
     ) -> None:
         r"""
         Args:
@@ -41,6 +42,7 @@ class Launcher(BaseAgent):
             project_dir (str): the project directory.
             conda_env (str): the conda environment to use.
             keep_tmux (Optional[bool]): whether to keep the tmux session alive.
+            force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
         """
         super(Launcher, self).__init__(
             config_files=config_files,
@@ -51,6 +53,7 @@ class Launcher(BaseAgent):
             gpu_pool=gpu_pool,
             user_names=user_names,
             timeout=timeout,
+            force_progress_recompute=force_progress_recompute,
         )
         self.project_dir = project_dir
         self.conda_env = conda_env
@@ -220,6 +223,7 @@ class Launcher(BaseAgent):
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
                 system_monitor=self.system_monitor,
+                force_progress_recompute=self.force_progress_recompute,
             )
             all_running_status = list(all_running_status_dict.values())
 

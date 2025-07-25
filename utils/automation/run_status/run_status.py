@@ -43,6 +43,7 @@ def get_all_run_status(
     sleep_time: int = 86400,
     outdated_days: int = 30,
     system_monitor: SystemMonitor = None,
+    force_progress_recompute: bool = False,
 ) -> Dict[str, RunStatus]:
     """
     Args:
@@ -51,6 +52,7 @@ def get_all_run_status(
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
         system_monitor: System monitor (CPU + GPU)
+        force_progress_recompute: If True, bypass cache and recompute progress from scratch
     """
     assert isinstance(config_files, list)
     assert isinstance(epochs, int)
@@ -73,6 +75,7 @@ def get_all_run_status(
                         config_to_process_info=config_to_process_info,
                         sleep_time=sleep_time,
                         outdated_days=outdated_days,
+                        force_progress_recompute=force_progress_recompute,
                     ), config_files
                 )
             )
@@ -90,7 +93,8 @@ def get_run_status(
     epochs: int,
     config_to_process_info: Dict[str, ProcessInfo],
     sleep_time: int = 86400,
-    outdated_days: int = 30
+    outdated_days: int = 30,
+    force_progress_recompute: bool = False
 ) -> RunStatus:
     """Get the current status of a training run.
 
@@ -100,6 +104,7 @@ def get_run_status(
         config_to_process_info: Mapping from config to ProcessInfo for running experiments
         sleep_time: Time in seconds to consider a run as "stuck" if no updates
         outdated_days: Number of days after which a finished run is considered outdated
+        force_progress_recompute: If True, bypass cache and recompute progress from scratch
 
     Returns:
         RunStatus object containing the current status of the run
@@ -109,7 +114,7 @@ def get_run_status(
     
     # Create progress tracker (handles both trainer and evaluator)
     tracker = create_progress_tracker(work_dir, config_dict)
-    progress = tracker.get_progress()
+    progress = tracker.get_progress(force_progress_recompute=force_progress_recompute)
     
     # Determine status using existing logic but with tracker data
     log_last_update = get_log_last_update(work_dir, tracker.get_log_pattern())

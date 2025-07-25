@@ -14,13 +14,14 @@ class TrainerProgressTracker(BaseProgressTracker):
     def get_log_pattern(self) -> str:
         return "train_val*.log"
     
-    def calculate_progress(self) -> ProgressInfo:
+    def calculate_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
         """Calculate trainer-specific progress using moved session_progress logic."""
         # Use moved session_progress logic (now in same module)
         from .session_progress import get_session_progress
         
         # Get basic progress info (preserves existing logic)  
-        basic_progress = get_session_progress(self.work_dir, self.get_expected_files())
+        # Pass the force_progress_recompute flag through to get_session_progress
+        basic_progress = get_session_progress(self.work_dir, self.get_expected_files(), force_progress_recompute=force_progress_recompute)
         
         # Enhance with new fields
         total_epochs = self.config.get('epochs') if self.config else None

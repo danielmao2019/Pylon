@@ -103,6 +103,7 @@ def create_layout(
     outdated_days: int,
     system_monitor: SystemMonitor,
     user_names: Dict[str, str],
+    force_progress_recompute: bool = False,
 ) -> html.Div:
     """Create the dashboard layout.
 
@@ -114,6 +115,7 @@ def create_layout(
         outdated_days: Number of days to consider a run outdated
         system_monitor: SystemMonitor object
         user_names: Dict of user names
+        force_progress_recompute: If True, bypass cache and recompute progress from scratch
 
     Returns:
         html.Div: The dashboard layout
@@ -125,10 +127,11 @@ def create_layout(
     assert isinstance(outdated_days, int)
     assert isinstance(system_monitor, SystemMonitor)
     assert isinstance(user_names, dict)
+    assert isinstance(force_progress_recompute, bool)
 
 
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    initial_progress = f"Progress: {get_progress(config_files, epochs, sleep_time, outdated_days, system_monitor)}%"
+    initial_progress = f"Progress: {get_progress(config_files, epochs, sleep_time, outdated_days, system_monitor, force_progress_recompute)}%"
     initial_data = generate_table_data(system_monitor, user_names)
     initial_style = generate_table_style(initial_data)
 

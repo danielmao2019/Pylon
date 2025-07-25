@@ -55,17 +55,16 @@ class BaseProgressTracker(ABC):
         pass
     
     @abstractmethod
-    def calculate_progress(self) -> ProgressInfo:
+    def calculate_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
         """Calculate and return current progress information.""" 
         pass
     
-    
-    def get_progress(self, force_refresh: bool = False) -> ProgressInfo:
+    def get_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
         """Get progress info with caching support."""
-        if not force_refresh and self._cache and self._should_use_cache():
+        if not force_progress_recompute and self._cache and self._should_use_cache():
             return self._cache
         
-        progress = self.calculate_progress()
+        progress = self.calculate_progress(force_progress_recompute)
         self._cache = progress
         self._cache_time = time.time()
         

@@ -15,7 +15,7 @@ class EvaluatorProgressTracker(BaseProgressTracker):
     def get_log_pattern(self) -> str:
         return "eval_*.log"
     
-    def calculate_progress(self) -> ProgressInfo:
+    def calculate_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
         """Calculate evaluator-specific progress."""
         # Check if evaluation is complete
         eval_complete = self._check_files_exist()
