@@ -109,3 +109,135 @@ def safe_save_json_atomic(obj: Any, filepath: str) -> None:
 ```
 
 The solution should maintain the existing thread-safe behavior while adding inter-process safety through atomic writes.
+
+## Deep Dive: File Locking Challenges
+
+### Deadlock Scenarios with File Locking
+
+**Deadlocks** occur when two or more processes wait indefinitely for each other to release locks. In the context of file locking:
+
+#### Scenario 1: Multiple File Dependencies
+```python
+# Process A locks file1, then tries to lock file2
+with fcntl.flock(file1_fd, fcntl.LOCK_EX):
+    # Process A holds file1 lock
+    with fcntl.flock(file2_fd, fcntl.LOCK_EX):  # Waits for file2
+        # Do work
+        pass
+
+# Process B locks file2, then tries to lock file1  
+with fcntl.flock(file2_fd, fcntl.LOCK_EX):
+    # Process B holds file2 lock
+    with fcntl.flock(file1_fd, fcntl.LOCK_EX):  # Waits for file1 - DEADLOCK!
+        # Do work
+        pass
+```
+
+#### Scenario 2: Lock Ordering Issues
+```python
+# In our case: progress.json files in different directories
+# Process A: locks progress.json in dir1, then dir2
+# Process B: locks progress.json in dir2, then dir1
+# Result: Circular dependency causing deadlock
+```
+
+#### Scenario 3: Exception Handling Failures
+```python
+def bad_locking_example():
+    lock_fd = open('progress.json', 'r+')
+    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    # If an exception occurs here, lock is never released!
+    raise Exception("Oops!")
+    # lock_fd.close() never called - lock held indefinitely
+```
+
+### Blocking Operations Impact
+
+**Blocking operations** occur when a process must wait for a lock to be released:
+
+#### Performance Impact in Pylon Context
+```python
+# Current Pylon usage pattern - this becomes problematic with file locks:
+def get_all_run_status(config_files, ...):
+    with ThreadPoolExecutor() as executor:
+        all_run_status = {
+            config: status 
+            for config, status in zip(
+                config_files,
+                executor.map(get_run_status, config_files)  # Multiple parallel requests
+            )
+        }
+```
+
+#### Blocking Cascade Effect
+1. **Process A** (launch.py) locks `progress.json` for writing (takes 100ms)
+2. **Process B** (dashboard.py) tries to read same file - **blocks and waits**
+3. **Process B** has 50 other files to read - all blocked behind this one
+4. **User impact**: Dashboard becomes unresponsive, launch.py appears stuck
+
+#### Real-World Timing Issues
+```python
+# Typical file operations in Pylon:
+safe_save_json(progress_data, progress_file)  # 10-50ms for large progress files
+safe_load_json(progress_file)                 # 5-20ms for reading
+
+# With file locking - worst case scenario:
+# Process A writing to 10 files sequentially (500ms total)
+# Process B must wait for entire sequence before reading ANY file
+# Total delay: 500ms instead of 20ms for a simple read
+```
+
+### File Locking Best Practices (If Chosen)
+
+#### 1. Lock Ordering
+```python
+# Always acquire locks in consistent order (e.g., alphabetical by filepath)
+def acquire_locks_safely(filepaths):
+    sorted_paths = sorted(filepaths)  # Consistent ordering prevents deadlocks
+    locks = []
+    for path in sorted_paths:
+        fd = open(path, 'r+')
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        locks.append(fd)
+    return locks
+```
+
+#### 2. Timeout Mechanisms
+```python
+# Use non-blocking locks with timeout
+def safe_lock_with_timeout(filepath, timeout=5.0):
+    fd = open(filepath, 'r+')
+    start_time = time.time()
+    while True:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # Non-blocking
+            return fd
+        except BlockingIOError:
+            if time.time() - start_time > timeout:
+                fd.close()
+                raise TimeoutError(f"Could not acquire lock on {filepath}")
+            time.sleep(0.01)  # Brief pause before retry
+```
+
+#### 3. Exception Safety
+```python
+# Always use context managers for automatic cleanup
+@contextmanager
+def file_lock(filepath):
+    fd = open(filepath, 'r+')
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield fd
+    finally:
+        fd.close()  # Automatically releases lock
+```
+
+### Why Atomic Writes Avoid These Issues
+
+Atomic writes eliminate these problems entirely:
+- **No locks needed** → No deadlock possibility
+- **No blocking** → No performance degradation  
+- **No cleanup complexity** → Simple error handling
+- **Cross-platform** → Works everywhere consistently
+
+This is why atomic writes are the recommended solution for this specific race condition.
