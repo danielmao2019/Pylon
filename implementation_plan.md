@@ -1723,3 +1723,51 @@ Key Principle: Always have a working system, progressively enhanced
 ```
 
 This MVP progression ensures you have a working chat bot quickly, with each enhancement adding meaningful value. Each step is small enough to complete successfully while building toward the full vision.
+
+---
+
+## 9. Implementation Guidelines
+
+### 9.1. Critical Implementation Notes
+
+**Key Architecture Decisions:**
+- **Repository Structure**: Create modular Python package with clear separation: `nexus/sources/`, `nexus/knowledge/`, `nexus/inference/`, `nexus/chat/`, `nexus/web/`
+- **Configuration Management**: Use Pydantic for all configuration classes to maintain type safety
+- **Error Handling**: Follow fail-fast principle - use assertions for input validation, only catch expected exceptions
+- **Testing Strategy**: Test each MVP increment independently with integration tests
+
+**Essential Starting Points for MVP 1:**
+1. Create `InformationSource` abstract base class first
+2. Implement `GitHubRepo` source with basic file reading
+3. Create simple `Knowledge` data class with confidence levels
+4. Build basic ChromaDB integration for vector storage
+5. Set up Streamlit interface with file upload
+
+**Critical Success Metrics:**
+- **MVP 1**: Answer basic questions about code files within 30 seconds
+- **MVP 3**: User corrections improve subsequent responses immediately  
+- **MVP 5**: Generate architectural insights that match human expert analysis
+- **MVP 7**: Handle enterprise-scale repositories (10K+ files) efficiently
+
+### 9.2. Development Best Practices
+
+**Code Organization:**
+```
+nexus/
+├── sources/           # Information source implementations
+├── knowledge/         # Knowledge representation and storage
+├── inference/         # BFS/DFS inference engines  
+├── chat/             # Query processing and response generation
+├── web/              # Streamlit interface components
+├── utils/            # Shared utilities and helpers
+└── tests/            # Comprehensive test suite
+```
+
+**Key Implementation Priorities:**
+1. **Start Simple**: Begin with MVP 1 basic functionality
+2. **Validate Early**: Test each component with real repository data
+3. **User Feedback**: Implement user interaction learning as early as MVP 3
+4. **Performance**: Profile and optimize vector operations from MVP 1
+5. **Documentation**: Maintain clear API documentation for extensibility
+
+This plan provides complete guidance for building Nexus from initial concept to production-ready knowledge chat bot.
