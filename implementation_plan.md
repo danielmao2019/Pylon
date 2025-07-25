@@ -1,8 +1,12 @@
-# Knowledge Chat Bot Implementation Plan <!-- omit in toc -->
+# Nexus Implementation Plan <!-- omit in toc -->
 
 ## Table of Contents <!-- omit in toc -->
 
 - [1. Project Overview](#1-project-overview)
+  - [1.1. Project Naming](#11-project-naming)
+    - [1.1.1. Symbolic Connection to Pylon](#111-symbolic-connection-to-pylon)
+    - [1.1.2. The Perfect Technological Symbiosis](#112-the-perfect-technological-symbiosis)
+    - [1.1.3. Symbolic Meaning](#113-symbolic-meaning)
 - [2. Information Sources](#2-information-sources)
   - [2.1. Core Architecture: Unified Information Source Model](#21-core-architecture-unified-information-source-model)
     - [2.1.1. Information Source Interface](#211-information-source-interface)
@@ -74,6 +78,47 @@
 ## 1. Project Overview
 
 A chat bot that builds deep, layered knowledge from provided sources. Users provide sources (repositories, papers, databases) → the bot builds knowledge through iterative inference → users can then ask anything about those sources.
+
+### 1.1. Project Naming
+
+**Repository Name**: `nexus`  
+**Product Name**: `Nexus`
+
+#### 1.1.1. Symbolic Connection to Pylon
+
+The name **Nexus** perfectly complements the existing **Pylon** framework, drawing from the same StarCraft II protoss civilization:
+
+**Pylon** (Deep Learning Framework):
+- Provides foundational power infrastructure for AI research
+- Enables other components to operate effectively  
+- Creates essential foundation for computer vision tasks
+- Powers the underlying computational framework
+
+**Nexus** (Knowledge Chat Bot):
+- Serves as the central intelligence hub that coordinates understanding
+- Processes and synthesizes information from all knowledge sources
+- Makes strategic decisions about inference and learning
+- Where all knowledge flows converge to create deep understanding
+
+#### 1.1.2. The Perfect Technological Symbiosis
+
+Just as in StarCraft II where you need **both** Pylon and Nexus working together:
+- **Pylon** provides the computational power and research infrastructure
+- **Nexus** provides the knowledge intelligence and strategic understanding
+
+This creates a complete research ecosystem where:
+- Pylon handles the complex tensor operations, training loops, and computer vision algorithms
+- Nexus handles the knowledge extraction, inference, and intelligent question-answering about research
+
+#### 1.1.3. Symbolic Meaning
+
+**The Nexus** represents:
+- **Central Intelligence Hub**: Where all information sources converge into unified understanding
+- **Strategic Command**: Makes intelligent decisions about knowledge building and inference
+- **Knowledge Coordination**: Orchestrates the flow from raw information to deep insights  
+- **Wisdom Generation**: Transforms scattered data into actionable knowledge
+
+The name captures the essence of turning multiple information sources into a single, intelligent knowledge system that can provide strategic insights and deep understanding.
 
 ## 2. Information Sources
 
