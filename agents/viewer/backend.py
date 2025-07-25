@@ -9,6 +9,7 @@ def get_progress(
     sleep_time: int,
     outdated_days: int,
     system_monitor: SystemMonitor,
+    force_progress_recompute: bool = False,
 ) -> float:
     """
     Args:
@@ -17,6 +18,7 @@ def get_progress(
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
         system_monitor: System monitor (CPU + GPU)
+        force_progress_recompute: If True, bypass cache and recompute progress from scratch
     """
     assert isinstance(config_files, list), f"config_files must be list, got {type(config_files)}"
     assert len(config_files) > 0, f"config_files must not be empty, got {len(config_files)} files"
@@ -24,8 +26,9 @@ def get_progress(
     assert isinstance(sleep_time, int), f"sleep_time must be int, got {type(sleep_time)}"
     assert isinstance(outdated_days, int), f"outdated_days must be int, got {type(outdated_days)}"
     assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
+    assert isinstance(force_progress_recompute, bool), f"force_progress_recompute must be bool, got {type(force_progress_recompute)}"
 
-    all_run_status = get_all_run_status(config_files, epochs, sleep_time, outdated_days, system_monitor)
+    all_run_status = get_all_run_status(config_files, epochs, sleep_time, outdated_days, system_monitor, force_progress_recompute)
     all_run_progress = [run.progress.progress_percentage for run in all_run_status.values()]
     
     return round(sum(all_run_progress) / len(all_run_progress), 2)

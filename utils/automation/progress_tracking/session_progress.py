@@ -15,7 +15,7 @@ from .base_progress_tracker import ProgressInfo
 # MAIN PUBLIC FUNCTIONS
 # ============================================================================
 
-def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
+def get_session_progress(work_dir: str, expected_files: List[str], force_progress_recompute: bool = False) -> ProgressInfo:
     """Enhanced progress calculation with early stopping detection.
     
     Returns full progress info including early stopping details.
@@ -23,34 +23,36 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
     Args:
         work_dir: Directory containing epoch results
         expected_files: List of expected files per epoch
+        force_progress_recompute: If True, bypass cached progress.json and recompute from scratch
         
     Returns:
         ProgressInfo dict with completed_epochs, progress_percentage, early_stopped, early_stopped_at_epoch
     """
-    # Try fast path: read progress.json with file locking
+    # Try fast path: read progress.json with file locking (unless force_progress_recompute is True)
     progress_file = os.path.join(work_dir, "progress.json")
     
-    # Only go to slow path if file doesn't exist at all
-    if not os.path.exists(progress_file):
-        # Slow path: re-compute and create progress.json
-        return _compute_and_cache_progress(work_dir, expected_files)
+    # Skip cache if force_progress_recompute is True
+    if not force_progress_recompute and os.path.exists(progress_file):
+        # File exists - any issues (empty, malformed, etc.) should raise
+        data = safe_load_json(progress_file)
+        return ProgressInfo(**data)
     
-    # File exists - any issues (empty, malformed, etc.) should raise
-    data = safe_load_json(progress_file)
-    return ProgressInfo(**data)
+    # Slow path: re-compute and create progress.json
+    return _compute_and_cache_progress(work_dir, expected_files, force_progress_recompute)
 
 
 # ============================================================================
 # PROGRESS CALCULATION FUNCTIONS
 # ============================================================================
 
-def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
+def _compute_and_cache_progress(work_dir: str, expected_files: List[str], force_progress_recompute: bool = False) -> ProgressInfo:
     """Compute progress and create/update progress.json file using thread-safe utilities."""
     progress_file = os.path.join(work_dir, "progress.json")
     
     # Double-check if progress file was created while we were waiting
     # (safe_load_json handles its own locking)
-    if os.path.exists(progress_file):
+    # Skip this check if force_progress_recompute is True
+    if not force_progress_recompute and os.path.exists(progress_file):
         data = safe_load_json(progress_file)
         return ProgressInfo(**data)
     
