@@ -1,7 +1,7 @@
-from typing import Any, Optional
+from typing import Any
 import os
 import json
-import threading
+import tempfile
 import jsbeautifier
 from datetime import datetime
 from dataclasses import is_dataclass, asdict
@@ -9,21 +9,9 @@ from utils.ops.apply import apply_tensor_op, apply_op
 import torch
 import numpy as np
 
-# Global lock registry for thread-safe JSON file operations
-_json_file_locks = {}
-_json_locks_lock = threading.Lock()
-
-
-def _get_json_file_lock(filepath: str) -> threading.Lock:
-    """Get or create a lock for the specific JSON file."""
-    abs_path = os.path.abspath(filepath)
-    with _json_locks_lock:
-        if abs_path not in _json_file_locks:
-            _json_file_locks[abs_path] = threading.Lock()
-        return _json_file_locks[abs_path]
-
 
 def serialize_tensor(obj: Any) -> Any:
+    """Serialize torch tensors to lists (backward compatibility)."""
     return apply_tensor_op(func=lambda x: x.detach().tolist(), inputs=obj)
 
 
@@ -68,21 +56,8 @@ def serialize_object(obj: Any) -> Any:
     return apply_op(func=_serialize_item, inputs=obj)
 
 
-def _load_json(filepath: str) -> Any:
-    """Load JSON from file (private function - use safe_load_json instead).
-    
-    Args:
-        filepath: Path to JSON file to load
-        
-    Returns:
-        Loaded JSON data
-    """
-    with open(filepath, 'r') as f:
-        return json.load(f)
-
-
-def safe_load_json(filepath: str) -> Any:
-    """Thread-safe JSON loading with file locking.
+def load_json(filepath: str) -> Any:
+    """Load JSON from file with error handling.
     
     Args:
         filepath: Path to JSON file to load
@@ -91,68 +66,88 @@ def safe_load_json(filepath: str) -> Any:
         Loaded JSON data
         
     Raises:
-        AssertionError: If file doesn't exist or is empty
-        Exception: Any other error with filepath context
+        RuntimeError: If file doesn't exist, is empty, or has invalid JSON
     """
-    file_lock = _get_json_file_lock(filepath)
     try:
-        with file_lock:
-            # Input validation inside lock
-            assert os.path.exists(filepath), f"File does not exist: {filepath}"
-            assert os.path.getsize(filepath) > 0, f"File is empty: {filepath}"
-            
-            return _load_json(filepath)
+        # Input validation
+        assert os.path.exists(filepath), f"File does not exist: {filepath}"
+        assert os.path.getsize(filepath) > 0, f"File is empty: {filepath}"
+
+        # Load JSON
+        with open(filepath, 'r') as f:
+            return json.load(f)
+
     except Exception as e:
         # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error loading JSON from {filepath}: {e}") from e
 
 
-def _save_json(obj: Any, filepath: str) -> None:
-    """Save object to JSON file with automatic serialization (private function - use safe_save_json instead).
+def save_json(obj: Any, filepath: str) -> None:
+    """Save object to JSON file using atomic writes and automatic serialization.
     
-    Automatically handles dataclasses, torch.Tensor, numpy.ndarray, 
-    datetime, and all nested data structures without requiring manual conversion.
+    Uses atomic writes (temp file + rename) to prevent race conditions between processes
+    and threads. The rename operation is atomic at the filesystem level, ensuring readers 
+    never see partially written files.
     
-    Args:
-        obj: Object to save (dataclasses are automatically converted)
-        filepath: Path to save JSON file
-    """
-    assert (
-        os.path.dirname(filepath) == "" or
-        os.path.isdir(os.path.dirname(filepath))
-    ), f"{filepath=}, {os.path.dirname(filepath)=}"
-    
-    # Automatically serialize the object (handles dataclasses, tensors, etc.)
-    serialized_obj = serialize_object(obj)
-        
-    with open(filepath, mode='w') as f:
-        f.write(jsbeautifier.beautify(json.dumps(serialized_obj), jsbeautifier.default_options()))
-
-
-def safe_save_json(obj: Any, filepath: str) -> None:
-    """Thread-safe JSON saving with file locking and automatic serialization.
-    
-    Automatically handles dataclasses, torch.Tensor, numpy.ndarray, 
-    datetime, and all nested data structures without requiring manual conversion.
+    Automatically handles dataclasses, torch.Tensor, numpy.ndarray, datetime,
+    and all nested data structures without requiring manual conversion.
     
     Args:
         obj: Object to save (dataclasses are automatically converted)
         filepath: Path to save JSON file
         
     Raises:
-        AssertionError: If directory doesn't exist
-        Exception: Any other error with filepath context
+        RuntimeError: If directory doesn't exist or write operation fails
     """
-    file_lock = _get_json_file_lock(filepath)
     try:
-        with file_lock:
-            # Input validation inside lock
-            assert (
-                os.path.dirname(filepath) == "" or
-                os.path.isdir(os.path.dirname(filepath))
-            ), f"Directory does not exist for file: {filepath}, directory: {os.path.dirname(filepath)}"
+        # Auto-create directory if it doesn't exist
+        target_dir = os.path.dirname(filepath)
+        if target_dir:
+            os.makedirs(target_dir, exist_ok=True)
+        
+        # Atomic write using temp file + rename
+        temp_fd = None
+        temp_filepath = None
+        
+        try:
+            # Create temp file in same directory as target file
+            # (rename is only atomic within the same filesystem)
+            temp_fd, temp_filepath = tempfile.mkstemp(
+                suffix='.tmp', 
+                prefix='json_', 
+                dir=target_dir or '.'
+            )
             
-            _save_json(obj, filepath)
+            # Close the file descriptor - we'll use our own file operations
+            os.close(temp_fd)
+            temp_fd = None
+            
+            # Serialize and write to temporary file
+            serialized_obj = serialize_object(obj)
+            with open(temp_filepath, 'w') as f:
+                f.write(jsbeautifier.beautify(
+                    json.dumps(serialized_obj), 
+                    jsbeautifier.default_options()
+                ))
+            
+            # Atomic rename - this prevents race conditions
+            os.rename(temp_filepath, filepath)
+            temp_filepath = None  # Success - no cleanup needed
+            
+        except Exception as e:
+            # Cleanup temp file if something went wrong
+            if temp_fd is not None:
+                try:
+                    os.close(temp_fd)
+                except:
+                    pass
+            if temp_filepath is not None and os.path.exists(temp_filepath):
+                try:
+                    os.remove(temp_filepath)
+                except:
+                    pass
+            raise
+            
     except Exception as e:
         # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error saving JSON to {filepath}: {e}") from e

@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
 from utils.io import serialize_tensor
-from utils.io.json import safe_save_json
+from utils.io.json import save_json
 from utils.automation.progress_tracking.session_progress import check_epoch_finished
 from utils.monitor.system_monitor import SystemMonitor
 from utils.dynamic_executor import create_dynamic_executor
@@ -87,7 +87,7 @@ class BaseTrainer(ABC):
         }
         
         progress_file = os.path.join(self.work_dir, "progress.json")
-        safe_save_json(progress_data, progress_file)
+        save_json(progress_data, progress_file)
 
     def _init_logger(self) -> None:
         # check dependencies

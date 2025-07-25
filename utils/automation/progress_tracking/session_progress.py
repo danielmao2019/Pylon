@@ -4,7 +4,7 @@ import torch
 from dataclasses import dataclass, asdict
 from utils.automation.cfg_log_conversion import get_config
 from utils.io.config import load_config
-from utils.io.json import safe_load_json, safe_save_json
+from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
 
 # Import the unified ProgressInfo from base module
@@ -34,7 +34,7 @@ def get_session_progress(work_dir: str, expected_files: List[str], force_progres
     # Skip cache if force_progress_recompute is True
     if not force_progress_recompute and os.path.exists(progress_file):
         # File exists - any issues (empty, malformed, etc.) should raise
-        data = safe_load_json(progress_file)
+        data = load_json(progress_file)
         return ProgressInfo(**data)
     
     # Slow path: re-compute and create progress.json
@@ -50,10 +50,10 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str], force_
     progress_file = os.path.join(work_dir, "progress.json")
     
     # Double-check if progress file was created while we were waiting
-    # (safe_load_json handles its own locking)
+    # (load_json uses atomic operations)
     # Skip this check if force_progress_recompute is True
     if not force_progress_recompute and os.path.exists(progress_file):
-        data = safe_load_json(progress_file)
+        data = load_json(progress_file)
         return ProgressInfo(**data)
     
     # Count completed epochs (original logic)
@@ -93,8 +93,8 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str], force_
         total_epochs=tot_epochs
     )
     
-    # Use thread-safe save (handles its own locking)
-    safe_save_json(progress_data, progress_file)
+    # Use atomic save (prevents race conditions)
+    save_json(progress_data, progress_file)
     
     # Return the ProgressInfo dataclass instance
     return progress_data
@@ -154,9 +154,9 @@ def check_file_loadable(filepath: str) -> bool:
     assert filepath.endswith(".json") or filepath.endswith(".pt")
     
     if filepath.endswith(".json"):
-        # Use thread-safe JSON loading
+        # Use atomic JSON loading
         try:
-            safe_load_json(filepath)
+            load_json(filepath)
             return True
         except:
             return False
