@@ -1,10 +1,13 @@
-from typing import List, Literal
+from typing import List, Literal, Optional, Dict, Any
 import os
 from .base_progress_tracker import BaseProgressTracker, ProgressInfo
 
 
 class EvaluatorProgressTracker(BaseProgressTracker):
     """Progress tracker for BaseEvaluator runs."""
+    
+    def __init__(self, work_dir: str, config: Optional[Dict[str, Any]] = None):
+        super().__init__(work_dir, config)
     
     def get_runner_type(self) -> Literal['evaluator']:
         return 'evaluator'
@@ -15,7 +18,7 @@ class EvaluatorProgressTracker(BaseProgressTracker):
     def get_log_pattern(self) -> str:
         return "eval_*.log"
     
-    def calculate_progress(self) -> ProgressInfo:
+    def calculate_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
         """Calculate evaluator-specific progress."""
         # Check if evaluation is complete
         eval_complete = self._check_files_exist()

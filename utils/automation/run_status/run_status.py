@@ -114,7 +114,7 @@ def get_run_status(
     
     # Create progress tracker (handles both trainer and evaluator)
     tracker = create_progress_tracker(work_dir, config_dict)
-    progress = tracker.get_progress(force_refresh=force_progress_recompute)
+    progress = tracker.get_progress(force_progress_recompute=force_progress_recompute)
     
     # Determine status using existing logic but with tracker data
     log_last_update = get_log_last_update(work_dir, tracker.get_log_pattern())
