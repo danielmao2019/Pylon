@@ -82,13 +82,20 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # No caching
             self.transform_cache = {}
         
-        # Thread safety for parallel processing
-        self._cache_lock = threading.Lock()
+        # Initialize cache lock (will be recreated after pickle if needed)
+        self._cache_lock = None
         
         super().__init__(data_root=data_root, **kwargs)
         
         # Calculate pairs per source file after annotations are initialized
         self._calculate_pairs_per_file()
+    
+    @property
+    def cache_lock(self) -> threading.Lock:
+        """Lazy initialization of cache lock to handle pickle/unpickle scenarios."""
+        if self._cache_lock is None:
+            self._cache_lock = threading.Lock()
+        return self._cache_lock
     
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
@@ -493,7 +500,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_cache_key = self._get_file_cache_key(file_pair_annotation)
         
         # Get existing cached transforms (thread-safe read)
-        with self._cache_lock:
+        with self.cache_lock:
             param_key = self._get_cache_param_key()
             param_cache = self.transform_cache.get(param_key, {})
             cached_transforms = param_cache.get(file_cache_key, []).copy()
@@ -525,7 +532,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             
             # Periodically save cache to avoid losing progress
             if trial % 10 == 0:
-                with self._cache_lock:
+                with self.cache_lock:
                     param_key = self._get_cache_param_key()
                     if param_key not in self.transform_cache:
                         self.transform_cache[param_key] = {}
@@ -538,7 +545,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 break
         
         # Final cache update
-        with self._cache_lock:
+        with self.cache_lock:
             param_key = self._get_cache_param_key()
             if param_key not in self.transform_cache:
                 self.transform_cache[param_key] = {}
