@@ -43,6 +43,28 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         'sofa', 'stairs', 'stool', 'table', 'tent', 'toilet', 'tv_stand', 'wardrobe', 'xbox'
     ]
 
+    def __init__(
+        self,
+        data_root: str,
+        dataset_size: int,
+        keep_ratio: float = 0.7,
+        **kwargs,
+    ) -> None:
+        """Initialize ModelNet40 dataset with RandomPointCrop.
+        
+        Args:
+            data_root: Path to ModelNet40 root directory
+            dataset_size: Total number of synthetic pairs to generate
+            keep_ratio: Fraction of points to keep after cropping (0.0 to 1.0)
+            **kwargs: Additional arguments passed to parent class
+        """
+        self.keep_ratio = keep_ratio
+        super().__init__(
+            data_root=data_root,
+            dataset_size=dataset_size,
+            **kwargs,
+        )
+    
     def _init_annotations(self) -> None:
         """Initialize file pair annotations with OFF file paths.
         
@@ -99,40 +121,6 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         # Fallback: extract from parent directory
         return os.path.basename(os.path.dirname(os.path.dirname(file_path)))
 
-    def is_asymmetric_object(self, file_path: str) -> bool:
-        """Check if object belongs to asymmetric category.
-        
-        Args:
-            file_path: Path to OFF file
-            
-        Returns:
-            True if object is asymmetric, False otherwise
-        """
-        category = self.get_category_from_path(file_path)
-        return category in self.ASYMMETRIC_CATEGORIES
-
-    def __init__(
-        self,
-        data_root: str,
-        dataset_size: int,
-        keep_ratio: float = 0.7,
-        **kwargs,
-    ) -> None:
-        """Initialize ModelNet40 dataset with RandomPointCrop.
-        
-        Args:
-            data_root: Path to ModelNet40 root directory
-            dataset_size: Total number of synthetic pairs to generate
-            keep_ratio: Fraction of points to keep after cropping (0.0 to 1.0)
-            **kwargs: Additional arguments passed to parent class
-        """
-        self.keep_ratio = keep_ratio
-        super().__init__(
-            data_root=data_root,
-            dataset_size=dataset_size,
-            **kwargs,
-        )
-    
     def _get_cache_param_key(self) -> tuple:
         """Generate cache parameter key including ModelNet40-specific parameters.
         
@@ -141,59 +129,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         """
         parent_key = super()._get_cache_param_key()
         return parent_key + (self.keep_ratio,)
-    
-    def _sample_transform(self, seed: int, file_idx: int) -> dict:
-        """Sample transform parameters for ModelNet40 with RandomPointCrop.
-        
-        Args:
-            seed: Random seed for deterministic sampling
-            file_idx: Index of file pair (unused for ModelNet40)
-            
-        Returns:
-            Dictionary containing transform parameters
-        """
-        generator = torch.Generator()
-        generator.manual_seed(seed)
-        
-        # Sample SE(3) transformation parameters
-        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
-        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
-        
-        # Generate crop seed for deterministic cropping
-        crop_seed = (seed * 31 + 42) % (2**32)
-        
-        return {
-            'rotation_angles': rotation_angles.tolist(),
-            'translation': translation.tolist(),
-            'seed': seed,
-            'crop_seed': crop_seed,
-            'keep_ratio': self.keep_ratio,
-        }
-    
-    def _build_transform(self, transform_params: dict) -> tuple:
-        """Build transform matrix and RandomPointCrop from parameters.
-        
-        Args:
-            transform_params: Transform configuration dictionary
-            
-        Returns:
-            Tuple of (transform_matrix, crop_transform)
-        """
-        # Build SE(3) transformation matrix using parent helper
-        transform_matrix = self._build_transform_matrix(
-            rotation_angles=transform_params['rotation_angles'],
-            translation=transform_params['translation']
-        )
-        
-        # Create RandomPointCrop transform
-        crop_transform = RandomPointCrop(
-            keep_ratio=transform_params['keep_ratio'],
-            viewpoint=None,  # Random viewpoint
-            limit=500.0  # Default limit
-        )
-        
-        return transform_matrix, crop_transform
-    
+
     def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Load and normalize ModelNet40 point cloud data.
         
@@ -211,3 +147,57 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         tgt_pc_dict['pos'] = normalize_point_cloud(tgt_pc_dict['pos'])
         
         return src_pc_dict, tgt_pc_dict
+
+    def _sample_crop(self, seed: int, file_idx: int) -> dict:
+        """Sample crop parameters for ModelNet40 with RandomPointCrop.
+        
+        Args:
+            seed: Random seed for deterministic sampling
+            file_idx: Index of file pair (unused for ModelNet40)
+            
+        Returns:
+            Dictionary containing crop parameters
+        """
+        # Generate crop seed for deterministic cropping
+        crop_seed = (seed * 31 + 42) % (2**32)
+        
+        return {
+            'crop_seed': crop_seed,
+            'keep_ratio': self.keep_ratio,
+        }
+    
+    def _build_crop(self, crop_params: dict) -> RandomPointCrop:
+        """Build RandomPointCrop transform from parameters.
+        
+        Args:
+            crop_params: Crop configuration dictionary
+            
+        Returns:
+            RandomPointCrop transform object
+        """
+        # Create RandomPointCrop transform
+        crop_transform = RandomPointCrop(
+            keep_ratio=crop_params['keep_ratio'],
+            viewpoint=None,  # Random viewpoint
+            limit=500.0  # Default limit
+        )
+        
+        return crop_transform
+    
+    def _apply_crop(self, crop_transform: RandomPointCrop, pc_data: dict, crop_params: dict) -> dict:
+        """Apply RandomPointCrop transform to point cloud data.
+        
+        Args:
+            crop_transform: RandomPointCrop transform object
+            pc_data: Point cloud dictionary
+            crop_params: Crop configuration parameters
+            
+        Returns:
+            Cropped point cloud dictionary
+        """
+        # Use crop_seed for deterministic cropping
+        crop_seed = crop_params['crop_seed']
+        generator = torch.Generator(device=self.device)
+        generator.manual_seed(crop_seed)
+        
+        return crop_transform._call_single(pc_data, generator=generator)

@@ -439,11 +439,22 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Get the specific transform config from cache
         transform_params = valid_transforms[transform_idx]
         
-        # Build transform components from cached params
-        transform_matrix, crop_transform = self._build_transform(transform_params)
+        # Extract transform and crop params from cached combined params
+        transform_keys = ['rotation_angles', 'translation']
+        crop_keys = [k for k in transform_params.keys() if k not in transform_keys and k not in ['overlap', 'src_num_points', 'tgt_num_points', 'trial']]
         
-        # Apply transform to get point cloud pair
-        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_params)
+        # Split into transform and crop params
+        transform_only = {k: v for k, v in transform_params.items() if k in transform_keys}
+        crop_only = {k: v for k, v in transform_params.items() if k in crop_keys}
+        
+        # Build transform and crop components from cached params
+        transform_matrix = self._build_transform(transform_only)
+        crop_transform = self._build_crop(crop_only)
+        
+        # Apply transform and crop to get point cloud pair
+        src_pc_transformed, tgt_pc_original = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix)
+        src_pc = self._apply_crop(crop_transform, src_pc_transformed, crop_only)
+        tgt_pc = self._apply_crop(crop_transform, tgt_pc_original, crop_only)
         
         return src_pc, tgt_pc, transform_matrix, transform_params
     
@@ -538,14 +549,19 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # file_idx already provides uniqueness for multi-pairing scenarios
         seed = hash((file_idx, trial_idx)) % (2**32)
         
-        # Sample transform parameters (deterministic from seed)
+        # Sample transform and crop parameters (deterministic from seed)
         transform_params = self._sample_transform(seed, file_idx)
+        crop_params = self._sample_crop(seed, file_idx)
         
-        # Build transform components
-        transform_matrix, crop_transform = self._build_transform(transform_params)
+        # Build transform and crop components
+        transform_matrix = self._build_transform(transform_params)
+        crop_transform = self._build_crop(crop_params)
         
-        # Apply transform
-        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_params)
+        # Apply transform and crop
+        src_pc_transformed, tgt_pc_original = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix)
+        src_pc = self._apply_crop(crop_transform, src_pc_transformed, crop_params)
+        tgt_pc = self._apply_crop(crop_transform, tgt_pc_original, crop_params)
+        
         
         # Compute overlap (this is the expensive operation we're parallelizing)
         # Following standard PCR convention: compute overlap between source + transform vs target
@@ -557,14 +573,17 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             positive_radius=self.matching_radius * 2
         )
         
+        # Combine all parameters for caching
+        all_params = {**transform_params, **crop_params}
+        
         # Add metadata including point counts for min_points filtering
-        transform_params['overlap'] = float(overlap)
-        transform_params['src_num_points'] = src_pc['pos'].shape[0]
-        transform_params['tgt_num_points'] = tgt_pc['pos'].shape[0]
-        transform_params['trial'] = trial_idx
+        all_params['overlap'] = float(overlap)
+        all_params['src_num_points'] = src_pc['pos'].shape[0]
+        all_params['tgt_num_points'] = tgt_pc['pos'].shape[0]
+        all_params['trial'] = trial_idx
         
         return {
-            'transform_params': transform_params,
+            'transform_params': all_params,
             'src_pc': src_pc,
             'tgt_pc': tgt_pc,
             'transform_matrix': transform_matrix,
@@ -572,42 +591,48 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'seed': seed
         }
     
-    @abstractmethod
     def _sample_transform(self, seed: int, file_idx: int) -> dict:
-        """Sample transform parameters with configurable cropping method.
+        """Sample SE(3) transformation parameters only.
         
-        Subclasses must implement this method to sample transform parameters
-        including SE(3) transformation and crop-specific parameters.
+        Standard implementation that works for all subclasses.
         
         Args:
             seed: Random seed for deterministic sampling
-            file_idx: Index of file pair (can be used for scene-specific sampling)
+            file_idx: Index of file pair (unused but kept for API consistency)
             
         Returns:
-            Dictionary containing all transform parameters including:
+            Dictionary containing SE(3) transform parameters:
             - 'rotation_angles': List of 3 rotation angles in degrees
             - 'translation': List of 3 translation values
-            - 'crop_seed': Seed for deterministic cropping
-            - Additional crop-specific parameters as needed
         """
-        raise NotImplementedError("Subclasses must implement _sample_transform")
-    
-    @abstractmethod
-    def _build_transform(self, transform_params: dict) -> tuple:
-        """Build transform matrix and crop object from parameters.
+        _ = file_idx  # Suppress unused parameter warning
+        generator = torch.Generator()
+        generator.manual_seed(seed)
         
-        Subclasses must implement this method to build the SE(3) transformation
-        matrix and the crop transform object from the sampled parameters.
+        # Sample SE(3) transformation parameters
+        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
+        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
+        
+        return {
+            'rotation_angles': rotation_angles.tolist(),
+            'translation': translation.tolist(),
+        }
+    
+    def _build_transform(self, transform_params: dict) -> torch.Tensor:
+        """Build SE(3) transformation matrix only.
+        
+        Standard implementation that works for all subclasses.
         
         Args:
             transform_params: Transform configuration dictionary from _sample_transform
             
         Returns:
-            Tuple of (transform_matrix, crop_transform) where:
-            - transform_matrix: 4x4 SE(3) transformation matrix (torch.Tensor)
-            - crop_transform: Crop transform object with a _call_single method
+            4x4 SE(3) transformation matrix (torch.Tensor)
         """
-        raise NotImplementedError("Subclasses must implement _build_transform")
+        return self._build_transform_matrix(
+            rotation_angles=transform_params['rotation_angles'],
+            translation=transform_params['translation']
+        )
     
     def _build_transform_matrix(self, rotation_angles: List[float], translation: List[float]) -> torch.Tensor:
         """Helper method to build SE(3) transformation matrix.
@@ -659,25 +684,21 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         return transform_matrix
     
     def _apply_transform(self, src_pc_data: dict, tgt_pc_data: dict, 
-                        transform_matrix: torch.Tensor, crop_transform: Any, 
-                        transform_params: dict) -> tuple:
-        """Apply transform to create source and target point clouds.
+                        transform_matrix: torch.Tensor) -> tuple:
+        """Apply SE(3) transformation only.
         
         Standard PCR convention: source + gt_transform = target
         Following GeoTransformer's approach:
         1. ref_points (target) = original point cloud 
-        2. src_points (source) = apply inverse transform + crop to create misaligned source
-        3. transform = forward transform that aligns src back to ref
+        2. src_points (source) = apply inverse transform to create misaligned source
         
         Args:
             src_pc_data: Raw source point cloud dictionary (pos, rgb, etc.)
             tgt_pc_data: Raw target point cloud dictionary (same as src_pc_data for single-temporal)
             transform_matrix: 4x4 transformation matrix to align source to target
-            crop_transform: Crop transform object with _call_single method
-            transform_params: Transform configuration
             
         Returns:
-            Tuple of (src_pc, tgt_pc) dictionaries where apply_transform(src_pc, transform_matrix) ≈ tgt_pc
+            Tuple of (src_pc_transformed, tgt_pc_original) dictionaries
         """
         # Following GeoTransformer's approach:
         # ref_points = original (target)
@@ -696,32 +717,53 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         tgt_pc_data_original = tgt_pc_data.copy()
         tgt_pc_data_original['pos'] = ref_points
         
-        # Apply cropping to both source and target
-        # Use crop_seed from transform_params for deterministic cropping
-        crop_seed = transform_params['crop_seed']
-        generator = torch.Generator(device=self.device)
-        generator.manual_seed(crop_seed)
-        
-        # Apply crop transform - subclasses determine the signature
-        src_pc_dict = self._apply_crop(crop_transform, src_pc_data_transformed, transform_params, generator)
-        tgt_pc_dict = self._apply_crop(crop_transform, tgt_pc_data_original, transform_params, generator)
-        
-        # Return the cropped point cloud dictionaries (already contains pos, rgb if available, etc.)
-        return src_pc_dict, tgt_pc_dict
+        return src_pc_data_transformed, tgt_pc_data_original
     
-    def _apply_crop(self, crop_transform: Any, pc_data: dict, transform_params: dict, generator: torch.Generator) -> dict:
+    @abstractmethod
+    def _sample_crop(self, seed: int, file_idx: int) -> dict:
+        """Sample crop parameters only.
+        
+        Subclasses must implement this method to sample crop-specific
+        parameters for deterministic cropping.
+        
+        Args:
+            seed: Random seed for deterministic sampling
+            file_idx: Index of file pair (can be used for scene-specific sampling)
+            
+        Returns:
+            Dictionary containing crop parameters:
+            - 'crop_seed': Seed for deterministic cropping
+            - Additional crop-specific parameters as needed
+        """
+        raise NotImplementedError("Subclasses must implement _sample_crop")
+    
+    @abstractmethod
+    def _build_crop(self, crop_params: dict) -> Any:
+        """Build crop transform object only.
+        
+        Subclasses must implement this method to build the crop transform
+        object from the sampled crop parameters.
+        
+        Args:
+            crop_params: Crop configuration dictionary from _sample_crop
+            
+        Returns:
+            Crop transform object with a _call_single method
+        """
+        raise NotImplementedError("Subclasses must implement _build_crop")
+    
+    @abstractmethod
+    def _apply_crop(self, crop_transform: Any, pc_data: dict, crop_params: dict) -> dict:
         """Apply crop transform to point cloud data.
         
-        Default implementation assumes standard BaseTransform API.
-        Subclasses can override this for custom crop transform signatures.
+        Subclasses must implement this method to apply crop transforms.
         
         Args:
             crop_transform: Crop transform object
             pc_data: Point cloud dictionary
-            transform_params: Transform configuration containing crop parameters
-            generator: Random generator for deterministic cropping
+            crop_params: Crop configuration parameters
             
         Returns:
             Cropped point cloud dictionary
         """
-        return crop_transform._call_single(pc_data, generator=generator)
+        raise NotImplementedError("Subclasses must implement _apply_crop")
