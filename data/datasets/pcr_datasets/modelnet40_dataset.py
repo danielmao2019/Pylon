@@ -1,8 +1,7 @@
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any
 import os
 import glob
 import torch
-import numpy as np
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 from utils.point_cloud_ops import normalize_point_cloud
@@ -158,6 +157,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         Returns:
             Dictionary containing crop parameters
         """
+        _ = file_idx  # Suppress unused parameter warning
         # Generate crop seed for deterministic cropping
         crop_seed = (seed * 31 + 42) % (2**32)
         

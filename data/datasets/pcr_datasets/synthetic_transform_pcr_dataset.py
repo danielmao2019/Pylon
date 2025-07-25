@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Optional
 from abc import ABC, abstractmethod
 import os
 import json
@@ -629,27 +629,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         Returns:
             4x4 SE(3) transformation matrix (torch.Tensor)
         """
-        return self._build_transform_matrix(
-            rotation_angles=transform_params['rotation_angles'],
-            translation=transform_params['translation']
-        )
-    
-    def _build_transform_matrix(self, rotation_angles: List[float], translation: List[float]) -> torch.Tensor:
-        """Helper method to build SE(3) transformation matrix.
-        
-        This is a utility method that subclasses can use in their _build_transform
-        implementation to construct the transformation matrix.
-        
-        Args:
-            rotation_angles: List of 3 rotation angles in degrees
-            translation: List of 3 translation values
-            
-        Returns:
-            4x4 SE(3) transformation matrix
-        """
         # Convert to tensors
-        rotation_angles = torch.tensor(rotation_angles, dtype=torch.float32, device=self.device)
-        translation = torch.tensor(translation, dtype=torch.float32, device=self.device)
+        rotation_angles = torch.tensor(transform_params['rotation_angles'], dtype=torch.float32, device=self.device)
+        translation = torch.tensor(transform_params['translation'], dtype=torch.float32, device=self.device)
         
         # Convert to radians and create rotation matrices
         rotation_rad = rotation_angles * np.pi / 180
