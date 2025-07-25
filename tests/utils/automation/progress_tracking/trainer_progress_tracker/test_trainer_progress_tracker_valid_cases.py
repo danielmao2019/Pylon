@@ -200,27 +200,49 @@ def test_trainer_progress_tracker_slow_path_with_early_stopping(create_epoch_fil
 # TESTS FOR TrainerProgressTracker - CACHING
 # ============================================================================
 
-def test_trainer_progress_tracker_caching(create_progress_json):
+def test_trainer_progress_tracker_caching(create_progress_json, create_epoch_files, create_real_config):
     """Test that progress caching works correctly."""
-    with tempfile.TemporaryDirectory() as work_dir:
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_caching")
+        config_path = os.path.join(configs_dir, "test_caching.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
         config = {'epochs': 100, 'model': 'test_model'}
+        
+        # Create actual epoch files (42 epochs)
+        for epoch_idx in range(42):
+            create_epoch_files(work_dir, epoch_idx)
         
         # Create progress.json
         create_progress_json(work_dir, completed_epochs=42, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerProgressTracker(work_dir, config)
+        # Create real config (needed for force_progress_recompute)
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
         
-        # First call should compute progress
-        progress1 = tracker.get_progress()
-        assert progress1.completed_epochs == 42
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
         
-        # Second call should use cache (within cache timeout)
-        progress2 = tracker.get_progress()
-        assert progress2 == progress1
-        
-        # Force progress recompute should bypass cache
-        progress3 = tracker.get_progress(force_progress_recompute=True)
-        assert progress3.completed_epochs == 42  # Same result but forced recalculation
+        try:
+            tracker = TrainerProgressTracker(work_dir, config)
+            
+            # First call should compute progress
+            progress1 = tracker.get_progress()
+            assert progress1.completed_epochs == 42
+            
+            # Second call should use cache (within cache timeout)
+            progress2 = tracker.get_progress()
+            assert progress2 == progress1
+            
+            # Force progress recompute should bypass cache
+            progress3 = tracker.get_progress(force_progress_recompute=True)
+            assert progress3.completed_epochs == 42  # Same result but forced recalculation
+            
+        finally:
+            os.chdir(original_cwd)
 
 
 def test_trainer_progress_tracker_progress_json_creation(create_epoch_files, create_real_config):
@@ -271,26 +293,48 @@ def test_trainer_progress_tracker_progress_json_creation(create_epoch_files, cre
 # TESTS FOR TrainerProgressTracker - DETERMINISM
 # ============================================================================
 
-def test_trainer_progress_tracker_deterministic(create_progress_json):
+def test_trainer_progress_tracker_deterministic(create_progress_json, create_epoch_files, create_real_config):
     """Test that progress calculation is deterministic across multiple calls."""
-    with tempfile.TemporaryDirectory() as work_dir:
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_deterministic")
+        config_path = os.path.join(configs_dir, "test_deterministic.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
         config = {'epochs': 100, 'model': 'test_model'}
+        
+        # Create actual epoch files (75 epochs)
+        for epoch_idx in range(75):
+            create_epoch_files(work_dir, epoch_idx)
         
         # Create progress.json
         create_progress_json(work_dir, completed_epochs=75, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerProgressTracker(work_dir, config)
+        # Create real config (needed for force_progress_recompute)
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
         
-        # Multiple calls should give same result
-        results = []
-        for _ in range(5):
-            progress = tracker.get_progress(force_progress_recompute=True)
-            results.append(progress)
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
         
-        # All results should be identical
-        assert all(r == results[0] for r in results)
-        assert all(r.completed_epochs == 75 for r in results)
-        assert all(r.progress_percentage == 75.0 for r in results)
+        try:
+            tracker = TrainerProgressTracker(work_dir, config)
+            
+            # Multiple calls should give same result
+            results = []
+            for _ in range(5):
+                progress = tracker.get_progress(force_progress_recompute=True)
+                results.append(progress)
+            
+            # All results should be identical
+            assert all(r == results[0] for r in results)
+            assert all(r.completed_epochs == 75 for r in results)
+            assert all(r.progress_percentage == 75.0 for r in results)
+            
+        finally:
+            os.chdir(original_cwd)
 
 
 # ============================================================================

@@ -34,7 +34,7 @@ def ConcreteProgressTracker():
         def get_log_pattern(self) -> str:
             return "test_*.log"
         
-        def calculate_progress(self) -> ProgressInfo:
+        def calculate_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
             """Mock implementation for testing."""
             if self._test_progress_result is None:
                 return ProgressInfo(

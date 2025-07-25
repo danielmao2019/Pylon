@@ -38,20 +38,21 @@ def get_session_progress(work_dir: str, expected_files: List[str], force_progres
         return ProgressInfo(**data)
     
     # Slow path: re-compute and create progress.json
-    return _compute_and_cache_progress(work_dir, expected_files)
+    return _compute_and_cache_progress(work_dir, expected_files, force_progress_recompute)
 
 
 # ============================================================================
 # PROGRESS CALCULATION FUNCTIONS
 # ============================================================================
 
-def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
+def _compute_and_cache_progress(work_dir: str, expected_files: List[str], force_progress_recompute: bool = False) -> ProgressInfo:
     """Compute progress and create/update progress.json file using thread-safe utilities."""
     progress_file = os.path.join(work_dir, "progress.json")
     
     # Double-check if progress file was created while we were waiting
     # (safe_load_json handles its own locking)
-    if os.path.exists(progress_file):
+    # Skip this check if force_progress_recompute is True
+    if not force_progress_recompute and os.path.exists(progress_file):
         data = safe_load_json(progress_file)
         return ProgressInfo(**data)
     
