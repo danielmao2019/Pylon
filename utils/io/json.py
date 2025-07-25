@@ -68,18 +68,15 @@ def load_json(filepath: str) -> Any:
     Raises:
         RuntimeError: If file doesn't exist, is empty, or has invalid JSON
     """
-    # Input validation
-    if not os.path.exists(filepath):
-        raise FileNotFoundError(f"File does not exist: {filepath}")
-    
-    if os.path.getsize(filepath) == 0:
-        raise ValueError(f"File is empty: {filepath}")
-
     try:
+        # Input validation
+        assert os.path.exists(filepath), f"File does not exist: {filepath}"
+        assert os.path.getsize(filepath) > 0, f"File is empty: {filepath}"
+
         # Load JSON
         with open(filepath, 'r') as f:
             return json.load(f)
-            
+
     except Exception as e:
         # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error loading JSON from {filepath}: {e}") from e
