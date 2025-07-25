@@ -62,8 +62,8 @@ def test_base_progress_tracker_caching_basic(ConcreteProgressTracker):
         assert progress2 == progress1
 
 
-def test_base_progress_tracker_force_refresh(ConcreteProgressTracker):
-    """Test force refresh bypasses cache."""
+def test_base_progress_tracker_force_progress_recompute(ConcreteProgressTracker):
+    """Test force progress recompute bypasses cache."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)
         
@@ -86,8 +86,8 @@ def test_base_progress_tracker_force_refresh(ConcreteProgressTracker):
         progress2 = tracker.get_progress()
         assert progress2.completed_epochs == 10  # Still cached
         
-        # Force refresh should get new result
-        progress3 = tracker.get_progress(force_refresh=True)
+        # Force progress recompute should get new result
+        progress3 = tracker.get_progress(force_progress_recompute=True)
         assert progress3.completed_epochs == 20  # New result
 
 
@@ -258,7 +258,7 @@ def test_base_progress_tracker_deterministic_behavior(ConcreteProgressTracker):
         # Multiple calls should give same result
         results = []
         for _ in range(5):
-            progress = tracker.get_progress(force_refresh=True)
+            progress = tracker.get_progress(force_progress_recompute=True)
             results.append(progress)
         
         # All results should be identical
@@ -296,7 +296,7 @@ def test_base_progress_tracker_with_various_progress_states(ConcreteProgressTrac
             )
             
             tracker.set_test_progress_result(test_result)
-            progress = tracker.get_progress(force_refresh=True)
+            progress = tracker.get_progress(force_progress_recompute=True)
             
             assert progress.completed_epochs == completed
             assert progress.progress_percentage == percentage
