@@ -1,13 +1,10 @@
-from typing import List, Literal, Optional, Dict, Any
+from typing import List, Literal
 import os
 from .base_progress_tracker import BaseProgressTracker, ProgressInfo
 
 
 class EvaluatorProgressTracker(BaseProgressTracker):
     """Progress tracker for BaseEvaluator runs."""
-    
-    def __init__(self, work_dir: str, config: Optional[Dict[str, Any]] = None):
-        super().__init__(work_dir, config)
     
     def get_runner_type(self) -> Literal['evaluator']:
         return 'evaluator'
