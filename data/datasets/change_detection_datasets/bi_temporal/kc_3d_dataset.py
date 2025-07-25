@@ -39,9 +39,9 @@ class KC3DDataset(BaseDataset):
     SHA1SUM = None  # Define if checksum validation is required
 
     def __init__(self, use_ground_truth_registration: Optional[bool] = True, **kwargs) -> None:
-        super(KC3DDataset, self).__init__(**kwargs)
         assert isinstance(use_ground_truth_registration, bool)
         self.use_ground_truth_registration = use_ground_truth_registration
+        super(KC3DDataset, self).__init__(**kwargs)
 
     def _init_annotations(self) -> None:
         # Path to dataset split file

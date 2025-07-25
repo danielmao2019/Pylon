@@ -76,7 +76,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         if type(split) == tuple:
             assert len(split) == len(self.SPLIT_OPTIONS), f"{split=}, {self.SPLIT_OPTIONS=}"
             assert all(type(x) in [int, float] for x in split)
-            assert abs(sum(split) - 1.0) < 0.01, f"{sum(self.split)=}"
+            assert abs(sum(split) - 1.0) < 0.01, f"{sum(split)=}"
             self.split_percentages = split
         else:
             self.split = split
@@ -119,8 +119,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
                 # initialize annotations
                 self._init_annotations()
                 # sanity check
-                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
-                    assert type(self.DATASET_SIZE) == dict, f"{type(self.DATASET_SIZE)=}"
+                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None and isinstance(self.DATASET_SIZE, dict):
                     assert len(self) == self.DATASET_SIZE[self.split], f"{len(self)=}, {self.DATASET_SIZE[self.split]=}, {self.split=}"
                 # take subset by indices
                 self._filter_annotations_by_indices()
@@ -175,23 +174,14 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             return
         assert type(self.DATASET_SIZE) in [dict, int]
         if type(self.DATASET_SIZE) == int:
-            assert type(self.split) == tuple
+            assert hasattr(self, 'split_percentages'), "int DATASET_SIZE requires split_percentages"
+            assert not hasattr(self, 'split'), "int DATASET_SIZE should not have split attribute"
         if type(self.DATASET_SIZE) == dict:
             assert set(self.DATASET_SIZE.keys()).issubset(set(self.SPLIT_OPTIONS)), \
                 f"{self.DATASET_SIZE.keys()=}, {self.SPLIT_OPTIONS=}"
-            
-            # Handle both string splits and tuple splits (split_percentages)
-            if hasattr(self, 'split') and self.split is not None:
-                # String split case - validate against specific split size
-                assert type(self.split) == str
-                self.DATASET_SIZE = self.DATASET_SIZE[self.split]
-            elif hasattr(self, 'split_percentages'):
-                # Tuple split case - validate against total dataset size
-                self.DATASET_SIZE = sum(self.DATASET_SIZE.values())
-            else:
-                # Fallback case - should not happen in normal usage
-                assert type(self.split) == str
-                self.DATASET_SIZE = self.DATASET_SIZE[self.split]
+            assert hasattr(self, 'split') and isinstance(self.split, str), "dict DATASET_SIZE requires string split"
+            assert not hasattr(self, 'split_percentages'), "dict DATASET_SIZE should not have split_percentages attribute"
+            self.DATASET_SIZE = self.DATASET_SIZE[self.split]
         assert len(self) == len(self.annotations) == self.DATASET_SIZE, \
             f"{len(self)=}, {len(self.annotations)=}, {self.DATASET_SIZE=}"
 
@@ -278,7 +268,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def _sanity_check(self) -> None:
         assert hasattr(self, 'SPLIT_OPTIONS') and self.SPLIT_OPTIONS is not None
-        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
+        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None and isinstance(self.DATASET_SIZE, dict):
             assert set(self.SPLIT_OPTIONS) == set(self.DATASET_SIZE.keys())
         assert self.INPUT_NAMES is not None
         assert self.LABEL_NAMES is not None

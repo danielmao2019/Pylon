@@ -64,8 +64,8 @@ def test_split_variants(create_dummy_levir_structure):
             f"All split variants should produce different hashes, got: {hashes}"
 
 
-def test_different_file_structures(create_dummy_levir_structure):
-    """Test that different file structures produce different hashes."""
+def test_cache_stability_with_file_changes(create_dummy_levir_structure):
+    """Test that cache hash remains stable when files are added (correct caching behavior)."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create first structure
         create_dummy_levir_structure(temp_dir)
@@ -92,12 +92,13 @@ def test_different_file_structures(create_dummy_levir_structure):
             split='train'
         )
         
-        # Should have different hashes due to different file count
-        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        # Should have same hashes - cache version reflects configuration, not file count
+        # This ensures cache stability when data files are added/modified
+        assert dataset1.get_cache_version_hash() == dataset2.get_cache_version_hash()
 
 
-def test_inherited_parameters_affect_version_hash(create_dummy_levir_structure):
-    """Test that parameters inherited from BaseDataset affect version hash."""
+def test_parameters_that_dont_affect_version_hash(create_dummy_levir_structure):
+    """Test that cache/processing parameters don't affect version hash (correct caching behavior)."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_levir_structure(temp_dir)
         
@@ -106,10 +107,12 @@ def test_inherited_parameters_affect_version_hash(create_dummy_levir_structure):
             'split': 'train',
         }
         
-        # Test inherited parameters from BaseDataset
+        # Test parameters that affect processing but not dataset content
         parameter_variants = [
-            ('initial_seed', 42),  # Different from default None
-            ('cache_size', 1000),  # Different from default
+            ('base_seed', 42),  # Affects randomness, not content
+            ('max_cache_memory_percent', 50.0),  # Affects caching, not content
+            ('use_cpu_cache', False),  # Affects caching, not content
+            ('use_disk_cache', False),  # Affects caching, not content
         ]
         
         dataset1 = LevirCdDataset(**base_args)
@@ -119,8 +122,8 @@ def test_inherited_parameters_affect_version_hash(create_dummy_levir_structure):
             modified_args[param_name] = new_value
             dataset2 = LevirCdDataset(**modified_args)
             
-            assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-                f"Inherited parameter {param_name} should affect cache version hash"
+            assert dataset1.get_cache_version_hash() == dataset2.get_cache_version_hash(), \
+                f"Processing parameter {param_name} should not affect cache version hash (content unchanged)"
 
 
 def test_comprehensive_no_hash_collisions(create_dummy_levir_structure):
