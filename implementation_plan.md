@@ -72,6 +72,9 @@
   - [8.8. MVP 7: Full Production System (Weeks 13-14)](#88-mvp-7-full-production-system-weeks-13-14)
   - [8.9. Progressive Validation Strategy](#89-progressive-validation-strategy)
   - [8.10. Risk Mitigation Strategy](#810-risk-mitigation-strategy)
+- [9. Implementation Guidelines](#9-implementation-guidelines)
+  - [9.1. Critical Implementation Notes](#91-critical-implementation-notes)
+  - [9.2. Development Best Practices](#92-development-best-practices)
 
 ---
 
