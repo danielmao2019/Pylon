@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 import torch
 from metrics.base_metric import BaseMetric
 from utils.input_checks.str_types import check_write_file
-from utils.io.json import safe_save_json
+from utils.io.json import save_json
 from utils.ops.dict_as_tensor import transpose_buffer
 
 
@@ -148,5 +148,5 @@ class TransformInlierRatio(BaseMetric):
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
-            safe_save_json(obj=result, filepath=output_path)
+            save_json(obj=result, filepath=output_path)
         return result

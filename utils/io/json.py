@@ -103,10 +103,10 @@ def save_json(obj: Any, filepath: str) -> None:
         RuntimeError: If directory doesn't exist or write operation fails
     """
     try:
-        # Input validation
+        # Auto-create directory if it doesn't exist
         target_dir = os.path.dirname(filepath)
-        if target_dir and not os.path.isdir(target_dir):
-            raise FileNotFoundError(f"Directory does not exist: {target_dir}")
+        if target_dir:
+            os.makedirs(target_dir, exist_ok=True)
         
         # Atomic write using temp file + rename
         temp_fd = None
@@ -154,8 +154,3 @@ def save_json(obj: Any, filepath: str) -> None:
     except Exception as e:
         # Re-raise with filepath context for all errors
         raise RuntimeError(f"Error saving JSON to {filepath}: {e}") from e
-
-
-# Backward compatibility aliases for existing code
-safe_load_json = load_json
-safe_save_json = save_json

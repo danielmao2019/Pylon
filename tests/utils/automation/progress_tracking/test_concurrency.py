@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
 from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
 from utils.automation.progress_tracking.session_progress import get_session_progress
-from utils.io.json import safe_load_json, safe_save_json
+from utils.io.json import load_json, save_json
 
 
 # ============================================================================
@@ -155,7 +155,7 @@ def test_multiple_writers_same_progress_file():
                     "thread_id": thread_id,  # Track which thread wrote this
                     "write_count": i
                 }
-                safe_save_json(progress_data, progress_file)
+                save_json(progress_data, progress_file)
                 time.sleep(0.01)  # Small delay to increase chance of conflicts
         
         # Run 5 concurrent writers
@@ -166,7 +166,7 @@ def test_multiple_writers_same_progress_file():
         
         # Verify final file is valid JSON and not corrupted
         assert os.path.exists(progress_file)
-        final_data = safe_load_json(progress_file)
+        final_data = load_json(progress_file)
         
         # Verify structure is correct (one of the threads succeeded)
         assert "completed_epochs" in final_data
@@ -318,11 +318,11 @@ def test_mixed_tracker_types_concurrent_access():
             "runner_type": "trainer",
             "total_epochs": 100
         }
-        safe_save_json(trainer_progress, os.path.join(trainer_dir, "progress.json"))
+        save_json(trainer_progress, os.path.join(trainer_dir, "progress.json"))
         
         # Create evaluator evaluation_scores.json
         eval_scores = {"aggregated": {"acc": 0.95}, "per_datapoint": {"acc": [0.95]}}
-        safe_save_json(eval_scores, os.path.join(evaluator_dir, "evaluation_scores.json"))
+        save_json(eval_scores, os.path.join(evaluator_dir, "evaluation_scores.json"))
         
         results = []
         
@@ -384,7 +384,7 @@ def test_concurrent_progress_json_creation():
                     "total_epochs": 100
                 }
                 progress_file = os.path.join(work_dir, "progress.json")
-                safe_save_json(progress_data, progress_file)
+                save_json(progress_data, progress_file)
                 time.sleep(0.01)
         
         # Run multiple workers creating progress files
@@ -397,6 +397,6 @@ def test_concurrent_progress_json_creation():
         for worker_id in range(5):
             progress_file = os.path.join(base_dir, f"experiment_{worker_id}", "progress.json")
             assert os.path.exists(progress_file)
-            data = safe_load_json(progress_file)
+            data = load_json(progress_file)
             assert data["completed_epochs"] == 40  # Final update
             assert data["runner_type"] == "trainer"
