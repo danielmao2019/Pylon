@@ -138,42 +138,74 @@ def test_reader_writer_conflict_resolution(create_progress_json, EXPECTED_FILES)
 # CONCURRENCY TESTS - MULTIPLE WRITERS
 # ============================================================================
 
-def test_multiple_writers_same_progress_file():
-    """Test multiple threads writing to the same progress.json file."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        progress_file = os.path.join(work_dir, "progress.json")
+def test_multiple_writers_same_progress_file(create_epoch_files, create_real_config, EXPECTED_FILES):
+    """Test multiple progress trackers writing to the same progress.json file."""
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_concurrent_writers")
+        config_path = os.path.join(configs_dir, "test_concurrent_writers.py")
         
-        def writer_thread(thread_id):
-            for i in range(3):
-                progress_data = {
-                    "completed_epochs": thread_id * 10 + i,
-                    "progress_percentage": float(thread_id * 10 + i),
-                    "early_stopped": False,
-                    "early_stopped_at_epoch": None,
-                    "runner_type": "trainer",
-                    "total_epochs": 100,
-                    "thread_id": thread_id,  # Track which thread wrote this
-                    "write_count": i
-                }
-                save_json(progress_data, progress_file)
-                time.sleep(0.01)  # Small delay to increase chance of conflicts
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = EXPECTED_FILES
         
-        # Run 5 concurrent writers
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(writer_thread, thread_id) for thread_id in range(5)]
-            for future in as_completed(futures):
-                future.result()
+        # Create real config
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
         
-        # Verify final file is valid JSON and not corrupted
-        assert os.path.exists(progress_file)
-        final_data = load_json(progress_file)
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
         
-        # Verify structure is correct (one of the threads succeeded)
-        assert "completed_epochs" in final_data
-        assert "thread_id" in final_data
-        assert "write_count" in final_data
-        assert isinstance(final_data["completed_epochs"], int)
-        assert 0 <= final_data["thread_id"] < 5
+        try:
+            results = []
+            
+            def tracker_writer_thread(thread_id):
+                """Each thread simulates a progress tracker updating progress."""
+                # Create varying numbers of epoch files to simulate different progress states
+                base_epochs = thread_id * 2  # Thread 0: 0 epochs, Thread 1: 2 epochs, etc.
+                
+                for update_round in range(3):
+                    # Create epoch files to simulate training progress
+                    current_epochs = base_epochs + update_round
+                    for epoch_idx in range(current_epochs + 1):  # +1 to ensure the epoch exists
+                        create_epoch_files(work_dir, epoch_idx)
+                    
+                    # Use TrainerProgressTracker to compute and save progress
+                    tracker = TrainerProgressTracker(work_dir)
+                    progress = tracker.get_progress(force_progress_recompute=True)
+                    
+                    results.append((thread_id, update_round, progress.completed_epochs))
+                    time.sleep(0.01)  # Small delay to increase chance of conflicts
+            
+            # Run 5 concurrent tracker writers
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [executor.submit(tracker_writer_thread, thread_id) for thread_id in range(5)]
+                for future in as_completed(futures):
+                    future.result()
+            
+            # Verify final progress.json file is valid and not corrupted
+            progress_file = os.path.join(work_dir, "progress.json")
+            assert os.path.exists(progress_file)
+            final_data = load_json(progress_file)
+            
+            # Verify structure is correct (standard progress.json format)
+            assert "completed_epochs" in final_data
+            assert "progress_percentage" in final_data
+            assert "early_stopped" in final_data
+            assert "runner_type" in final_data
+            assert final_data["runner_type"] == "trainer"
+            assert isinstance(final_data["completed_epochs"], int)
+            assert final_data["completed_epochs"] >= 0
+            
+            # Verify all threads completed without errors
+            assert len(results) == 15  # 5 threads * 3 updates each
+            for thread_id, update_round, epochs in results:
+                assert isinstance(epochs, int)
+                assert epochs >= 0
+                
+        finally:
+            os.chdir(original_cwd)
 
 
 # ============================================================================
