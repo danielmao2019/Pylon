@@ -179,8 +179,19 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         if type(self.DATASET_SIZE) == dict:
             assert set(self.DATASET_SIZE.keys()).issubset(set(self.SPLIT_OPTIONS)), \
                 f"{self.DATASET_SIZE.keys()=}, {self.SPLIT_OPTIONS=}"
-            assert type(self.split) == str
-            self.DATASET_SIZE = self.DATASET_SIZE[self.split]
+            
+            # Handle both string splits and tuple splits (split_percentages)
+            if hasattr(self, 'split') and self.split is not None:
+                # String split case - validate against specific split size
+                assert type(self.split) == str
+                self.DATASET_SIZE = self.DATASET_SIZE[self.split]
+            elif hasattr(self, 'split_percentages'):
+                # Tuple split case - validate against total dataset size
+                self.DATASET_SIZE = sum(self.DATASET_SIZE.values())
+            else:
+                # Fallback case - should not happen in normal usage
+                assert type(self.split) == str
+                self.DATASET_SIZE = self.DATASET_SIZE[self.split]
         assert len(self) == len(self.annotations) == self.DATASET_SIZE, \
             f"{len(self)=}, {len(self.annotations)=}, {self.DATASET_SIZE=}"
 
@@ -217,8 +228,11 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Generate version hash for this dataset configuration
             version_hash = self.get_cache_version_hash()
             
+            # For datasets without data_root (e.g., random datasets), use a default cache location
+            cache_data_root = getattr(self, 'data_root', '/tmp/cache')
+            
             self.cache = CombinedDatasetCache(
-                data_root=self.data_root,
+                data_root=cache_data_root,
                 version_hash=version_hash,
                 use_cpu_cache=use_cpu_cache,
                 use_disk_cache=use_disk_cache,
@@ -236,8 +250,11 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         """
         version_dict = {
             'class_name': self.__class__.__name__,
-            'data_root': str(self.data_root),
         }
+        
+        # Add data_root if it exists (not all datasets have data_root, e.g., random datasets)
+        if hasattr(self, 'data_root') and self.data_root is not None:
+            version_dict['data_root'] = str(self.data_root)
         
         # Add split information
         if hasattr(self, 'split') and self.split is not None:

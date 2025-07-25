@@ -15,16 +15,12 @@ def test_classification_random_dataset_version_discrimination():
             num_examples=100,
             image_res=(224, 224),
             initial_seed=42,
-            data_root=temp_dir,
-            split='all'
         )
         dataset1b = ClassificationRandomDataset(
             num_classes=10,
             num_examples=100,
             image_res=(224, 224),
             initial_seed=42,
-            data_root=temp_dir,
-            split='all'
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
         
@@ -34,8 +30,6 @@ def test_classification_random_dataset_version_discrimination():
             num_examples=100,
             image_res=(224, 224),
             initial_seed=42,
-            data_root=temp_dir,
-            split='all'
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
         
@@ -45,8 +39,6 @@ def test_classification_random_dataset_version_discrimination():
             num_examples=200,  # Different
             image_res=(224, 224),
             initial_seed=42,
-            data_root=temp_dir,
-            split='all'
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
         
@@ -56,8 +48,6 @@ def test_classification_random_dataset_version_discrimination():
             num_examples=100,
             image_res=(256, 256),  # Different
             initial_seed=42,
-            data_root=temp_dir,
-            split='all'
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
         
@@ -67,8 +57,6 @@ def test_classification_random_dataset_version_discrimination():
             num_examples=100,
             image_res=(224, 224),
             initial_seed=123,  # Different
-            data_root=temp_dir,
-            split='all'
         )
         assert dataset1a.get_cache_version_hash() != dataset5.get_cache_version_hash()
 
@@ -82,8 +70,6 @@ def test_all_parameters_affect_version_hash():
             'num_examples': 100,
             'image_res': (224, 224),
             'initial_seed': 42,
-            'data_root': temp_dir,
-            'split': 'all',
         }
         
         # Test each parameter individually
@@ -120,16 +106,12 @@ def test_none_vs_specified_initial_seed():
             num_examples=100,
             image_res=(224, 224),
             initial_seed=None,
-            data_root=temp_dir,
-            split='all'
         )
         dataset2 = ClassificationRandomDataset(
             num_classes=10,
             num_examples=100,
             image_res=(224, 224),
             initial_seed=42,
-            data_root=temp_dir,
-            split='all'
         )
         assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -154,8 +136,6 @@ def test_image_resolution_variants():
                 num_examples=100,
                 image_res=image_res,
                 initial_seed=42,
-                data_root=temp_dir,
-                split='all'
             )
             datasets.append(dataset)
         
@@ -178,8 +158,6 @@ def test_num_classes_variants():
                 num_examples=100,
                 image_res=(224, 224),
                 initial_seed=42,
-                data_root=temp_dir,
-                split='all'
             )
             datasets.append(dataset)
         
@@ -205,9 +183,7 @@ def test_comprehensive_no_hash_collisions():
                             num_examples=num_examples,
                             image_res=image_res,
                             initial_seed=initial_seed,
-                            data_root=temp_dir,
-                            split='all'
-                        ))
+                                                ))
         
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]

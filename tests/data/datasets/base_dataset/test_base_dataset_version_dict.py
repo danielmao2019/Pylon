@@ -60,7 +60,7 @@ def test_version_dict_with_different_parameters(mock_dataset_class):
         # Test with tuple split (split_percentages)
         dataset2 = mock_dataset_class(data_root=temp_dir, split=(0.7, 0.2, 0.1))
         version_dict2 = dataset2._get_cache_version_dict()
-        assert version_dict2['split'] == (0.7, 0.2, 0.1)
+        assert version_dict2['split_percentages'] == (0.7, 0.2, 0.1)
         
         # Both should have same class_name and data_root
         assert version_dict1['class_name'] == version_dict2['class_name']
