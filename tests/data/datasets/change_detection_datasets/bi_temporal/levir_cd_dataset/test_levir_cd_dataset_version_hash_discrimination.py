@@ -50,10 +50,17 @@ def test_split_variants(levir_cd_data_root):
         f"All split variants should produce different hashes, got: {hashes}"
 
 
-def test_cache_stability_with_file_modifications(levir_cd_data_root):
-    """Test that cache hash remains stable when file contents are modified (correct caching behavior)."""
+def test_cache_version_reflects_configuration_not_path(levir_cd_data_root):
+    """Test that cache hash reflects dataset configuration, not data_root path.
     
-    # Since we're using real data, we test that datasets with same configuration have same hash
+    This ensures that:
+    - Same dataset in different locations has same hash (relocatable)
+    - Soft links pointing to same data have same hash
+    - Cache is stable regardless of where dataset is stored
+    """
+    
+    # Test that identical configurations produce identical hashes
+    # This verifies the cache version is based on meaningful dataset parameters
     dataset1 = LevirCdDataset(
         data_root=levir_cd_data_root,
         split='train'
@@ -64,8 +71,8 @@ def test_cache_stability_with_file_modifications(levir_cd_data_root):
         split='train'
     )
     
-    # Should have same hashes - cache version reflects configuration, not file content
-    # This ensures cache stability when data file contents are modified
+    # Should have same hashes - cache version reflects configuration, not path
+    # This ensures cache works correctly with soft links and relocated datasets
     assert dataset1.get_cache_version_hash() == dataset2.get_cache_version_hash()
 
 
