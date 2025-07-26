@@ -1,11 +1,10 @@
-"""Comprehensive tests for cache metadata functionality.
+"""Comprehensive tests for disk cache metadata functionality.
 
-This module tests cache metadata operations including:
-- Size tracking and reporting
-- Memory usage monitoring  
+This module tests disk cache metadata operations including:
 - Metadata JSON file operations
 - Cache version management
-- Performance metrics
+- Directory structure management
+- Metadata persistence and retrieval
 """
 
 import pytest
@@ -13,13 +12,10 @@ import tempfile
 import os
 import time
 import torch
-import psutil
 from datetime import datetime
 from unittest.mock import patch
 
-from data.cache.cpu_dataset_cache import CPUDatasetCache
 from data.cache.disk_dataset_cache import DiskDatasetCache
-from data.cache.combined_dataset_cache import CombinedDatasetCache
 
 
 @pytest.fixture
