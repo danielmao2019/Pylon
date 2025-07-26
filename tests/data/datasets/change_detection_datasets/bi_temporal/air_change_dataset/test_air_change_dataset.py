@@ -50,13 +50,6 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: AirChangeData
             assert class_dist.tolist() == dataset.CLASS_DIST, f"Class distribution mismatch: {class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.fixture
-def dataset(request):
-    """Fixture for creating an AirChangeDataset instance."""
-    split = request.param
-    return AirChangeDataset(data_root="./data/datasets/soft_links/AirChange", split=split)
-
-
 @pytest.mark.parametrize('dataset', ['train', 'test'], indirect=True)
 def test_air_change(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset must inherit from torch.utils.data.Dataset"
