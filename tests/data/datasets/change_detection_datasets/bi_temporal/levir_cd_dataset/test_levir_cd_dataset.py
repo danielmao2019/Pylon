@@ -38,14 +38,6 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset, num_samples: 
         assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.fixture
-def dataset(request):
-    """Fixture for creating a LevirCdDataset instance."""
-    split = request.param
-    return LevirCdDataset(
-        data_root="./data/datasets/soft_links/LEVIR-CD",
-        split=split
-    )
 
 
 @pytest.mark.parametrize('dataset', ['train', 'test', 'val'], indirect=True)
