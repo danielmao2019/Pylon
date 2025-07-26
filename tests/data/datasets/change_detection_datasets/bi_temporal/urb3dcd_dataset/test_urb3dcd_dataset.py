@@ -76,18 +76,6 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.fixture
-def dataset(request):
-    """Fixture for creating a Urb3DCDDataset instance."""
-    sample_per_epoch, radius, fix_samples = request.param
-    return Urb3DCDDataset(
-        data_root="./data/datasets/soft_links/Urb3DCD",
-        sample_per_epoch=sample_per_epoch,
-        radius=radius,
-        fix_samples=fix_samples
-    )
-
-
 @pytest.mark.parametrize('dataset', [
     (100, 100, False),
     (0, 100, False),  # Grid sampling mode
@@ -122,10 +110,10 @@ def test_urb3dcd_dataset(dataset, max_samples, get_samples_to_test) -> None:
     print(f"Testing samples completed.")
 
 
-def test_fixed_samples_consistency() -> None:
+def test_fixed_samples_consistency(urb3dcd_data_root) -> None:
     """Test that fixed sampling mode produces consistent results."""
     dataset = Urb3DCDDataset(
-        data_root="./data/datasets/soft_links/Urb3DCD",
+        data_root=urb3dcd_data_root,
         sample_per_epoch=100,
         fix_samples=True
     )

@@ -31,7 +31,6 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert 'pc_2_filepath' in meta_info
 
 
-
 @pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
 def test_load_real_dataset(dataset, max_samples, get_samples_to_test) -> None:
     """Test loading the actual SLPCCD dataset."""
