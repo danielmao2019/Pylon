@@ -26,11 +26,10 @@ def test_levir_cd_dataset_has_version_dict_method():
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_levir_cd_dataset_version_dict_functionality(levir_cd_data_root):
+def test_levir_cd_dataset_version_dict_functionality(levir_cd_dataset_train):
     """Test that LevirCdDataset version dict method works correctly."""
     
-    dataset = LevirCdDataset(data_root=levir_cd_data_root, split='train')
-    version_dict = dataset._get_cache_version_dict()
+    version_dict = levir_cd_dataset_train._get_cache_version_dict()
     
     # Should return a dictionary
     assert isinstance(version_dict, dict)

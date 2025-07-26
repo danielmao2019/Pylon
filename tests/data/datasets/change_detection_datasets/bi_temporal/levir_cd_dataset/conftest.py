@@ -1,40 +1,23 @@
 """Shared fixtures and helper functions for LevirCdDataset tests."""
 
 import pytest
-import os
-import numpy as np
-from PIL import Image
+from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
 
 
 @pytest.fixture
-def create_dummy_levir_structure():
-    """Fixture that returns a function to create a dummy LEVIR-CD directory structure for testing."""
-    def _create_structure(data_root: str) -> None:
-        """Create a dummy LEVIR-CD directory structure for testing."""
-        splits = ['train', 'val', 'test']
-        
-        for split in splits:
-            # Create directories
-            split_dir = os.path.join(data_root, split)
-            a_dir = os.path.join(split_dir, 'A')
-            b_dir = os.path.join(split_dir, 'B')
-            label_dir = os.path.join(split_dir, 'label')
-            
-            os.makedirs(a_dir, exist_ok=True)
-            os.makedirs(b_dir, exist_ok=True)
-            os.makedirs(label_dir, exist_ok=True)
-            
-            # Create dummy image files efficiently using touch command
-            dataset_sizes = {'train': 445, 'val': 64, 'test': 128}
-            num_files = dataset_sizes[split]
-            
-            # Generate all filenames
-            filenames = [f'test_{i:04d}.png' for i in range(num_files)]
-            
-            # Use touch command for fast file creation (much faster than Python loops)
-            import subprocess
-            for subdir_path in [a_dir, b_dir, label_dir]:
-                full_paths = [os.path.join(subdir_path, f) for f in filenames]
-                subprocess.run(['touch'] + full_paths, check=True)
-    
-    return _create_structure
+def levir_cd_data_root():
+    """Fixture that returns the real LEVIR-CD dataset path."""
+    return "./data/datasets/soft_links/LEVIR-CD"
+
+
+@pytest.fixture
+def levir_cd_dataset_train(levir_cd_data_root):
+    """Fixture for creating a LevirCdDataset instance with train split."""
+    return LevirCdDataset(data_root=levir_cd_data_root, split='train')
+
+
+@pytest.fixture
+def dataset(request, levir_cd_data_root):
+    """Fixture for creating a LevirCdDataset instance with parameterized split."""
+    split = request.param
+    return LevirCdDataset(data_root=levir_cd_data_root, split=split)
