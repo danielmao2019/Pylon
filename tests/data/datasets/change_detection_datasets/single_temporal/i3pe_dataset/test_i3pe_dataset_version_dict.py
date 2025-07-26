@@ -39,6 +39,7 @@ def test_i3pe_dataset_version_dict_functionality():
     
     dataset = I3PEDataset(
         source=source,
+        dataset_size=10,
         exchange_ratio=0.75
     )
     version_dict = dataset._get_cache_version_dict()
@@ -51,8 +52,8 @@ def test_i3pe_dataset_version_dict_functionality():
     assert version_dict['class_name'] == 'I3PEDataset'
     
     # Should contain base synthetic dataset parameters
-    assert 'source_class_name' in version_dict
-    assert version_dict['source_class_name'] == 'ClassificationRandomDataset'
+    assert 'source_class' in version_dict
+    assert version_dict['source_class'] == 'ClassificationRandomDataset'
     
     # Should contain I3PEDataset specific parameters
     assert 'exchange_ratio' in version_dict

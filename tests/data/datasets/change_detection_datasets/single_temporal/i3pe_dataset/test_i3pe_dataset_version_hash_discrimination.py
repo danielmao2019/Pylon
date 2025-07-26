@@ -26,8 +26,8 @@ def test_i3pe_same_parameters_same_hash():
     )
     
     # Same parameters should produce same hash
-    dataset1a = I3PEDataset(source=source1a, exchange_ratio=0.75)
-    dataset1b = I3PEDataset(source=source1b, exchange_ratio=0.75)
+    dataset1a = I3PEDataset(source=source1a, dataset_size=10, exchange_ratio=0.75)
+    dataset1b = I3PEDataset(source=source1b, dataset_size=10, exchange_ratio=0.75)
     
     hash1a = dataset1a.get_cache_version_hash()
     hash1b = dataset1b.get_cache_version_hash()
@@ -45,8 +45,8 @@ def test_i3pe_different_exchange_ratio_different_hash():
         initial_seed=42
     )
     
-    dataset_075 = I3PEDataset(source=source, exchange_ratio=0.75)
-    dataset_050 = I3PEDataset(source=source, exchange_ratio=0.50)
+    dataset_075 = I3PEDataset(source=source, dataset_size=10, exchange_ratio=0.75)
+    dataset_050 = I3PEDataset(source=source, dataset_size=10, exchange_ratio=0.50)
     
     hash_075 = dataset_075.get_cache_version_hash()
     hash_050 = dataset_050.get_cache_version_hash()
@@ -71,8 +71,8 @@ def test_i3pe_different_source_different_hash():
         initial_seed=42
     )
     
-    dataset1 = I3PEDataset(source=source1, exchange_ratio=0.75)
-    dataset2 = I3PEDataset(source=source2, exchange_ratio=0.75)
+    dataset1 = I3PEDataset(source=source1, dataset_size=10, exchange_ratio=0.75)
+    dataset2 = I3PEDataset(source=source2, dataset_size=20, exchange_ratio=0.75)
     
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
@@ -96,8 +96,8 @@ def test_i3pe_different_source_seed_different_hash():
         initial_seed=123  # Different seed
     )
     
-    dataset1 = I3PEDataset(source=source1, exchange_ratio=0.75)
-    dataset2 = I3PEDataset(source=source2, exchange_ratio=0.75)
+    dataset1 = I3PEDataset(source=source1, dataset_size=10, exchange_ratio=0.75)
+    dataset2 = I3PEDataset(source=source2, dataset_size=20, exchange_ratio=0.75)
     
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
@@ -115,7 +115,7 @@ def test_i3pe_hash_format():
         initial_seed=42
     )
     
-    dataset = I3PEDataset(source=source, exchange_ratio=0.75)
+    dataset = I3PEDataset(source=source, dataset_size=10, exchange_ratio=0.75)
     hash_val = dataset.get_cache_version_hash()
     
     # Should be a string
@@ -158,7 +158,7 @@ def test_i3pe_comprehensive_no_hash_collisions():
     
     hashes = []
     for config in configs:
-        dataset = I3PEDataset(source=config['source'], exchange_ratio=config['exchange_ratio'])
+        dataset = I3PEDataset(source=config['source'], dataset_size=config['source'].num_examples, exchange_ratio=config['exchange_ratio'])
         hash_val = dataset.get_cache_version_hash()
         
         # Check for collision

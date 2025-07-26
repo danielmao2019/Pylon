@@ -31,12 +31,10 @@ def test_ppsl_dataset_version_dict_functionality():
     source = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        image_res=(64, 64),
-        
         initial_seed=42
     )
     
-    dataset = PPSLDataset(source=source)
+    dataset = PPSLDataset(source=source, dataset_size=10)
     version_dict = dataset._get_cache_version_dict()
     
     # Should return a dictionary
@@ -47,8 +45,8 @@ def test_ppsl_dataset_version_dict_functionality():
     assert version_dict['class_name'] == 'PPSLDataset'
     
     # Should contain base synthetic dataset parameters
-    assert 'source_class_name' in version_dict
-    assert version_dict['source_class_name'] == 'SemanticSegmentationRandomDataset'
+    assert 'source_class' in version_dict
+    assert version_dict['source_class'] == 'SemanticSegmentationRandomDataset'
     
     # Should contain PPSLDataset specific transform parameters
     assert 'colorjit_brightness' in version_dict

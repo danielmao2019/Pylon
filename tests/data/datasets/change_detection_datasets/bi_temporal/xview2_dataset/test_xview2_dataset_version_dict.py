@@ -1,13 +1,10 @@
 """Test version dict implementation for xView2Dataset."""
 
 import pytest
-import tempfile
-import os
 from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
 
 
-
-def test_xview2_dataset_has_version_dict_method(create_dummy_xview2_files):
+def test_xview2_dataset_has_version_dict_method():
     """Test that xView2Dataset has _get_cache_version_dict method."""
     assert hasattr(xView2Dataset, '_get_cache_version_dict')
     
@@ -26,23 +23,19 @@ def test_xview2_dataset_has_version_dict_method(create_dummy_xview2_files):
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_xview2_dataset_version_dict_functionality(create_dummy_xview2_files):
+def test_xview2_dataset_version_dict_functionality(xview2_dataset_train):
     """Test that xView2Dataset version dict method works correctly."""
     
-    with tempfile.TemporaryDirectory() as temp_dir:
-        create_dummy_xview2_files(temp_dir)
-        
-        dataset = xView2Dataset(data_root=temp_dir, split='train')
-        version_dict = dataset._get_cache_version_dict()
-        
-        # Should return a dictionary
-        assert isinstance(version_dict, dict)
-        
-        # Should contain class_name
-        assert 'class_name' in version_dict
-        assert version_dict['class_name'] == 'xView2Dataset'
-        
-        # Should contain base parameters
-        assert 'data_root' in version_dict
-        assert 'split' in version_dict
-        assert version_dict['split'] == 'train'
+    version_dict = xview2_dataset_train._get_cache_version_dict()
+    
+    # Should return a dictionary
+    assert isinstance(version_dict, dict)
+    
+    # Should contain class_name
+    assert 'class_name' in version_dict
+    assert version_dict['class_name'] == 'xView2Dataset'
+    
+    # Should contain base parameters
+    assert 'data_root' in version_dict
+    assert 'split' in version_dict
+    assert version_dict['split'] == 'train'
