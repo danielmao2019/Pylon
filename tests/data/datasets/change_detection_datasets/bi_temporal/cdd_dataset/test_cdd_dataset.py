@@ -55,13 +55,6 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: CDDDataset, n
         assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.fixture
-def dataset(request):
-    """Fixture for creating a CDDDataset instance."""
-    split = request.param
-    return CDDDataset(data_root="./data/datasets/soft_links/CDD", split=split)
-
-
 @pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
 def test_cdd_dataset(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."

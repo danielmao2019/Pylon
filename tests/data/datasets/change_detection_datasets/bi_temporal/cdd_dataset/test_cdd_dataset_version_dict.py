@@ -1,13 +1,10 @@
 """Test version dict implementation for CDDDataset."""
 
 import pytest
-import tempfile
-import os
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 
 
-
-def test_cdd_dataset_has_version_dict_method(create_dummy_cdd_files):
+def test_cdd_dataset_has_version_dict_method():
     """Test that CDDDataset has _get_cache_version_dict method."""
     assert hasattr(CDDDataset, '_get_cache_version_dict')
     
@@ -26,23 +23,19 @@ def test_cdd_dataset_has_version_dict_method(create_dummy_cdd_files):
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_cdd_dataset_version_dict_functionality(create_dummy_cdd_files):
+def test_cdd_dataset_version_dict_functionality(cdd_dataset_train):
     """Test that CDDDataset version dict method works correctly."""
     
-    with tempfile.TemporaryDirectory() as temp_dir:
-        create_dummy_cdd_files(temp_dir)
-        
-        dataset = CDDDataset(data_root=temp_dir, split='train')
-        version_dict = dataset._get_cache_version_dict()
-        
-        # Should return a dictionary
-        assert isinstance(version_dict, dict)
-        
-        # Should contain class_name
-        assert 'class_name' in version_dict
-        assert version_dict['class_name'] == 'CDDDataset'
-        
-        # Should contain base parameters
-        assert 'data_root' in version_dict
-        assert 'split' in version_dict
-        assert version_dict['split'] == 'train'
+    version_dict = cdd_dataset_train._get_cache_version_dict()
+    
+    # Should return a dictionary
+    assert isinstance(version_dict, dict)
+    
+    # Should contain class_name
+    assert 'class_name' in version_dict
+    assert version_dict['class_name'] == 'CDDDataset'
+    
+    # Should contain base parameters
+    assert 'data_root' in version_dict
+    assert 'split' in version_dict
+    assert version_dict['split'] == 'train'
