@@ -6,7 +6,8 @@ import xxhash
 import torch
 from datetime import datetime
 from data.cache.base_cache import BaseCache
-from utils.io.json import safe_load_json, safe_save_json
+from utils.io.json import load_json, save_json
+from utils.io.torch import load_torch, save_torch
 
 
 class DiskDatasetCache(BaseCache):
@@ -85,24 +86,22 @@ class DiskDatasetCache(BaseCache):
         hashable_data = prepare_for_hash(value)
         return xxhash.xxh64(str(hashable_data).encode()).hexdigest()
 
-    def _validate_item(self, idx: int, value: Dict[str, Any], stored_checksum: str) -> bool:
+    def _validate_item(self, idx: int, value: Dict[str, Any], stored_checksum: str) -> None:
         """Validate a cached item against its stored checksum (first-access-only per session)."""
         if not self.enable_validation:
-            return True
+            return
         
         # Only validate on first access per session
         if idx in self.validated_keys:
-            return True
+            return
 
         current_checksum = self._compute_checksum(value)
-        is_valid = current_checksum == stored_checksum
-
-        if not is_valid:
+        
+        if current_checksum != stored_checksum:
             raise ValueError(f"Disk cache validation failed - data corruption detected")
         
         # Mark as validated for this session
         self.validated_keys.add(idx)
-        return is_valid
 
     def exists(self, idx: int) -> bool:
         """Check if cache file exists for given index."""
@@ -116,62 +115,40 @@ class DiskDatasetCache(BaseCache):
             return None
         
         with self.lock:
-            try:
-                # Load from disk directly to target device if specified
-                map_location = device if device is not None else 'cpu'
-                cached_data = torch.load(cache_filepath, map_location=map_location)
-                
-                # Extract value and checksum
-                value = {
-                    'inputs': cached_data['inputs'],
-                    'labels': cached_data['labels'],
-                    'meta_info': cached_data['meta_info'],
-                }
-                
-                if self.enable_validation:
-                    stored_checksum = cached_data.get('checksum', '')
-                    if not self._validate_item(idx, value, stored_checksum):
-                        # Remove corrupted file
-                        os.remove(cache_filepath)
-                        return None
-                
-                return value
-                
-            except Exception as e:
-                self.logger.warning(f"Failed to load cache file {cache_filepath}: {e}")
-                # Remove corrupted file
-                if os.path.exists(cache_filepath):
-                    os.remove(cache_filepath)
-                return None
+            # Load from disk directly to target device if specified
+            map_location = device if device is not None else 'cpu'
+            cached_data = load_torch(cache_filepath, map_location=map_location)
+            
+            # Extract value and checksum
+            value = {
+                'inputs': cached_data['inputs'],
+                'labels': cached_data['labels'],
+                'meta_info': cached_data['meta_info'],
+            }
+            
+            if self.enable_validation:
+                stored_checksum = cached_data.get('checksum', '')
+                self._validate_item(idx, value, stored_checksum)
+            
+            return value
 
     def put(self, idx: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache storage to disk with checksum computation."""
         cache_filepath = self._get_cache_filepath(idx)
         
         with self.lock:
-            try:
-                # Prepare data for storage
-                cached_data = {
-                    'inputs': value['inputs'],
-                    'labels': value['labels'],
-                    'meta_info': value['meta_info'],
-                }
-                
-                if self.enable_validation:
-                    cached_data['checksum'] = self._compute_checksum(value)
-                
-                # Atomic write: write to temp file then rename
-                temp_filepath = cache_filepath + '.tmp'
-                torch.save(cached_data, temp_filepath)
-                os.rename(temp_filepath, cache_filepath)
-                
-            except Exception as e:
-                self.logger.error(f"Failed to save cache file {cache_filepath}: {e}")
-                # Clean up temp file if it exists
-                temp_filepath = cache_filepath + '.tmp'
-                if os.path.exists(temp_filepath):
-                    os.remove(temp_filepath)
-                raise
+            # Prepare data for storage
+            cached_data = {
+                'inputs': value['inputs'],
+                'labels': value['labels'],
+                'meta_info': value['meta_info'],
+            }
+            
+            if self.enable_validation:
+                cached_data['checksum'] = self._compute_checksum(value)
+            
+            # Use atomic save function
+            save_torch(cached_data, cache_filepath)
 
     def clear(self) -> None:
         """Clear all cache files for this version."""
@@ -193,30 +170,27 @@ class DiskDatasetCache(BaseCache):
             # Load existing metadata
             metadata = {}
             if os.path.exists(self.metadata_file):
-                try:
-                    metadata = safe_load_json(self.metadata_file)
-                except (FileNotFoundError, IOError, ValueError, RuntimeError):
-                    metadata = {}
+                metadata = load_json(self.metadata_file)
+            
+            # Preserve existing created_at timestamp if this version already exists
+            if self.version_hash in metadata:
+                created_at = metadata[self.version_hash]['created_at']
+            else:
+                created_at = datetime.now()
             
             # Update with current version info
             metadata[self.version_hash] = {
-                'created_at': datetime.now(),  # datetime will be serialized by save_json
+                'created_at': created_at,  # datetime will be serialized by save_json
                 'cache_dir': self.cache_dir,
                 'version_dir': self.version_dir,
                 'enable_validation': self.enable_validation,
             }
             
             # Write updated metadata
-            try:
-                safe_save_json(metadata, self.metadata_file)
-            except (IOError, RuntimeError) as e:
-                self.logger.warning(f"Failed to update cache metadata: {e}")
+            save_json(metadata, self.metadata_file)
     
     def get_metadata(self) -> Dict[str, Any]:
         """Get metadata for all cache versions."""
         if os.path.exists(self.metadata_file):
-            try:
-                return safe_load_json(self.metadata_file)
-            except (FileNotFoundError, IOError, ValueError, RuntimeError):
-                return {}
+            return load_json(self.metadata_file)
         return {}

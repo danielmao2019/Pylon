@@ -123,7 +123,7 @@ def test_metadata_persistence_across_instances(temp_cache_dir, sample_datapoint)
 
 
 def test_metadata_corruption_handling(temp_cache_dir):
-    """Test handling of corrupted metadata files."""
+    """Test handling of corrupted metadata files - fails fast and loud."""
     # Create cache to generate initial metadata
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
@@ -136,18 +136,17 @@ def test_metadata_corruption_handling(temp_cache_dir):
     with open(metadata_file, 'w') as f:
         f.write("invalid json content {")
     
-    # Creating new cache should handle corruption gracefully
-    cache2 = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="corruption_test_2",
-        enable_validation=False
-    )
+    # Trying to load corrupted metadata should fail fast and loud
+    with pytest.raises(RuntimeError, match="Error loading JSON"):
+        cache.get_metadata()
     
-    # Should return empty metadata for corrupted file
-    metadata = cache2.get_metadata()
-    assert isinstance(metadata, dict)
-    # Should still create new version entry despite corruption
-    assert "corruption_test_2" in metadata
+    # Creating new cache should also fail when trying to load corrupted metadata
+    with pytest.raises(RuntimeError, match="Error loading JSON"):
+        DiskDatasetCache(
+            cache_dir=temp_cache_dir,
+            version_hash="corruption_test_2",
+            enable_validation=False
+        )
 
 
 def test_metadata_file_permissions(temp_cache_dir):

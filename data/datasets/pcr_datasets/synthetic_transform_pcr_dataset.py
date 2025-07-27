@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from abc import ABC, abstractmethod
 import os
 import json

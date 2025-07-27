@@ -35,7 +35,7 @@ def sample_datapoint():
 
 
 def test_atomic_write_operations(temp_cache_dir, sample_datapoint):
-    """Test atomic write operations using temporary files."""
+    """Test atomic write operations using temporary files - fails fast and loud."""
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="atomic_test",
@@ -51,7 +51,7 @@ def test_atomic_write_operations(temp_cache_dir, sample_datapoint):
         return original_rename(src, dst)
     
     with patch('os.rename', side_effect=failing_rename):
-        with pytest.raises(OSError, match="Simulated rename failure"):
+        with pytest.raises(RuntimeError, match="Error saving torch file.*Simulated rename failure"):
             cache.put(0, sample_datapoint)
     
     # Verify no partial files remain
@@ -130,7 +130,7 @@ def test_multiple_files_disk_usage(temp_cache_dir, sample_datapoint):
 
 
 def test_file_corruption_during_read(temp_cache_dir, sample_datapoint):
-    """Test handling of file corruption during read operations."""
+    """Test handling of file corruption during read operations - fails fast and loud."""
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="read_corruption_test",
@@ -145,10 +145,12 @@ def test_file_corruption_during_read(temp_cache_dir, sample_datapoint):
     with open(cache_file, 'wb') as f:
         f.write(b'\x80\x02}q\x00X\x06\x00\x00\x00')  # Partial pickle data
     
-    # Should handle corruption gracefully
-    result = cache.get(0)
-    assert result is None
-    assert not os.path.exists(cache_file)  # Should be removed
+    # Should fail fast and loud - RuntimeError raised immediately
+    with pytest.raises(RuntimeError, match="Error loading torch file.*pickle data was truncated"):
+        cache.get(0)
+    
+    # File should still exist - we don't mask errors by removing files
+    assert os.path.exists(cache_file)
 
 
 def test_concurrent_file_access_safety(temp_cache_dir, sample_datapoint):

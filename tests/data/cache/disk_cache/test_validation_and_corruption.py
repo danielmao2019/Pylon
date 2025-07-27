@@ -77,7 +77,7 @@ def test_checksum_validation_disabled(temp_cache_dir, sample_datapoint):
 
 
 def test_corruption_detection_and_removal(temp_cache_dir, sample_datapoint):
-    """Test detection and handling of corrupted cache files."""
+    """Test detection and handling of corrupted cache files - fails fast and loud."""
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="corruption_test",
@@ -93,10 +93,12 @@ def test_corruption_detection_and_removal(temp_cache_dir, sample_datapoint):
     with open(cache_file, 'w') as f:
         f.write("This is not valid torch data")
     
-    # Attempt to retrieve should return None and remove corrupted file
-    result = cache.get(0)
-    assert result is None
-    assert not os.path.exists(cache_file)
+    # Attempt to retrieve should raise RuntimeError - fail fast and loud
+    with pytest.raises(RuntimeError, match="Error loading torch file"):
+        cache.get(0)
+    
+    # File should still exist - we don't mask errors by removing files
+    assert os.path.exists(cache_file)
 
 
 def test_validation_session_tracking(temp_cache_dir, sample_datapoint):
@@ -170,7 +172,7 @@ def test_different_data_different_checksums(temp_cache_dir, sample_datapoint):
 
 
 def test_validation_with_corrupted_checksum(temp_cache_dir, sample_datapoint):
-    """Test validation failure when stored checksum is corrupted."""
+    """Test validation failure when stored checksum is corrupted - fails fast and loud."""
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="corrupted_checksum_test",
@@ -186,12 +188,12 @@ def test_validation_with_corrupted_checksum(temp_cache_dir, sample_datapoint):
     cached_data['checksum'] = "invalid_checksum"
     torch.save(cached_data, cache_file)
     
-    # Validation should fail and file should be removed
+    # Validation should fail fast and loud - ValueError is raised immediately
     with pytest.raises(ValueError, match="validation failed"):
         cache.get(0)
     
-    # File should be removed after validation failure
-    assert not os.path.exists(cache_file)
+    # File should still exist - we don't mask errors by removing files
+    assert os.path.exists(cache_file)
 
 
 def test_validation_reset_on_cache_restart(temp_cache_dir, sample_datapoint):
