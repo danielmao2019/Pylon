@@ -35,7 +35,6 @@ def test_sysu_cd_dataset_version_dict_functionality(sysu_cd_dataset_train):
     assert 'class_name' in version_dict
     assert version_dict['class_name'] == 'SYSU_CD_Dataset'
     
-    # Should contain base parameters
-    assert 'data_root' in version_dict
+    # Should contain base parameters (data_root intentionally excluded for cache stability)
     assert 'split' in version_dict
     assert version_dict['split'] == 'train'
