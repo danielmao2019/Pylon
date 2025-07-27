@@ -36,17 +36,16 @@ def test_cdd_different_split_different_hash(cdd_data_root):
     assert hash_val != hash_test, f"Different splits should produce different hashes: {hash_val} == {hash_test}"
 
 
-def test_cdd_different_data_root_different_hash(cdd_data_root):
-    """Test that different data roots produce different hashes."""
-    # Use real data root vs a temporary different path
-    with tempfile.TemporaryDirectory() as temp_dir:
-        dataset1 = CDDDataset(data_root=cdd_data_root, split='train')
-        dataset2 = CDDDataset(data_root=temp_dir, split='train')  # Different path will produce different hash
-        
-        hash1 = dataset1.get_cache_version_hash()
-        hash2 = dataset2.get_cache_version_hash()
-        
-        assert hash1 != hash2, f"Different data roots should produce different hashes: {hash1} == {hash2}"
+def test_cdd_same_data_root_same_hash(cdd_data_root):
+    """Test that same data roots produce same hashes (data_root excluded from hash)."""
+    # data_root is intentionally excluded from hash for cache stability
+    dataset1 = CDDDataset(data_root=cdd_data_root, split='train')
+    dataset2 = CDDDataset(data_root=cdd_data_root, split='train')
+    
+    hash1 = dataset1.get_cache_version_hash()
+    hash2 = dataset2.get_cache_version_hash()
+    
+    assert hash1 == hash2, f"Same data roots should produce same hashes: {hash1} != {hash2}"
 
 
 def test_cdd_hash_format(cdd_data_root):
@@ -66,25 +65,23 @@ def test_cdd_hash_format(cdd_data_root):
 
 def test_cdd_comprehensive_no_hash_collisions(cdd_data_root):
     """Test that different configurations produce unique hashes (no collisions)."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Test various parameter combinations using real data root and temp dir
-        configs = [
-            {'data_root': cdd_data_root, 'split': 'train'},
-            {'data_root': cdd_data_root, 'split': 'val'},
-            {'data_root': cdd_data_root, 'split': 'test'},
-            {'data_root': temp_dir, 'split': 'train'},
-            {'data_root': temp_dir, 'split': 'val'},
-            {'data_root': temp_dir, 'split': 'test'},
-        ]
+    # Test various parameter combinations
+    # NOTE: data_root is intentionally excluded from hash, so we test only meaningful parameter combinations
+    configs = [
+        {'data_root': cdd_data_root, 'split': 'train'},
+        {'data_root': cdd_data_root, 'split': 'val'},
+        {'data_root': cdd_data_root, 'split': 'test'},
+        # Removed different data_root configs since data_root is excluded from hash
+    ]
+    
+    hashes = []
+    for config in configs:
+        dataset = CDDDataset(**config)
+        hash_val = dataset.get_cache_version_hash()
         
-        hashes = []
-        for config in configs:
-            dataset = CDDDataset(**config)
-            hash_val = dataset.get_cache_version_hash()
-            
-            # Check for collision
-            assert hash_val not in hashes, f"Hash collision detected for config {config}: hash {hash_val} already exists"
-            hashes.append(hash_val)
-        
-        # Verify we generated the expected number of unique hashes
-        assert len(hashes) == len(configs), f"Expected {len(configs)} unique hashes, got {len(hashes)}"
+        # Check for collision
+        assert hash_val not in hashes, f"Hash collision detected for config {config}: hash {hash_val} already exists"
+        hashes.append(hash_val)
+    
+    # Verify we generated the expected number of unique hashes
+    assert len(hashes) == len(configs), f"Expected {len(configs)} unique hashes, got {len(hashes)}"
