@@ -18,10 +18,9 @@ def test_oscd_dataset_version_dict_structure(oscd_dataset_train):
     # Should return a dictionary
     assert isinstance(version_dict, dict)
     
-    # Should contain base dataset parameters
+    # Should contain base dataset parameters (data_root intentionally excluded for cache stability)
     assert 'class_name' in version_dict
     assert version_dict['class_name'] == 'OSCDDataset'
-    assert 'data_root' in version_dict
     assert 'split' in version_dict
     assert version_dict['split'] == 'train'
 
