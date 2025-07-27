@@ -613,8 +613,8 @@ class Urb3DCDDataset(BaseDataset):
         version_dict.update({
             'version': self.version,
             'patched': self.patched,
-            'sample_per_epoch': self.sample_per_epoch,
+            'sample_per_epoch': self._sample_per_epoch,
             'fix_samples': self.fix_samples,
-            'radius': self.radius,
+            'radius': self._radius,
         })
         return version_dict

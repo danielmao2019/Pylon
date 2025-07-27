@@ -237,14 +237,17 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         """Return parameters that affect dataset content for cache versioning.
         
         Subclasses should override this method to add their specific parameters.
+        
+        Note: data_root is intentionally excluded from the version dict to ensure
+        cache hashes are stable across different filesystem locations (e.g., soft links).
         """
         version_dict = {
             'class_name': self.__class__.__name__,
         }
         
-        # Add data_root if it exists (not all datasets have data_root, e.g., random datasets)
-        if hasattr(self, 'data_root') and self.data_root is not None:
-            version_dict['data_root'] = str(self.data_root)
+        # NOTE: We explicitly DO NOT include data_root in the version dict
+        # This ensures that the same dataset accessed through different paths
+        # (e.g., soft links, relocated datasets) will have the same cache hash
         
         # Add split information
         if hasattr(self, 'split') and self.split is not None:
