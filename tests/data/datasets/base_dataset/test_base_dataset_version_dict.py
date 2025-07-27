@@ -24,13 +24,10 @@ def test_base_dataset_version_dict_structure(mock_dataset_class):
         assert isinstance(version_dict, dict)
         
         # Ensure essential keys are present
-        required_keys = {'class_name', 'data_root', 'split'}
+        # NOTE: data_root is intentionally excluded for cache stability across different paths
+        required_keys = {'class_name', 'split'}
         assert all(key in version_dict for key in required_keys), \
             f"Missing required keys: {required_keys - set(version_dict.keys())}"
-        
-        # Ensure data_root is absolute path
-        assert temp_dir in version_dict['data_root'], \
-            f"data_root must contain temp_dir, got {version_dict['data_root']}"
         
         # Ensure class_name matches actual class
         assert version_dict['class_name'] == dataset.__class__.__name__
@@ -62,6 +59,5 @@ def test_version_dict_with_different_parameters(mock_dataset_class):
         version_dict2 = dataset2._get_cache_version_dict()
         assert version_dict2['split_percentages'] == (0.7, 0.2, 0.1)
         
-        # Both should have same class_name and data_root
+        # Both should have same class_name (data_root intentionally excluded from version dict)
         assert version_dict1['class_name'] == version_dict2['class_name']
-        assert version_dict1['data_root'] == version_dict2['data_root']

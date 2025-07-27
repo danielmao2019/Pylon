@@ -12,9 +12,9 @@ def test_base_dataset_version_discrimination(mock_dataset_class):
         dataset1b = mock_dataset_class(data_root=temp_dir1, split='train')
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
         
-        # Different data_root should have different hash
+        # Different data_root should have SAME hash (data_root intentionally excluded for cache stability)
         dataset2 = mock_dataset_class(data_root=temp_dir2, split='train')
-        assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        assert dataset1a.get_cache_version_hash() == dataset2.get_cache_version_hash()
         
         # Different split should have different hash
         dataset3 = mock_dataset_class(data_root=temp_dir1, split='val')
@@ -26,17 +26,14 @@ def test_base_dataset_version_discrimination(mock_dataset_class):
         assert dataset4.get_cache_version_hash() != dataset5.get_cache_version_hash()
 
 
-
-
 def test_comprehensive_version_discrimination(mock_dataset_class):
     """Comprehensive test ensuring no hash collisions across many different configurations."""
     with tempfile.TemporaryDirectory() as temp_dir1, tempfile.TemporaryDirectory() as temp_dir2:
         datasets = []
         
-        # Test different BaseDataset configurations
-        for data_root in [temp_dir1, temp_dir2]:
-            for split in ['train', 'val', 'test']:
-                datasets.append(mock_dataset_class(data_root=data_root, split=split))
+        # Test different BaseDataset configurations (only vary split, not data_root since it's excluded)
+        for split in ['train', 'val', 'test']:
+            datasets.append(mock_dataset_class(data_root=temp_dir1, split=split))
         
         # Test different split percentages
         for split_percentages in [(0.7, 0.2, 0.1), (0.8, 0.1, 0.1), (0.6, 0.3, 0.1)]:
@@ -67,5 +64,3 @@ def test_base_dataset_get_cache_version_hash_method(mock_dataset_class):
         hash_val = dataset.get_cache_version_hash()
         assert isinstance(hash_val, str)
         assert len(hash_val) == 16  # xxhash produces 16-character hex strings
-
-
