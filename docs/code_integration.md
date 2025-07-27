@@ -2,15 +2,19 @@
 
 ## Table of Contents <!-- omit in toc -->
 
-- [1. Overview](#1-overview)
 - [Part I: Repository Analysis Guidelines](#part-i-repository-analysis-guidelines)
   - [2. Analysis Phase](#2-analysis-phase)
     - [2.1. Source Repository Locations](#21-source-repository-locations)
     - [2.2. Analysis Deliverables](#22-analysis-deliverables)
+      - [2.2.1. Dataset Analysis](#221-dataset-analysis)
+      - [2.2.2. Model Analysis](#222-model-analysis)
+      - [2.2.3. Training Components Analysis](#223-training-components-analysis)
     - [2.3. Analysis Validation Checklist](#23-analysis-validation-checklist)
   - [3. Planning Phase](#3-planning-phase)
     - [3.1. Integration Strategy](#31-integration-strategy)
     - [3.2. API Compatibility Requirements](#32-api-compatibility-requirements)
+      - [3.2.1. Dataset API Compliance](#321-dataset-api-compliance)
+      - [3.2.2. Model API Compliance](#322-model-api-compliance)
     - [3.3. Planning Deliverables](#33-planning-deliverables)
 - [Part II: Integration Implementation Guidelines](#part-ii-integration-implementation-guidelines)
   - [4. Git Branch Setup](#4-git-branch-setup)
@@ -19,7 +23,8 @@
     - [5.2. Commit Guidelines](#52-commit-guidelines)
   - [6. Commit 2: Import Statement Fixes](#6-commit-2-import-statement-fixes)
     - [6.1. Import Path Updates](#61-import-path-updates)
-    - [6.2. Module Registration](#62-module-registration)
+    - [6.2. Import Verification with Test Files](#62-import-verification-with-test-files)
+    - [6.3. Module Registration](#63-module-registration)
   - [7. Commit 3: API Compatibility Changes](#7-commit-3-api-compatibility-changes)
     - [7.1. Model API Updates](#71-model-api-updates)
     - [7.2. Component API Updates](#72-component-api-updates)
@@ -29,10 +34,15 @@
   - [9. Commit 5: Debug and Fix Implementation](#9-commit-5-debug-and-fix-implementation)
     - [9.1. Test Debugging Process](#91-test-debugging-process)
     - [9.2. Final Validation](#92-final-validation)
-- [10. Critical Integration Principles](#10-critical-integration-principles)
-  - [10.1. Code Preservation](#101-code-preservation)
-  - [10.2. Pylon Framework Alignment](#102-pylon-framework-alignment)
-  - [10.3. API Standards](#103-api-standards)
+  - [10. Critical Integration Principles](#10-critical-integration-principles)
+    - [10.1. Code Preservation](#101-code-preservation)
+    - [10.2. Pylon Framework Alignment](#102-pylon-framework-alignment)
+    - [10.3. API Standards](#103-api-standards)
+  - [Quick Reference Summary](#quick-reference-summary)
+    - [Phase Checklist:](#phase-checklist)
+    - [Commit Workflow:](#commit-workflow)
+    - [Key Principles:](#key-principles)
+    - [Success Criteria:](#success-criteria)
 
 ---
 
@@ -176,7 +186,12 @@
 **Study existing patterns**:
 ```bash
 # Required reading before implementation
+data/datasets/base_dataset.py
 data/datasets/change_detection_datasets/
+data/datasets/multi_task_datasets/
+data/datasets/pcr_datasets/
+data/datasets/semantic_segmentation_datasets/
+# etc.
 ```
 
 **Ensure compliance with**:
@@ -188,13 +203,14 @@ data/datasets/change_detection_datasets/
 **Study existing patterns**:
 ```bash
 # Required reading before implementation
-models/change_detection/__init__.py
-models/change_detection/*/
+models/change_detection/
+models/multi_task_learning/
+models/point_cloud_registration/
 ```
 
 **Ensure compliance with**:
 - Forward pass signature: `forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]`
-- Raw logits output (no probability normalization)
+- Raw logits output (no probability normalization), if this could be done easily with few changes. If this needs lots of changes here and there then just follow the original repo's implementation. You need to analyze carefully if the model is returning normalized probability distrubition, and if the model return is compatible with the loss function and metric implementation.
 - No loss/metric computation within model class
 
 ### 3.3. Planning Deliverables
@@ -221,9 +237,9 @@ git checkout -b integration/[model_name]
 ```
 
 **Commit Strategy**: 5 structured commits for organized review process:
-1. **Commit 1**: Original code copy (no modifications)
-2. **Commit 2**: Import statement fixes only
-3. **Commit 3**: API compatibility changes only
+1. **Commit 1**: Original code copy (no modifications). You do this using ONLY `cp` commands. Make sure you preserve the original repo structure. You only copy over necessary files, not all files. Analyze which files are needed.
+2. **Commit 2**: Import statement fixes only. Make sure you have no import errors. No other changes. Changes should only appear at the lines of the import statements.
+3. **Commit 3**: API compatibility changes only. This should be minimal and only appears at the very begining and very end of the functions/methods you need to fix the API. The core logic should be left untouched.
 4. **Commit 4**: Test case implementation
 5. **Commit 5**: Debugging and fixes to make tests pass
 
@@ -254,18 +270,18 @@ Copy files to appropriate Pylon modules based on their function:
 
 **Create destination directories first**:
 ```bash
-mkdir -p models/change_detection/[model_name]
-mkdir -p models/change_detection/[model_name]/layers
-mkdir -p models/change_detection/[model_name]/utils
-mkdir -p configs/common/models/change_detection/[model_name]
+mkdir -p models/[module_name]/[model_name]
+mkdir -p models/[module_name]/[model_name]/layers
+mkdir -p models/[module_name]/[model_name]/utils
+mkdir -p configs/common/models/[module_name]/[model_name]
 ```
 
 **Copy files systematically**:
 ```bash
 # Models and related components
-cp /source/repo/model.py models/change_detection/[model_name]/
-cp /source/repo/layers/* models/change_detection/[model_name]/layers/
-cp /source/repo/utils/* models/change_detection/[model_name]/utils/
+cp /source/repo/model.py models/[module_name]/[model_name]/
+cp /source/repo/layers/* models/[module_name]/[model_name]/layers/
+cp /source/repo/utils/* models/[module_name]/[model_name]/utils/
 
 # Loss functions (if separate from model)
 cp /source/repo/losses.py criteria/
@@ -274,7 +290,7 @@ cp /source/repo/losses.py criteria/
 cp /source/repo/metrics.py metrics/
 
 # Datasets (if needed)
-cp /source/repo/dataset.py data/datasets/change_detection_datasets/
+cp /source/repo/dataset.py data/datasets/[module_name]/
 ```
 
 **Verify copy operations**:
@@ -286,7 +302,7 @@ find models/change_detection/[model_name] -type f -name "*.py" | wc -l
 **Step 3: Configuration Files**
 ```bash
 # Copy original configs
-cp /source/repo/configs/* configs/common/models/change_detection/[model_name]/
+cp /source/repo/configs/* configs/common/models/[module_name]/[model_name]/
 ```
 
 ### 5.2. Commit Guidelines
@@ -323,6 +339,8 @@ from models.change_detection.model_name.layers import ConvBlock
 from models.change_detection.model_name.utils.helpers import some_function
 ```
 
+You should have no relative imports in the source code implementation, following @CLAUDE.md.
+
 **External vs Internal Imports**:
 - Keep external library imports unchanged
 - Update only internal project imports to match Pylon paths
@@ -332,7 +350,7 @@ from models.change_detection.model_name.utils.helpers import some_function
 
 **Create temporary test files** to systematically verify all imports:
 
-**Key principle**: Test imports in isolation to identify exact issues without running full model code.
+**Key principle**: Test imports in isolation to identify exact issues without running full model code. You should not install new packages on your own. If there's third-party dependencies missing, you should let me know before proceeding.
 
 **Step 1: Generate import test files**
 For each source file, create a temporary test file that executes all its import statements:
@@ -430,8 +448,8 @@ rm temp_test_*_imports.py
 **Update `__init__.py` files**:
 
 ```python
-# models/change_detection/__init__.py
-from models.change_detection.model_name import ModelClassName
+# models/[module_name]/__init__.py
+from models.[module_name].model_name import ModelClassName
 
 # criteria/__init__.py (if needed)
 from criteria.criterion_name import CriterionClassName
@@ -508,7 +526,7 @@ def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
 **Implement comprehensive test suites**:
 
 ```python
-# tests/models/change_detection/test_[model_name].py
+# tests/models/[module_name]/test_[model_name].py
 def test_model_initialization()        # Initialization pattern
 def test_forward_pass()               # Basic correctness  
 def test_input_validation()           # Invalid input pattern
@@ -526,7 +544,7 @@ def test_score_computation()
 def test_directions_attribute()
 ```
 
-**Reference existing tests**: Study similar model tests in `tests/models/change_detection/` for patterns and conventions before writing new tests.
+**Reference existing tests**: Study similar model tests in `tests/models/[module_name]/` for patterns and conventions before writing new tests.
 
 ### 8.2. Test Patterns
 
@@ -557,7 +575,7 @@ def test_directions_attribute()
 **Systematic debugging approach**:
 1. **Run tests and identify failures**:
    ```bash
-   pytest tests/models/change_detection/test_[model_name].py -v
+   pytest tests/models/[module_name]/test_[model_name].py -v
    ```
 
 2. **Fix issues following fail-fast philosophy**:
@@ -578,7 +596,7 @@ def test_directions_attribute()
 ### 9.2. Final Validation
 
 **Before completion**:
-- [ ] All model tests pass: `pytest tests/models/change_detection/test_[model_name].py`
+- [ ] All model tests pass: `pytest tests/models/[module_name]/test_[model_name].py`
 - [ ] All component tests pass (criteria, metrics, datasets)
 - [ ] Configuration builds model correctly via `build_from_config`
 - [ ] All components properly registered and importable
@@ -588,21 +606,21 @@ def test_directions_attribute()
 ```bash
 # Test model can be imported and built
 python -c "
-from models.change_detection import [ModelClassName]
+from models.[module_name] import [ModelClassName]
 from utils.builders.builder import build_from_config
-from configs.common.models.change_detection.[model_name].base_config import config
+from configs.common.models.[module_name].[model_name].base_config import config
 model = build_from_config(config)
 print('Integration successful - model builds correctly')
 "
 
 # Quick regression test on existing functionality
-pytest tests/models/change_detection/test_change_star.py::test_change_star_initialization -v
+pytest tests/models/[module_name]/test_change_star.py::test_change_star_initialization -v
 ```
 
 **🎯 ULTIMATE INTEGRATION TEST**:
 ```bash
 # This is the final exit criterion - must run without errors
-python main.py --config-filepath configs/common/models/change_detection/[model_name]/base_config.py --debug
+python main.py --config-filepath configs/common/models/[module_name]/[model_name]/base_config.py --debug
 ```
 
 **Expected behavior**: Training should start and run for 3 epochs in debug mode without any errors. This validates complete integration with Pylon's training pipeline.
