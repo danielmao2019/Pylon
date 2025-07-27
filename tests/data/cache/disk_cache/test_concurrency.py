@@ -275,9 +275,13 @@ def test_concurrent_clear_operations(temp_cache_dir, sample_datapoint):
         try:
             successful_reads = 0
             for i in range(100):
-                result = cache.get(i % 20)
-                if result is not None:
-                    successful_reads += 1
+                try:
+                    result = cache.get(i % 20)
+                    if result is not None:
+                        successful_reads += 1
+                except RuntimeError:
+                    # File was cleared during read - this is expected with fail fast
+                    pass
                 time.sleep(0.001)
             results['reader'] = successful_reads
         except Exception as e:
