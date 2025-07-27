@@ -31,10 +31,9 @@ def test_kitti_dataset_version_dict_structure(create_dummy_kitti_structure, patc
         # Should return a dictionary
         assert isinstance(version_dict, dict)
         
-        # Should contain base dataset parameters
+        # Should contain base dataset parameters (data_root intentionally excluded for cache stability)
         assert 'class_name' in version_dict
         assert version_dict['class_name'] == 'KITTIDataset'
-        assert 'data_root' in version_dict
         assert 'split' in version_dict
         assert version_dict['split'] == 'train'
 
