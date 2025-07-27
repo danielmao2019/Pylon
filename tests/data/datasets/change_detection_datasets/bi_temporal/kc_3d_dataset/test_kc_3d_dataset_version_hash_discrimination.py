@@ -76,7 +76,8 @@ def test_kc3d_different_data_root_different_hash(create_dummy_kc3d_files):
             hash1 = dataset1.get_cache_version_hash()
             hash2 = dataset2.get_cache_version_hash()
             
-            assert hash1 != hash2, f"Different data roots should produce different hashes: {hash1} == {hash2}"
+            # data_root is intentionally excluded from version hash for cache stability across different paths
+            assert hash1 == hash2, f"Different data roots should produce SAME hashes (data_root excluded): {hash1} != {hash2}"
 
 
 def test_kc3d_hash_format(create_dummy_kc3d_files):
@@ -107,6 +108,7 @@ def test_kc3d_comprehensive_no_hash_collisions(create_dummy_kc3d_files):
             create_dummy_kc3d_files(temp_dir2)
             
             # Test various parameter combinations
+            # NOTE: data_root is intentionally excluded from hash, so we test only meaningful parameter combinations
             configs = [
                 {'data_root': temp_dir1, 'split': 'train', 'use_ground_truth_registration': True},
                 {'data_root': temp_dir1, 'split': 'train', 'use_ground_truth_registration': False},
@@ -114,8 +116,7 @@ def test_kc3d_comprehensive_no_hash_collisions(create_dummy_kc3d_files):
                 {'data_root': temp_dir1, 'split': 'val', 'use_ground_truth_registration': False},
                 {'data_root': temp_dir1, 'split': 'test', 'use_ground_truth_registration': True},
                 {'data_root': temp_dir1, 'split': 'test', 'use_ground_truth_registration': False},
-                {'data_root': temp_dir2, 'split': 'train', 'use_ground_truth_registration': True},
-                {'data_root': temp_dir2, 'split': 'train', 'use_ground_truth_registration': False},
+                # Removed duplicate data_root configs since data_root is excluded from hash
             ]
             
             hashes = []

@@ -36,7 +36,7 @@ def test_kc3d_dataset_version_dict_functionality(kc_3d_dataset_train):
     assert version_dict['class_name'] == 'KC3DDataset'
     
     # Should contain base parameters
-    assert 'data_root' in version_dict
+    # NOTE: data_root is intentionally excluded for cache stability across different paths
     assert 'split' in version_dict
     assert version_dict['split'] == 'train'
     
