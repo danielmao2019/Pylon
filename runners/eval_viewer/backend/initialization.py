@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import visualization utilities to avoid code duplication
-from runners.eval_viewer.backend.visualization import create_score_map_from_array
+from runners.eval_viewer.backend.visualization import create_score_map_grid
 
 
 def get_dataset_type(dataset_name: str) -> DatasetType:
@@ -29,12 +29,11 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
 # Use shared runner detection utility for code reuse and consistency
 from utils.automation.progress_tracking.runner_detection import detect_runner_type
 
-
 @dataclass
 class LogDirInfo:
     """Information extracted from a log directory."""
     num_epochs: int
-    metric_names: Set[str]
+    metric_names: List[str]
     num_datapoints: int  # Number of datapoints in the dataset
     score_map: np.ndarray  # Shape: (N, C, H, W) for trainer or (C, H, W) for evaluator
     aggregated_scores: np.ndarray  # Shape: (N, C) for trainer or (C,) for evaluator
@@ -80,7 +79,7 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
 
     num_datapoints = len(per_datapoint_scores)
     # Use shared utility to avoid code duplication
-    score_map = create_score_map_from_array(per_datapoint_scores)
+    score_map = create_score_map_grid(per_datapoint_scores)
 
     return num_datapoints, score_map, aggregated_score
 
@@ -354,8 +353,13 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
 
     # Try to load from cache first
     if not force_reload and os.path.exists(cache_path):
-        with open(cache_path, 'rb') as f:
-            return pickle.load(f)
+        try:
+            with open(cache_path, 'rb') as f:
+                cached_info = pickle.load(f)
+            logger.info(f"Loaded cached data for {run_name}")
+            return cached_info
+        except Exception as e:
+            logger.warning(f"Failed to load cache for {run_name}: {e}. Forcing reload.")
 
     # Detect runner type and extract information accordingly
     runner_type = detect_runner_type(log_dir)
@@ -375,18 +379,18 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         raise ValueError(f"Unknown runner type: {runner_type}")
 
     # Create LogDirInfo object
-    info = {
-        'num_epochs': num_epochs,
-        'metric_names': metric_names,
-        'num_datapoints': num_datapoints,
-        'score_map': score_map,
-        'aggregated_scores': aggregated_scores,
-        'dataset_class': dataset_class,
-        'dataset_type': dataset_type,
-        'dataset_cfg': dataset_cfg,
-        'dataloader_cfg': dataloader_cfg,
-        'runner_type': runner_type,
-    }
+    info = LogDirInfo(
+        num_epochs=num_epochs,
+        metric_names=metric_names,
+        num_datapoints=num_datapoints,
+        score_map=score_map,
+        aggregated_scores=aggregated_scores,
+        dataset_class=dataset_class,
+        dataset_type=dataset_type,
+        dataset_cfg=dataset_cfg,
+        dataloader_cfg=dataloader_cfg,
+        runner_type=runner_type,
+    )
 
     # Save to cache
     with open(cache_path, 'wb') as f:
@@ -580,7 +584,7 @@ def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[
 
 
 def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
-    int, Set[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], np.ndarray
+    int, List[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], np.ndarray
 ]:
     """Initialize log directories and validate consistency.
 
