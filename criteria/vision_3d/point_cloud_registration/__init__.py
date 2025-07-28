@@ -8,6 +8,10 @@ from criteria.vision_3d.point_cloud_registration.buffer_criteria.desc_stage_crit
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.keypt_stage_criterion import BUFFER_KeyptStageCriterion
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.inlier_stage_criterion import BUFFER_InlierStageCriterion
 
+from criteria.vision_3d.point_cloud_registration.d3feat_criteria.d3feat_criterion import (
+    CircleLoss, ContrastiveLoss
+)
+
 
 __all__ = (
     'GeoTransformerCriterion',
@@ -16,4 +20,6 @@ __all__ = (
     'BUFFER_DescStageCriterion',
     'BUFFER_KeyptStageCriterion',
     'BUFFER_InlierStageCriterion',
+    'CircleLoss',
+    'ContrastiveLoss',
 )

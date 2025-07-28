@@ -10,7 +10,6 @@ import torch.nn as nn
 from easydict import EasyDict
 
 from models.point_cloud_registration.d3feat.architectures import _KPFCNN
-from data.collators.d3feat.dataloader import collate_fn_descriptor, calibrate_neighbors
 
 
 class D3FeatModel(nn.Module):
@@ -96,77 +95,30 @@ class D3FeatModel(nn.Module):
         # Initialize the original D3Feat model
         self.d3feat_model = _KPFCNN(config)
         self.config = config
-        self.neighborhood_limits = None
         
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """Forward pass with Pylon point cloud dictionary format.
+    def forward(self, inputs: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+        """Forward pass with collated batch inputs.
         
         Args:
-            inputs: Dictionary containing:
-                - src_pc: Source point cloud dict with 'pos' and 'feat' keys
-                - tgt_pc: Target point cloud dict with 'pos' and 'feat' keys  
-                - correspondences: Ground truth correspondences (for training)
+            inputs: Dictionary containing collated batch data:
+                - points: List of point tensors per layer
+                - neighbors: List of neighbor indices per layer
+                - pools: List of pooling indices per layer
+                - upsamples: List of upsampling indices per layer
+                - features: Batched features tensor
+                - stack_lengths: List of stack lengths per layer
+                - corr: Correspondence tensor
+                - dist_keypts: Distance keypoints tensor
                 
         Returns:
             Dictionary with:
                 - descriptors: Combined descriptors [N_total, feature_dim]
                 - scores: Combined detection scores [N_total, 1]
         """
-        # Extract point clouds
-        src_pc = inputs['src_pc']
-        tgt_pc = inputs['tgt_pc']
-        
-        # Convert to D3Feat format (numpy arrays)
-        pts0 = src_pc['pos'].detach().cpu().numpy()  # [N1, 3]
-        pts1 = tgt_pc['pos'].detach().cpu().numpy()  # [N2, 3]
-        feat0 = src_pc['feat'].detach().cpu().numpy()  # [N1, feat_dim]
-        feat1 = tgt_pc['feat'].detach().cpu().numpy()  # [N2, feat_dim]
-        
-        # Create dummy correspondences and distances for collate function
-        # In actual training, these would come from the dataset
-        if 'correspondences' in inputs:
-            corr = inputs['correspondences'].detach().cpu().numpy()
-            # Compute distances between corresponding points for loss
-            dist_keypts = torch.cdist(
-                src_pc['pos'][corr[:, 0]], 
-                src_pc['pos'][corr[:, 0]]
-            ).detach().cpu().numpy()
-        else:
-            # Dummy values for inference
-            corr = torch.empty((0, 2)).numpy()
-            dist_keypts = torch.empty((0, 0)).numpy()
-        
-        # Create tuple format expected by collate function
-        list_data = [(pts0, pts1, feat0, feat1, corr, dist_keypts)]
-        
-        # Calibrate neighborhood limits if needed
-        if self.neighborhood_limits is None:
-            # Use reasonable defaults for inference
-            self.neighborhood_limits = [20] * self.config.num_layers
-        
-        # Apply collate function to get batch format
-        batch = collate_fn_descriptor(list_data, self.config, self.neighborhood_limits)
-        
-        # Move batch to device
-        device = src_pc['pos'].device
-        for key in batch:
-            if isinstance(batch[key], torch.Tensor):
-                batch[key] = batch[key].to(device)
-            elif isinstance(batch[key], list):
-                batch[key] = [item.to(device) if isinstance(item, torch.Tensor) else item for item in batch[key]]
-        
-        # Run original D3Feat model
-        features, scores = self.d3feat_model(batch)
+        # Run original D3Feat model with collated batch
+        features, scores = self.d3feat_model(inputs)
         
         return {
             'descriptors': features,  # [N_total, feature_dim] 
             'scores': scores,         # [N_total, 1]
         }
-        
-    def set_neighborhood_limits(self, limits: List[int]) -> None:
-        """Set neighborhood limits for KPConv operations.
-        
-        Args:
-            limits: List of neighborhood limits per layer
-        """
-        self.neighborhood_limits = limits

@@ -259,5 +259,3 @@ class D3FeatDescriptorMetric(BaseMetric):
         return result
 
 
-# Default D3Feat metric (descriptor metric)
-D3FeatMetric = D3FeatDescriptorMetric

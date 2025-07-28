@@ -123,6 +123,15 @@ def build_training_config(dataset: str, model: str):
             from configs.common.models.point_cloud_registration.overlappredator_cfg import model_cfg
             from configs.common.criteria.point_cloud_registration.overlappredator_criterion_cfg import criterion_cfg
             from configs.common.metrics.point_cloud_registration.overlappredator_metric_cfg import metric_cfg
+        
+        elif model == 'D3Feat':
+            # For D3Feat, use ThreeDMatch dataset configs since D3Feat was designed for 3DMatch
+            from configs.common.datasets.point_cloud_registration.train.threedmatch_data_cfg import data_cfg as train_data_cfg
+            from configs.common.datasets.point_cloud_registration.val.threedmatch_data_cfg import data_cfg as val_data_cfg
+
+            from configs.common.models.point_cloud_registration.d3feat.d3feat_model_cfg import config as model_cfg
+            from configs.common.criteria.point_cloud_registration.d3feat_criterion_cfg import criterion_cfg
+            from configs.common.metrics.point_cloud_registration.d3feat_metric_cfg import metric_cfg
         else:
             raise NotImplementedError(f"Model {model} not implemented")
 
@@ -197,7 +206,7 @@ if __name__ == "__main__":
         ],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
-            'GeoTransformer', 'OverlapPredator', 'BUFFER',
+            'GeoTransformer', 'OverlapPredator', 'BUFFER', 'D3Feat',
         ],
     ):
         main(dataset, model)

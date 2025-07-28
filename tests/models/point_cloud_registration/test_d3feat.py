@@ -1,9 +1,5 @@
 """Tests for D3Feat model integration."""
 
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
-
 from typing import Dict, Any, Tuple
 import pytest
 import torch

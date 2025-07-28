@@ -241,5 +241,3 @@ class ContrastiveLoss(BaseCriterion):
         }
 
 
-# Default D3Feat criterion (using CircleLoss)
-D3FeatCriterion = CircleLoss

@@ -13,7 +13,7 @@ from metrics.vision_3d.point_cloud_registration.buffer_metrics.keypt_stage_metri
 from metrics.vision_3d.point_cloud_registration.buffer_metrics.inlier_stage_metric import BUFFER_InlierStageMetric
 
 from metrics.vision_3d.point_cloud_registration.d3feat_metrics.d3feat_metric import (
-    D3FeatAccuracyMetric, D3FeatIoUMetric, D3FeatDescriptorMetric, D3FeatMetric
+    D3FeatAccuracyMetric, D3FeatIoUMetric, D3FeatDescriptorMetric
 )
 
 
@@ -32,5 +32,4 @@ __all__ = (
     'D3FeatAccuracyMetric',
     'D3FeatIoUMetric', 
     'D3FeatDescriptorMetric',
-    'D3FeatMetric',
 )
