@@ -1,12 +1,7 @@
 """Test version dict implementation for CelebADataset."""
 
 import pytest
-import tempfile
-import os
-import json
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
-
-
 
 
 def test_celeb_a_dataset_has_version_dict_method():
@@ -28,22 +23,18 @@ def test_celeb_a_dataset_has_version_dict_method():
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_celeb_a_dataset_version_dict_functionality(create_dummy_celeb_a_files):
+def test_celeb_a_dataset_version_dict_functionality(celeb_a_data_root):
     """Test that CelebADataset version dict method works correctly."""
+    dataset = CelebADataset(data_root=celeb_a_data_root, split='train', use_landmarks=True)
+    version_dict = dataset._get_cache_version_dict()
     
-    with tempfile.TemporaryDirectory() as temp_dir:
-        create_dummy_celeb_a_files(temp_dir)
-        
-        dataset = CelebADataset(data_root=temp_dir, split='train', use_landmarks=True)
-        version_dict = dataset._get_cache_version_dict()
-        
-        # Should return a dictionary
-        assert isinstance(version_dict, dict)
-        
-        # Should contain class_name
-        assert 'class_name' in version_dict
-        assert version_dict['class_name'] == 'CelebADataset'
-        
-        # Should contain CelebA-specific parameters
-        assert 'use_landmarks' in version_dict
-        assert version_dict['use_landmarks'] == True
+    # Should return a dictionary
+    assert isinstance(version_dict, dict)
+    
+    # Should contain class_name
+    assert 'class_name' in version_dict
+    assert version_dict['class_name'] == 'CelebADataset'
+    
+    # Should contain CelebA-specific parameters
+    assert 'use_landmarks' in version_dict
+    assert version_dict['use_landmarks'] == True

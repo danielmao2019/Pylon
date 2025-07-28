@@ -3,11 +3,7 @@
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 
-
-@pytest.fixture
-def cdd_data_root():
-    """Fixture that returns the real CDD dataset path."""
-    return "./data/datasets/soft_links/CDD"
+# cdd_data_root fixture is now provided by parent conftest.py
 
 
 @pytest.fixture

@@ -40,11 +40,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, celeb_a_data_root):
     """Fixture for creating a CelebADataset instance."""
     params = request.param
     return CelebADataset(
-        data_root='./data/datasets/soft_links/celeb-a',
+        data_root=celeb_a_data_root,
         **params
     )
 

@@ -4,8 +4,6 @@ Focus: Ensure different dataset configurations produce different cache version h
 """
 
 import pytest
-import tempfile
-import os
 from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
 
 
