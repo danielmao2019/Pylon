@@ -1,5 +1,9 @@
 """Tests for D3Feat model integration."""
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+
 from typing import Dict, Any, Tuple
 import pytest
 import torch
@@ -73,7 +77,6 @@ class DummyD3FeatDataset(BaseDataset):
         }
         
         meta_info = {
-            'idx': idx,
             'num_src_points': self.num_points_src,
             'num_tgt_points': self.num_points_tgt,
         }
@@ -222,9 +225,18 @@ def test_d3feat_with_dataset():
     model = D3FeatModel(num_layers=3)
     model.eval()
     
-    # Get a datapoint
+    # Get a datapoint and ensure all tensors are on CPU
     datapoint = dataset[0]
     inputs = datapoint['inputs']
+    
+    # Move everything to CPU to avoid device issues in testing
+    for key in inputs:
+        if isinstance(inputs[key], dict):
+            for subkey in inputs[key]:
+                if isinstance(inputs[key][subkey], torch.Tensor):
+                    inputs[key][subkey] = inputs[key][subkey].cpu()
+        elif isinstance(inputs[key], torch.Tensor):
+            inputs[key] = inputs[key].cpu()
     
     # Forward pass
     with torch.no_grad():
