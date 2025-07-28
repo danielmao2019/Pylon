@@ -10,7 +10,7 @@ def calculate_acc(predict, labels):
 
 def calculate_iou_single_shape(predict, labels, n_parts):
     pred_labels = torch.max(predict, dim=1)[1]
-    Confs = confusion_matrix(labels.detach().cpu().numpy(), pred_labels.detach().cpu().numpy(), np.arange(n_parts))
+    Confs = confusion_matrix(labels.detach().cpu().numpy(), pred_labels.detach().cpu().numpy(), labels=np.arange(n_parts))
 
     # Objects IoU
     IoUs = IoU_from_confusions(Confs)
