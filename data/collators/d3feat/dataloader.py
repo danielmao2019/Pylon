@@ -1,11 +1,11 @@
 import open3d as o3d
 import numpy as np
-from utils.pointcloud import make_point_cloud
+from models.point_cloud_registration.d3feat.utils.pointcloud import make_point_cloud
 from functools import partial
 import torch
-import cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
-import cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
-from utils.timer import Timer
+import data.collators.d3feat.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
+import data.collators.d3feat.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
+from models.point_cloud_registration.d3feat.utils.timer import Timer
 # import batch_find_neighbors
 
 

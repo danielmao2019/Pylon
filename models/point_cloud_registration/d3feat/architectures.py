@@ -14,7 +14,7 @@
 #      Hugues THOMAS - 06/03/2020
 #
 
-from models.blocks import *
+from models.point_cloud_registration.d3feat.blocks import *
 import torch.nn.functional as F
 import numpy as np
 

@@ -30,7 +30,7 @@ import numpy as np
 from os import makedirs
 from os.path import join, exists
 
-from utils.ply import read_ply, write_ply
+from models.point_cloud_registration.d3feat.utils.ply import read_ply, write_ply
 # from utils.config import bcolors
 
 
@@ -400,7 +400,7 @@ def kernel_point_optimization_debug(radius, num_points, num_kernels=1, dimension
 def load_kernels(radius, num_kpoints, dimension, fixed, lloyd=False):
 
     # Kernel directory
-    kernel_dir = 'kernels/dispositions'
+    kernel_dir = 'models/point_cloud_registration/d3feat/kernels/dispositions'
     if not exists(kernel_dir):
         makedirs(kernel_dir)
 
