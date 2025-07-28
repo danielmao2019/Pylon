@@ -83,3 +83,109 @@ def random_transforms():
             ]
         }
     }
+
+
+# =============================================================================
+# Version Hash Discrimination Test Templates
+# =============================================================================
+
+def create_hash_discrimination_tests(dataset_class: type, data_root_fixture_name: str, splits: list = None):
+    """
+    Factory function to generate version hash discrimination tests for any dataset class.
+    
+    This eliminates code duplication across 12+ dataset test files that all implement
+    identical hash discrimination test patterns.
+    
+    Args:
+        dataset_class: The dataset class to test (e.g., AirChangeDataset, CDDDataset)
+        data_root_fixture_name: Name of the data root fixture (e.g., 'air_change_data_root')
+        splits: List of splits to test. If None, defaults to ['train', 'test']
+        
+    Returns:
+        Dictionary of test functions that can be injected into test modules
+    """
+    if splits is None:
+        splits = ['train', 'test']
+    
+    def test_same_parameters_same_hash(request):
+        """Test that identical parameters produce identical hashes."""
+        data_root = request.getfixturevalue(data_root_fixture_name)
+        
+        # Same parameters should produce same hash
+        dataset1a = dataset_class(data_root=data_root, split=splits[0])
+        dataset1b = dataset_class(data_root=data_root, split=splits[0])
+        
+        hash1a = dataset1a.get_cache_version_hash()
+        hash1b = dataset1b.get_cache_version_hash()
+        
+        assert hash1a == hash1b, f"Same parameters should produce same hash: {hash1a} != {hash1b}"
+
+    def test_different_split_different_hash(request):
+        """Test that different splits produce different hashes."""
+        data_root = request.getfixturevalue(data_root_fixture_name)
+        
+        if len(splits) < 2:
+            pytest.skip(f"Dataset {dataset_class.__name__} only has one split: {splits}")
+        
+        dataset1 = dataset_class(data_root=data_root, split=splits[0])
+        dataset2 = dataset_class(data_root=data_root, split=splits[1])
+        
+        hash1 = dataset1.get_cache_version_hash()
+        hash2 = dataset2.get_cache_version_hash()
+        
+        assert hash1 != hash2, f"Different splits should produce different hashes: {hash1} == {hash2}"
+
+    def test_hash_format(request):
+        """Test that hash is in correct format."""
+        data_root = request.getfixturevalue(data_root_fixture_name)
+        
+        dataset = dataset_class(data_root=data_root, split=splits[0])
+        hash_val = dataset.get_cache_version_hash()
+        
+        # Should be a string
+        assert isinstance(hash_val, str), f"Hash should be string, got {type(hash_val)}"
+        
+        # Should be 16 characters (xxhash format)
+        assert len(hash_val) == 16, f"Hash should be 16 characters, got {len(hash_val)}"
+        
+        # Should be hexadecimal
+        assert all(c in '0123456789abcdef' for c in hash_val.lower()), f"Hash should be hexadecimal: {hash_val}"
+
+    def test_comprehensive_no_hash_collisions(request):
+        """Test that different configurations produce unique hashes (no collisions)."""
+        data_root = request.getfixturevalue(data_root_fixture_name)
+        
+        # Test various parameter combinations
+        # NOTE: data_root is intentionally excluded from hash, so we test only meaningful parameter combinations
+        configs = [{'data_root': data_root, 'split': split} for split in splits]
+        
+        hashes = []
+        for config in configs:
+            dataset = dataset_class(**config)
+            hash_val = dataset.get_cache_version_hash()
+            
+            # Check for collision
+            assert hash_val not in hashes, f"Hash collision detected for config {config}: hash {hash_val} already exists"
+            hashes.append(hash_val)
+        
+        # Verify we generated the expected number of unique hashes
+        assert len(hashes) == len(configs), f"Expected {len(configs)} unique hashes, got {len(hashes)}"
+
+    return {
+        'test_same_parameters_same_hash': test_same_parameters_same_hash,
+        'test_different_split_different_hash': test_different_split_different_hash, 
+        'test_hash_format': test_hash_format,
+        'test_comprehensive_no_hash_collisions': test_comprehensive_no_hash_collisions,
+    }
+
+
+@pytest.fixture 
+def hash_discrimination_tests():
+    """Fixture providing the hash discrimination test creation function."""
+    return create_hash_discrimination_tests
+
+
+@pytest.fixture
+def mnist_data_root():
+    """Fixture that provides MNIST data path."""
+    return "./data/datasets/soft_links/MNIST"

@@ -66,6 +66,22 @@ def xview2_data_root():
 
 
 # =============================================================================
+# Data Root Fixtures - Single-temporal Change Detection Datasets
+# =============================================================================
+
+@pytest.fixture
+def ppsl_data_root():
+    """Fixture that returns the real PPSL dataset path."""
+    return "./data/datasets/soft_links/PPSL"
+
+
+@pytest.fixture
+def i3pe_data_root():
+    """Fixture that returns the real I3PE dataset path."""
+    return "./data/datasets/soft_links/I3PE"
+
+
+# =============================================================================
 # Data Root Factory Fixture
 # =============================================================================
 
@@ -98,6 +114,8 @@ def get_change_detection_data_root():
             'sysu_cd': './data/datasets/soft_links/SYSU-CD',
             'urb3dcd': './data/datasets/soft_links/Urb3DCD',
             'xview2': './data/datasets/soft_links/xView2',
+            'ppsl': './data/datasets/soft_links/PPSL',
+            'i3pe': './data/datasets/soft_links/I3PE',
         }
         
         if dataset_name not in dataset_paths:

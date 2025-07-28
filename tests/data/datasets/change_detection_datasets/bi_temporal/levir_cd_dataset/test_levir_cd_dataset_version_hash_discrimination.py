@@ -1,79 +1,32 @@
 """Tests for LevirCdDataset cache version discrimination."""
 
 import pytest
-import os
-from PIL import Image
-import numpy as np
 from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
 
-
-
-
-def test_levir_cd_dataset_version_discrimination(levir_cd_data_root):
-    """Test that LevirCdDataset instances with different parameters have different hashes."""
-    
-    # Same parameters should have same hash
-    dataset1a = LevirCdDataset(
-        data_root=levir_cd_data_root,
-        split='train'
+# Generate hash discrimination tests using the centralized template fixture
+@pytest.fixture
+def _hash_tests(hash_discrimination_tests):
+    return hash_discrimination_tests(
+        dataset_class=LevirCdDataset,
+        data_root_fixture_name='levir_cd_data_root', 
+        splits=['train', 'val', 'test']
     )
-    dataset1b = LevirCdDataset(
-        data_root=levir_cd_data_root,
-        split='train'
-    )
-    assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
-    
-    # Different split should have different hash
-    dataset2 = LevirCdDataset(
-        data_root=levir_cd_data_root,
-        split='val'  # Different
-    )
-    assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
+def test_levir_cd_same_parameters_same_hash(_hash_tests, request):
+    """Test that identical parameters produce identical hashes."""
+    _hash_tests['test_same_parameters_same_hash'](request)
 
-def test_split_variants(levir_cd_data_root):
-    """Test that different splits produce different hashes."""
-    
-    split_variants = ['train', 'val', 'test']
-    
-    datasets = []
-    for split in split_variants:
-        dataset = LevirCdDataset(
-            data_root=levir_cd_data_root,
-            split=split
-        )
-        datasets.append(dataset)
-    
-    # All should have different hashes
-    hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    assert len(hashes) == len(set(hashes)), \
-        f"All split variants should produce different hashes, got: {hashes}"
+def test_levir_cd_different_split_different_hash(_hash_tests, request):
+    """Test that different splits produce different hashes.""" 
+    _hash_tests['test_different_split_different_hash'](request)
 
+def test_levir_cd_hash_format(_hash_tests, request):
+    """Test that hash is in correct format."""
+    _hash_tests['test_hash_format'](request)
 
-def test_cache_version_reflects_configuration_not_path(levir_cd_data_root):
-    """Test that cache hash reflects dataset configuration, not data_root path.
-    
-    This ensures that:
-    - Same dataset in different locations has same hash (relocatable)
-    - Soft links pointing to same data have same hash
-    - Cache is stable regardless of where dataset is stored
-    """
-    
-    # Test that identical configurations produce identical hashes
-    # This verifies the cache version is based on meaningful dataset parameters
-    dataset1 = LevirCdDataset(
-        data_root=levir_cd_data_root,
-        split='train'
-    )
-    
-    dataset2 = LevirCdDataset(
-        data_root=levir_cd_data_root,
-        split='train'
-    )
-    
-    # Should have same hashes - cache version reflects configuration, not path
-    # This ensures cache works correctly with soft links and relocated datasets
-    assert dataset1.get_cache_version_hash() == dataset2.get_cache_version_hash()
+def test_levir_cd_comprehensive_no_hash_collisions(_hash_tests, request):
+    """Test that different configurations produce unique hashes."""
+    _hash_tests['test_comprehensive_no_hash_collisions'](request)
 
 
 def test_parameters_that_dont_affect_version_hash(levir_cd_data_root):
@@ -101,30 +54,5 @@ def test_parameters_that_dont_affect_version_hash(levir_cd_data_root):
         
         assert dataset1.get_cache_version_hash() == dataset2.get_cache_version_hash(), \
             f"Processing parameter {param_name} should not affect cache version hash (content unchanged)"
-
-
-def test_comprehensive_no_hash_collisions(levir_cd_data_root):
-    """Ensure no hash collisions across many different configurations."""
-    datasets = []
-    
-    # Test different splits with same data root - should produce different hashes
-    for split in ['train', 'val', 'test']:
-        dataset = LevirCdDataset(
-            data_root=levir_cd_data_root,
-            split=split
-        )
-        datasets.append(dataset)
-    
-    # Collect all hashes using actual BaseDataset implementation
-    hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    
-    # Ensure all hashes are unique (no collisions)
-    assert len(hashes) == len(set(hashes)), \
-        f"Hash collision detected! Duplicate hashes found in: {hashes}"
-    
-    # Ensure all hashes are properly formatted
-    for hash_val in hashes:
-        assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-        assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
 
 

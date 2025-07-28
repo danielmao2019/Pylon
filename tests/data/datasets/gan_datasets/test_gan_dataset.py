@@ -30,18 +30,20 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, mnist_data_root):
     """Fixture for creating a GANDataset instance with an MNIST source dataset."""
     split, device = request.param  # Unpack the test parameters
     latent_dim = 128
 
-    # Load MNIST dataset as the source
+    # Use MNIST data root fixture
     source = MNISTDataset(
-        data_root="./data/datasets/soft_links/MNIST",
-        split=split, device=device,
+        data_root=mnist_data_root,
+        split=split, 
+        device=device,
     )
-
-    return GANDataset(latent_dim=latent_dim, source=source, device=device)
+    
+    dataset = GANDataset(latent_dim=latent_dim, source=source, device=device)
+    return dataset
 
 
 @pytest.mark.parametrize("dataset", [
