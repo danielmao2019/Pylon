@@ -351,15 +351,12 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     run_name = os.path.basename(os.path.normpath(log_dir))
     cache_path = str(cache_dir / f"{run_name}.pkl")
 
-    # Try to load from cache first
+    # Load from cache if available
     if not force_reload and os.path.exists(cache_path):
-        try:
-            with open(cache_path, 'rb') as f:
-                cached_info = pickle.load(f)
-            logger.info(f"Loaded cached data for {run_name}")
-            return cached_info
-        except Exception as e:
-            logger.warning(f"Failed to load cache for {run_name}: {e}. Forcing reload.")
+        with open(cache_path, 'rb') as f:
+            cached_info = pickle.load(f)
+        logger.info(f"Loaded cached data for {run_name}")
+        return cached_info
 
     # Detect runner type and extract information accordingly
     runner_type = detect_runner_type(log_dir)
