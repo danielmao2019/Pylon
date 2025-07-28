@@ -44,9 +44,9 @@ def cdist(a, b, metric='euclidean'):
                 'The following metric is not implemented by `cdist` yet: {}'.format(metric))
 
 
-class ContrastiveLoss(nn.Module):
+class _ContrastiveLoss(nn.Module):
     def __init__(self, pos_margin=0.1, neg_margin=1.4, metric='euclidean', safe_radius=0.25):
-        super(ContrastiveLoss, self).__init__()
+        super(_ContrastiveLoss, self).__init__()
         self.pos_margin = pos_margin
         self.neg_margin = neg_margin
         self.metric = metric
@@ -97,9 +97,9 @@ class ContrastiveLoss(nn.Module):
         return torch.mean(loss), accuracy, furthest_positive.tolist(), average_negative.tolist(), 0, dists
 
 
-class CircleLoss(nn.Module):
+class _CircleLoss(nn.Module):
     def __init__(self, dist_type='cosine', log_scale=10, safe_radius=0.10, pos_margin=0.1, neg_margin=1.4):
-        super(CircleLoss, self).__init__()
+        super(_CircleLoss, self).__init__()
         self.log_scale = log_scale
         self.pos_margin = pos_margin
         self.neg_margin = neg_margin
@@ -141,9 +141,9 @@ class CircleLoss(nn.Module):
         return torch.mean(loss), accuracy, furthest_positive.tolist(), average_negative.tolist(), 0, dists
 
 
-class DetLoss(nn.Module):
+class _DetLoss(nn.Module):
     def __init__(self, metric='euclidean'):
-        super(DetLoss, self).__init__()
+        super(_DetLoss, self).__init__()
         self.metric = metric
     
     def forward(self, dists, anc_score, pos_score):

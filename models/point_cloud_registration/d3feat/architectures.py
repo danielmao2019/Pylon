@@ -55,13 +55,13 @@ def p2p_fitting_regularizer(net):
     return net.deform_fitting_power * (2 * fitting_loss + repulsive_loss)
 
 
-class KPCNN(nn.Module):
+class _KPCNN(nn.Module):
     """
     Class defining KPCNN
     """
 
     def __init__(self, config):
-        super(KPCNN, self).__init__()
+        super(_KPCNN, self).__init__()
 
         #####################
         # Network opperations
@@ -187,13 +187,13 @@ class KPCNN(nn.Module):
         return correct / total
 
 
-class KPFCNN(nn.Module):
+class _KPFCNN(nn.Module):
     """
     Class defining KPFCNN
     """
 
     def __init__(self, config):
-        super(KPFCNN, self).__init__()
+        super(_KPFCNN, self).__init__()
 
         ############
         # Parameters
