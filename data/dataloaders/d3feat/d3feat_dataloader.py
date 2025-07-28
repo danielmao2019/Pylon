@@ -117,33 +117,3 @@ class D3FeatDataLoader(BaseDataLoader):
         self.neighborhood_limits = neighborhood_limits
 
 
-def get_d3feat_dataloader(
-    dataset: Any, 
-    batch_size: int = 1, 
-    num_workers: int = 4, 
-    shuffle: bool = True, 
-    neighborhood_limits: List[int] = None,
-    **kwargs
-) -> tuple[D3FeatDataLoader, List[int]]:
-    """Get D3Feat dataloader with calibrated neighborhood limits.
-    
-    Args:
-        dataset: The dataset to load from
-        batch_size: Batch size
-        num_workers: Number of worker processes  
-        shuffle: Whether to shuffle data
-        neighborhood_limits: Pre-computed limits
-        
-    Returns:
-        Tuple of (dataloader, neighborhood_limits)
-    """
-    dataloader = D3FeatDataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=shuffle,
-        neighborhood_limits=neighborhood_limits,
-        **kwargs
-    )
-    
-    return dataloader, dataloader.neighborhood_limits

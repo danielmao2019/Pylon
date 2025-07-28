@@ -125,7 +125,10 @@ def build_training_config(dataset: str, model: str):
             from configs.common.metrics.point_cloud_registration.overlappredator_metric_cfg import metric_cfg
         
         elif model == 'D3Feat':
-            # For D3Feat, use ThreeDMatch dataset configs since D3Feat was designed for 3DMatch
+            # D3Feat only works with ThreeDMatch dataset
+            if dataset_name != 'threedmatch':
+                raise NotImplementedError(f"D3Feat is only compatible with threedmatch dataset, not {dataset_name}")
+                
             from configs.common.datasets.point_cloud_registration.train.threedmatch_data_cfg import data_cfg as train_data_cfg
             from configs.common.datasets.point_cloud_registration.val.threedmatch_data_cfg import data_cfg as val_data_cfg
 
@@ -198,7 +201,9 @@ def main(dataset: str, model: str) -> None:
 
 if __name__ == "__main__":
     import itertools
-    for dataset, model in itertools.product(
+    
+    # Standard datasets and models
+    standard_combinations = itertools.product(
         [
             'single_temporal_pcr_1.0', 'single_temporal_pcr_0.5', 'single_temporal_pcr_0.4',
             'bi_temporal_pcr_1.0', 'bi_temporal_pcr_0.5', 'bi_temporal_pcr_0.4',
@@ -206,7 +211,13 @@ if __name__ == "__main__":
         ],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
-            'GeoTransformer', 'OverlapPredator', 'BUFFER', 'D3Feat',
+            'GeoTransformer', 'OverlapPredator', 'BUFFER',
         ],
-    ):
+    )
+    
+    # D3Feat only works with ThreeDMatch
+    d3feat_combinations = [('threedmatch', 'D3Feat')]
+    
+    # Generate all configs
+    for dataset, model in itertools.chain(standard_combinations, d3feat_combinations):
         main(dataset, model)

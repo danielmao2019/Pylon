@@ -12,39 +12,14 @@ from functools import partial
 
 from data.collators.base_collator import BaseCollator
 
-try:
-    import data.collators.d3feat.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
-    import data.collators.d3feat.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
-    CPP_EXTENSIONS_AVAILABLE = True
-except ImportError:
-    # C++ extensions not compiled - provide fallback implementations
-    CPP_EXTENSIONS_AVAILABLE = False
-    cpp_subsampling = None
-    cpp_neighbors = None
+import data.collators.d3feat.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
+import data.collators.d3feat.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 
 
 def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0, random_grid_orient=True):
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
-    if not CPP_EXTENSIONS_AVAILABLE:
-        # Fallback implementation - return original points
-        points_tensor = torch.from_numpy(points) if isinstance(points, np.ndarray) else points
-        batches_tensor = torch.from_numpy(batches_len) if isinstance(batches_len, np.ndarray) else batches_len
-        
-        if (features is None) and (labels is None):
-            return points_tensor, batches_tensor
-        elif (labels is None):
-            features_tensor = torch.from_numpy(features) if isinstance(features, np.ndarray) else features
-            return points_tensor, batches_tensor, features_tensor
-        elif (features is None):
-            labels_tensor = torch.from_numpy(labels) if isinstance(labels, np.ndarray) else labels
-            return points_tensor, batches_tensor, labels_tensor
-        else:
-            features_tensor = torch.from_numpy(features) if isinstance(features, np.ndarray) else features
-            labels_tensor = torch.from_numpy(labels) if isinstance(labels, np.ndarray) else labels
-            return points_tensor, batches_tensor, features_tensor, labels_tensor
-    
     if (features is None) and (labels is None):
         s_points, s_len = cpp_subsampling.subsample_batch(points,
                                                           batches_len,
@@ -92,17 +67,6 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     :param radius: float32
     :return: neighbors indices
     """
-    if not CPP_EXTENSIONS_AVAILABLE:
-        # Fallback implementation - return dummy neighbors
-        total_queries = sum(q_batches)
-        if max_neighbors > 0:
-            # Return dummy neighbor indices
-            dummy_neighbors = torch.zeros((total_queries, max_neighbors), dtype=torch.int64)
-        else:
-            # Return empty neighbors
-            dummy_neighbors = torch.zeros((total_queries, 1), dtype=torch.int64)
-        return dummy_neighbors
-
     neighbors = cpp_neighbors.batch_query(queries, supports, q_batches, s_batches, radius=radius)
     if max_neighbors > 0:
         return torch.from_numpy(neighbors[:, :max_neighbors])
