@@ -101,14 +101,13 @@ def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_
         split='train'
     )
     
-    # Create dataloader with model config and simple neighborhood limits
+    # Create dataloader with model config 
     dataloader = D3FeatDataLoader(
         dataset=dataset,
+        config=model_config,
         batch_size=1,
         shuffle=False,
-        num_workers=0,  # Single-threaded for testing
-        model_config=model_config,
-        neighborhood_limits=[20] * model_config.num_layers  # Use simple defaults
+        num_workers=0  # Single-threaded for testing
     )
     
     # Get one batch
