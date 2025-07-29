@@ -112,6 +112,8 @@ def test_cache_subset_consistency():
             'matching_radius': 0.05,
             'overlap_range': (0.3, 1.0),
             'min_points': 512,
+            'use_cpu_cache': False,
+            'use_disk_cache': False,
         }
         
         # Create 10-datapoint dataset
@@ -204,6 +206,8 @@ def test_datapoint_determinism():
             'overlap_range': (0.3, 1.0),
             'min_points': 512,
             'cache_filepath': cache_file,
+            'use_cpu_cache': False,
+            'use_disk_cache': False,
         }
         
         # Create first dataset instance
