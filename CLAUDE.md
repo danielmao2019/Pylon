@@ -497,6 +497,30 @@ Pylon enforces strict tensor type conventions across the entire framework (datas
 - **Use pytest functions only - NO test classes** - always write `def test_*()` functions
 - **Group invalid tests**: Small files reorder functions, large files split into `test_valid_cases.py` and `test_invalid_cases.py`
 - **Use conftest.py for shared helper classes** - when same class used across multiple test files
+- **NEVER use pytest.skip()** - Tests should ensure required data/conditions exist rather than skipping execution
+
+**Critical Testing Pattern - Auto-Generating Fixtures:**
+Instead of using `pytest.skip()`, create fixtures that generate required data automatically:
+```python
+@pytest.fixture(scope="module")
+def real_trainer_log_dir():
+    """Path to real trainer log directory. Generates test data if not found."""
+    import subprocess
+    
+    trainer_dir = "./logs/tests/runners/eval_viewer/trainer_integration_test"
+    if not os.path.exists(trainer_dir):
+        # Generate test data by running the trainer config
+        result = subprocess.run([
+            "python", "main.py", 
+            "--config-filepath", "configs/tests/runners/eval_viewer/trainer_integration_test.py"
+        ], capture_output=True, text=True)
+        
+        assert result.returncode == 0, f"Failed to generate trainer test data: {result.stderr}"
+        assert os.path.exists(trainer_dir), f"Trainer log directory not created: {trainer_dir}"
+    
+    return trainer_dir
+```
+This ensures tests are self-sufficient and generate their own dependencies automatically.
 
 ## 6. Code Style Guidelines
 

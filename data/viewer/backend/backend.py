@@ -13,7 +13,7 @@ from data.viewer.utils.settings_config import ViewerSettings
 
 
 # Dataset type definitions
-DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr']
+DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'general']
 
 # Dataset groupings
 DATASET_GROUPS = {
@@ -27,6 +27,7 @@ DATASET_GROUPS = {
         'overlappredator_single_temporal_pcr', 'overlappredator_bi_temporal_pcr',
         'buffer',
     ],
+    'general': ['BaseRandomDataset'],  # General-purpose datasets for testing
 }
 
 # Dataset format specifications by type
@@ -49,6 +50,10 @@ DATASET_FORMATS = {
             'optional': ['correspondences']
         },
         'label_format': ['transform']
+    },
+    'general': {
+        'input_format': {'data': ['x']},  # Generic input format
+        'label_format': ['y']
     },
 }
 
