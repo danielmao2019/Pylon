@@ -301,9 +301,6 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
     Raises:
         ValueError: If config file not found or invalid
     """
-    dataset_class = log_dir.split("/")[-2]
-    dataset_type = get_dataset_type(dataset_class)
-
     # Get the config file path
     config_file = os.path.join("./configs", os.path.relpath(log_dir, "./logs")) + ".py"
     assert os.path.isfile(config_file), f"Config file not found: {config_file}"
@@ -324,6 +321,10 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
         dataloader_cfg = config['eval_dataloader']
     else:
         raise ValueError(f"Config must contain either 'val_dataset' or 'eval_dataset', found keys: {list(config.keys())}")
+
+    # Extract dataset class name from the config
+    dataset_class = dataset_cfg['class'].__name__
+    dataset_type = get_dataset_type(dataset_class)
 
     return dataset_class, dataset_type, dataset_cfg, dataloader_cfg
 
@@ -559,6 +560,7 @@ def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[
         '2dcd': 'change_detection',
         '3dcd': 'change_detection',
         'pcr': 'point_cloud_registration',
+        'general': 'general',
     }
     
     assert dataset_type in dataset_type_to_dir, f"Unsupported dataset type: {dataset_type}"
