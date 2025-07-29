@@ -73,7 +73,6 @@ if __name__ == "__main__":
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")
     parser.add_argument("--port", type=int, default=8050, help="Port number")
     parser.add_argument("--force-reload", action="store_true", help="Force recreation of cache")
-    parser.add_argument("--log-dirs", nargs="+", help="Paths to log directories to view")
     args = parser.parse_args()
 
     log_dirs = [
