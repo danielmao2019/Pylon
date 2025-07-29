@@ -2,8 +2,8 @@
 # Please do not attempt to modify manually.
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data.dataloader import DataLoader
-from criteria.vision_3d.point_cloud_registration.d3feat_criteria.d3feat_criterion import CircleLoss
+from criteria.vision_3d.point_cloud_registration.d3feat_criteria.d3feat_criterion import D3FeatCriterion
+from data.dataloaders.d3feat.d3feat_dataloader import D3FeatDataLoader
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset
 from data.transforms.compose import Compose
 from data.transforms.vision_3d.gaussian_pos_noise import GaussianPosNoise
@@ -80,16 +80,24 @@ config = {
         },
     },
     'train_dataloader': {
-        'class': DataLoader,
+        'class': D3FeatDataLoader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
             'shuffle': True,
+            'config': {
+                'num_layers': 5,
+                'first_subsampling_dl': 0.03,
+                'conv_radius': 2.5,
+                'deform_radius': 5.0,
+                'num_kernel_points': 15,
+            },
         },
     },
     'criterion': {
-        'class': CircleLoss,
+        'class': D3FeatCriterion,
         'args': {
+            'loss_type': 'circle',
             'pos_margin': 0.1,
             'neg_margin': 1.4,
             'pos_optimal': 0.1,
@@ -130,11 +138,18 @@ config = {
         },
     },
     'val_dataloader': {
-        'class': DataLoader,
+        'class': D3FeatDataLoader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
             'shuffle': False,
+            'config': {
+                'num_layers': 5,
+                'first_subsampling_dl': 0.03,
+                'conv_radius': 2.5,
+                'deform_radius': 5.0,
+                'num_kernel_points': 15,
+            },
         },
     },
     'test_dataset': None,

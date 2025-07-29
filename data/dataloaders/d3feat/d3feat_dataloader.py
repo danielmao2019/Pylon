@@ -2,7 +2,7 @@ from typing import List, Any, Callable
 import numpy as np
 from functools import partial
 import torch
-from data.collators.d3feat.d3feat_collate_fn import d3feat_collate_fn
+from data.collators import d3feat_collate_fn
 from data.dataloaders.base_dataloader import BaseDataLoader
 
 

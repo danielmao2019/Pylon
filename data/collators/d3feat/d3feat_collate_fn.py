@@ -90,29 +90,27 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
     
     # Get correspondences and compute distance matrix (on device)
     if 'correspondences' in inputs:
-        correspondences = inputs['correspondences']
+        sel_corr = inputs['correspondences']
         
         # Filter out invalid correspondences (indices out of bounds)
         src_size = pts0.shape[0]
         tgt_size = pts1.shape[0]
-        valid_mask = (correspondences[:, 0] < src_size) & (correspondences[:, 1] < tgt_size)
-        correspondences = correspondences[valid_mask]
+        valid_mask = (sel_corr[:, 0] < src_size) & (sel_corr[:, 1] < tgt_size)
+        sel_corr = sel_corr[valid_mask]
         
         # Limit correspondences for memory efficiency during calibration
         max_corr_for_calibration = 1000
-        if correspondences.shape[0] > max_corr_for_calibration:
+        if sel_corr.shape[0] > max_corr_for_calibration:
             # Randomly sample correspondences to avoid memory issues
-            indices = torch.randperm(correspondences.shape[0], device=device)[:max_corr_for_calibration]
-            correspondences = correspondences[indices]
+            indices = torch.randperm(sel_corr.shape[0], device=device)[:max_corr_for_calibration]
+            sel_corr = sel_corr[indices]
         
         # Compute distance matrix from correspondences (keep on device)
-        if correspondences.shape[0] > 0:
-            corr_pts_src = pts0[correspondences[:, 0]]
+        if sel_corr.shape[0] > 0:
+            corr_pts_src = pts0[sel_corr[:, 0]]
             dist_keypts = torch.cdist(corr_pts_src, corr_pts_src)  # [K, K] on device
         else:
             dist_keypts = torch.empty((0, 0), dtype=torch.float32, device=device)
-            
-        sel_corr = correspondences
     else:
         sel_corr = torch.empty((0, 2), dtype=torch.long, device=device)
         dist_keypts = torch.empty((0, 0), dtype=torch.float32, device=device)
