@@ -8,6 +8,7 @@ from data.viewer.utils.display_utils import (
     create_standard_datapoint_layout,
     create_statistics_display
 )
+from data.viewer.utils.structure_validation import validate_2dcd_structure
 
 
 def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
@@ -19,15 +20,8 @@ def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     Returns:
         html.Div containing the visualization
     """
-    assert datapoint is not None, f"{datapoint=}"
-    assert isinstance(datapoint, dict), f"{datapoint=}"
-    expected_keys = {'inputs', 'labels', 'meta_info'}
-    # Debug outputs are optional
-    if 'debug' in datapoint:
-        expected_keys.add('debug')
-    assert datapoint.keys() == expected_keys, f"{datapoint.keys()=}"
-    assert datapoint['inputs'].keys() == {'img_1', 'img_2'}, f"{datapoint['inputs'].keys()=}"
-    assert datapoint['labels'].keys() == {'change_map'}, f"{datapoint['labels'].keys()=}"
+    # Validate structure and inputs (includes all basic validation)
+    validate_2dcd_structure(datapoint)
 
     # Extract data
     img_1: torch.Tensor = datapoint['inputs']['img_1']

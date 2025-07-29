@@ -9,6 +9,7 @@ from data.viewer.utils.display_utils import (
     create_standard_datapoint_layout,
     create_statistics_display
 )
+from data.viewer.utils.structure_validation import validate_3dcd_structure
 
 
 def display_3dcd_datapoint(
@@ -34,10 +35,10 @@ def display_3dcd_datapoint(
     Returns:
         html.Div containing the visualization
     """
-    # Validate inputs
+    # Validate structure and inputs (includes all basic validation)
+    validate_3dcd_structure(datapoint)
+    
     inputs = datapoint['inputs']
-    assert 'pc_1' in inputs and 'pc_2' in inputs, "Point cloud 1 (pc_1) and point cloud 2 (pc_2) must be present in the inputs"
-    assert isinstance(inputs['pc_1'], dict) and isinstance(inputs['pc_2'], dict), "Point clouds must be dictionaries"
 
     # Extract data
     points_1 = inputs['pc_1']['pos']  # First point cloud
