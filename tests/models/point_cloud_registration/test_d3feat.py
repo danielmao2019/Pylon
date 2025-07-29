@@ -45,7 +45,7 @@ class DummyD3FeatDataset(BaseDataset):
         
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load dummy datapoint with random data."""
-        # Generate random point clouds
+        # Generate random point clouds (on CPU as per BaseDataset design)
         src_pos = torch.randn(self.num_points_src, 3, dtype=torch.float32)
         tgt_pos = torch.randn(self.num_points_tgt, 3, dtype=torch.float32)
         
@@ -81,7 +81,7 @@ class DummyD3FeatDataset(BaseDataset):
         return inputs, labels, meta_info
 
 
-def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_correspondences=30):
+def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_correspondences=30, device=None):
     """Helper function to get properly batched D3Feat input data.
     
     Args:
@@ -89,16 +89,21 @@ def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_
         num_points_src: Number of source points
         num_points_tgt: Number of target points  
         num_correspondences: Number of correspondences
+        device: Device to place data on (defaults to CUDA if available)
         
     Returns:
         Batched input ready for D3Feat model
     """
-    # Create dummy dataset
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Create dummy dataset with explicit device
     dataset = DummyD3FeatDataset(
         num_points_src=num_points_src,
         num_points_tgt=num_points_tgt,
         num_correspondences=num_correspondences,
-        split='train'
+        split='train',
+        device=device  # Explicitly set device to ensure correct placement
     )
     
     # Create dataloader with model config 
@@ -113,6 +118,12 @@ def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_
     # Get one batch
     for batch in dataloader:
         return batch
+
+
+@pytest.fixture
+def device():
+    """Get appropriate compute device for testing."""
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def test_d3feat_model_initialization():
@@ -134,18 +145,19 @@ def test_d3feat_model_initialization():
     assert model.config.conv_radius == 2.0
 
 
-def test_d3feat_model_forward():
+def test_d3feat_model_forward(device):
     """Test D3Feat model forward pass."""
-    # Initialize model
+    # Initialize model on appropriate device
     model = D3FeatModel(num_layers=5)
+    model = model.to(device)
     model.eval()
     
     # Get batched input using helper function
-    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=0)
+    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=0, device=device)
     
     # Forward pass
     with torch.no_grad():
-        outputs = model(batch)
+        outputs = model(batch['inputs'])
     
     # Check outputs
     assert 'descriptors' in outputs
@@ -161,35 +173,45 @@ def test_d3feat_model_forward():
     # Check normalization
     desc_norms = torch.norm(outputs['descriptors'], p=2, dim=1)
     assert torch.allclose(desc_norms, torch.ones_like(desc_norms), atol=1e-5)
+    
+    # Verify outputs are on correct device
+    assert outputs['descriptors'].device.type == device.type
+    assert outputs['scores'].device.type == device.type
 
 
-def test_d3feat_model_with_correspondences():
+def test_d3feat_model_with_correspondences(device):
     """Test D3Feat model with correspondences."""
     model = D3FeatModel(num_layers=5)
+    model = model.to(device)
     model.eval()
     
     # Get batched input with correspondences
-    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=20)
+    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=20, device=device)
     
     # Forward pass
     with torch.no_grad():
-        outputs = model(batch)
+        outputs = model(batch['inputs'])
     
     # Verify outputs
     assert outputs['descriptors'].shape[0] == 2 * 256
     assert outputs['scores'].shape[0] == 2 * 256
+    
+    # Verify device placement
+    assert outputs['descriptors'].device.type == device.type
+    assert outputs['scores'].device.type == device.type
 
 
-def test_d3feat_gradient_flow():
+def test_d3feat_gradient_flow(device):
     """Test gradient flow through D3Feat model."""
     model = D3FeatModel(num_layers=5)
+    model = model.to(device)
     model.train()
     
     # Get batched input
-    batch = get_batched_input(model.config, num_points_src=128, num_points_tgt=128, num_correspondences=0)
+    batch = get_batched_input(model.config, num_points_src=128, num_points_tgt=128, num_correspondences=0, device=device)
     
     # Forward pass
-    outputs = model(batch)
+    outputs = model(batch['inputs'])
     
     # Create dummy loss
     loss = outputs['descriptors'].sum() + outputs['scores'].sum()
@@ -197,31 +219,38 @@ def test_d3feat_gradient_flow():
     # Backward pass
     loss.backward()
     
-    # Check gradients exist
+    # Check gradients exist and are valid
     for name, param in model.named_parameters():
         if param.requires_grad:
             assert param.grad is not None, f"No gradient for {name}"
             assert not torch.isnan(param.grad).any(), f"NaN gradient for {name}"
+            # Verify gradients are on correct device
+            assert param.grad.device.type == device.type, f"Gradient device mismatch for {name}"
 
 
-def test_d3feat_with_dataset():
+def test_d3feat_with_dataset(device):
     """Test D3Feat with dummy dataset."""
     # Initialize model
     model = D3FeatModel(num_layers=5)
+    model = model.to(device)
     model.eval()
     
     # Get batched input using dataset
-    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=30)
+    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=30, device=device)
     
     # Forward pass
     with torch.no_grad():
-        outputs = model(batch)
+        outputs = model(batch['inputs'])
     
     # Verify outputs
     assert 'descriptors' in outputs
     assert 'scores' in outputs
     assert outputs['descriptors'].shape[0] == 512  # src + tgt
     assert outputs['scores'].shape[0] == 512
+    
+    # Verify device placement
+    assert outputs['descriptors'].device.type == device.type
+    assert outputs['scores'].device.type == device.type
 
 
 def test_d3feat_model_config():
@@ -246,24 +275,60 @@ def test_d3feat_model_config():
     assert model.config.num_kernel_points == 20
 
 
+def test_d3feat_cpu_fallback():
+    """Test D3Feat with CPU when CUDA is not available."""
+    cpu_device = torch.device('cpu')
+    
+    # Initialize model on CPU
+    model = D3FeatModel(num_layers=3)
+    model = model.to(cpu_device)
+    model.eval()
+    
+    # Get batched input with explicit CPU device
+    batch = get_batched_input(
+        model.config, 
+        num_points_src=128, 
+        num_points_tgt=128, 
+        num_correspondences=10,
+        device=cpu_device  # Force CPU device
+    )
+    
+    # Forward pass on CPU
+    with torch.no_grad():
+        outputs = model(batch['inputs'])
+    
+    # Verify outputs work on CPU
+    assert outputs['descriptors'].device.type == 'cpu'
+    assert outputs['scores'].device.type == 'cpu'
+    assert outputs['descriptors'].shape[0] == 256  # 128 + 128
+    assert outputs['scores'].shape[0] == 256
+
+
 if __name__ == '__main__':
+    # Test device selection
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Testing on device: {device}")
+    
     # Run tests
     test_d3feat_model_initialization()
     print("✓ Model initialization test passed")
     
-    test_d3feat_model_forward()
+    test_d3feat_model_forward(device)
     print("✓ Model forward pass test passed")
     
-    test_d3feat_model_with_correspondences()
+    test_d3feat_model_with_correspondences(device)
     print("✓ Model with correspondences test passed")
     
-    test_d3feat_gradient_flow()
+    test_d3feat_gradient_flow(device)
     print("✓ Gradient flow test passed")
     
-    test_d3feat_with_dataset()
+    test_d3feat_with_dataset(device)
     print("✓ Dataset integration test passed")
     
     test_d3feat_model_config()
     print("✓ Model config test passed")
     
-    print("\nAll D3Feat model tests passed!")
+    test_d3feat_cpu_fallback()
+    print("✓ CPU fallback test passed")
+    
+    print(f"\nAll D3Feat model tests passed on {device}!")
