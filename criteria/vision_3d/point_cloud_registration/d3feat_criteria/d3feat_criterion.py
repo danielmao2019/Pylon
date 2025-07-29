@@ -107,11 +107,13 @@ class D3FeatCriterion(BaseCriterion):
         # Extract ground truth
         correspondences = y_true['correspondences']  # [K, 2]
         
-        # Get batch lengths (assuming batch size = 1 for now)
-        # In actual implementation, this should come from batch metadata
-        N_total = descriptors.shape[0]
-        N_src = N_total // 2  # Assuming equal src/tgt sizes
-        N_tgt = N_total - N_src
+        # Get actual batch lengths from stack_lengths (first layer contains original splits)
+        assert 'stack_lengths' in y_pred, "y_pred must contain 'stack_lengths' from model output"
+        assert len(y_pred['stack_lengths']) > 0, "stack_lengths must not be empty"
+        
+        batch_lengths = y_pred['stack_lengths'][0]  # [N_src, N_tgt]
+        N_src = int(batch_lengths[0].item())
+        N_tgt = int(batch_lengths[1].item())
         
         # Split descriptors and scores
         desc_src = descriptors[:N_src]     # [N_src, feature_dim]
@@ -123,6 +125,12 @@ class D3FeatCriterion(BaseCriterion):
         if correspondences.numel() > 0:
             corr_src_idx = correspondences[:, 0].long()
             corr_tgt_idx = correspondences[:, 1].long()
+            
+            # Defensive bounds checking to prevent CUDA assertion errors
+            assert corr_src_idx.max() < N_src, f'Source correspondence index out of bounds: max={corr_src_idx.max()}, N_src={N_src}'
+            assert corr_tgt_idx.max() < N_tgt, f'Target correspondence index out of bounds: max={corr_tgt_idx.max()}, N_tgt={N_tgt}'
+            assert corr_src_idx.min() >= 0, f'Source correspondence index negative: min={corr_src_idx.min()}'
+            assert corr_tgt_idx.min() >= 0, f'Target correspondence index negative: min={corr_tgt_idx.min()}'
             
             anchor_desc = desc_src[corr_src_idx]      # [K, feature_dim]
             positive_desc = desc_tgt[corr_tgt_idx]    # [K, feature_dim]

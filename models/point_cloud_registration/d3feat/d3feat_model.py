@@ -119,6 +119,7 @@ class D3FeatModel(nn.Module):
         features, scores = self.d3feat_model(inputs)
         
         return {
-            'descriptors': features,  # [N_total, feature_dim] 
-            'scores': scores,         # [N_total, 1]
+            'descriptors': features,        # [N_total, feature_dim] 
+            'scores': scores,               # [N_total, 1]
+            'stack_lengths': inputs['stack_lengths'],  # Pass through for criterion
         }

@@ -96,6 +96,8 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
         # Filter out invalid correspondences (indices out of bounds)
         src_size = pts0.shape[0]
         tgt_size = pts1.shape[0]
+        
+        # Filter out invalid correspondences (indices out of bounds)
         valid_mask = (sel_corr[:, 0] < src_size) & (sel_corr[:, 1] < tgt_size)
         sel_corr = sel_corr[valid_mask]
         
