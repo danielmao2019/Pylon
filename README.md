@@ -69,7 +69,7 @@ Together, Pylon and Nexus create a complete research ecosystem: Pylon powers the
 
 ## Documentation
 
-All documentation can be found in the [docs](docs/) directory. For environment setup instructions, see [docs/environment_setup.md](docs/environment_setup.md).
+All documentation can be found in the [docs](docs/) directory. For environment setup instructions, see [docs/environment_setup/](docs/environment_setup/).
 
 ## Contributors
 
