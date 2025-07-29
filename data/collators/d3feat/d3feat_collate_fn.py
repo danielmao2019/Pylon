@@ -71,24 +71,25 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
 
 
 def d3feat_collate_fn(list_data, config, neighborhood_limits):
-    """D3Feat collate function for descriptor training."""
+    """D3Feat collate function for descriptor training.
+    
+    Works directly with torch tensors, only converting to numpy for C++ calls.
+    """
     assert len(list_data) == 1
     
-    # Handle Pylon format data
     datapoint = list_data[0]
     inputs = datapoint['inputs']
     src_pc = inputs['src_pc']
     tgt_pc = inputs['tgt_pc']
     
-    # Keep tensors on device throughout processing
-    pts0 = src_pc['pos']  # [N_src, 3] on device
-    pts1 = tgt_pc['pos']  # [N_tgt, 3] on device
-    feat0 = src_pc['feat']  # [N_src, feat_dim] on device
-    feat1 = tgt_pc['feat']  # [N_tgt, feat_dim] on device
-    
+    # Keep everything as torch tensors on device
+    pts0 = src_pc['pos']
+    pts1 = tgt_pc['pos']
+    feat0 = src_pc['feat']
+    feat1 = tgt_pc['feat']
     device = pts0.device
     
-    # Get correspondences and compute distance matrix (on device)
+    # Get correspondences and compute distance matrix (stay in torch)
     if 'correspondences' in inputs:
         sel_corr = inputs['correspondences']
         
@@ -105,10 +106,10 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
             indices = torch.randperm(sel_corr.shape[0], device=device)[:max_corr_for_calibration]
             sel_corr = sel_corr[indices]
         
-        # Compute distance matrix from correspondences (keep on device)
+        # Compute distance matrix from correspondences (use torch.cdist)
         if sel_corr.shape[0] > 0:
             corr_pts_src = pts0[sel_corr[:, 0]]
-            dist_keypts = torch.cdist(corr_pts_src, corr_pts_src)  # [K, K] on device
+            dist_keypts = torch.cdist(corr_pts_src, corr_pts_src)
         else:
             dist_keypts = torch.empty((0, 0), dtype=torch.float32, device=device)
     else:
