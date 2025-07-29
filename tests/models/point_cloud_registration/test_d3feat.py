@@ -6,7 +6,7 @@ import torch
 import numpy as np
 
 from models.point_cloud_registration.d3feat import D3FeatModel
-from data.dataloaders.d3feat.d3feat_dataloader import D3FeatDataLoader
+from data.dataloaders.d3feat_dataloader import D3FeatDataLoader
 from data.datasets.base_dataset import BaseDataset
 from utils.builders.builder import build_from_config
 
