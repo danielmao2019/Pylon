@@ -46,6 +46,7 @@ def test_circle_loss_forward():
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
+        'stack_lengths': [torch.tensor([num_points, num_points], dtype=torch.int32)],  # Equal src/tgt splits
     }
     
     # Ground truth
@@ -78,6 +79,7 @@ def test_circle_loss_no_correspondences():
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
+        'stack_lengths': [torch.tensor([50, 50], dtype=torch.int32)],  # Equal src/tgt splits for 100 total
     }
     
     # Empty correspondences
@@ -129,6 +131,7 @@ def test_contrastive_loss_forward():
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
+        'stack_lengths': [torch.tensor([num_points, num_points], dtype=torch.int32)],  # Equal src/tgt splits
     }
     
     correspondences = torch.randint(0, num_points, (num_corr, 2), dtype=torch.long)
@@ -165,6 +168,7 @@ def test_loss_gradient_flow():
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
+        'stack_lengths': [torch.tensor([num_points, num_points], dtype=torch.int32)],  # Equal src/tgt splits
     }
     
     correspondences = torch.randint(0, num_points, (num_corr, 2), dtype=torch.long)
@@ -197,6 +201,7 @@ def test_loss_with_different_metrics():
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
+        'stack_lengths': [torch.tensor([50, 50], dtype=torch.int32)],  # Equal src/tgt splits for 100 total
     }
     
     correspondences = torch.randint(0, 50, (10, 2), dtype=torch.long)
