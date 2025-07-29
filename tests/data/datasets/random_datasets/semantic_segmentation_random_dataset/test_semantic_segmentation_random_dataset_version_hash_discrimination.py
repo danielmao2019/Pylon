@@ -77,7 +77,7 @@ def test_all_parameters_affect_version_hash():
 
 
 def test_none_vs_specified_initial_seed():
-    """Test that None vs specified initial_seed produces different hashes."""
+    """Test that None vs specified base_seed produces different hashes."""
     
     # None vs specified should have different hashes
     dataset1 = SemanticSegmentationRandomDataset(
