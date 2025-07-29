@@ -14,6 +14,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import visualization utilities to avoid code duplication
+from runners.eval_viewer.backend.visualization import create_score_map_grid
+
 
 def get_dataset_type(dataset_name: str) -> DatasetType:
     """Determine the dataset type based on the dataset name."""
@@ -26,12 +29,11 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
 # Use shared runner detection utility for code reuse and consistency
 from utils.automation.progress_tracking.runner_detection import detect_runner_type
 
-
 @dataclass
 class LogDirInfo:
     """Information extracted from a log directory."""
     num_epochs: int
-    metric_names: Set[str]
+    metric_names: List[str]
     num_datapoints: int  # Number of datapoints in the dataset
     score_map: np.ndarray  # Shape: (N, C, H, W) for trainer or (C, H, W) for evaluator
     aggregated_scores: np.ndarray  # Shape: (N, C) for trainer or (C,) for evaluator
@@ -76,9 +78,8 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
     assert isinstance(aggregated_score, float), f"Aggregated score {aggregated_score} is not a float"
 
     num_datapoints = len(per_datapoint_scores)
-    side_length = int(np.ceil(np.sqrt(num_datapoints)))
-    score_map = np.full((side_length, side_length), np.nan)
-    score_map.flat[:num_datapoints] = per_datapoint_scores
+    # Use shared utility to avoid code duplication
+    score_map = create_score_map_grid(per_datapoint_scores)
 
     return num_datapoints, score_map, aggregated_score
 
@@ -300,9 +301,6 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
     Raises:
         ValueError: If config file not found or invalid
     """
-    dataset_class = log_dir.split("/")[-2]
-    dataset_type = get_dataset_type(dataset_class)
-
     # Get the config file path
     config_file = os.path.join("./configs", os.path.relpath(log_dir, "./logs")) + ".py"
     assert os.path.isfile(config_file), f"Config file not found: {config_file}"
@@ -323,6 +321,10 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
         dataloader_cfg = config['eval_dataloader']
     else:
         raise ValueError(f"Config must contain either 'val_dataset' or 'eval_dataset', found keys: {list(config.keys())}")
+
+    # Extract dataset class name from the config
+    dataset_class = dataset_cfg['class'].__name__
+    dataset_type = get_dataset_type(dataset_class)
 
     return dataset_class, dataset_type, dataset_cfg, dataloader_cfg
 
@@ -350,10 +352,12 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     run_name = os.path.basename(os.path.normpath(log_dir))
     cache_path = str(cache_dir / f"{run_name}.pkl")
 
-    # Try to load from cache first
+    # Load from cache if available
     if not force_reload and os.path.exists(cache_path):
         with open(cache_path, 'rb') as f:
-            return pickle.load(f)
+            cached_info = pickle.load(f)
+        logger.info(f"Loaded cached data for {run_name}")
+        return cached_info
 
     # Detect runner type and extract information accordingly
     runner_type = detect_runner_type(log_dir)
@@ -373,18 +377,18 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         raise ValueError(f"Unknown runner type: {runner_type}")
 
     # Create LogDirInfo object
-    info = {
-        'num_epochs': num_epochs,
-        'metric_names': metric_names,
-        'num_datapoints': num_datapoints,
-        'score_map': score_map,
-        'aggregated_scores': aggregated_scores,
-        'dataset_class': dataset_class,
-        'dataset_type': dataset_type,
-        'dataset_cfg': dataset_cfg,
-        'dataloader_cfg': dataloader_cfg,
-        'runner_type': runner_type,
-    }
+    info = LogDirInfo(
+        num_epochs=num_epochs,
+        metric_names=metric_names,
+        num_datapoints=num_datapoints,
+        score_map=score_map,
+        aggregated_scores=aggregated_scores,
+        dataset_class=dataset_class,
+        dataset_type=dataset_type,
+        dataset_cfg=dataset_cfg,
+        dataloader_cfg=dataloader_cfg,
+        runner_type=runner_type,
+    )
 
     # Save to cache
     with open(cache_path, 'wb') as f:
@@ -443,22 +447,16 @@ def compute_per_metric_color_scales(log_dir_infos: Dict[str, LogDirInfo]) -> np.
     return color_scales
 
 
-def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
-    int, Set[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], np.ndarray
-]:
-    """Initialize log directories and validate consistency.
-
+def _extract_log_dir_infos_parallel(log_dirs: List[str], force_reload: bool) -> Dict[str, LogDirInfo]:
+    """Extract information from log directories in parallel while preserving order.
+    
     Args:
         log_dirs: List of paths to log directories
         force_reload: Whether to force reload from source files
-
+        
     Returns:
-        Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales)
-
-    Raises:
-        ValueError: If log directories are invalid or inconsistent
+        Dictionary mapping log directory paths to LogDirInfo objects
     """
-    # Extract information from each log directory in parallel while preserving order
     log_dir_infos = {}
     with ThreadPoolExecutor() as executor:
         # Submit all tasks and collect results in order
@@ -475,46 +473,156 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         # Build ordered dictionary
         for log_dir, result in zip(log_dirs, results):
             log_dir_infos[log_dir] = result
+    
+    return log_dir_infos
 
-    # Get common information
+
+def _validate_log_dir_consistency(log_dir_infos: Dict[str, LogDirInfo]) -> None:
+    """Validate that all log directories have consistent metrics and dataset info.
+    
+    Args:
+        log_dir_infos: Dictionary mapping log directory paths to LogDirInfo objects
+        
+    Raises:
+        AssertionError: If log directories have inconsistent information
+    """
+    assert len(log_dir_infos) > 0, "log_dir_infos must not be empty"
+    
+    first_info = list(log_dir_infos.values())[0]
+    
+    # Validate metric names consistency
+    assert all(
+        info.metric_names == first_info.metric_names
+        for info in log_dir_infos.values()
+    ), f"Inconsistent metric names across log directories: {[(key, info.metric_names) for key, info in log_dir_infos.items()]}"
+    
+    # Validate dataset class consistency
+    assert all(
+        info.dataset_class == first_info.dataset_class 
+        for info in log_dir_infos.values()
+    ), f"Inconsistent dataset classes: {[info.dataset_class for info in log_dir_infos.values()]}"
+    
+    # Validate number of datapoints consistency
+    assert all(
+        info.num_datapoints == first_info.num_datapoints 
+        for info in log_dir_infos.values()
+    ), f"Inconsistent number of datapoints: {[info.num_datapoints for info in log_dir_infos.values()]}"
+    
+    # Validate dataset type consistency
+    assert all(
+        info.dataset_type == first_info.dataset_type 
+        for info in log_dir_infos.values()
+    ), f"Inconsistent dataset types: {[info.dataset_type for info in log_dir_infos.values()]}"
+
+
+def _compute_max_epochs(log_dir_infos: Dict[str, LogDirInfo]) -> int:
+    """Compute maximum epochs for epoch slider based on trainer logs.
+    
+    Args:
+        log_dir_infos: Dictionary mapping log directory paths to LogDirInfo objects
+        
+    Returns:
+        Maximum epoch count for the epoch slider
+    """
     # For epoch slider, use minimum epochs among trainers to ensure all trainers have data for all epochs
-    trainer_epochs = [info.num_epochs for info in log_dir_infos.values() if info.runner_type == 'trainer']
+    trainer_epochs = [
+        info.num_epochs 
+        for info in log_dir_infos.values() 
+        if info.runner_type == 'trainer'
+    ]
     if trainer_epochs:
         max_epochs = min(trainer_epochs)  # Use minimum to ensure all trainers have data
     else:
         max_epochs = 1  # If no trainers, default to 1 epoch
-    assert all(
-        info.metric_names == list(log_dir_infos.values())[0].metric_names
-        for info in log_dir_infos.values()
-    ), f"""{list({
-        key: info.metric_names
-        for key, info in log_dir_infos.items()
-    }.items())}"""
-    metric_names = list(log_dir_infos.values())[0].metric_names
-    assert all(info.dataset_class == list(log_dir_infos.values())[0].dataset_class for info in log_dir_infos.values())
-    num_datapoints = list(log_dir_infos.values())[0].num_datapoints
-    assert all(info.num_datapoints == num_datapoints for info in log_dir_infos.values())
-    dataset_class = list(log_dir_infos.values())[0].dataset_class
-    assert all(info.dataset_type == list(log_dir_infos.values())[0].dataset_type for info in log_dir_infos.values())
-    dataset_type = list(log_dir_infos.values())[0].dataset_type
+    
+    return max_epochs
+
+
+def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[str, Any]:
+    """Load dataset configuration from common config files.
+    
+    Args:
+        dataset_class: Dataset class name
+        dataset_type: Dataset type
+        
+    Returns:
+        Dataset configuration dictionary
+        
+    Raises:
+        KeyError: If dataset type is not supported
+        FileNotFoundError: If config file does not exist
+    """
     repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
+    
     # Map dataset types to their config directory paths
     dataset_type_to_dir = {
         'semseg': 'semantic_segmentation',
         '2dcd': 'change_detection',
         '3dcd': 'change_detection',
         'pcr': 'point_cloud_registration',
+        'general': 'general',
     }
+    
+    assert dataset_type in dataset_type_to_dir, f"Unsupported dataset type: {dataset_type}"
     config_dir = dataset_type_to_dir[dataset_type]
-    config_file = os.path.join(repo_root, "configs", "common", "datasets", config_dir, "val", f"{dataset_class}_data_cfg.py")
+    
+    config_file = os.path.join(
+        repo_root, "configs", "common", "datasets", 
+        config_dir, "val", f"{dataset_class}_data_cfg.py"
+    )
+    assert os.path.isfile(config_file), f"Config file not found: {config_file}"
+    
+    # Load the config module
     spec = importlib.util.spec_from_file_location("config_file", config_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     data_cfg = module.data_cfg
     dataset_cfg = data_cfg['val_dataset']
+    
+    return dataset_cfg
 
-    # Compute per-metric color scales across all data
-    per_metric_color_scales = compute_per_metric_color_scales(log_dir_infos)
+
+def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
+    int, List[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], np.ndarray
+]:
+    """Initialize log directories and validate consistency.
+
+    Args:
+        log_dirs: List of paths to log directories
+        force_reload: Whether to force reload from source files
+
+    Returns:
+        Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales)
+
+    Raises:
+        ValueError: If log directories are invalid or inconsistent
+    """
+    # Input validation following CLAUDE.md fail-fast patterns
+    assert log_dirs is not None, "log_dirs must not be None"
+    assert isinstance(log_dirs, list), f"log_dirs must be list, got {type(log_dirs)}"
+    assert len(log_dirs) > 0, f"log_dirs must not be empty"
+    assert all(isinstance(log_dir, str) for log_dir in log_dirs), f"All log_dirs must be strings, got {log_dirs}"
+    assert isinstance(force_reload, bool), f"force_reload must be bool, got {type(force_reload)}"
+    
+    # Step 1: Extract information from each log directory in parallel
+    log_dir_infos = _extract_log_dir_infos_parallel(log_dirs=log_dirs, force_reload=force_reload)
+    
+    # Step 2: Validate consistency across all log directories
+    _validate_log_dir_consistency(log_dir_infos=log_dir_infos)
+    
+    # Step 3: Extract common information
+    first_info = list(log_dir_infos.values())[0]
+    max_epochs = _compute_max_epochs(log_dir_infos=log_dir_infos)
+    metric_names = first_info.metric_names
+    num_datapoints = first_info.num_datapoints
+    dataset_class = first_info.dataset_class
+    dataset_type = first_info.dataset_type
+    
+    # Step 4: Load dataset configuration
+    dataset_cfg = _load_dataset_config(dataset_class=dataset_class, dataset_type=dataset_type)
+    
+    # Step 5: Compute per-metric color scales across all data
+    per_metric_color_scales = compute_per_metric_color_scales(log_dir_infos=log_dir_infos)
 
     return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales
 
