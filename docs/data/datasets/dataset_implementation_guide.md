@@ -10,10 +10,11 @@ This guide teaches how to implement a new dataset in the Pylon framework, based 
 2. [Data Acquisition and Analysis](#data-acquisition-and-analysis)
 3. [Implementation Strategy](#implementation-strategy)
 4. [Dataset Family Patterns](#dataset-family-patterns)
-5. [Performance Optimization](#performance-optimization)
-6. [Documentation](#documentation)
-7. [Common Pitfalls and Solutions](#common-pitfalls-and-solutions)
-8. [Lessons Learned](#lessons-learned)
+5. [Cache Version Implementation](#cache-version-implementation)
+6. [Performance Optimization](#performance-optimization)
+7. [Documentation](#documentation)
+8. [Common Pitfalls and Solutions](#common-pitfalls-and-solutions)
+9. [Lessons Learned](#lessons-learned)
 
 ## Related Documents
 
@@ -518,6 +519,199 @@ if src_scene != tgt_scene:
 - Memory-efficient data structures
 - Thread-safe operations
 - Lazy loading patterns
+
+---
+
+## Cache Version Implementation
+
+### Overview
+
+All Pylon datasets **must** implement cache versioning to ensure different dataset configurations use separate cache directories. This prevents cache collisions and data corruption.
+
+### 1. Implementing `_get_cache_version_dict()`
+
+**Every dataset class must override this method** to include parameters that affect dataset content:
+
+```python
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    """Return parameters that affect dataset content for cache versioning."""
+    # ALWAYS call parent implementation first
+    version_dict = super()._get_cache_version_dict()
+    
+    # Add dataset-specific parameters that affect content
+    version_dict.update({
+        'param1': self.param1,
+        'param2': self.param2,
+        # Include ALL parameters that change dataset content
+    })
+    
+    return version_dict
+```
+
+### 2. Hierarchical Version Implementation
+
+**Follow the inheritance pattern**:
+
+```python
+# BaseDataset provides: class_name, data_root, split/split_percentages
+class BaseDataset:
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        return {
+            'class_name': self.__class__.__name__,
+            'data_root': str(self.data_root),
+            'split': self.split,  # or split_percentages
+        }
+
+# SyntheticDataset adds: source info, dataset_size
+class SyntheticDataset(BaseDataset):
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'rotation_mag': self.rotation_mag,
+            'translation_mag': self.translation_mag,
+            'dataset_size': self.dataset_size,
+        })
+        return version_dict
+
+# SpecificDataset adds: specific parameters
+class LiDARCameraPoseDataset(SyntheticDataset):
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        version_dict = super()._get_cache_version_dict()
+        if self.camera_count is not None:
+            version_dict['camera_count'] = self.camera_count
+        return version_dict
+```
+
+### 3. Critical Implementation Rules
+
+#### **Include ALL Content-Affecting Parameters**
+```python
+# ✅ CORRECT - Include everything that changes dataset content
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    version_dict.update({
+        'dataset_size': self.dataset_size,           # Affects number of items
+        'overlap_threshold': self.overlap_threshold, # Affects filtering
+        'augmentation_mode': self.aug_mode,          # Affects data generation
+        'file_paths': sorted(self.file_paths),       # Affects source data
+    })
+    return version_dict
+
+# ❌ WRONG - Missing parameters that affect content
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    # Missing dataset_size, overlap_threshold, etc.
+    return version_dict
+```
+
+#### **Handle Optional Parameters Correctly**
+```python
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    
+    # ✅ CORRECT - Only add if not None
+    if self.camera_count is not None:
+        version_dict['camera_count'] = self.camera_count
+    
+    # ✅ CORRECT - Always add required parameters
+    version_dict['dataset_size'] = self.dataset_size
+    
+    return version_dict
+```
+
+#### **Ensure Deterministic Ordering**
+```python
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    version_dict.update({
+        # ✅ CORRECT - Sort file paths for deterministic hashing
+        'file_paths': sorted(self.file_paths),
+        
+        # ✅ CORRECT - Convert complex objects to strings
+        'transforms_config': str(self.transforms_config),
+    })
+    return version_dict
+```
+
+### 4. Testing Requirements
+
+**Every dataset implementation must include discrimination tests**:
+
+```python
+def test_dataset_version_discrimination():
+    """Test that dataset instances with different parameters have different version hashes."""
+    
+    # Same parameters should have same hash
+    dataset1a = MyDataset(param1=value1, param2=value2)
+    dataset1b = MyDataset(param1=value1, param2=value2)
+    assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
+    
+    # Different param1 should have different hash
+    dataset2 = MyDataset(param1=different_value, param2=value2)
+    assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
+    
+    # Different param2 should have different hash
+    dataset3 = MyDataset(param1=value1, param2=different_value)
+    assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
+    
+    # Test ALL parameters that should affect caching
+```
+
+### 5. Cache Directory Structure
+
+The cache system automatically creates directory structure:
+```
+<data_root>_cache/
+├── a7f8c9d2b4e6f1a3/    # Version hash for config A
+│   ├── 0.pt
+│   ├── 1.pt
+│   └── ...
+├── b2e4c8f1a6d9e5c7/    # Version hash for config B  
+│   ├── 0.pt
+│   ├── 1.pt
+│   └── ...
+└── cache_metadata.json  # Human-readable mapping
+```
+
+### 6. Common Implementation Mistakes
+
+#### **❌ Missing Content-Affecting Parameters**
+```python
+# WRONG - Missing dataset_size affects number of generated items
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    # Missing self.dataset_size - CACHE COLLISION RISK!
+    return version_dict
+```
+
+#### **❌ Including Non-Content Parameters**
+```python
+# WRONG - Including parameters that don't affect dataset content
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    version_dict.update({
+        'num_workers': self.num_workers,    # WRONG - doesn't affect data
+        'batch_size': self.batch_size,      # WRONG - doesn't affect data
+        'dataset_size': self.dataset_size,  # ✅ CORRECT - affects data
+    })
+    return version_dict
+```
+
+#### **❌ Not Calling Parent Implementation**
+```python
+# WRONG - Must call super() to get base parameters
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    return {
+        'my_param': self.my_param,
+        # MISSING: class_name, data_root, split from parent
+    }
+
+# ✅ CORRECT
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    version_dict['my_param'] = self.my_param
+    return version_dict
+```
 
 ---
 

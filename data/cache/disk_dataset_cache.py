@@ -177,7 +177,7 @@ class DiskDatasetCache(BaseCache):
                 created_at = metadata[self.version_hash]['created_at']
             else:
                 created_at = datetime.now()
-            
+
             # Update with current version info
             metadata[self.version_hash] = {
                 'created_at': created_at,  # datetime will be serialized by save_json
