@@ -35,6 +35,8 @@ def validate_labels(labels: Dict[str, Any], class_dist: torch.Tensor, dataset: C
     unique_values = set(torch.unique(change_map).tolist())
     assert unique_values.issubset({0, 1}), \
         f"Unexpected values in change map at index {idx}: {unique_values}"
+    
+    # Update class distribution - keep tensors on same device for GPU efficiency
     for cls in range(dataset.NUM_CLASSES):
         class_dist[cls] += torch.sum(change_map == cls)
 

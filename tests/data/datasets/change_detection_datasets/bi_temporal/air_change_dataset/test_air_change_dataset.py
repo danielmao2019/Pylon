@@ -28,7 +28,7 @@ def validate_labels(labels: Dict[str, Any], class_dist: torch.Tensor, dataset: A
     unique_values = torch.unique(change_map).tolist()
     assert set(unique_values).issubset({0, 1}), f"Unexpected values in change_map: {unique_values}"
 
-    # Update class distribution
+    # Update class distribution - keep tensors on same device for GPU efficiency
     for cls in range(dataset.NUM_CLASSES):
         class_dist[cls] += torch.sum(change_map == cls)
 
@@ -55,8 +55,8 @@ def test_air_change(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset must inherit from torch.utils.data.Dataset"
     assert len(dataset) > 0, "Dataset should not be empty"
 
-    # Initialize class distribution tensor
-    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
+    # Initialize class distribution tensor - ensure proper dtype for consistency
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), dtype=torch.int64, device=dataset.device)
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]

@@ -22,6 +22,8 @@ def validate_labels(labels: Dict[str, Any], class_dist: torch.Tensor, dataset: S
     assert set(labels.keys()) == set(SYSU_CD_Dataset.LABEL_NAMES)
     change_map = labels['change_map']
     assert set(torch.unique(change_map).tolist()).issubset({0, 1}), f"{torch.unique(change_map)=}"
+    
+    # Update class distribution - keep tensors on same device for GPU efficiency
     for cls in range(dataset.NUM_CLASSES):
         class_dist[cls] += torch.sum(change_map == cls)
 
@@ -44,7 +46,7 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: SYSU_CD_Datas
 def test_sysu_cd(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
-    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), dtype=torch.int64, device=dataset.device)
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
