@@ -1,10 +1,11 @@
 """D3Feat criterion configuration for Pylon."""
 
-from criteria.vision_3d.point_cloud_registration import CircleLoss
+from criteria.vision_3d.point_cloud_registration import D3FeatCriterion
 
 criterion_cfg = {
-    'class': CircleLoss,
+    'class': D3FeatCriterion,
     'args': {
+        'loss_type': 'circle',
         'pos_margin': 0.1,
         'neg_margin': 1.4,
         'pos_optimal': 0.1,
