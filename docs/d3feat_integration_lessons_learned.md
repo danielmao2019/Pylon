@@ -213,6 +213,13 @@ The debugging process revealed a cascading series of architectural issues:
 5. **Contract enforcement**: Added assertions to enforce model output contracts
 6. **Fallback removal**: Eliminated defensive programming in favor of fail-fast assertions
 
+### **Phase 5: API Convention and Final Testing** (Commits 26-30)
+1. **Dataloader structure fix**: Moved D3FeatDataLoader from subdirectory to main dataloaders directory following PCR patterns
+2. **Model API convention**: Fixed forward method to use `inputs` parameter instead of `batch` following Pylon convention
+3. **Test architecture updates**: Fixed all tests to pass `batch['inputs']` to model and handle device placement properly
+4. **Stack lengths requirement**: Updated criterion tests to include required `stack_lengths` in y_pred
+5. **Comprehensive verification**: All tests pass (6/6 model tests, 7/7 criterion tests) and training runs successfully
+
 ### **Key Insight**: Each phase's fixes revealed deeper architectural issues. The final CUDA assertion error was the most critical, requiring understanding of the entire data flow pipeline.
 
 ## Process Improvements
