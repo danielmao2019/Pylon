@@ -129,8 +129,8 @@ def build_training_config(dataset: str, model: str):
             if dataset_name != 'threedmatch':
                 raise NotImplementedError(f"D3Feat is only compatible with threedmatch dataset, not {dataset_name}")
                 
-            from configs.common.datasets.point_cloud_registration.train.threedmatch_data_cfg import data_cfg as train_data_cfg
-            from configs.common.datasets.point_cloud_registration.val.threedmatch_data_cfg import data_cfg as val_data_cfg
+            from configs.common.datasets.point_cloud_registration.train.d3feat_threedmatch_data_cfg import data_cfg as train_data_cfg
+            from configs.common.datasets.point_cloud_registration.val.d3feat_threedmatch_data_cfg import data_cfg as val_data_cfg
 
             from configs.common.models.point_cloud_registration.d3feat.d3feat_model_cfg import config as model_cfg
             from configs.common.criteria.point_cloud_registration.d3feat_criterion_cfg import criterion_cfg

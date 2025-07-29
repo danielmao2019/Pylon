@@ -6,6 +6,7 @@ import torch
 import numpy as np
 
 from models.point_cloud_registration.d3feat import D3FeatModel
+from data.dataloaders.d3feat.d3feat_dataloader import D3FeatDataLoader
 from data.datasets.base_dataset import BaseDataset
 from utils.builders.builder import build_from_config
 
@@ -80,6 +81,41 @@ class DummyD3FeatDataset(BaseDataset):
         return inputs, labels, meta_info
 
 
+def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_correspondences=30):
+    """Helper function to get properly batched D3Feat input data.
+    
+    Args:
+        model_config: D3Feat model configuration
+        num_points_src: Number of source points
+        num_points_tgt: Number of target points  
+        num_correspondences: Number of correspondences
+        
+    Returns:
+        Batched input ready for D3Feat model
+    """
+    # Create dummy dataset
+    dataset = DummyD3FeatDataset(
+        num_points_src=num_points_src,
+        num_points_tgt=num_points_tgt,
+        num_correspondences=num_correspondences,
+        split='train'
+    )
+    
+    # Create dataloader with model config and simple neighborhood limits
+    dataloader = D3FeatDataLoader(
+        dataset=dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,  # Single-threaded for testing
+        model_config=model_config,
+        neighborhood_limits=[20] * model_config.num_layers  # Use simple defaults
+    )
+    
+    # Get one batch
+    for batch in dataloader:
+        return batch
+
+
 def test_d3feat_model_initialization():
     """Test D3Feat model initialization."""
     # Test with default parameters
@@ -102,35 +138,22 @@ def test_d3feat_model_initialization():
 def test_d3feat_model_forward():
     """Test D3Feat model forward pass."""
     # Initialize model
-    model = D3FeatModel(num_layers=3)  # Smaller for testing
+    model = D3FeatModel(num_layers=5)
     model.eval()
     
-    # Create dummy input
-    batch_size = 1
-    num_points_src = 256
-    num_points_tgt = 256
-    
-    src_pos = torch.randn(num_points_src, 3, dtype=torch.float32)
-    tgt_pos = torch.randn(num_points_tgt, 3, dtype=torch.float32)
-    src_feat = torch.ones(num_points_src, 1, dtype=torch.float32)
-    tgt_feat = torch.ones(num_points_tgt, 1, dtype=torch.float32)
-    
-    inputs = {
-        'src_pc': {'pos': src_pos, 'feat': src_feat},
-        'tgt_pc': {'pos': tgt_pos, 'feat': tgt_feat},
-        'correspondences': torch.zeros(0, 2, dtype=torch.long),  # Empty for inference
-    }
+    # Get batched input using helper function
+    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=0)
     
     # Forward pass
     with torch.no_grad():
-        outputs = model(inputs)
+        outputs = model(batch)
     
     # Check outputs
     assert 'descriptors' in outputs
     assert 'scores' in outputs
     
     # Check shapes
-    total_points = num_points_src + num_points_tgt
+    total_points = 256 + 256
     assert outputs['descriptors'].shape[0] == total_points
     assert outputs['descriptors'].shape[1] == 32  # Default feature dimension
     assert outputs['scores'].shape[0] == total_points
@@ -143,56 +166,31 @@ def test_d3feat_model_forward():
 
 def test_d3feat_model_with_correspondences():
     """Test D3Feat model with correspondences."""
-    model = D3FeatModel(num_layers=3)
+    model = D3FeatModel(num_layers=5)
     model.eval()
     
-    # Create input with correspondences
-    num_points = 256
-    num_corr = 20
-    
-    src_pos = torch.randn(num_points, 3, dtype=torch.float32)
-    tgt_pos = torch.randn(num_points, 3, dtype=torch.float32)
-    src_feat = torch.ones(num_points, 1, dtype=torch.float32)
-    tgt_feat = torch.ones(num_points, 1, dtype=torch.float32)
-    
-    # Create valid correspondences
-    corr_idx = torch.randint(0, num_points, (num_corr, 2), dtype=torch.long)
-    
-    inputs = {
-        'src_pc': {'pos': src_pos, 'feat': src_feat},
-        'tgt_pc': {'pos': tgt_pos, 'feat': tgt_feat},
-        'correspondences': corr_idx,
-    }
+    # Get batched input with correspondences
+    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=20)
     
     # Forward pass
     with torch.no_grad():
-        outputs = model(inputs)
+        outputs = model(batch)
     
     # Verify outputs
-    assert outputs['descriptors'].shape[0] == 2 * num_points
-    assert outputs['scores'].shape[0] == 2 * num_points
+    assert outputs['descriptors'].shape[0] == 2 * 256
+    assert outputs['scores'].shape[0] == 2 * 256
 
 
 def test_d3feat_gradient_flow():
     """Test gradient flow through D3Feat model."""
-    model = D3FeatModel(num_layers=3)
+    model = D3FeatModel(num_layers=5)
     model.train()
     
-    # Create input
-    num_points = 128
-    src_pos = torch.randn(num_points, 3, dtype=torch.float32, requires_grad=True)
-    tgt_pos = torch.randn(num_points, 3, dtype=torch.float32, requires_grad=True)
-    src_feat = torch.ones(num_points, 1, dtype=torch.float32)
-    tgt_feat = torch.ones(num_points, 1, dtype=torch.float32)
-    
-    inputs = {
-        'src_pc': {'pos': src_pos, 'feat': src_feat},
-        'tgt_pc': {'pos': tgt_pos, 'feat': tgt_feat},
-        'correspondences': torch.zeros(0, 2, dtype=torch.long),
-    }
+    # Get batched input
+    batch = get_batched_input(model.config, num_points_src=128, num_points_tgt=128, num_correspondences=0)
     
     # Forward pass
-    outputs = model(inputs)
+    outputs = model(batch)
     
     # Create dummy loss
     loss = outputs['descriptors'].sum() + outputs['scores'].sum()
@@ -209,34 +207,16 @@ def test_d3feat_gradient_flow():
 
 def test_d3feat_with_dataset():
     """Test D3Feat with dummy dataset."""
-    # Create dataset
-    dataset = DummyD3FeatDataset(
-        num_points_src=256,
-        num_points_tgt=256,
-        num_correspondences=30,
-        split='train'
-    )
-    
     # Initialize model
-    model = D3FeatModel(num_layers=3)
+    model = D3FeatModel(num_layers=5)
     model.eval()
     
-    # Get a datapoint and ensure all tensors are on CPU
-    datapoint = dataset[0]
-    inputs = datapoint['inputs']
-    
-    # Move everything to CPU to avoid device issues in testing
-    for key in inputs:
-        if isinstance(inputs[key], dict):
-            for subkey in inputs[key]:
-                if isinstance(inputs[key][subkey], torch.Tensor):
-                    inputs[key][subkey] = inputs[key][subkey].cpu()
-        elif isinstance(inputs[key], torch.Tensor):
-            inputs[key] = inputs[key].cpu()
+    # Get batched input using dataset
+    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=30)
     
     # Forward pass
     with torch.no_grad():
-        outputs = model(inputs)
+        outputs = model(batch)
     
     # Verify outputs
     assert 'descriptors' in outputs
