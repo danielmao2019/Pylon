@@ -1,0 +1,75 @@
+name: pylon
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - pytorch3d
+dependencies:
+  - python=3.10
+  # Core ML and numerical computing
+  - numpy=1.26.4
+  - pytorch=2.0.0
+  - torchvision=0.15.0
+  - torchaudio=2.0.0
+  - pytorch-cuda=11.8
+  - scipy
+  - scikit-learn
+  - scikit-image
+  - timm
+  - einops
+  
+  # Computer vision and image processing
+  - opencv
+  - pycocotools
+  - rasterio
+  - imageio
+  - plyfile
+  
+  # Visualization and UI
+  - matplotlib
+  - dash
+  - plotly
+  - pandas
+  
+  # Development and utilities
+  - psutil
+  - pytest
+  - tqdm
+  - ftfy
+  - regex
+  - easydict
+  
+  # Point cloud processing
+  - pytorch3d
+  
+  # Additional dependencies for specific modules
+  - ninja
+  - kornia
+  - tensorboard
+  - tensorboardX
+  - nibabel
+  
+  # Pip-only packages
+  - pip=23.0
+  - pip:
+    # OpenMMLab stack
+    - openmim
+    - mmengine
+    - mmcv==2.0.0
+    - mmdet==3.0.0
+    - mmsegmentation==1.2.2
+    
+    # 3D processing libraries
+    - open3d
+    - laspy
+    - "https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl"
+    
+    # Utilities
+    - rich
+    - paramiko
+    - jsbeautifier
+    - fvcore
+    - triton
+    
+    # Segmentation models (specific commit)
+    - "segmentation-models-pytorch@git+https://github.com/ragavsachdeva/segmentation_models.pytorch.git@2cde92e776b0a074d5e2f4f6a50c68754f948015"
