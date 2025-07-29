@@ -16,13 +16,13 @@ def test_i3pe_same_parameters_same_hash():
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     source1b = ClassificationRandomDataset(
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     
     # Same parameters should produce same hash
@@ -42,7 +42,7 @@ def test_i3pe_different_exchange_ratio_different_hash():
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     
     dataset_075 = I3PEDataset(source=source, dataset_size=10, exchange_ratio=0.75)
@@ -62,13 +62,13 @@ def test_i3pe_different_source_different_hash():
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     source2 = ClassificationRandomDataset(
         num_examples=20,  # Different dataset size
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     
     dataset1 = I3PEDataset(source=source1, dataset_size=10, exchange_ratio=0.75)
@@ -87,13 +87,13 @@ def test_i3pe_different_source_seed_different_hash():
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     source2 = ClassificationRandomDataset(
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=123  # Different seed
+        base_seed=123  # Different seed
     )
     
     dataset1 = I3PEDataset(source=source1, dataset_size=10, exchange_ratio=0.75)
@@ -112,7 +112,7 @@ def test_i3pe_hash_format():
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     
     dataset = I3PEDataset(source=source, dataset_size=10, exchange_ratio=0.75)
@@ -136,10 +136,10 @@ def test_i3pe_comprehensive_no_hash_collisions():
     
     # Different source configurations
     source_configs = [
-        {'num_examples': 10, 'num_classes': 5, 'initial_seed': 42},
-        {'num_examples': 20, 'num_classes': 5, 'initial_seed': 42},
-        {'num_examples': 10, 'num_classes': 10, 'initial_seed': 42},
-        {'num_examples': 10, 'num_classes': 5, 'initial_seed': 123},
+        {'num_examples': 10, 'num_classes': 5, 'base_seed': 42},
+        {'num_examples': 20, 'num_classes': 5, 'base_seed': 42},
+        {'num_examples': 10, 'num_classes': 10, 'base_seed': 42},
+        {'num_examples': 10, 'num_classes': 5, 'base_seed': 123},
     ]
     
     exchange_ratios = [0.50, 0.75]

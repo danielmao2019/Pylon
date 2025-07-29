@@ -15,12 +15,12 @@ def test_ppsl_same_parameters_same_hash():
     source1a = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     source1b = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     
     # Same parameters should produce same hash
@@ -40,12 +40,12 @@ def test_ppsl_different_source_different_hash():
     source1 = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     source2 = SemanticSegmentationRandomDataset(
         num_examples=20,  # Different dataset size
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     
     dataset1 = PPSLDataset(source=source1, dataset_size=10)
@@ -63,12 +63,12 @@ def test_ppsl_different_source_seed_different_hash():
     source1 = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     source2 = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=123  # Different seed
+        base_seed=123  # Different seed
     )
     
     dataset1 = PPSLDataset(source=source1, dataset_size=10)
@@ -86,12 +86,12 @@ def test_ppsl_different_source_num_classes_different_hash():
     source1 = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     source2 = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=10,  # Different number of classes
-        initial_seed=42
+        base_seed=42
     )
     
     dataset1 = PPSLDataset(source=source1, dataset_size=10)
@@ -109,7 +109,7 @@ def test_ppsl_hash_format():
     source = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     
     dataset = PPSLDataset(source=source, dataset_size=10)
@@ -130,11 +130,11 @@ def test_ppsl_comprehensive_no_hash_collisions():
     
     # Create different source dataset configurations
     source_configs = [
-        {'num_examples': 10, 'num_classes': 5, 'initial_seed': 42},
-        {'num_examples': 20, 'num_classes': 5, 'initial_seed': 42},
-        {'num_examples': 10, 'num_classes': 10, 'initial_seed': 42},
-        {'num_examples': 10, 'num_classes': 5, 'initial_seed': 123},
-        {'num_examples': 15, 'num_classes': 8, 'initial_seed': 456},
+        {'num_examples': 10, 'num_classes': 5, 'base_seed': 42},
+        {'num_examples': 20, 'num_classes': 5, 'base_seed': 42},
+        {'num_examples': 10, 'num_classes': 10, 'base_seed': 42},
+        {'num_examples': 10, 'num_classes': 5, 'base_seed': 123},
+        {'num_examples': 15, 'num_classes': 8, 'base_seed': 456},
     ]
     
     hashes = []

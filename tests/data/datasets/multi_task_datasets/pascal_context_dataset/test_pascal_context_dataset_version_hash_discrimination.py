@@ -278,8 +278,7 @@ def test_inherited_parameters_affect_version_hash():
         
         # Test inherited parameters from BaseDataset
         parameter_variants = [
-            ('initial_seed', 42),  # Different from default None
-            ('cache_size', 1000),  # Different from default
+            ('base_seed', 42),  # Different from default None
         ]
         
         dataset1 = PASCALContextDataset(**base_args)
@@ -304,13 +303,13 @@ def test_comprehensive_no_hash_collisions():
         for split in ['train', 'val']:
             for num_parts in [1, 6, 14]:
                 for area_thres in [0, 100]:
-                    for initial_seed in [None, 42]:
+                    for base_seed_val in [None, 42]:
                         datasets.append(PASCALContextDataset(
                             data_root=temp_dir,
                             split=split,
                             num_human_parts=num_parts,
                             area_thres=area_thres,
-                            initial_seed=initial_seed
+                            base_seed=base_seed_val
                         ))
         
         # Collect all hashes

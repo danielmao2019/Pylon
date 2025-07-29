@@ -117,11 +117,11 @@ def test_semantic_segmentation_random_initial_seed_discrimination():
     # Test initial_seed variation (None vs specific value)
     config1 = {
         'class': SemanticSegmentationRandomDataset,
-        'args': {**base_config, 'initial_seed': None}
+        'args': {**base_config, 'base_seed': None}
     }
     config2 = {
         'class': SemanticSegmentationRandomDataset,
-        'args': {**base_config, 'initial_seed': 42}
+        'args': {**base_config, 'base_seed': 42}
     }
     
     dataset1 = build_from_config(config1)

@@ -215,7 +215,7 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'num_classes': 151},  # Different from default 21
             {'num_examples': 100},  # Different from default 50
-            {'initial_seed': 42},  # Different from default None
+            {'base_seed': 42},  # Different from default None
             {'num_classes': 151, 'num_examples': 100}  # Combined variation
         ]
     },

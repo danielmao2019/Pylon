@@ -140,8 +140,7 @@ def test_inherited_parameters_affect_version_hash(create_dummy_kitti_structure):
         
         # Test inherited parameters from BaseDataset
         parameter_variants = [
-            ('initial_seed', 42),  # Different from default None
-            ('cache_size', 1000),  # Different from default
+            ('base_seed', 42),  # Different from default 0
         ]
         
         dataset1 = KITTIDataset(**base_args)
@@ -164,11 +163,11 @@ def test_comprehensive_no_hash_collisions(create_dummy_kitti_structure):
         
         # Generate different dataset configurations
         for split in ['train', 'val', 'test']:
-            for initial_seed in [None, 42, 123]:
+            for base_seed_val in [None, 42, 123]:
                 datasets.append(KITTIDataset(
                     data_root=temp_dir,
                     split=split,
-                    initial_seed=initial_seed
+                    base_seed=base_seed_val
                 ))
         
         # Collect all hashes

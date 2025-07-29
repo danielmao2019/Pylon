@@ -34,7 +34,7 @@ def test_i3pe_dataset_version_dict_functionality():
         num_examples=10,
         num_classes=5,
         image_res=(64, 64),
-        initial_seed=42
+        base_seed=42
     )
     
     dataset = I3PEDataset(

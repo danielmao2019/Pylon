@@ -33,14 +33,14 @@ def test_base_random_dataset_version_discrimination():
             data_root=temp_dir,
             num_examples=100,
             gen_func_config=gen_func_config1,
-            initial_seed=42,
+            base_seed=42,
             split='all'
         )
         dataset1b = BaseRandomDataset(
             data_root=temp_dir,
             num_examples=100,
             gen_func_config=gen_func_config1,
-            initial_seed=42,
+            base_seed=42,
             split='all'
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
@@ -50,7 +50,7 @@ def test_base_random_dataset_version_discrimination():
             data_root=temp_dir,
             num_examples=200,  # Different
             gen_func_config=gen_func_config1,
-            initial_seed=42,
+            base_seed=42,
             split='all'
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
@@ -60,7 +60,7 @@ def test_base_random_dataset_version_discrimination():
             data_root=temp_dir,
             num_examples=100,
             gen_func_config=gen_func_config2,  # Different
-            initial_seed=42,
+            base_seed=42,
             split='all'
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
@@ -70,7 +70,7 @@ def test_base_random_dataset_version_discrimination():
             data_root=temp_dir,
             num_examples=100,
             gen_func_config=gen_func_config1,
-            initial_seed=123,  # Different
+            base_seed=123,  # Different
             split='all'
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
@@ -111,7 +111,7 @@ def test_all_parameters_affect_version_hash():
             'data_root': temp_dir,
             'num_examples': 100,
             'gen_func_config': gen_func_config_variants[0],
-            'initial_seed': 42,
+            'base_seed': 42,
             'split': 'all',
         }
         
@@ -153,14 +153,14 @@ def test_none_vs_specified_initial_seed():
             data_root=temp_dir,
             num_examples=100,
             gen_func_config=gen_func_config,
-            initial_seed=None,
+            base_seed=None,
             split='all'
         )
         dataset2 = BaseRandomDataset(
             data_root=temp_dir,
             num_examples=100,
             gen_func_config=gen_func_config,
-            initial_seed=42,
+            base_seed=42,
             split='all'
         )
         assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
@@ -201,7 +201,7 @@ def test_gen_func_config_serialization():
                 data_root=temp_dir,
                 num_examples=100,
                 gen_func_config=config,
-                initial_seed=42,
+                base_seed=42,
                 split='all'
             )
             datasets.append(dataset)
@@ -236,12 +236,12 @@ def test_comprehensive_no_hash_collisions():
         # Generate many different dataset configurations
         for num_examples in [50, 100, 200]:
             for config in gen_func_configs:
-                for initial_seed in [None, 42, 123]:
+                for base_seed_val in [None, 42, 123]:
                     datasets.append(BaseRandomDataset(
                         data_root=temp_dir,
                         num_examples=num_examples,
                         gen_func_config=config,
-                        initial_seed=initial_seed,
+                        base_seed=base_seed_val,
                         split='all'
                     ))
         

@@ -40,8 +40,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     ) -> None:
         """
         Args:
-            use_cache (bool): controls whether loaded data points stays in RAM. Default: True
+            use_cpu_cache (bool): controls whether loaded data points stays in RAM. Default: True
+            use_disk_cache (bool): controls whether to use disk cache. Default: True
             max_cache_memory_percent (float): maximum percentage of system memory to use for cache
+            base_seed (int): seed for deterministic behavior. Default: 0
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
 

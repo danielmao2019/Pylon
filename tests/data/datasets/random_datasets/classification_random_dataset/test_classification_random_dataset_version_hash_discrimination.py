@@ -14,13 +14,13 @@ def test_classification_random_dataset_version_discrimination():
             num_classes=10,
             num_examples=100,
             image_res=(224, 224),
-            initial_seed=42,
+            base_seed=42,
         )
         dataset1b = ClassificationRandomDataset(
             num_classes=10,
             num_examples=100,
             image_res=(224, 224),
-            initial_seed=42,
+            base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
         
@@ -29,7 +29,7 @@ def test_classification_random_dataset_version_discrimination():
             num_classes=20,  # Different
             num_examples=100,
             image_res=(224, 224),
-            initial_seed=42,
+            base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
         
@@ -38,7 +38,7 @@ def test_classification_random_dataset_version_discrimination():
             num_classes=10,
             num_examples=200,  # Different
             image_res=(224, 224),
-            initial_seed=42,
+            base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
         
@@ -47,7 +47,7 @@ def test_classification_random_dataset_version_discrimination():
             num_classes=10,
             num_examples=100,
             image_res=(256, 256),  # Different
-            initial_seed=42,
+            base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
         
@@ -56,7 +56,7 @@ def test_classification_random_dataset_version_discrimination():
             num_classes=10,
             num_examples=100,
             image_res=(224, 224),
-            initial_seed=123,  # Different
+            base_seed=123,  # Different
         )
         assert dataset1a.get_cache_version_hash() != dataset5.get_cache_version_hash()
 
@@ -69,7 +69,7 @@ def test_all_parameters_affect_version_hash():
             'num_classes': 10,
             'num_examples': 100,
             'image_res': (224, 224),
-            'initial_seed': 42,
+            'base_seed': 42,
         }
         
         # Test each parameter individually
@@ -105,13 +105,13 @@ def test_none_vs_specified_initial_seed():
             num_classes=10,
             num_examples=100,
             image_res=(224, 224),
-            initial_seed=None,
+            base_seed=None,
         )
         dataset2 = ClassificationRandomDataset(
             num_classes=10,
             num_examples=100,
             image_res=(224, 224),
-            initial_seed=42,
+            base_seed=42,
         )
         assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -135,7 +135,7 @@ def test_image_resolution_variants():
                 num_classes=10,
                 num_examples=100,
                 image_res=image_res,
-                initial_seed=42,
+                base_seed=42,
             )
             datasets.append(dataset)
         
@@ -157,7 +157,7 @@ def test_num_classes_variants():
                 num_classes=num_classes,
                 num_examples=100,
                 image_res=(224, 224),
-                initial_seed=42,
+                base_seed=42,
             )
             datasets.append(dataset)
         
@@ -177,12 +177,12 @@ def test_comprehensive_no_hash_collisions():
         for num_classes in [5, 10, 20]:
             for num_examples in [50, 100, 200]:
                 for image_res in [(224, 224), (256, 256), (128, 128)]:
-                    for initial_seed in [None, 42, 123]:
+                    for base_seed_val in [None, 42, 123]:
                         datasets.append(ClassificationRandomDataset(
                             num_classes=num_classes,
                             num_examples=num_examples,
                             image_res=image_res,
-                            initial_seed=initial_seed,
+                            base_seed=base_seed_val,
                                                 ))
         
         # Collect all hashes

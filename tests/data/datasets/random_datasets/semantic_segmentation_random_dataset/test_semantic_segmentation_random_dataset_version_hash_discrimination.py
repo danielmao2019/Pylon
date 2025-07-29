@@ -11,12 +11,12 @@ def test_semantic_segmentation_random_dataset_version_discrimination():
     dataset1a = SemanticSegmentationRandomDataset(
         num_classes=10,
         num_examples=100,
-        initial_seed=42
+        base_seed=42
     )
     dataset1b = SemanticSegmentationRandomDataset(
         num_classes=10,
         num_examples=100,
-        initial_seed=42
+        base_seed=42
     )
     assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
     
@@ -24,7 +24,7 @@ def test_semantic_segmentation_random_dataset_version_discrimination():
     dataset2 = SemanticSegmentationRandomDataset(
         num_classes=20,  # Different
         num_examples=100,
-        initial_seed=42
+        base_seed=42
     )
     assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
     
@@ -32,7 +32,7 @@ def test_semantic_segmentation_random_dataset_version_discrimination():
     dataset3 = SemanticSegmentationRandomDataset(
         num_classes=10,
         num_examples=200,  # Different
-        initial_seed=42
+        base_seed=42
     )
     assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
     
@@ -40,7 +40,7 @@ def test_semantic_segmentation_random_dataset_version_discrimination():
     dataset4 = SemanticSegmentationRandomDataset(
         num_classes=10,
         num_examples=100,
-        initial_seed=123  # Different
+        base_seed=123  # Different
     )
     assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
 
@@ -51,7 +51,7 @@ def test_all_parameters_affect_version_hash():
     base_args = {
         'num_classes': 10,
         'num_examples': 100,
-        'initial_seed': 42,
+        'base_seed': 42,
     }
     
     # Test each parameter individually
@@ -83,12 +83,12 @@ def test_none_vs_specified_initial_seed():
     dataset1 = SemanticSegmentationRandomDataset(
         num_classes=10,
         num_examples=100,
-        initial_seed=None
+        base_seed=None
     )
     dataset2 = SemanticSegmentationRandomDataset(
         num_classes=10,
         num_examples=100,
-        initial_seed=42
+        base_seed=42
     )
     assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -113,7 +113,7 @@ def test_num_classes_affects_mask_size():
         dataset = SemanticSegmentationRandomDataset(
             num_classes=num_classes,
             num_examples=100,
-            initial_seed=42
+            base_seed=42
         )
         datasets.append(dataset)
     
@@ -139,7 +139,7 @@ def test_edge_case_num_classes():
         dataset = SemanticSegmentationRandomDataset(
             num_classes=num_classes,
             num_examples=100,
-            initial_seed=42
+            base_seed=42
         )
         datasets.append(dataset)
     
@@ -157,11 +157,11 @@ def test_comprehensive_no_hash_collisions():
     # Generate many different dataset configurations
     for num_classes in [4, 9, 16, 25, 30]:  # Different mask sizes
         for num_examples in [50, 100, 200]:
-            for initial_seed in [None, 42, 123]:
+            for base_seed_val in [None, 42, 123]:
                 datasets.append(SemanticSegmentationRandomDataset(
                     num_classes=num_classes,
                     num_examples=num_examples,
-                    initial_seed=initial_seed
+                    base_seed=base_seed_val
                 ))
     
     # Collect all hashes

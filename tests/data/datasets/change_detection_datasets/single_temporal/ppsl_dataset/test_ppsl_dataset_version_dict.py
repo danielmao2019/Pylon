@@ -31,7 +31,7 @@ def test_ppsl_dataset_version_dict_functionality():
     source = SemanticSegmentationRandomDataset(
         num_examples=10,
         num_classes=5,
-        initial_seed=42
+        base_seed=42
     )
     
     dataset = PPSLDataset(source=source, dataset_size=10)

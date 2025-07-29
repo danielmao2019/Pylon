@@ -64,8 +64,7 @@ def test_inherited_parameters_affect_version_hash():
         
         # Test inherited parameters from BaseDataset
         parameter_variants = [
-            ('initial_seed', 42),  # Different from default None
-            ('cache_size', 1000),  # Different from default
+            ('base_seed', 42),  # Different from default None
         ]
         
         dataset1 = MNISTDataset(**base_args)
@@ -86,11 +85,11 @@ def test_comprehensive_no_hash_collisions():
         
         # Generate different dataset configurations
         for split in ['train', 'test']:
-            for initial_seed in [None, 42, 123]:
+            for base_seed_val in [None, 42, 123]:
                 datasets.append(MNISTDataset(
                     data_root=temp_dir,
                     split=split,
-                    initial_seed=initial_seed
+                    base_seed=base_seed_val
                 ))
         
         # Collect all hashes
