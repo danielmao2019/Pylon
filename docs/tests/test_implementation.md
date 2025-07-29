@@ -16,6 +16,12 @@
 - **Parametrization**: Use `@pytest.mark.parametrize` for multiple test cases instead of test classes
 - **Invalid case testing**: Use `pytest.raises()` instead of try-catch blocks for testing expected failures
 - **Test organization**: For large test modules, split by test patterns into separate files:
+
+**CRITICAL:** Never use `if __name__ == '__main__':` in test files:
+- **Test files are for testing, not for direct execution** - use pytest to run tests
+- **Wrong**: `if __name__ == '__main__': test_my_function()` in test files
+- **Correct**: Run tests via `pytest tests/test_file.py`
+- **Use `if __name__ == '__main__':` only in**: Scripts, main entry points, utilities, demos - never in test files
   ```
   tests/criteria/base_criterion/
   ├── test_initialization.py      # Initialization pattern

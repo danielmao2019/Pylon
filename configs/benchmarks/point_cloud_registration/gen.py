@@ -123,6 +123,18 @@ def build_training_config(dataset: str, model: str):
             from configs.common.models.point_cloud_registration.overlappredator_cfg import model_cfg
             from configs.common.criteria.point_cloud_registration.overlappredator_criterion_cfg import criterion_cfg
             from configs.common.metrics.point_cloud_registration.overlappredator_metric_cfg import metric_cfg
+        
+        elif model == 'D3Feat':
+            # D3Feat only works with ThreeDMatch dataset
+            if dataset_name != 'threedmatch':
+                raise NotImplementedError(f"D3Feat is only compatible with threedmatch dataset, not {dataset_name}")
+                
+            from configs.common.datasets.point_cloud_registration.train.d3feat_threedmatch_data_cfg import data_cfg as train_data_cfg
+            from configs.common.datasets.point_cloud_registration.val.d3feat_threedmatch_data_cfg import data_cfg as val_data_cfg
+
+            from configs.common.models.point_cloud_registration.d3feat.d3feat_model_cfg import config as model_cfg
+            from configs.common.criteria.point_cloud_registration.d3feat_criterion_cfg import criterion_cfg
+            from configs.common.metrics.point_cloud_registration.d3feat_metric_cfg import metric_cfg
         else:
             raise NotImplementedError(f"Model {model} not implemented")
 
@@ -189,7 +201,9 @@ def main(dataset: str, model: str) -> None:
 
 if __name__ == "__main__":
     import itertools
-    for dataset, model in itertools.product(
+    
+    # Standard datasets and models
+    standard_combinations = itertools.product(
         [
             'single_temporal_pcr_1.0', 'single_temporal_pcr_0.5', 'single_temporal_pcr_0.4',
             'bi_temporal_pcr_1.0', 'bi_temporal_pcr_0.5', 'bi_temporal_pcr_0.4',
@@ -199,5 +213,11 @@ if __name__ == "__main__":
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
             'GeoTransformer', 'OverlapPredator', 'BUFFER',
         ],
-    ):
+    )
+    
+    # D3Feat only works with ThreeDMatch
+    d3feat_combinations = [('threedmatch', 'D3Feat')]
+    
+    # Generate all configs
+    for dataset, model in itertools.chain(standard_combinations, d3feat_combinations):
         main(dataset, model)

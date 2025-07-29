@@ -44,6 +44,9 @@ class RandomSelect:
         else:
             # Create generator on the same device as point cloud
             gen = torch.Generator(device=pc['pos'].device)
+            # Handle tuple seeds like BaseTransform does
+            if not isinstance(seed, int):
+                seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
             gen.manual_seed(seed)
         
         num_points = pc['pos'].shape[0]
