@@ -215,10 +215,21 @@ The debugging process revealed a cascading series of architectural issues:
 
 ### **Phase 5: API Convention and Final Testing** (Commits 26-30)
 1. **Dataloader structure fix**: Moved D3FeatDataLoader from subdirectory to main dataloaders directory following PCR patterns
+   - Removed `data/dataloaders/d3feat/` subdirectory structure
+   - Moved `d3feat_dataloader.py` to main `data/dataloaders/` directory
+   - Updated 5 files with import references to use new location
 2. **Model API convention**: Fixed forward method to use `inputs` parameter instead of `batch` following Pylon convention
+   - Changed `def forward(self, batch: Dict[str, Any])` to `def forward(self, inputs: Dict[str, Any])`
+   - Removed intermediate `inputs = batch['inputs']` assignment
+   - All wrapper models in Pylon use `inputs` parameter directly
 3. **Test architecture updates**: Fixed all tests to pass `batch['inputs']` to model and handle device placement properly
+   - Updated 6 model tests to call `model(batch['inputs'])` instead of `model(batch)`
+   - Added comprehensive CPU device forcing for all batch tensors in tests
+   - Fixed tensor device mismatch errors that occurred during test execution
 4. **Stack lengths requirement**: Updated criterion tests to include required `stack_lengths` in y_pred
-5. **Comprehensive verification**: All tests pass (6/6 model tests, 7/7 criterion tests) and training runs successfully
+   - Added `'stack_lengths': [torch.tensor([num_points, num_points], dtype=torch.int32)]` to all 7 criterion tests
+   - Ensured tests match the contract expected by D3FeatCriterion after fallback removal
+5. **Comprehensive verification**: All tests pass (6/6 model tests, 7/7 criterion tests) and training runs successfully without any CUDA assertion errors or device placement issues
 
 ### **Key Insight**: Each phase's fixes revealed deeper architectural issues. The final CUDA assertion error was the most critical, requiring understanding of the entire data flow pipeline.
 
