@@ -107,6 +107,7 @@ class CityScapesDataset(BaseDataset):
     def __init__(self, semantic_granularity: str = 'coarse', *args, **kwargs) -> None:
         assert isinstance(semantic_granularity, str), f"{type(semantic_granularity)=}"
         assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
+        self.semantic_granularity = semantic_granularity
         if semantic_granularity == 'fine':
             self.CLASS_MAP = self.CLASS_MAP_F
             self.NUM_CLASSES = self.NUM_CLASSES_F
@@ -144,8 +145,12 @@ class CityScapesDataset(BaseDataset):
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
-        # CityScapesDataset has no additional parameters beyond BaseDataset
-        return super()._get_cache_version_dict()
+        version_dict = super()._get_cache_version_dict()
+        
+        # Include semantic granularity parameter
+        version_dict['semantic_granularity'] = self.semantic_granularity
+        
+        return version_dict
 
     def _filter_dataset_(self, remove_indices: List[int], cache: Optional[bool] = True) -> None:
         if not cache:

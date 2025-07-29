@@ -29,8 +29,8 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 @pytest.fixture
 def dataset(request):
     """Fixture for creating a ClassificationRandomDataset instance."""
-    num_classes, num_examples, image_res, initial_seed = request.param
-    return ClassificationRandomDataset(num_classes, num_examples, image_res, initial_seed)
+    num_classes, num_examples, image_res, base_seed = request.param
+    return ClassificationRandomDataset(num_classes, num_examples, image_res, base_seed=base_seed)
 
 
 @pytest.mark.parametrize("dataset", [

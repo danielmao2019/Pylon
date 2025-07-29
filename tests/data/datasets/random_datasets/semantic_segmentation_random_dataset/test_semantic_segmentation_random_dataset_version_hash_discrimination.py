@@ -36,7 +36,7 @@ def test_semantic_segmentation_random_dataset_version_discrimination():
     )
     assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
     
-    # Different initial_seed should have different hash
+    # Different base_seed should have different hash
     dataset4 = SemanticSegmentationRandomDataset(
         num_classes=10,
         num_examples=100,
@@ -61,8 +61,8 @@ def test_all_parameters_affect_version_hash():
         ('num_classes', 100),  # Large number affects mask size
         ('num_examples', 50),
         ('num_examples', 200),
-        ('initial_seed', 123),
-        ('initial_seed', None),  # None vs specified
+        ('base_seed', 123),
+        ('base_seed', None),  # None vs specified
     ]
     
     dataset1 = SemanticSegmentationRandomDataset(**base_args)

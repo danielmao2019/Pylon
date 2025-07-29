@@ -51,7 +51,7 @@ def test_classification_random_dataset_version_discrimination():
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
         
-        # Different initial_seed should have different hash
+        # Different base_seed should have different hash
         dataset5 = ClassificationRandomDataset(
             num_classes=10,
             num_examples=100,
@@ -81,8 +81,8 @@ def test_all_parameters_affect_version_hash():
             ('image_res', (128, 128)),
             ('image_res', (256, 256)),
             ('image_res', (224, 512)),  # Different aspect ratio
-            ('initial_seed', 123),
-            ('initial_seed', None),  # None vs specified
+            ('base_seed', 123),
+            ('base_seed', None),  # None vs specified
         ]
         
         dataset1 = ClassificationRandomDataset(**base_args)
@@ -97,7 +97,7 @@ def test_all_parameters_affect_version_hash():
 
 
 def test_none_vs_specified_initial_seed():
-    """Test that None vs specified initial_seed produces different hashes."""
+    """Test that None vs specified base_seed produces different hashes."""
     
     with tempfile.TemporaryDirectory() as temp_dir:
         # None vs specified should have different hashes

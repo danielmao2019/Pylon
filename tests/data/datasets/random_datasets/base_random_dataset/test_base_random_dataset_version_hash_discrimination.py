@@ -120,8 +120,8 @@ def test_all_parameters_affect_version_hash():
             ('num_examples', 200),
             ('gen_func_config', gen_func_config_variants[1]),
             ('gen_func_config', gen_func_config_variants[2]),
-            ('initial_seed', 123),
-            ('initial_seed', None),  # None vs specified
+            ('base_seed', 123),
+            ('base_seed', None),  # None vs specified
         ]
         
         dataset1 = BaseRandomDataset(**base_args)
@@ -136,7 +136,7 @@ def test_all_parameters_affect_version_hash():
 
 
 def test_none_vs_specified_initial_seed():
-    """Test that None vs specified initial_seed produces different hashes."""
+    """Test that None vs specified base_seed produces different hashes."""
     
     gen_func_config = {
         'inputs': {
