@@ -76,26 +76,10 @@ if __name__ == "__main__":
     parser.add_argument("--log-dirs", nargs="+", help="Paths to log directories to view")
     args = parser.parse_args()
 
-    # Use provided log directories or fallback to hardcoded examples
-    if args.log_dirs:
-        log_dirs = args.log_dirs
-        # Validate that all provided directories exist
-        for log_dir in log_dirs:
-            assert os.path.exists(log_dir), f"Log directory not found: {log_dir}"
-    else:
-        # Fallback to hardcoded examples with warning
-        log_dirs = [
-            "./logs/benchmarks/point_cloud_registration/kitti/ICP_run_0",
-            "./logs/benchmarks/point_cloud_registration/kitti/RANSAC_FPFH_run_0",
-            "./logs/benchmarks/point_cloud_registration/kitti/TeaserPlusPlus_run_0",
-        ]
-        print("WARNING: Using hardcoded log directories. Use --log-dirs to specify custom directories.")
-        # Validate hardcoded directories exist
-        existing_dirs = [log_dir for log_dir in log_dirs if os.path.exists(log_dir)]
-        if not existing_dirs:
-            raise ValueError("No hardcoded log directories found. Please specify --log-dirs argument.")
-        if len(existing_dirs) != len(log_dirs):
-            print(f"WARNING: Only {len(existing_dirs)}/{len(log_dirs)} hardcoded directories exist. Using: {existing_dirs}")
-            log_dirs = existing_dirs
+    log_dirs = [
+        "./logs/benchmarks/point_cloud_registration/kitti/ICP_run_0",
+        "./logs/benchmarks/point_cloud_registration/kitti/RANSAC_FPFH_run_0",
+        "./logs/benchmarks/point_cloud_registration/kitti/TeaserPlusPlus_run_0",
+    ]
 
     run_app(log_dirs=log_dirs, debug=args.debug, port=args.port, force_reload=args.force_reload)
