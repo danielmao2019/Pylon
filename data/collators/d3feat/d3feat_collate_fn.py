@@ -72,14 +72,7 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
 
 def d3feat_collate_fn(list_data, config, neighborhood_limits):
     """D3Feat collate function for descriptor training."""
-    batched_points_list = []
-    batched_features_list = []
-    batched_lengths_list = []
     assert len(list_data) == 1
-    
-    # Initialize correspondences and distance matrices
-    sel_corr = np.empty((0, 2), dtype=np.int64)
-    dist_keypts = np.empty((0, 0), dtype=np.float32)
     
     # Handle Pylon format data
     datapoint = list_data[0]
@@ -87,51 +80,47 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
     src_pc = inputs['src_pc']
     tgt_pc = inputs['tgt_pc']
     
-    # Convert to numpy and extract original format data
-    pts0 = src_pc['pos'].detach().cpu().numpy().astype(np.float32)
-    pts1 = tgt_pc['pos'].detach().cpu().numpy().astype(np.float32)
-    feat0 = src_pc['feat'].detach().cpu().numpy().astype(np.float32)
-    feat1 = tgt_pc['feat'].detach().cpu().numpy().astype(np.float32)
+    # Keep tensors on device throughout processing
+    pts0 = src_pc['pos']  # [N_src, 3] on device
+    pts1 = tgt_pc['pos']  # [N_tgt, 3] on device
+    feat0 = src_pc['feat']  # [N_src, feat_dim] on device
+    feat1 = tgt_pc['feat']  # [N_tgt, feat_dim] on device
     
-    # Get correspondences if available
+    device = pts0.device
+    
+    # Get correspondences and compute distance matrix (on device)
     if 'correspondences' in inputs:
-        sel_corr = inputs['correspondences'].detach().cpu().numpy().astype(np.int64)
+        correspondences = inputs['correspondences']
         
         # Filter out invalid correspondences (indices out of bounds)
         src_size = pts0.shape[0]
         tgt_size = pts1.shape[0]
-        valid_mask = (sel_corr[:, 0] < src_size) & (sel_corr[:, 1] < tgt_size)
-        sel_corr = sel_corr[valid_mask]
+        valid_mask = (correspondences[:, 0] < src_size) & (correspondences[:, 1] < tgt_size)
+        correspondences = correspondences[valid_mask]
         
         # Limit correspondences for memory efficiency during calibration
         max_corr_for_calibration = 1000
-        if sel_corr.shape[0] > max_corr_for_calibration:
+        if correspondences.shape[0] > max_corr_for_calibration:
             # Randomly sample correspondences to avoid memory issues
-            import numpy.random as np_random
-            indices = np_random.choice(sel_corr.shape[0], max_corr_for_calibration, replace=False)
-            sel_corr = sel_corr[indices]
+            indices = torch.randperm(correspondences.shape[0], device=device)[:max_corr_for_calibration]
+            correspondences = correspondences[indices]
         
-        # Compute distance matrix from correspondences
-        if sel_corr.shape[0] > 0:
-            corr_pts_src = pts0[sel_corr[:, 0]]
-            from scipy.spatial.distance import cdist
-            dist_keypts = cdist(corr_pts_src, corr_pts_src).astype(np.float32)
+        # Compute distance matrix from correspondences (keep on device)
+        if correspondences.shape[0] > 0:
+            corr_pts_src = pts0[correspondences[:, 0]]
+            dist_keypts = torch.cdist(corr_pts_src, corr_pts_src)  # [K, K] on device
         else:
-            dist_keypts = np.empty((0, 0), dtype=np.float32)
+            dist_keypts = torch.empty((0, 0), dtype=torch.float32, device=device)
+            
+        sel_corr = correspondences
+    else:
+        sel_corr = torch.empty((0, 2), dtype=torch.long, device=device)
+        dist_keypts = torch.empty((0, 0), dtype=torch.float32, device=device)
     
-    batched_points_list.append(pts0)
-    batched_points_list.append(pts1)
-    batched_features_list.append(feat0)
-    batched_features_list.append(feat1)
-    batched_lengths_list.append(len(pts0))
-    batched_lengths_list.append(len(pts1))
-    
-    # Get device from original tensors
-    device = src_pc['pos'].device
-    
-    batched_features = torch.from_numpy(np.concatenate(batched_features_list, axis=0)).to(device)
-    batched_points = torch.from_numpy(np.concatenate(batched_points_list, axis=0)).to(device)
-    batched_lengths = torch.from_numpy(np.array(batched_lengths_list)).int().to(device)
+    # Batch points and features (keep on device)
+    batched_points = torch.cat([pts0, pts1], dim=0).float()  # [N_total, 3]
+    batched_features = torch.cat([feat0, feat1], dim=0).float()  # [N_total, feat_dim]
+    batched_lengths = torch.tensor([pts0.shape[0], pts1.shape[0]], dtype=torch.int32, device=device)
 
     # Starting radius of convolutions
     r_normal = config.first_subsampling_dl * config.conv_radius
@@ -231,14 +220,14 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
         'upsamples': input_upsamples,
         'features': batched_features.float(),
         'stack_lengths': input_batches_len,
-        'corr': torch.from_numpy(sel_corr).to(device),
-        'dist_keypts': torch.from_numpy(dist_keypts).to(device),
+        'corr': sel_corr,
+        'dist_keypts': dist_keypts,
     }
 
     # Return in Pylon format
     labels = dict(datapoint['labels'])
-    labels['correspondences'] = torch.from_numpy(sel_corr).to(device)
-    labels['dist_keypts'] = torch.from_numpy(dist_keypts).to(device)
+    labels['correspondences'] = sel_corr
+    labels['dist_keypts'] = dist_keypts
     
     result = {
         'inputs': dict_inputs,

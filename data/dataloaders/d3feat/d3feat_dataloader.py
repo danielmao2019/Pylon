@@ -1,52 +1,25 @@
-"""
-D3Feat DataLoader for Pylon Integration.
-
-This module provides dataloader functionality for D3Feat including neighborhood calibration.
-"""
-
 from typing import List, Any, Callable
-from functools import partial
 import numpy as np
+from functools import partial
 import torch
-from data.collators.d3feat.d3feat_collator import collate_fn_descriptor
+from data.collators.d3feat.d3feat_collate_fn import d3feat_collate_fn
 from data.dataloaders.base_dataloader import BaseDataLoader
-from models.point_cloud_registration.d3feat.utils.timer import Timer
 
 
 def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ratio: float = 0.8, samples_threshold: int = 2000) -> List[int]:
-    """Calibrate neighborhood limits for D3Feat KPConv operations.
-    
-    Args:
-        dataset: The dataset to calibrate on
-        config: D3Feat configuration object
-        collate_fn: Collate function to use
-        keep_ratio: Ratio of neighbors to keep (default: 0.8)
-        samples_threshold: Minimum samples per layer (default: 2000)
-        
-    Returns:
-        List of neighborhood limits per layer
-    """
-    timer = Timer()
-    last_display = timer.total_time
 
     # From config parameter, compute higher bound of neighbors number in a neighborhood
     hist_n = int(np.ceil(4 / 3 * np.pi * (config.deform_radius + 1) ** 3))
     neighb_hists = np.zeros((config.num_layers, hist_n), dtype=np.int32)
 
-    # Get histogram of neighborhood sizes in 1 epoch max
+    # Get histogram of neighborhood sizes i in 1 epoch max.
     for i in range(len(dataset)):
-        timer.tic()
-        batched_input = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * config.num_layers)
+        batched_dp = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * config.num_layers)
 
-        # Update histogram
-        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).numpy() for neighb_mat in batched_input['neighbors']]
+        # update histogram
+        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).cpu().numpy() for neighb_mat in batched_dp['inputs']['neighbors']]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighb_hists += np.vstack(hists)
-        timer.toc()
-
-        if timer.total_time - last_display > 0.1:
-            last_display = timer.total_time
-            print(f"Calib Neighbors {i:08d}: timings {timer.total_time:4.2f}s")
 
         if np.min(np.sum(neighb_hists, axis=1)) > samples_threshold:
             break
@@ -54,66 +27,43 @@ def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ra
     cumsum = np.cumsum(neighb_hists.T, axis=0)
     percentiles = np.sum(cumsum < (keep_ratio * cumsum[hist_n - 1, :]), axis=0)
 
-    neighborhood_limits = percentiles
+    neighborhood_limits = percentiles.tolist()
     print('\n')
 
     return neighborhood_limits
 
 
 class D3FeatDataLoader(BaseDataLoader):
-    """D3Feat DataLoader with neighborhood calibration."""
-    
-    def __init__(
-        self,
-        dataset: Any,
-        batch_size: int = 1,
-        num_workers: int = 4,
-        shuffle: bool = True,
-        neighborhood_limits: List[int] = None,
-        keep_ratio: float = 0.8,
-        samples_threshold: int = 2000,
-        **kwargs
-    ):
-        """Initialize D3Feat DataLoader.
+    def __init__(self, dataset: Any, config: Any, **kwargs: Any) -> None:
+        assert isinstance(config, dict), 'config must be a dict'
+        from easydict import EasyDict
+        config = EasyDict(config)
+        assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
         
-        Args:
-            dataset: The dataset to load from
-            batch_size: Batch size (default: 1 for D3Feat)
-            num_workers: Number of worker processes
-            shuffle: Whether to shuffle the data
-            neighborhood_limits: Pre-computed neighborhood limits
-            keep_ratio: Ratio for neighborhood calibration
-            samples_threshold: Threshold for neighborhood calibration
-        """
-        # Calibrate neighborhood limits if not provided
-        if neighborhood_limits is None:
-            neighborhood_limits = calibrate_neighbors(
-                dataset=dataset, 
-                config=dataset.config, 
-                collate_fn=collate_fn_descriptor,
-                keep_ratio=keep_ratio,
-                samples_threshold=samples_threshold
-            )
+        # Add architecture configuration like in original D3Feat
+        config.architecture = ['simple', 'resnetb']
+        for i in range(config.num_layers-1):
+            config.architecture.append('resnetb_strided')
+            config.architecture.append('resnetb')
+            config.architecture.append('resnetb')
+        for i in range(config.num_layers-2):
+            config.architecture.append('nearest_upsample')
+            config.architecture.append('unary')
+        config.architecture.append('nearest_upsample')
+        config.architecture.append('last_unary')
         
+        neighborhood_limits = calibrate_neighbors(
+            dataset,
+            config,
+            collate_fn=d3feat_collate_fn,
+        )
         print("neighborhood:", neighborhood_limits)
-        
-        # Create collate function with calibrated limits
-        collate_fn = partial(
-            collate_fn_descriptor, 
-            config=dataset.config, 
-            neighborhood_limits=neighborhood_limits
-        )
-        
-        super().__init__(
+        super(D3FeatDataLoader, self).__init__(
             dataset=dataset,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            num_workers=num_workers,
-            collate_fn=collate_fn,
-            drop_last=False,
-            **kwargs
+            collate_fn=partial(
+                d3feat_collate_fn,
+                config=config,
+                neighborhood_limits=neighborhood_limits,
+            ),
+            **kwargs,
         )
-        
-        self.neighborhood_limits = neighborhood_limits
-
-
