@@ -35,10 +35,12 @@ def test_urb3dcd_dataset_version_dict_functionality(urb3dcd_dataset_train):
     assert 'class_name' in version_dict
     assert version_dict['class_name'] == 'Urb3DCDDataset'
     
-    # Should contain base parameters
-    assert 'data_root' in version_dict
+    # Should contain base parameters (data_root excluded for cache stability)
     assert 'split' in version_dict
     assert version_dict['split'] == 'train'
+    
+    # data_root should NOT be in version_dict for cache stability across different filesystem locations
+    assert 'data_root' not in version_dict
     
     # Should contain Urb3DCDDataset specific parameters
     assert 'version' in version_dict

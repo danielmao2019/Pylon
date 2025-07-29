@@ -15,6 +15,7 @@ def urb3dcd_dataset_train(urb3dcd_data_root):
     """Fixture for creating a Urb3DCDDataset instance with train configuration."""
     return Urb3DCDDataset(
         data_root=urb3dcd_data_root,
+        split='train',  # Explicitly set split for version dict testing
         sample_per_epoch=100,
         radius=100,
         fix_samples=False
