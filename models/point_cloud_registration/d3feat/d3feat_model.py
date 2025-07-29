@@ -115,7 +115,7 @@ class D3FeatModel(nn.Module):
                 - descriptors: Combined descriptors [N_total, feature_dim]
                 - scores: Combined detection scores [N_total, 1]
         """
-        # Run original D3Feat model with collated batch
+        # Run original D3Feat model with collated inputs
         features, scores = self.d3feat_model(inputs)
         
         return {
