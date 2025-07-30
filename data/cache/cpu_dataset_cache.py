@@ -40,7 +40,6 @@ class CPUDatasetCache(BaseCache):
         self.memory_usage = {}  # key -> memory usage in bytes
         self.total_memory = 0  # Total memory usage in bytes
 
-
         # Setup logging
         self.logger = logging.getLogger(__name__)
 
