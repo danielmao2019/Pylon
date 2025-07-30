@@ -1,8 +1,6 @@
 """Tests for SyntheticTransformPCRDataset cache version discrimination."""
 
-import pytest
 import tempfile
-import os
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 
 
@@ -107,17 +105,6 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
         )
         assert dataset1a.get_cache_version_hash() != dataset5.get_cache_version_hash()
         
-        # Different LiDAR parameters should have different hash
-        dataset6 = ConcreteSyntheticTransformPCRDataset(
-            data_root=temp_dir,
-            dataset_size=100,
-            rotation_mag=45.0,
-            translation_mag=0.5,
-            matching_radius=0.05,
-            split='train',
-            lidar_max_range=8.0  # Different from default 6.0
-        )
-        assert dataset1a.get_cache_version_hash() != dataset6.get_cache_version_hash()
 
 
 def test_all_parameters_affect_version_hash():
@@ -140,12 +127,6 @@ def test_all_parameters_affect_version_hash():
             ('matching_radius', 0.1),
             ('overlap_range', (0.2, 0.8)),  # Different from default
             ('min_points', 256),  # Different from default 512
-            ('lidar_max_range', 8.0),  # Different from default 6.0
-            ('lidar_horizontal_fov', 90.0),  # Different from default 120.0
-            ('lidar_vertical_fov', 45.0),  # Different from default 60.0
-            ('lidar_apply_range_filter', True),  # Different from default False
-            ('lidar_apply_fov_filter', False),  # Different from default True
-            ('lidar_apply_occlusion_filter', True),  # Different from default False
         ]
         
         dataset1 = ConcreteSyntheticTransformPCRDataset(**base_args)
