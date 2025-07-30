@@ -1,575 +1,765 @@
-from typing import Tuple, Dict, Any, List
-import copy
-import os
-import glob
+"""Base display class for point cloud registration datasets with built-in display methods.
+
+This module provides the BasePCRDataset class that inherits from BaseDataset
+and includes type-specific display methods for point cloud registration datasets.
+"""
+from typing import Dict, Any, Optional, List, Tuple, Union
+import random
 import numpy as np
 import torch
-import multiprocessing
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from dash import html
+import plotly.graph_objects as go
+from utils.point_cloud_ops import apply_transform, get_correspondences
+from utils.point_cloud_ops.set_ops import pc_symmetric_difference
+from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
+from utils.point_cloud_ops.apply_transform import _normalize_transform
+from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats, build_point_cloud_id
+from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
+from data.viewer.utils.structure_validation import validate_pcr_structure
 from data.datasets.base_dataset import BaseDataset
-from utils.io import load_point_cloud
-from utils.point_cloud_ops.correspondences import get_correspondences
-from utils.point_cloud_ops.apply_transform import apply_transform
-from utils.point_cloud_ops.grid_sampling import grid_sampling
-from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
-from utils.point_cloud_ops.select import Select
-from utils.point_cloud_ops.random_select import RandomSelect
-from utils.ops import apply_tensor_op
-
-
-def process_voxel_pair(args):
-    """Process a single pair of voxels and return a datapoint if valid.
-
-    Args:
-        args: Tuple containing (src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
-              src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size)
-
-    Returns:
-        Datapoint dictionary if valid, None otherwise
-    """
-    src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc, src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size = args
-
-    if (src_voxel is None) or (tgt_voxel is None):
-        return None
-    # Skip if either source or target has too few points
-    if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
-        return None
-
-    # Check for flat ground surfaces by analyzing z-coordinate distribution
-    def check_flat_surface(pc, indices):
-        # Get z coordinates
-        z_coords = pc['pos'][indices, 2]
-
-        # Create histogram with bin size of 1.0 using PyTorch
-        z_min = z_coords.min().item()
-        z_max = z_coords.max().item()
-        num_bins = int((z_max - z_min) / 1.0) + 1
-
-        if num_bins <= 1:
-            return True  # If all points are in the same bin, it's a flat surface
-
-        # Use torch.histc for efficient histogram calculation
-        hist = torch.histc(z_coords, bins=num_bins, min=z_min, max=z_max)
-
-        # Check if any bin contains more than 80% of the points
-        max_bin_percentage = hist.max() / len(indices)
-        return max_bin_percentage > 0.8
-
-    # Skip if either source or target is a flat surface
-    if check_flat_surface(src_pc, src_voxel['indices']) or check_flat_surface(tgt_pc, tgt_voxel['indices']):
-        return None
-
-    # For partial overlap case, check if the overlap ratio is within the desired range
-    if overlap < 1.0:
-        overlap_ratio = compute_pc_iou(
-            src_points=Select(indices=src_voxel['indices'])(transformed_src_pc)['pos'],
-            tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc)['pos'],
-            radius=1.0,
-        )
-        # Skip if overlap ratio is not within the desired range (±10%)
-        if abs(overlap_ratio - overlap) > 0.05:
-            return None
-    else:
-        overlap_ratio = 1.0
-
-    # Apply random sampling if needed
-    src_pc_final = Select(src_voxel['indices'])(src_pc)
-    if len(src_voxel['indices']) > max_points:
-        src_pc_final = RandomSelect(percentage=max_points / len(src_voxel['indices']))(src_pc_final)
-
-    tgt_pc_final = Select(tgt_voxel['indices'])(tgt_pc)
-    if len(tgt_voxel['indices']) > max_points:
-        tgt_pc_final = RandomSelect(percentage=max_points / len(tgt_voxel['indices']))(tgt_pc_final)
-
-    # Create datapoint with position and RGB if available
-    datapoint = {
-        'src_points': src_pc_final['pos'],
-        'src_indices': src_pc_final['indices'],
-        'src_path': src_path,
-        'tgt_points': tgt_pc_final['pos'],
-        'tgt_indices': tgt_pc_final['indices'],
-        'tgt_path': tgt_path,
-        'transform': transform,
-        'overlap_ratio': overlap_ratio,
-    }
-
-    # Add RGB colors if available
-    if 'rgb' in src_pc_final:
-        datapoint['src_rgb'] = src_pc_final['rgb']
-    if 'rgb' in tgt_pc_final:
-        datapoint['tgt_rgb'] = tgt_pc_final['rgb']
-
-    return datapoint
 
 
 class BasePCRDataset(BaseDataset):
-    """Base class for point cloud registration datasets.
-
-    This class provides common functionality for both synthetic and real point cloud registration datasets.
+    """Base display class for point cloud registration datasets.
+    
+    This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint
+    method for point cloud registration datasets. Concrete dataset classes should inherit
+    from this class to automatically get appropriate display functionality.
+    
+    Expected data structure:
+    - inputs: {'src_pc': Dict, 'tgt_pc': Dict, [optional] 'correspondences': torch.Tensor}
+      OR: {'points': List[torch.Tensor], 'lengths'/'stack_lengths': List[torch.Tensor]} (batched format)
+    - labels: {'transform': torch.Tensor}
     """
-    # Required class attributes from BaseDataset
-    SPLIT_OPTIONS = ['train', 'val', 'test']
-    DATASET_SIZE = {'train': None, 'val': None, 'test': None}
+    
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
-    SHA1SUM = None
-
-    # Define base directions for shifts
-    SHIFT_DIRECTIONS = [
-        # Principal axes
-        [1, 0, 0], [-1, 0, 0],
-        [0, 1, 0], [0, -1, 0],
-        [0, 0, 1], [0, 0, -1],
-
-        # Diagonal planes
-        [1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0],
-        [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
-        [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1],
-
-        # 3D diagonals
-        [1, 1, 1], [-1, 1, 1], [1, -1, 1], [-1, -1, 1],
-        [1, 1, -1], [-1, 1, -1], [1, -1, -1], [-1, -1, -1]
-    ]
-
-    # Define magnitudes for shifts
-    SHIFT_MAGNITUDES = [0.75, 1.0, 1.25]
-
-    def __init__(
-        self,
-        voxel_size: float = 50.0,
-        min_points: int = 256,
-        max_points: int = 8192,
-        matching_radius: float = 0.1,
-        overlap: float = 1.0,
-        cache_dirname: str = None,
-        **kwargs,
-    ) -> None:
-        """Initialize the dataset.
+    
+    @staticmethod
+    def create_union_visualization(
+        src_points: torch.Tensor,
+        tgt_points: torch.Tensor,
+        point_size: float = 2,
+        point_opacity: float = 0.8,
+        camera_state: Optional[Dict[str, Any]] = None,
+        lod_type: str = "continuous",
+        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+        density_percentage: int = 100,
+        axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+    ) -> go.Figure:
+        """Create a visualization of the union of transformed source and target point clouds.
 
         Args:
-            voxel_size: Size of voxel cells for sampling (default: 50.0)
-            min_points: Minimum number of points in a cluster (default: 256)
-            max_points: Maximum number of points in a cluster (default: 8192)
-            matching_radius: Radius for finding correspondences (default: 0.1)
-            overlap: Desired overlap ratio between 0 and 1 (default: 1.0 for full overlap)
-            **kwargs: Additional arguments passed to BaseDataset
-        """
-        self._voxel_size = voxel_size
-        self._min_points = min_points
-        self._max_points = max_points
-        self.matching_radius = matching_radius
-        self.overlap = overlap
-        self.cache_dirname = cache_dirname
-        super(BasePCRDataset, self).__init__(**kwargs)
-
-    @property
-    def shifts(self):
-        """Generate a list of shifts based on directions and magnitudes.
+            src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+            tgt_points: Target point cloud [M, 3] or [1, M, 3]
+            point_size: Size of points in visualization
+            point_opacity: Opacity of points in visualization
+            camera_state: Optional dictionary containing camera position state
+            lod_type: Type of LOD ("continuous", "discrete", or "none")
+            point_cloud_id: Unique identifier for LOD caching
+            density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
         Returns:
-            List of shift vectors
+            Plotly figure showing the union visualization
         """
-        import itertools
-
-        # Calculate shift amount based on voxel size and overlap
-        shift_amount = self._voxel_size * (1 - self.overlap)
-
-        shifts = []
-        for direction, magnitude in itertools.product(self.SHIFT_DIRECTIONS, self.SHIFT_MAGNITUDES):
-            # Calculate the magnitude of the direction vector
-            dir_magnitude = sum(x*x for x in direction) ** 0.5
-
-            # Normalize and apply magnitude and shift_amount in one step
-            shift = [d / dir_magnitude * magnitude * shift_amount for d in direction]
-            shifts.append(shift)
-
-        return shifts
-
-    def _init_file_pairs(self) -> None:
-        """Initialize source and target file path pairs and their transforms.
-
-        This method should be overridden by subclasses to set up:
-        - self.src_file_paths: List of source file paths
-        - self.tgt_file_paths: List of target file paths
-        - self.gt_transforms: List of transforms from source to target
-        """
-        raise NotImplementedError("Subclasses must implement _init_file_pairs")
-
-    def _split_annotations(self, annotations: List[Any]) -> List[Any]:
-        """Split annotations into train/val/test sets.
-
-        Args:
-            annotations: List of annotations to split
-
-        Returns:
-            List of annotations for the current split
-        """
-        np.random.seed(42)
-        indices = np.random.permutation(len(annotations))
-        train_idx = int(0.7 * len(indices))
-        val_idx = int(0.85 * len(indices))  # 70% + 15%
-
-        if self.split == 'train':
-            select_indices = indices[:train_idx]
-        elif self.split == 'val':
-            select_indices = indices[train_idx:val_idx]
-        else:  # test
-            select_indices = indices[val_idx:]
-
-        # Select annotations for current split
-        selected_annotations = [annotations[i] for i in select_indices]
-
-        # Update dataset size
-        self.DATASET_SIZE[self.split] = len(selected_annotations)
-
-        return selected_annotations
-
-    def _init_annotations(self) -> None:
-        """Initialize dataset annotations."""
-        start_time = time.time()
-
-        # Get file paths
-        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
-        self.cache_dir = os.path.join(os.path.dirname(self.data_root), self.cache_dirname+f"_overlap_{self.overlap}")
-        os.makedirs(self.cache_dir, exist_ok=True)
-        print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
-        self._init_file_pairs()
-
-        # Check if cache exists
-        scene_dirs = [
-            os.path.join(self.cache_dir, f'scene_pair_{idx}')
-            for idx in range(len(self.filepath_pairs))
-            if glob.glob(os.path.join(self.cache_dir, f'scene_pair_{idx}', 'voxel_*.pt'))
-        ]
-        if False and len(scene_dirs) > 0:
-            # Load all voxel files from all scene directories
-            self.annotations = []
-            for scene_dir in scene_dirs:
-                voxel_files = sorted(glob.glob(os.path.join(scene_dir, 'voxel_*.pt')))
-                self.annotations.extend(voxel_files)
-            elapsed = time.time() - start_time
-            print(f"Loaded {len(self.annotations)} cached voxels from {len(scene_dirs)} scene pairs in {elapsed:.2f} seconds")
-        else:
-            # Process point clouds
-            print("Processing point clouds...")
-
-            self.annotations = []
-            total_pairs = len(self.filepath_pairs)
-            for pair_idx, ((src_path, tgt_path), transform) in enumerate(zip(self.filepath_pairs, self.gt_transforms)):
-                if 'Week-03-Wed-Oct-09-2024.las' in src_path:
-                    continue
-                pair_start_time = time.time()
-                # Create a directory for this scene pair
-                scene_dir = os.path.join(self.cache_dir, f'scene_pair_{pair_idx}')
-                os.makedirs(scene_dir, exist_ok=True)
-
-                # Check if this scene pair has already been processed
-                existing_voxels = sorted(glob.glob(os.path.join(scene_dir, 'voxel_*.pt')))
-                if len(existing_voxels) > 0:
-                    print(f"Scene pair {pair_idx}/{total_pairs-1} already processed, loading {len(existing_voxels)} voxels")
-                    self.annotations.extend(existing_voxels)
-                    continue
-
-                print(f"Processing scene pair {pair_idx}/{total_pairs-1}...")
-                # Process the point cloud pair and get the file paths of saved voxels
-                voxel_file_paths = self._process_point_cloud_pair(
-                    src_path, tgt_path, transform,
-                    scene_dir
-                )
-                # Add the file paths to annotations
-                self.annotations.extend(voxel_file_paths)
-
-                pair_elapsed = time.time() - pair_start_time
-                print(f"Completed scene pair {pair_idx}/{total_pairs-1} in {pair_elapsed:.2f} seconds")
-
-            total_elapsed = time.time() - start_time
-            print(f"Created and cached {len(self.annotations)} voxels in {total_elapsed:.2f} seconds")
-
-        # Split annotations into train/val/test
-        self.annotations = self._split_annotations(self.annotations)
-        print(f"Dataset initialization completed in {time.time() - start_time:.2f} seconds")
-
-    def _process_point_cloud_pair(
-        self, src_path: str, tgt_path: str, transform: torch.Tensor,
-        scene_dir: str = None,
-    ) -> List[str]:
-        """Process a pair of point clouds and return file paths to saved datapoints.
-
-        Args:
-            src_path: Path to the source point cloud file
-            tgt_path: Path to the target point cloud file
-            transform: Transformation from source to target
-            scene_dir: Directory to save datapoints for this scene pair
-
-        Returns:
-            List of file paths to saved datapoints
-        """
-        pair_start_time = time.time()
-
-        # Load source point cloud
-        print(f"Loading source point cloud from {src_path}...")
-        src_load_start = time.time()
-        src_pc = load_point_cloud(src_path)
-        assert isinstance(src_pc, dict)
-        assert src_pc.keys() >= {'pos'}
-        src_pc = apply_tensor_op(func=lambda x: x.to(self.device), inputs=src_pc)
-        print(f"Source point cloud loaded in {time.time() - src_load_start:.2f} seconds")
-
-        # Load target point cloud
-        print(f"Loading target point cloud from {tgt_path}...")
-        tgt_load_start = time.time()
-        tgt_pc = load_point_cloud(tgt_path)
-        assert isinstance(tgt_pc, dict)
-        assert tgt_pc.keys() >= {'pos'}
-        tgt_pc = apply_tensor_op(func=lambda x: x.to(self.device), inputs=tgt_pc)
-        print(f"Target point cloud loaded in {time.time() - tgt_load_start:.2f} seconds")
-
-        # Move transform to device
-        transform = transform.to(self.device)
-
-        # Transform source points to align with target
-        transformed_src_pc = copy.deepcopy(src_pc)
-        transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
-
-        datapoint_file_paths = []
-        enumeration_start = 0
-
-        # Process target point clouds based on overlap setting
-        if self.overlap == 1.0:
-            # For full overlap, only use the original target
-            print("Using full overlap (overlap >= 1.0), processing only the original target...")
-
-            # Process the original target
-            file_paths = self._process_target_point_cloud(
-                transformed_src_pc=transformed_src_pc,
-                target_pc=tgt_pc,
-                src_pc=src_pc,
-                tgt_pc=tgt_pc,
-                src_path=src_path,
-                tgt_path=tgt_path,
-                transform=transform,
-                scene_dir=scene_dir,
-                enumeration_start=enumeration_start
-            )
-
-            datapoint_file_paths.extend(file_paths)
-            print(f"Total datapoint files: {len(datapoint_file_paths)}")
-
-        else:
-            # For partial overlap, use only the shifted targets
-            print(f"Using partial overlap (overlap = {self.overlap}), processing {len(self.shifts)} shifted targets...")
-
-            # Process each shifted target
-            for shift_idx, shift in enumerate(self.shifts, 1):
-                shift_start_time = time.time()
-                print(f"Processing shifted target {shift_idx}/{len(self.shifts)}...")
-
-                # Apply shift to target points
-                shifted_tgt_pc = copy.deepcopy(tgt_pc)
-                shifted_tgt_pc['pos'][:, 0] += shift[0]
-                shifted_tgt_pc['pos'][:, 1] += shift[1]
-                shifted_tgt_pc['pos'][:, 2] += shift[2]
-
-                # Process the shifted target with updated enumeration_start
-                file_paths = self._process_target_point_cloud(
-                    transformed_src_pc=transformed_src_pc,
-                    target_pc=shifted_tgt_pc,
-                    src_pc=src_pc,
-                    tgt_pc=tgt_pc,
-                    src_path=src_path,
-                    tgt_path=tgt_path,
-                    transform=transform,
-                    scene_dir=scene_dir,
-                    enumeration_start=enumeration_start
-                )
-
-                datapoint_file_paths.extend(file_paths)
-                # Update enumeration_start for the next shift
-                enumeration_start += len(file_paths)
-                print(f"Shifted target {shift_idx}/{len(self.shifts)} completed in {time.time() - shift_start_time:.2f} seconds")
-                print(f"Total datapoint files so far: {len(datapoint_file_paths)}")
-
-        total_elapsed = time.time() - pair_start_time
-        print(f"Scene pair processing completed in {total_elapsed:.2f} seconds with {len(datapoint_file_paths)} total datapoint files")
-        return datapoint_file_paths
-
-    def _process_target_point_cloud(
-        self, transformed_src_pc, target_pc, src_pc, tgt_pc,
-        src_path, tgt_path, transform, scene_dir, enumeration_start=0
-    ) -> List[str]:
-        """Process a single target point cloud and return file paths to saved datapoints.
-
-        Args:
-            transformed_src_pc: Transformed source point cloud
-            target_pc: Target point cloud to process
-            src_pc: Original source point cloud
-            tgt_pc: Original target point cloud
-            src_path: Path to the source point cloud file
-            tgt_path: Path to the target point cloud file
-            transform: Transformation from source to target
-            scene_dir: Directory to save datapoints
-            enumeration_start: Starting index for file enumeration to avoid overwriting
-
-        Returns:
-            List of file paths to saved datapoints
-        """
-        num_workers = max(1, multiprocessing.cpu_count() - 1)
-
-        # Apply grid sampling to the union of transformed source and target
-        print(f"Grid sampling using {num_workers} workers...")
-        grid_start_time = time.time()
-        src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, target_pc], self._voxel_size, num_workers=num_workers)
-        assert len(src_voxels) == len(tgt_voxels)
-        print(f"Grid sampling completed in {time.time() - grid_start_time:.2f} seconds")
-
-        # Process voxel pairs in parallel
-        print(f"Processing {len(src_voxels)} voxel pairs using {num_workers} workers...")
-        process_start_time = time.time()
-        process_args = []
-        for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
-            process_args.append((
-                src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
-                src_path, tgt_path, transform, self._min_points, self._max_points, self.overlap, self._voxel_size
-            ))
-
-        # Use ProcessPoolExecutor instead of Pool
-        valid_datapoints = []
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Submit all tasks
-            future_to_args = {executor.submit(process_voxel_pair, args): args for args in process_args}
-
-            # Process results as they complete
-            for future in as_completed(future_to_args):
-                # This will raise any exceptions that occurred in the worker process
-                result = future.result()
-                if result is not None:
-                    valid_datapoints.append(result)
-
-        print(f"Voxel pair processing completed in {time.time() - process_start_time:.2f} seconds")
-
-        # Save datapoint cache files in parallel and collect file paths
-        print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} using {num_workers} workers...")
-        save_start_time = time.time()
-
-        # Create file paths for each datapoint with enumeration_start offset
-        file_paths = [os.path.join(scene_dir, f'voxel_{i + enumeration_start}.pt') for i in range(len(valid_datapoints))]
-
-        # Save datapoints in parallel
-        save_args = [(datapoint, file_path) for datapoint, file_path in zip(valid_datapoints, file_paths)]
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Submit all tasks
-            future_to_args = {executor.submit(torch.save, datapoint, file_path): (datapoint, file_path)
-                             for datapoint, file_path in save_args}
-
-            # Process results as they complete - this will raise any exceptions
-            for future in as_completed(future_to_args):
-                # This will raise any exceptions that occurred in the worker process
-                future.result()
-
-        print(f"Saved {len(valid_datapoints)} voxels to {scene_dir} in {time.time() - save_start_time:.2f} seconds")
-
-        return file_paths
-
-    def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
-    ]:
-        """Load a datapoint using point indices.
-
-        The annotations are file paths to cached voxel files, organized by scene pairs.
-        Each scene pair has its own directory (scene_pair_X) with voxel files (voxel_Y.pt).
-        """
-        # Get voxel data
-        assert isinstance(self.annotations[idx], str), f"{self.annotations[idx]=}"
-        annotation = torch.load(self.annotations[idx], map_location=self.device)
-
-        # Extract data from voxel_data
-        src_points = annotation['src_points']
-        tgt_points = annotation['tgt_points']
-        src_indices = annotation['src_indices']
-        tgt_indices = annotation['tgt_indices']
-        src_path = annotation['src_path']
-        tgt_path = annotation['tgt_path']
-        transform = annotation['transform']
-
-        assert src_indices.ndim == 1 and src_indices.shape[0] > 0, f"{src_indices.shape=}"
-        assert tgt_indices.ndim == 1 and tgt_indices.shape[0] > 0, f"{tgt_indices.shape=}"
-
-        # Apply random subsampling if needed
-        if len(src_indices) > self._max_points:
-            # Create a dictionary with the source point cloud data
-            src_pc_dict = {
-                'pos': src_points,
-                'indices': src_indices
-            }
-            # Add RGB if available
-            if 'src_rgb' in annotation:
-                src_pc_dict['rgb'] = annotation['src_rgb']
-
-            # Apply random subsampling
-            src_pc_dict = RandomSelect(percentage=self._max_points / len(src_indices))(src_pc_dict)
-            src_points = src_pc_dict['pos']
-            src_indices = src_pc_dict['indices']
-
-            # Update RGB if it was subsampled
-            if 'rgb' in src_pc_dict:
-                annotation['src_rgb'] = src_pc_dict['rgb']
-
-        if len(tgt_indices) > self._max_points:
-            # Create a dictionary with the target point cloud data
-            tgt_pc_dict = {
-                'pos': tgt_points,
-                'indices': tgt_indices
-            }
-            # Add RGB if available
-            if 'tgt_rgb' in annotation:
-                tgt_pc_dict['rgb'] = annotation['tgt_rgb']
-
-            # Apply random subsampling
-            tgt_pc_dict = RandomSelect(percentage=self._max_points / len(tgt_indices))(tgt_pc_dict)
-            tgt_points = tgt_pc_dict['pos']
-            tgt_indices = tgt_pc_dict['indices']
-
-            # Update RGB if it was subsampled
-            if 'rgb' in tgt_pc_dict:
-                annotation['tgt_rgb'] = tgt_pc_dict['rgb']
-
-        # Find correspondences between source and target point clouds
-        correspondences = get_correspondences(
-            src_points=src_points,
-            tgt_points=tgt_points,
-            transform=transform,
-            radius=self.matching_radius,
+        # Normalize points to unbatched format
+        src_points_normalized = _normalize_points(src_points)
+        tgt_points_normalized = _normalize_points(tgt_points)
+        
+        # Combine points
+        union_points = torch.cat([src_points_normalized, tgt_points_normalized], dim=0)
+
+        # Create colors for union (red for source, blue for target)
+        src_colors = torch.zeros((len(src_points_normalized), 3), device=src_points_normalized.device)
+        src_colors[:, 0] = 1.0  # Red for source
+        tgt_colors = torch.zeros((len(tgt_points_normalized), 3), device=tgt_points_normalized.device)
+        tgt_colors[:, 2] = 1.0  # Blue for target
+        union_colors = torch.cat([src_colors, tgt_colors], dim=0)
+
+        return create_point_cloud_figure(
+            points=union_points,
+            colors=union_colors,
+            title="Union (Transformed Source + Target)",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            density_percentage=density_percentage,
+            point_cloud_id=point_cloud_id,
+            axis_ranges=axis_ranges,
         )
 
-        # Initialize inputs with position and feature
-        inputs = {
-            'src_pc': {
-                'pos': src_points,
-                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32, device=self.device),
-            },
-            'tgt_pc': {
-                'pos': tgt_points,
-                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32, device=self.device),
-            },
-            'correspondences': correspondences,
+    @staticmethod
+    def create_symmetric_difference_visualization(
+        src_points: torch.Tensor,
+        tgt_points: torch.Tensor,
+        radius: float = 0.05,
+        point_size: float = 2,
+        point_opacity: float = 0.8,
+        camera_state: Optional[Dict[str, Any]] = None,
+        lod_type: str = "continuous",
+        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+        density_percentage: int = 100,
+        axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+    ) -> go.Figure:
+        """Create a visualization of the symmetric difference between transformed source and target point clouds.
+
+        Args:
+            src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+            tgt_points: Target point cloud [M, 3] or [1, M, 3]
+            radius: Radius for computing symmetric difference
+            point_size: Size of points in visualization
+            point_opacity: Opacity of points in visualization
+            camera_state: Optional dictionary containing camera position state
+            lod_type: Type of LOD ("continuous", "discrete", or "none")
+            point_cloud_id: Unique identifier for LOD caching
+            density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+
+        Returns:
+            Plotly figure showing the symmetric difference visualization
+        """
+        # Normalize points to unbatched format
+        src_points_normalized = _normalize_points(src_points)
+        tgt_points_normalized = _normalize_points(tgt_points)
+        
+        # Find points in symmetric difference
+        src_indices, tgt_indices = pc_symmetric_difference(src_points_normalized, tgt_points_normalized, radius)
+
+        if len(src_indices) > 0 or len(tgt_indices) > 0:
+            # Extract points in symmetric difference
+            src_diff = src_points_normalized[src_indices]
+            tgt_diff = tgt_points_normalized[tgt_indices]
+
+            # Combine the points
+            sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
+
+            # Create colors for symmetric difference (red for source, blue for target)
+            src_colors = torch.zeros((len(src_indices), 3), device=src_diff.device)
+            src_colors[:, 0] = 1.0  # Red for source
+            tgt_colors = torch.zeros((len(tgt_indices), 3), device=tgt_diff.device)
+            tgt_colors[:, 2] = 1.0  # Blue for target
+            sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
+
+            return create_point_cloud_figure(
+                points=sym_diff_points,
+                colors=sym_diff_colors,
+                title="Symmetric Difference",
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+                lod_type=lod_type,
+                density_percentage=density_percentage,
+                point_cloud_id=point_cloud_id,
+                axis_ranges=axis_ranges,
+            )
+        else:
+            # If no symmetric difference, show empty point cloud
+            return create_point_cloud_figure(
+                torch.zeros((1, 3), device=src_points_normalized.device),
+                title="Symmetric Difference (Empty)",
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+                lod_type=lod_type,
+                density_percentage=density_percentage,
+                point_cloud_id=point_cloud_id,
+                axis_ranges=axis_ranges,
+            )
+
+    @staticmethod
+    def create_correspondence_visualization(
+        src_points: torch.Tensor,
+        tgt_points: torch.Tensor,
+        radius: float = 0.1,
+        point_size: float = 2,
+        point_opacity: float = 0.8,
+        camera_state: Optional[Dict[str, Any]] = None,
+        lod_type: str = "continuous",
+        density_percentage: int = 100,
+        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    ) -> go.Figure:
+        """Create a visualization of correspondences between transformed source and target point clouds.
+
+        Args:
+            src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+            tgt_points: Target point cloud [M, 3] or [1, M, 3]
+            radius: Radius for finding correspondences
+            point_size: Size of points in visualization
+            point_opacity: Opacity of points in visualization
+            camera_state: Optional dictionary containing camera position state
+            lod_type: Type of LOD ("continuous", "discrete", or "none")
+            density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+            point_cloud_id: Unique identifier for LOD caching
+
+        Returns:
+            Plotly figure showing the correspondence visualization
+        """
+        # Normalize points to unbatched format
+        src_points_normalized = _normalize_points(src_points)
+        tgt_points_normalized = _normalize_points(tgt_points)
+        
+        src_points_np = src_points_normalized.cpu().numpy()
+        tgt_points_np = tgt_points_normalized.cpu().numpy()
+
+        # Find correspondences based on radius
+        correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
+
+        # Create figure with both point clouds
+        corr_fig = create_point_cloud_figure(
+            points=src_points_normalized,
+            title="Point Cloud Correspondences",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            density_percentage=density_percentage,
+            point_cloud_id=point_cloud_id,
+        )
+
+        # Add target points
+        corr_fig.add_trace(go.Scatter3d(
+            x=tgt_points_np[:, 0],
+            y=tgt_points_np[:, 1],
+            z=tgt_points_np[:, 2],
+            mode='markers',
+            marker=dict(size=point_size, color='red', opacity=point_opacity),
+            name='Target Points'
+        ))
+
+        # Create list of correspondence line traces
+        correspondence_traces = []
+        for src_idx, tgt_idx in correspondences:
+            src_point = src_points_np[src_idx]
+            tgt_point = tgt_points_np[tgt_idx]
+            correspondence_traces.append(go.Scatter3d(
+                x=[src_point[0], tgt_point[0]],
+                y=[src_point[1], tgt_point[1]],
+                z=[src_point[2], tgt_point[2]],
+                mode='lines',
+                line=dict(color='gray', width=1),
+                showlegend=False
+            ))
+
+        if len(correspondence_traces) > 10:
+            correspondence_traces = random.sample(correspondence_traces, 10)
+
+        # Add all correspondence traces at once
+        if correspondence_traces:
+            corr_fig.add_traces(correspondence_traces)
+
+        return corr_fig
+
+    @staticmethod
+    def _compute_transform_info(transform: torch.Tensor) -> Dict[str, Any]:
+        """Compute transform information including rotation angle and translation magnitude."""
+        # Normalize transform to handle batched case
+        transform_normalized = _normalize_transform(transform, torch.Tensor)
+        
+        # Compute rotation angle and translation magnitude
+        rotation_matrix = transform_normalized[:3, :3]
+        translation_vector = transform_normalized[:3, 3]
+
+        # Compute rotation angle using the trace of the rotation matrix
+        trace = torch.trace(rotation_matrix)
+        rotation_angle = torch.acos((trace - 1) / 2) * 180 / np.pi  # Convert to degrees
+
+        # Compute translation magnitude
+        translation_magnitude = torch.norm(translation_vector)
+
+        # Format the transformation matrix as a string
+        transform_str = "Transform Matrix:\n"
+        for i in range(4):
+            row = [f"{transform_normalized[i, j]:.4f}" for j in range(4)]
+            transform_str += "  ".join(row) + "\n"
+
+        return {
+            'transform_str': transform_str,
+            'rotation_angle': rotation_angle,
+            'translation_magnitude': translation_magnitude
         }
 
-        # Add RGB colors if available
-        if 'src_rgb' in annotation:
-            inputs['src_pc']['rgb'] = annotation['src_rgb']
-        if 'tgt_rgb' in annotation:
-            inputs['tgt_pc']['rgb'] = annotation['tgt_rgb']
+    @staticmethod
+    def _create_transform_info_section(transform_info: Dict[str, Any]) -> html.Div:
+        """Create transform information section."""
+        return html.Div([
+            html.H4("Transform Information:"),
+            html.Pre(transform_info['transform_str']),
+            html.P(f"Rotation Angle: {transform_info['rotation_angle']:.2f} degrees"),
+            html.P(f"Translation Magnitude: {transform_info['translation_magnitude']:.4f}")
+        ], style={'margin-top': '20px'})
 
-        labels = {
-            'transform': transform,
+    @staticmethod
+    def _create_statistics_section(src_stats_children: Any, tgt_stats_children: Any) -> html.Div:
+        """Create point cloud statistics section."""
+        return html.Div([
+            html.Div([
+                html.H4("Source Point Cloud Statistics:"),
+                html.Div(src_stats_children)
+            ], style=DisplayStyles.GRID_ITEM_48_MARGIN),
+            
+            html.Div([
+                html.H4("Target Point Cloud Statistics:"),
+                html.Div(tgt_stats_children)
+            ], style=DisplayStyles.GRID_ITEM_48_NO_MARGIN)
+        ], style={'margin-top': '20px'})
+
+    @staticmethod
+    def _format_value(key: str, value: Any) -> str:
+        """Format a value for display based on key name and value type."""
+        if isinstance(value, list) and len(value) == 3 and all(isinstance(x, (int, float)) for x in value):
+            # Handle 3D vectors with context-specific formatting
+            if 'angle' in key.lower():
+                return f"[{value[0]:.2f}°, {value[1]:.2f}°, {value[2]:.2f}°]"
+            else:
+                return f"[{value[0]:.4f}, {value[1]:.4f}, {value[2]:.4f}]"
+        elif isinstance(value, float):
+            return f"{value:.4f}"
+        else:
+            return str(value)
+
+    @staticmethod
+    def _dict_to_html_list(data: Dict[str, Any], key_name: str = None) -> html.Div:
+        """Convert a dictionary to HTML list structure."""
+        items = []
+        
+        if key_name:
+            items.append(html.H5(f"{key_name}:", style={'margin-top': '15px', 'margin-bottom': '5px'}))
+        
+        list_items = []
+        for key, value in data.items():
+            if isinstance(value, dict):
+                # Nested dictionary - create sub-list
+                items.append(BasePCRDataset._dict_to_html_list(value, key))
+            else:
+                # Simple key-value pair
+                formatted_value = BasePCRDataset._format_value(key, value)
+                
+                # Special styling for overlap (important PCR metric)
+                if key == 'overlap':
+                    list_items.append(html.Li(f"{key}: {formatted_value}", 
+                                            style={'font-weight': 'bold', 'color': '#2E86AB'}))
+                else:
+                    list_items.append(html.Li(f"{key}: {formatted_value}"))
+        
+        if list_items:
+            items.append(html.Ul(list_items, style={'margin-left': '20px', 'margin-top': '5px'}))
+        
+        return html.Div(items)
+
+    @staticmethod
+    def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
+        """Create meta information section displaying dataset metadata."""
+        if not meta_info:
+            return html.Div([
+                html.H4("Datapoint Meta Information:"),
+                html.P("No meta information available")
+            ], style={'margin-top': '20px'})
+        
+        # Convert the entire meta_info dict to HTML lists
+        return html.Div([
+            html.H4("Datapoint Meta Information:"),
+            BasePCRDataset._dict_to_html_list(meta_info)
+        ], style={'margin-top': '20px'})
+
+    @staticmethod
+    def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Split concatenated points into source and target using lengths.
+
+        Args:
+            points: Concatenated points tensor [src_points, tgt_points]
+            lengths: Lengths tensor indicating split point
+
+        Returns:
+            Tuple of (source_points, target_points)
+        """
+        total_length = lengths[0]
+        src_points = points[:total_length//2]
+        tgt_points = points[total_length//2:total_length]
+        return src_points, tgt_points
+
+    @staticmethod
+    def _create_union_with_title(
+        src_points: torch.Tensor,
+        tgt_points: torch.Tensor,
+        title: str,
+        point_size: float,
+        point_opacity: float,
+        camera_state: Optional[Dict[str, Any]],
+        lod_type: str,
+        density_percentage: int = 100,
+        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    ) -> go.Figure:
+        """Create union visualization with custom title."""
+        union_fig = BasePCRDataset.create_union_visualization(
+            src_points=src_points,
+            tgt_points=tgt_points,
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id=point_cloud_id,
+            density_percentage=density_percentage
+        )
+        union_fig.update_layout(title=title)
+        return union_fig
+
+    @staticmethod
+    def _create_sym_diff_with_title(
+        src_points: torch.Tensor,
+        tgt_points: torch.Tensor,
+        title: str,
+        radius: float,
+        point_size: float,
+        point_opacity: float,
+        camera_state: Optional[Dict[str, Any]],
+        lod_type: str,
+        density_percentage: int = 100,
+        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    ) -> go.Figure:
+        """Create symmetric difference visualization with custom title."""
+        sym_diff_fig = BasePCRDataset.create_symmetric_difference_visualization(
+            src_points=src_points,
+            tgt_points=tgt_points,
+            radius=radius,
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id=point_cloud_id,
+            density_percentage=density_percentage
+        )
+        sym_diff_fig.update_layout(title=title)
+        return sym_diff_fig
+
+    @staticmethod
+    def display_datapoint_single(
+        datapoint: Dict[str, Any],
+        point_size: float = 2,
+        point_opacity: float = 0.8,
+        camera_state: Optional[Dict[str, Any]] = None,
+        sym_diff_radius: float = 0.05,
+        corr_radius: float = 0.1,
+        lod_type: str = "continuous",
+        density_percentage: int = 100
+    ) -> html.Div:
+        """Display a single point cloud registration datapoint.
+
+        Args:
+            datapoint: Dictionary containing inputs, labels, and meta_info
+            point_size: Size of points in visualization
+            point_opacity: Opacity of points in visualization
+            camera_state: Optional dictionary containing camera position state
+            sym_diff_radius: Radius for computing symmetric difference
+            corr_radius: Radius for finding correspondences between point clouds
+            lod_type: Type of LOD ("continuous", "discrete", or "none")
+
+        Returns:
+            html.Div containing the visualization
+        """
+        # Validate structure and inputs (includes all basic validation)
+        validate_pcr_structure(datapoint)
+        
+        inputs = datapoint['inputs']
+
+        # Extract point clouds
+        src_pc = inputs['src_pc']['pos']  # Source point cloud
+        tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
+
+        # Extract RGB colors if available
+        src_rgb = inputs['src_pc'].get('rgb')
+        tgt_rgb = inputs['tgt_pc'].get('rgb')
+
+        # Extract transform if available
+        transform = datapoint['labels'].get('transform')
+        if transform is None:
+            transform = torch.eye(4)  # Default to identity transform if not provided
+
+        # Apply transform to source point cloud
+        src_pc_transformed = apply_transform(src_pc, transform)
+
+        # Compute unified axis ranges across all point clouds for consistent scaling
+        all_points = [src_pc, tgt_pc, src_pc_transformed]
+        x_coords = torch.cat([pc[:, 0] for pc in all_points])
+        y_coords = torch.cat([pc[:, 1] for pc in all_points])
+        z_coords = torch.cat([pc[:, 2] for pc in all_points])
+        
+        # Add small padding for better visualization
+        padding = 0.05  # 5% padding
+        x_range_unified = [x_coords.min().item(), x_coords.max().item()]
+        y_range_unified = [y_coords.min().item(), y_coords.max().item()]
+        z_range_unified = [z_coords.min().item(), z_coords.max().item()]
+        
+        # Apply padding
+        x_pad = (x_range_unified[1] - x_range_unified[0]) * padding
+        y_pad = (y_range_unified[1] - y_range_unified[0]) * padding
+        z_pad = (z_range_unified[1] - z_range_unified[0]) * padding
+        
+        unified_axis_ranges = {
+            'x': (x_range_unified[0] - x_pad, x_range_unified[1] + x_pad),
+            'y': (y_range_unified[0] - y_pad, y_range_unified[1] + y_pad),
+            'z': (z_range_unified[0] - z_pad, z_range_unified[1] + z_pad)
         }
 
-        meta_info = {
-            'src_indices': src_indices,
-            'tgt_indices': tgt_indices,
-            'src_path': src_path,
-            'tgt_path': tgt_path,
-        }
+        # Define figure creation tasks
+        figure_tasks = [
+            lambda: create_point_cloud_figure(
+                points=src_pc,
+                colors=src_rgb,
+                title="Source Point Cloud",
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+                lod_type=lod_type,
+                density_percentage=density_percentage,
+                point_cloud_id=build_point_cloud_id(datapoint, "source"),
+                axis_ranges=unified_axis_ranges,
+            ),
+            lambda: create_point_cloud_figure(
+                points=tgt_pc,
+                colors=tgt_rgb,
+                title="Target Point Cloud",
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+                lod_type=lod_type,
+                density_percentage=density_percentage,
+                point_cloud_id=build_point_cloud_id(datapoint, "target"),
+                axis_ranges=unified_axis_ranges,
+            ),
+            lambda: BasePCRDataset.create_union_visualization(
+                src_pc_transformed,
+                tgt_pc,
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+                lod_type=lod_type,
+                point_cloud_id=build_point_cloud_id(datapoint, "union"),
+                density_percentage=density_percentage,
+                axis_ranges=unified_axis_ranges,
+            ),
+            lambda: BasePCRDataset.create_symmetric_difference_visualization(
+                src_pc_transformed,
+                tgt_pc,
+                radius=sym_diff_radius,
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+                lod_type=lod_type,
+                point_cloud_id=build_point_cloud_id(datapoint, "sym_diff"),
+                density_percentage=density_percentage,
+                axis_ranges=unified_axis_ranges,
+            ),
+        ]
 
-        return inputs, labels, meta_info
+        # Create figures in parallel using centralized utility
+        figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+        figures = figure_creator.create_figures_parallel(figure_tasks)
+
+        # TODO: Add correspondence visualization
+        # figures.append(BasePCRDataset.create_correspondence_visualization(
+        #     src_pc_transformed,
+        #     tgt_pc,
+        #     radius=corr_radius,
+        #     point_size=point_size,
+        #     point_opacity=point_opacity,
+        #     camera_state=camera_state,
+        # ))
+
+        # Compute transform information
+        transform_info = BasePCRDataset._compute_transform_info(transform)
+        
+        # Get point cloud statistics
+        src_stats_children = get_point_cloud_stats(src_pc)
+        tgt_stats_children = get_point_cloud_stats(tgt_pc)
+
+        # Create layout using centralized utilities
+        grid_items = create_figure_grid(figures, width_style="50%", height_style="520px")
+        
+        return html.Div([
+            html.H3("Point Cloud Registration Visualization"),
+            html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
+            BasePCRDataset._create_transform_info_section(transform_info),
+            BasePCRDataset._create_statistics_section(src_stats_children, tgt_stats_children),
+            BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
+        ])
+
+    @staticmethod
+    def display_datapoint_batched(
+        datapoint: Dict[str, Any],
+        point_size: float = 2,
+        point_opacity: float = 0.8,
+        camera_state: Optional[Dict[str, Any]] = None,
+        sym_diff_radius: float = 0.05,
+        corr_radius: float = 0.1,
+        lod_type: str = "continuous",
+        density_percentage: int = 100
+    ) -> html.Div:
+        """Display a batched point cloud registration datapoint.
+
+        Args:
+            datapoint: Dictionary containing inputs, labels, and meta_info
+            point_size: Size of points in visualization
+            point_opacity: Opacity of points in visualization
+            camera_state: Optional dictionary containing camera position state
+            sym_diff_radius: Radius for computing symmetric difference
+            corr_radius: Radius for finding correspondences between point clouds
+            lod_type: Type of LOD ("continuous", "discrete", or "none")
+
+        Returns:
+            html.Div containing the visualization
+        """
+        # Validate structure and inputs (includes all basic validation)
+        validate_pcr_structure(datapoint)
+        
+        inputs = datapoint['inputs']
+        all_figures = []
+
+        # Process each level in the hierarchy
+        for level in range(len(inputs['points'])):
+            # Split points into source and target
+            src_points, tgt_points = BasePCRDataset.split_points_by_lengths(
+                inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
+            )
+
+            # For top level (level 0), show all visualizations
+            if level == 0:
+                figure_tasks = [
+                    lambda src=src_points, lvl=level: create_point_cloud_figure(
+                        points=src,
+                        title=f"Source Point Cloud (Level {lvl})",
+                        point_size=point_size,
+                        point_opacity=point_opacity,
+                        camera_state=camera_state,
+                        lod_type=lod_type,
+                        density_percentage=density_percentage,
+                        point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
+                    ),
+                    lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
+                        points=tgt,
+                        title=f"Target Point Cloud (Level {lvl})",
+                        point_size=point_size,
+                        point_opacity=point_opacity,
+                        camera_state=camera_state,
+                        lod_type=lod_type,
+                        density_percentage=density_percentage,
+                        point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
+                    ),
+                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_union_with_title(
+                        src_points=src,
+                        tgt_points=tgt,
+                        title=f"Union (Level {lvl})",
+                        point_size=point_size,
+                        point_opacity=point_opacity,
+                        camera_state=camera_state,
+                        lod_type=lod_type,
+                        density_percentage=density_percentage,
+                        point_cloud_id=build_point_cloud_id(datapoint, f"union_batch_{lvl}")
+                    ),
+                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_sym_diff_with_title(
+                        src_points=src,
+                        tgt_points=tgt,
+                        title=f"Symmetric Difference (Level {lvl})",
+                        radius=sym_diff_radius,
+                        point_size=point_size,
+                        point_opacity=point_opacity,
+                        camera_state=camera_state,
+                        lod_type=lod_type,
+                        density_percentage=density_percentage,
+                        point_cloud_id=build_point_cloud_id(datapoint, f"sym_diff_batch_{lvl}")
+                    ),
+                ]
+
+                # Create figures in parallel using centralized utility
+                figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+                level_figures = figure_creator.create_figures_parallel(figure_tasks)
+                all_figures.extend(level_figures)
+
+                # TODO: Add correspondence visualization
+                # corr_fig = BasePCRDataset.create_correspondence_visualization(
+                #     src_points, tgt_points, radius=corr_radius, point_size=point_size,
+                #     point_opacity=point_opacity, camera_state=camera_state,
+                # )
+                # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
+                # all_figures.append(corr_fig)
+            else:
+                # For lower levels, only show source and target
+                all_figures.extend([
+                    create_point_cloud_figure(
+                        points=src_points,
+                        title=f"Source Point Cloud (Level {level})",
+                        point_size=point_size,
+                        point_opacity=point_opacity,
+                        camera_state=camera_state,
+                        lod_type=lod_type,
+                        density_percentage=density_percentage,
+                        point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
+                    ),
+                    create_point_cloud_figure(
+                        points=tgt_points,
+                        title=f"Target Point Cloud (Level {level})",
+                        point_size=point_size,
+                        point_opacity=point_opacity,
+                        camera_state=camera_state,
+                        lod_type=lod_type,
+                        density_percentage=density_percentage,
+                        point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{level}"),
+                    )
+                ])
+
+        # Create grid layout using centralized utilities
+        grid_items = create_figure_grid(all_figures, width_style="50%", height_style="520px")
+        
+        return html.Div([
+            html.H3("Point Cloud Registration Visualization (Hierarchical)"),
+            html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
+            BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
+        ])
+
+    @staticmethod
+    def display_datapoint(
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> html.Div:
+        """Display a point cloud registration datapoint.
+        
+        Args:
+            datapoint: Dictionary containing inputs, labels, and meta_info from dataset
+            class_labels: Optional dictionary mapping class indices to label names (unused for PCR)
+            camera_state: Optional dictionary containing camera position state for 3D visualizations
+            settings_3d: Optional dictionary containing 3D visualization settings
+            
+        Returns:
+            html.Div: HTML layout for displaying this datapoint
+        """
+        # Validate inputs
+        assert datapoint is not None, "datapoint must not be None"
+        assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
+        
+        # Validate structure and inputs (includes all basic validation)
+        validate_pcr_structure(datapoint)
+        
+        inputs = datapoint['inputs']
+
+        # Handle optional parameters
+        display_kwargs = {}
+        if camera_state is not None:
+            display_kwargs['camera_state'] = camera_state
+        
+        # Unpack 3D settings if provided
+        if settings_3d is not None:
+            assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
+            display_kwargs.update(settings_3d)
+
+        # Check if we have hierarchical data (from collators)
+        if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
+            return BasePCRDataset.display_datapoint_batched(
+                datapoint,
+                **display_kwargs
+            )
+        else:
+            return BasePCRDataset.display_datapoint_single(
+                datapoint,
+                **display_kwargs
+            )
