@@ -107,6 +107,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'dataset_size': self.total_dataset_size,
             'overlap_range': self.overlap_range,
             'min_points': self.min_points,
+            'max_trials': self.max_trials,
         })
         return version_dict
     
