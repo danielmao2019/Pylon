@@ -101,12 +101,6 @@ def test_inherited_parameters_affect_version_hash():
             ('overlap_range', (0.2, 0.9)),  # Different from default (0.3, 1.0)
             ('min_points', 256),  # Different from default 512
             ('max_trials', 500),  # Different from default 1000
-            ('lidar_max_range', 8.0),  # Different from default 6.0
-            ('lidar_horizontal_fov', 90.0),  # Different from default 120.0
-            ('lidar_vertical_fov', 45.0),  # Different from default 60.0
-            ('lidar_apply_range_filter', True),  # Different from default False
-            ('lidar_apply_fov_filter', False),  # Different from default True
-            ('lidar_apply_occlusion_filter', True),  # Different from default False
         ]
         
         dataset1 = ModelNet40Dataset(**base_args)
@@ -161,64 +155,27 @@ def test_modelnet40_specific_parameters():
         assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
 
-def test_lidar_parameters_variants():
-    """Test that different LiDAR simulation parameters are properly discriminated."""
+def test_keep_ratio_variants():
+    """Test that different keep_ratio values are properly discriminated."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_modelnet40_structure(temp_dir)
         
-        lidar_parameter_sets = [
-            # Standard LiDAR setup
-            {
-                'lidar_max_range': 6.0,
-                'lidar_horizontal_fov': 120.0,
-                'lidar_vertical_fov': 60.0,
-                'lidar_apply_range_filter': False,
-                'lidar_apply_fov_filter': True,
-                'lidar_apply_occlusion_filter': False
-            },
-            # Different range
-            {
-                'lidar_max_range': 10.0,
-                'lidar_horizontal_fov': 120.0,
-                'lidar_vertical_fov': 60.0,
-                'lidar_apply_range_filter': False,
-                'lidar_apply_fov_filter': True,
-                'lidar_apply_occlusion_filter': False
-            },
-            # Different FOV
-            {
-                'lidar_max_range': 6.0,
-                'lidar_horizontal_fov': 360.0,
-                'lidar_vertical_fov': 90.0,
-                'lidar_apply_range_filter': False,
-                'lidar_apply_fov_filter': True,
-                'lidar_apply_occlusion_filter': False
-            },
-            # All filters enabled
-            {
-                'lidar_max_range': 6.0,
-                'lidar_horizontal_fov': 120.0,
-                'lidar_vertical_fov': 60.0,
-                'lidar_apply_range_filter': True,
-                'lidar_apply_fov_filter': True,
-                'lidar_apply_occlusion_filter': True
-            }
-        ]
+        keep_ratio_variants = [0.5, 0.7, 0.8, 0.9]
         
         datasets = []
-        for lidar_params in lidar_parameter_sets:
+        for keep_ratio in keep_ratio_variants:
             dataset = ModelNet40Dataset(
                 data_root=temp_dir,
                 dataset_size=100,
                 split='train',
-                **lidar_params
+                keep_ratio=keep_ratio
             )
             datasets.append(dataset)
         
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
         assert len(hashes) == len(set(hashes)), \
-            f"All LiDAR parameter variants should produce different hashes, got: {hashes}"
+            f"All keep_ratio variants should produce different hashes, got: {hashes}"
 
 
 def test_comprehensive_no_hash_collisions():

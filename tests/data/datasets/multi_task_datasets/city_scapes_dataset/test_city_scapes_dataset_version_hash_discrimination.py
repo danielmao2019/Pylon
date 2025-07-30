@@ -89,21 +89,21 @@ def test_inherited_parameters_affect_version_hash():
         'split': 'train',
         'semantic_granularity': 'coarse',
     }
+    
+    # Test inherited parameters from BaseDataset
+    parameter_variants = [
+        ('base_seed', 42),  # Different from default None
+    ]
+    
+    dataset1 = CityScapesDataset(**base_args)
+    
+    for param_name, new_value in parameter_variants:
+        modified_args = base_args.copy()
+        modified_args[param_name] = new_value
+        dataset2 = CityScapesDataset(**modified_args)
         
-        # Test inherited parameters from BaseDataset
-        parameter_variants = [
-            ('base_seed', 42),  # Different from default None
-        ]
-        
-        dataset1 = CityScapesDataset(**base_args)
-        
-        for param_name, new_value in parameter_variants:
-            modified_args = base_args.copy()
-            modified_args[param_name] = new_value
-            dataset2 = CityScapesDataset(**modified_args)
-            
-            assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-                f"Inherited parameter {param_name} should affect cache version hash"
+        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
+            f"Inherited parameter {param_name} should affect cache version hash"
 
 
 def test_comprehensive_no_hash_collisions():

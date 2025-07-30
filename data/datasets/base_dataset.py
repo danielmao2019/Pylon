@@ -260,6 +260,13 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         elif hasattr(self, 'split_percentages'):
             version_dict['split_percentages'] = self.split_percentages
         
+        # Add base parameters that affect dataset content
+        if hasattr(self, 'base_seed') and self.base_seed is not None:
+            version_dict['base_seed'] = self.base_seed
+        
+        if hasattr(self, 'indices') and self.indices is not None:
+            version_dict['indices'] = self.indices
+        
         return version_dict
     
     def get_cache_version_hash(self) -> str:
