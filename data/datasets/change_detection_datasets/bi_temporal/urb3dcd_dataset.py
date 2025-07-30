@@ -6,19 +6,18 @@ import numpy as np
 import torch
 from sklearn.neighbors import KDTree
 from utils.point_cloud_ops.sampling import GridSampling3D, CylinderSampling
-from data.datasets import BaseDataset
+from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
 import utils
 
 
-class Urb3DCDDataset(BaseDataset):
+class Urb3DCDDataset(Base3DCDDataset):
     __doc__ = r"""
     URB3DCD dataset for 3D point cloud change detection with multiple change types.
 
     For detailed documentation, see: docs/datasets/change_detection/bi_temporal/urb3dcd.md
     """
 
-    INPUT_NAMES = ['pc_1', 'pc_2', 'kdtree_1', 'kdtree_2']
-    LABEL_NAMES = ['change_map']
+    INPUT_NAMES = ['pc_1', 'pc_2', 'kdtree_1', 'kdtree_2']  # Override base class with extended inputs
     NUM_CLASSES = 7
     INV_OBJECT_LABEL = {
         0: "unchanged",
