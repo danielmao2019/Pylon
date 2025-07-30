@@ -2,11 +2,11 @@ from typing import Tuple, Dict, Any
 import os
 import glob
 import torch
-from data.datasets import BaseDataset
+from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
 import utils
 
 
-class WHU_BD_Dataset(BaseDataset):
+class WHU_BD_Dataset(BaseSemsegDataset):
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = {
