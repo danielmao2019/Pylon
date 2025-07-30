@@ -61,7 +61,7 @@ def test_cache_memory_isolation(SampleDataset):
 def test_cache_vs_uncached(SampleDataset):
     """Test that cached and uncached datasets return identical data."""
     cached = SampleDataset(split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True)
-    uncached = SampleDataset(split='train', indices=list(range(5)), use_cache=False)
+    uncached = SampleDataset(split='train', indices=list(range(5)), use_cpu_cache=False, use_disk_cache=False)
 
     # Multiple access patterns to verify consistency
     for _ in range(3):
@@ -74,7 +74,7 @@ def test_cache_vs_uncached(SampleDataset):
 def test_cache_with_dataloader(SampleDataset):
     """Test cache behavior when accessed through DataLoader."""
     cached = SampleDataset(split='train', indices=list(range(10)), use_cpu_cache=True, use_disk_cache=True)
-    uncached = SampleDataset(split='train', indices=list(range(10)), use_cache=False)
+    uncached = SampleDataset(split='train', indices=list(range(10)), use_cpu_cache=False, use_disk_cache=False)
 
     dataloader_params = {
         'batch_size': 3,
