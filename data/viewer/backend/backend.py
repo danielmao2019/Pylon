@@ -21,10 +21,7 @@ DATASET_GROUPS = {
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3dcd': ['urb3dcd', 'slpccd'],
     'pcr': [
-        'kitti', 'threedmatch', 'threedlomatch', 'modelnet40', 'lidar_camera_pose_pcr',
-        'single_temporal_pcr', 'bi_temporal_pcr',
-        'geotransformer_single_temporal_pcr', 'geotransformer_bi_temporal_pcr',
-        'overlappredator_single_temporal_pcr', 'overlappredator_bi_temporal_pcr',
+        'kitti', 'threedmatch', 'threedlomatch', 'modelnet40',
         'buffer',
     ],
     'general': ['BaseRandomDataset'],  # General-purpose datasets for testing
