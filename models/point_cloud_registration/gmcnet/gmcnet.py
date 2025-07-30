@@ -11,14 +11,12 @@ import copy
 # from pytorch3d.ops.knn import knn_points
 
 
-from visu_utils import visualize
-from train_utils import *
-from model_utils import clones, attention, knn_point, knn, get_edge_features, angle, estimate_fpfh, sinkhorn, Conv1DBNReLU, square_distance, get_cluster_feats, sample_and_group_feats
+from models.point_cloud_registration.gmcnet.visu_utils import visualize
+from metrics.vision_3d.point_cloud_registration.gmcnet_metrics import rotation_error, translation_error, rmse_loss, rotation_geodesic_error
+from models.point_cloud_registration.gmcnet.model_utils import clones, attention, knn_point, knn, get_edge_features, angle, estimate_fpfh, sinkhorn, Conv1DBNReLU, square_distance, get_cluster_feats, sample_and_group_feats
 
-
-sys.path.append("../utils")
-from mm3d_pn2 import three_nn, three_interpolate, furthest_point_sample, gather_points, grouping_operation
-# from metrics import cd
+from utils.cpp_extensions.gmcnet.mm3d_pn2 import three_nn, three_interpolate, furthest_point_sample, gather_points, grouping_operation
+# from utils.cpp_extensions.gmcnet.metrics import cd
 
 _EPS = 1e-6  # To prevent division by zero
 
