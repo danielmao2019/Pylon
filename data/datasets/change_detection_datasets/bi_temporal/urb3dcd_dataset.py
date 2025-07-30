@@ -30,7 +30,7 @@ class Urb3DCDDataset(Base3DCDDataset):
     }
     CLASS_LABELS = {name: i for i, name in INV_OBJECT_LABEL.items()}
     IGNORE_LABEL = -1
-    SPLIT_OPTIONS = {'train', 'val', 'test'}
+    SPLIT_OPTIONS = ['train', 'val', 'test']
     SPLIT_MAP = {
         'train': 'TrainLarge-1c',  # Using the largest training set by default
         'val': 'Val',
