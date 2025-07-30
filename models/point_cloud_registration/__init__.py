@@ -5,6 +5,7 @@ from models.point_cloud_registration import classic
 from models.point_cloud_registration.geotransformer.geotransformer import GeoTransformer
 from models.point_cloud_registration.overlappredator.overlappredator import OverlapPredator
 from models.point_cloud_registration.buffer.buffer import BUFFER
+from models.point_cloud_registration.gmcnet.gmcnet import Model as GMCNet
 from models.point_cloud_registration.parenet.parenet_model import PARENetModel
 
 
@@ -13,5 +14,6 @@ __all__ = (
     'GeoTransformer',
     'OverlapPredator',
     'BUFFER',
+    'GMCNet',
     'PARENetModel',
 )
