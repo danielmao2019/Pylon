@@ -145,14 +145,19 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info['file_idx'], int), f"file_idx should be int: {type(meta_info['file_idx'])}"
     assert isinstance(meta_info['transform_idx'], int), f"transform_idx should be int: {type(meta_info['transform_idx'])}"
     assert isinstance(meta_info['overlap'], float), f"overlap should be float: {type(meta_info['overlap'])}"
-    # crop_method and keep_ratio removed - LiDAR is the only supported method
-    
     # Validate transform_params structure
     transform_params = meta_info['transform_params']
     assert isinstance(transform_params, dict), f"transform_params should be dict: {type(transform_params)}"
     required_config_keys = {'rotation_angles', 'translation', 'seed'}
     assert transform_params.keys() >= required_config_keys, \
         f"transform_params missing keys: expected {required_config_keys}, got {transform_params.keys()}"
+    
+    # keep_ratio may be present in transform_params for crop transforms
+    if 'keep_ratio' in transform_params:
+        assert isinstance(transform_params['keep_ratio'], float), \
+            f"keep_ratio should be float: {type(transform_params['keep_ratio'])}"
+        assert 0.0 < transform_params['keep_ratio'] <= 1.0, \
+            f"keep_ratio should be in (0, 1]: {transform_params['keep_ratio']}"
 
 
 @pytest.fixture
@@ -173,6 +178,7 @@ def dataset_with_params(request):
         'matching_radius': 0.05,
         'rotation_mag': 45.0,
         'translation_mag': 0.5,
+        'keep_ratio': 0.7,
         'transforms_cfg': transforms_cfg(),
     },
     {
@@ -184,6 +190,7 @@ def dataset_with_params(request):
         'matching_radius': 0.03,
         'rotation_mag': 30.0,
         'translation_mag': 0.3,
+        'keep_ratio': 0.7,
         'transforms_cfg': transforms_cfg(),
     },
 ], indirect=True)
