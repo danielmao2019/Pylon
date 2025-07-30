@@ -2,11 +2,11 @@ from typing import Tuple, Dict, Any
 import os
 import glob
 import torch
-from data.datasets import BaseDataset
+from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 import utils
 
 
-class xView2Dataset(BaseDataset):
+class xView2Dataset(Base2DCDDataset):
     __doc__ = r"""
     Download:
         * https://xview2.org/download-links
