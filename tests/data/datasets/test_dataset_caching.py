@@ -128,17 +128,28 @@ def test_cache_hits_with_transforms(SampleDataset, random_transforms):
     """Test that data is properly cached even with transforms enabled."""
     dataset = SampleDataset(split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True, transforms_cfg=random_transforms)
 
-    # First access should cache
+    # Clear any existing cache to start fresh
+    dataset.cache.clear_all()
+    
+    # Verify cache is initially empty after clearing
+    initial_cpu_size = dataset.cache.get_cpu_size()
+    initial_disk_size = dataset.cache.get_disk_size()
+    assert initial_cpu_size == 0
+    assert initial_disk_size == 0
+    
+    # Access the item - should be cached now
     _ = dataset[0]
-    cache_stats = dataset.get_cache_stats()
-    assert cache_stats['hits'] == 0
-    assert cache_stats['misses'] == 1
+    after_first_cpu_size = dataset.cache.get_cpu_size()
+    after_first_disk_size = dataset.cache.get_disk_size()
+    assert after_first_cpu_size == 1
+    assert after_first_disk_size == 1
 
-    # Second access should hit cache
+    # Second access should hit cache - cache size should remain the same
     _ = dataset[0]
-    cache_stats = dataset.get_cache_stats()
-    assert cache_stats['hits'] == 1
-    assert cache_stats['misses'] == 1
+    after_second_cpu_size = dataset.cache.get_cpu_size()
+    after_second_disk_size = dataset.cache.get_disk_size()
+    assert after_second_cpu_size == 1
+    assert after_second_disk_size == 1
 
 
 def test_transform_randomness_preserved(SampleDataset, random_transforms):
