@@ -2,14 +2,14 @@ from typing import Tuple, List, Dict, Any
 import os
 import glob
 import torch
-from data.datasets import BaseDataset
+from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 import utils
 import random
 import matplotlib.pyplot as plt
 from utils.input_checks.str_types import check_write_dir
 
 
-class CDDDataset(BaseDataset):
+class CDDDataset(Base2DCDDataset):
     __doc__ = r"""
     References:
         * https://github.com/ServiceNow/seasonal-contrast/blob/main/datasets/oscd_dataset.py

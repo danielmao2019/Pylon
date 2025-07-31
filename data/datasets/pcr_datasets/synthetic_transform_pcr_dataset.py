@@ -6,12 +6,12 @@ import hashlib
 import threading
 import numpy as np
 import torch
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
 from utils.io.point_cloud import load_point_cloud
 
 
-class SyntheticTransformPCRDataset(BaseDataset, ABC):
+class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     """Synthetic transform PCR dataset with transform-to-overlap cache mapping.
     
     Key Concepts:
@@ -30,8 +30,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     # Required BaseDataset attributes
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = None
-    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']  
-    LABEL_NAMES = ['transform']
     SHA1SUM = None
     
     def __init__(

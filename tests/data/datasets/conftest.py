@@ -1,4 +1,4 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional, List
 import pytest
 import torch
 import os
@@ -68,6 +68,16 @@ def SampleDataset():
             torch.manual_seed(self.annotations[idx])
             tensor = torch.randn(3, 32, 32)  # Random noise
             return {'input': tensor}, {'label': self.annotations[idx]}, {}
+
+        @staticmethod
+        def display_datapoint(
+            datapoint: Dict[str, Any],
+            class_labels: Optional[Dict[str, List[str]]] = None,
+            camera_state: Optional[Dict[str, Any]] = None,
+            settings_3d: Optional[Dict[str, Any]] = None
+        ) -> Optional['html.Div']:
+            """Return None to use default display functions."""
+            return None
 
     return _SampleDataset
 

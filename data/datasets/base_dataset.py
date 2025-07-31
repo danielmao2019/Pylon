@@ -352,3 +352,32 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=raw_datapoint)
         transformed_datapoint = self.transforms(datapoint, seed=(self.base_seed, idx))
         return transformed_datapoint
+
+    @staticmethod
+    @abstractmethod
+    def display_datapoint(
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> Optional['html.Div']:
+        """Create custom display for this dataset's datapoints.
+        
+        This method allows datasets to provide custom visualization logic
+        that will be used by the data viewer instead of the default display functions.
+        
+        Args:
+            datapoint: Dictionary containing inputs, labels, and meta_info from dataset
+            class_labels: Optional dictionary mapping class indices to label names
+            camera_state: Optional dictionary containing camera position state for 3D visualizations
+            settings_3d: Optional dictionary containing 3D visualization settings
+            
+        Returns:
+            Optional html.Div: Custom HTML layout for displaying this datapoint.
+            Return None to indicate fallback to predefined display functions.
+            
+        Note:
+            This is an abstract static method that must be implemented by all dataset subclasses.
+            Return None if you want to use the default display functions based on dataset type.
+        """
+        raise NotImplementedError("display_datapoint not implemented for abstract base class.")

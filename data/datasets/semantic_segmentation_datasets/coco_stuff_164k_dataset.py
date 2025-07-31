@@ -1,11 +1,11 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional, List
 import os
 import torch
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
 from utils.io import load_image
 
 
-class COCOStuff164KDataset(BaseDataset):
+class COCOStuff164KDataset(BaseSemsegDataset):
     __doc__ = r"""Reference:
 
     Download:
@@ -34,8 +34,6 @@ class COCOStuff164KDataset(BaseDataset):
         'train2017': 97702,
         'val2017': 4172,
     }
-    INPUT_NAMES = ['image']
-    LABEL_NAMES = ['label']
 
     FINE_TO_COARSE = {
         0: 9, 1: 11, 2: 11, 3: 11, 4: 11, 5: 11, 6: 11, 7: 11, 8: 11, 9: 8, 10: 8, 11: 8, 12: 8,

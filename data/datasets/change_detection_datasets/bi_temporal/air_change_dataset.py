@@ -1,15 +1,15 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import itertools
 import os
 import glob
 import random
 import torch
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 from data.transforms.vision_2d.crop.crop import Crop
 import utils
 
 
-class AirChangeDataset(BaseDataset):
+class AirChangeDataset(Base2DCDDataset):
     __doc__ = r"""
     Download:
         ```bash
@@ -29,8 +29,6 @@ class AirChangeDataset(BaseDataset):
         'train': 3744,
         'test': 12,
     }
-    INPUT_NAMES = ['img_1', 'img_2']
-    LABEL_NAMES = ['change_map']
     TRAIN_CROPS_PER_IMAGE = int(3744 / 12)
     IMAGE_SIZE = (952, 640)  # (width, height)
     TEST_CROP_SIZE = (784, 448)  # (width, height)

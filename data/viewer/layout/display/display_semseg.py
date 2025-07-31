@@ -9,6 +9,7 @@ from data.viewer.utils.display_utils import (
     create_standard_datapoint_layout,
     create_statistics_display
 )
+from data.viewer.utils.structure_validation import validate_semseg_structure
 
 
 def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
@@ -25,15 +26,8 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     Returns:
         html.Div containing the visualization
     """
-    assert datapoint is not None, f"{datapoint=}"
-    assert isinstance(datapoint, dict), f"{datapoint=}"
-    expected_keys = {'inputs', 'labels', 'meta_info'}
-    # Debug outputs are optional
-    if 'debug' in datapoint:
-        expected_keys.add('debug')
-    assert datapoint.keys() == expected_keys, f"{datapoint.keys()=}"
-    assert 'image' in datapoint['inputs'], f"{datapoint['inputs'].keys()=}"
-    assert 'label' in datapoint['labels'], f"{datapoint['labels'].keys()=}"
+    # Validate structure and inputs (includes all basic validation)
+    validate_semseg_structure(datapoint)
 
     # Extract data
     image: torch.Tensor = datapoint['inputs']['image']

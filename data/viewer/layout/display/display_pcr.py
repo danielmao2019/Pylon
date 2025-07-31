@@ -11,6 +11,7 @@ from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
 from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats, build_point_cloud_id
 from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
+from data.viewer.utils.structure_validation import validate_pcr_structure
 
 
 def create_union_visualization(
@@ -363,11 +364,10 @@ def display_pcr_datapoint_single(
     Returns:
         html.Div containing the visualization
     """
-    # Validate inputs
+    # Validate structure and inputs (includes all basic validation)
+    validate_pcr_structure(datapoint)
+    
     inputs = datapoint['inputs']
-    assert 'src_pc' in inputs and 'tgt_pc' in inputs, "Source point cloud (src_pc) and target point cloud (tgt_pc) must be present in the inputs"
-    assert isinstance(inputs['src_pc'], dict) and isinstance(inputs['tgt_pc'], dict), "Point clouds must be dictionaries"
-    assert 'pos' in inputs['src_pc'] and 'pos' in inputs['tgt_pc'], "Point clouds must have 'pos' field"
 
     # Extract point clouds
     src_pc = inputs['src_pc']['pos']  # Source point cloud
@@ -586,6 +586,9 @@ def display_pcr_datapoint_batched(
     Returns:
         html.Div containing the visualization
     """
+    # Validate structure and inputs (includes all basic validation)
+    validate_pcr_structure(datapoint)
+    
     inputs = datapoint['inputs']
     all_figures = []
 
@@ -716,6 +719,9 @@ def display_pcr_datapoint(
     Returns:
         html.Div containing the visualization
     """
+    # Validate structure and inputs (includes all basic validation)
+    validate_pcr_structure(datapoint)
+    
     inputs = datapoint['inputs']
 
     # Check if we have hierarchical data (from collators)

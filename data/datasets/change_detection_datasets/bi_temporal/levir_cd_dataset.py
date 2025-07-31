@@ -1,11 +1,11 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import os
 import torch
-from data.datasets import BaseDataset
+from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 import utils
 
 
-class LevirCdDataset(BaseDataset):
+class LevirCdDataset(Base2DCDDataset):
     """
     Dataset class for LEVIR Change Detection Dataset.
 
@@ -55,8 +55,6 @@ class LevirCdDataset(BaseDataset):
         'val': 64,
         'test': 128,
     }
-    INPUT_NAMES = ['img_1', 'img_2']
-    LABEL_NAMES = ['change_map']
     CLASS_DIST = {
         'train': [445204032, 21412334],
         'test': [127380432, 6837335],

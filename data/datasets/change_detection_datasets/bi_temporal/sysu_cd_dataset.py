@@ -4,12 +4,12 @@ import glob
 import random
 import torch
 import matplotlib.pyplot as plt
-from data.datasets import BaseDataset
+from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 import utils
 from utils.input_checks.str_types import check_write_dir
 
 
-class SYSU_CD_Dataset(BaseDataset):
+class SYSU_CD_Dataset(Base2DCDDataset):
     __doc__ = r"""
     References:
         * https://github.com/liumency/SYSU-CD
