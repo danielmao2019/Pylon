@@ -96,7 +96,7 @@ class Base3DCDDataset(BaseDataset):
         stats_data = [
             get_point_cloud_stats(points_1, class_names=class_names),
             get_point_cloud_stats(points_2, class_names=class_names),
-            get_point_cloud_stats(points_1, change_map, class_names=class_names)
+            get_point_cloud_stats(points_2, change_map, class_names=class_names)  # change_map corresponds to points_2
         ]
 
         # Prepare figure creation tasks with proper point cloud IDs

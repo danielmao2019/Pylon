@@ -1,4 +1,4 @@
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict
 from abc import ABC, abstractmethod
 import os
 import json
@@ -30,6 +30,8 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     # Required BaseDataset attributes
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = None
+    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']  
+    LABEL_NAMES = ['transform']
     SHA1SUM = None
     
     def __init__(
