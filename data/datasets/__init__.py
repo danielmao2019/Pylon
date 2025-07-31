@@ -3,6 +3,9 @@ DATA.DATASETS API
 """
 from data.datasets.base_dataset import BaseDataset
 from data.datasets.base_synthetic_dataset import BaseSyntheticDataset
+from data.datasets.change_detection_datasets import Base2DCDDataset, Base3DCDDataset
+from data.datasets.pcr_datasets import BasePCRDataset
+from data.datasets.semantic_segmentation_datasets import BaseSemsegDataset
 from data.datasets import random_datasets
 from data.datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
 
@@ -49,6 +52,10 @@ from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
 __all__ = (
     'BaseDataset',
     'BaseSyntheticDataset',
+    'Base2DCDDataset',
+    'Base3DCDDataset', 
+    'BasePCRDataset',
+    'BaseSemsegDataset',
     'random_datasets',
     'ProjectionDatasetWrapper',
     # torchvision datasets

@@ -178,19 +178,45 @@ class ViewerBackend:
         }
 
     def get_dataset_type(self, dataset_name: str) -> DatasetType:
-        """Determine the type of dataset based on its name."""
-        if '/' in dataset_name:
-            dataset_type = dataset_name.split('/')[0]
-            if dataset_type in DATASET_GROUPS:
-                return dataset_type
-
-        # Check by base name
-        base_name = dataset_name.split('/')[-1]
-        for dataset_type, datasets in DATASET_GROUPS.items():
-            if base_name in datasets:
-                return dataset_type
-
-        raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
+        """Determine the type of dataset based on the dataset instance class hierarchy.
+        
+        Args:
+            dataset_name: Name of the dataset to analyze
+            
+        Returns:
+            Dataset type based on the dataset class inheritance
+            
+        Raises:
+            ValueError: If dataset type cannot be determined
+        """
+        # Ensure dataset is loaded
+        if dataset_name not in self._datasets:
+            raise ValueError(f"Dataset not loaded: {dataset_name}")
+            
+        dataset = self._datasets[dataset_name]
+        
+        # Import the base display classes to check inheritance
+        from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
+        from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
+        from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
+        from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
+        
+        # Check inheritance hierarchy to determine type
+        if isinstance(dataset, Base2DCDDataset):
+            return '2dcd'
+        elif isinstance(dataset, Base3DCDDataset):
+            return '3dcd'
+        elif isinstance(dataset, BasePCRDataset):
+            return 'pcr'
+        elif isinstance(dataset, BaseSemsegDataset):
+            return 'semseg'
+        else:
+            # All datasets must inherit from appropriate base display classes
+            raise ValueError(
+                f"Dataset '{dataset_name}' (class: {type(dataset).__name__}) must inherit from one of the base display classes: "
+                f"Base2DCDDataset, Base3DCDDataset, BasePCRDataset, or BaseSemsegDataset. "
+                f"Please update the dataset class to inherit from the appropriate base class."
+            )
 
     def get_datapoint(self, dataset_name: str, index: int, transform_indices: List[int]) -> Dict[str, Dict[str, Any]]:
         """Get a datapoint with transforms applied.
@@ -221,6 +247,25 @@ class ViewerBackend:
         datapoint = self._apply_transforms(datapoint, transform_indices, index)
 
         return datapoint
+
+    def get_dataset_instance(self, dataset_name: str) -> Any:
+        """Get the dataset instance for custom display methods.
+        
+        Args:
+            dataset_name: Name of the dataset
+            
+        Returns:
+            Dataset instance
+            
+        Raises:
+            ValueError: If dataset is not loaded
+        """
+        assert isinstance(dataset_name, str), f"dataset_name must be str, got {type(dataset_name)}"
+        
+        if dataset_name not in self._datasets:
+            raise ValueError(f"Dataset not loaded: {dataset_name}")
+            
+        return self._datasets[dataset_name]
 
     def _clear_transforms(self) -> None:
         """Clear all registered transforms."""

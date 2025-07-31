@@ -4,11 +4,11 @@ import pickle
 import numpy
 import torch
 import torchvision
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
 import utils
 
 
-class KC3DDataset(BaseDataset):
+class KC3DDataset(Base3DCDDataset):
     __doc__ = r"""
     Reference:
         * https://github.com/ragavsachdeva/CYWS-3D/blob/master/kc3d.py

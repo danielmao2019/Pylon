@@ -10,69 +10,43 @@ This module contains only shared utilities, no actual callbacks.
 """
 from typing import Dict, Optional, Union, Any
 from dash import html
-from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
-from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
-from data.viewer.layout.display.display_pcr import display_pcr_datapoint
-from data.viewer.layout.display.display_semseg import display_semseg_datapoint
-
-
-# Mapping of dataset types to their display functions
-DISPLAY_FUNCTIONS = {
-    'semseg': display_semseg_datapoint,
-    '2dcd': display_2dcd_datapoint,
-    '3dcd': display_3dcd_datapoint,
-    'pcr': display_pcr_datapoint,
-}
 
 
 def create_display(
-    dataset_type: str,
+    display_func: callable,
     datapoint: Dict[str, Any], 
     class_labels: Optional[Dict[int, str]],
     camera_state: Dict[str, Any],
     settings_3d: Dict[str, Union[float, str]]
 ) -> html.Div:
-    """Create display based on dataset type with appropriate parameters.
+    """Create display using the provided display function.
     
     This is a shared utility function used by multiple callback modules.
+    The caller is responsible for providing the appropriate display function.
+    
+    Args:
+        display_func: Display function to use for creating the visualization
+        datapoint: Dictionary containing inputs, labels, and meta_info
+        class_labels: Optional dictionary mapping class indices to label names
+        camera_state: Dictionary containing camera position state
+        settings_3d: Dictionary containing 3D visualization settings
+        
+    Returns:
+        html.Div containing the visualization
     """
-    display_func = DISPLAY_FUNCTIONS.get(dataset_type)
-    if not display_func:
-        raise ValueError(f"Unsupported dataset type: {dataset_type}")
+    # Input validation with detailed error messages
+    assert callable(display_func), f"display_func must be callable, got {type(display_func)}"
+    assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
+    assert datapoint != {}, "datapoint must not be empty"
+    assert isinstance(camera_state, dict), f"camera_state must be dict, got {type(camera_state)}"
+    assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
+    assert class_labels is None or isinstance(class_labels, dict), f"class_labels must be dict or None, got {type(class_labels)}"
     
-    # Define parameter mappings for each dataset type
-    display_params = {
-        'semseg': {
-            'args': (datapoint,),
-            'kwargs': {}
-        },
-        '2dcd': {
-            'args': (datapoint,),
-            'kwargs': {}
-        },
-        '3dcd': {
-            'args': (datapoint, class_labels, camera_state),
-            'kwargs': {
-                'point_size': settings_3d['point_size'],
-                'point_opacity': settings_3d['point_opacity'],
-                'lod_type': settings_3d['lod_type'],
-                'density_percentage': settings_3d['density_percentage']
-            }
-        },
-        'pcr': {
-            'args': (),
-            'kwargs': {
-                'datapoint': datapoint,
-                'camera_state': camera_state,
-                'point_size': settings_3d['point_size'],
-                'point_opacity': settings_3d['point_opacity'],
-                'sym_diff_radius': settings_3d['sym_diff_radius'],
-                'corr_radius': settings_3d['corr_radius'],
-                'lod_type': settings_3d['lod_type'],
-                'density_percentage': settings_3d['density_percentage']
-            }
-        }
-    }
-    
-    params = display_params[dataset_type]
-    return display_func(*params['args'], **params['kwargs'])
+    # All dataset display_datapoint methods have the same signature with optional parameters
+    # Call with all parameters since they're all optional in the base class definitions
+    return display_func(
+        datapoint=datapoint,
+        class_labels=class_labels,
+        camera_state=camera_state,
+        settings_3d=settings_3d
+    )

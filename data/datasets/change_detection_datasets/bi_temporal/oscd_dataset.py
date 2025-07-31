@@ -3,11 +3,11 @@ import os
 import glob
 from datetime import datetime
 import torch
-from data.datasets import BaseDataset
+from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 import utils
 
 
-class OSCDDataset(BaseDataset):
+class OSCDDataset(Base2DCDDataset):
     __doc__ = r"""
     OSCD (Onera Satellite Change Detection) Dataset for bi-temporal change detection.
     

@@ -73,14 +73,24 @@ def update_datapoint_from_transforms(
     settings_3d = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
     class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
 
-    # Create display using kwargs to prevent parameter ordering issues
+    # Get dataset instance for display method
+    dataset_instance = registry.viewer.backend.get_dataset_instance(dataset_name=dataset_name)
+    
+    # All datasets must have display_datapoint method from base classes
+    assert dataset_instance is not None, f"Dataset instance must not be None for dataset: {dataset_name}"
+    assert hasattr(dataset_instance, 'display_datapoint'), f"Dataset {type(dataset_instance).__name__} must have display_datapoint method"
+    
+    display_func = dataset_instance.display_datapoint
+    logger.info(f"Using display method from dataset class: {type(dataset_instance).__name__}")
+    
+    # Create display using the determined display function
     logger.info(f"Creating {dataset_type} display with selected transforms")
     display = create_display(
-        dataset_type=dataset_type,
+        display_func=display_func,
         datapoint=datapoint,
         class_labels=class_labels,
         camera_state=camera_state,
-        settings_3d=settings_3d,
+        settings_3d=settings_3d
     )
 
     logger.info("Display created successfully with transform selection")

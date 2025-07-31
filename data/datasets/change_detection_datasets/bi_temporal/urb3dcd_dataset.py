@@ -6,19 +6,18 @@ import numpy as np
 import torch
 from sklearn.neighbors import KDTree
 from utils.point_cloud_ops.sampling import GridSampling3D, CylinderSampling
-from data.datasets import BaseDataset
+from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
 import utils
 
 
-class Urb3DCDDataset(BaseDataset):
+class Urb3DCDDataset(Base3DCDDataset):
     __doc__ = r"""
     URB3DCD dataset for 3D point cloud change detection with multiple change types.
 
     For detailed documentation, see: docs/datasets/change_detection/bi_temporal/urb3dcd.md
     """
 
-    INPUT_NAMES = ['pc_1', 'pc_2', 'kdtree_1', 'kdtree_2']
-    LABEL_NAMES = ['change_map']
+    INPUT_NAMES = ['pc_1', 'pc_2', 'kdtree_1', 'kdtree_2']  # Override base class with extended inputs
     NUM_CLASSES = 7
     INV_OBJECT_LABEL = {
         0: "unchanged",
@@ -31,7 +30,7 @@ class Urb3DCDDataset(BaseDataset):
     }
     CLASS_LABELS = {name: i for i, name in INV_OBJECT_LABEL.items()}
     IGNORE_LABEL = -1
-    SPLIT_OPTIONS = {'train', 'val', 'test'}
+    SPLIT_OPTIONS = ['train', 'val', 'test']
     SPLIT_MAP = {
         'train': 'TrainLarge-1c',  # Using the largest training set by default
         'val': 'Val',
@@ -416,33 +415,21 @@ class Urb3DCDDataset(BaseDataset):
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
 
         # Load first point cloud (only has XYZ coordinates)
-        pc1_data = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly, name_feat="label_ch", device='cpu')
-        pc1_xyz = pc1_data['pos']  # Extract XYZ coordinates
-        # Extract features if available, otherwise create ones
-        if 'feat' in pc1_data:
-            pc1_features = pc1_data['feat']
-        else:
-            pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
-        
-        # Combine xyz and features for backward compatibility
-        pc1 = torch.cat([pc1_xyz, pc1_features], dim=1)
-        assert pc1.size(1) == 4, f"{pc1.shape=}"
+        pc1_data = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly, name_feat="label_ch")
+        pc1_xyz = pc1_data['pos']  # Extract position from dictionary
+        # Add ones feature
+        pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
 
         # Load second point cloud (XYZ coordinates + label)
-        pc2_data = utils.io.load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly, name_feat="label_ch", device='cpu')
-        pc2_xyz = pc2_data['pos']  # Extract XYZ coordinates
-        # Extract features if available, otherwise create ones
-        if 'feat' in pc2_data:
-            pc2_features = pc2_data['feat']
-        else:
-            pc2_features = torch.ones((pc2_xyz.size(0), 1), dtype=pc2_xyz.dtype)  # [N, 1]
-        
-        # Combine xyz and features for backward compatibility
-        pc2 = torch.cat([pc2_xyz, pc2_features], dim=1)
+        pc2_data = utils.io.load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly, name_feat="label_ch")
+        pc2_xyz = pc2_data['pos']  # Extract position from dictionary
+        # Add ones feature
+        pc2_features = torch.ones((pc2_xyz.size(0), 1), dtype=pc2_xyz.dtype)  # [N, 1]
 
-        change_map = pc2[:, 3]  # Labels are in the 4th column for the second point cloud
+        # Extract change map from features - this is mandatory, let it fail if not present
+        change_map = pc2_data['feat'].squeeze()  # Labels from the loaded features
 
-        # Convert to correct types
+        # Convert to correct types but keep on original device
         pc1_xyz = pc1_xyz.type(torch.float32)
         pc2_xyz = pc2_xyz.type(torch.float32)
         change_map = change_map.type(torch.int64)
@@ -450,9 +437,9 @@ class Urb3DCDDataset(BaseDataset):
         # Normalize point clouds
         self._normalize(pc1_xyz, pc2_xyz)
 
-        # Build KDTrees (after normalization)
-        kdtree_1 = KDTree(np.asarray(pc1_xyz), leaf_size=10)
-        kdtree_2 = KDTree(np.asarray(pc2_xyz), leaf_size=10)
+        # Build KDTrees (move to CPU only for KDTree creation)
+        kdtree_1 = KDTree(np.asarray(pc1_xyz.cpu()), leaf_size=10)
+        kdtree_2 = KDTree(np.asarray(pc2_xyz.cpu()), leaf_size=10)
 
         # Create point indices for metadata - full point cloud so indices are just the range
         point_idx_pc1 = torch.arange(pc1_xyz.shape[0], dtype=torch.long)
