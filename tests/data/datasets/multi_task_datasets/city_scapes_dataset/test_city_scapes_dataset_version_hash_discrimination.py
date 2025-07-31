@@ -42,7 +42,7 @@ def test_cityscapes_dataset_version_discrimination():
 
 def test_split_variants():
     """Test that different splits produce different hashes."""
-    data_root = './data/datasets/soft_links/cityscapes'
+    data_root = './data/datasets/soft_links/city-scapes'
     split_variants = ['train', 'val']
     
     datasets = []
@@ -62,7 +62,7 @@ def test_split_variants():
 
 def test_semantic_granularity_variants():
     """Test that different semantic granularities produce different hashes."""
-    data_root = './data/datasets/soft_links/cityscapes'
+    data_root = './data/datasets/soft_links/city-scapes'
     granularity_variants = ['fine', 'coarse']
     
     datasets = []
@@ -83,7 +83,7 @@ def test_semantic_granularity_variants():
 
 def test_inherited_parameters_affect_version_hash():
     """Test that parameters inherited from BaseDataset affect version hash."""
-    data_root = './data/datasets/soft_links/cityscapes'
+    data_root = './data/datasets/soft_links/city-scapes'
     base_args = {
         'data_root': data_root,
         'split': 'train',
@@ -108,7 +108,7 @@ def test_inherited_parameters_affect_version_hash():
 
 def test_comprehensive_no_hash_collisions():
     """Ensure no hash collisions across many different configurations."""
-    data_root = './data/datasets/soft_links/cityscapes'
+    data_root = './data/datasets/soft_links/city-scapes'
     datasets = []
     
     # Generate different dataset configurations
