@@ -8,7 +8,7 @@ from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesData
 def test_cityscapes_dataset_version_discrimination():
     """Test that CityScapesDataset instances with different parameters have different hashes."""
     # Use real dataset from soft links
-    data_root = './data/datasets/soft_links/cityscapes'
+    data_root = './data/datasets/soft_links/city-scapes'
     
     # Same parameters should have same hash
     dataset1a = CityScapesDataset(
