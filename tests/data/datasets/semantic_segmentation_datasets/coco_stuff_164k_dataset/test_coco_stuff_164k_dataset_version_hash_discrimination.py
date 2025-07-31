@@ -103,7 +103,7 @@ def test_cocostuff164k_dataset_version_discrimination():
             # Note: semantic_granularity doesn't affect cache version hash as it's
             # considered a processing parameter, not a content parameter
             
-            # Different data_root should have different hash
+            # Different data_root should have SAME hash (data_root excluded from versioning)
             with tempfile.TemporaryDirectory() as temp_dir2:
                 create_dummy_cocostuff_structure(temp_dir2)
                 dataset4 = COCOStuff164KDataset(

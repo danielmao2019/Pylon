@@ -72,14 +72,14 @@ def test_multi_task_facial_landmark_dataset_version_discrimination():
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
         
-        # Different data_root should have different hash
+        # Different data_root should have SAME hash (data_root excluded from versioning)
         with tempfile.TemporaryDirectory() as temp_dir2:
             create_dummy_facial_landmark_structure(temp_dir2)
             dataset3 = MultiTaskFacialLandmarkDataset(
-                data_root=temp_dir2,  # Different
+                data_root=temp_dir2,  # Different path, same content structure
                 split='train'
             )
-            assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
+            assert dataset1a.get_cache_version_hash() == dataset3.get_cache_version_hash()
 
 
 def test_split_variants():
