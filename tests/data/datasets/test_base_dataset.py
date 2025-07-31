@@ -6,7 +6,7 @@ import torch
 def dataset_with_params(request, SampleDataset):
     """Fixture for creating a SampleDataset instance with parameters."""
     indices, expected_indices = request.param
-    dataset = SampleDataset(split=None, indices=indices, device=torch.device('cpu'))
+    dataset = SampleDataset(split=None, indices=indices, device=torch.device('cpu'), use_cpu_cache=False, use_disk_cache=False)
     return dataset, expected_indices, indices
 
 
@@ -60,7 +60,7 @@ def test_base_dataset_None(
 def dataset_with_tuple_params(request, SampleDataset):
     """Fixture for creating a SampleDataset instance with tuple split parameters."""
     split, expected = request.param
-    dataset = SampleDataset(split=split, indices=None, device=torch.device('cpu'))
+    dataset = SampleDataset(split=split, indices=None, device=torch.device('cpu'), use_cpu_cache=False, use_disk_cache=False)
     return dataset, expected
 
 
