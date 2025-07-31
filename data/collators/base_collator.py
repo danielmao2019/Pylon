@@ -1,6 +1,7 @@
 from typing import List, Dict, Callable, Union, Any, Optional
 import torch
 from utils.ops import transpose_buffer
+from utils.ops.dict_as_tensor import buffer_stack
 
 
 class BaseCollator:
@@ -26,52 +27,33 @@ class BaseCollator:
             A dictionary with collated data.
         """
         # Transpose the first level of the datapoints buffer
-        datapoints = transpose_buffer(datapoints)
+        collated_data = transpose_buffer(datapoints)
 
-        for key1, sub_dict in datapoints.items():
+        for key1, sub_dict in collated_data.items():
             # Transpose the second level
-            datapoints[key1] = transpose_buffer(sub_dict)
+            collated_data[key1] = transpose_buffer(sub_dict)
 
             if key1 == 'meta_info':
                 continue
 
-            for key2, values in datapoints[key1].items():
+            for key2, values in collated_data[key1].items():
                 # Check for custom collator
                 if key1 in self.collators and key2 in self.collators[key1]:
-                    datapoints[key1][key2] = self.collators[key1][key2](values)
+                    collated_data[key1][key2] = self.collators[key1][key2](values)
                 else:
                     # Default collation behavior
-                    datapoints[key1][key2] = self._default_collate(values, key1, key2)
+                    collated_data[key1][key2] = self._default_collate(values, key1, key2)
 
-        return datapoints
+        return collated_data
 
     @staticmethod
     def _default_collate(values: List[Any], key1: str, key2: str) -> Union[torch.Tensor, List[Any]]:
-        """
-        Default collation logic for handling common types.
-
-        Args:
-            values: A list of values to be collated.
-            key1: Outer key for context in error messages.
-            key2: Inner key for context in error messages.
-
-        Returns:
-            A collated tensor or the original list if collation is not possible.
-        """
-        if all(value is None or isinstance(value, str) for value in values):
-            # Leave strings and None values as-is
-            return values
-
-        if all(isinstance(value, int) for value in values):
-            # Convert integers to a tensor
-            return torch.tensor(values, dtype=torch.int64)
-
+        """Default collation logic using buffer_stack with informative error messages."""
         try:
-            # Default behavior: stack tensors
-            return torch.stack(values, dim=0)
-        except Exception as e:
+            return buffer_stack(values)
+        except Exception as buffer_stack_error:
+            # Simple wrapper that adds collation context while preserving buffer_stack error details
             raise RuntimeError(
-                f"[ERROR] Cannot stack tensors into a batch for key1='{key1}', key2='{key2}'. "
-                f"Example values: {values[:4]} "
-                f"Details: {e}"
+                f"[ERROR] Cannot collate values for key1='{key1}', key2='{key2}'. "
+                f"buffer_stack error: {buffer_stack_error}"
             )
