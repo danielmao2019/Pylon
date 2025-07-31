@@ -353,12 +353,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         transformed_datapoint = self.transforms(datapoint, seed=(self.base_seed, idx))
         return transformed_datapoint
 
-    def get_cache_stats(self) -> Optional[Dict[str, Any]]:
-        """Get cache statistics if caching is enabled."""
-        if self.cache is not None:
-            return self.cache.get_stats()
-        return None
-
     @staticmethod
     @abstractmethod
     def display_datapoint(
