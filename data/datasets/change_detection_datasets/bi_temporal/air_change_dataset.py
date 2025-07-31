@@ -157,3 +157,16 @@ class AirChangeDataset(BaseDataset):
         inputs = {key: crop_op(inputs[key]) for key in inputs}
         labels = {key: crop_op(labels[key]) for key in labels}
         return inputs, labels, meta_info
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # AirChangeDataset involves random cropping for training, which affects content
+        # The random state affects which crops are selected
+        version_dict.update({
+            'train_crops_per_image': self.TRAIN_CROPS_PER_IMAGE,
+            'image_size': self.IMAGE_SIZE,
+            'test_crop_size': self.TEST_CROP_SIZE,
+            'train_crop_size': self.TRAIN_CROP_SIZE,
+        })
+        return version_dict

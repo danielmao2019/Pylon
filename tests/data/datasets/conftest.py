@@ -1,6 +1,8 @@
 from typing import Any, Dict, Tuple
 import pytest
 import torch
+import os
+import glob
 from data.datasets.base_dataset import BaseDataset
 from data.transforms.compose import Compose
 from data.transforms.random_noise import RandomNoise
@@ -83,3 +85,34 @@ def random_transforms():
             ]
         }
     }
+
+
+
+
+@pytest.fixture
+def mnist_data_root():
+    """Fixture that provides MNIST data path."""
+    return "./data/datasets/soft_links/MNIST"
+
+
+@pytest.fixture(autouse=True)
+def cleanup_test_cache_files():
+    """Automatically clean up test cache files after each test."""
+    yield  # Run the test first
+    
+    # Clean up any test cache files
+    cache_dir = "./data/cache"
+    if os.path.exists(cache_dir):
+        test_cache_patterns = [
+            "test_*.json",
+            "*_test.json",
+            "temp_*.json"
+        ]
+        
+        for pattern in test_cache_patterns:
+            cache_files = glob.glob(os.path.join(cache_dir, pattern))
+            for cache_file in cache_files:
+                try:
+                    os.remove(cache_file)
+                except (OSError, FileNotFoundError):
+                    pass  # File already removed or doesn't exist

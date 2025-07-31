@@ -10,7 +10,7 @@ class SemanticSegmentationRandomDataset(BaseRandomDataset):
         self,
         num_classes: int,
         num_examples: int,
-        initial_seed: Optional[int] = None,
+        **kwargs,
     ) -> None:
         # init num classes
         assert type(num_classes) == int, f"{type(num_classes)=}"
@@ -31,5 +31,5 @@ class SemanticSegmentationRandomDataset(BaseRandomDataset):
             },
         }
         super(SemanticSegmentationRandomDataset, self).__init__(
-            num_examples=num_examples, gen_func_config=gen_func_config, initial_seed=initial_seed,
+            num_examples=num_examples, gen_func_config=gen_func_config, **kwargs,
         )

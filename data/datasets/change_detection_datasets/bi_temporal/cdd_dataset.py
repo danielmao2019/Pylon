@@ -74,6 +74,11 @@ class CDDDataset(BaseDataset):
                 'change_map_path': change_map_path,
             })
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        # CDDDataset has no additional parameters beyond BaseDataset
+        return super()._get_cache_version_dict()
+
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         inputs = {
             f'img_{i}': utils.io.load_image(

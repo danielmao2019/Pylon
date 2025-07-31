@@ -44,7 +44,7 @@ def create_simple_test_dataset_config():
         'class': BaseRandomDataset,
         'args': {
             'num_examples': 6,  # Small dataset for testing
-            'initial_seed': 0,
+            'base_seed': 0,
             'gen_func_config': {
                 'inputs': {
                     'x': (

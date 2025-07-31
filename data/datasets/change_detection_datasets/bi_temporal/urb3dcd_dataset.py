@@ -416,17 +416,29 @@ class Urb3DCDDataset(BaseDataset):
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
 
         # Load first point cloud (only has XYZ coordinates)
-        pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly, name_feat="label_ch")
+        pc1_data = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly, name_feat="label_ch", device='cpu')
+        pc1_xyz = pc1_data['pos']  # Extract XYZ coordinates
+        # Extract features if available, otherwise create ones
+        if 'feat' in pc1_data:
+            pc1_features = pc1_data['feat']
+        else:
+            pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
+        
+        # Combine xyz and features for backward compatibility
+        pc1 = torch.cat([pc1_xyz, pc1_features], dim=1)
         assert pc1.size(1) == 4, f"{pc1.shape=}"
-        pc1_xyz = pc1[:, :3]
-        # Add ones feature
-        pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
 
         # Load second point cloud (XYZ coordinates + label)
-        pc2 = utils.io.load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly, name_feat="label_ch")
-        pc2_xyz = pc2[:, :3]
-        # Add ones feature
-        pc2_features = torch.ones((pc2_xyz.size(0), 1), dtype=pc2_xyz.dtype)  # [N, 1]
+        pc2_data = utils.io.load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly, name_feat="label_ch", device='cpu')
+        pc2_xyz = pc2_data['pos']  # Extract XYZ coordinates
+        # Extract features if available, otherwise create ones
+        if 'feat' in pc2_data:
+            pc2_features = pc2_data['feat']
+        else:
+            pc2_features = torch.ones((pc2_xyz.size(0), 1), dtype=pc2_xyz.dtype)  # [N, 1]
+        
+        # Combine xyz and features for backward compatibility
+        pc2 = torch.cat([pc2_xyz, pc2_features], dim=1)
 
         change_map = pc2[:, 3]  # Labels are in the 4th column for the second point cloud
 
@@ -606,3 +618,15 @@ class Urb3DCDDataset(BaseDataset):
 
         if pc2.shape[0] > 0:
             pc2.sub_(mean2)  # Center at mean
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'version': self.version,
+            'patched': self.patched,
+            'sample_per_epoch': self._sample_per_epoch,
+            'fix_samples': self.fix_samples,
+            'radius': self._radius,
+        })
+        return version_dict

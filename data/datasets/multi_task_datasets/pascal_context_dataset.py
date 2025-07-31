@@ -183,6 +183,16 @@ class PASCALContextDataset(BaseDataset):
         # Custom additions due to incompatibilities
         self.normals_valid_classes.append(cls_context['tvmonitor'])
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        # PASCAL Context has parameters that affect which tasks are loaded
+        version_dict.update({
+            'num_human_parts': self.num_human_parts,
+            'area_thres': self.area_thres,
+        })
+        return version_dict
+
     # ====================================================================================================
     # load methods
     # ====================================================================================================

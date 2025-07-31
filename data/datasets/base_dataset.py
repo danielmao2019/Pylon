@@ -5,8 +5,10 @@ import copy
 import subprocess
 import os
 import random
+import json
+import xxhash
 import torch
-from data.cache import DatasetCache
+from data.cache import CombinedDatasetCache
 from data.transforms.compose import Compose
 from utils.input_checks import check_read_dir
 from utils.builders import build_from_config
@@ -28,15 +30,20 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         base_seed: int = 0,
-        use_cache: Optional[bool] = True,
+        use_cpu_cache: bool = True,
+        use_disk_cache: bool = True,
         max_cache_memory_percent: float = 80.0,
+        enable_cpu_validation: bool = False,
+        enable_disk_validation: bool = False,
         device: Optional[Union[torch.device, str]] = torch.device('cuda'),
         check_sha1sum: Optional[bool] = False,
     ) -> None:
         """
         Args:
-            use_cache (bool): controls whether loaded data points stays in RAM. Default: True
+            use_cpu_cache (bool): controls whether loaded data points stays in RAM. Default: True
+            use_disk_cache (bool): controls whether to use disk cache. Default: True
             max_cache_memory_percent (float): maximum percentage of system memory to use for cache
+            base_seed (int): seed for deterministic behavior. Default: 0
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
 
@@ -50,7 +57,13 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self._init_indices(indices=indices)
         self._init_transforms(transforms_cfg=transforms_cfg)
         self.set_base_seed(base_seed)
-        self._init_cache(use_cache=use_cache, max_cache_memory_percent=max_cache_memory_percent)
+        self._init_cache(
+            use_cpu_cache=use_cpu_cache,
+            use_disk_cache=use_disk_cache,
+            max_cache_memory_percent=max_cache_memory_percent,
+            enable_cpu_validation=enable_cpu_validation,
+            enable_disk_validation=enable_disk_validation,
+        )
         self._init_device(device)
 
         # sanity check
@@ -65,7 +78,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         if type(split) == tuple:
             assert len(split) == len(self.SPLIT_OPTIONS), f"{split=}, {self.SPLIT_OPTIONS=}"
             assert all(type(x) in [int, float] for x in split)
-            assert abs(sum(split) - 1.0) < 0.01, f"{sum(self.split)=}"
+            assert abs(sum(split) - 1.0) < 0.01, f"{sum(split)=}"
             self.split_percentages = split
         else:
             self.split = split
@@ -108,8 +121,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
                 # initialize annotations
                 self._init_annotations()
                 # sanity check
-                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
-                    assert type(self.DATASET_SIZE) == dict, f"{type(self.DATASET_SIZE)=}"
+                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None and isinstance(self.DATASET_SIZE, dict):
                     assert len(self) == self.DATASET_SIZE[self.split], f"{len(self)=}, {self.DATASET_SIZE[self.split]=}, {self.split=}"
                 # take subset by indices
                 self._filter_annotations_by_indices()
@@ -164,11 +176,13 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             return
         assert type(self.DATASET_SIZE) in [dict, int]
         if type(self.DATASET_SIZE) == int:
-            assert type(self.split) == tuple
+            assert hasattr(self, 'split_percentages'), "int DATASET_SIZE requires split_percentages"
+            assert not hasattr(self, 'split'), "int DATASET_SIZE should not have split attribute"
         if type(self.DATASET_SIZE) == dict:
             assert set(self.DATASET_SIZE.keys()).issubset(set(self.SPLIT_OPTIONS)), \
                 f"{self.DATASET_SIZE.keys()=}, {self.SPLIT_OPTIONS=}"
-            assert type(self.split) == str
+            assert hasattr(self, 'split') and isinstance(self.split, str), "dict DATASET_SIZE requires string split"
+            assert not hasattr(self, 'split_percentages'), "dict DATASET_SIZE should not have split_percentages attribute"
             self.DATASET_SIZE = self.DATASET_SIZE[self.split]
         assert len(self) == len(self.annotations) == self.DATASET_SIZE, \
             f"{len(self)=}, {len(self.annotations)=}, {self.DATASET_SIZE=}"
@@ -189,17 +203,77 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             }
         self.transforms = build_from_config(transforms_cfg)
 
-    def _init_cache(self, use_cache: bool, max_cache_memory_percent: float) -> None:
-        assert isinstance(use_cache, bool), f"{type(use_cache)=}"
+    def _init_cache(
+        self,
+        use_cpu_cache: bool,
+        use_disk_cache: bool,
+        max_cache_memory_percent: float,
+        enable_cpu_validation: bool,
+        enable_disk_validation: bool,
+    ) -> None:
+        assert isinstance(use_cpu_cache, bool), f"{type(use_cpu_cache)=}"
+        assert isinstance(use_disk_cache, bool), f"{type(use_disk_cache)=}"
         assert isinstance(max_cache_memory_percent, float), f"{type(max_cache_memory_percent)=}"
         assert 0.0 <= max_cache_memory_percent <= 100.0, f"{max_cache_memory_percent=}"
-        if use_cache:
-            self.cache = DatasetCache(
-                max_memory_percent=max_cache_memory_percent,
-                enable_validation=True,
+        
+        if use_cpu_cache or use_disk_cache:
+            # Generate version hash for this dataset configuration
+            version_hash = self.get_cache_version_hash()
+            
+            # For datasets without data_root (e.g., random datasets), use a default cache location
+            # For datasets with soft links, resolve to real path to ensure cache is in target location (e.g., /pub not /home)
+            cache_data_root = getattr(self, 'data_root', '/tmp/cache')
+            if cache_data_root != '/tmp/cache' and os.path.islink(cache_data_root):
+                cache_data_root = os.path.realpath(cache_data_root)
+            
+            self.cache = CombinedDatasetCache(
+                data_root=cache_data_root,
+                version_hash=version_hash,
+                use_cpu_cache=use_cpu_cache,
+                use_disk_cache=use_disk_cache,
+                max_cpu_memory_percent=max_cache_memory_percent,
+                enable_cpu_validation=enable_cpu_validation,
+                enable_disk_validation=enable_disk_validation,
             )
         else:
             self.cache = None
+
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning.
+        
+        Subclasses should override this method to add their specific parameters.
+        
+        Note: data_root is intentionally excluded from the version dict to ensure
+        cache hashes are stable across different filesystem locations (e.g., soft links).
+        """
+        version_dict = {
+            'class_name': self.__class__.__name__,
+        }
+        
+        # NOTE: We explicitly DO NOT include data_root in the version dict
+        # This ensures that the same dataset accessed through different paths
+        # (e.g., soft links, relocated datasets) will have the same cache hash
+        
+        # Add split information
+        if hasattr(self, 'split') and self.split is not None:
+            version_dict['split'] = self.split
+        elif hasattr(self, 'split_percentages'):
+            version_dict['split_percentages'] = self.split_percentages
+        
+        # Add base parameters that affect dataset content
+        if hasattr(self, 'base_seed') and self.base_seed is not None:
+            version_dict['base_seed'] = self.base_seed
+        
+        if hasattr(self, 'indices') and self.indices is not None:
+            version_dict['indices'] = self.indices
+        
+        return version_dict
+    
+    def get_cache_version_hash(self) -> str:
+        """Generate deterministic hash from dataset configuration."""
+        version_dict = self._get_cache_version_dict()
+        hash_str = json.dumps(version_dict, sort_keys=True)
+        return xxhash.xxh64(hash_str.encode()).hexdigest()[:16]
 
     def _init_device(self, device: Union[str, torch.device]) -> None:
         if isinstance(device, str):
@@ -209,7 +283,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def _sanity_check(self) -> None:
         assert hasattr(self, 'SPLIT_OPTIONS') and self.SPLIT_OPTIONS is not None
-        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
+        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None and isinstance(self.DATASET_SIZE, dict):
             assert set(self.SPLIT_OPTIONS) == set(self.DATASET_SIZE.keys())
         assert self.INPUT_NAMES is not None
         assert self.LABEL_NAMES is not None
@@ -254,7 +328,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # Try to get raw datapoint from cache first
         raw_datapoint = None
         if self.cache is not None:
-            raw_datapoint = self.cache.get(idx)
+            raw_datapoint = self.cache.get(idx, device=self.device)
 
         # If not in cache, load from disk and cache it
         if raw_datapoint is None:
@@ -274,12 +348,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
 
+        # Apply device transfer only if not already on target device (cache may have done this)
         datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=raw_datapoint)
         transformed_datapoint = self.transforms(datapoint, seed=(self.base_seed, idx))
         return transformed_datapoint
-
-    def get_cache_stats(self) -> Optional[Dict[str, Any]]:
-        """Get cache statistics if caching is enabled."""
-        if self.cache is not None:
-            return self.cache.get_stats()
-        return None

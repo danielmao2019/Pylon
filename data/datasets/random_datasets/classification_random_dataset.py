@@ -14,7 +14,7 @@ class ClassificationRandomDataset(BaseRandomDataset):
         num_classes: int,
         num_examples: int,
         image_res: Tuple[int, int],
-        initial_seed: Optional[int] = None,
+        **kwargs,
     ) -> None:
         # init num classes
         assert type(num_classes) == int, f"{type(num_classes)=}"
@@ -35,5 +35,5 @@ class ClassificationRandomDataset(BaseRandomDataset):
             },
         }
         super(ClassificationRandomDataset, self).__init__(
-            num_examples=num_examples, gen_func_config=gen_func_config, initial_seed=initial_seed,
+            num_examples=num_examples, gen_func_config=gen_func_config, **kwargs,
         )

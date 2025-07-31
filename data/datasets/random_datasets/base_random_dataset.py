@@ -13,7 +13,6 @@ class BaseRandomDataset(BaseDataset):
         self,
         num_examples: int,
         gen_func_config: Dict[str, Dict[str, Tuple[Callable, dict]]],
-        initial_seed: Optional[int] = None,
         **kwargs,
     ) -> None:
         # init num examples
@@ -22,7 +21,6 @@ class BaseRandomDataset(BaseDataset):
         self.num_examples = num_examples
         # init gen func config
         self._init_gen_func_config_(config=gen_func_config)
-        self.initial_seed = initial_seed
         # init transform
         super(BaseRandomDataset, self).__init__(**kwargs)
 
@@ -62,7 +60,7 @@ class BaseRandomDataset(BaseDataset):
     ]:
         # Create generator locally to avoid pickle issues with multiprocessing
         generator = torch.Generator()
-        seed = (self.initial_seed or 0) + idx
+        seed = (self.base_seed or 0) + idx
         generator.manual_seed(seed)
 
         # Always create tensors on CPU - BaseDataset handles device transfer
@@ -76,3 +74,13 @@ class BaseRandomDataset(BaseDataset):
 
         meta_info = {'seed': seed}
         return inputs, labels, meta_info
+    
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'num_examples': self.num_examples,
+            'gen_func_config': str(self.gen_func_config),  # Convert to string for hashing
+            'base_seed': self.base_seed,
+        })
+        return version_dict

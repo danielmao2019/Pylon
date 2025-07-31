@@ -41,6 +41,7 @@
 6. **Never use __init__.py in tests**: Test directories are not Python modules
 7. **No test_ prefix for directories**: Test subdirectories should use descriptive names, not `test_` prefix
 8. **Use conftest.py wisely**: Put common code in conftest.py as fixtures, shared across multiple test files
+9. **Cache version discrimination**: Every dataset must include tests verifying version hash discrimination
 
 ## Examples of Correct vs Incorrect Test Patterns
 
@@ -234,3 +235,123 @@ def test_model_forward(ModelFactory, sample_data):
 - **Trainer classes**: Initialize metric before early stopping
 - **API contracts**: SingleTaskMetric._compute_score receives tensors, not dicts
 - **Error fixing**: Fix root causes, don't hide errors with try-except blocks
+- **Dataset classes**: Must implement `_get_cache_version_dict()` and include discrimination tests
+
+## Dataset Cache Version Testing
+
+**MANDATORY for all dataset implementations**: Every dataset class must include tests that verify cache version hash discrimination.
+
+### Test Requirements
+
+All dataset tests must include a `test_cache_version_discrimination()` function that verifies:
+
+1. **Same parameters produce same hash**
+2. **Different parameters produce different hashes** 
+3. **All content-affecting parameters are tested**
+
+### Example Implementation
+
+```python
+def test_dataset_cache_version_discrimination():
+    """Test that dataset instances with different parameters have different version hashes."""
+    
+    # Same parameters should have same hash
+    dataset1a = MyDataset(param1=value1, param2=value2)
+    dataset1b = MyDataset(param1=value1, param2=value2)
+    assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
+    
+    # Different param1 should have different hash
+    dataset2 = MyDataset(param1=different_value, param2=value2)
+    assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
+    
+    # Different param2 should have different hash
+    dataset3 = MyDataset(param1=value1, param2=different_value)
+    assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
+    
+    # Test ALL parameters that affect dataset content
+    # Add more assertions for every content-affecting parameter
+```
+
+### Critical Test Patterns
+
+#### **Test All Content-Affecting Parameters**
+```python
+# ✅ CORRECT - Test every parameter that changes dataset content
+def test_synthetic_dataset_discrimination():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        base_args = {
+            'data_root': temp_dir,
+            'dataset_size': 100,
+            'rotation_mag': 45.0,
+            'translation_mag': 0.5,
+            'matching_radius': 0.05,
+        }
+        
+        # Test each parameter individually
+        for param_name, new_value in [
+            ('dataset_size', 200),
+            ('rotation_mag', 30.0), 
+            ('translation_mag', 0.3),
+            ('matching_radius', 0.1),
+        ]:
+            dataset1 = MyDataset(**base_args)
+            modified_args = base_args.copy()
+            modified_args[param_name] = new_value
+            dataset2 = MyDataset(**modified_args)
+            
+            assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
+                f"Parameter {param_name} should affect cache version hash"
+```
+
+#### **Test Optional Parameters**
+```python
+# ✅ CORRECT - Test None vs specified values
+def test_optional_parameter_discrimination():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # None vs specified should have different hashes
+        dataset1 = MyDataset(data_root=temp_dir, camera_count=None)
+        dataset2 = MyDataset(data_root=temp_dir, camera_count=10)
+        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        
+        # Different specified values should have different hashes
+        dataset3 = MyDataset(data_root=temp_dir, camera_count=20)
+        assert dataset2.get_cache_version_hash() != dataset3.get_cache_version_hash()
+```
+
+#### **Test Comprehensive No-Collision**
+```python
+# ✅ CORRECT - Comprehensive collision detection
+def test_comprehensive_no_hash_collisions():
+    """Ensure no hash collisions across many different configurations."""
+    datasets = []
+    
+    # Generate many different dataset configurations
+    for param1 in [value1, value2, value3]:
+        for param2 in [valueA, valueB]:
+            datasets.append(MyDataset(param1=param1, param2=param2))
+    
+    # Collect all hashes
+    hashes = [dataset.get_cache_version_hash() for dataset in datasets]
+    
+    # Ensure all hashes are unique (no collisions)
+    assert len(hashes) == len(set(hashes)), \
+        f"Hash collision detected! Duplicate hashes found in: {hashes}"
+    
+    # Ensure all hashes are properly formatted
+    for hash_val in hashes:
+        assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
+        assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
+```
+
+### Test Organization
+
+Place cache version tests in the same test file as other dataset tests:
+
+```
+tests/data/datasets/
+├── test_cache_version_discrimination.py  # Cross-dataset discrimination tests
+└── my_dataset/
+    ├── test_initialization.py
+    ├── test_data_loading.py
+    └── test_cache_version.py              # Dataset-specific version tests
+```
