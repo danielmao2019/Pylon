@@ -20,8 +20,7 @@ from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import
 from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
 from data.datasets.torchvision_datasets.mnist import MNISTDataset
-from data.datasets.pcr_datasets.bi_temporal_pcr_dataset import BiTemporalPCRDataset
-from data.datasets.pcr_datasets.single_temporal_pcr_dataset import SingleTemporalPCRDataset
+from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
 from data.datasets.torchvision_datasets.mnist import MNISTDataset
@@ -150,40 +149,51 @@ DATASET_CONFIGS = {
     # =============================================================================
     # PCR Datasets (verified working)
     # =============================================================================
-    'bi_temporal_pcr': {
-        'class': BiTemporalPCRDataset,
+    '3dmatch': {
+        'class': ThreeDMatchDataset,
         'args': {
-            'data_root': './data/datasets/soft_links/threedmatch/test/7-scenes-redkitchen',
-            'dataset_size': 50,  # Reduced for faster testing
-            'rotation_mag': 45.0,
-            'translation_mag': 0.5,
-            'matching_radius': 0.1,
-            'min_points': 500
+            'data_root': './data/datasets/soft_links/threedmatch',
+            'split': 'train'
         },
-        'splits': [],  # Synthetic dataset, no splits
+        'splits': ['train', 'val', 'test'],
         'parameter_variations': [
-            {'rotation_mag': 90.0},  # Different from default 45.0
-            {'translation_mag': 1.0},  # Different from default 0.5
-            {'rotation_mag': 90.0, 'translation_mag': 1.0},  # Combined variation
-            {'matching_radius': 0.05}  # Different from default 0.1
+            {'split': 'train'},
+            {'split': 'val'},
+            {'split': 'test'}
         ]
     },
-    'single_temporal_pcr': {
-        'class': SingleTemporalPCRDataset,
+    '3dlomatch': {
+        'class': ThreeDLoMatchDataset,
         'args': {
-            'data_root': './data/datasets/soft_links/threedmatch/test/7-scenes-redkitchen',
+            'data_root': './data/datasets/soft_links/threedmatch',
+            'split': 'train'
+        },
+        'splits': ['train', 'val', 'test'],
+        'parameter_variations': [
+            {'split': 'train'},
+            {'split': 'val'},
+            {'split': 'test'}
+        ]
+    },
+    'modelnet40': {
+        'class': ModelNet40Dataset,
+        'args': {
+            'data_root': './data/datasets/soft_links/ModelNet40',
+            'cache_filepath': './data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
+            'split': 'train',
             'dataset_size': 50,  # Reduced for faster testing
+            'overlap_range': (0.0, 1.0),
+            'matching_radius': 0.05,
             'rotation_mag': 45.0,
             'translation_mag': 0.5,
-            'matching_radius': 0.1,
-            'min_points': 500
+            'keep_ratio': 0.7
         },
-        'splits': [],  # Synthetic dataset, no splits
+        'splits': ['train', 'test'],  # ModelNet40 has train and test splits
         'parameter_variations': [
-            {'rotation_mag': 90.0},  # Different from default 45.0
-            {'translation_mag': 1.0},  # Different from default 0.5
-            {'max_points': 2048},  # Different from default 4096
-            {'rotation_mag': 90.0, 'max_points': 2048}  # Combined variation
+            {'split': 'train'},
+            {'split': 'test'},
+            {'rotation_mag': 30.0, 'translation_mag': 0.3},  # Different rotation/translation
+            {'keep_ratio': 0.8, 'matching_radius': 0.03}  # Different keep_ratio and matching_radius
         ]
     },
     
