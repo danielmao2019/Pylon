@@ -111,7 +111,7 @@ def test_cocostuff164k_dataset_version_discrimination():
                     split='train2017',
                     semantic_granularity='coarse'
                 )
-                assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
+                assert dataset1a.get_cache_version_hash() == dataset4.get_cache_version_hash()
 
 
 def test_split_variants():

@@ -26,13 +26,13 @@ def test_mnist_dataset_version_discrimination():
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
         
-        # Different data_root should have different hash
+        # Different data_root should have SAME hash (data_root excluded from versioning)
         with tempfile.TemporaryDirectory() as temp_dir2:
             dataset3 = MNISTDataset(
                 data_root=temp_dir2,  # Different
                 split='train'
             )
-            assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
+            assert dataset1a.get_cache_version_hash() == dataset3.get_cache_version_hash()
 
 
 def test_split_variants():
