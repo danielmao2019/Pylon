@@ -1,7 +1,41 @@
-# GMCNet Integration Implementation Plan
+# GMCNet Integration Implementation Plan - Issue Fixes
 
-## Overview
-Integrating GMCNet (Graph Matching Consensus Network) into Pylon framework following the structured 5-commit workflow and lessons learned from D3Feat integration.
+## Current Task: Fix Incorrect Defensive Programming Changes
+
+### Overview
+Several incorrect defensive programming patterns were introduced during GMCNet integration that violate Pylon's core principle of "fail fast and loud". These need to be fixed immediately.
+
+### Issues Identified and Fixed ✅
+
+1. **d3feat import commented out** in `data/collators/__init__.py`
+   - ✅ **Fixed**: Restored `from data.collators.d3feat.d3feat_collate_fn import d3feat_collate_fn`
+   - ✅ **Fixed**: Added `'d3feat_collate_fn'` back to `__all__`
+   - **Result**: Import now fails fast and loud when C++ extensions aren't compiled
+
+2. **GMCNet self-registration** in its own `__init__.py` file
+   - ✅ **Fixed**: Deleted `models/point_cloud_registration/gmcnet/__init__.py` completely
+   - **Result**: GMCNet components no longer self-register inappropriately
+
+3. **PyCUDA defensive programming** in `model_utils.py`
+   - ✅ **Fixed**: Removed try-catch around `pycuda` imports
+   - ✅ **Fixed**: Removed `PYCUDA_AVAILABLE` flag and all conditional logic
+   - ✅ **Fixed**: Cleaned up `get_rri_cuda()` and `get_rri_cluster_cuda()` functions
+   - **Result**: PyCUDA imports now fail fast and clearly when missing
+
+4. **Ball query defensive programming** in `ball_query.py`
+   - ✅ **Fixed**: Removed try-catch around `ball_query_ext` import
+   - ✅ **Fixed**: Removed `BALL_QUERY_EXT_AVAILABLE` flag and conditional logic  
+   - ✅ **Fixed**: Removed RuntimeError fallback in forward method
+   - **Result**: C++ extension imports now fail fast when not compiled
+
+### Verification Results
+
+All defensive programming patterns have been successfully removed:
+- ✅ Code now follows "fail fast and loud" principle
+- ✅ No more conditional availability flags
+- ✅ No more try-catch blocks hiding missing dependencies
+- ✅ Clear error messages when dependencies are missing
+- ✅ Users are forced to compile C++ extensions properly instead of working around them
 
 ## Source Repository Analysis
 
