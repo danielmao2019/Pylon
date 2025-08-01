@@ -1,13 +1,7 @@
-"""Shared fixtures and helper functions for SYSU_CD_Dataset tests."""
+"""Shared fixtures and helper functions for SYSU-CD dataset tests."""
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
-
-
-@pytest.fixture
-def sysu_cd_data_root():
-    """Fixture that returns the real SYSU-CD dataset path."""
-    return "./data/datasets/soft_links/SYSU-CD"
 
 
 @pytest.fixture

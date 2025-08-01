@@ -97,11 +97,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, ade20k_data_root):
     """Fixture for creating an ADE20KDataset instance."""
     split = request.param
     return ADE20KDataset(
-        data_root='./data/datasets/soft_links/ADE20K',
+        data_root=ade20k_data_root,
         split=split,
     )
 
