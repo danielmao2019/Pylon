@@ -51,11 +51,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, kitti_data_root):
     """Fixture for creating a KITTIDataset instance."""
     split = request.param
     return KITTIDataset(
-        data_root='./data/datasets/soft_links/KITTI',
+        data_root=kitti_data_root,
         split=split,
     )
 

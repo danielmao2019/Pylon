@@ -9,11 +9,11 @@ import pytest
 from utils.builders.builder import build_from_config
 
 
-@pytest.mark.parametrize('pcr_dataset_class,data_root', [
-    ('BiTemporalPCRDataset', './data/datasets/soft_links/threedmatch/test/7-scenes-redkitchen'),
-    ('SingleTemporalPCRDataset', './data/datasets/soft_links/threedmatch/test/7-scenes-redkitchen'),
+@pytest.mark.parametrize('pcr_dataset_class', [
+    'BiTemporalPCRDataset',
+    'SingleTemporalPCRDataset',
 ])
-def test_pcr_rotation_magnitude_discrimination(pcr_dataset_class, data_root):
+def test_pcr_rotation_magnitude_discrimination(pcr_dataset_class, threedmatch_data_root):
     """Test PCR-specific rotation magnitude parameter discrimination."""
     # Import the appropriate class
     if pcr_dataset_class == 'BiTemporalPCRDataset':
@@ -24,7 +24,7 @@ def test_pcr_rotation_magnitude_discrimination(pcr_dataset_class, data_root):
         dataset_class = SingleTemporalPCRDataset
     
     base_config = {
-        'data_root': data_root,
+        'data_root': f'{threedmatch_data_root}/test/7-scenes-redkitchen',
         'dataset_size': 10,  # Small for testing
         'translation_mag': 0.5,
         'matching_radius': 0.1,
@@ -50,11 +50,11 @@ def test_pcr_rotation_magnitude_discrimination(pcr_dataset_class, data_root):
     assert hash1 != hash2, f"{pcr_dataset_class}: Different rotation_mag should produce different hashes: {hash1} == {hash2}"
 
 
-@pytest.mark.parametrize('pcr_dataset_class,data_root', [
-    ('BiTemporalPCRDataset', './data/datasets/soft_links/threedmatch/test/7-scenes-redkitchen'),
-    ('SingleTemporalPCRDataset', './data/datasets/soft_links/threedmatch/test/7-scenes-redkitchen'),
+@pytest.mark.parametrize('pcr_dataset_class', [
+    'BiTemporalPCRDataset',
+    'SingleTemporalPCRDataset',
 ])
-def test_pcr_translation_magnitude_discrimination(pcr_dataset_class, data_root):
+def test_pcr_translation_magnitude_discrimination(pcr_dataset_class, threedmatch_data_root):
     """Test PCR-specific translation magnitude parameter discrimination."""
     # Import the appropriate class
     if pcr_dataset_class == 'BiTemporalPCRDataset':
@@ -65,7 +65,7 @@ def test_pcr_translation_magnitude_discrimination(pcr_dataset_class, data_root):
         dataset_class = SingleTemporalPCRDataset
     
     base_config = {
-        'data_root': data_root,
+        'data_root': f'{threedmatch_data_root}/test/7-scenes-redkitchen',
         'dataset_size': 10,  # Small for testing
         'rotation_mag': 45.0,
         'matching_radius': 0.1,
@@ -91,12 +91,12 @@ def test_pcr_translation_magnitude_discrimination(pcr_dataset_class, data_root):
     assert hash1 != hash2, f"{pcr_dataset_class}: Different translation_mag should produce different hashes: {hash1} == {hash2}"
 
 
-def test_pcr_comprehensive_parameter_combinations():
+def test_pcr_comprehensive_parameter_combinations(threedmatch_data_root):
     """Test comprehensive PCR parameter combinations produce unique hashes."""
     from data.datasets.pcr_datasets.bi_temporal_pcr_dataset import BiTemporalPCRDataset
     
     base_config = {
-        'data_root': './data/datasets/soft_links/threedmatch/test/7-scenes-redkitchen',
+        'data_root': f'{threedmatch_data_root}/test/7-scenes-redkitchen',
         'dataset_size': 5,  # Very small for testing
     }
     

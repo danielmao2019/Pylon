@@ -31,19 +31,19 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-def test_whu_bd_sha1sum() -> None:
+def test_whu_bd_sha1sum(whu_bd_data_root) -> None:
     _ = WHU_BD_Dataset(
-        data_root="./data/datasets/soft_links/WHU-BD", split='train',
+        data_root=whu_bd_data_root, split='train',
         check_sha1sum=True,
     )
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, whu_bd_data_root):
     """Fixture for creating a WHU_BD_Dataset instance."""
     split = request.param
     return WHU_BD_Dataset(
-        data_root="./data/datasets/soft_links/WHU-BD",
+        data_root=whu_bd_data_root,
         split=split
     )
 

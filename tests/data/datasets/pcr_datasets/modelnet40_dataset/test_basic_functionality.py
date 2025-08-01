@@ -161,17 +161,17 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset_with_params(request):
+def dataset_with_params(request, modelnet40_data_root, modelnet40_cache_file):
     """Fixture for creating a ModelNet40Dataset instance."""
     dataset_params = request.param.copy()
+    dataset_params['data_root'] = modelnet40_data_root
+    dataset_params['cache_filepath'] = modelnet40_cache_file
     dataset = data.datasets.ModelNet40Dataset(**dataset_params)
     return dataset
 
 
 @pytest.mark.parametrize('dataset_with_params', [
     {
-        'data_root': 'data/datasets/soft_links/ModelNet40',
-        'cache_filepath': 'data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
         'split': 'train',
         'dataset_size': 100,
         'overlap_range': (0.0, 1.0),
@@ -182,8 +182,6 @@ def dataset_with_params(request):
         'transforms_cfg': transforms_cfg(),
     },
     {
-        'data_root': 'data/datasets/soft_links/ModelNet40',
-        'cache_filepath': 'data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
         'split': 'test',
         'dataset_size': 100,
         'overlap_range': (0.0, 1.0),
@@ -256,7 +254,7 @@ def test_modelnet40_categories():
         assert cat in categories, f"Expected category {cat} missing"
 
 
-def test_modelnet40_category_extraction():
+def test_modelnet40_category_extraction(modelnet40_data_root):
     """Test category extraction from file paths."""
     # Test the static method directly without creating a full instance
     from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
@@ -265,7 +263,7 @@ def test_modelnet40_category_extraction():
     test_paths = [
         '/path/to/ModelNet40/airplane/train/airplane_0001.off',
         '/path/to/ModelNet40/chair/test/chair_0100.off',
-        'data/datasets/soft_links/ModelNet40/table/train/table_0050.off',
+        f'{modelnet40_data_root}/table/train/table_0050.off',
     ]
     
     expected_categories = ['airplane', 'chair', 'table']
@@ -277,7 +275,7 @@ def test_modelnet40_category_extraction():
         assert category == expected, f"Expected {expected}, got {category} for path {path}"
 
 
-def test_modelnet40_split_handling():
+def test_modelnet40_split_handling(modelnet40_data_root):
     """Test ModelNet40 split handling (val -> test mapping)."""
     # Test that different splits load different files by checking annotations only
     # We'll create the annotations manually to avoid initialization issues
@@ -286,7 +284,7 @@ def test_modelnet40_split_handling():
     import os
     import glob
     
-    data_root = 'data/datasets/soft_links/ModelNet40'
+    data_root = modelnet40_data_root
     
     # Check train files exist
     train_files = []

@@ -32,11 +32,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, coco_stuff_164k_data_root):
     """Fixture for creating a COCOStuff164KDataset instance."""
     split, semantic_granularity = request.param
     return COCOStuff164KDataset(
-        data_root='./data/datasets/soft_links/COCOStuff164K',
+        data_root=coco_stuff_164k_data_root,
         split=split,
         semantic_granularity=semantic_granularity,
     )
