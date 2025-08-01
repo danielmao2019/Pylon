@@ -102,7 +102,7 @@ def knn_idx(pts, k):
 
 def get_rri_cuda(pts, k, npts_per_block=1):
     import pycuda.autoinit
-    mod_rri = SourceModule(open('utils/cpp_extensions/gmcnet/rri.cu').read() % (k, npts_per_block))
+    mod_rri = SourceModule(open('models/point_cloud_registration/gmcnet/rri.cu').read() % (k, npts_per_block))
     rri_cuda = mod_rri.get_function('get_rri_feature')
 
     N = len(pts)

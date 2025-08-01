@@ -15,7 +15,7 @@ from models.point_cloud_registration.gmcnet.visu_utils import visualize
 from metrics.vision_3d.point_cloud_registration.gmcnet_metrics import rotation_error, translation_error, rmse_loss, rotation_geodesic_error
 from models.point_cloud_registration.gmcnet.model_utils import clones, attention, knn_point, knn, get_edge_features, angle, estimate_fpfh, sinkhorn, Conv1DBNReLU, square_distance, get_cluster_feats, sample_and_group_feats
 
-from utils.mm3d_pn2 import three_nn, three_interpolate, furthest_point_sample, gather_points, grouping_operation
+from models.point_cloud_registration.gmcnet.mm3d_pn2 import three_nn, three_interpolate, furthest_point_sample, gather_points, grouping_operation
 # from metrics.vision_3d.point_cloud_registration.gmcnet import cd
 
 _EPS = 1e-6  # To prevent division by zero
