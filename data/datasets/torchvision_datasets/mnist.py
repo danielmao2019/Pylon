@@ -1,14 +1,12 @@
 from typing import Tuple, Dict, Any
 import torch
 import torchvision
-from data.datasets import BaseDataset
+from data.datasets.image_classification_datasets.base_imgcls_dataset import BaseImgClsDataset
 
 
-class MNISTDataset(BaseDataset):
+class MNISTDataset(BaseImgClsDataset):
 
     SPLIT_OPTIONS = ['train', 'test']
-    INPUT_NAMES = ['image']
-    LABEL_NAMES = ['label']
 
     def _init_annotations(self) -> None:
         self.annotations = torchvision.datasets.MNIST(
