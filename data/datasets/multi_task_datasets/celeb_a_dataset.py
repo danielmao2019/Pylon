@@ -130,3 +130,16 @@ class CelebADataset(BaseDataset):
             'image_resolution': tuple(inputs['image'].shape[-2:]),
         }
         return inputs, labels, meta_info
+
+    def display_datapoint(
+        self,
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Minimal display_datapoint implementation for multi-task datasets.
+        
+        Full visualization support for multi-task datasets is not yet implemented.
+        """
+        return None

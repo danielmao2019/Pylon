@@ -1,13 +1,7 @@
-"""Shared fixtures and helper functions for LevirCdDataset tests."""
+"""Shared fixtures and helper functions for LEVIR-CD dataset tests."""
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
-
-
-@pytest.fixture
-def levir_cd_data_root():
-    """Fixture that returns the real LEVIR-CD dataset path."""
-    return "./data/datasets/soft_links/LEVIR-CD"
 
 
 @pytest.fixture

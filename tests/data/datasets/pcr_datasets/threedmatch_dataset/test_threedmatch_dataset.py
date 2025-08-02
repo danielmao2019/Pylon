@@ -136,22 +136,22 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, threedmatch_data_root):
     """Fixture for creating a ThreeDMatchDataset instance."""
     split = request.param
     return ThreeDMatchDataset(
-        data_root='./data/datasets/soft_links/threedmatch',
+        data_root=threedmatch_data_root,
         split=split,
         matching_radius=0.1,
     )
 
 
 @pytest.fixture
-def lomatch_dataset(request):
+def lomatch_dataset(request, threedmatch_data_root):
     """Fixture for creating a ThreeDLoMatchDataset instance."""
     split = request.param
     return ThreeDLoMatchDataset(
-        data_root='./data/datasets/soft_links/threedmatch',
+        data_root=threedmatch_data_root,
         split=split,
         matching_radius=0.1,
     )

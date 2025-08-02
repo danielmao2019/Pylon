@@ -31,9 +31,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, whu_bd_data_root):
     """Fixture for creating a PPSLDataset instance."""
-    source = WHU_BD_Dataset(data_root="./data/datasets/soft_links/WHU-BD", split='train')
+    source = WHU_BD_Dataset(data_root=whu_bd_data_root, split='train')
     return PPSLDataset(source=source, dataset_size=len(source))
 
 

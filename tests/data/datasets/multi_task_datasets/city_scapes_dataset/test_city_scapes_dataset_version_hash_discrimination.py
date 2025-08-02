@@ -5,10 +5,10 @@ from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesData
 
 
 
-def test_cityscapes_dataset_version_discrimination():
+def test_cityscapes_dataset_version_discrimination(city_scapes_data_root):
     """Test that CityScapesDataset instances with different parameters have different hashes."""
     # Use real dataset from soft links
-    data_root = './data/datasets/soft_links/city-scapes'
+    data_root = city_scapes_data_root
     
     # Same parameters should have same hash
     dataset1a = CityScapesDataset(
@@ -40,9 +40,9 @@ def test_cityscapes_dataset_version_discrimination():
     assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
 
-def test_split_variants():
+def test_split_variants(city_scapes_data_root):
     """Test that different splits produce different hashes."""
-    data_root = './data/datasets/soft_links/city-scapes'
+    data_root = city_scapes_data_root
     split_variants = ['train', 'val']
     
     datasets = []
@@ -60,9 +60,9 @@ def test_split_variants():
             f"All split variants should produce different hashes, got: {hashes}"
 
 
-def test_semantic_granularity_variants():
+def test_semantic_granularity_variants(city_scapes_data_root):
     """Test that different semantic granularities produce different hashes."""
-    data_root = './data/datasets/soft_links/city-scapes'
+    data_root = city_scapes_data_root
     granularity_variants = ['fine', 'coarse']
     
     datasets = []
@@ -81,9 +81,9 @@ def test_semantic_granularity_variants():
 
 
 
-def test_inherited_parameters_affect_version_hash():
+def test_inherited_parameters_affect_version_hash(city_scapes_data_root):
     """Test that parameters inherited from BaseDataset affect version hash."""
-    data_root = './data/datasets/soft_links/city-scapes'
+    data_root = city_scapes_data_root
     base_args = {
         'data_root': data_root,
         'split': 'train',
@@ -106,9 +106,9 @@ def test_inherited_parameters_affect_version_hash():
             f"Inherited parameter {param_name} should affect cache version hash"
 
 
-def test_comprehensive_no_hash_collisions():
+def test_comprehensive_no_hash_collisions(city_scapes_data_root):
     """Ensure no hash collisions across many different configurations."""
-    data_root = './data/datasets/soft_links/city-scapes'
+    data_root = city_scapes_data_root
     datasets = []
     
     # Generate different dataset configurations

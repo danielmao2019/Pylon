@@ -3,8 +3,6 @@
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 
-# cdd_data_root fixture is now provided by parent conftest.py
-
 
 @pytest.fixture
 def cdd_dataset_train(cdd_data_root):

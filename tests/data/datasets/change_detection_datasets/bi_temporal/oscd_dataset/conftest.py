@@ -1,13 +1,7 @@
-"""Shared fixtures for OSCD dataset tests."""
+"""Shared fixtures and helper functions for OSCD dataset tests."""
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
-
-
-@pytest.fixture
-def oscd_data_root():
-    """Fixture that returns the real OSCD dataset path."""
-    return "./data/datasets/soft_links/OSCD"
 
 
 @pytest.fixture
@@ -16,7 +10,7 @@ def oscd_dataset_train(oscd_data_root):
     return OSCDDataset(data_root=oscd_data_root, split='train')
 
 
-@pytest.fixture  
+@pytest.fixture
 def oscd_dataset_test(oscd_data_root):
     """Fixture for creating an OSCDDataset instance with test split."""
     return OSCDDataset(data_root=oscd_data_root, split='test')

@@ -1,11 +1,12 @@
 from typing import Any, Dict, List, Tuple, Optional
 import os
 import glob
+import json
 import numpy as np
 import torch
 from utils.io.json import save_json
 import open3d as o3d
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 
 
 def make_open3d_point_cloud(xyz, color=None):
@@ -20,7 +21,7 @@ def make_open3d_point_cloud(xyz, color=None):
     return pcd
 
 
-class KITTIDataset(BaseDataset):
+class KITTIDataset(BasePCRDataset):
     """KITTI dataset for point cloud registration.
 
     Paper:

@@ -49,11 +49,11 @@ def validate_datapoint(dataset: MultiTaskFacialLandmarkDataset, idx: int) -> Non
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, multi_task_facial_landmark_data_root):
     """Fixture for creating a MultiTaskFacialLandmarkDataset instance."""
     params = request.param
     return MultiTaskFacialLandmarkDataset(
-        data_root='./data/datasets/soft_links/multi-task-facial-landmark',
+        data_root=multi_task_facial_landmark_data_root,
         **params
     )
 

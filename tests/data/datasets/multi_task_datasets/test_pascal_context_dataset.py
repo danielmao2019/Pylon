@@ -34,11 +34,11 @@ def validate_datapoint(dataset: PASCALContextDataset, idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, pascal_context_data_root):
     """Fixture for creating a PASCALContextDataset instance."""
     split = request.param
     return PASCALContextDataset(
-        data_root='./data/datasets/soft_links/PASCAL_MT',
+        data_root=pascal_context_data_root,
         split=split,
     )
 

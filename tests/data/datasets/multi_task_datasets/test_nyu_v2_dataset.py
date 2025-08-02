@@ -75,11 +75,11 @@ def validate_datapoint(dataset: NYUv2Dataset, idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, nyu_v2_data_root):
     """Fixture for creating a NYUv2Dataset instance."""
     params = request.param
     return NYUv2Dataset(
-        data_root='./data/datasets/soft_links/NYUD_MT',
+        data_root=nyu_v2_data_root,
         **params
     )
 

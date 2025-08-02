@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional, List
 import os
 import random
 import torch
@@ -81,3 +81,16 @@ class PPSLDataset(BaseSyntheticDataset):
         }
 
         return inputs, labels, meta_info
+    
+    def display_datapoint(
+        self,
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Minimal display_datapoint implementation for synthetic datasets.
+        
+        Full visualization support for synthetic datasets is not yet implemented.
+        """
+        return None
