@@ -14,7 +14,7 @@ from pycuda.compiler import SourceModule
 from copy import deepcopy
 
 # Import required functions from mm3d_pn2
-from models.point_cloud_registration.gmcnet.mm3d_pn2 import furthest_point_sample, gather_points
+from models.point_cloud_registration.gmcnet.mm3d_pn2 import furthest_point_sample, gather_points, grouping_operation
 
 
 _EPS = 1e-5  # To prevent division by zero
