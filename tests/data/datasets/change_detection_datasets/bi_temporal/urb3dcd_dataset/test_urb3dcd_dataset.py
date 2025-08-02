@@ -1,5 +1,6 @@
 from typing import Dict, Any
 import pytest
+import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
@@ -103,7 +104,65 @@ def test_urb3dcd_dataset(dataset, max_samples, get_samples_to_test) -> None:
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
 
-    print(f"Testing samples completed.")
+
+def test_urb3dcd_dataset_grid_sampling(urb3dcd_data_root, max_samples, get_samples_to_test) -> None:
+    """Test Urb3DCDDataset with grid sampling mode."""
+    dataset = Urb3DCDDataset(
+        data_root=urb3dcd_data_root,
+        split='train',
+        version=1,
+        patched=True,
+        sample_per_epoch=0,  # Grid sampling mode
+        fix_samples=False,
+        radius=50
+    )
+    
+    assert len(dataset) > 0
+    num_samples = get_samples_to_test(len(dataset), max_samples)
+    indices = random.sample(range(len(dataset)), num_samples) if num_samples < len(dataset) else list(range(len(dataset)))
+    
+    def validate_datapoint_grid(idx: int) -> None:
+        datapoint = dataset[idx]
+        inputs = datapoint['inputs']
+        labels = datapoint['labels']
+        meta_info = datapoint['meta_info']
+        validate_inputs(inputs)
+        validate_labels(labels)
+        validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
+        validate_meta_info(meta_info, idx)
+    
+    with ThreadPoolExecutor() as executor:
+        executor.map(validate_datapoint_grid, indices)
+
+
+def test_urb3dcd_dataset_fixed_sampling(urb3dcd_data_root, max_samples, get_samples_to_test) -> None:
+    """Test Urb3DCDDataset with fixed sampling mode."""
+    dataset = Urb3DCDDataset(
+        data_root=urb3dcd_data_root,
+        split='train',
+        version=1,
+        patched=True,
+        sample_per_epoch=100,  # Use sampling
+        fix_samples=True,  # Fixed sampling mode
+        radius=50
+    )
+    
+    assert len(dataset) > 0
+    num_samples = get_samples_to_test(len(dataset), max_samples)
+    indices = random.sample(range(len(dataset)), num_samples) if num_samples < len(dataset) else list(range(len(dataset)))
+    
+    def validate_datapoint_fixed(idx: int) -> None:
+        datapoint = dataset[idx]
+        inputs = datapoint['inputs']
+        labels = datapoint['labels']
+        meta_info = datapoint['meta_info']
+        validate_inputs(inputs)
+        validate_labels(labels)
+        validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
+        validate_meta_info(meta_info, idx)
+    
+    with ThreadPoolExecutor() as executor:
+        executor.map(validate_datapoint_fixed, indices)
 
 
 def test_fixed_samples_consistency(urb3dcd_data_root) -> None:
