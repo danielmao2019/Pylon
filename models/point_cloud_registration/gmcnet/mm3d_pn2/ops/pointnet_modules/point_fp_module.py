@@ -1,10 +1,9 @@
 import torch
 from mmcv.cnn import ConvModule
-from mmcv.runner import force_fp32
 from torch import nn as nn
 from typing import List
 
-from mmdet3d.ops import three_interpolate, three_nn
+from ..interpolate import three_interpolate, three_nn
 
 
 class PointFPModule(nn.Module):
@@ -35,7 +34,6 @@ class PointFPModule(nn.Module):
                     conv_cfg=dict(type='Conv2d'),
                     norm_cfg=norm_cfg))
 
-    @force_fp32()
     def forward(self, target: torch.Tensor, source: torch.Tensor,
                 target_feats: torch.Tensor,
                 source_feats: torch.Tensor) -> torch.Tensor:
