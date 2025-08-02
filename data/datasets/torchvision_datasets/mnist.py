@@ -1,4 +1,5 @@
 from typing import Tuple, Dict, Any
+import os
 import torch
 import torchvision
 from data.datasets.image_classification_datasets.base_imgcls_dataset import BaseImgClsDataset
@@ -7,6 +8,12 @@ from data.datasets.image_classification_datasets.base_imgcls_dataset import Base
 class MNISTDataset(BaseImgClsDataset):
 
     SPLIT_OPTIONS = ['train', 'test']
+
+    def __init__(self, **kwargs):
+        # Ensure data_root directory exists for auto-download
+        if 'data_root' in kwargs and kwargs['data_root'] is not None:
+            os.makedirs(kwargs['data_root'], exist_ok=True)
+        super().__init__(**kwargs)
 
     def _init_annotations(self) -> None:
         self.annotations = torchvision.datasets.MNIST(
