@@ -59,11 +59,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, city_scapes_data_root):
     """Fixture for creating a CityScapesDataset instance."""
     params = request.param
     return CityScapesDataset(
-        data_root='./data/datasets/soft_links/city-scapes',
+        data_root=city_scapes_data_root,
         **params
     )
 

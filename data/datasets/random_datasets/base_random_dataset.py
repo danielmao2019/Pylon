@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict, Callable, Any, Union, Optional
 import torch
-from data.datasets import BaseDataset
+from data.datasets.base_dataset import BaseDataset
 
 
 class BaseRandomDataset(BaseDataset):
@@ -52,6 +52,16 @@ class BaseRandomDataset(BaseDataset):
         """
         pass
 
+    def _get_cache_version_dict(self) -> Dict[str, Any]:
+        """Return parameters that affect dataset content for cache versioning."""
+        version_dict = super()._get_cache_version_dict()
+        version_dict.update({
+            'num_examples': self.num_examples,
+            'gen_func_config': str(self.gen_func_config),  # Convert to string for hashing
+            'base_seed': self.base_seed,
+        })
+        return version_dict
+
     def __len__(self) -> int:
         return self.num_examples
 
@@ -74,13 +84,16 @@ class BaseRandomDataset(BaseDataset):
 
         meta_info = {'seed': seed}
         return inputs, labels, meta_info
-    
-    def _get_cache_version_dict(self) -> Dict[str, Any]:
-        """Return parameters that affect dataset content for cache versioning."""
-        version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'num_examples': self.num_examples,
-            'gen_func_config': str(self.gen_func_config),  # Convert to string for hashing
-            'base_seed': self.base_seed,
-        })
-        return version_dict
+
+    def display_datapoint(
+        self,
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Minimal display_datapoint implementation for random datasets.
+        
+        Random datasets do not support visualization.
+        """
+        return None

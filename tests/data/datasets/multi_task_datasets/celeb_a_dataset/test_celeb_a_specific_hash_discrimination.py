@@ -8,12 +8,12 @@ import pytest
 from utils.builders.builder import build_from_config
 
 
-def test_celeb_a_use_landmarks_discrimination():
+def test_celeb_a_use_landmarks_discrimination(celeb_a_data_root):
     """Test CelebA-specific parameter discrimination (use_landmarks)."""
     celeb_a_config = {
         'class': None,  # Will be imported below
         'args': {
-            'data_root': './data/datasets/soft_links/celeb-a',
+            'data_root': celeb_a_data_root,
             'split': 'train'
         }
     }
@@ -42,12 +42,12 @@ def test_celeb_a_use_landmarks_discrimination():
     assert hash_with != hash_without, f"Different use_landmarks should produce different hashes: {hash_with} == {hash_without}"
 
 
-def test_celeb_a_landmarks_split_combinations():
+def test_celeb_a_landmarks_split_combinations(celeb_a_data_root):
     """Test combinations of landmarks and splits produce unique hashes."""
     from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
     
     base_config = {
-        'data_root': './data/datasets/soft_links/celeb-a',
+        'data_root': celeb_a_data_root,
     }
     
     test_combinations = [

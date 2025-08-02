@@ -31,9 +31,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.fixture
-def dataset(request):
+def dataset(request, sysu_cd_data_root):
     """Fixture for creating an I3PEDataset instance."""
-    source = Bi2SingleTemporal(SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split='train'))
+    source = Bi2SingleTemporal(SYSU_CD_Dataset(data_root=sysu_cd_data_root, split='train'))
     return I3PEDataset(source=source, dataset_size=len(source), exchange_ratio=0.75)
 
 

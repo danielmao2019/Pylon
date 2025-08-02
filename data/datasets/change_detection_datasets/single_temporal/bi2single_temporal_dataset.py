@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, List
 import torch
 from data.datasets import BaseDataset, BaseSyntheticDataset
 
@@ -36,3 +36,16 @@ class Bi2SingleTemporal(BaseSyntheticDataset):
             'image': inputs[f"img_{input_idx}"],
         }
         return inputs, {}, {'input_idx': input_idx}
+    
+    def display_datapoint(
+        self,
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Minimal display_datapoint implementation for synthetic datasets.
+        
+        Full visualization support for synthetic datasets is not yet implemented.
+        """
+        return None

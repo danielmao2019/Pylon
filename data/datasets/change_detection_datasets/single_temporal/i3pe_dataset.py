@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Union, Any, Optional
+from typing import Tuple, Dict, Union, Any, Optional, List
 import os
 import random
 import numpy
@@ -272,3 +272,16 @@ class I3PEDataset(BaseSyntheticDataset):
                 change_label[row_start:row_start + patch_sz, col_start:col_start + patch_sz]
 
         return exchange_img, exchange_change_label, label_1, label_2
+
+    @staticmethod
+    def display_datapoint(
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Minimal display_datapoint implementation for synthetic datasets.
+        
+        Full visualization support for synthetic datasets is not yet implemented.
+        """
+        return None

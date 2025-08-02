@@ -2,12 +2,12 @@ from typing import Any, Dict, Tuple
 import os
 import pickle
 import torch
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from utils.point_cloud_ops.correspondences import get_correspondences
 from utils.io.point_cloud import load_point_cloud
 
 
-class _ThreeDMatchBaseDataset(BaseDataset):
+class _ThreeDMatchBaseDataset(BasePCRDataset):
     """Base dataset for 3DMatch family of datasets for point cloud registration.
 
     This dataset contains RGB-D scans of real-world indoor scenes from the 3DMatch benchmark.

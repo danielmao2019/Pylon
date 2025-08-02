@@ -3,8 +3,6 @@
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
 
-# air_change_data_root fixture is now provided by parent conftest.py
-
 
 @pytest.fixture
 def air_change_dataset_train(air_change_data_root):

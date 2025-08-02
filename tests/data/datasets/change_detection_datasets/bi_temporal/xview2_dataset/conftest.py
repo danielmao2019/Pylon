@@ -1,13 +1,7 @@
-"""Shared fixtures and helper functions for xView2Dataset tests."""
+"""Shared fixtures and helper functions for xView2 dataset tests."""
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
-
-
-@pytest.fixture
-def xview2_data_root():
-    """Fixture that returns the real xView2 dataset path."""
-    return "./data/datasets/soft_links/xView2"
 
 
 @pytest.fixture

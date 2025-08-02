@@ -14,7 +14,7 @@ import data
 from utils.ops.dict_as_tensor import buffer_allclose
 
 
-def test_cache_consistency():
+def test_cache_consistency(modelnet40_data_root):
     """Test that cache generation is absolutely consistent between runs."""
     # Create temporary cache files
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
@@ -25,7 +25,7 @@ def test_cache_consistency():
     try:
         # Test parameters
         dataset_config = {
-            'data_root': 'data/datasets/soft_links/ModelNet40',
+            'data_root': modelnet40_data_root,
             'split': 'train',
             'dataset_size': 20,  # Small size for faster testing
             'rotation_mag': 45.0,
@@ -95,7 +95,7 @@ def test_cache_consistency():
                 os.unlink(cache_file)
 
 
-def test_cache_subset_consistency():
+def test_cache_subset_consistency(modelnet40_data_root):
     """Test that first N datapoints are identical between different dataset sizes."""
     # Create temporary cache files
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
@@ -105,7 +105,7 @@ def test_cache_subset_consistency():
     
     try:
         base_config = {
-            'data_root': 'data/datasets/soft_links/ModelNet40',
+            'data_root': modelnet40_data_root,
             'split': 'train',
             'rotation_mag': 45.0,
             'translation_mag': 0.5,
@@ -189,7 +189,7 @@ def test_cache_subset_consistency():
                 os.unlink(cache_file)
 
 
-def test_datapoint_determinism():
+def test_datapoint_determinism(modelnet40_data_root):
     """Test that same datapoints are identical across dataset instances."""
     # Create temporary cache file
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
@@ -197,7 +197,7 @@ def test_datapoint_determinism():
     
     try:
         dataset_config = {
-            'data_root': 'data/datasets/soft_links/ModelNet40',
+            'data_root': modelnet40_data_root,
             'split': 'train', 
             'dataset_size': 50,
             'rotation_mag': 45.0,
