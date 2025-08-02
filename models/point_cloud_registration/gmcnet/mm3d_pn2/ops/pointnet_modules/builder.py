@@ -1,4 +1,4 @@
-from mmcv.utils import Registry
+from mmengine.registry import Registry
 
 SA_MODULES = Registry('point_sa_module')
 

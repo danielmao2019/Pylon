@@ -21,6 +21,7 @@ class GMCNet(nn.Module):
     
     def __init__(self, args):
         super(GMCNet, self).__init__()
+        self.args = args
         self._model = _GMCNetModel(args)
     
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:

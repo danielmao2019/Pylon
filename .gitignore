@@ -13,6 +13,10 @@ project
 dist/
 build/
 
+# C extensions
+*.so
+*.gnu.so
+
 # Data
 *.ply
 

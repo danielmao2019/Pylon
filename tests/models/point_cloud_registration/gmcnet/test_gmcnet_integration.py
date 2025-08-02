@@ -49,29 +49,38 @@ def _create_sample_point_cloud_data(batch_size: int = 2, num_points: int = 512) 
 
 @pytest.fixture
 def gmcnet_args():
-    """Create GMCNet arguments for testing."""
+    """Create GMCNet arguments for testing.
+    
+    This fixture provides all required arguments for GMCNet model initialization.
+    Uses minimal configurations for fast testing while ensuring compatibility.
+    """
     class TestArgs:
         def __init__(self):
+            # CRITICAL: Required string lists that GMCNet parses
+            self.knn_list = '10,12,14'  # 3 elements for 3 levels
+            self.down_sample_list = '2,2,2'  # 3 elements for 3 levels
+            self.feature_size_list = '64,128,256,512'  # 4 elements for feature progression
+            
             # Model architecture parameters
-            self.emb_dims = 256
-            self.n_blocks = 4
-            self.n_heads = 4
-            self.ff_dims = 256
-            self.dropout = 0.0
+            self.descriptor_size = 128
             
-            # Point cloud parameters
-            self.n_points = 512
-            self.n_subsampled_points = 384
+            # Loss configuration flags
+            self.use_cycle_loss = True
+            self.use_mse_loss = 0.0
+            self.use_cd_loss = 1.0
+            self.use_inliers_loss = 0.01
+            self.reductioin = 'mean'  # Note: Original GMCNet has typo 'reductioin'
             
-            # Loss parameters
-            self.loss_type = 'mae'
+            # Feature configuration
+            self.use_annealing = False  # Disable for simpler testing
+            self.rif_only = False
+            self.rif_feature = 'ppf'  # Options: 'ppf', 'rri', 'fpfh'
             
-            # Training parameters  
-            self.noise_type = 'crop'
-            self.partial_p_keep = [0.7, 0.7]
+            # Inlier prediction
+            self.predict_inliers = False  # Disable for simpler testing
             
-            # Disable computationally expensive features for testing
-            self.use_rri = False
+            # Procrustes configuration
+            self.use_weighted_procrustes = False
             
     return TestArgs()
 
@@ -470,3 +479,228 @@ def test_gmcnet_wrapper_gradient_flow(gmcnet_model):
             break
     
     assert has_gradients, "At least some model parameters must have non-zero gradients after backward pass"
+
+
+def test_gmcnet_wrapper_cuda_compatibility(gmcnet_args):
+    """Test GMCNet wrapper CUDA device compatibility."""
+    # Create model on CUDA
+    model = GMCNet(gmcnet_args).cuda()
+    model.eval()
+    
+    batch_size = 2
+    num_points = 256
+    
+    # Create sample data on CUDA
+    sample_data = _create_sample_point_cloud_data(batch_size, num_points)
+    cuda_inputs = {
+        'src_points': sample_data['src_points'].cuda(),
+        'tgt_points': sample_data['tgt_points'].cuda(),
+        'transform': sample_data['transform'].cuda(),
+        'mode': 'train'
+    }
+    
+    # Verify inputs are on CUDA
+    assert cuda_inputs['src_points'].is_cuda, "Source points must be on CUDA"
+    assert cuda_inputs['tgt_points'].is_cuda, "Target points must be on CUDA"
+    assert cuda_inputs['transform'].is_cuda, "Transform must be on CUDA"
+    
+    # Forward pass on CUDA
+    outputs = model(cuda_inputs)
+    
+    # Verify outputs are on CUDA
+    assert outputs['transformation'].is_cuda, "Output transformation must be on CUDA"
+    assert outputs['loss'].is_cuda, "Output loss must be on CUDA"
+    
+    # Verify output shapes are correct
+    assert outputs['transformation'].shape == (batch_size, 4, 4), f"Transformation shape must be ({batch_size}, 4, 4)"
+    assert outputs['loss'].numel() == 1, "Loss must be scalar"
+
+
+def test_gmcnet_wrapper_cpu_cuda_transfer(gmcnet_args):
+    """Test GMCNet wrapper handles CPU-CUDA transfers correctly."""
+    
+    # Create model on CPU first
+    model = GMCNet(gmcnet_args)
+    
+    # Test CPU forward pass
+    batch_size = 2
+    num_points = 128
+    sample_data = _create_sample_point_cloud_data(batch_size, num_points)
+    
+    cpu_inputs = {
+        'src_points': sample_data['src_points'],
+        'tgt_points': sample_data['tgt_points'],
+        'mode': 'test'
+    }
+    
+    # CPU forward pass should work
+    cpu_outputs = model(cpu_inputs)
+    assert not cpu_outputs['transformation'].is_cuda, "CPU outputs must be on CPU"
+    
+    # Transfer model to CUDA
+    cuda_model = model.cuda()
+    
+    # CUDA forward pass should work
+    cuda_inputs = {
+        'src_points': sample_data['src_points'].cuda(),
+        'tgt_points': sample_data['tgt_points'].cuda(),
+        'mode': 'test'
+    }
+    
+    cuda_outputs = cuda_model(cuda_inputs)
+    assert cuda_outputs['transformation'].is_cuda, "CUDA outputs must be on CUDA"
+    
+    # Transfer back to CPU
+    cpu_model = cuda_model.cpu()
+    cpu_outputs_2 = cpu_model(cpu_inputs)
+    assert not cpu_outputs_2['transformation'].is_cuda, "CPU outputs must be on CPU after transfer back"
+
+
+def test_gmcnet_wrapper_memory_efficiency(gmcnet_model):
+    """Test GMCNet wrapper memory efficiency with different input sizes."""
+    model = gmcnet_model
+    model.eval()
+    
+    # Test with progressively larger point clouds
+    point_counts = [64, 128, 256]
+    batch_size = 1  # Keep batch size small for memory efficiency
+    
+    for num_points in point_counts:
+        sample_data = _create_sample_point_cloud_data(batch_size, num_points)
+        
+        inputs = {
+            'src_points': sample_data['src_points'],
+            'tgt_points': sample_data['tgt_points'],
+            'mode': 'test'
+        }
+        
+        # Should handle all sizes without memory issues
+        outputs = model(inputs)
+        
+        # Verify consistent output format regardless of input size
+        assert 'transformation' in outputs, f"Output must contain transformation for {num_points} points"
+        assert outputs['transformation'].shape == (batch_size, 4, 4), f"Transformation shape must be ({batch_size}, 4, 4) for {num_points} points"
+        
+        # Clean up for memory efficiency
+        del outputs, inputs, sample_data
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+def test_gmcnet_wrapper_numerical_stability(gmcnet_model):
+    """Test GMCNet wrapper numerical stability with edge case inputs."""
+    model = gmcnet_model
+    model.eval()
+    
+    batch_size = 2
+    num_points = 128
+    
+    # Test with very small point clouds (near origin)
+    small_data = _create_sample_point_cloud_data(batch_size, num_points)
+    small_data['src_points'] *= 0.001  # Very small scale
+    small_data['tgt_points'] *= 0.001
+    small_data['transform'][:, :3, 3] *= 0.001  # Very small translations
+    
+    small_inputs = {
+        'src_points': small_data['src_points'],
+        'tgt_points': small_data['tgt_points'],
+        'mode': 'test'
+    }
+    
+    outputs = model(small_inputs)
+    
+    # Verify outputs are valid (no NaN or inf)
+    assert torch.isfinite(outputs['transformation']).all(), "Small-scale outputs must be finite"
+    assert outputs['transformation'].shape == (batch_size, 4, 4), "Small-scale output shape must be correct"
+    
+    # Test with unit point clouds (normalized)
+    unit_data = _create_sample_point_cloud_data(batch_size, num_points)
+    # Normalize to unit sphere
+    unit_data['src_points'] = unit_data['src_points'] / torch.norm(unit_data['src_points'], dim=2, keepdim=True)
+    unit_data['tgt_points'] = unit_data['tgt_points'] / torch.norm(unit_data['tgt_points'], dim=2, keepdim=True)
+    
+    unit_inputs = {
+        'src_points': unit_data['src_points'],
+        'tgt_points': unit_data['tgt_points'],
+        'mode': 'test'
+    }
+    
+    outputs = model(unit_inputs)
+    
+    # Verify outputs are valid
+    assert torch.isfinite(outputs['transformation']).all(), "Unit-scale outputs must be finite"
+    assert outputs['transformation'].shape == (batch_size, 4, 4), "Unit-scale output shape must be correct"
+
+
+def test_gmcnet_wrapper_training_evaluation_modes(gmcnet_model):
+    """Test GMCNet wrapper behavior in training vs evaluation modes."""
+    model = gmcnet_model
+    batch_size = 2
+    num_points = 128
+    
+    sample_data = _create_sample_point_cloud_data(batch_size, num_points)
+    inputs = {
+        'src_points': sample_data['src_points'],
+        'tgt_points': sample_data['tgt_points'],
+        'transform': sample_data['transform'],
+        'mode': 'train'
+    }
+    
+    # Test training mode
+    model.train()
+    assert model.training, "Model must be in training mode"
+    
+    train_outputs = model(inputs)
+    assert 'loss' in train_outputs, "Training mode must produce loss"
+    assert train_outputs['loss'].requires_grad, "Training loss must require gradients"
+    
+    # Test evaluation mode
+    model.eval()
+    assert not model.training, "Model must be in evaluation mode"
+    
+    eval_outputs = model(inputs)
+    assert 'loss' in eval_outputs, "Evaluation mode must still produce loss when transform provided"
+    
+    # Test that transformation outputs are consistent between modes
+    assert train_outputs['transformation'].shape == eval_outputs['transformation'].shape, "Transformation shapes must be consistent across modes"
+
+
+def test_gmcnet_wrapper_deterministic_behavior(gmcnet_args):
+    """Test GMCNet wrapper produces deterministic results with fixed inputs."""
+    # Set random seed for reproducibility
+    torch.manual_seed(42)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(42)
+    
+    # Create two identical models
+    model1 = GMCNet(gmcnet_args)
+    model2 = GMCNet(gmcnet_args)
+    
+    # Copy state dict to ensure identical initialization
+    model2.load_state_dict(model1.state_dict())
+    
+    model1.eval()
+    model2.eval()
+    
+    batch_size = 2
+    num_points = 128
+    
+    # Create identical inputs
+    torch.manual_seed(123)  # Fix random seed for data generation
+    sample_data = _create_sample_point_cloud_data(batch_size, num_points)
+    
+    inputs = {
+        'src_points': sample_data['src_points'],
+        'tgt_points': sample_data['tgt_points'],
+        'mode': 'test'
+    }
+    
+    # Forward pass on both models
+    outputs1 = model1(inputs)
+    outputs2 = model2(inputs)
+    
+    # Results should be identical (or very close due to floating point precision)
+    transformation_diff = torch.abs(outputs1['transformation'] - outputs2['transformation'])
+    max_diff = transformation_diff.max().item()
+    
+    assert max_diff < 1e-6, f"Deterministic models should produce nearly identical results, max diff: {max_diff}"
