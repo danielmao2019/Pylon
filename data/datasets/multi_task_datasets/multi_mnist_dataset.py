@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional, List
 import random
 import torch
 import torchvision
@@ -70,3 +70,16 @@ class MultiMNISTDataset(BaseDataset):
         image = image.unsqueeze(0)
         assert image.shape == (1, l_image.shape[0]+r_image.shape[0], l_image.shape[1]+r_image.shape[1]), f"{image.shape=}"
         return image
+
+    def display_datapoint(
+        self,
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Minimal display_datapoint implementation for multi-task datasets.
+        
+        Full visualization support for multi-task datasets is not yet implemented.
+        """
+        return None

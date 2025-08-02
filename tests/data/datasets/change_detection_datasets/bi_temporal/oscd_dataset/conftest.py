@@ -11,6 +11,12 @@ def oscd_dataset_train(oscd_data_root):
 
 
 @pytest.fixture
+def oscd_dataset_test(oscd_data_root):
+    """Fixture for creating an OSCDDataset instance with test split."""
+    return OSCDDataset(data_root=oscd_data_root, split='test')
+
+
+@pytest.fixture
 def dataset(request, oscd_data_root):
     """Fixture for creating an OSCDDataset instance with parameterized split."""
     split = request.param

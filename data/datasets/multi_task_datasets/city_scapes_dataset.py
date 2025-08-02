@@ -2,7 +2,7 @@ from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
 import torch
-from data.datasets import BaseDataset
+from data.datasets.base_dataset import BaseDataset
 import utils
 
 
@@ -255,3 +255,16 @@ class CityScapesDataset(BaseDataset):
             'semantic_segmentation': semantic,
             'instance_segmentation': instance_surrogate,
         }
+    
+    def display_datapoint(
+        self,
+        datapoint: Dict[str, Any],
+        class_labels: Optional[Dict[str, List[str]]] = None,
+        camera_state: Optional[Dict[str, Any]] = None,
+        settings_3d: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Minimal display_datapoint implementation for multi-task datasets.
+        
+        Full visualization support for multi-task datasets is not yet implemented.
+        """
+        return None
