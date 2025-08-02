@@ -1,6 +1,6 @@
 import math
 from textwrap import indent
-import numpy
+import numpy as np
 import sys
 import open3d as o3d
 import torch
