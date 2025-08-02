@@ -193,7 +193,7 @@ class Urb3DCDDataset(Base3DCDDataset):
             - pc_2_filepath: File path for second point cloud
         """
         chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
-        unique_labels, counts = torch.unique(torch.tensor(chosen_labels), return_counts=True)
+        unique_labels, counts = torch.unique(torch.tensor(chosen_labels, device=all_centers['change_map'].device), return_counts=True)
 
         fixed_centers = []
         for label, count in zip(unique_labels, counts):
