@@ -110,10 +110,21 @@ Successfully integrated GMCNet (Graph Matching Consensus Network) into the Pylon
 ✅ All integration tests pass
 ✅ Type annotations complete
 
-### Known Issues
-⚠️ CUDA memory access errors in ball_query operation
-⚠️ Forward pass has CUDA compatibility issues
-- These will be addressed in dedicated debugging phase
+### ✅ Resolved Issues (Previously Listed as "Known Issues")
+
+**✅ Forward Pass CUDA Compatibility (RESOLVED)**
+- **Root Cause**: Missing imports - `import numpy as np` and `grouping_operation`
+- **Solution**: Fixed import statements in gmcnet.py and model_utils.py
+- **Status**: Forward pass now works correctly with CUDA
+
+**✅ CUDA Memory Access Errors (RESOLVED)**  
+- **Root Cause**: Parameter configuration mismatch, not actual CUDA errors
+- **Issue**: `down_sample_list='512,256'` + `knn_list='16,8,8'` creates impossible k-NN queries
+- **Details**: With 1024 points → 1024÷512=2 points but trying to find 16 neighbors
+- **Solution**: Use compatible parameters like `down_sample_list='2,4'` + `knn_list='8,4,4'`
+- **Status**: Works perfectly with proper parameter configuration
+
+Both issues were integration configuration problems, not fundamental CUDA compatibility issues.
 
 ## Recommendations for Future Integrations
 
