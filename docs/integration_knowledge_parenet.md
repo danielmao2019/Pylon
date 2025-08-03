@@ -1,0 +1,115 @@
+# PARENet Integration - Implicit Knowledge and Lessons Learned
+
+## Repository Structure and Patterns
+
+### 1. Testing Patterns
+- **Dataset tests require `--samples` flag**: Full dataset tests timeout because they try to load/download entire datasets. Use `--samples` flag for quick tests.
+- **Always run pytest from project root**: Never run from subdirectories to ensure proper module resolution.
+- **Test hierarchy**: Tests should follow exact implementation patterns - if criterion returns tensor, test expects tensor, not dict.
+
+### 2. Dataloader and Collator Patterns
+- **Custom dataloader classes**: Each PCR model has its own dataloader class (e.g., GeoTransformerDataloader, OverlapPredatorDataloader)
+- **Dataloader inherits from BaseDataLoader**: Not torch.utils.data.DataLoader directly
+- **Collate function via partial**: Dataloader sets up collate_fn using functools.partial with model-specific parameters
+- **Function-based collators**: Collate functions are functions, not classes
+- **All preprocessing in collator**: Both grid subsampling (C++ CPU extension) and neighbor search (GPU operations) happen during collation when precompute_data=True
+- **Neighbor calibration differs by model**: GeoTransformer calibrates neighbors dynamically, PARENet uses fixed neighbor counts
+- **PARENet uses k-NN**: Despite function name "radius_search", PARENet does k-nearest neighbor with fixed k
+
+### 3. C++ Extension Handling
+- **Fix root causes**: Don't hide or avoid C++ extension errors - fix import paths and module loading
+- **Don't modify sys.path**: Follow existing import patterns without adding to sys.path
+- **C++ extensions must work**: No fallback - the C++ extensions should be properly compiled and loaded
+
+### 4. API Design Patterns
+- **Nested dictionary structure**: Features must be inside `src_pc` and `tgt_pc` dictionaries, not top-level
+- **Copy-paste original code**: Minimal changes except import fixes and API wrappers
+- **Model output completeness**: Ensure all keys required by criterion/metric are in model output
+
+### 5. Dataset Inheritance
+- **PCR datasets inherit from BasePCRDataset**: Not BaseDataset - this provides display_datapoint method
+- **KITTI specific**: Changed from BaseDataset to BasePCRDataset inheritance
+
+### 6. Error Handling Philosophy
+- **Fail fast and loud**: No defensive programming, use assertions for input validation
+- **Root cause investigation**: Always debug why errors occur, don't mask symptoms
+- **No try-catch for hiding errors**: Only use when expecting different behavior in different cases
+- **Systematic debugging approach**: Use comprehensive logging to identify exact failure points
+- **Evidence-based conclusions**: Don't speculate - gather concrete evidence through debugging
+
+### 7. Tensor Shape Conventions
+- **Transform shape**: PARENet outputs (4, 4) not (1, 4, 4) for single transforms
+- **Batch handling**: Framework handles batching, models process single examples
+
+### 8. Configuration Requirements
+- **Common configs**: Define in `configs/common/` for reusable components
+- **Benchmark configs**: Use `configs/benchmarks/point_cloud_registration/gen.py` for experiment generation
+- **Main configs**: Generated from benchmarks, not hand-written
+
+### 9. Metric and Criterion Implementation Patterns
+- **Follow existing implementations**: ALWAYS examine existing metric/criterion classes before implementing new ones
+- **SingleTaskMetric inheritance**: Use SingleTaskMetric as base class for complex metrics
+- **Override only when necessary**: Don't override `summarize()` unless you have specific requirements different from parent class
+- **No manual buffer locking**: Parent classes handle buffer locking correctly - don't add `with self._buffer_lock:`
+- **Threading deadlock prevention**: Never acquire the same lock twice in the same thread
+- **Buffer worker error handling**: Always call `task_done()` in exception handlers to prevent queue.join() hangs
+
+### 10. Memory Management and Validation
+- **torch.no_grad() for validation**: Always use `@torch.no_grad()` decorator for validation epochs
+- **Gradient computation prevention**: Monitor memory allocation to ensure gradients aren't computed during validation
+- **Batch size for evaluation**: Use batch_size=1 during validation/evaluation for per-datapoint metric tracking
+- **BaseCollator for meta_info**: Use `BaseCollator._default_collate()` for proper meta_info handling in custom collators
+
+### 11. Threading and Asynchronous Operations
+- **Buffer queue management**: Understand the queue.join() + task_done() pattern for background threads
+- **Lock reentrance issues**: Don't acquire locks already held by the current thread
+- **Thread debugging**: Add systematic logging to identify exact hang locations in threaded operations
+- **Background validation operations**: Validation involves threaded operations for saving scores and checkpoint management
+
+## Integration Checklist
+1. ✅ Model wrapper with complete output keys
+2. ✅ Function-based collator following Pylon patterns
+3. ✅ C++ extensions working (without fallback - immediate failure if unavailable)
+4. ✅ Criterion inheriting from SingleTaskCriterion
+5. ✅ Metric inheriting from SingleTaskMetric (overriding only __call__ if needed)
+6. ✅ Tests passing (with appropriate flags)
+7. ✅ Configuration files with collate_fn specified
+8. ✅ Meta_info['idx'] properly preserved through collation
+9. ✅ Memory-efficient validation with torch.no_grad()
+10. ✅ Threading operations working without deadlocks
+11. ✅ End-to-end training pipeline functional
+
+## Configuration Lessons
+- **Model-specific data configs needed**: PARENet requires its own data config files with custom dataloader
+- **Generation script patterns**: Update gen.py to use model-specific data configs
+- **Device handling in C++ extensions**: Copy tensors to CPU if not on CPU already before C++ calls, then back to original device
+- **Custom dataloader classes**: Use PARENetDataloader, not torch.utils.data.DataLoader
+
+## Common Pitfalls to Avoid
+- Don't use class-based collators
+- Don't skip missing model output keys
+- Don't use defensive programming - let crashes expose bugs
+- Don't run tests from subdirectories
+- Don't forget --samples flag for dataset tests
+- Don't manually handle device transfers in datasets
+- Don't add manual buffer locking in metric/criterion summarize() methods
+- Don't override summarize() unless absolutely necessary
+- Don't ignore existing implementation patterns - always examine similar classes first
+- Don't use try-catch to hide errors - only use when expecting different cases
+- Don't acquire the same lock twice in the same thread
+- Don't forget task_done() in exception handlers for queue operations
+- Remove debug imports (ipdb, pdb) from production code
+
+## Critical Debugging Lessons
+- **Threading hangs**: Often caused by lock reentrance or missing task_done() calls
+- **Memory issues**: Usually validation computing gradients when it shouldn't
+- **Collation problems**: Missing or incorrectly formatted meta_info['idx']
+- **Import errors**: C++ extensions must work immediately - no defensive fallbacks
+- **Pattern violations**: Not following established metric/criterion inheritance patterns
+
+## Success Patterns
+- **Inheritance over composition**: Use SingleTaskMetric/SingleTaskCriterion as base classes
+- **Minimal overrides**: Override only __call__ if parent class patterns don't fit
+- **Evidence-driven debugging**: Use systematic logging to identify exact failure points
+- **Lock-free operations**: Trust parent class buffer management
+- **Memory-conscious validation**: Use @torch.no_grad() decorator consistently

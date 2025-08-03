@@ -15,3 +15,14 @@ build/
 
 # Data
 *.ply
+
+# C++ compiled binaries and build artifacts
+*.o
+*.so
+*.cu.o
+*.cuda.o
+*.cpython-*.so
+build/
+*.ninja_deps
+*.ninja_log
+build.ninja
