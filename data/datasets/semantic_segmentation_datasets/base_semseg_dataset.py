@@ -55,6 +55,12 @@ class BaseSemsegDataset(BaseDataset):
         Returns:
             html.Div: HTML layout for displaying this datapoint
         """
+        # Explicitly acknowledge unused parameters for API consistency
+        # These parameters are required to maintain uniform display_datapoint signature across all dataset types
+        _ = class_labels  # Not used for semantic segmentation - images don't need class mapping
+        _ = camera_state  # Not used for 2D images - no camera controls needed  
+        _ = settings_3d   # Not used for 2D images - no 3D visualization settings needed
+        
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
         assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
