@@ -189,8 +189,8 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
         class_percentage = (class_pixels / total_pixels) * 100
         class_info.append((idx, class_pixels, class_percentage))
     
-    # Sort by percentage (descending) for better readability
-    class_info.sort(key=lambda x: x[2], reverse=True)
+    # Sort by class index for consistent ordering
+    class_info.sort(key=lambda x: x[0])
     
     # Create Dash HTML list items with colors matching segmentation visualization
     list_items = []
@@ -265,7 +265,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
                 }
             ),
             html.Button(
-                "📊 Show Plot",
+                "📊 Chart View",
                 id=toggle_button_id,
                 n_clicks=0,
                 style={
@@ -284,24 +284,29 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
             'align-items': 'center'
         }),
         
-        # List of class distributions
-        html.Ul(
-            list_items,
-            style={
-                'list-style': 'none',
-                'padding-left': '0',
-                'margin': '0 0 8px 0'
-            }
-        ),
-        
-        # Bar plot (initially hidden)
+        # Container for switching between text and plot views
         html.Div([
-            dcc.Graph(
-                figure=bar_plot_fig,
-                style={'height': '200px'},
-                config={'displayModeBar': False}
-            )
-        ], id=bar_plot_id, style={'display': 'none'})
+            # Text view (initially shown)
+            html.Div([
+                html.Ul(
+                    list_items,
+                    style={
+                        'list-style': 'none',
+                        'padding-left': '0',
+                        'margin': '0'
+                    }
+                )
+            ], id={'type': 'class-dist-text', 'index': component_index}, style={'display': 'block'}),
+            
+            # Plot view (initially hidden)
+            html.Div([
+                dcc.Graph(
+                    figure=bar_plot_fig,
+                    style={'height': '200px'},
+                    config={'displayModeBar': False}
+                )
+            ], id=bar_plot_id, style={'display': 'none'})
+        ], style={'margin-bottom': '8px'})
         
     ], style={
         'font-family': 'monospace',
