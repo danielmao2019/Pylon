@@ -163,16 +163,22 @@ def get_segmentation_stats(
 
 
 def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.Div':
-    """Format class distribution as colorful Dash HTML components with bullet points.
+    """Format class distribution as colorful Dash HTML components with bullet points and toggle bar plot.
     
     Args:
         seg_np: Segmentation numpy array
         indices: List of unique class indices
         
     Returns:
-        Dash HTML Div component with colors matching segmentation visualization
+        Dash HTML Div component with colors matching segmentation visualization and toggle bar plot
     """
-    from dash import html
+    from dash import html, dcc
+    from data.viewer.callbacks.class_distribution import get_next_component_index
+    
+    # Generate unique IDs for this distribution component using pattern-matching
+    component_index = get_next_component_index()
+    toggle_button_id = {'type': 'class-dist-toggle', 'index': component_index}
+    bar_plot_id = {'type': 'class-dist-plot', 'index': component_index}
     
     # Calculate class statistics
     class_info = []
@@ -243,25 +249,123 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
         
         list_items.append(list_item)
     
-    # Create complete Dash HTML component with header and list
+    # Create bar plot figure
+    bar_plot_fig = _create_class_distribution_bar_plot(class_info)
+    
+    # Create complete Dash HTML component with header, toggle button, list, and plot
     return html.Div([
-        html.Div(
-            f"Distribution across {len(indices)} classes:",
-            style={
-                'font-weight': 'bold',
-                'margin-bottom': '8px',
-                'color': '#333'
-            }
-        ),
+        # Header with toggle button
+        html.Div([
+            html.Span(
+                f"Distribution across {len(indices)} classes:",
+                style={
+                    'font-weight': 'bold',
+                    'color': '#333',
+                    'margin-right': '10px'
+                }
+            ),
+            html.Button(
+                "📊 Show Plot",
+                id=toggle_button_id,
+                n_clicks=0,
+                style={
+                    'font-size': '10px',
+                    'padding': '2px 6px',
+                    'border': '1px solid #ccc',
+                    'border-radius': '3px',
+                    'background-color': '#f8f9fa',
+                    'cursor': 'pointer',
+                    'color': '#333'
+                }
+            )
+        ], style={
+            'margin-bottom': '8px',
+            'display': 'flex',
+            'align-items': 'center'
+        }),
+        
+        # List of class distributions
         html.Ul(
             list_items,
             style={
                 'list-style': 'none',
                 'padding-left': '0',
-                'margin': '0'
+                'margin': '0 0 8px 0'
             }
-        )
+        ),
+        
+        # Bar plot (initially hidden)
+        html.Div([
+            dcc.Graph(
+                figure=bar_plot_fig,
+                style={'height': '200px'},
+                config={'displayModeBar': False}
+            )
+        ], id=bar_plot_id, style={'display': 'none'})
+        
     ], style={
         'font-family': 'monospace',
         'font-size': '12px'
     })
+
+
+def _create_class_distribution_bar_plot(class_info: List[tuple]) -> go.Figure:
+    """Create a colorful bar plot for class distribution.
+    
+    Args:
+        class_info: List of tuples (class_idx, pixel_count, percentage)
+        
+    Returns:
+        Plotly bar plot figure with colors matching segmentation visualization
+    """
+    # Extract data for plotting
+    class_indices = [str(info[0]) for info in class_info]
+    percentages = [info[2] for info in class_info]
+    colors = [get_color(info[0]) for info in class_info]
+    
+    # Create bar plot
+    fig = go.Figure(data=[
+        go.Bar(
+            x=class_indices,
+            y=percentages,
+            marker=dict(
+                color=colors,
+                line=dict(color='rgba(0,0,0,0.3)', width=1)
+            ),
+            text=[f"{p:.1f}%" for p in percentages],
+            textposition='outside',
+            textfont=dict(size=10, color='#333'),
+            hovertemplate='<b>Class %{x}</b><br>' +
+                         'Percentage: %{y:.2f}%<br>' +
+                         '<extra></extra>'
+        )
+    ])
+    
+    # Update layout for better appearance
+    fig.update_layout(
+        title=dict(
+            text="Class Distribution",
+            font=dict(size=12, color='#333'),
+            x=0.5,
+            xanchor='center'
+        ),
+        xaxis=dict(
+            title=dict(text="Class ID", font=dict(size=10, color='#333')),
+            tickfont=dict(size=9, color='#666'),
+            showgrid=False
+        ),
+        yaxis=dict(
+            title=dict(text="Percentage (%)", font=dict(size=10, color='#333')),
+            tickfont=dict(size=9, color='#666'),
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.1)',
+            gridwidth=1
+        ),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=40, r=20, t=40, b=40),
+        height=200,
+        showlegend=False
+    )
+    
+    return fig

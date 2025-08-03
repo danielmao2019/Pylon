@@ -10,6 +10,7 @@ from data.viewer.callbacks import three_d_settings
 from data.viewer.callbacks import camera
 from data.viewer.callbacks import transforms
 from data.viewer.callbacks import backend_sync
+from data.viewer.callbacks import class_distribution
 
 
 __all__ = (
@@ -22,4 +23,5 @@ __all__ = (
     'camera',
     'transforms',
     'backend_sync',
+    'class_distribution',
 )
