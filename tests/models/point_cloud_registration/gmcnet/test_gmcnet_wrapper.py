@@ -85,29 +85,27 @@ class DummyGMCNetDataset(BaseDataset):
 @pytest.fixture
 def dummy_gmcnet_args():
     """Create dummy arguments for GMCNet model matching original configuration."""
-    class DummyArgs:
-        def __init__(self):
-            # Network architecture parameters (exact match to original gmcnet_mn40_psc.yaml)
-            self.knn_list = '5,5,5'  # K-nearest neighbors for each hierarchical level
-            self.down_sample_list = '2,4'  # Downsampling ratios: level1/2, level2/4  
-            self.feature_size_list = '128,128,32,8'  # Feature dimensions: [128,128,32,8]
-            self.descriptor_size = 128  # Final descriptor dimensionality
-            
-            # Loss configuration (exact weights from original)
-            self.use_cycle_loss = False  # Original: False
-            self.use_mse_loss = 0.0      # Original: 0.0 (numerical weight)
-            self.use_cd_loss = 1.0       # Original: 1.0 (main loss)
-            self.use_inliers_loss = 0.01 # Original: 0.01 (regularization)
-            self.reductioin = 'mean'     # Original typo preserved for compatibility
-            self.use_annealing = False   # Original: False
-            
-            # Feature configuration (exact match to original)
-            self.rif_only = False              # Original: False
-            self.rif_feature = 'ppf'           # Original: ppf (Point Pair Features)
-            self.predict_inliers = False       # Original: False  
-            self.use_weighted_procrustes = False  # Original: False
-            
-    return DummyArgs()
+    return {
+        # Network architecture parameters (exact match to original gmcnet_mn40_psc.yaml)
+        'knn_list': '5,5,5',  # K-nearest neighbors for each hierarchical level
+        'down_sample_list': '2,4',  # Downsampling ratios: level1/2, level2/4  
+        'feature_size_list': '128,128,32,8',  # Feature dimensions: [128,128,32,8]
+        'descriptor_size': 128,  # Final descriptor dimensionality
+        
+        # Loss configuration (exact weights from original)
+        'use_cycle_loss': False,  # Original: False
+        'use_mse_loss': 0.0,      # Original: 0.0 (numerical weight)
+        'use_cd_loss': 1.0,       # Original: 1.0 (main loss)
+        'use_inliers_loss': 0.01, # Original: 0.01 (regularization)
+        'reductioin': 'mean',     # Original typo preserved for compatibility
+        'use_annealing': False,   # Original: False
+        
+        # Feature configuration (exact match to original)
+        'rif_only': False,              # Original: False
+        'rif_feature': 'ppf',           # Original: ppf (Point Pair Features)
+        'predict_inliers': False,       # Original: False  
+        'use_weighted_procrustes': False,  # Original: False
+    }
 
 
 @pytest.fixture
@@ -290,25 +288,23 @@ def test_gmcnet_wrapper_device_compatibility():
     so it requires CUDA to be available for full functionality.
     """
     # Test device-aware configuration
-    class DeviceArgs:
-        def __init__(self):
-            # Complete GMCNet configuration (same as DummyArgs)
-            self.knn_list = '5,5,5'
-            self.down_sample_list = '2,4'
-            self.feature_size_list = '128,128,32,8'
-            self.descriptor_size = 128
-            self.use_cycle_loss = False
-            self.use_mse_loss = 0.0
-            self.use_cd_loss = 1.0
-            self.use_inliers_loss = 0.01
-            self.reductioin = 'mean'
-            self.use_annealing = False
-            self.rif_only = False
-            self.rif_feature = 'ppf'
-            self.predict_inliers = False
-            self.use_weighted_procrustes = False
-    
-    device_args = DeviceArgs()
+    device_args = {
+        # Complete GMCNet configuration (same as dummy_gmcnet_args)
+        'knn_list': '5,5,5',
+        'down_sample_list': '2,4',
+        'feature_size_list': '128,128,32,8',
+        'descriptor_size': 128,
+        'use_cycle_loss': False,
+        'use_mse_loss': 0.0,
+        'use_cd_loss': 1.0,
+        'use_inliers_loss': 0.01,
+        'reductioin': 'mean',
+        'use_annealing': False,
+        'rif_only': False,
+        'rif_feature': 'ppf',
+        'predict_inliers': False,
+        'use_weighted_procrustes': False,
+    }
     model = GMCNet(device_args)
     model.eval()
     
