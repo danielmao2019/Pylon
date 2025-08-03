@@ -1,5 +1,5 @@
 """Utility functions for semantic segmentation visualization."""
-from typing import Dict, Union, Any
+from typing import Dict, Union, Any, List
 import numpy as np
 import torch
 import plotly.express as px
@@ -156,13 +156,221 @@ def get_segmentation_stats(
     stats = {
         "Shape": f"{seg_np.shape}",
         "Number of Classes": len(indices),
-        "Class Distribution": {}
+        "Class Distribution": _format_class_distribution(seg_np, indices)
     }
 
-    # Calculate class distribution
+    return stats
+
+
+def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.Div':
+    """Format class distribution as colorful Dash HTML components with bullet points and toggle bar plot.
+    
+    Args:
+        seg_np: Segmentation numpy array
+        indices: List of unique class indices
+        
+    Returns:
+        Dash HTML Div component with colors matching segmentation visualization and toggle bar plot
+    """
+    from dash import html, dcc
+    from data.viewer.callbacks.class_distribution import get_next_component_index
+    
+    # Generate unique IDs for this distribution component using pattern-matching
+    component_index = get_next_component_index()
+    toggle_button_id = {'type': 'class-dist-toggle', 'index': component_index}
+    bar_plot_id = {'type': 'class-dist-plot', 'index': component_index}
+    
+    # Calculate class statistics
+    class_info = []
+    total_pixels = seg_np.size
+    
     for idx in indices:
         class_pixels = (seg_np == idx).sum()
-        class_percentage = (class_pixels / seg_np.size) * 100
-        stats["Class Distribution"][str(idx)] = f"{class_percentage:.2f}%"
+        class_percentage = (class_pixels / total_pixels) * 100
+        class_info.append((idx, class_pixels, class_percentage))
+    
+    # Sort by class index for consistent ordering
+    class_info.sort(key=lambda x: x[0])
+    
+    # Create Dash HTML list items with colors matching segmentation visualization
+    list_items = []
+    for idx, pixels, percentage in class_info:
+        # Get the same color used in segmentation visualization
+        color = get_color(idx)
+        
+        # Create list item data
+        class_name = f"Class {idx}"
+        percentage_str = f"{percentage:5.2f}%"
+        pixel_count = f"({pixels:,} px)"
+        
+        # Create Dash HTML list item with color indicator and styled text
+        list_item = html.Li([
+            # Color indicator square
+            html.Span(
+                style={
+                    'display': 'inline-block',
+                    'width': '12px',
+                    'height': '12px',
+                    'background-color': color,
+                    'border-radius': '2px',
+                    'margin-right': '8px',
+                    'vertical-align': 'middle'
+                }
+            ),
+            # Class name in matching color
+            html.Span(
+                class_name,
+                style={
+                    'color': color,
+                    'font-weight': 'bold'
+                }
+            ),
+            # Percentage
+            html.Span(
+                percentage_str,
+                style={
+                    'margin-left': '10px',
+                    'color': '#333'
+                }
+            ),
+            # Pixel count
+            html.Span(
+                pixel_count,
+                style={
+                    'margin-left': '8px',
+                    'color': '#666',
+                    'font-size': '0.9em'
+                }
+            )
+        ], style={
+            'margin': '4px 0',
+            'padding': '2px 0'
+        })
+        
+        list_items.append(list_item)
+    
+    # Create bar plot figure
+    bar_plot_fig = _create_class_distribution_bar_plot(class_info)
+    
+    # Create complete Dash HTML component with header, toggle button, list, and plot
+    return html.Div([
+        # Header with toggle button
+        html.Div([
+            html.Span(
+                f"Distribution across {len(indices)} classes:",
+                style={
+                    'font-weight': 'bold',
+                    'color': '#333',
+                    'margin-right': '10px'
+                }
+            ),
+            html.Button(
+                "📊 Chart View",
+                id=toggle_button_id,
+                n_clicks=0,
+                style={
+                    'font-size': '10px',
+                    'padding': '2px 6px',
+                    'border': '1px solid #ccc',
+                    'border-radius': '3px',
+                    'background-color': '#f8f9fa',
+                    'cursor': 'pointer',
+                    'color': '#333'
+                }
+            )
+        ], style={
+            'margin-bottom': '8px',
+            'display': 'flex',
+            'align-items': 'center'
+        }),
+        
+        # Container for switching between text and plot views
+        html.Div([
+            # Text view (initially shown)
+            html.Div([
+                html.Ul(
+                    list_items,
+                    style={
+                        'list-style': 'none',
+                        'padding-left': '0',
+                        'margin': '0'
+                    }
+                )
+            ], id={'type': 'class-dist-text', 'index': component_index}, style={'display': 'block'}),
+            
+            # Plot view (initially hidden)
+            html.Div([
+                dcc.Graph(
+                    figure=bar_plot_fig,
+                    style={'height': '200px'},
+                    config={'displayModeBar': False}
+                )
+            ], id=bar_plot_id, style={'display': 'none'})
+        ], style={'margin-bottom': '8px'})
+        
+    ], style={
+        'font-family': 'monospace',
+        'font-size': '12px'
+    })
 
-    return stats
+
+def _create_class_distribution_bar_plot(class_info: List[tuple]) -> go.Figure:
+    """Create a colorful bar plot for class distribution.
+    
+    Args:
+        class_info: List of tuples (class_idx, pixel_count, percentage)
+        
+    Returns:
+        Plotly bar plot figure with colors matching segmentation visualization
+    """
+    # Extract data for plotting
+    class_indices = [str(info[0]) for info in class_info]
+    percentages = [info[2] for info in class_info]
+    colors = [get_color(info[0]) for info in class_info]
+    
+    # Create bar plot
+    fig = go.Figure(data=[
+        go.Bar(
+            x=class_indices,
+            y=percentages,
+            marker=dict(
+                color=colors,
+                line=dict(color='rgba(0,0,0,0.3)', width=1)
+            ),
+            text=[f"{p:.1f}%" for p in percentages],
+            textposition='outside',
+            textfont=dict(size=10, color='#333'),
+            hovertemplate='<b>Class %{x}</b><br>' +
+                         'Percentage: %{y:.2f}%<br>' +
+                         '<extra></extra>'
+        )
+    ])
+    
+    # Update layout for better appearance
+    fig.update_layout(
+        title=dict(
+            text="Class Distribution",
+            font=dict(size=12, color='#333'),
+            x=0.5,
+            xanchor='center'
+        ),
+        xaxis=dict(
+            title=dict(text="Class ID", font=dict(size=10, color='#333')),
+            tickfont=dict(size=9, color='#666'),
+            showgrid=False
+        ),
+        yaxis=dict(
+            title=dict(text="Percentage (%)", font=dict(size=10, color='#333')),
+            tickfont=dict(size=9, color='#666'),
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.1)',
+            gridwidth=1
+        ),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=40, r=20, t=40, b=40),
+        height=200,
+        showlegend=False
+    )
+    
+    return fig

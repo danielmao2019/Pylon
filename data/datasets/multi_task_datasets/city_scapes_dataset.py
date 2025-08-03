@@ -2,11 +2,11 @@ from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
 import torch
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class CityScapesDataset(BaseDataset):
+class CityScapesDataset(BaseMultiTaskDataset):
     __doc__ = r"""Reference:
 
     For implementation of dataset class:
@@ -262,9 +262,120 @@ class CityScapesDataset(BaseDataset):
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
         settings_3d: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Minimal display_datapoint implementation for multi-task datasets.
+    ) -> 'html.Div':
+        """Display CityScapes multi-task datapoint with all modalities.
         
-        Full visualization support for multi-task datasets is not yet implemented.
+        This method visualizes CityScapes tasks: RGB image, depth estimation,
+        semantic segmentation, and instance segmentation.
+        
+        Args:
+            datapoint: Dictionary containing inputs, labels, and meta_info
+            class_labels: Optional mapping from class indices to label names
+            camera_state: Optional camera state (unused for 2D displays)
+            settings_3d: Optional 3D settings (unused for 2D displays)
+            
+        Returns:
+            HTML div containing the multi-task visualization
+            
+        Raises:
+            AssertionError: If datapoint structure is invalid
         """
-        return None
+        from dash import html
+        from data.viewer.utils.atomic_displays import (
+            create_image_display,
+            create_depth_display,
+            create_segmentation_display,
+            create_instance_surrogate_display,
+            get_image_display_stats,
+            get_depth_display_stats,
+            get_segmentation_display_stats,
+            get_instance_surrogate_display_stats
+        )
+        from data.viewer.utils.display_utils import (
+            ParallelFigureCreator,
+            create_figure_grid,
+            create_standard_datapoint_layout,
+            create_statistics_display
+        )
+        
+        # CRITICAL: Input validation with fail-fast assertions
+        assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
+        assert 'inputs' in datapoint, f"datapoint missing 'inputs', got keys: {list(datapoint.keys())}"
+        assert 'labels' in datapoint, f"datapoint missing 'labels', got keys: {list(datapoint.keys())}"
+        
+        inputs = datapoint['inputs']
+        labels = datapoint['labels']
+        
+        assert isinstance(inputs, dict), f"inputs must be dict, got {type(inputs)}"
+        assert isinstance(labels, dict), f"labels must be dict, got {type(labels)}"
+        
+        # Validate expected CityScapes data keys
+        assert 'image' in inputs, f"inputs missing 'image', got keys: {list(inputs.keys())}"
+        assert 'depth_estimation' in labels, f"labels missing 'depth_estimation', got keys: {list(labels.keys())}"
+        assert 'semantic_segmentation' in labels, f"labels missing 'semantic_segmentation', got keys: {list(labels.keys())}"
+        assert 'instance_segmentation' in labels, f"labels missing 'instance_segmentation', got keys: {list(labels.keys())}"
+        
+        # Create figure tasks for parallel execution
+        figure_tasks = [
+            lambda: create_image_display(
+                image=inputs['image'],
+                title="RGB Image"
+            ),
+            lambda: create_depth_display(
+                depth=labels['depth_estimation'],
+                title="Depth Estimation"
+            ),
+            lambda: create_segmentation_display(
+                segmentation=labels['semantic_segmentation'],
+                title="Semantic Segmentation",
+                class_labels=class_labels
+            ),
+            lambda: create_instance_surrogate_display(
+                instance_surrogate=labels['instance_segmentation'],
+                title="Instance Segmentation",
+                ignore_value=self.IGNORE_INDEX
+            )
+        ]
+        
+        # Create figures in parallel for better performance
+        figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+        figures = figure_creator.create_figures_parallel(figure_tasks)
+        
+        # Create grid layout (2x2 for 4 figures)
+        figure_components = create_figure_grid(
+            figures=figures,
+            width_style="50%",
+            height_style="400px"
+        )
+        
+        # Create statistics for each modality
+        stats_data = [
+            get_image_display_stats(inputs['image']),
+            get_depth_display_stats(labels['depth_estimation']),
+            get_segmentation_display_stats(labels['semantic_segmentation']),
+            get_instance_surrogate_display_stats(
+                instance_surrogate=labels['instance_segmentation'],
+                ignore_index=self.IGNORE_INDEX
+            )
+        ]
+        
+        stats_titles = [
+            "RGB Image Statistics",
+            "Depth Statistics",
+            "Semantic Segmentation Statistics",
+            "Instance Segmentation Statistics"
+        ]
+        
+        stats_components = create_statistics_display(
+            stats_data=stats_data,
+            titles=stats_titles,
+            width_style="25%"
+        )
+        
+        # Use standard layout with all components
+        return create_standard_datapoint_layout(
+            figure_components=figure_components,
+            stats_components=stats_components,
+            meta_info=datapoint.get('meta_info', {}),
+            debug_outputs=datapoint.get('debug')
+        )

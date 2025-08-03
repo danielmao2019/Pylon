@@ -52,7 +52,7 @@ collate_fn_cfg = {
     },
 }
 
-config = {
+data_cfg = {
     'train_dataset': {
         'class': data.datasets.CityScapesDataset,
         'args': {
@@ -60,7 +60,7 @@ config = {
             'split': "train",
             'indices': None,
             'transforms_cfg': transforms_cfg,
-            'semantic_granularity': 'coarse',
+            'semantic_granularity': 'fine',
         },
     },
     'train_dataloader': {
@@ -78,7 +78,7 @@ config = {
             'split': "val",
             'indices': None,
             'transforms_cfg': transforms_cfg,
-            'semantic_granularity': 'coarse',
+            'semantic_granularity': 'fine',
         },
     },
     'val_dataloader': {
@@ -95,7 +95,7 @@ config = {
             'split': "test",
             'indices': None,
             'transforms_cfg': transforms_cfg,
-            'semantic_granularity': 'coarse',
+            'semantic_granularity': 'fine',
         },
     },
     'test_dataloader': {
@@ -139,7 +139,7 @@ config = {
                 'semantic_segmentation': {
                     'class': metrics.vision_2d.SemanticSegmentationMetric,
                     'args': {
-                        'num_classes': data.datasets.CityScapesDataset.NUM_CLASSES_C,
+                        'num_classes': data.datasets.CityScapesDataset.NUM_CLASSES_F,
                         'ignore_index': data.datasets.CityScapesDataset.IGNORE_INDEX,
                     },
                 },

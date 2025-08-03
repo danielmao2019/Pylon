@@ -3,11 +3,11 @@ import random
 import torch
 import torchvision
 from PIL import Image
-from data.datasets import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class MultiMNISTDataset(BaseDataset):
+class MultiMNISTDataset(BaseMultiTaskDataset):
     __doc__ = r"""
     Used in:
         Multi-Task Learning as Multi-Objective Optimization (https://arxiv.org/pdf/1810.04650.pdf)
@@ -77,9 +77,127 @@ class MultiMNISTDataset(BaseDataset):
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
         settings_3d: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Minimal display_datapoint implementation for multi-task datasets.
+    ) -> 'html.Div':
+        """Display MultiMNIST multi-task datapoint with classification labels.
         
-        Full visualization support for multi-task datasets is not yet implemented.
+        This method visualizes MultiMNIST tasks: composite MNIST image and
+        left/right digit classification labels.
+        
+        Args:
+            datapoint: Dictionary containing inputs, labels, and meta_info
+            class_labels: Optional mapping from class indices to label names
+            camera_state: Optional camera state (unused for 2D displays)
+            settings_3d: Optional 3D settings (unused for 2D displays)
+            
+        Returns:
+            HTML div containing the multi-task visualization
+            
+        Raises:
+            AssertionError: If datapoint structure is invalid
         """
-        return None
+        from dash import html, dcc
+        from data.viewer.utils.atomic_displays import (
+            create_image_display,
+            get_image_display_stats
+        )
+        from data.viewer.utils.display_utils import (
+            ParallelFigureCreator,
+            create_figure_grid,
+            create_standard_datapoint_layout,
+            create_statistics_display
+        )
+        
+        # CRITICAL: Input validation with fail-fast assertions
+        assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
+        assert 'inputs' in datapoint, f"datapoint missing 'inputs', got keys: {list(datapoint.keys())}"
+        assert 'labels' in datapoint, f"datapoint missing 'labels', got keys: {list(datapoint.keys())}"
+        
+        inputs = datapoint['inputs']
+        labels = datapoint['labels']
+        
+        assert isinstance(inputs, dict), f"inputs must be dict, got {type(inputs)}"
+        assert isinstance(labels, dict), f"labels must be dict, got {type(labels)}"
+        
+        # Validate expected MultiMNIST data keys
+        assert 'image' in inputs, f"inputs missing 'image', got keys: {list(inputs.keys())}"
+        assert 'left' in labels, f"labels missing 'left', got keys: {list(labels.keys())}"
+        assert 'right' in labels, f"labels missing 'right', got keys: {list(labels.keys())}"
+        
+        # Create figure task for the composite image
+        figure_tasks = [
+            lambda: create_image_display(
+                image=inputs['image'],
+                title="Composite MNIST Image (Left + Right)"
+            )
+        ]
+        
+        # Create figures in parallel for better performance
+        figure_creator = ParallelFigureCreator(max_workers=1, enable_timing=False)
+        figures = figure_creator.create_figures_parallel(figure_tasks)
+        
+        # Create grid layout for the single image
+        figure_components = create_figure_grid(
+            figures=figures,
+            width_style="50%",
+            height_style="400px"
+        )
+        
+        # Create statistics for the image
+        stats_data = [
+            get_image_display_stats(inputs['image'])
+        ]
+        
+        stats_titles = [
+            "Composite Image Statistics"
+        ]
+        
+        stats_components = create_statistics_display(
+            stats_data=stats_data,
+            titles=stats_titles,
+            width_style="50%"
+        )
+        
+        # Create classification labels display
+        left_digit = int(labels['left'].item())
+        right_digit = int(labels['right'].item())
+        
+        labels_component = html.Div([
+            html.H4("Classification Labels", style={'margin-bottom': '10px'}),
+            html.Div([
+                html.Div([
+                    html.H5("Left Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
+                    html.Span(str(left_digit), style={
+                        'font-size': '24px', 
+                        'font-weight': 'bold', 
+                        'color': '#2E86AB'
+                    })
+                ], style={'margin-bottom': '10px'}),
+                html.Div([
+                    html.H5("Right Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
+                    html.Span(str(right_digit), style={
+                        'font-size': '24px', 
+                        'font-weight': 'bold', 
+                        'color': '#A23B72'
+                    })
+                ])
+            ])
+        ], style={
+            'width': '50%', 
+            'display': 'inline-block', 
+            'vertical-align': 'top',
+            'padding': '20px',
+            'border': '1px solid #ddd',
+            'border-radius': '5px',
+            'margin': '10px'
+        })
+        
+        # Combine figure and labels components
+        content_components = figure_components + [labels_component]
+        
+        # Use standard layout with all components
+        return create_standard_datapoint_layout(
+            figure_components=content_components,
+            stats_components=stats_components,
+            meta_info=datapoint.get('meta_info', {}),
+            debug_outputs=datapoint.get('debug')
+        )

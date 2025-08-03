@@ -13,7 +13,7 @@ from data.viewer.utils.settings_config import ViewerSettings
 
 
 # Dataset type definitions
-DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'general']
+DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'general']
 
 # Dataset groupings
 DATASET_GROUPS = {
@@ -23,6 +23,11 @@ DATASET_GROUPS = {
     'pcr': [
         'kitti', 'threedmatch', 'threedlomatch', 'modelnet40',
         'buffer',
+    ],
+    'mtl': [
+        'multi_mnist', 'celeb_a', 'multi_task_facial_landmark',
+        'nyu_v2_c', 'nyu_v2_f', 'city_scapes_c', 'city_scapes_f', 'pascal_context',
+        'ade_20k',
     ],
     'general': ['BaseRandomDataset'],  # General-purpose datasets for testing
 }
@@ -47,6 +52,10 @@ DATASET_FORMATS = {
             'optional': ['correspondences']
         },
         'label_format': ['transform']
+    },
+    'mtl': {
+        'input_format': {'image': ['image']},
+        'label_format': ['multi_task_labels']  # Multiple tasks with different modalities
     },
     'general': {
         'input_format': {'data': ['x']},  # Generic input format
@@ -92,6 +101,7 @@ class ViewerBackend:
             '2dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
             '3dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
             'pcr': os.path.join(repo_root, 'configs/common/datasets/point_cloud_registration/train'),
+            'mtl': os.path.join(repo_root, 'configs/common/datasets/multi_task_learning/train'),
         }
 
         # Load dataset configurations
@@ -200,9 +210,12 @@ class ViewerBackend:
         from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
         from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
         from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
+        from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
         
         # Check inheritance hierarchy to determine type
-        if isinstance(dataset, Base2DCDDataset):
+        if isinstance(dataset, BaseMultiTaskDataset):
+            return 'mtl'
+        elif isinstance(dataset, Base2DCDDataset):
             return '2dcd'
         elif isinstance(dataset, Base3DCDDataset):
             return '3dcd'
@@ -214,7 +227,7 @@ class ViewerBackend:
             # All datasets must inherit from appropriate base display classes
             raise ValueError(
                 f"Dataset '{dataset_name}' (class: {type(dataset).__name__}) must inherit from one of the base display classes: "
-                f"Base2DCDDataset, Base3DCDDataset, BasePCRDataset, or BaseSemsegDataset. "
+                f"BaseMultiTaskDataset, Base2DCDDataset, Base3DCDDataset, BasePCRDataset, or BaseSemsegDataset. "
                 f"Please update the dataset class to inherit from the appropriate base class."
             )
 
