@@ -1,6 +1,7 @@
 """Camera pose and synchronization callbacks for the viewer."""
 from typing import Dict, List, Optional, Any, Tuple
 import json
+import dash
 from dash import Input, Output, State, ctx, ALL
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
@@ -47,8 +48,12 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
         - Dict[str, Any]: New camera state dictionary that was applied to all figures
         
     Raises:
-        PreventUpdate: If no camera updates detected or invalid data provided
         AssertionError: If inputs don't meet requirements (fail-fast validation)
+        
+    Note:
+        This function is decorated with @debounce and runs in a separate thread.
+        Instead of raising PreventUpdate (which would cause threading exceptions), 
+        it returns dash.no_update for all outputs when no valid camera updates are detected.
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(all_relayout_data, list), f"all_relayout_data must be list, got {type(all_relayout_data)}"
@@ -70,14 +75,16 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
                 break
     
     if triggered_index is None or triggered_relayout_data is None:
-        raise PreventUpdate
+        # No camera updates detected - return unchanged figures
+        return [dash.no_update] * len(all_figures), dash.no_update
 
     # Use the triggered relayout data we already found
     relayout_data = triggered_relayout_data
     
     # Check if the relayout_data contains camera information
     if 'scene.camera' not in relayout_data:
-        raise PreventUpdate
+        # No camera information in relayout data - return unchanged figures
+        return [dash.no_update] * len(all_figures), dash.no_update
 
     # Extract new camera state
     new_camera = relayout_data['scene.camera']
