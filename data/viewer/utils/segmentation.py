@@ -1,5 +1,5 @@
 """Utility functions for semantic segmentation visualization."""
-from typing import Dict, Union, Any
+from typing import Dict, Union, Any, List
 import numpy as np
 import torch
 import plotly.express as px
@@ -156,13 +156,47 @@ def get_segmentation_stats(
     stats = {
         "Shape": f"{seg_np.shape}",
         "Number of Classes": len(indices),
-        "Class Distribution": {}
+        "Class Distribution": _format_class_distribution(seg_np, indices)
     }
 
-    # Calculate class distribution
+    return stats
+
+
+def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> str:
+    """Format class distribution in a beautiful, readable way.
+    
+    Args:
+        seg_np: Segmentation numpy array
+        indices: List of unique class indices
+        
+    Returns:
+        Beautifully formatted class distribution string
+    """
+    # Calculate class statistics
+    class_info = []
+    total_pixels = seg_np.size
+    
     for idx in indices:
         class_pixels = (seg_np == idx).sum()
-        class_percentage = (class_pixels / seg_np.size) * 100
-        stats["Class Distribution"][str(idx)] = f"{class_percentage:.2f}%"
-
-    return stats
+        class_percentage = (class_pixels / total_pixels) * 100
+        class_info.append((idx, class_pixels, class_percentage))
+    
+    # Sort by percentage (descending) for better readability
+    class_info.sort(key=lambda x: x[2], reverse=True)
+    
+    # Format with nice alignment - no assumptions about class meanings
+    lines = []
+    for idx, pixels, percentage in class_info:
+        # Simple class naming without assumptions about semantics
+        class_name = f"Class {idx}"
+            
+        # Format with consistent width and visual appeal
+        percentage_str = f"{percentage:5.2f}%"
+        pixel_count = f"({pixels:,} px)"
+        
+        line = f"  • {class_name:<12} {percentage_str:>8} {pixel_count:>12}"
+        lines.append(line)
+    
+    # Create header and join all lines
+    header = f"Distribution across {len(indices)} classes:"
+    return header + "\n" + "\n".join(lines)
