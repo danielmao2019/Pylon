@@ -11,7 +11,7 @@ import numpy as np
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
 sys.path.insert(0, project_root)
 
-from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_figure
+from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display
 
 from .data_types import PointCloudSample, CameraPose, BenchmarkStats
 
@@ -42,7 +42,7 @@ class LODBenchmarkRunner:
             gc.collect()  # Clean memory
             
             start_time = time.perf_counter()
-            fig_no_lod = create_point_cloud_figure(
+            fig_no_lod = create_point_cloud_display(
                 points=points,
                 colors=colors,
                 title=f"No LOD {run}",
@@ -61,7 +61,7 @@ class LODBenchmarkRunner:
             gc.collect()  # Clean memory
             
             start_time = time.perf_counter()
-            fig_lod = create_point_cloud_figure(
+            fig_lod = create_point_cloud_display(
                 points=points,
                 colors=colors,
                 title=f"ContinuousLOD {run}",

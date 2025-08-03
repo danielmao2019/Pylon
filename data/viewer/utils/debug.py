@@ -4,7 +4,7 @@ from dash import html, dcc
 import torch
 import numpy as np
 from data.viewer.utils.dataset_utils import format_value
-from data.viewer.utils.atomic_displays.image_display import create_image_figure
+from data.viewer.utils.atomic_displays.image_display import create_image_display
 
 
 def display_debug_outputs(debug_outputs: Dict[str, Any]) -> html.Div:
@@ -107,7 +107,7 @@ def _display_tensor(tensor: torch.Tensor) -> List[html.Div]:
             
             if len(tensor.shape) == 3 and tensor.shape[0] in [1, 3]:
                 # Image-like tensor (C, H, W)
-                fig = create_image_figure(tensor, title=f"Tensor {tensor.shape}")
+                fig = create_image_display(tensor, title=f"Tensor {tensor.shape}")
                 components.append(
                     html.Div([
                         dcc.Graph(figure=fig)
@@ -115,7 +115,7 @@ def _display_tensor(tensor: torch.Tensor) -> List[html.Div]:
                 )
             elif len(tensor.shape) == 2:
                 # 2D tensor (could be feature map)
-                fig = create_image_figure(tensor, title=f"Tensor {tensor.shape}", colorscale="Viridis")
+                fig = create_image_display(tensor, title=f"Tensor {tensor.shape}", colorscale="Viridis")
                 components.append(
                     html.Div([
                         dcc.Graph(figure=fig)
@@ -156,7 +156,7 @@ def _display_numpy_array(array: np.ndarray) -> List[html.Div]:
         try:
             # Convert to tensor for visualization
             tensor = torch.from_numpy(array)
-            fig = create_image_figure(tensor, title=f"Array {array.shape}", colorscale="Viridis")
+            fig = create_image_display(tensor, title=f"Array {array.shape}", colorscale="Viridis")
             components.append(
                 html.Div([
                     dcc.Graph(figure=fig)

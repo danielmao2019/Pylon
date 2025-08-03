@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 from dash import dcc, html
 import torch
 from data.datasets.base_dataset import BaseDataset
-from data.viewer.utils.atomic_displays.image_display import create_image_figure, get_image_stats
+from data.viewer.utils.atomic_displays.image_display import create_image_display, get_image_display_stats
 from data.viewer.utils.display_utils import (
     DisplayStyles,
     create_standard_datapoint_layout,
@@ -64,23 +64,23 @@ class Base2DCDDataset(BaseDataset):
         # Create figure components
         fig_components = [
             html.Div([
-                dcc.Graph(figure=create_image_figure(img_1, title="Image 1"))
+                dcc.Graph(figure=create_image_display(img_1, title="Image 1"))
             ], style=DisplayStyles.GRID_ITEM_33),
 
             html.Div([
-                dcc.Graph(figure=create_image_figure(img_2, title="Image 2"))
+                dcc.Graph(figure=create_image_display(img_2, title="Image 2"))
             ], style=DisplayStyles.GRID_ITEM_33),
 
             html.Div([
-                dcc.Graph(figure=create_image_figure(change_map, title="Change Map", colorscale="Viridis"))
+                dcc.Graph(figure=create_image_display(change_map, title="Change Map", colorscale="Viridis"))
             ], style=DisplayStyles.GRID_ITEM_33)
         ]
 
         # Create statistics components
         stats_data = [
-            get_image_stats(img_1),
-            get_image_stats(img_2),
-            get_image_stats(img_1, change_map)
+            get_image_display_stats(img_1),
+            get_image_display_stats(img_2),
+            get_image_display_stats(img_1, change_map)
         ]
         titles = ["Image 1 Statistics", "Image 2 Statistics", "Change Statistics"]
         stats_components = create_statistics_display(stats_data, titles, width_style="33%")

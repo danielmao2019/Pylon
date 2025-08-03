@@ -21,8 +21,6 @@ Usage:
 from data.viewer.utils.atomic_displays.image_display import (
     create_image_display, 
     get_image_display_stats,
-    create_image_figure,
-    get_image_stats,
     image_to_numpy
 )
 from data.viewer.utils.atomic_displays.depth_display import (
@@ -44,9 +42,6 @@ from data.viewer.utils.atomic_displays.segmentation_display import (
 from data.viewer.utils.atomic_displays.point_cloud_display import (
     create_point_cloud_display,
     get_point_cloud_display_stats,
-    build_point_cloud_display_id,
-    create_point_cloud_figure,
-    get_point_cloud_stats,
     build_point_cloud_id,
     apply_lod_to_point_cloud,
     normalize_point_cloud_id,
@@ -74,17 +69,10 @@ __all__ = [
     'get_segmentation_display_stats',
     'get_point_cloud_display_stats',
     'get_instance_surrogate_display_stats',
-    # Core image functions (now available)
-    'create_image_figure',
-    'get_image_stats',
+    # Utility functions
     'image_to_numpy',
-    # Core point cloud functions (now available)
-    'create_point_cloud_figure',
-    'get_point_cloud_stats',
     'build_point_cloud_id',
     'apply_lod_to_point_cloud',
     'normalize_point_cloud_id',
-    'point_cloud_to_numpy',
-    # Utility functions
-    'build_point_cloud_display_id'
+    'point_cloud_to_numpy'
 ]
