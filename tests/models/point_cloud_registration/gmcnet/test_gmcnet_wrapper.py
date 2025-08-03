@@ -392,25 +392,25 @@ def test_gmcnet_dataset_collation():
 
 def test_gmcnet_tensor_dtypes():
     """Test that GMCNet wrapper handles tensor dtypes correctly."""
-    class TestArgs:
-        def __init__(self):
-            # Complete GMCNet configuration (same as DummyArgs)
-            self.knn_list = '5,5,5'
-            self.down_sample_list = '2,4'
-            self.feature_size_list = '128,128,32,8'
-            self.descriptor_size = 128
-            self.use_cycle_loss = False
-            self.use_mse_loss = 0.0
-            self.use_cd_loss = 1.0
-            self.use_inliers_loss = 0.01
-            self.reductioin = 'mean'
-            self.use_annealing = False
-            self.rif_only = False
-            self.rif_feature = 'ppf'
-            self.predict_inliers = False
-            self.use_weighted_procrustes = False
+    test_args = {
+        # Complete GMCNet configuration (same as dummy_gmcnet_args)
+        'knn_list': '5,5,5',
+        'down_sample_list': '2,4',
+        'feature_size_list': '128,128,32,8',
+        'descriptor_size': 128,
+        'use_cycle_loss': False,
+        'use_mse_loss': 0.0,
+        'use_cd_loss': 1.0,
+        'use_inliers_loss': 0.01,
+        'reductioin': 'mean',
+        'use_annealing': False,
+        'rif_only': False,
+        'rif_feature': 'ppf',
+        'predict_inliers': False,
+        'use_weighted_procrustes': False,
+    }
     
-    model = GMCNet(TestArgs())
+    model = GMCNet(test_args)
     model.eval()
     
     # Test with float32 (common for point clouds)
