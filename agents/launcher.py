@@ -22,12 +22,13 @@ class Launcher(BaseAgent):
         gpu_pool: List[Tuple[str, List[int]]] = [],
         user_names: Dict[str, str] = {},
         timeout: int = 5,
+        force_progress_recompute: bool = False,
+        keep_tmux: Optional[bool] = False,
+        # Environment and deployment configuration
         log_path: str = "",
         project_dir: str = "",
-        conda_env: str = "",
-        keep_tmux: Optional[bool] = False,
-        force_progress_recompute: bool = False,
         deployment_mode: str = "conda",
+        conda_env: str = "",
         docker_image: str = "pylon:latest",
         docker_data_mount: str = "",
         docker_logs_mount: str = "",
@@ -42,12 +43,14 @@ class Launcher(BaseAgent):
             gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
             user_names (Dict[str, str]): the user names for the servers.
             timeout (int): the timeout for the GPU monitor.
+            force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
+            keep_tmux (Optional[bool]): whether to keep the tmux session alive.
+            
+            # Environment and deployment configuration
             log_path (str): the path to the log file.
             project_dir (str): the project directory.
-            conda_env (str): the conda environment to use (for conda mode).
-            keep_tmux (Optional[bool]): whether to keep the tmux session alive.
-            force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
             deployment_mode (str): "conda" or "docker" - determines how experiments are launched.
+            conda_env (str): the conda environment to use (for conda mode).
             docker_image (str): Docker image name to use (for docker mode).
             docker_data_mount (str): Data volume mount for Docker (e.g., "/pub5/data:/pub5/data:ro").
             docker_logs_mount (str): Logs volume mount for Docker (e.g., "./logs:/workspace/logs").
