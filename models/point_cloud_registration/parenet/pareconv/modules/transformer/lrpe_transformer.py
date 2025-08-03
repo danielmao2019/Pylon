@@ -11,9 +11,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-from pareconv.modules.layers import build_dropout_layer
-from pareconv.modules.transformer.output_layer import AttentionOutput
-from pareconv.modules.transformer.positional_embedding import LearnablePositionalEmbedding
+from ..layers import build_dropout_layer
+from .output_layer import AttentionOutput
+from .positional_embedding import LearnablePositionalEmbedding
 
 
 class LRPEMultiHeadAttention(nn.Module):

@@ -1,20 +1,20 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pareconv.modules.ops import point_to_node_partition, index_select
-from pareconv.modules.registration import get_node_correspondences
+from models.point_cloud_registration.parenet.pareconv.modules.ops import point_to_node_partition, index_select
+from models.point_cloud_registration.parenet.pareconv.modules.registration import get_node_correspondences
 
-from pareconv.modules.dual_matching import PointDualMatching
+from models.point_cloud_registration.parenet.pareconv.modules.dual_matching import PointDualMatching
 
-from pareconv.modules.geotransformer import (
+from models.point_cloud_registration.parenet.pareconv.modules.geotransformer import (
     GeometricTransformer,
     SuperPointMatching,
     SuperPointTargetGenerator,
 )
 
-from pareconv.modules.registration import HypothesisProposer
+from models.point_cloud_registration.parenet.pareconv.modules.registration import HypothesisProposer
 
-from backbone import PAREConvFPN
+from models.point_cloud_registration.parenet.backbone import PAREConvFPN
 
 
 class PARE_Net(nn.Module):

@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pareconv.modules.ops import pairwise_distance
-from pareconv.modules.transformer import SinusoidalPositionalEmbedding, RPEConditionalTransformer
+from ..ops import pairwise_distance
+from ..transformer import SinusoidalPositionalEmbedding, RPEConditionalTransformer
 
 
 class GeometricStructureEmbedding(nn.Module):

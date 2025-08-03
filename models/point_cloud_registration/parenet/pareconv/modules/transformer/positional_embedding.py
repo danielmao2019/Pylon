@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pareconv.modules.layers import build_dropout_layer
+from ..layers import build_dropout_layer
 
 
 class SinusoidalPositionalEmbedding(nn.Module):

@@ -3,7 +3,7 @@ from typing import Optional
 
 import torch
 
-from pareconv.modules.ops import index_select, apply_transform, pairwise_distance, get_point_to_node_indices
+from ..ops import index_select, apply_transform, pairwise_distance, get_point_to_node_indices
 
 
 # Extract correspondences

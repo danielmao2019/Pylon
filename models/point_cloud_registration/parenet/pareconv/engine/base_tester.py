@@ -8,8 +8,8 @@ import abc
 import torch
 import ipdb
 
-from pareconv.utils.torch import initialize
-from pareconv.engine.logger import Logger
+from ..utils.torch import initialize
+from .logger import Logger
 
 def inject_default_parser(parser=None):
     if parser is None:

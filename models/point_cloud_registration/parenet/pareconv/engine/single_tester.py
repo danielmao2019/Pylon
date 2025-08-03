@@ -5,12 +5,12 @@ import torch
 import ipdb
 from tqdm import tqdm
 
-from pareconv.engine.base_tester import BaseTester
-from pareconv.utils.summary_board import SummaryBoard
-from pareconv.utils.timer import Timer
-from pareconv.utils.common import get_log_string
-from pareconv.utils.torch import release_cuda, to_cuda
-from pareconv.utils.data import precompute_neibors
+from .base_tester import BaseTester
+from ..utils.summary_board import SummaryBoard
+from ..utils.timer import Timer
+from ..utils.common import get_log_string
+from ..utils.torch import release_cuda, to_cuda
+from ..utils.data import precompute_neibors
 
 
 class SingleTester(BaseTester):

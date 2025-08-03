@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from pareconv.modules.kpconv.functional import maxpool, nearest_upsample, global_avgpool, knn_interpolate
-from pareconv.modules.kpconv.kpconv import KPConv
+from .functional import maxpool, nearest_upsample, global_avgpool, knn_interpolate
+from .kpconv import KPConv
 
 
 class KNNInterpolate(nn.Module):

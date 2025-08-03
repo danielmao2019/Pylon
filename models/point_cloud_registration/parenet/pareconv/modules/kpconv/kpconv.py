@@ -3,8 +3,8 @@ import math
 import torch
 import torch.nn as nn
 
-from pareconv.modules.ops import index_select
-from pareconv.modules.kpconv.kernel_points import load_kernels
+from ..ops import index_select
+from .kernel_points import load_kernels
 
 
 class KPConv(nn.Module):

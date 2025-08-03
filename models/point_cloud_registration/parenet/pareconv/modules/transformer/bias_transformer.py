@@ -12,8 +12,8 @@ import torch.nn.functional as F
 from einops import rearrange
 from IPython import embed
 
-from pareconv.modules.layers import build_dropout_layer
-from pareconv.modules.transformer.output_layer import AttentionOutput
+from ..layers import build_dropout_layer
+from .output_layer import AttentionOutput
 
 
 class RPEMultiHeadAttention(nn.Module):

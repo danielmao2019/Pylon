@@ -4,8 +4,8 @@ from functools import partial
 import numpy as np
 import torch
 
-from pareconv.modules.ops import grid_subsample, radius_search
-from pareconv.utils.torch import build_dataloader
+from ..modules.ops import grid_subsample, radius_search
+from .torch import build_dataloader
 
 
 # Stack mode utilities

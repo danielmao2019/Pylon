@@ -7,11 +7,11 @@ import torch
 import tqdm
 from IPython import embed
 
-from pareconv.engine.base_trainer import BaseTrainer
-from pareconv.utils.torch import to_cuda
-from pareconv.utils.summary_board import SummaryBoard
-from pareconv.utils.timer import Timer
-from pareconv.utils.common import get_log_string
+from .base_trainer import BaseTrainer
+from ..utils.torch import to_cuda
+from ..utils.summary_board import SummaryBoard
+from ..utils.timer import Timer
+from ..utils.common import get_log_string
 
 
 class CycleLoader(object):

@@ -1,6 +1,6 @@
 import pdb
 import torch
-from pareconv.extensions.pointops.functions import pointops
+from ...extensions.pointops.functions import pointops
 
 def radius_search(q_points, s_points, q_lengths, s_lengths, num_neighbors):
     r"""Computes k nearest neighbors for a batch of q_points and s_points.
