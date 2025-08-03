@@ -32,7 +32,7 @@ collate_fn_cfg = {
     },
 }
 
-config = {
+data_cfg = {
     'train_dataset': {
         'class': data.datasets.MultiMNISTDataset,
         'args': {

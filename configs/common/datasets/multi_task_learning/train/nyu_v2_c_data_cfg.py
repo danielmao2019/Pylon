@@ -12,30 +12,30 @@ transforms_cfg = {
             (
                 {
                     'class': torchvision.transforms.Resize,
-                    'args': {'size': (256, 512), 'antialias': True},
+                    'args': {'size': (288, 384), 'antialias': True},
                 },
                 ('inputs', 'image'),
             ),
             (
                 {
                     'class': data.transforms.vision_2d.ResizeMaps,
-                    'args': {'size': (256, 512), 'antialias': True},
+                    'args': {'size': (288, 384), 'antialias': True},
                 },
                 ('labels', 'depth_estimation'),
             ),
             (
                 {
-                    'class': data.transforms.vision_2d.ResizeMaps,
-                    'args': {'size': (256, 512), 'interpolation': 'nearest', 'antialias': True},
+                    'class': data.transforms.vision_2d.ResizeNormals,
+                    'args': {'target_size': (288, 384)},
                 },
-                ('labels', 'semantic_segmentation'),
+                ('labels', 'normal_estimation'),
             ),
             (
                 {
-                    'class': torchvision.transforms.Resize,
-                    'args': {'size': (256, 512), 'antialias': True},
+                    'class': data.transforms.vision_2d.ResizeMaps,
+                    'args': {'size': (288, 384), 'interpolation': 'nearest', 'antialias': True},
                 },
-                ('labels', 'instance_segmentation'),
+                ('labels', 'semantic_segmentation'),
             ),
         ],
     },
@@ -52,15 +52,15 @@ collate_fn_cfg = {
     },
 }
 
-config = {
+data_cfg = {
     'train_dataset': {
-        'class': data.datasets.CityScapesDataset,
+        'class': data.datasets.NYUv2Dataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/city-scapes",
+            'data_root': "./data/datasets/soft_links/NYUD_MT",
             'split': "train",
             'indices': None,
             'transforms_cfg': transforms_cfg,
-            'semantic_granularity': 'fine',
+            'semantic_granularity': 'coarse',
         },
     },
     'train_dataloader': {
@@ -68,17 +68,17 @@ config = {
         'args': {
             'batch_size': 32,
             'num_workers': 8,
-            'collate_fn': collate_fn_cfg,
+            'collate_fn': collate_fn_cfg
         },
     },
     'val_dataset': {
-        'class': data.datasets.CityScapesDataset,
+        'class': data.datasets.NYUv2Dataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/city-scapes",
+            'data_root': "./data/datasets/soft_links/NYUD_MT",
             'split': "val",
             'indices': None,
             'transforms_cfg': transforms_cfg,
-            'semantic_granularity': 'fine',
+            'semantic_granularity': 'coarse',
         },
     },
     'val_dataloader': {
@@ -89,13 +89,13 @@ config = {
         },
     },
     'test_dataset': {
-        'class': data.datasets.CityScapesDataset,
+        'class': data.datasets.NYUv2Dataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/city-scapes",
+            'data_root': "./data/datasets/soft_links/NYUD_MT",
             'split': "test",
             'indices': None,
             'transforms_cfg': transforms_cfg,
-            'semantic_granularity': 'fine',
+            'semantic_granularity': 'coarse',
         },
     },
     'test_dataloader': {
@@ -113,16 +113,14 @@ config = {
                     'class': criteria.vision_2d.DepthEstimationCriterion,
                     'args': {},
                 },
+                'normal_estimation': {
+                    'class': criteria.vision_2d.NormalEstimationCriterion,
+                    'args': {},
+                },
                 'semantic_segmentation': {
                     'class': criteria.vision_2d.SemanticSegmentationCriterion,
                     'args': {
-                        'ignore_index': data.datasets.CityScapesDataset.IGNORE_INDEX,
-                    },
-                },
-                'instance_segmentation': {
-                    'class': criteria.vision_2d.InstanceSegmentationCriterion,
-                    'args': {
-                        'ignore_index': data.datasets.CityScapesDataset.IGNORE_INDEX,
+                        'ignore_index': data.datasets.NYUv2Dataset.IGNORE_INDEX,
                     },
                 },
             },
@@ -136,17 +134,15 @@ config = {
                     'class': metrics.vision_2d.DepthEstimationMetric,
                     'args': {},
                 },
+                'normal_estimation': {
+                    'class': metrics.vision_2d.NormalEstimationMetric,
+                    'args': {},
+                },
                 'semantic_segmentation': {
                     'class': metrics.vision_2d.SemanticSegmentationMetric,
                     'args': {
-                        'num_classes': data.datasets.CityScapesDataset.NUM_CLASSES_F,
-                        'ignore_index': data.datasets.CityScapesDataset.IGNORE_INDEX,
-                    },
-                },
-                'instance_segmentation': {
-                    'class': metrics.vision_2d.InstanceSegmentationMetric,
-                    'args': {
-                        'ignore_index': data.datasets.CityScapesDataset.IGNORE_INDEX,
+                        'num_classes': data.datasets.NYUv2Dataset.NUM_CLASSES_C,
+                        'ignore_index': data.datasets.NYUv2Dataset.IGNORE_INDEX,
                     },
                 },
             },
