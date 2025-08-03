@@ -156,7 +156,7 @@ def _build_config_to_process_mapping(connected_gpus: List) -> Dict[str, ProcessI
     """Build mapping from config file to ProcessInfo for running experiments."""
     config_to_process = {}
     for gpu in connected_gpus:
-        for process in gpu['processes']:
+        for process in gpu.processes:
             # Assert that process is already a ProcessInfo instance
             assert isinstance(process, ProcessInfo), f"Expected ProcessInfo instance, got {type(process)}"
             
