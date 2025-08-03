@@ -29,7 +29,27 @@ from data.viewer.utils.debounce import debounce
 )
 @debounce
 def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs."""
+    """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs.
+    
+    When a user interacts with one 3D point cloud graph (rotation, zoom, pan), this callback
+    automatically applies the same camera transformation to all other point cloud graphs
+    for synchronized viewing.
+    
+    Args:
+        all_relayout_data: List of relayout data dictionaries from each point cloud graph.
+                          Only one will contain new camera data from user interaction.
+        all_figures: List of current figure dictionaries for all point cloud graphs.
+                    These will be updated with the new synchronized camera state.
+    
+    Returns:
+        Tuple containing:
+        - List[Dict[str, Any]]: Updated figures with synchronized camera states
+        - Dict[str, Any]: New camera state dictionary that was applied to all figures
+        
+    Raises:
+        PreventUpdate: If no camera updates detected or invalid data provided
+        AssertionError: If inputs don't meet requirements (fail-fast validation)
+    """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(all_relayout_data, list), f"all_relayout_data must be list, got {type(all_relayout_data)}"
     assert isinstance(all_figures, list), f"all_figures must be list, got {type(all_figures)}"
