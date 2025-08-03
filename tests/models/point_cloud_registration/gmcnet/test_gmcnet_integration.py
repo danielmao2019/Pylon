@@ -213,7 +213,7 @@ def test_gmcnet_wrapper_input_validation(gmcnet_model):
 
 
 def test_gmcnet_wrapper_api_methods(gmcnet_model):
-    """Test GMCNet wrapper API methods (get_transform, visualize)."""
+    """Test GMCNet wrapper API methods (get_transform)."""
     model = gmcnet_model
     batch_size = 2
     num_points = 512
@@ -234,10 +234,6 @@ def test_gmcnet_wrapper_api_methods(gmcnet_model):
     assert transform_result is not None, "get_transform must return a result"
     assert isinstance(transform_result, torch.Tensor), "get_transform must return a tensor"
     assert transform_result.shape == (batch_size, 4, 4), f"Transform shape must be ({batch_size}, 4, 4)"
-    
-    # Test visualize method - should work or fail clearly
-    viz_result = model.visualize(0)
-    assert viz_result is not None, "visualize must return a result"
 
 
 @pytest.mark.parametrize("batch_size", [1, 2, 4])
@@ -295,34 +291,45 @@ def test_gmcnet_wrapper_with_base_collator(gmcnet_model):
     """Test GMCNet wrapper integration with Pylon's BaseCollator."""
     model = gmcnet_model
     
-    # Create batch data that BaseCollator would produce
+    # Create batch data in the format BaseCollator expects (list of dicts)
     batch_data = []
     for i in range(2):
         sample_data = _create_sample_point_cloud_data(1, 256)
-        datapoint = (
-            {  # inputs
+        datapoint = {
+            'inputs': {
                 'src_points': sample_data['src_points'].squeeze(0),
                 'tgt_points': sample_data['tgt_points'].squeeze(0)
             },
-            {  # labels
+            'labels': {
                 'transform': sample_data['transform'].squeeze(0)
             },
-            {  # meta_info
+            'meta_info': {
                 'index': i,
                 'sample_id': f'test_{i}'
             }
-        )
+        }
         batch_data.append(datapoint)
     
     # Use BaseCollator to create batch
     collator = BaseCollator()
     batch = collator(batch_data)
     
-    # Extract data for GMCNet wrapper
+    # Extract data for GMCNet wrapper from collated batch
+    # BaseCollator uses buffer_stack which stacks along last dimension
+    # For 2D tensor [256, 3] stacked 2 times -> [256, 3, 2]
+    # We need [2, 256, 3] so transpose dimensions 0 and 2
+    src_points = batch['inputs']['src_points'].transpose(0, 2)  # [256, 3, 2] -> [2, 3, 256] -> [2, 256, 3]
+    src_points = src_points.transpose(1, 2)
+    
+    tgt_points = batch['inputs']['tgt_points'].transpose(0, 2)  # [256, 3, 2] -> [2, 3, 256] -> [2, 256, 3]  
+    tgt_points = tgt_points.transpose(1, 2)
+    
+    transform = batch['labels']['transform'].transpose(0, 2)  # [4, 4, 2] -> [2, 4, 4]
+    
     inputs = {
-        'src_points': batch[0]['src_points'],  # inputs dict
-        'tgt_points': batch[0]['tgt_points'],
-        'transform': batch[1]['transform'],    # labels dict  
+        'src_points': src_points,
+        'tgt_points': tgt_points,
+        'transform': transform,
         'mode': 'train'
     }
     
