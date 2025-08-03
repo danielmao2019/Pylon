@@ -1,6 +1,6 @@
 import torch
 import pytest
-from utils.point_cloud_ops.sampling import GridSampling3D
+from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3D
 
 
 def test_grid_sampling_3d_basic():
