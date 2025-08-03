@@ -5,6 +5,7 @@ This module provides Pylon-compatible wrapper around PARENet's stack-mode collat
 """
 
 from typing import List, Dict, Any, Optional
+import torch
 
 from data.collators.base_collator import BaseCollator
 from data.collators.parenet.data import registration_collate_fn_stack_mode
@@ -87,6 +88,15 @@ class PARENetCollator(BaseCollator):
                 
                 parenet_dict['ref_points'] = tgt_points  # PARENet uses ref for target
                 parenet_dict['src_points'] = src_points
+                
+                # Handle features - use dummy features if not provided
+                if 'src_features' in inputs and 'tgt_features' in inputs:
+                    parenet_dict['src_feats'] = inputs['src_features']
+                    parenet_dict['ref_feats'] = inputs['tgt_features']
+                else:
+                    # Generate dummy unit features for PARENet
+                    parenet_dict['src_feats'] = torch.ones(src_points.shape[0], 1)
+                    parenet_dict['ref_feats'] = torch.ones(tgt_points.shape[0], 1)
             
             # Handle transformation matrix
             if 'transform' in labels:
