@@ -8,6 +8,7 @@ implementation while preserving the original code structure.
 import torch
 import torch.nn as nn
 from typing import Dict, Any
+from easydict import EasyDict
 
 from models.point_cloud_registration.gmcnet.gmcnet import Model as _GMCNetModel
 
@@ -21,8 +22,14 @@ class GMCNet(nn.Module):
     
     def __init__(self, args):
         super(GMCNet, self).__init__()
-        self.args = args
-        self._model = _GMCNetModel(args)
+        
+        # Handle both dictionary and object args using EasyDict
+        if isinstance(args, dict):
+            self.args = EasyDict(args)
+        else:
+            self.args = args
+            
+        self._model = _GMCNetModel(self.args)
     
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """Forward pass following Pylon API patterns.
