@@ -285,6 +285,7 @@ class CityScapesDataset(BaseMultiTaskDataset):
             create_image_display,
             create_depth_display,
             create_segmentation_display,
+            create_instance_surrogate_display,
             get_image_display_stats,
             get_depth_display_stats,
             get_segmentation_display_stats
@@ -328,9 +329,10 @@ class CityScapesDataset(BaseMultiTaskDataset):
                 title="Semantic Segmentation",
                 class_labels=class_labels
             ),
-            lambda: create_segmentation_display(
-                segmentation=labels['instance_segmentation'],
-                title="Instance Segmentation"
+            lambda: create_instance_surrogate_display(
+                instance_surrogate=labels['instance_segmentation'],
+                title="Instance Segmentation",
+                ignore_value=self.IGNORE_INDEX
             )
         ]
         

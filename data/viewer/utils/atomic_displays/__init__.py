@@ -12,7 +12,8 @@ Usage:
         create_normal_display,
         create_segmentation_display,
         create_edge_display,
-        create_point_cloud_display
+        create_point_cloud_display,
+        create_instance_surrogate_display
     )
 """
 
@@ -42,6 +43,10 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
     get_point_cloud_display_stats,
     build_point_cloud_display_id
 )
+from data.viewer.utils.atomic_displays.instance_surrogate_display import (
+    create_instance_surrogate_display,
+    get_instance_surrogate_display_stats
+)
 
 __all__ = [
     # Display functions
@@ -51,6 +56,7 @@ __all__ = [
     'create_edge_display',
     'create_segmentation_display',
     'create_point_cloud_display',
+    'create_instance_surrogate_display',
     # Stats functions
     'get_image_display_stats',
     'get_depth_display_stats',
@@ -58,6 +64,7 @@ __all__ = [
     'get_edge_display_stats',
     'get_segmentation_display_stats',
     'get_point_cloud_display_stats',
+    'get_instance_surrogate_display_stats',
     # Utility functions
     'build_point_cloud_display_id'
 ]
