@@ -162,16 +162,18 @@ def get_segmentation_stats(
     return stats
 
 
-def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> str:
-    """Format class distribution in a beautiful, readable way.
+def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.Div':
+    """Format class distribution as colorful Dash HTML components with bullet points.
     
     Args:
         seg_np: Segmentation numpy array
         indices: List of unique class indices
         
     Returns:
-        Beautifully formatted class distribution string
+        Dash HTML Div component with colors matching segmentation visualization
     """
+    from dash import html
+    
     # Calculate class statistics
     class_info = []
     total_pixels = seg_np.size
@@ -184,19 +186,82 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> str:
     # Sort by percentage (descending) for better readability
     class_info.sort(key=lambda x: x[2], reverse=True)
     
-    # Format with nice alignment - no assumptions about class meanings
-    lines = []
+    # Create Dash HTML list items with colors matching segmentation visualization
+    list_items = []
     for idx, pixels, percentage in class_info:
-        # Simple class naming without assumptions about semantics
+        # Get the same color used in segmentation visualization
+        color = get_color(idx)
+        
+        # Create list item data
         class_name = f"Class {idx}"
-            
-        # Format with consistent width and visual appeal
         percentage_str = f"{percentage:5.2f}%"
         pixel_count = f"({pixels:,} px)"
         
-        line = f"  • {class_name:<12} {percentage_str:>8} {pixel_count:>12}"
-        lines.append(line)
+        # Create Dash HTML list item with color indicator and styled text
+        list_item = html.Li([
+            # Color indicator square
+            html.Span(
+                style={
+                    'display': 'inline-block',
+                    'width': '12px',
+                    'height': '12px',
+                    'background-color': color,
+                    'border-radius': '2px',
+                    'margin-right': '8px',
+                    'vertical-align': 'middle'
+                }
+            ),
+            # Class name in matching color
+            html.Span(
+                class_name,
+                style={
+                    'color': color,
+                    'font-weight': 'bold'
+                }
+            ),
+            # Percentage
+            html.Span(
+                percentage_str,
+                style={
+                    'margin-left': '10px',
+                    'color': '#333'
+                }
+            ),
+            # Pixel count
+            html.Span(
+                pixel_count,
+                style={
+                    'margin-left': '8px',
+                    'color': '#666',
+                    'font-size': '0.9em'
+                }
+            )
+        ], style={
+            'margin': '4px 0',
+            'padding': '2px 0'
+        })
+        
+        list_items.append(list_item)
     
-    # Create header and join all lines
-    header = f"Distribution across {len(indices)} classes:"
-    return header + "\n" + "\n".join(lines)
+    # Create complete Dash HTML component with header and list
+    return html.Div([
+        html.Div(
+            f"Distribution across {len(indices)} classes:",
+            style={
+                'font-weight': 'bold',
+                'margin-bottom': '8px',
+                'color': '#333'
+            }
+        ),
+        html.Ul(
+            list_items,
+            style={
+                'list-style': 'none',
+                'padding-left': '0',
+                'margin': '0'
+            }
+        )
+    ], style={
+        'font-family': 'monospace',
+        'font-size': '12px'
+    })
