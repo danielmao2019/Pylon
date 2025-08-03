@@ -3,8 +3,8 @@ version: '3.8'
 services:
   pylon:
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: docs/environment_setup/Dockerfile
     image: pylon:latest
     container_name: pylon-experiment
     
@@ -16,21 +16,23 @@ services:
     
     # Mount volumes for persistent data and large datasets
     volumes:
-      # Mount current directory (Pylon codebase) to /workspace/pylon
-      - .:/workspace/pylon
+      # Mount Pylon root directory to /workspace/pylon
+      - ../..:/workspace/pylon
       
-      # Mount shared dataset storage (preserves symlinks)
-      - /pub5/data:/pub5/data:ro  # Read-only access to shared datasets
-      - /pub4/daniel:/pub4/daniel:ro  # Read-only access to personal datasets
+      # CONFIGURE THESE MOUNTS FOR YOUR SETUP:
+      # Uncomment and modify the paths below according to your server setup
       
-      # Mount logs directory for experiment outputs (shared across servers)
-      - ./logs:/workspace/logs
+      # Example: Large dataset storage (preserves symlinks)
+      # - /pub5/data:/pub5/data:ro  # Read-only access to shared datasets
+      # - /pub4/daniel:/pub4/daniel:ro  # Read-only access to personal datasets
       
-      # Optional: If logs are on remote storage, mount directly
-      # - /shared/storage/pylon_logs:/workspace/logs
+      # Example: Logs directory for experiment outputs
+      # - ./logs:/workspace/logs  # Local logs
+      # - /shared/storage/pylon_logs:/workspace/logs  # Shared remote logs
       
-      # Optional: Mount additional shared storage
+      # Example: Additional storage mounts
       # - /nfs/shared/datasets:/workspace/shared_datasets:ro
+      # - /tmp/pylon_cache:/workspace/tmp_cache
     
     # Working directory inside container
     working_dir: /workspace/pylon
@@ -56,8 +58,8 @@ services:
   # Optional: Development service with additional development tools
   pylon-dev:
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: docs/environment_setup/Dockerfile
     image: pylon:latest
     container_name: pylon-dev
     
@@ -67,9 +69,18 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     
     volumes:
-      - .:/workspace/pylon
-      - ./data:/workspace/data
-      - ./logs:/workspace/logs
+      - ../..:/workspace/pylon
+      
+      # CONFIGURE THESE MOUNTS FOR YOUR SETUP (same as main service)
+      # Uncomment and modify the paths below according to your server setup
+      
+      # Example: Large dataset storage
+      # - /pub5/data:/pub5/data:ro
+      # - /pub4/daniel:/pub4/daniel:ro
+      
+      # Example: Logs directory
+      # - ../../logs:/workspace/logs
+      # - /shared/storage/pylon_logs:/workspace/logs
     
     working_dir: /workspace/pylon
     stdin_open: true

@@ -5,13 +5,13 @@ This directory contains all environment setup documentation and configuration fi
 ## Setup Options
 
 ### 1. Conda Environment (Traditional)
-- **File**: [`conda.md`](conda.md)
+- **Directory**: [`conda/`](conda/)
 - **Use case**: Local development, single machine setup
 - **Pros**: Direct control, familiar workflow
 - **Cons**: Manual setup on each server, environment drift
 
 ### 2. Docker Environment (Recommended)
-- **Files**: [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml), [`docker/`](docker/)
+- **Directory**: [`docker/`](docker/)
 - **Use case**: Multi-server deployment, consistent environments
 - **Pros**: Perfect reproducibility, easy scaling, isolated environments
 - **Cons**: Additional Docker knowledge required
@@ -20,37 +20,53 @@ This directory contains all environment setup documentation and configuration fi
 
 ### Docker (Recommended for Multi-Server)
 ```bash
-# Build and run
-docker build -f docs/environment_setup/Dockerfile -t pylon:latest .
-docker-compose -f docs/environment_setup/docker-compose.yml run --rm pylon
+# Build and run with configurable mounts
+docker build -f docs/environment_setup/docker/Dockerfile -t pylon:latest .
+./docs/environment_setup/docker/docker-run.sh \
+  -d "/your/data/path:/pub5/data:ro" \
+  -l "./logs:/workspace/logs" \
+  -- python main.py --config configs/examples/linear/config.py --debug
 
-# Or use deployment script
-./docs/environment_setup/docker/multi-server-deploy.sh build
+# Or use deployment script for multi-server
 ./docs/environment_setup/docker/multi-server-deploy.sh deploy configs/examples/linear/config.py
 ```
 
 ### Conda (Traditional)
 ```bash
-# Follow the conda setup guide
-cat docs/environment_setup/conda.md
+# Automated installation
+conda create --name pylon python=3.10 -y && conda activate pylon
+bash docs/environment_setup/conda/install_packages.sh
 
 # Or use environment.yml
-conda env create -f docs/environment_setup/environment.yml
+conda env create -f docs/environment_setup/conda/environment.yml
 conda activate pylon
 ```
 
-## File Overview
+## Directory Overview
 
+| Directory/File | Purpose |
+|------|---------|
+| [`conda/`](conda/) | Traditional conda environment setup |
+| [`docker/`](docker/) | Docker-based deployment and multi-server tools |
+
+### Conda Directory
 | File | Purpose |
 |------|---------|
-| [`conda.md`](conda.md) | Traditional conda environment setup guide |
-| [`environment.yml`](environment.yml) | Conda environment specification file |
-| [`Dockerfile`](Dockerfile) | Multi-stage Docker image definition |
-| [`docker-compose.yml`](docker-compose.yml) | Local Docker development setup |
-| [`.dockerignore`](.dockerignore) | Docker build context exclusions |
-| [`docker/README.md`](docker/README.md) | Comprehensive Docker usage guide |
+| [`conda/README.md`](conda/README.md) | Conda setup guide and overview |
+| [`conda/conda.md`](conda/conda.md) | Detailed manual setup instructions |
+| [`conda/install_packages.sh`](conda/install_packages.sh) | Automated installation script |
+| [`conda/environment.yml`](conda/environment.yml) | Conda environment specification |
+
+### Docker Directory
+| File | Purpose |
+|------|---------|
+| [`docker/README.md`](docker/README.md) | Docker setup guide and usage |
+| [`docker/Dockerfile`](docker/Dockerfile) | Multi-stage Docker image definition |
+| [`docker/docker-compose.yml`](docker/docker-compose.yml) | Local development setup |
+| [`docker/docker-run.sh`](docker/docker-run.sh) | Configurable container launcher |
 | [`docker/production-compose.yml`](docker/production-compose.yml) | Production multi-server setup |
 | [`docker/multi-server-deploy.sh`](docker/multi-server-deploy.sh) | Automated deployment script |
+| [`docker/.dockerignore`](docker/.dockerignore) | Build context exclusions |
 
 ## Choosing Your Setup
 
