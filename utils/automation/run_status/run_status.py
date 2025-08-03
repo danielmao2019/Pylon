@@ -7,6 +7,7 @@ from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.monitor.system_monitor import SystemMonitor
+from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.process_info import ProcessInfo
 from utils.automation.progress_tracking import ProgressInfo, create_progress_tracker
 from utils.io.config import load_config
@@ -152,11 +153,11 @@ def get_run_status(
 # HELPER FUNCTIONS FOR STATUS DETERMINATION
 # ============================================================================
 
-def _build_config_to_process_mapping(connected_gpus: List) -> Dict[str, ProcessInfo]:
+def _build_config_to_process_mapping(connected_gpus: List[GPUStatus]) -> Dict[str, ProcessInfo]:
     """Build mapping from config file to ProcessInfo for running experiments."""
     config_to_process = {}
     for gpu in connected_gpus:
-        for process in gpu['processes']:
+        for process in gpu.processes:
             # Assert that process is already a ProcessInfo instance
             assert isinstance(process, ProcessInfo), f"Expected ProcessInfo instance, got {type(process)}"
             
