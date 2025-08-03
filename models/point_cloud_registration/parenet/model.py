@@ -17,9 +17,9 @@ from models.point_cloud_registration.parenet.pareconv.modules.registration impor
 from models.point_cloud_registration.parenet.backbone import PAREConvFPN
 
 
-class PARE_Net(nn.Module):
+class _PARE_Net(nn.Module):
     def __init__(self, cfg):
-        super(PARE_Net, self).__init__()
+        super(_PARE_Net, self).__init__()
         self.num_points_in_patch = cfg.model.num_points_in_patch
         self.matching_radius = cfg.model.ground_truth_matching_radius
 
@@ -239,7 +239,7 @@ class PARE_Net(nn.Module):
 
 
 def create_model(config):
-    model = PARE_Net(config)
+    model = _PARE_Net(config)
     return model
 
 def main():

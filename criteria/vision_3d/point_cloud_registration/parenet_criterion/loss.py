@@ -9,9 +9,9 @@ from models.point_cloud_registration.parenet.pareconv.modules.registration.metri
 from models.point_cloud_registration.parenet.pareconv.modules.ops.pairwise_distance import pairwise_distance
 
 
-class CoarseMatchingLoss(nn.Module):
+class _CoarseMatchingLoss(nn.Module):
     def __init__(self, cfg):
-        super(CoarseMatchingLoss, self).__init__()
+        super(_CoarseMatchingLoss, self).__init__()
         self.weighted_circle_loss = WeightedCircleLoss(
             cfg.coarse_loss.positive_margin,
             cfg.coarse_loss.negative_margin,
@@ -41,9 +41,9 @@ class CoarseMatchingLoss(nn.Module):
 
         return loss
 
-class FineMatchingLoss(nn.Module): # for fine dual matching
+class _FineMatchingLoss(nn.Module): # for fine dual matching
     def __init__(self, cfg):
-        super(FineMatchingLoss, self).__init__()
+        super(_FineMatchingLoss, self).__init__()
         self.positive_radius = cfg.fine_loss.positive_radius
         self.negative_radius = cfg.fine_loss.negative_radius
         self.positive_margin = cfg.fine_loss.positive_margin
@@ -98,11 +98,11 @@ class FineMatchingLoss(nn.Module): # for fine dual matching
         re_loss = pos_loss + neg_loss
         return re_loss
 
-class OverallLoss(nn.Module):
+class _OverallLoss(nn.Module):
     def __init__(self, cfg):
-        super(OverallLoss, self).__init__()
-        self.coarse_loss = CoarseMatchingLoss(cfg)
-        self.fine_loss = FineMatchingLoss(cfg)
+        super(_OverallLoss, self).__init__()
+        self.coarse_loss = _CoarseMatchingLoss(cfg)
+        self.fine_loss = _FineMatchingLoss(cfg)
         self.weight_coarse_loss = cfg.loss.weight_coarse_loss
         self.weight_fine_ri_loss = cfg.loss.weight_fine_ri_loss
         self.weight_fine_re_loss = cfg.loss.weight_fine_re_loss
@@ -119,9 +119,9 @@ class OverallLoss(nn.Module):
         }
 
 
-class Evaluator(nn.Module):
+class _Evaluator(nn.Module):
     def __init__(self, cfg):
-        super(Evaluator, self).__init__()
+        super(_Evaluator, self).__init__()
         self.acceptance_overlap = cfg.eval.acceptance_overlap
         self.acceptance_radius = cfg.eval.acceptance_radius
         self.acceptance_rmse = cfg.eval.rmse_threshold
