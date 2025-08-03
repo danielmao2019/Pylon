@@ -152,10 +152,20 @@ def create_statistics_display(
         style = DisplayStyles.STATS_CONTAINER.copy()
         style['width'] = width_style
         
+        # Create list items, handling both simple values and Dash components
+        list_items = []
+        for k, v in stats.items():
+            if hasattr(v, '_namespace') and hasattr(v, '_type'):
+                # This is a Dash component, render it directly
+                list_items.append(html.Li([f"{k}: ", v]))
+            else:
+                # This is a simple value, convert to string
+                list_items.append(html.Li(f"{k}: {v}"))
+        
         components.append(
             html.Div([
                 html.H4(f"{title}:"),
-                html.Ul([html.Li(f"{k}: {v}") for k, v in stats.items()])
+                html.Ul(list_items)
             ], style=style)
         )
     
