@@ -1,4 +1,4 @@
-"""Tests for GMCNet wrapper model integration."""
+"""Tests for GMCNet wrapper model integration with device compatibility."""
 
 from typing import Dict, Any, Tuple
 import pytest
@@ -109,6 +109,12 @@ def dummy_gmcnet_args():
 
 
 @pytest.fixture
+def device():
+    """GMCNet requires CUDA device."""
+    return torch.device('cuda')
+
+
+@pytest.fixture  
 def gmcnet_model(dummy_gmcnet_args):
     """Create GMCNet model for testing."""
     model = GMCNet(dummy_gmcnet_args)
@@ -117,22 +123,23 @@ def gmcnet_model(dummy_gmcnet_args):
 
 
 @pytest.fixture
-def sample_batch():
-    """Create sample batch for testing."""
+def sample_batch(device):
+    """Create sample batch for testing with appropriate device."""
     batch_size = 2
     num_points = 1024
     
     return {
         'inputs': {
-            'src_points': torch.randn(batch_size, num_points, 3),
-            'tgt_points': torch.randn(batch_size, num_points, 3),
-            'transform': torch.eye(4).unsqueeze(0).repeat(batch_size, 1, 1),
+            'src_points': torch.randn(batch_size, num_points, 3, device=device),
+            'tgt_points': torch.randn(batch_size, num_points, 3, device=device),
+            'transform': torch.eye(4, device=device).unsqueeze(0).repeat(batch_size, 1, 1),
             'mode': 'train'
         },
         'labels': {
-            'transform': torch.eye(4).unsqueeze(0).repeat(batch_size, 1, 1)
+            'transform': torch.eye(4, device=device).unsqueeze(0).repeat(batch_size, 1, 1)
         }
     }
+
 
 
 def test_gmcnet_wrapper_initialization(dummy_gmcnet_args):
@@ -176,14 +183,15 @@ def test_gmcnet_wrapper_forward_train_mode(gmcnet_model, sample_batch):
     assert torch.equal(outputs['T_12'], outputs['transformation'])
 
 
-def test_gmcnet_wrapper_forward_test_mode(gmcnet_model):
+@requires_cuda  
+def test_gmcnet_wrapper_forward_test_mode(gmcnet_model, device):
     """Test GMCNet wrapper forward pass in test mode."""
     batch_size = 1
     num_points = 1024
     
     inputs = {
-        'src_points': torch.randn(batch_size, num_points, 3),
-        'tgt_points': torch.randn(batch_size, num_points, 3),
+        'src_points': torch.randn(batch_size, num_points, 3, device=device),
+        'tgt_points': torch.randn(batch_size, num_points, 3, device=device),
         'mode': 'test'
     }
     
@@ -205,6 +213,7 @@ def test_gmcnet_wrapper_forward_test_mode(gmcnet_model):
     assert torch.equal(outputs['T_12'], outputs['transformation'])
 
 
+@requires_cuda
 def test_gmcnet_wrapper_forward_val_mode(gmcnet_model, sample_batch):
     """Test GMCNet wrapper forward pass in validation mode."""
     inputs = sample_batch['inputs'].copy()
@@ -235,6 +244,24 @@ def test_gmcnet_wrapper_input_validation(gmcnet_model):
             'mode': 'test'
         })
     
+    # Test wrong tensor shapes
+    with pytest.raises(AssertionError, match="src_points must be 3D"):
+        gmcnet_model({
+            'src_points': torch.randn(1024, 3),  # Missing batch dimension
+            'tgt_points': torch.randn(1, 1024, 3),
+            'mode': 'test'
+        })
+    
+    with pytest.raises(AssertionError, match="src_points last dim must be 3"):
+        gmcnet_model({
+            'src_points': torch.randn(1, 1024, 2),  # Wrong coordinate dimension
+            'tgt_points': torch.randn(1, 1024, 3),
+            'mode': 'test'
+        })
+
+
+def test_gmcnet_wrapper_training_validation(gmcnet_model):
+    """Test GMCNet wrapper validation for training mode."""
     # Test missing transform in training mode
     with pytest.raises(ValueError, match="Ground truth transformation must be provided"):
         gmcnet_model({
@@ -244,6 +271,7 @@ def test_gmcnet_wrapper_input_validation(gmcnet_model):
         })
 
 
+@requires_cuda
 def test_gmcnet_wrapper_default_mode(gmcnet_model, sample_batch):
     """Test GMCNet wrapper with default mode (should be 'train')."""
     inputs = sample_batch['inputs'].copy()
@@ -258,6 +286,7 @@ def test_gmcnet_wrapper_default_mode(gmcnet_model, sample_batch):
         assert key in outputs, f"Missing required output key: {key}"
 
 
+@requires_cuda
 def test_gmcnet_wrapper_auxiliary_methods(gmcnet_model, sample_batch):
     """Test GMCNet wrapper auxiliary methods."""
     # Run forward pass first to populate internal state
@@ -281,15 +310,9 @@ def test_gmcnet_wrapper_auxiliary_methods(gmcnet_model, sample_batch):
         pass
 
 
-def test_gmcnet_wrapper_device_compatibility():
-    """Test GMCNet wrapper device compatibility.
-    
-    Note: The original GMCNet implementation has hardcoded .cuda() calls,
-    so it requires CUDA to be available for full functionality.
-    """
-    # Test device-aware configuration
-    device_args = {
-        # Complete GMCNet configuration (same as dummy_gmcnet_args)
+def test_gmcnet_wrapper_cuda_requirement():
+    """Test that GMCNet properly handles CUDA requirement."""
+    args = {
         'knn_list': '5,5,5',
         'down_sample_list': '2,4',
         'feature_size_list': '128,128,32,8',
@@ -305,48 +328,36 @@ def test_gmcnet_wrapper_device_compatibility():
         'predict_inliers': False,
         'use_weighted_procrustes': False,
     }
-    model = GMCNet(device_args)
+    
+    model = GMCNet(args)
     model.eval()
     
-    # Determine target device and move model accordingly
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # GMCNet requires CUDA - test will fail fast if CUDA not available
+    inputs = {
+        'src_points': torch.randn(1, 256, 3),
+        'tgt_points': torch.randn(1, 256, 3),
+        'mode': 'test'
+    }
     
-    if torch.cuda.is_available():
-        # Move model to CUDA if available
-        model = model.cuda()
-        
-        # Create inputs on CUDA
-        inputs = {
-            'src_points': torch.randn(1, 256, 3, device=device),
-            'tgt_points': torch.randn(1, 256, 3, device=device),
-            'transform': torch.eye(4, device=device).unsqueeze(0),
-            'mode': 'train'
-        }
-        
-        # Test forward pass with CUDA
-        with torch.no_grad():
-            outputs = model(inputs)
-            assert isinstance(outputs, dict)
-            assert 'transformation' in outputs
-            assert outputs['transformation'].device.type == 'cuda'
-    else:
-        # Original GMCNet has hardcoded CUDA calls, so CPU-only testing
-        # would require modifications to the original code.
-        # This is documented behavior - GMCNet requires CUDA.
-        pytest.skip("GMCNet requires CUDA due to hardcoded .cuda() calls in original implementation")
+    with torch.no_grad():
+        outputs = model(inputs)
+        assert 'transformation' in outputs
+        # Outputs should be moved back to original device (CPU)
+        assert outputs['transformation'].device.type == 'cpu'
 
 
+@requires_cuda
 @pytest.mark.parametrize("batch_size,num_points", [
     (1, 512),
     (1, 1024),
     (2, 512),
 ])
-def test_gmcnet_wrapper_different_batch_sizes(gmcnet_model, batch_size, num_points):
+def test_gmcnet_wrapper_different_batch_sizes(gmcnet_model, device, batch_size, num_points):
     """Test GMCNet wrapper with different batch sizes and point counts."""
     inputs = {
-        'src_points': torch.randn(batch_size, num_points, 3),
-        'tgt_points': torch.randn(batch_size, num_points, 3),
-        'transform': torch.eye(4).unsqueeze(0).repeat(batch_size, 1, 1),
+        'src_points': torch.randn(batch_size, num_points, 3, device=device),
+        'tgt_points': torch.randn(batch_size, num_points, 3, device=device),
+        'transform': torch.eye(4, device=device).unsqueeze(0).repeat(batch_size, 1, 1),
         'mode': 'train'
     }
     
@@ -390,10 +401,10 @@ def test_gmcnet_dataset_collation():
     assert len(batch['meta_info']['idx']) == 3
 
 
-def test_gmcnet_tensor_dtypes():
+@requires_cuda
+def test_gmcnet_tensor_dtypes(device):
     """Test that GMCNet wrapper handles tensor dtypes correctly."""
     test_args = {
-        # Complete GMCNet configuration (same as dummy_gmcnet_args)
         'knn_list': '5,5,5',
         'down_sample_list': '2,4',
         'feature_size_list': '128,128,32,8',
@@ -415,9 +426,9 @@ def test_gmcnet_tensor_dtypes():
     
     # Test with float32 (common for point clouds)
     inputs_f32 = {
-        'src_points': torch.randn(1, 256, 3, dtype=torch.float32),
-        'tgt_points': torch.randn(1, 256, 3, dtype=torch.float32),
-        'transform': torch.eye(4, dtype=torch.float32).unsqueeze(0),
+        'src_points': torch.randn(1, 256, 3, dtype=torch.float32, device=device),
+        'tgt_points': torch.randn(1, 256, 3, dtype=torch.float32, device=device),
+        'transform': torch.eye(4, dtype=torch.float32, device=device).unsqueeze(0),
         'mode': 'train'
     }
     
@@ -430,7 +441,6 @@ def test_gmcnet_tensor_dtypes():
 def test_gmcnet_error_handling():
     """Test GMCNet wrapper error handling for various edge cases."""
     error_args = {
-        # Complete GMCNet configuration (same as dummy_gmcnet_args)
         'knn_list': '5,5,5',
         'down_sample_list': '2,4',
         'feature_size_list': '128,128,32,8',
@@ -450,29 +460,16 @@ def test_gmcnet_error_handling():
     model = GMCNet(error_args)
     model.eval()
     
-    # Test empty tensors (should fail gracefully)
-    with pytest.raises((RuntimeError, AssertionError)):
+    # Test empty tensors (should fail gracefully with clear error message)
+    with pytest.raises(AssertionError, match="src_points must be 3D"):
         model({
             'src_points': torch.empty(0, 3),
             'tgt_points': torch.empty(0, 3),
             'mode': 'test'
         })
     
-    # Test mismatched dimensions
-    with torch.no_grad():
-        try:
-            model({
-                'src_points': torch.randn(1, 100, 3),  # Fewer points than expected
-                'tgt_points': torch.randn(1, 100, 3),
-                'mode': 'test'
-            })
-            # If this doesn't raise an error, that's acceptable - GMCNet might handle varying point counts
-        except (RuntimeError, AssertionError, ValueError):
-            # Expected behavior for dimension mismatches
-            pass
-    
     # Test wrong spatial dimensions
-    with pytest.raises((RuntimeError, AssertionError, ValueError, IndexError)):
+    with pytest.raises(AssertionError, match="src_points last dim must be 3"):
         model({
             'src_points': torch.randn(1, 128, 2),  # Wrong spatial dimension
             'tgt_points': torch.randn(1, 128, 3),

@@ -361,13 +361,12 @@ def test_gmcnet_wrapper_pytorch_module_interface(gmcnet_model):
     model.eval()
     assert not model.training, "Model must be in eval mode after calling eval()"
     
-    # Test device transfer (if CUDA available)
-    if torch.cuda.is_available():
-        cuda_model = model.cuda()
-        assert next(cuda_model.parameters()).is_cuda, "Model parameters must be on CUDA after cuda() call"
-        
-        cpu_model = cuda_model.cpu()
-        assert not next(cpu_model.parameters()).is_cuda, "Model parameters must be on CPU after cpu() call"
+    # Test device transfer - fail fast if CUDA not available
+    cuda_model = model.cuda()
+    assert next(cuda_model.parameters()).is_cuda, "Model parameters must be on CUDA after cuda() call"
+    
+    cpu_model = cuda_model.cpu()
+    assert not next(cpu_model.parameters()).is_cuda, "Model parameters must be on CPU after cpu() call"
 
 
 def test_gmcnet_wrapper_output_format_consistency(gmcnet_model):
@@ -583,8 +582,7 @@ def test_gmcnet_wrapper_memory_efficiency(gmcnet_model):
         
         # Clean up for memory efficiency
         del outputs, inputs, sample_data
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
 
 def test_gmcnet_wrapper_numerical_stability(gmcnet_model):
@@ -669,8 +667,7 @@ def test_gmcnet_wrapper_deterministic_behavior(gmcnet_args):
     """Test GMCNet wrapper produces deterministic results with fixed inputs."""
     # Set random seed for reproducibility
     torch.manual_seed(42)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(42)
+    torch.cuda.manual_seed(42)
     
     # Create two identical models
     model1 = GMCNet(gmcnet_args)

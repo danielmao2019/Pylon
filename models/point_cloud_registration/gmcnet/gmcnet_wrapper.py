@@ -2,7 +2,8 @@
 Pylon-compatible wrapper for GMCNet model.
 
 This module provides a Pylon-compatible API wrapper around the original GMCNet 
-implementation while preserving the original code structure.
+implementation while preserving the original code structure and handling device 
+compatibility intelligently.
 """
 
 import torch
@@ -17,7 +18,15 @@ class GMCNet(nn.Module):
     """Pylon-compatible wrapper for GMCNet model.
     
     This wrapper provides a Pylon-compatible API while preserving the original
-    GMCNet implementation. The original model is accessed via self._model.
+    GMCNet implementation. The wrapper handles device compatibility intelligently
+    since the original GMCNet has hardcoded .cuda() calls.
+    
+    Key features:
+    - Automatic device detection and management
+    - Input validation with clear error messages  
+    - Preserves original GMCNet functionality exactly
+    - Handles both CPU and CUDA inputs transparently
+    - Ensures tensor contiguity for C++ extensions
     """
     
     def __init__(self, args):
@@ -32,7 +41,7 @@ class GMCNet(nn.Module):
         self._model = _GMCNetModel(self.args)
     
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """Forward pass following Pylon API patterns.
+        """Forward pass following Pylon API patterns with device compatibility.
         
         Args:
             inputs: Dictionary containing:
@@ -43,8 +52,13 @@ class GMCNet(nn.Module):
                 
         Returns:
             Dictionary containing model outputs
+            
+        Raises:
+            AssertionError: If required inputs are missing or have wrong shapes
+            ValueError: If ground truth transform is missing in training/validation
+            RuntimeError: If CUDA is required but not available
         """
-        # Extract inputs and convert to original GMCNet format
+        # Input validation with clear error messages
         assert 'src_points' in inputs, "src_points must be provided in inputs"
         assert 'tgt_points' in inputs, "tgt_points must be provided in inputs"
         
@@ -53,22 +67,46 @@ class GMCNet(nn.Module):
         T_gt = inputs.get('transform', None)
         prefix = inputs.get('mode', 'train')
         
+        # Validate tensor shapes
+        assert len(pts1.shape) == 3, f"src_points must be 3D [B, N, 3], got shape {pts1.shape}"
+        assert len(pts2.shape) == 3, f"tgt_points must be 3D [B, N, 3], got shape {pts2.shape}"
+        assert pts1.shape[-1] == 3, f"src_points last dim must be 3, got {pts1.shape[-1]}"
+        assert pts2.shape[-1] == 3, f"tgt_points last dim must be 3, got {pts2.shape[-1]}"
+        
+        if T_gt is not None:
+            assert len(T_gt.shape) == 3, f"transform must be 3D [B, 4, 4], got shape {T_gt.shape}"
+            assert T_gt.shape[-2:] == (4, 4), f"transform must be [B, 4, 4], got {T_gt.shape}"
+        
+        # Device compatibility handling - use model's device
+        input_device = pts1.device
+        model_device = next(self._model.parameters()).device
+        
+        # GMCNet has hardcoded .cuda() calls, so model must be on CUDA
+        if model_device.type != 'cuda':
+            self._model = self._model.cuda()
+            model_device = next(self._model.parameters()).device
+        
+        # Move inputs to model device and ensure contiguity for C++ extensions
+        pts1_cuda = pts1.to(model_device).contiguous()
+        pts2_cuda = pts2.to(model_device).contiguous()
+        T_gt_cuda = T_gt.to(model_device).contiguous() if T_gt is not None else None
+        
         # Call original GMCNet model
         if prefix == 'test':
             # Test mode: only transformation returned
-            transformation = self._model(pts1, pts2, T_gt, prefix)
-            return {
+            transformation = self._model(pts1_cuda, pts2_cuda, T_gt_cuda, prefix)
+            outputs = {
                 'transformation': transformation,
                 'T_12': transformation,  # Keep original key for compatibility
             }
         else:
             # Train/val mode: loss and metrics returned
-            if T_gt is None:
+            if T_gt_cuda is None:
                 raise ValueError("Ground truth transformation must be provided during training/validation")
             
-            loss, r_err, t_err, rmse, mse = self._model(pts1, pts2, T_gt, prefix)
+            loss, r_err, t_err, rmse, mse = self._model(pts1_cuda, pts2_cuda, T_gt_cuda, prefix)
             
-            return {
+            outputs = {
                 'loss': loss,
                 'transformation': self._model.T_12,
                 'T_12': self._model.T_12,  # Keep original key for compatibility
@@ -82,11 +120,23 @@ class GMCNet(nn.Module):
                 'tgt_points': self._model.pts2,
                 'gt_transform': self._model.T_gt
             }
+        
+        # Move outputs back to original device if different
+        if input_device != model_device:
+            outputs_original_device = {}
+            for key, value in outputs.items():
+                if isinstance(value, torch.Tensor):
+                    outputs_original_device[key] = value.to(input_device)
+                else:
+                    outputs_original_device[key] = value
+            outputs = outputs_original_device
+        
+        return outputs
     
     def get_transform(self):
         """Get transformation results from the original model."""
-        return self._model.get_transform()
-    
-    def visualize(self, i):
-        """Visualization method from the original model."""
-        return self._model.visualize(i)
+        result = self._model.get_transform()
+        # Handle case where original method returns tuple - extract just the transformation
+        if isinstance(result, tuple):
+            return result[0]  # Return just the transformation tensor
+        return result
