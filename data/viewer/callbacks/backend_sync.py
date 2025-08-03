@@ -10,6 +10,7 @@ This separates backend state management from UI rendering for cleaner architectu
 """
 from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State
+import dash
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.utils.settings_config import ViewerSettings
@@ -36,7 +37,8 @@ def sync_3d_settings_to_backend(settings_3d: Optional[Dict[str, Union[str, int, 
     It listens to changes in the 3D settings store and updates backend accordingly.
     """
     if not settings_3d:
-        raise PreventUpdate
+        # Thread-safe return instead of raising PreventUpdate in debounced context
+        return [dash.no_update]
     
     logger.info(f"Syncing 3D settings to backend: {settings_3d}")
     
@@ -120,7 +122,8 @@ def sync_navigation_to_backend(
     """
     # Handle case where no dataset is selected (normal UI state)
     if datapoint_idx is None or dataset_info is None or dataset_info == {}:
-        raise PreventUpdate
+        # Thread-safe return instead of raising PreventUpdate in debounced context
+        return [dash.no_update]
     
     # Assert dataset info structure is valid - fail fast if corrupted
     assert dataset_info is not None, "Dataset info must not be None"

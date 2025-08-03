@@ -1,6 +1,7 @@
 """Navigation-related callbacks for the viewer."""
 from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State, html, callback_context
+import dash
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.callbacks.display import create_display
@@ -36,7 +37,8 @@ def update_index_from_buttons(
 ) -> List[int]:
     """Update the datapoint index based on prev/next button clicks."""
     if prev_clicks is None and next_clicks is None:
-        raise PreventUpdate
+        # Thread-safe return instead of raising PreventUpdate in debounced context
+        return [dash.no_update]
     assert isinstance(current_value, int)
 
     # Get the ID of the button that triggered the callback
@@ -90,7 +92,8 @@ def update_datapoint_from_navigation(
 
     # Handle case where no dataset is selected (normal UI state)
     if dataset_info is None or dataset_info == {}:
-        raise PreventUpdate
+        # Thread-safe return instead of raising PreventUpdate in debounced context
+        return [dash.no_update]
     
     # Assert dataset info structure is valid - fail fast if corrupted
     assert dataset_info is not None, "Dataset info must not be None"

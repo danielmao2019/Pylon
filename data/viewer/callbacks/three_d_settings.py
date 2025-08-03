@@ -1,6 +1,7 @@
 """3D settings-related callbacks for the viewer."""
 from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output
+import dash
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
 from data.viewer.utils.settings_config import ViewerSettings
@@ -47,7 +48,8 @@ def update_3d_settings(
         List containing a dictionary of all 3D settings for UI store
     """
     if point_size is None or point_opacity is None:
-        raise PreventUpdate
+        # Thread-safe return instead of raising PreventUpdate in debounced context
+        return [dash.no_update]
 
     # Create settings dictionary with provided values
     raw_settings = {
