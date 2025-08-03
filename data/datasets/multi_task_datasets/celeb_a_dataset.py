@@ -1,11 +1,11 @@
 from typing import Tuple, List, Dict, Any, Optional
 import os
 import torch
-from data.datasets import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class CelebADataset(BaseDataset):
+class CelebADataset(BaseMultiTaskDataset):
     __doc__ = r"""
     CelebA dataset for multi-task learning with facial attribute classification tasks.
 

@@ -2,11 +2,11 @@ from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
 import torch
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class CityScapesDataset(BaseDataset):
+class CityScapesDataset(BaseMultiTaskDataset):
     __doc__ = r"""Reference:
 
     For implementation of dataset class:

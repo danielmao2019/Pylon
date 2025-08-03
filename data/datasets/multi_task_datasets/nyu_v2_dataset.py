@@ -4,11 +4,11 @@ import scipy
 import random
 import torch
 import matplotlib.pyplot as plt
-from data.datasets import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class NYUv2Dataset(BaseDataset):
+class NYUv2Dataset(BaseMultiTaskDataset):
     __doc__ = r"""
     NYU-v2 dataset for multi-task learning with depth estimation, normal estimation, semantic segmentation, and edge detection tasks.
 

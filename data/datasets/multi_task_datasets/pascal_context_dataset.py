@@ -4,11 +4,11 @@ import json
 import scipy
 import numpy
 import torch
-from data.datasets import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class PASCALContextDataset(BaseDataset):
+class PASCALContextDataset(BaseMultiTaskDataset):
     __doc__ = r"""
     PASCAL Context dataset for multi-task learning with semantic segmentation, human part segmentation, surface normal estimation, and saliency detection tasks.
 

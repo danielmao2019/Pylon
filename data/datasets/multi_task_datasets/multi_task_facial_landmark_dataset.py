@@ -1,11 +1,11 @@
 from typing import Tuple, List, Dict, Any, Optional
 import os
 import torch
-from data.datasets import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class MultiTaskFacialLandmarkDataset(BaseDataset):
+class MultiTaskFacialLandmarkDataset(BaseMultiTaskDataset):
     __doc__ = r"""
 
     Download:

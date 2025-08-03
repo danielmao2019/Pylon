@@ -3,11 +3,11 @@ import os
 import glob
 import torch
 import json
-from data.datasets.base_dataset import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 from utils.io.image import load_image
 
 
-class ADE20KDataset(BaseDataset):
+class ADE20KDataset(BaseMultiTaskDataset):
     __doc__ = r"""
     Reference:
         https://github.com/CSAILVision/ADE20K/blob/main/utils/utils_ade20k.py

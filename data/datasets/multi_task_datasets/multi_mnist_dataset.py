@@ -3,11 +3,11 @@ import random
 import torch
 import torchvision
 from PIL import Image
-from data.datasets import BaseDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 import utils
 
 
-class MultiMNISTDataset(BaseDataset):
+class MultiMNISTDataset(BaseMultiTaskDataset):
     __doc__ = r"""
     Used in:
         Multi-Task Learning as Multi-Objective Optimization (https://arxiv.org/pdf/1810.04650.pdf)
