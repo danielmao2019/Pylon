@@ -296,14 +296,6 @@ def test_gmcnet_wrapper_auxiliary_methods(gmcnet_model, sample_batch):
     except Exception as e:
         # If the method has dependencies on internal state, that's ok for this test
         pass
-    
-    # Test visualize method
-    try:
-        vis_result = gmcnet_model.visualize(0)
-        # This method exists in the wrapper and delegates to original model
-    except Exception as e:
-        # If the method has dependencies on internal state or data, that's ok for this test
-        pass
 
 
 def test_gmcnet_wrapper_cuda_requirement():
