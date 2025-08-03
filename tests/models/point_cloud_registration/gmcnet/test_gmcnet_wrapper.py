@@ -183,7 +183,6 @@ def test_gmcnet_wrapper_forward_train_mode(gmcnet_model, sample_batch):
     assert torch.equal(outputs['T_12'], outputs['transformation'])
 
 
-@requires_cuda  
 def test_gmcnet_wrapper_forward_test_mode(gmcnet_model, device):
     """Test GMCNet wrapper forward pass in test mode."""
     batch_size = 1
@@ -213,7 +212,6 @@ def test_gmcnet_wrapper_forward_test_mode(gmcnet_model, device):
     assert torch.equal(outputs['T_12'], outputs['transformation'])
 
 
-@requires_cuda
 def test_gmcnet_wrapper_forward_val_mode(gmcnet_model, sample_batch):
     """Test GMCNet wrapper forward pass in validation mode."""
     inputs = sample_batch['inputs'].copy()
@@ -271,7 +269,6 @@ def test_gmcnet_wrapper_training_validation(gmcnet_model):
         })
 
 
-@requires_cuda
 def test_gmcnet_wrapper_default_mode(gmcnet_model, sample_batch):
     """Test GMCNet wrapper with default mode (should be 'train')."""
     inputs = sample_batch['inputs'].copy()
@@ -286,7 +283,6 @@ def test_gmcnet_wrapper_default_mode(gmcnet_model, sample_batch):
         assert key in outputs, f"Missing required output key: {key}"
 
 
-@requires_cuda
 def test_gmcnet_wrapper_auxiliary_methods(gmcnet_model, sample_batch):
     """Test GMCNet wrapper auxiliary methods."""
     # Run forward pass first to populate internal state
@@ -346,7 +342,6 @@ def test_gmcnet_wrapper_cuda_requirement():
         assert outputs['transformation'].device.type == 'cpu'
 
 
-@requires_cuda
 @pytest.mark.parametrize("batch_size,num_points", [
     (1, 512),
     (1, 1024),
@@ -401,7 +396,6 @@ def test_gmcnet_dataset_collation():
     assert len(batch['meta_info']['idx']) == 3
 
 
-@requires_cuda
 def test_gmcnet_tensor_dtypes(device):
     """Test that GMCNet wrapper handles tensor dtypes correctly."""
     test_args = {
