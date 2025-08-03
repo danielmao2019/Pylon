@@ -1,7 +1,7 @@
 """Camera pose and synchronization callbacks for the viewer."""
 from typing import Dict, List, Optional, Any, Tuple
 import json
-from dash import Input, Output, State, callback_context, ALL
+from dash import Input, Output, State, ctx, ALL
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
 from data.viewer.utils.camera_utils import (
@@ -30,28 +30,31 @@ from data.viewer.utils.debounce import debounce
 @debounce
 def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs."""
-    ctx = callback_context
-    if not ctx.triggered:
+    # CRITICAL: Input validation with fail-fast assertions
+    assert isinstance(all_relayout_data, list), f"all_relayout_data must be list, got {type(all_relayout_data)}"
+    assert isinstance(all_figures, list), f"all_figures must be list, got {type(all_figures)}"
+    assert len(all_relayout_data) == len(all_figures), f"Lists must have same length: {len(all_relayout_data)} vs {len(all_figures)}"
+    
+    # Since we're in a debounced (threaded) context, we can't access ctx.triggered
+    # Instead, we determine which graph was updated by checking for non-None relayoutData
+    triggered_index = None
+    triggered_relayout_data = None
+    
+    for i, relayout_data in enumerate(all_relayout_data):
+        if relayout_data is not None and isinstance(relayout_data, dict) and len(relayout_data) > 0:
+            # Skip if it's just a timestamp or other non-camera update
+            camera_keys = ['scene.camera', 'scene.camera.center', 'scene.camera.eye', 'scene.camera.up']
+            if any(key in str(relayout_data) for key in camera_keys):
+                triggered_index = i
+                triggered_relayout_data = relayout_data
+                break
+    
+    if triggered_index is None or triggered_relayout_data is None:
         raise PreventUpdate
 
-    # Find which graph triggered the update
-    triggered_prop_id = ctx.triggered[0]['prop_id']
-    if 'relayoutData' not in triggered_prop_id:
-        raise PreventUpdate
-
-    # Parse the triggered component ID to get the index
-    try:
-        triggered_id = json.loads(triggered_prop_id.split('.')[0])
-        triggered_index = triggered_id['index']
-    except (json.JSONDecodeError, KeyError, IndexError):
-        raise PreventUpdate
-
-    # Get the relayout data from the triggered graph
-    if triggered_index >= len(all_relayout_data) or not all_relayout_data[triggered_index]:
-        raise PreventUpdate
-
-    relayout_data = all_relayout_data[triggered_index]
-
+    # Use the triggered relayout data we already found
+    relayout_data = triggered_relayout_data
+    
     # Check if the relayout_data contains camera information
     if 'scene.camera' not in relayout_data:
         raise PreventUpdate
