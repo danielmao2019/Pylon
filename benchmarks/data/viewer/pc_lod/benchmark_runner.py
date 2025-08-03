@@ -11,7 +11,7 @@ import numpy as np
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
 sys.path.insert(0, project_root)
 
-from data.viewer.utils.point_cloud import create_point_cloud_figure
+from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_figure
 
 from .data_types import PointCloudSample, CameraPose, BenchmarkStats
 

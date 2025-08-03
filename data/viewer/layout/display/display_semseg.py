@@ -2,7 +2,7 @@
 from typing import Dict, Union, Any
 import torch
 from dash import dcc, html
-from data.viewer.utils.image import create_image_figure, get_image_stats
+from data.viewer.utils.atomic_displays.image_display import create_image_figure, get_image_stats
 from data.viewer.utils.segmentation import create_segmentation_figure, get_segmentation_stats
 from data.viewer.utils.display_utils import (
     DisplayStyles,
