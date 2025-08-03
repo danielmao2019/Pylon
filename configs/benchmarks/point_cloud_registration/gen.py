@@ -124,6 +124,21 @@ def build_training_config(dataset: str, model: str):
             from configs.common.criteria.point_cloud_registration.overlappredator_criterion_cfg import criterion_cfg
             from configs.common.metrics.point_cloud_registration.overlappredator_metric_cfg import metric_cfg
         
+        elif model == 'GMCNet':
+            # GMCNet only works with ModelNet40 dataset
+            if dataset_name not in ['modelnet40']:
+                raise NotImplementedError(f"GMCNet is only compatible with modelnet40 dataset, not {dataset_name}")
+                
+            from configs.common.datasets.point_cloud_registration.train.gmcnet_modelnet40_data_cfg import data_cfg as train_data_cfg
+            from configs.common.datasets.point_cloud_registration.val.gmcnet_modelnet40_data_cfg import data_cfg as val_data_cfg
+
+            from configs.common.models.point_cloud_registration.gmcnet_cfg import model_cfg
+            from criteria.vision_3d.point_cloud_registration.gmcnet_criterion import GMCNetCriterion
+            from metrics.vision_3d.point_cloud_registration.gmcnet_metric import GMCNetMetric
+            
+            criterion_cfg = {'class': GMCNetCriterion, 'args': {}}
+            metric_cfg = {'class': GMCNetMetric, 'args': {}}
+        
         elif model == 'D3Feat':
             # D3Feat only works with ThreeDMatch dataset
             if dataset_name != 'threedmatch':
@@ -225,7 +240,7 @@ if __name__ == "__main__":
         ],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
-            'GeoTransformer', 'OverlapPredator', 'BUFFER', 'PARENet',
+            'GeoTransformer', 'OverlapPredator', 'BUFFER', 'GMCNet', 'PARENet',
         ],
     )
     
