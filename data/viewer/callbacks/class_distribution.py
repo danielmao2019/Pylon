@@ -1,6 +1,6 @@
 """Class distribution toggle callbacks for the viewer."""
 from typing import Dict, List, Optional, Union, Any, Tuple
-from dash import Input, Output, State, callback_context, ALL
+from dash import Input, Output, State, ALL, ctx
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 
@@ -40,39 +40,41 @@ def toggle_class_distribution_plots(
     if not any(clicks is not None and clicks > 0 for clicks in n_clicks_list):
         raise PreventUpdate
     
-    # Get the triggered component
-    triggered = callback_context.triggered
-    if not triggered:
-        raise PreventUpdate
-    
-    triggered_prop_id = triggered[0]['prop_id']
-    
-    # Parse the triggered component ID to find which button was clicked
-    if 'class-dist-toggle' not in triggered_prop_id:
-        raise PreventUpdate
-    
-    # Extract the index of the triggered button
-    import json
+    # Simpler approach: find the button that was most recently clicked
+    # by comparing n_clicks values and looking for changes
     try:
-        # Parse the component ID: {"index":0,"type":"class-dist-toggle"}.n_clicks
+        if not ctx.triggered:
+            raise PreventUpdate
+        
+        # Extract the triggered index from the prop_id
+        import json
+        triggered_prop_id = ctx.triggered[0]['prop_id']
         component_id_str = triggered_prop_id.split('.')[0]
         component_id = json.loads(component_id_str)
         triggered_index = component_id['index']
-    except (json.JSONDecodeError, KeyError, IndexError):
-        logger.warning(f"Failed to parse triggered component ID: {triggered_prop_id}")
-        raise PreventUpdate
-    
-    # Find the triggered button index in our lists
-    button_index = None
-    for i, clicks in enumerate(n_clicks_list):
-        if clicks is not None and clicks > 0:
-            # This could be the triggered button - verify by checking if indices match
-            # For now, we'll use the order since pattern-matching preserves order
-            button_index = i
-            break
-    
-    if button_index is None:
-        raise PreventUpdate
+        
+        # Find which button in our list corresponds to this index
+        # Since pattern-matching callbacks preserve order, we can match by index
+        button_index = None
+        for i, clicks in enumerate(n_clicks_list):
+            if clicks is not None and clicks > 0:
+                button_index = i
+                break
+                
+        if button_index is None:
+            raise PreventUpdate
+            
+    except (json.JSONDecodeError, KeyError, IndexError, AttributeError) as e:
+        logger.warning(f"Failed to parse triggered component, falling back to simple toggle: {e}")
+        # Fallback: just toggle the first button that has clicks > 0
+        button_index = None
+        for i, clicks in enumerate(n_clicks_list):
+            if clicks is not None and clicks > 0:
+                button_index = i
+                break
+        
+        if button_index is None:
+            raise PreventUpdate
     
     # Create new styles and button texts
     new_styles = []
