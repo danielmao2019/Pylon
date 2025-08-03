@@ -4,7 +4,7 @@ from dash import html, dcc
 import torch
 import numpy as np
 from data.viewer.utils.dataset_utils import format_value
-from data.viewer.utils.image import create_image_figure
+from data.viewer.utils.atomic_displays.image_display import create_image_figure
 
 
 def display_debug_outputs(debug_outputs: Dict[str, Any]) -> html.Div:
