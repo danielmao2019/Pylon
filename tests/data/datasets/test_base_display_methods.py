@@ -74,9 +74,9 @@ def setup_registry_for_point_cloud_utils():
 
 
 @pytest.fixture
-def semseg_dataset():
+def semseg_dataset(whu_bd_data_root):
     """Real semantic segmentation dataset using WHU_BD_Dataset directly."""
-    return WHU_BD_Dataset(data_root='data/datasets/soft_links/WHU-BD', split='test')
+    return WHU_BD_Dataset(data_root=whu_bd_data_root, split='test')
     
 
 @pytest.fixture
@@ -102,9 +102,9 @@ def valid_semseg_datapoint(semseg_dataset):
 
 
 @pytest.fixture
-def cd2d_dataset():
+def cd2d_dataset(oscd_data_root):
     """Real 2D change detection dataset using OSCDDataset directly."""
-    return OSCDDataset(data_root='data/datasets/soft_links/OSCD', split='test')
+    return OSCDDataset(data_root=oscd_data_root, split='test')
 
 
 @pytest.fixture
@@ -127,10 +127,10 @@ def valid_2dcd_datapoint(cd2d_dataset):
 
 
 @pytest.fixture
-def cd3d_dataset():
+def cd3d_dataset(urb3dcd_data_root):
     """Real 3D change detection dataset using Urb3DCDDataset directly."""
     # Use patched=False to avoid cylinder sampling issues, and explicitly set radius to default
-    return Urb3DCDDataset(data_root='data/datasets/soft_links/Urb3DCD', split='test', patched=False, radius=20)
+    return Urb3DCDDataset(data_root=urb3dcd_data_root, split='test', patched=False, radius=20)
 
 
 @pytest.fixture
@@ -153,9 +153,9 @@ def valid_3dcd_datapoint(cd3d_dataset):
 
 
 @pytest.fixture
-def pcr_dataset():
+def pcr_dataset(modelnet40_data_root):
     """Real PCR dataset using ModelNet40Dataset directly."""
-    return ModelNet40Dataset(data_root='data/datasets/soft_links/ModelNet40', dataset_size=100)
+    return ModelNet40Dataset(data_root=modelnet40_data_root, dataset_size=100)
 
 
 @pytest.fixture
