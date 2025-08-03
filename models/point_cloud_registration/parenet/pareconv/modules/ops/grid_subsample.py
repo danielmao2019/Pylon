@@ -1,7 +1,4 @@
-import importlib
-
-
-ext_module = importlib.import_module('models.point_cloud_registration.parenet.pareconv.ext')
+from models.point_cloud_registration.parenet.pareconv.extensions import ext as ext_module
 
 
 def grid_subsample(points, lengths, voxel_size):
