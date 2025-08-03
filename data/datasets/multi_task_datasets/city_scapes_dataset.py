@@ -288,7 +288,8 @@ class CityScapesDataset(BaseMultiTaskDataset):
             create_instance_surrogate_display,
             get_image_display_stats,
             get_depth_display_stats,
-            get_segmentation_display_stats
+            get_segmentation_display_stats,
+            get_instance_surrogate_display_stats
         )
         from data.viewer.utils.display_utils import (
             ParallelFigureCreator,
@@ -352,7 +353,10 @@ class CityScapesDataset(BaseMultiTaskDataset):
             get_image_display_stats(inputs['image']),
             get_depth_display_stats(labels['depth_estimation']),
             get_segmentation_display_stats(labels['semantic_segmentation']),
-            get_segmentation_display_stats(labels['instance_segmentation'])
+            get_instance_surrogate_display_stats(
+                instance_surrogate=labels['instance_segmentation'],
+                ignore_index=self.IGNORE_INDEX
+            )
         ]
         
         stats_titles = [
