@@ -268,10 +268,10 @@ def create_point_cloud_display(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    logger.info(f"create_point_cloud_display called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
-    
-    # CRITICAL: Input validation with fail-fast assertions
+    # CRITICAL: Input validation with fail-fast assertions (validate points first for logging)
     assert isinstance(points, torch.Tensor), f"Expected torch.Tensor, got {type(points)}"
+    
+    logger.info(f"create_point_cloud_display called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
     assert points.ndim == 2, f"Expected 2D tensor [N,3], got shape {points.shape}"
     assert points.shape[1] == 3, f"Expected 3 coordinates, got {points.shape[1]}"
     assert points.numel() > 0, f"Point cloud cannot be empty"
