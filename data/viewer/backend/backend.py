@@ -210,18 +210,12 @@ class ViewerBackend:
         from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
         from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
         from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
-        
-        # Check for multi-task datasets first (by class name since they don't have common base)
-        multi_task_classes = [
-            'NYUv2Dataset', 'CityScapesDataset', 'ADE20KDataset', 'PASCALContextDataset',
-            'CelebADataset', 'MultiMNISTDataset', 'MultiTaskFacialLandmarkDataset'
-        ]
-        
-        if type(dataset).__name__ in multi_task_classes:
-            return 'mtl'
+        from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
         
         # Check inheritance hierarchy to determine type
-        if isinstance(dataset, Base2DCDDataset):
+        if isinstance(dataset, BaseMultiTaskDataset):
+            return 'mtl'
+        elif isinstance(dataset, Base2DCDDataset):
             return '2dcd'
         elif isinstance(dataset, Base3DCDDataset):
             return '3dcd'
@@ -233,7 +227,7 @@ class ViewerBackend:
             # All datasets must inherit from appropriate base display classes
             raise ValueError(
                 f"Dataset '{dataset_name}' (class: {type(dataset).__name__}) must inherit from one of the base display classes: "
-                f"Base2DCDDataset, Base3DCDDataset, BasePCRDataset, BaseSemsegDataset, or be a multi-task dataset. "
+                f"BaseMultiTaskDataset, Base2DCDDataset, Base3DCDDataset, BasePCRDataset, or BaseSemsegDataset. "
                 f"Please update the dataset class to inherit from the appropriate base class."
             )
 

@@ -6,6 +6,7 @@ from data.datasets.base_synthetic_dataset import BaseSyntheticDataset
 from data.datasets.change_detection_datasets import Base2DCDDataset, Base3DCDDataset
 from data.datasets.pcr_datasets import BasePCRDataset
 from data.datasets.semantic_segmentation_datasets import BaseSemsegDataset
+from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
 from data.datasets import random_datasets
 from data.datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
 
@@ -25,6 +26,7 @@ from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
 from data.datasets.multi_task_datasets.multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
 from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
 from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
+from data.datasets.multi_task_datasets.pascal_context_dataset import PASCALContextDataset
 from data.datasets.multi_task_datasets.ade_20k_dataset import ADE20KDataset
 
 # Change Detection datasets
@@ -56,6 +58,7 @@ __all__ = (
     'Base3DCDDataset', 
     'BasePCRDataset',
     'BaseSemsegDataset',
+    'BaseMultiTaskDataset',
     'random_datasets',
     'ProjectionDatasetWrapper',
     # torchvision datasets
@@ -71,6 +74,7 @@ __all__ = (
     'MultiTaskFacialLandmarkDataset',
     'CityScapesDataset',
     'NYUv2Dataset',
+    'PASCALContextDataset',
     'ADE20KDataset',
     # Change Detection datasets
     ## Bi-Temporal
