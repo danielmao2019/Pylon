@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from pareconv.modules.ops import pairwise_distance
+from ..ops import pairwise_distance
 
 class SuperPointMatching(nn.Module):
     def __init__(self, num_correspondences, dual_normalization=True):

@@ -5,8 +5,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pareconv.modules.ops import apply_transform
-from pareconv.modules.registration import WeightedProcrustes, solve_local_rotations
+from ..ops import apply_transform
+from . import WeightedProcrustes, solve_local_rotations
 
 
 

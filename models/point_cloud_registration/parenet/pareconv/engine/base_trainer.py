@@ -14,10 +14,10 @@ import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 import ipdb
 
-from pareconv.utils.summary_board import SummaryBoard
-from pareconv.utils.timer import Timer
-from pareconv.utils.torch import all_reduce_tensors, release_cuda, initialize
-from pareconv.engine.logger import Logger
+from ..utils.summary_board import SummaryBoard
+from ..utils.timer import Timer
+from ..utils.torch import all_reduce_tensors, release_cuda, initialize
+from .logger import Logger
 import wandb
 
 

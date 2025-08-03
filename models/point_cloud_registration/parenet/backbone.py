@@ -4,8 +4,8 @@ import pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pareconv.modules.layers import VNLinear, VNLinearLeakyReLU, VNLeakyReLU, VNStdFeature
-from pareconv.modules.ops import index_select
+from models.point_cloud_registration.parenet.pareconv.modules.layers import VNLinear, VNLinearLeakyReLU, VNLeakyReLU, VNStdFeature
+from models.point_cloud_registration.parenet.pareconv.modules.ops import index_select
 
 class CorrelationNet(nn.Module):
 

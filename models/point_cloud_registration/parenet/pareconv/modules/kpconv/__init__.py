@@ -1,5 +1,5 @@
-from pareconv.modules.kpconv.kpconv import KPConv
-from pareconv.modules.kpconv.modules import (
+from .kpconv import KPConv
+from .modules import (
     ConvBlock,
     ResidualBlock,
     UnaryBlock,
@@ -9,4 +9,4 @@ from pareconv.modules.kpconv.modules import (
     GlobalAvgPool,
     MaxPool,
 )
-from pareconv.modules.kpconv.functional import nearest_upsample, global_avgpool, maxpool
+from .functional import nearest_upsample, global_avgpool, maxpool

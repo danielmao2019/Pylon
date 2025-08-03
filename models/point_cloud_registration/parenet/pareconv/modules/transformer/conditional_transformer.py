@@ -3,11 +3,11 @@ import pdb
 import torch
 import torch.nn as nn
 
-from pareconv.modules.transformer.lrpe_transformer import LRPETransformerLayer
-from pareconv.modules.transformer.pe_transformer import PETransformerLayer
-from pareconv.modules.transformer.rpe_transformer import RPETransformerLayer
-from pareconv.modules.transformer.vanilla_transformer import TransformerLayer
-from pareconv.modules.transformer.bias_transformer import  BiasTransformerLayer
+from .lrpe_transformer import LRPETransformerLayer
+from .pe_transformer import PETransformerLayer
+from .rpe_transformer import RPETransformerLayer
+from .vanilla_transformer import TransformerLayer
+from .bias_transformer import  BiasTransformerLayer
 
 def _check_block_type(block):
     if block not in ['self', 'cross']:

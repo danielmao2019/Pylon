@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from pareconv.modules.layers import build_act_layer, build_dropout_layer
+from ..layers import build_act_layer, build_dropout_layer
 
 
 class AttentionOutput(nn.Module):

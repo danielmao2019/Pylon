@@ -3,7 +3,7 @@ import warnings
 import torch
 import torch.nn as nn
 
-from pareconv.modules.layers.factory import build_conv_layer, build_norm_layer, build_act_layer
+from .factory import build_conv_layer, build_norm_layer, build_act_layer
 
 
 class ConvBlock(nn.Module):

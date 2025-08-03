@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from pareconv.modules.ops import apply_transform, pairwise_distance, get_rotation_translation_from_transform
-from pareconv.utils.registration import compute_transform_mse_and_mae
+from ..ops import apply_transform, pairwise_distance, get_rotation_translation_from_transform
+from ...utils.registration import compute_transform_mse_and_mae
 
 
 def modified_chamfer_distance(raw_points, ref_points, src_points, gt_transform, transform, reduction='mean'):

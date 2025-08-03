@@ -3,8 +3,8 @@ import warnings
 
 import torch
 
-from pareconv.modules.ops.pairwise_distance import pairwise_distance
-from pareconv.modules.ops.index_select import index_select
+from .pairwise_distance import pairwise_distance
+from .index_select import index_select
 
 
 def get_point_to_node_indices(points: torch.Tensor, nodes: torch.Tensor, return_counts: bool = False):

@@ -1,6 +1,6 @@
 import torch
 
-from pareconv.modules.ops import index_select
+from ..ops import index_select
 
 
 def nearest_upsample(x, upsample_indices):

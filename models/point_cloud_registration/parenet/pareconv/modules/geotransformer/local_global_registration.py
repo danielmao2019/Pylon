@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pareconv.modules.ops import apply_transform
-from pareconv.modules.registration import WeightedProcrustes
+from ..ops import apply_transform
+from ..registration import WeightedProcrustes
 
 
 class LocalGlobalRegistration(nn.Module):

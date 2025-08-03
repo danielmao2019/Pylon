@@ -3,10 +3,10 @@ import pdb
 import torch
 import torch.nn as nn
 
-from pareconv.modules.loss import WeightedCircleLoss
-from pareconv.modules.ops.transformation import apply_transform
-from pareconv.modules.registration.metrics import isotropic_transform_error, relative_rotation_error
-from pareconv.modules.ops.pairwise_distance import pairwise_distance
+from models.point_cloud_registration.parenet.pareconv.modules.loss import WeightedCircleLoss
+from models.point_cloud_registration.parenet.pareconv.modules.ops.transformation import apply_transform
+from models.point_cloud_registration.parenet.pareconv.modules.registration.metrics import isotropic_transform_error, relative_rotation_error
+from models.point_cloud_registration.parenet.pareconv.modules.ops.pairwise_distance import pairwise_distance
 
 
 class CoarseMatchingLoss(nn.Module):
