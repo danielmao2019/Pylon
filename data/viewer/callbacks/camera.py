@@ -83,6 +83,8 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     new_camera = relayout_data['scene.camera']
 
     # Update all figures with the new camera state using centralized utility
+    # NOTE: update_figure_camera automatically skips the triggered figure (returns dash.no_update)
+    # to avoid redundant computation - only OTHER figures get updated with the new camera state
     update_func = update_figure_camera(triggered_index, new_camera)
     updated_figures = update_figures_parallel(
         all_figures, 
