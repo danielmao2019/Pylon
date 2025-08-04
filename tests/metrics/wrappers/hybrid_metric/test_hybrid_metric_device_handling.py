@@ -15,10 +15,6 @@ def create_datapoint(outputs, labels, idx=0):
 
 def test_gpu_computation(metrics_cfg, sample_tensor, sample_target):
     """Test computing scores with GPU tensors."""
-    # Skip if CUDA is not available
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     # Create a hybrid metric
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
@@ -46,9 +42,6 @@ def test_gpu_computation(metrics_cfg, sample_tensor, sample_target):
 
 def test_mixed_device_computation(metrics_cfg):
     """Test computation with mixed device inputs."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Create tensors on different devices
@@ -76,9 +69,6 @@ def test_mixed_device_computation(metrics_cfg):
 
 def test_device_consistency_across_metrics(metrics_cfg):
     """Test that all component metrics handle device placement consistently."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Test with GPU tensors
@@ -100,9 +90,6 @@ def test_device_consistency_across_metrics(metrics_cfg):
 
 def test_buffer_device_handling(metrics_cfg):
     """Test that buffer correctly handles tensors from different devices."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Compute scores with CPU tensors
@@ -131,9 +118,6 @@ def test_buffer_device_handling(metrics_cfg):
 
 def test_large_tensor_device_transfer(metrics_cfg):
     """Test device handling with larger tensors."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Test with larger tensors

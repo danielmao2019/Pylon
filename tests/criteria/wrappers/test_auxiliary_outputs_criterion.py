@@ -101,10 +101,6 @@ def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
 
 def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
     """Test moving the criterion between CPU and GPU."""
-    # Skip if CUDA is not available
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     # Create a criterion
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
 

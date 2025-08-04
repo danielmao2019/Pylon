@@ -212,9 +212,6 @@ def test_monitor_thread_lifecycle():
 
 def test_resource_monitoring_with_gpu():
     """Test resource monitoring when GPU operations are involved."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     executor = DynamicThreadPoolExecutor(max_workers=2, min_workers=1)
 
     # Submit GPU work
