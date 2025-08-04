@@ -130,6 +130,7 @@ class PARENetCriterion(BaseCriterion):
             'ref_feats_c', 'src_feats_c', 'gt_node_corr_indices', 'gt_node_corr_overlaps',
             'matching_scores', 'ref_node_corr_knn_points', 'src_node_corr_knn_points',
             'ref_node_corr_knn_masks', 'src_node_corr_knn_masks',
+            'ref_node_corr_knn_scores', 'src_node_corr_knn_scores',  # Required by loss
             're_ref_node_corr_knn_feats', 're_src_node_corr_knn_feats'
         ]
         for key in required_pred_keys:
@@ -150,6 +151,8 @@ class PARENetCriterion(BaseCriterion):
             'src_node_corr_knn_points': y_pred['src_node_corr_knn_points'],
             'ref_node_corr_knn_masks': y_pred['ref_node_corr_knn_masks'],
             'src_node_corr_knn_masks': y_pred['src_node_corr_knn_masks'],
+            'ref_node_corr_knn_scores': y_pred['ref_node_corr_knn_scores'],  # Required by loss
+            'src_node_corr_knn_scores': y_pred['src_node_corr_knn_scores'],  # Required by loss
             're_ref_node_corr_knn_feats': y_pred['re_ref_node_corr_knn_feats'],
             're_src_node_corr_knn_feats': y_pred['re_src_node_corr_knn_feats'],
         }

@@ -191,6 +191,8 @@ class PARENetModel(nn.Module):
             'src_node_corr_knn_points': output_dict['src_node_corr_knn_points'],
             'ref_node_corr_knn_masks': output_dict['ref_node_corr_knn_masks'],
             'src_node_corr_knn_masks': output_dict['src_node_corr_knn_masks'],
+            'ref_node_corr_knn_scores': output_dict['ref_node_corr_knn_scores'], # Required by criterion
+            'src_node_corr_knn_scores': output_dict['src_node_corr_knn_scores'], # Required by criterion
             're_ref_node_corr_knn_feats': output_dict['re_ref_node_corr_knn_feats'],
             're_src_node_corr_knn_feats': output_dict['re_src_node_corr_knn_feats'],
         })

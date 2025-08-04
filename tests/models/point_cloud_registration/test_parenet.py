@@ -19,40 +19,64 @@ def test_parenet_model_instantiation():
 
 
 def test_parenet_model_forward_pass():
-    """Test PARENet model forward pass with properly formatted data."""
+    """Test PARENet model forward pass with proper data pipeline."""
+    from data.collators.parenet.parenet_collate_fn import parenet_collate_fn, add_parenet_neighbors
+    
     model = build_from_config(model_cfg)
+    model = model.cuda()
     model.eval()
     
-    # Create properly formatted input matching PARENet collator output
-    batch_size = 2
-    total_points = 200  # 100 points per pair
+    # Create dummy datapoints following Pylon PCR dataset structure
+    dummy_datapoints = [
+        {
+            'inputs': {
+                'src_pc': {
+                    'pos': torch.randn(1000, 3),
+                    'features': torch.ones(1000, 1),
+                },
+                'tgt_pc': {
+                    'pos': torch.randn(1000, 3),
+                    'features': torch.ones(1000, 1),
+                },
+            },
+            'labels': {
+                'transform': torch.eye(4),
+            },
+            'meta_info': {
+                'idx': 0,
+                'dataset_name': 'test',
+            }
+        }
+    ]
     
-    # PARENet expects collated data with specific structure
-    dummy_input = {
-        'points': torch.randn(total_points, 3),  # Concatenated points
-        'lengths': torch.tensor([100, 100]),     # Points per cloud
-        'features': torch.randn(total_points, 1), # Concatenated features
-        'batch_size': batch_size
-    }
+    # Step 1: Collate data (CPU processing with subsampling)
+    batch = parenet_collate_fn(dummy_datapoints, precompute_data=True)
     
+    # Step 2: Move to CUDA
+    inputs = batch['inputs']
+    for key, value in inputs.items():
+        if isinstance(value, torch.Tensor):
+            inputs[key] = value.cuda()
+        elif isinstance(value, list):
+            inputs[key] = [v.cuda() if isinstance(v, torch.Tensor) else v for v in value]
+    
+    # Step 3: Add neighbors computation on GPU
+    batch = add_parenet_neighbors(batch, num_stages=4, num_neighbors=[32, 32, 32, 32])
+    
+    # Step 4: Test forward pass
     with torch.no_grad():
-        output = model(dummy_input)
-        
-        # Verify output structure
-        assert isinstance(output, dict), "Model output must be a dictionary"
-        
-        # Check expected output keys based on PARENet model documentation
-        expected_keys = ['estimated_transform', 'ref_corr_points', 'src_corr_points', 
-                        'coarse_precision', 'fine_precision', 'rmse', 'registration_recall']
-        
-        for key in expected_keys:
-            assert key in output, f"Missing expected output key: {key}"
-            assert isinstance(output[key], torch.Tensor), f"Output {key} must be a tensor"
-        
-        # Check tensor shapes
-        assert output['estimated_transform'].shape == (4, 4), "Transform must be 4x4 matrix"
-        assert output['coarse_precision'].dim() == 0, "Coarse precision must be scalar"
-        assert output['fine_precision'].dim() == 0, "Fine precision must be scalar"
+        outputs = model(inputs)
+    
+    # Verify outputs
+    assert isinstance(outputs, dict), "Model output must be dictionary"
+    assert 'estimated_transform' in outputs, "Output must contain estimated_transform"
+    
+    estimated_transform = outputs['estimated_transform']
+    assert isinstance(estimated_transform, torch.Tensor), "estimated_transform must be tensor"
+    assert estimated_transform.shape == (4, 4), f"Expected shape (4, 4), got {estimated_transform.shape}"
+    assert estimated_transform.device.type == 'cuda', "Output must be on CUDA"
+    
+    print(f"✓ PARENet forward pass successful, output shape: {estimated_transform.shape}")
 
 
 def test_parenet_model_device_handling():

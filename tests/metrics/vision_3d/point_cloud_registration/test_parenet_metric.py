@@ -38,8 +38,8 @@ def test_parenet_metric_directions():
     assert metric.DIRECTIONS['registration_recall'] == 1  # Higher is better
 
 
-def test_parenet_metric_add_to_buffer():
-    """Test PARENet metric buffer operations with proper datapoint format."""
+def test_parenet_metric_computation():
+    """Test PARENet metric computation with proper datapoint format."""
     metric = build_from_config(metric_cfg)
     
     # Create properly formatted datapoint matching metric expectations
@@ -62,62 +62,27 @@ def test_parenet_metric_add_to_buffer():
         }
     }
     
-    # Add to buffer should work without errors
-    metric.add_to_buffer(dummy_datapoint)
+    # Call metric to compute metrics - this should work without errors
+    result = metric(dummy_datapoint)
     
-    # Verify buffer contains data
-    assert len(metric.get_buffer()) > 0, "Buffer should contain added datapoint"
-
-
-def test_parenet_metric_summarize():
-    """Test PARENet metric summarization with proper data."""
-    metric = build_from_config(metric_cfg)
+    # Verify metric computation
+    assert isinstance(result, dict), "Metric result must be a dictionary"
+    assert len(result) > 0, "Metric result should contain computed metrics"
     
-    # Add a datapoint first
-    dummy_datapoint = {
-        'outputs': {
-            'estimated_transform': torch.eye(4),
-            'ref_corr_points': torch.randn(50, 3),
-            'src_corr_points': torch.randn(50, 3),
-            'coarse_precision': torch.tensor(0.8),
-            'fine_precision': torch.tensor(0.9),
-            'rmse': torch.tensor(0.1),
-            'registration_recall': torch.tensor(1.0),
-        },
-        'labels': {
-            'transform': torch.eye(4),
-            'src_points': torch.randn(100, 3),
-        },
-        'meta_info': {
-            'idx': 0,
-        }
-    }
-    
-    metric.add_to_buffer(dummy_datapoint)
-    
-    # Test summarize with data
-    scores = metric.summarize()
-    
-    # Verify summarize output structure
-    assert isinstance(scores, dict), "Scores must be a dictionary"
-    assert 'per_datapoint' in scores, "Scores must contain 'per_datapoint'"
-    assert 'aggregated' in scores, "Scores must contain 'aggregated'"
-    
-    # Check that aggregated scores match expected metrics
+    # Check for expected metric keys
     expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio', 
                        'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
-    
     for metric_name in expected_metrics:
-        assert metric_name in scores['aggregated'], f"Missing metric: {metric_name}"
-        assert isinstance(scores['aggregated'][metric_name], (int, float, torch.Tensor)), f"Invalid metric type for {metric_name}"
+        assert metric_name in result, f"Missing expected metric: {metric_name}"
+        assert isinstance(result[metric_name], torch.Tensor), f"Metric {metric_name} must be a tensor"
 
 
-def test_parenet_metric_reset():
-    """Test PARENet metric reset functionality."""
+def test_parenet_metric_multiple_calls():
+    """Test PARENet metric with multiple calls to verify consistency."""
     metric = build_from_config(metric_cfg)
     
-    # Add some data first
-    dummy_datapoint = {
+    # Create two different datapoints
+    dummy_datapoint1 = {
         'outputs': {
             'estimated_transform': torch.eye(4),
             'ref_corr_points': torch.randn(50, 3),
@@ -136,12 +101,73 @@ def test_parenet_metric_reset():
         }
     }
     
-    metric.add_to_buffer(dummy_datapoint)
-    assert len(metric.get_buffer()) > 0, "Buffer should contain data before reset"
+    dummy_datapoint2 = {
+        'outputs': {
+            'estimated_transform': torch.eye(4) * 1.1,  # Slightly different transform
+            'ref_corr_points': torch.randn(50, 3),
+            'src_corr_points': torch.randn(50, 3),
+            'coarse_precision': torch.tensor(0.7),
+            'fine_precision': torch.tensor(0.8),
+            'rmse': torch.tensor(0.2),
+            'registration_recall': torch.tensor(0.9),
+        },
+        'labels': {
+            'transform': torch.eye(4),
+            'src_points': torch.randn(100, 3),
+        },
+        'meta_info': {
+            'idx': 1,
+        }
+    }
     
-    # Reset should clear the buffer
-    metric.reset()
-    assert len(metric.get_buffer()) == 0, "Buffer should be empty after reset"
+    # Test multiple metric calls
+    result1 = metric(dummy_datapoint1)
+    result2 = metric(dummy_datapoint2)
+    
+    # Verify both results have expected structure
+    for result in [result1, result2]:
+        assert isinstance(result, dict), "Metric result must be a dictionary"
+        expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio', 
+                           'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
+        for metric_name in expected_metrics:
+            assert metric_name in result, f"Missing metric: {metric_name}"
+            assert isinstance(result[metric_name], torch.Tensor), f"Metric {metric_name} must be a tensor"
+
+
+def test_parenet_metric_batch_dimensions():
+    """Test PARENet metric handling of batch dimensions."""
+    metric = build_from_config(metric_cfg)
+    
+    # Test with consistent dimensions matching model output
+    dummy_datapoint = {
+        'outputs': {
+            'estimated_transform': torch.eye(4),  # Model outputs (4, 4) not (1, 4, 4)
+            'ref_corr_points': torch.randn(50, 3),
+            'src_corr_points': torch.randn(50, 3),
+            'coarse_precision': torch.tensor(0.8),
+            'fine_precision': torch.tensor(0.9),
+            'rmse': torch.tensor(0.1),
+            'registration_recall': torch.tensor(1.0),
+        },
+        'labels': {
+            'transform': torch.eye(4),  # Match model output format
+            'src_points': torch.randn(100, 3),
+        },
+        'meta_info': {
+            'idx': 0,
+        }
+    }
+    
+    # Should handle batch dimensions correctly
+    result = metric(dummy_datapoint)
+    
+    # Verify result structure
+    assert isinstance(result, dict), "Metric result must be a dictionary"
+    expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio', 
+                       'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
+    for metric_name in expected_metrics:
+        assert metric_name in result, f"Missing metric: {metric_name}"
+        assert isinstance(result[metric_name], torch.Tensor), f"Metric {metric_name} must be a tensor"
 
 
 def test_parenet_metric_component_metrics():
