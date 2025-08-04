@@ -22,11 +22,16 @@ class Launcher(BaseAgent):
         gpu_pool: List[Tuple[str, List[int]]] = [],
         user_names: Dict[str, str] = {},
         timeout: int = 5,
+        force_progress_recompute: bool = False,
+        keep_tmux: Optional[bool] = False,
+        # Environment and deployment configuration
         log_path: str = "",
         project_dir: str = "",
+        deployment_mode: str = "conda",
         conda_env: str = "",
-        keep_tmux: Optional[bool] = False,
-        force_progress_recompute: bool = False,
+        docker_image: str = "pylon:latest",
+        docker_data_mount: str = "",
+        docker_logs_mount: str = "",
     ) -> None:
         r"""
         Args:
@@ -38,11 +43,17 @@ class Launcher(BaseAgent):
             gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
             user_names (Dict[str, str]): the user names for the servers.
             timeout (int): the timeout for the GPU monitor.
+            force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
+            keep_tmux (Optional[bool]): whether to keep the tmux session alive.
+            
+            # Environment and deployment configuration
             log_path (str): the path to the log file.
             project_dir (str): the project directory.
-            conda_env (str): the conda environment to use.
-            keep_tmux (Optional[bool]): whether to keep the tmux session alive.
-            force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
+            deployment_mode (str): "conda" or "docker" - determines how experiments are launched.
+            conda_env (str): the conda environment to use (for conda mode).
+            docker_image (str): Docker image name to use (for docker mode).
+            docker_data_mount (str): Data volume mount for Docker (e.g., "/pub5/data:/pub5/data:ro").
+            docker_logs_mount (str): Logs volume mount for Docker (e.g., "./logs:/workspace/logs").
         """
         super(Launcher, self).__init__(
             config_files=config_files,
@@ -58,8 +69,19 @@ class Launcher(BaseAgent):
         self.project_dir = project_dir
         self.conda_env = conda_env
         self.keep_tmux = keep_tmux
+        self.deployment_mode = deployment_mode
+        self.docker_image = docker_image
+        self.docker_data_mount = docker_data_mount
+        self.docker_logs_mount = docker_logs_mount
         self.logger = TextLogger(filepath=log_path)
         self.ssh_pool = _ssh_pool
+        
+        # Validate deployment mode
+        assert deployment_mode in ["conda", "docker"], f"deployment_mode must be 'conda' or 'docker', got {deployment_mode}"
+        
+        if deployment_mode == "docker":
+            assert docker_data_mount, "docker_data_mount is required when deployment_mode='docker'"
+            assert docker_logs_mount, "docker_logs_mount is required when deployment_mode='docker'"
 
     # ====================================================================================================
     # experiment management
@@ -75,7 +97,7 @@ class Launcher(BaseAgent):
             for proc in gpu['processes']:
                 if proc.user != gpu['server'].split('@')[0]:
                     continue
-                if 'python main.py --config-filepath' not in proc.cmd:
+                if 'python main.py --config-filepath' not in proc.cmd and 'pylon:latest' not in proc.cmd:
                     continue
                 cfg = parse_config(proc.cmd)
                 if cfg in stuck_cfgs:
@@ -134,7 +156,7 @@ class Launcher(BaseAgent):
             # Check GPU constraints
             gpu_util_ok = gpu['util_stats']['avg'] < 50
             gpu_mem_ok = (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
-            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p.cmd]) < num_jobs
+            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p.cmd or 'pylon:latest' in p.cmd]) < num_jobs
 
             # Check CPU constraints for the same server
             server = gpu['server']
@@ -187,20 +209,45 @@ class Launcher(BaseAgent):
             device_env = f"CUDA_VISIBLE_DEVICES={resource['resource_id']}"
             resource_label = f"GPU-{resource['resource_id']}"
 
-            cmd = ' && '.join([
-                f"cd {self.project_dir}",
-                "git checkout main",
-                "git pull --rebase origin main",
-                "source ~/.bashrc",
-                f"source ~/miniconda3/bin/activate {self.conda_env}",
-                f"mkdir -p {os.path.dirname(error_log)}",
-                ' '.join([
-                    "MKL_SERVICE_FORCE_INTEL=1",
-                    device_env,
-                    "python", "main.py", "--config-filepath", run,
-                    # "2>", error_log,
-                ]),
-            ])
+            if self.deployment_mode == "conda":
+                cmd = ' && '.join([
+                    f"cd {self.project_dir}",
+                    "git checkout main",
+                    "git pull --rebase origin main",
+                    "source ~/.bashrc",
+                    f"source ~/miniconda3/bin/activate {self.conda_env}",
+                    f"mkdir -p {os.path.dirname(error_log)}",
+                    ' '.join([
+                        "MKL_SERVICE_FORCE_INTEL=1",
+                        device_env,
+                        "python", "main.py", "--config-filepath", run,
+                        # "2>", error_log,
+                    ]),
+                ])
+            elif self.deployment_mode == "docker":
+                # Generate unique container name
+                container_name = f"pylon-{'/'.join(os.path.splitext(run)[0].split('/')[-2:])}-{resource_label}".replace('/', '-').replace('_', '-')
+                
+                cmd = ' && '.join([
+                    f"cd {self.project_dir}",
+                    "git checkout main",
+                    "git pull --rebase origin main",
+                    f"mkdir -p {os.path.dirname(error_log)}",
+                    ' '.join([
+                        "docker", "run", "--rm", "--name", container_name,
+                        f"--gpus", f'"device={resource["resource_id"]}"',
+                        "-v", f"{self.project_dir}:/workspace/pylon",
+                        "-v", self.docker_data_mount,
+                        "-v", self.docker_logs_mount,
+                        "-w", "/workspace/pylon",
+                        "-e", "MKL_SERVICE_FORCE_INTEL=1",
+                        self.docker_image,
+                        "conda", "run", "--no-capture-output", "-n", "pylon",
+                        "python", "main.py", "--config-filepath", run,
+                        # "2>", error_log,
+                    ]),
+                ])
+            
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
             session_name = f"{'/'.join(os.path.splitext(run)[0].split('/')[-2:])}-{resource_label}"
             tmux_cmd = f"tmux new-session -d -s {session_name} \"{cmd}\""

@@ -62,6 +62,7 @@
 - Read and understand CLAUDE.md thoroughly
 - Familiarize with existing Pylon change detection models for reference patterns
 - Have source repositories accessible locally
+- Set up environment following [environment setup guide](environment_setup/README.md)
 
 ---
 

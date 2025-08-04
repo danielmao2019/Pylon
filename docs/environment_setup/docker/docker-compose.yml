@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  pylon:
+    build: 
+      context: ../..
+      dockerfile: docs/environment_setup/Dockerfile
+    image: pylon:latest
+    container_name: pylon-experiment
+    
+    # GPU access
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    
+    # Mount volumes for persistent data and large datasets
+    volumes:
+      # Mount Pylon root directory to /workspace/pylon
+      - ../..:/workspace/pylon
+      
+      # CONFIGURE THESE MOUNTS FOR YOUR SETUP:
+      # Uncomment and modify the paths below according to your server setup
+      
+      # Example: Large dataset storage (preserves symlinks)
+      # - /pub5/data:/pub5/data:ro  # Read-only access to shared datasets
+      # - /pub4/daniel:/pub4/daniel:ro  # Read-only access to personal datasets
+      
+      # Example: Logs directory for experiment outputs
+      # - ./logs:/workspace/logs  # Local logs
+      # - /shared/storage/pylon_logs:/workspace/logs  # Shared remote logs
+      
+      # Example: Additional storage mounts
+      # - /nfs/shared/datasets:/workspace/shared_datasets:ro
+      # - /tmp/pylon_cache:/workspace/tmp_cache
+    
+    # Working directory inside container
+    working_dir: /workspace/pylon
+    
+    # Keep container running
+    stdin_open: true
+    tty: true
+    
+    # Network settings (for web viewers)
+    ports:
+      - "8050:8050"  # Dataset viewer
+      - "8051:8051"  # Eval viewer
+    
+    # Optional: Resource limits
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Optional: Development service with additional development tools
+  pylon-dev:
+    build: 
+      context: ../..
+      dockerfile: docs/environment_setup/Dockerfile
+    image: pylon:latest
+    container_name: pylon-dev
+    
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    
+    volumes:
+      - ../..:/workspace/pylon
+      
+      # CONFIGURE THESE MOUNTS FOR YOUR SETUP (same as main service)
+      # Uncomment and modify the paths below according to your server setup
+      
+      # Example: Large dataset storage
+      # - /pub5/data:/pub5/data:ro
+      # - /pub4/daniel:/pub4/daniel:ro
+      
+      # Example: Logs directory
+      # - ../../logs:/workspace/logs
+      # - /shared/storage/pylon_logs:/workspace/logs
+    
+    working_dir: /workspace/pylon
+    stdin_open: true
+    tty: true
+    
+    ports:
+      - "8052:8050"  # Dataset viewer (different port to avoid conflicts)
+      - "8053:8051"  # Eval viewer
+    
+    # Override for development workflow
+    command: conda run --no-capture-output -n pylon /bin/bash

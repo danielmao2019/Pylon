@@ -1,0 +1,146 @@
+# Production Docker Compose for Multi-Server Pylon Deployment
+version: '3.8'
+
+services:
+  # Main experiment runner
+  pylon-experiment:
+    build: 
+      context: ..
+      dockerfile: Dockerfile
+    image: pylon:latest
+    
+    # GPU access
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # Optional: Set specific GPU for this experiment
+      # - CUDA_VISIBLE_DEVICES=0
+    
+    # Production volume mounting for multi-server setup
+    volumes:
+      # Source code (read-only in production)
+      - ../:/workspace/pylon:ro
+      
+      # Large dataset storage (preserved symlinks)
+      - /pub5/data:/pub5/data:ro
+      - /pub4/daniel:/pub4/daniel:ro
+      
+      # Shared experiment logs (all servers write here)
+      - /shared/storage/pylon_logs:/workspace/logs
+      
+      # Optional: Local SSD for temporary cache
+      - /tmp/pylon_cache:/workspace/tmp_cache
+      
+      # Optional: Additional network storage
+      - /nfs/datasets:/workspace/nfs_datasets:ro
+    
+    working_dir: /workspace/pylon
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'
+          memory: 32G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # Networking for web viewers
+    ports:
+      - "8050:8050"  # Dataset viewer
+      - "8051:8051"  # Eval viewer
+    
+    # Restart policy for production
+    restart: unless-stopped
+    
+    # Default command for experiment
+    command: >
+      bash -c "
+      echo 'Starting Pylon experiment container...' &&
+      conda run --no-capture-output -n pylon python main.py --config-filepath \${CONFIG_FILEPATH:-configs/examples/linear/config.py}
+      "
+
+  # Development/debugging service
+  pylon-dev:
+    build: 
+      context: ..
+      dockerfile: Dockerfile
+    image: pylon:latest
+    
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    
+    # Development volumes (read-write access)
+    volumes:
+      - ../:/workspace/pylon  # Read-write for development
+      - /pub5/data:/pub5/data:ro
+      - /pub4/daniel:/pub4/daniel:ro
+      - /shared/storage/pylon_logs:/workspace/logs
+      - /tmp/pylon_cache:/workspace/tmp_cache
+    
+    working_dir: /workspace/pylon
+    
+    ports:
+      - "8052:8050"  # Dataset viewer (different port)
+      - "8053:8051"  # Eval viewer
+    
+    # Interactive development
+    stdin_open: true
+    tty: true
+    command: conda run --no-capture-output -n pylon /bin/bash
+
+  # Parallel experiment runner (for multi-GPU setups)
+  pylon-parallel:
+    build: 
+      context: ..
+      dockerfile: Dockerfile
+    image: pylon:latest
+    
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=1  # Use second GPU
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    
+    volumes:
+      - ../:/workspace/pylon:ro
+      - /pub5/data:/pub5/data:ro
+      - /pub4/daniel:/pub4/daniel:ro
+      - /shared/storage/pylon_logs:/workspace/logs
+      - /tmp/pylon_cache:/workspace/tmp_cache
+    
+    working_dir: /workspace/pylon
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']  # Specific GPU
+              capabilities: [gpu]
+    
+    # Parallel experiment command
+    command: >
+      bash -c "
+      echo 'Starting parallel Pylon experiment...' &&
+      conda run --no-capture-output -n pylon python main.py --config-filepath \${PARALLEL_CONFIG_FILEPATH:-configs/examples/linear/config.py}
+      "
+
+# Named volumes for caching (optional)
+volumes:
+  pylon_cache:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=10g,uid=1000,gid=1000
+
+# Networks (optional - for multi-container coordination)
+networks:
+  pylon_network:
+    driver: bridge
