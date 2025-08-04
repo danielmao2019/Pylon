@@ -119,10 +119,6 @@ def test_summarize(criterion, sample_multi_task_tensors, tmp_path):
 
 def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
     """Test moving the criterion between CPU and GPU."""
-    # Skip if CUDA is not available
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     # Create a criterion
     criterion = MultiTaskCriterion(criterion_cfgs=criterion_cfgs)
 

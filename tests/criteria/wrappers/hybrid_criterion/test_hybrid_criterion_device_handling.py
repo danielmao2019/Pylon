@@ -5,10 +5,6 @@ from criteria.wrappers.hybrid_criterion import HybridCriterion
 
 def test_device_transfer(criteria_cfg, sample_tensor):
     """Test moving the criterion between CPU and GPU."""
-    # Skip if CUDA is not available
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
     # Create a criterion
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
 
@@ -59,10 +55,6 @@ def test_device_transfer(criteria_cfg, sample_tensor):
 
 def test_gpu_computation(criteria_cfg, sample_tensor):
     """Test computing losses with GPU tensors."""
-    # Skip if CUDA is not available
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-    
     # Create a criterion (stays on CPU)
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
     
@@ -91,9 +83,6 @@ def test_gpu_computation(criteria_cfg, sample_tensor):
 
 def test_mixed_device_computation(criteria_cfg):
     """Test computation with mixed device inputs (should fail gracefully or work)."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-    
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
     
     # Create tensors on different devices
@@ -107,9 +96,6 @@ def test_mixed_device_computation(criteria_cfg):
 
 def test_buffer_device_handling(criteria_cfg, sample_tensor):
     """Test that buffer correctly handles tensors from different devices."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-    
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
     
     # Compute losses with CPU tensors
@@ -135,9 +121,6 @@ def test_buffer_device_handling(criteria_cfg, sample_tensor):
 
 def test_large_tensor_device_transfer(criteria_cfg):
     """Test device handling with larger tensors."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-    
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
     
     # Test with larger tensors

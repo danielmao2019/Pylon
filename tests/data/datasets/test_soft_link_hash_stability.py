@@ -57,10 +57,6 @@ def test_bi_temporal_dataset_soft_link_hash_stability(dataset_class, soft_link_n
     # Original dataset path
     original_path = f"./data/datasets/soft_links/{soft_link_name}"
     
-    # Skip if dataset doesn't exist
-    if not os.path.exists(original_path):
-        pytest.skip(f"Dataset {soft_link_name} not found at {original_path}")
-    
     # Create dataset with original path
     dataset1 = dataset_class(data_root=original_path, **extra_args)
     hash1 = dataset1.get_cache_version_hash()
@@ -103,9 +99,6 @@ def test_comprehensive_soft_link_scenario():
     # Use LEVIR-CD as an example
     original_path = "./data/datasets/soft_links/LEVIR-CD"
     
-    if not os.path.exists(original_path):
-        pytest.skip(f"LEVIR-CD dataset not found at {original_path}")
-    
     with tempfile.TemporaryDirectory() as temp_dir:
         # Simulate different scenarios:
         # 1. Dataset on local disk
@@ -143,9 +136,6 @@ def test_nested_soft_links():
     """Test that nested soft links (link to a link) also produce same hash."""
     
     original_path = "./data/datasets/soft_links/OSCD"
-    
-    if not os.path.exists(original_path):
-        pytest.skip(f"OSCD dataset not found at {original_path}")
     
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a chain of soft links
