@@ -2,7 +2,7 @@
 from typing import Dict, Union, Any
 import torch
 from dash import dcc, html
-from data.viewer.utils.image import create_image_figure, get_image_stats
+from data.viewer.utils.atomic_displays.image_display import create_image_display, get_image_display_stats
 from data.viewer.utils.segmentation import create_segmentation_figure, get_segmentation_stats
 from data.viewer.utils.display_utils import (
     DisplayStyles,
@@ -36,7 +36,7 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     # Create figure components
     fig_components = [
         html.Div([
-            dcc.Graph(figure=create_image_figure(image, title="Image"))
+            dcc.Graph(figure=create_image_display(image, title="Image"))
         ], style=DisplayStyles.GRID_ITEM_50),
 
         html.Div([
@@ -46,7 +46,7 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
 
     # Create statistics components
     stats_data = [
-        get_image_stats(image),
+        get_image_display_stats(image),
         get_segmentation_stats(seg)
     ]
     titles = ["Image Statistics", "Segmentation Statistics"]
