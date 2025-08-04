@@ -84,9 +84,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         self._cache_lock = None
         
         super().__init__(data_root=data_root, **kwargs)
-        
-        # Calculate pairs per source file after annotations are initialized
-        self._calculate_pairs_per_file()
     
     @property
     def cache_lock(self) -> threading.Lock:
@@ -110,6 +107,19 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         return version_dict
     
     def _init_annotations(self) -> None:
+        """Initialize annotations for SyntheticTransformPCRDataset.
+        
+        This method coordinates the two-step process:
+        1. Call _init_file_pair_annotations() to set self.file_pair_annotations
+        2. Call _calculate_pairs_per_file() to create self.annotations
+        """
+        # Step 1: Initialize file pair annotations (implemented by subclasses)
+        self._init_file_pair_annotations()
+        
+        # Step 2: Calculate pairs per file to create self.annotations
+        self._calculate_pairs_per_file()
+    
+    def _init_file_pair_annotations(self) -> None:
         """Initialize file pair annotations - to be implemented by subclasses.
         
         Subclasses should:
@@ -118,7 +128,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         3. For single-temporal: src_filepath == tgt_filepath  
         4. For bi-temporal: src_filepath != tgt_filepath
         """
-        raise NotImplementedError("Subclasses must implement _init_annotations and set self.file_pair_annotations")
+        raise NotImplementedError("Subclasses must implement _init_file_pair_annotations and set self.file_pair_annotations")
     
     def _calculate_pairs_per_file(self) -> None:
         """Calculate how many synthetic pairs to generate per file pair."""
@@ -373,12 +383,13 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             'src_pc': src_pc,
             'tgt_pc': tgt_pc,
             'correspondences': correspondences,
+            'transform': transform_matrix,  # GMCNet needs ground truth during forward pass
         }
         
         labels = {
             'transform': transform_matrix,
         }
-        
+
         # Create clean transform_params without overlap (to avoid duplication with meta_info.overlap)
         clean_transform_params = {k: v for k, v in transform_params.items() if k != 'overlap'}
         

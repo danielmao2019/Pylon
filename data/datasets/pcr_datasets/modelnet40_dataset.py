@@ -64,7 +64,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
             **kwargs,
         )
     
-    def _init_annotations(self) -> None:
+    def _init_file_pair_annotations(self) -> None:
         """Initialize file pair annotations with OFF file paths.
         
         For ModelNet40 (single-temporal), each file pair has same src_filepath and tgt_filepath.
