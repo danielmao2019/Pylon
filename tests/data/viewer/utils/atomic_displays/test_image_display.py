@@ -8,14 +8,12 @@ import numpy as np
 from typing import Dict, Any, Optional
 
 import plotly.graph_objects as go
-import sys
-import os
 
-# Add atomic_displays directory to path for direct import
-sys.path.insert(0, os.path.join(os.getcwd(), 'data', 'viewer', 'utils', 'atomic_displays'))
-
-# Import directly to avoid C++ dependency issues
-import image_display
+from data.viewer.utils.atomic_displays.image_display import (
+    image_to_numpy,
+    create_image_display,
+    get_image_display_stats
+)
 
 
 # ================================================================================
@@ -40,7 +38,7 @@ def grayscale_image():
 
 def test_image_to_numpy_rgb_tensor(rgb_image):
     """Test converting RGB image tensor to numpy."""
-    result = image_display.image_to_numpy(rgb_image)
+    result = image_to_numpy(rgb_image)
     
     assert isinstance(result, np.ndarray)
     assert result.shape == (32, 32, 3)
@@ -49,7 +47,7 @@ def test_image_to_numpy_rgb_tensor(rgb_image):
 
 def test_image_to_numpy_grayscale_tensor(grayscale_image):
     """Test converting grayscale image tensor to numpy."""
-    result = image_display.image_to_numpy(grayscale_image)
+    result = image_to_numpy(grayscale_image)
     
     assert isinstance(result, np.ndarray)
     assert result.shape == (32, 32)
@@ -64,14 +62,14 @@ def test_image_to_numpy_grayscale_tensor(grayscale_image):
 def test_image_to_numpy_shapes(input_shape, expected_output_shape):
     """Test image_to_numpy with various input shapes."""
     image = torch.randint(0, 255, input_shape, dtype=torch.uint8)
-    result = image_display.image_to_numpy(image)
+    result = image_to_numpy(image)
     assert result.shape == expected_output_shape
 
 
 def test_image_to_numpy_normalization():
     """Test that image values are normalized to [0, 1]."""
     image = torch.tensor([[[100, 200], [50, 255]]], dtype=torch.uint8)
-    result = image_display.image_to_numpy(image)
+    result = image_to_numpy(image)
     
     assert result.min() >= 0.0
     assert result.max() <= 1.0
@@ -80,7 +78,7 @@ def test_image_to_numpy_normalization():
 def test_image_to_numpy_uniform_values():
     """Test handling of uniform pixel values (avoid division by zero)."""
     image = torch.full((3, 32, 32), 128, dtype=torch.uint8)
-    result = image_display.image_to_numpy(image)
+    result = image_to_numpy(image)
     
     assert isinstance(result, np.ndarray)
     assert np.all(result == 0.0)
@@ -89,7 +87,7 @@ def test_image_to_numpy_uniform_values():
 def test_image_to_numpy_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
-        image_display.image_to_numpy("not_a_tensor")
+        image_to_numpy("not_a_tensor")
     
     assert "Expected torch.Tensor" in str(exc_info.value)
 
@@ -99,7 +97,7 @@ def test_image_to_numpy_invalid_batch_size():
     image = torch.randint(0, 255, (2, 3, 32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.image_to_numpy(image)
+        image_to_numpy(image)
     
     assert "Expected batch size 1" in str(exc_info.value)
 
@@ -109,7 +107,7 @@ def test_image_to_numpy_invalid_shape():
     image = torch.randint(0, 255, (100,), dtype=torch.uint8)
     
     with pytest.raises(ValueError) as exc_info:
-        image_display.image_to_numpy(image)
+        image_to_numpy(image)
     
     assert "Unsupported tensor shape" in str(exc_info.value)
 
@@ -120,7 +118,7 @@ def test_image_to_numpy_invalid_shape():
 
 def test_create_image_display_rgb(rgb_image):
     """Test creating display for RGB image."""
-    fig = image_display.create_image_display(rgb_image, "Test RGB Image")
+    fig = create_image_display(rgb_image, "Test RGB Image")
     
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test RGB Image"
@@ -129,7 +127,7 @@ def test_create_image_display_rgb(rgb_image):
 
 def test_create_image_display_grayscale(grayscale_image):
     """Test creating display for grayscale image."""
-    fig = image_display.create_image_display(grayscale_image, "Test Grayscale Image")
+    fig = create_image_display(grayscale_image, "Test Grayscale Image")
     
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Grayscale Image"
@@ -138,14 +136,14 @@ def test_create_image_display_grayscale(grayscale_image):
 @pytest.mark.parametrize("colorscale", ["Viridis", "Plasma", "Inferno", "Cividis"])
 def test_create_image_display_various_colorscales(rgb_image, colorscale):
     """Test creating display with various colorscales."""
-    fig = image_display.create_image_display(rgb_image, "Test", colorscale=colorscale)
+    fig = create_image_display(rgb_image, "Test", colorscale=colorscale)
     assert isinstance(fig, go.Figure)
 
 
 def test_create_image_display_invalid_tensor_type():
     """Test assertion failure for invalid tensor input."""
     with pytest.raises(AssertionError) as exc_info:
-        image_display.create_image_display("not_a_tensor", "Test")
+        create_image_display("not_a_tensor", "Test")
     
     assert "Expected torch.Tensor" in str(exc_info.value)
 
@@ -155,7 +153,7 @@ def test_create_image_display_invalid_dimensions():
     image = torch.randint(0, 255, (32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.create_image_display(image, "Test")
+        create_image_display(image, "Test")
     
     assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
 
@@ -165,7 +163,7 @@ def test_create_image_display_invalid_channels():
     image = torch.randint(0, 255, (2, 32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.create_image_display(image, "Test")
+        create_image_display(image, "Test")
     
     assert "Expected 1 or 3 channels" in str(exc_info.value)
 
@@ -175,7 +173,7 @@ def test_create_image_display_empty_tensor():
     image = torch.empty((3, 0, 0), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.create_image_display(image, "Test")
+        create_image_display(image, "Test")
     
     assert "Image tensor cannot be empty" in str(exc_info.value)
 
@@ -185,7 +183,7 @@ def test_create_image_display_invalid_title_type():
     image = torch.randint(0, 255, (3, 32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.create_image_display(image, 123)
+        create_image_display(image, 123)
     
     assert "Expected str title" in str(exc_info.value)
 
@@ -195,7 +193,7 @@ def test_create_image_display_invalid_colorscale_type():
     image = torch.randint(0, 255, (3, 32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.create_image_display(image, "Test", colorscale=123)
+        create_image_display(image, "Test", colorscale=123)
     
     assert "Expected str colorscale" in str(exc_info.value)
 
@@ -207,7 +205,7 @@ def test_create_image_display_invalid_colorscale_type():
 def test_get_image_display_stats_basic():
     """Test basic image statistics calculation."""
     image = torch.randn(3, 32, 32, dtype=torch.float32)
-    stats = image_display.get_image_display_stats(image)
+    stats = get_image_display_stats(image)
     
     assert isinstance(stats, dict)
     assert "Shape" in stats
@@ -224,7 +222,7 @@ def test_get_image_display_stats_with_binary_change_map():
     image = torch.randn(3, 32, 32, dtype=torch.float32)
     change_map = torch.randint(0, 2, (32, 32), dtype=torch.float32)
     
-    stats = image_display.get_image_display_stats(image, change_map)
+    stats = get_image_display_stats(image, change_map)
     
     assert "Changed Pixels" in stats
     assert "Change Min" in stats
@@ -237,7 +235,7 @@ def test_get_image_display_stats_with_multiclass_change_map():
     image = torch.randn(3, 32, 32, dtype=torch.float32)
     change_map = torch.randn(5, 32, 32, dtype=torch.float32)
     
-    stats = image_display.get_image_display_stats(image, change_map)
+    stats = get_image_display_stats(image, change_map)
     
     assert "Number of Classes" in stats
     assert "Class Distribution" in stats
@@ -248,7 +246,7 @@ def test_get_image_display_stats_with_multiclass_change_map():
 def test_get_image_display_stats_invalid_image_type():
     """Test assertion failure for invalid image type."""
     with pytest.raises(AssertionError) as exc_info:
-        image_display.get_image_display_stats("not_a_tensor")
+        get_image_display_stats("not_a_tensor")
     
     assert "Expected torch.Tensor" in str(exc_info.value)
 
@@ -258,7 +256,7 @@ def test_get_image_display_stats_invalid_image_dimensions():
     image = torch.randn(32, 32, dtype=torch.float32)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.get_image_display_stats(image)
+        get_image_display_stats(image)
     
     assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
 
@@ -268,7 +266,7 @@ def test_get_image_display_stats_invalid_change_map_type():
     image = torch.randn(3, 32, 32, dtype=torch.float32)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_display.get_image_display_stats(image, "not_a_tensor")
+        get_image_display_stats(image, "not_a_tensor")
     
     assert "change_map must be torch.Tensor" in str(exc_info.value)
 
@@ -281,17 +279,17 @@ def test_image_display_with_extreme_values():
     """Test image display handles extreme tensor values correctly."""
     # Very large values
     large_image = torch.full((3, 32, 32), 1e6, dtype=torch.float32)
-    fig = image_display.create_image_display(large_image, "Large Values")
+    fig = create_image_display(large_image, "Large Values")
     assert isinstance(fig, go.Figure)
     
     # Very small values  
     small_image = torch.full((3, 32, 32), 1e-6, dtype=torch.float32)
-    fig = image_display.create_image_display(small_image, "Small Values")
+    fig = create_image_display(small_image, "Small Values")
     assert isinstance(fig, go.Figure)
     
     # Mixed positive/negative
     mixed_image = torch.randn(3, 32, 32, dtype=torch.float32) * 1000
-    fig = image_display.create_image_display(mixed_image, "Mixed Values")
+    fig = create_image_display(mixed_image, "Mixed Values")
     assert isinstance(fig, go.Figure)
 
 
@@ -299,29 +297,29 @@ def test_image_stats_with_edge_cases():
     """Test image statistics with edge case tensors."""
     # All zeros
     zero_image = torch.zeros(3, 32, 32, dtype=torch.float32)
-    stats = image_display.get_image_display_stats(zero_image)
+    stats = get_image_display_stats(zero_image)
     assert float(stats["Min Value"]) == 0.0
     assert float(stats["Max Value"]) == 0.0
     
     # Single pixel
     tiny_image = torch.ones(3, 1, 1, dtype=torch.float32)
-    stats = image_display.get_image_display_stats(tiny_image)
+    stats = get_image_display_stats(tiny_image)
     assert stats["Shape"] == "(3, 1, 1)"
 
 
 def test_image_display_pipeline(rgb_image):
     """Test complete image display pipeline from tensor to figure."""
     # Test conversion
-    numpy_img = image_display.image_to_numpy(rgb_image)
+    numpy_img = image_to_numpy(rgb_image)
     assert isinstance(numpy_img, np.ndarray)
     assert numpy_img.shape == (32, 32, 3)
     
     # Test display creation
-    fig = image_display.create_image_display(rgb_image, "Integration Test")
+    fig = create_image_display(rgb_image, "Integration Test")
     assert isinstance(fig, go.Figure)
     
     # Test statistics
-    stats = image_display.get_image_display_stats(rgb_image)
+    stats = get_image_display_stats(rgb_image)
     assert isinstance(stats, dict)
     assert len(stats) >= 5
 
@@ -332,9 +330,9 @@ def test_performance_with_large_images():
     large_image = torch.randint(0, 255, (3, 512, 512), dtype=torch.uint8)
     
     # These should complete without error or excessive time
-    numpy_img = image_display.image_to_numpy(large_image)
-    fig = image_display.create_image_display(large_image, "Large Image Test")
-    stats = image_display.get_image_display_stats(large_image)
+    numpy_img = image_to_numpy(large_image)
+    fig = create_image_display(large_image, "Large Image Test")
+    stats = get_image_display_stats(large_image)
     
     # Basic checks
     assert numpy_img.shape == (512, 512, 3)
