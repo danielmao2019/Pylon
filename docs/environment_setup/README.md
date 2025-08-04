@@ -35,7 +35,7 @@ docker build -f docs/environment_setup/docker/Dockerfile -t pylon:latest .
 ```bash
 # Automated installation
 conda create --name pylon python=3.10 -y && conda activate pylon
-bash docs/environment_setup/conda/install_packages.sh
+bash docs/environment_setup/install_packages.sh
 
 # Or use environment.yml
 conda env create -f docs/environment_setup/conda/environment.yml
@@ -46,6 +46,7 @@ conda activate pylon
 
 | Directory/File | Purpose |
 |------|---------|
+| [`install_packages.sh`](install_packages.sh) | **Shared installation script** for conda and Docker |
 | [`conda/`](conda/) | Traditional conda environment setup |
 | [`docker/`](docker/) | Docker-based deployment and multi-server tools |
 
@@ -54,7 +55,6 @@ conda activate pylon
 |------|---------|
 | [`conda/README.md`](conda/README.md) | Conda setup guide and overview |
 | [`conda/conda.md`](conda/conda.md) | Detailed manual setup instructions |
-| [`conda/install_packages.sh`](conda/install_packages.sh) | Automated installation script |
 | [`conda/environment.yml`](conda/environment.yml) | Conda environment specification |
 
 ### Docker Directory

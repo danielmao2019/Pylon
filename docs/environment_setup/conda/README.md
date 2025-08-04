@@ -16,7 +16,7 @@ conda create --name pylon python=3.10 -y
 conda activate pylon
 
 # Run automated installation script
-bash install_packages.sh
+bash ../install_packages.sh
 ```
 
 ### 3. Environment File Installation
@@ -36,7 +36,7 @@ cd data/collators/overlappredator/cpp_wrappers && bash compile_wrappers.sh && cd
 ## Files Overview
 
 - **[`conda.md`](conda.md)** - Detailed manual setup guide with system requirements
-- **[`install_packages.sh`](install_packages.sh)** - Automated installation script
+- **[`../install_packages.sh`](../install_packages.sh)** - Automated installation script (shared)
 - **[`environment.yml`](environment.yml)** - Conda environment specification file
 
 ## System Requirements
