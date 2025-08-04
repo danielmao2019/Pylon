@@ -162,9 +162,7 @@ class DiscreteLOD:
         device = geometry['device']
         dtype = geometry['dtype']
         
-        assert device.type == 'cuda', f"{device=}"
-
-        # Get camera position on same device as points
+        # Get camera position on same device as points (works on both CPU and CUDA)
         camera_pos = get_camera_position(camera_state, device=device, dtype=dtype)
 
         # Calculate distance to center point relative to diagonal size (fast O(1) operation)

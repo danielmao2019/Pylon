@@ -81,7 +81,12 @@ def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
         
     Returns:
         Numpy array representation of the data
+        
+    Raises:
+        AssertionError: If inputs don't meet requirements
     """
+    assert isinstance(points, (torch.Tensor, np.ndarray)), f"Expected torch.Tensor or np.ndarray, got {type(points)}"
+    
     if isinstance(points, torch.Tensor):
         return points.cpu().numpy()
     return points
