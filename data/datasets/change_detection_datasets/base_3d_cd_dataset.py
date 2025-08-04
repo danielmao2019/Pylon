@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 import torch
 from dash import dcc, html
 from data.datasets.base_dataset import BaseDataset
-from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats, build_point_cloud_id
+from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
 from data.viewer.utils.display_utils import (
     DisplayStyles,
     ParallelFigureCreator,
@@ -94,14 +94,14 @@ class Base3DCDDataset(BaseDataset):
 
         # Get statistics for point clouds
         stats_data = [
-            get_point_cloud_stats(points_1, class_names=class_names),
-            get_point_cloud_stats(points_2, class_names=class_names),
-            get_point_cloud_stats(points_2, change_map, class_names=class_names)  # change_map corresponds to points_2
+            get_point_cloud_display_stats(points_1, class_names=class_names),
+            get_point_cloud_display_stats(points_2, class_names=class_names),
+            get_point_cloud_display_stats(points_2, change_map, class_names=class_names)  # change_map corresponds to points_2
         ]
 
         # Prepare figure creation tasks with proper point cloud IDs
         figure_tasks = [
-            lambda: create_point_cloud_figure(
+            lambda: create_point_cloud_display(
                 points=points_1,
                 colors=rgb_1,
                 labels=None,
@@ -113,7 +113,7 @@ class Base3DCDDataset(BaseDataset):
                 point_cloud_id=build_point_cloud_id(datapoint, "pc_1"),
                 density_percentage=density_percentage,
             ),
-            lambda: create_point_cloud_figure(
+            lambda: create_point_cloud_display(
                 points=points_2,
                 colors=rgb_2,
                 labels=None,
@@ -125,7 +125,7 @@ class Base3DCDDataset(BaseDataset):
                 point_cloud_id=build_point_cloud_id(datapoint, "pc_2"),
                 density_percentage=density_percentage,
             ),
-            lambda: create_point_cloud_figure(
+            lambda: create_point_cloud_display(
                 points=points_2,  # Use points_2 for change map visualization
                 labels=change_map,  # Keep as int64 for proper label processing
                 title="Change Map",

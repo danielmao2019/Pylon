@@ -9,7 +9,7 @@ from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
-from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats, build_point_cloud_id
+from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
 from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
 from data.viewer.utils.structure_validation import validate_pcr_structure
 
@@ -54,7 +54,7 @@ def create_union_visualization(
     tgt_colors[:, 2] = 1.0  # Blue for target
     union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-    return create_point_cloud_figure(
+    return create_point_cloud_display(
         points=union_points,
         colors=union_colors,
         title="Union (Transformed Source + Target)",
@@ -118,7 +118,7 @@ def create_symmetric_difference_visualization(
         tgt_colors[:, 2] = 1.0  # Blue for target
         sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-        return create_point_cloud_figure(
+        return create_point_cloud_display(
             points=sym_diff_points,
             colors=sym_diff_colors,
             title="Symmetric Difference",
@@ -132,7 +132,7 @@ def create_symmetric_difference_visualization(
         )
     else:
         # If no symmetric difference, show empty point cloud
-        return create_point_cloud_figure(
+        return create_point_cloud_display(
             torch.zeros((1, 3), device=src_points_normalized.device),
             title="Symmetric Difference (Empty)",
             point_size=point_size,
@@ -183,7 +183,7 @@ def create_correspondence_visualization(
     correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
 
     # Create figure with both point clouds
-    corr_fig = create_point_cloud_figure(
+    corr_fig = create_point_cloud_display(
         points=src_points_normalized,
         title="Point Cloud Correspondences",
         point_size=point_size,
@@ -410,7 +410,7 @@ def display_pcr_datapoint_single(
 
     # Define figure creation tasks
     figure_tasks = [
-        lambda: create_point_cloud_figure(
+        lambda: create_point_cloud_display(
             points=src_pc,
             colors=src_rgb,
             title="Source Point Cloud",
@@ -422,7 +422,7 @@ def display_pcr_datapoint_single(
             point_cloud_id=build_point_cloud_id(datapoint, "source"),
             axis_ranges=unified_axis_ranges,
         ),
-        lambda: create_point_cloud_figure(
+        lambda: create_point_cloud_display(
             points=tgt_pc,
             colors=tgt_rgb,
             title="Target Point Cloud",
@@ -477,8 +477,8 @@ def display_pcr_datapoint_single(
     transform_info = _compute_transform_info(transform)
     
     # Get point cloud statistics
-    src_stats_children = get_point_cloud_stats(src_pc)
-    tgt_stats_children = get_point_cloud_stats(tgt_pc)
+    src_stats_children = get_point_cloud_display_stats(src_pc)
+    tgt_stats_children = get_point_cloud_display_stats(tgt_pc)
 
     # Create layout using centralized utilities
     grid_items = create_figure_grid(figures, width_style="50%", height_style="520px")
@@ -602,7 +602,7 @@ def display_pcr_datapoint_batched(
         # For top level (level 0), show all visualizations
         if level == 0:
             figure_tasks = [
-                lambda src=src_points, lvl=level: create_point_cloud_figure(
+                lambda src=src_points, lvl=level: create_point_cloud_display(
                     points=src,
                     title=f"Source Point Cloud (Level {lvl})",
                     point_size=point_size,
@@ -612,7 +612,7 @@ def display_pcr_datapoint_batched(
                     density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
                 ),
-                lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
+                lambda tgt=tgt_points, lvl=level: create_point_cloud_display(
                     points=tgt,
                     title=f"Target Point Cloud (Level {lvl})",
                     point_size=point_size,
@@ -662,7 +662,7 @@ def display_pcr_datapoint_batched(
         else:
             # For lower levels, only show source and target
             all_figures.extend([
-                create_point_cloud_figure(
+                create_point_cloud_display(
                     points=src_points,
                     title=f"Source Point Cloud (Level {level})",
                     point_size=point_size,
@@ -672,7 +672,7 @@ def display_pcr_datapoint_batched(
                     density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
                 ),
-                create_point_cloud_figure(
+                create_point_cloud_display(
                     points=tgt_points,
                     title=f"Target Point Cloud (Level {level})",
                     point_size=point_size,

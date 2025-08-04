@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List, Union
 import torch
 from dash import dcc, html
 from data.datasets.base_dataset import BaseDataset
-from data.viewer.utils.image import create_image_figure, get_image_stats
+from data.viewer.utils.atomic_displays.image_display import create_image_display, get_image_display_stats
 from data.viewer.utils.segmentation import create_segmentation_figure, get_segmentation_stats
 from data.viewer.utils.display_utils import (
     DisplayStyles,
@@ -55,6 +55,12 @@ class BaseSemsegDataset(BaseDataset):
         Returns:
             html.Div: HTML layout for displaying this datapoint
         """
+        # Explicitly acknowledge unused parameters for API consistency
+        # These parameters are required to maintain uniform display_datapoint signature across all dataset types
+        _ = class_labels  # Not used for semantic segmentation - images don't need class mapping
+        _ = camera_state  # Not used for 2D images - no camera controls needed  
+        _ = settings_3d   # Not used for 2D images - no 3D visualization settings needed
+        
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
         assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
@@ -69,7 +75,7 @@ class BaseSemsegDataset(BaseDataset):
         # Create figure components
         fig_components = [
             html.Div([
-                dcc.Graph(figure=create_image_figure(image, title="Image"))
+                dcc.Graph(figure=create_image_display(image, title="Image"))
             ], style=DisplayStyles.GRID_ITEM_50),
 
             html.Div([
@@ -79,7 +85,7 @@ class BaseSemsegDataset(BaseDataset):
 
         # Create statistics components
         stats_data = [
-            get_image_stats(image),
+            get_image_display_stats(image),
             get_segmentation_stats(seg)
         ]
         titles = ["Image Statistics", "Segmentation Statistics"]
