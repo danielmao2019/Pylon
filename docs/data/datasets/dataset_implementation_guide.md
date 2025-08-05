@@ -909,18 +909,20 @@ def _get_cache_version_dict(self) -> Dict[str, Any]:
 def _get_cache_version_dict(self) -> Dict[str, Any]:
     version_dict = super()._get_cache_version_dict()
     
-    # WRONG - Including file content breaks cache sharing design
+    # WRONG - Including file content is unnecessary overhead
     annotations_hash = hashlib.md5(str(self.annotations).encode()).hexdigest()
     version_dict['annotations_hash'] = annotations_hash  # ❌ DON'T DO THIS
     
     return version_dict
 ```
 
-**Why file content hashes are wrong**:
-- Breaks cache sharing across different locations  
-- Makes cache unstable when files are modified
-- Violates the configuration-based design principle
-- Creates cache misses for identical dataset configurations
+**Why file content hashes are not included**:
+- **Performance optimization**: Avoids expensive file content hashing during dataset initialization
+- **Cache validation handles file changes**: Pylon already has cache validation features that detect when files are modified
+- **Not expected in production**: Dataset files should not be modified in normal usage scenarios
+- **Redundant protection**: The existing cache validation system already handles file integrity
+
+**Key insight**: File content hashing would be **redundant** because Pylon's cache validation system already detects file modifications when needed. The version hash focuses on configuration parameters for speed, while cache validation handles file integrity separately.
 
 ---
 
