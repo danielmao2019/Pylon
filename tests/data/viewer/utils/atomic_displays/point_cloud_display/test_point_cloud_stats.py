@@ -520,9 +520,10 @@ def test_point_cloud_to_numpy_extreme_values():
 
 def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
     """Test complete point cloud utilities pipeline."""
-    # Generate ID
-    pc_id = build_point_cloud_id(point_cloud_3d)
-    assert isinstance(pc_id, str)
+    # Generate ID (requires proper datapoint format)
+    datapoint = {"meta_info": {"idx": 42}}
+    pc_id = build_point_cloud_id(datapoint, "source")
+    assert isinstance(pc_id, tuple)
     
     # Normalize ID
     normalized_id = normalize_point_cloud_id(pc_id)
@@ -530,31 +531,36 @@ def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
     
     # Get statistics
     stats = get_point_cloud_display_stats(point_cloud_3d)
-    assert isinstance(stats, dict)
+    assert isinstance(stats, html.Ul)
     
-    # Apply LOD
-    lod_pc = apply_lod_to_point_cloud(point_cloud_3d, camera_state, max_points=500)
-    assert isinstance(lod_pc, torch.Tensor)
+    # Apply LOD (no max_points parameter)
+    lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
+        points=point_cloud_3d,
+        camera_state=camera_state,
+        lod_type="continuous"
+    )
+    assert isinstance(lod_points, torch.Tensor)
     
     # Convert to numpy
-    pc_numpy = point_cloud_to_numpy(lod_pc)
+    pc_numpy = point_cloud_to_numpy(lod_points)
     assert isinstance(pc_numpy, np.ndarray)
     
     # Verify consistency
-    assert lod_pc.shape[0] == pc_numpy.shape[0]
-    assert lod_pc.shape[1] == pc_numpy.shape[1] == 3
+    assert lod_points.shape[0] == pc_numpy.shape[0]
+    assert lod_points.shape[1] == pc_numpy.shape[1] == 3
 
 
 def test_point_cloud_utilities_determinism(point_cloud_3d, camera_state):
     """Test that point cloud utilities are deterministic."""
     # Multiple calls should produce same results
-    pc_id_1 = build_point_cloud_id(point_cloud_3d)
-    pc_id_2 = build_point_cloud_id(point_cloud_3d)
+    datapoint = {"meta_info": {"idx": 42}}
+    pc_id_1 = build_point_cloud_id(datapoint, "source")
+    pc_id_2 = build_point_cloud_id(datapoint, "source")
     assert pc_id_1 == pc_id_2
     
     stats_1 = get_point_cloud_display_stats(point_cloud_3d)
     stats_2 = get_point_cloud_display_stats(point_cloud_3d)
-    assert stats_1 == stats_2
+    assert str(stats_1) == str(stats_2)  # Compare HTML strings since Ul objects are different instances
     
     normalized_1 = normalize_point_cloud_id("test_id")
     normalized_2 = normalize_point_cloud_id("test_id")
@@ -572,15 +578,20 @@ def test_performance_with_large_point_clouds():
     camera_state = {"eye": {"x": 1, "y": 1, "z": 1}}
     
     # These should complete without error
-    pc_id = build_point_cloud_id(large_pc)
+    datapoint = {"meta_info": {"idx": 100}}
+    pc_id = build_point_cloud_id(datapoint, "large_test")
     stats = get_point_cloud_display_stats(large_pc)
-    lod_pc = apply_lod_to_point_cloud(large_pc, camera_state, max_points=1000)
-    pc_numpy = point_cloud_to_numpy(lod_pc)
+    lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
+        points=large_pc,
+        camera_state=camera_state,
+        lod_type="continuous"
+    )
+    pc_numpy = point_cloud_to_numpy(lod_points)
     
     # Basic checks
-    assert isinstance(pc_id, str)
-    assert isinstance(stats, dict)
-    assert isinstance(lod_pc, torch.Tensor)
+    assert isinstance(pc_id, tuple)
+    assert isinstance(stats, html.Ul)
+    assert isinstance(lod_points, torch.Tensor)
     assert isinstance(pc_numpy, np.ndarray)
-    assert lod_pc.shape[0] <= 1000  # LOD should reduce size
-    assert pc_numpy.shape == lod_pc.shape
+    assert lod_points.shape[0] <= large_pc.shape[0]  # LOD should reduce or maintain size
+    assert pc_numpy.shape == lod_points.shape
