@@ -8,20 +8,21 @@ This guide covers integrating your dataset implementation with Pylon's data view
 
 ### 1. Add to Dataset Groups
 
-Update `/data/viewer/backend/backend.py` to include your dataset in the appropriate group:
+Update `./data/viewer/backend/backend.py` to include your dataset in the appropriate group:
 
 ```python
+# Add here
 DATASET_GROUPS = {
     'semseg': ['coco_stuff_164k'],
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3dcd': ['urb3dcd', 'slpccd'],
-    'pcr': ['synth_pcr', 'real_pcr', 'kitti', 'your_new_dataset'],  # Add here
+    'pcr': ['synth_pcr', 'real_pcr', 'kitti', 'your_new_dataset'],
 }
 ```
 
 **Dataset Type Guidelines**:
 - `semseg`: Semantic segmentation datasets (single image → label map)
-- `2dcd`: 2D change detection datasets (two images → change map)  
+- `2dcd`: 2D change detection datasets (two images → change map)
 - `3dcd`: 3D change detection datasets (two point clouds → change map)
 - `pcr`: Point cloud registration datasets (two point clouds → transformation)
 
@@ -186,7 +187,7 @@ labels = {
 
 ### Config File Not Found
 **Problem**: Dataset doesn't appear in viewer dropdown
-**Solution**: 
+**Solution**:
 - Check file naming follows `{dataset_name}_data_cfg.py` pattern
 - Verify file is in correct directory for dataset type
 - Ensure dataset name is added to DATASET_GROUPS
