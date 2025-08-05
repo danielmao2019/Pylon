@@ -37,7 +37,7 @@ def test_create_edge_display_2d_tensor(edge_tensor_2d):
     assert fig.layout.height == 400
 
 
-@pytest.mark.parametrize("colorscale", ["Gray", "Viridis", "Plasma", "Hot", "Cool"])
+@pytest.mark.parametrize("colorscale", ["greys", "viridis", "plasma", "hot", "turbo"])
 def test_create_edge_display_various_colorscales(edge_tensor, colorscale):
     """Test edge display with various colorscales."""
     fig = create_edge_display(edge_tensor, "Test Colorscales", colorscale=colorscale)

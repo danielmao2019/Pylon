@@ -6,6 +6,7 @@ import pytest
 import torch
 import numpy as np
 from typing import Dict, Any
+from dash import html
 
 from data.viewer.utils.atomic_displays.point_cloud_display import (
     get_point_cloud_display_stats,
@@ -24,16 +25,17 @@ def test_get_point_cloud_display_stats_basic(point_cloud_3d):
     """Test basic point cloud statistics calculation."""
     stats = get_point_cloud_display_stats(point_cloud_3d)
     
-    assert isinstance(stats, dict)
-    assert "num_points" in stats
-    assert "x_range" in stats
-    assert "y_range" in stats
-    assert "z_range" in stats
-    assert "centroid" in stats
-    assert "bounding_box_volume" in stats
+    assert isinstance(stats, html.Ul)
+    assert len(stats.children) >= 6  # At least 6 basic stats items
     
-    # Verify basic properties
-    assert stats["num_points"] == 1000
+    # Check that stats contain expected text patterns
+    stats_text = str(stats)
+    assert "Total Points: 1000" in stats_text
+    assert "Dimensions: 3" in stats_text
+    assert "X Range:" in stats_text
+    assert "Y Range:" in stats_text
+    assert "Z Range:" in stats_text
+    assert "Center:" in stats_text
 
 
 def test_get_point_cloud_display_stats_known_values():
@@ -49,13 +51,14 @@ def test_get_point_cloud_display_stats_known_values():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, dict)
-    assert stats["num_points"] == 100
+    assert isinstance(stats, html.Ul)
     
-    # Check ranges
-    assert "[0.000, 2.000]" in stats["x_range"]
-    assert "[0.000, 3.000]" in stats["y_range"]
-    assert "[0.000, 4.000]" in stats["z_range"]
+    # Check that stats contain expected text patterns
+    stats_text = str(stats)
+    assert "Total Points: 100" in stats_text
+    assert "[0.00, 2.00]" in stats_text  # X range
+    assert "[0.00, 3.00]" in stats_text  # Y range
+    assert "[0.00, 4.00]" in stats_text  # Z range
 
 
 def test_get_point_cloud_display_stats_single_point():
@@ -64,12 +67,14 @@ def test_get_point_cloud_display_stats_single_point():
     
     stats = get_point_cloud_display_stats(single_point)
     
-    assert isinstance(stats, dict)
-    assert stats["num_points"] == 1
-    assert "[1.500, 1.500]" in stats["x_range"]
-    assert "[2.500, 2.500]" in stats["y_range"]  
-    assert "[3.500, 3.500]" in stats["z_range"]
-    assert stats["bounding_box_volume"] == 0.0  # Single point has no volume
+    assert isinstance(stats, html.Ul)
+    
+    # Check that stats contain expected text patterns
+    stats_text = str(stats)
+    assert "Total Points: 1" in stats_text
+    assert "[1.50, 1.50]" in stats_text  # X range
+    assert "[2.50, 2.50]" in stats_text  # Y range  
+    assert "[3.50, 3.50]" in stats_text  # Z range
 
 
 def test_get_point_cloud_display_stats_uniform_distribution():
@@ -79,12 +84,16 @@ def test_get_point_cloud_display_stats_uniform_distribution():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, dict)
-    assert stats["num_points"] == 1000
+    assert isinstance(stats, html.Ul)
     
-    # Ranges should be approximately [0, 1] for each dimension
-    # (allowing some randomness tolerance)
-    assert stats["bounding_box_volume"] > 0.0  # Should have positive volume
+    # Check that stats contain expected text patterns
+    stats_text = str(stats)
+    assert "Total Points: 1000" in stats_text
+    assert "Dimensions: 3" in stats_text
+    # Ranges should be approximately [0, 1] for each dimension (allowing some randomness tolerance)
+    assert "X Range:" in stats_text
+    assert "Y Range:" in stats_text
+    assert "Z Range:" in stats_text
 
 
 @pytest.mark.parametrize("n_points", [10, 100, 1000, 5000])
@@ -94,8 +103,11 @@ def test_get_point_cloud_display_stats_various_sizes(n_points):
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, dict)
-    assert stats["num_points"] == n_points
+    assert isinstance(stats, html.Ul)
+    
+    # Check that stats contain expected text patterns
+    stats_text = str(stats)
+    assert f"Total Points: {n_points}" in stats_text
 
 
 def test_get_point_cloud_display_stats_different_dtypes():
@@ -103,17 +115,17 @@ def test_get_point_cloud_display_stats_different_dtypes():
     # Float32
     points_f32 = torch.randn(100, 3, dtype=torch.float32)
     stats_f32 = get_point_cloud_display_stats(points_f32)
-    assert isinstance(stats_f32, dict)
+    assert isinstance(stats_f32, html.Ul)
     
     # Float64
     points_f64 = torch.randn(100, 3, dtype=torch.float64)
     stats_f64 = get_point_cloud_display_stats(points_f64)
-    assert isinstance(stats_f64, dict)
+    assert isinstance(stats_f64, html.Ul)
     
     # Integer (unusual but should work)
     points_int = torch.randint(-10, 10, (100, 3), dtype=torch.int32)
     stats_int = get_point_cloud_display_stats(points_int)
-    assert isinstance(stats_int, dict)
+    assert isinstance(stats_int, html.Ul)
 
 
 def test_get_point_cloud_display_stats_extreme_coordinates():
@@ -121,66 +133,78 @@ def test_get_point_cloud_display_stats_extreme_coordinates():
     # Very large coordinates
     large_points = torch.full((100, 3), 1e6, dtype=torch.float32)
     stats_large = get_point_cloud_display_stats(large_points)
-    assert isinstance(stats_large, dict)
-    assert stats_large["bounding_box_volume"] == 0.0  # All points same location
+    assert isinstance(stats_large, html.Ul)
+    stats_text = str(stats_large)
+    assert "Total Points: 100" in stats_text
     
     # Very small coordinates
     small_points = torch.full((100, 3), 1e-6, dtype=torch.float32)
     stats_small = get_point_cloud_display_stats(small_points)
-    assert isinstance(stats_small, dict)
+    assert isinstance(stats_small, html.Ul)
     
     # Mixed positive/negative
     mixed_points = torch.randn(100, 3, dtype=torch.float32) * 1000
     stats_mixed = get_point_cloud_display_stats(mixed_points)
-    assert isinstance(stats_mixed, dict)
+    assert isinstance(stats_mixed, html.Ul)
 
 
 # ================================================================================
 # build_point_cloud_id Tests - Valid Cases
 # ================================================================================
 
-def test_build_point_cloud_id_basic(point_cloud_3d):
+def test_build_point_cloud_id_basic():
     """Test basic point cloud ID generation."""
-    pc_id = build_point_cloud_id(point_cloud_3d)
+    datapoint = {"meta_info": {"idx": 42}}
+    component = "source"
     
-    assert isinstance(pc_id, str)
-    assert len(pc_id) > 0
+    pc_id = build_point_cloud_id(datapoint, component)
+    
+    assert isinstance(pc_id, tuple)
+    assert len(pc_id) == 3
+    assert pc_id[1] == 42
+    assert pc_id[2] == "source"
 
 
-def test_build_point_cloud_id_deterministic(point_cloud_3d):
+def test_build_point_cloud_id_deterministic():
     """Test that point cloud ID generation is deterministic."""
-    pc_id1 = build_point_cloud_id(point_cloud_3d)
-    pc_id2 = build_point_cloud_id(point_cloud_3d)
+    datapoint = {"meta_info": {"idx": 10}}
+    component = "target"
     
-    assert isinstance(pc_id1, str)
-    assert isinstance(pc_id2, str)
+    pc_id1 = build_point_cloud_id(datapoint, component)
+    pc_id2 = build_point_cloud_id(datapoint, component)
+    
+    assert isinstance(pc_id1, tuple)
+    assert isinstance(pc_id2, tuple)
     assert pc_id1 == pc_id2  # Should be identical for same input
 
 
 def test_build_point_cloud_id_different_inputs():
     """Test that different point clouds generate different IDs."""
-    pc1 = torch.randn(100, 3, dtype=torch.float32, generator=torch.Generator().manual_seed(42))
-    pc2 = torch.randn(100, 3, dtype=torch.float32, generator=torch.Generator().manual_seed(123))
+    datapoint1 = {"meta_info": {"idx": 42}}
+    datapoint2 = {"meta_info": {"idx": 123}}
     
-    id1 = build_point_cloud_id(pc1)
-    id2 = build_point_cloud_id(pc2)
+    id1 = build_point_cloud_id(datapoint1, "source")
+    id2 = build_point_cloud_id(datapoint2, "source")
     
-    assert isinstance(id1, str)
-    assert isinstance(id2, str)
+    assert isinstance(id1, tuple)
+    assert isinstance(id2, tuple)
+    assert len(id1) == 3
+    assert len(id2) == 3
     assert id1 != id2  # Different inputs should generate different IDs
 
 
 def test_build_point_cloud_id_various_sizes():
-    """Test point cloud ID generation with various sizes."""
-    sizes = [1, 10, 100, 1000]
+    """Test point cloud ID generation with various datapoint indices."""
+    indices = [1, 10, 100, 1000]
     ids = []
     
-    for size in sizes:
-        pc = torch.randn(size, 3, dtype=torch.float32)
-        pc_id = build_point_cloud_id(pc)
+    for idx in indices:
+        datapoint = {"meta_info": {"idx": idx}}
+        pc_id = build_point_cloud_id(datapoint, "source")
         
-        assert isinstance(pc_id, str)
-        assert len(pc_id) > 0
+        assert isinstance(pc_id, tuple)
+        assert len(pc_id) == 3
+        assert pc_id[1] == idx  # Check the index is correct
         ids.append(pc_id)
     
     # All IDs should be different
@@ -188,30 +212,37 @@ def test_build_point_cloud_id_various_sizes():
 
 
 def test_build_point_cloud_id_single_point():
-    """Test point cloud ID generation with single point."""
-    single_point = torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.float32)
-    pc_id = build_point_cloud_id(single_point)
+    """Test point cloud ID generation with single datapoint."""
+    datapoint = {"meta_info": {"idx": 1}}
+    pc_id = build_point_cloud_id(datapoint, "target")
     
-    assert isinstance(pc_id, str)
-    assert len(pc_id) > 0
+    assert isinstance(pc_id, tuple)
+    assert len(pc_id) == 3
+    assert pc_id[1] == 1
+    assert pc_id[2] == "target"
 
 
-def test_build_point_cloud_id_different_dtypes():
-    """Test point cloud ID generation with different dtypes."""
-    base_points = torch.randn(100, 3)
+def test_build_point_cloud_id_different_components():
+    """Test point cloud ID generation with different components."""
+    datapoint = {"meta_info": {"idx": 100}}
     
-    # Float32
-    points_f32 = base_points.to(torch.float32)
-    id_f32 = build_point_cloud_id(points_f32)
-    assert isinstance(id_f32, str)
+    # Different components
+    id_source = build_point_cloud_id(datapoint, "source")
+    id_target = build_point_cloud_id(datapoint, "target")
+    id_change = build_point_cloud_id(datapoint, "change_map")
     
-    # Float64
-    points_f64 = base_points.to(torch.float64)
-    id_f64 = build_point_cloud_id(points_f64)
-    assert isinstance(id_f64, str)
+    assert isinstance(id_source, tuple)
+    assert isinstance(id_target, tuple)
+    assert isinstance(id_change, tuple)
     
-    # Different dtypes of same data might generate different IDs
-    # (this is acceptable behavior)
+    # Same datapoint index, different components
+    assert id_source[1] == id_target[1] == id_change[1] == 100
+    assert id_source[2] == "source"
+    assert id_target[2] == "target"
+    assert id_change[2] == "change_map"
+    
+    # All IDs should be different
+    assert id_source != id_target != id_change
 
 
 # ================================================================================
@@ -220,72 +251,108 @@ def test_build_point_cloud_id_different_dtypes():
 
 def test_apply_lod_to_point_cloud_basic(point_cloud_3d, camera_state):
     """Test basic LOD application."""
-    lod_pc = apply_lod_to_point_cloud(point_cloud_3d, camera_state, max_points=500)
+    points, colors, labels = apply_lod_to_point_cloud(
+        points=point_cloud_3d,
+        camera_state=camera_state,
+        lod_type="none",
+        density_percentage=50,
+        point_cloud_id="test_pc_basic"
+    )
     
-    assert isinstance(lod_pc, torch.Tensor)
-    assert lod_pc.shape[1] == 3  # Should maintain 3D coordinates
-    assert lod_pc.shape[0] <= 500  # Should not exceed max_points
-    assert lod_pc.shape[0] <= point_cloud_3d.shape[0]  # Should not exceed original
+    assert isinstance(points, torch.Tensor)
+    assert points.shape[1] == 3  # Should maintain 3D coordinates
+    assert points.shape[0] <= point_cloud_3d.shape[0]  # Should not exceed original
+    assert colors is None  # No colors provided
+    assert labels is None  # No labels provided
 
 
 def test_apply_lod_to_point_cloud_no_reduction_needed(camera_state):
     """Test LOD when no reduction is needed."""
     small_pc = torch.randn(50, 3, dtype=torch.float32)
-    lod_pc = apply_lod_to_point_cloud(small_pc, camera_state, max_points=100)
+    points, colors, labels = apply_lod_to_point_cloud(
+        points=small_pc,
+        lod_type="none",
+        density_percentage=100  # No reduction
+    )
     
-    # Should return original point cloud (or very similar) since no reduction needed
-    assert isinstance(lod_pc, torch.Tensor)
-    assert lod_pc.shape[0] == 50  # Should keep all points
-    assert lod_pc.shape[1] == 3
+    # Should return original point cloud since no reduction needed
+    assert isinstance(points, torch.Tensor)
+    assert points.shape[0] == 50  # Should keep all points
+    assert points.shape[1] == 3
+    assert torch.allclose(points, small_pc)  # Should be identical
 
 
-def test_apply_lod_to_point_cloud_max_points_one(point_cloud_3d, camera_state):
-    """Test LOD with max_points=1."""
-    lod_pc = apply_lod_to_point_cloud(point_cloud_3d, camera_state, max_points=1)
+def test_apply_lod_to_point_cloud_extreme_reduction(point_cloud_3d, camera_state):
+    """Test LOD with extreme reduction (1% of points)."""
+    points, colors, labels = apply_lod_to_point_cloud(
+        points=point_cloud_3d,
+        camera_state=camera_state,
+        lod_type="none",
+        density_percentage=1,  # Only 1% of points
+        point_cloud_id="test_pc_extreme"
+    )
     
-    assert isinstance(lod_pc, torch.Tensor)
-    assert lod_pc.shape == (1, 3)  # Should return exactly one point
+    assert isinstance(points, torch.Tensor)
+    assert points.shape[1] == 3
+    assert points.shape[0] <= point_cloud_3d.shape[0] * 0.02  # Should be heavily reduced
 
 
-def test_apply_lod_to_point_cloud_various_max_points(point_cloud_3d, camera_state):
-    """Test LOD with various max_points values."""
-    max_points_values = [10, 50, 100, 500, 2000]
+def test_apply_lod_to_point_cloud_various_density_percentages(point_cloud_3d, camera_state):
+    """Test LOD with various density percentage values."""
+    density_values = [10, 25, 50, 75, 90]
     
-    for max_points in max_points_values:
-        lod_pc = apply_lod_to_point_cloud(point_cloud_3d, camera_state, max_points=max_points)
+    for density_pct in density_values:
+        points, colors, labels = apply_lod_to_point_cloud(
+            points=point_cloud_3d,
+            camera_state=camera_state,
+            lod_type="none",
+            density_percentage=density_pct,
+            point_cloud_id=f"test_pc_{density_pct}"
+        )
         
-        assert isinstance(lod_pc, torch.Tensor)
-        assert lod_pc.shape[1] == 3
-        assert lod_pc.shape[0] <= max_points
-        assert lod_pc.shape[0] <= point_cloud_3d.shape[0]
+        assert isinstance(points, torch.Tensor)
+        assert points.shape[1] == 3
+        assert points.shape[0] <= point_cloud_3d.shape[0]
 
 
 def test_apply_lod_to_point_cloud_different_camera_positions():
-    """Test LOD with different camera positions."""
+    """Test LOD with different camera positions using continuous LOD."""
     pc = torch.randn(1000, 3, dtype=torch.float32) * 10.0  # Spread out points
     
     # Camera at origin
     camera_origin = {"eye": {"x": 0, "y": 0, "z": 0}}
-    lod_origin = apply_lod_to_point_cloud(pc, camera_origin, max_points=500)
+    points_origin, colors_origin, labels_origin = apply_lod_to_point_cloud(
+        points=pc,
+        camera_state=camera_origin,
+        lod_type="continuous"
+    )
     
     # Camera far away
     camera_far = {"eye": {"x": 100, "y": 100, "z": 100}}
-    lod_far = apply_lod_to_point_cloud(pc, camera_far, max_points=500)
+    points_far, colors_far, labels_far = apply_lod_to_point_cloud(
+        points=pc,
+        camera_state=camera_far,
+        lod_type="continuous"
+    )
     
     # Both should return valid results
-    assert isinstance(lod_origin, torch.Tensor)
-    assert isinstance(lod_far, torch.Tensor)
-    assert lod_origin.shape[1] == 3
-    assert lod_far.shape[1] == 3
+    assert isinstance(points_origin, torch.Tensor)
+    assert isinstance(points_far, torch.Tensor)
+    assert points_origin.shape[1] == 3
+    assert points_far.shape[1] == 3
 
 
 def test_apply_lod_to_point_cloud_single_point(camera_state):
     """Test LOD with single point."""
     single_point = torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.float32)
-    lod_pc = apply_lod_to_point_cloud(single_point, camera_state, max_points=10)
+    points, colors, labels = apply_lod_to_point_cloud(
+        points=single_point,
+        lod_type="none",
+        density_percentage=100  # Keep all points
+    )
     
-    assert isinstance(lod_pc, torch.Tensor)
-    assert torch.allclose(lod_pc, single_point)  # Should return the same point
+    assert isinstance(points, torch.Tensor)
+    assert torch.allclose(points, single_point)  # Should return the same point
 
 
 # ================================================================================

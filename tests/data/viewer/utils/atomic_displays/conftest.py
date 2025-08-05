@@ -127,7 +127,7 @@ def class_labels():
 @pytest.fixture
 def segmentation_dict():
     """Dictionary-based segmentation format with masks and indices."""
-    # Create 3 instance masks
+    # Create 3 instance masks using bool (proper semantic type for masks)
     masks = []
     for i in range(3):
         mask = torch.zeros(32, 32, dtype=torch.bool)

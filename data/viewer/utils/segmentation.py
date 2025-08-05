@@ -78,8 +78,10 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
         masks = seg["masks"]
         indices = seg["indices"]
 
-        # Stack masks and take argmax
+        # Stack masks and take argmax (convert bool to float for argmax)
         stacked_masks = torch.stack(masks)
+        if stacked_masks.dtype == torch.bool:
+            stacked_masks = stacked_masks.float()
         tensor = torch.argmax(stacked_masks, dim=0)
     else:
         # Handle tensor format
@@ -143,8 +145,10 @@ def get_segmentation_stats(
         # Handle dict format with masks and indices
         masks = seg["masks"]
         indices = seg["indices"]
-        # Stack masks and take argmax
+        # Stack masks and take argmax (convert bool to float for argmax)
         stacked_masks = torch.stack(masks)
+        if stacked_masks.dtype == torch.bool:
+            stacked_masks = stacked_masks.float()
         seg_np = torch.argmax(stacked_masks, dim=0).cpu().numpy()
     else:
         # Handle tensor format
