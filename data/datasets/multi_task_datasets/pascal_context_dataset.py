@@ -360,51 +360,71 @@ class PASCALContextDataset(BaseMultiTaskDataset):
         
         # Validate expected PASCAL Context data keys
         assert 'image' in inputs, f"inputs missing 'image', got keys: {list(inputs.keys())}"
-        assert 'semantic_segmentation' in labels, f"labels missing 'semantic_segmentation', got keys: {list(labels.keys())}"
-        assert 'normal_estimation' in labels, f"labels missing 'normal_estimation', got keys: {list(labels.keys())}"
-        assert 'saliency_estimation' in labels, f"labels missing 'saliency_estimation', got keys: {list(labels.keys())}"
         
-        # Create figure tasks for parallel execution
-        # Skip parts segmentation if None (human parts may not be present in all images)
-        figure_tasks = [
-            lambda: create_image_display(
-                image=inputs['image'],
-                title="RGB Image"
-            ),
-            lambda: create_segmentation_display(
+        # Create figure tasks and statistics conditionally based on available labels
+        figure_tasks = []
+        stats_data = []
+        stats_titles = []
+        
+        # Always include RGB image
+        figure_tasks.append(lambda: create_image_display(
+            image=inputs['image'],
+            title="RGB Image"
+        ))
+        stats_data.append(get_image_display_stats(inputs['image']))
+        stats_titles.append("RGB Image Statistics")
+        
+        # Conditionally add semantic segmentation
+        if 'semantic_segmentation' in labels:
+            figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['semantic_segmentation'],
                 title="Semantic Segmentation",
                 class_labels=class_labels
-            ),
-            lambda: create_normal_display(
-                normal=labels['normal_estimation'],
+            ))
+            stats_data.append(get_segmentation_display_stats(labels['semantic_segmentation']))
+            stats_titles.append("Semantic Segmentation Statistics")
+        
+        # Conditionally add normal estimation
+        if 'normal_estimation' in labels:
+            figure_tasks.append(lambda: create_normal_display(
+                normals=labels['normal_estimation'],
                 title="Surface Normal Estimation"
-            ),
-            lambda: create_segmentation_display(
+            ))
+            stats_data.append(get_normal_display_stats(labels['normal_estimation']))
+            stats_titles.append("Surface Normal Statistics")
+        
+        # Conditionally add saliency detection
+        if 'saliency_estimation' in labels:
+            figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['saliency_estimation'],
                 title="Saliency Detection"
-            )
-        ]
+            ))
+            stats_data.append(get_segmentation_display_stats(labels['saliency_estimation']))
+            stats_titles.append("Saliency Detection Statistics")
         
-        # Add parts segmentation if present
-        if labels.get('parts_target') is not None:
-            figure_tasks.append(
-                lambda: create_segmentation_display(
-                    segmentation=labels['parts_target'],
-                    title="Human Parts Segmentation"
-                )
-            )
+        # Conditionally add parts segmentation if selected and present
+        if 'parts_target' in labels and labels.get('parts_target') is not None:
+            figure_tasks.append(lambda: create_segmentation_display(
+                segmentation=labels['parts_target'],
+                title="Human Parts Segmentation"
+            ))
+            stats_data.append(get_segmentation_display_stats(labels['parts_target']))
+            stats_titles.append("Human Parts Statistics")
         
         # Create figures in parallel for better performance  
-        max_workers = len(figure_tasks)
+        max_workers = min(len(figure_tasks), 5)  # Adjust based on number of tasks
         figure_creator = ParallelFigureCreator(max_workers=max_workers, enable_timing=False)
         figures = figure_creator.create_figures_parallel(figure_tasks)
         
         # Create grid layout - adjust width based on number of figures
-        if len(figures) == 5:
+        if len(figures) >= 5:
             width_style = "20%"  # 5 figures in a row
-        else:
+        elif len(figures) == 4:
             width_style = "25%"  # 4 figures in a row
+        elif len(figures) == 3:
+            width_style = "33.33%"  # 3 figures in a row
+        else:
+            width_style = "50%"  # 1-2 figures
             
         figure_components = create_figure_grid(
             figures=figures,
@@ -412,31 +432,15 @@ class PASCALContextDataset(BaseMultiTaskDataset):
             height_style="350px"
         )
         
-        # Create statistics for each modality
-        stats_data = [
-            get_image_display_stats(inputs['image']),
-            get_segmentation_display_stats(labels['semantic_segmentation']),
-            get_normal_display_stats(labels['normal_estimation']),
-            get_segmentation_display_stats(labels['saliency_estimation'])
-        ]
-        
-        stats_titles = [
-            "RGB Image Statistics",
-            "Semantic Segmentation Statistics",
-            "Surface Normal Statistics",
-            "Saliency Detection Statistics"
-        ]
-        
-        # Add parts statistics if present
-        if labels.get('parts_target') is not None:
-            stats_data.append(get_segmentation_display_stats(labels['parts_target']))
-            stats_titles.append("Human Parts Statistics")
-        
         # Adjust stats width based on number of stats
-        if len(stats_data) == 5:
+        if len(stats_data) >= 5:
             stats_width = "20%"
-        else:
+        elif len(stats_data) == 4:
             stats_width = "25%"
+        elif len(stats_data) == 3:
+            stats_width = "33.33%"
+        else:
+            stats_width = "50%"
             
         stats_components = create_statistics_display(
             stats_data=stats_data,

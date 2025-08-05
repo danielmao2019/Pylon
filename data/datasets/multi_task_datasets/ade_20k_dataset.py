@@ -242,50 +242,55 @@ class ADE20KDataset(BaseMultiTaskDataset):
         
         # Validate expected ADE20K data keys
         assert 'image' in inputs, f"inputs missing 'image', got keys: {list(inputs.keys())}"
-        assert 'object_cls_mask' in labels, f"labels missing 'object_cls_mask', got keys: {list(labels.keys())}"
-        assert 'object_ins_mask' in labels, f"labels missing 'object_ins_mask', got keys: {list(labels.keys())}"
         
-        # Create figure tasks for parallel execution - focus on main object segmentation
-        # Skip parts and amodal masks for now as they are complex and might be empty
-        figure_tasks = [
-            lambda: create_image_display(
-                image=inputs['image'],
-                title="RGB Image"
-            ),
-            lambda: create_segmentation_display(
+        # Create figure tasks and statistics conditionally based on available labels
+        figure_tasks = []
+        stats_data = []
+        stats_titles = []
+        
+        # Always include RGB image
+        figure_tasks.append(lambda: create_image_display(
+            image=inputs['image'],
+            title="RGB Image"
+        ))
+        stats_data.append(get_image_display_stats(inputs['image']))
+        stats_titles.append("RGB Image Statistics")
+        
+        # Conditionally add object class segmentation
+        if 'object_cls_mask' in labels:
+            figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['object_cls_mask'],
                 title="Object Class Segmentation",
                 class_labels=class_labels
-            ),
-            lambda: create_segmentation_display(
+            ))
+            stats_data.append(get_segmentation_display_stats(labels['object_cls_mask']))
+            stats_titles.append("Object Class Statistics")
+        
+        # Conditionally add object instance segmentation
+        if 'object_ins_mask' in labels:
+            figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['object_ins_mask'],
                 title="Object Instance Segmentation"
-            )
-        ]
+            ))
+            stats_data.append(get_segmentation_display_stats(labels['object_ins_mask']))
+            stats_titles.append("Object Instance Statistics")
         
         # Create figures in parallel for better performance
-        figure_creator = ParallelFigureCreator(max_workers=3, enable_timing=False)
+        max_workers = min(len(figure_tasks), 3)  # Adjust based on number of tasks
+        figure_creator = ParallelFigureCreator(max_workers=max_workers, enable_timing=False)
         figures = figure_creator.create_figures_parallel(figure_tasks)
         
-        # Create grid layout (3 figures in a row)
+        # Create grid layout (adjust based on number of figures)
+        if len(figures) <= 2:
+            width_style = "50%"
+        else:
+            width_style = "33.33%"
+        
         figure_components = create_figure_grid(
             figures=figures,
-            width_style="33.33%",
+            width_style=width_style,
             height_style="400px"
         )
-        
-        # Create statistics for each modality
-        stats_data = [
-            get_image_display_stats(inputs['image']),
-            get_segmentation_display_stats(labels['object_cls_mask']),
-            get_segmentation_display_stats(labels['object_ins_mask'])
-        ]
-        
-        stats_titles = [
-            "RGB Image Statistics",
-            "Object Class Statistics",
-            "Object Instance Statistics"
-        ]
         
         stats_components = create_statistics_display(
             stats_data=stats_data,

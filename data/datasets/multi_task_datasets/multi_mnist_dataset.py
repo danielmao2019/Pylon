@@ -127,8 +127,6 @@ class MultiMNISTDataset(BaseMultiTaskDataset):
         
         # Validate expected MultiMNIST data keys
         assert 'image' in inputs, f"inputs missing 'image', got keys: {list(inputs.keys())}"
-        assert 'left' in labels, f"labels missing 'left', got keys: {list(labels.keys())}"
-        assert 'right' in labels, f"labels missing 'right', got keys: {list(labels.keys())}"
         
         # Create figure task for the composite image
         figure_tasks = [
@@ -164,39 +162,60 @@ class MultiMNISTDataset(BaseMultiTaskDataset):
             width_style="50%"
         )
         
-        # Create classification labels display
-        left_digit = int(labels['left'].item())
-        right_digit = int(labels['right'].item())
+        # Create classification labels display conditionally
+        label_sections = []
         
-        labels_component = html.Div([
-            html.H4("Classification Labels", style={'margin-bottom': '10px'}),
-            html.Div([
-                html.Div([
-                    html.H5("Left Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
-                    html.Span(str(left_digit), style={
-                        'font-size': '24px', 
-                        'font-weight': 'bold', 
-                        'color': '#2E86AB'
-                    })
-                ], style={'margin-bottom': '10px'}),
-                html.Div([
-                    html.H5("Right Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
-                    html.Span(str(right_digit), style={
-                        'font-size': '24px', 
-                        'font-weight': 'bold', 
-                        'color': '#A23B72'
-                    })
-                ])
-            ])
-        ], style={
-            'width': '50%', 
-            'display': 'inline-block', 
-            'vertical-align': 'top',
-            'padding': '20px',
-            'border': '1px solid #ddd',
-            'border-radius': '5px',
-            'margin': '10px'
-        })
+        if 'left' in labels:
+            left_digit = int(labels['left'].item())
+            label_sections.append(html.Div([
+                html.H5("Left Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
+                html.Span(str(left_digit), style={
+                    'font-size': '24px', 
+                    'font-weight': 'bold', 
+                    'color': '#2E86AB'
+                })
+            ], style={'margin-bottom': '10px'}))
+        
+        if 'right' in labels:
+            right_digit = int(labels['right'].item())
+            label_sections.append(html.Div([
+                html.H5("Right Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
+                html.Span(str(right_digit), style={
+                    'font-size': '24px', 
+                    'font-weight': 'bold', 
+                    'color': '#A23B72'
+                })
+            ]))
+        
+        # Create labels component only if there are labels to show
+        if label_sections:
+            labels_component = html.Div([
+                html.H4("Classification Labels", style={'margin-bottom': '10px'}),
+                html.Div(label_sections)
+            ], style={
+                'width': '50%', 
+                'display': 'inline-block', 
+                'vertical-align': 'top',
+                'padding': '20px',
+                'border': '1px solid #ddd',
+                'border-radius': '5px',
+                'margin': '10px'
+            })
+        else:
+            # If no labels selected, show info message
+            labels_component = html.Div([
+                html.H4("Classification Labels", style={'margin-bottom': '10px'}),
+                html.P("No classification labels selected for display.", 
+                       style={'color': '#666', 'font-style': 'italic'})
+            ], style={
+                'width': '50%', 
+                'display': 'inline-block', 
+                'vertical-align': 'top',
+                'padding': '20px',
+                'border': '1px solid #ddd',
+                'border-radius': '5px',
+                'margin': '10px'
+            })
         
         # Combine figure and labels components
         content_components = figure_components + [labels_component]
