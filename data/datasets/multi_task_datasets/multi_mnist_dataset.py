@@ -1,5 +1,6 @@
 from typing import Tuple, Dict, Any, Optional, List
 import random
+import numpy as np
 import torch
 import torchvision
 from PIL import Image
@@ -46,18 +47,24 @@ class MultiMNISTDataset(BaseMultiTaskDataset):
         inputs = {
             'image': self._get_image(l_dp[0], r_dp[0]),
         }
-        labels = {
-            'left': torch.tensor(l_dp[1], dtype=torch.int64),
-            'right': torch.tensor(r_dp[1], dtype=torch.int64),
-        }
+        
+        # Only load selected labels (but both come from same computation)
+        labels = {}
+        if 'left' in self.selected_labels:
+            labels['left'] = torch.tensor(l_dp[1], dtype=torch.int64)
+        if 'right' in self.selected_labels:
+            labels['right'] = torch.tensor(r_dp[1], dtype=torch.int64)
+        
         meta_info = {
             'image_resolution': inputs['image'].shape,
         }
         return inputs, labels, meta_info
 
     def _get_image(self, l_image: Image.Image, r_image: Image.Image) -> torch.Tensor:
-        l_image = utils.io.load_image(l_image)
-        r_image = utils.io.load_image(r_image)
+        # Convert PIL Images to tensors using numpy and torch.from_numpy        
+        l_image = torch.from_numpy(np.array(l_image)).float() / 255.0
+        r_image = torch.from_numpy(np.array(r_image)).float() / 255.0
+
         assert l_image.ndim == r_image.ndim == 2, f"{l_image.shape=}, {r_image.shape=}"
         assert l_image.shape == r_image.shape, f"{l_image.shape=}, {r_image.shape=}"
         left = torch.cat([l_image, torch.zeros(

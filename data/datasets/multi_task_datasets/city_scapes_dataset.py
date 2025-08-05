@@ -185,9 +185,9 @@ class CityScapesDataset(BaseMultiTaskDataset):
                 'image': float32 tensor of shape (3, H, W).
             }
             labels = {
-                'depth_estimation': float32 tensor of shape (H, W).
-                'semantic_segmentation': int64 tensor of shape (H, W).
-                'instance_segmentation': float32 tensor of shape (2, H, W).
+                'depth_estimation': float32 tensor of shape (H, W). (if selected)
+                'semantic_segmentation': int64 tensor of shape (H, W). (if selected)
+                'instance_segmentation': float32 tensor of shape (2, H, W). (if selected)
             }
             meta_info = {
                 'image_filepath': str object for image file path.
@@ -196,8 +196,23 @@ class CityScapesDataset(BaseMultiTaskDataset):
         """
         inputs = self._get_image_(idx)
         labels = {}
-        labels.update(self._get_depth_label_(idx))
-        labels.update(self._get_segmentation_labels_(idx))
+        
+        # Only load selected labels to avoid unnecessary disk I/O
+        needs_depth = 'depth_estimation' in self.selected_labels
+        needs_segmentation = ('semantic_segmentation' in self.selected_labels or 
+                             'instance_segmentation' in self.selected_labels)
+        
+        if needs_depth:
+            labels.update(self._get_depth_label_(idx))
+            
+        if needs_segmentation:
+            # This method loads both semantic and instance segmentation
+            seg_labels = self._get_segmentation_labels_(idx)
+            # Only include the selected ones
+            for key, value in seg_labels.items():
+                if key in self.selected_labels:
+                    labels[key] = value
+        
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx]['image'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),

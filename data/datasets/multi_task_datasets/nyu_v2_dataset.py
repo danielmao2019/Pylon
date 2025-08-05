@@ -123,10 +123,17 @@ class NYUv2Dataset(BaseMultiTaskDataset):
     ]:
         inputs = self._get_image_(idx)
         labels = {}
-        labels.update(self._get_depth_label_(idx))
-        labels.update(self._get_normal_label_(idx))
-        labels.update(self._get_segmentation_label_(idx))
-        labels.update(self._get_edge_label_(idx))
+        
+        # Only load selected labels to avoid unnecessary disk I/O
+        if 'depth_estimation' in self.selected_labels:
+            labels.update(self._get_depth_label_(idx))
+        if 'normal_estimation' in self.selected_labels:
+            labels.update(self._get_normal_label_(idx))
+        if 'semantic_segmentation' in self.selected_labels:
+            labels.update(self._get_segmentation_label_(idx))
+        if 'edge_detection' in self.selected_labels:
+            labels.update(self._get_edge_label_(idx))
+        
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx]['image'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),
