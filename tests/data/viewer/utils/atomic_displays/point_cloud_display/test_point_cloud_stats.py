@@ -571,6 +571,30 @@ def test_point_cloud_utilities_determinism(point_cloud_3d, camera_state):
     assert np.array_equal(numpy_1, numpy_2)
 
 
+def test_get_point_cloud_display_stats_with_4_channels():
+    """Test that get_point_cloud_display_stats accepts 4+ channels (valid case)."""
+    # 4 channels should be VALID - function accepts [N, 3+] 
+    pc_4ch = torch.randn(100, 4, dtype=torch.float32)
+    stats = get_point_cloud_display_stats(pc_4ch)
+    
+    assert isinstance(stats, html.Ul)
+    stats_text = str(stats)
+    assert "Total Points: 100" in stats_text
+    assert "Dimensions: 4" in stats_text  # Should show 4 dimensions
+
+
+def test_get_point_cloud_display_stats_with_6_channels():
+    """Test that get_point_cloud_display_stats accepts 6 channels (valid case)."""
+    # 6 channels should be VALID - function accepts [N, 3+]
+    pc_6ch = torch.randn(50, 6, dtype=torch.float32)
+    stats = get_point_cloud_display_stats(pc_6ch)
+    
+    assert isinstance(stats, html.Ul)
+    stats_text = str(stats)
+    assert "Total Points: 50" in stats_text
+    assert "Dimensions: 6" in stats_text  # Should show 6 dimensions
+
+
 def test_performance_with_large_point_clouds():
     """Test utilities performance with large point clouds."""
     # Create large point cloud
