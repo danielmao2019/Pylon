@@ -528,6 +528,20 @@ if src_scene != tgt_scene:
 
 All Pylon datasets **must** implement cache versioning to ensure different dataset configurations use separate cache directories. This prevents cache collisions and data corruption.
 
+### 🔑 **Critical Design Philosophy**
+
+**Cache versioning is based on CONFIGURATION PARAMETERS, not file content on disk.**
+
+This design principle enables:
+- ✅ **Cache sharing across different filesystem locations** (e.g., soft links, relocated datasets)
+- ✅ **Deterministic hashing** independent of data_root path
+- ✅ **Stable cache behavior** when datasets are moved or accessed via different paths
+
+**Key Insight**: Two datasets with identical configuration parameters should have the same cache hash, regardless of:
+- Different `data_root` paths
+- Different file content on disk (e.g., if someone modifies dataset files)
+- Different filesystem locations (soft links, mounted drives)
+
 ### 1. Implementing `_get_cache_version_dict()`
 
 **Every dataset class must override this method** to include parameters that affect dataset content:
@@ -635,26 +649,111 @@ def _get_cache_version_dict(self) -> Dict[str, Any]:
 
 ### 4. Testing Requirements
 
-**Every dataset implementation must include discrimination tests**:
+**Every dataset implementation must include discrimination tests using REAL datasets**:
+
+#### **✅ Correct Testing Pattern**
 
 ```python
-def test_dataset_version_discrimination():
+def test_dataset_version_discrimination(dataset_data_root):
     """Test that dataset instances with different parameters have different version hashes."""
     
     # Same parameters should have same hash
-    dataset1a = MyDataset(param1=value1, param2=value2)
-    dataset1b = MyDataset(param1=value1, param2=value2)
+    dataset1a = MyDataset(
+        data_root=dataset_data_root,
+        split='train',
+        param1=value1,
+        param2=value2
+    )
+    dataset1b = MyDataset(
+        data_root=dataset_data_root,
+        split='train', 
+        param1=value1,
+        param2=value2
+    )
     assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
     
     # Different param1 should have different hash
-    dataset2 = MyDataset(param1=different_value, param2=value2)
+    dataset2 = MyDataset(
+        data_root=dataset_data_root,
+        split='train',
+        param1=different_value,  # Different
+        param2=value2
+    )
     assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
     
     # Different param2 should have different hash
-    dataset3 = MyDataset(param1=value1, param2=different_value)
+    dataset3 = MyDataset(
+        data_root=dataset_data_root,
+        split='train',
+        param1=value1,
+        param2=different_value  # Different
+    )
     assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
     
     # Test ALL parameters that should affect caching
+```
+
+#### **🚨 Critical Testing Rules**
+
+1. **ALWAYS use actual dataset fixtures** (e.g., `nyu_v2_data_root`, `pascal_context_data_root`)
+2. **NEVER use dummy data or temporary directories** for cache version tests
+3. **Test every configuration parameter** that affects dataset content
+4. **Use valid parameter values** from the dataset's supported options
+
+#### **❌ Common Testing Mistakes**
+
+```python
+# WRONG - Using dummy data
+def test_version_discrimination():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        create_dummy_data(temp_dir)  # ❌ DON'T DO THIS
+        dataset = MyDataset(data_root=temp_dir)
+
+# WRONG - Using invalid parameter values  
+def test_version_discrimination(dataset_data_root):
+    dataset = PASCALContextDataset(
+        data_root=dataset_data_root,
+        num_human_parts=10  # ❌ Invalid! Valid values: 1, 4, 6, 14
+    )
+
+# WRONG - Patching DATASET_SIZE for testing
+@contextmanager
+def patch_dataset_size():  # ❌ DON'T DO THIS
+    original = MyDataset.DATASET_SIZE
+    MyDataset.DATASET_SIZE = {'train': 3, 'val': 2}
+    yield
+    MyDataset.DATASET_SIZE = original
+```
+
+#### **✅ Best Practices**
+
+```python
+def test_comprehensive_no_hash_collisions(dataset_data_root):
+    """Ensure no hash collisions across many different configurations."""
+    datasets = []
+    
+    # Generate different dataset configurations using VALID parameters
+    for split in ['train', 'val']:
+        for param1 in [valid_value1, valid_value2]:
+            for param2 in [valid_value3, valid_value4]:
+                datasets.append(MyDataset(
+                    data_root=dataset_data_root,
+                    split=split,
+                    param1=param1,
+                    param2=param2
+                ))
+    
+    # Collect all hashes
+    hashes = [dataset.get_cache_version_hash() for dataset in datasets]
+    
+    # Ensure all hashes are unique (no collisions)
+    assert len(hashes) == len(set(hashes)), \
+        f"Hash collision detected! Duplicate hashes found in: {hashes}"
+    
+    # Ensure all hashes are properly formatted
+    for hash_val in hashes:
+        assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
+        assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
 ```
 
 ### 5. Cache Directory Structure
@@ -673,14 +772,105 @@ The cache system automatically creates directory structure:
 └── cache_metadata.json  # Human-readable mapping
 ```
 
-### 6. Common Implementation Mistakes
+### 6. Parameter Classification Guide
+
+Understanding which parameters to include vs exclude from cache versioning is critical:
+
+#### **✅ INCLUDE: Parameters That Affect Dataset Content**
+
+```python
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    version_dict.update({
+        # Data generation parameters
+        'dataset_size': self.dataset_size,           # Changes number of items
+        'seed': self.seed,                           # Changes random generation
+        
+        # Filtering/selection parameters  
+        'overlap_threshold': self.overlap_threshold, # Changes which items included
+        'min_points': self.min_points,               # Changes filtering criteria
+        'semantic_granularity': self.semantic_granularity, # Changes label mapping
+        
+        # Content transformation parameters
+        'num_human_parts': self.num_human_parts,     # Changes label structure
+        'area_thres': self.area_thres,               # Changes object filtering
+        'labels': sorted(self.labels) if self.labels else None, # Changes loaded labels
+        
+        # Preprocessing parameters
+        'normalization_method': self.normalization_method, # Changes data values
+        'voxel_size': self.voxel_size,               # Changes point cloud processing
+    })
+    return version_dict
+```
+
+#### **❌ EXCLUDE: Parameters That Don't Affect Dataset Content**
+
+```python
+# DON'T include these in cache versioning:
+version_dict.update({
+    # DataLoader parameters - affect loading speed, not content
+    'num_workers': self.num_workers,          # ❌ Loading parallelism
+    'batch_size': self.batch_size,            # ❌ Batching strategy
+    'shuffle': self.shuffle,                  # ❌ Loading order
+    'pin_memory': self.pin_memory,            # ❌ Memory optimization
+    
+    # Hardware/performance parameters - don't affect data
+    'device': str(self.device),               # ❌ Where data is loaded
+    'dtype': str(self.dtype),                 # ❌ Runtime precision
+    'multiprocessing_context': self.mp_ctx,  # ❌ Process spawning method
+    
+    # Runtime behavior parameters - don't change actual data
+    'verbose': self.verbose,                  # ❌ Logging level  
+    'debug_mode': self.debug_mode,            # ❌ Debug output
+    'profiling_enabled': self.profiling,     # ❌ Performance monitoring
+})
+```
+
+#### **⚠️ SPECIAL CASE: data_root Parameter**
+
+```python
+# IMPORTANT: data_root is EXCLUDED by BaseDataset design
+# This enables cache sharing across different filesystem locations
+
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    """BaseDataset implementation excludes data_root intentionally."""
+    version_dict = {
+        'class_name': self.__class__.__name__,
+        # NOTE: data_root is intentionally EXCLUDED
+        # This allows cache sharing across soft links, mounted drives, etc.
+    }
+    
+    # Add split information
+    if hasattr(self, 'split') and self.split is not None:
+        version_dict['split'] = self.split
+    
+    return version_dict
+```
+
+**Rationale**: Excluding `data_root` from cache versioning allows:
+- ✅ **Cache sharing** between `/data/NYUD_MT` and `/pub/datasets/NYUD_MT`
+- ✅ **Soft link support** without cache duplication
+- ✅ **Dataset portability** across different filesystem locations
+- ✅ **Collaborative development** where team members use different paths
+
+### 7. Common Implementation Mistakes
 
 #### **❌ Missing Content-Affecting Parameters**
 ```python
-# WRONG - Missing dataset_size affects number of generated items
+# WRONG - Missing dataset-specific parameters
 def _get_cache_version_dict(self) -> Dict[str, Any]:
     version_dict = super()._get_cache_version_dict()
-    # Missing self.dataset_size - CACHE COLLISION RISK!
+    # Missing semantic_granularity - CACHE COLLISION RISK!
+    # Missing selected_labels - CACHE COLLISION RISK!
+    return version_dict
+
+# ✅ CORRECT - Include all content-affecting parameters
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    version_dict.update({
+        'semantic_granularity': self.semantic_granularity,
+        'selected_labels': sorted(self.selected_labels),
+    })
     return version_dict
 ```
 
@@ -703,7 +893,7 @@ def _get_cache_version_dict(self) -> Dict[str, Any]:
 def _get_cache_version_dict(self) -> Dict[str, Any]:
     return {
         'my_param': self.my_param,
-        # MISSING: class_name, data_root, split from parent
+        # MISSING: class_name, split from parent
     }
 
 # ✅ CORRECT
@@ -712,6 +902,25 @@ def _get_cache_version_dict(self) -> Dict[str, Any]:
     version_dict['my_param'] = self.my_param
     return version_dict
 ```
+
+#### **❌ Including File Content Hashes**
+```python
+# WRONG - Don't hash actual file content
+def _get_cache_version_dict(self) -> Dict[str, Any]:
+    version_dict = super()._get_cache_version_dict()
+    
+    # WRONG - Including file content breaks cache sharing design
+    annotations_hash = hashlib.md5(str(self.annotations).encode()).hexdigest()
+    version_dict['annotations_hash'] = annotations_hash  # ❌ DON'T DO THIS
+    
+    return version_dict
+```
+
+**Why file content hashes are wrong**:
+- Breaks cache sharing across different locations  
+- Makes cache unstable when files are modified
+- Violates the configuration-based design principle
+- Creates cache misses for identical dataset configurations
 
 ---
 
