@@ -1,5 +1,6 @@
 from typing import Tuple, Dict, Any, Optional, List
 import random
+import numpy as np
 import torch
 import torchvision
 from PIL import Image
@@ -46,18 +47,24 @@ class MultiMNISTDataset(BaseMultiTaskDataset):
         inputs = {
             'image': self._get_image(l_dp[0], r_dp[0]),
         }
-        labels = {
-            'left': torch.tensor(l_dp[1], dtype=torch.int64),
-            'right': torch.tensor(r_dp[1], dtype=torch.int64),
-        }
+        
+        # Only load selected labels (but both come from same computation)
+        labels = {}
+        if 'left' in self.selected_labels:
+            labels['left'] = torch.tensor(l_dp[1], dtype=torch.int64)
+        if 'right' in self.selected_labels:
+            labels['right'] = torch.tensor(r_dp[1], dtype=torch.int64)
+        
         meta_info = {
             'image_resolution': inputs['image'].shape,
         }
         return inputs, labels, meta_info
 
     def _get_image(self, l_image: Image.Image, r_image: Image.Image) -> torch.Tensor:
-        l_image = utils.io.load_image(l_image)
-        r_image = utils.io.load_image(r_image)
+        # Convert PIL Images to tensors using numpy and torch.from_numpy        
+        l_image = torch.from_numpy(np.array(l_image)).float() / 255.0
+        r_image = torch.from_numpy(np.array(r_image)).float() / 255.0
+
         assert l_image.ndim == r_image.ndim == 2, f"{l_image.shape=}, {r_image.shape=}"
         assert l_image.shape == r_image.shape, f"{l_image.shape=}, {r_image.shape=}"
         left = torch.cat([l_image, torch.zeros(
@@ -120,8 +127,6 @@ class MultiMNISTDataset(BaseMultiTaskDataset):
         
         # Validate expected MultiMNIST data keys
         assert 'image' in inputs, f"inputs missing 'image', got keys: {list(inputs.keys())}"
-        assert 'left' in labels, f"labels missing 'left', got keys: {list(labels.keys())}"
-        assert 'right' in labels, f"labels missing 'right', got keys: {list(labels.keys())}"
         
         # Create figure task for the composite image
         figure_tasks = [
@@ -157,39 +162,60 @@ class MultiMNISTDataset(BaseMultiTaskDataset):
             width_style="50%"
         )
         
-        # Create classification labels display
-        left_digit = int(labels['left'].item())
-        right_digit = int(labels['right'].item())
+        # Create classification labels display conditionally
+        label_sections = []
         
-        labels_component = html.Div([
-            html.H4("Classification Labels", style={'margin-bottom': '10px'}),
-            html.Div([
-                html.Div([
-                    html.H5("Left Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
-                    html.Span(str(left_digit), style={
-                        'font-size': '24px', 
-                        'font-weight': 'bold', 
-                        'color': '#2E86AB'
-                    })
-                ], style={'margin-bottom': '10px'}),
-                html.Div([
-                    html.H5("Right Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
-                    html.Span(str(right_digit), style={
-                        'font-size': '24px', 
-                        'font-weight': 'bold', 
-                        'color': '#A23B72'
-                    })
-                ])
-            ])
-        ], style={
-            'width': '50%', 
-            'display': 'inline-block', 
-            'vertical-align': 'top',
-            'padding': '20px',
-            'border': '1px solid #ddd',
-            'border-radius': '5px',
-            'margin': '10px'
-        })
+        if 'left' in labels:
+            left_digit = int(labels['left'].item())
+            label_sections.append(html.Div([
+                html.H5("Left Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
+                html.Span(str(left_digit), style={
+                    'font-size': '24px', 
+                    'font-weight': 'bold', 
+                    'color': '#2E86AB'
+                })
+            ], style={'margin-bottom': '10px'}))
+        
+        if 'right' in labels:
+            right_digit = int(labels['right'].item())
+            label_sections.append(html.Div([
+                html.H5("Right Digit: ", style={'display': 'inline', 'margin-right': '5px'}),
+                html.Span(str(right_digit), style={
+                    'font-size': '24px', 
+                    'font-weight': 'bold', 
+                    'color': '#A23B72'
+                })
+            ]))
+        
+        # Create labels component only if there are labels to show
+        if label_sections:
+            labels_component = html.Div([
+                html.H4("Classification Labels", style={'margin-bottom': '10px'}),
+                html.Div(label_sections)
+            ], style={
+                'width': '50%', 
+                'display': 'inline-block', 
+                'vertical-align': 'top',
+                'padding': '20px',
+                'border': '1px solid #ddd',
+                'border-radius': '5px',
+                'margin': '10px'
+            })
+        else:
+            # If no labels selected, show info message
+            labels_component = html.Div([
+                html.H4("Classification Labels", style={'margin-bottom': '10px'}),
+                html.P("No classification labels selected for display.", 
+                       style={'color': '#666', 'font-style': 'italic'})
+            ], style={
+                'width': '50%', 
+                'display': 'inline-block', 
+                'vertical-align': 'top',
+                'padding': '20px',
+                'border': '1px solid #ddd',
+                'border-radius': '5px',
+                'margin': '10px'
+            })
         
         # Combine figure and labels components
         content_components = figure_components + [labels_component]

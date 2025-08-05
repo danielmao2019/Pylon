@@ -103,82 +103,72 @@ def test_split_variants():
             f"All split variants should produce different hashes, got: {hashes}"
 
 
-def test_different_data_roots_with_different_structure():
-    """Test that different data root structures produce different hashes."""
-    with tempfile.TemporaryDirectory() as temp_dir1:
-        with tempfile.TemporaryDirectory() as temp_dir2:
-            # Create similar but slightly different structures
-            create_dummy_facial_landmark_structure(temp_dir1)
-            
-            # Create different structure in temp_dir2
-            os.makedirs(os.path.join(temp_dir2, 'train_images'), exist_ok=True)
-            os.makedirs(os.path.join(temp_dir2, 'test_images'), exist_ok=True)
-            
-            # Create training.txt with different data
-            train_data_different = [
-                ('train_images/img101.jpg', [10.0, 20.0, 30.0, 40.0, 50.0], [60.0, 70.0, 80.0, 90.0, 100.0], 0, 1, 0, 1),
-                ('train_images/img102.jpg', [20.0, 30.0, 40.0, 50.0, 60.0], [70.0, 80.0, 90.0, 100.0, 110.0], 1, 0, 1, 0),
-            ]
-            
-            with open(os.path.join(temp_dir2, 'training.txt'), 'w') as f:
-                for img_path, landmarks_x, landmarks_y, gender, smile, glasses, pose in train_data_different:
-                    # Create dummy image
-                    img = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-                    Image.fromarray(img).save(os.path.join(temp_dir2, img_path))
-                    
-                    # Write annotation line
-                    line_parts = [img_path] + [str(x) for x in landmarks_x] + [str(y) for y in landmarks_y] + [str(gender), str(smile), str(glasses), str(pose)]
-                    f.write(' '.join(line_parts) + '\n')
-            
-            # Create minimal testing.txt for temp_dir2 as well
-            with open(os.path.join(temp_dir2, 'testing.txt'), 'w') as f:
-                img_path = 'test_images/img201.jpg'
-                img = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-                Image.fromarray(img).save(os.path.join(temp_dir2, img_path))
-                line_parts = [img_path, '1.0', '2.0', '3.0', '4.0', '5.0', '6.0', '7.0', '8.0', '9.0', '10.0', '1', '1', '1', '1']
-                f.write(' '.join(line_parts) + '\n')
-            
-            dataset1 = MultiTaskFacialLandmarkDataset(
-                data_root=temp_dir1,
-                split='train'
-            )
-            
-            dataset2 = MultiTaskFacialLandmarkDataset(
-                data_root=temp_dir2,
-                split='train'
-            )
-            
-            # Should have different hashes due to different data roots
-            assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+def test_different_selective_loading_configurations():
+    """Test that datasets with different selective loading configurations have different hashes."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        create_dummy_facial_landmark_structure(temp_dir)
+        
+        # Create datasets with different selective loading configurations
+        dataset1 = MultiTaskFacialLandmarkDataset(
+            data_root=temp_dir,
+            split='train',
+            labels=['landmarks', 'gender']
+        )
+        
+        dataset2 = MultiTaskFacialLandmarkDataset(
+            data_root=temp_dir,
+            split='train',
+            labels=['smile', 'glasses', 'pose']
+        )
+        
+        dataset3 = MultiTaskFacialLandmarkDataset(
+            data_root=temp_dir,
+            split='train'  # No labels parameter (loads all)
+        )
+        
+        # Should have different hashes due to different selective loading configurations
+        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        assert dataset1.get_cache_version_hash() != dataset3.get_cache_version_hash()
+        assert dataset2.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
 
 def test_comprehensive_no_hash_collisions():
-    """Ensure no hash collisions across different split configurations."""
-    with tempfile.TemporaryDirectory() as temp_dir1:
-        with tempfile.TemporaryDirectory() as temp_dir2:
-            create_dummy_facial_landmark_structure(temp_dir1)
-            create_dummy_facial_landmark_structure(temp_dir2)
+    """Ensure no hash collisions across different dataset configurations."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        create_dummy_facial_landmark_structure(temp_dir)
+        
+        datasets = []
+        
+        # Generate different dataset configurations
+        # Note: data_root is intentionally ignored in cache versioning to allow cache sharing
+        for split in ['train', 'test']:
+            # Test different splits
+            datasets.append(MultiTaskFacialLandmarkDataset(
+                data_root=temp_dir,
+                split=split
+            ))
             
-            datasets = []
+            # Test different selective loading configurations
+            datasets.append(MultiTaskFacialLandmarkDataset(
+                data_root=temp_dir,
+                split=split,
+                labels=['landmarks']
+            ))
             
-            # Generate different dataset configurations
-            for data_root in [temp_dir1, temp_dir2]:
-                for split in ['train', 'test']:
-                    datasets.append(MultiTaskFacialLandmarkDataset(
-                        data_root=data_root,
-                        split=split
-                    ))
-            
-            # Collect all hashes
-            hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-            
-            # Ensure all hashes are unique (no collisions)
-            assert len(hashes) == len(set(hashes)), \
-                f"Hash collision detected! Duplicate hashes found in: {hashes}"
-            
-            # Ensure all hashes are properly formatted
-            for hash_val in hashes:
-                assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-                assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
-
-
+            datasets.append(MultiTaskFacialLandmarkDataset(
+                data_root=temp_dir,
+                split=split,
+                labels=['gender', 'smile']
+            ))
+        
+        # Collect all hashes
+        hashes = [dataset.get_cache_version_hash() for dataset in datasets]
+        
+        # Ensure all hashes are unique (no collisions)
+        assert len(hashes) == len(set(hashes)), \
+            f"Hash collision detected! Duplicate hashes found in: {hashes}"
+        
+        # Ensure all hashes are properly formatted
+        for hash_val in hashes:
+            assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
+            assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"

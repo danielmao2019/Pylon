@@ -18,33 +18,41 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
 
 def validate_labels(labels: Dict[str, Any], dataset: NYUv2Dataset, image_resolution: tuple) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
-    assert labels.keys() == set(NYUv2Dataset.LABEL_NAMES)
+    # Check that all label keys are valid NYUv2 labels
+    assert set(labels.keys()).issubset(set(NYUv2Dataset.LABEL_NAMES)), f"Invalid label keys: {set(labels.keys()) - set(NYUv2Dataset.LABEL_NAMES)}"
+    # Ensure at least one label is present
+    assert len(labels) > 0, "At least one label must be present"
 
-    edge_detection = labels['edge_detection']
-    assert isinstance(edge_detection, torch.Tensor), f"{type(edge_detection)=}"
-    assert edge_detection.ndim == 3 and edge_detection.shape[0] == 1, f"{edge_detection.shape=}"
-    assert edge_detection.dtype == torch.float32, f"{edge_detection.dtype=}"
-    assert set(edge_detection.unique().tolist()) == set([0, 1]), f"{edge_detection.unique().tolist()=}"
-    assert edge_detection.shape[-2:] == image_resolution, f"{edge_detection.shape=}, {image_resolution=}"
+    # Conditionally validate each label if present
+    if 'edge_detection' in labels:
+        edge_detection = labels['edge_detection']
+        assert isinstance(edge_detection, torch.Tensor), f"{type(edge_detection)=}"
+        assert edge_detection.ndim == 3 and edge_detection.shape[0] == 1, f"{edge_detection.shape=}"
+        assert edge_detection.dtype == torch.float32, f"{edge_detection.dtype=}"
+        assert set(edge_detection.unique().tolist()) == set([0, 1]), f"{edge_detection.unique().tolist()=}"
+        assert edge_detection.shape[-2:] == image_resolution, f"{edge_detection.shape=}, {image_resolution=}"
 
-    depth_estimation = labels['depth_estimation']
-    assert isinstance(depth_estimation, torch.Tensor), f"{type(depth_estimation)=}"
-    assert depth_estimation.ndim == 2, f"{depth_estimation.shape=}"
-    assert depth_estimation.dtype == torch.float32, f"{depth_estimation.dtype=}"
-    assert depth_estimation.shape == image_resolution, f"{depth_estimation.shape=}, {image_resolution=}"
+    if 'depth_estimation' in labels:
+        depth_estimation = labels['depth_estimation']
+        assert isinstance(depth_estimation, torch.Tensor), f"{type(depth_estimation)=}"
+        assert depth_estimation.ndim == 2, f"{depth_estimation.shape=}"
+        assert depth_estimation.dtype == torch.float32, f"{depth_estimation.dtype=}"
+        assert depth_estimation.shape == image_resolution, f"{depth_estimation.shape=}, {image_resolution=}"
 
-    normal_estimation = labels['normal_estimation']
-    assert isinstance(normal_estimation, torch.Tensor), f"{type(normal_estimation)=}"
-    assert normal_estimation.ndim == 3 and normal_estimation.shape[0] == 3, f"{normal_estimation.shape=}"
-    assert normal_estimation.dtype == torch.float32, f"{normal_estimation.dtype=}"
-    assert normal_estimation.shape[-2:] == image_resolution, f"{normal_estimation.shape=}, {image_resolution=}"
+    if 'normal_estimation' in labels:
+        normal_estimation = labels['normal_estimation']
+        assert isinstance(normal_estimation, torch.Tensor), f"{type(normal_estimation)=}"
+        assert normal_estimation.ndim == 3 and normal_estimation.shape[0] == 3, f"{normal_estimation.shape=}"
+        assert normal_estimation.dtype == torch.float32, f"{normal_estimation.dtype=}"
+        assert normal_estimation.shape[-2:] == image_resolution, f"{normal_estimation.shape=}, {image_resolution=}"
 
-    semantic_segmentation = labels['semantic_segmentation']
-    assert isinstance(semantic_segmentation, torch.Tensor), f"{type(semantic_segmentation)=}"
-    assert semantic_segmentation.ndim == 2, f"{semantic_segmentation.shape=}"
-    assert semantic_segmentation.dtype == torch.int64, f"{semantic_segmentation.dtype=}"
-    assert semantic_segmentation.shape == image_resolution, f"{semantic_segmentation.shape=}, {image_resolution=}"
-    assert set(semantic_segmentation.unique().tolist()).issubset(set(range(dataset.NUM_CLASSES)))
+    if 'semantic_segmentation' in labels:
+        semantic_segmentation = labels['semantic_segmentation']
+        assert isinstance(semantic_segmentation, torch.Tensor), f"{type(semantic_segmentation)=}"
+        assert semantic_segmentation.ndim == 2, f"{semantic_segmentation.shape=}"
+        assert semantic_segmentation.dtype == torch.int64, f"{semantic_segmentation.dtype=}"
+        assert semantic_segmentation.shape == image_resolution, f"{semantic_segmentation.shape=}, {image_resolution=}"
+        assert set(semantic_segmentation.unique().tolist()).issubset(set(range(dataset.NUM_CLASSES)))
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: NYUv2Dataset) -> None:
@@ -101,3 +109,42 @@ def test_nyu_v2(dataset: NYUv2Dataset, max_samples, get_samples_to_test) -> None
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(lambda idx: validate_datapoint(dataset, idx), indices)
+
+
+@pytest.mark.parametrize('selected_labels,expected_keys', [
+    (['depth_estimation'], ['depth_estimation']),
+    (['normal_estimation'], ['normal_estimation']),
+    (['semantic_segmentation'], ['semantic_segmentation']),
+    (['edge_detection'], ['edge_detection']),
+    (['depth_estimation', 'normal_estimation'], ['depth_estimation', 'normal_estimation']),
+    (['semantic_segmentation', 'edge_detection'], ['semantic_segmentation', 'edge_detection']),
+    (['depth_estimation', 'semantic_segmentation', 'edge_detection'], ['depth_estimation', 'semantic_segmentation', 'edge_detection']),
+    (None, None),  # Default case - will be set to NYUv2Dataset.LABEL_NAMES
+])
+def test_nyu_v2_selective_loading(nyu_v2_data_root, selected_labels, expected_keys):
+    """Test that NYUv2 dataset selective loading works correctly."""
+    dataset = NYUv2Dataset(
+        data_root=nyu_v2_data_root,
+        split='train',
+        labels=selected_labels
+    )
+    
+    # Check selected_labels attribute
+    if selected_labels is None:
+        assert dataset.selected_labels == NYUv2Dataset.LABEL_NAMES
+        expected_keys = NYUv2Dataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
+    else:
+        assert dataset.selected_labels == selected_labels
+    
+    # Load a datapoint and check only expected labels are present
+    datapoint = dataset[0]
+    
+    assert isinstance(datapoint, dict)
+    assert 'labels' in datapoint
+    
+    labels = datapoint['labels']
+    assert isinstance(labels, dict)
+    assert set(labels.keys()) == set(expected_keys)
+    
+    # Validate the labels using existing validation function
+    validate_labels(labels, dataset, datapoint['meta_info']['image_resolution'])
