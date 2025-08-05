@@ -59,6 +59,7 @@ class NYUv2Dataset(BaseMultiTaskDataset):
     def __init__(self, semantic_granularity: Optional[str] = 'coarse', *args, **kwargs) -> None:
         assert type(semantic_granularity) == str, f"{type(semantic_granularity)=}"
         assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
+        self.semantic_granularity = semantic_granularity
         if semantic_granularity == 'fine':
             self.CLASS_MAP = self.CLASS_MAP_F
             self.NUM_CLASSES = self.NUM_CLASSES_F
@@ -111,8 +112,10 @@ class NYUv2Dataset(BaseMultiTaskDataset):
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
-        # NYUv2Dataset has no additional parameters beyond BaseDataset
-        return super()._get_cache_version_dict()
+        version_dict = super()._get_cache_version_dict()
+        # semantic_granularity affects CLASS_MAP and semantic segmentation labels
+        version_dict['semantic_granularity'] = self.semantic_granularity
+        return version_dict
 
     # ====================================================================================================
     # load methods
