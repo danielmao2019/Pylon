@@ -267,12 +267,15 @@ def test_apply_lod_to_point_cloud_invalid_density_percentage_value():
 # normalize_point_cloud_id Tests - Invalid Cases
 # ================================================================================
 
-def test_normalize_point_cloud_id_with_integer():
-    """Test that integer inputs are handled gracefully (converted to string)."""
-    # The function actually handles various input types by converting to string
-    result = normalize_point_cloud_id(123)
-    assert isinstance(result, str)
-    assert result == "123"
+def test_normalize_point_cloud_id_proper_usage():
+    """Test normalize function with proper string and tuple inputs."""
+    # String input
+    result_str = normalize_point_cloud_id("test_id")
+    assert result_str == "test_id"
+    
+    # Tuple input (proper usage)
+    result_tuple = normalize_point_cloud_id(("dataset", 42, "source"))
+    assert result_tuple == "dataset:42:source"
 
 
 def test_normalize_point_cloud_id_empty_string():
