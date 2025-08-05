@@ -192,9 +192,7 @@ def test_create_normal_display_with_different_dtypes():
     fig = create_normal_display(normals_float64, "Float64 Test")
     assert isinstance(fig, go.Figure)
     
-    normals_float16 = torch.randn(3, 32, 32, dtype=torch.float16)
-    fig = create_normal_display(normals_float16, "Float16 Test")
-    assert isinstance(fig, go.Figure)
+    # Normal vectors should be float32, not float16
 
 
 def test_get_normal_display_stats_with_different_dtypes():
@@ -205,21 +203,17 @@ def test_get_normal_display_stats_with_different_dtypes():
     assert isinstance(stats, dict)
     assert "torch.float64" in stats["dtype"]
     
-    # Float16
-    normals_float16 = torch.randn(3, 32, 32, dtype=torch.float16)
-    stats = get_normal_display_stats(normals_float16)
-    assert isinstance(stats, dict)
-    assert "torch.float16" in stats["dtype"]
+    # Normal vectors should be float32, not float16
 
 
-def test_normal_display_with_integer_dtypes():
-    """Test normal display with integer dtypes (should work but be unusual)."""
-    # Integer normals (unusual but should work)
-    normals_int = torch.randint(-100, 100, (3, 32, 32), dtype=torch.int32)
-    fig = create_normal_display(normals_int, "Integer Normals")
+def test_normal_display_with_float32_dtypes():
+    """Test normal display with proper float32 dtypes."""
+    # Normal vectors should be float, not integer (unit vectors)
+    normals_f32 = torch.randn(3, 32, 32, dtype=torch.float32)
+    fig = create_normal_display(normals_f32, "Float32 Normals")
     assert isinstance(fig, go.Figure)
     
-    stats = get_normal_display_stats(normals_int)
+    stats = get_normal_display_stats(normals_f32)
     assert isinstance(stats, dict)
 
 

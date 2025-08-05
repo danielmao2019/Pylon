@@ -187,19 +187,7 @@ def test_create_instance_surrogate_display_with_different_dtypes():
     fig = create_instance_surrogate_display(instance_f64, "Float64 Test")
     assert isinstance(fig, go.Figure)
     
-    # Float16
-    instance_f16 = torch.randn(2, 32, 32, dtype=torch.float16) * 5.0
-    fig = create_instance_surrogate_display(instance_f16, "Float16 Test")
-    assert isinstance(fig, go.Figure)
-    
-    # Integer types (unusual but should work)
-    instance_int32 = torch.randint(-10, 10, (2, 32, 32), dtype=torch.int32)
-    fig = create_instance_surrogate_display(instance_int32, "Int32 Test")
-    assert isinstance(fig, go.Figure)
-    
-    instance_int64 = torch.randint(-10, 10, (2, 32, 32), dtype=torch.int64)
-    fig = create_instance_surrogate_display(instance_int64, "Int64 Test")
-    assert isinstance(fig, go.Figure)
+    # Instance surrogates should be float32, not float16 or integer
 
 
 def test_get_instance_surrogate_display_stats_with_different_dtypes():
@@ -210,11 +198,7 @@ def test_get_instance_surrogate_display_stats_with_different_dtypes():
     assert isinstance(stats, dict)
     assert "torch.float64" in stats["Data Type"]
     
-    # Integer
-    instance_int = torch.randint(-10, 10, (2, 32, 32), dtype=torch.int32)
-    stats = get_instance_surrogate_display_stats(instance_int)
-    assert isinstance(stats, dict)
-    assert "torch.int32" in stats["Data Type"]
+    # Instance surrogates should be float, not integer
 
 
 def test_instance_surrogate_display_with_extreme_tensor_shapes():

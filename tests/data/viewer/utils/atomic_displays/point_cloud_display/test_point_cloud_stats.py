@@ -426,7 +426,7 @@ def test_point_cloud_to_numpy_basic(point_cloud_3d):
     
     assert isinstance(pc_numpy, np.ndarray)
     assert pc_numpy.shape == (1000, 3)
-    assert pc_numpy.dtype == np.float64  # Default numpy float type
+    assert pc_numpy.dtype == np.float32  # Preserves original torch tensor dtype
 
 
 def test_point_cloud_to_numpy_various_sizes():

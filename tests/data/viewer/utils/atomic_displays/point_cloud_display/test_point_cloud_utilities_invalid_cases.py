@@ -109,9 +109,12 @@ def test_build_point_cloud_id_invalid_component_type():
 def test_apply_lod_to_point_cloud_invalid_point_cloud_type():
     """Test assertion failure for invalid point cloud type."""
     with pytest.raises(AssertionError) as exc_info:
-        apply_lod_to_point_cloud("not_a_tensor", {"eye": {"x": 1, "y": 1, "z": 1}})
+        apply_lod_to_point_cloud(
+            points="not_a_tensor",
+            camera_state={"eye": {"x": 1, "y": 1, "z": 1}}
+        )
     
-    assert "Expected torch.Tensor" in str(exc_info.value)
+    assert "points must be torch.Tensor" in str(exc_info.value)
 
 
 def test_apply_lod_to_point_cloud_invalid_camera_state_type():
@@ -119,7 +122,11 @@ def test_apply_lod_to_point_cloud_invalid_camera_state_type():
     pc = torch.randn(100, 3, dtype=torch.float32)
     
     with pytest.raises(AssertionError) as exc_info:
-        apply_lod_to_point_cloud(pc, "not_a_dict")
+        apply_lod_to_point_cloud(
+            points=pc,
+            camera_state="not_a_dict",
+            lod_type="continuous"  # This will trigger camera_state validation
+        )
     
     assert "camera_state must be dict" in str(exc_info.value)
 
