@@ -101,9 +101,15 @@ def get_edge_display_stats(edges: torch.Tensor) -> Dict[str, Any]:
     
     # Calculate edge statistics
     # For binary edges, count non-zero as edge pixels
-    edge_threshold = 0.5 if edges.dtype == torch.float32 else 0
+    edge_threshold = 0.5 if edges.dtype in [torch.float32, torch.float64, torch.float16] else 0
     edge_pixels = (valid_edges > edge_threshold).sum()
     edge_percentage = (float(edge_pixels) / len(valid_edges)) * 100
+    
+    # Convert to float for statistical calculations if needed (handles integer dtypes)
+    if valid_edges.dtype in [torch.int32, torch.int64, torch.int16, torch.int8, torch.uint8]:
+        valid_edges_float = valid_edges.float()
+    else:
+        valid_edges_float = valid_edges
     
     return {
         'shape': list(edges.shape),
@@ -112,7 +118,7 @@ def get_edge_display_stats(edges: torch.Tensor) -> Dict[str, Any]:
         'total_pixels': edges.numel(),
         'min_edge': float(valid_edges.min()),
         'max_edge': float(valid_edges.max()),
-        'mean_edge': float(valid_edges.mean()),
-        'std_edge': float(valid_edges.std()),
+        'mean_edge': float(valid_edges_float.mean()),
+        'std_edge': float(valid_edges_float.std()),
         'edge_percentage': f"{edge_percentage:.2f}%"
     }

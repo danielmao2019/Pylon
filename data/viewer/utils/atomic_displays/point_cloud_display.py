@@ -46,8 +46,10 @@ def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str
     meta_info = datapoint.get('meta_info', {})
     datapoint_idx = meta_info.get('idx', 0)
     
-    # Get dataset name from backend
-    dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
+    # Get dataset name from backend (handles case where app isn't fully initialized)
+    dataset_name = 'unknown'
+    if hasattr(registry, 'viewer') and hasattr(registry.viewer, 'backend'):
+        dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
     
     return (dataset_name, datapoint_idx, component)
 
@@ -160,10 +162,10 @@ def apply_lod_to_point_cloud(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    logger.info(f"apply_lod_to_point_cloud called: points={points.shape}, lod_type={lod_type}, density_percentage={density_percentage}")
-    
     # Input validation
     assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
+    
+    logger.info(f"apply_lod_to_point_cloud called: points={points.shape}, lod_type={lod_type}, density_percentage={density_percentage}")
     assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
     
     if colors is not None:
