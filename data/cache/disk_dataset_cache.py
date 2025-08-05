@@ -18,16 +18,22 @@ class DiskDatasetCache(BaseCache):
         cache_dir: str,
         version_hash: str,
         enable_validation: bool = False,
+        dataset_class_name: Optional[str] = None,
+        version_dict: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
             cache_dir: Base cache directory (e.g., "/path/to/data_cache")
             version_hash: Hash identifying this dataset version
             enable_validation: Whether to enable checksum validation (default: False for performance)
+            dataset_class_name: Name of the dataset class for metadata
+            version_dict: Dictionary containing version parameters for metadata
         """
         self.cache_dir = cache_dir
         self.version_hash = version_hash
         self.enable_validation = enable_validation
+        self.dataset_class_name = dataset_class_name
+        self.version_dict = version_dict
         
         # Track which keys have been validated this session (first-access-only)
         self.validated_keys: Set[int] = set()
@@ -179,12 +185,21 @@ class DiskDatasetCache(BaseCache):
                 created_at = datetime.now()
 
             # Update with current version info
-            metadata[self.version_hash] = {
+            version_metadata = {
                 'created_at': created_at,  # datetime will be serialized by save_json
                 'cache_dir': self.cache_dir,
                 'version_dir': self.version_dir,
                 'enable_validation': self.enable_validation,
             }
+            
+            # Add dataset class name and version dict if available
+            if self.dataset_class_name is not None:
+                version_metadata['dataset_class_name'] = self.dataset_class_name
+            
+            if self.version_dict is not None:
+                version_metadata['version_dict'] = self.version_dict
+            
+            metadata[self.version_hash] = version_metadata
             
             # Write updated metadata
             save_json(metadata, self.metadata_file)

@@ -2,7 +2,11 @@ import pytest
 import torch
 import psutil
 import copy
+from typing import Any, Dict, Tuple, Optional, List
 from data.cache.cpu_dataset_cache import CPUDatasetCache
+from data.datasets.base_dataset import BaseDataset
+from data.transforms.compose import Compose
+from data.transforms.random_noise import RandomNoise
 
 
 @pytest.fixture
@@ -77,3 +81,114 @@ def make_datapoint(tensor_params):
             'meta_info': {'filename': f'test_{index}.jpg'}
         }
     return _make_datapoint
+
+
+@pytest.fixture
+def SampleDataset():
+    """A minimal dataset implementation for testing BaseDataset functionality."""
+    class _SampleDataset(BaseDataset):
+        SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
+        INPUT_NAMES = ['input']
+        LABEL_NAMES = ['label']
+
+        def _init_annotations(self) -> None:
+            # all splits are the same
+            self.annotations = list(range(100))
+
+        def _load_datapoint(self, idx: int) -> Tuple[
+            Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        ]:
+            # Create a random tensor for testing transforms
+            # Use the annotation index as the random seed for reproducibility
+            torch.manual_seed(self.annotations[idx])
+            tensor = torch.randn(3, 32, 32)  # Random noise
+            return {'input': tensor}, {'label': self.annotations[idx]}, {}
+
+        @staticmethod
+        def display_datapoint(
+            datapoint: Dict[str, Any],
+            class_labels: Optional[Dict[str, List[str]]] = None,
+            camera_state: Optional[Dict[str, Any]] = None,
+            settings_3d: Optional[Dict[str, Any]] = None
+        ) -> Optional['html.Div']:
+            """Return None to use default display functions."""
+            return None
+
+    return _SampleDataset
+
+
+@pytest.fixture
+def random_transforms():
+    """Random transforms for testing cache behavior with randomization."""
+    noise = RandomNoise(std=0.2)  # Add significant noise for visible effect
+
+    return {
+        'class': Compose,
+        'args': {
+            'transforms': [
+                (noise, [('inputs', 'input')]),
+            ]
+        }
+    }
+
+
+@pytest.fixture
+def TestDatasetWithDataRoot():
+    """Fixture that provides test dataset class that has a data_root for cache directory testing."""
+    class TestDatasetWithDataRootImpl(BaseDataset):
+        SPLIT_OPTIONS = ['train', 'test']
+        DATASET_SIZE = {'train': 5, 'test': 3}
+        INPUT_NAMES = ['data']
+        LABEL_NAMES = ['target']
+        SHA1SUM = None
+        
+        def _init_annotations(self) -> None:
+            """Initialize with dummy annotations."""
+            size = self.DATASET_SIZE[self.split] if hasattr(self, 'split') else 8
+            self.annotations = [{'index': i} for i in range(size)]
+        
+        def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+            """Load dummy datapoint."""
+            inputs = {'data': torch.randn(3, 32, 32)}
+            labels = {'target': torch.tensor(idx % 2)}
+            meta_info = {'annotation_idx': idx}
+            return inputs, labels, meta_info
+        
+        @staticmethod
+        def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
+            return None
+    
+    return TestDatasetWithDataRootImpl
+
+
+@pytest.fixture
+def TestDatasetWithoutDataRoot():
+    """Fixture that provides test dataset class that does NOT have a data_root for cache directory testing."""
+    class TestDatasetWithoutDataRootImpl(BaseDataset):
+        SPLIT_OPTIONS = ['train', 'test']
+        DATASET_SIZE = {'train': 5, 'test': 3}
+        INPUT_NAMES = ['data']
+        LABEL_NAMES = ['target']
+        SHA1SUM = None
+        
+        def __init__(self, split='train', **kwargs):
+            # Explicitly do NOT set data_root
+            super().__init__(split=split, **kwargs)
+        
+        def _init_annotations(self) -> None:
+            """Initialize with dummy annotations."""
+            size = self.DATASET_SIZE[self.split] if hasattr(self, 'split') else 8
+            self.annotations = [{'index': i} for i in range(size)]
+        
+        def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+            """Load dummy datapoint."""
+            inputs = {'data': torch.randn(3, 32, 32)}
+            labels = {'target': torch.tensor(idx % 2)}
+            meta_info = {'annotation_idx': idx}
+            return inputs, labels, meta_info
+        
+        @staticmethod
+        def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
+            return None
+    
+    return TestDatasetWithoutDataRootImpl

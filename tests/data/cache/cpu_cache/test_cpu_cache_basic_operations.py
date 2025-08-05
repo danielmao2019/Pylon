@@ -46,15 +46,37 @@ def test_cache_deep_copy_isolation(sample_datapoint):
     assert cached_again['meta_info']['filename'] == 'test.jpg'
 
 
-def test_cache_validation(sample_datapoint):
-    """Test cache validation mechanism."""
+def test_cache_validation_data_corruption(sample_datapoint):
+    """Test cache validation mechanism when cached data is corrupted."""
     cache = CPUDatasetCache(enable_validation=True)
 
-    # Test normal validation
+    # Store data
     cache.put(0, sample_datapoint)
     assert cache.get(0) is not None
 
-    # Test validation failure by corrupting cached data
+    # Corrupt the cached data (this simulates memory corruption or external modification)
     cache.cache[0]['inputs']['image'] += 1.0  # Modify tensor in-place
+    
+    # Clear validated keys to force validation on next access
+    cache.validated_keys.clear()
+    
     with pytest.raises(ValueError, match="Cache validation failed for idx 0 - data corruption detected"):
-        cache.get(0)  # Should raise ValueError
+        cache.get(0)  # Should raise ValueError due to data corruption
+
+
+def test_cache_validation_checksum_corruption(sample_datapoint):
+    """Test cache validation mechanism when stored checksum is corrupted."""
+    cache = CPUDatasetCache(enable_validation=True)
+
+    # Store data
+    cache.put(0, sample_datapoint)
+    assert cache.get(0) is not None
+
+    # Corrupt the stored checksum (this simulates checksum corruption)
+    cache.checksums[0] = "corrupted_checksum_that_wont_match"
+    
+    # Clear validated keys to force validation on next access
+    cache.validated_keys.clear()
+    
+    with pytest.raises(ValueError, match="Cache validation failed for idx 0 - data corruption detected"):
+        cache.get(0)  # Should raise ValueError due to checksum mismatch
