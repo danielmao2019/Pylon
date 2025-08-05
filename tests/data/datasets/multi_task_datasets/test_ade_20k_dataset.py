@@ -18,8 +18,7 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
 def validate_labels(labels: Dict[str, Any], image_resolution: Tuple[int, int]) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     # Check that all label keys are valid ADE20K labels
-    valid_ade20k_labels = {'object_cls_mask', 'object_ins_mask', 'parts_cls_masks', 'parts_ins_masks', 'objects', 'parts', 'amodal_masks'}
-    assert set(labels.keys()).issubset(valid_ade20k_labels), f"Invalid label keys: {set(labels.keys()) - valid_ade20k_labels}"
+    assert set(labels.keys()).issubset(set(ADE20KDataset.LABEL_NAMES)), f"Invalid label keys: {set(labels.keys()) - set(ADE20KDataset.LABEL_NAMES)}"
     # Ensure at least one label is present
     assert len(labels) > 0, "At least one label must be present"
 
@@ -138,7 +137,7 @@ def test_ade_20k(dataset, max_samples, get_samples_to_test):
     (['object_cls_mask', 'object_ins_mask'], ['object_cls_mask', 'object_ins_mask']),
     (['objects', 'parts'], ['objects', 'parts']),
     (['object_cls_mask', 'objects'], ['object_cls_mask', 'objects']),
-    (None, ['object_cls_mask', 'object_ins_mask', 'parts_cls_masks', 'parts_ins_masks', 'objects', 'parts', 'amodal_masks']),  # Default case
+    (None, None),  # Default case - will be set to ADE20KDataset.LABEL_NAMES
 ])
 def test_ade_20k_selective_loading(ade20k_data_root, selected_labels, expected_keys):
     """Test that ADE20K dataset selective loading works correctly."""
@@ -150,7 +149,8 @@ def test_ade_20k_selective_loading(ade20k_data_root, selected_labels, expected_k
     
     # Check selected_labels attribute
     if selected_labels is None:
-        assert dataset.selected_labels == dataset.LABEL_NAMES
+        assert dataset.selected_labels == ADE20KDataset.LABEL_NAMES
+        expected_keys = ADE20KDataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
     

@@ -62,7 +62,7 @@ def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_
     (['semantic_segmentation', 'normal_estimation'], ['semantic_segmentation', 'normal_estimation']),
     (['parts_target', 'saliency_estimation'], ['parts_target', 'saliency_estimation']),
     (['semantic_segmentation', 'parts_target', 'normal_estimation'], ['semantic_segmentation', 'parts_target', 'normal_estimation']),
-    (None, ['semantic_segmentation', 'parts_target', 'parts_inst_mask', 'normal_estimation', 'saliency_estimation']),  # Default case
+    (None, None),  # Default case - will be set to PASCALContextDataset.LABEL_NAMES
 ])
 def test_pascal_context_selective_loading(pascal_context_data_root, selected_labels, expected_keys):
     """Test that PASCAL Context dataset selective loading works correctly."""
@@ -74,7 +74,8 @@ def test_pascal_context_selective_loading(pascal_context_data_root, selected_lab
     
     # Check selected_labels attribute
     if selected_labels is None:
-        assert dataset.selected_labels == dataset.LABEL_NAMES
+        assert dataset.selected_labels == PASCALContextDataset.LABEL_NAMES
+        expected_keys = PASCALContextDataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
     

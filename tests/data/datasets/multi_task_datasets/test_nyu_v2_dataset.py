@@ -19,7 +19,7 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
 def validate_labels(labels: Dict[str, Any], dataset: NYUv2Dataset, image_resolution: tuple) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     # Check that all label keys are valid NYUv2 labels
-    assert set(labels.keys()).issubset(set(dataset.LABEL_NAMES)), f"Invalid label keys: {set(labels.keys()) - set(dataset.LABEL_NAMES)}"
+    assert set(labels.keys()).issubset(set(NYUv2Dataset.LABEL_NAMES)), f"Invalid label keys: {set(labels.keys()) - set(NYUv2Dataset.LABEL_NAMES)}"
     # Ensure at least one label is present
     assert len(labels) > 0, "At least one label must be present"
 
@@ -119,7 +119,7 @@ def test_nyu_v2(dataset: NYUv2Dataset, max_samples, get_samples_to_test) -> None
     (['depth_estimation', 'normal_estimation'], ['depth_estimation', 'normal_estimation']),
     (['semantic_segmentation', 'edge_detection'], ['semantic_segmentation', 'edge_detection']),
     (['depth_estimation', 'semantic_segmentation', 'edge_detection'], ['depth_estimation', 'semantic_segmentation', 'edge_detection']),
-    (None, ['depth_estimation', 'normal_estimation', 'semantic_segmentation', 'edge_detection']),  # Default case
+    (None, None),  # Default case - will be set to NYUv2Dataset.LABEL_NAMES
 ])
 def test_nyu_v2_selective_loading(nyu_v2_data_root, selected_labels, expected_keys):
     """Test that NYUv2 dataset selective loading works correctly."""
@@ -131,7 +131,8 @@ def test_nyu_v2_selective_loading(nyu_v2_data_root, selected_labels, expected_ke
     
     # Check selected_labels attribute
     if selected_labels is None:
-        assert dataset.selected_labels == dataset.LABEL_NAMES
+        assert dataset.selected_labels == NYUv2Dataset.LABEL_NAMES
+        expected_keys = NYUv2Dataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
     

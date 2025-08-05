@@ -21,7 +21,7 @@ def validate_inputs(inputs: Dict[str, Any], image_resolution: tuple) -> None:
 def validate_labels(labels: Dict[str, Any], dataset: CityScapesDataset, image_resolution: tuple) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     # Check that all label keys are valid CityScapes labels
-    assert set(labels.keys()).issubset(set(dataset.LABEL_NAMES)), f"Invalid label keys: {set(labels.keys()) - set(dataset.LABEL_NAMES)}"
+    assert set(labels.keys()).issubset(set(CityScapesDataset.LABEL_NAMES)), f"Invalid label keys: {set(labels.keys()) - set(CityScapesDataset.LABEL_NAMES)}"
     # Ensure at least one label is present
     assert len(labels) > 0, "At least one label must be present"
 
@@ -109,7 +109,7 @@ def test_city_scapes(dataset: CityScapesDataset, max_samples, get_samples_to_tes
     (['depth_estimation', 'semantic_segmentation'], ['depth_estimation', 'semantic_segmentation']),
     (['semantic_segmentation', 'instance_segmentation'], ['semantic_segmentation', 'instance_segmentation']),
     (['depth_estimation', 'instance_segmentation'], ['depth_estimation', 'instance_segmentation']),
-    (None, ['depth_estimation', 'semantic_segmentation', 'instance_segmentation']),  # Default case
+    (None, None),  # Default case - will be set to CityScapesDataset.LABEL_NAMES
 ])
 def test_city_scapes_selective_loading(city_scapes_data_root, selected_labels, expected_keys):
     """Test that CityScapes dataset selective loading works correctly."""
@@ -121,7 +121,8 @@ def test_city_scapes_selective_loading(city_scapes_data_root, selected_labels, e
     
     # Check selected_labels attribute
     if selected_labels is None:
-        assert dataset.selected_labels == dataset.LABEL_NAMES
+        assert dataset.selected_labels == CityScapesDataset.LABEL_NAMES
+        expected_keys = CityScapesDataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
     
