@@ -202,10 +202,20 @@ class PASCALContextDataset(BaseMultiTaskDataset):
     ]:
         inputs = self._load_image(idx)
         labels = {}
-        labels.update(self._load_semantic(idx))
-        labels.update(self._load_parts(idx))
-        labels.update(self._load_normal(idx))
-        labels.update(self._load_saliency(idx))
+        
+        # Only load selected labels to optimize disk I/O
+        if 'semantic_segmentation' in self.selected_labels:
+            labels.update(self._load_semantic(idx))
+        if any(label in self.selected_labels for label in ['parts_target', 'parts_inst_mask']):
+            parts_labels = self._load_parts(idx)
+            for key, value in parts_labels.items():
+                if key in self.selected_labels:
+                    labels[key] = value
+        if 'normal_estimation' in self.selected_labels:
+            labels.update(self._load_normal(idx))
+        if 'saliency_estimation' in self.selected_labels:
+            labels.update(self._load_saliency(idx))
+            
         meta_info = {
             'id': self.annotations[idx]['id'],
             'image_resolution': inputs['image'].shape,

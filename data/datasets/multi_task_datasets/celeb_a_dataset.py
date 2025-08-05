@@ -121,10 +121,20 @@ class CelebADataset(BaseMultiTaskDataset):
             filepath=self.annotations[idx][0],
             dtype=torch.float32, sub=None, div=255.,
         )}
+        
+        # Only load selected labels to optimize disk I/O
         labels = {}
-        if self.use_landmarks:
+        
+        # Handle landmarks (conditional loading based on use_landmarks)
+        if self.use_landmarks and 'landmarks' in self.selected_labels:
             labels.update({'landmarks': self.annotations[idx][1]})
-        labels.update(self.annotations[idx][2])
+        
+        # Handle attribute labels (only load selected ones)
+        all_attributes = self.annotations[idx][2]
+        for attr_name, attr_value in all_attributes.items():
+            if attr_name in self.selected_labels:
+                labels[attr_name] = attr_value
+        
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx][0], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),

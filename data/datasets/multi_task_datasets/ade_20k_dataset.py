@@ -57,12 +57,40 @@ class ADE20KDataset(BaseMultiTaskDataset):
                 dtype=torch.float32, sub=None, div=255.0,
             ),
         }
-        labels = {
-            **self._load_object_mask(idx),
-            **self._load_parts_masks(idx),
-            **self._load_objects_parts(idx),
-            **self._load_amodal_masks(idx),
-        }
+        
+        # Only load selected labels to optimize disk I/O
+        labels = {}
+        
+        # Check which label groups are needed
+        needs_object_mask = any(label in self.selected_labels for label in ['object_cls_mask', 'object_ins_mask'])
+        needs_parts_masks = any(label in self.selected_labels for label in ['parts_cls_masks', 'parts_ins_masks'])
+        needs_objects_parts = any(label in self.selected_labels for label in ['objects', 'parts'])
+        needs_amodal_masks = 'amodal_masks' in self.selected_labels
+        
+        if needs_object_mask:
+            object_labels = self._load_object_mask(idx)
+            for key, value in object_labels.items():
+                if key in self.selected_labels:
+                    labels[key] = value
+                    
+        if needs_parts_masks:
+            parts_labels = self._load_parts_masks(idx)
+            for key, value in parts_labels.items():
+                if key in self.selected_labels:
+                    labels[key] = value
+                    
+        if needs_objects_parts:
+            objects_parts_labels = self._load_objects_parts(idx)
+            for key, value in objects_parts_labels.items():
+                if key in self.selected_labels:
+                    labels[key] = value
+                    
+        if needs_amodal_masks:
+            amodal_labels = self._load_amodal_masks(idx)
+            for key, value in amodal_labels.items():
+                if key in self.selected_labels:
+                    labels[key] = value
+        
         meta_info = {
             **self.annotations[idx],
             'image_resolution': tuple(inputs['image'].shape[-2:]),
