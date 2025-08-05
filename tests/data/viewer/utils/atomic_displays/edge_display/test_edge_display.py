@@ -251,12 +251,12 @@ def test_get_edge_display_stats_different_dtypes():
     stats_f32 = get_edge_display_stats(edges_f32)
     assert "torch.float32" in stats_f32["dtype"]
     
-    # Float64
+    # Float64 (high precision edge detection)
     edges_f64 = torch.rand(32, 32, dtype=torch.float64)
     stats_f64 = get_edge_display_stats(edges_f64)
     assert "torch.float64" in stats_f64["dtype"]
     
-    # Integer (unusual but should work)
+    # Integer (binary or multi-class edge labels)
     edges_int = torch.randint(0, 2, (32, 32), dtype=torch.int32)
     stats_int = get_edge_display_stats(edges_int)
     assert "torch.int32" in stats_int["dtype"]

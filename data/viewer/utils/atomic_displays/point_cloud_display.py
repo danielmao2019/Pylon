@@ -46,8 +46,10 @@ def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str
     meta_info = datapoint.get('meta_info', {})
     datapoint_idx = meta_info.get('idx', 0)
     
-    # Get dataset name from backend
-    dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
+    # Get dataset name from backend (handles case where app isn't fully initialized)
+    dataset_name = 'unknown'
+    if hasattr(registry, 'viewer') and hasattr(registry.viewer, 'backend'):
+        dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
     
     return (dataset_name, datapoint_idx, component)
 

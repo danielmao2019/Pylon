@@ -153,7 +153,7 @@ def test_get_point_cloud_display_stats_extreme_coordinates():
 # ================================================================================
 
 def test_build_point_cloud_id_basic():
-    """Test basic point cloud ID generation."""
+    """Test basic point cloud ID generation without initialized registry."""
     datapoint = {"meta_info": {"idx": 42}}
     component = "source"
     
@@ -161,6 +161,7 @@ def test_build_point_cloud_id_basic():
     
     assert isinstance(pc_id, tuple)
     assert len(pc_id) == 3
+    assert pc_id[0] == "unknown"  # Expected when registry.viewer.backend not available
     assert pc_id[1] == 42
     assert pc_id[2] == "source"
 

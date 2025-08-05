@@ -240,7 +240,7 @@ def test_create_edge_display_with_different_dtypes():
     fig = create_edge_display(edges_f16, "Float16 Test")
     assert isinstance(fig, go.Figure)
     
-    # Integer types (unusual but should work)
+    # Integer types (binary or multi-class edge labels)
     edges_int32 = torch.randint(0, 2, (32, 32), dtype=torch.int32)
     fig = create_edge_display(edges_int32, "Int32 Test")
     assert isinstance(fig, go.Figure)
@@ -251,14 +251,14 @@ def test_create_edge_display_with_different_dtypes():
 
 
 def test_get_edge_display_stats_with_different_dtypes():
-    """Test statistics with various tensor dtypes (should work)."""
-    # Float64
+    """Test statistics with various tensor dtypes."""
+    # Float64 (high precision edge detection)
     edges_f64 = torch.rand(32, 32, dtype=torch.float64)
     stats = get_edge_display_stats(edges_f64)
     assert isinstance(stats, dict)
     assert "torch.float64" in stats["dtype"]
     
-    # Integer
+    # Integer (binary or multi-class edge labels)
     edges_int = torch.randint(0, 2, (32, 32), dtype=torch.int32)
     stats = get_edge_display_stats(edges_int)
     assert isinstance(stats, dict)
