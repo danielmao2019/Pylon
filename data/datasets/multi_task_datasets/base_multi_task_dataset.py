@@ -34,9 +34,8 @@ class BaseMultiTaskDataset(BaseDataset, ABC):
             assert all(isinstance(label, str) for label in labels), "All labels must be strings"
             assert len(labels) > 0, "labels list must not be empty"
             
-        super().__init__(*args, **kwargs)
-        
-        # Set selected_labels and validate after LABEL_NAMES is available
+        # Set selected_labels BEFORE super().__init__() so it's available during cache initialization
+        # We need to validate against LABEL_NAMES, but LABEL_NAMES should be available as a class attribute
         if labels is not None:
             label_set = set(labels)
             available_set = set(self.LABEL_NAMES)
@@ -47,6 +46,8 @@ class BaseMultiTaskDataset(BaseDataset, ABC):
             self.selected_labels = labels
         else:
             self.selected_labels = self.LABEL_NAMES.copy()
+            
+        super().__init__(*args, **kwargs)
     
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
