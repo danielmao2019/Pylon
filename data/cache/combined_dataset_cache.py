@@ -15,6 +15,8 @@ class CombinedDatasetCache:
         max_cpu_memory_percent: float = 80.0,
         enable_cpu_validation: bool = False,
         enable_disk_validation: bool = False,
+        dataset_class_name: Optional[str] = None,
+        version_dict: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -25,6 +27,8 @@ class CombinedDatasetCache:
             max_cpu_memory_percent: Maximum percentage of system memory for CPU cache
             enable_cpu_validation: Whether to enable checksum validation for CPU cache
             enable_disk_validation: Whether to enable checksum validation for disk cache
+            dataset_class_name: Name of the dataset class for metadata
+            version_dict: Dictionary containing version parameters for metadata
         """
         self.use_cpu_cache = use_cpu_cache
         self.use_disk_cache = use_disk_cache
@@ -45,6 +49,8 @@ class CombinedDatasetCache:
                 cache_dir=cache_dir,
                 version_hash=version_hash,
                 enable_validation=enable_disk_validation,
+                dataset_class_name=dataset_class_name,
+                version_dict=version_dict,
             )
         else:
             self.disk_cache = None
