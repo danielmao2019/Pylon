@@ -220,18 +220,18 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Generate version hash for this dataset configuration
             version_hash = self.get_cache_version_hash()
             
-            # For datasets without data_root (e.g., random datasets), use a default cache location
+            # For datasets without data_root (e.g., random datasets), use a default location
             # For datasets with soft links, resolve to real path to ensure cache is in target location (e.g., /pub not /home)
             if hasattr(self, 'data_root'):
-                cache_data_root = self.data_root
-                if os.path.islink(cache_data_root):
-                    cache_data_root = os.path.realpath(cache_data_root)
+                data_root_for_cache = self.data_root
+                if os.path.islink(data_root_for_cache):
+                    data_root_for_cache = os.path.realpath(data_root_for_cache)
             else:
-                # Use dataset class name for cache directory when no data_root is provided
-                cache_data_root = f'/tmp/cache/{self.__class__.__name__.lower()}'
+                # Use dataset class name for default location when no data_root is provided
+                data_root_for_cache = f'/tmp/cache/{self.__class__.__name__.lower()}'
             
             self.cache = CombinedDatasetCache(
-                data_root=cache_data_root,
+                data_root=data_root_for_cache,
                 version_hash=version_hash,
                 use_cpu_cache=use_cpu_cache,
                 use_disk_cache=use_disk_cache,
