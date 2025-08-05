@@ -4,6 +4,7 @@ CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
 import pytest
 import torch
+import plotly.graph_objects as go
 
 from data.viewer.utils.atomic_displays.instance_surrogate_display import (
     create_instance_surrogate_display,

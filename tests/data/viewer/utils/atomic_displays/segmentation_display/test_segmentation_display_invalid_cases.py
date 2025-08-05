@@ -4,6 +4,7 @@ CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
 import pytest
 import torch
+import plotly.graph_objects as go
 import numpy as np
 from typing import Dict, Any
 
