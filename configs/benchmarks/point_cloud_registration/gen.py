@@ -138,9 +138,9 @@ def build_training_config(dataset: str, model: str):
             
         elif model == 'PARENet':
             if dataset_name == 'kitti':
-                # For kitti, use general data config since no model-specific ones exist
-                from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
+                # Use PARENet-specific data config with collate_fn
+                from configs.common.datasets.point_cloud_registration.train.parenet_kitti_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.parenet_kitti_data_cfg import data_cfg as val_data_cfg
             elif dataset_name == 'single_temporal_pcr':
                 from configs.common.datasets.point_cloud_registration.train.geotransformer_single_temporal_pcr_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.geotransformer_single_temporal_pcr_data_cfg import data_cfg as val_data_cfg

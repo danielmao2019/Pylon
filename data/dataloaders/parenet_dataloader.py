@@ -1,6 +1,6 @@
-from typing import List, Any, Optional
+from typing import Any, Optional, List
 from functools import partial
-from data.collators.parenet.parenet_collate_fn import parenet_collate_fn
+from data.collators.parenet.parenet_collator_wrapper import parenet_collate_fn
 from data.dataloaders.base_dataloader import BaseDataLoader
 
 
@@ -9,6 +9,11 @@ class PARENetDataloader(BaseDataLoader):
     
     This dataloader sets up the PARENet collate function with proper parameters
     and inherits from BaseDataLoader like other PCR models (GeoTransformer, OverlapPredator).
+    
+    The collation logic uses the parenet_collate_fn wrapper which handles:
+    - Pylon format to PARENet format conversion
+    - Multi-stage hierarchical point cloud processing
+    - Neighbor computation with proper device handling
     
     Unlike GeoTransformer which calibrates neighbors dynamically, PARENet uses fixed
     neighbor counts specified in num_neighbors.
@@ -46,15 +51,15 @@ class PARENetDataloader(BaseDataLoader):
         # Store neighbor counts (no calibration needed for PARENet)
         self.num_neighbors = num_neighbors
         
-        # Initialize base dataloader with partial collate_fn
+        # Initialize base dataloader with partial collate_fn using the wrapper
         super(PARENetDataloader, self).__init__(
             dataset=dataset,
             collate_fn=partial(
                 parenet_collate_fn,
                 num_stages=num_stages,
                 voxel_size=voxel_size,
-                subsample_ratio=subsample_ratio,
                 num_neighbors=num_neighbors,
+                subsample_ratio=subsample_ratio,
                 precompute_data=precompute_data,
             ),
             **kwargs,

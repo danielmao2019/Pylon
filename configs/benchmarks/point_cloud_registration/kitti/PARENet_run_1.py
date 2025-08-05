@@ -2,8 +2,8 @@
 # Please do not attempt to modify manually.
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data.dataloader import DataLoader
 from criteria.vision_3d.point_cloud_registration.parenet_criterion.parenet_criterion import PARENetCriterion
+from data.dataloaders.parenet_dataloader import PARENetDataloader
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from metrics.vision_3d.point_cloud_registration.parenet_metric.parenet_metric import PARENetMetric
 from models.point_cloud_registration.parenet.parenet_model import PARENetModel
@@ -27,10 +27,15 @@ config = {
         },
     },
     'train_dataloader': {
-        'class': DataLoader,
+        'class': PARENetDataloader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
+            'num_stages': 4,
+            'voxel_size': 0.05,
+            'subsample_ratio': 4.0,
+            'num_neighbors': [32, 32, 32, 32],
+            'precompute_data': True,
         },
     },
     'criterion': {
@@ -59,10 +64,15 @@ config = {
         },
     },
     'val_dataloader': {
-        'class': DataLoader,
+        'class': PARENetDataloader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
+            'num_stages': 4,
+            'voxel_size': 0.05,
+            'subsample_ratio': 4.0,
+            'num_neighbors': [32, 32, 32, 32],
+            'precompute_data': True,
         },
     },
     'test_dataset': None,
