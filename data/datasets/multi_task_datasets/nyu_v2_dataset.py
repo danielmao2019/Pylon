@@ -59,6 +59,7 @@ class NYUv2Dataset(BaseMultiTaskDataset):
     def __init__(self, semantic_granularity: Optional[str] = 'coarse', *args, **kwargs) -> None:
         assert type(semantic_granularity) == str, f"{type(semantic_granularity)=}"
         assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
+        self.semantic_granularity = semantic_granularity
         if semantic_granularity == 'fine':
             self.CLASS_MAP = self.CLASS_MAP_F
             self.NUM_CLASSES = self.NUM_CLASSES_F
@@ -111,8 +112,10 @@ class NYUv2Dataset(BaseMultiTaskDataset):
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
-        # NYUv2Dataset has no additional parameters beyond BaseDataset
-        return super()._get_cache_version_dict()
+        version_dict = super()._get_cache_version_dict()
+        # semantic_granularity affects CLASS_MAP and semantic segmentation labels
+        version_dict['semantic_granularity'] = self.semantic_granularity
+        return version_dict
 
     # ====================================================================================================
     # load methods
@@ -123,10 +126,17 @@ class NYUv2Dataset(BaseMultiTaskDataset):
     ]:
         inputs = self._get_image_(idx)
         labels = {}
-        labels.update(self._get_depth_label_(idx))
-        labels.update(self._get_normal_label_(idx))
-        labels.update(self._get_segmentation_label_(idx))
-        labels.update(self._get_edge_label_(idx))
+        
+        # Only load selected labels to avoid unnecessary disk I/O
+        if 'depth_estimation' in self.selected_labels:
+            labels.update(self._get_depth_label_(idx))
+        if 'normal_estimation' in self.selected_labels:
+            labels.update(self._get_normal_label_(idx))
+        if 'semantic_segmentation' in self.selected_labels:
+            labels.update(self._get_segmentation_label_(idx))
+        if 'edge_detection' in self.selected_labels:
+            labels.update(self._get_edge_label_(idx))
+        
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx]['image'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),
@@ -222,63 +232,73 @@ class NYUv2Dataset(BaseMultiTaskDataset):
         
         # Validate expected NYUv2 data keys
         assert 'image' in inputs, f"inputs missing 'image', got keys: {list(inputs.keys())}"
-        assert 'depth_estimation' in labels, f"labels missing 'depth_estimation', got keys: {list(labels.keys())}"
-        assert 'normal_estimation' in labels, f"labels missing 'normal_estimation', got keys: {list(labels.keys())}"
-        assert 'semantic_segmentation' in labels, f"labels missing 'semantic_segmentation', got keys: {list(labels.keys())}"
-        assert 'edge_detection' in labels, f"labels missing 'edge_detection', got keys: {list(labels.keys())}"
         
-        # Create figure tasks for parallel execution
-        figure_tasks = [
-            lambda: create_image_display(
-                image=inputs['image'],
-                title="RGB Image"
-            ),
-            lambda: create_depth_display(
+        # Create figure tasks and statistics conditionally based on available labels
+        figure_tasks = []
+        stats_data = []
+        stats_titles = []
+        
+        # Always include RGB image
+        figure_tasks.append(lambda: create_image_display(
+            image=inputs['image'],
+            title="RGB Image"
+        ))
+        stats_data.append(get_image_display_stats(inputs['image']))
+        stats_titles.append("RGB Image Statistics")
+        
+        # Conditionally add depth estimation
+        if 'depth_estimation' in labels:
+            figure_tasks.append(lambda: create_depth_display(
                 depth=labels['depth_estimation'],
                 title="Depth Estimation"
-            ),
-            lambda: create_normal_display(
+            ))
+            stats_data.append(get_depth_display_stats(labels['depth_estimation']))
+            stats_titles.append("Depth Statistics")
+        
+        # Conditionally add normal estimation
+        if 'normal_estimation' in labels:
+            figure_tasks.append(lambda: create_normal_display(
                 normals=labels['normal_estimation'],
                 title="Surface Normals"
-            ),
-            lambda: create_segmentation_display(
+            ))
+            stats_data.append(get_normal_display_stats(labels['normal_estimation']))
+            stats_titles.append("Normal Statistics")
+        
+        # Conditionally add semantic segmentation
+        if 'semantic_segmentation' in labels:
+            figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['semantic_segmentation'],
                 title="Semantic Segmentation",
                 class_labels=class_labels
-            ),
-            lambda: create_edge_display(
+            ))
+            stats_data.append(get_segmentation_display_stats(labels['semantic_segmentation']))
+            stats_titles.append("Segmentation Statistics")
+        
+        # Conditionally add edge detection
+        if 'edge_detection' in labels:
+            figure_tasks.append(lambda: create_edge_display(
                 edges=labels['edge_detection'],
                 title="Edge Detection"
-            )
-        ]
+            ))
+            stats_data.append(get_edge_display_stats(labels['edge_detection']))
+            stats_titles.append("Edge Statistics")
         
         # Create figures in parallel for better performance
-        figure_creator = ParallelFigureCreator(max_workers=5, enable_timing=False)
+        max_workers = min(len(figure_tasks), 5)  # Adjust based on number of tasks
+        figure_creator = ParallelFigureCreator(max_workers=max_workers, enable_timing=False)
         figures = figure_creator.create_figures_parallel(figure_tasks)
         
-        # Create grid layout (3x2 for 5 figures)
+        # Create grid layout (adjust based on number of figures)
+        if len(figures) <= 3:
+            width_style = "33%"
+        else:
+            width_style = "33%"  # 3x2 grid for 4-5 figures
+        
         figure_components = create_figure_grid(
             figures=figures,
-            width_style="33%",
+            width_style=width_style,
             height_style="400px"
         )
-        
-        # Create statistics for each modality
-        stats_data = [
-            get_image_display_stats(inputs['image']),
-            get_depth_display_stats(labels['depth_estimation']),
-            get_normal_display_stats(labels['normal_estimation']),
-            get_segmentation_display_stats(labels['semantic_segmentation']),
-            get_edge_display_stats(labels['edge_detection'])
-        ]
-        
-        stats_titles = [
-            "RGB Image Statistics",
-            "Depth Statistics", 
-            "Normal Statistics",
-            "Segmentation Statistics",
-            "Edge Statistics"
-        ]
         
         stats_components = create_statistics_display(
             stats_data=stats_data,

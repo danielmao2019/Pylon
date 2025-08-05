@@ -52,3 +52,54 @@ def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(lambda idx: validate_datapoint(dataset, idx), indices)
+
+
+@pytest.mark.parametrize('selected_labels,expected_keys', [
+    (['semantic_segmentation'], ['semantic_segmentation']),
+    (['parts_target'], ['parts_target']),
+    (['normal_estimation'], ['normal_estimation']),
+    (['saliency_estimation'], ['saliency_estimation']),
+    (['semantic_segmentation', 'normal_estimation'], ['semantic_segmentation', 'normal_estimation']),
+    (['parts_target', 'saliency_estimation'], ['parts_target', 'saliency_estimation']),
+    (['semantic_segmentation', 'parts_target', 'normal_estimation'], ['semantic_segmentation', 'parts_target', 'normal_estimation']),
+    (None, None),  # Default case - will be set to PASCALContextDataset.LABEL_NAMES
+])
+def test_pascal_context_selective_loading(pascal_context_data_root, selected_labels, expected_keys):
+    """Test that PASCAL Context dataset selective loading works correctly."""
+    dataset = PASCALContextDataset(
+        data_root=pascal_context_data_root,
+        split='train',
+        labels=selected_labels
+    )
+    
+    # Check selected_labels attribute
+    if selected_labels is None:
+        assert dataset.selected_labels == PASCALContextDataset.LABEL_NAMES
+        expected_keys = PASCALContextDataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
+    else:
+        assert dataset.selected_labels == selected_labels
+    
+    # Load a datapoint and check only expected labels are present
+    datapoint = dataset[0]
+    
+    assert isinstance(datapoint, dict)
+    assert 'labels' in datapoint
+    
+    labels = datapoint['labels']
+    assert isinstance(labels, dict)
+    
+    # Handle parts_target which may be None (not all images have human parts)
+    if 'parts_target' in expected_keys and labels.get('parts_target') is None:
+        # Remove parts_target from expected if it's None in actual data
+        expected_keys = [k for k in expected_keys if k != 'parts_target']
+        # Also remove parts_inst_mask if it was expected but parts_target is None
+        if 'parts_inst_mask' in expected_keys:
+            expected_keys = [k for k in expected_keys if k != 'parts_inst_mask']
+    
+    assert set(labels.keys()) == set(expected_keys)
+    
+    # Validate that all labels are proper types
+    for key, value in labels.items():
+        if key in ['parts_target', 'parts_inst_mask'] and value is None:
+            continue  # None is acceptable for parts when no human parts are present
+        assert isinstance(value, torch.Tensor), f"Label '{key}' should be tensor, got {type(value)}"
