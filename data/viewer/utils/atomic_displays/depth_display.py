@@ -81,6 +81,7 @@ def get_depth_display_stats(depth: torch.Tensor) -> Dict[str, Any]:
             'shape': list(depth.shape),
             'dtype': str(depth.dtype),
             'valid_pixels': 0,
+            'total_pixels': depth.numel(),
             'min_depth': 'N/A',
             'max_depth': 'N/A',
             'mean_depth': 'N/A',
