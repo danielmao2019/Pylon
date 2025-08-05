@@ -149,7 +149,7 @@ def test_get_instance_surrogate_display_stats_basic(instance_surrogate_tensor):
     assert "Max Magnitude" in stats
     
     # Verify basic properties
-    assert stats["Shape"] == f"{list(instance_surrogate_tensor.shape)}"
+    assert stats["Shape"] == f"{instance_surrogate_tensor.shape}"
     assert stats["Height"] == 32
     assert stats["Width"] == 32
     assert stats["Total Pixels"] == 32 * 32
