@@ -99,9 +99,9 @@ def SampleDataset():
             Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
         ]:
             return {
-                'input': self.annotations[idx]
+                'input': torch.tensor(self.annotations[idx], dtype=torch.int64),
             }, {
-                'label': self.annotations[idx],  # This should match the tensor's random seed
+                'label': torch.tensor(self.annotations[idx], dtype=torch.int64),
             }, {
             }
 
