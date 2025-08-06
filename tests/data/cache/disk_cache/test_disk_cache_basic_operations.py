@@ -319,10 +319,10 @@ def test_cache_consistency_with_split_percentages(SampleDataset):
         datapoint = dataset[0]
         expected_datapoint = {
             'inputs': {
-                'input': torch.tensor(dataset.annotations[0], dtype=torch.float32),
+                'input': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
             },
             'labels': {
-                'label': torch.tensor(dataset.annotations[0], dtype=torch.float32),
+                'label': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
             },
             'meta_info': {
                 'idx': 0,
