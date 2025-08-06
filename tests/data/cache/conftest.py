@@ -99,9 +99,9 @@ def SampleDataset():
             Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
         ]:
             return {
-                'input': torch.tensor(self.annotations[idx], dtype=torch.int64),
+                'input': torch.tensor(self.annotations[idx], dtype=torch.float32),
             }, {
-                'label': torch.tensor(self.annotations[idx], dtype=torch.int64),
+                'label': torch.tensor(self.annotations[idx], dtype=torch.float32),
             }, {
             }
 
