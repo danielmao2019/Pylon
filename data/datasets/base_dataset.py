@@ -157,7 +157,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
                 # prepare to split
                 sizes = tuple(int(percent * len(self.annotations)) for percent in self.split_percentages)
                 cutoffs = [0] + list(itertools.accumulate(sizes))
-                random.shuffle(self.annotations)
+                # Use deterministic shuffle with base_seed for cache consistency
+                rng = random.Random(self.base_seed)
+                rng.shuffle(self.annotations)
                 for idx, split in enumerate(self.SPLIT_OPTIONS):
                     self.split = split
                     split_subset = copy.deepcopy(self)

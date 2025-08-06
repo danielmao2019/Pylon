@@ -93,16 +93,19 @@ def SampleDataset():
 
         def _init_annotations(self) -> None:
             # all splits are the same
-            self.annotations = list(range(100))
+            self.annotations = list(reversed(list(range(100))))
 
         def _load_datapoint(self, idx: int) -> Tuple[
             Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
         ]:
-            # Create a random tensor for testing transforms
-            # Use the annotation index as the random seed for reproducibility
-            torch.manual_seed(self.annotations[idx])
-            tensor = torch.randn(3, 32, 32)  # Random noise
-            return {'input': tensor}, {'label': self.annotations[idx]}, {}
+            # Create tensors on CPU initially - BaseDataset handles device transfer
+            annotation_value = self.annotations[idx]
+            return {
+                'input': torch.tensor(annotation_value, dtype=torch.float32),
+            }, {
+                'label': torch.tensor(annotation_value, dtype=torch.float32),
+            }, {
+            }
 
         @staticmethod
         def display_datapoint(
@@ -170,11 +173,7 @@ def TestDatasetWithoutDataRoot():
         INPUT_NAMES = ['data']
         LABEL_NAMES = ['target']
         SHA1SUM = None
-        
-        def __init__(self, split='train', **kwargs):
-            # Explicitly do NOT set data_root
-            super().__init__(split=split, **kwargs)
-        
+
         def _init_annotations(self) -> None:
             """Initialize with dummy annotations."""
             size = self.DATASET_SIZE[self.split] if hasattr(self, 'split') else 8

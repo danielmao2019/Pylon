@@ -38,7 +38,8 @@ class DiskDatasetCache(BaseCache):
         # Track which keys have been validated this session (first-access-only)
         self.validated_keys: Set[int] = set()
         
-        # Create version-specific directory
+        # Create cache directory and version-specific directory
+        os.makedirs(cache_dir, exist_ok=True)
         self.version_dir = os.path.join(cache_dir, version_hash)
         os.makedirs(self.version_dir, exist_ok=True)
         
