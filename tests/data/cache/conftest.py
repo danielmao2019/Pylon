@@ -103,7 +103,6 @@ def SampleDataset():
             }, {
                 'label': self.annotations[idx],  # This should match the tensor's random seed
             }, {
-                'idx': idx
             }
 
         @staticmethod
