@@ -98,10 +98,12 @@ def SampleDataset():
         def _load_datapoint(self, idx: int) -> Tuple[
             Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
         ]:
+            # Create tensors on CPU initially - BaseDataset handles device transfer
+            annotation_value = self.annotations[idx]
             return {
-                'input': torch.tensor(self.annotations[idx], dtype=torch.float32),
+                'input': torch.tensor(annotation_value, dtype=torch.float32),
             }, {
-                'label': torch.tensor(self.annotations[idx], dtype=torch.float32),
+                'label': torch.tensor(annotation_value, dtype=torch.float32),
             }, {
             }
 
