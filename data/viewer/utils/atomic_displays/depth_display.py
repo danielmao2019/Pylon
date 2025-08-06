@@ -10,6 +10,7 @@ def create_depth_display(
     depth: torch.Tensor,
     title: str,
     colorscale: str = 'Viridis',
+    ignore_value: Optional[float] = None,
     **kwargs: Any
 ) -> go.Figure:
     """Create depth map display with proper visualization.
@@ -18,6 +19,7 @@ def create_depth_display(
         depth: Depth tensor of shape [H, W] with depth values
         title: Title for the depth display
         colorscale: Plotly colorscale for depth visualization
+        ignore_value: Optional value to treat as invalid/transparent
         **kwargs: Additional arguments
         
     Returns:
@@ -35,6 +37,11 @@ def create_depth_display(
     
     # Convert to numpy for visualization
     depth_np = depth.detach().cpu().numpy()
+    
+    # Handle ignore_value by setting it to NaN for proper visualization
+    if ignore_value is not None:
+        depth_np = depth_np.copy()
+        depth_np[depth_np == ignore_value] = np.nan
     
     # Create depth visualization
     fig = px.imshow(
@@ -55,11 +62,12 @@ def create_depth_display(
     return fig
 
 
-def get_depth_display_stats(depth: torch.Tensor) -> Dict[str, Any]:
+def get_depth_display_stats(depth: torch.Tensor, ignore_value: Optional[float] = None) -> Dict[str, Any]:
     """Get depth statistics for display.
     
     Args:
         depth: Depth tensor of shape [H, W]
+        ignore_value: Optional value to ignore when calculating statistics
         
     Returns:
         Dictionary containing depth statistics
@@ -74,6 +82,11 @@ def get_depth_display_stats(depth: torch.Tensor) -> Dict[str, Any]:
     
     # Calculate statistics
     valid_mask = torch.isfinite(depth) & (depth > 0)
+    
+    # Filter out ignore_value if specified
+    if ignore_value is not None:
+        valid_mask = valid_mask & (depth != ignore_value)
+    
     valid_depth = depth[valid_mask]
     
     if len(valid_depth) == 0:
