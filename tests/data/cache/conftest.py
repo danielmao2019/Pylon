@@ -173,11 +173,7 @@ def TestDatasetWithoutDataRoot():
         INPUT_NAMES = ['data']
         LABEL_NAMES = ['target']
         SHA1SUM = None
-        
-        def __init__(self, split='train', **kwargs):
-            # Explicitly do NOT set data_root
-            super().__init__(split=split, **kwargs)
-        
+
         def _init_annotations(self) -> None:
             """Initialize with dummy annotations."""
             size = self.DATASET_SIZE[self.split] if hasattr(self, 'split') else 8
