@@ -287,7 +287,7 @@ def test_disk_memory_usage_calculation(temp_cache_dir, sample_datapoint):
     assert cache.get_size() == 2
 
 
-def test_cache_consistency_with_split_percentages(SampleDataset):
+def test_cache_consistency_with_split_percentages(SampleDataset, temp_cache_dir):
     """Test that cache works consistently with split percentages across multiple instantiations.
     
     This test verifies the fix for the deterministic shuffle issue:
@@ -295,37 +295,33 @@ def test_cache_consistency_with_split_percentages(SampleDataset):
       making cached data inconsistent across dataset instances
     - With deterministic shuffle: same base_seed produces same splits, enabling cache reuse
     """
-    import random
-    import tempfile
-    
-    with tempfile.TemporaryDirectory() as temp_dir:
-        dataset = SampleDataset(
-            data_root=temp_dir,
-            split=(0.5, 0.5, 0.0, 0.0),
-            base_seed=42,
-            use_cpu_cache=False,
-            use_disk_cache=True
-        )
-        # trigger disk cache
-        datapoint = dataset[0]
-        # re-initialize
-        dataset = SampleDataset(
-            data_root=temp_dir,
-            split=(0.5, 0.5, 0.0, 0.0),
-            base_seed=42,
-            use_cpu_cache=False,
-            use_disk_cache=True
-        )
-        datapoint = dataset[0]
-        expected_datapoint = {
-            'inputs': {
-                'input': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
-            },
-            'labels': {
-                'label': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
-            },
-            'meta_info': {
-                'idx': 0,
-            },
-        }
-        assert buffer_equal(datapoint, expected_datapoint)
+    dataset = SampleDataset(
+        data_root=temp_cache_dir,
+        split=(0.5, 0.5, 0.0, 0.0),
+        base_seed=42,
+        use_cpu_cache=False,
+        use_disk_cache=True
+    )
+    # trigger disk cache
+    datapoint = dataset[0]
+    # re-initialize
+    dataset = SampleDataset(
+        data_root=temp_cache_dir,
+        split=(0.5, 0.5, 0.0, 0.0),
+        base_seed=42,
+        use_cpu_cache=False,
+        use_disk_cache=True
+    )
+    datapoint = dataset[0]
+    expected_datapoint = {
+        'inputs': {
+            'input': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
+        },
+        'labels': {
+            'label': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
+        },
+        'meta_info': {
+            'idx': 0,
+        },
+    }
+    assert buffer_equal(datapoint, expected_datapoint)
