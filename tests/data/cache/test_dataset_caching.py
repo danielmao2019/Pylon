@@ -2,7 +2,7 @@ from typing import Dict, Any
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from utils.ops import buffer_equal
+from utils.ops import buffer_equal, buffer_allclose
 
 
 def test_basic_cache_functionality(SampleDataset):
@@ -187,3 +187,43 @@ def test_transform_randomness_in_dataloader(SampleDataset, random_transforms):
     # Compare corresponding batches between epochs
     for batch1, batch2 in zip(epoch1_data, epoch2_data):
         assert not torch.allclose(batch1.float(), batch2.float())
+
+
+def test_cache_consistency_with_split_percentages(SampleDataset):
+    """Test that cache works consistently with split percentages across multiple instantiations.
+    
+    This test verifies the fix for the deterministic shuffle issue:
+    - Without deterministic shuffle: random.shuffle() causes different splits each time,
+      making cached data inconsistent across dataset instances
+    - With deterministic shuffle: same base_seed produces same splits, enabling cache reuse
+    """
+    import random
+    import tempfile
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create two datasets with different global random seeds to force different shuffles
+        random.seed(111)
+        dataset1 = SampleDataset(
+            data_root=temp_dir,
+            split=(0.5, 0.5, 0.0, 0.0),
+            base_seed=42,
+            use_cpu_cache=True,
+            use_disk_cache=True
+        )
+        
+        random.seed(999)  
+        dataset2 = SampleDataset(
+            data_root=temp_dir,
+            split=(0.5, 0.5, 0.0, 0.0),
+            base_seed=42,
+            use_cpu_cache=True,
+            use_disk_cache=True
+        )
+        
+        train1 = dataset1.split_subsets['train']
+        train2 = dataset2.split_subsets['train']
+        
+        # Verify cache version is shared
+        assert train1.get_cache_version_hash() == train2.get_cache_version_hash()
+        
+        assert buffer_allclose(train1[0], train2[0])

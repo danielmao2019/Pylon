@@ -93,16 +93,18 @@ def SampleDataset():
 
         def _init_annotations(self) -> None:
             # all splits are the same
-            self.annotations = list(range(100))
+            self.annotations = list(reversed(list(range(100))))
 
         def _load_datapoint(self, idx: int) -> Tuple[
             Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
         ]:
-            # Create a random tensor for testing transforms
-            # Use the annotation index as the random seed for reproducibility
-            torch.manual_seed(self.annotations[idx])
-            tensor = torch.randn(3, 32, 32)  # Random noise
-            return {'input': tensor}, {'label': self.annotations[idx]}, {}
+            return {
+                'input': self.annotations[idx]
+            }, {
+                'label': self.annotations[idx],  # This should match the tensor's random seed
+            }, {
+                'idx': idx
+            }
 
         @staticmethod
         def display_datapoint(
