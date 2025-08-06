@@ -85,13 +85,31 @@ def update_datapoint_from_transforms(
     display_func = dataset_instance.display_datapoint
     logger.info(f"Using display method from dataset class: {type(dataset_instance).__name__}")
     
+    # Check if camera state is the default state - if so, pass None to allow camera pose calculation
+    default_camera_state = {
+        'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5},
+        'center': {'x': 0, 'y': 0, 'z': 0}, 
+        'up': {'x': 0, 'y': 0, 'z': 1}
+    }
+    
+    # For datasets that have camera poses (like iVISION MT), pass None to trigger pose calculation
+    final_camera_state = camera_state
+    if camera_state == default_camera_state:
+        # Check if datapoint has camera pose - if so, let dataset calculate camera from pose
+        if ('meta_info' in datapoint and 
+            'camera_pose' in datapoint['meta_info'] and 
+            hasattr(dataset_instance, '__class__') and 
+            'iVISION' in dataset_instance.__class__.__name__):
+            final_camera_state = None
+            logger.info(f"Using None camera_state for {dataset_instance.__class__.__name__} to trigger camera pose calculation")
+    
     # Create display using the determined display function
     logger.info(f"Creating {dataset_type} display with selected transforms")
     display = create_display(
         display_func=display_func,
         datapoint=datapoint,
         class_labels=class_labels,
-        camera_state=camera_state,
+        camera_state=final_camera_state,
         settings_3d=settings_3d
     )
 

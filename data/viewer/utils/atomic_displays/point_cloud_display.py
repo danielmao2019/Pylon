@@ -337,6 +337,22 @@ def create_point_cloud_display(
     if len(points_tensor) == 0:
         points_tensor = torch.tensor([[0, 0, 0]], dtype=torch.float32)
     
+    # 🔍 CRITICAL FIX: Downsample for browser memory limits
+    # Browser cannot handle 1.6M points - causes "Array buffer allocation failed"
+    MAX_BROWSER_POINTS = 100000  # Maximum points browser can handle reliably
+    if len(points_tensor) > MAX_BROWSER_POINTS:
+        print(f"⚠️ [POINT_CLOUD_DISPLAY] Downsampling {len(points_tensor)} points to {MAX_BROWSER_POINTS} for browser rendering")
+        # Random sampling to preserve overall structure
+        indices = torch.randperm(len(points_tensor))[:MAX_BROWSER_POINTS]
+        points_tensor = points_tensor[indices]
+        if colors_tensor is not None:
+            colors_tensor = colors_tensor[indices]
+        if labels_tensor is not None:
+            labels_tensor = labels_tensor[indices]
+        
+        # Update title to show downsampling
+        title = f"{title} (Downsampled: {MAX_BROWSER_POINTS:,}/{original_count:,})"
+    
     # Process colors from labels if needed (keep in torch tensors)
     if colors_tensor is not None:
         assert colors_tensor.shape[0] == points_tensor.shape[0], f"colors length {colors_tensor.shape[0]} != points length {points_tensor.shape[0]}"
@@ -394,7 +410,7 @@ def create_point_cloud_display(
             xaxis_title='X',
             yaxis_title='Y',
             zaxis_title='Z',
-            aspectmode='data',
+            aspectmode='data',  # Use data aspect mode for proper point cloud scaling
             camera=camera,
             xaxis=dict(range=x_range),
             yaxis=dict(range=y_range),
