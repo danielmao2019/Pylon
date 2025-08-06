@@ -15,7 +15,6 @@ Data Flow:
 from typing import Dict, Optional, Union, Any, Tuple
 import numpy as np
 import torch
-from dash import html
 import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
 from data.viewer.utils.continuous_lod import ContinuousLOD
@@ -412,7 +411,7 @@ def get_point_cloud_display_stats(
     points: torch.Tensor,
     change_map: Optional[torch.Tensor] = None,
     class_names: Optional[Dict[int, str]] = None
-) -> html.Ul:
+) -> Dict[str, Any]:
     """Get point cloud statistics for display.
     
     Args:
@@ -421,7 +420,7 @@ def get_point_cloud_display_stats(
         class_names: Optional dictionary mapping class IDs to class names
         
     Returns:
-        HTML list containing point cloud statistics
+        Dictionary containing point cloud statistics
         
     Raises:
         AssertionError: If inputs don't meet requirements
@@ -441,36 +440,33 @@ def get_point_cloud_display_stats(
     
     # Convert to numpy for stats computation
     points_np = points.detach().cpu().numpy()
-    stats_items = [
-        html.Li(f"Total Points: {len(points_np)}"),
-        html.Li(f"Dimensions: {points_np.shape[1]}"),
-        html.Li(f"X Range: [{points_np[:, 0].min():.2f}, {points_np[:, 0].max():.2f}]"),
-        html.Li(f"Y Range: [{points_np[:, 1].min():.2f}, {points_np[:, 1].max():.2f}]"),
-        html.Li(f"Z Range: [{points_np[:, 2].min():.2f}, {points_np[:, 2].max():.2f}]"),
-        html.Li(f"Center: [{points_np[:, 0].mean():.2f}, {points_np[:, 1].mean():.2f}, {points_np[:, 2].mean():.2f}]")
-    ]
-
+    
+    stats = {
+        'total_points': len(points_np),
+        'dimensions': points_np.shape[1],
+        'x_range': [float(points_np[:, 0].min()), float(points_np[:, 0].max())],
+        'y_range': [float(points_np[:, 1].min()), float(points_np[:, 1].max())],
+        'z_range': [float(points_np[:, 2].min()), float(points_np[:, 2].max())],
+        'center': [float(points_np[:, 0].mean()), float(points_np[:, 1].mean()), float(points_np[:, 2].mean())]
+    }
+    
     # Add class distribution if change_map is provided
     if change_map is not None:
         unique_classes, class_counts = torch.unique(change_map, return_counts=True)
         unique_classes = unique_classes.cpu().numpy()
         class_counts = class_counts.cpu().numpy()
         total_points = change_map.numel()
-
-        stats_items.append(html.Li("Class Distribution:"))
-        class_list_items = []
-
+        
+        class_distribution = {}
         for cls, count in zip(unique_classes, class_counts):
             percentage = (count / total_points) * 100
             cls_key = cls.item() if hasattr(cls, 'item') else cls
             class_name = class_names[cls_key] if class_names and cls_key in class_names else f"Class {cls_key}"
-            class_list_items.append(
-                html.Li(f"{class_name}: {count} points ({percentage:.2f}%)",
-                       style={'marginLeft': '20px'})
-            )
-
-        stats_items.append(html.Ul(class_list_items))
-
-    return html.Ul(stats_items)
-
-
+            class_distribution[class_name] = {
+                'count': int(count),
+                'percentage': float(percentage)
+            }
+        
+        stats['class_distribution'] = class_distribution
+    
+    return stats
