@@ -54,8 +54,13 @@ DATASET_FORMATS = {
         'label_format': ['transform']
     },
     'mtl': {
-        'input_format': {'image': ['image']},
-        'label_format': ['multi_task_labels']  # Multiple tasks with different modalities
+        'input_format': {
+            'image': ['image']
+        },
+        'label_format': {
+            'multi_task_labels': True,  # Multiple tasks with different modalities
+            'point_cloud': ['cropped_point_cloud']  # iVISION MT has point cloud data in labels
+        }
     },
     'general': {
         'input_format': {'data': ['x']},  # Generic input format

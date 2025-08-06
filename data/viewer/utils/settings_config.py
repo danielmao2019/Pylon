@@ -12,7 +12,7 @@ class ViewerSettings:
         'sym_diff_radius': 0.05,
         'corr_radius': 0.1,
         'lod_type': 'none',
-        'density_percentage': 50
+        'density_percentage': 100
     }
     
     # LOD type options
@@ -71,7 +71,7 @@ class ViewerSettings:
         validated['point_opacity'] = max(0.0, min(1.0, float(validated.get('point_opacity', 0.8))))
         validated['sym_diff_radius'] = max(0.0, min(2.0, float(validated.get('sym_diff_radius', 0.05))))
         validated['corr_radius'] = max(0.0, min(2.0, float(validated.get('corr_radius', 0.1))))
-        validated['density_percentage'] = max(10, min(100, (int(validated.get('density_percentage', 50)) // 10) * 10))
+        validated['density_percentage'] = max(10, min(100, (int(validated.get('density_percentage', 100)) // 10) * 10))
         
         # Validate LOD type
         valid_lod_types = {opt['value'] for opt in cls.LOD_TYPE_OPTIONS}
@@ -95,7 +95,15 @@ class ViewerSettings:
         # Import here to avoid circular imports
         from data.viewer.backend.backend import DATASET_FORMATS
         
-        # Check if the dataset type has point_cloud in its input format
+        # Check if the dataset type has point_cloud in either input or label format
         dataset_format = DATASET_FORMATS.get(dataset_type, {})
         input_format = dataset_format.get('input_format', {})
-        return 'point_cloud' in input_format
+        label_format = dataset_format.get('label_format', {})
+        
+        # Check input format (for PCR datasets)
+        has_input_point_cloud = 'point_cloud' in input_format
+        
+        # Check label format (for MTL datasets like iVISION)
+        has_label_point_cloud = isinstance(label_format, dict) and 'point_cloud' in label_format
+        
+        return has_input_point_cloud or has_label_point_cloud

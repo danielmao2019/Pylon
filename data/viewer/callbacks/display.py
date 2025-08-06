@@ -16,7 +16,7 @@ def create_display(
     display_func: callable,
     datapoint: Dict[str, Any], 
     class_labels: Optional[Dict[int, str]],
-    camera_state: Dict[str, Any],
+    camera_state: Optional[Dict[str, Any]],
     settings_3d: Dict[str, Union[float, str]]
 ) -> html.Div:
     """Create display using the provided display function.
@@ -38,7 +38,7 @@ def create_display(
     assert callable(display_func), f"display_func must be callable, got {type(display_func)}"
     assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
     assert datapoint != {}, "datapoint must not be empty"
-    assert isinstance(camera_state, dict), f"camera_state must be dict, got {type(camera_state)}"
+    assert camera_state is None or isinstance(camera_state, dict), f"camera_state must be dict or None, got {type(camera_state)}"
     assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
     assert class_labels is None or isinstance(class_labels, dict), f"class_labels must be dict or None, got {type(class_labels)}"
     
