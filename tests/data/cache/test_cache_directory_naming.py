@@ -4,7 +4,6 @@ import os
 import json
 import tempfile
 import pytest
-import torch
 
 
 def test_cache_directory_with_data_root(temp_data_root, TestDatasetWithDataRoot):
@@ -138,9 +137,11 @@ def test_cache_metadata_includes_dataset_info(TestDatasetWithoutDataRoot):
         f"Expected base_seed: 42, got: {version_dict['base_seed']}"
 
 
-def test_multiple_datasets_different_cache_dirs(temp_data_root, TestDatasetWithoutDataRoot, TestDatasetWithDataRoot):
+def test_multiple_datasets_different_cache_dirs(temp_data_root, temp_dir_for_dataset1, TestDatasetWithoutDataRoot, TestDatasetWithDataRoot):
     """Test that different dataset classes get different cache directories."""
+    # Create dataset1 with temp directory as data_root (to avoid /tmp/cache/ race conditions)
     dataset1 = TestDatasetWithoutDataRoot(
+        data_root=temp_dir_for_dataset1,
         split='train',
         use_disk_cache=True,
         use_cpu_cache=False
@@ -161,12 +162,12 @@ def test_multiple_datasets_different_cache_dirs(temp_data_root, TestDatasetWitho
     assert cache_info1['cache_dir'] != cache_info2['cache_dir'], \
         f"Different datasets should have different cache dirs: {cache_info1['cache_dir']} vs {cache_info2['cache_dir']}"
     
-    # Dataset without data_root should use class name pattern
-    expected_dir1 = f"/tmp/cache/{dataset1.__class__.__name__.lower()}_cache"
+    # Dataset1 should use the overridden temp directory
+    expected_dir1 = f"{temp_dir_for_dataset1}_cache"
     assert cache_info1['cache_dir'] == expected_dir1, \
         f"Expected: {expected_dir1}, got: {cache_info1['cache_dir']}"
     
-    # Dataset with data_root should use data_root pattern
+    # Dataset2 with data_root should use data_root pattern
     expected_dir2 = f"{temp_data_root}_cache"
     assert cache_info2['cache_dir'] == expected_dir2, \
         f"Expected: {expected_dir2}, got: {cache_info2['cache_dir']}"
@@ -230,3 +231,17 @@ def temp_data_root():
     """Create a temporary directory to use as data root."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield temp_dir
+
+
+@pytest.fixture
+def temp_dir_for_dataset1():
+    """Create a temporary directory for dataset1 testing."""
+    temp_dir = tempfile.mkdtemp()
+    yield temp_dir
+    # Clean up after test
+    import shutil
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    cache_dir = f"{temp_dir}_cache"
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
