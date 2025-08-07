@@ -5,7 +5,7 @@ from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import 
 
 
 @pytest.fixture
-def urb3dcd_dataset_train_config(urb3dcd_data_root):
+def urb3dcd_dataset_train_config(urb3dcd_data_root, use_cpu_device, get_device):
     """Fixture for creating an Urb3DCDDataset config with train split."""
     return {
         'class': Urb3DCDDataset,
@@ -16,13 +16,14 @@ def urb3dcd_dataset_train_config(urb3dcd_data_root):
             'patched': True,
             'sample_per_epoch': 128,
             'fix_samples': False,
-            'radius': 50
+            'radius': 50,
+            'device': get_device(use_cpu_device)
         }
     }
 
 
 @pytest.fixture
-def dataset_config(request, urb3dcd_data_root):
+def dataset_config(request, urb3dcd_data_root, use_cpu_device, get_device):
     """Fixture for creating an Urb3DCDDataset config with parameterized split."""
     split = request.param
     return {
@@ -34,6 +35,7 @@ def dataset_config(request, urb3dcd_data_root):
             'patched': True,
             'sample_per_epoch': 128,
             'fix_samples': False,
-            'radius': 50
+            'radius': 50,
+            'device': get_device(use_cpu_device)
         }
     }

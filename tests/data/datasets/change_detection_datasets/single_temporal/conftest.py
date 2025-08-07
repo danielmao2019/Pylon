@@ -7,13 +7,14 @@ from data.datasets import WHU_BD_Dataset, SYSU_CD_Dataset, Bi2SingleTemporal
 
 
 @pytest.fixture
-def ppsl_dataset_config(whu_bd_data_root):
+def ppsl_dataset_config(whu_bd_data_root, use_cpu_device, get_device):
     """Fixture for creating a PPSLDataset config."""
     source_config = {
         'class': WHU_BD_Dataset,
         'args': {
             'data_root': whu_bd_data_root,
-            'split': 'train'
+            'split': 'train',
+            'device': get_device(use_cpu_device)
         }
     }
     
@@ -31,7 +32,7 @@ def ppsl_dataset_config(whu_bd_data_root):
 
 
 @pytest.fixture
-def i3pe_dataset_config(sysu_cd_data_root):
+def i3pe_dataset_config(sysu_cd_data_root, use_cpu_device, get_device):
     """Fixture for creating an I3PEDataset config."""
     from utils.builders.builder import build_from_config
     
@@ -40,7 +41,8 @@ def i3pe_dataset_config(sysu_cd_data_root):
         'class': SYSU_CD_Dataset,
         'args': {
             'data_root': sysu_cd_data_root,
-            'split': 'train'
+            'split': 'train',
+            'device': get_device(use_cpu_device)
         }
     }
     sysu_dataset = build_from_config(sysu_config)

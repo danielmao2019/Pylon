@@ -17,12 +17,24 @@ def pytest_addoption(parser):
         type=int,
         help="Maximum number of datapoints to test per dataset (default: test full dataset)"
     )
+    parser.addoption(
+        "--cpu",
+        action="store_true",
+        default=False,
+        help="Use CPU device for datasets instead of GPU (default: use GPU)"
+    )
 
 
 @pytest.fixture
 def max_samples(request):
     """Fixture to get the maximum number of samples to test from command line."""
     return request.config.getoption("--samples")
+
+
+@pytest.fixture
+def use_cpu_device(request):
+    """Fixture to get the CPU device flag from command line."""
+    return request.config.getoption("--cpu")
 
 
 @pytest.fixture
@@ -46,6 +58,28 @@ def get_samples_to_test():
         else:
             return dataset_length
     return _get_samples_to_test
+
+
+@pytest.fixture
+def get_device():
+    """
+    Fixture that provides helper function to determine device based on command line flag.
+    """
+    def _get_device(use_cpu: bool = False) -> str:
+        """
+        Helper function to determine device based on command line args.
+
+        Args:
+            use_cpu: Value from --cpu command line argument
+
+        Returns:
+            Device string: 'cpu' if --cpu flag is provided, 'cuda' otherwise
+        """
+        if use_cpu:
+            return 'cpu'
+        else:
+            return 'cuda'
+    return _get_device
 
 
 @pytest.fixture

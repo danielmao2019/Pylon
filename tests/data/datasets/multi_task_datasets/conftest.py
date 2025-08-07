@@ -10,114 +10,123 @@ from data.datasets.multi_task_datasets.pascal_context_dataset import PASCALConte
 
 
 @pytest.fixture
-def celeb_a_dataset_config(request, celeb_a_data_root):
+def celeb_a_dataset_config(request, celeb_a_data_root, use_cpu_device, get_device):
     """Fixture for creating a CelebADataset config."""
     params = request.param
     return {
         'class': CelebADataset,
         'args': {
             'data_root': celeb_a_data_root,
+            'device': get_device(use_cpu_device),
             **params
         }
     }
 
 
 @pytest.fixture
-def ade20k_dataset_config(request, ade20k_data_root):
+def ade20k_dataset_config(request, ade20k_data_root, use_cpu_device, get_device):
     """Fixture for creating an ADE20KDataset config."""
     split = request.param
     return {
         'class': ADE20KDataset,
         'args': {
             'data_root': ade20k_data_root,
-            'split': split
+            'split': split,
+            'device': get_device(use_cpu_device)
         }
     }
 
 
 @pytest.fixture
-def city_scapes_dataset_config(request, city_scapes_data_root):
+def city_scapes_dataset_config(request, city_scapes_data_root, use_cpu_device, get_device):
     """Fixture for creating a CityScapesDataset config."""
     params = request.param
     return {
         'class': CityScapesDataset,
         'args': {
             'data_root': city_scapes_data_root,
+            'device': get_device(use_cpu_device),
             **params
         }
     }
 
 
 @pytest.fixture
-def city_scapes_base_config(city_scapes_data_root):
+def city_scapes_base_config(city_scapes_data_root, use_cpu_device, get_device):
     """Base config for CityScapes selective loading tests."""
     return {
         'class': CityScapesDataset,
         'args': {
             'data_root': city_scapes_data_root,
-            'split': 'train'
+            'split': 'train',
+            'device': get_device(use_cpu_device)
         }
     }
 
 
 @pytest.fixture
-def multi_task_facial_landmark_dataset_config(request, multi_task_facial_landmark_data_root):
+def multi_task_facial_landmark_dataset_config(request, multi_task_facial_landmark_data_root, use_cpu_device, get_device):
     """Fixture for creating a MultiTaskFacialLandmarkDataset config."""
     params = request.param
     return {
         'class': MultiTaskFacialLandmarkDataset,
         'args': {
             'data_root': multi_task_facial_landmark_data_root,
+            'device': get_device(use_cpu_device),
             **params
         }
     }
 
 
 @pytest.fixture
-def nyu_v2_dataset_config(request, nyu_v2_data_root):
+def nyu_v2_dataset_config(request, nyu_v2_data_root, use_cpu_device, get_device):
     """Fixture for creating a NYUv2Dataset config."""
     params = request.param
     return {
         'class': NYUv2Dataset,
         'args': {
             'data_root': nyu_v2_data_root,
+            'device': get_device(use_cpu_device),
             **params
         }
     }
 
 
 @pytest.fixture
-def nyu_v2_base_config(nyu_v2_data_root):
+def nyu_v2_base_config(nyu_v2_data_root, use_cpu_device, get_device):
     """Base config for NYUv2 selective loading tests."""
     return {
         'class': NYUv2Dataset,
         'args': {
             'data_root': nyu_v2_data_root,
-            'split': 'train'
+            'split': 'train',
+            'device': get_device(use_cpu_device)
         }
     }
 
 
 @pytest.fixture
-def pascal_context_dataset_config(request, pascal_context_data_root):
+def pascal_context_dataset_config(request, pascal_context_data_root, use_cpu_device, get_device):
     """Fixture for creating a PASCALContextDataset config."""
     split = request.param
     return {
         'class': PASCALContextDataset,
         'args': {
             'data_root': pascal_context_data_root,
-            'split': split
+            'split': split,
+            'device': get_device(use_cpu_device)
         }
     }
 
 
 @pytest.fixture
-def pascal_context_base_config(pascal_context_data_root):
+def pascal_context_base_config(pascal_context_data_root, use_cpu_device, get_device):
     """Base config for PASCAL Context selective loading tests."""
     return {
         'class': PASCALContextDataset,
         'args': {
             'data_root': pascal_context_data_root,
-            'split': 'train'
+            'split': 'train',
+            'device': get_device(use_cpu_device)
         }
     }
