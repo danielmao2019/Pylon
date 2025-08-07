@@ -252,3 +252,69 @@ def test_segmentation_stats_determinism(segmentation_tensor):
     assert isinstance(stats1, dict)
     assert isinstance(stats2, dict)
     # Note: Deep equality would require implementation details from get_segmentation_stats
+
+
+# ================================================================================
+# Batch Support Tests - CRITICAL for eval viewer
+# ================================================================================
+
+def test_create_segmentation_display_batched_tensor(batched_segmentation_tensor):
+    """Test creating segmentation display with batched tensor (batch size 1)."""
+    fig = create_segmentation_display(batched_segmentation_tensor, "Test Batched Segmentation")
+    
+    assert isinstance(fig, go.Figure)
+    assert fig.layout.title.text == "Test Batched Segmentation"
+
+
+def test_get_segmentation_display_stats_batched_tensor(batched_segmentation_tensor):
+    """Test getting statistics from batched segmentation tensor."""
+    stats = get_segmentation_display_stats(batched_segmentation_tensor)
+    
+    assert isinstance(stats, dict)
+    # Should contain basic segmentation statistics
+
+
+def test_batch_size_one_assertion_segmentation_display():
+    """Test that batch size > 1 raises assertion error in create_segmentation_display."""
+    invalid_batched_segmentation = torch.randint(0, 5, (2, 32, 32), dtype=torch.int64)
+    
+    with pytest.raises(AssertionError, match="Expected batch size 1 for visualization"):
+        create_segmentation_display(invalid_batched_segmentation, "Should Fail")
+
+
+def test_batch_size_one_assertion_segmentation_stats():
+    """Test that batch size > 1 raises assertion error in get_segmentation_display_stats."""
+    invalid_batched_segmentation = torch.randint(0, 5, (3, 32, 32), dtype=torch.int64)
+    
+    with pytest.raises(AssertionError, match="Expected batch size 1 for analysis"):
+        get_segmentation_display_stats(invalid_batched_segmentation)
+
+
+def test_batched_vs_unbatched_segmentation_consistency(batched_segmentation_tensor):
+    """Test that batched and unbatched segmentation produce equivalent results."""
+    unbatched_segmentation = batched_segmentation_tensor[0]  # Remove batch dimension
+    
+    # Both should create valid figures
+    batched_fig = create_segmentation_display(batched_segmentation_tensor, "Batched")
+    unbatched_fig = create_segmentation_display(unbatched_segmentation, "Unbatched")
+    
+    assert isinstance(batched_fig, go.Figure)
+    assert isinstance(unbatched_fig, go.Figure)
+    
+    # Both should produce valid statistics
+    batched_stats = get_segmentation_display_stats(batched_segmentation_tensor)
+    unbatched_stats = get_segmentation_display_stats(unbatched_segmentation)
+    
+    assert isinstance(batched_stats, dict)
+    assert isinstance(unbatched_stats, dict)
+
+
+def test_complete_batch_segmentation_pipeline(batched_segmentation_tensor):
+    """Test complete batched segmentation pipeline from tensor to figure."""
+    # Test display creation (internally handles batch)
+    fig = create_segmentation_display(batched_segmentation_tensor, "Batch Segmentation Integration")
+    assert isinstance(fig, go.Figure)
+    
+    # Test statistics (handles batch)
+    stats = get_segmentation_display_stats(batched_segmentation_tensor)
+    assert isinstance(stats, dict)

@@ -32,6 +32,30 @@ def grayscale_image():
     return torch.randint(0, 255, (1, 32, 32), dtype=torch.uint8)
 
 
+@pytest.fixture
+def batched_rgb_image():
+    """Fixture providing batched RGB image tensor with batch size 1."""
+    return torch.randint(0, 255, (1, 3, 32, 32), dtype=torch.uint8)
+
+
+@pytest.fixture
+def batched_grayscale_image():
+    """Fixture providing batched grayscale image tensor with batch size 1."""
+    return torch.randint(0, 255, (1, 1, 32, 32), dtype=torch.uint8)
+
+
+@pytest.fixture
+def multi_channel_image():
+    """Fixture providing multi-channel image tensor (6 channels)."""
+    return torch.randint(0, 255, (6, 32, 32), dtype=torch.uint8)
+
+
+@pytest.fixture
+def batched_multi_channel_image():
+    """Fixture providing batched multi-channel image tensor with batch size 1."""
+    return torch.randint(0, 255, (1, 6, 32, 32), dtype=torch.uint8)
+
+
 # ================================================================================
 # image_to_numpy Tests - Valid Cases
 # ================================================================================
@@ -224,3 +248,145 @@ def test_performance_with_large_images():
     assert numpy_img.shape == (512, 512, 3)
     assert isinstance(fig, go.Figure)
     assert isinstance(stats, dict)
+
+
+# ================================================================================
+# Batch Support Tests - CRITICAL for eval viewer
+# ================================================================================
+
+def test_create_image_display_batched_rgb(batched_rgb_image):
+    """Test creating display for batched RGB image (batch size 1)."""
+    fig = create_image_display(batched_rgb_image, "Test Batched RGB")
+    
+    assert isinstance(fig, go.Figure)
+    assert fig.layout.title.text == "Test Batched RGB"
+    assert fig.layout.height == 400
+
+
+def test_create_image_display_batched_grayscale(batched_grayscale_image):
+    """Test creating display for batched grayscale image (batch size 1)."""
+    fig = create_image_display(batched_grayscale_image, "Test Batched Grayscale")
+    
+    assert isinstance(fig, go.Figure)
+    assert fig.layout.title.text == "Test Batched Grayscale"
+
+
+def test_create_image_display_batched_multi_channel(batched_multi_channel_image):
+    """Test creating display for batched multi-channel image (batch size 1)."""
+    fig = create_image_display(batched_multi_channel_image, "Test Batched Multi-Channel")
+    
+    assert isinstance(fig, go.Figure)
+    assert fig.layout.title.text == "Test Batched Multi-Channel"
+
+
+def test_get_image_display_stats_batched_rgb(batched_rgb_image):
+    """Test image statistics calculation for batched RGB image."""
+    stats = get_image_display_stats(batched_rgb_image)
+    
+    assert isinstance(stats, dict)
+    assert "Shape" in stats
+    assert "Min Value" in stats
+    assert "Max Value" in stats
+    assert "Mean Value" in stats
+    assert "Std Dev" in stats
+    
+    # Should show unbatched shape in stats
+    assert stats["Shape"] == "(3, 32, 32)"
+
+
+def test_get_image_display_stats_batched_with_change_map():
+    """Test image statistics with batched input and batched change map."""
+    batched_image = torch.randn(1, 3, 32, 32, dtype=torch.float32)
+    batched_change_map = torch.randint(0, 2, (1, 32, 32), dtype=torch.float32)
+    
+    stats = get_image_display_stats(batched_image, batched_change_map)
+    
+    assert "Changed Pixels" in stats
+    assert "Change Min" in stats
+    assert "Change Max" in stats
+    assert "%" in stats["Changed Pixels"]
+
+
+def test_batch_size_one_assertion_create_display():
+    """Test that batch size > 1 raises assertion error in create_image_display."""
+    invalid_batched_image = torch.randint(0, 255, (2, 3, 32, 32), dtype=torch.uint8)
+    
+    with pytest.raises(AssertionError, match="Expected batch size 1 for visualization"):
+        create_image_display(invalid_batched_image, "Should Fail")
+
+
+def test_batch_size_one_assertion_stats():
+    """Test that batch size > 1 raises assertion error in get_image_display_stats."""
+    invalid_batched_image = torch.randint(0, 255, (3, 3, 32, 32), dtype=torch.uint8)
+    
+    with pytest.raises(AssertionError, match="Expected batch size 1 for analysis"):
+        get_image_display_stats(invalid_batched_image)
+
+
+@pytest.mark.parametrize("batch_shape,unbatched_expected_shape", [
+    ((1, 3, 32, 32), (32, 32, 3)),     # Batched RGB -> RGB
+    ((1, 1, 32, 32), (32, 32)),        # Batched grayscale -> grayscale
+    ((1, 6, 32, 32), (32, 32, 3)),     # Batched multi-channel -> RGB (sampled)
+])
+def test_batch_to_unbatch_shape_consistency(batch_shape, unbatched_expected_shape):
+    """Test that batched inputs produce same output shapes as unbatched equivalents."""
+    batched_image = torch.randint(0, 255, batch_shape, dtype=torch.uint8)
+    unbatched_image = batched_image[0]  # Remove batch dimension
+    
+    # Both should produce same numpy shape
+    batched_result = image_to_numpy(unbatched_image)  # Function internally handles batching in create_image_display
+    unbatched_result = image_to_numpy(unbatched_image)
+    
+    assert batched_result.shape == unbatched_result.shape == unbatched_expected_shape
+    
+    # Both should create valid figures
+    batched_fig = create_image_display(batched_image, "Batched")
+    unbatched_fig = create_image_display(unbatched_image, "Unbatched")
+    
+    assert isinstance(batched_fig, go.Figure)
+    assert isinstance(unbatched_fig, go.Figure)
+
+
+def test_invalid_2channel_image_error():
+    """Test that 2-channel images raise ValueError as they are not supported."""
+    two_channel_image = torch.randint(0, 255, (2, 32, 32), dtype=torch.uint8)
+    
+    with pytest.raises(ValueError, match="2-channel images are not supported"):
+        image_to_numpy(two_channel_image)
+
+
+def test_batched_invalid_2channel_image_error():
+    """Test that batched 2-channel images raise ValueError."""
+    batched_two_channel_image = torch.randint(0, 255, (1, 2, 32, 32), dtype=torch.uint8)
+    
+    with pytest.raises(ValueError, match="2-channel images are not supported"):
+        create_image_display(batched_two_channel_image, "Should Fail")
+
+
+# ================================================================================  
+# Batch Support Integration Tests
+# ================================================================================
+
+def test_complete_batch_pipeline_rgb(batched_rgb_image):
+    """Test complete batched image pipeline from tensor to figure."""
+    # Test display creation (internally handles batch)
+    fig = create_image_display(batched_rgb_image, "Batch Integration Test")
+    assert isinstance(fig, go.Figure)
+    
+    # Test statistics (handles batch)
+    stats = get_image_display_stats(batched_rgb_image)
+    assert isinstance(stats, dict)
+    assert len(stats) >= 5
+    
+    # Stats should show unbatched shape
+    assert stats["Shape"] == "(3, 32, 32)"
+
+
+def test_complete_batch_pipeline_grayscale(batched_grayscale_image):
+    """Test complete batched grayscale pipeline."""
+    fig = create_image_display(batched_grayscale_image, "Batch Grayscale Integration")
+    stats = get_image_display_stats(batched_grayscale_image)
+    
+    assert isinstance(fig, go.Figure)
+    assert isinstance(stats, dict)
+    assert stats["Shape"] == "(1, 32, 32)"

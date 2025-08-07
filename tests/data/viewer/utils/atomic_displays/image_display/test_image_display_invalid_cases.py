@@ -29,23 +29,23 @@ def test_image_to_numpy_invalid_input_type():
 
 
 def test_image_to_numpy_invalid_batch_size():
-    """Test assertion failure for invalid batch size."""
+    """Test assertion failure for 4D input (image_to_numpy only accepts 3D)."""
     image = torch.randint(0, 255, (2, 3, 32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
         image_to_numpy(image)
     
-    assert "Expected batch size 1" in str(exc_info.value)
+    assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
 
 
 def test_image_to_numpy_invalid_shape():
     """Test handling of invalid tensor shapes."""
     image = torch.randint(0, 255, (100,), dtype=torch.uint8)
     
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(AssertionError) as exc_info:
         image_to_numpy(image)
     
-    assert "Unsupported tensor shape" in str(exc_info.value)
+    assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
 
 
 # ================================================================================
@@ -67,17 +67,17 @@ def test_create_image_display_invalid_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         create_image_display(image, "Test")
     
-    assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
+    assert "Expected 3D [C,H,W] or 4D [N,C,H,W] tensor" in str(exc_info.value)
 
 
 def test_create_image_display_invalid_channels():
-    """Test assertion failure for invalid number of channels."""
+    """Test ValueError for 2-channel images (not supported)."""
     image = torch.randint(0, 255, (2, 32, 32), dtype=torch.uint8)
     
-    with pytest.raises(AssertionError) as exc_info:
+    with pytest.raises(ValueError) as exc_info:
         create_image_display(image, "Test")
     
-    assert "Expected 1 or 3 channels" in str(exc_info.value)
+    assert "2-channel images are not supported" in str(exc_info.value)
 
 
 def test_create_image_display_empty_tensor():
@@ -129,7 +129,7 @@ def test_get_image_display_stats_invalid_image_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         get_image_display_stats(image)
     
-    assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
+    assert "Expected 3D [C,H,W] or 4D [N,C,H,W] tensor" in str(exc_info.value)
 
 
 def test_get_image_display_stats_invalid_change_map_type():

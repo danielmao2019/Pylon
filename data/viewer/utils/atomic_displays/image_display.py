@@ -12,6 +12,7 @@ def image_to_numpy(image: torch.Tensor) -> np.ndarray:
     
     Args:
         image: Image tensor of shape [C, H, W] where C is 1 (grayscale) or 3+ (RGB/multi-channel)
+               2-channel images are not supported as they are uncommon in computer vision
         
     Returns:
         Numpy array suitable for display
@@ -34,12 +35,18 @@ def image_to_numpy(image: torch.Tensor) -> np.ndarray:
         # If all values are the same, return zeros
         img = np.zeros_like(img)
 
-    if img.ndim == 2:  # Grayscale image
+    if img.ndim == 2:  # Already 2D grayscale
         return img
-    elif img.ndim == 3:  # RGB image (C, H, W) -> (H, W, C)
-        if img.shape[0] > 3:
+    elif img.ndim == 3:  # Multi-channel image (C, H, W)
+        if img.shape[0] == 1:  # Single channel grayscale -> (H, W)
+            return img.squeeze(0)  # Remove channel dimension
+        elif img.shape[0] == 2:  # 2-channel images not supported
+            raise ValueError(f"2-channel images are not supported. Got shape {img.shape}. Use 1 channel (grayscale) or 3+ channels (RGB/multi-channel).")
+        elif img.shape[0] == 3:  # RGB image -> (H, W, C)
+            return np.transpose(img, (1, 2, 0))
+        else:  # Multi-channel > 3 -> sample 3 channels -> (H, W, C)
             img = img[random.sample(range(img.shape[0]), 3), :, :]
-        return np.transpose(img, (1, 2, 0))
+            return np.transpose(img, (1, 2, 0))
     else:
         raise ValueError(f"Unsupported tensor shape for image conversion: {img.shape}")
 
@@ -76,8 +83,8 @@ def create_image_display(
         assert image.shape[0] == 1, f"Expected batch size 1 for visualization, got {image.shape[0]}"
         image = image[0]  # [N, C, H, W] -> [C, H, W]
     
-    # Validate unbatched tensor shape
-    assert image.shape[0] in [1, 3], f"Expected 1 or 3 channels, got {image.shape[0]}"
+    # Validate unbatched tensor shape (allow multi-channel, will be handled by image_to_numpy)
+    assert image.shape[0] >= 1, f"Expected at least 1 channel, got {image.shape[0]}"
     
     # Convert image to numpy for visualization
     img: np.ndarray = image_to_numpy(image)

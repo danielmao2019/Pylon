@@ -252,3 +252,62 @@ def image_sizes(request):
     """Parametrized image sizes for performance testing."""
     h, w = request.param
     return torch.randint(0, 255, (3, h, w), dtype=torch.uint8)
+
+
+# ================================================================================
+# Batch Support Fixtures - CRITICAL for eval viewer
+# ================================================================================
+
+@pytest.fixture
+def batched_rgb_tensor():
+    """Batched RGB image tensor of shape [1, 3, H, W]."""
+    return torch.randint(0, 255, (1, 3, 32, 32), dtype=torch.uint8)
+
+
+@pytest.fixture
+def batched_grayscale_tensor():
+    """Batched grayscale image tensor of shape [1, 1, H, W]."""
+    return torch.randint(0, 255, (1, 1, 32, 32), dtype=torch.uint8)
+
+
+@pytest.fixture
+def batched_depth_tensor():
+    """Batched depth map tensor of shape [1, H, W] with realistic depth values."""
+    return torch.rand(1, 32, 32, dtype=torch.float32) * 10.0 + 0.1  # [1, H, W] 
+
+
+@pytest.fixture  
+def batched_normal_tensor():
+    """Batched surface normal tensor of shape [1, 3, H, W] with normalized vectors."""
+    normals = torch.randn(1, 3, 32, 32, dtype=torch.float32)
+    # Normalize to unit vectors
+    magnitude = torch.sqrt((normals ** 2).sum(dim=1, keepdim=True))
+    magnitude = torch.clamp(magnitude, min=1e-8)  # Avoid division by zero
+    return normals / magnitude
+
+
+@pytest.fixture
+def batched_edge_tensor():
+    """Batched edge detection tensor of shape [1, 1, H, W] with binary edge values."""
+    return torch.randint(0, 2, (1, 1, 32, 32), dtype=torch.float32)
+
+
+@pytest.fixture
+def batched_segmentation_tensor():
+    """Batched semantic segmentation tensor of shape [1, H, W] with class indices."""
+    return torch.randint(0, 5, (1, 32, 32), dtype=torch.int64)
+
+
+@pytest.fixture
+def batched_instance_surrogate_tensor():
+    """Batched instance surrogate tensor of shape [1, 2, H, W] with Y/X offsets."""
+    # Create realistic offset values
+    y_offsets = torch.randn(1, 32, 32, dtype=torch.float32) * 5.0
+    x_offsets = torch.randn(1, 32, 32, dtype=torch.float32) * 5.0
+    
+    # Add some ignore regions (set to ignore_value=250)
+    ignore_mask = torch.rand(32, 32) < 0.1  # 10% ignore regions
+    y_offsets[0][ignore_mask] = 250
+    x_offsets[0][ignore_mask] = 250
+    
+    return torch.stack([y_offsets[0], x_offsets[0]], dim=0).unsqueeze(0)  # [1, 2, H, W]

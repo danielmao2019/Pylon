@@ -42,23 +42,23 @@ def test_create_segmentation_display_tensor_invalid_dimensions():
     segmentation_1d = torch.randint(0, 5, (100,), dtype=torch.int64)
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_1d, "Test")
-    assert "Expected 2D or 3D tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
     # 4D tensor
     segmentation_4d = torch.randint(0, 5, (1, 3, 32, 32), dtype=torch.int64)
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_4d, "Test")
-    assert "Expected 2D or 3D tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
 
 
-def test_create_segmentation_display_tensor_invalid_channels():
-    """Test assertion failure for 3D tensor with wrong number of channels."""
+def test_create_segmentation_display_tensor_invalid_batch_size():
+    """Test assertion failure for 3D tensor with batch size > 1."""
     segmentation = torch.randint(0, 5, (3, 32, 32), dtype=torch.int64)
     
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation, "Test")
     
-    assert "Expected single channel if 3D" in str(exc_info.value)
+    assert "Expected batch size 1 for visualization" in str(exc_info.value)
 
 
 def test_create_segmentation_display_empty_tensor():
@@ -190,13 +190,13 @@ def test_get_segmentation_display_stats_tensor_invalid_dimensions():
     segmentation_1d = torch.randint(0, 5, (100,), dtype=torch.int64)
     with pytest.raises(AssertionError) as exc_info:
         get_segmentation_display_stats(segmentation_1d)
-    assert "Expected 2D or 3D tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
     # 4D tensor  
     segmentation_4d = torch.randint(0, 5, (1, 3, 32, 32), dtype=torch.int64)
     with pytest.raises(AssertionError) as exc_info:
         get_segmentation_display_stats(segmentation_4d)
-    assert "Expected 2D or 3D tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
 
 
 def test_get_segmentation_display_stats_empty_tensor():
