@@ -361,7 +361,9 @@ def test_point_cloud_utilities_with_different_dtypes():
     # Float64
     pc_f64 = torch.randn(100, 3, dtype=torch.float64)
     stats_f64 = get_point_cloud_display_stats(pc_f64)
-    assert isinstance(stats_f64, html.Ul)
+    assert isinstance(stats_f64, dict)
+    assert stats_f64['total_points'] == 100
+    assert stats_f64['dimensions'] == 3
     
     datapoint_f64 = {"meta_info": {"idx": 42}}
     pc_id_f64 = build_point_cloud_id(datapoint_f64, "source")
@@ -373,7 +375,9 @@ def test_point_cloud_utilities_with_different_dtypes():
     # Integer (unusual but should work)
     pc_int = torch.randint(-10, 10, (100, 3), dtype=torch.int32)
     stats_int = get_point_cloud_display_stats(pc_int)
-    assert isinstance(stats_int, html.Ul)
+    assert isinstance(stats_int, dict)
+    assert stats_int['total_points'] == 100
+    assert stats_int['dimensions'] == 3
     
     datapoint_int = {"meta_info": {"idx": 43}}
     pc_id_int = build_point_cloud_id(datapoint_int, "target")
@@ -389,7 +393,9 @@ def test_point_cloud_utilities_extreme_shapes():
     single_point = torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.float32)
     
     stats_single = get_point_cloud_display_stats(single_point)
-    assert isinstance(stats_single, html.Ul)
+    assert isinstance(stats_single, dict)
+    assert stats_single['total_points'] == 1
+    assert stats_single['dimensions'] == 3
     
     datapoint_single = {"meta_info": {"idx": 1}}
     pc_id_single = build_point_cloud_id(datapoint_single, "single")
@@ -403,7 +409,9 @@ def test_point_cloud_utilities_extreme_shapes():
     large_pc = torch.randn(10000, 3, dtype=torch.float32)
     
     stats_large = get_point_cloud_display_stats(large_pc)
-    assert isinstance(stats_large, html.Ul)
+    assert isinstance(stats_large, dict)
+    assert stats_large['total_points'] == 10000
+    assert stats_large['dimensions'] == 3
     
     datapoint_large = {"meta_info": {"idx": 100}}
     pc_id_large = build_point_cloud_id(datapoint_large, "large")
@@ -463,7 +471,9 @@ def test_point_cloud_utilities_with_extreme_values():
     large_coords = torch.full((100, 3), 1e6, dtype=torch.float32)
     
     stats_large = get_point_cloud_display_stats(large_coords)
-    assert isinstance(stats_large, html.Ul)
+    assert isinstance(stats_large, dict)
+    assert stats_large['total_points'] == 100
+    assert stats_large['dimensions'] == 3
     
     pc_numpy_large = point_cloud_to_numpy(large_coords)
     assert isinstance(pc_numpy_large, np.ndarray)
@@ -472,7 +482,9 @@ def test_point_cloud_utilities_with_extreme_values():
     small_coords = torch.full((100, 3), 1e-6, dtype=torch.float32)
     
     stats_small = get_point_cloud_display_stats(small_coords)
-    assert isinstance(stats_small, html.Ul)
+    assert isinstance(stats_small, dict)
+    assert stats_small['total_points'] == 100
+    assert stats_small['dimensions'] == 3
     
     pc_numpy_small = point_cloud_to_numpy(small_coords)
     assert isinstance(pc_numpy_small, np.ndarray)
@@ -481,7 +493,9 @@ def test_point_cloud_utilities_with_extreme_values():
     mixed_coords = torch.randn(100, 3, dtype=torch.float32) * 1e6
     
     stats_mixed = get_point_cloud_display_stats(mixed_coords)
-    assert isinstance(stats_mixed, html.Ul)
+    assert isinstance(stats_mixed, dict)
+    assert stats_mixed['total_points'] == 100
+    assert stats_mixed['dimensions'] == 3
     
     pc_numpy_mixed = point_cloud_to_numpy(mixed_coords)
     assert isinstance(pc_numpy_mixed, np.ndarray)
