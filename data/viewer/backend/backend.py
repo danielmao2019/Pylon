@@ -382,9 +382,4 @@ class ViewerBackend:
         elif isinstance(dataset, BaseSemsegDataset):
             return 'semseg'
         else:
-            # For backend display functionality, we require datasets to inherit from display base classes
-            dataset_class_name = type(dataset).__name__
-            raise ValueError(
-                f"Dataset '{dataset_class_name}' must inherit from one of the base display classes: "
-                f"Base2DCDDataset, Base3DCDDataset, BasePCRDataset, or BaseSemsegDataset"
-            )
+            return 'general'

@@ -1,7 +1,7 @@
 """Tests for backend display functions.
 
-This module tests the critical backend functionality for determining dataset types
-and managing dataset instances for the display system using real datasets.
+This module tests the critical backend functionality for managing dataset instances
+for the display system using real datasets.
 """
 
 import os
@@ -11,16 +11,11 @@ import pytest
 import torch
 
 from data.datasets.base_dataset import BaseDataset
-from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
 from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import (
     LevirCdDataset,
 )
-from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
-
-# Synthetic dataset imports for 3D change detection (due to device compatibility issues with real datasets)
-from data.datasets.random_datasets.base_random_dataset import BaseRandomDataset
 from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import (
     BaseSemsegDataset,
 )
@@ -43,19 +38,18 @@ def real_semseg_dataset():
     """Real semantic segmentation dataset for testing."""
     data_root = "./data/datasets/soft_links/COCOStuff164K"
 
-    # Check if dataset is available
-    if not os.path.exists(data_root):
-        pytest.skip(f"COCOStuff164K dataset not available at {data_root}")
+    # Assert dataset is available - fail fast if not
+    assert os.path.exists(
+        data_root
+    ), f"COCOStuff164K dataset must be available at {data_root}"
 
-    try:
-        dataset = COCOStuff164KDataset(
-            data_root=data_root,
-            split='val2017',  # Use smaller validation split for testing
-            device=torch.device('cpu'),
-        )
-        return dataset
-    except Exception as e:
-        pytest.skip(f"Failed to load COCOStuff164K dataset: {e}")
+    # Create dataset - let it fail if it can't be created
+    dataset = COCOStuff164KDataset(
+        data_root=data_root,
+        split="val2017",  # Use smaller validation split for testing
+        device=torch.device("cpu"),
+    )
+    return dataset
 
 
 @pytest.fixture
@@ -63,19 +57,18 @@ def real_2dcd_dataset():
     """Real 2D change detection dataset for testing."""
     data_root = "./data/datasets/soft_links/LEVIR-CD"
 
-    # Check if dataset is available
-    if not os.path.exists(data_root):
-        pytest.skip(f"LEVIR-CD dataset not available at {data_root}")
+    # Assert dataset is available - fail fast if not
+    assert os.path.exists(
+        data_root
+    ), f"LEVIR-CD dataset must be available at {data_root}"
 
-    try:
-        dataset = LevirCdDataset(
-            data_root=data_root,
-            split='test',  # Use test split for testing
-            device=torch.device('cpu'),
-        )
-        return dataset
-    except Exception as e:
-        pytest.skip(f"Failed to load LEVIR-CD dataset: {e}")
+    # Create dataset - let it fail if it can't be created
+    dataset = LevirCdDataset(
+        data_root=data_root,
+        split="test",  # Use test split for testing
+        device=torch.device("cpu"),
+    )
+    return dataset
 
 
 @pytest.fixture
@@ -86,15 +79,15 @@ def synthetic_3dcd_dataset():
     """
 
     class _Synthetic3DCDDataset(Base3DCDDataset):
-        SPLIT_OPTIONS = ['test']
-        INPUT_NAMES = ['pc_1', 'pc_2']
-        LABEL_NAMES = ['change_map']
+        SPLIT_OPTIONS = ["test"]
+        INPUT_NAMES = ["pc_1", "pc_2"]
+        LABEL_NAMES = ["change_map"]
 
         def _init_annotations(self) -> None:
             self.annotations = [
-                {'id': 0},
-                {'id': 1},
-                {'id': 2},
+                {"id": 0},
+                {"id": 1},
+                {"id": 2},
             ]  # Small dataset for testing
 
         def _load_datapoint(self, idx: int) -> Tuple[
@@ -105,13 +98,17 @@ def synthetic_3dcd_dataset():
             n_points = 1000
             # Create more realistic point clouds with spatial structure
             pc1 = {
-                'pos': torch.randn(n_points, 3, dtype=torch.float32) * 10
+                "pos": torch.randn(n_points, 3, dtype=torch.float32) * 10
             }  # Scale for realistic coordinates
-            pc2 = {'pos': torch.randn(n_points, 3, dtype=torch.float32) * 10}
+            pc2 = {"pos": torch.randn(n_points, 3, dtype=torch.float32) * 10}
             change_map = torch.randint(0, 2, (n_points,), dtype=torch.long)
-            return {'pc_1': pc1, 'pc_2': pc2}, {'change_map': change_map}, {'idx': idx}
+            return (
+                {"pc_1": pc1, "pc_2": pc2},
+                {"change_map": change_map},
+                {"sample_idx": idx},
+            )
 
-    return _Synthetic3DCDDataset(split='test', device=torch.device('cpu'))
+    return _Synthetic3DCDDataset(split="test", device=torch.device("cpu"))
 
 
 @pytest.fixture
@@ -119,32 +116,29 @@ def real_pcr_dataset():
     """Real point cloud registration dataset for testing."""
     data_root = "./data/datasets/soft_links/KITTI"
 
-    # Check if dataset is available
-    if not os.path.exists(data_root):
-        pytest.skip(f"KITTI dataset not available at {data_root}")
+    # Assert dataset is available - fail fast if not
+    assert os.path.exists(data_root), f"KITTI dataset must be available at {data_root}"
 
-    try:
-        dataset = KITTIDataset(
-            data_root=data_root,
-            split='val',  # Use validation split for testing
-            device=torch.device('cpu'),
-        )
-        return dataset
-    except Exception as e:
-        pytest.skip(f"Failed to load KITTI dataset: {e}")
+    # Create dataset - let it fail if it can't be created
+    dataset = KITTIDataset(
+        data_root=data_root,
+        split="val",  # Use validation split for testing
+        device=torch.device("cpu"),
+    )
+    return dataset
 
 
 @pytest.fixture
 def non_display_dataset():
-    """Dataset that doesn't inherit from any base display class for error testing."""
+    """Dataset that doesn't inherit from any base display class for general testing."""
 
     class _NonDisplayDataset(BaseDataset):
-        SPLIT_OPTIONS = ['test']
-        INPUT_NAMES = ['data']
-        LABEL_NAMES = ['target']
+        SPLIT_OPTIONS = ["test"]
+        INPUT_NAMES = ["data"]
+        LABEL_NAMES = ["target"]
 
         def _init_annotations(self) -> None:
-            self.annotations = [{'id': 0}, {'id': 1}]  # Small test dataset
+            self.annotations = [{"id": 0}, {"id": 1}]  # Small test dataset
 
         def _load_datapoint(self, idx: int) -> Tuple[
             Dict[str, torch.Tensor],
@@ -153,7 +147,7 @@ def non_display_dataset():
         ]:
             data = torch.randn(10, dtype=torch.float32)
             target = torch.tensor(1, dtype=torch.long)
-            return {'data': data}, {'target': target}, {'idx': idx}
+            return {"data": data}, {"target": target}, {"sample_idx": idx}
 
         @staticmethod
         def display_datapoint(
@@ -161,87 +155,75 @@ def non_display_dataset():
             class_labels: Optional[Dict[str, List[str]]] = None,
             camera_state: Optional[Dict[str, Any]] = None,
             settings_3d: Optional[Dict[str, Any]] = None,
-        ) -> Optional['html.Div']:
+        ):
             """Return None to use default display functions."""
             return None
 
-    return _NonDisplayDataset(split='test', device=torch.device('cpu'))
+    return _NonDisplayDataset(split="test", device=torch.device("cpu"))
 
 
-# Backend Tests - get_dataset_type functionality
+# Backend Tests - Dataset Management Functionality
 
 
-def test_get_dataset_type_with_base_classes(
+def test_dataset_instance_management_with_real_datasets(
     backend,
     real_semseg_dataset,
     real_2dcd_dataset,
     synthetic_3dcd_dataset,
     real_pcr_dataset,
 ):
-    """Test that datasets inheriting from base display classes return correct types."""
+    """Test that backend can manage real dataset instances correctly."""
     test_cases = [
-        (real_semseg_dataset, 'semseg', 'COCOStuff164KDataset'),
-        (real_2dcd_dataset, '2dcd', 'LevirCdDataset'),
-        (synthetic_3dcd_dataset, '3dcd', 'Synthetic3DCDDataset'),
-        (real_pcr_dataset, 'pcr', 'KITTIDataset'),
+        (real_semseg_dataset, "COCOStuff164KDataset", COCOStuff164KDataset),
+        (real_2dcd_dataset, "LevirCdDataset", LevirCdDataset),
+        (synthetic_3dcd_dataset, "Synthetic3DCDDataset", Base3DCDDataset),
+        (real_pcr_dataset, "KITTIDataset", KITTIDataset),
     ]
 
-    for dataset, expected_type, dataset_class_name in test_cases:
+    for dataset, dataset_class_name, expected_type in test_cases:
         # Store dataset in backend
         dataset_name = f"test/{dataset_class_name}"
         backend._datasets[dataset_name] = dataset
 
-        # Test get_dataset_type returns correct type
-        result_type = backend.get_dataset_type(dataset_name)
+        # Test get_dataset_instance returns correct dataset
+        retrieved_dataset = backend.get_dataset_instance(dataset_name)
         assert (
-            result_type == expected_type
-        ), f"Expected type '{expected_type}' for {dataset_class_name}, got '{result_type}'"
+            retrieved_dataset is dataset
+        ), f"Should return the exact same instance for {dataset_class_name}"
+        assert isinstance(
+            retrieved_dataset, expected_type
+        ), f"Should maintain correct type for {dataset_class_name}"
 
 
-def test_get_dataset_type_inheritance_error(backend, non_display_dataset):
-    """Test that datasets not inheriting from base classes raise proper error."""
+def test_non_display_dataset_management(backend, non_display_dataset):
+    """Test that backend can manage various types of datasets including non-display ones."""
     # Store dataset in backend
     dataset_name = "test/NonDisplayDataset"
     backend._datasets[dataset_name] = non_display_dataset
 
-    # Test that get_dataset_type raises ValueError with descriptive message
-    with pytest.raises(ValueError) as exc_info:
-        backend.get_dataset_type(dataset_name)
-
-    error_msg = str(exc_info.value)
-    assert "must inherit from one of the base display classes" in error_msg
-    assert (
-        "Base2DCDDataset, Base3DCDDataset, BasePCRDataset, or BaseSemsegDataset"
-        in error_msg
-    )
-    assert "NonDisplayDataset" in error_msg
-
-
-def test_get_dataset_type_dataset_not_loaded(backend):
-    """Test that get_dataset_type raises error for unloaded dataset."""
-    with pytest.raises(ValueError) as exc_info:
-        backend.get_dataset_type("nonexistent/dataset")
-
-    assert "Dataset not loaded: nonexistent/dataset" in str(exc_info.value)
-
-
-# Backend Tests - get_dataset_instance functionality
-
-
-def test_get_dataset_instance(backend, real_semseg_dataset):
-    """Test the get_dataset_instance helper method."""
-    # Store dataset in backend
-    dataset_name = "test/COCOStuff164KDataset"
-    backend._datasets[dataset_name] = real_semseg_dataset
-
-    # Test get_dataset_instance returns the correct dataset
+    # Test that backend can manage non-display datasets
     retrieved_dataset = backend.get_dataset_instance(dataset_name)
     assert (
-        retrieved_dataset is real_semseg_dataset
-    ), "get_dataset_instance should return the exact same dataset instance"
-    assert isinstance(
-        retrieved_dataset, COCOStuff164KDataset
-    ), "Retrieved dataset should be of correct type"
+        retrieved_dataset is non_display_dataset
+    ), "Should retrieve the exact same dataset instance"
+
+    # Test that the dataset is functional
+    assert len(retrieved_dataset) == 2, "Dataset should have 2 samples"
+    sample = retrieved_dataset[0]
+
+    # Handle both data formats
+    if isinstance(sample, dict) and "inputs" in sample:
+        inputs = sample["inputs"]
+        labels = sample["labels"]
+    else:
+        inputs, labels, _ = sample
+
+    assert (
+        "data" in inputs
+    ), f"Sample should have 'data' in inputs, got keys: {list(inputs.keys())}"
+    assert (
+        "target" in labels
+    ), f"Sample should have 'target' in labels, got keys: {list(labels.keys())}"
 
 
 def test_get_dataset_instance_not_loaded(backend):
@@ -268,36 +250,20 @@ def test_multiple_dataset_types(
     backend, real_semseg_dataset, real_2dcd_dataset, real_pcr_dataset
 ):
     """Test that backend can handle multiple dataset types simultaneously."""
-    datasets_and_types = [
-        (real_semseg_dataset, 'semseg', 'COCOStuff164KDataset', COCOStuff164KDataset),
-        (real_2dcd_dataset, '2dcd', 'LevirCdDataset', LevirCdDataset),
-        (real_pcr_dataset, 'pcr', 'KITTIDataset', KITTIDataset),
+    datasets_and_info = [
+        (real_semseg_dataset, "COCOStuff164KDataset", COCOStuff164KDataset),
+        (real_2dcd_dataset, "LevirCdDataset", LevirCdDataset),
+        (real_pcr_dataset, "KITTIDataset", KITTIDataset),
     ]
 
     # Load all datasets
-    for (
-        dataset,
-        expected_type,
-        dataset_name_suffix,
-        dataset_class,
-    ) in datasets_and_types:
+    for dataset, dataset_name_suffix, dataset_class in datasets_and_info:
         dataset_name = f"test/{dataset_name_suffix}"
         backend._datasets[dataset_name] = dataset
 
-    # Verify all dataset types are detected correctly
-    for (
-        dataset,
-        expected_type,
-        dataset_name_suffix,
-        dataset_class,
-    ) in datasets_and_types:
+    # Verify all datasets are managed correctly
+    for dataset, dataset_name_suffix, dataset_class in datasets_and_info:
         dataset_name = f"test/{dataset_name_suffix}"
-
-        # Test type detection
-        result_type = backend.get_dataset_type(dataset_name)
-        assert (
-            result_type == expected_type
-        ), f"Type detection failed for {dataset_name_suffix}"
 
         # Test instance retrieval
         retrieved_dataset = backend.get_dataset_instance(dataset_name)
@@ -305,21 +271,26 @@ def test_multiple_dataset_types(
             retrieved_dataset, dataset_class
         ), f"Instance retrieval failed for {dataset_name_suffix}"
 
+        # Test that the retrieved dataset is the same instance
+        assert (
+            retrieved_dataset is dataset
+        ), f"Retrieved dataset should be the same instance for {dataset_name_suffix}"
+
 
 def test_dataset_inheritance_hierarchy(backend):
-    """Test that inheritance hierarchy is correctly detected for complex inheritance."""
+    """Test that backend can manage datasets with complex inheritance hierarchies."""
 
     # Create a dataset that inherits from BaseSemsegDataset through another class
     class IntermediateSemsegDataset(BaseSemsegDataset):
         pass
 
     class FinalSemsegDataset(IntermediateSemsegDataset):
-        SPLIT_OPTIONS = ['test']
-        INPUT_NAMES = ['image']
-        LABEL_NAMES = ['label']
+        SPLIT_OPTIONS = ["test"]
+        INPUT_NAMES = ["image"]
+        LABEL_NAMES = ["label"]
 
         def _init_annotations(self) -> None:
-            self.annotations = [{'id': 0}, {'id': 1}]
+            self.annotations = [{"id": 0}, {"id": 1}]
 
         def _load_datapoint(self, idx: int) -> Tuple[
             Dict[str, torch.Tensor],
@@ -328,14 +299,55 @@ def test_dataset_inheritance_hierarchy(backend):
         ]:
             image = torch.randint(0, 255, (3, 32, 32), dtype=torch.uint8)
             label = torch.randint(0, 5, (32, 32), dtype=torch.long)
-            return {'image': image}, {'label': label}, {'idx': idx}
+            return {"image": image}, {"label": label}, {"sample_idx": idx}
 
-    # Test that inheritance through multiple levels is detected
-    dataset = FinalSemsegDataset(split='test', device=torch.device('cpu'))
+    # Test that datasets with complex inheritance can be managed by the backend
+    dataset = FinalSemsegDataset(split="test", device=torch.device("cpu"))
     dataset_name = "test/FinalSemsegDataset"
     backend._datasets[dataset_name] = dataset
 
-    result_type = backend.get_dataset_type(dataset_name)
+    # Test that we can retrieve the dataset instance
+    retrieved_dataset = backend.get_dataset_instance(dataset_name)
     assert (
-        result_type == 'semseg'
-    ), f"Expected 'semseg' for multi-level inheritance, got '{result_type}'"
+        retrieved_dataset is dataset
+    ), "Should retrieve the exact same dataset instance"
+    assert isinstance(
+        retrieved_dataset, FinalSemsegDataset
+    ), "Should maintain the correct type"
+
+
+def test_dataset_functionality_with_real_data(backend, real_semseg_dataset):
+    """Test that real datasets are functional through the backend."""
+    # Store dataset in backend
+    dataset_name = "test/FunctionalDataset"
+    backend._datasets[dataset_name] = real_semseg_dataset
+
+    # Test basic dataset properties
+    retrieved_dataset = backend.get_dataset_instance(dataset_name)
+    assert len(retrieved_dataset) > 0, "Dataset should have samples"
+
+    # Test that we can load a sample
+    sample = retrieved_dataset[0]
+
+    # Check if it's the new format (dict with 'inputs', 'labels', 'meta_info') or old format (tuple)
+    if isinstance(sample, dict) and "inputs" in sample:
+        # New format
+        inputs = sample["inputs"]
+        labels = sample["labels"]
+        meta_info = sample["meta_info"]
+    else:
+        # Old format (tuple)
+        assert (
+            isinstance(sample, tuple) and len(sample) == 3
+        ), "Sample should be a tuple with inputs, labels, meta_info"
+        inputs, labels, meta_info = sample
+
+    # Test that inputs and labels are dictionaries with expected structure
+    assert isinstance(inputs, dict), "Inputs should be a dictionary"
+    assert isinstance(labels, dict), "Labels should be a dictionary"
+    assert isinstance(meta_info, dict), "Meta info should be a dictionary"
+
+    # Test that we have expected keys (based on COCOStuff164K dataset structure)
+    assert "image" in inputs, "Should have image in inputs"
+    # COCOStuff164K uses 'label' not 'mask'
+    assert "label" in labels, "Should have label in labels"
