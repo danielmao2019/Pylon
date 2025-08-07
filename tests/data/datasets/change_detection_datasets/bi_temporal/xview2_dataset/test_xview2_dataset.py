@@ -42,12 +42,13 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 @pytest.mark.parametrize('dataset_config', ['train', 'test', 'hold'], indirect=True)
-def test_xview2(dataset_config, max_samples, get_samples_to_test) -> None:
+def test_xview2(dataset_config, patched_xview2_dataset_size, max_samples, get_samples_to_test) -> None:
     from utils.builders.builder import build_from_config
     
-    dataset = build_from_config(dataset_config)
-    assert isinstance(dataset, torch.utils.data.Dataset)
-    assert len(dataset) > 0, "Dataset should not be empty"
+    with patched_xview2_dataset_size():
+        dataset = build_from_config(dataset_config)
+        assert isinstance(dataset, torch.utils.data.Dataset)
+        assert len(dataset) > 0, "Dataset should not be empty"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
