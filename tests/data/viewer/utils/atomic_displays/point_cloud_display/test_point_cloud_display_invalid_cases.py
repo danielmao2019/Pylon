@@ -102,9 +102,27 @@ def test_normalize_point_cloud_id_invalid_input():
 # get_point_cloud_display_stats Tests - Invalid Cases
 # ================================================================================
 
-def test_get_point_cloud_display_stats_invalid_points_type():
-    """Test assertion failure for invalid points type."""
+def test_get_point_cloud_display_stats_invalid_pc_dict_type():
+    """Test assertion failure for invalid pc_dict type."""
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats("not_a_tensor")
+        get_point_cloud_display_stats("not_a_dict")
+    
+    assert "Expected dict" in str(exc_info.value)
+
+
+def test_get_point_cloud_display_stats_missing_pos_key():
+    """Test assertion failure for missing 'pos' key."""
+    pc_dict = {'rgb': torch.randn(100, 3)}  # Missing 'pos'
+    with pytest.raises(AssertionError) as exc_info:
+        get_point_cloud_display_stats(pc_dict)
+    
+    assert "pc_dict must have 'pos' key" in str(exc_info.value)
+
+
+def test_get_point_cloud_display_stats_invalid_points_type():
+    """Test assertion failure for invalid points tensor type."""
+    pc_dict = {'pos': "not_a_tensor"}  # pos is not a tensor
+    with pytest.raises(AssertionError) as exc_info:
+        get_point_cloud_display_stats(pc_dict)
     
     assert "Expected torch.Tensor" in str(exc_info.value)

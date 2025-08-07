@@ -23,29 +23,32 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
 def test_get_point_cloud_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats("not_a_tensor")
+        get_point_cloud_display_stats("not_a_dict")
     
-    assert "Expected torch.Tensor" in str(exc_info.value)
+    assert "Expected dict" in str(exc_info.value)
 
 
 def test_get_point_cloud_display_stats_invalid_dimensions():
     """Test assertion failure for wrong tensor dimensions."""
     # 1D tensor
     pc_1d = torch.randn(100, dtype=torch.float32)
+    pc_dict_1d = {'pos': pc_1d}
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats(pc_1d)
+        get_point_cloud_display_stats(pc_dict_1d)
     assert "Expected 2D tensor [N,D]" in str(exc_info.value)
     
     # 3D tensor
     pc_3d = torch.randn(1, 100, 3, dtype=torch.float32)
+    pc_dict_3d = {'pos': pc_3d}
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats(pc_3d)
+        get_point_cloud_display_stats(pc_dict_3d)
     assert "Expected 2D tensor [N,D]" in str(exc_info.value)
     
     # 4D tensor
     pc_4d = torch.randn(1, 1, 100, 3, dtype=torch.float32)
+    pc_dict_4d = {'pos': pc_4d}
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats(pc_4d)
+        get_point_cloud_display_stats(pc_dict_4d)
     assert "Expected 2D tensor [N,D]" in str(exc_info.value)
 
 
@@ -53,23 +56,26 @@ def test_get_point_cloud_display_stats_invalid_channels():
     """Test assertion failure for wrong number of channels."""
     # 2 channels
     pc_2ch = torch.randn(100, 2, dtype=torch.float32)
+    pc_dict_2ch = {'pos': pc_2ch}
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats(pc_2ch)
+        get_point_cloud_display_stats(pc_dict_2ch)
     assert "Expected at least 3 coordinates" in str(exc_info.value)
     
     # 1 channel
     pc_1ch = torch.randn(100, 1, dtype=torch.float32)
+    pc_dict_1ch = {'pos': pc_1ch}
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats(pc_1ch)
+        get_point_cloud_display_stats(pc_dict_1ch)
     assert "Expected at least 3 coordinates" in str(exc_info.value)
 
 
 def test_get_point_cloud_display_stats_empty_tensor():
     """Test assertion failure for empty tensor."""
     empty_pc = torch.empty((0, 3), dtype=torch.float32)
+    pc_dict_empty = {'pos': empty_pc}
     
     with pytest.raises(AssertionError) as exc_info:
-        get_point_cloud_display_stats(empty_pc)
+        get_point_cloud_display_stats(pc_dict_empty)
     
     assert "Point cloud cannot be empty" in str(exc_info.value)
 
@@ -92,8 +98,6 @@ def test_build_point_cloud_id_invalid_component_type():
     with pytest.raises(AssertionError) as exc_info:
         build_point_cloud_id(datapoint, 123)
     assert "component must be str" in str(exc_info.value)
-
-
 
 
 # ================================================================================
