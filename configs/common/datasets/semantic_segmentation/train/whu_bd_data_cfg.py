@@ -7,7 +7,7 @@ data_cfg = {
     'train_dataset': {
         'class': WHU_BD_Dataset,
         'args': {
-            'data_root': './data/datasets/soft_links/WHU_BD',
+            'data_root': './data/datasets/soft_links/WHU-BD',
             'split': 'train',
         },
     },
