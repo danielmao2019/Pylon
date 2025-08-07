@@ -11,8 +11,7 @@ import plotly.graph_objects as go
 
 from data.viewer.utils.atomic_displays.image_display import (
     image_to_numpy,
-    create_image_display,
-    get_image_display_stats
+    create_image_display
 )
 
 
@@ -137,51 +136,6 @@ def test_create_image_display_various_colorscales(rgb_image, colorscale):
 
 
 # ================================================================================
-# get_image_display_stats Tests - Valid Cases
-# ================================================================================
-
-def test_get_image_display_stats_basic():
-    """Test basic image statistics calculation."""
-    image = torch.randn(3, 32, 32, dtype=torch.float32)
-    stats = get_image_display_stats(image)
-    
-    assert isinstance(stats, dict)
-    assert "Shape" in stats
-    assert "Min Value" in stats
-    assert "Max Value" in stats
-    assert "Mean Value" in stats
-    assert "Std Dev" in stats
-    
-    assert stats["Shape"] == "(3, 32, 32)"
-
-
-def test_get_image_display_stats_with_binary_change_map():
-    """Test image statistics with binary change map."""
-    image = torch.randn(3, 32, 32, dtype=torch.float32)
-    change_map = torch.randint(0, 2, (32, 32), dtype=torch.float32)
-    
-    stats = get_image_display_stats(image, change_map)
-    
-    assert "Changed Pixels" in stats
-    assert "Change Min" in stats
-    assert "Change Max" in stats
-    assert "%" in stats["Changed Pixels"]
-
-
-def test_get_image_display_stats_with_multiclass_change_map():
-    """Test image statistics with multi-class change map."""
-    image = torch.randn(3, 32, 32, dtype=torch.float32)
-    change_map = torch.randn(5, 32, 32, dtype=torch.float32)
-    
-    stats = get_image_display_stats(image, change_map)
-    
-    assert "Number of Classes" in stats
-    assert "Class Distribution" in stats
-    assert stats["Number of Classes"] == 5
-    assert isinstance(stats["Class Distribution"], dict)
-
-
-# ================================================================================
 # Integration and Edge Case Tests
 # ================================================================================
 
@@ -203,19 +157,6 @@ def test_image_display_with_extreme_values():
     assert isinstance(fig, go.Figure)
 
 
-def test_image_stats_with_edge_cases():
-    """Test image statistics with edge case tensors."""
-    # All zeros
-    zero_image = torch.zeros(3, 32, 32, dtype=torch.float32)
-    stats = get_image_display_stats(zero_image)
-    assert float(stats["Min Value"]) == 0.0
-    assert float(stats["Max Value"]) == 0.0
-    
-    # Single pixel
-    tiny_image = torch.ones(3, 1, 1, dtype=torch.float32)
-    stats = get_image_display_stats(tiny_image)
-    assert stats["Shape"] == "(3, 1, 1)"
-
 
 def test_image_display_pipeline(rgb_image):
     """Test complete image display pipeline from tensor to figure."""
@@ -227,11 +168,6 @@ def test_image_display_pipeline(rgb_image):
     # Test display creation
     fig = create_image_display(rgb_image, "Integration Test")
     assert isinstance(fig, go.Figure)
-    
-    # Test statistics
-    stats = get_image_display_stats(rgb_image)
-    assert isinstance(stats, dict)
-    assert len(stats) >= 5
 
 
 def test_performance_with_large_images():
@@ -242,12 +178,10 @@ def test_performance_with_large_images():
     # These should complete without error or excessive time
     numpy_img = image_to_numpy(large_image)
     fig = create_image_display(large_image, "Large Image Test")
-    stats = get_image_display_stats(large_image)
     
     # Basic checks
     assert numpy_img.shape == (512, 512, 3)
     assert isinstance(fig, go.Figure)
-    assert isinstance(stats, dict)
 
 
 # ================================================================================
@@ -279,48 +213,12 @@ def test_create_image_display_batched_multi_channel(batched_multi_channel_image)
     assert fig.layout.title.text == "Test Batched Multi-Channel"
 
 
-def test_get_image_display_stats_batched_rgb(batched_rgb_image):
-    """Test image statistics calculation for batched RGB image."""
-    stats = get_image_display_stats(batched_rgb_image)
-    
-    assert isinstance(stats, dict)
-    assert "Shape" in stats
-    assert "Min Value" in stats
-    assert "Max Value" in stats
-    assert "Mean Value" in stats
-    assert "Std Dev" in stats
-    
-    # Should show unbatched shape in stats
-    assert stats["Shape"] == "(3, 32, 32)"
-
-
-def test_get_image_display_stats_batched_with_change_map():
-    """Test image statistics with batched input and batched change map."""
-    batched_image = torch.randn(1, 3, 32, 32, dtype=torch.float32)
-    batched_change_map = torch.randint(0, 2, (1, 32, 32), dtype=torch.float32)
-    
-    stats = get_image_display_stats(batched_image, batched_change_map)
-    
-    assert "Changed Pixels" in stats
-    assert "Change Min" in stats
-    assert "Change Max" in stats
-    assert "%" in stats["Changed Pixels"]
-
-
 def test_batch_size_one_assertion_create_display():
     """Test that batch size > 1 raises assertion error in create_image_display."""
     invalid_batched_image = torch.randint(0, 255, (2, 3, 32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError, match="Expected batch size 1 for visualization"):
         create_image_display(invalid_batched_image, "Should Fail")
-
-
-def test_batch_size_one_assertion_stats():
-    """Test that batch size > 1 raises assertion error in get_image_display_stats."""
-    invalid_batched_image = torch.randint(0, 255, (3, 3, 32, 32), dtype=torch.uint8)
-    
-    with pytest.raises(AssertionError, match="Expected batch size 1 for analysis"):
-        get_image_display_stats(invalid_batched_image)
 
 
 @pytest.mark.parametrize("batch_shape,unbatched_expected_shape", [
@@ -368,25 +266,14 @@ def test_batched_invalid_2channel_image_error():
 # ================================================================================
 
 def test_complete_batch_pipeline_rgb(batched_rgb_image):
-    """Test complete batched image pipeline from tensor to figure."""
+    """Test complete batched image display pipeline from tensor to figure."""
     # Test display creation (internally handles batch)
     fig = create_image_display(batched_rgb_image, "Batch Integration Test")
     assert isinstance(fig, go.Figure)
-    
-    # Test statistics (handles batch)
-    stats = get_image_display_stats(batched_rgb_image)
-    assert isinstance(stats, dict)
-    assert len(stats) >= 5
-    
-    # Stats should show unbatched shape
-    assert stats["Shape"] == "(3, 32, 32)"
 
 
 def test_complete_batch_pipeline_grayscale(batched_grayscale_image):
-    """Test complete batched grayscale pipeline."""
+    """Test complete batched grayscale display pipeline."""
     fig = create_image_display(batched_grayscale_image, "Batch Grayscale Integration")
-    stats = get_image_display_stats(batched_grayscale_image)
     
     assert isinstance(fig, go.Figure)
-    assert isinstance(stats, dict)
-    assert stats["Shape"] == "(1, 32, 32)"

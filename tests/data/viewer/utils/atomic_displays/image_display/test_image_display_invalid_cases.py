@@ -11,8 +11,7 @@ import plotly.graph_objects as go
 
 from data.viewer.utils.atomic_displays.image_display import (
     image_to_numpy,
-    create_image_display,
-    get_image_display_stats
+    create_image_display
 )
 
 
@@ -108,35 +107,3 @@ def test_create_image_display_invalid_colorscale_type():
         create_image_display(image, "Test", colorscale=123)
     
     assert "Expected str colorscale" in str(exc_info.value)
-
-
-# ================================================================================
-# get_image_display_stats Tests - Invalid Cases
-# ================================================================================
-
-def test_get_image_display_stats_invalid_image_type():
-    """Test assertion failure for invalid image type."""
-    with pytest.raises(AssertionError) as exc_info:
-        get_image_display_stats("not_a_tensor")
-    
-    assert "Expected torch.Tensor" in str(exc_info.value)
-
-
-def test_get_image_display_stats_invalid_image_dimensions():
-    """Test assertion failure for invalid image dimensions."""
-    image = torch.randn(32, 32, dtype=torch.float32)
-    
-    with pytest.raises(AssertionError) as exc_info:
-        get_image_display_stats(image)
-    
-    assert "Expected 3D [C,H,W] or 4D [N,C,H,W] tensor" in str(exc_info.value)
-
-
-def test_get_image_display_stats_invalid_change_map_type():
-    """Test assertion failure for invalid change_map type."""
-    image = torch.randn(3, 32, 32, dtype=torch.float32)
-    
-    with pytest.raises(AssertionError) as exc_info:
-        get_image_display_stats(image, "not_a_tensor")
-    
-    assert "change_map must be torch.Tensor" in str(exc_info.value)
