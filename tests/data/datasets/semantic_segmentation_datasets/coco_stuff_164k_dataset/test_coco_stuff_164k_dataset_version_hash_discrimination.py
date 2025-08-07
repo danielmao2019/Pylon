@@ -164,33 +164,29 @@ def test_semantic_granularity_variants():
 
 def test_comprehensive_no_hash_collisions():
     """Ensure no hash collisions across different split configurations."""
-    with tempfile.TemporaryDirectory() as temp_dir1:
-        with tempfile.TemporaryDirectory() as temp_dir2:
-            create_dummy_cocostuff_structure(temp_dir1)
-            create_dummy_cocostuff_structure(temp_dir2)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        create_dummy_cocostuff_structure(temp_dir)
+        
+        with patched_dataset_size():
+            datasets = []
             
-            with patched_dataset_size():
-                datasets = []
-                
-                # Generate different dataset configurations
-                for data_root in [temp_dir1, temp_dir2]:
-                    for split in ['train2017', 'val2017']:
-                        datasets.append(COCOStuff164KDataset(
-                            data_root=data_root,
-                            split=split,
-                            semantic_granularity='coarse'  # Keep this constant
-                        ))
-                
-                # Collect all hashes
-                hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-                
-                # Ensure all hashes are unique (no collisions)
-                assert len(hashes) == len(set(hashes)), \
-                    f"Hash collision detected! Duplicate hashes found in: {hashes}"
-                
-                # Ensure all hashes are properly formatted
-                for hash_val in hashes:
-                    assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-                    assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
-
-
+            # Generate different dataset configurations
+            # Note: data_root is excluded from versioning, so we only vary split
+            for split in ['train2017', 'val2017']:
+                datasets.append(COCOStuff164KDataset(
+                    data_root=temp_dir,
+                    split=split,
+                    semantic_granularity='coarse'  # Keep this constant
+                ))
+            
+            # Collect all hashes
+            hashes = [dataset.get_cache_version_hash() for dataset in datasets]
+            
+            # Ensure all hashes are unique (no collisions)
+            assert len(hashes) == len(set(hashes)), \
+                f"Hash collision detected! Duplicate hashes found in: {hashes}"
+            
+            # Ensure all hashes are properly formatted
+            for hash_val in hashes:
+                assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
+                assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
