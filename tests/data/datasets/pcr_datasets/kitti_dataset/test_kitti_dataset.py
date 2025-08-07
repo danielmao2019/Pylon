@@ -53,8 +53,8 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 @pytest.mark.parametrize('kitti_dataset_config', ['train', 'val', 'test'], indirect=True)
 def test_kitti_dataset(kitti_dataset_config, max_samples, get_samples_to_test):
-    dataset = build_from_config(kitti_dataset_config)
     """Test the structure and content of dataset outputs."""
+    dataset = build_from_config(kitti_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 
