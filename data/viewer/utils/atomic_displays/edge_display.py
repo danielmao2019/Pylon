@@ -15,7 +15,7 @@ def create_edge_display(
     """Create edge detection display with proper visualization.
     
     Args:
-        edges: Edge tensor of shape [1, H, W] or [H, W] with edge values
+        edges: Edge tensor of shape [H, W] or [N, H, W] (batched) with edge values
         title: Title for the edge display
         colorscale: Plotly colorscale for edge visualization
         **kwargs: Additional arguments
@@ -28,15 +28,15 @@ def create_edge_display(
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(edges, torch.Tensor), f"Expected torch.Tensor, got {type(edges)}"
-    assert edges.ndim in [2, 3], f"Expected 2D [H,W] or 3D [1,H,W] tensor, got shape {edges.shape}"
-    
-    if edges.ndim == 3:
-        assert edges.shape[0] == 1, f"Expected single channel if 3D, got {edges.shape[0]} channels"
-        edges = edges.squeeze(0)  # Remove channel dimension
-    
+    assert edges.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {edges.shape}"
     assert edges.numel() > 0, f"Edge tensor cannot be empty"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
     assert isinstance(colorscale, str), f"Expected str colorscale, got {type(colorscale)}"
+    
+    # Handle batched input - extract single sample for visualization
+    if edges.ndim == 3:
+        assert edges.shape[0] == 1, f"Expected batch size 1 for visualization, got {edges.shape[0]}"
+        edges = edges[0]  # [N, H, W] -> [H, W]
     
     # Convert to numpy for visualization
     edges_np = edges.detach().cpu().numpy()
@@ -64,7 +64,7 @@ def get_edge_display_stats(edges: torch.Tensor) -> Dict[str, Any]:
     """Get edge detection statistics for display.
     
     Args:
-        edges: Edge tensor of shape [1, H, W] or [H, W]
+        edges: Edge tensor of shape [H, W] or [N, H, W] (batched)
         
     Returns:
         Dictionary containing edge statistics
@@ -74,13 +74,13 @@ def get_edge_display_stats(edges: torch.Tensor) -> Dict[str, Any]:
     """
     # Input validation
     assert isinstance(edges, torch.Tensor), f"Expected torch.Tensor, got {type(edges)}"
-    assert edges.ndim in [2, 3], f"Expected 2D [H,W] or 3D [1,H,W] tensor, got shape {edges.shape}"
-    
-    if edges.ndim == 3:
-        assert edges.shape[0] == 1, f"Expected single channel if 3D, got {edges.shape[0]} channels"
-        edges = edges.squeeze(0)  # Remove channel dimension
-    
+    assert edges.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {edges.shape}"
     assert edges.numel() > 0, f"Edge tensor cannot be empty"
+    
+    # Handle batched input - extract single sample for analysis
+    if edges.ndim == 3:
+        assert edges.shape[0] == 1, f"Expected batch size 1 for analysis, got {edges.shape[0]}"
+        edges = edges[0]  # [N, H, W] -> [H, W]
     
     # Calculate statistics
     valid_mask = torch.isfinite(edges)

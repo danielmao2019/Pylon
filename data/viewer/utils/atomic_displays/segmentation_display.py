@@ -15,7 +15,7 @@ def create_segmentation_display(
     
     Args:
         segmentation: Segmentation data, can be:
-            - 2D tensor of shape [H, W] with class indices
+            - 2D tensor of shape [H, W] or [N, H, W] (batched) with class indices
             - Dict with keys "masks" (List[torch.Tensor]) and "indices" (List[Any])
         title: Title for the segmentation display
         class_labels: Optional mapping from class indices to label names
@@ -31,11 +31,15 @@ def create_segmentation_display(
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
     
     if isinstance(segmentation, torch.Tensor):
-        assert segmentation.ndim in [2, 3], f"Expected 2D or 3D tensor, got shape {segmentation.shape}"
-        if segmentation.ndim == 3:
-            assert segmentation.shape[0] == 1, f"Expected single channel if 3D, got {segmentation.shape[0]} channels"
+        assert segmentation.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {segmentation.shape}"
         assert segmentation.numel() > 0, f"Segmentation tensor cannot be empty"
         assert segmentation.dtype in [torch.int64, torch.long], f"Expected int64 segmentation, got {segmentation.dtype}"
+        
+        # Handle batched input - extract single sample for visualization  
+        if segmentation.ndim == 3:
+            assert segmentation.shape[0] == 1, f"Expected batch size 1 for visualization, got {segmentation.shape[0]}"
+            segmentation = segmentation[0]  # [N, H, W] -> [H, W]
+            
     elif isinstance(segmentation, dict):
         assert 'masks' in segmentation, f"Dict segmentation must have 'masks', got keys: {list(segmentation.keys())}"
         assert 'indices' in segmentation, f"Dict segmentation must have 'indices', got keys: {list(segmentation.keys())}"
@@ -60,7 +64,9 @@ def get_segmentation_display_stats(
     """Get segmentation statistics for display.
     
     Args:
-        segmentation: Segmentation data (same format as create_segmentation_display)
+        segmentation: Segmentation data, can be:
+            - 2D tensor of shape [H, W] or [N, H, W] (batched) with class indices
+            - Dict with keys "masks" (List[torch.Tensor]) and "indices" (List[Any])
         
     Returns:
         Dictionary containing segmentation statistics
@@ -68,10 +74,16 @@ def get_segmentation_display_stats(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # Input validation (same as display function)
+    # Input validation and batch handling
     if isinstance(segmentation, torch.Tensor):
-        assert segmentation.ndim in [2, 3], f"Expected 2D or 3D tensor, got shape {segmentation.shape}"
+        assert segmentation.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {segmentation.shape}"
         assert segmentation.numel() > 0, f"Segmentation tensor cannot be empty"
+        
+        # Handle batched input - extract single sample for analysis
+        if segmentation.ndim == 3:
+            assert segmentation.shape[0] == 1, f"Expected batch size 1 for analysis, got {segmentation.shape[0]}"
+            segmentation = segmentation[0]  # [N, H, W] -> [H, W]
+            
     elif isinstance(segmentation, dict):
         assert 'masks' in segmentation, f"Dict segmentation must have 'masks', got keys: {list(segmentation.keys())}"
         assert 'indices' in segmentation, f"Dict segmentation must have 'indices', got keys: {list(segmentation.keys())}"

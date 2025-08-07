@@ -18,7 +18,7 @@ def create_normal_display(
     visualizes them by converting the normal vectors to RGB colors.
     
     Args:
-        normals: Normal tensor of shape [3, H, W] with normal vectors
+        normals: Normal tensor of shape [3, H, W] or [N, 3, H, W] (batched) with normal vectors
         title: Title for the normal display
         **kwargs: Additional arguments
         
@@ -30,10 +30,17 @@ def create_normal_display(
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(normals, torch.Tensor), f"Expected torch.Tensor, got {type(normals)}"
-    assert normals.ndim == 3, f"Expected 3D tensor [3,H,W], got shape {normals.shape}"
-    assert normals.shape[0] == 3, f"Expected 3 channels for normals, got {normals.shape[0]}"
+    assert normals.ndim in [3, 4], f"Expected 3D [3,H,W] or 4D [N,3,H,W] tensor, got shape {normals.shape}"
     assert normals.numel() > 0, f"Normal tensor cannot be empty"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
+    
+    # Handle batched input - extract single sample for visualization
+    if normals.ndim == 4:
+        assert normals.shape[0] == 1, f"Expected batch size 1 for visualization, got {normals.shape[0]}"
+        normals = normals[0]  # [N, 3, H, W] -> [3, H, W]
+    
+    # Validate unbatched tensor shape
+    assert normals.shape[0] == 3, f"Expected 3 channels for normals, got {normals.shape[0]}"
     
     # Convert normals to RGB visualization
     # Normals are typically in range [-1, 1], we map to [0, 1] for RGB
@@ -64,7 +71,7 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
     """Get surface normal statistics for display.
     
     Args:
-        normals: Normal tensor of shape [3, H, W]
+        normals: Normal tensor of shape [3, H, W] or [N, 3, H, W] (batched)
         
     Returns:
         Dictionary containing normal statistics
@@ -74,9 +81,16 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
     """
     # Input validation
     assert isinstance(normals, torch.Tensor), f"Expected torch.Tensor, got {type(normals)}"
-    assert normals.ndim == 3, f"Expected 3D tensor [3,H,W], got shape {normals.shape}"
-    assert normals.shape[0] == 3, f"Expected 3 channels, got {normals.shape[0]}"
+    assert normals.ndim in [3, 4], f"Expected 3D [3,H,W] or 4D [N,3,H,W] tensor, got shape {normals.shape}"
     assert normals.numel() > 0, f"Normal tensor cannot be empty"
+    
+    # Handle batched input - extract single sample for analysis
+    if normals.ndim == 4:
+        assert normals.shape[0] == 1, f"Expected batch size 1 for analysis, got {normals.shape[0]}"
+        normals = normals[0]  # [N, 3, H, W] -> [3, H, W]
+    
+    # Validate unbatched tensor shape
+    assert normals.shape[0] == 3, f"Expected 3 channels, got {normals.shape[0]}"
     
     # Calculate statistics
     valid_mask = torch.isfinite(normals).all(dim=0)

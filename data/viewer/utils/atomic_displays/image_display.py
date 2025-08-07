@@ -11,7 +11,7 @@ def image_to_numpy(image: torch.Tensor) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable image.
     
     Args:
-        image: Image tensor to convert
+        image: Image tensor of shape [C, H, W] where C is 1 (grayscale) or 3+ (RGB/multi-channel)
         
     Returns:
         Numpy array suitable for display
@@ -20,12 +20,8 @@ def image_to_numpy(image: torch.Tensor) -> np.ndarray:
         AssertionError: If inputs don't meet requirements
     """
     assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
-    
-    if image.ndim == 4:
-        assert image.shape[0] == 1, f"Expected batch size 1, got shape {image.shape}"
-        image = image.squeeze(0)
-    if image.ndim == 3:
-        image = image.squeeze(0)
+    assert image.ndim == 3, f"Expected 3D tensor [C,H,W], got shape {image.shape}"
+    assert image.numel() > 0, f"Image tensor cannot be empty"
 
     img: np.ndarray = image.cpu().numpy()
 
@@ -57,7 +53,7 @@ def create_image_display(
     """Create image display for RGB or grayscale images.
     
     Args:
-        image: Image tensor of shape [C, H, W] where C is 1 (grayscale) or 3 (RGB)
+        image: Image tensor of shape [C, H, W] or [N, C, H, W] (batched)
         title: Title for the image display
         colorscale: Color scale to use for the image
         **kwargs: Additional arguments
@@ -70,11 +66,18 @@ def create_image_display(
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
-    assert image.ndim == 3, f"Expected 3D tensor [C,H,W], got shape {image.shape}"
-    assert image.shape[0] in [1, 3], f"Expected 1 or 3 channels, got {image.shape[0]}"
+    assert image.ndim in [3, 4], f"Expected 3D [C,H,W] or 4D [N,C,H,W] tensor, got shape {image.shape}"
     assert image.numel() > 0, f"Image tensor cannot be empty"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
     assert isinstance(colorscale, str), f"Expected str colorscale, got {type(colorscale)}"
+    
+    # Handle batched input - extract single sample for visualization
+    if image.ndim == 4:
+        assert image.shape[0] == 1, f"Expected batch size 1 for visualization, got {image.shape[0]}"
+        image = image[0]  # [N, C, H, W] -> [C, H, W]
+    
+    # Validate unbatched tensor shape
+    assert image.shape[0] in [1, 3], f"Expected 1 or 3 channels, got {image.shape[0]}"
     
     # Convert image to numpy for visualization
     img: np.ndarray = image_to_numpy(image)
@@ -103,7 +106,7 @@ def get_image_display_stats(
     """Get image statistics for display.
     
     Args:
-        image: Image tensor of shape [C, H, W]
+        image: Image tensor of shape [C, H, W] or [N, C, H, W] (batched)
         change_map: Optional tensor with change classes for each pixel
         
     Returns:
@@ -114,7 +117,15 @@ def get_image_display_stats(
     """
     # Input validation
     assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
-    assert image.ndim == 3, f"Expected 3D tensor [C,H,W], got shape {image.shape}"
+    assert image.ndim in [3, 4], f"Expected 3D [C,H,W] or 4D [N,C,H,W] tensor, got shape {image.shape}"
+    
+    # Handle batched input - extract single sample for analysis
+    if image.ndim == 4:
+        assert image.shape[0] == 1, f"Expected batch size 1 for analysis, got {image.shape[0]}"
+        image = image[0]  # [N, C, H, W] -> [C, H, W]
+        if change_map is not None:
+            assert change_map.ndim >= 3, f"change_map must be batched if image is batched"
+            change_map = change_map[0] if change_map.ndim > 2 else change_map
     
     # Basic stats
     img_np: np.ndarray = image.detach().cpu().numpy()
