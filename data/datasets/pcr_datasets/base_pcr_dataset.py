@@ -569,8 +569,12 @@ class BasePCRDataset(BaseDataset):
         transform_info = BasePCRDataset._compute_transform_info(transform)
         
         # Get point cloud statistics
-        src_stats_children = get_point_cloud_display_stats(src_pc)
-        tgt_stats_children = get_point_cloud_display_stats(tgt_pc)
+        src_stats_dict = get_point_cloud_display_stats(src_pc)
+        tgt_stats_dict = get_point_cloud_display_stats(tgt_pc)
+        
+        # Convert statistics to HTML elements
+        src_stats_children = BasePCRDataset._dict_to_html_list(src_stats_dict)
+        tgt_stats_children = BasePCRDataset._dict_to_html_list(tgt_stats_dict)
 
         # Create layout using centralized utilities
         grid_items = create_figure_grid(figures, width_style="50%", height_style="520px")

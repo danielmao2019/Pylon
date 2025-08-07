@@ -27,10 +27,11 @@ from data.datasets.torchvision_datasets.mnist import MNISTDataset
 from data.datasets.random_datasets.classification_random_dataset import ClassificationRandomDataset
 from data.datasets.random_datasets.semantic_segmentation_random_dataset import SemanticSegmentationRandomDataset
 from data.datasets.gan_datasets.gan_dataset import GANDataset
+from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
 
 
 # =============================================================================
-# Dataset Configuration Registry - Working Datasets Only
+# Dataset Configuration Registry - Using Fixtures for Data Roots
 # =============================================================================
 
 DATASET_CONFIGS = {
@@ -39,11 +40,8 @@ DATASET_CONFIGS = {
     # =============================================================================
     'air_change': {
         'class': AirChangeDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/AirChange',
-            'split': 'train'
-        },
-        'splits': ['train', 'test'],  # AirChange only has train and test splits
+        'fixture': 'air_change_data_root',
+        'splits': ['train', 'test'],
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'test'}
@@ -51,10 +49,7 @@ DATASET_CONFIGS = {
     },
     'cdd': {
         'class': CDDDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/CDD',
-            'split': 'train'
-        },
+        'fixture': 'cdd_data_root',
         'splits': ['train', 'val', 'test'],
         'parameter_variations': [
             {'split': 'train'},
@@ -64,10 +59,7 @@ DATASET_CONFIGS = {
     },
     'levir_cd': {
         'class': LevirCdDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/LEVIR-CD',
-            'split': 'train'
-        },
+        'fixture': 'levir_cd_data_root',
         'splits': ['train', 'val', 'test'],
         'parameter_variations': [
             {'split': 'train'},
@@ -77,24 +69,18 @@ DATASET_CONFIGS = {
     },
     'oscd': {
         'class': OSCDDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/OSCD',
-            'split': 'train'
-        },
-        'splits': ['train', 'test'],  # OSCD only has train and test splits
+        'fixture': 'oscd_data_root',
+        'splits': ['train', 'test'],
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'test'},
-            {'bands': '13ch'},  # Different from default '3ch'
-            {'split': 'test', 'bands': '13ch'}  # Combined variation
+            {'bands': '13ch'},
+            {'split': 'test', 'bands': '13ch'}
         ]
     },
     'slpccd': {
         'class': SLPCCDDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/SLPCCD',
-            'split': 'train'
-        },
+        'fixture': 'slpccd_data_root',
         'splits': ['train', 'val', 'test'],
         'parameter_variations': [
             {'split': 'train'},
@@ -104,10 +90,7 @@ DATASET_CONFIGS = {
     },
     'sysu_cd': {
         'class': SYSU_CD_Dataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/SYSU-CD',
-            'split': 'train'
-        },
+        'fixture': 'sysu_cd_data_root',
         'splits': ['train', 'val', 'test'],
         'parameter_variations': [
             {'split': 'train'},
@@ -121,24 +104,18 @@ DATASET_CONFIGS = {
     # =============================================================================
     'celeb_a': {
         'class': CelebADataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/celeb-a',
-            'split': 'train'
-        },
+        'fixture': 'celeb_a_data_root',
         'splits': ['train', 'val'],
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'use_landmarks': True},  # Different from default False
-            {'split': 'val', 'use_landmarks': True}  # Combined variation
+            {'use_landmarks': True},
+            {'split': 'val', 'use_landmarks': True}
         ]
     },
     'mnist': {
         'class': MNISTDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/MNIST',  # torchvision will download here
-            'split': 'train'
-        },
+        'fixture': 'mnist_data_root',
         'splits': ['train', 'test'],
         'parameter_variations': [
             {'split': 'train'},
@@ -151,10 +128,7 @@ DATASET_CONFIGS = {
     # =============================================================================
     '3dmatch': {
         'class': ThreeDMatchDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/threedmatch',
-            'split': 'train'
-        },
+        'fixture': 'threedmatch_data_root',
         'splits': ['train', 'val', 'test'],
         'parameter_variations': [
             {'split': 'train'},
@@ -164,10 +138,7 @@ DATASET_CONFIGS = {
     },
     '3dlomatch': {
         'class': ThreeDLoMatchDataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/threedmatch',
-            'split': 'train'
-        },
+        'fixture': 'threedmatch_data_root',
         'splits': ['train', 'val', 'test'],
         'parameter_variations': [
             {'split': 'train'},
@@ -177,23 +148,36 @@ DATASET_CONFIGS = {
     },
     'modelnet40': {
         'class': ModelNet40Dataset,
-        'args': {
-            'data_root': './data/datasets/soft_links/ModelNet40',
-            'cache_filepath': './data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
-            'split': 'train',
-            'dataset_size': 50,  # Reduced for faster testing
+        'fixture': 'modelnet40_data_root',
+        'cache_fixture': 'modelnet40_cache_file',
+        'splits': ['train', 'test'],
+        'parameter_variations': [
+            {'split': 'train'},
+            {'split': 'test'},
+            {'rotation_mag': 30.0, 'translation_mag': 0.3},
+            {'keep_ratio': 0.8, 'matching_radius': 0.03}
+        ],
+        'extra_args': {
+            'dataset_size': 50,
             'overlap_range': (0.0, 1.0),
             'matching_radius': 0.05,
             'rotation_mag': 45.0,
             'translation_mag': 0.5,
             'keep_ratio': 0.7
-        },
-        'splits': ['train', 'test'],  # ModelNet40 has train and test splits
+        }
+    },
+    
+    # =============================================================================
+    # Semantic Segmentation Datasets (verified working)
+    # =============================================================================
+    'whu_bd': {
+        'class': WHU_BD_Dataset,
+        'fixture': 'whu_bd_data_root',
+        'splits': ['train', 'val', 'test'],
         'parameter_variations': [
             {'split': 'train'},
-            {'split': 'test'},
-            {'rotation_mag': 30.0, 'translation_mag': 0.3},  # Different rotation/translation
-            {'keep_ratio': 0.8, 'matching_radius': 0.03}  # Different keep_ratio and matching_radius
+            {'split': 'val'},
+            {'split': 'test'}
         ]
     },
     
@@ -202,39 +186,35 @@ DATASET_CONFIGS = {
     # =============================================================================
     'classification_random': {
         'class': ClassificationRandomDataset,
-        'args': {
-            'num_examples': 50,  # Reduced for faster testing
+        'fixture': None,  # No data root needed for synthetic datasets
+        'splits': [],
+        'parameter_variations': [
+            {'num_classes': 20},
+            {'num_examples': 100},
+            {'image_res': (64, 64)},
+            {'num_classes': 20, 'num_examples': 100}
+        ],
+        'extra_args': {
+            'num_examples': 50,
             'num_classes': 10,
             'image_res': (32, 32)
-        },
-        'splits': [],  # Synthetic dataset, no splits
-        'parameter_variations': [
-            {'num_classes': 20},  # Different from default 10
-            {'num_examples': 100},  # Different from default 50
-            {'image_res': (64, 64)},  # Different from default (32, 32)
-            {'num_classes': 20, 'num_examples': 100}  # Combined variation
-        ]
+        }
     },
     'semantic_segmentation_random': {
         'class': SemanticSegmentationRandomDataset,
-        'args': {
-            'num_examples': 50,  # Reduced for faster testing
-            'num_classes': 21
-        },
-        'splits': [],  # Synthetic dataset, no splits
+        'fixture': None,
+        'splits': [],
         'parameter_variations': [
-            {'num_classes': 151},  # Different from default 21
-            {'num_examples': 100},  # Different from default 50
-            {'base_seed': 42},  # Different from default None
-            {'num_classes': 151, 'num_examples': 100}  # Combined variation
-        ]
+            {'num_classes': 151},
+            {'num_examples': 100},
+            {'base_seed': 42},
+            {'num_classes': 151, 'num_examples': 100}
+        ],
+        'extra_args': {
+            'num_examples': 50,
+            'num_classes': 21
+        }
     },
-    
-    # Note: Datasets excluded due to issues:
-    # - KC3D: Uses dummy files (excluded as requested)
-    # - Urb3DCD, xView2: Data format issues
-    # - MultiMNIST: Complex setup, MNIST covers torchvision integration
-    # - Other datasets: Need data availability verification
 }
 
 
@@ -242,12 +222,31 @@ DATASET_CONFIGS = {
 # Helper Functions
 # =============================================================================
 
-def create_dataset_instance(dataset_name: str, **kwargs):
-    """Create a dataset instance using build_from_config."""
+def create_dataset_instance(dataset_name: str, request, **kwargs):
+    """Create a dataset instance using build_from_config with fixtures."""
     config = DATASET_CONFIGS[dataset_name]
+    
+    # Build args starting with extra_args if present
+    args = config.get('extra_args', {}).copy()
+    
+    # Add data_root from fixture if specified
+    if config['fixture'] is not None:
+        args['data_root'] = request.getfixturevalue(config['fixture'])
+    
+    # Add cache_filepath from fixture if specified
+    if 'cache_fixture' in config:
+        args['cache_filepath'] = request.getfixturevalue(config['cache_fixture'])
+    
+    # Add default split if not provided in kwargs
+    if 'split' not in kwargs and config['splits']:
+        args['split'] = config['splits'][0]
+    
+    # Override with any provided kwargs
+    args.update(kwargs)
+    
     dataset_config = {
         'class': config['class'],
-        'args': {**config['args'], **kwargs}
+        'args': args
     }
     return build_from_config(dataset_config)
 
@@ -284,14 +283,14 @@ def is_multi_split_dataset(dataset_name: str) -> bool:
 # =============================================================================
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
-def test_same_parameters_same_hash(dataset_name):
+def test_same_parameters_same_hash(dataset_name, request):
     """Test that identical parameters produce identical hashes."""
     # Use first parameter variation as baseline
     params = get_parameter_variations(dataset_name)[0]
     
     # Same parameters should produce same hash
-    dataset1 = create_dataset_instance(dataset_name, **params)
-    dataset2 = create_dataset_instance(dataset_name, **params)
+    dataset1 = create_dataset_instance(dataset_name, request, **params)
+    dataset2 = create_dataset_instance(dataset_name, request, **params)
     
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
@@ -300,26 +299,26 @@ def test_same_parameters_same_hash(dataset_name):
 
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
-def test_hash_format(dataset_name):
+def test_hash_format(dataset_name, request):
     """Test that hash is in correct format."""
     # Use first parameter variation
     params = get_parameter_variations(dataset_name)[0]
     
-    dataset = create_dataset_instance(dataset_name, **params)
+    dataset = create_dataset_instance(dataset_name, request, **params)
     hash_val = dataset.get_cache_version_hash()
     
     validate_hash_format(hash_val)
 
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
-def test_data_root_excluded_from_hash(dataset_name):
+def test_data_root_excluded_from_hash(dataset_name, request):
     """Test that data_root is excluded from hash for cache stability."""
     # Use first parameter variation
     params = get_parameter_variations(dataset_name)[0]
     
     # Same data root should produce same hash (data_root excluded from versioning)
-    dataset1 = create_dataset_instance(dataset_name, **params)
-    dataset2 = create_dataset_instance(dataset_name, **params)
+    dataset1 = create_dataset_instance(dataset_name, request, **params)
+    dataset2 = create_dataset_instance(dataset_name, request, **params)
     
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
@@ -332,13 +331,13 @@ def test_data_root_excluded_from_hash(dataset_name):
 # =============================================================================
 
 @pytest.mark.parametrize('dataset_name', [name for name in DATASET_CONFIGS.keys() if is_multi_split_dataset(name)])
-def test_different_split_different_hash(dataset_name):
+def test_different_split_different_hash(dataset_name, request):
     """Test that different splits produce different hashes."""
     splits = get_dataset_splits(dataset_name)
     split1, split2 = splits[0], splits[1]
     
-    dataset1 = create_dataset_instance(dataset_name, split=split1)
-    dataset2 = create_dataset_instance(dataset_name, split=split2)
+    dataset1 = create_dataset_instance(dataset_name, request, split=split1)
+    dataset2 = create_dataset_instance(dataset_name, request, split=split2)
     
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
@@ -347,13 +346,13 @@ def test_different_split_different_hash(dataset_name):
 
 
 @pytest.mark.parametrize('dataset_name', [name for name in DATASET_CONFIGS.keys() if has_splits(name)])
-def test_split_based_hash_collisions(dataset_name):
+def test_split_based_hash_collisions(dataset_name, request):
     """Test that all splits produce unique hashes (no collisions)."""
     splits = get_dataset_splits(dataset_name)
     
     hashes = []
     for split in splits:
-        dataset = create_dataset_instance(dataset_name, split=split)
+        dataset = create_dataset_instance(dataset_name, request, split=split)
         hash_val = dataset.get_cache_version_hash()
         
         # Check for collision
@@ -370,7 +369,7 @@ def test_split_based_hash_collisions(dataset_name):
 # =============================================================================
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
-def test_parameter_variations_hash_discrimination(dataset_name):
+def test_parameter_variations_hash_discrimination(dataset_name, request):
     """Test that different parameter combinations produce different hashes when they should."""
     variations = get_parameter_variations(dataset_name)
     
@@ -379,7 +378,7 @@ def test_parameter_variations_hash_discrimination(dataset_name):
     
     hashes = []
     for i, params in enumerate(variations):
-        dataset = create_dataset_instance(dataset_name, **params)
+        dataset = create_dataset_instance(dataset_name, request, **params)
         hash_val = dataset.get_cache_version_hash()
         
         # Check for collision
@@ -392,14 +391,14 @@ def test_parameter_variations_hash_discrimination(dataset_name):
 
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
-def test_comprehensive_no_hash_collisions(dataset_name):
+def test_comprehensive_no_hash_collisions(dataset_name, request):
     """Test comprehensive hash collision detection across all meaningful parameter combinations."""
     variations = get_parameter_variations(dataset_name)
     
     # Collect all hashes from all variations
     all_hashes = []
     for params in variations:
-        dataset = create_dataset_instance(dataset_name, **params)
+        dataset = create_dataset_instance(dataset_name, request, **params)
         hash_val = dataset.get_cache_version_hash()
         all_hashes.append((hash_val, params))
     
