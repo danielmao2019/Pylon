@@ -5,7 +5,7 @@ from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import S
 
 
 @pytest.fixture
-def slpccd_dataset_train_config(slpccd_data_root):
+def slpccd_dataset_train_config(slpccd_data_root, use_cpu_device, get_device):
     """Fixture for creating a SLPCCDDataset config with train split."""
     return {
         'class': SLPCCDDataset,
@@ -17,13 +17,14 @@ def slpccd_dataset_train_config(slpccd_data_root):
             'use_hierarchy': True,
             'hierarchy_levels': 3,
             'knn_size': 16,
-            'cross_knn_size': 16
+            'cross_knn_size': 16,
+            'device': get_device(use_cpu_device)
         }
     }
 
 
 @pytest.fixture
-def dataset_config(request, slpccd_data_root):
+def dataset_config(request, slpccd_data_root, use_cpu_device, get_device):
     """Fixture for creating a SLPCCDDataset config with parameterized split."""
     split = request.param
     return {
@@ -36,6 +37,7 @@ def dataset_config(request, slpccd_data_root):
             'use_hierarchy': True,
             'hierarchy_levels': 3,
             'knn_size': 16,
-            'cross_knn_size': 16
+            'cross_knn_size': 16,
+            'device': get_device(use_cpu_device)
         }
     }
