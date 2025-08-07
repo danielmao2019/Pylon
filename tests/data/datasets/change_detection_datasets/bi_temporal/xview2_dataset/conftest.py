@@ -5,13 +5,25 @@ from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import x
 
 
 @pytest.fixture
-def xview2_dataset_train(xview2_data_root):
-    """Fixture for creating an xView2Dataset instance with train split."""
-    return xView2Dataset(data_root=xview2_data_root, split='train')
+def xview2_dataset_train_config(xview2_data_root):
+    """Fixture for creating an xView2Dataset config with train split."""
+    return {
+        'class': xView2Dataset,
+        'args': {
+            'data_root': xview2_data_root,
+            'split': 'train'
+        }
+    }
 
 
 @pytest.fixture
-def dataset(request, xview2_data_root):
-    """Fixture for creating an xView2Dataset instance with parameterized split."""
+def dataset_config(request, xview2_data_root):
+    """Fixture for creating an xView2Dataset config with parameterized split."""
     split = request.param
-    return xView2Dataset(data_root=xview2_data_root, split=split)
+    return {
+        'class': xView2Dataset,
+        'args': {
+            'data_root': xview2_data_root,
+            'split': split
+        }
+    }

@@ -5,13 +5,25 @@ from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import 
 
 
 @pytest.fixture
-def sysu_cd_dataset_train(sysu_cd_data_root):
-    """Fixture for creating a SYSU_CD_Dataset instance with train split."""
-    return SYSU_CD_Dataset(data_root=sysu_cd_data_root, split='train')
+def sysu_cd_dataset_train_config(sysu_cd_data_root):
+    """Fixture for creating a SYSU_CD_Dataset config with train split."""
+    return {
+        'class': SYSU_CD_Dataset,
+        'args': {
+            'data_root': sysu_cd_data_root,
+            'split': 'train'
+        }
+    }
 
 
 @pytest.fixture
-def dataset(request, sysu_cd_data_root):
-    """Fixture for creating a SYSU_CD_Dataset instance with parameterized split."""
+def dataset_config(request, sysu_cd_data_root):
+    """Fixture for creating a SYSU_CD_Dataset config with parameterized split."""
     split = request.param
-    return SYSU_CD_Dataset(data_root=sysu_cd_data_root, split=split)
+    return {
+        'class': SYSU_CD_Dataset,
+        'args': {
+            'data_root': sysu_cd_data_root,
+            'split': split
+        }
+    }

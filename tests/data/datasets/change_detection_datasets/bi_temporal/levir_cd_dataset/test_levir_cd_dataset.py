@@ -40,8 +40,11 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset, num_samples: 
 
 
 
-@pytest.mark.parametrize('dataset', ['train', 'test', 'val'], indirect=True)
-def test_levir_cd_dataset(dataset, max_samples, get_samples_to_test):
+@pytest.mark.parametrize('dataset_config', ['train', 'test', 'val'], indirect=True)
+def test_levir_cd_dataset(dataset_config, max_samples, get_samples_to_test):
+    from utils.builders.builder import build_from_config
+    
+    dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 

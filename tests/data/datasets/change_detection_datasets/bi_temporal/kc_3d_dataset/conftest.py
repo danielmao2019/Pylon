@@ -5,13 +5,25 @@ from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC
 
 
 @pytest.fixture
-def kc_3d_dataset_train(kc_3d_data_root):
-    """Fixture for creating a KC3DDataset instance with train split."""
-    return KC3DDataset(data_root=kc_3d_data_root, split='train')
+def kc_3d_dataset_train_config(kc_3d_data_root):
+    """Fixture for creating a KC3DDataset config with train split."""
+    return {
+        'class': KC3DDataset,
+        'args': {
+            'data_root': kc_3d_data_root,
+            'split': 'train'
+        }
+    }
 
 
 @pytest.fixture
-def dataset(request, kc_3d_data_root):
-    """Fixture for creating a KC3DDataset instance with parameterized split."""
+def dataset_config(request, kc_3d_data_root):
+    """Fixture for creating a KC3DDataset config with parameterized split."""
     split = request.param
-    return KC3DDataset(data_root=kc_3d_data_root, split=split)
+    return {
+        'class': KC3DDataset,
+        'args': {
+            'data_root': kc_3d_data_root,
+            'split': split
+        }
+    }
