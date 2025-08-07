@@ -5,13 +5,14 @@ from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_D
 
 
 @pytest.fixture
-def whu_bd_dataset_config(request, whu_bd_data_root):
+def whu_bd_dataset_config(request, whu_bd_data_root, use_cpu_device, get_device):
     """Fixture for creating a WHU_BD_Dataset config."""
     split = request.param
     return {
         'class': WHU_BD_Dataset,
         'args': {
             'data_root': whu_bd_data_root,
-            'split': split
+            'split': split,
+            'device': get_device(use_cpu_device)
         }
     }
