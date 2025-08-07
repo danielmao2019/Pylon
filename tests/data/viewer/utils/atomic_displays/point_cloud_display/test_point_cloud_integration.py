@@ -32,7 +32,8 @@ def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
     assert isinstance(normalized_id, str)
     
     # Get statistics
-    stats = get_point_cloud_display_stats(point_cloud_3d)
+    pc_dict = {'pos': point_cloud_3d}
+    stats = get_point_cloud_display_stats(pc_dict)
     assert isinstance(stats, dict)
     
     # Apply LOD (no max_points parameter)
@@ -60,8 +61,9 @@ def test_point_cloud_utilities_determinism(point_cloud_3d, camera_state):
     pc_id_2 = build_point_cloud_id(datapoint, "source")
     assert pc_id_1 == pc_id_2
     
-    stats_1 = get_point_cloud_display_stats(point_cloud_3d)
-    stats_2 = get_point_cloud_display_stats(point_cloud_3d)
+    pc_dict = {'pos': point_cloud_3d}
+    stats_1 = get_point_cloud_display_stats(pc_dict)
+    stats_2 = get_point_cloud_display_stats(pc_dict)
     assert stats_1 == stats_2  # Dictionaries should be equal
     
     normalized_1 = normalize_point_cloud_id("test_id")
@@ -86,7 +88,8 @@ def test_performance_with_large_point_clouds():
     # These should complete without error
     datapoint = {"meta_info": {"idx": 100}}
     pc_id = build_point_cloud_id(datapoint, "large_test")
-    stats = get_point_cloud_display_stats(large_pc)
+    pc_dict = {'pos': large_pc}
+    stats = get_point_cloud_display_stats(pc_dict)
     lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
         points=large_pc,
         camera_state=camera_state,
