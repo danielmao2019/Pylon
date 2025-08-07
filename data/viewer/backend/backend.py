@@ -17,7 +17,7 @@ DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'general']
 
 # Dataset groupings by type for UI organization
 DATASET_GROUPS = {
-    'semseg': ['coco_stuff_164k'],
+    'semseg': ['coco_stuff_164k', 'whu_bd'],
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3dcd': ['urb3dcd', 'slpccd'],
     'pcr': [
