@@ -149,7 +149,7 @@ def update_transforms_section(dataset_info: Dict[str, Any]) -> List[html.Div]:
     if not dataset_info:
         raise PreventUpdate
 
-    transforms = dataset_info.get('transforms', [])
+    transforms = dataset_info['transforms']
     transforms_section = create_transforms_section(transforms)
     
     return [transforms_section]

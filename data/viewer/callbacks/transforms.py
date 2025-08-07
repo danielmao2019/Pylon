@@ -73,7 +73,7 @@ def update_datapoint_from_transforms(
 
     # Extract 3D settings and class labels using centralized configuration
     settings_3d = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
-    class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
+    class_labels = dataset_info['class_labels'] if dataset_type in ['semseg', '3dcd'] else None
 
     # Get dataset instance for display method
     dataset_instance = registry.viewer.backend.get_dataset_instance(dataset_name=dataset_name)

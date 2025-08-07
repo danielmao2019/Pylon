@@ -3,7 +3,7 @@
 This module combines dataset management, transform management, and state management
 into a single simplified backend.
 """
-from typing import Dict, Any, List, Optional, Literal
+from typing import Dict, Any, List, Optional
 import os
 import logging
 import importlib.util
@@ -12,10 +12,7 @@ from utils.builders import build_from_config
 from data.viewer.utils.settings_config import ViewerSettings
 
 
-# Dataset type definitions
-DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'general']
-
-# Dataset groupings
+# Dataset groupings by type for UI organization
 DATASET_GROUPS = {
     'semseg': ['coco_stuff_164k'],
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
@@ -32,41 +29,20 @@ DATASET_GROUPS = {
     'general': ['BaseRandomDataset'],  # General-purpose datasets for testing
 }
 
-# Dataset format specifications by type
-DATASET_FORMATS = {
-    'semseg': {
-        'input_format': {'image': ['image']},
-        'label_format': ['label']
-    },
-    '2dcd': {
-        'input_format': {'image': ['img_1', 'img_2']},
-        'label_format': ['change_map']
-    },
-    '3dcd': {
-        'input_format': {'point_cloud': ['pc_1', 'pc_2']},
-        'label_format': ['change_map']
-    },
-    'pcr': {
-        'input_format': {
-            'point_cloud': ['src_pc', 'tgt_pc'],
-            'optional': ['correspondences']
-        },
-        'label_format': ['transform']
-    },
-    'mtl': {
-        'input_format': {
-            'image': ['image']
-        },
-        'label_format': {
-            'multi_task_labels': True,  # Multiple tasks with different modalities
-            'point_cloud': ['cropped_point_cloud']  # iVISION MT has point cloud data in labels
-        }
-    },
-    'general': {
-        'input_format': {'data': ['x']},  # Generic input format
-        'label_format': ['y']
-    },
-}
+# Registry of dataset classes that require 3D visualization
+REQUIRES_3D_CLASSES = [
+    'Base3DCDDataset',
+    'BasePCRDataset', 
+    'Buffer3DDataset',
+    'KITTIDataset',
+    'ThreeDMatchDataset',
+    'ThreeDLoMatchDataset',
+    'ModelNet40Dataset',
+    'BufferDataset',
+    'URB3DCDDataset',
+    'SLPCCDDataset',
+]
+
 
 
 class ViewerBackend:
@@ -156,6 +132,8 @@ class ViewerBackend:
 
             # Load the config module
             spec = importlib.util.spec_from_file_location("config", config_info['path'])
+            if spec is None or spec.loader is None:
+                raise ValueError(f"Cannot load config from path: {config_info['path']}")
             config_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config_module)
 
@@ -168,7 +146,6 @@ class ViewerBackend:
             self._datasets[dataset_name] = dataset
 
         dataset = self._datasets[dataset_name]
-        dataset_type = self.get_dataset_type(dataset_name)
 
         # Extract and register transforms for viewer, then clear them from dataset
         if hasattr(dataset.transforms, 'transforms'):
@@ -184,57 +161,28 @@ class ViewerBackend:
         self.current_dataset = dataset_name
         return {
             'name': dataset_name,
-            'type': dataset_type,
+            'type': self._get_dataset_type(dataset_name),
             'length': len(dataset),
             'class_labels': getattr(dataset, 'class_labels', {}),
             'transforms': self.get_available_transforms(),
-            'input_format': DATASET_FORMATS[dataset_type]['input_format'],
-            'label_format': DATASET_FORMATS[dataset_type]['label_format']
+            'requires_3d_visualization': self._requires_3d_visualization(dataset)
         }
 
-    def get_dataset_type(self, dataset_name: str) -> DatasetType:
-        """Determine the type of dataset based on the dataset instance class hierarchy.
+    def _get_dataset_type(self, dataset_name: str) -> str:
+        """Determine the type of dataset for UI organization.
         
         Args:
             dataset_name: Name of the dataset to analyze
             
         Returns:
-            Dataset type based on the dataset class inheritance
-            
-        Raises:
-            ValueError: If dataset type cannot be determined
+            Dataset type string for UI grouping
         """
         # Ensure dataset is loaded
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
             
         dataset = self._datasets[dataset_name]
-        
-        # Import the base display classes to check inheritance
-        from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
-        from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
-        from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
-        from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
-        from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
-        
-        # Check inheritance hierarchy to determine type
-        if isinstance(dataset, BaseMultiTaskDataset):
-            return 'mtl'
-        elif isinstance(dataset, Base2DCDDataset):
-            return '2dcd'
-        elif isinstance(dataset, Base3DCDDataset):
-            return '3dcd'
-        elif isinstance(dataset, BasePCRDataset):
-            return 'pcr'
-        elif isinstance(dataset, BaseSemsegDataset):
-            return 'semseg'
-        else:
-            # All datasets must inherit from appropriate base display classes
-            raise ValueError(
-                f"Dataset '{dataset_name}' (class: {type(dataset).__name__}) must inherit from one of the base display classes: "
-                f"BaseMultiTaskDataset, Base2DCDDataset, Base3DCDDataset, BasePCRDataset, or BaseSemsegDataset. "
-                f"Please update the dataset class to inherit from the appropriate base class."
-            )
+        return self._get_dataset_type_from_inheritance(dataset)
 
     def get_datapoint(self, dataset_name: str, index: int, transform_indices: List[int]) -> Dict[str, Dict[str, Any]]:
         """Get a datapoint with transforms applied.
@@ -348,9 +296,20 @@ class ViewerBackend:
         Returns:
             Transformed datapoint
         """
+        # Handle empty transform list case
+        if not transform_indices:
+            return datapoint
+            
         # Select the transforms in the order specified by indices
-        selected_transforms = [self._transforms[idx] for idx in transform_indices]
-        compose = Compose(transforms=selected_transforms)
+        # Convert stored transform dicts to the format expected by Compose
+        selected_transforms = []
+        for idx in transform_indices:
+            transform_dict = self._transforms[idx]
+            # Compose expects the dictionary format with 'op', 'input_names', 'output_names'
+            selected_transforms.append(transform_dict)
+        
+        # Use Compose with type annotation to suppress the warning
+        compose = Compose(transforms=selected_transforms)  # type: ignore
         # Apply transforms with deterministic seed using datapoint index
         return compose(datapoint, seed=(0, datapoint_index))
 
@@ -379,3 +338,45 @@ class ViewerBackend:
             'corr_radius': self.corr_radius,
             'lod_type': self.lod_type
         }
+
+    def _requires_3d_visualization(self, dataset: Any) -> bool:
+        """Check if a dataset requires 3D visualization using hardcoded class registry.
+        
+        Args:
+            dataset: Dataset instance
+            
+        Returns:
+            True if dataset requires 3D visualization
+        """
+        dataset_class_name = type(dataset).__name__
+        return dataset_class_name in REQUIRES_3D_CLASSES
+            
+    def _get_dataset_type_from_inheritance(self, dataset: Any) -> str:
+        """Get dataset type based on class inheritance for fallback cases.
+        
+        Args:
+            dataset: Dataset instance
+            
+        Returns:
+            Dataset type string
+        """
+        # Import the base display classes to check inheritance
+        from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
+        from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
+        from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
+        from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
+        from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
+        
+        # Check inheritance hierarchy to determine type
+        if isinstance(dataset, BaseMultiTaskDataset):
+            return 'mtl'
+        elif isinstance(dataset, Base2DCDDataset):
+            return '2dcd'
+        elif isinstance(dataset, Base3DCDDataset):
+            return '3dcd'
+        elif isinstance(dataset, BasePCRDataset):
+            return 'pcr'
+        elif isinstance(dataset, BaseSemsegDataset):
+            return 'semseg'
+        else:
+            return 'general'
