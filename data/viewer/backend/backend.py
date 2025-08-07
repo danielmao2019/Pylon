@@ -3,7 +3,7 @@
 This module combines dataset management, transform management, and state management
 into a single simplified backend.
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Literal
 import os
 import logging
 import importlib.util
@@ -11,6 +11,9 @@ from data.transforms.compose import Compose
 from utils.builders import build_from_config
 from data.viewer.utils.settings_config import ViewerSettings
 
+
+# Dataset type definition for backward compatibility with eval viewer
+DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'general']
 
 # Dataset groupings by type for UI organization
 DATASET_GROUPS = {
