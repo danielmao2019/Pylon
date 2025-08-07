@@ -278,7 +278,7 @@ def test_dataset_inheritance_hierarchy(backend):
 def test_dataset_functionality_with_real_data(backend, coco_stuff_164k_dataset):
     """Test that real datasets are functional through the backend."""
     # Store dataset in backend
-    dataset_name = "test/FunctionalDataset"
+    dataset_name = "test/COCOStuff164KDataset"
     backend._datasets[dataset_name] = coco_stuff_164k_dataset
 
     # Test basic dataset properties
