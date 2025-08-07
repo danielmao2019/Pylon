@@ -5,6 +5,7 @@ import torch
 import os
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any], image_resolution: tuple) -> None:
@@ -39,17 +40,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
     assert all(x > 0 for x in image_resolution), f"{image_resolution=}"
 
 
-@pytest.fixture
-def dataset(request, celeb_a_data_root):
-    """Fixture for creating a CelebADataset instance."""
-    params = request.param
-    return CelebADataset(
-        data_root=celeb_a_data_root,
-        **params
-    )
-
-
-@pytest.mark.parametrize('dataset', [
+@pytest.mark.parametrize('celeb_a_dataset_config', [
     {
         'split': 'train',
     },
@@ -58,7 +49,8 @@ def dataset(request, celeb_a_data_root):
         'indices': [0, 2, 4, 6, 8],
     },
 ], indirect=True)
-def test_celeb_a(dataset: CelebADataset, max_samples, get_samples_to_test) -> None:
+def test_celeb_a(celeb_a_dataset_config, max_samples, get_samples_to_test) -> None:
+    dataset = build_from_config(celeb_a_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 

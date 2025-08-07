@@ -4,6 +4,7 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -135,30 +136,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert 0.0 <= meta_info['overlap'] <= 1.0, f"overlap should be between 0 and 1: {meta_info['overlap']=}"
 
 
-@pytest.fixture
-def dataset(request, threedmatch_data_root):
-    """Fixture for creating a ThreeDMatchDataset instance."""
-    split = request.param
-    return ThreeDMatchDataset(
-        data_root=threedmatch_data_root,
-        split=split,
-        matching_radius=0.1,
-    )
-
-
-@pytest.fixture
-def lomatch_dataset(request, threedmatch_data_root):
-    """Fixture for creating a ThreeDLoMatchDataset instance."""
-    split = request.param
-    return ThreeDLoMatchDataset(
-        data_root=threedmatch_data_root,
-        split=split,
-        matching_radius=0.1,
-    )
-
-
-@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
-def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
+@pytest.mark.parametrize('threedmatch_dataset_config', ['train', 'val', 'test'], indirect=True)
+def test_threedmatch_dataset(threedmatch_dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(threedmatch_dataset_config)
     """Test the structure and content of dataset outputs."""
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
@@ -184,8 +164,9 @@ def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
         executor.map(validate_datapoint, indices)
 
 
-@pytest.mark.parametrize('lomatch_dataset', ['train', 'val', 'test'], indirect=True)
-def test_threedlomatch_dataset(lomatch_dataset, max_samples, get_samples_to_test):
+@pytest.mark.parametrize('threedlomatch_dataset_config', ['train', 'val', 'test'], indirect=True)
+def test_threedlomatch_dataset(threedlomatch_dataset_config, max_samples, get_samples_to_test):
+    lomatch_dataset = build_from_config(threedlomatch_dataset_config)
     """Test the structure and content of ThreeDLoMatchDataset outputs."""
     assert isinstance(lomatch_dataset, torch.utils.data.Dataset)
     assert len(lomatch_dataset) > 0, "Dataset should not be empty"

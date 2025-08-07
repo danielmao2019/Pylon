@@ -57,8 +57,11 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: CDDDataset, n
         assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
-def test_cdd_dataset(dataset, max_samples, get_samples_to_test) -> None:
+@pytest.mark.parametrize('dataset_config', ['train', 'val', 'test'], indirect=True)
+def test_cdd_dataset(dataset_config, max_samples, get_samples_to_test) -> None:
+    from utils.builders.builder import build_from_config
+    
+    dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
     assert len(dataset) > 0, "Dataset should not be empty"
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), dtype=torch.int64, device=dataset.device)

@@ -2,6 +2,7 @@
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
+from utils.builders.builder import build_from_config
 
 
 def test_kc3d_dataset_has_version_dict_method():
@@ -23,8 +24,9 @@ def test_kc3d_dataset_has_version_dict_method():
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_kc3d_dataset_version_dict_functionality(kc_3d_dataset_train):
+def test_kc3d_dataset_version_dict_with_train_config(kc_3d_dataset_train_config):
     """Test that KC3DDataset version dict method works correctly."""
+    kc_3d_dataset_train = build_from_config(kc_3d_dataset_train_config)
     
     version_dict = kc_3d_dataset_train._get_cache_version_dict()
     
@@ -48,15 +50,20 @@ def test_kc3d_dataset_version_dict_functionality(kc_3d_dataset_train):
     assert version_dict['use_ground_truth_registration'] == True
 
 
-def test_kc3d_dataset_version_dict_parameter_variations(kc_3d_data_root):
+def test_kc3d_dataset_version_dict_parameter_variations(kc_3d_dataset_train_config):
     """Test that different use_ground_truth_registration values produce different version dicts."""
+    import copy
     
     # Test with use_ground_truth_registration=True
-    dataset_with_gt = KC3DDataset(data_root=kc_3d_data_root, split='train', use_ground_truth_registration=True)
+    config_with_gt = copy.deepcopy(kc_3d_dataset_train_config)
+    config_with_gt['args']['use_ground_truth_registration'] = True
+    dataset_with_gt = build_from_config(config_with_gt)
     version_dict_with_gt = dataset_with_gt._get_cache_version_dict()
     assert version_dict_with_gt['use_ground_truth_registration'] == True
     
     # Test with use_ground_truth_registration=False  
-    dataset_no_gt = KC3DDataset(data_root=kc_3d_data_root, split='train', use_ground_truth_registration=False)
+    config_no_gt = copy.deepcopy(kc_3d_dataset_train_config)
+    config_no_gt['args']['use_ground_truth_registration'] = False
+    dataset_no_gt = build_from_config(config_no_gt)
     version_dict_no_gt = dataset_no_gt._get_cache_version_dict()
     assert version_dict_no_gt['use_ground_truth_registration'] == False

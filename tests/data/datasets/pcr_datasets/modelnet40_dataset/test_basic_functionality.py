@@ -160,17 +160,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
             f"keep_ratio should be in (0, 1]: {transform_params['keep_ratio']}"
 
 
-@pytest.fixture
-def dataset_with_params(request, modelnet40_data_root, modelnet40_cache_file):
-    """Fixture for creating a ModelNet40Dataset instance."""
-    dataset_params = request.param.copy()
-    dataset_params['data_root'] = modelnet40_data_root
-    dataset_params['cache_filepath'] = modelnet40_cache_file
-    dataset = data.datasets.ModelNet40Dataset(**dataset_params)
-    return dataset
-
-
-@pytest.mark.parametrize('dataset_with_params', [
+@pytest.mark.parametrize('modelnet40_dataset_config', [
     {
         'split': 'train',
         'dataset_size': 100,
@@ -192,9 +182,10 @@ def dataset_with_params(request, modelnet40_data_root, modelnet40_cache_file):
         'transforms_cfg': transforms_cfg(),
     },
 ], indirect=True)
-def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_test):
+def test_modelnet40_dataset(modelnet40_dataset_config, max_samples, get_samples_to_test):
     """Test basic functionality of ModelNet40Dataset."""
-    dataset = dataset_with_params
+    from utils.builders.builder import build_from_config
+    dataset = build_from_config(modelnet40_dataset_config)
     
     # Get the actual parameters from the dataset for validation
     rot_mag = dataset.rotation_mag

@@ -2,6 +2,7 @@
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
+from utils.builders.builder import build_from_config
 
 
 def test_slpccd_dataset_has_version_dict_method():
@@ -23,8 +24,9 @@ def test_slpccd_dataset_has_version_dict_method():
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_slpccd_dataset_version_dict_functionality(slpccd_dataset_train):
+def test_slpccd_dataset_version_dict_with_train_config(slpccd_dataset_train_config):
     """Test that SLPCCDDataset version dict method works correctly."""
+    slpccd_dataset_train = build_from_config(slpccd_dataset_train_config)
     
     version_dict = slpccd_dataset_train._get_cache_version_dict()
     

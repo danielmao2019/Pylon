@@ -3,7 +3,7 @@ import pytest
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
-from data.datasets import Bi2SingleTemporal, SYSU_CD_Dataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -30,14 +30,8 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.fixture
-def dataset(request, sysu_cd_data_root):
-    """Fixture for creating an I3PEDataset instance."""
-    source = Bi2SingleTemporal(SYSU_CD_Dataset(data_root=sysu_cd_data_root, split='train'))
-    return I3PEDataset(source=source, dataset_size=len(source), exchange_ratio=0.75)
-
-
-def test_i3pe_dataset(dataset, max_samples, get_samples_to_test) -> None:
+def test_i3pe_dataset(i3pe_dataset_config, max_samples, get_samples_to_test) -> None:
+    dataset = build_from_config(i3pe_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
     assert len(dataset) > 0, "Dataset should not be empty"
 

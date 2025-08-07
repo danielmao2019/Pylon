@@ -5,31 +5,37 @@ from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import S
 
 
 @pytest.fixture
-def slpccd_dataset_train(slpccd_data_root):
-    """Fixture for creating a SLPCCDDataset instance with train split."""
-    return SLPCCDDataset(
-        data_root=slpccd_data_root, 
-        split='train',
-        num_points=8192,
-        random_subsample=True,
-        use_hierarchy=True,
-        hierarchy_levels=3,
-        knn_size=16,
-        cross_knn_size=16
-    )
+def slpccd_dataset_train_config(slpccd_data_root):
+    """Fixture for creating a SLPCCDDataset config with train split."""
+    return {
+        'class': SLPCCDDataset,
+        'args': {
+            'data_root': slpccd_data_root,
+            'split': 'train',
+            'num_points': 8192,
+            'random_subsample': True,
+            'use_hierarchy': True,
+            'hierarchy_levels': 3,
+            'knn_size': 16,
+            'cross_knn_size': 16
+        }
+    }
 
 
 @pytest.fixture
-def dataset(request, slpccd_data_root):
-    """Fixture for creating a SLPCCDDataset instance with parameterized split."""
+def dataset_config(request, slpccd_data_root):
+    """Fixture for creating a SLPCCDDataset config with parameterized split."""
     split = request.param
-    return SLPCCDDataset(
-        data_root=slpccd_data_root, 
-        split=split,
-        num_points=8192,
-        random_subsample=True,
-        use_hierarchy=True,
-        hierarchy_levels=3,
-        knn_size=16,
-        cross_knn_size=16
-    )
+    return {
+        'class': SLPCCDDataset,
+        'args': {
+            'data_root': slpccd_data_root,
+            'split': split,
+            'num_points': 8192,
+            'random_subsample': True,
+            'use_hierarchy': True,
+            'hierarchy_levels': 3,
+            'knn_size': 16,
+            'cross_knn_size': 16
+        }
+    }

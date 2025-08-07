@@ -2,6 +2,7 @@
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
+from utils.builders.builder import build_from_config
 
 
 def test_urb3dcd_dataset_has_version_dict_method():
@@ -23,8 +24,9 @@ def test_urb3dcd_dataset_has_version_dict_method():
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_urb3dcd_dataset_version_dict_functionality(urb3dcd_dataset_train):
+def test_urb3dcd_dataset_version_dict_with_train_config(urb3dcd_dataset_train_config):
     """Test that Urb3DCDDataset version dict method works correctly."""
+    urb3dcd_dataset_train = build_from_config(urb3dcd_dataset_train_config)
     
     version_dict = urb3dcd_dataset_train._get_cache_version_dict()
     

@@ -5,6 +5,7 @@ import torch
 import json
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -50,19 +51,10 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info['t1'], int), f"{type(meta_info['t1'])=}"
 
 
-@pytest.fixture
-def dataset(request, kitti_data_root):
-    """Fixture for creating a KITTIDataset instance."""
-    split = request.param
-    return KITTIDataset(
-        data_root=kitti_data_root,
-        split=split,
-    )
-
-
-@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
-def test_kitti_dataset(dataset, max_samples, get_samples_to_test):
+@pytest.mark.parametrize('kitti_dataset_config', ['train', 'val', 'test'], indirect=True)
+def test_kitti_dataset(kitti_dataset_config, max_samples, get_samples_to_test):
     """Test the structure and content of dataset outputs."""
+    dataset = build_from_config(kitti_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 

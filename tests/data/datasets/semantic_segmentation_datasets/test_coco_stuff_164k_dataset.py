@@ -4,6 +4,7 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets import COCOStuff164KDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -42,13 +43,14 @@ def dataset(request, coco_stuff_164k_data_root):
     )
 
 
-@pytest.mark.parametrize('dataset', [
+@pytest.mark.parametrize('dataset_config', [
     ('train2017', 'fine'),
     ('train2017', 'coarse'),
     ('val2017', 'fine'),
     ('val2017', 'coarse'),
 ], indirect=True)
-def test_coco_stuff_164k(dataset, max_samples, get_samples_to_test):
+def test_coco_stuff_164k(dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
     semantic_granularity = dataset.semantic_granularity
