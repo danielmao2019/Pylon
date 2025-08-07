@@ -5,6 +5,7 @@ import torch
 import os
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -82,17 +83,7 @@ def validate_datapoint(dataset: NYUv2Dataset, idx: int) -> None:
     assert datapoint['inputs']['image'].shape[-2:] == datapoint['meta_info']['image_resolution']
 
 
-@pytest.fixture
-def dataset(request, nyu_v2_data_root):
-    """Fixture for creating a NYUv2Dataset instance."""
-    params = request.param
-    return NYUv2Dataset(
-        data_root=nyu_v2_data_root,
-        **params
-    )
-
-
-@pytest.mark.parametrize('dataset', [
+@pytest.mark.parametrize('nyu_v2_dataset_config', [
     {
         'split': 'train',
     },
@@ -101,7 +92,8 @@ def dataset(request, nyu_v2_data_root):
         'indices': [0, 2, 4, 6, 8],
     },
 ], indirect=True)
-def test_nyu_v2(dataset: NYUv2Dataset, max_samples, get_samples_to_test) -> None:
+def test_nyu_v2(nyu_v2_dataset_config, max_samples, get_samples_to_test) -> None:
+    dataset = build_from_config(nyu_v2_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 
@@ -121,13 +113,14 @@ def test_nyu_v2(dataset: NYUv2Dataset, max_samples, get_samples_to_test) -> None
     (['depth_estimation', 'semantic_segmentation', 'edge_detection'], ['depth_estimation', 'semantic_segmentation', 'edge_detection']),
     (None, None),  # Default case - will be set to NYUv2Dataset.LABEL_NAMES
 ])
-def test_nyu_v2_selective_loading(nyu_v2_data_root, selected_labels, expected_keys):
+def test_nyu_v2_selective_loading(nyu_v2_base_config, selected_labels, expected_keys):
     """Test that NYUv2 dataset selective loading works correctly."""
-    dataset = NYUv2Dataset(
-        data_root=nyu_v2_data_root,
-        split='train',
-        labels=selected_labels
-    )
+    # Copy and modify the base config for selective loading
+    import copy
+    config = copy.deepcopy(nyu_v2_base_config)
+    config['args']['labels'] = selected_labels
+    
+    dataset = build_from_config(config)
     
     # Check selected_labels attribute
     if selected_labels is None:

@@ -77,8 +77,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
-def test_urb3dcd_dataset(dataset, max_samples, get_samples_to_test) -> None:
+@pytest.mark.parametrize('dataset_config', ['train', 'val', 'test'], indirect=True)
+def test_urb3dcd_dataset(dataset_config, max_samples, get_samples_to_test) -> None:
+    from utils.builders.builder import build_from_config
+    
+    dataset = build_from_config(dataset_config)
     """Test the Urb3DCDDataset class."""
     print("Dataset initialized.")
 

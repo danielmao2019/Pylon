@@ -33,11 +33,12 @@ def dataset(request):
     return ClassificationRandomDataset(num_classes, num_examples, image_res, base_seed=base_seed)
 
 
-@pytest.mark.parametrize("dataset", [
+@pytest.mark.parametrize("dataset_config", [
     (10, 1000, (512, 512), None),
     (10, 1000, (512, 512), 0),
 ], indirect=True)
-def test_classification_random_dataset(dataset, max_samples, get_samples_to_test):
+def test_classification_random_dataset(dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 

@@ -5,6 +5,7 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets import MNISTDataset
 from data.datasets.gan_datasets.gan_dataset import GANDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any], dataset) -> None:
@@ -52,7 +53,8 @@ def dataset(request, mnist_data_root):
     ("train", "cuda"),
     ("test", "cuda"),
 ], indirect=True)
-def test_gan_dataset_properties(dataset, max_samples, get_samples_to_test):
+def test_gan_dataset_properties(dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(dataset_config)
     """Checks tensor shapes, dtypes, and device placement for all datapoints in the GANDataset."""
     assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
     assert len(dataset) > 0, "Dataset should not be empty"
@@ -75,7 +77,8 @@ def test_gan_dataset_properties(dataset, max_samples, get_samples_to_test):
     ("train", "cpu"),
     ("train", "cuda"),
 ], indirect=True)
-def test_reproducibility(dataset, max_samples, get_samples_to_test):
+def test_reproducibility(dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(dataset_config)
     """Checks that the dataset generates the same sample when the RNG state is restored."""
     assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
     assert len(dataset) > 0, "Dataset should not be empty"

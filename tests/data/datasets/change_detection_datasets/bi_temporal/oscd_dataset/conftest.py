@@ -30,12 +30,13 @@ def oscd_dataset_test_config(oscd_data_root):
 
 @pytest.fixture
 def dataset_config(request, oscd_data_root):
-    """Fixture for creating an OSCDDataset config with parameterized split."""
-    split = request.param
+    """Fixture for creating an OSCDDataset config with parameterized split and bands."""
+    split, bands = request.param
     return {
         'class': OSCDDataset,
         'args': {
             'data_root': oscd_data_root,
-            'split': split
+            'split': split,
+            'bands': bands
         }
     }

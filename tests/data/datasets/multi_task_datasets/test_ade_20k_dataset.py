@@ -4,6 +4,7 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets import ADE20KDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -100,18 +101,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert all(x > 0 for x in meta_info['image_resolution']), f"{meta_info['image_resolution']=}"
 
 
-@pytest.fixture
-def dataset(request, ade20k_data_root):
-    """Fixture for creating an ADE20KDataset instance."""
-    split = request.param
-    return ADE20KDataset(
-        data_root=ade20k_data_root,
-        split=split,
-    )
-
-
-@pytest.mark.parametrize('dataset', ['training', 'validation'], indirect=True)
-def test_ade_20k(dataset, max_samples, get_samples_to_test):
+@pytest.mark.parametrize('ade20k_dataset_config', ['training', 'validation'], indirect=True)
+def test_ade_20k(ade20k_dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(ade20k_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 
