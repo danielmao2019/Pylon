@@ -25,17 +25,17 @@ def test_get_point_cloud_display_stats_basic(point_cloud_3d):
     """Test basic point cloud statistics calculation."""
     stats = get_point_cloud_display_stats(point_cloud_3d)
     
-    assert isinstance(stats, html.Ul)
-    assert len(stats.children) >= 6  # At least 6 basic stats items
-    
-    # Check that stats contain expected text patterns
-    stats_text = str(stats)
-    assert "Total Points: 1000" in stats_text
-    assert "Dimensions: 3" in stats_text
-    assert "X Range:" in stats_text
-    assert "Y Range:" in stats_text
-    assert "Z Range:" in stats_text
-    assert "Center:" in stats_text
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 1000
+    assert stats['dimensions'] == 3
+    assert 'x_range' in stats
+    assert 'y_range' in stats
+    assert 'z_range' in stats
+    assert 'center' in stats
+    assert len(stats['x_range']) == 2
+    assert len(stats['y_range']) == 2  
+    assert len(stats['z_range']) == 2
+    assert len(stats['center']) == 3
 
 
 def test_get_point_cloud_display_stats_known_values():
@@ -51,14 +51,11 @@ def test_get_point_cloud_display_stats_known_values():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, html.Ul)
-    
-    # Check that stats contain expected text patterns
-    stats_text = str(stats)
-    assert "Total Points: 100" in stats_text
-    assert "[0.00, 2.00]" in stats_text  # X range
-    assert "[0.00, 3.00]" in stats_text  # Y range
-    assert "[0.00, 4.00]" in stats_text  # Z range
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 100
+    assert stats['x_range'] == [0.0, 2.0]  # X range
+    assert stats['y_range'] == [0.0, 3.0]  # Y range
+    assert stats['z_range'] == [0.0, 4.0]  # Z range
 
 
 def test_get_point_cloud_display_stats_single_point():
