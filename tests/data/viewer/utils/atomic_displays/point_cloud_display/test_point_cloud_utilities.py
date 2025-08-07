@@ -213,10 +213,13 @@ def test_get_point_cloud_display_stats_basic():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, html.Ul)
-    stats_str = str(stats)
-    assert "Total Points: 3" in stats_str
-    assert "Dimensions: 3" in stats_str
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 3
+    assert stats['dimensions'] == 3
+    assert 'x_range' in stats
+    assert 'y_range' in stats
+    assert 'z_range' in stats
+    assert 'center' in stats
 
 
 def test_get_point_cloud_display_stats_basic_extended():
@@ -225,10 +228,13 @@ def test_get_point_cloud_display_stats_basic_extended():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, html.Ul)
-    stats_str = str(stats)
-    assert "Total Points: 100" in stats_str
-    assert "Dimensions: 3" in stats_str
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 100
+    assert stats['dimensions'] == 3
+    assert 'x_range' in stats
+    assert 'y_range' in stats
+    assert 'z_range' in stats
+    assert 'center' in stats
 
 
 def test_get_point_cloud_display_stats_with_change_map():
@@ -238,10 +244,11 @@ def test_get_point_cloud_display_stats_with_change_map():
     
     stats = get_point_cloud_display_stats(points, change_map=change_map)
     
-    assert isinstance(stats, html.Ul)
-    stats_str = str(stats)
-    assert "Total Points: 100" in stats_str
-    assert "Class Distribution" in stats_str
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 100
+    assert stats['dimensions'] == 3
+    assert 'class_distribution' in stats
+    assert isinstance(stats['class_distribution'], dict)
 
 
 def test_get_point_cloud_display_stats_invalid_points_shape():
@@ -250,10 +257,13 @@ def test_get_point_cloud_display_stats_invalid_points_shape():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, html.Ul)
-    stats_str = str(stats)
-    assert "Total Points: 100" in stats_str
-    assert "Dimensions: 4" in stats_str
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 100
+    assert stats['dimensions'] == 4
+    assert 'x_range' in stats
+    assert 'y_range' in stats
+    assert 'z_range' in stats
+    assert 'center' in stats
 
 
 # ================================================================================
@@ -285,4 +295,6 @@ def test_point_cloud_utility_pipeline(point_cloud_3d):
     
     # Get statistics
     stats = get_point_cloud_display_stats(point_cloud_3d)
-    assert isinstance(stats, html.Ul)
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 1000
+    assert stats['dimensions'] == 3
