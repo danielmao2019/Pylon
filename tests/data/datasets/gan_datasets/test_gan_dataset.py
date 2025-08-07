@@ -30,32 +30,15 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.fixture
-def dataset(request, mnist_data_root):
-    """Fixture for creating a GANDataset instance with an MNIST source dataset."""
-    split, device = request.param  # Unpack the test parameters
-    latent_dim = 128
-
-    # Use MNIST data root fixture
-    source = MNISTDataset(
-        data_root=mnist_data_root,
-        split=split, 
-        device=device,
-    )
-    
-    dataset = GANDataset(latent_dim=latent_dim, source=source, device=device)
-    return dataset
-
-
-@pytest.mark.parametrize("dataset", [
+@pytest.mark.parametrize("gan_dataset_config", [
     ("train", "cpu"),
     ("test", "cpu"),
     ("train", "cuda"),
     ("test", "cuda"),
 ], indirect=True)
-def test_gan_dataset_properties(dataset_config, max_samples, get_samples_to_test):
-    dataset = build_from_config(dataset_config)
+def test_gan_dataset_properties(gan_dataset_config, max_samples, get_samples_to_test):
     """Checks tensor shapes, dtypes, and device placement for all datapoints in the GANDataset."""
+    dataset = build_from_config(gan_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
     assert len(dataset) > 0, "Dataset should not be empty"
 
@@ -73,13 +56,13 @@ def test_gan_dataset_properties(dataset_config, max_samples, get_samples_to_test
         executor.map(validate_datapoint, indices)
 
 
-@pytest.mark.parametrize("dataset", [
+@pytest.mark.parametrize("gan_dataset_config", [
     ("train", "cpu"),
     ("train", "cuda"),
 ], indirect=True)
-def test_reproducibility(dataset_config, max_samples, get_samples_to_test):
-    dataset = build_from_config(dataset_config)
+def test_reproducibility(gan_dataset_config, max_samples, get_samples_to_test):
     """Checks that the dataset generates the same sample when the RNG state is restored."""
+    dataset = build_from_config(gan_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
     assert len(dataset) > 0, "Dataset should not be empty"
 
