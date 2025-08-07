@@ -424,14 +424,14 @@ def create_point_cloud_display(
 
 
 def get_point_cloud_display_stats(
-    points: torch.Tensor,
+    pc_dict: Dict[str, torch.Tensor],
     change_map: Optional[torch.Tensor] = None,
     class_names: Optional[Dict[int, str]] = None
 ) -> Dict[str, Any]:
     """Get point cloud statistics for display.
     
     Args:
-        points: Point cloud tensor of shape [N, 3+]
+        pc_dict: Point cloud dictionary with required 'pos' key and optional other fields
         change_map: Optional tensor with change classes for each point
         class_names: Optional dictionary mapping class IDs to class names
         
@@ -442,6 +442,10 @@ def get_point_cloud_display_stats(
         AssertionError: If inputs don't meet requirements
     """
     # Input validation
+    assert isinstance(pc_dict, dict), f"Expected dict, got {type(pc_dict)}"
+    assert 'pos' in pc_dict, f"pc_dict must have 'pos' key, got keys: {list(pc_dict.keys())}"
+    
+    points = pc_dict['pos']
     assert isinstance(points, torch.Tensor), f"Expected torch.Tensor, got {type(points)}"
     assert points.ndim == 2, f"Expected 2D tensor [N,D], got shape {points.shape}"
     assert points.shape[1] >= 3, f"Expected at least 3 coordinates, got {points.shape[1]}"
@@ -458,6 +462,7 @@ def get_point_cloud_display_stats(
     points_np = points.detach().cpu().numpy()
     
     stats = {
+        'available_fields': list(pc_dict.keys()),
         'total_points': len(points_np),
         'dimensions': points_np.shape[1],
         'x_range': [float(points_np[:, 0].min()), float(points_np[:, 0].max())],
