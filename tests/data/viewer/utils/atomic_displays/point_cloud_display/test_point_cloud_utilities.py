@@ -211,7 +211,8 @@ def test_get_point_cloud_display_stats_basic():
         [2.0, 2.0, 2.0]
     ], dtype=torch.float32)
     
-    stats = get_point_cloud_display_stats(points)
+    pc_dict = {'pos': points}
+    stats = get_point_cloud_display_stats(pc_dict)
     
     assert isinstance(stats, dict)
     assert stats['total_points'] == 3
@@ -226,7 +227,8 @@ def test_get_point_cloud_display_stats_basic_extended():
     """Test basic point cloud statistics with additional checks."""
     points = torch.randn(100, 3, dtype=torch.float32)
     
-    stats = get_point_cloud_display_stats(points)
+    pc_dict = {'pos': points}
+    stats = get_point_cloud_display_stats(pc_dict)
     
     assert isinstance(stats, dict)
     assert stats['total_points'] == 100
@@ -242,7 +244,8 @@ def test_get_point_cloud_display_stats_with_change_map():
     points = torch.randn(100, 3, dtype=torch.float32)
     change_map = torch.randint(0, 3, (100,), dtype=torch.long)
     
-    stats = get_point_cloud_display_stats(points, change_map=change_map)
+    pc_dict = {'pos': points}
+    stats = get_point_cloud_display_stats(pc_dict, change_map=change_map)
     
     assert isinstance(stats, dict)
     assert stats['total_points'] == 100
@@ -255,7 +258,8 @@ def test_get_point_cloud_display_stats_invalid_points_shape():
     """Test that function works with points having >3 dimensions."""
     points = torch.randn(100, 4, dtype=torch.float32)  # 4D points should work
     
-    stats = get_point_cloud_display_stats(points)
+    pc_dict = {'pos': points}
+    stats = get_point_cloud_display_stats(pc_dict)
     
     assert isinstance(stats, dict)
     assert stats['total_points'] == 100
@@ -294,7 +298,8 @@ def test_point_cloud_utility_pipeline(point_cloud_3d):
     assert numpy_pc.shape == (1000, 3)
     
     # Get statistics
-    stats = get_point_cloud_display_stats(point_cloud_3d)
+    pc_dict = {'pos': point_cloud_3d}
+    stats = get_point_cloud_display_stats(pc_dict)
     assert isinstance(stats, dict)
     assert stats['total_points'] == 1000
     assert stats['dimensions'] == 3
