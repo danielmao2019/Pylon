@@ -3,25 +3,12 @@ from typing import Dict, List, Any
 from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 import dash
-from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
-from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
-from data.viewer.layout.display.display_pcr import display_pcr_datapoint
-from data.viewer.layout.display.display_semseg import display_semseg_datapoint
 from data.viewer.backend.backend import DatasetType
 from runners.eval_viewer.backend.initialization import LogDirInfo, load_debug_outputs
 from utils.builders.builder import build_from_config
 
 import logging
 logger = logging.getLogger(__name__)
-
-
-# Mapping of dataset types to their display functions
-DISPLAY_FUNCTIONS = {
-    'semseg': display_semseg_datapoint,
-    '2dcd': display_2dcd_datapoint,
-    '3dcd': display_3dcd_datapoint,
-    'pcr': display_pcr_datapoint,
-}
 
 
 def register_datapoint_viewer_callbacks(
@@ -48,7 +35,6 @@ def register_datapoint_viewer_callbacks(
     
     assert dataset_type is not None, "dataset_type must not be None"
     assert isinstance(dataset_type, str), f"dataset_type must be str, got {type(dataset_type)}"
-    assert dataset_type in DISPLAY_FUNCTIONS, f"dataset_type {dataset_type} not supported, available: {list(DISPLAY_FUNCTIONS.keys())}"
     
     assert log_dir_infos is not None, "log_dir_infos must not be None"
     assert isinstance(log_dir_infos, dict), f"log_dir_infos must be dict, got {type(log_dir_infos)}"
@@ -134,10 +120,9 @@ def register_datapoint_viewer_callbacks(
             if debug_outputs and datapoint_idx in debug_outputs:
                 datapoint['debug'] = debug_outputs[datapoint_idx]
 
-        # Get the appropriate display function
-        display_func = DISPLAY_FUNCTIONS.get(dataset_type)
-        assert display_func is not None, f"No display function found for dataset type: {dataset_type}"
-        display = display_func(datapoint)
+        # Use current dataset instance display method directly 
+        assert hasattr(current_dataset, 'display_datapoint'), f"Dataset {type(current_dataset).__name__} must have display_datapoint method"
+        display = current_dataset.display_datapoint(datapoint)
 
         # Create combined display with info and visualization
         return html.Div([

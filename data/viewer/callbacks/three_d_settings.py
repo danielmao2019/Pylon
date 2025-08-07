@@ -86,15 +86,17 @@ def update_view_controls(
     if dataset_info is None or not dataset_info:
         return [{'display': 'none'}, {'display': 'none'}]
 
-    assert 'type' in dataset_info, f"{dataset_info.keys()=}"
-    dataset_type = dataset_info.get('type')
+    assert 'requires_3d_visualization' in dataset_info, f"dataset_info missing required 'requires_3d_visualization' key, got keys: {list(dataset_info.keys())}"
+    assert 'type' in dataset_info, f"dataset_info missing required 'type' key, got keys: {list(dataset_info.keys())}"
+    requires_3d = dataset_info['requires_3d_visualization']
+    dataset_type = dataset_info['type']
 
     # Default styles
     view_controls_style = {'display': 'none'}
     pcr_controls_style = {'display': 'none'}
 
-    # Show 3D controls for 3D datasets using proper API
-    if ViewerSettings.requires_3d_visualization(dataset_type):
+    # Show 3D controls for 3D datasets
+    if requires_3d:
         view_controls_style = {'display': 'block'}
 
         # Show PCR controls only for PCR datasets

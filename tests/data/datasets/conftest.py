@@ -131,8 +131,6 @@ def random_transforms():
     }
 
 
-
-
 # ================================================================================
 # Dataset Root Fixtures - Centralized dataset paths for all tests
 # ================================================================================
@@ -211,12 +209,6 @@ def i3pe_data_root():
     return "./data/datasets/soft_links/I3PE"
 
 
-@pytest.fixture
-def whu_bd_data_root():
-    """Fixture that provides WHU-BD dataset path."""
-    return "./data/datasets/soft_links/WHU-BD"
-
-
 # --------------------------------------------------------------------------------
 # Multi-task Datasets
 # --------------------------------------------------------------------------------
@@ -289,6 +281,12 @@ def coco_stuff_164k_data_root():
     return "./data/datasets/soft_links/COCOStuff164K"
 
 
+@pytest.fixture
+def whu_bd_data_root():
+    """Fixture that provides WHU-BD dataset path."""
+    return "./data/datasets/soft_links/WHU-BD"
+
+
 # --------------------------------------------------------------------------------
 # Torchvision Datasets
 # --------------------------------------------------------------------------------
@@ -297,7 +295,6 @@ def coco_stuff_164k_data_root():
 def mnist_data_root():
     """Fixture that provides MNIST data path."""
     return "./data/datasets/soft_links/MNIST"
-
 
 
 # --------------------------------------------------------------------------------
