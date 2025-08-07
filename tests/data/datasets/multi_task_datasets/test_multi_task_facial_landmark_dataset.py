@@ -5,6 +5,7 @@ import torch
 import os
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -48,17 +49,7 @@ def validate_datapoint(dataset: MultiTaskFacialLandmarkDataset, idx: int) -> Non
     assert datapoint['inputs']['image'].shape[-2:] == datapoint['meta_info']['image_resolution']
 
 
-@pytest.fixture
-def dataset(request, multi_task_facial_landmark_data_root):
-    """Fixture for creating a MultiTaskFacialLandmarkDataset instance."""
-    params = request.param
-    return MultiTaskFacialLandmarkDataset(
-        data_root=multi_task_facial_landmark_data_root,
-        **params
-    )
-
-
-@pytest.mark.parametrize('dataset', [
+@pytest.mark.parametrize('multi_task_facial_landmark_dataset_config', [
     {
         'split': 'train',
     },
@@ -67,7 +58,8 @@ def dataset(request, multi_task_facial_landmark_data_root):
         'indices': [0, 2, 4, 6, 8],
     },
 ], indirect=True)
-def test_multi_task_facial_landmark(dataset: MultiTaskFacialLandmarkDataset, max_samples, get_samples_to_test) -> None:
+def test_multi_task_facial_landmark(multi_task_facial_landmark_dataset_config, max_samples, get_samples_to_test) -> None:
+    dataset = build_from_config(multi_task_facial_landmark_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 

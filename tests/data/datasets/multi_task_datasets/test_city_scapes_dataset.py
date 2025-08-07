@@ -5,6 +5,7 @@ import torch
 import os
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any], image_resolution: tuple) -> None:
@@ -65,17 +66,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
     assert all(x > 0 for x in image_resolution), f"{image_resolution=}"
 
 
-@pytest.fixture
-def dataset(request, city_scapes_data_root):
-    """Fixture for creating a CityScapesDataset instance."""
-    params = request.param
-    return CityScapesDataset(
-        data_root=city_scapes_data_root,
-        **params
-    )
-
-
-@pytest.mark.parametrize('dataset', [
+@pytest.mark.parametrize('city_scapes_dataset_config', [
     {
         'split': 'train',
     },
@@ -84,7 +75,8 @@ def dataset(request, city_scapes_data_root):
         'indices': [0, 2, 4, 6, 8],
     },
 ], indirect=True)
-def test_city_scapes(dataset: CityScapesDataset, max_samples, get_samples_to_test) -> None:
+def test_city_scapes(city_scapes_dataset_config, max_samples, get_samples_to_test) -> None:
+    dataset = build_from_config(city_scapes_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 
@@ -111,13 +103,14 @@ def test_city_scapes(dataset: CityScapesDataset, max_samples, get_samples_to_tes
     (['depth_estimation', 'instance_segmentation'], ['depth_estimation', 'instance_segmentation']),
     (None, None),  # Default case - will be set to CityScapesDataset.LABEL_NAMES
 ])
-def test_city_scapes_selective_loading(city_scapes_data_root, selected_labels, expected_keys):
+def test_city_scapes_selective_loading(city_scapes_base_config, selected_labels, expected_keys):
     """Test that CityScapes dataset selective loading works correctly."""
-    dataset = CityScapesDataset(
-        data_root=city_scapes_data_root,
-        split='train',
-        labels=selected_labels
-    )
+    # Copy and modify the base config for selective loading
+    import copy
+    config = copy.deepcopy(city_scapes_base_config)
+    config['args']['labels'] = selected_labels
+    
+    dataset = build_from_config(config)
     
     # Check selected_labels attribute
     if selected_labels is None:

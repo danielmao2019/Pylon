@@ -2,6 +2,7 @@
 
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
+from utils.builders.builder import build_from_config
 
 
 def test_sysu_cd_dataset_has_version_dict_method():
@@ -23,8 +24,9 @@ def test_sysu_cd_dataset_has_version_dict_method():
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_sysu_cd_dataset_version_dict_functionality(sysu_cd_dataset_train):
+def test_sysu_cd_dataset_version_dict_with_train_config(sysu_cd_dataset_train_config):
     """Test that SYSU_CD_Dataset version dict method works correctly."""
+    sysu_cd_dataset_train = build_from_config(sysu_cd_dataset_train_config)
     
     version_dict = sysu_cd_dataset_train._get_cache_version_dict()
     

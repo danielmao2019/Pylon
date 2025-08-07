@@ -4,6 +4,7 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 import utils
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any], dataset: OSCDDataset) -> None:
@@ -77,14 +78,7 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: OSCDDataset, 
         assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.fixture
-def dataset(request):
-    """Fixture for creating an OSCDDataset instance."""
-    split, bands = request.param
-    return OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split=split, bands=bands)
-
-
-@pytest.mark.parametrize('dataset', [
+@pytest.mark.parametrize('dataset_config', [
     ('train', None),
     ('test', None),
     ('train', ['B01', 'B02']),
@@ -92,7 +86,8 @@ def dataset(request):
     ('train', ['B04', 'B03', 'B02']),
     ('train', ['B08', 'B8A']),
 ], indirect=True)
-def test_oscd(dataset, max_samples, get_samples_to_test) -> None:
+def test_oscd(dataset_config, max_samples, get_samples_to_test) -> None:
+    dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), dtype=torch.int64, device=dataset.device)

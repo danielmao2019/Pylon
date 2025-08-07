@@ -30,14 +30,10 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.fixture
-def dataset(request, whu_bd_data_root):
-    """Fixture for creating a PPSLDataset instance."""
-    source = WHU_BD_Dataset(data_root=whu_bd_data_root, split='train')
-    return PPSLDataset(source=source, dataset_size=len(source))
-
-
-def test_ppsl_dataset(dataset, max_samples, get_samples_to_test) -> None:
+def test_ppsl_dataset(ppsl_dataset_config, max_samples, get_samples_to_test) -> None:
+    from utils.builders.builder import build_from_config
+    
+    dataset = build_from_config(ppsl_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
     assert len(dataset) > 0, "Dataset should not be empty"
 

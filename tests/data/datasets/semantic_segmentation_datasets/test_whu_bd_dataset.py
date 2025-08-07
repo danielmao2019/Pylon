@@ -1,9 +1,9 @@
 from typing import Dict, Any
 import pytest
-import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -38,18 +38,9 @@ def test_whu_bd_sha1sum(whu_bd_data_root) -> None:
     )
 
 
-@pytest.fixture
-def dataset(request, whu_bd_data_root):
-    """Fixture for creating a WHU_BD_Dataset instance."""
-    split = request.param
-    return WHU_BD_Dataset(
-        data_root=whu_bd_data_root,
-        split=split
-    )
-
-
-@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
-def test_whu_bd_dataset(dataset, max_samples, get_samples_to_test):
+@pytest.mark.parametrize('whu_bd_dataset_config', ['train', 'val', 'test'], indirect=True)
+def test_whu_bd_dataset(whu_bd_dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(whu_bd_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 

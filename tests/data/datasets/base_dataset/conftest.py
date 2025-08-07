@@ -41,6 +41,11 @@ class MockDataset(BaseDataset):
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         return {'input': torch.tensor([idx])}, {'label': torch.tensor([idx])}, {'idx': idx}
+    
+    @staticmethod
+    def display_datapoint(datapoint, class_labels=None, **kwargs):
+        """Mock display method for testing."""
+        return f"<div>Mock display for datapoint {datapoint.get('meta_info', {}).get('idx', 'unknown')}</div>"
 
 
 @pytest.fixture

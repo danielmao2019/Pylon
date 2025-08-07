@@ -5,13 +5,25 @@ from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset impo
 
 
 @pytest.fixture
-def air_change_dataset_train(air_change_data_root):
-    """Fixture for creating an AirChangeDataset instance with train split."""
-    return AirChangeDataset(data_root=air_change_data_root, split='train')
+def air_change_dataset_train_config(air_change_data_root):
+    """Fixture for creating an AirChangeDataset config with train split."""
+    return {
+        'class': AirChangeDataset,
+        'args': {
+            'data_root': air_change_data_root,
+            'split': 'train'
+        }
+    }
 
 
 @pytest.fixture
-def dataset(request, air_change_data_root):
-    """Fixture for creating an AirChangeDataset instance with parameterized split."""
+def dataset_config(request, air_change_data_root):
+    """Fixture for creating an AirChangeDataset config with parameterized split."""
     split = request.param
-    return AirChangeDataset(data_root=air_change_data_root, split=split)
+    return {
+        'class': AirChangeDataset,
+        'args': {
+            'data_root': air_change_data_root,
+            'split': split
+        }
+    }

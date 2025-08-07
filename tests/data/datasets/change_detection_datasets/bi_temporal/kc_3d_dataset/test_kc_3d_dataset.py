@@ -3,6 +3,7 @@ import pytest
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -21,8 +22,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('dataset', ['train'], indirect=True)
-def test_kc_3d_dataset(dataset, max_samples, get_samples_to_test):
+@pytest.mark.parametrize('dataset_config', ['train'], indirect=True)
+def test_kc3d_dataset_structure(dataset_config, max_samples, get_samples_to_test):
+    dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 

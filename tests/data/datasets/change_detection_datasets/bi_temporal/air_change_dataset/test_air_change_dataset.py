@@ -50,8 +50,11 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: AirChangeData
             assert class_dist.tolist() == dataset.CLASS_DIST, f"Class distribution mismatch: {class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.mark.parametrize('dataset', ['train', 'test'], indirect=True)
-def test_air_change(dataset, max_samples, get_samples_to_test) -> None:
+@pytest.mark.parametrize('dataset_config', ['train', 'test'], indirect=True)
+def test_air_change(dataset_config, max_samples, get_samples_to_test) -> None:
+    from utils.builders.builder import build_from_config
+    
+    dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset must inherit from torch.utils.data.Dataset"
     assert len(dataset) > 0, "Dataset should not be empty"
 

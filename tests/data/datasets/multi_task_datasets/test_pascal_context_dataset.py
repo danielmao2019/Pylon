@@ -4,6 +4,7 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.pascal_context_dataset import PASCALContextDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -33,18 +34,9 @@ def validate_datapoint(dataset: PASCALContextDataset, idx: int) -> None:
     validate_meta_info(datapoint['meta_info'], idx)
 
 
-@pytest.fixture
-def dataset(request, pascal_context_data_root):
-    """Fixture for creating a PASCALContextDataset instance."""
-    split = request.param
-    return PASCALContextDataset(
-        data_root=pascal_context_data_root,
-        split=split,
-    )
-
-
-@pytest.mark.parametrize('dataset', ['train', 'val'], indirect=True)
-def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_samples_to_test) -> None:
+@pytest.mark.parametrize('pascal_context_dataset_config', ['train', 'val'], indirect=True)
+def test_pascal_context_dataset(pascal_context_dataset_config, max_samples, get_samples_to_test) -> None:
+    dataset = build_from_config(pascal_context_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 
@@ -64,13 +56,14 @@ def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_
     (['semantic_segmentation', 'parts_target', 'normal_estimation'], ['semantic_segmentation', 'parts_target', 'normal_estimation']),
     (None, None),  # Default case - will be set to PASCALContextDataset.LABEL_NAMES
 ])
-def test_pascal_context_selective_loading(pascal_context_data_root, selected_labels, expected_keys):
+def test_pascal_context_selective_loading(pascal_context_base_config, selected_labels, expected_keys):
     """Test that PASCAL Context dataset selective loading works correctly."""
-    dataset = PASCALContextDataset(
-        data_root=pascal_context_data_root,
-        split='train',
-        labels=selected_labels
-    )
+    # Copy and modify the base config for selective loading
+    import copy
+    config = copy.deepcopy(pascal_context_base_config)
+    config['args']['labels'] = selected_labels
+    
+    dataset = build_from_config(config)
     
     # Check selected_labels attribute
     if selected_labels is None:

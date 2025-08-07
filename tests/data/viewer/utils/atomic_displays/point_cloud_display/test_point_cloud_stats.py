@@ -25,17 +25,17 @@ def test_get_point_cloud_display_stats_basic(point_cloud_3d):
     """Test basic point cloud statistics calculation."""
     stats = get_point_cloud_display_stats(point_cloud_3d)
     
-    assert isinstance(stats, html.Ul)
-    assert len(stats.children) >= 6  # At least 6 basic stats items
-    
-    # Check that stats contain expected text patterns
-    stats_text = str(stats)
-    assert "Total Points: 1000" in stats_text
-    assert "Dimensions: 3" in stats_text
-    assert "X Range:" in stats_text
-    assert "Y Range:" in stats_text
-    assert "Z Range:" in stats_text
-    assert "Center:" in stats_text
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 1000
+    assert stats['dimensions'] == 3
+    assert 'x_range' in stats
+    assert 'y_range' in stats
+    assert 'z_range' in stats
+    assert 'center' in stats
+    assert len(stats['x_range']) == 2
+    assert len(stats['y_range']) == 2  
+    assert len(stats['z_range']) == 2
+    assert len(stats['center']) == 3
 
 
 def test_get_point_cloud_display_stats_known_values():
@@ -51,14 +51,11 @@ def test_get_point_cloud_display_stats_known_values():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, html.Ul)
-    
-    # Check that stats contain expected text patterns
-    stats_text = str(stats)
-    assert "Total Points: 100" in stats_text
-    assert "[0.00, 2.00]" in stats_text  # X range
-    assert "[0.00, 3.00]" in stats_text  # Y range
-    assert "[0.00, 4.00]" in stats_text  # Z range
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 100
+    assert stats['x_range'] == [0.0, 2.0]  # X range
+    assert stats['y_range'] == [0.0, 3.0]  # Y range
+    assert stats['z_range'] == [0.0, 4.0]  # Z range
 
 
 def test_get_point_cloud_display_stats_single_point():
@@ -67,14 +64,11 @@ def test_get_point_cloud_display_stats_single_point():
     
     stats = get_point_cloud_display_stats(single_point)
     
-    assert isinstance(stats, html.Ul)
-    
-    # Check that stats contain expected text patterns
-    stats_text = str(stats)
-    assert "Total Points: 1" in stats_text
-    assert "[1.50, 1.50]" in stats_text  # X range
-    assert "[2.50, 2.50]" in stats_text  # Y range  
-    assert "[3.50, 3.50]" in stats_text  # Z range
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 1
+    assert stats['x_range'] == [1.5, 1.5]  # X range
+    assert stats['y_range'] == [2.5, 2.5]  # Y range  
+    assert stats['z_range'] == [3.5, 3.5]  # Z range
 
 
 def test_get_point_cloud_display_stats_uniform_distribution():
@@ -84,16 +78,16 @@ def test_get_point_cloud_display_stats_uniform_distribution():
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, html.Ul)
-    
-    # Check that stats contain expected text patterns
-    stats_text = str(stats)
-    assert "Total Points: 1000" in stats_text
-    assert "Dimensions: 3" in stats_text
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 1000
+    assert stats['dimensions'] == 3
     # Ranges should be approximately [0, 1] for each dimension (allowing some randomness tolerance)
-    assert "X Range:" in stats_text
-    assert "Y Range:" in stats_text
-    assert "Z Range:" in stats_text
+    assert 'x_range' in stats
+    assert 'y_range' in stats
+    assert 'z_range' in stats
+    assert len(stats['x_range']) == 2
+    assert len(stats['y_range']) == 2
+    assert len(stats['z_range']) == 2
 
 
 @pytest.mark.parametrize("n_points", [10, 100, 1000, 5000])
@@ -103,11 +97,8 @@ def test_get_point_cloud_display_stats_various_sizes(n_points):
     
     stats = get_point_cloud_display_stats(points)
     
-    assert isinstance(stats, html.Ul)
-    
-    # Check that stats contain expected text patterns
-    stats_text = str(stats)
-    assert f"Total Points: {n_points}" in stats_text
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == n_points
 
 
 def test_get_point_cloud_display_stats_different_dtypes():
@@ -115,17 +106,17 @@ def test_get_point_cloud_display_stats_different_dtypes():
     # Float32
     points_f32 = torch.randn(100, 3, dtype=torch.float32)
     stats_f32 = get_point_cloud_display_stats(points_f32)
-    assert isinstance(stats_f32, html.Ul)
+    assert isinstance(stats_f32, dict)
     
     # Float64
     points_f64 = torch.randn(100, 3, dtype=torch.float64)
     stats_f64 = get_point_cloud_display_stats(points_f64)
-    assert isinstance(stats_f64, html.Ul)
+    assert isinstance(stats_f64, dict)
     
     # Integer (unusual but should work)
     points_int = torch.randint(-10, 10, (100, 3), dtype=torch.int32)
     stats_int = get_point_cloud_display_stats(points_int)
-    assert isinstance(stats_int, html.Ul)
+    assert isinstance(stats_int, dict)
 
 
 def test_get_point_cloud_display_stats_extreme_coordinates():
@@ -133,19 +124,18 @@ def test_get_point_cloud_display_stats_extreme_coordinates():
     # Very large coordinates
     large_points = torch.full((100, 3), 1e6, dtype=torch.float32)
     stats_large = get_point_cloud_display_stats(large_points)
-    assert isinstance(stats_large, html.Ul)
-    stats_text = str(stats_large)
-    assert "Total Points: 100" in stats_text
+    assert isinstance(stats_large, dict)
+    assert stats_large['total_points'] == 100
     
     # Very small coordinates
     small_points = torch.full((100, 3), 1e-6, dtype=torch.float32)
     stats_small = get_point_cloud_display_stats(small_points)
-    assert isinstance(stats_small, html.Ul)
+    assert isinstance(stats_small, dict)
     
     # Mixed positive/negative
     mixed_points = torch.randn(100, 3, dtype=torch.float32) * 1000
     stats_mixed = get_point_cloud_display_stats(mixed_points)
-    assert isinstance(stats_mixed, html.Ul)
+    assert isinstance(stats_mixed, dict)
 
 
 # ================================================================================
@@ -531,7 +521,7 @@ def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
     
     # Get statistics
     stats = get_point_cloud_display_stats(point_cloud_3d)
-    assert isinstance(stats, html.Ul)
+    assert isinstance(stats, dict)
     
     # Apply LOD (no max_points parameter)
     lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
@@ -560,7 +550,7 @@ def test_point_cloud_utilities_determinism(point_cloud_3d, camera_state):
     
     stats_1 = get_point_cloud_display_stats(point_cloud_3d)
     stats_2 = get_point_cloud_display_stats(point_cloud_3d)
-    assert str(stats_1) == str(stats_2)  # Compare HTML strings since Ul objects are different instances
+    assert stats_1 == stats_2  # Dictionaries should be equal
     
     normalized_1 = normalize_point_cloud_id("test_id")
     normalized_2 = normalize_point_cloud_id("test_id")
@@ -577,10 +567,9 @@ def test_get_point_cloud_display_stats_with_4_channels():
     pc_4ch = torch.randn(100, 4, dtype=torch.float32)
     stats = get_point_cloud_display_stats(pc_4ch)
     
-    assert isinstance(stats, html.Ul)
-    stats_text = str(stats)
-    assert "Total Points: 100" in stats_text
-    assert "Dimensions: 4" in stats_text  # Should show 4 dimensions
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 100
+    assert stats['dimensions'] == 4  # Should show 4 dimensions
 
 
 def test_get_point_cloud_display_stats_with_6_channels():
@@ -589,10 +578,9 @@ def test_get_point_cloud_display_stats_with_6_channels():
     pc_6ch = torch.randn(50, 6, dtype=torch.float32)
     stats = get_point_cloud_display_stats(pc_6ch)
     
-    assert isinstance(stats, html.Ul)
-    stats_text = str(stats)
-    assert "Total Points: 50" in stats_text
-    assert "Dimensions: 6" in stats_text  # Should show 6 dimensions
+    assert isinstance(stats, dict)
+    assert stats['total_points'] == 50
+    assert stats['dimensions'] == 6  # Should show 6 dimensions
 
 
 def test_performance_with_large_point_clouds():
@@ -614,7 +602,7 @@ def test_performance_with_large_point_clouds():
     
     # Basic checks
     assert isinstance(pc_id, tuple)
-    assert isinstance(stats, html.Ul)
+    assert isinstance(stats, dict)
     assert isinstance(lod_points, torch.Tensor)
     assert isinstance(pc_numpy, np.ndarray)
     assert lod_points.shape[0] <= large_pc.shape[0]  # LOD should reduce or maintain size

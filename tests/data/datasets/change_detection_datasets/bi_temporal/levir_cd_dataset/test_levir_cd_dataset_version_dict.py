@@ -26,9 +26,11 @@ def test_levir_cd_dataset_has_version_dict_method():
     assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
 
 
-def test_levir_cd_dataset_version_dict_functionality(levir_cd_dataset_train):
+def test_levir_cd_dataset_version_dict_functionality(levir_cd_dataset_train_config):
     """Test that LevirCdDataset version dict method works correctly."""
+    from utils.builders.builder import build_from_config
     
+    levir_cd_dataset_train = build_from_config(levir_cd_dataset_train_config)
     version_dict = levir_cd_dataset_train._get_cache_version_dict()
     
     # Should return a dictionary
