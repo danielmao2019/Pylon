@@ -1,5 +1,5 @@
 """Centralized configuration for viewer settings."""
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 
 class ViewerSettings:
@@ -31,7 +31,7 @@ class ViewerSettings:
     @classmethod
     def get_3d_settings_with_defaults(
         cls,
-        settings_3d: Dict[str, Union[str, int, float, bool]] = None
+        settings_3d: Optional[Dict[str, Union[str, int, float, bool]]] = None
     ) -> Dict[str, Union[float, str]]:
         """Extract 3D settings with proper defaults and validation.
         
@@ -79,31 +79,3 @@ class ViewerSettings:
             validated['lod_type'] = cls.DEFAULT_3D_SETTINGS['lod_type']
         
         return validated
-    
-    @classmethod
-    def requires_3d_visualization(cls, dataset_type: str) -> bool:
-        """Check if a dataset type requires 3D visualization.
-        
-        This function checks if the dataset type uses point cloud data formats.
-        
-        Args:
-            dataset_type: Dataset type string
-            
-        Returns:
-            True if dataset requires 3D visualization
-        """
-        # Import here to avoid circular imports
-        from data.viewer.backend.backend import DATASET_FORMATS
-        
-        # Check if the dataset type has point_cloud in either input or label format
-        dataset_format = DATASET_FORMATS.get(dataset_type, {})
-        input_format = dataset_format.get('input_format', {})
-        label_format = dataset_format.get('label_format', {})
-        
-        # Check input format (for PCR datasets)
-        has_input_point_cloud = 'point_cloud' in input_format
-        
-        # Check label format (for MTL datasets like iVISION)
-        has_label_point_cloud = isinstance(label_format, dict) and 'point_cloud' in label_format
-        
-        return has_input_point_cloud or has_label_point_cloud

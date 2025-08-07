@@ -96,7 +96,7 @@ def update_view_controls(
     pcr_controls_style = {'display': 'none'}
 
     # Show 3D controls for 3D datasets
-    if ViewerSettings.requires_3d_visualization(requires_3d):
+    if requires_3d:
         view_controls_style = {'display': 'block'}
 
         # Show PCR controls only for PCR datasets
