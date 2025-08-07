@@ -120,9 +120,9 @@ def register_datapoint_viewer_callbacks(
             if debug_outputs and datapoint_idx in debug_outputs:
                 datapoint['debug'] = debug_outputs[datapoint_idx]
 
-        # Use dataset instance display method directly 
-        assert hasattr(dataset, 'display_datapoint'), f"Dataset {type(dataset).__name__} must have display_datapoint method"
-        display = dataset.display_datapoint(datapoint)
+        # Use current dataset instance display method directly 
+        assert hasattr(current_dataset, 'display_datapoint'), f"Dataset {type(current_dataset).__name__} must have display_datapoint method"
+        display = current_dataset.display_datapoint(datapoint)
 
         # Create combined display with info and visualization
         return html.Div([
