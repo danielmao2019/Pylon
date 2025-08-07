@@ -73,10 +73,10 @@ def update_datapoint_from_transforms(
 
     # Extract 3D settings and class labels using centralized configuration
     settings_3d = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
-    class_labels = dataset_info['class_labels'] if dataset_type in ['semseg', '3dcd'] else None
-
-    # Get dataset instance for display method
+    
+    # Get dataset instance for display method and class labels
     dataset_instance = registry.viewer.backend.get_dataset_instance(dataset_name=dataset_name)
+    class_labels = dataset_instance.class_labels if hasattr(dataset_instance, 'class_labels') and dataset_instance.class_labels else None
     
     # All datasets must have display_datapoint method from base classes
     assert dataset_instance is not None, f"Dataset instance must not be None for dataset: {dataset_name}"
