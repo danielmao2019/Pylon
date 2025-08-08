@@ -5,6 +5,7 @@ import torch
 import torchvision
 import matplotlib.pyplot as plt
 from data.datasets import BaseSyntheticDataset
+from data.transforms.vision_2d.color_jitter import ColorJitter
 from utils.input_checks.str_types import check_write_dir
 
 
@@ -19,7 +20,7 @@ class PPSLDataset(BaseSyntheticDataset):
 
     def __init__(self, **kwargs) -> None:
         super(PPSLDataset, self).__init__(**kwargs)
-        self.colorjit = torchvision.transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0.2)
+        self.colorjit = ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0.2)
         self.affine = torchvision.transforms.RandomAffine(degrees=(-5, 5), scale=(1, 1.02), translate=(0.02, 0.02), shear=(-5, 5))
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:

@@ -69,7 +69,7 @@ def transforms_cfg(
                         'class': data.transforms.Randomize,
                         'args': {
                             'transform': {
-                                'class': torchvision.transforms.ColorJitter,
+                                'class': data.transforms.vision_2d.ColorJitter,
                                 'args': {'brightness': 0.5, 'contrast': 0.5, 'saturation': 0.5}
                             },
                             'p': 0.5,
@@ -82,7 +82,7 @@ def transforms_cfg(
                         'class': data.transforms.Randomize,
                         'args': {
                             'transform': {
-                                'class': torchvision.transforms.ColorJitter,
+                                'class': data.transforms.vision_2d.ColorJitter,
                                 'args': {'brightness': 0.5, 'contrast': 0.5, 'saturation': 0.5}
                             },
                             'p': 0.5,

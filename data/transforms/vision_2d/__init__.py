@@ -11,6 +11,7 @@ from data.transforms.vision_2d.resize.bboxes import ResizeBBoxes
 from data.transforms.vision_2d.flip import Flip
 from data.transforms.vision_2d.rotation import Rotation
 from data.transforms.vision_2d.random_rotation import RandomRotation
+from data.transforms.vision_2d.color_jitter import ColorJitter
 
 
 __all__ = (
@@ -24,4 +25,5 @@ __all__ = (
     'Flip',
     'Rotation',
     'RandomRotation',
+    'ColorJitter',
 )
