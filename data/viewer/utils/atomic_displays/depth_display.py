@@ -16,7 +16,7 @@ def create_depth_display(
     """Create depth map display with proper visualization.
     
     Args:
-        depth: Depth tensor of shape [H, W] with depth values
+        depth: Depth tensor of shape [H, W] or [N, H, W] (batched) with depth values
         title: Title for the depth display
         colorscale: Plotly colorscale for depth visualization
         ignore_value: Optional value to treat as invalid/transparent
@@ -30,10 +30,15 @@ def create_depth_display(
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(depth, torch.Tensor), f"Expected torch.Tensor, got {type(depth)}"
-    assert depth.ndim == 2, f"Expected 2D tensor [H,W], got shape {depth.shape}"
+    assert depth.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
     assert depth.numel() > 0, f"Depth tensor cannot be empty"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
     assert isinstance(colorscale, str), f"Expected str colorscale, got {type(colorscale)}"
+    
+    # Handle batched input - extract single sample for visualization
+    if depth.ndim == 3:
+        assert depth.shape[0] == 1, f"Expected batch size 1 for visualization, got {depth.shape[0]}"
+        depth = depth[0]  # [N, H, W] -> [H, W]
     
     # Convert to numpy for visualization
     depth_np = depth.detach().cpu().numpy()
@@ -62,11 +67,14 @@ def create_depth_display(
     return fig
 
 
-def get_depth_display_stats(depth: torch.Tensor, ignore_value: Optional[float] = None) -> Dict[str, Any]:
+def get_depth_display_stats(
+    depth: torch.Tensor, 
+    ignore_value: Optional[float] = None
+) -> Dict[str, Any]:
     """Get depth statistics for display.
     
     Args:
-        depth: Depth tensor of shape [H, W]
+        depth: Depth tensor of shape [H, W] or [N, H, W] (batched)
         ignore_value: Optional value to ignore when calculating statistics
         
     Returns:
@@ -77,8 +85,13 @@ def get_depth_display_stats(depth: torch.Tensor, ignore_value: Optional[float] =
     """
     # Input validation
     assert isinstance(depth, torch.Tensor), f"Expected torch.Tensor, got {type(depth)}"
-    assert depth.ndim == 2, f"Expected 2D tensor [H,W], got shape {depth.shape}"
+    assert depth.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
     assert depth.numel() > 0, f"Depth tensor cannot be empty"
+    
+    # Handle batched input - extract single sample for analysis
+    if depth.ndim == 3:
+        assert depth.shape[0] == 1, f"Expected batch size 1 for analysis, got {depth.shape[0]}"
+        depth = depth[0]  # [N, H, W] -> [H, W]
     
     # Calculate statistics
     valid_mask = torch.isfinite(depth) & (depth > 0)

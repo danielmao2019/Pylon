@@ -31,19 +31,19 @@ def test_create_instance_surrogate_display_invalid_dimensions():
     instance_1d = torch.randn(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_instance_surrogate_display(instance_1d, "Test")
-    assert "Expected 3D tensor [2, H, W]" in str(exc_info.value)
+    assert "Expected 3D [2,H,W] or 4D [N,2,H,W] tensor" in str(exc_info.value)
     
     # 2D tensor
     instance_2d = torch.randn(32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_instance_surrogate_display(instance_2d, "Test")
-    assert "Expected 3D tensor [2, H, W]" in str(exc_info.value)
+    assert "Expected 3D [2,H,W] or 4D [N,2,H,W] tensor" in str(exc_info.value)
     
-    # 4D tensor
-    instance_4d = torch.randn(1, 2, 32, 32, dtype=torch.float32)
+    # 4D tensor with invalid batch size
+    instance_4d = torch.randn(2, 2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_instance_surrogate_display(instance_4d, "Test")
-    assert "Expected 3D tensor [2, H, W]" in str(exc_info.value)
+    assert "Expected batch size 1 for visualization, got 2" in str(exc_info.value)
 
 
 def test_create_instance_surrogate_display_invalid_channels():
@@ -130,19 +130,19 @@ def test_get_instance_surrogate_display_stats_invalid_dimensions():
     instance_1d = torch.randn(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_instance_surrogate_display_stats(instance_1d)
-    assert "Expected 3D tensor [2, H, W]" in str(exc_info.value)
+    assert "Expected 3D [2,H,W] or 4D [N,2,H,W] tensor" in str(exc_info.value)
     
     # 2D tensor
     instance_2d = torch.randn(32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_instance_surrogate_display_stats(instance_2d)
-    assert "Expected 3D tensor [2, H, W]" in str(exc_info.value)
+    assert "Expected 3D [2,H,W] or 4D [N,2,H,W] tensor" in str(exc_info.value)
     
-    # 4D tensor
-    instance_4d = torch.randn(1, 2, 32, 32, dtype=torch.float32)
+    # 4D tensor with invalid batch size
+    instance_4d = torch.randn(2, 2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_instance_surrogate_display_stats(instance_4d)
-    assert "Expected 3D tensor [2, H, W]" in str(exc_info.value)
+    assert "Expected batch size 1 for analysis, got 2" in str(exc_info.value)
 
 
 def test_get_instance_surrogate_display_stats_invalid_channels():

@@ -30,19 +30,19 @@ def test_create_depth_display_invalid_dimensions():
     depth_1d = torch.rand(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_depth_display(depth_1d, "Test")
-    assert "Expected 2D tensor [H,W]" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
-    # 3D tensor
-    depth_3d = torch.rand(1, 32, 32, dtype=torch.float32)
-    with pytest.raises(AssertionError) as exc_info:
-        create_depth_display(depth_3d, "Test")
-    assert "Expected 2D tensor [H,W]" in str(exc_info.value)
-    
-    # 4D tensor
-    depth_4d = torch.rand(1, 1, 32, 32, dtype=torch.float32)
+    # 4D tensor  
+    depth_4d = torch.rand(2, 1, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_depth_display(depth_4d, "Test")
-    assert "Expected 2D tensor [H,W]" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
+    
+    # Invalid batch size > 1 for 3D tensor
+    depth_batch_invalid = torch.rand(3, 32, 32, dtype=torch.float32) 
+    with pytest.raises(AssertionError) as exc_info:
+        create_depth_display(depth_batch_invalid, "Test")
+    assert "Expected batch size 1 for visualization" in str(exc_info.value)
 
 
 def test_create_depth_display_empty_tensor():
@@ -108,19 +108,24 @@ def test_get_depth_display_stats_invalid_dimensions():
     depth_1d = torch.rand(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_depth_display_stats(depth_1d)
-    assert "Expected 2D tensor [H,W]" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
-    # 3D tensor
-    depth_3d = torch.rand(1, 32, 32, dtype=torch.float32)
+    # 3D tensor with batch size = 1 should work now  
+    depth_3d_valid = torch.rand(1, 32, 32, dtype=torch.float32)
+    stats = get_depth_display_stats(depth_3d_valid)  # Should not raise
+    assert isinstance(stats, dict)
+    
+    # 3D tensor with batch size > 1 should fail
+    depth_3d_invalid = torch.rand(2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        get_depth_display_stats(depth_3d)
-    assert "Expected 2D tensor [H,W]" in str(exc_info.value)
+        get_depth_display_stats(depth_3d_invalid)
+    assert "Expected batch size 1 for analysis" in str(exc_info.value)
     
     # 4D tensor
     depth_4d = torch.rand(1, 1, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_depth_display_stats(depth_4d)
-    assert "Expected 2D tensor [H,W]" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
 
 
 def test_get_depth_display_stats_empty_tensor():
