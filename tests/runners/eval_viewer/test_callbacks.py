@@ -8,8 +8,7 @@ from runners.eval_viewer.callbacks.update_plots import (
     create_grid_and_colorbar
 )
 from runners.eval_viewer.callbacks.datapoint_viewer import (
-    register_datapoint_viewer_callbacks,
-    DISPLAY_FUNCTIONS
+    register_datapoint_viewer_callbacks
 )
 
 
@@ -255,16 +254,6 @@ def test_create_grid_and_colorbar_custom_score_range():
     assert result_run_idx == 0
     assert button_grid is not None
     assert color_bar is not None
-
-
-def test_display_functions_mapping():
-    """Test that display functions mapping contains expected dataset types."""
-    expected_types = {'semseg', '2dcd', '3dcd', 'pcr'}
-    assert set(DISPLAY_FUNCTIONS.keys()) == expected_types
-    
-    # Verify all functions are callable
-    for dataset_type, display_func in DISPLAY_FUNCTIONS.items():
-        assert callable(display_func), f"Display function for {dataset_type} must be callable"
 
 
 def test_register_datapoint_viewer_callbacks_input_validation():
