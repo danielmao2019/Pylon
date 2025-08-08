@@ -81,15 +81,12 @@ def _discover_repetitions(base_path: str, existing_runs: Set[int], max_runs: int
     for run_idx in range(max_runs):
         candidate_path = f"{base_path}_run_{run_idx}"
         
-        # Check if directory exists and is valid
+        # Check if directory exists 
         if os.path.exists(candidate_path):
-            try:
-                # Try to extract basic info to validate it's a proper log directory
-                extract_log_dir_info(candidate_path, force_reload=False)
-                valid_repetitions.append(candidate_path)
-                logger.info(f"Found valid repetition: {candidate_path}")
-            except Exception as e:
-                logger.warning(f"Invalid repetition directory {candidate_path}: {e}")
+            # During discovery, we're less strict - just check if it looks like a log directory
+            # Actual validation will happen later when LogDirInfo is extracted
+            valid_repetitions.append(candidate_path)
+            logger.info(f"Found potential repetition: {candidate_path}")
     
     return sorted(valid_repetitions)
 
@@ -123,7 +120,7 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
         
         # Handle case where user provides path without _run_x suffix
         if run_number is None:
-            # Search for any _run_x directories
+            # Since project always uses repetitions, treat this as a base path and search for _run_x directories
             discovered_repetitions = _discover_repetitions(base_path, set(), max_runs=10)
             if discovered_repetitions:
                 # Use discovered repetitions
@@ -132,6 +129,7 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
                     if rep_base_path not in base_path_to_runs:
                         base_path_to_runs[rep_base_path] = set()
                     base_path_to_runs[rep_base_path].add(rep_run_number)
+                logger.info(f"Discovered {len(discovered_repetitions)} repetitions for base path: {base_path}")
             else:
                 logger.warning(f"No repetitions found for {base_path}, directory may not exist")
         else:
@@ -140,9 +138,10 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
                 base_path_to_runs[base_path] = set()
             base_path_to_runs[base_path].add(run_number)
     
-    # Discover all repetitions for each base path
+    # Create experiment groups for each base path (all are repetition groups)
     experiment_groups = []
     for base_path, existing_runs in base_path_to_runs.items():
+        # Discover all repetitions for this base path
         discovered_repetitions = _discover_repetitions(base_path, existing_runs, max_runs=10)
         
         if discovered_repetitions:
