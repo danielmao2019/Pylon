@@ -120,5 +120,5 @@ def get_edge_display_stats(edges: torch.Tensor) -> Dict[str, Any]:
         'max_edge': float(valid_edges.max()),
         'mean_edge': float(valid_edges_float.mean()),
         'std_edge': float(valid_edges_float.std()),
-        'edge_percentage': f"{edge_percentage:.2f}%"
+        'edge_percentage': edge_percentage
     }

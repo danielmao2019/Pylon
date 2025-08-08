@@ -24,11 +24,14 @@ def test_get_edge_display_stats_3d_tensor(edge_tensor):
     assert 'shape' in stats
     assert 'dtype' in stats
     assert 'total_pixels' in stats
-    assert 'edge_pixels' in stats
+    assert 'min_edge' in stats
+    assert 'max_edge' in stats
+    assert 'mean_edge' in stats
+    assert 'std_edge' in stats
     assert 'edge_percentage' in stats
     
-    # Basic validity checks
-    assert stats['edge_pixels'] <= stats['total_pixels']
+    # Basic validity checks  
+    assert stats['valid_pixels'] <= stats['total_pixels']
     assert 0.0 <= stats['edge_percentage'] <= 100.0
 
 
@@ -37,7 +40,7 @@ def test_get_edge_display_stats_2d_tensor(edge_tensor_2d):
     stats = get_edge_display_stats(edge_tensor_2d)
     
     assert isinstance(stats, dict)
-    assert stats['edge_pixels'] <= stats['total_pixels']
+    assert stats['valid_pixels'] <= stats['total_pixels']
 
 
 def test_get_edge_display_stats_binary_edges():
@@ -51,7 +54,7 @@ def test_get_edge_display_stats_binary_edges():
     stats = get_edge_display_stats(edges)
     
     assert isinstance(stats, dict)
-    assert stats['edge_pixels'] == 19  # 10 + 10 - 1 (intersection)
+    assert stats['valid_pixels'] == 100  # All pixels are valid for stats  
     assert stats['total_pixels'] == 100
     assert abs(stats['edge_percentage'] - 19.0) < 0.1
 
@@ -62,7 +65,6 @@ def test_get_edge_display_stats_no_edges():
     stats = get_edge_display_stats(edges)
     
     assert isinstance(stats, dict)
-    assert stats['edge_pixels'] == 0
     assert stats['edge_percentage'] == 0.0
 
 
@@ -72,7 +74,6 @@ def test_get_edge_display_stats_all_edges():
     stats = get_edge_display_stats(edges)
     
     assert isinstance(stats, dict)
-    assert stats['edge_pixels'] == 256
     assert stats['edge_percentage'] == 100.0
 
 
@@ -119,7 +120,6 @@ def test_get_edge_display_stats_single_pixel():
     
     assert isinstance(stats, dict)
     assert stats['total_pixels'] == 1
-    assert stats['edge_pixels'] == 1
     assert stats['edge_percentage'] == 100.0
 
 
@@ -140,13 +140,13 @@ def test_get_edge_display_stats_batched(batched_edge_tensor):
     stats = get_edge_display_stats(batched_edge_tensor)
     
     assert isinstance(stats, dict)
-    assert 'edge_pixels' in stats
+    assert 'edge_percentage' in stats
     assert 'total_pixels' in stats
 
 
 def test_batch_size_one_assertion_edge_stats():
     """Test that batch size > 1 raises assertion error in get_edge_display_stats."""
-    invalid_batched_edges = torch.rand(3, 1, 32, 32, dtype=torch.float32)
+    invalid_batched_edges = torch.rand(3, 32, 32, dtype=torch.float32)  # [N, H, W] with N=3
     
     with pytest.raises(AssertionError, match="Expected batch size 1 for analysis"):
         get_edge_display_stats(invalid_batched_edges)
@@ -160,4 +160,4 @@ def test_complete_batch_edge_stats_pipeline(batched_edge_tensor):
     """Test complete batched edge statistics pipeline."""
     stats = get_edge_display_stats(batched_edge_tensor)
     assert isinstance(stats, dict)
-    assert 'edge_pixels' in stats
+    assert 'edge_percentage' in stats

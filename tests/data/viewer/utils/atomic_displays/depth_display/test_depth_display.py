@@ -109,10 +109,10 @@ def test_create_depth_display_depth_gradient():
 
 
 # ================================================================================
-# get_depth_display_stats Tests - Valid Cases
+# Integration and Performance Tests
 # ================================================================================
 
-def test_get_depth_display_stats_basic(depth_tensor):
+def test_depth_display_pipeline(depth_tensor):
     """Test basic depth statistics calculation."""
     stats = get_depth_display_stats(depth_tensor)
     

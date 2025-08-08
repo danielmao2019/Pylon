@@ -30,40 +30,40 @@ def test_create_edge_display_invalid_dimensions():
     edges_1d = torch.rand(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_edge_display(edges_1d, "Test")
-    assert "Expected 2D [H,W] or 3D [1,H,W] tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
     # 4D tensor
     edges_4d = torch.rand(1, 1, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_edge_display(edges_4d, "Test")
-    assert "Expected 2D [H,W] or 3D [1,H,W] tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
     # 5D tensor
     edges_5d = torch.rand(1, 1, 1, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_edge_display(edges_5d, "Test")
-    assert "Expected 2D [H,W] or 3D [1,H,W] tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
 
 
-def test_create_edge_display_invalid_channels_3d():
-    """Test assertion failure for 3D tensor with wrong number of channels."""
-    # 2 channels
-    edges_2ch = torch.rand(2, 32, 32, dtype=torch.float32)
+def test_create_edge_display_invalid_batch_size():
+    """Test assertion failure for 3D tensor with batch size > 1."""
+    # Batch size 2
+    edges_batch2 = torch.rand(2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        create_edge_display(edges_2ch, "Test")
-    assert "Expected single channel if 3D" in str(exc_info.value)
+        create_edge_display(edges_batch2, "Test")
+    assert "Expected batch size 1 for visualization, got 2" in str(exc_info.value)
     
-    # 3 channels
-    edges_3ch = torch.rand(3, 32, 32, dtype=torch.float32)
+    # Batch size 3
+    edges_batch3 = torch.rand(3, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        create_edge_display(edges_3ch, "Test")
-    assert "Expected single channel if 3D" in str(exc_info.value)
+        create_edge_display(edges_batch3, "Test")
+    assert "Expected batch size 1 for visualization, got 3" in str(exc_info.value)
     
-    # 4 channels
-    edges_4ch = torch.rand(4, 32, 32, dtype=torch.float32)
+    # Batch size 4
+    edges_batch4 = torch.rand(4, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        create_edge_display(edges_4ch, "Test")
-    assert "Expected single channel if 3D" in str(exc_info.value)
+        create_edge_display(edges_batch4, "Test")
+    assert "Expected batch size 1 for visualization, got 4" in str(exc_info.value)
 
 
 def test_create_edge_display_empty_tensor():
@@ -146,40 +146,40 @@ def test_get_edge_display_stats_invalid_dimensions():
     edges_1d = torch.rand(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats(edges_1d)
-    assert "Expected 2D [H,W] or 3D [1,H,W] tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
     # 4D tensor
     edges_4d = torch.rand(1, 1, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats(edges_4d)
-    assert "Expected 2D [H,W] or 3D [1,H,W] tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
     
     # 5D tensor
     edges_5d = torch.rand(1, 1, 1, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats(edges_5d)
-    assert "Expected 2D [H,W] or 3D [1,H,W] tensor" in str(exc_info.value)
+    assert "Expected 2D [H,W] or 3D [N,H,W] tensor" in str(exc_info.value)
 
 
-def test_get_edge_display_stats_invalid_channels_3d():
-    """Test assertion failure for 3D tensor with wrong number of channels."""
-    # 2 channels
-    edges_2ch = torch.rand(2, 32, 32, dtype=torch.float32)
+def test_get_edge_display_stats_invalid_batch_size():
+    """Test assertion failure for 3D tensor with batch size > 1."""
+    # Batch size 2
+    edges_batch2 = torch.rand(2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        get_edge_display_stats(edges_2ch)
-    assert "Expected single channel if 3D" in str(exc_info.value)
+        get_edge_display_stats(edges_batch2)
+    assert "Expected batch size 1 for analysis, got 2" in str(exc_info.value)
     
-    # 3 channels
-    edges_3ch = torch.rand(3, 32, 32, dtype=torch.float32)
+    # Batch size 3
+    edges_batch3 = torch.rand(3, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        get_edge_display_stats(edges_3ch)
-    assert "Expected single channel if 3D" in str(exc_info.value)
+        get_edge_display_stats(edges_batch3)
+    assert "Expected batch size 1 for analysis, got 3" in str(exc_info.value)
     
-    # 4 channels
-    edges_4ch = torch.rand(4, 32, 32, dtype=torch.float32)
+    # Batch size 4
+    edges_batch4 = torch.rand(4, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        get_edge_display_stats(edges_4ch)
-    assert "Expected single channel if 3D" in str(exc_info.value)
+        get_edge_display_stats(edges_batch4)
+    assert "Expected batch size 1 for analysis, got 4" in str(exc_info.value)
 
 
 def test_get_edge_display_stats_empty_tensor():
@@ -298,7 +298,7 @@ def test_edge_display_with_unusual_values():
     stats = get_edge_display_stats(zero_edges)
     assert stats["min_edge"] == 0.0
     assert stats["max_edge"] == 0.0
-    assert "0.00%" in stats["edge_percentage"]
+    assert stats["edge_percentage"] == 0.0
     
     # All ones (all edges)
     one_edges = torch.ones(32, 32, dtype=torch.float32)

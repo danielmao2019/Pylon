@@ -21,18 +21,18 @@ def test_get_instance_surrogate_display_stats_basic(instance_surrogate_tensor):
     stats = get_instance_surrogate_display_stats(instance_surrogate_tensor)
     
     assert isinstance(stats, dict)
-    assert 'shape' in stats
-    assert 'dtype' in stats
-    assert 'total_pixels' in stats
-    assert 'valid_pixels' in stats
-    assert 'ignore_pixels' in stats
-    assert 'y_offset_range' in stats
-    assert 'x_offset_range' in stats
+    assert 'Shape' in stats
+    assert 'Data Type' in stats
+    assert 'Total Pixels' in stats
+    assert 'Valid Pixels' in stats
+    assert 'Ignore Pixels' in stats
+    assert 'Y Offset Range' in stats
+    assert 'X Offset Range' in stats
     
     # Basic validity checks
-    assert stats['valid_pixels'] + stats['ignore_pixels'] <= stats['total_pixels']
-    assert stats['valid_pixels'] >= 0
-    assert stats['ignore_pixels'] >= 0
+    assert stats['Valid Pixels'] + stats['Ignore Pixels'] <= stats['Total Pixels']
+    assert stats['Valid Pixels'] >= 0
+    assert stats['Ignore Pixels'] >= 0
 
 
 def test_get_instance_surrogate_display_stats_custom_ignore_value():
@@ -41,13 +41,13 @@ def test_get_instance_surrogate_display_stats_custom_ignore_value():
     surrogate = torch.randn(2, 32, 32, dtype=torch.float32) * 5.0
     
     # Set some pixels to custom ignore value
-    custom_ignore = 999.0
+    custom_ignore = 999
     surrogate[:, 0:5, 0:5] = custom_ignore
     
-    stats = get_instance_surrogate_display_stats(surrogate, ignore_value=custom_ignore)
+    stats = get_instance_surrogate_display_stats(surrogate, ignore_index=custom_ignore)
     
     assert isinstance(stats, dict)
-    assert stats['ignore_pixels'] == 25  # 5x5 region
+    assert stats['Ignore Pixels'] == 25  # 5x5 region
 
 
 def test_get_instance_surrogate_display_stats_no_valid_pixels():
@@ -57,9 +57,9 @@ def test_get_instance_surrogate_display_stats_no_valid_pixels():
     stats = get_instance_surrogate_display_stats(surrogate)
     
     assert isinstance(stats, dict)
-    assert stats['valid_pixels'] == 0
-    assert stats['ignore_pixels'] == 256  # 16x16
-    assert stats['total_pixels'] == 256
+    assert stats['Valid Pixels'] == 0
+    assert stats['Ignore Pixels'] == 256  # 16x16
+    assert stats['Total Pixels'] == 256
 
 
 def test_get_instance_surrogate_display_stats_all_valid_pixels():
@@ -72,10 +72,13 @@ def test_get_instance_surrogate_display_stats_all_valid_pixels():
     stats = get_instance_surrogate_display_stats(surrogate)
     
     assert isinstance(stats, dict)
-    assert stats['valid_pixels'] == 64  # 8x8
-    assert stats['ignore_pixels'] == 0
-    assert abs(float(stats['y_offset_range'].split()[0][1:]) - 2.0) < 1e-5  # Min Y offset
-    assert abs(float(stats['x_offset_range'].split()[0][1:]) - (-1.5)) < 1e-5  # Min X offset
+    assert stats['Valid Pixels'] == 64  # 8x8
+    assert stats['Ignore Pixels'] == 0
+    # Parse ranges like "[2.000, 3.000]" 
+    y_range = stats['Y Offset Range'][1:-1].split(', ')  # Remove brackets and split on ", "
+    x_range = stats['X Offset Range'][1:-1].split(', ')  # Remove brackets and split on ", "
+    assert abs(float(y_range[0]) - 2.0) < 1e-5  # Min Y offset
+    assert abs(float(x_range[0]) - (-1.5)) < 1e-5  # Min X offset
 
 
 def test_get_instance_surrogate_display_stats_known_values():
@@ -93,8 +96,8 @@ def test_get_instance_surrogate_display_stats_known_values():
     stats = get_instance_surrogate_display_stats(surrogate)
     
     assert isinstance(stats, dict)
-    assert stats['valid_pixels'] == 4  # Only first row
-    assert stats['ignore_pixels'] == 12  # Remaining pixels
+    assert stats['Valid Pixels'] == 4  # Only first row
+    assert stats['Ignore Pixels'] == 12  # Remaining pixels
 
 
 @pytest.mark.parametrize("tensor_size", [(16, 16), (32, 32), (64, 64)])
@@ -105,7 +108,7 @@ def test_get_instance_surrogate_display_stats_various_sizes(tensor_size):
     stats = get_instance_surrogate_display_stats(surrogate)
     
     assert isinstance(stats, dict)
-    assert stats['total_pixels'] == h * w
+    assert stats['Total Pixels'] == h * w
 
 
 def test_get_instance_surrogate_display_stats_different_dtypes():
@@ -125,8 +128,8 @@ def test_get_instance_surrogate_display_stats_batched(batched_instance_surrogate
     stats = get_instance_surrogate_display_stats(batched_instance_surrogate_tensor)
     
     assert isinstance(stats, dict)
-    assert 'valid_pixels' in stats
-    assert 'total_pixels' in stats
+    assert 'Valid Pixels' in stats
+    assert 'Total Pixels' in stats
 
 
 def test_batch_size_one_assertion_instance_surrogate_stats():
@@ -145,4 +148,4 @@ def test_complete_batch_instance_surrogate_stats_pipeline(batched_instance_surro
     """Test complete batched instance surrogate statistics pipeline."""
     stats = get_instance_surrogate_display_stats(batched_instance_surrogate_tensor)
     assert isinstance(stats, dict)
-    assert 'valid_pixels' in stats
+    assert 'Valid Pixels' in stats

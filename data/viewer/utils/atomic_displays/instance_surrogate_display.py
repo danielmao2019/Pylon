@@ -88,6 +88,7 @@ def get_instance_surrogate_display_stats(
     # Input validation
     assert isinstance(instance_surrogate, torch.Tensor), f"Expected torch.Tensor, got {type(instance_surrogate)}"
     assert instance_surrogate.ndim in [3, 4], f"Expected 3D [2,H,W] or 4D [N,2,H,W] tensor, got shape {instance_surrogate.shape}"
+    assert instance_surrogate.numel() > 0, f"Instance surrogate tensor cannot be empty"
     assert isinstance(ignore_index, int), f"Expected int ignore_index, got {type(ignore_index)}"
     
     # Handle batched input - extract single sample for analysis

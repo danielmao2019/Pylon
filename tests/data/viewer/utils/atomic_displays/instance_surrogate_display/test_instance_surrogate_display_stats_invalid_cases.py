@@ -53,13 +53,13 @@ def test_get_instance_surrogate_display_stats_invalid_channels():
 
 
 def test_get_instance_surrogate_display_stats_invalid_ignore_index_type():
-    """Test assertion failure for invalid ignore_value type."""
+    """Test assertion failure for invalid ignore_index type."""
     surrogate = torch.randn(2, 16, 16, dtype=torch.float32)
     
     with pytest.raises(AssertionError) as exc_info:
-        get_instance_surrogate_display_stats(surrogate, ignore_value="invalid")
+        get_instance_surrogate_display_stats(surrogate, ignore_index="invalid")
     
-    assert "ignore_value must be a number" in str(exc_info.value)
+    assert "Expected int ignore_index" in str(exc_info.value)
 
 
 def test_get_instance_surrogate_display_stats_empty_tensor():

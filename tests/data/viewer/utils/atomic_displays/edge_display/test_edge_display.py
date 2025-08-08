@@ -19,12 +19,12 @@ from data.viewer.utils.atomic_displays.edge_display import (
 # create_edge_display Tests - Valid Cases
 # ================================================================================
 
-def test_create_edge_display_3d_tensor(edge_tensor):
-    """Test edge display creation with 3D tensor [1, H, W]."""
-    fig = create_edge_display(edge_tensor, "Test Edge Display 3D")
+def test_create_edge_display_2d_tensor(edge_tensor_2d):
+    """Test edge display creation with 2D tensor [H, W].""" 
+    fig = create_edge_display(edge_tensor_2d, "Test Edge Display 2D")
     
     assert isinstance(fig, go.Figure)
-    assert fig.layout.title.text == "Test Edge Display 3D"
+    assert fig.layout.title.text == "Test Edge Display 2D"
     assert fig.layout.height == 400
 
 
@@ -109,160 +109,9 @@ def test_create_edge_display_extreme_values():
 
 
 # ================================================================================
-# get_edge_display_stats Tests - Valid Cases
-# ================================================================================
-
-def test_get_edge_display_stats_3d_tensor(edge_tensor):
-    """Test edge statistics with 3D tensor."""
-    stats = get_edge_display_stats(edge_tensor)
-    
-    assert isinstance(stats, dict)
-    assert "shape" in stats
-    assert "dtype" in stats
-    assert "valid_pixels" in stats
-    assert "total_pixels" in stats
-    assert "min_edge" in stats
-    assert "max_edge" in stats
-    assert "mean_edge" in stats
-    assert "std_edge" in stats
-    assert "edge_percentage" in stats
-    
-    # Verify shape is 2D after squeezing
-    assert len(stats["shape"]) == 2
-    assert stats["total_pixels"] == 32 * 32
+# Note: Stats tests moved to dedicated test_edge_display_stats.py file
 
 
-def test_get_edge_display_stats_2d_tensor(edge_tensor_2d):
-    """Test edge statistics with 2D tensor."""
-    stats = get_edge_display_stats(edge_tensor_2d)
-    
-    assert isinstance(stats, dict)
-    assert "shape" in stats
-    assert len(stats["shape"]) == 2
-    assert stats["total_pixels"] == 32 * 32
-
-
-def test_get_edge_display_stats_binary_edges():
-    """Test statistics with binary edge values."""
-    # Create known binary pattern
-    edges = torch.zeros(32, 32, dtype=torch.float32)
-    edges[:16, :] = 1.0  # Half the image has edges
-    
-    stats = get_edge_display_stats(edges)
-    
-    assert isinstance(stats, dict)
-    assert stats["min_edge"] == 0.0
-    assert stats["max_edge"] == 1.0
-    assert "50.00%" in stats["edge_percentage"]  # Exactly 50% edge pixels
-
-
-def test_get_edge_display_stats_no_edges():
-    """Test statistics with no edges (all zeros)."""
-    edges = torch.zeros(32, 32, dtype=torch.float32)
-    
-    stats = get_edge_display_stats(edges)
-    
-    assert isinstance(stats, dict)
-    assert stats["min_edge"] == 0.0
-    assert stats["max_edge"] == 0.0
-    assert stats["mean_edge"] == 0.0
-    assert stats["std_edge"] == 0.0
-    assert "0.00%" in stats["edge_percentage"]
-
-
-def test_get_edge_display_stats_all_edges():
-    """Test statistics with all edge pixels."""
-    edges = torch.ones(32, 32, dtype=torch.float32)
-    
-    stats = get_edge_display_stats(edges)
-    
-    assert isinstance(stats, dict)
-    assert stats["min_edge"] == 1.0
-    assert stats["max_edge"] == 1.0
-    assert stats["mean_edge"] == 1.0
-    assert stats["std_edge"] == 0.0
-    assert "100.00%" in stats["edge_percentage"]
-
-
-def test_get_edge_display_stats_with_invalid_values():
-    """Test statistics with invalid (NaN/inf) values."""
-    edges = torch.rand(32, 32, dtype=torch.float32)
-    
-    # Add some NaN values
-    edges[:5, :5] = float('nan')
-    
-    # Add some infinity values
-    edges[:5, 5:10] = float('inf')
-    
-    stats = get_edge_display_stats(edges)
-    
-    assert isinstance(stats, dict)
-    assert stats["valid_pixels"] < 32 * 32  # Some pixels should be invalid
-    assert stats["valid_pixels"] >= 0
-
-
-def test_get_edge_display_stats_all_invalid():
-    """Test statistics when all values are invalid."""
-    edges = torch.full((32, 32), float('nan'), dtype=torch.float32)
-    
-    stats = get_edge_display_stats(edges)
-    
-    assert isinstance(stats, dict)
-    assert stats["valid_pixels"] == 0
-    assert stats["total_pixels"] == 32 * 32
-    assert stats["min_edge"] == "N/A"
-    assert stats["max_edge"] == "N/A"
-    assert stats["mean_edge"] == "N/A"
-    assert stats["std_edge"] == "N/A"
-    assert stats["edge_percentage"] == "N/A"
-
-
-@pytest.mark.parametrize("tensor_size", [(16, 16), (64, 64), (128, 128)])
-def test_get_edge_display_stats_various_sizes(tensor_size):
-    """Test statistics with various tensor sizes."""
-    h, w = tensor_size
-    edges = torch.rand(h, w, dtype=torch.float32)
-    
-    stats = get_edge_display_stats(edges)
-    
-    assert isinstance(stats, dict)
-    assert stats["shape"] == [h, w]
-    assert stats["total_pixels"] == h * w
-
-
-def test_get_edge_display_stats_single_pixel():
-    """Test statistics with single pixel edge."""
-    edges = torch.tensor([[1.0]], dtype=torch.float32)
-    
-    stats = get_edge_display_stats(edges)
-    
-    assert isinstance(stats, dict)
-    assert stats["shape"] == [1, 1]
-    assert stats["valid_pixels"] == 1
-    assert stats["total_pixels"] == 1
-    assert stats["min_edge"] == 1.0
-    assert stats["max_edge"] == 1.0
-
-
-def test_get_edge_display_stats_different_dtypes():
-    """Test statistics with different tensor dtypes."""
-    # Float32 (default)
-    edges_f32 = torch.rand(32, 32, dtype=torch.float32)
-    stats_f32 = get_edge_display_stats(edges_f32)
-    assert "torch.float32" in stats_f32["dtype"]
-    
-    # Float64 (high precision edge detection)
-    edges_f64 = torch.rand(32, 32, dtype=torch.float64)
-    stats_f64 = get_edge_display_stats(edges_f64)
-    assert "torch.float64" in stats_f64["dtype"]
-    
-    # Integer (binary or multi-class edge labels)
-    edges_int = torch.randint(0, 2, (32, 32), dtype=torch.int32)
-    stats_int = get_edge_display_stats(edges_int)
-    assert "torch.int32" in stats_int["dtype"]
-
-
-# ================================================================================
 # Integration and Performance Tests
 # ================================================================================
 
@@ -327,7 +176,7 @@ def test_edge_display_known_patterns():
     assert isinstance(fig, go.Figure)
     
     stats = get_edge_display_stats(edges)
-    assert "50.00%" in stats["edge_percentage"]  # Exactly half should be edges
+    assert abs(stats["edge_percentage"] - 50.0) < 0.1  # Approximately 50% should be edges
 
 
 def test_edge_display_gradient_pattern():

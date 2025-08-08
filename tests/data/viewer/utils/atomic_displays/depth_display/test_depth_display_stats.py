@@ -27,6 +27,8 @@ def test_get_depth_display_stats_basic(depth_tensor):
     assert 'total_pixels' in stats
     assert 'min_depth' in stats
     assert 'max_depth' in stats
+    assert 'mean_depth' in stats
+    assert 'std_depth' in stats
     
     # Basic validity checks
     assert stats['valid_pixels'] <= stats['total_pixels']
@@ -82,7 +84,7 @@ def test_get_depth_display_stats_zero_negative_depths():
     stats = get_depth_display_stats(depth_map)
     
     assert isinstance(stats, dict)
-    assert stats['valid_pixels'] == 4  # Only positive values
+    assert stats['valid_pixels'] == 5  # Only positive values (2.0, 1.5, 3.0, 2.5, 1.0)
     assert stats['total_pixels'] == 9
 
 

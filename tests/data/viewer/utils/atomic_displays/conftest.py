@@ -42,12 +42,6 @@ def normal_tensor():
 
 
 @pytest.fixture
-def edge_tensor():
-    """Edge detection tensor of shape [1, H, W] with binary edge values."""
-    return torch.randint(0, 2, (1, 32, 32), dtype=torch.float32)
-
-
-@pytest.fixture
 def edge_tensor_2d():
     """Edge detection tensor of shape [H, W] with binary edge values."""
     return torch.randint(0, 2, (32, 32), dtype=torch.float32)
@@ -288,8 +282,8 @@ def batched_normal_tensor():
 
 @pytest.fixture
 def batched_edge_tensor():
-    """Batched edge detection tensor of shape [1, 1, H, W] with binary edge values."""
-    return torch.randint(0, 2, (1, 1, 32, 32), dtype=torch.float32)
+    """Batched edge detection tensor of shape [1, H, W] with binary edge values."""
+    return torch.randint(0, 2, (1, 32, 32), dtype=torch.float32)
 
 
 @pytest.fixture

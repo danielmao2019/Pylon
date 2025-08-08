@@ -93,7 +93,11 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
     assert normals.shape[0] == 3, f"Expected 3 channels, got {normals.shape[0]}"
     
     # Calculate statistics
-    valid_mask = torch.isfinite(normals).all(dim=0)
+    # Valid normals must be finite AND have non-zero magnitude
+    finite_mask = torch.isfinite(normals).all(dim=0)
+    magnitudes = torch.norm(normals, dim=0)
+    nonzero_mask = magnitudes > 1e-8  # Threshold for numerical stability
+    valid_mask = finite_mask & nonzero_mask
     valid_normals = normals[:, valid_mask]
     
     if valid_normals.numel() == 0:
@@ -108,9 +112,6 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
             'mean_magnitude': 'N/A'
         }
     
-    # Calculate normal vector magnitudes
-    magnitudes = torch.norm(valid_normals, dim=0)
-    
     return {
         'shape': list(normals.shape),
         'dtype': str(normals.dtype),
@@ -119,6 +120,6 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
         'x_range': f"[{float(valid_normals[0].min()):.3f}, {float(valid_normals[0].max()):.3f}]",
         'y_range': f"[{float(valid_normals[1].min()):.3f}, {float(valid_normals[1].max()):.3f}]",
         'z_range': f"[{float(valid_normals[2].min()):.3f}, {float(valid_normals[2].max()):.3f}]",
-        'mean_magnitude': float(magnitudes.mean()),
-        'std_magnitude': float(magnitudes.std())
+        'mean_magnitude': float(torch.norm(valid_normals, dim=0).mean()),
+        'std_magnitude': float(torch.norm(valid_normals, dim=0).std())
     }
