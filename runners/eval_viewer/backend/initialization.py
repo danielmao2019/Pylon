@@ -566,9 +566,20 @@ def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[
     assert dataset_type in dataset_type_to_dir, f"Unsupported dataset type: {dataset_type}"
     config_dir = dataset_type_to_dir[dataset_type]
     
+    # Map dataset classes to config file names
+    dataset_class_to_config = {
+        'KITTIDataset': 'kitti',
+        'ThreeDMatchDataset': 'threedmatch',
+        'ThreeDLoMatchDataset': 'threedlomatch',
+        'ModelNet40Dataset': 'modelnet40',
+        'BufferDataset': 'buffer',
+        'D3FeatDataset': 'd3feat_threedmatch',
+    }
+    
+    config_name = dataset_class_to_config.get(dataset_class, dataset_class.lower())
     config_file = os.path.join(
         repo_root, "configs", "common", "datasets", 
-        config_dir, "val", f"{dataset_class}_data_cfg.py"
+        config_dir, "val", f"{config_name}_data_cfg.py"
     )
     assert os.path.isfile(config_file), f"Config file not found: {config_file}"
     
@@ -588,11 +599,12 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     """Initialize log directories and validate consistency.
 
     Args:
-        log_dirs: List of paths to log directories
+        log_dirs: List of paths to log directories (may include repetitions with _run_x suffix)
         force_reload: Whether to force reload from source files
 
     Returns:
         Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales)
+        log_dir_infos maps experiment names to aggregated LogDirInfo across repetitions
 
     Raises:
         ValueError: If log directories are invalid or inconsistent
@@ -604,13 +616,31 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     assert all(isinstance(log_dir, str) for log_dir in log_dirs), f"All log_dirs must be strings, got {log_dirs}"
     assert isinstance(force_reload, bool), f"force_reload must be bool, got {type(force_reload)}"
     
-    # Step 1: Extract information from each log directory in parallel
-    log_dir_infos = _extract_log_dir_infos_parallel(log_dirs=log_dirs, force_reload=force_reload)
+    # Import repetition discovery functions
+    from runners.eval_viewer.backend.repetition_discovery import discover_experiment_groups, aggregate_log_dir_infos
     
-    # Step 2: Validate consistency across all log directories
+    # Step 1: Discover experiment groups and their repetitions
+    experiment_groups = discover_experiment_groups(log_dirs=log_dirs)
+    logger.info(f"Discovered {len(experiment_groups)} experiment groups with repetitions")
+    
+    # Step 2: Extract and aggregate information for each experiment group
+    log_dir_infos = {}
+    for group in experiment_groups:
+        # Get LogDirInfo for all repetitions in this group
+        repetition_infos = group.get_log_dir_infos(force_reload=force_reload)
+        
+        if repetition_infos:
+            # Aggregate across repetitions
+            aggregated_info = aggregate_log_dir_infos(repetition_infos)
+            log_dir_infos[group.experiment_name] = aggregated_info
+            logger.info(f"Aggregated {len(repetition_infos)} repetitions for experiment '{group.experiment_name}'")
+    
+    assert len(log_dir_infos) > 0, f"No valid experiments found from log_dirs: {log_dirs}"
+    
+    # Step 3: Validate consistency across all experiment groups
     _validate_log_dir_consistency(log_dir_infos=log_dir_infos)
     
-    # Step 3: Extract common information
+    # Step 4: Extract common information
     first_info = list(log_dir_infos.values())[0]
     max_epochs = _compute_max_epochs(log_dir_infos=log_dir_infos)
     metric_names = first_info.metric_names
@@ -618,10 +648,10 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     dataset_class = first_info.dataset_class
     dataset_type = first_info.dataset_type
     
-    # Step 4: Load dataset configuration
+    # Step 5: Load dataset configuration
     dataset_cfg = _load_dataset_config(dataset_class=dataset_class, dataset_type=dataset_type)
     
-    # Step 5: Compute per-metric color scales across all data
+    # Step 6: Compute per-metric color scales across all data
     per_metric_color_scales = compute_per_metric_color_scales(log_dir_infos=log_dir_infos)
 
     return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales
