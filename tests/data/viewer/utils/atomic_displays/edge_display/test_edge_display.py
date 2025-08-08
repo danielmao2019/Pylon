@@ -38,9 +38,9 @@ def test_create_edge_display_2d_tensor(edge_tensor_2d):
 
 
 @pytest.mark.parametrize("colorscale", ["greys", "viridis", "plasma", "hot", "turbo"])
-def test_create_edge_display_various_colorscales(edge_tensor, colorscale):
+def test_create_edge_display_various_colorscales(edge_tensor_2d, colorscale):
     """Test edge display with various colorscales."""
-    fig = create_edge_display(edge_tensor, "Test Colorscales", colorscale=colorscale)
+    fig = create_edge_display(edge_tensor_2d, "Test Colorscales", colorscale=colorscale)
     
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Colorscales"
@@ -66,10 +66,10 @@ def test_create_edge_display_continuous_edges():
     assert isinstance(fig, go.Figure)
 
 
-def test_create_edge_display_with_kwargs(edge_tensor):
+def test_create_edge_display_with_kwargs(edge_tensor_2d):
     """Test edge display with additional keyword arguments."""
     fig = create_edge_display(
-        edge_tensor,
+        edge_tensor_2d,
         "Test with Kwargs",
         colorscale="Gray",
         extra_param="ignored"  # Should be ignored
@@ -115,33 +115,33 @@ def test_create_edge_display_extreme_values():
 # Integration and Performance Tests
 # ================================================================================
 
-def test_edge_display_pipeline(edge_tensor):
+def test_edge_display_pipeline(edge_tensor_2d):
     """Test complete edge display pipeline."""
     # Test display creation
-    fig = create_edge_display(edge_tensor, "Pipeline Test")
+    fig = create_edge_display(edge_tensor_2d, "Pipeline Test")
     assert isinstance(fig, go.Figure)
     
     # Test statistics
-    stats = get_edge_display_stats(edge_tensor)
+    stats = get_edge_display_stats(edge_tensor_2d)
     assert isinstance(stats, dict)
     
     # Verify consistency
     assert len(stats) >= 9  # Should have all expected keys
 
 
-def test_edge_display_determinism(edge_tensor):
+def test_edge_display_determinism(edge_tensor_2d):
     """Test that edge display operations are deterministic."""
     # Display creation should be deterministic
-    fig1 = create_edge_display(edge_tensor, "Determinism Test")
-    fig2 = create_edge_display(edge_tensor, "Determinism Test")
+    fig1 = create_edge_display(edge_tensor_2d, "Determinism Test")
+    fig2 = create_edge_display(edge_tensor_2d, "Determinism Test")
     
     assert isinstance(fig1, go.Figure)
     assert isinstance(fig2, go.Figure)
     assert fig1.layout.title.text == fig2.layout.title.text
     
     # Statistics should be identical
-    stats1 = get_edge_display_stats(edge_tensor)
-    stats2 = get_edge_display_stats(edge_tensor)
+    stats1 = get_edge_display_stats(edge_tensor_2d)
+    stats2 = get_edge_display_stats(edge_tensor_2d)
     
     assert stats1 == stats2
 
