@@ -60,5 +60,7 @@ def test_version_dict_with_different_parameters(mock_dataset_class, mock_dataset
         assert version_dict2['split'] == 'train'
         assert version_dict2['split_percentages'] == (0.7, 0.2, 0.1)
         
-        # Both should have same class_name (data_root intentionally excluded from version dict)
-        assert version_dict1['class_name'] == version_dict2['class_name']
+        # Different classes should have different class_names
+        assert version_dict1['class_name'] != version_dict2['class_name']
+        assert version_dict1['class_name'] == 'MockDataset'
+        assert version_dict2['class_name'] == 'MockDatasetWithoutPredefinedSplits'
