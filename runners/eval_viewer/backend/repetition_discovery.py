@@ -131,7 +131,7 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
                     base_path_to_runs[rep_base_path].add(rep_run_number)
                 logger.info(f"Discovered {len(discovered_repetitions)} repetitions for base path: {base_path}")
             else:
-                logger.warning(f"No repetitions found for {base_path}, directory may not exist")
+                logger.warning(f"No repetitions found for base path: {base_path}")
         else:
             # Add to base path groups
             if base_path not in base_path_to_runs:

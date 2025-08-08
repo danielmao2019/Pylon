@@ -574,6 +574,7 @@ def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[
         'ModelNet40Dataset': 'modelnet40',
         'BufferDataset': 'buffer',
         'D3FeatDataset': 'd3feat_threedmatch',
+        'BaseRandomDataset': 'BaseRandomDataset',  # Maps to BaseRandomDataset_data_cfg.py
     }
     
     config_name = dataset_class_to_config.get(dataset_class, dataset_class.lower())
@@ -632,6 +633,8 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         if repetition_infos:
             # Aggregate across repetitions
             aggregated_info = aggregate_log_dir_infos(repetition_infos)
+            
+            # All experiments are repetition groups, use experiment name as key
             log_dir_infos[group.experiment_name] = aggregated_info
             logger.info(f"Aggregated {len(repetition_infos)} repetitions for experiment '{group.experiment_name}'")
     
