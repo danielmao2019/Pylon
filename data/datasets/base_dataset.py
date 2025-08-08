@@ -24,8 +24,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def __init__(
         self,
-        split: str,
         data_root: Optional[str] = None,
+        split: Optional[str] = None,
         split_percentages: Optional[Tuple[float, ...]] = None,
         indices: Optional[List[int]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
@@ -40,8 +40,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     ) -> None:
         """
         Args:
-            split (str): which split to initialize ('train', 'val', 'test', etc.)
             data_root (str, optional): path to the dataset root directory
+            split (str, optional): which split to initialize ('train', 'val', 'test', etc.). None means load everything.
             split_percentages (tuple, optional): percentages for random split when predefined splits don't exist
             indices (list, optional): subset of indices to use from the split
             transforms_cfg (dict, optional): configuration for data transforms
@@ -82,8 +82,18 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # initialize annotations at the end because of splits
         self._init_annotations_all_splits()
 
-    def _init_split(self, split: str, split_percentages: Optional[Tuple[float, ...]]) -> None:
-        assert isinstance(split, str), f"split must be string, got {type(split)=}"
+    def _init_split(self, split: Optional[str], split_percentages: Optional[Tuple[float, ...]]) -> None:
+        if split is None:
+            # split=None means load everything (no predefined splits, no percentage splits)
+            assert split_percentages is None, "Cannot use split_percentages when split=None"
+            assert not (hasattr(self, 'DATASET_SIZE') and isinstance(self.DATASET_SIZE, dict)), \
+                "Cannot use dict DATASET_SIZE when split=None (implies predefined splits exist)"
+            assert not (hasattr(self, 'CLASS_DIST') and isinstance(self.CLASS_DIST, dict)), \
+                "Cannot use dict CLASS_DIST when split=None (implies predefined splits exist)"
+            self.split = None
+            return
+        
+        assert isinstance(split, str), f"split must be string or None, got {type(split)=}"
         assert split in self.SPLIT_OPTIONS, f"{split=} not in {self.SPLIT_OPTIONS=}"
         
         self.split = split
@@ -120,20 +130,23 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self.indices = indices
 
     def _init_annotations_all_splits(self) -> None:
-        """Initialize annotations for the single specified split.
+        """Initialize annotations for the single specified split or everything if split=None.
         
         If split_percentages is provided, performs deterministic random split first,
         then initializes only the requested split's annotations.
         """
-        assert hasattr(self, 'split') and isinstance(self.split, str), "split must be set as string"
-        assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
-        
         # Initialize annotations and check dataset size (always needed)
         self._init_annotations()
         self._check_dataset_size()
         
-        if hasattr(self, 'split_percentages') and self.split_percentages is not None:
+        if self.split is None:
+            # Load everything - no split processing needed
+            pass
+        elif hasattr(self, 'split_percentages') and self.split_percentages is not None:
             # Perform deterministic random split
+            assert isinstance(self.split, str), "split must be string when using split_percentages"
+            assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
+            
             sizes = tuple(int(percent * len(self.annotations)) for percent in self.split_percentages)
             cutoffs = [0] + list(itertools.accumulate(sizes))
             
@@ -144,6 +157,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Extract only the requested split's annotations
             split_idx = self.SPLIT_OPTIONS.index(self.split)
             self.annotations = self.annotations[cutoffs[split_idx]:cutoffs[split_idx+1]]
+        else:
+            # Predefined split - annotations already loaded correctly
+            assert isinstance(self.split, str), "split must be string when using predefined splits"
+            assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
         
         # Apply indices filtering if provided
         self._filter_annotations_by_indices()
