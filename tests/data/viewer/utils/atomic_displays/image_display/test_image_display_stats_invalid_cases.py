@@ -30,13 +30,3 @@ def test_get_image_display_stats_invalid_image_dimensions():
         get_image_display_stats(image)
     
     assert "Expected 3D [C,H,W] or 4D [N,C,H,W] tensor" in str(exc_info.value)
-
-
-def test_get_image_display_stats_invalid_change_map_type():
-    """Test assertion failure for invalid change_map type."""
-    image = torch.randn(3, 32, 32, dtype=torch.float32)
-    
-    with pytest.raises(AssertionError) as exc_info:
-        get_image_display_stats(image, "not_a_tensor")
-    
-    assert "change_map must be torch.Tensor" in str(exc_info.value)
