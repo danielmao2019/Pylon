@@ -10,34 +10,31 @@ class MockDataset(BaseDataset):
     """Mock dataset for testing BaseDataset functionality."""
     
     SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = {'train': 100, 'val': 20, 'test': 30}  # Class attribute for predefined splits
     INPUT_NAMES = ['input']
     LABEL_NAMES = ['label']
     SHA1SUM = None
     
-    def __init__(self, split=None, **kwargs):
-        # Set DATASET_SIZE based on split type to match BaseDataset design
-        if isinstance(split, tuple):
-            # For tuple splits (percentages), use int DATASET_SIZE (total size)
-            self.DATASET_SIZE = 150  # Total of train:100 + val:20 + test:30
-        else:
-            # For string splits, use dict DATASET_SIZE (per-split sizes)
-            self.DATASET_SIZE = {'train': 100, 'val': 20, 'test': 30}
+    def __init__(self, data_root=None, split=None, split_percentages=None, **kwargs):
+        # This dataset has predefined splits, so split=None is not allowed
+        if split is None:
+            raise ValueError("MockDataset has predefined splits - split=None is not allowed")
         
-        super().__init__(split=split, **kwargs)
+        super().__init__(data_root=data_root, split=split, split_percentages=split_percentages, **kwargs)
     
     def _init_annotations(self) -> None:
-        # For string splits, use specific split size
-        if hasattr(self, 'split') and self.split is not None:
-            assert isinstance(self.DATASET_SIZE, dict), "String splits require dict DATASET_SIZE"
-            dataset_size = self.DATASET_SIZE[self.split]
-        elif hasattr(self, 'split_percentages'):
-            assert isinstance(self.DATASET_SIZE, int), "Tuple splits require int DATASET_SIZE"
-            dataset_size = self.DATASET_SIZE
-        else:
-            # This should never happen
-            assert False, f"MockDataset must have either 'split' or 'split_percentages' attribute"
+        # BaseDataset split logic:
+        # 1. If split_percentages provided: load ALL data, BaseDataset will apply split after
+        # 2. If no split_percentages: load only the specific split's data
         
-        self.annotations = [{'idx': i} for i in range(dataset_size)]
+        if hasattr(self, 'split_percentages') and self.split_percentages is not None:
+            # Load ALL data - BaseDataset will apply percentage split after this
+            total_size = sum(self.__class__.DATASET_SIZE.values())  # 100 + 20 + 30 = 150
+            self.annotations = [{'idx': i} for i in range(total_size)]
+        else:
+            # Load only the specific split's data (DATASET_SIZE is normalized to int by BaseDataset)
+            assert isinstance(self.DATASET_SIZE, int), f"DATASET_SIZE should be normalized to int, got {type(self.DATASET_SIZE)}"
+            self.annotations = [{'idx': i} for i in range(self.DATASET_SIZE)]
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         return {'input': torch.tensor([idx])}, {'label': torch.tensor([idx])}, {'idx': idx}
@@ -52,3 +49,31 @@ class MockDataset(BaseDataset):
 def mock_dataset_class():
     """Fixture that provides the MockDataset class for testing."""
     return MockDataset
+
+
+class MockDatasetWithoutPredefinedSplits(BaseDataset):
+    """Mock dataset without predefined splits for testing split_percentages functionality."""
+    
+    SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = 150  # Total size for percentage-based splitting
+    INPUT_NAMES = ['input']
+    LABEL_NAMES = ['label']
+    SHA1SUM = None
+    
+    def _init_annotations(self) -> None:
+        # Always load everything - splitting is handled by BaseDataset
+        self.annotations = [{'idx': i} for i in range(150)]
+    
+    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        return {'input': torch.tensor([idx])}, {'label': torch.tensor([idx])}, {'idx': idx}
+    
+    @staticmethod
+    def display_datapoint(datapoint, class_labels=None, **kwargs):
+        """Mock display method for testing."""
+        return f"<div>Mock display for datapoint {datapoint.get('meta_info', {}).get('idx', 'unknown')}</div>"
+
+
+@pytest.fixture
+def mock_dataset_class_without_predefined_splits():
+    """Fixture that provides the MockDatasetWithoutPredefinedSplits class for testing."""
+    return MockDatasetWithoutPredefinedSplits
