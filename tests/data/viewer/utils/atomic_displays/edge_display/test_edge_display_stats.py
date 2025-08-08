@@ -135,9 +135,9 @@ def test_get_edge_display_stats_different_dtypes():
 # Batch Support Stats Tests - CRITICAL for eval viewer  
 # ================================================================================
 
-def test_get_edge_display_stats_batched(batched_edge_tensor_2d):
+def test_get_edge_display_stats_batched(batched_edge_tensor):
     """Test edge statistics calculation for batched edge maps."""
-    stats = get_edge_display_stats(batched_edge_tensor_2d)
+    stats = get_edge_display_stats(batched_edge_tensor)
     
     assert isinstance(stats, dict)
     assert 'edge_percentage' in stats
@@ -156,8 +156,8 @@ def test_batch_size_one_assertion_edge_stats():
 # Integration Tests
 # ================================================================================
 
-def test_complete_batch_edge_stats_pipeline(batched_edge_tensor_2d):
+def test_complete_batch_edge_stats_pipeline(batched_edge_tensor):
     """Test complete batched edge statistics pipeline."""
-    stats = get_edge_display_stats(batched_edge_tensor_2d)
+    stats = get_edge_display_stats(batched_edge_tensor)
     assert isinstance(stats, dict)
     assert 'edge_percentage' in stats
