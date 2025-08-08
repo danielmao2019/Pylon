@@ -44,11 +44,19 @@ class DummyDataset(BaseDataset):
             'label': torch.randint(0, 10, (1,), generator=self.generator),
         }
 
-        meta_info = {
-            'idx': idx,
-        }
+        meta_info = {}
 
         return inputs, labels, meta_info
+
+    @staticmethod
+    def display_datapoint(
+        datapoint: Dict[str, Any],
+        class_labels: Any = None,
+        camera_state: Any = None,
+        settings_3d: Any = None
+    ) -> None:
+        """Required implementation of abstract method - returns None for test dataset."""
+        return None
 
 
 def run() -> list:

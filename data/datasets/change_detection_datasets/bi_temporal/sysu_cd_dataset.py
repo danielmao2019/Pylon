@@ -64,7 +64,8 @@ class SYSU_CD_Dataset(Base2DCDDataset):
                 dtype=torch.int64, sub=None, div=255.0,
             )
         }
-        meta_info = self.annotations[idx]
+        # Return a copy of the annotation to avoid modifying the original
+        meta_info = self.annotations[idx].copy()
         return inputs, labels, meta_info
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
