@@ -28,15 +28,6 @@ def test_create_edge_display_2d_tensor(edge_tensor_2d):
     assert fig.layout.height == 400
 
 
-def test_create_edge_display_2d_tensor(edge_tensor_2d):
-    """Test edge display creation with 2D tensor [H, W]."""
-    fig = create_edge_display(edge_tensor_2d, "Test Edge Display 2D")
-    
-    assert isinstance(fig, go.Figure)
-    assert fig.layout.title.text == "Test Edge Display 2D"
-    assert fig.layout.height == 400
-
-
 @pytest.mark.parametrize("colorscale", ["greys", "viridis", "plasma", "hot", "turbo"])
 def test_create_edge_display_various_colorscales(edge_tensor_2d, colorscale):
     """Test edge display with various colorscales."""

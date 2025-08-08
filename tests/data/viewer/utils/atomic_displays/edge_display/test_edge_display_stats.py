@@ -49,7 +49,6 @@ def test_get_edge_display_stats_binary_edges():
     edges = torch.zeros(10, 10, dtype=torch.float32)
     edges[5, :] = 1.0  # Horizontal line
     edges[:, 5] = 1.0  # Vertical line
-    edges = edges.unsqueeze(0)  # Add channel dimension [1, H, W]
     
     stats = get_edge_display_stats(edges)
     
@@ -61,7 +60,7 @@ def test_get_edge_display_stats_binary_edges():
 
 def test_get_edge_display_stats_no_edges():
     """Test edge statistics with no edges (all zeros)."""
-    edges = torch.zeros(32, 32, dtype=torch.float32).unsqueeze(0)
+    edges = torch.zeros(32, 32, dtype=torch.float32)
     stats = get_edge_display_stats(edges)
     
     assert isinstance(stats, dict)
@@ -70,7 +69,7 @@ def test_get_edge_display_stats_no_edges():
 
 def test_get_edge_display_stats_all_edges():
     """Test edge statistics with all edges (all ones)."""
-    edges = torch.ones(16, 16, dtype=torch.float32).unsqueeze(0)
+    edges = torch.ones(16, 16, dtype=torch.float32)
     stats = get_edge_display_stats(edges)
     
     assert isinstance(stats, dict)
@@ -86,7 +85,6 @@ def test_get_edge_display_stats_with_invalid_values():
     edges[5:8, 5:8] = float('nan')
     edges[10:13, 10:13] = -1.0
     
-    edges = edges.unsqueeze(0)
     stats = get_edge_display_stats(edges)
     
     assert isinstance(stats, dict)
