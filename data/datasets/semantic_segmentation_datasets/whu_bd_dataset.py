@@ -46,5 +46,6 @@ class WHU_BD_Dataset(BaseSemsegDataset):
                 dtype=torch.int64, sub=None, div=None,
             ).squeeze(0)
         }
-        meta_info = self.annotations[idx]
+        # Return a copy of the annotation to avoid modifying the original
+        meta_info = self.annotations[idx].copy()
         return inputs, labels, meta_info
