@@ -200,7 +200,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [123],  # Not a tuple or dict
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
-        "idx=0, type(transform)=<class 'int'>",
+        "Expected dict format, got <class 'int'>",
     ),
 
     # Invalid tuple length
@@ -208,7 +208,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [(lambda x: x + 1, ('inputs', 'x'), 'extra')],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
-        "idx=0, len(transform)=3",
+        "Tuple format must have exactly 2 elements, got 3",
     ),
 
     # Non-callable function
@@ -216,7 +216,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [("not_a_function", ('inputs', 'x'))],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
-        "type(func)=<class 'str'>",
+        "Transform function must be callable or dict config, got <class 'str'>",
     ),
 
     # Invalid input names type
@@ -248,7 +248,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [{"input_names": ('inputs', 'x')}],  # Missing "op"
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
-        "Transform 0 missing 'op' key",
+        "Transform missing 'op' key, got keys: ['input_names']",
     ),
 
     # Mismatched output count
