@@ -120,10 +120,10 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
         
         # Handle case where user provides path without _run_x suffix
         if run_number is None:
-            # Since project always uses repetitions, treat this as a base path and search for _run_x directories
+            # Treat as a base path and search for repetition directories (_run_x pattern)
             discovered_repetitions = _discover_repetitions(base_path, set(), max_runs=10)
             if discovered_repetitions:
-                # Use discovered repetitions
+                # Found repetitions - add them to the repetition group
                 for rep_path in discovered_repetitions:
                     rep_base_path, rep_run_number = _extract_base_path(rep_path)
                     if rep_base_path not in base_path_to_runs:
@@ -138,7 +138,7 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
                 base_path_to_runs[base_path] = set()
             base_path_to_runs[base_path].add(run_number)
     
-    # Create experiment groups for each base path (all are repetition groups)
+    # Create repetition groups for each base path
     experiment_groups = []
     for base_path, existing_runs in base_path_to_runs.items():
         # Discover all repetitions for this base path
