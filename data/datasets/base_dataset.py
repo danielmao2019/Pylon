@@ -1,7 +1,6 @@
 from typing import Tuple, List, Dict, Union, Any, Optional
 from abc import ABC, abstractmethod
 import itertools
-import copy
 import subprocess
 import os
 import random
@@ -25,9 +24,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def __init__(
         self,
+        split: str,
         data_root: Optional[str] = None,
-        split: Optional[Union[str, Tuple[float, ...]]] = None,
-        indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
+        split_percentages: Optional[Tuple[float, ...]] = None,
+        indices: Optional[List[int]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         base_seed: int = 0,
         use_cpu_cache: bool = True,
@@ -40,10 +40,19 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     ) -> None:
         """
         Args:
+            split (str): which split to initialize ('train', 'val', 'test', etc.)
+            data_root (str, optional): path to the dataset root directory
+            split_percentages (tuple, optional): percentages for random split when predefined splits don't exist
+            indices (list, optional): subset of indices to use from the split
+            transforms_cfg (dict, optional): configuration for data transforms
+            base_seed (int): seed for deterministic behavior. Default: 0
             use_cpu_cache (bool): controls whether loaded data points stays in RAM. Default: True
             use_disk_cache (bool): controls whether to use disk cache. Default: True
             max_cache_memory_percent (float): maximum percentage of system memory to use for cache
-            base_seed (int): seed for deterministic behavior. Default: 0
+            enable_cpu_validation (bool): validate cached data consistency. Default: False
+            enable_disk_validation (bool): validate disk cached data consistency. Default: False
+            device (torch.device): target device for tensors. Default: cuda
+            check_sha1sum (bool): verify dataset integrity with SHA1 checksum. Default: False
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
 
@@ -53,7 +62,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
         # initialize
         super(BaseDataset, self).__init__()
-        self._init_split(split=split)
+        self._init_split(split=split, split_percentages=split_percentages)
         self._init_indices(indices=indices)
         self._init_transforms(transforms_cfg=transforms_cfg)
         self.set_base_seed(base_seed)
@@ -73,101 +82,71 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # initialize annotations at the end because of splits
         self._init_annotations_all_splits()
 
-    def _init_split(self, split: Optional[Union[str, Tuple[float, ...]]]) -> None:
-        assert split is None or isinstance(split, (str, tuple)), f"{type(split)=}"
-        if type(split) == tuple:
-            assert len(split) == len(self.SPLIT_OPTIONS), f"{split=}, {self.SPLIT_OPTIONS=}"
-            assert all(type(x) in [int, float] for x in split)
-            assert abs(sum(split) - 1.0) < 0.01, f"{sum(split)=}"
-            self.split_percentages = split
-        else:
-            self.split = split
+    def _init_split(self, split: str, split_percentages: Optional[Tuple[float, ...]]) -> None:
+        assert isinstance(split, str), f"split must be string, got {type(split)=}"
+        assert split in self.SPLIT_OPTIONS, f"{split=} not in {self.SPLIT_OPTIONS=}"
+        
+        self.split = split
+        
+        if split_percentages is not None:
+            assert isinstance(split_percentages, tuple), f"split_percentages must be tuple, got {type(split_percentages)=}"
+            assert len(split_percentages) == len(self.SPLIT_OPTIONS), f"{split_percentages=}, {self.SPLIT_OPTIONS=}"
+            assert all(isinstance(x, (int, float)) for x in split_percentages), f"All percentages must be numeric, got {split_percentages=}"
+            assert abs(sum(split_percentages) - 1.0) < 0.01, f"Percentages must sum to 1.0, got sum={sum(split_percentages)}"
+            self.split_percentages = split_percentages
+        
+        # Normalize DATASET_SIZE to always be int for the selected split
+        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
+            if isinstance(self.DATASET_SIZE, dict):
+                assert set(self.DATASET_SIZE.keys()).issubset(set(self.SPLIT_OPTIONS)), \
+                    f"DATASET_SIZE keys {self.DATASET_SIZE.keys()} != SPLIT_OPTIONS {self.SPLIT_OPTIONS}"
+                assert split_percentages is None, "Cannot use split_percentages with dict DATASET_SIZE"
+                self.DATASET_SIZE = self.DATASET_SIZE[self.split]
+            elif isinstance(self.DATASET_SIZE, int):
+                assert split_percentages is not None, "int DATASET_SIZE requires split_percentages"
+            else:
+                assert False, f"DATASET_SIZE must be dict or int, got {type(self.DATASET_SIZE)=}"
+        
         if hasattr(self, 'CLASS_DIST') and isinstance(self.CLASS_DIST, dict):
-            assert set(self.CLASS_DIST.keys()) == set(self.SPLIT_OPTIONS)
-            assert all(type(x) == list for x in self.CLASS_DIST.values())
+            assert split_percentages is None, "Cannot use split_percentages with CLASS_DIST"
+            assert set(self.CLASS_DIST.keys()) == set(self.SPLIT_OPTIONS), f"CLASS_DIST keys {self.CLASS_DIST.keys()} != SPLIT_OPTIONS {self.SPLIT_OPTIONS}"
+            assert all(isinstance(x, list) for x in self.CLASS_DIST.values()), f"All CLASS_DIST values must be lists"
             self.CLASS_DIST = self.CLASS_DIST[self.split]
 
-    def _init_indices(self, indices: Optional[Union[List[int], Dict[str, List[int]]]]) -> None:
-        # type check
-        if hasattr(self, 'split') and type(self.split) == str:
-            assert indices is None or type(indices) == list
-            if type(indices) == list:
-                assert all(type(x) == int for x in indices)
-            self.indices = indices
-        elif hasattr(self, 'split') and self.split is None:
-            assert indices is None or type(indices) == dict
-            if type(indices) == dict:
-                assert set(indices.keys()).issubset(set(self.SPLIT_OPTIONS)), \
-                    f"{indices.keys()=}, {self.SPLIT_OPTIONS=}"
-                for value in indices.values():
-                    assert type(value) == list
-                    assert all(type(x) == int for x in value)
-            self.split_indices = indices
-        else:
-            assert not hasattr(self, 'split') and hasattr(self, 'split_percentages')
+    def _init_indices(self, indices: Optional[List[int]]) -> None:
+        assert indices is None or isinstance(indices, list), f"indices must be None or list, got {type(indices)=}"
+        if isinstance(indices, list):
+            assert all(isinstance(x, int) for x in indices), f"All indices must be integers, got {indices=}"
+        self.indices = indices
 
     def _init_annotations_all_splits(self) -> None:
-        r"""
-        Args:
-            split (str or Tuple[float, ...] or None): if str, then initialize only the specified split.
-                if Tuple[float, ...], then randomly split whole dataset according to specified percentages.
-                if None, then initialize all splits.
-            indices (List[int] or Dict[str, List[int]] or None): a list of indices defining the subset
-                of interest.
+        """Initialize annotations for the single specified split.
+        
+        If split_percentages is provided, performs deterministic random split first,
+        then initializes only the requested split's annotations.
         """
-        # initialize annotations
-        if hasattr(self, 'split') and type(self.split) == str:
-            if self.split in self.SPLIT_OPTIONS:
-                # initialize annotations
-                self._init_annotations()
-                # sanity check
-                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None and isinstance(self.DATASET_SIZE, dict):
-                    assert len(self) == self.DATASET_SIZE[self.split], f"{len(self)=}, {self.DATASET_SIZE[self.split]=}, {self.split=}"
-                # take subset by indices
-                self._filter_annotations_by_indices()
-            else:
-                self.annotations = []
-        else:
-            self.split_subsets: Dict[str, BaseDataset] = {}
-            if hasattr(self, 'split') and self.split is None:
-                assert not hasattr(self, 'indices') and hasattr(self, 'split_indices')
-                assert self.split_indices is None or type(self.split_indices) == dict
-                # construct split subsets
-                for split in self.SPLIT_OPTIONS:
-                    # initialize split and indices
-                    self.split = split
-                    self.indices = self.split_indices.get(split, None) if self.split_indices else None
-                    # initialize annotations
-                    self._init_annotations()
-                    self._check_dataset_size()
-                    self._filter_annotations_by_indices()
-                    # prepare to split
-                    split_subset = copy.deepcopy(self)
-                    del split_subset.split_indices
-                    del split_subset.split_subsets
-                    self.split_subsets[split] = split_subset
-                self.split = None
-                del self.indices
-            else:
-                assert not hasattr(self, 'split') and hasattr(self, 'split_percentages')
-                assert not hasattr(self, 'indices') and not hasattr(self, 'split_indices')
-                # initialize annotations
-                self._init_annotations()
-                self._check_dataset_size()
-                # prepare to split
-                sizes = tuple(int(percent * len(self.annotations)) for percent in self.split_percentages)
-                cutoffs = [0] + list(itertools.accumulate(sizes))
-                # Use deterministic shuffle with base_seed for cache consistency
-                rng = random.Random(self.base_seed)
-                rng.shuffle(self.annotations)
-                for idx, split in enumerate(self.SPLIT_OPTIONS):
-                    self.split = split
-                    split_subset = copy.deepcopy(self)
-                    split_subset.annotations = self.annotations[cutoffs[idx]:cutoffs[idx+1]]
-                    del split_subset.split_percentages
-                    del split_subset.split_subsets
-                    self.split_subsets[split] = split_subset
-                del self.split
+        assert hasattr(self, 'split') and isinstance(self.split, str), "split must be set as string"
+        assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
+        
+        # Initialize annotations and check dataset size (always needed)
+        self._init_annotations()
+        self._check_dataset_size()
+        
+        if hasattr(self, 'split_percentages') and self.split_percentages is not None:
+            # Perform deterministic random split
+            sizes = tuple(int(percent * len(self.annotations)) for percent in self.split_percentages)
+            cutoffs = [0] + list(itertools.accumulate(sizes))
+            
+            # Use deterministic shuffle with base_seed for reproducibility
+            rng = random.Random(self.base_seed)
+            rng.shuffle(self.annotations)
+            
+            # Extract only the requested split's annotations
+            split_idx = self.SPLIT_OPTIONS.index(self.split)
+            self.annotations = self.annotations[cutoffs[split_idx]:cutoffs[split_idx+1]]
+        
+        # Apply indices filtering if provided
+        self._filter_annotations_by_indices()
 
     @abstractmethod
     def _init_annotations(self) -> None:
@@ -176,18 +155,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     def _check_dataset_size(self) -> None:
         if not hasattr(self, 'DATASET_SIZE') or self.DATASET_SIZE is None:
             return
-        assert type(self.DATASET_SIZE) in [dict, int]
-        if type(self.DATASET_SIZE) == int:
-            assert hasattr(self, 'split_percentages'), "int DATASET_SIZE requires split_percentages"
-            assert not hasattr(self, 'split'), "int DATASET_SIZE should not have split attribute"
-        if type(self.DATASET_SIZE) == dict:
-            assert set(self.DATASET_SIZE.keys()).issubset(set(self.SPLIT_OPTIONS)), \
-                f"{self.DATASET_SIZE.keys()=}, {self.SPLIT_OPTIONS=}"
-            assert hasattr(self, 'split') and isinstance(self.split, str), "dict DATASET_SIZE requires string split"
-            assert not hasattr(self, 'split_percentages'), "dict DATASET_SIZE should not have split_percentages attribute"
-            self.DATASET_SIZE = self.DATASET_SIZE[self.split]
-        assert len(self) == len(self.annotations) == self.DATASET_SIZE, \
-            f"{len(self)=}, {len(self.annotations)=}, {self.DATASET_SIZE=}"
+        
+        assert isinstance(self.DATASET_SIZE, int), f"DATASET_SIZE should be normalized to int in _init_split, got {type(self.DATASET_SIZE)=}"
+        assert len(self.annotations) == self.DATASET_SIZE, f"{len(self.annotations)=}, {self.DATASET_SIZE=}"
 
     def _filter_annotations_by_indices(self) -> None:
         if self.indices is None:
@@ -265,7 +235,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # Add split information
         if hasattr(self, 'split') and self.split is not None:
             version_dict['split'] = self.split
-        elif hasattr(self, 'split_percentages'):
+        
+        if hasattr(self, 'split_percentages') and self.split_percentages is not None:
             version_dict['split_percentages'] = self.split_percentages
         
         # Add base parameters that affect dataset content
