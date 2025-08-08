@@ -23,11 +23,11 @@ def create_instance_surrogate_display(
     This representation is used in many instance segmentation papers and datasets.
     
     Args:
-        instance_surrogate: 2-channel tensor of shape [2, H, W] with coordinate offsets
+        instance_surrogate: Tensor of shape [2, H, W] or [N, 2, H, W] (batched) with coordinate offsets
             - Channel 0: Y-offset to instance centroid  
             - Channel 1: X-offset to instance centroid
         title: Title for the display
-        ignore_index: Value used to mark ignored/void regions (default: 250)
+        ignore_value: Value used to mark ignored/void regions (default: 250)
         **kwargs: Additional arguments (currently unused)
         
     Returns:
@@ -38,11 +38,18 @@ def create_instance_surrogate_display(
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(instance_surrogate, torch.Tensor), f"Expected torch.Tensor, got {type(instance_surrogate)}"
-    assert instance_surrogate.ndim == 3, f"Expected 3D tensor [2, H, W], got shape {instance_surrogate.shape}"
-    assert instance_surrogate.shape[0] == 2, f"Expected 2 channels [2, H, W], got {instance_surrogate.shape[0]} channels"
+    assert instance_surrogate.ndim in [3, 4], f"Expected 3D [2,H,W] or 4D [N,2,H,W] tensor, got shape {instance_surrogate.shape}"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
     assert isinstance(ignore_value, int), f"Expected int ignore_value, got {type(ignore_value)}"
     assert instance_surrogate.numel() > 0, f"Instance surrogate tensor cannot be empty"
+    
+    # Handle batched input - extract single sample for visualization
+    if instance_surrogate.ndim == 4:
+        assert instance_surrogate.shape[0] == 1, f"Expected batch size 1 for visualization, got {instance_surrogate.shape[0]}"
+        instance_surrogate = instance_surrogate[0]  # [N, 2, H, W] -> [2, H, W]
+    
+    # Validate unbatched tensor shape
+    assert instance_surrogate.shape[0] == 2, f"Expected 2 channels [2, H, W], got {instance_surrogate.shape[0]} channels"
     
     # Extract Y and X offset channels
     y_offset = instance_surrogate[0]  # [H, W]
@@ -69,7 +76,7 @@ def get_instance_surrogate_display_stats(
     """Get statistics for instance surrogate representation.
     
     Args:
-        instance_surrogate: 2-channel tensor of shape [2, H, W] with coordinate offsets
+        instance_surrogate: Tensor of shape [2, H, W] or [N, 2, H, W] (batched) with coordinate offsets
         ignore_index: Value used to mark ignored/void regions (default: 250)
         
     Returns:
@@ -80,9 +87,17 @@ def get_instance_surrogate_display_stats(
     """
     # Input validation
     assert isinstance(instance_surrogate, torch.Tensor), f"Expected torch.Tensor, got {type(instance_surrogate)}"
-    assert instance_surrogate.ndim == 3, f"Expected 3D tensor [2, H, W], got shape {instance_surrogate.shape}"
-    assert instance_surrogate.shape[0] == 2, f"Expected 2 channels [2, H, W], got {instance_surrogate.shape[0]} channels"
+    assert instance_surrogate.ndim in [3, 4], f"Expected 3D [2,H,W] or 4D [N,2,H,W] tensor, got shape {instance_surrogate.shape}"
+    assert instance_surrogate.numel() > 0, f"Instance surrogate tensor cannot be empty"
     assert isinstance(ignore_index, int), f"Expected int ignore_index, got {type(ignore_index)}"
+    
+    # Handle batched input - extract single sample for analysis
+    if instance_surrogate.ndim == 4:
+        assert instance_surrogate.shape[0] == 1, f"Expected batch size 1 for analysis, got {instance_surrogate.shape[0]}"
+        instance_surrogate = instance_surrogate[0]  # [N, 2, H, W] -> [2, H, W]
+    
+    # Validate unbatched tensor shape
+    assert instance_surrogate.shape[0] == 2, f"Expected 2 channels [2, H, W], got {instance_surrogate.shape[0]} channels"
     
     # Extract Y and X offset channels
     y_offset = instance_surrogate[0]  # [H, W]
