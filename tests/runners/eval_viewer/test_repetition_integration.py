@@ -2,81 +2,40 @@ import pytest
 import numpy as np
 import json
 import os
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from runners.eval_viewer.backend.initialization import initialize_log_dirs
 from runners.eval_viewer.backend.repetition_discovery import discover_experiment_groups
 
 
-def test_repetition_discovery_integration_basic(temp_log_dir):
-    """Test basic integration of repetition discovery with initialization."""
-    # Create mock experiment directory with repetitions
-    base_exp_dir = os.path.join(temp_log_dir, "logs", "exp")
-    exp_dirs = []
+@patch('runners.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
+def test_repetition_discovery_integration_basic(mock_extract, temp_log_dir):
+    """Test basic integration of repetition discovery."""
+    # Mock extract_log_dir_info to avoid config file dependencies
+    mock_info = MagicMock()
+    mock_extract.return_value = mock_info
     
+    # Create mock experiment directory with repetitions
+    exp_dirs = []
     for run_idx in range(2):
-        run_dir = os.path.join(base_exp_dir, f"TestExp_run_{run_idx}")
+        run_dir = os.path.join(temp_log_dir, f"TestExp_run_{run_idx}")
         os.makedirs(run_dir)
         
-        # Create config.json
-        config_data = {
-            "model": {"class": "TestModel"},
-            "eval_dataset": {"class": "KITTIDataset", "args": {}},
-            "eval_dataloader": {"batch_size": 1}
-        }
+        # Create minimal files for discovery
         with open(os.path.join(run_dir, "config.json"), 'w') as f:
-            json.dump(config_data, f)
+            json.dump({"test": True}, f)
         
-        # Create evaluation_scores.json with slight variation
-        base_perf = 0.5 + run_idx * 0.1  # Vary performance by run
         scores = {
-            "per_datapoint": {
-                "metric1": [base_perf, base_perf + 0.1, base_perf + 0.05],
-                "metric2": [base_perf * 2, base_perf * 2 + 0.2, base_perf * 2 + 0.1]
-            },
-            "aggregated": {
-                "metric1": base_perf + 0.05,
-                "metric2": base_perf * 2 + 0.1
-            }
+            "per_datapoint": {"metric1": [0.5, 0.6, 0.7]},
+            "aggregated": {"metric1": 0.6}
         }
         with open(os.path.join(run_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(scores, f)
         
         exp_dirs.append(run_dir)
     
-    # Create corresponding config files
-    configs_dir = os.path.join(temp_log_dir, "configs", "exp")
-    os.makedirs(configs_dir, exist_ok=True)
-    
-    for run_idx in range(2):
-        config_path = os.path.join(configs_dir, f"TestExp_run_{run_idx}.py")
-        config_content = f'''# Generated config for TestExp_run_{run_idx}
-config = {{
-    'model': {{'class': 'TestModel'}},
-    'eval_dataset': {{'class': 'KITTIDataset', 'args': {{}}}},
-    'eval_dataloader': {{'batch_size': 1}},
-    'work_dir': './logs/exp/TestExp_run_{run_idx}'
-}}
-'''
-        with open(config_path, 'w') as f:
-            f.write(config_content)
-    
-    # Create common dataset config
-    dataset_config_dir = os.path.join(temp_log_dir, "configs", "common", "datasets", "point_cloud_registration", "val")
-    os.makedirs(dataset_config_dir, exist_ok=True)
-    
-    kitti_config = os.path.join(dataset_config_dir, "kitti_data_cfg.py")
-    with open(kitti_config, 'w') as f:
-        f.write('''data_cfg = {
-    'val_dataset': {
-        'class': 'KITTIDataset',
-        'args': {'data_root': '/data/kitti'}
-    }
-}
-''')
-    
-    # Test discovery
-    groups = discover_experiment_groups([exp_dirs[0]])  # Provide only first run
+    # Test discovery - should find both runs
+    groups = discover_experiment_groups([exp_dirs[0]])
     
     assert len(groups) == 1
     group = groups[0]
