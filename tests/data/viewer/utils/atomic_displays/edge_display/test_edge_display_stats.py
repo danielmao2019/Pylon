@@ -16,9 +16,9 @@ from data.viewer.utils.atomic_displays.edge_display import (
 # get_edge_display_stats Tests - Valid Cases
 # ================================================================================
 
-def test_get_edge_display_stats_3d_tensor(edge_tensor):
-    """Test basic edge statistics with 3D tensor [1, H, W]."""
-    stats = get_edge_display_stats(edge_tensor)
+def test_get_edge_display_stats_2d_tensor(edge_tensor_2d):
+    """Test basic edge statistics with 2D tensor [H, W]."""
+    stats = get_edge_display_stats(edge_tensor_2d)
     
     assert isinstance(stats, dict)
     assert 'shape' in stats
@@ -135,9 +135,9 @@ def test_get_edge_display_stats_different_dtypes():
 # Batch Support Stats Tests - CRITICAL for eval viewer  
 # ================================================================================
 
-def test_get_edge_display_stats_batched(batched_edge_tensor):
+def test_get_edge_display_stats_batched(batched_edge_tensor_2d):
     """Test edge statistics calculation for batched edge maps."""
-    stats = get_edge_display_stats(batched_edge_tensor)
+    stats = get_edge_display_stats(batched_edge_tensor_2d)
     
     assert isinstance(stats, dict)
     assert 'edge_percentage' in stats
@@ -156,8 +156,8 @@ def test_batch_size_one_assertion_edge_stats():
 # Integration Tests
 # ================================================================================
 
-def test_complete_batch_edge_stats_pipeline(batched_edge_tensor):
+def test_complete_batch_edge_stats_pipeline(batched_edge_tensor_2d):
     """Test complete batched edge statistics pipeline."""
-    stats = get_edge_display_stats(batched_edge_tensor)
+    stats = get_edge_display_stats(batched_edge_tensor_2d)
     assert isinstance(stats, dict)
     assert 'edge_percentage' in stats
