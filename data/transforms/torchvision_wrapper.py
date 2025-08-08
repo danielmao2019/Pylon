@@ -77,11 +77,11 @@ class TorchvisionWrapper(BaseTransform):
             return self._transform(image)
     
     def __str__(self) -> str:
-        """String representation showing the wrapped transform."""
+        """String representation showing only the inner transform."""
         transform_name = self.transform_class.__name__
         formatted_params = self.format_params(self.transform_kwargs)
         
         if formatted_params:
-            return f"TorchvisionWrapper({transform_name}({formatted_params}))"
+            return f"{transform_name}({formatted_params})"
         else:
-            return f"TorchvisionWrapper({transform_name}())"
+            return f"{transform_name}()"
