@@ -5,7 +5,6 @@ REQUIRES_3D_CLASSES functionality using real dataset classes.
 """
 
 import os
-import tempfile
 from typing import Dict, Any, Tuple
 
 import pytest
@@ -25,17 +24,17 @@ def backend():
 
 @pytest.fixture
 def kitti_dataset():
-    """Create a KITTI dataset instance if data is available."""
+    """Create a KITTI dataset instance. Ensures real data exists and fails fast if not."""
     data_root = "./data/datasets/soft_links/KITTI"
     
-    if os.path.exists(data_root):
-        return KITTIDataset(
-            data_root=data_root,
-            split="val",
-            device=torch.device("cpu")
-        )
-    else:
-        pytest.skip(f"KITTI dataset not available at {data_root}")
+    # NEVER use synthetic data - force real data or fail
+    assert os.path.exists(data_root), f"KITTI dataset MUST exist at {data_root}. Please set up the dataset symlink."
+    
+    return KITTIDataset(
+        data_root=data_root,
+        split="val",
+        device=torch.device("cpu")
+    )
 
 
 @pytest.fixture  
@@ -64,17 +63,17 @@ def random_dataset():
 
 @pytest.fixture
 def coco_stuff_dataset():
-    """Create a COCO Stuff dataset instance if data is available."""
+    """Create a COCO Stuff dataset instance. Ensures real data exists and fails fast if not."""
     data_root = "./data/datasets/soft_links/COCOStuff164K"
     
-    if os.path.exists(data_root):
-        return COCOStuff164KDataset(
-            data_root=data_root,
-            split="val2017",
-            device=torch.device("cpu")
-        )
-    else:
-        pytest.skip(f"COCOStuff164K dataset not available at {data_root}")
+    # NEVER use synthetic data - force real data or fail
+    assert os.path.exists(data_root), f"COCOStuff164K dataset MUST exist at {data_root}. Please set up the dataset symlink."
+    
+    return COCOStuff164KDataset(
+        data_root=data_root,
+        split="val2017",
+        device=torch.device("cpu")
+    )
 
 
 def test_requires_3d_classes_constant_structure():
