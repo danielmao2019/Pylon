@@ -17,7 +17,7 @@ class Randomize(BaseTransform):
     def __call__(self, *args, seed: Optional[Any] = None) -> Union[torch.Tensor, List[torch.Tensor]]:
         generator = self._get_generator(g_type='random', seed=seed)
         if generator.uniform(0, 1) < self.p:
-            return self.transform(*args)
+            return self.transform(*args, seed=seed)
         else:
             if len(args) == 1:
                 return args[0]

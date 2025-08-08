@@ -10,6 +10,7 @@ class BaseSyntheticDataset(BaseDataset, ABC):
         self,
         source: BaseDataset,
         dataset_size: Optional[int],
+        base_seed: Optional[int] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         use_cache: Optional[bool] = True,
         device: Optional[torch.device] = torch.device('cuda'),
@@ -18,6 +19,7 @@ class BaseSyntheticDataset(BaseDataset, ABC):
         source.device = torch.device('cpu')
         self.source = source
         self._init_dataset_size(dataset_size)
+        self.set_base_seed(base_seed)
         self._init_transforms(transforms_cfg=transforms_cfg)
         if use_cache:
             self.cache: List[Dict[str, Dict[str, Any]]] = []

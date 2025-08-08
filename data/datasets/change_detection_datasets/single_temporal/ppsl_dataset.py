@@ -5,6 +5,7 @@ import torch
 import torchvision
 import matplotlib.pyplot as plt
 from data.datasets import BaseSyntheticDataset
+from data.transforms.torchvision_wrapper import TorchvisionWrapper
 from utils.input_checks.str_types import check_write_dir
 
 
@@ -19,8 +20,8 @@ class PPSLDataset(BaseSyntheticDataset):
 
     def __init__(self, **kwargs) -> None:
         super(PPSLDataset, self).__init__(**kwargs)
-        self.colorjit = torchvision.transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0.2)
-        self.affine = torchvision.transforms.RandomAffine(degrees=(-5, 5), scale=(1, 1.02), translate=(0.02, 0.02), shear=(-5, 5))
+        self.colorjit = TorchvisionWrapper(torchvision.transforms.ColorJitter, brightness=0.7, contrast=0.7, saturation=0.7, hue=0.2)
+        self.affine = TorchvisionWrapper(torchvision.transforms.RandomAffine, degrees=(-5, 5), scale=(1, 1.02), translate=(0.02, 0.02), shear=(-5, 5))
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
@@ -46,16 +47,17 @@ class PPSLDataset(BaseSyntheticDataset):
         img_1 = self.source[idx]['inputs']['image']
         label_1 = self.source[idx]['labels']['semantic_map']
 
-        # Apply color jitter to the first image
-        img_1 = self.colorjit(img_1)
+        # Apply color jitter to the first image with deterministic seeding
+        img_1 = self.colorjit(img_1, seed=(self.base_seed or 0) + idx)
 
-        # Select a random second datapoint
-        idx_2 = random.choice(range(len(self.source)))
+        # Select a deterministic second datapoint using proper pseudo-random generation
+        rng = random.Random((self.base_seed or 0) + idx + 500)  # +500 to avoid collision with transforms
+        idx_2 = rng.choice(range(len(self.source)))
         img_2 = self.source[idx_2]['inputs']['image']
         label_2 = self.source[idx_2]['labels']['semantic_map']
 
-        # Apply affine transformation to the second image
-        img_2 = self.affine(img_2)
+        # Apply affine transformation to the second image with deterministic seeding
+        img_2 = self.affine(img_2, seed=(self.base_seed or 0) + idx + 1000)
 
         # Apply the patch to the second image and label
         img_2_patched = img_2.clone()
