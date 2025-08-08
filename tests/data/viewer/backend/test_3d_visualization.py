@@ -23,15 +23,10 @@ def backend():
 
 
 @pytest.fixture
-def kitti_dataset():
+def kitti_dataset(kitti_data_root):
     """Create a KITTI dataset instance. Ensures real data exists and fails fast if not."""
-    data_root = "./data/datasets/soft_links/KITTI"
-    
-    # NEVER use synthetic data - force real data or fail
-    assert os.path.exists(data_root), f"KITTI dataset MUST exist at {data_root}. Please set up the dataset symlink."
-    
     return KITTIDataset(
-        data_root=data_root,
+        data_root=kitti_data_root,
         split="val",
         device=torch.device("cpu")
     )
@@ -62,15 +57,10 @@ def random_dataset():
 
 
 @pytest.fixture
-def coco_stuff_dataset():
+def coco_stuff_dataset(coco_stuff_164k_data_root):
     """Create a COCO Stuff dataset instance. Ensures real data exists and fails fast if not."""
-    data_root = "./data/datasets/soft_links/COCOStuff164K"
-    
-    # NEVER use synthetic data - force real data or fail
-    assert os.path.exists(data_root), f"COCOStuff164K dataset MUST exist at {data_root}. Please set up the dataset symlink."
-    
     return COCOStuff164KDataset(
-        data_root=data_root,
+        data_root=coco_stuff_164k_data_root,
         split="val2017",
         device=torch.device("cpu")
     )

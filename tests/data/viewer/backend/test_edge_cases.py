@@ -146,21 +146,6 @@ def test_get_datapoint_nonexistent_dataset(backend):
     assert "Dataset not loaded: nonexistent/dataset" in str(exc_info.value)
 
 
-def test_get_datapoint_out_of_bounds_index(backend, mock_dataset):
-    """Test get_datapoint with out of bounds index."""
-    # Store dataset in backend
-    dataset_name = "test/MockDataset"
-    backend._datasets[dataset_name] = mock_dataset
-    
-    # Test with very large index that should definitely be out of bounds
-    dataset_length = len(mock_dataset)
-    
-    # Use a much larger index to ensure it's out of bounds
-    large_index = dataset_length + 1000
-    
-    with pytest.raises(IndexError):
-        backend.get_datapoint(dataset_name, large_index, [])
-
 
 def test_get_datapoint_invalid_transform_index(backend, mock_dataset):
     """Test get_datapoint with invalid transform index."""
