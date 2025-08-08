@@ -44,19 +44,6 @@ def test_get_image_display_stats_with_binary_change_map():
     assert "%" in stats["Changed Pixels"]
 
 
-def test_get_image_display_stats_with_multiclass_change_map():
-    """Test image statistics with multi-class change map."""
-    image = torch.randn(3, 32, 32, dtype=torch.float32)
-    change_map = torch.randn(5, 32, 32, dtype=torch.float32)
-    
-    stats = get_image_display_stats(image, change_map)
-    
-    assert "Number of Classes" in stats
-    assert "Class Distribution" in stats
-    assert stats["Number of Classes"] == 5
-    assert isinstance(stats["Class Distribution"], dict)
-
-
 def test_image_stats_with_edge_cases():
     """Test image statistics with edge case tensors."""
     # All zeros

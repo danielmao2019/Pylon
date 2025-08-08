@@ -107,14 +107,12 @@ def create_image_display(
 
 
 def get_image_display_stats(
-    image: torch.Tensor, 
-    change_map: Optional[torch.Tensor] = None
+    image: torch.Tensor
 ) -> Dict[str, Any]:
     """Get image statistics for display.
     
     Args:
         image: Image tensor of shape [C, H, W] or [N, C, H, W] (batched)
-        change_map: Optional tensor with change classes for each pixel
         
     Returns:
         Dictionary containing image statistics
@@ -130,9 +128,6 @@ def get_image_display_stats(
     if image.ndim == 4:
         assert image.shape[0] == 1, f"Expected batch size 1 for analysis, got {image.shape[0]}"
         image = image[0]  # [N, C, H, W] -> [C, H, W]
-        if change_map is not None:
-            assert change_map.ndim >= 3, f"change_map must be batched if image is batched"
-            change_map = change_map[0] if change_map.ndim > 2 else change_map
     
     # Basic stats
     img_np: np.ndarray = image.detach().cpu().numpy()
@@ -143,30 +138,5 @@ def get_image_display_stats(
         "Mean Value": f"{img_np.mean():.4f}",
         "Std Dev": f"{img_np.std():.4f}"
     }
-
-    # Add change map statistics if provided
-    if change_map is not None:
-        assert isinstance(change_map, torch.Tensor), f"change_map must be torch.Tensor, got {type(change_map)}"
-        
-        if change_map.dim() > 2 and change_map.shape[0] > 1:
-            # Multi-class change map
-            change_classes: torch.Tensor = torch.argmax(change_map, dim=0)
-            num_classes: int = change_map.shape[0]
-            class_distribution: Dict[int, float] = {
-                i: float((change_classes == i).sum()) / change_classes.numel() * 100
-                for i in range(num_classes)
-            }
-            stats["Number of Classes"] = num_classes
-            stats["Class Distribution"] = {
-                f"Class {i}": f"{pct:.2f}%"
-                for i, pct in class_distribution.items()
-            }
-        else:
-            # Binary change map
-            changes: torch.Tensor = change_map[0] if change_map.dim() > 2 else change_map
-            percent_changed: float = float((changes > 0.5).sum()) / changes.numel() * 100
-            stats["Changed Pixels"] = f"{percent_changed:.2f}%"
-            stats["Change Min"] = f"{float(changes.min()):.4f}"
-            stats["Change Max"] = f"{float(changes.max()):.4f}"
 
     return stats
