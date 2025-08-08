@@ -57,8 +57,9 @@ transforms_cfg = {
                     'class': data.transforms.Randomize,
                     'args': {
                         'transform': {
-                            'class': data.transforms.vision_2d.ColorJitter,
+                            'class': data.transforms.TorchvisionWrapper,
                             'args': {
+                                'transform_class': torchvision.transforms.ColorJitter,
                                 'brightness': 0.5,
                                 'contrast': 0.5,
                                 'saturation': 0.5,
@@ -74,8 +75,9 @@ transforms_cfg = {
                     'class': data.transforms.Randomize,
                     'args': {
                         'transform': {
-                            'class': data.transforms.vision_2d.ColorJitter,
+                            'class': data.transforms.TorchvisionWrapper,
                             'args': {
+                                'transform_class': torchvision.transforms.ColorJitter,
                                 'brightness': 0.5,
                                 'contrast': 0.5,
                                 'saturation': 0.5,
