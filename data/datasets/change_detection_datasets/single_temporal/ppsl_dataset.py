@@ -50,8 +50,9 @@ class PPSLDataset(BaseSyntheticDataset):
         # Apply color jitter to the first image with deterministic seeding
         img_1 = self.colorjit(img_1, seed=(self.base_seed or 0) + idx)
 
-        # Select a random second datapoint
-        idx_2 = random.choice(range(len(self.source)))
+        # Select a deterministic second datapoint using proper pseudo-random generation
+        rng = random.Random((self.base_seed or 0) + idx + 500)  # +500 to avoid collision with transforms
+        idx_2 = rng.choice(range(len(self.source)))
         img_2 = self.source[idx_2]['inputs']['image']
         label_2 = self.source[idx_2]['labels']['semantic_map']
 
