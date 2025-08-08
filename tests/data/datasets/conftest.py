@@ -87,12 +87,35 @@ def SampleDataset():
     """A minimal dataset implementation for testing BaseDataset functionality."""
     class _SampleDataset(BaseDataset):
         SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
+        DATASET_SIZE = {'train': 80, 'val': 10, 'test': 10, 'weird': 0}  # Class attribute for predefined splits
         INPUT_NAMES = ['input']
         LABEL_NAMES = ['label']
 
+        def __init__(self, data_root=None, split=None, split_percentages=None, **kwargs):
+            # This dataset has predefined splits, so split=None is not allowed
+            if split is None:
+                raise ValueError("SampleDataset has predefined splits - split=None is not allowed. Use SampleDatasetWithoutPredefinedSplits instead.")
+            
+            super().__init__(data_root=data_root, split=split, split_percentages=split_percentages, **kwargs)
+
         def _init_annotations(self) -> None:
-            # all splits are the same
-            self.annotations = list(range(100))
+            # BaseDataset split logic:
+            # 1. If split_percentages provided: load ALL data, BaseDataset will apply split after
+            # 2. If no split_percentages: load only the specific split's data
+            
+            if hasattr(self, 'split_percentages') and self.split_percentages is not None:
+                # Load ALL data - BaseDataset will apply percentage split after this
+                self.annotations = list(range(100))  # 0-99
+            elif self.split == 'train':
+                self.annotations = list(range(80))  # 0-79
+            elif self.split == 'val':
+                self.annotations = list(range(80, 90))  # 80-89
+            elif self.split == 'test':
+                self.annotations = list(range(90, 100))  # 90-99
+            elif self.split == 'weird':
+                self.annotations = []  # Empty split
+            else:
+                raise ValueError(f"Unknown split: {self.split}")
 
         def _load_datapoint(self, idx: int) -> Tuple[
             Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
@@ -114,6 +137,48 @@ def SampleDataset():
             return None
 
     return _SampleDataset
+
+
+@pytest.fixture
+def SampleDatasetWithoutPredefinedSplits():
+    """A dataset implementation without predefined splits for testing split_percentages functionality."""
+    class _SampleDatasetWithoutPredefinedSplits(BaseDataset):
+        SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
+        INPUT_NAMES = ['input']
+        LABEL_NAMES = ['label']
+        
+        def __init__(self, data_root=None, split=None, split_percentages=None, **kwargs):
+            # Set DATASET_SIZE only when using split_percentages (total size before splitting)
+            if split_percentages is not None:
+                self.DATASET_SIZE = 100  # Total size for percentage-based splitting
+            # For split=None, don't set DATASET_SIZE (allows loading everything)
+            
+            super().__init__(data_root=data_root, split=split, split_percentages=split_percentages, **kwargs)
+
+        def _init_annotations(self) -> None:
+            # Always load everything - splitting is handled by BaseDataset or user specifies split=None
+            self.annotations = list(range(100))  # 0-99
+
+        def _load_datapoint(self, idx: int) -> Tuple[
+            Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        ]:
+            # Create a random tensor for testing transforms
+            # Use the annotation index as the random seed for reproducibility
+            torch.manual_seed(self.annotations[idx])
+            tensor = torch.randn(3, 32, 32)  # Random noise
+            return {'input': tensor}, {'label': self.annotations[idx]}, {}
+
+        @staticmethod
+        def display_datapoint(
+            datapoint: Dict[str, Any],
+            class_labels: Optional[Dict[str, List[str]]] = None,
+            camera_state: Optional[Dict[str, Any]] = None,
+            settings_3d: Optional[Dict[str, Any]] = None
+        ) -> Optional['html.Div']:
+            """Return None to use default display functions."""
+            return None
+
+    return _SampleDatasetWithoutPredefinedSplits
 
 
 @pytest.fixture

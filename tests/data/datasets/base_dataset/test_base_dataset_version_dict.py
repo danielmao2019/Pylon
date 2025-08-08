@@ -46,7 +46,7 @@ def test_base_dataset_version_dict_consistency(mock_dataset_class):
 
 
 
-def test_version_dict_with_different_parameters(mock_dataset_class):
+def test_version_dict_with_different_parameters(mock_dataset_class, mock_dataset_class_without_predefined_splits):
     """Test version dict structure with different parameter combinations."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Test with string split
@@ -54,9 +54,10 @@ def test_version_dict_with_different_parameters(mock_dataset_class):
         version_dict1 = dataset1._get_cache_version_dict()
         assert version_dict1['split'] == 'train'
         
-        # Test with tuple split (split_percentages)
-        dataset2 = mock_dataset_class(data_root=temp_dir, split=(0.7, 0.2, 0.1))
+        # Test with split_percentages (use dataset without predefined splits)
+        dataset2 = mock_dataset_class_without_predefined_splits(data_root=temp_dir, split='train', split_percentages=(0.7, 0.2, 0.1))
         version_dict2 = dataset2._get_cache_version_dict()
+        assert version_dict2['split'] == 'train'
         assert version_dict2['split_percentages'] == (0.7, 0.2, 0.1)
         
         # Both should have same class_name (data_root intentionally excluded from version dict)

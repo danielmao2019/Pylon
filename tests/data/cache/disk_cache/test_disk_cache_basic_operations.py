@@ -287,7 +287,7 @@ def test_disk_memory_usage_calculation(temp_cache_dir, sample_datapoint):
     assert cache.get_size() == 2
 
 
-def test_cache_consistency_with_split_percentages(SampleDataset, temp_cache_dir):
+def test_cache_consistency_with_split_percentages(SampleDatasetWithoutPredefinedSplits, temp_cache_dir):
     """Test that cache works consistently with split percentages across multiple instantiations.
     
     This test verifies the fix for the deterministic shuffle issue:
@@ -295,9 +295,10 @@ def test_cache_consistency_with_split_percentages(SampleDataset, temp_cache_dir)
       making cached data inconsistent across dataset instances
     - With deterministic shuffle: same base_seed produces same splits, enabling cache reuse
     """
-    dataset = SampleDataset(
+    dataset = SampleDatasetWithoutPredefinedSplits(
         data_root=temp_cache_dir,
-        split=(0.5, 0.5, 0.0, 0.0),
+        split='train',
+        split_percentages=(0.5, 0.5, 0.0, 0.0),
         base_seed=42,
         use_cpu_cache=False,
         use_disk_cache=True
@@ -305,9 +306,10 @@ def test_cache_consistency_with_split_percentages(SampleDataset, temp_cache_dir)
     # trigger disk cache
     datapoint = dataset[0]
     # re-initialize
-    dataset = SampleDataset(
+    dataset = SampleDatasetWithoutPredefinedSplits(
         data_root=temp_cache_dir,
-        split=(0.5, 0.5, 0.0, 0.0),
+        split='train',
+        split_percentages=(0.5, 0.5, 0.0, 0.0),
         base_seed=42,
         use_cpu_cache=False,
         use_disk_cache=True
