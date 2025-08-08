@@ -120,7 +120,7 @@ def non_display_dataset():
             _ = datapoint, class_labels, camera_state, settings_3d
             return None
 
-    return _NonDisplayDataset(split="test", device=torch.device("cpu"))
+    return _NonDisplayDataset(data_root=None, split="test", device=torch.device("cpu"))
 
 
 # Backend Tests - Dataset Management Functionality
@@ -261,7 +261,7 @@ def test_dataset_inheritance_hierarchy(backend):
             return {"image": image}, {"label": label}, {"sample_idx": idx}
 
     # Test that datasets with complex inheritance can be managed by the backend
-    dataset = FinalSemsegDataset(split="test", device=torch.device("cpu"))
+    dataset = FinalSemsegDataset(data_root=None, split="test", device=torch.device("cpu"))
     dataset_name = "test/FinalSemsegDataset"
     backend._datasets[dataset_name] = dataset
 
