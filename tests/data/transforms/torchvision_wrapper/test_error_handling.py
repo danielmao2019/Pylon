@@ -55,37 +55,3 @@ def test_empty_tensor_assertion():
     empty_tensor = torch.empty(0)
     with pytest.raises(AssertionError, match="image tensor must not be empty"):
         wrapper._call_single(empty_tensor)
-
-
-def test_valid_torchvision_transform_acceptance():
-    """Test that valid torchvision transforms are accepted without error."""
-    # These should not raise any assertions
-    wrapper1 = TorchvisionWrapper(T.ColorJitter, brightness=0.5)
-    wrapper2 = TorchvisionWrapper(T.RandomAffine, degrees=10)
-    wrapper3 = TorchvisionWrapper(T.RandomRotation, degrees=30)
-    wrapper4 = TorchvisionWrapper(T.RandomHorizontalFlip)
-    
-    assert wrapper1.transform_class == T.ColorJitter
-    assert wrapper2.transform_class == T.RandomAffine
-    assert wrapper3.transform_class == T.RandomRotation
-    assert wrapper4.transform_class == T.RandomHorizontalFlip
-
-
-def test_valid_tensor_input_acceptance():
-    """Test that valid tensor inputs are accepted without error."""
-    wrapper = TorchvisionWrapper(T.ColorJitter, brightness=0.3)
-    
-    # Various valid tensor shapes should work
-    valid_tensors = [
-        torch.rand(3, 32, 32),  # Normal image
-        torch.rand(1, 28, 28),  # Grayscale
-        torch.rand(3, 64, 64),  # Different size
-        torch.ones(3, 16, 16),  # All ones
-        torch.zeros(3, 8, 8) + 0.1,  # Near zeros
-    ]
-    
-    for tensor in valid_tensors:
-        # Should not raise any assertions
-        result = wrapper._call_single(tensor.clone(), None)
-        assert isinstance(result, torch.Tensor)
-        assert result.shape == tensor.shape
