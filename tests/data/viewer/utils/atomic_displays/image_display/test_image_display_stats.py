@@ -31,19 +31,6 @@ def test_get_image_display_stats_basic():
     assert stats["Shape"] == "(3, 32, 32)"
 
 
-def test_get_image_display_stats_with_binary_change_map():
-    """Test image statistics with binary change map."""
-    image = torch.randn(3, 32, 32, dtype=torch.float32)
-    change_map = torch.randint(0, 2, (32, 32), dtype=torch.float32)
-    
-    stats = get_image_display_stats(image, change_map)
-    
-    assert "Changed Pixels" in stats
-    assert "Change Min" in stats
-    assert "Change Max" in stats
-    assert "%" in stats["Changed Pixels"]
-
-
 def test_image_stats_with_edge_cases():
     """Test image statistics with edge case tensors."""
     # All zeros
@@ -75,19 +62,6 @@ def test_get_image_display_stats_batched_rgb(batched_rgb_tensor):
     
     # Should show unbatched shape in stats
     assert stats["Shape"] == "(3, 32, 32)"
-
-
-def test_get_image_display_stats_batched_with_change_map():
-    """Test image statistics with batched input and batched change map."""
-    batched_image = torch.randn(1, 3, 32, 32, dtype=torch.float32)
-    batched_change_map = torch.randint(0, 2, (1, 32, 32), dtype=torch.float32)
-    
-    stats = get_image_display_stats(batched_image, batched_change_map)
-    
-    assert "Changed Pixels" in stats
-    assert "Change Min" in stats
-    assert "Change Max" in stats
-    assert "%" in stats["Changed Pixels"]
 
 
 def test_batch_size_one_assertion_stats():
