@@ -29,8 +29,8 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
     # Initialize log directories
     max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales = initialize_log_dirs(log_dirs, force_reload)
 
-    # Extract run names from log directories
-    run_names = [os.path.basename(os.path.normpath(log_dir)) for log_dir in log_dirs]
+    # Extract experiment names from aggregated log_dir_infos (now keyed by experiment name)
+    run_names = list(log_dir_infos.keys())
 
     # Create app
     app = dash.Dash(__name__)

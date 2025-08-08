@@ -18,12 +18,12 @@ def real_trainer_log_dir():
     """Path to real trainer log directory. Generates test data if not found."""
     import subprocess
     
-    trainer_dir = "./logs/tests/runners/eval_viewer/trainer_integration_test"
+    trainer_dir = "./logs/tests/runners/eval_viewer/trainer_integration_test_run_0"
     if not os.path.exists(trainer_dir):
         # Generate test data by running the trainer config
         result = subprocess.run([
             "python", "main.py", 
-            "--config-filepath", "configs/tests/runners/eval_viewer/trainer_integration_test.py"
+            "--config-filepath", "configs/tests/runners/eval_viewer/trainer_integration_test_run_0.py"
         ], capture_output=True, text=True)
         
         assert result.returncode == 0, f"Failed to generate trainer test data: {result.stderr}"
@@ -37,12 +37,12 @@ def real_evaluator_log_dir():
     """Path to real evaluator log directory. Generates test data if not found."""
     import subprocess
     
-    evaluator_dir = "./logs/tests/runners/eval_viewer/evaluator_integration_test"
+    evaluator_dir = "./logs/tests/runners/eval_viewer/evaluator_integration_test_run_0"
     if not os.path.exists(evaluator_dir):
         # Generate test data by running the evaluator config
         result = subprocess.run([
             "python", "main.py", 
-            "--config-filepath", "configs/tests/runners/eval_viewer/evaluator_integration_test.py"
+            "--config-filepath", "configs/tests/runners/eval_viewer/evaluator_integration_test_run_0.py"
         ], capture_output=True, text=True)
         
         assert result.returncode == 0, f"Failed to generate evaluator test data: {result.stderr}"
@@ -124,12 +124,12 @@ def test_mixed_real_runs_integration(real_trainer_log_dir, real_evaluator_log_di
     
     # Verify integrated initialization worked with real data
     assert len(log_dir_infos) == 2
-    assert trainer_log_dir in log_dir_infos
-    assert evaluator_log_dir in log_dir_infos
+    assert "trainer_integration_test" in log_dir_infos
+    assert "evaluator_integration_test" in log_dir_infos
     
     # Verify data consistency across different real run types
-    trainer_info = log_dir_infos[trainer_log_dir]
-    evaluator_info = log_dir_infos[evaluator_log_dir]
+    trainer_info = log_dir_infos["trainer_integration_test"]
+    evaluator_info = log_dir_infos["evaluator_integration_test"]
     
     assert trainer_info.runner_type == 'trainer'
     assert evaluator_info.runner_type == 'evaluator'
@@ -184,14 +184,14 @@ def test_real_error_propagation_integration(real_trainer_log_dir):
         # Create log directory structure that mirrors the expected config path
         logs_dir = os.path.join(temp_dir, "logs", "tests", "runners", "eval_viewer")
         os.makedirs(logs_dir, exist_ok=True)
-        temp_log_dir = os.path.join(logs_dir, "corrupted_trainer")
+        temp_log_dir = os.path.join(logs_dir, "corrupted_trainer_run_0")
         shutil.copytree(real_trainer_log_dir, temp_log_dir)
         
         # Create corresponding config directory structure and copy config
         config_dir = os.path.join(temp_dir, "configs", "tests", "runners", "eval_viewer")
         os.makedirs(config_dir, exist_ok=True)
-        shutil.copy2("configs/tests/runners/eval_viewer/trainer_integration_test.py", 
-                    os.path.join(config_dir, "corrupted_trainer.py"))
+        shutil.copy2("configs/tests/runners/eval_viewer/trainer_integration_test_run_0.py", 
+                    os.path.join(config_dir, "corrupted_trainer_run_0.py"))
         
         # Corrupt one of the real score files
         corrupt_file = os.path.join(temp_log_dir, "epoch_1", "validation_scores.json")
@@ -204,7 +204,7 @@ def test_real_error_propagation_integration(real_trainer_log_dir):
             os.chdir(temp_dir)
             # Should fail fast and loud with real error (following CLAUDE.md philosophy)
             with pytest.raises(json.JSONDecodeError):
-                extract_log_dir_info("./logs/tests/runners/eval_viewer/corrupted_trainer", force_reload=True)
+                extract_log_dir_info("./logs/tests/runners/eval_viewer/corrupted_trainer_run_0", force_reload=True)
         finally:
             os.chdir(original_cwd)
 
