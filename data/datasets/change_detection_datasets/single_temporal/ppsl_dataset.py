@@ -47,16 +47,16 @@ class PPSLDataset(BaseSyntheticDataset):
         img_1 = self.source[idx]['inputs']['image']
         label_1 = self.source[idx]['labels']['semantic_map']
 
-        # Apply color jitter to the first image
-        img_1 = self.colorjit(img_1)
+        # Apply color jitter to the first image with deterministic seeding
+        img_1 = self.colorjit(img_1, seed=(self.base_seed or 0) + idx)
 
         # Select a random second datapoint
         idx_2 = random.choice(range(len(self.source)))
         img_2 = self.source[idx_2]['inputs']['image']
         label_2 = self.source[idx_2]['labels']['semantic_map']
 
-        # Apply affine transformation to the second image
-        img_2 = self.affine(img_2)
+        # Apply affine transformation to the second image with deterministic seeding
+        img_2 = self.affine(img_2, seed=(self.base_seed or 0) + idx + 1000)
 
         # Apply the patch to the second image and label
         img_2_patched = img_2.clone()
