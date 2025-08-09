@@ -33,18 +33,10 @@ def backend():
 
 
 @pytest.fixture
-def coco_stuff_164k_dataset():
+def coco_stuff_164k_dataset(coco_stuff_164k_data_root):
     """COCOStuff164K dataset for testing."""
-    data_root = "./data/datasets/soft_links/COCOStuff164K"
-
-    # Assert dataset is available - fail fast if not
-    assert os.path.exists(
-        data_root
-    ), f"COCOStuff164K dataset must be available at {data_root}"
-
-    # Create dataset - let it fail if it can't be created
     dataset = COCOStuff164KDataset(
-        data_root=data_root,
+        data_root=coco_stuff_164k_data_root,
         split="val2017",  # Use smaller validation split for testing
         device=torch.device("cpu"),
     )
@@ -52,18 +44,10 @@ def coco_stuff_164k_dataset():
 
 
 @pytest.fixture
-def levir_cd_dataset():
+def levir_cd_dataset(levir_cd_data_root):
     """LEVIR-CD dataset for testing."""
-    data_root = "./data/datasets/soft_links/LEVIR-CD"
-
-    # Assert dataset is available - fail fast if not
-    assert os.path.exists(
-        data_root
-    ), f"LEVIR-CD dataset must be available at {data_root}"
-
-    # Create dataset - let it fail if it can't be created
     dataset = LevirCdDataset(
-        data_root=data_root,
+        data_root=levir_cd_data_root,
         split="test",  # Use test split for testing
         device=torch.device("cpu"),
     )
@@ -71,16 +55,10 @@ def levir_cd_dataset():
 
 
 @pytest.fixture
-def kitti_dataset():
+def kitti_dataset(kitti_data_root):
     """KITTI dataset for testing."""
-    data_root = "./data/datasets/soft_links/KITTI"
-
-    # Assert dataset is available - fail fast if not
-    assert os.path.exists(data_root), f"KITTI dataset must be available at {data_root}"
-
-    # Create dataset - let it fail if it can't be created
     dataset = KITTIDataset(
-        data_root=data_root,
+        data_root=kitti_data_root,
         split="val",  # Use validation split for testing
         device=torch.device("cpu"),
     )
