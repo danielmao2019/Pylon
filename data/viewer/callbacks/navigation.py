@@ -140,14 +140,13 @@ def update_datapoint_from_navigation(
         'up': {'x': 0, 'y': 0, 'z': 1}
     }
     
-    # For datasets that have camera poses (like iVISION MT), pass None to trigger pose calculation
+    # For datasets that have camera poses, pass None to trigger pose calculation
     final_camera_state = camera_state
     if camera_state == default_camera_state:
         # Check if datapoint has camera pose - if so, let dataset calculate camera from pose
         if ('meta_info' in datapoint and 
             'camera_pose' in datapoint['meta_info'] and 
-            hasattr(dataset_instance, '__class__') and 
-            'iVISION' in dataset_instance.__class__.__name__):
+            'camera_intrinsics' in datapoint['meta_info']):
             final_camera_state = None
             logger.info(f"Using None camera_state for {dataset_instance.__class__.__name__} to trigger camera pose calculation")
     
