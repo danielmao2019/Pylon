@@ -68,14 +68,11 @@ def update_figure_camera(triggered_index: int, new_camera: Dict[str, Any]) -> Ca
     return update_func
 
 
-def reset_figure_camera(default_camera: Dict[str, Any]) -> Callable[[int, Dict[str, Any]], Dict[str, Any]]:
-    """Create a function to reset a figure's camera to default state.
+def reset_figure_camera() -> Callable[[int, Dict[str, Any]], Dict[str, Any]]:
+    """Create a function to reset a figure's camera to Plotly's auto-calculated state.
     
-    Args:
-        default_camera: Default camera state to apply
-        
     Returns:
-        Function that resets a figure's camera state
+        Function that resets a figure's camera state by removing manual camera
     """
     def reset_func(i: int, figure: Dict[str, Any]) -> Dict[str, Any]:
         if not figure:
@@ -86,20 +83,11 @@ def reset_figure_camera(default_camera: Dict[str, Any]) -> Callable[[int, Dict[s
             updated_figure['layout'] = {}
         if 'scene' not in updated_figure['layout']:
             updated_figure['layout']['scene'] = {}
-        updated_figure['layout']['scene']['camera'] = default_camera
+        
+        # Remove manual camera to let Plotly auto-calculate
+        if 'camera' in updated_figure['layout']['scene']:
+            del updated_figure['layout']['scene']['camera']
+        
         return updated_figure
     
     return reset_func
-
-
-def get_default_camera_state() -> Dict[str, Any]:
-    """Get the default camera state for 3D visualizations.
-    
-    Returns:
-        Default camera state dictionary
-    """
-    return {
-        'up': {'x': 0, 'y': 0, 'z': 1},
-        'center': {'x': 0, 'y': 0, 'z': 0},
-        'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
-    }

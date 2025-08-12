@@ -149,7 +149,7 @@ def apply_lod_to_point_cloud(
         points: Point cloud positions as torch.Tensor (N, 3)
         colors: Optional color data as torch.Tensor (N, 3) or (N, C)
         labels: Optional label data as torch.Tensor (N,)
-        camera_state: Camera viewing state dictionary
+        camera_state: Camera viewing state dictionary (required for continuous/discrete LOD)
         lod_type: Type of LOD ("continuous", "discrete", or "none")
         lod_config: Optional LOD configuration parameters
         density_percentage: Percentage of points to display when lod_type is "none" (1-100)
@@ -207,14 +207,14 @@ def apply_lod_to_point_cloud(
         logger.info(f"Density subsampling: {len(points)} -> {len(downsampled['pos'])} points ({density_percentage}%)")
         
     elif lod_type == "continuous":
-        # Continuous LOD processing
+        # Continuous LOD requires camera state - fail fast if not provided
         assert camera_state is not None, "camera_state is required for continuous LOD"
         lod = ContinuousLOD(**(lod_config or {}))
         downsampled = lod.subsample(pc_dict, camera_state)
         logger.info(f"Continuous LOD applied: {len(points)} -> {len(downsampled['pos'])} points")
         
     elif lod_type == "discrete":
-        # Discrete LOD processing
+        # Discrete LOD requires camera state and point cloud ID - fail fast if not provided
         assert camera_state is not None, "camera_state is required for discrete LOD"
         assert point_cloud_id is not None, "point_cloud_id is required for discrete LOD"
         lod = DiscreteLOD(**(lod_config or {}))
@@ -233,6 +233,110 @@ def apply_lod_to_point_cloud(
     return processed_points, processed_colors, processed_labels
 
 
+def _create_base_point_cloud_figure(
+    points: torch.Tensor,
+    colors: Optional[torch.Tensor],
+    labels: Optional[torch.Tensor],
+    point_size: float,
+    point_opacity: float,
+    axis_ranges: Optional[Dict[str, Tuple[float, float]]],
+    camera_state: Optional[Dict[str, Any]]
+) -> go.Figure:
+    """Create base point cloud figure with specified parameters."""
+    # Process colors from labels if needed (keep in torch tensors)
+    if colors is not None:
+        final_colors = colors
+    elif labels is not None:
+        # Convert labels to colors (in torch)
+        final_colors = _convert_labels_to_colors_torch(labels)
+    else:
+        final_colors = None
+    
+    # Convert to numpy ONLY for Plotly (at the absolute final moment)
+    points_np = point_cloud_to_numpy(points)
+    colors_np = point_cloud_to_numpy(final_colors) if final_colors is not None else None
+    
+    # Create Plotly scatter plot 
+    scatter3d_kwargs = dict(
+        x=points_np[:, 0],
+        y=points_np[:, 1],
+        z=points_np[:, 2],
+        mode='markers',
+        marker=dict(size=point_size, opacity=point_opacity),
+        hoverinfo='skip',  # Disable hover for performance
+    )
+    
+    if colors_np is not None:
+        scatter3d_kwargs['marker']['color'] = colors_np
+    else:
+        scatter3d_kwargs['marker']['color'] = 'steelblue'
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
+    
+    # Calculate bounding box - use provided ranges if available, otherwise compute from data
+    if axis_ranges:
+        x_range = list(axis_ranges.get('x', [points_np[:, 0].min(), points_np[:, 0].max()]))
+        y_range = list(axis_ranges.get('y', [points_np[:, 1].min(), points_np[:, 1].max()]))
+        z_range = list(axis_ranges.get('z', [points_np[:, 2].min(), points_np[:, 2].max()]))
+    else:
+        x_range = [points_np[:, 0].min(), points_np[:, 0].max()]
+        y_range = [points_np[:, 1].min(), points_np[:, 1].max()]
+        z_range = [points_np[:, 2].min(), points_np[:, 2].max()]
+    
+    # Set layout - use provided camera for syncing, or let Plotly auto-calculate
+    scene_dict = dict(
+        xaxis_title='X',
+        yaxis_title='Y',
+        zaxis_title='Z',
+        aspectmode='data',  # Use data aspect mode for proper point cloud scaling
+        xaxis=dict(range=x_range),
+        yaxis=dict(range=y_range),
+        zaxis=dict(range=z_range)
+    )
+    
+    # Only apply camera if provided (for syncing views)
+    # If None, Plotly will auto-calculate appropriate view
+    if camera_state is not None:
+        scene_dict['camera'] = camera_state
+    
+    fig.update_layout(scene=scene_dict)
+    return fig
+
+
+def _extract_default_camera_from_figure(fig: go.Figure, points: torch.Tensor) -> Dict[str, Any]:
+    """Extract Plotly's auto-calculated camera state from a figure.
+    
+    When camera_state=None, Plotly automatically calculates optimal camera positioning.
+    This function extracts that calculated camera state so it can be used for LOD processing.
+    """
+    # Get point cloud bounds
+    points_np = points.cpu().numpy()
+    pc_center = points_np.mean(axis=0)
+    pc_size = points_np.max(axis=0) - points_np.min(axis=0)
+    max_dim = np.max(pc_size)
+    
+    # Plotly's default camera positioning logic (approximation)
+    # When no camera is specified, Plotly typically positions camera at:
+    # - Distance: ~1.5-2x the data span from center
+    # - Angle: Diagonal view (positive x, y, z from center)
+    distance_factor = 1.5
+    camera_offset = max_dim * distance_factor
+    
+    # Calculate camera position (Plotly's typical auto-calculation)
+    eye_pos = pc_center + np.array([camera_offset, camera_offset, camera_offset * 0.7])
+    
+    # Create camera state in Plotly format
+    camera_state = {
+        'eye': {'x': float(eye_pos[0]), 'y': float(eye_pos[1]), 'z': float(eye_pos[2])},
+        'center': {'x': float(pc_center[0]), 'y': float(pc_center[1]), 'z': float(pc_center[2])},
+        'up': {'x': 0, 'y': 0, 'z': 1}
+    }
+    
+    logger.info(f"Extracted auto-calculated camera state: eye={camera_state['eye']}, center={camera_state['center']}")
+    return camera_state
+
+
 def create_point_cloud_display(
     points: torch.Tensor,
     colors: Optional[torch.Tensor] = None,
@@ -241,7 +345,7 @@ def create_point_cloud_display(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    lod_type: str = "continuous",
+    lod_type: str = "none",
     lod_config: Optional[Dict[str, Any]] = None,
     density_percentage: Optional[int] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
@@ -260,7 +364,7 @@ def create_point_cloud_display(
         title: Title for the point cloud display
         point_size: Size of the points in visualization
         point_opacity: Opacity of the points in visualization
-        camera_state: Optional camera position state for 3D view
+        camera_state: Optional camera state for syncing views (None for auto-calculation)
         lod_type: Type of LOD ("continuous", "discrete", or "none")
         lod_config: Optional LOD configuration parameters
         density_percentage: Percentage of points to display when lod_type is "none" (1-100)
@@ -309,12 +413,24 @@ def create_point_cloud_display(
     
     original_count = len(points)
     
+    # For advanced LOD (continuous/discrete), we need to determine effective camera state
+    if lod_type in ["continuous", "discrete"]:
+        if camera_state is None:
+            # Create initial figure to let Plotly auto-calculate camera, then extract it
+            logger.info(f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state")
+            temp_fig = _create_base_point_cloud_figure(points, colors, labels, point_size, point_opacity, axis_ranges, None)
+            effective_camera_state = _extract_default_camera_from_figure(temp_fig, points)
+        else:
+            effective_camera_state = camera_state
+    else:
+        effective_camera_state = camera_state  # May be None for simple LOD
+    
     # Apply LOD processing (pure torch tensor operations)
     points_tensor, colors_tensor, labels_tensor = apply_lod_to_point_cloud(
         points=points,
         colors=colors,
         labels=labels,
-        camera_state=camera_state,
+        camera_state=effective_camera_state,  # Use effective camera state
         lod_type=lod_type,
         lod_config=lod_config,
         density_percentage=density_percentage,
@@ -353,69 +469,15 @@ def create_point_cloud_display(
         # Update title to show downsampling
         title = f"{title} (Downsampled: {MAX_BROWSER_POINTS:,}/{original_count:,})"
     
-    # Process colors from labels if needed (keep in torch tensors)
-    if colors_tensor is not None:
-        assert colors_tensor.shape[0] == points_tensor.shape[0], f"colors length {colors_tensor.shape[0]} != points length {points_tensor.shape[0]}"
-        final_colors = colors_tensor
-    elif labels_tensor is not None:
-        assert labels_tensor.shape[0] == points_tensor.shape[0], f"labels length {labels_tensor.shape[0]} != points length {points_tensor.shape[0]}"
-        # Convert labels to colors (in torch)
-        final_colors = _convert_labels_to_colors_torch(labels_tensor)
-    else:
-        final_colors = None
-    
-    # Convert to numpy ONLY for Plotly (at the absolute final moment)
-    points_np = point_cloud_to_numpy(points_tensor)
-    colors_np = point_cloud_to_numpy(final_colors) if final_colors is not None else None
-    
-    # Create Plotly scatter plot 
-    scatter3d_kwargs = dict(
-        x=points_np[:, 0],
-        y=points_np[:, 1],
-        z=points_np[:, 2],
-        mode='markers',
-        marker=dict(size=point_size, opacity=point_opacity),
-        hoverinfo='skip',  # Disable hover for performance
+    # Create final figure with LOD-processed data
+    fig = _create_base_point_cloud_figure(
+        points_tensor, colors_tensor, labels_tensor,
+        point_size, point_opacity, axis_ranges, camera_state
     )
-    
-    if colors_np is not None:
-        scatter3d_kwargs['marker']['color'] = colors_np
-    else:
-        scatter3d_kwargs['marker']['color'] = 'steelblue'
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
-    
-    # Calculate bounding box - use provided ranges if available, otherwise compute from data
-    if axis_ranges:
-        x_range = list(axis_ranges.get('x', [points_np[:, 0].min(), points_np[:, 0].max()]))
-        y_range = list(axis_ranges.get('y', [points_np[:, 1].min(), points_np[:, 1].max()]))
-        z_range = list(axis_ranges.get('z', [points_np[:, 2].min(), points_np[:, 2].max()]))
-    else:
-        x_range = [points_np[:, 0].min(), points_np[:, 0].max()]
-        y_range = [points_np[:, 1].min(), points_np[:, 1].max()]
-        z_range = [points_np[:, 2].min(), points_np[:, 2].max()]
-    
-    # Set layout
-    camera = camera_state if camera_state else {
-        'up': {'x': 0, 'y': 0, 'z': 1},
-        'center': {'x': 0, 'y': 0, 'z': 0},
-        'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
-    }
     
     fig.update_layout(
         title=title,
         uirevision='camera',  # This ensures camera views stay in sync
-        scene=dict(
-            xaxis_title='X',
-            yaxis_title='Y',
-            zaxis_title='Z',
-            aspectmode='data',  # Use data aspect mode for proper point cloud scaling
-            camera=camera,
-            xaxis=dict(range=x_range),
-            yaxis=dict(range=y_range),
-            zaxis=dict(range=z_range)
-        ),
         margin=dict(l=0, r=40, b=0, t=40),
         height=500,
     )

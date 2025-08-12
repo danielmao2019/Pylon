@@ -8,8 +8,7 @@ from data.viewer.callbacks.registry import callback
 from data.viewer.utils.camera_utils import (
     update_figures_parallel,
     update_figure_camera,
-    reset_figure_camera,
-    get_default_camera_state
+    reset_figure_camera
 )
 from data.viewer.utils.settings_config import ViewerSettings
 from data.viewer.utils.debounce import debounce
@@ -116,49 +115,17 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     group="camera"
 )
 def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """Reset camera view to datapoint's original camera pose for iVISION datasets, or default for others."""
+    """Reset camera view to Plotly's auto-calculated camera state."""
     if n_clicks is None or n_clicks == 0:
         raise PreventUpdate
 
-    # Try to get datapoint-specific camera state from registry
-    datapoint_camera = None
-    try:
-        from data.viewer.callbacks import registry
-        if (hasattr(registry, 'viewer') and hasattr(registry.viewer, 'backend') and 
-            hasattr(registry.viewer.backend, 'current_dataset') and 
-            registry.viewer.backend.current_dataset):
-            
-            # Get current dataset and index - must exist, no fallbacks
-            dataset_name = registry.viewer.backend.current_dataset
-            assert hasattr(registry.viewer.backend, 'current_index'), "Backend must have current_index attribute"
-            current_index = registry.viewer.backend.current_index
-            
-            # Get datapoint to extract camera pose
-            datapoint = registry.viewer.backend.get_datapoint(
-                dataset_name=dataset_name,
-                index=current_index,
-                transform_indices=[]  # No transforms for camera pose
-            )
-            
-            # Check if this datapoint has camera pose (for iVISION datasets)
-            if (datapoint and 'meta_info' in datapoint and 'camera_pose' in datapoint['meta_info']):
-                from data.datasets.multi_task_datasets.ivision_mt_dataset import iVISION_MT_Dataset
-                camera_pose = datapoint['meta_info']['camera_pose']
-                datapoint_camera = iVISION_MT_Dataset.create_camera_state_from_pose(camera_pose)
-                
-    except Exception as e:
-        # Fall back to default camera if anything goes wrong
-        pass
-
-    # Use datapoint camera if available, otherwise use default
-    reset_camera = datapoint_camera if datapoint_camera else get_default_camera_state()
-
-    # Update all figures with the chosen camera state
-    reset_func = reset_figure_camera(reset_camera)
+    # Reset all figures to use Plotly's auto-calculated camera
+    reset_func = reset_figure_camera()
     updated_figures = update_figures_parallel(
         all_figures, 
         reset_func, 
         ViewerSettings.PERFORMANCE_SETTINGS['max_thread_workers']
     )
 
-    return updated_figures, reset_camera
+    # Return None for camera state since we're using Plotly auto-calculation
+    return updated_figures, None
