@@ -26,10 +26,16 @@ def image_to_numpy(image: torch.Tensor) -> np.ndarray:
 
     img: np.ndarray = image.cpu().numpy()
 
-    # Handle normalization with zero division check
+    # Smart normalization: only normalize if image is not already in [0,1] range
     img_min = img.min()
     img_max = img.max()
-    if img_max > img_min:
+    
+    # Check if image is already in reasonable [0,1] range
+    if img_min >= 0.0 and img_max <= 1.0:
+        # Image is already in [0,1] range - no normalization needed
+        pass
+    elif img_max > img_min:
+        # Image needs normalization - stretch to [0,1] range
         img = (img - img_min) / (img_max - img_min)
     else:
         # If all values are the same, return zeros
