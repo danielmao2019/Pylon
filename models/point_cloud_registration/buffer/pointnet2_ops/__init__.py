@@ -1,0 +1,3 @@
+from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_modules
+from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils
+from models.point_cloud_registration.buffer.pointnet2_ops._version import __version__

@@ -11,7 +11,7 @@ from models.point_cloud_registration.buffer.patch_embedder import MiniSpinNet
 from models.point_cloud_registration.buffer.utils.SE3 import *
 from models.point_cloud_registration.buffer.utils.common import make_open3d_point_cloud
 import kornia.geometry.conversions as Convert
-import pointnet2_ops.pointnet2_utils as pnt2
+from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils as pnt2
 
 
 class EquiMatch(nn.Module):

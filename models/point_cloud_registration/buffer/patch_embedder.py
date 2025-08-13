@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import models.point_cloud_registration.buffer.patchnet as pn
 from models.point_cloud_registration.buffer.utils.common import *
 from models.point_cloud_registration.buffer.utils.SE3 import *
-import pointnet2_ops.pointnet2_utils as pnt2
+from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils as pnt2
 import kornia.geometry.conversions as Convert
 
 
