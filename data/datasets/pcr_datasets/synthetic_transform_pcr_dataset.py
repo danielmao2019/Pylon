@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-from utils.io.point_cloud import load_point_cloud
+from utils.io.point_clouds.load_point_cloud import load_point_cloud
 
 
 class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
