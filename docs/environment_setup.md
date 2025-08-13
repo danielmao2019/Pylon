@@ -6,7 +6,7 @@
 - [2. System Requirements](#2-system-requirements)
 - [3. System Environment Setup](#3-system-environment-setup)
   - [3.1. G++ and GCC](#31-g-and-gcc)
-  - [3.2. CUDA Toolkit 11.8](#32-cuda-toolkit-118)
+  - [3.2. CUDA Toolkit 12.8](#32-cuda-toolkit-128)
 - [4. Conda Environment Setup](#4-conda-environment-setup)
   - [4.1. Create conda environment](#41-create-conda-environment)
   - [4.2. Basics](#42-basics)
@@ -20,7 +20,7 @@ This document outlines the setup process for the Pylon development environment. 
 ## 2. System Requirements
 
 - Python 3.10
-- CUDA 11.8 compatible GPU (for PyTorch GPU acceleration)
+- CUDA 12.8 compatible GPU (for PyTorch GPU acceleration)
 
 ## 3. System Environment Setup
 
@@ -36,17 +36,17 @@ sudo update-alternatives --config gcc
 sudo update-alternatives --config g++
 ```
 
-### 3.2. CUDA Toolkit 11.8
+### 3.2. CUDA Toolkit 12.8
 
 ```bash
-wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
-sudo sh cuda_11.8.0_520.61.05_linux.run
+wget https://developer.download.nvidia.com/compute/cuda/12.8.1/local_installers/cuda_12.8.1_570.124.06_linux.run
+sudo sh cuda_12.8.1_570.124.06_linux.run
 ```
 
 Add the following to `~/.bashrc`.
 ```bash
-export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}
-export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
 
 ## 4. Conda Environment Setup
@@ -69,10 +69,18 @@ pip install --upgrade pip
 ### 4.2. Basics
 
 ```bash
-conda install numpy==1.26.4 pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia -y
+# Install PyTorch 2.7.1 with CUDA 12.8
+conda install numpy==1.26.4 -c conda-forge -y
+pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
+
+# Install OpenMMLab packages (compatible versions)
 pip install -U openmim
-mim install mmengine mmcv==2.0.0 mmdet==3.0.0
-pip install mmsegmentation==1.2.2
+mim install mmengine
+mim install mmcv==2.1.0
+mim install mmdet==3.2.0
+mim install mmsegmentation==1.2.2
+
+# Install other dependencies
 conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
 conda install -c conda-forge -y opencv pycocotools rasterio imageio plyfile
 pip install open3d laspy
