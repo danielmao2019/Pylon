@@ -5,7 +5,7 @@ from torch.autograd import Function
 from typing import *
 
 try:
-    import pointnet2_ops._ext as _ext
+    import models.point_cloud_registration.buffer.pointnet2_ops._ext as _ext
 except ImportError:
     from torch.utils.cpp_extension import load
     import glob
@@ -20,7 +20,7 @@ except ImportError:
     )
     _ext_headers = glob.glob(osp.join(_ext_src_root, "include", "*"))
 
-    os.environ["TORCH_CUDA_ARCH_LIST"] = "3.7+PTX;5.0;6.0;6.1;6.2;7.0;7.5"
+    os.environ["TORCH_CUDA_ARCH_LIST"] = "6.0;6.1;7.0;7.5;8.0;8.6;8.9;9.0"
     _ext = load(
         "_ext",
         sources=_ext_sources,

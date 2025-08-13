@@ -9,7 +9,7 @@ import open3d
 import matplotlib.colors
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import pointnet2_ops.pointnet2_utils as pnt2
+from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils as pnt2
 from models.point_cloud_registration.buffer.utils.SE3 import *
 
 
