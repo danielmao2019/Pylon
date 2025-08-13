@@ -17,7 +17,17 @@ class Randomize(BaseTransform):
     def __call__(self, *args, seed: Optional[Any] = None) -> Union[torch.Tensor, List[torch.Tensor]]:
         generator = self._get_generator(g_type='random', seed=seed)
         if generator.uniform(0, 1) < self.p:
-            return self.transform(*args, seed=seed)
+            try:
+                return self.transform(*args, seed=seed)
+            except Exception as e:
+                # If error is about unexpected seed argument, try without seed
+                if "got an unexpected keyword argument 'seed'" in str(e):
+                    if len(args) == 1:
+                        return self.transform(args[0])
+                    else:
+                        return self.transform(*args)
+                else:
+                    raise
         else:
             if len(args) == 1:
                 return args[0]
