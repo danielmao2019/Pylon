@@ -73,6 +73,9 @@ pip install --upgrade pip
 conda install numpy==1.26.4 -c conda-forge -y
 pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
 
+# Install compatible setuptools for CUDA extension compilation
+pip install setuptools==59.5.0
+
 # Install OpenMMLab packages (compatible versions)
 pip install -U openmim
 mim install mmengine
@@ -98,8 +101,25 @@ pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/seg
 
 ```bash
 conda install pytorch3d -c pytorch3d --freeze-installed
-git clone git@github.com:erikwijmans/Pointnet2_PyTorch.git && cd Pointnet2_PyTorch && pip install pointnet2_ops_lib/. && cd ..
 pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
 pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
 git clone https://github.com/KinglittleQ/torch-batch-svd.git && cd torch-batch-svd && python setup.py install && cd ..
+```
+
+### 4.5. Point Cloud Registration CUDA Extensions
+
+Compile the required CUDA extensions for point cloud registration models:
+
+```bash
+# GeoTransformer extensions
+cd data/collators/geotransformer && python setup.py install && cd ../../..
+
+# Buffer/OverlapPredator extensions  
+cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
+
+# D3Feat extensions
+cd data/collators/d3feat/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
+
+# OverlapPredator extensions
+cd data/collators/overlappredator/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
 ```
