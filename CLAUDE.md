@@ -277,13 +277,12 @@ datapoint = registry.viewer.backend.get_datapoint(
     transform_indices=selected_indices
 )
 
-# Display function calls
-display = create_display(
-    dataset_type=dataset_type,
+# Display function calls (direct call to display_func)
+display = display_func(
     datapoint=datapoint,
     class_labels=class_labels,
     camera_state=camera_state,
-    settings=settings
+    settings_3d=settings_3d
 )
 ```
 
@@ -292,7 +291,7 @@ display = create_display(
 # DON'T use positional arguments - easy to get order wrong
 result = some_function(value1, value2, value3)
 datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
-display = create_display(dataset_type, datapoint, class_labels, camera_state, settings)
+display = display_func(datapoint, class_labels, camera_state, settings_3d)
 ```
 
 **This pattern prevents:**
