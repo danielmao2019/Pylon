@@ -13,7 +13,7 @@ def render_rgb_from_pointcloud(
     camera_extrinsics: torch.Tensor,
     camera_intrinsics: torch.Tensor,
     resolution: Tuple[int, int],
-    convention: str = "standard"
+    convention: str = "opengl"
 ) -> torch.Tensor:
     """Render RGB image from point cloud using Open3D.
     
