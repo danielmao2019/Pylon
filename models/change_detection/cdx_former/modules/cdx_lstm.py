@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 from models.change_detection.cdx_former.modules.vision_lstm import ViLBlock, SequenceTraversal
 from torch.nn import functional as F
 from functools import partial
@@ -16,7 +16,7 @@ class ViLLayer(nn.Module):
             direction=SequenceTraversal.ROWWISE_FROM_TOP_LEFT
         )
     
-    @autocast(enabled=False)
+    @autocast('cuda', enabled=False)
     def forward(self, x):
         if x.dtype == torch.float16:
             x = x.type(torch.float32)
