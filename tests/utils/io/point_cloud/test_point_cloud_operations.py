@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import pytest
 from plyfile import PlyData, PlyElement
-from utils.io.point_cloud import load_point_cloud
+from utils.io.point_clouds.load_point_cloud import load_point_cloud
 
 
 @pytest.fixture
