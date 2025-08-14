@@ -42,7 +42,7 @@ class GMCNetMetric(SingleTaskMetric):
         
         metrics = {}
         
-        # Extract available metrics from GMCNet outputs
+        # Extract metrics computed by GMCNet source code (always available in train/val modes)
         if 'loss' in y_pred:
             metrics['loss'] = y_pred['loss']
         if 'rmse' in y_pred:
@@ -54,8 +54,8 @@ class GMCNetMetric(SingleTaskMetric):
         if 'translation_error' in y_pred:
             metrics['translation_error'] = y_pred['translation_error']
         
-        # Ensure we have at least some metrics
-        assert len(metrics) > 0, f"No metrics found in GMCNet outputs: {list(y_pred.keys())}"
+        # These should always be available since we use train/val modes, not test mode
+        assert len(metrics) > 0, f"No metrics found in GMCNet outputs (check if test mode was used): {list(y_pred.keys())}"
         
         # Add to buffer for aggregation
         self.add_to_buffer(metrics, datapoint)
