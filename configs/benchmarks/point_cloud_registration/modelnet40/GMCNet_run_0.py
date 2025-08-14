@@ -36,6 +36,8 @@ config = {
             'overlap_range': (0.3, 1.0),
             'min_points': 512,
             'cache_filepath': 'data/datasets/soft_links/ModelNet40_gmcnet_train_cache.json',
+            'use_cpu_cache': False,
+            'use_disk_cache': False,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
@@ -93,6 +95,8 @@ config = {
             'overlap_range': (0.3, 1.0),
             'min_points': 512,
             'cache_filepath': 'data/datasets/soft_links/ModelNet40_gmcnet_val_cache.json',
+            'use_cpu_cache': False, 
+            'use_disk_cache': False,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
