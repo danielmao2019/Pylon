@@ -41,7 +41,6 @@ data/viewer/
 │   ├── __init__.py
 │   ├── registry.py      # Callback registry
 │   ├── dataset.py       # Dataset callbacks
-│   ├── display.py       # Display callbacks
 │   ├── navigation.py    # Navigation callbacks
 │   ├── transforms.py    # Transform callbacks
 │   └── three_d_settings.py  # 3D visualization settings
