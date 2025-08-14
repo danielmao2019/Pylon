@@ -6,7 +6,7 @@ the key registration metrics.
 """
 
 import torch
-from typing import Dict
+from typing import Dict, Union
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
@@ -25,40 +25,38 @@ class GMCNetMetric(SingleTaskMetric):
     def __init__(self):
         super().__init__(use_buffer=True)
     
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """Extract metrics from GMCNet outputs.
+    def __call__(self, datapoint: Dict[str, Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]]) -> Dict[str, torch.Tensor]:
+        """Override __call__ to handle GMCNet's multiple output keys.
         
-        For GMCNet, y_pred should be a dictionary containing the computed metrics.
-        Since SingleTaskMetric expects tensors, this is a bit of an adaptation.
-        The training loop will need to handle this specially.
-        
-        Args:
-            y_pred: GMCNet model outputs (expects dict but will be adapted)
-            y_true: Target labels (not used since GMCNet computes metrics internally)
-            
-        Returns:
-            Dictionary of metrics extracted from model outputs
+        GMCNet outputs multiple keys (loss, T_12, scores, rotation_error, etc.) but 
+        SingleTaskMetric expects exactly one key. We need to extract the relevant
+        metrics from the GMCNet outputs.
         """
-        # For GMCNet, we expect the training loop to pass the entire outputs dict
-        # as a single "tensor" (actually dict) since GMCNet computes metrics internally
+        # Extract outputs and labels from datapoint
+        assert 'outputs' in datapoint and 'labels' in datapoint
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
         
-        if hasattr(y_pred, 'keys'):  # It's a dict (GMCNet outputs)
-            outputs = y_pred
-            metrics = {}
-            
-            # Extract available metrics from GMCNet outputs
-            if 'loss' in outputs:
-                metrics['loss'] = outputs['loss']
-            if 'rmse' in outputs:
-                metrics['rmse'] = outputs['rmse']
-            if 'mse' in outputs:
-                metrics['mse'] = outputs['mse']
-            if 'rotation_error' in outputs:
-                metrics['rotation_error'] = outputs['rotation_error']
-            if 'translation_error' in outputs:
-                metrics['translation_error'] = outputs['translation_error']
-                
-            return metrics
-        else:
-            # Fallback for single tensor input
-            return {'score': y_pred}
+        # GMCNet outputs a dict with multiple metrics - extract them directly
+        assert isinstance(y_pred, dict), f"Expected dict outputs from GMCNet, got {type(y_pred)}"
+        
+        metrics = {}
+        
+        # Extract available metrics from GMCNet outputs
+        if 'loss' in y_pred:
+            metrics['loss'] = y_pred['loss']
+        if 'rmse' in y_pred:
+            metrics['rmse'] = y_pred['rmse']
+        if 'mse' in y_pred:
+            metrics['mse'] = y_pred['mse']
+        if 'rotation_error' in y_pred:
+            metrics['rotation_error'] = y_pred['rotation_error']
+        if 'translation_error' in y_pred:
+            metrics['translation_error'] = y_pred['translation_error']
+        
+        # Ensure we have at least some metrics
+        assert len(metrics) > 0, f"No metrics found in GMCNet outputs: {list(y_pred.keys())}"
+        
+        # Add to buffer for aggregation
+        self.add_to_buffer(metrics, datapoint)
+        return metrics
