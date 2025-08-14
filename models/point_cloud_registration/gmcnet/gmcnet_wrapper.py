@@ -72,11 +72,12 @@ class GMCNet(nn.Module):
         pts2 = inputs['tgt_pc']['pos']
         T_gt = inputs['transform']
 
-        # In Pylon, the training mode is determined by model.training, not passed in inputs
+        # In Pylon, always use train/val modes to get metrics from GMCNet
+        # Never use 'test' mode as it only returns transformation without metrics
         if self.training:
             prefix = 'train'
         else:
-            prefix = 'test'  # Use test mode for evaluation
+            prefix = 'val'  # Use validation mode to get metrics during evaluation
 
         # Validate tensor shapes
         assert len(pts1.shape) == 3, f"src_points must be 3D [B, N, 3], got shape {pts1.shape}"
