@@ -20,7 +20,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
     # Required BaseDataset attributes
     SPLIT_OPTIONS = ['train', 'test']  # ModelNet40 only has train/test splits
     DATASET_SIZE = None  # Will be set dynamically based on actual files found
-    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
+    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences', 'transform']
     LABEL_NAMES = ['transform']
     SHA1SUM = None  # ModelNet40 doesn't have official checksum
     

@@ -58,15 +58,26 @@ class GMCNet(nn.Module):
             ValueError: If ground truth transform is missing in training/validation
             RuntimeError: If CUDA is required but not available
         """
-        # Input validation with clear error messages
-        assert 'src_points' in inputs, "src_points must be provided in inputs"
-        assert 'tgt_points' in inputs, "tgt_points must be provided in inputs"
+        # GMCNet expects ModelNet40Dataset structure: inputs contains 'src_pc' and 'tgt_pc' dictionaries with 'pos' key
+        assert 'src_pc' in inputs, f"GMCNet requires 'src_pc' in inputs, got keys: {list(inputs.keys())}"
+        assert 'tgt_pc' in inputs, f"GMCNet requires 'tgt_pc' in inputs, got keys: {list(inputs.keys())}"
         
-        pts1 = inputs['src_points']
-        pts2 = inputs['tgt_points']
-        T_gt = inputs.get('transform', None)
-        prefix = inputs.get('mode', 'train')
+        # Extract point positions from the nested dictionary structure
+        assert isinstance(inputs['src_pc'], dict), f"src_pc must be a dictionary, got {type(inputs['src_pc'])}"
+        assert isinstance(inputs['tgt_pc'], dict), f"tgt_pc must be a dictionary, got {type(inputs['tgt_pc'])}"
+        assert 'pos' in inputs['src_pc'], f"src_pc must contain 'pos' key, got keys: {list(inputs['src_pc'].keys())}"
+        assert 'pos' in inputs['tgt_pc'], f"tgt_pc must contain 'pos' key, got keys: {list(inputs['tgt_pc'].keys())}"
         
+        pts1 = inputs['src_pc']['pos']
+        pts2 = inputs['tgt_pc']['pos']
+        T_gt = inputs['transform']
+
+        # In Pylon, the training mode is determined by model.training, not passed in inputs
+        if self.training:
+            prefix = 'train'
+        else:
+            prefix = 'test'  # Use test mode for evaluation
+
         # Validate tensor shapes
         assert len(pts1.shape) == 3, f"src_points must be 3D [B, N, 3], got shape {pts1.shape}"
         assert len(pts2.shape) == 3, f"tgt_points must be 3D [B, N, 3], got shape {pts2.shape}"
