@@ -4,7 +4,6 @@ from dash import Input, Output, State, html, ALL
 import dash
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
-from data.viewer.callbacks.display import create_display
 from data.viewer.utils.settings_config import ViewerSettings
 from data.viewer.utils.debounce import debounce
 
@@ -105,8 +104,7 @@ def update_datapoint_from_transforms(
     
     # Create display using the determined display function
     logger.info(f"Creating {dataset_type} display with selected transforms")
-    display = create_display(
-        display_func=display_func,
+    display = display_func(
         datapoint=datapoint,
         class_labels=class_labels,
         camera_state=final_camera_state,
