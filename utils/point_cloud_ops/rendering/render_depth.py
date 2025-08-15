@@ -38,9 +38,9 @@ def render_depth_from_pointcloud(
     # Extract target resolution
     render_width, render_height = resolution
     
-    # Move to same device as points
-    camera_extrinsics = camera_extrinsics.to(points.device)
-    camera_intrinsics = camera_intrinsics.to(points.device)
+    # Move to same device and dtype as points for precise calculations
+    camera_extrinsics = camera_extrinsics.to(device=points.device, dtype=points.dtype)
+    camera_intrinsics = camera_intrinsics.to(device=points.device, dtype=points.dtype)
     
     # Scale intrinsics for target resolution
     # Extract original resolution from intrinsics (assume standard format)
@@ -123,6 +123,7 @@ def render_depth_from_pointcloud(
     sorted_depths = depths[sorted_indices]
     
     # Use index_put to assign depths - first occurrence wins (minimum depth)
-    depth_map[sorted_pixel_y, sorted_pixel_x] = sorted_depths
+    # Convert depths to float32 for final output while maintaining calculation precision
+    depth_map[sorted_pixel_y, sorted_pixel_x] = sorted_depths.float()
     
     return depth_map

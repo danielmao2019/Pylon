@@ -17,6 +17,7 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
     
     Returns:
         Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
+        All data loaded in float64 precision for maximum accuracy.
     """
     with open(filepath, "rb") as f:
         plydata = PlyData.read(f)
@@ -27,27 +28,27 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
 
         num_verts = plydata[nameInPly].count
 
-        # Always read XYZ
-        positions = np.zeros(shape=[num_verts, 3])
-        positions[:, 0] = plydata[nameInPly].data["x"]
-        positions[:, 1] = plydata[nameInPly].data["y"]
-        positions[:, 2] = plydata[nameInPly].data["z"]
+        # Always read XYZ in float64 precision
+        positions = np.zeros(shape=[num_verts, 3], dtype=np.float64)
+        positions[:, 0] = plydata[nameInPly].data["x"].astype(np.float64)
+        positions[:, 1] = plydata[nameInPly].data["y"].astype(np.float64)
+        positions[:, 2] = plydata[nameInPly].data["z"].astype(np.float64)
         
         result = {'pos': positions}
 
         # Add RGB colors if available
         rgb_fields = ['red', 'green', 'blue']
         if all(field in plydata[nameInPly].data.dtype.names for field in rgb_fields):
-            # Extract RGB values and normalize to [0, 1] range
-            red = plydata[nameInPly].data["red"].astype(np.float32) / 255.0
-            green = plydata[nameInPly].data["green"].astype(np.float32) / 255.0
-            blue = plydata[nameInPly].data["blue"].astype(np.float32) / 255.0
+            # Extract RGB values and normalize to [0, 1] range - use float64 for precision
+            red = plydata[nameInPly].data["red"].astype(np.float64) / 255.0
+            green = plydata[nameInPly].data["green"].astype(np.float64) / 255.0
+            blue = plydata[nameInPly].data["blue"].astype(np.float64) / 255.0
             rgb = np.column_stack((red, green, blue))
             result['rgb'] = rgb
 
         # Add feature if specified and exists
         if name_feat is not None and name_feat in plydata[nameInPly].data.dtype.names:
-            features = plydata[nameInPly].data[name_feat].reshape(-1, 1)
+            features = plydata[nameInPly].data[name_feat].astype(np.float64).reshape(-1, 1)
             result['feat'] = features
 
     return result
@@ -61,9 +62,10 @@ def _load_from_txt(filepath: str) -> Dict[str, np.ndarray]:
 
     Returns:
         Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
+        All data loaded in float64 precision for maximum accuracy.
     """
-    # Load data - SLPCCD format has header lines that need to be skipped
-    data = np.loadtxt(filepath, delimiter=' ', skiprows=2)
+    # Load data in float64 precision - SLPCCD format has header lines that need to be skipped
+    data = np.loadtxt(filepath, delimiter=' ', skiprows=2, dtype=np.float64)
 
     # Extract XYZ coordinates
     positions = data[:, 0:3]
@@ -91,22 +93,31 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
 
     Returns:
         Dictionary containing 'pos' and additional attributes
+        All data loaded in float64 precision for maximum accuracy.
     """
     # Read the LAS/LAZ file
     las_file = laspy.read(filepath)
 
-    # Extract XYZ coordinates
-    points = np.vstack((las_file.x, las_file.y, las_file.z)).T
+    # Extract XYZ coordinates in float64 precision
+    points = np.vstack((
+        np.array(las_file.x, dtype=np.float64), 
+        np.array(las_file.y, dtype=np.float64), 
+        np.array(las_file.z, dtype=np.float64)
+    )).T
 
     # Initialize result dictionary with position
     result = {'pos': points}
 
     # Extract RGB colors if available
     if all(field in las_file.point_format.dimension_names for field in ['red', 'green', 'blue']):
-        # Normalize RGB values to [0, 1] range
-        red = las_file.red / np.max(las_file.red)
-        green = las_file.green / np.max(las_file.green)
-        blue = las_file.blue / np.max(las_file.blue)
+        # Normalize RGB values to [0, 1] range - use float64 for precision
+        red_array = np.array(las_file.red, dtype=np.float64)
+        green_array = np.array(las_file.green, dtype=np.float64)
+        blue_array = np.array(las_file.blue, dtype=np.float64)
+        
+        red = red_array / np.max(red_array)
+        green = green_array / np.max(green_array)
+        blue = blue_array / np.max(blue_array)
         rgb = np.vstack((red, green, blue)).T
         result['rgb'] = rgb
 
@@ -115,6 +126,7 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
         if field not in ['x', 'y', 'z', 'red', 'green', 'blue']:  # Skip XYZ and RGB as they're already handled
             attr_value = getattr(las_file, field)
             if attr_value is not None:
+                # Keep the original dtype - don't force conversion to float64
                 attr_value = np.array(attr_value).reshape(-1, 1)
                 result[field] = attr_value
 
@@ -174,7 +186,8 @@ def load_point_cloud(
     filepath,
     nameInPly: Optional[str] = None,
     name_feat: Optional[str] = None,
-    device: Union[str, torch.device] = 'cuda'
+    device: Union[str, torch.device] = 'cuda',
+    dtype: torch.dtype = torch.float32
 ) -> Dict[str, torch.Tensor]:
     """Load a point cloud file and return in consistent dictionary format.
 
@@ -183,9 +196,11 @@ def load_point_cloud(
         nameInPly: Name of vertex element in PLY file (optional)
         name_feat: Name of feature column (optional)
         device: Device to place tensors on ('cuda', 'cpu', or torch.device)
+        dtype: Precision for position data (torch.float32 or torch.float64)
+               Helper loaders always use float64 internally, then convert to requested dtype
 
     Returns:
-        Dictionary with at least 'pos' key containing XYZ coordinates as torch.float32
+        Dictionary with at least 'pos' key containing XYZ coordinates in requested dtype
         Additional keys may include 'feat', 'rgb', etc. depending on file format
     """
     filepath = os.path.normpath(filepath).replace('\\', '/')
@@ -211,22 +226,29 @@ def load_point_cloud(
         raise ValueError(f"Unsupported file format: {file_ext}")
     
     # Convert any numpy arrays to torch tensors and transfer to device
-    def numpy_to_torch_on_device(x):
+    def numpy_to_torch_on_device(key, x):
         if isinstance(x, np.ndarray):
             if x.dtype == np.uint16:
                 x = x.astype(np.int64)
-            return torch.from_numpy(x).to(device)
+            tensor = torch.from_numpy(x).to(device)
+            # Apply requested dtype only to position data
+            if key == 'pos':
+                tensor = tensor.to(dtype)
+            return tensor
         elif isinstance(x, torch.Tensor):
-            return x.to(device)
+            tensor = x.to(device)
+            # Apply requested dtype only to position data
+            if key == 'pos':
+                tensor = tensor.to(dtype)
+            return tensor
         else:
             return x
     
     # Apply numpy to torch conversion and device transfer
-    result = {key: numpy_to_torch_on_device(value) for key, value in pc_data.items()}
+    result = {key: numpy_to_torch_on_device(key, value) for key, value in pc_data.items()}
     
-    # Convert pos to float32
+    # Ensure pos exists and is in correct dtype
     assert 'pos' in result
-    result['pos'] = result['pos'].float()
     
     # Handle segmentation files - convert labels to int64
     is_seg_file = '_seg' in os.path.basename(filepath).lower()

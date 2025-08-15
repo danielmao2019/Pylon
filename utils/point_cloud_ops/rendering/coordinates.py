@@ -39,7 +39,7 @@ def opengl_to_standard_transform() -> torch.Tensor:
         [0, 0, -1, 0],   # Standard Y = OpenGL -Z (forward: -Z becomes +Y)  
         [0, 1, 0, 0],    # Standard Z = OpenGL Y (up: Y becomes Z)
         [0, 0, 0, 1]     # Homogeneous
-    ], dtype=torch.float32)
+    ], dtype=torch.float64)
 
 
 def standard_to_opengl_transform() -> torch.Tensor:
@@ -60,7 +60,7 @@ def standard_to_opengl_transform() -> torch.Tensor:
         [0, 0, 1, 0],    # OpenGL Y = Standard Z (up: Z becomes Y)
         [0, -1, 0, 0],   # OpenGL Z = Standard -Y (backward: +Y becomes -Z)
         [0, 0, 0, 1]     # Homogeneous
-    ], dtype=torch.float32)
+    ], dtype=torch.float64)
 
 
 def apply_coordinate_transform(
@@ -95,9 +95,9 @@ def apply_coordinate_transform(
             f"Supported: 'opengl' <-> 'standard'"
         )
     
-    # Move transform to same device as camera pose
-    if camera_pose.device != transform.device:
-        transform = transform.to(camera_pose.device)
+    # Move transform to same device and dtype as camera pose
+    if camera_pose.device != transform.device or camera_pose.dtype != transform.dtype:
+        transform = transform.to(device=camera_pose.device, dtype=camera_pose.dtype)
     
     # Apply coordinate transformation to the entire pose matrix
     # This transforms both the rotation and translation components properly
@@ -123,7 +123,7 @@ def transform_camera_pose(
         pose_tensor = camera_pose
     else:  # numpy array
         import torch
-        pose_tensor = torch.from_numpy(camera_pose).float()
+        pose_tensor = torch.from_numpy(camera_pose).double()
     
     return apply_coordinate_transform(
         pose_tensor, 

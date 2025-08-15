@@ -62,13 +62,14 @@ def render_rgb_from_pointcloud(
     # Open3D renderer expects OpenGL convention natively
     # Convert to numpy only when needed for Open3D API
     
-    # Create Open3D point cloud
+    # Create Open3D point cloud with double precision for maximum accuracy
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points.cpu().numpy())
+    # Convert to double precision numpy array for Open3D to maintain accuracy
+    pcd.points = o3d.utility.Vector3dVector(points.cpu().double().numpy())
     
     # Set colors if available
     if 'rgb' in pc_data:
-        colors = pc_data['rgb'].cpu().numpy()
+        colors = pc_data['rgb'].cpu().double().numpy()
         # Normalize colors to [0, 1] if needed
         if colors.max() > 1.0:
             colors = colors / 255.0
@@ -88,9 +89,9 @@ def render_rgb_from_pointcloud(
     
     renderer.scene.add_geometry("pcd", pcd, material)
     
-    # Set camera projection (convert to numpy only for Open3D API)
+    # Set camera projection (convert to double precision numpy for Open3D API)
     renderer.scene.camera.set_projection(
-        camera_intrinsics.cpu().numpy(), 
+        camera_intrinsics.cpu().double().numpy(), 
         0.1, 1000.0, 
         render_size[0], render_size[1]
     )
@@ -114,11 +115,11 @@ def render_rgb_from_pointcloud(
         forward = -transformed_extrinsics[:3, 2]   # Forward is -Z (OpenGL convention)
         up = transformed_extrinsics[:3, 1]         # Up is Y (OpenGL convention)
     
-    # Set camera view (convert to numpy only at API call)
+    # Set camera view (convert to double precision numpy at API call)
     renderer.scene.camera.look_at(
-        center=(pos + forward * 10).cpu().numpy(),  # Convert only at API call
-        eye=pos.cpu().numpy(),                      # Convert only at API call
-        up=up.cpu().numpy(),                        # Convert only at API call
+        center=(pos + forward * 10).cpu().double().numpy(),  # Convert to double precision
+        eye=pos.cpu().double().numpy(),                      # Convert to double precision
+        up=up.cpu().double().numpy(),                        # Convert to double precision
     )
     
     # Render and convert to tensor
