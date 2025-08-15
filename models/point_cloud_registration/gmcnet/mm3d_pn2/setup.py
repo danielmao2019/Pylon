@@ -37,13 +37,26 @@ def make_cuda_ext(name,
     define_macros = []
     extra_compile_args = {'cxx': [] + extra_args}
 
-    if torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1':
+    # Force CUDA compilation and set CUDA architectures
+    cuda_available = torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1'
+    if cuda_available:
         define_macros += [('WITH_CUDA', None)]
         extension = CUDAExtension
+        
+        # Set CUDA architectures if not already set
+        if 'TORCH_CUDA_ARCH_LIST' not in os.environ:
+            os.environ['TORCH_CUDA_ARCH_LIST'] = "6.0 6.1 7.0 7.5 8.0 8.6"
+        
+        # Force CUDA compilation
+        if 'FORCE_CUDA' not in os.environ:
+            os.environ['FORCE_CUDA'] = "1"
+            
         extra_compile_args['nvcc'] = extra_args + [
             '-D__CUDA_NO_HALF_OPERATORS__',
             '-D__CUDA_NO_HALF_CONVERSIONS__',
             '-D__CUDA_NO_HALF2_OPERATORS__',
+            '-w',  # Suppress warnings
+            '-std=c++14'  # C++14 standard
         ]
         sources += sources_cuda
     else:
