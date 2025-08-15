@@ -20,7 +20,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
     # Required BaseDataset attributes
     SPLIT_OPTIONS = ['train', 'test']  # ModelNet40 only has train/test splits
     DATASET_SIZE = None  # Will be set dynamically based on actual files found
-    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
+    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences', 'transform']
     LABEL_NAMES = ['transform']
     SHA1SUM = None  # ModelNet40 doesn't have official checksum
     
@@ -119,6 +119,33 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
             version_dict['file_pairs'] = file_info
         
         return version_dict
+
+    def _sanity_check(self) -> None:
+        """Override sanity check to allow 'transform' in both inputs and labels for GMCNet compatibility."""
+        assert hasattr(self, 'SPLIT_OPTIONS') and self.SPLIT_OPTIONS is not None
+        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None and isinstance(self.DATASET_SIZE, dict):
+            assert set(self.SPLIT_OPTIONS) == set(self.DATASET_SIZE.keys())
+        assert self.INPUT_NAMES is not None
+        assert self.LABEL_NAMES is not None
+        
+        # Allow 'transform' to be in both inputs and labels for GMCNet compatibility
+        overlap = set(self.INPUT_NAMES) & set(self.LABEL_NAMES)
+        allowed_overlap = {'transform'}
+        assert overlap.issubset(allowed_overlap), \
+            f"Only 'transform' is allowed in both inputs and labels, got overlap: {overlap}"
+        
+        # Continue with the rest of the sanity check from BaseDataset
+        if self.check_sha1sum and hasattr(self, 'SHA1SUM') and self.SHA1SUM is not None:
+            import subprocess
+            import os
+            cmd = ' '.join([
+                'find', os.readlink(self.data_root) if os.path.islink(self.data_root) else self.data_root,
+                '-type', 'f', '-execdir', 'sha1sum', '{}', '+', '|',
+                'sort', '|', 'sha1sum',
+            ])
+            result = subprocess.getoutput(cmd)
+            sha1sum = result.split(' ')[0]
+            assert sha1sum == self.SHA1SUM, f"{sha1sum=}, {self.SHA1SUM=}"
 
     def get_category_from_path(self, file_path: str) -> str:
         """Extract category from file path.
