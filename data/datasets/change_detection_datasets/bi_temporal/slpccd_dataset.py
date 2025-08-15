@@ -226,14 +226,14 @@ class SLPCCDDataset(Base2DCDDataset):
         pc_2_seg_filepath = pc_2_filepath.replace('.txt', '_seg.txt')
         has_seg_file = os.path.exists(pc_2_seg_filepath)
 
-        # Load point clouds
-        pc_1 = utils.io.load_point_cloud(pc_1_filepath)
-        pc_2 = utils.io.load_point_cloud(pc_2_filepath)
+        # Load point clouds with float64 precision
+        pc_1 = utils.io.load_point_cloud(pc_1_filepath, dtype=torch.float64)
+        pc_2 = utils.io.load_point_cloud(pc_2_filepath, dtype=torch.float64)
 
-        # Load segmentation file if available
+        # Load segmentation file if available with float64 precision
         pc_2_seg = None
         if has_seg_file:
-            pc_2_seg = utils.io.load_point_cloud(pc_2_seg_filepath)
+            pc_2_seg = utils.io.load_point_cloud(pc_2_seg_filepath, dtype=torch.float64)
 
         return {
             'pc_1': pc_1,
