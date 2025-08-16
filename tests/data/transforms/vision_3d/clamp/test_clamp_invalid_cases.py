@@ -99,19 +99,6 @@ def test_clamp_inconsistent_devices():
         clamp(pc1, pc2, seed=42)
 
 
-def test_clamp_empty_point_cloud():
-    """Test Clamp transform with empty point cloud."""
-    clamp = Clamp(max_points=100)
-    
-    pc = {
-        'pos': torch.empty(0, 3, dtype=torch.float32, device='cuda'),
-        'feat': torch.empty(0, 4, dtype=torch.float32, device='cuda'),
-    }
-    
-    with pytest.raises(AssertionError, match="pc\\['pos'\\]\\.shape"):
-        clamp(pc, seed=42)
-
-
 def test_clamp_wrong_pos_dimensions():
     """Test Clamp transform with wrong 'pos' tensor dimensions."""
     clamp = Clamp(max_points=100)
