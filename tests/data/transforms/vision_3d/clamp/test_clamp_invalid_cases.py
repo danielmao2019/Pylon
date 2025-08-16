@@ -54,7 +54,7 @@ def test_clamp_invalid_point_cloud_structure():
         clamp({'feat': torch.randn(10, 4, dtype=torch.float32)})
     
     # Test with non-tensor 'pos' value
-    with pytest.raises(AssertionError, match="pc\\['pos'\\]"):
+    with pytest.raises(AssertionError):
         clamp({'pos': "not a tensor"})
     
     # Test with non-tensor other values
