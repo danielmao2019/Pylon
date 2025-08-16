@@ -53,8 +53,9 @@ class Clamp(BaseTransform):
         
         # Generate random indices once for consistent clamping across all point clouds
         generator = self._get_generator(g_type='torch', seed=seed)
-        # Move generator to the same device as point clouds
+        # Ensure generator is on the same device as point clouds
         if generator.device != device:
+            # Create new generator on correct device with same seed
             generator = torch.Generator(device=device)
             if seed is None:
                 import random
