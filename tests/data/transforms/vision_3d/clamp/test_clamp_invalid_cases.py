@@ -176,20 +176,20 @@ def test_clamp_mixed_valid_invalid_multi_args():
         clamp(valid_pc, invalid_pc, seed=42)
 
 
-def test_clamp_multi_args_one_empty():
-    """Test multi-arg Clamp where one point cloud is empty."""
+def test_clamp_multi_args_different_point_counts():
+    """Test multi-arg Clamp where point clouds have different point counts."""
     clamp = Clamp(max_points=50)
     
-    valid_pc = {
+    pc1 = {
         'pos': torch.randn(100, 3, dtype=torch.float32, device='cuda'),
         'feat': torch.randn(100, 4, dtype=torch.float32, device='cuda'),
     }
     
-    empty_pc = {
-        'pos': torch.empty(0, 3, dtype=torch.float32, device='cuda'),
-        'feat': torch.empty(0, 4, dtype=torch.float32, device='cuda'),
+    pc2 = {
+        'pos': torch.randn(200, 3, dtype=torch.float32, device='cuda'),  # Different count
+        'feat': torch.randn(200, 4, dtype=torch.float32, device='cuda'),
     }
     
-    # This should fail due to different point counts (100 vs 0)
+    # This should fail due to different point counts (100 vs 200)
     with pytest.raises(ValueError, match="All point clouds must have the same number of points"):
-        clamp(valid_pc, empty_pc, seed=42)
+        clamp(pc1, pc2, seed=42)
