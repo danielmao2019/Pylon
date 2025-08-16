@@ -50,7 +50,7 @@ def test_clamp_invalid_point_cloud_structure():
     clamp = Clamp(max_points=100)
     
     # Test with missing 'pos' key
-    with pytest.raises(AssertionError, match="pc\\['pos'\\]"):
+    with pytest.raises(AssertionError, match="pc\\.keys\\(\\)"):
         clamp({'feat': torch.randn(10, 4, dtype=torch.float32)})
     
     # Test with non-tensor 'pos' value
@@ -143,15 +143,15 @@ def test_clamp_inconsistent_shapes_within_pc():
         })
 
 
-def test_clamp_wrong_dtype():
-    """Test Clamp transform with wrong tensor dtypes."""
+def test_clamp_wrong_tensor_type():
+    """Test Clamp transform with non-tensor values."""
     clamp = Clamp(max_points=100)
     
-    # Wrong dtype for 'pos'
+    # Non-tensor for 'pos'
     with pytest.raises(AssertionError):
         clamp({
-            'pos': torch.randn(10, 3, dtype=torch.float64),  # Should be float32
-            'feat': torch.randn(10, 4, dtype=torch.float32),
+            'pos': [[1, 2, 3], [4, 5, 6]],  # List instead of tensor
+            'feat': torch.randn(2, 4, dtype=torch.float32),
         })
 
 

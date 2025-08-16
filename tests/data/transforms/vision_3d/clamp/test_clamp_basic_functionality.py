@@ -23,8 +23,9 @@ def test_clamp_single_large_pc(sample_pc_large):
     clamp = Clamp(max_points=max_points)
     result = clamp(sample_pc_large, seed=42)
     
-    # Check if all keys are preserved
-    assert result.keys() == sample_pc_large.keys()
+    # Check if all original keys are preserved plus 'indices' key added by Select
+    expected_keys = set(sample_pc_large.keys()) | {'indices'}
+    assert result.keys() == expected_keys
     
     # Check if number of points is correctly clamped
     assert result['pos'].shape[0] == max_points
@@ -47,7 +48,7 @@ def test_clamp_single_small_pc(sample_pc_small):
     clamp = Clamp(max_points=max_points)
     result = clamp(sample_pc_small, seed=42)
     
-    # Check if result is identical when no clamping is needed
+    # Check if result is identical when no clamping is needed (no 'indices' key added)
     assert result.keys() == sample_pc_small.keys()
     assert torch.equal(result['pos'], sample_pc_small['pos'])
     assert torch.equal(result['feat'], sample_pc_small['feat'])
