@@ -56,23 +56,28 @@ class ResizeMaps(BaseTransform):
 
     def _call_single(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Applies the resizing operation to a single tensor.
+        Applies the resizing operation to a single tensor with proper ignore value handling.
 
         Handles tensors with shape:
         - (H, W): Resizes after unsqueezing and squeezing dimensions.
         - (..., H, W): Resizes directly using `torchvision.transforms.Resize`.
 
+        CRITICAL: When ignore_value is specified and bilinear interpolation is used,
+        this method prevents interpolation corruption by using a mask-based approach.
+
         Args:
             x (torch.Tensor): Input tensor.
 
         Returns:
-            torch.Tensor: Resized tensor.
+            torch.Tensor: Resized tensor with properly preserved ignore values.
 
         Raises:
             ValueError: If the input tensor has fewer than 2 dimensions.
         """
         if x.ndim < 2:
             raise ValueError(f"Unsupported tensor dimensions: {x.ndim}. Expected at least 2D tensors.")
+        
+        # Get resize operation
         if not self.resize_op:
             interpolation = (
                 torchvision.transforms.functional.InterpolationMode.BILINEAR
@@ -83,14 +88,86 @@ class ResizeMaps(BaseTransform):
             resize_op = torchvision.transforms.Resize(**self.kwargs)
         else:
             resize_op = self.resize_op
+        
+        # Use ignore-value-aware resizing only for bilinear interpolation with ignore_value specified
+        if (self.ignore_value is not None and 
+            resize_op.interpolation == torchvision.transforms.functional.InterpolationMode.BILINEAR):
+            return self._ignore_aware_resize(x, resize_op)
+        else:
+            # Standard resizing for: no ignore_value, nearest neighbor, or other interpolation modes
+            return self._standard_resize(x, resize_op)
+    
+    def _standard_resize(self, x: torch.Tensor, resize_op: torchvision.transforms.Resize) -> torch.Tensor:
+        """Apply standard resizing without ignore value handling."""
         x = x.unsqueeze(-3)
         x = resize_op(x)
         x = x.squeeze(-3)
-        # sanity check
+        
+        # Sanity check
         assert isinstance(resize_op.size, tuple)
         assert len(resize_op.size) == 2
         assert all(isinstance(s, int) for s in resize_op.size)
         expected_shape = (*x.shape[:-2], *resize_op.size)  # (..., target_H, target_W)
         assert x.shape == expected_shape, f"Resized tensor shape mismatch: expected {expected_shape}, got {x.shape}"
-        # return
+        
         return x
+    
+    def _ignore_aware_resize(self, x: torch.Tensor, resize_op: torchvision.transforms.Resize) -> torch.Tensor:
+        """
+        Apply resizing with ignore value protection for bilinear interpolation.
+        
+        Strategy:
+        1. Create mask of valid pixels (non-ignore values)
+        2. Replace ignore values with a neutral value for interpolation
+        3. Resize both data and mask
+        4. Restore ignore values where mask indicates invalid regions
+        """
+        # Create valid pixel mask
+        if torch.isnan(self.ignore_value):
+            valid_mask = ~torch.isnan(x)
+        else:
+            valid_mask = (x != self.ignore_value)
+        
+        # If no ignore values present, use standard resizing
+        if valid_mask.all():
+            return self._standard_resize(x, resize_op)
+        
+        # Replace ignore values with mean of valid values for interpolation
+        valid_pixels = x[valid_mask]
+        if len(valid_pixels) > 0:
+            fill_value = valid_pixels.mean().item()
+        else:
+            # All pixels are ignore values - use zero
+            fill_value = 0.0
+        
+        # Create data tensor with ignore values replaced
+        x_filled = x.clone()
+        x_filled[~valid_mask] = fill_value
+        
+        # Create mask tensor (1.0 for valid, 0.0 for ignore)
+        mask = valid_mask.float()
+        
+        # Resize both data and mask
+        x_filled = x_filled.unsqueeze(-3)
+        mask = mask.unsqueeze(-3)
+        
+        x_resized = resize_op(x_filled)
+        mask_resized = resize_op(mask)
+        
+        x_resized = x_resized.squeeze(-3)
+        mask_resized = mask_resized.squeeze(-3)
+        
+        # Restore ignore values where mask indicates invalid regions
+        # Use threshold of 0.5 - pixels are valid if mask > 0.5
+        ignore_threshold = 0.5
+        ignore_regions = mask_resized <= ignore_threshold
+        x_resized[ignore_regions] = self.ignore_value
+        
+        # Sanity check
+        assert isinstance(resize_op.size, tuple)
+        assert len(resize_op.size) == 2
+        assert all(isinstance(s, int) for s in resize_op.size)
+        expected_shape = (*x_resized.shape[:-2], *resize_op.size)  # (..., target_H, target_W)
+        assert x_resized.shape == expected_shape, f"Resized tensor shape mismatch: expected {expected_shape}, got {x_resized.shape}"
+        
+        return x_resized
