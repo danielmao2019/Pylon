@@ -181,7 +181,7 @@ def create_figure_grid(
     """Create a grid of figures with consistent styling.
     
     Args:
-        figures: List of plotly figures
+        figures: List of plotly figures or html.Div components
         width_style: Width style for each grid item
         height_style: Height style for each figure
         graph_id_prefix: Prefix for graph component IDs
@@ -192,27 +192,44 @@ def create_figure_grid(
     grid_items = []
     
     for i, fig in enumerate(figures):
-        grid_items.append(
-            html.Div([
-                dcc.Graph(
-                    id={'type': graph_id_prefix, 'index': i},
-                    figure=fig,
-                    style={
-                        'height': height_style,
-                        'width': '100%',
-                        'max-height': height_style,
-                        'overflow': 'hidden'
-                    }
-                )
-            ], style={
-                'width': width_style,
-                'display': 'inline-block',
-                'vertical-align': 'top',
-                'max-height': height_style,
-                'overflow': 'hidden',
-                'box-sizing': 'border-box'
-            })
-        )
+        # Check if this is an empty div placeholder
+        if isinstance(fig, html.Div):
+            # Just add the div directly with consistent styling
+            grid_items.append(
+                html.Div([
+                    fig  # Use the div as-is (empty placeholder)
+                ], style={
+                    'width': width_style,
+                    'display': 'inline-block',
+                    'vertical-align': 'top',
+                    'max-height': height_style,
+                    'overflow': 'hidden',
+                    'box-sizing': 'border-box'
+                })
+            )
+        else:
+            # Normal figure - wrap in dcc.Graph
+            grid_items.append(
+                html.Div([
+                    dcc.Graph(
+                        id={'type': graph_id_prefix, 'index': i},
+                        figure=fig,
+                        style={
+                            'height': height_style,
+                            'width': '100%',
+                            'max-height': height_style,
+                            'overflow': 'hidden'
+                        }
+                    )
+                ], style={
+                    'width': width_style,
+                    'display': 'inline-block',
+                    'vertical-align': 'top',
+                    'max-height': height_style,
+                    'overflow': 'hidden',
+                    'box-sizing': 'border-box'
+                })
+            )
     
     return grid_items
 
