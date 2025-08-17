@@ -122,12 +122,14 @@ class ResizeMaps(BaseTransform):
         3. Resize both data and mask
         4. Restore ignore values where mask indicates invalid regions
         """
-        # Create valid pixel mask
+        # Create valid pixel mask using tolerance for floating-point comparison
         import math
         if math.isnan(self.ignore_value):
             valid_mask = ~torch.isnan(x)
         else:
-            valid_mask = (x != self.ignore_value)
+            # Use tolerance-based comparison for floating-point ignore values
+            tolerance = 1e-5
+            valid_mask = torch.abs(x - self.ignore_value) >= tolerance
         
         # If no ignore values present, use standard resizing
         if valid_mask.all():
