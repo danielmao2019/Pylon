@@ -179,8 +179,8 @@ def test_resize_maps_ignore_values_bilinear() -> None:
     depth_map[::2, ::2] = valid_value      # Valid values at even positions
     depth_map[1::2, 1::2] = ignore_value   # Ignore values at odd positions
     
-    # Apply ResizeMaps with bilinear interpolation
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear")
+    # Apply ResizeMaps with bilinear interpolation and ignore value awareness
+    resize_op = ResizeMaps(size=target_size, interpolation="bilinear", ignore_value=ignore_value)
     resized_depth = resize_op(depth_map)
     
     # Verify shape
@@ -229,8 +229,8 @@ def test_resize_maps_ignore_values_nearest() -> None:
             if (i + j) % 2 == 0:
                 depth_map[i, j] = ignore_value
     
-    # Apply ResizeMaps with nearest neighbor interpolation
-    resize_op = ResizeMaps(size=target_size, interpolation="nearest")
+    # Apply ResizeMaps with nearest neighbor interpolation and ignore value awareness
+    resize_op = ResizeMaps(size=target_size, interpolation="nearest", ignore_value=ignore_value)
     resized_depth = resize_op(depth_map)
     
     # Verify shape
@@ -273,9 +273,9 @@ def test_resize_maps_depth_map_realistic() -> None:
     original_ignore_pixels = (depth_map == ignore_value).sum().item()
     original_valid_pixels = (depth_map != ignore_value).sum().item()
     
-    # Resize with bilinear interpolation (typical for depth maps)
+    # Resize with bilinear interpolation and ignore value awareness (typical for depth maps)
     target_size = (15, 15)
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear")
+    resize_op = ResizeMaps(size=target_size, interpolation="bilinear", ignore_value=ignore_value)
     resized_depth = resize_op(depth_map)
     
     # Verify shape
