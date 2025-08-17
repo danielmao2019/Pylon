@@ -31,16 +31,18 @@ ResizeMaps(ignore_value=-1.0, size=(256, 256), interpolation="bilinear")
 - **Single value**: Simple API, one ignore value per transform (not multiple)
 - **Common use cases**: `-1.0` (depth), `255` (segmentation), `float('nan')` (missing data)
 
-### 2. Mask-Based Interpolation Strategy with Tolerance
+### 2. Mask-Based Interpolation Strategy with Tolerance Constant
 
 When `ignore_value` is specified and bilinear interpolation is used:
 
-1. **Create valid pixel mask with tolerance**: `valid_mask = torch.abs(x - ignore_value) >= 1e-5`
+1. **Create valid pixel mask with tolerance**: `valid_mask = torch.abs(x - ignore_value) >= ResizeMaps.TOLERANCE`
 2. **Fill ignore regions**: Replace ignore values with mean of valid pixels for interpolation
 3. **Resize data and mask separately**: Both use bilinear interpolation
 4. **Restore ignore values**: Where `mask_resized <= 0.5`, set pixels back to `ignore_value`
 
-**Key Improvement**: Uses tolerance-based comparison (`abs(x - ignore_value) < 1e-5`) instead of exact equality to handle floating-point precision issues correctly.
+**Key Improvements**: 
+- Uses tolerance-based comparison (`abs(x - ignore_value) >= ResizeMaps.TOLERANCE`) instead of exact equality to handle floating-point precision issues correctly
+- Defines tolerance as class constant `ResizeMaps.TOLERANCE = 1e-5` for consistency between implementation and tests
 
 ### 3. Conditional Logic
 
@@ -75,14 +77,17 @@ else:
 - `test_resize_maps_all_ignore_values()` - All pixels are ignore values
 - `test_resize_maps_no_ignore_values_present()` - Optimization path testing
 
-### Tolerance-Based Assertions
-All tests use `torch.abs(x - ignore_value) < 1e-5` for robust floating-point comparison:
+### Tolerance-Based Assertions with Class Constants
+All tests use `ResizeMaps.TOLERANCE` for consistent and robust floating-point comparison:
 ```python
 # Instead of exact equality
 corrupted = (resized < 0) & (resized != ignore_value)  # ❌ Fragile
 
-# Use tolerance-based comparison  
-corrupted = (resized < 0) & (torch.abs(resized - ignore_value) >= 1e-5)  # ✅ Robust
+# Use tolerance-based comparison with class constant
+corrupted = (resized < 0) & (torch.abs(resized - ignore_value) >= ResizeMaps.TOLERANCE)  # ✅ Robust
+
+# Consistent tolerance checking across all tests
+close_to_ignore = torch.abs(resized - ignore_value) < ResizeMaps.TOLERANCE
 ```
 
 ## Verification Results
@@ -143,5 +148,6 @@ transforms = [
 - **✅ Backward Compatibility**: Existing code continues to work unchanged
 - **✅ Performance**: Mask-based approach adds minimal overhead only when needed
 - **✅ Test Coverage**: Comprehensive test cases catch regression issues
+- **✅ Code Consistency**: Tolerance constant ensures uniform behavior between implementation and tests
 
 This fix ensures that computer vision pipelines maintain data integrity when processing maps with invalid/ignore regions, preventing subtle bugs that could affect model training and evaluation accuracy.
