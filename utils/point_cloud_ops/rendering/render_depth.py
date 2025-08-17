@@ -11,7 +11,7 @@ def render_depth_from_pointcloud(
     camera_intrinsics: torch.Tensor,
     resolution: Tuple[int, int],
     convention: str = "opengl",
-    ignore_index: float = 250.0
+    ignore_index: float = -1.0
 ) -> torch.Tensor:
     """Render depth map from point cloud using projection.
     
