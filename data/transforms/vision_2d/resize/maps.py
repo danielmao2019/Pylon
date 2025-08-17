@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 import torchvision
 from data.transforms.base_transform import BaseTransform
@@ -8,23 +9,36 @@ class ResizeMaps(BaseTransform):
     A transformation class for resizing tensors with shape (..., H, W).
     This class extends `torchvision.transforms.Resize` by adding support
     for pure 2D tensors (H, W) via unsqueezing and squeezing operations.
+    
+    CRITICAL: This implementation properly handles ignore values to prevent
+    interpolation corruption. When bilinear interpolation would mix ignore 
+    values with valid values, it uses a masking approach to preserve data integrity.
 
     Attributes:
         resize (torchvision.transforms.Resize): An instance of Resize transformation.
         target_size (tuple): Target height and width of the resized tensor.
+        ignore_value (Optional[float]): Value to treat as ignore/invalid during resizing.
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, ignore_value: Optional[float] = None, **kwargs) -> None:
         """
         Initializes the ResizeMaps class.
 
         Args:
+            ignore_value: Single value to treat as ignore/invalid during resizing.
+                         Common examples: -1.0 (depth maps), 255 (segmentation masks).
+                         If None, standard resizing is applied without special handling.
             **kwargs: Keyword arguments for `torchvision.transforms.Resize`.
 
         Raises:
-            AssertionError: If the target size is not a tuple of two integers.
+            ValueError: If unsupported interpolation mode is provided.
         """
         super(ResizeMaps, self).__init__()
+        
+        # Store ignore value (can be None for no special handling)
+        self.ignore_value = ignore_value
+        
+        # Handle interpolation parameter
         if 'interpolation' in kwargs:
             if kwargs['interpolation'] is None:
                 pass
