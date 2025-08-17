@@ -62,14 +62,13 @@ def test_resize_maps_ignore_values_bilinear() -> None:
     
     # Verify only expected values exist (ignore_value or valid range)
     unique_values = torch.unique(resized_depth)
-    tolerance = 1e-5
     # Check for values that are negative but not close to ignore_value (corrupted values)
     invalid_values = unique_values[
-        (unique_values < 0) & (torch.abs(unique_values - ignore_value) >= tolerance)
+        (unique_values < 0) & (torch.abs(unique_values - ignore_value) >= ResizeMaps.TOLERANCE)
     ]
     assert len(invalid_values) == 0, (
         f"Found unexpected negative values: {invalid_values}. "
-        f"Only {ignore_value} (±{tolerance}) or positive values should exist."
+        f"Only {ignore_value} (±{ResizeMaps.TOLERANCE}) or positive values should exist."
     )
 
 
@@ -109,15 +108,14 @@ def test_resize_maps_ignore_values_nearest() -> None:
     
     # Verify only original values exist (no interpolation)
     unique_values = torch.unique(resized_depth)
-    tolerance = 1e-5
     
     # Check each unique value is close to either ignore_value or valid_value
     for val in unique_values:
-        is_close_to_ignore = torch.abs(val - ignore_value) < tolerance
-        is_close_to_valid = torch.abs(val - valid_value) < tolerance
+        is_close_to_ignore = torch.abs(val - ignore_value) < ResizeMaps.TOLERANCE
+        is_close_to_valid = torch.abs(val - valid_value) < ResizeMaps.TOLERANCE
         assert is_close_to_ignore or is_close_to_valid, (
             f"Found unexpected value {val:.6f}. "
-            f"Should be close to {ignore_value} or {valid_value} (tolerance={tolerance})."
+            f"Should be close to {ignore_value} or {valid_value} (tolerance={ResizeMaps.TOLERANCE})."
         )
 
 
@@ -146,9 +144,8 @@ def test_resize_maps_depth_map_realistic() -> None:
     depth_map[0:3, :] = ignore_value        # Top border ignore (out of range)
     depth_map[:, -2:] = ignore_value        # Right border ignore (sensor edge)
     
-    tolerance = 1e-5
-    original_ignore_pixels = (torch.abs(depth_map - ignore_value) < tolerance).sum().item()
-    original_valid_pixels = (torch.abs(depth_map - ignore_value) >= tolerance).sum().item()
+    original_ignore_pixels = (torch.abs(depth_map - ignore_value) < ResizeMaps.TOLERANCE).sum().item()
+    original_valid_pixels = (torch.abs(depth_map - ignore_value) >= ResizeMaps.TOLERANCE).sum().item()
     
     # Resize with bilinear interpolation and ignore value awareness (typical for depth maps)
     target_size = (15, 15)

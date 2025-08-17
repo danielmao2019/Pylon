@@ -18,7 +18,11 @@ class ResizeMaps(BaseTransform):
         resize (torchvision.transforms.Resize): An instance of Resize transformation.
         target_size (tuple): Target height and width of the resized tensor.
         ignore_value (Optional[float]): Value to treat as ignore/invalid during resizing.
+        TOLERANCE (float): Tolerance for floating-point ignore value comparison.
     """
+    
+    # Class constant for tolerance-based ignore value comparison
+    TOLERANCE = 1e-5
 
     def __init__(self, ignore_value: Optional[float] = None, **kwargs) -> None:
         """
@@ -128,8 +132,7 @@ class ResizeMaps(BaseTransform):
             valid_mask = ~torch.isnan(x)
         else:
             # Use tolerance-based comparison for floating-point ignore values
-            tolerance = 1e-5
-            valid_mask = torch.abs(x - self.ignore_value) >= tolerance
+            valid_mask = torch.abs(x - self.ignore_value) >= self.TOLERANCE
         
         # If no ignore values present, use standard resizing
         if valid_mask.all():
