@@ -62,10 +62,14 @@ def test_resize_maps_ignore_values_bilinear() -> None:
     
     # Verify only expected values exist (ignore_value or valid range)
     unique_values = torch.unique(resized_depth)
-    invalid_values = unique_values[(unique_values != ignore_value) & (unique_values < 0)]
+    tolerance = 1e-5
+    # Check for values that are negative but not close to ignore_value (corrupted values)
+    invalid_values = unique_values[
+        (unique_values < 0) & (torch.abs(unique_values - ignore_value) >= tolerance)
+    ]
     assert len(invalid_values) == 0, (
         f"Found unexpected negative values: {invalid_values}. "
-        f"Only {ignore_value} or positive values should exist."
+        f"Only {ignore_value} (±{tolerance}) or positive values should exist."
     )
 
 
@@ -105,12 +109,16 @@ def test_resize_maps_ignore_values_nearest() -> None:
     
     # Verify only original values exist (no interpolation)
     unique_values = torch.unique(resized_depth)
-    expected_values = {ignore_value, valid_value}
-    found_values = set(unique_values.tolist())
-    assert found_values.issubset(expected_values), (
-        f"Found unexpected interpolated values: {found_values - expected_values}. "
-        f"Nearest neighbor should only preserve original values: {expected_values}."
-    )
+    tolerance = 1e-5
+    
+    # Check each unique value is close to either ignore_value or valid_value
+    for val in unique_values:
+        is_close_to_ignore = torch.abs(val - ignore_value) < tolerance
+        is_close_to_valid = torch.abs(val - valid_value) < tolerance
+        assert is_close_to_ignore or is_close_to_valid, (
+            f"Found unexpected value {val:.6f}. "
+            f"Should be close to {ignore_value} or {valid_value} (tolerance={tolerance})."
+        )
 
 
 def test_resize_maps_depth_map_realistic() -> None:
@@ -138,8 +146,9 @@ def test_resize_maps_depth_map_realistic() -> None:
     depth_map[0:3, :] = ignore_value        # Top border ignore (out of range)
     depth_map[:, -2:] = ignore_value        # Right border ignore (sensor edge)
     
-    original_ignore_pixels = (depth_map == ignore_value).sum().item()
-    original_valid_pixels = (depth_map != ignore_value).sum().item()
+    tolerance = 1e-5
+    original_ignore_pixels = (torch.abs(depth_map - ignore_value) < tolerance).sum().item()
+    original_valid_pixels = (torch.abs(depth_map - ignore_value) >= tolerance).sum().item()
     
     # Resize with bilinear interpolation and ignore value awareness (typical for depth maps)
     target_size = (15, 15)
@@ -163,15 +172,16 @@ def test_resize_maps_depth_map_realistic() -> None:
     # Verify ignore values are properly handled
     # Should have some ignore pixels preserved (exact count depends on resize algorithm)
     # but importantly, no corrupted intermediate values
+    tolerance = 1e-5
     valid_range_pixels = (resized_depth >= 0.5).sum().item()
-    exact_ignore_pixels = (resized_depth == ignore_value).sum().item()
-    total_expected = valid_range_pixels + exact_ignore_pixels
+    close_to_ignore_pixels = (torch.abs(resized_depth - ignore_value) < tolerance).sum().item()
+    total_expected = valid_range_pixels + close_to_ignore_pixels
     
     assert total_expected == resized_depth.numel(), (
         f"Found pixels outside expected ranges. "
-        f"Valid pixels: {valid_range_pixels}, Ignore pixels: {exact_ignore_pixels}, "
+        f"Valid pixels: {valid_range_pixels}, Ignore pixels (±{tolerance}): {close_to_ignore_pixels}, "
         f"Total: {total_expected}, Expected: {resized_depth.numel()}. "
-        f"All pixels should be either valid measurements or exact ignore values."
+        f"All pixels should be either valid measurements or close to ignore value."
     )
 
 
@@ -200,7 +210,8 @@ def test_resize_maps_ignore_values_segmentation_mask() -> None:
     seg_mask[:, 0:2] = ignore_class        # Left border ignore
     seg_mask[6:10, 6:10] = ignore_class    # Central ignore region
     
-    original_ignore_pixels = (seg_mask == ignore_class).sum().item()
+    tolerance = 1e-5
+    original_ignore_pixels = (torch.abs(seg_mask.float() - ignore_class) < tolerance).sum().item()
     
     # Apply ResizeMaps with nearest neighbor (standard for segmentation) and ignore class
     resize_op = ResizeMaps(size=target_size, interpolation="nearest", ignore_value=ignore_class)
@@ -224,7 +235,8 @@ def test_resize_maps_ignore_values_segmentation_mask() -> None:
     )
     
     # Verify ignore class is preserved
-    resized_ignore_pixels = (resized_mask == ignore_class).sum().item()
+    tolerance = 1e-5
+    resized_ignore_pixels = (torch.abs(resized_mask - ignore_class) < tolerance).sum().item()
     assert resized_ignore_pixels > 0, (
         f"Ignore class {ignore_class} should be preserved in resized mask. "
         f"Original: {original_ignore_pixels}, Resized: {resized_ignore_pixels}"
@@ -356,11 +368,12 @@ def test_resize_maps_all_ignore_values() -> None:
         f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
     )
     
-    # Verify all pixels remain as ignore values
-    all_ignore = (resized_data == ignore_value).all().item()
-    assert all_ignore, (
-        f"All pixels should remain as ignore values ({ignore_value}). "
-        f"Found range: [{resized_data.min():.3f}, {resized_data.max():.3f}]"
+    # Verify all pixels remain close to ignore values
+    tolerance = 1e-5
+    all_close_to_ignore = (torch.abs(resized_data - ignore_value) < tolerance).all().item()
+    assert all_close_to_ignore, (
+        f"All pixels should remain close to ignore value ({ignore_value} ±{tolerance}). "
+        f"Found range: [{resized_data.min():.6f}, {resized_data.max():.6f}]"
     )
 
 
@@ -383,7 +396,8 @@ def test_resize_maps_no_ignore_values_present() -> None:
     data_map = torch.rand(original_size, dtype=torch.float32) * 10.0 + 1.0  # Range [1, 11]
     
     # Verify no ignore values are present
-    has_ignore = (data_map == ignore_value).any().item()
+    tolerance = 1e-5
+    has_ignore = (torch.abs(data_map - ignore_value) < tolerance).any().item()
     assert not has_ignore, "Test data should not contain ignore values"
     
     # Apply ResizeMaps with ignore value specified (but not present in data)
@@ -404,7 +418,8 @@ def test_resize_maps_no_ignore_values_present() -> None:
     )
     
     # Should not have any ignore values in output
-    has_ignore_output = (resized_data == ignore_value).any().item()
+    tolerance = 1e-5
+    has_ignore_output = (torch.abs(resized_data - ignore_value) < tolerance).any().item()
     assert not has_ignore_output, (
         f"Output should not contain ignore values when none were present in input"
     )

@@ -31,14 +31,16 @@ ResizeMaps(ignore_value=-1.0, size=(256, 256), interpolation="bilinear")
 - **Single value**: Simple API, one ignore value per transform (not multiple)
 - **Common use cases**: `-1.0` (depth), `255` (segmentation), `float('nan')` (missing data)
 
-### 2. Mask-Based Interpolation Strategy
+### 2. Mask-Based Interpolation Strategy with Tolerance
 
 When `ignore_value` is specified and bilinear interpolation is used:
 
-1. **Create valid pixel mask**: `valid_mask = (x != ignore_value)`
+1. **Create valid pixel mask with tolerance**: `valid_mask = torch.abs(x - ignore_value) >= 1e-5`
 2. **Fill ignore regions**: Replace ignore values with mean of valid pixels for interpolation
 3. **Resize data and mask separately**: Both use bilinear interpolation
 4. **Restore ignore values**: Where `mask_resized <= 0.5`, set pixels back to `ignore_value`
+
+**Key Improvement**: Uses tolerance-based comparison (`abs(x - ignore_value) < 1e-5`) instead of exact equality to handle floating-point precision issues correctly.
 
 ### 3. Conditional Logic
 
@@ -59,29 +61,28 @@ else:
 - Nearest neighbor interpolation (naturally preserves ignore values)
 - Other interpolation modes
 
-## Test Cases Added
+## Comprehensive Test Suite (`test_ignore_values.py`)
 
-### 1. Bilinear Interpolation with Ignore Values
-```python
-def test_resize_maps_ignore_values_bilinear():
-    # Creates challenging pattern that would cause corruption
-    # Verifies no intermediate values between ignore_value and valid values
-    resize_op = ResizeMaps(size=(5, 5), interpolation="bilinear", ignore_value=-1.0)
-    # Should pass: no corrupted pixels found
-```
+### Core Functionality Tests
+- `test_resize_maps_ignore_values_bilinear()` - Primary corruption prevention test
+- `test_resize_maps_ignore_values_nearest()` - Nearest neighbor verification  
+- `test_resize_maps_depth_map_realistic()` - Real-world depth map scenario
 
-### 2. Nearest Neighbor Verification  
-```python
-def test_resize_maps_ignore_values_nearest():
-    # Verifies nearest neighbor preserves ignore values naturally
-    # Should only find original values, no interpolated values
-```
+### Edge Case Tests
+- `test_resize_maps_ignore_values_segmentation_mask()` - Class 255 ignore handling
+- `test_resize_maps_ignore_nan_values()` - NaN ignore values
+- `test_resize_maps_no_ignore_value_specified()` - Backward compatibility
+- `test_resize_maps_all_ignore_values()` - All pixels are ignore values
+- `test_resize_maps_no_ignore_values_present()` - Optimization path testing
 
-### 3. Realistic Depth Map Scenario
+### Tolerance-Based Assertions
+All tests use `torch.abs(x - ignore_value) < 1e-5` for robust floating-point comparison:
 ```python
-def test_resize_maps_depth_map_realistic():
-    # Simulates real depth map with border ignore regions
-    # Verifies no boundary corruption during resize
+# Instead of exact equality
+corrupted = (resized < 0) & (resized != ignore_value)  # ❌ Fragile
+
+# Use tolerance-based comparison  
+corrupted = (resized < 0) & (torch.abs(resized - ignore_value) >= 1e-5)  # ✅ Robust
 ```
 
 ## Verification Results
