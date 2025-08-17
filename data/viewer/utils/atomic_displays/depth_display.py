@@ -43,26 +43,76 @@ def create_depth_display(
     # Convert to numpy for visualization
     depth_np = depth.detach().cpu().numpy()
     
-    # Handle ignore_value by setting it to NaN for proper visualization
+    # Handle ignore values with custom coloring
     if ignore_value is not None:
-        depth_np = depth_np.copy()
-        depth_np[depth_np == ignore_value] = np.nan
+        # Create mask for ignore values
+        ignore_mask = np.abs(depth_np - ignore_value) < 1e-5
+        valid_mask = ~ignore_mask
+        
+        if np.any(ignore_mask):
+            # Create custom visualization with separate colors for ignore values
+            fig = go.Figure()
+            
+            # Add valid depth values with main colorscale
+            if np.any(valid_mask):
+                valid_depth = depth_np.copy()
+                valid_depth[ignore_mask] = np.nan  # Hide ignore values for this trace
+                
+                fig.add_trace(go.Heatmap(
+                    z=valid_depth,
+                    colorscale=colorscale,
+                    name='Valid Depth',
+                    showscale=True,
+                    colorbar=dict(title="Depth (m)", x=1.0)
+                ))
+            
+            # Add ignore values with subtle gray color
+            if np.any(ignore_mask):
+                ignore_depth = np.full_like(depth_np, np.nan)
+                ignore_depth[ignore_mask] = 0  # Use 0 as placeholder for consistent coloring
+                
+                fig.add_trace(go.Heatmap(
+                    z=ignore_depth,
+                    colorscale=[[0, 'lightgray'], [1, 'lightgray']],  # Subtle gray for ignore values
+                    name='Ignore Values',
+                    showscale=False,  # Don't show colorbar for ignore values
+                    opacity=0.7  # Slightly transparent
+                ))
+            
+            # Update layout
+            fig.update_layout(
+                title=title,
+                title_x=0.5,
+                margin=dict(l=20, r=20, t=40, b=20),
+                height=400,
+                xaxis=dict(showticklabels=False),
+                yaxis=dict(showticklabels=False, autorange='reversed')  # Flip y-axis for image convention
+            )
+        else:
+            # No ignore values present, use standard visualization
+            fig = px.imshow(
+                depth_np,
+                color_continuous_scale=colorscale,
+                title=title,
+                labels={'color': 'Depth'}
+            )
+    else:
+        # No ignore value specified, use standard visualization
+        fig = px.imshow(
+            depth_np,
+            color_continuous_scale=colorscale,
+            title=title,
+            labels={'color': 'Depth'}
+        )
     
-    # Create depth visualization
-    fig = px.imshow(
-        depth_np,
-        color_continuous_scale=colorscale,
-        title=title,
-        labels={'color': 'Depth'}
-    )
-    
-    # Update layout for better visualization
-    fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=20, r=20, t=40, b=20),
-        height=400,
-        coloraxis_colorbar=dict(title="Depth")
-    )
+    # Ensure layout is properly set for standard visualizations
+    if ignore_value is None or not np.any(np.abs(depth_np - ignore_value) < 1e-5):
+        fig.update_layout(
+            title_x=0.5,
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=400,
+            coloraxis_colorbar=dict(title="Depth")
+        )
     
     return fig
 
@@ -98,7 +148,12 @@ def get_depth_display_stats(
     
     # Filter out ignore_value if specified
     if ignore_value is not None:
-        valid_mask = valid_mask & (depth != ignore_value)
+        if ignore_value < 0:
+            # For negative ignore values, simple comparison is sufficient
+            valid_mask = valid_mask & (depth >= 0)
+        else:
+            # For positive ignore values, use epsilon-based comparison to handle floating point precision
+            valid_mask = valid_mask & (torch.abs(depth - ignore_value) > 1e-3)
     
     valid_depth = depth[valid_mask]
     
