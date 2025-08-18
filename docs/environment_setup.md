@@ -123,4 +123,7 @@ cd data/collators/d3feat/cpp_wrappers && bash compile_wrappers.sh && cd ../../..
 
 # OverlapPredator extensions
 cd data/collators/overlappredator/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
+
+# PointNet2 operations for Buffer (avoids JIT compilation hanging)
+cd models/point_cloud_registration/buffer/pointnet2_ops && python setup.py build_ext --inplace && cd ../../../..
 ```
