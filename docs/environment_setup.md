@@ -81,10 +81,10 @@ mim install mmdet==3.2.0
 mim install mmsegmentation==1.2.2
 
 # Install other dependencies
-conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
-conda install -c conda-forge -y opencv pycocotools rasterio imageio plyfile
+pip install scipy scikit-learn scikit-image timm einops
+pip install opencv-python pycocotools rasterio imageio plyfile
 pip install open3d laspy
-conda install -c conda-forge -y matplotlib dash plotly pandas psutil pytest tqdm ftfy regex easydict
+pip install matplotlib dash plotly pandas psutil pytest tqdm ftfy regex easydict
 pip install rich paramiko jsbeautifier fvcore triton xxhash
 ```
 
@@ -97,7 +97,7 @@ pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/seg
 ### 4.4. Point cloud registration related
 
 ```bash
-# conda install pytorch3d -c pytorch3d --freeze-installed
+# Install PyTorch3D from source
 git clone https://github.com/facebookresearch/pytorch3d.git && cd pytorch3d && pip install .
 pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
 pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
