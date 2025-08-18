@@ -205,8 +205,6 @@ if __name__ == "__main__":
     # Standard datasets and models
     standard_combinations = itertools.product(
         [
-            'single_temporal_pcr_1.0', 'single_temporal_pcr_0.5', 'single_temporal_pcr_0.4',
-            'bi_temporal_pcr_1.0', 'bi_temporal_pcr_0.5', 'bi_temporal_pcr_0.4',
             'kitti',
         ],
         [

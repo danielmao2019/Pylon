@@ -37,7 +37,7 @@ data_cfg = {
         'args': {
             'data_root': "./data/datasets/soft_links/LEVIR-CD",
             'split': "test",
-            'transforms_cfg': transforms_cfg,
+            'transforms_cfg': transforms_cfg(),
         },
     },
     'test_dataloader': {
