@@ -10,6 +10,7 @@ from data.collators.base_collator import BaseCollator
 from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
 from data.transforms.compose import Compose
 from data.transforms.randomize import Randomize
+from data.transforms.torchvision_wrapper import TorchvisionWrapper
 from data.transforms.vision_2d.crop.random_crop import RandomCrop
 from data.transforms.vision_2d.flip import Flip
 from data.transforms.vision_2d.random_rotation import RandomRotation
@@ -90,8 +91,9 @@ config = {
             'class': Randomize,
             'args': {
                 'transform': {
-                    'class': ColorJitter,
+                    'class': TorchvisionWrapper,
                     'args': {
+                        'transform_class': ColorJitter,
                         'brightness': 0.5,
                         'contrast': 0.5,
                         'saturation': 0.5,
@@ -106,8 +108,9 @@ config = {
             'class': Randomize,
             'args': {
                 'transform': {
-                    'class': ColorJitter,
+                    'class': TorchvisionWrapper,
                     'args': {
+                        'transform_class': ColorJitter,
                         'brightness': 0.5,
                         'contrast': 0.5,
                         'saturation': 0.5,
@@ -206,8 +209,9 @@ config = {
             'class': Randomize,
             'args': {
                 'transform': {
-                    'class': ColorJitter,
+                    'class': TorchvisionWrapper,
                     'args': {
+                        'transform_class': ColorJitter,
                         'brightness': 0.5,
                         'contrast': 0.5,
                         'saturation': 0.5,
@@ -222,8 +226,9 @@ config = {
             'class': Randomize,
             'args': {
                 'transform': {
-                    'class': ColorJitter,
+                    'class': TorchvisionWrapper,
                     'args': {
+                        'transform_class': ColorJitter,
                         'brightness': 0.5,
                         'contrast': 0.5,
                         'saturation': 0.5,

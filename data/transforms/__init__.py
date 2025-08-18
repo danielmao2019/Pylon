@@ -6,6 +6,7 @@ from data.transforms.compose import Compose
 from data.transforms.identity import Identity
 from data.transforms.randomize import Randomize
 from data.transforms.random_noise import RandomNoise
+from data.transforms.torchvision_wrapper import TorchvisionWrapper
 from data.transforms import vision_2d
 from data.transforms import vision_3d
 
@@ -16,6 +17,7 @@ __all__ = (
     'Identity',
     'Randomize',
     'RandomNoise',
+    'TorchvisionWrapper',
     'vision_2d',
     'vision_3d',
 )

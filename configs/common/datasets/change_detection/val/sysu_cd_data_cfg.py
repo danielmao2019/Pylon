@@ -33,7 +33,7 @@ data_cfg = {
         'args': {
             'data_root': "./data/datasets/soft_links/SYSU-CD",
             'split': "test",
-            'transforms_cfg': transforms_cfg,
+            'transforms_cfg': transforms_cfg(),
         },
     },
     'test_dataloader': {
