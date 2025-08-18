@@ -314,93 +314,171 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         
         Clean flow: generate transforms if needed, then get specific transform.
         """
-        file_idx, transform_idx = self._get_indices(idx)
-        file_pair_annotation = self.file_pair_annotations[file_idx]
+        import psutil
+        import gc
+        import os
         
-        # Get cache key for this file pair
-        file_cache_key = self._get_file_cache_key(file_pair_annotation)
+        def get_memory_info():
+            """Get current memory usage."""
+            process = psutil.Process(os.getpid())
+            mem_info = process.memory_info()
+            if torch.cuda.is_available():
+                gpu_mem = torch.cuda.memory_allocated() / 1024**3  # GB
+                gpu_cached = torch.cuda.memory_reserved() / 1024**3  # GB
+                return f"RAM: {mem_info.rss / 1024**3:.2f}GB, GPU: {gpu_mem:.2f}GB, GPU_cached: {gpu_cached:.2f}GB"
+            else:
+                return f"RAM: {mem_info.rss / 1024**3:.2f}GB"
         
-        # Helper function to get valid transforms from cache
-        def get_valid_transforms():
-            # Access cache with parameter tuple as outer key
-            param_key = self._get_cache_param_key()
-            param_cache = self.transform_cache.get(param_key, {})
-            cached_transforms = param_cache.get(file_cache_key, [])
+        def log_tensor_info(tensor_dict, name):
+            """Log tensor information."""
+            info_parts = []
+            total_elements = 0
+            for key, value in tensor_dict.items():
+                if isinstance(value, torch.Tensor):
+                    elements = value.numel()
+                    total_elements += elements
+                    info_parts.append(f"{key}: {tuple(value.shape)} ({elements:,} elements)")
+                else:
+                    info_parts.append(f"{key}: {type(value)} {value if not isinstance(value, torch.Tensor) else 'tensor'}")
+            print(f"  {name} tensors: {', '.join(info_parts)} | Total elements: {total_elements:,}")
+        
+        print(f"\n🔍 DEBUG: Loading datapoint {idx}")
+        print(f"  Initial memory: {get_memory_info()}")
+        
+        try:
+            print(f"  Step 1: Getting indices...")
+            file_idx, transform_idx = self._get_indices(idx)
+            file_pair_annotation = self.file_pair_annotations[file_idx]
+            print(f"    file_idx={file_idx}, transform_idx={transform_idx}")
+            print(f"    file_pair: {file_pair_annotation}")
+            print(f"    Memory after indices: {get_memory_info()}")
             
-            valid_transforms = []
-            for transform_params in cached_transforms:
-                overlap = transform_params.get('overlap', 0.0)
-                src_num_points = transform_params.get('src_num_points', 0)
-                tgt_num_points = transform_params.get('tgt_num_points', 0)
+            print(f"  Step 2: Getting cache key...")
+            file_cache_key = self._get_file_cache_key(file_pair_annotation)
+            print(f"    cache_key={file_cache_key}")
+            
+            # Helper function to get valid transforms from cache
+            def get_valid_transforms():
+                # Access cache with parameter tuple as outer key
+                param_key = self._get_cache_param_key()
+                param_cache = self.transform_cache.get(param_key, {})
+                cached_transforms = param_cache.get(file_cache_key, [])
                 
-                # Filter by overlap range and minimum points
-                if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
-                    src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                    valid_transforms.append(transform_params)
-            return valid_transforms
-        
-        # Check if we have enough valid transforms
-        valid_transforms = get_valid_transforms()
-        if transform_idx >= len(valid_transforms):
-            # Generate more transforms to fill the cache
-            needed_count = transform_idx - len(valid_transforms) + 1
-            self._generate_more(file_idx, needed_count)
-            # Refresh valid transforms after generation
-            valid_transforms = get_valid_transforms()
+                valid_transforms = []
+                for transform_params in cached_transforms:
+                    overlap = transform_params.get('overlap', 0.0)
+                    src_num_points = transform_params.get('src_num_points', 0)
+                    tgt_num_points = transform_params.get('tgt_num_points', 0)
+                    
+                    # Filter by overlap range and minimum points
+                    if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
+                        src_num_points >= self.min_points and tgt_num_points >= self.min_points):
+                        valid_transforms.append(transform_params)
+                return valid_transforms
             
-            # Check if generation was successful
+            print(f"  Step 3: Getting valid transforms...")
+            valid_transforms = get_valid_transforms()
+            print(f"    Found {len(valid_transforms)} valid transforms")
+            print(f"    Memory after cache lookup: {get_memory_info()}")
+            
             if transform_idx >= len(valid_transforms):
-                raise RuntimeError(
-                    f"Failed to generate enough valid transforms for datapoint index {idx}. "
-                    f"Requested transform_idx={transform_idx}, but only {len(valid_transforms)} valid transforms available. "
-                    f"file_idx={file_idx}, needed_count={needed_count}. "
-                    f"Consider: 1) Increasing max_trials (current: {self.max_trials}), "
-                    f"2) Relaxing overlap_range (current: {self.overlap_range}), "
-                    f"3) Reducing min_points (current: {self.min_points}), "
-                    f"4) Reducing dataset_size to match available valid transforms."
-                )
-        
-        # Get the specific transform (called only once)
-        src_pc, tgt_pc, transform_matrix, transform_params = self._get_pair(file_idx, transform_idx, valid_transforms)
-        
-        # Find correspondences
-        from utils.point_cloud_ops.correspondences import get_correspondences
-        correspondences = get_correspondences(
-            src_points=src_pc['pos'],
-            tgt_points=tgt_pc['pos'], 
-            transform=transform_matrix,
-            radius=self.matching_radius,
-        )
-        
-        # Add default features if not present (should be done in _load_datapoint)
-        if 'feat' not in src_pc:
-            src_pc['feat'] = torch.ones((src_pc['pos'].shape[0], 1), dtype=torch.float32, device=src_pc['pos'].device)
-        
-        if 'feat' not in tgt_pc:
-            tgt_pc['feat'] = torch.ones((tgt_pc['pos'].shape[0], 1), dtype=torch.float32, device=tgt_pc['pos'].device)
-
-        inputs = {
-            'src_pc': src_pc,
-            'tgt_pc': tgt_pc,
-            'correspondences': correspondences,
-            'transform': transform_matrix,  # GMCNet needs ground truth during forward pass
-        }
-        
-        labels = {
-            'transform': transform_matrix,
-        }
-
-        # Create clean transform_params without overlap (to avoid duplication with meta_info.overlap)
-        clean_transform_params = {k: v for k, v in transform_params.items() if k != 'overlap'}
-        
-        meta_info = {
-            'file_idx': file_idx,
-            'transform_idx': transform_idx,
-            'transform_params': clean_transform_params,
-            'overlap': transform_params['overlap'],  # Keep in meta_info for easy access
-        }
-        
-        return inputs, labels, meta_info
+                print(f"  Step 4: Generating more transforms (need {transform_idx - len(valid_transforms) + 1} more)...")
+                # Generate more transforms to fill the cache
+                needed_count = transform_idx - len(valid_transforms) + 1
+                self._generate_more(file_idx, needed_count)
+                # Refresh valid transforms after generation
+                valid_transforms = get_valid_transforms()
+                print(f"    After generation: {len(valid_transforms)} valid transforms")
+                print(f"    Memory after generation: {get_memory_info()}")
+                
+                # Check if generation was successful
+                if transform_idx >= len(valid_transforms):
+                    raise RuntimeError(
+                        f"Failed to generate enough valid transforms for datapoint index {idx}. "
+                        f"Requested transform_idx={transform_idx}, but only {len(valid_transforms)} valid transforms available. "
+                        f"file_idx={file_idx}, needed_count={needed_count}. "
+                        f"Consider: 1) Increasing max_trials (current: {self.max_trials}), "
+                        f"2) Relaxing overlap_range (current: {self.overlap_range}), "
+                        f"3) Reducing min_points (current: {self.min_points}), "
+                        f"4) Reducing dataset_size to match available valid transforms."
+                    )
+            
+            print(f"  Step 5: Getting point cloud pair...")
+            # Get the specific transform (called only once)
+            src_pc, tgt_pc, transform_matrix, transform_params = self._get_pair(file_idx, transform_idx, valid_transforms)
+            print(f"    Transform matrix shape: {transform_matrix.shape}")
+            log_tensor_info(src_pc, "src_pc")
+            log_tensor_info(tgt_pc, "tgt_pc")
+            print(f"    Memory after _get_pair: {get_memory_info()}")
+            
+            print(f"  Step 6: Computing correspondences...")
+            # Find correspondences
+            from utils.point_cloud_ops.correspondences import get_correspondences
+            print(f"    src_pc['pos'] shape: {src_pc['pos'].shape}, dtype: {src_pc['pos'].dtype}")
+            print(f"    tgt_pc['pos'] shape: {tgt_pc['pos'].shape}, dtype: {tgt_pc['pos'].dtype}")
+            print(f"    transform shape: {transform_matrix.shape}, dtype: {transform_matrix.dtype}")
+            print(f"    matching_radius: {self.matching_radius}")
+            
+            correspondences = get_correspondences(
+                src_points=src_pc['pos'],
+                tgt_points=tgt_pc['pos'], 
+                transform=transform_matrix,
+                radius=self.matching_radius,
+            )
+            print(f"    correspondences shape: {correspondences.shape}, dtype: {correspondences.dtype}")
+            print(f"    correspondences elements: {correspondences.numel():,}")
+            print(f"    Memory after correspondences: {get_memory_info()}")
+            
+            print(f"  Step 7: Adding default features...")
+            # Add default features if not present (should be done in _load_datapoint)
+            if 'feat' not in src_pc:
+                feat_shape = (src_pc['pos'].shape[0], 1)
+                print(f"    Creating src_pc['feat'] with shape {feat_shape}")
+                src_pc['feat'] = torch.ones(feat_shape, dtype=torch.float32, device=src_pc['pos'].device)
+            
+            if 'feat' not in tgt_pc:
+                feat_shape = (tgt_pc['pos'].shape[0], 1)
+                print(f"    Creating tgt_pc['feat'] with shape {feat_shape}")
+                tgt_pc['feat'] = torch.ones(feat_shape, dtype=torch.float32, device=tgt_pc['pos'].device)
+            print(f"    Memory after features: {get_memory_info()}")
+    
+            print(f"  Step 8: Creating final data structures...")
+            inputs = {
+                'src_pc': src_pc,
+                'tgt_pc': tgt_pc,
+                'correspondences': correspondences,
+                'transform': transform_matrix,  # GMCNet needs ground truth during forward pass
+            }
+            
+            labels = {
+                'transform': transform_matrix,
+            }
+    
+            # Create clean transform_params without overlap (to avoid duplication with meta_info.overlap)
+            clean_transform_params = {k: v for k, v in transform_params.items() if k != 'overlap'}
+            
+            meta_info = {
+                'file_idx': file_idx,
+                'transform_idx': transform_idx,
+                'transform_params': clean_transform_params,
+                'overlap': transform_params['overlap'],  # Keep in meta_info for easy access
+            }
+            
+            print(f"  Final memory: {get_memory_info()}")
+            log_tensor_info(inputs, "inputs")
+            log_tensor_info(labels, "labels")
+            print(f"✅ DEBUG: Successfully loaded datapoint {idx}")
+            
+            return inputs, labels, meta_info
+            
+        except Exception as e:
+            print(f"❌ DEBUG: Error loading datapoint {idx}: {e}")
+            print(f"  Error memory: {get_memory_info()}")
+            print(f"  Exception type: {type(e)}")
+            print(f"  Exception args: {e.args}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     def _load_file_pair_data(self, file_pair_annotation: dict) -> tuple:
         """Load point cloud data for both source and target files.
@@ -461,13 +539,48 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         Returns:
             Tuple of (src_pc, tgt_pc, transform_matrix, transform_params)
         """
-        file_pair_annotation = self.file_pair_annotations[file_idx]
+        import psutil
+        import os
         
+        def get_memory_info():
+            """Get current memory usage."""
+            process = psutil.Process(os.getpid())
+            mem_info = process.memory_info()
+            if torch.cuda.is_available():
+                gpu_mem = torch.cuda.memory_allocated() / 1024**3  # GB
+                gpu_cached = torch.cuda.memory_reserved() / 1024**3  # GB
+                return f"RAM: {mem_info.rss / 1024**3:.2f}GB, GPU: {gpu_mem:.2f}GB, GPU_cached: {gpu_cached:.2f}GB"
+            else:
+                return f"RAM: {mem_info.rss / 1024**3:.2f}GB"
+        
+        def log_tensor_info(tensor_dict, name):
+            """Log tensor information."""
+            info_parts = []
+            total_elements = 0
+            for key, value in tensor_dict.items():
+                if isinstance(value, torch.Tensor):
+                    elements = value.numel()
+                    total_elements += elements
+                    info_parts.append(f"{key}: {tuple(value.shape)} ({elements:,} elements)")
+                else:
+                    info_parts.append(f"{key}: {type(value)} {value if not isinstance(value, torch.Tensor) else 'tensor'}")
+            print(f"      {name} tensors: {', '.join(info_parts)} | Total elements: {total_elements:,}")
+        
+        print(f"    🔍 _get_pair: file_idx={file_idx}, transform_idx={transform_idx}")
+        
+        file_pair_annotation = self.file_pair_annotations[file_idx]
+        print(f"      file_pair_annotation: {file_pair_annotation}")
+        
+        print(f"      Loading file pair data...")
         # Load point cloud data - handles both single-temporal and bi-temporal
         src_pc_data, tgt_pc_data = self._load_file_pair_data(file_pair_annotation)
+        log_tensor_info(src_pc_data, "src_pc_data")
+        log_tensor_info(tgt_pc_data, "tgt_pc_data")
+        print(f"      Memory after file loading: {get_memory_info()}")
         
         # Get the specific transform config from cache
         transform_params = valid_transforms[transform_idx]
+        print(f"      transform_params: {transform_params}")
         
         # Extract transform and crop params from cached combined params
         transform_keys = ['rotation_angles', 'translation']
@@ -476,16 +589,36 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         # Split into transform and crop params
         transform_only = {k: v for k, v in transform_params.items() if k in transform_keys}
         crop_only = {k: v for k, v in transform_params.items() if k in crop_keys}
+        print(f"      transform_only: {transform_only}")
+        print(f"      crop_only: {crop_only}")
         
+        print(f"      Building transform matrix...")
         # Build transform and crop components from cached params
         transform_matrix = self._build_transform(transform_only)
-        crop_transform = self._build_crop(crop_only)
+        print(f"      transform_matrix shape: {transform_matrix.shape}")
         
+        print(f"      Building crop transform...")
+        crop_transform = self._build_crop(crop_only)
+        print(f"      crop_transform: {crop_transform}")
+        
+        print(f"      Applying transform...")
         # Apply transform and crop to get point cloud pair
         src_pc_transformed, tgt_pc_original = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix)
-        src_pc = self._apply_crop(crop_transform, src_pc_transformed, crop_only)
-        tgt_pc = self._apply_crop(crop_transform, tgt_pc_original, crop_only)
+        log_tensor_info(src_pc_transformed, "src_pc_transformed")
+        log_tensor_info(tgt_pc_original, "tgt_pc_original")
+        print(f"      Memory after transform: {get_memory_info()}")
         
+        print(f"      Applying crop to src...")
+        src_pc = self._apply_crop(crop_transform, src_pc_transformed, crop_only)
+        log_tensor_info(src_pc, "src_pc_cropped")
+        print(f"      Memory after src crop: {get_memory_info()}")
+        
+        print(f"      Applying crop to tgt...")
+        tgt_pc = self._apply_crop(crop_transform, tgt_pc_original, crop_only)
+        log_tensor_info(tgt_pc, "tgt_pc_cropped")
+        print(f"      Memory after tgt crop: {get_memory_info()}")
+        
+        print(f"    ✅ _get_pair completed successfully")
         return src_pc, tgt_pc, transform_matrix, transform_params
     
     def _generate_more(self, file_idx: int, needed_count: int) -> None:

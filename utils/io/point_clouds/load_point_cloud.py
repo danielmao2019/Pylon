@@ -165,20 +165,54 @@ def _load_from_off(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     Returns:
         Dictionary with 'pos' containing XYZ coordinates
     """
+    import psutil
+    import os
+    
+    def get_memory_info():
+        """Get current memory usage."""
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_info()
+        if torch.cuda.is_available():
+            gpu_mem = torch.cuda.memory_allocated() / 1024**3  # GB
+            gpu_cached = torch.cuda.memory_reserved() / 1024**3  # GB
+            return f"RAM: {mem_info.rss / 1024**3:.2f}GB, GPU: {gpu_mem:.2f}GB, GPU_cached: {gpu_cached:.2f}GB"
+        else:
+            return f"RAM: {mem_info.rss / 1024**3:.2f}GB"
+    
+    print(f"          🔍 _load_from_off: {os.path.basename(filepath)}")
+    print(f"            Initial memory: {get_memory_info()}")
+    
     with open(filepath, 'r') as f:
         header = f.readline().strip()
         if header != 'OFF':
             raise ValueError(f"Invalid OFF file format: {filepath}")
         
         n_vertices, _, _ = map(int, f.readline().strip().split())
+        print(f"            Number of vertices: {n_vertices:,}")
+        
+        if n_vertices > 100000:  # Large number threshold
+            print(f"            ⚠️  WARNING: Very large number of vertices: {n_vertices:,}")
         
         vertices = []
-        for _ in range(n_vertices):
+        for i in range(n_vertices):
             line = f.readline().strip()
             coords = list(map(float, line.split()))
             vertices.append(coords[:3])  # Take only XYZ, ignore additional columns
+            
+            # Progress indicator for large files
+            if n_vertices > 50000 and i % 10000 == 0:
+                print(f"            Loading progress: {i:,}/{n_vertices:,} vertices ({i/n_vertices*100:.1f}%)")
+                print(f"            Memory during loading: {get_memory_info()}")
+        
+        print(f"            Creating torch tensor with {len(vertices)} vertices...")
+        print(f"            Estimated memory needed: {len(vertices) * 3 * 4 / 1024**2:.2f}MB (float32)")
         
         positions = torch.tensor(vertices, dtype=torch.float32, device=device)
+        print(f"            Created tensor shape: {positions.shape}, elements: {positions.numel():,}")
+        print(f"            Actual tensor size: {positions.numel() * positions.element_size() / 1024**2:.2f}MB")
+        print(f"            Final memory: {get_memory_info()}")
+        print(f"          ✅ _load_from_off completed")
+        
         return {'pos': positions}
 
 
@@ -203,14 +237,53 @@ def load_point_cloud(
         Dictionary with at least 'pos' key containing XYZ coordinates in requested dtype
         Additional keys may include 'feat', 'rgb', etc. depending on file format
     """
+    import psutil
+    
+    def get_memory_info():
+        """Get current memory usage."""
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_info()
+        if torch.cuda.is_available():
+            gpu_mem = torch.cuda.memory_allocated() / 1024**3  # GB
+            gpu_cached = torch.cuda.memory_reserved() / 1024**3  # GB
+            return f"RAM: {mem_info.rss / 1024**3:.2f}GB, GPU: {gpu_mem:.2f}GB, GPU_cached: {gpu_cached:.2f}GB"
+        else:
+            return f"RAM: {mem_info.rss / 1024**3:.2f}GB"
+    
+    def log_tensor_info(tensor_dict, name):
+        """Log tensor information."""
+        info_parts = []
+        total_elements = 0
+        for key, value in tensor_dict.items():
+            if isinstance(value, torch.Tensor):
+                elements = value.numel()
+                total_elements += elements
+                info_parts.append(f"{key}: {tuple(value.shape)} ({elements:,} elements)")
+            elif isinstance(value, np.ndarray):
+                elements = value.size
+                total_elements += elements
+                info_parts.append(f"{key}: {tuple(value.shape)} ({elements:,} elements, numpy)")
+            else:
+                info_parts.append(f"{key}: {type(value)} {value if not isinstance(value, torch.Tensor) else 'tensor'}")
+        print(f"        {name}: {', '.join(info_parts)} | Total elements: {total_elements:,}")
+    
     filepath = os.path.normpath(filepath).replace('\\', '/')
+    
+    print(f"        🔍 load_point_cloud: {filepath}")
+    print(f"          Initial memory: {get_memory_info()}")
 
     # Check file existence once at the beginning
     if not os.path.isfile(filepath):
         raise FileNotFoundError(f"Point cloud file not found: {filepath}")
 
+    # Get file size
+    file_size = os.path.getsize(filepath) / 1024**2  # MB
+    print(f"          File size: {file_size:.2f}MB")
+    
     file_ext = os.path.splitext(filepath)[1].lower()
+    print(f"          File extension: {file_ext}")
 
+    print(f"          Loading raw data...")
     # Load data using appropriate loader
     if file_ext == '.pth':
         pc_data = _load_from_pth(filepath, device=device)
@@ -225,6 +298,10 @@ def load_point_cloud(
     else:
         raise ValueError(f"Unsupported file format: {file_ext}")
     
+    log_tensor_info(pc_data, "raw pc_data")
+    print(f"          Memory after raw loading: {get_memory_info()}")
+    
+    print(f"          Converting to torch tensors and transferring to device {device}...")
     # Convert any numpy arrays to torch tensors and transfer to device
     def numpy_to_torch_on_device(key, x):
         if isinstance(x, np.ndarray):
@@ -247,6 +324,9 @@ def load_point_cloud(
     # Apply numpy to torch conversion and device transfer
     result = {key: numpy_to_torch_on_device(key, value) for key, value in pc_data.items()}
     
+    log_tensor_info(result, "torch result")
+    print(f"          Memory after torch conversion: {get_memory_info()}")
+    
     # Ensure pos exists and is in correct dtype
     assert 'pos' in result
     
@@ -255,7 +335,11 @@ def load_point_cloud(
     if is_seg_file and 'feat' in result:
         result['feat'] = result['feat'].long()
     
+    print(f"          Validating point cloud...")
     # Validate result using input checks
     check_point_cloud(result)
+    
+    print(f"          Final memory: {get_memory_info()}")
+    print(f"        ✅ load_point_cloud completed: {os.path.basename(filepath)}")
     
     return result
