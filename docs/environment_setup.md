@@ -71,11 +71,7 @@ pip install --upgrade pip
 
 ```bash
 # Install PyTorch 2.7.1 with CUDA 12.8
-conda install numpy==1.26.4 -c conda-forge -y
 pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
-
-# Install compatible setuptools for CUDA extension compilation
-pip install setuptools==59.5.0
 
 # Install OpenMMLab packages (compatible versions)
 pip install -U openmim
@@ -101,7 +97,8 @@ pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/seg
 ### 4.4. Point cloud registration related
 
 ```bash
-conda install pytorch3d -c pytorch3d --freeze-installed
+# conda install pytorch3d -c pytorch3d --freeze-installed
+git clone https://github.com/facebookresearch/pytorch3d.git && cd pytorch3d && pip install .
 pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
 pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
 git clone https://github.com/KinglittleQ/torch-batch-svd.git && cd torch-batch-svd && python setup.py install && cd ..
