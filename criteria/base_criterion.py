@@ -28,13 +28,10 @@ class BaseCriterion(torch.nn.Module, ABC):
     def _buffer_worker(self) -> None:
         """Background thread to handle buffer updates."""
         while True:
-            try:
-                data = self._buffer_queue.get()
-                with self._buffer_lock:
-                    self.buffer.append(data.detach().cpu())
-                self._buffer_queue.task_done()
-            except Exception as e:
-                print(f"Buffer worker error: {e}")
+            data = self._buffer_queue.get()
+            with self._buffer_lock:
+                self.buffer.append(data.detach().cpu())
+            self._buffer_queue.task_done()
 
     def add_to_buffer(self, value: torch.Tensor, check_validity: bool = True) -> None:
         if self.use_buffer:

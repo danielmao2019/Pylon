@@ -33,18 +33,15 @@ class BaseMetric(ABC):
     def _buffer_worker(self) -> None:
         """Background thread to handle buffer updates."""
         while True:
-            try:
-                item = self._buffer_queue.get()
-                data, idx = item['data'], item['idx']
-                processed_data = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=data)
+            item = self._buffer_queue.get()
+            data, idx = item['data'], item['idx']
+            processed_data = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=data)
 
-                with self._buffer_lock:
-                    # Store data by index for order preservation
-                    self.buffer[idx] = processed_data
+            with self._buffer_lock:
+                # Store data by index for order preservation
+                self.buffer[idx] = processed_data
 
-                self._buffer_queue.task_done()
-            except Exception as e:
-                print(f"Buffer worker error: {e}")
+            self._buffer_queue.task_done()
 
     def add_to_buffer(self, data: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]) -> None:
         """
