@@ -389,10 +389,8 @@ class BaseTrainer(ABC):
         # init time
         start_time = time.time()
 
-        # Run model inference
-        self.logger.info("  - Running model inference...")
+        # do computation
         dp['outputs'] = self.model(dp['inputs'])
-        self.logger.info("  - Computing metrics...")
         dp['scores'] = self.metric(dp)
 
         # Add debug outputs (only during validation/test at checkpoint indices)
@@ -513,20 +511,7 @@ class BaseTrainer(ABC):
 
         # validation loop
         if self.eval_n_jobs == 1:
-            self.logger.info("Running validation sequentially...")
-            self.logger.info(f"Total validation samples: {len(self.val_dataloader)}")
-            self.logger.info("Starting dataloader enumeration...")
             for idx, dp in enumerate(self.val_dataloader):
-                if idx == 0:
-                    self.logger.info("First batch loaded successfully")
-                self.logger.info(f"Processing validation sample {idx+1}/{len(self.val_dataloader)}")
-                if dp is not None and 'inputs' in dp:
-                    # Print shapes of input tensors
-                    for key, val in dp['inputs'].items():
-                        if hasattr(val, 'shape'):
-                            self.logger.info(f"    Input '{key}' shape: {val.shape}")
-                        elif isinstance(val, list) and len(val) > 0 and hasattr(val[0], 'shape'):
-                            self.logger.info(f"    Input '{key}' list length: {len(val)}, first item shape: {val[0].shape}")
                 self._eval_step(dp, flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
         else:
             # Use adaptive executor that dynamically adjusts worker count based on system resources
@@ -547,15 +532,10 @@ class BaseTrainer(ABC):
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
     def _before_val_loop(self) -> None:
-        self.logger.info("  Setting up validation loop...")
         self.model.eval()
-        self.logger.info("  Model set to eval mode")
         self.metric.reset_buffer()
-        self.logger.info("  Metric buffer reset")
         self.logger.eval()
-        self.logger.info("  Logger set to eval mode")
         self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
-        self.logger.info(f"  Dataset seed set to {self.val_seeds[self.cum_epochs]}")
 
         # Enable/disable debugger based on checkpoint indices
         if self.debugger and self.cum_epochs in self.checkpoint_indices:
@@ -795,7 +775,7 @@ class BaseTrainer(ABC):
                 break
 
             set_seed(seed=self.train_seeds[idx])
-            # self._train_epoch_()  # DEBUG: Commented out to skip training and debug validation only
+            # self._train_epoch_()
             self._val_epoch_()
             self.cum_epochs = idx + 1
             self._save_progress()
