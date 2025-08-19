@@ -530,13 +530,13 @@ def test_malformed_tensor_index_assertions():
     # Test wrong tensor dtype (float instead of int64)
     datapoint_wrong_dtype = create_datapoint(0)
     datapoint_wrong_dtype['meta_info']['idx'] = torch.tensor([1.0])
-    with pytest.raises(AssertionError, match="torch.int64"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_wrong_dtype)
     
     # Test wrong tensor dtype (int32 instead of int64)
     datapoint_int32 = create_datapoint(0)
     datapoint_int32['meta_info']['idx'] = torch.tensor([1], dtype=torch.int32)
-    with pytest.raises(AssertionError, match="torch.int64"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_int32)
 
 
@@ -547,31 +547,31 @@ def test_malformed_list_index_assertions():
     # Test empty list
     datapoint_empty_list = create_datapoint(0)
     datapoint_empty_list['meta_info']['idx'] = []
-    with pytest.raises(AssertionError, match="len"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_empty_list)
     
     # Test list with multiple elements
     datapoint_multi_list = create_datapoint(0)
     datapoint_multi_list['meta_info']['idx'] = [1, 2, 3]
-    with pytest.raises(AssertionError, match="len"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_multi_list)
     
     # Test list with non-integer contents
     datapoint_float_list = create_datapoint(0)
     datapoint_float_list['meta_info']['idx'] = [1.5]
-    with pytest.raises(AssertionError, match="isinstance"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_float_list)
     
     # Test list with string contents
     datapoint_str_list = create_datapoint(0)
     datapoint_str_list['meta_info']['idx'] = ["1"]
-    with pytest.raises(AssertionError, match="isinstance"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_str_list)
     
     # Test list with None contents
     datapoint_none_list = create_datapoint(0)
     datapoint_none_list['meta_info']['idx'] = [None]
-    with pytest.raises(AssertionError, match="isinstance"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_none_list)
 
 

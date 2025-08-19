@@ -407,7 +407,7 @@ def test_check_validity_parameter():
     
     # Test with check_validity=True (default) - should reject invalid values
     invalid_tensor = torch.tensor(float('inf'))
-    with pytest.raises(AssertionError, match="torch.isfinite"):
+    with pytest.raises(AssertionError, match="value="):
         criterion.add_to_buffer(invalid_tensor, check_validity=True)
     
     # Test with check_validity=False - should accept invalid values
@@ -415,7 +415,7 @@ def test_check_validity_parameter():
     
     # Also test NaN values
     nan_tensor = torch.tensor(float('nan'))
-    with pytest.raises(AssertionError, match="torch.isfinite"):
+    with pytest.raises(AssertionError, match="value="):
         criterion.add_to_buffer(nan_tensor, check_validity=True)
     
     criterion.add_to_buffer(nan_tensor, check_validity=False)
