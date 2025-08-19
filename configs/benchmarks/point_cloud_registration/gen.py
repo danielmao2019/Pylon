@@ -135,6 +135,22 @@ def build_training_config(dataset: str, model: str):
             from configs.common.models.point_cloud_registration.d3feat.d3feat_model_cfg import config as model_cfg
             from configs.common.criteria.point_cloud_registration.d3feat_criterion_cfg import criterion_cfg
             from configs.common.metrics.point_cloud_registration.d3feat_metric_cfg import metric_cfg
+            
+        elif model == 'PARENet':
+            if dataset_name == 'kitti':
+                # Use PARENet-specific data config with collate_fn
+                from configs.common.datasets.point_cloud_registration.train.parenet_kitti_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.parenet_kitti_data_cfg import data_cfg as val_data_cfg
+            elif dataset_name == 'single_temporal_pcr':
+                from configs.common.datasets.point_cloud_registration.train.geotransformer_single_temporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.geotransformer_single_temporal_pcr_data_cfg import data_cfg as val_data_cfg
+            else:  # bi_temporal_pcr
+                from configs.common.datasets.point_cloud_registration.train.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as val_data_cfg
+
+            from configs.common.models.point_cloud_registration.parenet_cfg import model_cfg
+            from configs.common.criteria.point_cloud_registration.parenet_criterion_cfg import criterion_cfg
+            from configs.common.metrics.point_cloud_registration.parenet_metric_cfg import metric_cfg
         else:
             raise NotImplementedError(f"Model {model} not implemented")
 
@@ -209,7 +225,7 @@ if __name__ == "__main__":
         ],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
-            'GeoTransformer', 'OverlapPredator', 'BUFFER',
+            'GeoTransformer', 'OverlapPredator', 'BUFFER', 'PARENet',
         ],
     )
     
