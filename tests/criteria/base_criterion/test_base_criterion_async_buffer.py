@@ -337,3 +337,182 @@ def test_parametrized_concurrent_operations(dummy_criterion, num_workers, items_
     values = [tensor.item() for tensor in buffer]
     expected_values = list(range(total_items))
     assert sorted(values) == sorted(expected_values)
+
+
+def test_extreme_lock_contention_resilience():
+    """Test buffer operations under extreme lock contention scenarios."""
+    criterion = DummyCriterion(use_buffer=True)
+    
+    # Create extreme contention by many threads rapidly accessing buffer state
+    def contention_worker(worker_id: int, iterations: int):
+        """Worker that creates lock contention by frequent state checks and buffer ops."""
+        for i in range(iterations):
+            # Add buffer operations
+            tensor = torch.tensor(float(worker_id * iterations + i))
+            criterion.add_to_buffer(tensor)
+            
+            # Create lock contention with frequent buffer access
+            if i % 5 == 0:  # Periodically check buffer state
+                try:
+                    buffer_copy = criterion.get_buffer()  # Acquires lock
+                    # Verify buffer integrity under contention
+                    assert isinstance(buffer_copy, list)
+                except Exception:
+                    # Some contention is expected, continue
+                    pass
+    
+    # Create high contention with many threads and frequent operations
+    num_threads = 8  # More threads than typical CPU cores
+    iterations_per_thread = 25  # Reduced to prevent excessive runtime
+    threads = []
+    
+    for worker_id in range(num_threads):
+        thread = threading.Thread(
+            target=contention_worker,
+            args=(worker_id, iterations_per_thread)
+        )
+        threads.append(thread)
+    
+    # Start all threads simultaneously to maximize contention
+    start_time = time.time()
+    for thread in threads:
+        thread.start()
+    
+    # Wait for all contention to resolve
+    for thread in threads:
+        thread.join()
+    
+    contention_time = time.time() - start_time
+    
+    # Wait for async processing under extreme contention
+    criterion._buffer_queue.join()
+    
+    # Verify system survived extreme contention
+    total_expected = num_threads * iterations_per_thread
+    buffer = criterion.get_buffer()
+    assert len(buffer) == total_expected, f"Lost data under contention: {len(buffer)}/{total_expected}"
+    
+    # Verify no deadlocks occurred (test completed in reasonable time)
+    assert contention_time < 30.0, f"Potential deadlock detected: {contention_time:.2f}s"
+    
+    # Verify buffer integrity after extreme contention
+    values = [tensor.item() for tensor in buffer]
+    expected_values = list(range(total_expected))
+    assert sorted(values) == sorted(expected_values), "Data corruption under extreme contention"
+
+
+def test_check_validity_parameter():
+    """Test the check_validity parameter in add_to_buffer."""
+    criterion = DummyCriterion(use_buffer=True)
+    
+    # Test with check_validity=True (default) - should reject invalid values
+    invalid_tensor = torch.tensor(float('inf'))
+    with pytest.raises(AssertionError, match="torch.isfinite"):
+        criterion.add_to_buffer(invalid_tensor, check_validity=True)
+    
+    # Test with check_validity=False - should accept invalid values
+    criterion.add_to_buffer(invalid_tensor, check_validity=False)
+    
+    # Also test NaN values
+    nan_tensor = torch.tensor(float('nan'))
+    with pytest.raises(AssertionError, match="torch.isfinite"):
+        criterion.add_to_buffer(nan_tensor, check_validity=True)
+    
+    criterion.add_to_buffer(nan_tensor, check_validity=False)
+    
+    # Wait for processing
+    criterion._buffer_queue.join()
+    
+    # Verify invalid values were processed when check_validity=False
+    buffer = criterion.get_buffer()
+    assert len(buffer) == 2  # Both invalid tensors should be processed
+    
+    # Note: We can't easily verify the actual values since inf/nan may behave 
+    # differently after detach().cpu(), but we verify they were accepted
+
+
+def test_invalid_tensor_shape_assertions():
+    """Test assertion failures for invalid tensor shapes."""
+    criterion = DummyCriterion(use_buffer=True)
+    
+    # Test multi-dimensional tensor (should fail)
+    multi_dim_tensor = torch.randn(2, 3)
+    with pytest.raises(AssertionError, match="value.shape"):
+        criterion.add_to_buffer(multi_dim_tensor)
+    
+    # Test tensor with multiple elements (should fail)
+    multi_element_tensor = torch.randn(5)
+    with pytest.raises(AssertionError, match="value.shape"):
+        criterion.add_to_buffer(multi_element_tensor)
+    
+    # Test empty tensor (should fail)
+    empty_tensor = torch.tensor([])
+    with pytest.raises(AssertionError, match="value.shape"):
+        criterion.add_to_buffer(empty_tensor)
+    
+    # Test correct tensor (should pass)
+    valid_tensor = torch.tensor(1.0)
+    criterion.add_to_buffer(valid_tensor)  # Should not raise
+    
+    criterion._buffer_queue.join()
+    buffer = criterion.get_buffer()
+    assert len(buffer) == 1
+
+
+def test_invalid_tensor_type_assertions():
+    """Test assertion failures for invalid tensor types."""
+    criterion = DummyCriterion(use_buffer=True)
+    
+    # Test non-tensor types (should fail)
+    with pytest.raises(AssertionError, match="type"):
+        criterion.add_to_buffer(1.0)  # float
+    
+    with pytest.raises(AssertionError, match="type"):
+        criterion.add_to_buffer([1.0])  # list
+    
+    with pytest.raises(AssertionError, match="type"):
+        criterion.add_to_buffer("tensor")  # string
+    
+    with pytest.raises(AssertionError, match="type"):
+        criterion.add_to_buffer(None)  # None
+
+
+def test_empty_buffer_edge_cases():
+    """Test edge cases around empty buffer transitions."""
+    criterion = DummyCriterion(use_buffer=True)
+    
+    # Test get_buffer on empty buffer
+    empty_buffer = criterion.get_buffer()
+    assert empty_buffer == []
+    assert isinstance(empty_buffer, list)
+    
+    # Test reset on empty buffer
+    criterion.reset_buffer()  # Should not raise
+    assert criterion.get_buffer() == []
+    
+    # Test multiple resets in sequence
+    criterion.reset_buffer()
+    criterion.reset_buffer()
+    assert criterion.get_buffer() == []
+    
+    # Test adding after empty state
+    criterion.add_to_buffer(torch.tensor(1.0))
+    criterion._buffer_queue.join()
+    assert len(criterion.get_buffer()) == 1
+    
+    # Test reset after having data
+    criterion.reset_buffer()
+    assert criterion.get_buffer() == []
+    
+    # Test empty buffer transitions with queue synchronization
+    for i in range(3):
+        criterion.add_to_buffer(torch.tensor(float(i)))
+    criterion._buffer_queue.join()
+    assert len(criterion.get_buffer()) == 3
+    
+    # Reset and immediately check
+    criterion.reset_buffer()
+    assert len(criterion.get_buffer()) == 0
+    
+    # Ensure queue is properly empty after reset
+    assert criterion._buffer_queue.empty()
