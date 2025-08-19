@@ -125,7 +125,7 @@ config = {
         'class': BaseDataLoader,
         'args': {
             'batch_size': 1,
-            'num_workers': 4,
+            'num_workers': 0,
             'shuffle': False,
         },
     },

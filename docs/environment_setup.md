@@ -127,9 +127,11 @@ cd data/collators/overlappredator/cpp_wrappers && bash compile_wrappers.sh && cd
 # PointNet2 operations for Buffer (avoids JIT compilation hanging)
 cd models/point_cloud_registration/buffer/pointnet2_ops && python setup.py build_ext --inplace && cd ../../../..
 
+# GMCNet extensions
+cd models/point_cloud_registration/gmcnet/mm3d_pn2 && python setup.py build_ext --inplace && cd ../../../..
+
 # 1. PARENet CPU extensions (grid_subsampling, radius_neighbors)
 cd models/point_cloud_registration/parenet && python setup.py build_ext --inplace && cd ../../..
-
 # 2. PARENet CUDA extensions (pointops)
 cd models/point_cloud_registration/parenet/pareconv/extensions/pointops && python setup.py install && cd ../../../../../..
 ```
