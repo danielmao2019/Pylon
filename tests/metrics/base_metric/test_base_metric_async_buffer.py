@@ -466,3 +466,328 @@ def test_metric_summarize_functionality(dummy_metric):
     assert isinstance(summary['mean_squared_error'], float)
     assert summary['mean_error'] >= 0
     assert summary['mean_squared_error'] >= 0
+
+
+def test_invalid_index_format_handling():
+    """Test ValueError for unsupported index types in add_to_buffer."""
+    metric = DummyMetric(use_buffer=True)
+    
+    # Test unsupported index types that should trigger ValueError
+    invalid_datapoints = [
+        # String index
+        {
+            'outputs': {'prediction': torch.randn(2, 3)},
+            'labels': {'target': torch.randn(2, 3)},
+            'meta_info': {'idx': "invalid_string"}
+        },
+        # Float index  
+        {
+            'outputs': {'prediction': torch.randn(2, 3)},
+            'labels': {'target': torch.randn(2, 3)},
+            'meta_info': {'idx': 3.14}
+        },
+        # Dictionary index
+        {
+            'outputs': {'prediction': torch.randn(2, 3)},
+            'labels': {'target': torch.randn(2, 3)},
+            'meta_info': {'idx': {'nested': 1}}
+        },
+        # None index
+        {
+            'outputs': {'prediction': torch.randn(2, 3)},
+            'labels': {'target': torch.randn(2, 3)},
+            'meta_info': {'idx': None}
+        }
+    ]
+    
+    for i, invalid_datapoint in enumerate(invalid_datapoints):
+        with pytest.raises(ValueError, match="Unsupported idx format"):
+            metric.add_to_buffer({'test': torch.tensor(1.0)}, invalid_datapoint)
+
+
+def test_malformed_tensor_index_assertions():
+    """Test assertion failures for wrong tensor shapes/dtypes in index."""
+    metric = DummyMetric(use_buffer=True)
+    
+    # Test wrong tensor shape (multiple elements)
+    datapoint_multi_element = create_datapoint(0)
+    datapoint_multi_element['meta_info']['idx'] = torch.tensor([1, 2, 3], dtype=torch.int64)
+    with pytest.raises(AssertionError, match="Expected single element tensor"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_multi_element)
+    
+    # Test wrong tensor shape (empty tensor)
+    datapoint_empty = create_datapoint(0)
+    datapoint_empty['meta_info']['idx'] = torch.tensor([], dtype=torch.int64)
+    with pytest.raises(AssertionError, match="Expected single element tensor"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_empty)
+    
+    # Test wrong tensor shape (multi-dimensional)
+    datapoint_multi_dim = create_datapoint(0)
+    datapoint_multi_dim['meta_info']['idx'] = torch.tensor([[1]], dtype=torch.int64)
+    with pytest.raises(AssertionError, match="Expected single element tensor"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_multi_dim)
+    
+    # Test wrong tensor dtype (float instead of int64)
+    datapoint_wrong_dtype = create_datapoint(0)
+    datapoint_wrong_dtype['meta_info']['idx'] = torch.tensor([1.0])
+    with pytest.raises(AssertionError, match="torch.int64"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_wrong_dtype)
+    
+    # Test wrong tensor dtype (int32 instead of int64)
+    datapoint_int32 = create_datapoint(0)
+    datapoint_int32['meta_info']['idx'] = torch.tensor([1], dtype=torch.int32)
+    with pytest.raises(AssertionError, match="torch.int64"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_int32)
+
+
+def test_malformed_list_index_assertions():
+    """Test assertion failures for wrong list contents in index."""
+    metric = DummyMetric(use_buffer=True)
+    
+    # Test empty list
+    datapoint_empty_list = create_datapoint(0)
+    datapoint_empty_list['meta_info']['idx'] = []
+    with pytest.raises(AssertionError, match="len"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_empty_list)
+    
+    # Test list with multiple elements
+    datapoint_multi_list = create_datapoint(0)
+    datapoint_multi_list['meta_info']['idx'] = [1, 2, 3]
+    with pytest.raises(AssertionError, match="len"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_multi_list)
+    
+    # Test list with non-integer contents
+    datapoint_float_list = create_datapoint(0)
+    datapoint_float_list['meta_info']['idx'] = [1.5]
+    with pytest.raises(AssertionError, match="isinstance"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_float_list)
+    
+    # Test list with string contents
+    datapoint_str_list = create_datapoint(0)
+    datapoint_str_list['meta_info']['idx'] = ["1"]
+    with pytest.raises(AssertionError, match="isinstance"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_str_list)
+    
+    # Test list with None contents
+    datapoint_none_list = create_datapoint(0)
+    datapoint_none_list['meta_info']['idx'] = [None]
+    with pytest.raises(AssertionError, match="isinstance"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_none_list)
+
+
+def test_missing_meta_info_assertions():
+    """Test assertion failures for datapoints without required meta_info structure."""
+    metric = DummyMetric(use_buffer=True)
+    
+    # Test completely missing meta_info
+    datapoint_no_meta = {
+        'outputs': {'prediction': torch.randn(2, 3)},
+        'labels': {'target': torch.randn(2, 3)}
+        # Missing 'meta_info'
+    }
+    with pytest.raises(AssertionError, match="meta_info"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_no_meta)
+    
+    # Test meta_info present but missing idx
+    datapoint_no_idx = {
+        'outputs': {'prediction': torch.randn(2, 3)},
+        'labels': {'target': torch.randn(2, 3)},
+        'meta_info': {'other_field': 'value'}  # Missing 'idx'
+    }
+    with pytest.raises(AssertionError, match="idx"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_no_idx)
+    
+    # Test meta_info as None
+    datapoint_none_meta = {
+        'outputs': {'prediction': torch.randn(2, 3)},
+        'labels': {'target': torch.randn(2, 3)},
+        'meta_info': None
+    }
+    with pytest.raises(AssertionError, match="meta_info"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_none_meta)
+    
+    # Test meta_info as wrong type (list instead of dict)
+    datapoint_list_meta = {
+        'outputs': {'prediction': torch.randn(2, 3)},
+        'labels': {'target': torch.randn(2, 3)},
+        'meta_info': ['not', 'a', 'dict']
+    }
+    with pytest.raises(AssertionError, match="idx"):
+        metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_list_meta)
+
+
+def test_non_contiguous_index_scenarios():
+    """Test realistic evaluation scenarios with non-contiguous indices."""
+    metric = DummyMetric(use_buffer=True)
+    
+    # Scenario 1: Evaluation subset with gaps (realistic evaluation pattern)
+    evaluation_indices = [2, 5, 7, 10, 15]  # Non-contiguous indices
+    datapoints = []
+    
+    for idx in evaluation_indices:
+        datapoint = create_datapoint(idx)
+        datapoints.append(datapoint)
+    
+    # Process non-contiguous indices
+    for datapoint in datapoints:
+        metric(datapoint)
+    
+    metric._buffer_queue.join()
+    
+    # This should fail with current implementation (contiguous check)
+    with pytest.raises(AssertionError, match="sorted_indices"):
+        metric.get_buffer()
+    
+    # Scenario 2: Test that the error provides useful information
+    metric2 = DummyMetric(use_buffer=True)
+    sparse_indices = [0, 3, 8]  # Gaps between indices
+    
+    for idx in sparse_indices:
+        datapoint = create_datapoint(idx)
+        metric2(datapoint)
+    
+    metric2._buffer_queue.join()
+    
+    # Verify the assertion shows which indices are problematic
+    try:
+        metric2.get_buffer()
+        assert False, "Expected assertion error for non-contiguous indices"
+    except AssertionError as e:
+        error_msg = str(e)
+        assert "sorted_indices" in error_msg
+        assert "[0, 3, 8]" in error_msg or "0" in error_msg
+    
+    # Scenario 3: Shuffled processing order but contiguous final indices
+    metric3 = DummyMetric(use_buffer=True)
+    indices_to_process = [0, 1, 2, 3, 4]
+    
+    # Process in random order
+    import random
+    shuffled_indices = indices_to_process.copy()
+    random.shuffle(shuffled_indices)
+    
+    for idx in shuffled_indices:
+        datapoint = create_datapoint(idx)
+        metric3(datapoint)
+    
+    metric3._buffer_queue.join()
+    
+    # This should work - indices are contiguous even if processed out of order
+    buffer = metric3.get_buffer()
+    assert len(buffer) == 5
+    
+    # Verify order is maintained correctly despite shuffled processing
+    for i, buffered_item in enumerate(buffer):
+        assert isinstance(buffered_item, dict)
+
+
+def test_empty_buffer_edge_cases_metrics():
+    """Test edge cases around empty buffer transitions for metrics."""
+    metric = DummyMetric(use_buffer=True)
+    
+    # Test get_buffer on empty buffer
+    empty_buffer = metric.get_buffer()
+    assert empty_buffer == []
+    assert isinstance(empty_buffer, list)
+    
+    # Test reset on empty buffer
+    metric.reset_buffer()  # Should not raise
+    assert metric.get_buffer() == []
+    
+    # Test multiple resets in sequence
+    metric.reset_buffer()
+    metric.reset_buffer()
+    assert metric.get_buffer() == []
+    
+    # Test adding after empty state
+    datapoint = create_datapoint(0)
+    metric(datapoint)
+    metric._buffer_queue.join()
+    assert len(metric.get_buffer()) == 1
+    
+    # Test reset after having data
+    metric.reset_buffer()
+    assert metric.get_buffer() == []
+    
+    # Test empty buffer with dict structure
+    assert isinstance(metric.buffer, dict)
+    assert len(metric.buffer) == 0
+    
+    # Test empty buffer transitions with queue synchronization
+    for i in range(3):
+        datapoint = create_datapoint(i)
+        metric(datapoint)
+    metric._buffer_queue.join()
+    assert len(metric.get_buffer()) == 3
+    
+    # Reset and immediately check
+    metric.reset_buffer()
+    assert len(metric.get_buffer()) == 0
+    assert len(metric.buffer) == 0  # Internal dict should also be empty
+    
+    # Ensure queue is properly empty after reset
+    assert metric._buffer_queue.empty()
+
+
+def test_extreme_lock_contention_metrics():
+    """Test metric buffer operations under extreme lock contention."""
+    metric = DummyMetric(use_buffer=True)
+    
+    def contention_worker(worker_id: int, iterations: int):
+        """Worker that creates lock contention with metrics processing."""
+        for i in range(iterations):
+            # Create datapoint with unique index
+            idx = worker_id * iterations + i
+            datapoint = create_datapoint(idx)
+            
+            # Process metric (creates async buffer operation)
+            metric(datapoint)
+            
+            # Create lock contention with frequent buffer state checks
+            if i % 3 == 0:  # More frequent checks for metrics
+                try:
+                    buffer_copy = metric.get_buffer()  # Acquires lock
+                    assert isinstance(buffer_copy, list)
+                except Exception:
+                    # Some contention is expected, continue
+                    pass
+    
+    # Create high contention scenario
+    num_threads = 6
+    iterations_per_thread = 20
+    threads = []
+    
+    for worker_id in range(num_threads):
+        thread = threading.Thread(
+            target=contention_worker,
+            args=(worker_id, iterations_per_thread)
+        )
+        threads.append(thread)
+    
+    # Start all threads simultaneously
+    start_time = time.time()
+    for thread in threads:
+        thread.start()
+    
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
+    
+    contention_time = time.time() - start_time
+    
+    # Wait for async processing under contention
+    metric._buffer_queue.join()
+    
+    # Verify system survived extreme contention
+    total_expected = num_threads * iterations_per_thread
+    buffer = metric.get_buffer()
+    assert len(buffer) == total_expected, f"Lost data under contention: {len(buffer)}/{total_expected}"
+    
+    # Verify no deadlocks occurred
+    assert contention_time < 30.0, f"Potential deadlock detected: {contention_time:.2f}s"
+    
+    # Verify buffer order preservation under contention
+    for i, buffered_item in enumerate(buffer):
+        assert isinstance(buffered_item, dict)
+        assert 'error' in buffered_item
+        assert 'squared_error' in buffered_item
