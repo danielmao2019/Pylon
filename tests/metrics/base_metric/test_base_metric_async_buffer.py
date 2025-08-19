@@ -597,13 +597,13 @@ def test_missing_meta_info_assertions():
     with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_no_idx)
     
-    # Test meta_info as None
+    # Test meta_info as None (triggers TypeError)
     datapoint_none_meta = {
         'outputs': {'prediction': torch.randn(2, 3)},
         'labels': {'target': torch.randn(2, 3)},
         'meta_info': None
     }
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_none_meta)
     
     # Test meta_info as wrong type (list instead of dict)
