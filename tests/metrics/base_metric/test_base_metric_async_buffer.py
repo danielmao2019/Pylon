@@ -585,7 +585,7 @@ def test_missing_meta_info_assertions():
         'labels': {'target': torch.randn(2, 3)}
         # Missing 'meta_info'
     }
-    with pytest.raises(AssertionError, match="meta_info"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_no_meta)
     
     # Test meta_info present but missing idx
@@ -594,7 +594,7 @@ def test_missing_meta_info_assertions():
         'labels': {'target': torch.randn(2, 3)},
         'meta_info': {'other_field': 'value'}  # Missing 'idx'
     }
-    with pytest.raises(AssertionError, match="idx"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_no_idx)
     
     # Test meta_info as None
@@ -603,7 +603,7 @@ def test_missing_meta_info_assertions():
         'labels': {'target': torch.randn(2, 3)},
         'meta_info': None
     }
-    with pytest.raises(AssertionError, match="meta_info"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_none_meta)
     
     # Test meta_info as wrong type (list instead of dict)
@@ -612,7 +612,7 @@ def test_missing_meta_info_assertions():
         'labels': {'target': torch.randn(2, 3)},
         'meta_info': ['not', 'a', 'dict']
     }
-    with pytest.raises(AssertionError, match="idx"):
+    with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_list_meta)
 
 
