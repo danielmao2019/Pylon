@@ -203,19 +203,18 @@ def test_concurrent_metric_access(dummy_metric):
 
 def test_index_format_handling(dummy_metric):
     """Test different index formats from DataLoader collation."""
-    # Test tensor format
+    # Test tensor format with idx=0
     datapoint_tensor = create_datapoint(0)
-    datapoint_tensor['meta_info']['idx'] = torch.tensor([5], dtype=torch.int64)
+    datapoint_tensor['meta_info']['idx'] = torch.tensor([0], dtype=torch.int64)
     dummy_metric(datapoint_tensor)
     
-    # Test list format
-    datapoint_list = create_datapoint(0)
-    datapoint_list['meta_info']['idx'] = [6]
+    # Test list format with idx=1
+    datapoint_list = create_datapoint(1)
+    datapoint_list['meta_info']['idx'] = [1]
     dummy_metric(datapoint_list)
     
-    # Test int format
-    datapoint_int = create_datapoint(0)
-    datapoint_int['meta_info']['idx'] = 7
+    # Test int format with idx=2 (already set by create_datapoint)
+    datapoint_int = create_datapoint(2)
     dummy_metric(datapoint_int)
     
     # Wait for processing
@@ -225,11 +224,9 @@ def test_index_format_handling(dummy_metric):
     buffer = dummy_metric.get_buffer()
     assert len(buffer) == 3
     
-    # Buffer should be ordered by indices: 5, 6, 7
-    expected_order = [5, 6, 7]
-    for i, expected_idx in enumerate(expected_order):
-        # The buffer is ordered list, so we can verify processing occurred
-        assert isinstance(buffer[i], dict)
+    # Buffer should be ordered by contiguous indices: 0, 1, 2
+    for buffered_item in buffer:
+        assert isinstance(buffered_item, dict)
 
 
 def test_memory_pressure_with_complex_data(dummy_metric):
@@ -245,10 +242,12 @@ def test_memory_pressure_with_complex_data(dummy_metric):
                 'metadata': torch.tensor([i, i+1, i+2], dtype=torch.float32)
             },
             'labels': {
+                'target': torch.randn(32, 32),  # Match DummyMetric expectation
                 'segmentation': torch.randint(0, 5, (32, 32)),
                 'classification': torch.tensor(i % 3)
             },
             'outputs': {
+                'prediction': torch.randn(32, 32),  # Match DummyMetric expectation
                 'seg_pred': torch.randn(5, 32, 32),
                 'cls_pred': torch.randn(3)
             },
@@ -417,24 +416,27 @@ def test_buffer_state_consistency_metrics(dummy_metric):
 
 
 @pytest.mark.parametrize("idx_format,idx_value", [
-    ("tensor", torch.tensor([42], dtype=torch.int64)),
-    ("list", [42]),
-    ("int", 42),
+    ("tensor", torch.tensor([0], dtype=torch.int64)),
+    ("list", [0]),
+    ("int", 0),
 ])
-def test_parametrized_index_formats(dummy_metric, idx_format, idx_value):
+def test_parametrized_index_formats(idx_format, idx_value):
     """Parametrized test for different index formats."""
+    # Create fresh metric for each test to ensure clean state
+    metric = DummyMetric(use_buffer=True)
+    
     datapoint = create_datapoint(0)
     datapoint['meta_info']['idx'] = idx_value
     
     # Process the datapoint
-    dummy_metric(datapoint)
-    dummy_metric._buffer_queue.join()
+    metric(datapoint)
+    metric._buffer_queue.join()
     
     # Verify processing succeeded
-    buffer = dummy_metric.get_buffer()
+    buffer = metric.get_buffer()
     assert len(buffer) == 1
     
-    # The actual index value should be 42 in all cases
+    # The actual index value should be 0 in all cases
     assert isinstance(buffer[0], dict)
 
 
