@@ -237,12 +237,16 @@ class BaseTrainer(ABC):
             self.train_dataloader = None
         # initialize validation dataloader
         if self.config.get('val_dataset', None) and self.config.get('val_dataloader', None):
+            self.logger.info("  Building validation dataset...")
             val_dataset: torch.utils.data.Dataset = build_from_config(self.config['val_dataset'])
+            self.logger.info(f"  Validation dataset size: {len(val_dataset)}")
             if 'batch_size' not in self.config['val_dataloader']['args']:
                 self.config['val_dataloader']['args']['batch_size'] = 1
+            self.logger.info(f"  Building validation dataloader with batch_size={self.config['val_dataloader']['args'].get('batch_size', 1)}")
             self.val_dataloader: torch.utils.data.DataLoader = build_from_config(
                 dataset=val_dataset, shuffle=False, config=self.config['val_dataloader'],
             )
+            self.logger.info(f"  Validation dataloader created with {len(self.val_dataloader)} batches")
         else:
             self.val_dataloader = None
         # initialize test dataloader
@@ -385,7 +389,7 @@ class BaseTrainer(ABC):
         # init time
         start_time = time.time()
 
-        # Run model inference
+        # do computation
         dp['outputs'] = self.model(dp['inputs'])
         dp['scores'] = self.metric(dp)
 
@@ -507,7 +511,6 @@ class BaseTrainer(ABC):
 
         # validation loop
         if self.eval_n_jobs == 1:
-            self.logger.info("Running validation sequentially...")
             for idx, dp in enumerate(self.val_dataloader):
                 self._eval_step(dp, flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
         else:
@@ -772,7 +775,7 @@ class BaseTrainer(ABC):
                 break
 
             set_seed(seed=self.train_seeds[idx])
-            self._train_epoch_()
+            # self._train_epoch_()
             self._val_epoch_()
             self.cum_epochs = idx + 1
             self._save_progress()

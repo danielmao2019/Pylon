@@ -271,3 +271,64 @@ def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
     # For transpose, we swap the first two axes and keep the rest in order
     axes = (1, 0) + tuple(range(2, len(structure)))
     return buffer_permute(buffer, axes=axes, buffer_structure=structure)
+
+
+def buffer_stack(buffers: List[Any]) -> Any:
+    """Stacks buffers along the last dimension.
+    
+    Args:
+        buffers: List of buffers to stack
+        
+    Returns:
+        Stacked buffer of the same type as input buffers
+    """
+    import jsbeautifier
+    
+    assert isinstance(buffers, list), f"Expected list, got {type(buffers)}"
+    if len(buffers) == 0:
+        return buffers
+    
+    # Check all buffers have same type
+    assert all(type(b) == type(buffers[0]) for b in buffers), \
+        jsbeautifier.beautify(str({
+            idx: type(buffers[idx]) for idx in range(len(buffers))
+        }), jsbeautifier.default_options())
+    
+    buffer_type = type(buffers[0])
+    
+    if buffer_type == torch.Tensor:
+        return torch.stack(buffers, dim=-1)
+    elif buffer_type == numpy.ndarray:
+        return numpy.stack(buffers, axis=-1)
+    elif buffer_type in [list, tuple]:
+        # Check all have same length
+        assert all(len(b) == len(buffers[0]) for b in buffers), \
+            jsbeautifier.beautify(str({
+                idx: len(buffers[idx]) for idx in range(len(buffers))
+            }), jsbeautifier.default_options())
+        
+        # Recursively stack elements at each index
+        result = []
+        for i in range(len(buffers[0])):
+            elements_at_i = [b[i] for b in buffers]
+            result.append(buffer_stack(elements_at_i))
+        
+        return buffer_type(result)
+    elif buffer_type == dict:
+        # Check all have same keys
+        keys = set(buffers[0].keys())
+        assert all(set(b.keys()) == keys for b in buffers), \
+            jsbeautifier.beautify(str({
+                idx: set(buffers[idx].keys()) for idx in range(len(buffers))
+            }), jsbeautifier.default_options())
+        
+        # Recursively stack values for each key
+        result = {}
+        for key in keys:
+            values_for_key = [b[key] for b in buffers]
+            result[key] = buffer_stack(values_for_key)
+        
+        return result
+    else:
+        # For scalars and other types, create a list
+        return buffers
