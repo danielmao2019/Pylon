@@ -16,6 +16,8 @@ from metrics.vision_3d.point_cloud_registration.d3feat_metrics.d3feat_metric imp
     D3FeatAccuracyMetric, D3FeatIoUMetric, D3FeatDescriptorMetric
 )
 
+from metrics.vision_3d.point_cloud_registration.parenet_metric.parenet_metric import PARENetMetric
+
 
 __all__ = (
     'IsotropicTransformError',
@@ -32,4 +34,6 @@ __all__ = (
     'D3FeatAccuracyMetric',
     'D3FeatIoUMetric', 
     'D3FeatDescriptorMetric',
+    
+    'PARENetMetric',
 )

@@ -8,6 +8,7 @@ from criteria.vision_3d.point_cloud_registration.buffer_criteria.desc_stage_crit
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.keypt_stage_criterion import BUFFER_KeyptStageCriterion
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.inlier_stage_criterion import BUFFER_InlierStageCriterion
 from criteria.vision_3d.point_cloud_registration.d3feat_criteria.d3feat_criterion import D3FeatCriterion
+from criteria.vision_3d.point_cloud_registration.parenet_criterion.parenet_criterion import PARENetCriterion
 
 
 __all__ = (
@@ -18,4 +19,5 @@ __all__ = (
     'BUFFER_KeyptStageCriterion',
     'BUFFER_InlierStageCriterion',
     'D3FeatCriterion',
+    'PARENetCriterion',
 )

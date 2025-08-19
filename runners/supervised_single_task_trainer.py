@@ -51,3 +51,8 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         assert type(losses) == torch.Tensor, f"{type(losses)=}"
         assert losses.numel() == 1, f"{losses.shape=}"
         losses.backward()
+
+    @torch.no_grad()
+    def _val_epoch_(self) -> None:
+        """Override base validation epoch with torch.no_grad() decorator to prevent gradient computation."""
+        super()._val_epoch_()
