@@ -10,31 +10,20 @@ class ConcreteSyntheticTransformPCRDataset(SyntheticTransformPCRDataset):
     
     def _init_annotations(self) -> None:
         """Simple implementation for testing."""
-        self.file_pair_annotations = [
-            {'src_filepath': 'dummy1.ply', 'tgt_filepath': 'dummy1.ply'},
-            {'src_filepath': 'dummy2.ply', 'tgt_filepath': 'dummy2.ply'},
+        self.annotations = [
+            {
+                't1_pc_filepath': 'dummy1.ply', 
+                't2_pc_filepath': 'dummy1.ply'
+            },
+            {
+                't1_pc_filepath': 'dummy2.ply', 
+                't2_pc_filepath': 'dummy2.ply'
+            },
         ]
     
-    def _sample_crop(self, seed: int, file_idx: int) -> dict:
-        """Sample crop parameters for testing."""
-        return {
-            'crop_seed': seed
-        }
     
-    def _build_crop(self, crop_params: dict) -> object:
-        """Build crop transform for testing."""
-        # Simple mock crop transform that does nothing
-        class MockCrop:
-            def __init__(self, seed):
-                self.seed = seed
-            
-            def _call_single(self, pc_data, generator=None):
-                return pc_data
-        
-        return MockCrop(crop_params['crop_seed'])
-    
-    def _apply_crop(self, crop_transform: object, pc_data: dict, crop_params: dict) -> dict:
-        """Apply crop transform for testing."""
+    def _apply_crop(self, idx: int, pc_data: dict) -> dict:
+        """Build and apply crop transform for testing."""
         # Just return the original data for testing
         return pc_data
 

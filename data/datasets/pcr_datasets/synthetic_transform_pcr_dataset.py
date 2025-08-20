@@ -8,7 +8,6 @@ import numpy as np
 import torch
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-from utils.io.point_clouds.load_point_cloud import load_point_cloud
 
 
 class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
@@ -18,11 +17,11 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     - STOCHASTIC phase: Randomly sample transforms, compute overlaps, cache mapping
     - DETERMINISTIC phase: Load from cache for reproducible results
     - Transform-to-overlap mapping: Cache stores transform configs → overlap values
-    - Even distribution: Divide dataset_size evenly across source files/pairs
+    - Dynamic sizing: Uses annotations from subclass to determine dataset size
     
     Features:
     - Transform-to-overlap cache for reproducible generation
-    - Even distribution of synthetic pairs across source data
+    - Dynamic sizing based on subclass annotations
     - Stochastic sampling → deterministic loading workflow
     - No try-catch blocks - fail fast with clear errors
     """
@@ -34,8 +33,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     
     def __init__(
         self,
-        data_root: str,
-        dataset_size: int,
         rotation_mag: float = 45.0,
         translation_mag: float = 0.5,
         matching_radius: float = 0.05,
@@ -48,8 +45,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         """Initialize synthetic transform PCR dataset.
         
         Args:
-            data_root: Path to dataset root directory
-            dataset_size: Total number of synthetic pairs to generate
             rotation_mag: Maximum rotation magnitude in degrees for synthetic transforms
             translation_mag: Maximum translation magnitude for synthetic transforms
             matching_radius: Radius for correspondence finding
@@ -57,9 +52,8 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             min_points: Minimum number of points filter for cache generation
             max_trials: Maximum number of trials to generate valid transforms
             cache_filepath: Path to cache file (if None, no caching is used)
-            **kwargs: Additional arguments passed to BaseDataset
+            **kwargs: Additional arguments passed to BaseDataset (including data_root)
         """
-        self.total_dataset_size = dataset_size
         self.overlap_range = tuple(overlap_range)
         self.matching_radius = matching_radius
         self.rotation_mag = rotation_mag
@@ -68,22 +62,22 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         self.max_trials = max_trials
         self.cache_filepath = cache_filepath
         
-        # Initialize transform-to-overlap cache
+        # Initialize trials cache (2-level hierarchical)
         if cache_filepath is not None:
             assert cache_filepath.endswith(".json"), f"Cache file must be JSON format, got: {cache_filepath}"
             # Ensure parent directory can be created
             cache_dir = os.path.dirname(cache_filepath)
             if cache_dir:  # Only create if there's actually a directory part
                 os.makedirs(cache_dir, exist_ok=True)
-            self._load_transform_cache()
+            self._load_trials_cache()
         else:
             # No caching
-            self.transform_cache = {}
+            self.trials_cache = {}
         
         # Initialize cache lock (will be recreated after pickle if needed)
         self._cache_lock = None
         
-        super().__init__(data_root=data_root, **kwargs)
+        super().__init__(**kwargs)
     
     @property
     def cache_lock(self) -> threading.Lock:
@@ -99,7 +93,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             'rotation_mag': self.rotation_mag,
             'translation_mag': self.translation_mag,
             'matching_radius': self.matching_radius,
-            'dataset_size': self.total_dataset_size,
             'overlap_range': self.overlap_range,
             'min_points': self.min_points,
             'max_trials': self.max_trials,
@@ -109,51 +102,18 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     def _init_annotations(self) -> None:
         """Initialize annotations for SyntheticTransformPCRDataset.
         
-        This method coordinates the two-step process:
-        1. Call _init_file_pair_annotations() to set self.file_pair_annotations
-        2. Call _calculate_pairs_per_file() to create self.annotations
+        This method should be overridden by subclasses that have their own
+        annotation structure (e.g., bi-temporal datasets).
+        
+        For standalone synthetic datasets, this method should create annotations
+        based on available data.
         """
-        # Step 1: Initialize file pair annotations (implemented by subclasses)
-        self._init_file_pair_annotations()
-        
-        # Step 2: Calculate pairs per file to create self.annotations
-        self._calculate_pairs_per_file()
+        # This will be overridden by subclasses
+        # For example, iVISION_PCR_Dataset will use bi-temporal annotations
+        raise NotImplementedError("Subclasses must implement _init_annotations")
     
-    def _init_file_pair_annotations(self) -> None:
-        """Initialize file pair annotations - to be implemented by subclasses.
-        
-        Subclasses should:
-        1. Set self.file_pair_annotations to list of file pair annotations
-        2. Each annotation should have 'src_filepath' and 'tgt_filepath' keys
-        3. For single-temporal: src_filepath == tgt_filepath  
-        4. For bi-temporal: src_filepath != tgt_filepath
-        """
-        raise NotImplementedError("Subclasses must implement _init_file_pair_annotations and set self.file_pair_annotations")
-    
-    def _calculate_pairs_per_file(self) -> None:
-        """Calculate how many synthetic pairs to generate per file pair."""
-        num_file_pairs = len(self.file_pair_annotations)
-        base_pairs_per_file = self.total_dataset_size // num_file_pairs
-        remainder = self.total_dataset_size % num_file_pairs
-        
-        # Distribute pairs evenly with remainder distributed to first files
-        self.pairs_per_file = []
-        for i in range(num_file_pairs):
-            extra_pair = 1 if i < remainder else 0
-            self.pairs_per_file.append(base_pairs_per_file + extra_pair)
-        
-        # Create flat annotations mapping each datapoint to (file_idx, pair_idx)
-        self.annotations = []
-        for file_idx, num_pairs in enumerate(self.pairs_per_file):
-            for pair_idx in range(num_pairs):
-                self.annotations.append({
-                    'file_idx': file_idx,
-                    'pair_idx': pair_idx,
-                    'file_pair_annotation': self.file_pair_annotations[file_idx]
-                })
-    
-    def _load_transform_cache(self) -> None:
-        """Load cached transform-to-overlap mappings."""
+    def _load_trials_cache(self) -> None:
+        """Load cached trials (overlap ratios) from disk."""
         if os.path.exists(self.cache_filepath):
             with open(self.cache_filepath, 'r') as f:
                 content = f.read().strip()
@@ -161,35 +121,21 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                     loaded_cache = json.loads(content)
                     
                     # Validate cache structure - will raise AssertionError if invalid
-                    self._validate_cache_structure(loaded_cache)
+                    self._validate_trials_cache_structure(loaded_cache)
                     
-                    # Convert string keys back to tuples for in-memory use
-                    self.transform_cache = {}
-                    for key_str, file_data in loaded_cache.items():
-                        param_tuple = eval(key_str)  # Convert string back to tuple
-                        self.transform_cache[param_tuple] = file_data
+                    self.trials_cache = loaded_cache
                 else:
-                    self.transform_cache = {}
+                    self.trials_cache = {}
         else:
-            self.transform_cache = {}
+            self.trials_cache = {}
     
-    def _validate_cache_structure(self, cache_data: Any) -> None:
-        """Validate that cache has the expected structure using assertions.
+    def _validate_trials_cache_structure(self, cache_data: Any) -> None:
+        """Validate that trials cache has the expected 2-level hierarchical structure.
         
-        Expected structure (JSON uses string representations of tuples):
+        Expected structure:
         {
-            "(rotation_mag, translation_mag, matching_radius)": {
-                "file_hash_1": [
-                    {
-                        "overlap": float,
-                        "rotation_angles": [float, float, float],
-                        "translation": [float, float, float],
-                        "src_num_points": int,
-                        "tgt_num_points": int,
-                        ...
-                    },
-                    ...
-                ],
+            "dataset_version_hash": {
+                "annotation_hash": [overlap_ratio_1, overlap_ratio_2, ...],
                 ...
             },
             ...
@@ -201,167 +147,99 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         # Check if cache_data is a dictionary
         assert isinstance(cache_data, dict), f"Cache data must be a dictionary, got {type(cache_data)}"
         
-        # Check each parameter tuple level
-        for param_key, param_data in cache_data.items():
-            # Parameter key should be a string representation of a tuple
-            assert isinstance(param_key, str), f"Parameter key must be string, got {type(param_key)}"
+        # Check each dataset version level (first level)
+        for version_key, version_data in cache_data.items():
+            # Version key should be a string
+            assert isinstance(version_key, str), f"Version key must be string, got {type(version_key)}"
             
-            # Validate parameter key format: cache keys should be string representation of tuples
-            assert param_key.startswith("(") and param_key.endswith(")"), f"Parameter key must be tuple format, got {param_key}"
-            # Try to evaluate the string as a tuple
-            param_tuple = eval(param_key)
-            assert isinstance(param_tuple, tuple), f"Parameter key must evaluate to tuple, got {type(param_tuple)}"
+            # Version data should be a dictionary
+            assert isinstance(version_data, dict), f"Version data must be dictionary, got {type(version_data)}"
             
-            # Get expected cache key length for this class
-            expected_key_length = len(self._get_cache_param_key())
-            assert len(param_tuple) == expected_key_length, (
-                f"Parameter tuple must have {expected_key_length} values for {self.__class__.__name__}, "
-                f"got {len(param_tuple)}: {param_tuple}"
-            )
-            
-            # Validate that all elements are numeric
-            for i, val in enumerate(param_tuple):
-                assert isinstance(val, (int, float)), f"Parameter tuple element {i} must be numeric, got {type(val)}: {val}"
-            
-            # Parameter data should be a dictionary
-            assert isinstance(param_data, dict), f"Parameter data must be dictionary, got {type(param_data)}"
-            
-            # Check each file_hash level
-            for file_key, transforms in param_data.items():
-                # File key should be a string (hash)
-                assert isinstance(file_key, str), f"File key must be string, got {type(file_key)}"
+            # Check each annotation level (second level)
+            for annotation_key, overlap_list in version_data.items():
+                # Annotation key should be a string
+                assert isinstance(annotation_key, str), f"Annotation key must be string, got {type(annotation_key)}"
                 
-                # Transforms should be a list
-                assert isinstance(transforms, list), f"Transforms must be list, got {type(transforms)}"
+                # Overlap list should be a list of floats
+                assert isinstance(overlap_list, list), f"Overlap list must be list, got {type(overlap_list)}"
                 
-                # Check each transform config
-                for i, transform in enumerate(transforms):
-                    assert isinstance(transform, dict), f"Transform {i} must be dict, got {type(transform)}"
-                    
-                    # Check required fields (basic fields that all methods have)
-                    basic_required_fields = ['overlap', 'rotation_angles', 'translation', 
-                                           'src_num_points', 'tgt_num_points']
-                    
-                    for field in basic_required_fields:
-                        assert field in transform, f"Transform {i} missing required field '{field}'"
-                    
-                    # Additional field validation can be done by subclasses
-                    # Check for crop_seed which is always required
-                    assert 'crop_seed' in transform, f"Transform {i} missing required field 'crop_seed'"
-                    
-                    # Validate field types and values
-                    assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
-                    
-                    assert isinstance(transform['rotation_angles'], list), f"rotation_angles must be list, got {type(transform['rotation_angles'])}"
-                    assert len(transform['rotation_angles']) == 3, f"rotation_angles must have 3 elements, got {len(transform['rotation_angles'])}"
-                    
-                    assert isinstance(transform['translation'], list), f"translation must be list, got {type(transform['translation'])}"
-                    assert len(transform['translation']) == 3, f"translation must have 3 elements, got {len(transform['translation'])}"
-                    
-                    
-                    assert isinstance(transform['src_num_points'], int), f"src_num_points must be int, got {type(transform['src_num_points'])}"
-                    assert isinstance(transform['tgt_num_points'], int), f"tgt_num_points must be int, got {type(transform['tgt_num_points'])}"
-    
-    def _save_transform_cache(self) -> None:
-        """Save transform-to-overlap mappings to cache (thread-safe)."""
+                # Each overlap should be a float
+                for i, overlap in enumerate(overlap_list):
+                    assert isinstance(overlap, (int, float)), f"Overlap {i} must be number, got {type(overlap)}"
+                    assert 0.0 <= overlap <= 1.0, f"Overlap {i} must be in [0, 1], got {overlap}"
+    def _save_trials_cache(self) -> None:
+        """Save trials cache to disk (thread-safe)."""
         if self.cache_filepath is not None:
             os.makedirs(os.path.dirname(self.cache_filepath), exist_ok=True)
-            # Convert tuple keys to strings for JSON serialization
-            serializable_cache = {}
-            for param_tuple, file_data in self.transform_cache.items():
-                key_str = str(param_tuple)  # Convert tuple to string
-                serializable_cache[key_str] = file_data
-            
             with open(self.cache_filepath, 'w') as f:
-                json.dump(serializable_cache, f, indent=2)
+                json.dump(self.trials_cache, f, indent=2)
     
-    def _get_file_cache_key(self, file_pair_annotation: dict) -> str:
-        """Generate cache key for file pair.
+    def _get_dataset_version_key(self) -> str:
+        """Generate first-level cache key from dataset version dictionary.
         
-        Uses both source and target file paths to ensure unique keys
-        for multi-pairing scenarios like (A,B), (A,C), (A,D).
+        Returns:
+            String hash of the dataset version dictionary
+        """
+        version_dict = self._get_cache_version_dict()
+        # Create a deterministic string representation
+        version_str = json.dumps(version_dict, sort_keys=True)
+        version_hash = hashlib.md5(version_str.encode()).hexdigest()[:12]
+        return version_hash
+    
+    def _get_annotation_cache_key(self, annotation: dict) -> str:
+        """Generate second-level cache key from annotation.
+        
+        Handles torch tensors and other complex objects in annotations by
+        serializing them to JSON-compatible format before hashing.
         
         Args:
-            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
+            annotation: Annotation dictionary from self.annotations[idx]
             
         Returns:
-            Unique cache key string for this file pair
+            String hash of the annotation
         """
-        src_path = file_pair_annotation['src_filepath']
-        tgt_path = file_pair_annotation['tgt_filepath']
-        combined_path = f"{src_path}|{tgt_path}"
-        file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
-        return file_hash
+        # Import serialize_object for handling torch tensors
+        from utils.io.json import serialize_object
+        
+        # Serialize annotation to handle torch tensors and other non-JSON types
+        serialized_annotation = serialize_object(annotation)
+        
+        # Create a deterministic string representation of the serialized annotation
+        annotation_str = json.dumps(serialized_annotation, sort_keys=True)
+        annotation_hash = hashlib.md5(annotation_str.encode()).hexdigest()[:8]
+        return annotation_hash
     
-    def _get_cache_param_key(self) -> tuple:
-        """Generate cache parameter key for transform caching.
-        
-        Base implementation includes core parameters. Subclasses should override
-        and extend this method to include additional parameters that affect
-        transform generation and cropping behavior.
-        
-        Returns:
-            Cache parameter key tuple
-        """
-        return (
-            self.rotation_mag, 
-            self.translation_mag, 
-            self.matching_radius,
-        )
     
     def _load_datapoint(self, idx: int) -> tuple:
-        """Load a synthetic datapoint using the modular pipeline.
+        """Load a synthetic datapoint using trial-based caching logic.
         
-        Clean flow: generate transforms if needed, then get specific transform.
+        Args:
+            idx: Dataset index
+            
+        Returns:
+            Tuple of (inputs, labels, meta_info)
         """
-        file_idx, transform_idx = self._get_indices(idx)
-        file_pair_annotation = self.file_pair_annotations[file_idx]
+        # Assert required fields exist in annotation
+        annotation = self.annotations[idx]
+        assert 't1_pc_filepath' in annotation, f"annotation[{idx}] missing 't1_pc_filepath', got keys: {list(annotation.keys())}"
+        assert 't2_pc_filepath' in annotation, f"annotation[{idx}] missing 't2_pc_filepath', got keys: {list(annotation.keys())}"
         
-        # Get cache key for this file pair
-        file_cache_key = self._get_file_cache_key(file_pair_annotation)
+        # Assert subclass implements _apply_crop
+        assert hasattr(self, '_apply_crop'), f"Subclass {self.__class__.__name__} must implement _apply_crop method"
         
-        # Helper function to get valid transforms from cache
-        def get_valid_transforms():
-            # Access cache with parameter tuple as outer key
-            param_key = self._get_cache_param_key()
-            param_cache = self.transform_cache.get(param_key, {})
-            cached_transforms = param_cache.get(file_cache_key, [])
-            
-            valid_transforms = []
-            for transform_params in cached_transforms:
-                overlap = transform_params.get('overlap', 0.0)
-                src_num_points = transform_params.get('src_num_points', 0)
-                tgt_num_points = transform_params.get('tgt_num_points', 0)
-                
-                # Filter by overlap range and minimum points
-                if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
-                    src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                    valid_transforms.append(transform_params)
-            return valid_transforms
+        # Extract annotation data
+        t1_pc_filepath = annotation['t1_pc_filepath']
+        t2_pc_filepath = annotation['t2_pc_filepath']
         
-        # Check if we have enough valid transforms
-        valid_transforms = get_valid_transforms()
-        if transform_idx >= len(valid_transforms):
-            # Generate more transforms to fill the cache
-            needed_count = transform_idx - len(valid_transforms) + 1
-            self._generate_more(file_idx, needed_count)
-            # Refresh valid transforms after generation
-            valid_transforms = get_valid_transforms()
-            
-            # Check if generation was successful
-            if transform_idx >= len(valid_transforms):
-                raise RuntimeError(
-                    f"Failed to generate enough valid transforms for datapoint index {idx}. "
-                    f"Requested transform_idx={transform_idx}, but only {len(valid_transforms)} valid transforms available. "
-                    f"file_idx={file_idx}, needed_count={needed_count}. "
-                    f"Consider: 1) Increasing max_trials (current: {self.max_trials}), "
-                    f"2) Relaxing overlap_range (current: {self.overlap_range}), "
-                    f"3) Reducing min_points (current: {self.min_points}), "
-                    f"4) Reducing dataset_size to match available valid transforms."
-                )
+        # Core logic: search for valid cached transform or generate new ones
+        src_pc, tgt_pc, overlap_ratio, transform_params, trial_used = self._search_or_generate(
+            t1_pc_filepath=t1_pc_filepath,
+            t2_pc_filepath=t2_pc_filepath,
+            idx=idx
+        )
         
-        # Get the specific transform (called only once)
-        src_pc, tgt_pc, transform_matrix, transform_params = self._get_pair(file_idx, transform_idx, valid_transforms)
+        # Build transform matrix for correspondences and output
+        transform_matrix = self._build_transform(transform_params)
         
         # Find correspondences
         from utils.point_cloud_ops.correspondences import get_correspondences
@@ -372,7 +250,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             radius=self.matching_radius,
         )
         
-        # Add default features if not present (should be done in _load_datapoint)
+        # Add default features if not present
         if 'feat' not in src_pc:
             src_pc['feat'] = torch.ones((src_pc['pos'].shape[0], 1), dtype=torch.float32, device=src_pc['pos'].device)
         
@@ -383,219 +261,60 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             'src_pc': src_pc,
             'tgt_pc': tgt_pc,
             'correspondences': correspondences,
-            'transform': transform_matrix,  # GMCNet needs ground truth during forward pass
+            'transform': transform_matrix,
         }
         
         labels = {
             'transform': transform_matrix,
         }
 
-        # Create clean transform_params without overlap (to avoid duplication with meta_info.overlap)
-        clean_transform_params = {k: v for k, v in transform_params.items() if k != 'overlap'}
-        
         meta_info = {
-            'file_idx': file_idx,
-            'transform_idx': transform_idx,
-            'transform_params': clean_transform_params,
-            'overlap': transform_params['overlap'],  # Keep in meta_info for easy access
+            't1_pc_filepath': t1_pc_filepath,
+            't2_pc_filepath': t2_pc_filepath,
+            'trial_idx': trial_used,
+            'transform_params': transform_params,
+            'overlap': overlap_ratio,
         }
         
         return inputs, labels, meta_info
-
-    def _load_file_pair_data(self, file_pair_annotation: dict) -> tuple:
-        """Load point cloud data for both source and target files.
-        
-        Handles both single-temporal and bi-temporal datasets:
-        - Single-temporal: src_filepath == tgt_filepath, load once and copy
-        - Bi-temporal: src_filepath != tgt_filepath, load both files
+    
+    def _generate(
+        self,
+        t1_pc_filepath: str,
+        t2_pc_filepath: str,
+        transform_params: dict,
+        idx: int
+    ) -> tuple:
+        """Generate processed point clouds and overlap ratio for given parameters.
         
         Args:
-            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
+            t1_pc_filepath: Path to first point cloud file
+            t2_pc_filepath: Path to second point cloud file
+            transform_params: Transform parameters
+            idx: Dataset index for annotation access
             
         Returns:
-            Tuple of (src_pc_data, tgt_pc_data) point cloud dictionaries with all attributes (pos, rgb, etc.)
+            Tuple of (src_pc, tgt_pc, overlap_ratio)
         """
-        src_filepath = file_pair_annotation['src_filepath']
-        tgt_filepath = file_pair_annotation['tgt_filepath']
+        # Load the two point clouds
+        from utils.io.point_clouds.load_point_cloud import load_point_cloud
+        t1_pc_data = load_point_cloud(t1_pc_filepath, device=self.device, dtype=torch.float64)
+        t2_pc_data = load_point_cloud(t2_pc_filepath, device=self.device, dtype=torch.float64)
         
-        # Load source point cloud (load_point_cloud now always returns dict format)
-        src_pc_data = load_point_cloud(src_filepath, device=self.device)
-        
-        # Check if single-temporal or bi-temporal
-        if src_filepath == tgt_filepath:
-            # Single-temporal: deep copy source as target to avoid reference issues
-            tgt_pc_data = {}
-            for key, value in src_pc_data.items():
-                if isinstance(value, torch.Tensor):
-                    tgt_pc_data[key] = value.clone()
-                else:
-                    tgt_pc_data[key] = value
-        else:
-            # Bi-temporal: load target separately
-            tgt_pc_data = load_point_cloud(tgt_filepath, device=self.device)
-        
-        return src_pc_data, tgt_pc_data
-    
-    def _get_indices(self, idx: int) -> tuple:
-        """Get file index and transform index from dataset index.
-        
-        Args:
-            idx: Dataset index
-            
-        Returns:
-            Tuple of (file_idx, transform_idx)
-        """
-        annotation = self.annotations[idx]
-        file_idx = annotation['file_idx']
-        transform_idx = annotation['pair_idx']
-        return file_idx, transform_idx
-    
-    def _get_pair(self, file_idx: int, transform_idx: int, valid_transforms: list) -> tuple:
-        """Get a transformed point cloud pair using cached transform params.
-        
-        Args:
-            file_idx: Index of file pair
-            transform_idx: Index of transform for this file pair
-            valid_transforms: List of valid cached transforms for this file pair
-            
-        Returns:
-            Tuple of (src_pc, tgt_pc, transform_matrix, transform_params)
-        """
-        file_pair_annotation = self.file_pair_annotations[file_idx]
-        
-        # Load point cloud data - handles both single-temporal and bi-temporal
-        src_pc_data, tgt_pc_data = self._load_file_pair_data(file_pair_annotation)
-        
-        # Get the specific transform config from cache
-        transform_params = valid_transforms[transform_idx]
-        
-        # Extract transform and crop params from cached combined params
-        transform_keys = ['rotation_angles', 'translation']
-        crop_keys = [k for k in transform_params.keys() if k not in transform_keys and k not in ['overlap', 'src_num_points', 'tgt_num_points', 'trial']]
-        
-        # Split into transform and crop params
-        transform_only = {k: v for k, v in transform_params.items() if k in transform_keys}
-        crop_only = {k: v for k, v in transform_params.items() if k in crop_keys}
-        
-        # Build transform and crop components from cached params
-        transform_matrix = self._build_transform(transform_only)
-        crop_transform = self._build_crop(crop_only)
-        
-        # Apply transform and crop to get point cloud pair
-        src_pc_transformed, tgt_pc_original = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix)
-        src_pc = self._apply_crop(crop_transform, src_pc_transformed, crop_only)
-        tgt_pc = self._apply_crop(crop_transform, tgt_pc_original, crop_only)
-        
-        return src_pc, tgt_pc, transform_matrix, transform_params
-    
-    def _generate_more(self, file_idx: int, needed_count: int) -> None:
-        """Generate more valid transforms and cache them.
-        
-        Args:
-            file_idx: Index of file pair
-            needed_count: Number of additional valid transforms needed
-        """
-        file_pair_annotation = self.file_pair_annotations[file_idx]
-        
-        # Load point cloud data - handles both single-temporal and bi-temporal
-        src_pc_data, tgt_pc_data = self._load_file_pair_data(file_pair_annotation)
-        
-        # Get cache key for this file pair
-        file_cache_key = self._get_file_cache_key(file_pair_annotation)
-        
-        # Get existing cached transforms (thread-safe read)
-        with self.cache_lock:
-            param_key = self._get_cache_param_key()
-            param_cache = self.transform_cache.get(param_key, {})
-            cached_transforms = param_cache.get(file_cache_key, []).copy()
-        
-        generated_results = []
-        trial = len(cached_transforms)  # Start from where cache left off
-        target_attempts = needed_count * 3  # Generate more than needed for better hit rate
-        
-        while len(generated_results) < needed_count and trial < self.max_trials:
-            # Process single transform (deterministic seed using file_idx, trial)
-            result = self._process_single_transform((src_pc_data, tgt_pc_data, file_idx, trial))
-            
-            # Update cache with new transform
-            cached_transforms.append(result['transform_params'])
-            
-            # Check if overlap is in range and meets minimum points requirement
-            src_num_points = result['transform_params']['src_num_points']
-            tgt_num_points = result['transform_params']['tgt_num_points']
-            if (self.overlap_range[0] < result['overlap'] <= self.overlap_range[1] and
-                src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                generated_results.append((
-                    result['src_pc'], 
-                    result['tgt_pc'], 
-                    result['transform_matrix'], 
-                    result['transform_params']
-                ))
-            
-            trial += 1
-            
-            # Periodically save cache to avoid losing progress
-            if trial % 10 == 0:
-                with self.cache_lock:
-                    param_key = self._get_cache_param_key()
-                    if param_key not in self.transform_cache:
-                        self.transform_cache[param_key] = {}
-                    self.transform_cache[param_key][file_cache_key] = cached_transforms.copy()
-                    if self.cache_filepath is not None:
-                        self._save_transform_cache()
-            
-            # Early exit if we have enough valid results and attempted enough
-            if len(generated_results) >= needed_count or (trial - len(cached_transforms)) >= target_attempts:
-                break
-        
-        # Final cache update
-        with self.cache_lock:
-            param_key = self._get_cache_param_key()
-            if param_key not in self.transform_cache:
-                self.transform_cache[param_key] = {}
-            self.transform_cache[param_key][file_cache_key] = cached_transforms
-            if self.cache_filepath is not None:
-                self._save_transform_cache()
-        
-        # Fail fast if no valid results found - don't hide the problem
-        assert len(generated_results) > 0, (
-            f"Failed to generate any valid transforms after {trial} trials. "
-            f"Parameters: overlap_range={self.overlap_range}, file_idx={file_idx}, "
-            f"needed_count={needed_count}."
-        )
-    
-    def _process_single_transform(self, args: tuple) -> dict:
-        """Process a single transform.
-        
-        Args:
-            args: Tuple of (src_pc_data, tgt_pc_data, file_idx, trial_idx)
-            
-        Returns:
-            Result dictionary with transform data
-        """
-        src_pc_data, tgt_pc_data, file_idx, trial_idx = args
-        
-        # Create deterministic seed from (file_idx, trial_idx)
-        # file_idx already provides uniqueness for multi-pairing scenarios
-        seed = hash((file_idx, trial_idx)) % (2**32)
-        
-        # Sample transform and crop parameters (deterministic from seed)
-        transform_params = self._sample_transform(seed, file_idx)
-        crop_params = self._sample_crop(seed, file_idx)
-        
-        # Build transform and crop components
+        # Build transform
         transform_matrix = self._build_transform(transform_params)
-        crop_transform = self._build_crop(crop_params)
         
-        # Apply transform and crop
-        src_pc_transformed, tgt_pc_original = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix)
-        src_pc = self._apply_crop(crop_transform, src_pc_transformed, crop_params)
-        tgt_pc = self._apply_crop(crop_transform, tgt_pc_original, crop_params)
+        # Apply inverse transform to PC1 and keep PC2 original
+        src_pc_transformed, tgt_pc_original = self._apply_transform(
+            t1_pc_data, t2_pc_data, transform_matrix
+        )
         
+        # Apply crop to both point clouds (build and apply in one step)
+        src_pc = self._apply_crop(idx, src_pc_transformed)
+        tgt_pc = self._apply_crop(idx, tgt_pc_original)
         
-        # Compute overlap (this is the expensive operation we're parallelizing)
-        # Following standard PCR convention: compute overlap between source + transform vs target
-        # This measures how well the source aligns to target with the ground truth transform
+        # Compute overlap ratio
+        from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
         overlap = compute_registration_overlap(
             ref_points=tgt_pc['pos'],
             src_points=src_pc['pos'], 
@@ -603,23 +322,96 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             positive_radius=self.matching_radius * 2
         )
         
-        # Combine all parameters for caching
-        all_params = {**transform_params, **crop_params}
+        return src_pc, tgt_pc, float(overlap)
+    
+    def _search_or_generate(
+        self, 
+        t1_pc_filepath: str,
+        t2_pc_filepath: str,
+        idx: int
+    ) -> tuple:
+        """Search for valid cached transform or generate new ones using trial-based caching.
         
-        # Add metadata including point counts for min_points filtering
-        all_params['overlap'] = float(overlap)
-        all_params['src_num_points'] = src_pc['pos'].shape[0]
-        all_params['tgt_num_points'] = tgt_pc['pos'].shape[0]
-        all_params['trial'] = trial_idx
+        This is the core logic that handles complete datapoint generation.
         
-        return {
-            'transform_params': all_params,
-            'src_pc': src_pc,
-            'tgt_pc': tgt_pc,
-            'transform_matrix': transform_matrix,
-            'overlap': overlap,
-            'seed': seed
-        }
+        Args:
+            t1_pc_filepath: Path to first point cloud file
+            t2_pc_filepath: Path to second point cloud file
+            idx: Dataset index for annotation access
+            
+        Returns:
+            Tuple of (src_pc, tgt_pc, overlap_ratio, transform_params, current_trial)
+        """
+        # Get cached trial mappings using 2-level hierarchy (thread-safe)
+        dataset_version_key = self._get_dataset_version_key()
+        annotation = self.annotations[idx]
+        annotation_key = self._get_annotation_cache_key(annotation)
+        
+        # Thread-safe cache structure access
+        with self.cache_lock:
+            # Get or create cache structure
+            if dataset_version_key not in self.trials_cache:
+                self.trials_cache[dataset_version_key] = {}
+            
+            version_cache = self.trials_cache[dataset_version_key]
+            if annotation_key not in version_cache:
+                version_cache[annotation_key] = []
+            
+            # Make a copy to avoid concurrent modification issues
+            overlap_ratios = version_cache[annotation_key].copy()
+        
+        # Search through existing cache starting from trial 0
+        # trials and datapoint idx are different - trials always start from 0
+        current_trial = 0
+        while current_trial < self.max_trials:
+            # Check if we have this trial cached
+            if current_trial < len(overlap_ratios):
+                overlap_ratio = overlap_ratios[current_trial]
+                # Check if overlap is in valid range
+                if self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
+                    # Found valid trial - generate point clouds with this trial
+                    trial_seed = hash((annotation_key, current_trial)) % (2**32)
+                    transform_params = self._sample_transform(trial_seed, 0)
+                    
+                    src_pc, tgt_pc, overlap = self._generate(
+                        t1_pc_filepath=t1_pc_filepath,
+                        t2_pc_filepath=t2_pc_filepath,
+                        transform_params=transform_params,
+                        idx=idx
+                    )
+                    
+                    return src_pc, tgt_pc, overlap, transform_params, current_trial
+            else:
+                # Trial not cached - generate it
+                trial_seed = hash((annotation_key, current_trial)) % (2**32)
+                transform_params = self._sample_transform(trial_seed, 0)
+                
+                # Generate point clouds and compute overlap
+                src_pc, tgt_pc, overlap_ratio = self._generate(
+                    t1_pc_filepath=t1_pc_filepath,
+                    t2_pc_filepath=t2_pc_filepath,
+                    transform_params=transform_params,
+                    idx=idx
+                )
+                
+                # Update cache with thread safety
+                with self.cache_lock:
+                    # Append to the actual cache list
+                    self.trials_cache[dataset_version_key][annotation_key].append(overlap_ratio)
+                    if self.cache_filepath is not None:
+                        self._save_trials_cache()
+                
+                # Check if this trial is valid
+                if self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
+                    return src_pc, tgt_pc, overlap_ratio, transform_params, current_trial
+            
+            current_trial += 1
+        
+        # If we reach here, no valid transform found within max_trials
+        raise RuntimeError(
+            f"Failed to find valid transform after {self.max_trials} trials. "
+            f"Overlap range: {self.overlap_range}, annotation_key: {annotation_key}"
+        )
     
     def _sample_transform(self, seed: int, file_idx: int) -> dict:
         """Sample SE(3) transformation parameters only.
@@ -712,68 +504,37 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         Returns:
             Tuple of (src_pc_transformed, tgt_pc_original) dictionaries
         """
+        transform_matrix = transform_matrix.to(src_pc_data['pos'].dtype)
         # Following GeoTransformer's approach:
         # ref_points = original (target)
-        ref_points = src_pc_data['pos'].clone()
+        tgt_points = tgt_pc_data['pos'].clone()
         
         # src_points = apply inverse transform to create misaligned source
         from utils.point_cloud_ops import apply_transform
         # Create a fresh tensor to avoid threading issues
         transform_inv = torch.linalg.inv(transform_matrix.detach().cpu()).to(transform_matrix.device)
-        src_points = apply_transform(ref_points, transform_inv)
+        src_points = apply_transform(src_pc_data['pos'], transform_inv)
         
         # Update point cloud dictionaries with transformed/original positions
         src_pc_data_transformed = src_pc_data.copy()
         src_pc_data_transformed['pos'] = src_points
         
         tgt_pc_data_original = tgt_pc_data.copy()
-        tgt_pc_data_original['pos'] = ref_points
+        tgt_pc_data_original['pos'] = tgt_points
         
         return src_pc_data_transformed, tgt_pc_data_original
     
-    @abstractmethod
-    def _sample_crop(self, seed: int, file_idx: int) -> dict:
-        """Sample crop parameters only.
-        
-        Subclasses must implement this method to sample crop-specific
-        parameters for deterministic cropping.
-        
-        Args:
-            seed: Random seed for deterministic sampling
-            file_idx: Index of file pair (can be used for scene-specific sampling)
-            
-        Returns:
-            Dictionary containing crop parameters:
-            - 'crop_seed': Seed for deterministic cropping
-            - Additional crop-specific parameters as needed
-        """
-        raise NotImplementedError("Subclasses must implement _sample_crop")
     
     @abstractmethod
-    def _build_crop(self, crop_params: dict) -> Any:
-        """Build crop transform object only.
+    def _apply_crop(self, idx: int, pc_data: dict) -> dict:
+        """Build and apply crop transform to point cloud data.
         
         Subclasses must implement this method to build the crop transform
-        object from the sampled crop parameters.
+        from annotation data and apply it to the point cloud.
         
         Args:
-            crop_params: Crop configuration dictionary from _sample_crop
-            
-        Returns:
-            Crop transform object with a _call_single method
-        """
-        raise NotImplementedError("Subclasses must implement _build_crop")
-    
-    @abstractmethod
-    def _apply_crop(self, crop_transform: Any, pc_data: dict, crop_params: dict) -> dict:
-        """Apply crop transform to point cloud data.
-        
-        Subclasses must implement this method to apply crop transforms.
-        
-        Args:
-            crop_transform: Crop transform object
+            idx: Index into self.annotations
             pc_data: Point cloud dictionary
-            crop_params: Crop configuration parameters
             
         Returns:
             Cropped point cloud dictionary
