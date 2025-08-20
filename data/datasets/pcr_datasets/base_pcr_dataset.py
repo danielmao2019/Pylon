@@ -253,7 +253,7 @@ class BasePCRDataset(BaseDataset):
     def _compute_transform_info(transform: torch.Tensor) -> Dict[str, Any]:
         """Compute transform information including rotation angle and translation magnitude."""
         # Normalize transform to handle batched case
-        transform_normalized = _normalize_transform(transform, torch.Tensor)
+        transform_normalized = _normalize_transform(transform, torch.Tensor, target_device=transform.device, target_dtype=transform.dtype)
         
         # Compute rotation angle and translation magnitude
         rotation_matrix = transform_normalized[:3, :3]

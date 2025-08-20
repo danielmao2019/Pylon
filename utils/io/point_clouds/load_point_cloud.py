@@ -8,16 +8,16 @@ from utils.input_checks.point_cloud import check_point_cloud
 
 
 def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:
-    """Read XYZ and optional feature for each vertex from PLY file.
+    """Read XYZ and all available fields from PLY file.
 
     Args:
         filename: Path to PLY file
         nameInPly: Name of vertex element in PLY (e.g., 'vertex', 'params'). If None, will use first element.
-        name_feat: Name of feature column. If None, will return only XYZ coordinates.
+        name_feat: Name of feature column (deprecated - all fields are now loaded automatically).
     
     Returns:
-        Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
-        All data loaded in float64 precision for maximum accuracy.
+        Dictionary with 'pos' containing XYZ coordinates and all other available fields
+        All data loaded preserving original precision where possible.
     """
     with open(filepath, "rb") as f:
         plydata = PlyData.read(f)
@@ -27,6 +27,7 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
             nameInPly = plydata.elements[0].name
 
         num_verts = plydata[nameInPly].count
+        available_fields = plydata[nameInPly].data.dtype.names
 
         # Always read XYZ in float64 precision
         positions = np.zeros(shape=[num_verts, 3], dtype=np.float64)
@@ -36,18 +37,33 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
         
         result = {'pos': positions}
 
-        # Add RGB colors if available
+        # Add RGB colors if available - preserve original data types and values
         rgb_fields = ['red', 'green', 'blue']
-        if all(field in plydata[nameInPly].data.dtype.names for field in rgb_fields):
-            # Extract RGB values and normalize to [0, 1] range - use float64 for precision
-            red = plydata[nameInPly].data["red"].astype(np.float64) / 255.0
-            green = plydata[nameInPly].data["green"].astype(np.float64) / 255.0
-            blue = plydata[nameInPly].data["blue"].astype(np.float64) / 255.0
+        if all(field in available_fields for field in rgb_fields):
+            # Extract RGB values preserving original data type and values (no normalization)
+            red = plydata[nameInPly].data["red"]
+            green = plydata[nameInPly].data["green"]
+            blue = plydata[nameInPly].data["blue"]
             rgb = np.column_stack((red, green, blue))
-            result['rgb'] = rgb
+            result['rgb'] = np.ascontiguousarray(rgb)
 
-        # Add feature if specified and exists
-        if name_feat is not None and name_feat in plydata[nameInPly].data.dtype.names:
+        # Load ALL other fields dynamically (except x, y, z, red, green, blue)
+        processed_fields = {'x', 'y', 'z', 'red', 'green', 'blue'}
+        for field_name in available_fields:
+            if field_name not in processed_fields:
+                field_data = plydata[nameInPly].data[field_name]
+                
+                # STEP 1: Load as-is, preserving original shape and dtype
+                field_array = np.ascontiguousarray(field_data)
+                
+                # STEP 2: Check if shape is [N, 1] and squeeze if needed
+                if field_array.ndim == 2 and field_array.shape[1] == 1:
+                    field_array = field_array.squeeze(axis=1)
+                
+                result[field_name] = field_array
+
+        # Add feature if specified and exists (legacy compatibility)
+        if name_feat is not None and name_feat in available_fields and name_feat not in result:
             features = plydata[nameInPly].data[name_feat].astype(np.float64).reshape(-1, 1)
             result['feat'] = features
 
@@ -108,17 +124,14 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     # Initialize result dictionary with position
     result = {'pos': points}
 
-    # Extract RGB colors if available
+    # Extract RGB colors if available - preserve original values and data types
     if all(field in las_file.point_format.dimension_names for field in ['red', 'green', 'blue']):
-        # Normalize RGB values to [0, 1] range - use float64 for precision
-        red_array = np.array(las_file.red, dtype=np.float64)
-        green_array = np.array(las_file.green, dtype=np.float64)
-        blue_array = np.array(las_file.blue, dtype=np.float64)
+        # Keep original RGB values without normalization
+        red_array = np.array(las_file.red)
+        green_array = np.array(las_file.green)
+        blue_array = np.array(las_file.blue)
         
-        red = red_array / np.max(red_array)
-        green = green_array / np.max(green_array)
-        blue = blue_array / np.max(blue_array)
-        rgb = np.vstack((red, green, blue)).T
+        rgb = np.vstack((red_array, green_array, blue_array)).T
         result['rgb'] = rgb
 
     # Add all available attributes
@@ -126,8 +139,13 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
         if field not in ['x', 'y', 'z', 'red', 'green', 'blue']:  # Skip XYZ and RGB as they're already handled
             attr_value = getattr(las_file, field)
             if attr_value is not None:
-                # Keep the original dtype - don't force conversion to float64
-                attr_value = np.array(attr_value).reshape(-1, 1)
+                # STEP 1: Load as-is, preserving original shape and dtype
+                attr_value = np.array(attr_value)
+                
+                # STEP 2: Check if shape is [N, 1] and squeeze if needed
+                if attr_value.ndim == 2 and attr_value.shape[1] == 1:
+                    attr_value = attr_value.squeeze(axis=1)
+                
                 result[field] = attr_value
 
     return result
@@ -228,8 +246,9 @@ def load_point_cloud(
     # Convert any numpy arrays to torch tensors and transfer to device
     def numpy_to_torch_on_device(key, x):
         if isinstance(x, np.ndarray):
+            # Handle uint16 which is not supported by PyTorch - use minimal size increase
             if x.dtype == np.uint16:
-                x = x.astype(np.int64)
+                x = x.astype(np.int32)  # Use int32 instead of int64 to minimize size inflation
             tensor = torch.from_numpy(x).to(device)
             # Apply requested dtype only to position data
             if key == 'pos':
