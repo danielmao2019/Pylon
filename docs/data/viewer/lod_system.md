@@ -50,7 +50,7 @@ subsampled_pc = discrete_lod.select_level("pc_id", camera_state)
 ### **Configuration:**
 ```python
 ContinuousLOD(
-    spatial_bins=64,           # Number of 3D bins (4×4×4 = 64)
+    spatial_bins=64,           # Number of 3D bins (4x4x4 = 64)
     distance_exponent=2.0,     # Distance weighting power (1/d²)
     min_points=2000,           # Minimum points to preserve
     max_reduction=0.8          # Maximum 80% reduction allowed
@@ -177,14 +177,14 @@ else:
 ```python
 # High quality (slower)
 continuous_lod = ContinuousLOD(
-    spatial_bins=125,          # 5×5×5 for finer spatial control
+    spatial_bins=125,          # 5x5x5 for finer spatial control
     distance_exponent=1.5,     # Less aggressive distance weighting
     max_reduction=0.6          # Conservative 60% max reduction
 )
 
 # Performance optimized (faster)
 continuous_lod = ContinuousLOD(
-    spatial_bins=27,           # 3×3×3 for faster binning
+    spatial_bins=27,           # 3x3x3 for faster binning
     distance_exponent=2.5,     # More aggressive distance weighting
     max_reduction=0.9          # Allow up to 90% reduction
 )

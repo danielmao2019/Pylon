@@ -14,7 +14,7 @@ The CityScapes dataset is a large-scale dataset containing high-resolution image
 - **Dataset Size**:
   - Train: 2,966 images
   - Validation: 493 images
-- **Image Size**: 2048×1024 pixels (original)
+- **Image Size**: 2048x1024 pixels (original)
 
 ## Data Structure
 

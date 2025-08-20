@@ -14,7 +14,7 @@ The CelebA (CelebFaces Attributes) dataset is a large-scale face attributes data
   - Train: 162,770 images
   - Validation: 19,867 images
   - Test: 19,962 images
-- **Image Size**: 178×218 pixels (original)
+- **Image Size**: 178x218 pixels (original)
 
 ## Data Structure
 
