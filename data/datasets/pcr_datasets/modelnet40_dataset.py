@@ -4,7 +4,6 @@ import glob
 import torch
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 from data.transforms.vision_3d.random_point_crop import RandomPointCrop
-from utils.point_cloud_ops import normalize_point_cloud
 
 
 class ModelNet40Dataset(SyntheticTransformPCRDataset):
@@ -64,12 +63,12 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
             **kwargs,
         )
     
-    def _init_file_pair_annotations(self) -> None:
-        """Initialize file pair annotations with OFF file paths.
+    def _init_annotations(self) -> None:
+        """Initialize annotations with OFF file paths for ModelNet40.
         
-        For ModelNet40 (single-temporal), each file pair has same src_filepath and tgt_filepath.
+        This method creates annotations directly without using file pair annotations,
+        following the full BaseDataset pattern.
         """
-        
         # ModelNet40 structure: ModelNet40/[category]/[train|test]/[filename].off
         split_dir = self.split
         if self.split == 'val':
@@ -88,17 +87,17 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
             category_files = sorted(glob.glob(os.path.join(category_dir, '*.off')))
             off_files.extend(category_files)
         
-        # Create file pair annotations - for single-temporal, src and tgt are the same file
-        self.file_pair_annotations = []
+        # Create annotations directly - for single-temporal, src and tgt are the same file
+        self.annotations = []
         for file_path in off_files:
             annotation = {
                 'src_filepath': file_path,
                 'tgt_filepath': file_path,  # Same file for self-registration
                 'category': self.get_category_from_path(file_path),
             }
-            self.file_pair_annotations.append(annotation)
+            self.annotations.append(annotation)
         
-        print(f"Found {len(self.file_pair_annotations)} OFF files for split '{self.split}'")
+        print(f"Found {len(self.annotations)} OFF files for split '{self.split}'")
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
@@ -106,18 +105,6 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         version_dict.update({
             'keep_ratio': self.keep_ratio,
         })
-        
-        # Include actual discovered files to distinguish between different datasets
-        if hasattr(self, 'file_pair_annotations'):
-            file_info = []
-            for annotation in self.file_pair_annotations:
-                file_info.append({
-                    'src_basename': os.path.basename(annotation['src_filepath']),
-                    'tgt_basename': os.path.basename(annotation['tgt_filepath']),
-                    'category': annotation.get('category', 'unknown'),
-                })
-            version_dict['file_pairs'] = file_info
-        
         return version_dict
 
     def get_category_from_path(self, file_path: str) -> str:
@@ -139,85 +126,26 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         
         # Fallback: extract from parent directory
         return os.path.basename(os.path.dirname(os.path.dirname(file_path)))
-
-    def _get_cache_param_key(self) -> tuple:
-        """Generate cache parameter key including ModelNet40-specific parameters.
-        
-        Returns:
-            Cache parameter key tuple
-        """
-        parent_key = super()._get_cache_param_key()
-        return parent_key + (self.keep_ratio,)
-
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        """Load and normalize ModelNet40 point cloud data.
-        
-        Args:
-            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
-            
-        Returns:
-            Tuple of (src_pc_dict, tgt_pc_dict) normalized point cloud dictionaries
-        """
-        # Load point clouds using parent method (returns dictionaries)
-        src_pc_dict, tgt_pc_dict = super()._load_file_pair_data(file_pair_annotation)
-        
-        # Apply ModelNet40-specific normalization to position data
-        src_pc_dict['pos'] = normalize_point_cloud(src_pc_dict['pos'])
-        tgt_pc_dict['pos'] = normalize_point_cloud(tgt_pc_dict['pos'])
-        
-        return src_pc_dict, tgt_pc_dict
-
-    def _sample_crop(self, seed: int, file_idx: int) -> dict:
-        """Sample crop parameters for ModelNet40 with RandomPointCrop.
-        
-        Args:
-            seed: Random seed for deterministic sampling
-            file_idx: Index of file pair (unused for ModelNet40)
-            
-        Returns:
-            Dictionary containing crop parameters
-        """
-        _ = file_idx  # Suppress unused parameter warning
-        # Generate crop seed for deterministic cropping
-        crop_seed = (seed * 31 + 42) % (2**32)
-        
-        return {
-            'crop_seed': crop_seed,
-            'keep_ratio': self.keep_ratio,
-        }
     
-    def _build_crop(self, crop_params: dict) -> RandomPointCrop:
-        """Build RandomPointCrop transform from parameters.
+    def _apply_crop(self, idx: int, pc_data: dict) -> dict:
+        """Build and apply RandomPointCrop transform to point cloud data.
         
         Args:
-            crop_params: Crop configuration dictionary
-            
-        Returns:
-            RandomPointCrop transform object
-        """
-        # Create RandomPointCrop transform
-        crop_transform = RandomPointCrop(
-            keep_ratio=crop_params['keep_ratio'],
-            viewpoint=None,  # Random viewpoint
-            limit=500.0  # Default limit
-        )
-        
-        return crop_transform
-    
-    def _apply_crop(self, crop_transform: RandomPointCrop, pc_data: dict, crop_params: dict) -> dict:
-        """Apply RandomPointCrop transform to point cloud data.
-        
-        Args:
-            crop_transform: RandomPointCrop transform object
+            idx: Index into self.annotations
             pc_data: Point cloud dictionary
-            crop_params: Crop configuration parameters
             
         Returns:
             Cropped point cloud dictionary
         """
-        # Use crop_seed for deterministic cropping
-        crop_seed = crop_params['crop_seed']
-        generator = torch.Generator(device=self.device)
-        generator.manual_seed(crop_seed)
+        # Build RandomPointCrop transform using self.keep_ratio (init parameter)
+        crop_transform = RandomPointCrop(
+            keep_ratio=self.keep_ratio,
+            viewpoint=None,  # Random viewpoint
+            limit=500.0  # Default limit
+        )
         
-        return crop_transform._call_single(pc_data, generator=generator)
+        # Use deterministic seeding - combine base_seed with idx for variation
+        seed = self.base_seed + idx
+        
+        # Use __call__ method with seed directly (no manual generator creation)
+        return crop_transform(pc_data, seed=seed)
