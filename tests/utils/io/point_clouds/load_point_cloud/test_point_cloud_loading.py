@@ -428,9 +428,9 @@ def test_load_point_cloud_ply_missing_coordinates(temp_dir):
         # Should raise an error when trying to load
         with pytest.raises((KeyError, IndexError)):
             load_point_cloud(filepath=filepath, device='cpu')
-    except Exception:
-        # If we can't create the malformed PLY, skip this test
-        pytest.skip("Cannot create malformed PLY file for this test")
+    except Exception as e:
+        # If we can't create the malformed PLY, that's a test setup failure
+        assert False, f"Test setup failure: Cannot create malformed PLY file for testing: {e}"
 
 
 def test_load_point_cloud_concurrent_access(temp_dir):
