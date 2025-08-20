@@ -35,21 +35,23 @@ def _normalize_points(points: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np
 def _normalize_transform(
     transform: Union[List[List[Union[int, float]]], np.ndarray, torch.Tensor],
     target_type: type,
-    target_device: Union[str, torch.device, None] = None
+    target_device: Union[str, torch.device, None] = None,
+    target_dtype: Union[torch.dtype, np.dtype, None] = None
 ) -> Union[np.ndarray, torch.Tensor]:
-    """Normalize transform to unbatched (4, 4) format with target type and device.
+    """Normalize transform to unbatched (4, 4) format with target type, device, and dtype.
     
     Args:
         transform: Input transform, can be list, numpy array, or torch tensor
         target_type: Target type (np.ndarray or torch.Tensor)
         target_device: Target device for torch tensors (ignored for numpy arrays)
+        target_dtype: Target data type (torch.dtype for tensors, np.dtype for arrays)
         
     Returns:
-        Normalized transform with shape (4, 4) and target type/device
+        Normalized transform with shape (4, 4) and target type/device/dtype
     """
     # Convert to tensor first
     if isinstance(transform, list):
-        transform = np.array(transform, dtype=np.float32)
+        transform = np.array(transform, dtype=target_dtype)
     
     # Handle batched transforms
     if transform.ndim == 3:
@@ -63,23 +65,38 @@ def _normalize_transform(
     else:
         raise ValueError(f"Transform must have 2 or 3 dimensions, got shape {transform.shape}")
     
-    # Convert to target type
+    # Convert to target type with specified dtype
     if target_type == np.ndarray:
+        # Convert to numpy array
         if isinstance(transform, torch.Tensor):
-            return transform.cpu().numpy().astype(np.float32)
+            numpy_transform = transform.cpu().numpy()
         else:
-            return transform.astype(np.float32)
+            numpy_transform = transform
+        
+        # Apply target dtype if specified, otherwise use float32
+        if target_dtype is not None:
+            return numpy_transform.astype(target_dtype)
+        else:
+            return numpy_transform.astype(np.float32)
     else:  # target_type == torch.Tensor
+        # Convert to torch tensor
         if isinstance(transform, np.ndarray):
-            tensor = torch.tensor(transform, dtype=torch.float32)
-            if target_device is not None:
-                tensor = tensor.to(target_device)
-            return tensor
+            # Apply target dtype if specified, otherwise use float32
+            if target_dtype is not None:
+                tensor = torch.tensor(transform, dtype=target_dtype)
+            else:
+                tensor = torch.tensor(transform, dtype=torch.float32)
         else:
-            tensor = transform.to(torch.float32)
-            if target_device is not None:
-                tensor = tensor.to(target_device)
-            return tensor
+            # Apply target dtype if specified, otherwise use float32
+            if target_dtype is not None:
+                tensor = transform.to(target_dtype)
+            else:
+                tensor = transform.to(torch.float32)
+        
+        # Apply target device if specified
+        if target_device is not None:
+            tensor = tensor.to(target_device)
+        return tensor
 
 
 def apply_transform(
@@ -98,10 +115,13 @@ def apply_transform(
     # Normalize points to unbatched format
     points_normalized, points_was_batched = _normalize_points(points)
     
-    # Normalize transform to target type and device matching points
+    # Normalize transform to target type, device, and dtype matching points
     target_type = type(points_normalized)
     target_device = points_normalized.device if isinstance(points_normalized, torch.Tensor) else None
-    transform_normalized = _normalize_transform(transform, target_type, target_device)
+    target_dtype = points_normalized.dtype
+    transform_normalized = _normalize_transform(transform, target_type, target_device, target_dtype)
+    
+    assert points_normalized.dtype == transform_normalized.dtype, f"{points_normalized.dtype=}, {transform_normalized.dtype=}"
     
     # Apply transformation using homogeneous coordinates
     if isinstance(points_normalized, np.ndarray):

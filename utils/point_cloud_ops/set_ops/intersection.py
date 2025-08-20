@@ -345,11 +345,13 @@ def compute_registration_overlap(
     assert isinstance(src_points, torch.Tensor)
     assert ref_points.ndim == 2 and src_points.ndim == 2
     assert ref_points.shape[1] == 3 and src_points.shape[1] == 3
+    assert src_points.dtype == ref_points.dtype
     
     # Apply transformation to source points if provided
     if transform is not None:
         assert isinstance(transform, torch.Tensor)
         assert transform.shape == (4, 4)
+        transform = transform.to(src_points.dtype)
         # Apply SE(3) transformation: src_transformed = (R @ src.T + t).T
         R = transform[:3, :3]
         t = transform[:3, 3]
