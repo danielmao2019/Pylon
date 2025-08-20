@@ -13,10 +13,10 @@ def gan_dataset_config(request, mnist_data_root):
     split, device_str = request.param  # Unpack the test parameters
     latent_dim = 128
     
-    # Device handling
-    if device_str == "cuda" and not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
+    # Device handling - fail fast if CUDA requested but not available
     device = torch.device(device_str)
+    if device_str == "cuda":
+        assert torch.cuda.is_available(), f"CUDA device requested but not available on this system"
     
     # Create source dataset config
     source_config = {
