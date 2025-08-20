@@ -60,8 +60,8 @@ class RandomRigidTransform(BaseTransform):
         # Create rotation matrix using axis-angle representation (Rodrigues' formula)
         K = torch.tensor([[0, -axis[2], axis[1]],
                          [axis[2], 0, -axis[0]],
-                         [-axis[1], axis[0], 0]], dtype=torch.float32, device=device)
-        R = torch.eye(3, device=device) + torch.sin(angle) * K + (1 - torch.cos(angle)) * (K @ K)
+                         [-axis[1], axis[0], 0]], dtype=axis.dtype, device=device)
+        R = torch.eye(3, dtype=axis.dtype, device=device) + torch.sin(angle) * K + (1 - torch.cos(angle)) * (K @ K)
 
         return R
 
