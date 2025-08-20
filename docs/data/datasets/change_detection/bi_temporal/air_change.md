@@ -13,9 +13,9 @@ The SZTAKI AirChange Benchmark dataset is designed for aerial image change detec
   - Train: 3,744 image crops (generated from 12 base images)
   - Test: 12 full images
 - **Image Size**:
-  - Full images: 952×640 pixels
-  - Test crops: 784×448 pixels
-  - Train crops: 112×112 pixels
+  - Full images: 952x640 pixels
+  - Test crops: 784x448 pixels
+  - Train crops: 112x112 pixels
 - **Class Distribution**:
   - Train: Unchanged (~44,702,892 pixels), Changed (~2,261,831 pixels)
   - Test: Unchanged (4,016,897 pixels), Changed (197,887 pixels)
@@ -70,10 +70,10 @@ ln -s /path/to/AirChange <Pylon_path>/data/datasets/soft_links/AirChange
 
 ## Implementation Details
 
-- The implementation creates training samples by cropping the full images into smaller 112×112 patches
+- The implementation creates training samples by cropping the full images into smaller 112x112 patches
 - For training, 312 crops are generated from each base image (3,744 total crops from 12 images)
 - A special L-shaped cropping strategy is used to create diverse training samples
-- Test evaluation is performed on larger 784×448 crops from the original images
+- Test evaluation is performed on larger 784x448 crops from the original images
 
 ## References
 

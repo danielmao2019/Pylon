@@ -13,7 +13,7 @@ The Multi-MNIST dataset is a synthetic dataset created by overlaying two MNIST d
 - **Dataset Size**:
   - Train: 60,000 images
   - Test: 10,000 images
-- **Image Size**: 36×36 pixels
+- **Image Size**: 36x36 pixels
 
 ## Data Structure
 

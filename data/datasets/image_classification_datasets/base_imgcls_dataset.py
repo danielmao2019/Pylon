@@ -113,7 +113,7 @@ class BaseImgClsDataset(BaseDataset):
             )
         
         # Update layout
-        title_parts = [f"Image ({height}×{width}×{channels})"]
+        title_parts = [f"Image ({height}x{width}x{channels})"]
         
         # Add label information
         if label is not None:

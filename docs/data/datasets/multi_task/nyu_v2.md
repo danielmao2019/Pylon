@@ -15,7 +15,7 @@ The NYU-v2 dataset is a widely used indoor scene understanding dataset that prov
 - **Dataset Size**:
   - Train: 795 images
   - Validation: 654 images
-- **Image Size**: 640×480 pixels (original)
+- **Image Size**: 640x480 pixels (original)
 
 ## Data Structure
 

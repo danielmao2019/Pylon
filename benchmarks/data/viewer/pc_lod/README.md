@@ -87,7 +87,7 @@ The benchmark tests realistic point count groups with ±15% variance:
 - **100K Group**: 85,000-115,000 points per sample
 - **1M Group**: 850,000-1,150,000 points per sample
 
-Each group tests 5 samples × 4 shapes = 20 configurations per group.
+Each group tests 5 samples x 4 shapes = 20 configurations per group.
 
 ### **Real Data Requirements**
 
@@ -119,8 +119,8 @@ The real data benchmark:
 - **Datasets**: URB3DCD (3D change detection), SLPCCD (street-level change detection), KITTI (point cloud registration)
 - **Sample size**: 10 datapoints per dataset (randomly selected with seed=42)
 - **Point clouds per datapoint**: 2 (e.g., pc_1/pc_2 for change detection, src/tgt for registration)
-- **Camera poses**: 3 distance groups × 3 poses per group = 9 poses per point cloud
-- **Distance groups**: Close (0.5× point cloud size), Medium (2.0×), Far (5.0×)
+- **Camera poses**: 3 distance groups x 3 poses per group = 9 poses per point cloud
+- **Distance groups**: Close (0.5x point cloud size), Medium (2.0x), Far (5.0x)
 
 ### **Timing Methodology**
 - Multiple runs per configuration
