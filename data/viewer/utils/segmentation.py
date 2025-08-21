@@ -119,17 +119,30 @@ def create_segmentation_figure(
     # Convert segmentation map to RGB
     colored_map = segmentation_to_numpy(seg)
 
-    # Create figure
-    fig = px.imshow(
-        colored_map,
-        title=title
-    )
-
+    # Create figure - explicitly disable color scale for RGB images
+    fig = go.Figure(data=go.Image(z=colored_map))
+    
     fig.update_layout(
-        title_x=0.5,
+        title=dict(text=title, x=0.5, xanchor='center'),
         margin=dict(l=20, r=20, t=40, b=20),
-        height=400
+        height=400,
+        xaxis=dict(
+            scaleanchor="y", 
+            scaleratio=1,  # Lock aspect ratio
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False
+        ),
+        yaxis=dict(
+            autorange='reversed',  # Standard image convention
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False
+        )
     )
+    
+    # Ensure no colorbar/colorscale is shown
+    fig.update_traces(hovertemplate=None, hoverinfo='skip')
 
     return fig
 
