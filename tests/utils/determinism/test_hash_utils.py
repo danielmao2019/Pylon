@@ -129,3 +129,58 @@ def test_edge_cases():
         
         # Should be consistent
         assert deterministic_hash(obj) == hash_val
+
+
+def test_non_negative_guarantee():
+    """Test that deterministic_hash() always returns non-negative values.
+    
+    This guarantee is critical for color generation in segmentation visualization
+    (data.viewer.utils.segmentation.get_color), where the hash value is used 
+    directly in the golden ratio color mapping algorithm without needing abs().
+    
+    The previous implementation used abs(hash(obj)) because Python's built-in
+    hash() can return negative values. Our deterministic_hash() eliminates 
+    this need by guaranteeing non-negative output.
+    """
+    # Test a wide variety of objects that could be used as class identifiers
+    test_objects = [
+        # Primitive types
+        -999, -1, 0, 1, 999,
+        -3.14159, 0.0, 3.14159,
+        "", "negative_string", "class_name",
+        True, False, None,
+        
+        # Collections with potentially negative elements
+        [-1, -2, -3],
+        (-5, -4, -3),
+        {-10, -20, -30},
+        {"negative": -1, "zero": 0},
+        
+        # Complex nested structures
+        {"classes": [-1, "background"], "meta": {"version": -2}},
+        [("negative_tuple", -1), ["negative_list", -2]],
+        
+        # Edge cases that might cause issues
+        float('-inf'), float('inf'),
+        "",  # empty string
+        [],  # empty collections
+        {},
+        set(),
+        
+        # Objects with string representations that might be negative
+        type(-1),  # <class 'int'>
+        slice(-1, None, -1),  # slice(-1, None, -1)
+    ]
+    
+    for obj in test_objects:
+        hash_val = deterministic_hash(obj)
+        
+        # The core guarantee: always non-negative
+        assert hash_val >= 0, f"deterministic_hash({obj}) = {hash_val} is negative!"
+        
+        # Additional constraints for segmentation color mapping
+        assert isinstance(hash_val, int), f"Hash should be int, got {type(hash_val)}"
+        assert hash_val < 2**32, f"Hash should fit in 32-bit range, got {hash_val}"
+        
+        # Verify consistency (same input -> same output)
+        assert deterministic_hash(obj) == hash_val, f"Inconsistent hash for {obj}"
