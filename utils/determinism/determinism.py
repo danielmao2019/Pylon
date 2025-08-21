@@ -17,8 +17,8 @@ def set_seed(seed: Any) -> None:
     Args:
         seed: Any hashable object to use as seed.
     """
-    if not isinstance(seed, int):
-        seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
+    from utils.determinism.hash_utils import convert_to_seed
+    seed = convert_to_seed(seed)
     random.seed(seed)
     numpy.random.seed(seed)
     torch.manual_seed(seed)

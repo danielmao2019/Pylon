@@ -46,7 +46,8 @@ class RandomSelect:
             gen = torch.Generator(device=pc['pos'].device)
             # Handle tuple seeds like BaseTransform does
             if not isinstance(seed, int):
-                seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
+                from utils.determinism.hash_utils import convert_to_seed
+                seed = convert_to_seed(seed)
             gen.manual_seed(seed)
         
         num_points = pc['pos'].shape[0]

@@ -370,7 +370,8 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                 # Check if overlap is in valid range
                 if self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
                     # Found valid trial - generate point clouds with this trial
-                    trial_seed = hash((annotation_key, current_trial)) % (2**32)
+                    from utils.determinism.hash_utils import deterministic_hash
+                    trial_seed = deterministic_hash((annotation_key, current_trial))
                     transform_params = self._sample_transform(trial_seed, 0)
                     
                     src_pc, tgt_pc, overlap = self._generate(
@@ -383,7 +384,8 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                     return src_pc, tgt_pc, overlap, transform_params, current_trial
             else:
                 # Trial not cached - generate it
-                trial_seed = hash((annotation_key, current_trial)) % (2**32)
+                from utils.determinism.hash_utils import deterministic_hash
+                trial_seed = deterministic_hash((annotation_key, current_trial))
                 transform_params = self._sample_transform(trial_seed, 0)
                 
                 # Generate point clouds and compute overlap
