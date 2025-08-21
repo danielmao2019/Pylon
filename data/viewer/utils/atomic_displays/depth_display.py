@@ -79,14 +79,14 @@ def create_depth_display(
                     opacity=0.7  # Slightly transparent
                 ))
             
-            # Update layout
+            # Update layout to match image display behavior
             fig.update_layout(
                 title=title,
                 title_x=0.5,
                 margin=dict(l=20, r=20, t=40, b=20),
                 height=400,
-                xaxis=dict(showticklabels=False),
-                yaxis=dict(showticklabels=False, autorange='reversed')  # Flip y-axis for image convention
+                xaxis=dict(showticklabels=True, scaleanchor="y", scaleratio=1),  # Lock aspect ratio
+                yaxis=dict(showticklabels=True, autorange='reversed')  # Enable tick labels and flip y-axis
             )
         else:
             # No ignore values present, use standard visualization
@@ -111,7 +111,11 @@ def create_depth_display(
             title_x=0.5,
             margin=dict(l=20, r=20, t=40, b=20),
             height=400,
-            coloraxis_colorbar=dict(title="Depth")
+            coloraxis_colorbar=dict(title="Depth"),
+            coloraxis_showscale=True,
+            showlegend=False,
+            xaxis=dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
+            yaxis=dict(autorange='reversed')  # Standard image convention
         )
     
     return fig

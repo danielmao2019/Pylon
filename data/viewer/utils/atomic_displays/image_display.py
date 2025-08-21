@@ -106,7 +106,9 @@ def create_image_display(
         margin=dict(l=20, r=20, t=40, b=20),
         coloraxis_showscale=True,
         showlegend=False,
-        height=400
+        height=400,
+        xaxis=dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
+        yaxis=dict(autorange='reversed')  # Standard image convention
     )
 
     return fig
