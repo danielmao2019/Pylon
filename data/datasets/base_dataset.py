@@ -316,9 +316,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def set_base_seed(self, seed: Any) -> None:
         """Set the base seed for the dataset."""
-        if not isinstance(seed, int):
-            seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
-        self.base_seed = seed
+        from utils.determinism.hash_utils import convert_to_seed
+        self.base_seed = convert_to_seed(seed)
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
         # Try to get raw datapoint from cache first

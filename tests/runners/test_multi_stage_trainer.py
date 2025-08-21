@@ -46,9 +46,8 @@ class SimpleDataset(torch.utils.data.Dataset):
 
     def set_base_seed(self, seed):
         """Set the base seed for the dataset."""
-        if not isinstance(seed, int):
-            seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
-        self.base_seed = seed
+        from utils.determinism.hash_utils import convert_to_seed
+        self.base_seed = convert_to_seed(seed)
 
 
 class SimpleModel(torch.nn.Module):
