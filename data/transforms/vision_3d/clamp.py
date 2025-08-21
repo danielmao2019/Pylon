@@ -61,7 +61,8 @@ class Clamp(BaseTransform):
                 import random
                 seed = random.randint(0, 2**32 - 1)
             if not isinstance(seed, int):
-                seed = hash(seed) % (2**32)
+                from utils.determinism.hash_utils import convert_to_seed
+                seed = convert_to_seed(seed)
             generator.manual_seed(seed)
         
         indices = torch.randperm(num_points, generator=generator, device=device)[:self.max_points]

@@ -167,6 +167,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                 for i, overlap in enumerate(overlap_list):
                     assert isinstance(overlap, (int, float)), f"Overlap {i} must be number, got {type(overlap)}"
                     assert 0.0 <= overlap <= 1.0, f"Overlap {i} must be in [0, 1], got {overlap}"
+
     def _save_trials_cache(self) -> None:
         """Save trials cache to disk (thread-safe)."""
         if self.cache_filepath is not None:
@@ -209,7 +210,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         annotation_hash = hashlib.md5(annotation_str.encode()).hexdigest()[:8]
         return annotation_hash
     
-    
     def _load_datapoint(self, idx: int) -> tuple:
         """Load a synthetic datapoint using trial-based caching logic.
         
@@ -232,7 +232,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         t2_pc_filepath = annotation['t2_pc_filepath']
         
         # Core logic: search for valid cached transform or generate new ones
-        src_pc, tgt_pc, overlap_ratio, transform_params, trial_used = self._search_or_generate(
+        src_pc, tgt_pc, overlap_ratio, transform_params, trail_idx = self._search_or_generate(
             t1_pc_filepath=t1_pc_filepath,
             t2_pc_filepath=t2_pc_filepath,
             idx=idx
@@ -271,7 +271,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         meta_info = {
             't1_pc_filepath': t1_pc_filepath,
             't2_pc_filepath': t2_pc_filepath,
-            'trial_idx': trial_used,
+            'trial_idx': trail_idx,
             'transform_params': transform_params,
             'overlap': overlap_ratio,
         }
@@ -370,7 +370,8 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                 # Check if overlap is in valid range
                 if self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
                     # Found valid trial - generate point clouds with this trial
-                    trial_seed = hash((annotation_key, current_trial)) % (2**32)
+                    from utils.determinism.hash_utils import deterministic_hash
+                    trial_seed = deterministic_hash((annotation_key, current_trial))
                     transform_params = self._sample_transform(trial_seed, 0)
                     
                     src_pc, tgt_pc, overlap = self._generate(
@@ -383,7 +384,8 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                     return src_pc, tgt_pc, overlap, transform_params, current_trial
             else:
                 # Trial not cached - generate it
-                trial_seed = hash((annotation_key, current_trial)) % (2**32)
+                from utils.determinism.hash_utils import deterministic_hash
+                trial_seed = deterministic_hash((annotation_key, current_trial))
                 transform_params = self._sample_transform(trial_seed, 0)
                 
                 # Generate point clouds and compute overlap
@@ -397,6 +399,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                 # Update cache with thread safety
                 with self.cache_lock:
                     # Append to the actual cache list
+                    assert len(self.trials_cache[dataset_version_key][annotation_key]) == current_trial
                     self.trials_cache[dataset_version_key][annotation_key].append(overlap_ratio)
                     if self.cache_filepath is not None:
                         self._save_trials_cache()

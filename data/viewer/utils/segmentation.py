@@ -17,7 +17,8 @@ def get_color(idx: Any) -> str:
     """
     # Convert non-integer indices to integers using hash
     if not isinstance(idx, int):
-        idx = abs(hash(idx))
+        from utils.determinism.hash_utils import deterministic_hash
+        idx = deterministic_hash(idx)
 
     # Use golden ratio to get well-distributed hues
     # This ensures colors are visually distinct even for consecutive indices
