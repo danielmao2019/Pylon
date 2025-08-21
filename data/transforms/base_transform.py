@@ -16,7 +16,8 @@ class BaseTransform:
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
         if not isinstance(seed, int):
-            seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
+            from utils.determinism.hash_utils import convert_to_seed
+            seed = convert_to_seed(seed)
 
         if g_type == 'random':
             generator = random.Random()
