@@ -22,6 +22,7 @@ def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
         dcc.Store(id='transforms-store', data={}),
         dcc.Store(id='3d-settings-store', data={}),
         dcc.Store(id='camera-state', data=None),
+        dcc.Store(id='segmentation-color-seed', data=0),
         
         # Backend sync stores (dummy outputs for pure backend sync callbacks)
         dcc.Store(id='backend-sync-3d-settings', data={}),

@@ -283,7 +283,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int], color_see
     
     # Create complete Dash HTML component with header, toggle button, list, and plot
     return html.Div([
-        # Header with toggle button
+        # Header with toggle button and shuffle button
         html.Div([
             html.Span(
                 f"Distribution across {len(indices)} classes:",
@@ -296,6 +296,21 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int], color_see
             html.Button(
                 "📊 Chart View",
                 id=toggle_button_id,
+                n_clicks=0,
+                style={
+                    'font-size': '10px',
+                    'padding': '2px 6px',
+                    'border': '1px solid #ccc',
+                    'border-radius': '3px',
+                    'background-color': '#f8f9fa',
+                    'cursor': 'pointer',
+                    'color': '#333',
+                    'margin-right': '5px'
+                }
+            ),
+            html.Button(
+                "🎨 Shuffle Colors",
+                id=shuffle_button_id,
                 n_clicks=0,
                 style={
                     'font-size': '10px',
