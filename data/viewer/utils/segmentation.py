@@ -155,12 +155,14 @@ def create_segmentation_figure(
 
 
 def get_segmentation_stats(
-    seg: Union[torch.Tensor, Dict[str, Any]]
+    seg: Union[torch.Tensor, Dict[str, Any]],
+    color_seed: int = 0
 ) -> Dict[str, Any]:
     """Get statistical information about a segmentation map.
 
     Args:
         seg: Segmentation representation (see tensor_to_semseg for supported formats)
+        color_seed: Seed for color generation to shuffle colors (default: 0)
     """
     if isinstance(seg, dict):
         # Handle dict format with masks and indices
@@ -181,18 +183,19 @@ def get_segmentation_stats(
     stats = {
         "Shape": f"{seg_np.shape}",
         "Number of Classes": len(indices),
-        "Class Distribution": _format_class_distribution(seg_np, indices)
+        "Class Distribution": _format_class_distribution(seg_np, indices, color_seed=color_seed)
     }
 
     return stats
 
 
-def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.Div':
+def _format_class_distribution(seg_np: np.ndarray, indices: List[int], color_seed: int = 0) -> 'html.Div':
     """Format class distribution as colorful Dash HTML components with bullet points and toggle bar plot.
     
     Args:
         seg_np: Segmentation numpy array
         indices: List of unique class indices
+        color_seed: Seed for color generation to shuffle colors (default: 0)
         
     Returns:
         Dash HTML Div component with colors matching segmentation visualization and toggle bar plot
@@ -220,8 +223,8 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
     # Create Dash HTML list items with colors matching segmentation visualization
     list_items = []
     for idx, pixels, percentage in class_info:
-        # Get the same color used in segmentation visualization
-        color = get_color(idx)
+        # Get the same color used in segmentation visualization with seed
+        color = get_color(idx, seed=color_seed)
         
         # Create list item data
         class_name = f"Class {idx}"
@@ -274,8 +277,8 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
         
         list_items.append(list_item)
     
-    # Create bar plot figure
-    bar_plot_fig = _create_class_distribution_bar_plot(class_info)
+    # Create bar plot figure with color seed
+    bar_plot_fig = _create_class_distribution_bar_plot(class_info, color_seed=color_seed)
     
     # Create complete Dash HTML component with header, toggle button, list, and plot
     return html.Div([
@@ -339,11 +342,12 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
     })
 
 
-def _create_class_distribution_bar_plot(class_info: List[tuple]) -> go.Figure:
+def _create_class_distribution_bar_plot(class_info: List[tuple], color_seed: int = 0) -> go.Figure:
     """Create a colorful bar plot for class distribution.
     
     Args:
         class_info: List of tuples (class_idx, pixel_count, percentage)
+        color_seed: Seed for color generation to shuffle colors (default: 0)
         
     Returns:
         Plotly bar plot figure with colors matching segmentation visualization
@@ -351,7 +355,7 @@ def _create_class_distribution_bar_plot(class_info: List[tuple]) -> go.Figure:
     # Extract data for plotting
     class_indices = [str(info[0]) for info in class_info]
     percentages = [info[2] for info in class_info]
-    colors = [get_color(info[0]) for info in class_info]
+    colors = [get_color(info[0], seed=color_seed) for info in class_info]
     
     # Create bar plot
     fig = go.Figure(data=[
