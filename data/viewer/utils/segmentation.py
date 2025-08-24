@@ -6,11 +6,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-def get_color(idx: Any) -> str:
+def get_color(idx: Any, seed: int = 0) -> str:
     """Generate a deterministic color for any hashable class identifier.
 
     Args:
         idx: Any hashable object (int, str, tuple, etc.)
+        seed: Optional seed to shuffle colors (default: 0)
 
     Returns:
         Hex color code
@@ -19,6 +20,9 @@ def get_color(idx: Any) -> str:
     if not isinstance(idx, int):
         from utils.determinism.hash_utils import deterministic_hash
         idx = deterministic_hash(idx)
+
+    # Add seed to the index to shuffle colors
+    idx = idx + seed
 
     # Use golden ratio to get well-distributed hues
     # This ensures colors are visually distinct even for consecutive indices
@@ -61,7 +65,7 @@ def get_color(idx: Any) -> str:
     return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
 
 
-def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarray:
+def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]], color_seed: int = 0) -> np.ndarray:
     """Convert a segmentation representation to a colored RGB image.
 
     Args:
@@ -70,6 +74,7 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
             - Dict with keys:
                 - "masks": List[torch.Tensor] of binary masks
                 - "indices": List[Any] of corresponding indices
+        color_seed: Seed for color generation to shuffle colors (default: 0)
 
     Returns:
         Numpy array of shape (H, W, 3) with RGB colors
@@ -91,8 +96,8 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
         tensor = seg
         indices = torch.unique(tensor).tolist()
 
-    # Generate colors for each index
-    colors = [get_color(idx) for idx in indices]
+    # Generate colors for each index with the provided seed
+    colors = [get_color(idx, seed=color_seed) for idx in indices]
 
     # Create colored segmentation map
     seg_np = tensor.cpu().numpy()
