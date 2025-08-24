@@ -9,6 +9,7 @@ def create_segmentation_display(
     segmentation: Union[torch.Tensor, Dict[str, Any]],
     title: str,
     class_labels: Optional[Dict[str, List[str]]] = None,
+    color_seed: int = 0,
     **kwargs: Any
 ) -> go.Figure:
     """Create segmentation display for semantic or instance segmentation.
@@ -19,6 +20,7 @@ def create_segmentation_display(
             - Dict with keys "masks" (List[torch.Tensor]) and "indices" (List[Any])
         title: Title for the segmentation display
         class_labels: Optional mapping from class indices to label names
+        color_seed: Seed for color generation to shuffle colors (default: 0)
         **kwargs: Additional arguments passed to create_segmentation_figure
         
     Returns:
@@ -54,12 +56,13 @@ def create_segmentation_display(
     if class_labels is not None:
         assert isinstance(class_labels, dict), f"class_labels must be dict, got {type(class_labels)}"
     
-    # Use existing create_segmentation_figure implementation
-    return create_segmentation_figure(seg=segmentation, title=title)
+    # Use existing create_segmentation_figure implementation with color seed
+    return create_segmentation_figure(seg=segmentation, title=title, color_seed=color_seed)
 
 
 def get_segmentation_display_stats(
-    segmentation: Union[torch.Tensor, Dict[str, Any]]
+    segmentation: Union[torch.Tensor, Dict[str, Any]],
+    color_seed: int = 0
 ) -> Dict[str, Any]:
     """Get segmentation statistics for display.
     
@@ -67,6 +70,7 @@ def get_segmentation_display_stats(
         segmentation: Segmentation data, can be:
             - 2D tensor of shape [H, W] or [N, H, W] (batched) with class indices
             - Dict with keys "masks" (List[torch.Tensor]) and "indices" (List[Any])
+        color_seed: Seed for color generation to shuffle colors (default: 0)
         
     Returns:
         Dictionary containing segmentation statistics
@@ -90,5 +94,5 @@ def get_segmentation_display_stats(
     else:
         assert False, f"segmentation must be torch.Tensor or dict, got {type(segmentation)}"
     
-    # Use existing get_segmentation_stats implementation
-    return get_segmentation_stats(segmentation)
+    # Use existing get_segmentation_stats implementation with color seed
+    return get_segmentation_stats(segmentation, color_seed=color_seed)

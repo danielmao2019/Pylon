@@ -207,6 +207,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int], color_see
     component_index = get_next_component_index()
     toggle_button_id = {'type': 'class-dist-toggle', 'index': component_index}
     bar_plot_id = {'type': 'class-dist-plot', 'index': component_index}
+    shuffle_button_id = {'type': 'seg-color-shuffle', 'index': component_index}
     
     # Calculate class statistics
     class_info = []
