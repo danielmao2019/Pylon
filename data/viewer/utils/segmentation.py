@@ -114,15 +114,17 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]], color_seed: 
 def create_segmentation_figure(
     seg: Union[torch.Tensor, Dict[str, Any]],
     title: str = "Segmentation Map",
+    color_seed: int = 0,
 ) -> go.Figure:
     """Create a segmentation map figure.
 
     Args:
         seg: Segmentation representation (see tensor_to_semseg for supported formats)
         title: Figure title
+        color_seed: Seed for color generation to shuffle colors (default: 0)
     """
-    # Convert segmentation map to RGB
-    colored_map = segmentation_to_numpy(seg)
+    # Convert segmentation map to RGB with color seed
+    colored_map = segmentation_to_numpy(seg, color_seed=color_seed)
 
     # Create figure - explicitly disable color scale for RGB images
     fig = go.Figure(data=go.Image(z=colored_map))
