@@ -66,11 +66,13 @@ def update_current_index(current_idx: int) -> List[str]:
 @callback(
     outputs=[
         Output('datapoint-display', 'children', allow_duplicate=True),
+        Output('segmentation-color-seed', 'data', allow_duplicate=True),
     ],
     inputs=[
         Input('datapoint-index-slider', 'value'),
         Input('3d-settings-store', 'data'),
-        Input('camera-state', 'data')
+        Input('camera-state', 'data'),
+        Input('segmentation-color-seed', 'data')
     ],
     states=[
         State('dataset-info', 'data')
@@ -82,8 +84,9 @@ def update_datapoint_from_navigation(
     datapoint_idx: int,
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
     camera_state: Dict,
+    segmentation_color_seed: int,
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
-) -> List[html.Div]:
+) -> List[Any]:
     """
     Update the displayed datapoint when navigation index changes.
     """
@@ -154,8 +157,13 @@ def update_datapoint_from_navigation(
         datapoint=datapoint,
         class_labels=class_labels,
         camera_state=final_camera_state,
-        settings_3d=settings_3d
+        settings_3d=settings_3d,
+        color_seed=segmentation_color_seed
     )
 
     logger.info("Navigation display created successfully")
-    return [display]
+    # Reset color seed to 0 only when datapoint index changes (not for camera/settings updates)
+    ctx_triggered = callback_context.triggered[0] if callback_context.triggered else None
+    should_reset_seed = ctx_triggered and 'datapoint-index-slider' in ctx_triggered['prop_id']
+    new_seed = 0 if should_reset_seed else segmentation_color_seed
+    return [display, new_seed]

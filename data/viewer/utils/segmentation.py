@@ -1,5 +1,5 @@
 """Utility functions for semantic segmentation visualization."""
-from typing import Dict, Union, Any, List
+from typing import Dict, Union, Any, List, Optional
 import numpy as np
 import torch
 import plotly.express as px
@@ -156,7 +156,7 @@ def create_segmentation_figure(
 
 def get_segmentation_stats(
     seg: Union[torch.Tensor, Dict[str, Any]],
-    color_seed: int = 0
+    color_seed: int = 0,
 ) -> Dict[str, Any]:
     """Get statistical information about a segmentation map.
 

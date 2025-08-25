@@ -312,7 +312,8 @@ class PASCALContextDataset(BaseMultiTaskDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
+        color_seed: int = 0
     ) -> 'html.Div':
         """Display PASCAL Context multi-task datapoint with all modalities.
         
@@ -379,9 +380,10 @@ class PASCALContextDataset(BaseMultiTaskDataset):
             figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['semantic_segmentation'],
                 title="Semantic Segmentation",
-                class_labels=class_labels
+                class_labels=class_labels,
+                color_seed=color_seed
             ))
-            stats_data.append(get_segmentation_display_stats(labels['semantic_segmentation']))
+            stats_data.append(get_segmentation_display_stats(labels['semantic_segmentation'], color_seed=color_seed))
             stats_titles.append("Semantic Segmentation Statistics")
         
         # Conditionally add normal estimation
@@ -397,18 +399,20 @@ class PASCALContextDataset(BaseMultiTaskDataset):
         if 'saliency_estimation' in labels:
             figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['saliency_estimation'],
-                title="Saliency Detection"
+                title="Saliency Detection",
+                color_seed=color_seed
             ))
-            stats_data.append(get_segmentation_display_stats(labels['saliency_estimation']))
+            stats_data.append(get_segmentation_display_stats(labels['saliency_estimation'], color_seed=color_seed))
             stats_titles.append("Saliency Detection Statistics")
         
         # Conditionally add parts segmentation if selected and present
         if 'parts_target' in labels and labels.get('parts_target') is not None:
             figure_tasks.append(lambda: create_segmentation_display(
                 segmentation=labels['parts_target'],
-                title="Human Parts Segmentation"
+                title="Human Parts Segmentation",
+                color_seed=color_seed
             ))
-            stats_data.append(get_segmentation_display_stats(labels['parts_target']))
+            stats_data.append(get_segmentation_display_stats(labels['parts_target'], color_seed=color_seed))
             stats_titles.append("Human Parts Statistics")
         
         # Create figures in parallel for better performance  

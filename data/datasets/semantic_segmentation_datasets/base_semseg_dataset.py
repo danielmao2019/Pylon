@@ -37,7 +37,8 @@ class BaseSemsegDataset(BaseDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
+        color_seed: int = 0
     ) -> html.Div:
         """Display a semantic segmentation datapoint with all relevant information.
         
@@ -51,6 +52,7 @@ class BaseSemsegDataset(BaseDataset):
             class_labels: Optional dictionary mapping class indices to label names (unused for semantic segmentation)
             camera_state: Optional dictionary containing camera position state (unused for semantic segmentation)
             settings_3d: Optional dictionary containing 3D visualization settings (unused for semantic segmentation)
+            color_seed: Seed for color generation to shuffle colors (default: 0)
             
         Returns:
             html.Div: HTML layout for displaying this datapoint
@@ -79,14 +81,14 @@ class BaseSemsegDataset(BaseDataset):
             ], style=DisplayStyles.GRID_ITEM_50),
 
             html.Div([
-                dcc.Graph(figure=create_segmentation_figure(seg, title="Segmentation Map"))
+                dcc.Graph(figure=create_segmentation_figure(seg, title="Segmentation Map", color_seed=color_seed))
             ], style=DisplayStyles.GRID_ITEM_50)
         ]
 
         # Create statistics components
         stats_data = [
             get_image_display_stats(image),
-            get_segmentation_stats(seg)
+            get_segmentation_stats(seg, color_seed=color_seed)
         ]
         titles = ["Image Statistics", "Segmentation Statistics"]
         stats_components = create_statistics_display(stats_data, titles, width_style="50%")

@@ -10,6 +10,7 @@ from data.viewer.callbacks import camera
 from data.viewer.callbacks import transforms
 from data.viewer.callbacks import backend_sync
 from data.viewer.callbacks import class_distribution
+from data.viewer.callbacks import segmentation_color
 
 
 __all__ = (
@@ -22,4 +23,5 @@ __all__ = (
     'transforms',
     'backend_sync',
     'class_distribution',
+    'segmentation_color',
 )

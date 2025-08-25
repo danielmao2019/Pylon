@@ -354,7 +354,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
+        color_seed: int = 0
     ) -> Optional['html.Div']:
         """Create custom display for this dataset's datapoints.
         
@@ -366,6 +367,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             class_labels: Optional dictionary mapping class indices to label names
             camera_state: Optional dictionary containing camera position state for 3D visualizations
             settings_3d: Optional dictionary containing 3D visualization settings
+            color_seed: Seed for color generation to shuffle colors (default: 0)
             
         Returns:
             Optional html.Div: Custom HTML layout for displaying this datapoint.
