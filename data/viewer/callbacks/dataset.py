@@ -95,7 +95,8 @@ def update_dataset_options(selected_group: Optional[str]) -> List[Union[List[Dic
         Output('datapoint-index-slider', 'marks'),
         Output('datapoint-display', 'children', allow_duplicate=True),
         Output('dataset-info-display', 'children'),
-        Output('transforms-section', 'children')
+        Output('transforms-section', 'children'),
+        Output('transforms-store', 'data')
     ],
     inputs=[Input('dataset-dropdown', 'value')],
     group="dataset"
@@ -125,6 +126,13 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
         "Use the slider to navigate."
     )
     
+    # Initialize transforms store with all transforms selected by default
+    all_transform_indices = [transform['index'] for transform in dataset_info['transforms']]
+    transforms_store_data = {
+        'dataset_name': dataset_key,
+        'selected_indices': all_transform_indices
+    }
+    
     logger.info("Dataset loaded successfully, returning updated UI components")
 
     return [
@@ -136,6 +144,7 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
         success_message,                                        # datapoint-display
         create_dataset_info_display(dataset_info),             # dataset-info-display
         create_transforms_section(dataset_info['transforms']), # transforms-section
+        transforms_store_data                                   # transforms-store
     ]
 
 
@@ -170,6 +179,7 @@ def _create_empty_dataset_state() -> List[Union[Dict[str, Any], int, html.Div]]:
         html.Div("No dataset selected."), # datapoint-display
         create_dataset_info_display(),    # dataset-info-display
         create_transforms_section(),      # transforms-section
+        {}                               # transforms-store (empty)
     ]
 
 

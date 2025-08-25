@@ -95,7 +95,7 @@ def update_datapoint_from_navigation(
     logger.info(f"Navigation callback triggered - Index: {datapoint_idx}")
 
     # Handle case where no dataset is selected (normal UI state)
-    if dataset_info is None or dataset_info == {}:
+    if dataset_info is None or dataset_info == {} or transforms_store is None or transforms_store == {}:
         # Thread-safe return instead of raising PreventUpdate in debounced context
         return [dash.no_update]
     

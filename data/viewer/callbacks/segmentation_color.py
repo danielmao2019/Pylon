@@ -60,7 +60,7 @@ def shuffle_segmentation_colors(
         raise PreventUpdate
     
     # Handle case where no dataset is selected
-    if dataset_info is None or dataset_info == {}:
+    if dataset_info is None or dataset_info == {} or transforms_store is None or transforms_store == {}:
         raise PreventUpdate
     
     # Assert dataset info structure is valid
