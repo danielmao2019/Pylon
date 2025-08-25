@@ -1,12 +1,11 @@
 """Test PCRDataloader implementation."""
 
 import os
-import tempfile
 import shutil
 from typing import Dict, Any, List
 import torch
-import pytest
 from data.dataloaders.pcr_dataloader import PCRDataloader
+from utils.ops.dict_as_tensor import buffer_allclose
 
 
 class DummyPCRDataloaderForTesting(PCRDataloader):
@@ -106,9 +105,9 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
         
         for i, (no_cache, cache_1st, cache_2nd) in enumerate(zip(outputs_no_cache, outputs_with_cache_1st, outputs_with_cache_2nd)):
             # Check that all three outputs are identical
-            _assert_batches_equal(no_cache, cache_1st, f"Batch {i}: no_cache vs cache_1st")
-            _assert_batches_equal(cache_1st, cache_2nd, f"Batch {i}: cache_1st vs cache_2nd")
-            _assert_batches_equal(no_cache, cache_2nd, f"Batch {i}: no_cache vs cache_2nd")
+            assert buffer_allclose(no_cache, cache_1st), f"Batch {i}: no_cache vs cache_1st not equal"
+            assert buffer_allclose(cache_1st, cache_2nd), f"Batch {i}: cache_1st vs cache_2nd not equal"
+            assert buffer_allclose(no_cache, cache_2nd), f"Batch {i}: no_cache vs cache_2nd not equal"
             
         print(f"✅ Test passed: All {len(outputs_no_cache)} batches are identical across cache/no-cache configurations")
         
@@ -118,77 +117,3 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
         if os.path.exists(cache_dir):
             shutil.rmtree(cache_dir)
 
-
-def _assert_batches_equal(batch1: Dict[str, Any], batch2: Dict[str, Any], context: str):
-    """Assert that two batches are identical."""
-    assert batch1.keys() == batch2.keys(), f"{context}: Different keys: {batch1.keys()} vs {batch2.keys()}"
-    
-    for key in batch1.keys():
-        if key == 'inputs':
-            _assert_inputs_equal(batch1[key], batch2[key], f"{context}, inputs")
-        elif key == 'labels':
-            _assert_labels_equal(batch1[key], batch2[key], f"{context}, labels")
-        elif key == 'meta_info':
-            _assert_meta_info_equal(batch1[key], batch2[key], f"{context}, meta_info")
-        else:
-            raise ValueError(f"Unexpected batch key: {key}")
-
-
-def _assert_inputs_equal(inputs1: Dict[str, Any], inputs2: Dict[str, Any], context: str):
-    """Assert that input dictionaries are identical."""
-    assert inputs1.keys() == inputs2.keys(), f"{context}: Different input keys: {inputs1.keys()} vs {inputs2.keys()}"
-    
-    for key in inputs1.keys():
-        pc1, pc2 = inputs1[key], inputs2[key]
-        assert pc1.keys() == pc2.keys(), f"{context}, {key}: Different point cloud keys: {pc1.keys()} vs {pc2.keys()}"
-        
-        for pc_key in pc1.keys():
-            if isinstance(pc1[pc_key], torch.Tensor):
-                torch.testing.assert_close(
-                    pc1[pc_key], pc2[pc_key],
-                    msg=f"{context}, {key}.{pc_key}: Tensors not equal"
-                )
-            else:
-                assert pc1[pc_key] == pc2[pc_key], f"{context}, {key}.{pc_key}: Values not equal: {pc1[pc_key]} vs {pc2[pc_key]}"
-
-
-def _assert_labels_equal(labels1: Dict[str, torch.Tensor], labels2: Dict[str, torch.Tensor], context: str):
-    """Assert that label dictionaries are identical."""
-    assert labels1.keys() == labels2.keys(), f"{context}: Different label keys: {labels1.keys()} vs {labels2.keys()}"
-    
-    for key in labels1.keys():
-        if isinstance(labels1[key], torch.Tensor):
-            torch.testing.assert_close(
-                labels1[key], labels2[key],
-                msg=f"{context}, {key}: Label tensors not equal"
-            )
-        else:
-            assert labels1[key] == labels2[key], f"{context}, {key}: Label values not equal: {labels1[key]} vs {labels2[key]}"
-
-
-def _assert_meta_info_equal(meta1: List[Dict[str, Any]], meta2: List[Dict[str, Any]], context: str):
-    """Assert that meta_info lists are identical."""
-    assert len(meta1) == len(meta2), f"{context}: Different meta_info lengths: {len(meta1)} vs {len(meta2)}"
-    
-    for i, (m1, m2) in enumerate(zip(meta1, meta2)):
-        assert m1.keys() == m2.keys(), f"{context}[{i}]: Different meta_info keys: {m1.keys()} vs {m2.keys()}"
-        
-        for key in m1.keys():
-            assert m1[key] == m2[key], f"{context}[{i}], {key}: Meta info values not equal: {m1[key]} vs {m2[key]}"
-
-
-if __name__ == "__main__":
-    # For manual testing - import here to avoid issues
-    import sys
-    sys.path.append(os.path.dirname(__file__))
-    from conftest import DummyPCRDataset, DummyPCRCollator
-    
-    temp_root = tempfile.mkdtemp(prefix="test_manual_")
-    try:
-        dataset = DummyPCRDataset(data_root=temp_root, split='train')
-        collator = DummyPCRCollator()
-        test_pcr_dataloader_cache_consistency(dataset, collator)
-        print("Manual test passed!")
-    finally:
-        if os.path.exists(temp_root):
-            shutil.rmtree(temp_root)
