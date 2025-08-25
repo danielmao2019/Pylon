@@ -57,15 +57,7 @@ def collect_dataloader_outputs(dataloader) -> List[Dict[str, Any]]:
 def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator):
     """Test that PCRDataloader with cache enabled produces identical results to cache disabled."""
     
-    # Setup temporary directories
-    temp_dir = None
-    cache_dir = None
-    
     try:
-        # Create temporary data root (already provided by fixture)
-        # Create cache directory
-        temp_dir = tempfile.mkdtemp(prefix="test_pcr_cache_")
-        cache_dir = f"{dummy_pcr_dataset.data_root}_cache"
         
         # Set deterministic seed for DataLoader shuffling
         torch.manual_seed(456)
@@ -125,15 +117,14 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
         # (This would require modifying the collator to track calls, but the above test is sufficient)
         
     finally:
-        # Cleanup temporary directories
-        if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-        if cache_dir and os.path.exists(cache_dir):
-            shutil.rmtree(cache_dir)
-        
-        # Also cleanup the fixture's temp directory
+        # Cleanup the fixture's temp directory (this will also cleanup any cache subdirectories)
         if hasattr(dummy_pcr_dataset, 'data_root') and os.path.exists(dummy_pcr_dataset.data_root):
             shutil.rmtree(dummy_pcr_dataset.data_root)
+        
+        # Cleanup any cache directories that might have been created alongside data_root
+        cache_dir = f"{dummy_pcr_dataset.data_root}_cache"
+        if os.path.exists(cache_dir):
+            shutil.rmtree(cache_dir)
 
 
 def _assert_batches_equal(batch1: Dict[str, Any], batch2: Dict[str, Any], context: str):
