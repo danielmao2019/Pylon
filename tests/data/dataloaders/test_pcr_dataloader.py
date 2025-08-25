@@ -116,4 +116,3 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
         cache_dir = f"{dummy_pcr_dataset.data_root}_cache"
         if os.path.exists(cache_dir):
             shutil.rmtree(cache_dir)
-
