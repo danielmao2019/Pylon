@@ -1,8 +1,7 @@
 import os
 import json
 import xxhash
-from typing import List
-from abc import abstractmethod
+from typing import List, Dict, Any
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
 
@@ -93,11 +92,11 @@ class PCRDataloader(BaseDataLoader):
         else:
             self.cache = None
     
-    @abstractmethod
-    def _get_cache_version_dict(self, dataset, collator):
+    def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Return parameters that affect dataloader cache content for cache versioning.
         
-        Subclasses should implement this method to add their specific parameters.
+        Base implementation provides common fields. Subclasses should call super()
+        and add their specific parameters.
         
         Args:
             dataset: The dataset being used
@@ -106,7 +105,10 @@ class PCRDataloader(BaseDataLoader):
         Returns:
             Dict containing version parameters for this PCR dataloader configuration
         """
-        raise NotImplementedError("_get_cache_version_dict not implemented for abstract PCRDataloader base class.")
+        return {
+            'dataloader_class': self.__class__.__name__,
+            'dataset_version': dataset.get_cache_version_hash(),
+        }
     
     def get_cache_version_hash(self, dataset, collator):
         """Generate deterministic hash from dataloader configuration."""
