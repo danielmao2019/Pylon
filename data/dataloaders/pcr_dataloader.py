@@ -36,11 +36,11 @@ class PCRDataloader(BaseDataLoader):
         self,
         dataset,
         collator,
-        use_cpu_cache,
-        use_disk_cache,
-        max_cache_memory_percent,
-        enable_cpu_validation,
-        enable_disk_validation,
+        use_cpu_cache: bool = True,
+        use_disk_cache: bool = True,
+        max_cache_memory_percent: float = 80.0,
+        enable_cpu_validation: bool = False,
+        enable_disk_validation: bool = False,
         **kwargs,
     ) -> None:
         self._init_cache(
