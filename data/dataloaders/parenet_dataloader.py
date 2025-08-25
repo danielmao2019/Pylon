@@ -1,14 +1,14 @@
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Dict
 from functools import partial
 from data.collators.parenet.parenet_collator_wrapper import parenet_collate_fn
-from data.dataloaders.base_dataloader import BaseDataLoader
+from data.dataloaders.pcr_dataloader import PCRDataloader
 
 
-class PARENetDataloader(BaseDataLoader):
+class PARENetDataloader(PCRDataloader):
     """PARENet dataloader following Pylon patterns.
     
     This dataloader sets up the PARENet collate function with proper parameters
-    and inherits from BaseDataLoader like other PCR models (GeoTransformer, OverlapPredator).
+    and inherits from PCRDataloader to enable caching for expensive collation operations.
     
     The collation logic uses the parenet_collate_fn wrapper which handles:
     - Pylon format to PARENet format conversion
@@ -38,7 +38,7 @@ class PARENetDataloader(BaseDataLoader):
             subsample_ratio: Ratio between consecutive stages
             num_neighbors: List of neighbor counts for each stage (defaults to [32, 32, 32, 32])
             precompute_data: Whether to precompute multi-scale data and neighbors
-            **kwargs: Additional arguments passed to BaseDataLoader
+            **kwargs: Additional arguments passed to PCRDataloader
         """
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
         
@@ -48,19 +48,38 @@ class PARENetDataloader(BaseDataLoader):
         assert len(num_neighbors) == num_stages, \
             f"num_neighbors length ({len(num_neighbors)}) must match num_stages ({num_stages})"
         
-        # Store neighbor counts (no calibration needed for PARENet)
+        # Store parameters for cache versioning
+        self.num_stages = num_stages
+        self.voxel_size = voxel_size
+        self.subsample_ratio = subsample_ratio
         self.num_neighbors = num_neighbors
+        self.precompute_data = precompute_data
         
-        # Initialize base dataloader with partial collate_fn using the wrapper
+        # Create collator
+        collator = partial(
+            parenet_collate_fn,
+            num_stages=num_stages,
+            voxel_size=voxel_size,
+            num_neighbors=num_neighbors,
+            subsample_ratio=subsample_ratio,
+            precompute_data=precompute_data,
+        )
+        
+        # Initialize PCR dataloader with caching support
         super(PARENetDataloader, self).__init__(
             dataset=dataset,
-            collate_fn=partial(
-                parenet_collate_fn,
-                num_stages=num_stages,
-                voxel_size=voxel_size,
-                num_neighbors=num_neighbors,
-                subsample_ratio=subsample_ratio,
-                precompute_data=precompute_data,
-            ),
+            collator=collator,
             **kwargs,
         )
+    
+    def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
+        """Get cache version dict for PARENet dataloader."""
+        version_dict = super()._get_cache_version_dict(dataset, collator)
+        version_dict.update({
+            'num_stages': self.num_stages,
+            'voxel_size': self.voxel_size,
+            'subsample_ratio': self.subsample_ratio,
+            'num_neighbors': self.num_neighbors,
+            'precompute_data': self.precompute_data
+        })
+        return version_dict
