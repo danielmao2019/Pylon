@@ -143,8 +143,11 @@ class DummyPCRCollator(BaseCollator):
 def temp_data_root():
     """Create temporary data root directory."""
     temp_dir = tempfile.mkdtemp(prefix="test_pcr_dataset_")
-    yield temp_dir
-    # Cleanup will be handled by the test function
+    try:
+        yield temp_dir
+    finally:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
     
     
 @pytest.fixture

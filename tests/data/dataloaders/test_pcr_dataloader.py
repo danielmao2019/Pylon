@@ -58,7 +58,6 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
     """Test that PCRDataloader with cache enabled produces identical results to cache disabled."""
     
     try:
-        
         # Set deterministic seed for DataLoader shuffling
         torch.manual_seed(456)
         
@@ -110,18 +109,11 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
             _assert_batches_equal(no_cache, cache_1st, f"Batch {i}: no_cache vs cache_1st")
             _assert_batches_equal(cache_1st, cache_2nd, f"Batch {i}: cache_1st vs cache_2nd")
             _assert_batches_equal(no_cache, cache_2nd, f"Batch {i}: no_cache vs cache_2nd")
-        
+            
         print(f"✅ Test passed: All {len(outputs_no_cache)} batches are identical across cache/no-cache configurations")
         
-        # Verify cache was actually used by checking collator call counts
-        # (This would require modifying the collator to track calls, but the above test is sufficient)
-        
     finally:
-        # Cleanup the fixture's temp directory (this will also cleanup any cache subdirectories)
-        if hasattr(dummy_pcr_dataset, 'data_root') and os.path.exists(dummy_pcr_dataset.data_root):
-            shutil.rmtree(dummy_pcr_dataset.data_root)
-        
-        # Cleanup any cache directories that might have been created alongside data_root
+        # Cleanup cache directory if it was created
         cache_dir = f"{dummy_pcr_dataset.data_root}_cache"
         if os.path.exists(cache_dir):
             shutil.rmtree(cache_dir)
