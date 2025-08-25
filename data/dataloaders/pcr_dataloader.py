@@ -1,5 +1,8 @@
 import os
+import json
+import xxhash
 from typing import List
+from abc import abstractmethod
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
 
@@ -64,7 +67,7 @@ class PCRDataloader(BaseDataLoader):
         
         if use_cpu_cache or use_disk_cache:
             # Generate version hash for this dataset configuration
-            version_hash = self._get_cache_version_hash(dataset, collator)
+            version_hash = self.get_cache_version_hash(dataset, collator)
             
             # For datasets without data_root (e.g., random datasets), use a default location
             # For datasets with soft links, resolve to real path to ensure cache is in target location (e.g., /pub not /home)
@@ -90,17 +93,23 @@ class PCRDataloader(BaseDataLoader):
         else:
             self.cache = None
     
-    def _get_cache_version_hash(self, dataset, collator):
-        """Generate version hash for this dataset/collator configuration."""
-        dataset_version = getattr(dataset, 'get_cache_version', lambda: 'v1')()
-        collator_version = getattr(collator, 'get_cache_version', lambda: 'v1')()
-        return f"{dataset_version}_{collator_version}"
-    
+    @abstractmethod
     def _get_cache_version_dict(self, dataset, collator):
-        """Generate version dictionary for cache validation."""
-        return {
-            'dataset_class': dataset.__class__.__name__,
-            'dataset_version': getattr(dataset, 'get_cache_version', lambda: 'v1')(),
-            'collator_class': collator.__class__.__name__,
-            'collator_version': getattr(collator, 'get_cache_version', lambda: 'v1')(),
-        }
+        """Return parameters that affect dataloader cache content for cache versioning.
+        
+        Subclasses should implement this method to add their specific parameters.
+        
+        Args:
+            dataset: The dataset being used
+            collator: The collator being used
+            
+        Returns:
+            Dict containing version parameters for this PCR dataloader configuration
+        """
+        raise NotImplementedError("_get_cache_version_dict not implemented for abstract PCRDataloader base class.")
+    
+    def get_cache_version_hash(self, dataset, collator):
+        """Generate deterministic hash from dataloader configuration."""
+        version_dict = self._get_cache_version_dict(dataset, collator)
+        hash_str = json.dumps(version_dict, sort_keys=True)
+        return xxhash.xxh64(hash_str.encode()).hexdigest()[:16]
