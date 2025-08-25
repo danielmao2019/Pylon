@@ -4,6 +4,7 @@ import xxhash
 from typing import List, Dict, Any
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
+from data.datasets.index_dataset import IndexDataset
 
 
 class PCRCachedCollator:
@@ -53,7 +54,7 @@ class PCRDataloader(BaseDataLoader):
             enable_disk_validation=enable_disk_validation,
         )
         if self.cache is not None:
-            index_dataset = list(range(len(dataset)))
+            index_dataset = IndexDataset(size=len(dataset))
             cached_collator = PCRCachedCollator(dataset, collator, self.cache)
             super().__init__(dataset=index_dataset, collate_fn=cached_collator, **kwargs)
         else:
