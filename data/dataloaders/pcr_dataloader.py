@@ -6,6 +6,30 @@ from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
 
 
+class PCRCachedCollator:
+    """Picklable collator wrapper for PCR dataloader with caching functionality."""
+    
+    def __init__(self, original_dataset, collator, cache):
+        self.original_dataset = original_dataset
+        self.collator = collator
+        self.cache = cache
+    
+    def __call__(self, datapoints: List[int]):
+        assert isinstance(datapoints, list)
+        assert len(datapoints) == 1
+        assert isinstance(datapoints[0], int)
+        key = datapoints[0]
+        assert self.cache is not None
+        cached_result = self.cache.get(key)
+        if cached_result is not None:
+            return cached_result
+        else:
+            actual_datapoints = [self.original_dataset[idx] for idx in datapoints]
+            batched_datapoints = self.collator(actual_datapoints)
+            self.cache.put(key, batched_datapoints)
+            return batched_datapoints
+
+
 class PCRDataloader(BaseDataLoader):
 
     def __init__(
@@ -29,23 +53,9 @@ class PCRDataloader(BaseDataLoader):
             enable_disk_validation=enable_disk_validation,
         )
         if self.cache is not None:
-            original_dataset = dataset
             index_dataset = list(range(len(dataset)))
-            def new_collator(datapoints: List[int]):
-                assert isinstance(datapoints, list)
-                assert len(datapoints) == 1
-                assert isinstance(datapoints[0], int)
-                key = datapoints[0]
-                assert self.cache is not None
-                cached_result = self.cache.get(key)
-                if cached_result is not None:
-                    return cached_result
-                else:
-                    actual_datapoints = [original_dataset[idx] for idx in datapoints]
-                    batched_datapoints = collator(actual_datapoints)
-                    self.cache.put(key, batched_datapoints)
-                    return batched_datapoints
-            super().__init__(dataset=index_dataset, collate_fn=new_collator, **kwargs)
+            cached_collator = PCRCachedCollator(dataset, collator, self.cache)
+            super().__init__(dataset=index_dataset, collate_fn=cached_collator, **kwargs)
         else:
             super().__init__(dataset=dataset, collate_fn=collator, **kwargs)
 
