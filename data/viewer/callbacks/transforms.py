@@ -14,11 +14,13 @@ logger = logging.getLogger(__name__)
 @callback(
     outputs=[
         Output('datapoint-display', 'children'),
+        Output('transforms-store', 'data'),
     ],
     inputs=[
         Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
         Input('3d-settings-store', 'data'),
-        Input('camera-state', 'data')
+        Input('camera-state', 'data'),
+        Input('segmentation-color-seed', 'data')
     ],
     states=[
         State('dataset-info', 'data'),
@@ -31,9 +33,10 @@ def update_datapoint_from_transforms(
     transform_values: List[List[int]],
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
     camera_state: Dict,
+    segmentation_color_seed: int,
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
     datapoint_idx: int
-) -> List[html.Div]:
+) -> List[Any]:
     """
     Update the displayed datapoint when transform selections change.
     Also handles 3D point cloud visualization settings.
@@ -60,6 +63,12 @@ def update_datapoint_from_transforms(
         idx for values in transform_values
         for idx in values  # values will be a list containing the index if checked, empty if not
     ]
+
+    # Prepare transforms store data with current dataset and selected indices
+    transforms_store_data = {
+        'dataset_name': dataset_name,
+        'selected_indices': selected_indices
+    }
 
     # Get datapoint from backend through registry using kwargs
     datapoint = registry.viewer.backend.get_datapoint(
@@ -108,8 +117,9 @@ def update_datapoint_from_transforms(
         datapoint=datapoint,
         class_labels=class_labels,
         camera_state=final_camera_state,
-        settings_3d=settings_3d
+        settings_3d=settings_3d,
+        color_seed=segmentation_color_seed
     )
 
     logger.info("Display created successfully with transform selection")
-    return [display]
+    return [display, transforms_store_data]

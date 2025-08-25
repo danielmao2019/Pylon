@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
         State('datapoint-index-slider', 'value'),
         State('3d-settings-store', 'data'),
         State('camera-state', 'data'),
-        State('dataset-info', 'data')
+        State('dataset-info', 'data'),
+        State('transforms-store', 'data')
     ],
     group="segmentation_color"
 )
@@ -32,7 +33,8 @@ def shuffle_segmentation_colors(
     datapoint_idx: int,
     settings_3d: Optional[Dict[str, Any]],
     camera_state: Dict,
-    dataset_info: Optional[Dict[str, Any]]
+    dataset_info: Optional[Dict[str, Any]],
+    transforms_store: Optional[Dict[str, Any]]
 ) -> List[Any]:
     """Shuffle the colors for segmentation display.
     
@@ -91,15 +93,24 @@ def shuffle_segmentation_colors(
     # Get dataset info
     dataset_name: str = dataset_info['name']
     
-    # Get transforms
-    transforms = dataset_info['transforms']
-    all_transform_indices = [transform['index'] for transform in transforms]
+    # CRITICAL: Transform store must contain current dataset's selected transforms
+    assert transforms_store is not None, "transforms_store must not be None"
+    assert isinstance(transforms_store, dict), f"transforms_store must be dict, got {type(transforms_store)}"
+    assert 'dataset_name' in transforms_store, f"transforms_store missing 'dataset_name', got keys: {list(transforms_store.keys())}"
+    assert 'selected_indices' in transforms_store, f"transforms_store missing 'selected_indices', got keys: {list(transforms_store.keys())}"
+    assert transforms_store['dataset_name'] == dataset_name, f"Dataset mismatch: store has '{transforms_store['dataset_name']}', expected '{dataset_name}'"
+    
+    selected_indices = transforms_store['selected_indices']
+    assert isinstance(selected_indices, list), f"selected_indices must be list, got {type(selected_indices)}"
+    assert all(isinstance(idx, int) for idx in selected_indices), f"All selected indices must be int, got {selected_indices}"
+    
+    logger.info(f"Using selected transforms: {selected_indices}")
     
     # Get datapoint from backend
     datapoint = registry.viewer.backend.get_datapoint(
         dataset_name=dataset_name,
         index=datapoint_idx,
-        transform_indices=all_transform_indices
+        transform_indices=selected_indices
     )
     
     # Get display settings

@@ -75,7 +75,8 @@ def update_current_index(current_idx: int) -> List[str]:
         Input('segmentation-color-seed', 'data')
     ],
     states=[
-        State('dataset-info', 'data')
+        State('dataset-info', 'data'),
+        State('transforms-store', 'data')
     ],
     group="navigation"
 )
@@ -85,7 +86,8 @@ def update_datapoint_from_navigation(
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
     camera_state: Dict,
     segmentation_color_seed: int,
-    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
+    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
+    transforms_store: Optional[Dict[str, Any]]
 ) -> List[Any]:
     """
     Update the displayed datapoint when navigation index changes.
@@ -108,15 +110,24 @@ def update_datapoint_from_navigation(
     dataset_type: str = dataset_info['type']
     logger.info(f"Navigating to index {datapoint_idx} in dataset: {dataset_name}")
 
-    # For navigation updates, use all available transforms by default
-    transforms = dataset_info['transforms']
-    all_transform_indices = [transform['index'] for transform in transforms]
+    # CRITICAL: Transform store must contain current dataset's selected transforms
+    assert transforms_store is not None, "transforms_store must not be None"
+    assert isinstance(transforms_store, dict), f"transforms_store must be dict, got {type(transforms_store)}"
+    assert 'dataset_name' in transforms_store, f"transforms_store missing 'dataset_name', got keys: {list(transforms_store.keys())}"
+    assert 'selected_indices' in transforms_store, f"transforms_store missing 'selected_indices', got keys: {list(transforms_store.keys())}"
+    assert transforms_store['dataset_name'] == dataset_name, f"Dataset mismatch: store has '{transforms_store['dataset_name']}', expected '{dataset_name}'"
+    
+    selected_indices = transforms_store['selected_indices']
+    assert isinstance(selected_indices, list), f"selected_indices must be list, got {type(selected_indices)}"
+    assert all(isinstance(idx, int) for idx in selected_indices), f"All selected indices must be int, got {selected_indices}"
+    
+    logger.info(f"Using selected transforms: {selected_indices}")
 
     # Get datapoint from backend through registry using kwargs
     datapoint = registry.viewer.backend.get_datapoint(
         dataset_name=dataset_name,
         index=datapoint_idx,
-        transform_indices=all_transform_indices
+        transform_indices=selected_indices
     )
 
     logger.info(f"Dataset type: {dataset_type}")
