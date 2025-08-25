@@ -1,9 +1,9 @@
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Dict
 import numpy as np
 from functools import partial
 import torch
 from data.collators.overlappredator.overlappredator_collate_fn import overlappredator_collate_fn
-from data.dataloaders.base_dataloader import BaseDataLoader
+from data.dataloaders.pcr_dataloader import PCRDataloader
 
 
 def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ratio: float = 0.8, samples_threshold: int = 2000) -> List[int]:
@@ -33,23 +33,37 @@ def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ra
     return neighborhood_limits
 
 
-class OverlapPredatorDataloader(BaseDataLoader):
+class OverlapPredatorDataloader(PCRDataloader):
     def __init__(self, dataset: Any, config: Any, **kwargs: Any) -> None:
         assert isinstance(config, dict), 'config must be a dict'
         from easydict import EasyDict
         config = EasyDict(config)
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
-        neighborhood_limits = calibrate_neighbors(
+        
+        self.config = config
+        self.neighborhood_limits = calibrate_neighbors(
             dataset,
             config,
             collate_fn=overlappredator_collate_fn,
         )
+        
+        collator = partial(
+            overlappredator_collate_fn,
+            config=config,
+            neighborhood_limits=self.neighborhood_limits,
+        )
         super(OverlapPredatorDataloader, self).__init__(
             dataset=dataset,
-            collate_fn=partial(
-                overlappredator_collate_fn,
-                config=config,
-                neighborhood_limits=neighborhood_limits,
-            ),
+            collator=collator,
             **kwargs,
         )
+    
+    def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
+        """Get cache version dict for OverlapPredator dataloader."""
+        version_dict = super()._get_cache_version_dict(dataset, collator)
+        version_dict.update({
+            'config_deform_radius': self.config.deform_radius,
+            'config_num_layers': self.config.num_layers,
+            'neighborhood_limits': self.neighborhood_limits
+        })
+        return version_dict

@@ -1,9 +1,9 @@
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Dict
 import numpy as np
 from functools import partial
 import torch
 from data.collators import d3feat_collate_fn
-from data.dataloaders.base_dataloader import BaseDataLoader
+from data.dataloaders.pcr_dataloader import PCRDataloader
 
 
 def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ratio: float = 0.8, samples_threshold: int = 2000) -> List[int]:
@@ -33,7 +33,7 @@ def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ra
     return neighborhood_limits
 
 
-class D3FeatDataLoader(BaseDataLoader):
+class D3FeatDataLoader(PCRDataloader):
     def __init__(self, dataset: Any, config: Any, **kwargs: Any) -> None:
         assert isinstance(config, dict), 'config must be a dict'
         from easydict import EasyDict
@@ -52,18 +52,32 @@ class D3FeatDataLoader(BaseDataLoader):
         config.architecture.append('nearest_upsample')
         config.architecture.append('last_unary')
         
-        neighborhood_limits = calibrate_neighbors(
+        self.config = config
+        self.neighborhood_limits = calibrate_neighbors(
             dataset,
             config,
             collate_fn=d3feat_collate_fn,
         )
-        print("neighborhood:", neighborhood_limits)
+        print("neighborhood:", self.neighborhood_limits)
+        
+        collator = partial(
+            d3feat_collate_fn,
+            config=config,
+            neighborhood_limits=self.neighborhood_limits,
+        )
         super(D3FeatDataLoader, self).__init__(
             dataset=dataset,
-            collate_fn=partial(
-                d3feat_collate_fn,
-                config=config,
-                neighborhood_limits=neighborhood_limits,
-            ),
+            collator=collator,
             **kwargs,
         )
+    
+    def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
+        """Get cache version dict for D3Feat dataloader."""
+        version_dict = super()._get_cache_version_dict(dataset, collator)
+        version_dict.update({
+            'config_deform_radius': self.config.deform_radius,
+            'config_num_layers': self.config.num_layers,
+            'neighborhood_limits': self.neighborhood_limits,
+            'architecture': self.config.architecture
+        })
+        return version_dict

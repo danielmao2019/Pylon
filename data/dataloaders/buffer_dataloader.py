@@ -1,9 +1,9 @@
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Dict
 from functools import partial
 import numpy as np
 import torch
 from data.collators.buffer.buffer_collate_fn import buffer_collate_fn
-from data.dataloaders.base_dataloader import BaseDataLoader
+from data.dataloaders.pcr_dataloader import PCRDataloader
 from models.point_cloud_registration.buffer.point_learner import architecture
 
 
@@ -42,21 +42,32 @@ def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ra
     return neighborhood_limits
 
 
-class BufferDataloader(BaseDataLoader):
+class BufferDataloader(PCRDataloader):
 
     def __init__(self, dataset: Any, config: Any, **kwargs: Any) -> None:
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
+        self.config = config
         self.neighbor_limits = calibrate_neighbors(
             dataset,
             config,
             buffer_collate_fn,
         )
+        collator = partial(
+            buffer_collate_fn,
+            config=config,
+            neighborhood_limits=self.neighbor_limits,
+        )
         super(BufferDataloader, self).__init__(
             dataset=dataset,
-            collate_fn=partial(
-                buffer_collate_fn,
-                config=config,
-                neighborhood_limits=self.neighbor_limits,
-            ),
+            collator=collator,
             **kwargs,
         )
+    
+    def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
+        """Get cache version dict for Buffer dataloader."""
+        version_dict = super()._get_cache_version_dict(dataset, collator)
+        version_dict.update({
+            'config_conv_radius': self.config.point.conv_radius,
+            'neighbor_limits': self.neighbor_limits
+        })
+        return version_dict
