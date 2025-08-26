@@ -1,7 +1,7 @@
 from typing import List, Union, Tuple
-import numpy as np
 import torch
-from scipy.spatial import cKDTree
+from utils.point_cloud_ops.knn import knn
+from utils.input_checks.point_cloud import check_pc_xyz
 
 
 def _normalize_points(points: torch.Tensor) -> torch.Tensor:
@@ -54,33 +54,36 @@ def pc_symmetric_difference(
     src_pc_normalized = _normalize_points(src_pc)
     tgt_pc_normalized = _normalize_points(tgt_pc)
 
-    # Check for empty point clouds
-    if src_pc_normalized.shape[0] == 0 or tgt_pc_normalized.shape[0] == 0:
-        return torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long)
-
-    # Check for NaN or Inf values
-    if torch.isnan(src_pc_normalized).any() or torch.isnan(tgt_pc_normalized).any() or torch.isinf(src_pc_normalized).any() or torch.isinf(tgt_pc_normalized).any():
-        return torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long)
-
-    # Convert to numpy for scipy's cKDTree
-    src_np = src_pc_normalized.cpu().numpy()
-    tgt_np = tgt_pc_normalized.cpu().numpy()
-
-    # Build KDTree for target point cloud
-    tgt_tree = cKDTree(tgt_np)
+    # Validate using check_pc_xyz (handles empty, NaN, Inf checks)
+    check_pc_xyz(src_pc_normalized)
+    check_pc_xyz(tgt_pc_normalized)
 
     # Find points in src_pc that are not close to any point in tgt_pc
-    # Query the KDTree for all points in src_pc
-    distances, _ = tgt_tree.query(src_np, k=1)  # k=1 to find the nearest neighbor
-    src_diff_mask = distances > radius
-    src_indices = torch.where(torch.from_numpy(src_diff_mask))[0]
-
-    # Build KDTree for source point cloud
-    src_tree = cKDTree(src_np)
+    # Query nearest neighbor for each source point in target cloud
+    distances_src_to_tgt, _ = knn(
+        query_points=src_pc_normalized,
+        reference_points=tgt_pc_normalized,
+        k=1,  # Find nearest neighbor
+        method="faiss",
+        return_distances=True
+    )
+    
+    # Source points beyond radius are in symmetric difference
+    src_diff_mask = distances_src_to_tgt.squeeze(1) > radius
+    src_indices = torch.where(src_diff_mask)[0]
 
     # Find points in tgt_pc that are not close to any point in src_pc
-    distances, _ = src_tree.query(tgt_np, k=1)  # k=1 to find the nearest neighbor
-    tgt_diff_mask = distances > radius
-    tgt_indices = torch.where(torch.from_numpy(tgt_diff_mask))[0]
+    # Query nearest neighbor for each target point in source cloud
+    distances_tgt_to_src, _ = knn(
+        query_points=tgt_pc_normalized,
+        reference_points=src_pc_normalized,
+        k=1,  # Find nearest neighbor
+        method="faiss",
+        return_distances=True
+    )
+    
+    # Target points beyond radius are in symmetric difference
+    tgt_diff_mask = distances_tgt_to_src.squeeze(1) > radius
+    tgt_indices = torch.where(tgt_diff_mask)[0]
 
     return src_indices, tgt_indices

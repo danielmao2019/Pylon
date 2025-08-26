@@ -1,9 +1,8 @@
 from typing import Optional
-import numpy as np
 import torch
-from scipy.spatial import cKDTree
-import open3d as o3d
 from utils.point_cloud_ops.apply_transform import apply_transform
+from utils.point_cloud_ops.knn import knn
+from utils.input_checks.point_cloud import check_pc_xyz
 
 
 def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, transform: Optional[torch.Tensor], radius: float) -> torch.Tensor:
@@ -18,67 +17,44 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
     Returns:
         torch.Tensor: Correspondence indices [K, 2] where K is number of correspondences
     """
+    # Validate inputs
+    check_pc_xyz(src_points)
+    check_pc_xyz(tgt_points)
     assert src_points.device == tgt_points.device, f"{src_points.device=}, {tgt_points.device=}"
+    assert transform is None or (isinstance(transform, torch.Tensor) and transform.shape == (4, 4)), f"Invalid transform shape: {transform.shape if transform is not None else None}"
+    assert isinstance(radius, (int, float)) and radius > 0, f"radius must be positive number, got {radius}"
+    
     device = src_points.device
 
-    # Convert to numpy for scipy operations
-    tgt_points = tgt_points.cpu().numpy()
-    src_points = src_points.cpu().numpy()
+    # Transform source points to reference frame if transform provided
     if transform is not None:
-        transform = transform.cpu().numpy()
-
-    # Transform source points to reference frame
-    if transform is not None:
+        # apply_transform supports torch tensors and will keep them as torch
         src_points = apply_transform(src_points, transform)
 
-    # Build KD-tree for efficient search
-    src_tree = cKDTree(src_points)
-
-    # Find correspondences within radius
-    indices_list = src_tree.query_ball_point(tgt_points, radius)
-
-    # Create correspondence pairs
-    corr_list = [
-        (i, j)
-        for j, indices in enumerate(indices_list)
-        for i in indices
-    ]
+    # Use KNN to find all points within radius (no k limit, just radius)
+    # Original algorithm: for each target point, find all source points within radius
+    # This is equivalent to query=tgt_points, reference=src_points, radius=radius, k=None
+    distances, indices = knn(
+        query_points=tgt_points,
+        reference_points=src_points,
+        k=None,  # Return all neighbors within radius
+        method="faiss",
+        return_distances=True,
+        radius=radius
+    )
     
-    # Handle empty case - ensure we get a 2D array with shape (0, 2)
-    if len(corr_list) == 0:
-        corr_indices = np.empty((0, 2), dtype=np.int64)
-    else:
-        corr_indices = np.array(corr_list, dtype=np.int64)
-
-    return torch.tensor(corr_indices, dtype=torch.int64, device=device)
-
-
-def get_correspondences_v2(
-    src_pcd: o3d.geometry.PointCloud,
-    tgt_pcd: o3d.geometry.PointCloud,
-    trans: np.ndarray,
-    search_voxel_size: float,
-    K: Optional[int] = None
-) -> torch.Tensor:
-    """Find correspondences between two point clouds within a matching radius.
-
-    Args:
-        src_pcd (o3d.geometry.PointCloud): Source point cloud
-        tgt_pcd (o3d.geometry.PointCloud): Target point cloud
-        trans (np.ndarray): Transformation matrix from source to target
-        search_voxel_size (float): Search voxel size
-    """
-    src_pcd.transform(trans)
-    pcd_tree = o3d.geometry.KDTreeFlann(tgt_pcd)
-
-    correspondences = []
-    for i, point in enumerate(src_pcd.points):
-        [count, idx, _] = pcd_tree.search_radius_vector_3d(point, search_voxel_size)
-        if K is not None:
-            idx = idx[:K]
-        for j in idx:
-            correspondences.append([i, j])
-
-    correspondences = np.array(correspondences)
-    correspondences = torch.from_numpy(correspondences)
+    # Create correspondence pairs using vectorized operations
+    # distances and indices are [N_tgt, k] where k = src_points.shape[0]
+    # We need to convert to correspondence format [K, 2] where each row is [src_idx, tgt_idx]
+    
+    # Find valid correspondences (distance < inf and index >= 0)
+    valid_mask = (distances < float('inf')) & (indices >= 0)
+    
+    # Get the coordinates of valid correspondences
+    tgt_idx_coords, k_coords = torch.where(valid_mask)
+    src_idx_coords = indices[tgt_idx_coords, k_coords]
+    
+    # Stack to create correspondence pairs [src_idx, tgt_idx]
+    correspondences = torch.stack([src_idx_coords, tgt_idx_coords], dim=1)
+    
     return correspondences

@@ -164,7 +164,7 @@ def test_apply_transform_invalid_shape(random_point_cloud, points_type):
     else:
         invalid_transform = torch.eye(3, dtype=torch.float32)  # 3x3 instead of 4x4
 
-    with pytest.raises(AssertionError, match="Transform must be a 4x4 matrix"):
+    with pytest.raises(AssertionError, match="Transform must be of shape \\[4, 4\\]"):
         apply_transform(points, invalid_transform)
 
 
