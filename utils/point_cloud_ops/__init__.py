@@ -9,6 +9,7 @@ from utils.point_cloud_ops.grid_sampling import grid_sampling
 from utils.point_cloud_ops.select import Select
 from utils.point_cloud_ops.random_select import RandomSelect
 from utils.point_cloud_ops.normalization import normalize_point_cloud
+from utils.point_cloud_ops.generate_change_map import generate_change_map
 from utils.point_cloud_ops import rendering
 
 
@@ -21,5 +22,6 @@ __all__ = (
     'Select',
     'RandomSelect',
     'normalize_point_cloud',
+    'generate_change_map',
     'rendering',
 )
