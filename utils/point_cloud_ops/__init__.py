@@ -11,6 +11,7 @@ from utils.point_cloud_ops.random_select import RandomSelect
 from utils.point_cloud_ops.normalization import normalize_point_cloud
 from utils.point_cloud_ops.generate_change_map import generate_change_map
 from utils.point_cloud_ops import rendering
+from utils.point_cloud_ops.knn.knn import knn
 
 
 __all__ = (
@@ -24,4 +25,5 @@ __all__ = (
     'normalize_point_cloud',
     'generate_change_map',
     'rendering',
+    'knn',
 )
