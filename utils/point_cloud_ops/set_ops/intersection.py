@@ -76,10 +76,16 @@ def _tensor_intersection(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
-    assert isinstance(src_points, torch.Tensor)
-    assert isinstance(tgt_points, torch.Tensor)
-    assert src_points.ndim == 2 and tgt_points.ndim == 2
-    assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
+    from utils.input_checks.point_cloud import check_pc_xyz
+    
+    # Validate point clouds using check_pc_xyz
+    check_pc_xyz(src_points)
+    check_pc_xyz(tgt_points)
+    
+    # Validate radius parameter
+    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert radius > 0, f"radius must be greater than 0, got {radius}"
+    
     assert src_points.device == tgt_points.device
 
     # Reshape for broadcasting: (N, 1, 3) - (1, M, 3) = (N, M, 3)
@@ -299,23 +305,30 @@ def get_nearest_neighbor_distances(
     Returns:
         Distances to nearest neighbors, shape (N,)
     """
-    assert isinstance(query_points, torch.Tensor)
-    assert isinstance(support_points, torch.Tensor)
-    assert query_points.ndim == 2 and support_points.ndim == 2
-    assert query_points.shape[1] == 3 and support_points.shape[1] == 3
+    print(f"DEBUG: get_nearest_neighbor_distances() starting with query_points shape: {query_points.shape}, support_points shape: {support_points.shape}")
     
-    # Convert to numpy for KD-tree operations (following GeoTransformer)
-    query_np = query_points.cpu().numpy()
-    support_np = support_points.cpu().numpy()
+    from utils.point_cloud_ops.knn import knn
+    from utils.input_checks.point_cloud import check_pc_xyz
     
-    # Build KD-tree for support points
-    support_tree = cKDTree(support_np)
+    # Validate inputs
+    check_pc_xyz(query_points)
+    check_pc_xyz(support_points)
     
-    # Query nearest neighbors (k=1 for closest point)
-    distances, _ = support_tree.query(query_np, k=1)
+    print("DEBUG: get_nearest_neighbor_distances() using KNN to find nearest neighbors")
     
-    # Convert back to tensor on original device
-    distances = torch.from_numpy(distances).to(query_points.device)
+    # Find nearest neighbors using KNN module
+    distances, _ = knn(
+        query_points=query_points,
+        reference_points=support_points,
+        k=1,  # Find single nearest neighbor
+        return_distances=True
+    )
+    
+    print(f"DEBUG: get_nearest_neighbor_distances() KNN completed, distances shape: {distances.shape}")
+    
+    # Squeeze to get shape (N,) instead of (N, 1)
+    distances = distances.squeeze(1)
+    print(f"DEBUG: get_nearest_neighbor_distances() completed, final tensor shape: {distances.shape}")
     
     return distances
 
@@ -341,6 +354,8 @@ def compute_registration_overlap(
     Returns:
         Overlap ratio as fraction of reference points with close source neighbors
     """
+    print(f"DEBUG: compute_registration_overlap() starting with ref_points shape: {ref_points.shape}, src_points shape: {src_points.shape}")
+    print(f"DEBUG: compute_registration_overlap() positive_radius: {positive_radius}, transform provided: {transform is not None}")
     assert isinstance(ref_points, torch.Tensor)
     assert isinstance(src_points, torch.Tensor)
     assert ref_points.ndim == 2 and src_points.ndim == 2
@@ -349,6 +364,7 @@ def compute_registration_overlap(
     
     # Apply transformation to source points if provided
     if transform is not None:
+        print("DEBUG: compute_registration_overlap() applying transformation to source points")
         assert isinstance(transform, torch.Tensor)
         assert transform.shape == (4, 4)
         transform = transform.to(src_points.dtype)
@@ -356,11 +372,16 @@ def compute_registration_overlap(
         R = transform[:3, :3]
         t = transform[:3, 3]
         src_points = (R @ src_points.T + t.unsqueeze(1)).T
+        print(f"DEBUG: compute_registration_overlap() transformation applied, new src_points shape: {src_points.shape}")
     
     # Get nearest neighbor distances (ref -> src)
+    print("DEBUG: compute_registration_overlap() computing nearest neighbor distances")
     nn_distances = get_nearest_neighbor_distances(ref_points, src_points)
+    print(f"DEBUG: compute_registration_overlap() nn_distances computed, shape: {nn_distances.shape}")
     
     # Compute overlap as fraction of ref points with neighbors within radius
+    print("DEBUG: compute_registration_overlap() computing overlap fraction")
     overlap = torch.mean((nn_distances < positive_radius).float()).item()
+    print(f"DEBUG: compute_registration_overlap() computed overlap: {overlap}")
     
     return overlap
