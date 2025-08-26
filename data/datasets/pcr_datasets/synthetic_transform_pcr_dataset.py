@@ -195,7 +195,9 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     def _save_trials_cache(self) -> None:
         """Save trials cache to disk (thread-safe)."""
         if self.cache_filepath is not None:
-            os.makedirs(os.path.dirname(self.cache_filepath), exist_ok=True)
+            cache_dir = os.path.dirname(self.cache_filepath)
+            if cache_dir:
+                os.makedirs(cache_dir, exist_ok=True)
             with open(self.cache_filepath, 'w') as f:
                 json.dump(self.trials_cache, f, indent=2)
 
@@ -259,14 +261,11 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         t2_pc_filepath = annotation['t2_pc_filepath']
 
         # Core logic: search for valid cached transform or generate new ones
-        src_pc, tgt_pc, overlap_ratio, transform_params, trial_idx = self._search_or_generate(
+        src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx = self._search_or_generate(
             t1_pc_filepath=t1_pc_filepath,
             t2_pc_filepath=t2_pc_filepath,
             idx=idx,
         )
-
-        # Build transform matrix for correspondences and output
-        transform_matrix = self._build_transform(transform_params)
 
         # Find correspondences
         correspondences = get_correspondences(
@@ -306,7 +305,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             't1_pc_filepath': t1_pc_filepath,
             't2_pc_filepath': t2_pc_filepath,
             'trial_idx': trial_idx,
-            'transform_params': transform_params,
+            'transform_matrix': transform_matrix,
             'overlap': overlap_ratio,
         }
 
@@ -316,7 +315,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         self,
         t1_pc_filepath: str,
         t2_pc_filepath: str,
-        transform_params: Dict[str, Any],
+        transform_matrix: torch.Tensor,
         idx: int,
     ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Optional[float]]:
         """Generate processed point clouds and overlap ratio for given parameters.
@@ -324,7 +323,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         Args:
             t1_pc_filepath: Path to first point cloud file
             t2_pc_filepath: Path to second point cloud file
-            transform_params: Transform parameters
+            transform_matrix: 4x4 transformation matrix
             idx: Dataset index for annotation access
 
         Returns:
@@ -341,9 +340,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             device=self.device,
             dtype=torch.float64,
         )
-
-        # Build transform
-        transform_matrix = self._build_transform(transform_params)
 
         # Apply inverse transform to PC1 and keep PC2 original
         src_pc_transformed, tgt_pc_original = self._apply_transform(
@@ -374,10 +370,12 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         t1_pc_filepath: str,
         t2_pc_filepath: str,
         idx: int,
-    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], float, Dict[str, Any], int]:
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], float, torch.Tensor, int]:
         """Search for valid cached transform or generate new ones using trial-based caching.
 
-        This is the core logic that handles complete datapoint generation.
+        This method iterates through trials (starting from 0) to find a transform that
+        produces overlap within the specified range. It uses a 2-level cache to store
+        overlap ratios for each trial.
 
         Args:
             t1_pc_filepath: Path to first point cloud file
@@ -385,174 +383,143 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             idx: Dataset index for annotation access
 
         Returns:
-            Tuple of (src_pc, tgt_pc, overlap_ratio, transform_params, current_trial)
+            Tuple of (src_pc, tgt_pc, overlap_ratio, transform_matrix, current_trial)
         """
-        # Get cached trial mappings using 2-level hierarchy (thread-safe)
+        # Initialize cache keys and structure
         dataset_version_key = self._get_dataset_version_key()
         annotation = self.annotations[idx]
         annotation_key = self._get_annotation_cache_key(annotation)
 
-        # Thread-safe cache structure access
+        # Thread-safe cache structure initialization
         with self.cache_lock:
-            # Get or create cache structure
             if dataset_version_key not in self.trials_cache:
                 self.trials_cache[dataset_version_key] = {}
-
+            
             version_cache = self.trials_cache[dataset_version_key]
             if annotation_key not in version_cache:
                 version_cache[annotation_key] = []
-
+            
             # Make a copy to avoid concurrent modification issues
-            overlap_ratios = version_cache[annotation_key].copy()
+            cached_overlaps = version_cache[annotation_key].copy()
 
-        # Search through existing cache starting from trial 0
-        # trials and datapoint idx are different - trials always start from 0
-        current_trial = 0
-        while current_trial < self.max_trials:
-            # Check if we have this trial cached
-            if current_trial < len(overlap_ratios):
-                overlap_ratio = overlap_ratios[current_trial]
-                # Skip failed trials marked with None
-                if overlap_ratio is None:
-                    current_trial += 1
-                    continue
-                # Check if overlap is in valid range
-                if self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
-                    # Found valid trial - generate point clouds with this trial
-                    trial_seed = deterministic_hash((annotation_key, current_trial))
-                    transform_params = self._sample_transform(trial_seed)
-
-                    src_pc, tgt_pc, overlap = self._generate(
+        # Iterate through trials to find valid transform
+        for trial_idx in range(self.max_trials):
+            # Generate transform matrix for this trial
+            trial_seed = deterministic_hash((annotation_key, trial_idx))
+            transform_matrix = self._sample_transform(trial_seed)
+            
+            # Process cached trial
+            if trial_idx < len(cached_overlaps):
+                cached_overlap = cached_overlaps[trial_idx]
+                
+                # Check if cached overlap is valid and in range
+                if cached_overlap is not None and self.overlap_range[0] < cached_overlap <= self.overlap_range[1]:
+                    # Valid cached trial - generate point clouds
+                    src_pc, tgt_pc, generated_overlap = self._generate(
                         t1_pc_filepath=t1_pc_filepath,
                         t2_pc_filepath=t2_pc_filepath,
-                        transform_params=transform_params,
+                        transform_matrix=transform_matrix,
                         idx=idx,
                     )
-
-                    assert overlap is not None, f"Generated overlap should not be None for cached valid trial {current_trial}"
-                    return src_pc, tgt_pc, overlap, transform_params, current_trial
-            else:
-                # Trial not cached - generate it
-                trial_seed = deterministic_hash((annotation_key, current_trial))
-                transform_params = self._sample_transform(trial_seed)
-
-                # Generate point clouds and compute overlap
-                src_pc, tgt_pc, overlap_ratio = self._generate(
-                    t1_pc_filepath=t1_pc_filepath,
-                    t2_pc_filepath=t2_pc_filepath,
-                    transform_params=transform_params,
-                    idx=idx,
-                )
-
-                # Update cache with thread safety
-                with self.cache_lock:
-                    # Append to the actual cache list
-                    assert (
-                        len(self.trials_cache[dataset_version_key][annotation_key]) == current_trial
+                    
+                    assert generated_overlap is not None, (
+                        f"Generated overlap should not be None for cached valid trial {trial_idx}"
                     )
-                    self.trials_cache[dataset_version_key][annotation_key].append(overlap_ratio)
-                    if self.cache_filepath is not None:
-                        self._save_trials_cache()
+                    assert abs(generated_overlap - cached_overlap) < 1e-5, (
+                        f"Generated overlap {generated_overlap} should match cached value {cached_overlap} "
+                        f"for trial {trial_idx} (diff: {abs(generated_overlap - cached_overlap)})"
+                    )
+                    
+                    return src_pc, tgt_pc, generated_overlap, transform_matrix, trial_idx
+            
+            # Process new trial (not cached)
+            src_pc, tgt_pc, overlap_ratio = self._generate(
+                t1_pc_filepath=t1_pc_filepath,
+                t2_pc_filepath=t2_pc_filepath,
+                transform_matrix=transform_matrix,
+                idx=idx,
+            )
+            
+            # Cache the result (thread-safe)
+            with self.cache_lock:
+                cache_list = self.trials_cache[dataset_version_key][annotation_key]
+                assert len(cache_list) == trial_idx, (
+                    f"Expected cache list length {trial_idx}, got {len(cache_list)}"
+                )
+                cache_list.append(overlap_ratio)
+                
+                if self.cache_filepath is not None:
+                    self._save_trials_cache()
+            
+            # Check if new trial produces valid overlap
+            if overlap_ratio is not None and self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
+                return src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx
 
-                # Skip if generation failed due to empty crop
-                if overlap_ratio is None:
-                    current_trial += 1
-                    continue
-
-                # Check if this trial is valid
-                if self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
-                    assert overlap_ratio is not None, f"Overlap ratio should not be None for valid trial {current_trial}"
-                    return src_pc, tgt_pc, overlap_ratio, transform_params, current_trial
-
-            current_trial += 1
-
-        # If we reach here, no valid transform found within max_trials
+        # No valid transform found within max_trials
         raise RuntimeError(
             f"Failed to find valid transform after {self.max_trials} trials. "
-            f"Overlap range: {self.overlap_range}, annotation_key: {annotation_key}"
+            f"Overlap range: {self.overlap_range}, idx: {idx}, annotation: {annotation}"
         )
 
-    def _sample_transform(self, seed: int) -> Dict[str, Any]:
-        """Sample SE(3) transformation parameters only.
+    def _sample_transform(self, seed: int) -> torch.Tensor:
+        """Sample SE(3) transformation matrix directly.
 
         Standard implementation that works for all subclasses.
+        Samples rotation and translation with proper magnitude constraints:
+        - rotation_mag: Maximum overall rotation magnitude (degrees)
+        - translation_mag: Maximum overall translation magnitude
 
         Args:
             seed: Random seed for deterministic sampling
 
         Returns:
-            Dictionary containing SE(3) transform parameters:
-            - 'rotation_angles': List of 3 rotation angles in degrees
-            - 'translation': List of 3 translation values
+            4x4 SE(3) transformation matrix (torch.Tensor)
         """
         generator = torch.Generator()
         generator.manual_seed(seed)
 
-        # Sample SE(3) transformation parameters
-        rotation_angles = (
-            torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
+        # Sample rotation using axis-angle representation to ensure proper magnitude constraint
+        # Sample random rotation axis (unit vector)
+        rotation_axis = torch.randn(3, generator=generator)
+        rotation_axis = rotation_axis / torch.norm(rotation_axis)
+        
+        # Sample rotation angle uniformly from [0, rotation_mag] (in degrees)
+        rotation_angle_deg = torch.rand(1, generator=generator) * self.rotation_mag
+        rotation_angle_rad = rotation_angle_deg * np.pi / 180
+        
+        # Convert axis-angle to rotation matrix using Rodrigues' formula
+        K = torch.tensor([
+            [0, -rotation_axis[2], rotation_axis[1]],
+            [rotation_axis[2], 0, -rotation_axis[0]],
+            [-rotation_axis[1], rotation_axis[0], 0]
+        ], dtype=torch.float32)
+        
+        R = (
+            torch.eye(3, dtype=torch.float32)
+            + torch.sin(rotation_angle_rad) * K
+            + (1 - torch.cos(rotation_angle_rad)) * (K @ K)
         )
-        translation = (
-            torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
-        )
+        
+        # Assert that the rotation matrix corresponds to the sampled angle
+        computed_angle = torch.acos(torch.clamp((torch.trace(R) - 1) / 2, -1, 1))
+        assert torch.abs(computed_angle - rotation_angle_rad) < 1e-4, \
+            f"Rotation matrix angle mismatch: sampled={rotation_angle_rad.item():.6f}, computed={computed_angle.item():.6f}"
 
-        return {
-            'rotation_angles': rotation_angles.tolist(),
-            'translation': translation.tolist(),
-        }
-
-    def _build_transform(self, transform_params: Dict[str, Any]) -> torch.Tensor:
-        """Build SE(3) transformation matrix only.
-
-        Standard implementation that works for all subclasses.
-
-        Args:
-            transform_params: Transform configuration dictionary from _sample_transform
-
-        Returns:
-            4x4 SE(3) transformation matrix (torch.Tensor)
-        """
-        # Convert to tensors
-        rotation_angles = torch.tensor(
-            transform_params['rotation_angles'],
-            dtype=torch.float32,
-            device=self.device,
-        )
-        translation = torch.tensor(
-            transform_params['translation'],
-            dtype=torch.float32,
-            device=self.device,
-        )
-
-        # Convert to radians and create rotation matrices
-        rotation_rad = rotation_angles * np.pi / 180
-        cos_vals = torch.cos(rotation_rad)
-        sin_vals = torch.sin(rotation_rad)
-
-        R_x = torch.tensor([
-            [1, 0, 0],
-            [0, cos_vals[0], -sin_vals[0]],
-            [0, sin_vals[0], cos_vals[0]]
-        ], dtype=torch.float32, device=self.device)
-
-        R_y = torch.tensor([
-            [cos_vals[1], 0, sin_vals[1]],
-            [0, 1, 0],
-            [-sin_vals[1], 0, cos_vals[1]]
-        ], dtype=torch.float32, device=self.device)
-
-        R_z = torch.tensor([
-            [cos_vals[2], -sin_vals[2], 0],
-            [sin_vals[2], cos_vals[2], 0],
-            [0, 0, 1]
-        ], dtype=torch.float32, device=self.device)
-
-        rotation_matrix = R_z @ R_y @ R_x
+        # Sample translation with proper magnitude constraint
+        # Sample random direction on unit sphere
+        translation_direction = torch.randn(3, generator=generator)
+        translation_direction = translation_direction / torch.norm(translation_direction)
+        
+        # Sample magnitude uniformly from [0, translation_mag]
+        translation_magnitude = torch.rand(1, generator=generator) * self.translation_mag
+        
+        # Apply magnitude to direction vector
+        translation = translation_direction * translation_magnitude
 
         # Create 4x4 transformation matrix
         transform_matrix = torch.eye(4, dtype=torch.float32, device=self.device)
-        transform_matrix[:3, :3] = rotation_matrix
-        transform_matrix[:3, 3] = translation
+        transform_matrix[:3, :3] = R.to(self.device)
+        transform_matrix[:3, 3] = translation.to(self.device)
 
         return transform_matrix
 
