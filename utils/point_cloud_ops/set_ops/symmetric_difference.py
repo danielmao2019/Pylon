@@ -1,6 +1,6 @@
 from typing import List, Union, Tuple
 import torch
-from utils.point_cloud_ops.knn import knn
+from utils.point_cloud_ops.knn.knn import knn
 from utils.input_checks.point_cloud import check_pc_xyz
 
 
@@ -64,7 +64,6 @@ def pc_symmetric_difference(
         query_points=src_pc_normalized,
         reference_points=tgt_pc_normalized,
         k=1,  # Find nearest neighbor
-        method="faiss",
         return_distances=True
     )
     
@@ -78,7 +77,6 @@ def pc_symmetric_difference(
         query_points=tgt_pc_normalized,
         reference_points=src_pc_normalized,
         k=1,  # Find nearest neighbor
-        method="faiss",
         return_distances=True
     )
     

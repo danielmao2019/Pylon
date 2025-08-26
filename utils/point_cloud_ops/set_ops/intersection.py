@@ -4,6 +4,9 @@ from scipy.spatial import cKDTree
 import numpy as np
 import torch
 
+from utils.input_checks.point_cloud import check_pc_xyz
+from utils.point_cloud_ops.knn.knn import knn
+
 
 def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -> int:
     """
@@ -16,7 +19,9 @@ def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) 
     Returns:
         Chunk factor to use for recursive implementation
     """
-    assert src_points.device == tgt_points.device
+    assert isinstance(src_points, torch.Tensor), f"src_points must be torch.Tensor, got {type(src_points)}"
+    assert isinstance(tgt_points, torch.Tensor), f"tgt_points must be torch.Tensor, got {type(tgt_points)}"
+    assert src_points.device == tgt_points.device, f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
 
     if src_points.device.type == 'cpu':
         return 1
@@ -76,8 +81,6 @@ def _tensor_intersection(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
-    from utils.input_checks.point_cloud import check_pc_xyz
-    
     # Validate point clouds using check_pc_xyz
     check_pc_xyz(src_points)
     check_pc_xyz(tgt_points)
@@ -86,7 +89,7 @@ def _tensor_intersection(
     assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
     
-    assert src_points.device == tgt_points.device
+    assert src_points.device == tgt_points.device, f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
 
     # Reshape for broadcasting: (N, 1, 3) - (1, M, 3) = (N, M, 3)
     src_expanded = src_points.unsqueeze(1)  # Shape: (N, 1, 3)
@@ -131,7 +134,12 @@ def _tensor_intersection_recursive(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
-    assert src_points.device == tgt_points.device
+    assert isinstance(src_points, torch.Tensor), f"src_points must be torch.Tensor, got {type(src_points)}"
+    assert isinstance(tgt_points, torch.Tensor), f"tgt_points must be torch.Tensor, got {type(tgt_points)}"
+    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert radius > 0, f"radius must be greater than 0, got {radius}"
+    assert chunk_factor is None or isinstance(chunk_factor, int), f"chunk_factor must be int or None, got {type(chunk_factor)}"
+    assert src_points.device == tgt_points.device, f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
 
     # If chunk_factor is not provided, calculate it based on available memory
     if chunk_factor is None:
@@ -211,10 +219,13 @@ def _kdtree_intersection(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
-    assert isinstance(src_points, torch.Tensor)
-    assert isinstance(tgt_points, torch.Tensor)
-    assert src_points.ndim == 2 and tgt_points.ndim == 2
-    assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
+    # Validate point clouds using check_pc_xyz
+    check_pc_xyz(src_points)
+    check_pc_xyz(tgt_points)
+    
+    # Validate radius parameter
+    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert radius > 0, f"radius must be greater than 0, got {radius}"
 
     # Convert to numpy for KD-tree operations
     src_np = src_points.cpu().numpy()
@@ -244,8 +255,16 @@ def _kdtree_intersection(
             tgt_overlapping_indices.append(i)
 
     # Convert lists to tensors
-    src_overlapping_indices = torch.tensor(src_overlapping_indices, device=src_points.device)
-    tgt_overlapping_indices = torch.tensor(tgt_overlapping_indices, device=tgt_points.device)
+    src_overlapping_indices = torch.tensor(
+        src_overlapping_indices,
+        dtype=torch.long,
+        device=src_points.device
+    )
+    tgt_overlapping_indices = torch.tensor(
+        tgt_overlapping_indices,
+        dtype=torch.long,
+        device=tgt_points.device
+    )
 
     return src_overlapping_indices, tgt_overlapping_indices
 
@@ -271,10 +290,13 @@ def compute_pc_iou(
     Returns:
         The overlap ratio, defined as the number of overlapping points divided by the total number of points
     """
-    assert isinstance(src_points, torch.Tensor)
-    assert isinstance(tgt_points, torch.Tensor)
-    assert src_points.ndim == 2 and tgt_points.ndim == 2
-    assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
+    # Validate point clouds using check_pc_xyz
+    check_pc_xyz(src_points)
+    check_pc_xyz(tgt_points)
+    
+    # Validate radius parameter
+    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert radius > 0, f"radius must be greater than 0, got {radius}"
     # Get overlapping indices
     src_overlapping_indices, tgt_overlapping_indices = pc_intersection(
         src_points, tgt_points, radius
@@ -305,16 +327,9 @@ def get_nearest_neighbor_distances(
     Returns:
         Distances to nearest neighbors, shape (N,)
     """
-    print(f"DEBUG: get_nearest_neighbor_distances() starting with query_points shape: {query_points.shape}, support_points shape: {support_points.shape}")
-    
-    from utils.point_cloud_ops.knn import knn
-    from utils.input_checks.point_cloud import check_pc_xyz
-    
     # Validate inputs
     check_pc_xyz(query_points)
     check_pc_xyz(support_points)
-    
-    print("DEBUG: get_nearest_neighbor_distances() using KNN to find nearest neighbors")
     
     # Find nearest neighbors using KNN module
     distances, _ = knn(
@@ -324,11 +339,8 @@ def get_nearest_neighbor_distances(
         return_distances=True
     )
     
-    print(f"DEBUG: get_nearest_neighbor_distances() KNN completed, distances shape: {distances.shape}")
-    
     # Squeeze to get shape (N,) instead of (N, 1)
     distances = distances.squeeze(1)
-    print(f"DEBUG: get_nearest_neighbor_distances() completed, final tensor shape: {distances.shape}")
     
     return distances
 
@@ -354,34 +366,31 @@ def compute_registration_overlap(
     Returns:
         Overlap ratio as fraction of reference points with close source neighbors
     """
-    print(f"DEBUG: compute_registration_overlap() starting with ref_points shape: {ref_points.shape}, src_points shape: {src_points.shape}")
-    print(f"DEBUG: compute_registration_overlap() positive_radius: {positive_radius}, transform provided: {transform is not None}")
-    assert isinstance(ref_points, torch.Tensor)
-    assert isinstance(src_points, torch.Tensor)
-    assert ref_points.ndim == 2 and src_points.ndim == 2
-    assert ref_points.shape[1] == 3 and src_points.shape[1] == 3
-    assert src_points.dtype == ref_points.dtype
+    # Validate point clouds using check_pc_xyz
+    check_pc_xyz(ref_points)
+    check_pc_xyz(src_points)
+    
+    # Validate radius parameter
+    assert isinstance(positive_radius, (int, float)), f"positive_radius must be int or float, got {type(positive_radius)}"
+    assert positive_radius > 0, f"positive_radius must be greater than 0, got {positive_radius}"
+    
+    # Validate dtype compatibility
+    assert src_points.dtype == ref_points.dtype, f"dtype mismatch: src_points {src_points.dtype}, ref_points {ref_points.dtype}"
     
     # Apply transformation to source points if provided
     if transform is not None:
-        print("DEBUG: compute_registration_overlap() applying transformation to source points")
-        assert isinstance(transform, torch.Tensor)
-        assert transform.shape == (4, 4)
+        assert isinstance(transform, torch.Tensor), f"transform must be torch.Tensor, got {type(transform)}"
+        assert transform.shape == (4, 4), f"transform must have shape (4, 4), got {transform.shape}"
         transform = transform.to(src_points.dtype)
         # Apply SE(3) transformation: src_transformed = (R @ src.T + t).T
         R = transform[:3, :3]
         t = transform[:3, 3]
         src_points = (R @ src_points.T + t.unsqueeze(1)).T
-        print(f"DEBUG: compute_registration_overlap() transformation applied, new src_points shape: {src_points.shape}")
     
     # Get nearest neighbor distances (ref -> src)
-    print("DEBUG: compute_registration_overlap() computing nearest neighbor distances")
     nn_distances = get_nearest_neighbor_distances(ref_points, src_points)
-    print(f"DEBUG: compute_registration_overlap() nn_distances computed, shape: {nn_distances.shape}")
     
     # Compute overlap as fraction of ref points with neighbors within radius
-    print("DEBUG: compute_registration_overlap() computing overlap fraction")
     overlap = torch.mean((nn_distances < positive_radius).float()).item()
-    print(f"DEBUG: compute_registration_overlap() computed overlap: {overlap}")
     
     return overlap

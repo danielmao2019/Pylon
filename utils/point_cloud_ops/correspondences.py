@@ -1,7 +1,7 @@
 from typing import Optional
 import torch
 from utils.point_cloud_ops.apply_transform import apply_transform
-from utils.point_cloud_ops.knn import knn
+from utils.point_cloud_ops.knn.knn import knn
 from utils.input_checks.point_cloud import check_pc_xyz
 
 
@@ -38,7 +38,6 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
         query_points=tgt_points,
         reference_points=src_points,
         k=None,  # Return all neighbors within radius
-        method="faiss",
         return_distances=True,
         radius=radius
     )
