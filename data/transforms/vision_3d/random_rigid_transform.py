@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.point_cloud_ops import apply_transform
+from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 
 class RandomRigidTransform(BaseTransform):
@@ -56,12 +57,10 @@ class RandomRigidTransform(BaseTransform):
 
         # Generate random angle within the specified range
         angle = torch.rand(1, device=device, generator=generator) * (2 * rot_mag_rad) - rot_mag_rad
+        angle = angle.squeeze()
 
-        # Create rotation matrix using axis-angle representation (Rodrigues' formula)
-        K = torch.tensor([[0, -axis[2], axis[1]],
-                         [axis[2], 0, -axis[0]],
-                         [-axis[1], axis[0], 0]], dtype=axis.dtype, device=device)
-        R = torch.eye(3, dtype=axis.dtype, device=device) + torch.sin(angle) * K + (1 - torch.cos(angle)) * (K @ K)
+        # Create rotation matrix using rodrigues_to_matrix utility
+        R = rodrigues_to_matrix(axis, angle)
 
         return R
 
