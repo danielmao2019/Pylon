@@ -1,7 +1,7 @@
 
-"""Rodrigues formula for axis-angle rotation utilities.
+"""Rodrigues formula rotation utilities.
 
-This module provides functions for converting between axis-angle representations
+This module provides functions for converting between Rodrigues representations
 and rotation matrices using Rodrigues' rotation formula.
 """
 
@@ -11,9 +11,9 @@ import math
 
 
 def rodrigues_canonical(axis: torch.Tensor, angle: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Convert axis-angle representation to canonical form with non-negative angle [0, pi].
+    """Convert Rodrigues representation to canonical form with non-negative angle [0, pi].
     
-    This resolves the axis-angle ambiguity by choosing the representation where
+    This resolves the Rodrigues ambiguity by choosing the representation where
     the angle is always non-negative. If the input angle is negative, the axis 
     is flipped and the angle is made positive.
     
@@ -38,11 +38,11 @@ def rodrigues_canonical(axis: torch.Tensor, angle: torch.Tensor) -> Tuple[torch.
     return canonical_axis, canonical_angle
 
 
-def axis_angle_to_matrix(
+def rodrigues_to_matrix(
     axis: torch.Tensor, 
     angle: torch.Tensor
 ) -> torch.Tensor:
-    """Convert axis-angle representation to rotation matrix using Rodrigues' formula.
+    """Convert Rodrigues representation to rotation matrix using Rodrigues' formula.
     
     Args:
         axis: Unit vector of shape (3,) representing rotation axis
@@ -68,11 +68,11 @@ def axis_angle_to_matrix(
     return R
 
 
-def matrix_to_axis_angle(
+def matrix_to_rodrigues(
     R: torch.Tensor,
     eps: float = 1e-6
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Extract axis-angle representation from rotation matrix.
+    """Extract Rodrigues representation from rotation matrix.
     
     Returns canonical form where angle is always non-negative [0, pi].
     The axis direction is chosen to ensure this canonical form.

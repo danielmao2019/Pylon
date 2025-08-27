@@ -1,8 +1,8 @@
 """3D utilities module for Pylon framework."""
 
 from utils.three_d.rotation.rodrigues import (
-    axis_angle_to_matrix,
-    matrix_to_axis_angle,
+    rodrigues_to_matrix,
+    matrix_to_rodrigues,
     rodrigues_canonical
 )
 from utils.three_d.rotation.euler import (
@@ -12,8 +12,8 @@ from utils.three_d.rotation.euler import (
 )
 
 __all__ = [
-    'axis_angle_to_matrix',
-    'matrix_to_axis_angle', 
+    'rodrigues_to_matrix',
+    'matrix_to_rodrigues', 
     'rodrigues_canonical',
     'euler_to_matrix', 
     'matrix_to_euler',
