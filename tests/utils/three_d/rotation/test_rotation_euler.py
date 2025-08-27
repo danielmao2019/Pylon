@@ -3,25 +3,6 @@ import math
 from utils.three_d.rotation import euler_to_matrix, matrix_to_euler
 
 
-def to_canonical_form(angles: torch.Tensor) -> torch.Tensor:
-    """Convert Euler angles to canonical form where Y rotation is in [-pi/2, +pi/2]."""
-    alpha, beta, gamma = angles[0], angles[1], angles[2]
-    
-    # Constrain beta to [-pi/2, +pi/2]
-    if beta > math.pi / 2:
-        # beta > pi/2: use alternate solution (alpha+pi, pi-beta, gamma+pi)
-        alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
-        beta = math.pi - beta
-        gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
-    elif beta < -math.pi / 2:
-        # beta < -pi/2: use alternate solution (alpha+pi, -pi-beta, gamma+pi)  
-        alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
-        beta = -math.pi - beta
-        gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
-        
-    return torch.tensor([alpha, beta, gamma])
-
-
 def test_euler_angles_round_trip():
     """Test Euler angles to matrix conversion and back using XYZ convention.
     
