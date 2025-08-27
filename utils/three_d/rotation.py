@@ -159,7 +159,7 @@ def matrix_to_euler(
 ) -> torch.Tensor:
     """Extract Euler angles from rotation matrix using XYZ convention.
     
-    Returns canonical form with Y rotation constrained to [-pi/2, +pi/2]
+    Returns canonical form where Y rotation is constrained to [-pi/2, +pi/2]
     to resolve Euler angle ambiguity.
     
     Args:
@@ -182,11 +182,16 @@ def matrix_to_euler(
         beta = torch.atan2(R[0, 2], sy)         # Y rotation
         gamma = torch.atan2(-R[0, 1], R[0, 0])  # Z rotation
         
-        # Handle Euler angle ambiguity: choose canonical form where beta is in [-pi/2, pi/2]
-        if torch.abs(beta) > math.pi / 2:
-            # Use alternate solution: (alpha+pi, pi-beta, gamma+pi)
+        # Ensure canonical form: constrain beta to [-pi/2, +pi/2]
+        if beta > math.pi / 2:
+            # beta > pi/2: use alternate solution (alpha+pi, pi-beta, gamma+pi)
             alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
-            beta = math.pi - beta if beta > 0 else -math.pi - beta
+            beta = math.pi - beta
+            gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
+        elif beta < -math.pi / 2:
+            # beta < -pi/2: use alternate solution (alpha+pi, -pi-beta, gamma+pi)  
+            alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
+            beta = -math.pi - beta
             gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
     else:
         # Gimbal lock case - lose one degree of freedom
