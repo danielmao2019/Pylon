@@ -115,12 +115,12 @@ def matrix_to_euler(
     
     if not singular:
         # Normal case - no gimbal lock
+        # For XYZ Euler convention: R = Rx(α) * Ry(β) * Rz(γ)
+        # Standard extraction formulas:
+        beta = torch.asin(torch.clamp(R[0, 2], -1, 1))  # Y rotation in [-pi/2, +pi/2]
         alpha = torch.atan2(-R[1, 2], R[2, 2])  # X rotation
-        beta = torch.atan2(R[0, 2], sy)         # Y rotation
         gamma = torch.atan2(-R[0, 1], R[0, 0])  # Z rotation
         
-        # Apply canonical form constraint directly during extraction
-        # This ensures beta is in [-pi/2, +pi/2] for canonical form
     else:
         # Gimbal lock case - lose one degree of freedom
         alpha = torch.atan2(R[2, 1], R[1, 1])   # X rotation
@@ -128,7 +128,4 @@ def matrix_to_euler(
         gamma = torch.tensor(0.0, dtype=R.dtype, device=R.device)  # Z rotation = 0
         
     angles = torch.tensor([alpha, beta, gamma], dtype=R.dtype, device=R.device)
-    
-    # Apply canonical form to result
-    canonical_angles = euler_canonical(angles)
-    return canonical_angles
+    return angles
