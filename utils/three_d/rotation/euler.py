@@ -119,17 +119,8 @@ def matrix_to_euler(
         beta = torch.atan2(R[0, 2], sy)         # Y rotation
         gamma = torch.atan2(-R[0, 1], R[0, 0])  # Z rotation
         
-        # Ensure canonical form: constrain beta to [-pi/2, +pi/2]
-        if beta > math.pi / 2:
-            # beta > pi/2: use alternate solution (alpha+pi, pi-beta, gamma+pi)
-            alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
-            beta = math.pi - beta
-            gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
-        elif beta < -math.pi / 2:
-            # beta < -pi/2: use alternate solution (alpha+pi, -pi-beta, gamma+pi)  
-            alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
-            beta = -math.pi - beta
-            gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
+        # Apply canonical form constraint directly during extraction
+        # This ensures beta is in [-pi/2, +pi/2] for canonical form
     else:
         # Gimbal lock case - lose one degree of freedom
         alpha = torch.atan2(R[2, 1], R[1, 1])   # X rotation
