@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
 from utils.point_cloud_ops import apply_transform
+from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 
 def create_random_point_cloud(num_points=1000):
@@ -13,28 +14,28 @@ def create_random_point_cloud(num_points=1000):
 
 def create_random_transform():
     """Create a random 4x4 transformation matrix."""
-    # Create a random rotation matrix
+    # Create a random rotation using Rodrigues representation
     angle = np.random.rand() * 2 * np.pi
     axis = np.random.rand(3).astype(np.float32)
-    axis = axis / np.linalg.norm(axis)
+    axis = axis / np.linalg.norm(axis)  # Normalize to unit vector
+    
+    # Convert to torch tensors
+    axis_torch = torch.tensor(axis, dtype=torch.float32)
+    angle_torch = torch.tensor(angle, dtype=torch.float32)
 
-    # Rodrigues rotation formula
-    K = np.array([
-        [0, -axis[2], axis[1]],
-        [axis[2], 0, -axis[0]],
-        [-axis[1], axis[0], 0]
-    ], dtype=np.float32)
-    R = np.eye(3, dtype=np.float32) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
+    # Create rotation matrix using rodrigues_to_matrix utility
+    R = rodrigues_to_matrix(axis_torch, angle_torch)
 
     # Create a random translation vector
     t = np.random.rand(3).astype(np.float32) * 10.0
+    t_torch = torch.tensor(t, dtype=torch.float32)
 
     # Combine into a 4x4 transformation matrix
-    transform = np.eye(4, dtype=np.float32)
+    transform = torch.eye(4, dtype=torch.float32)
     transform[:3, :3] = R
-    transform[:3, 3] = t
+    transform[:3, 3] = t_torch
 
-    return torch.tensor(transform, dtype=torch.float32, device='cuda')
+    return transform.to('cuda')
 
 
 def create_point_cloud_dict(points):

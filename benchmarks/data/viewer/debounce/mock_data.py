@@ -3,6 +3,7 @@
 import numpy as np
 import torch
 from typing import Dict, List, Any
+from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 
 def generate_point_cloud(num_points: int = 5000) -> torch.Tensor:
@@ -46,15 +47,14 @@ def generate_rigid_transform() -> Dict[str, torch.Tensor]:
     Returns:
         Dictionary with 'rotation' (3x3) and 'translation' (3,) tensors
     """
-    # Random rotation using axis-angle representation
+    # Random rotation using Rodrigues representation
     axis = torch.randn(3)
-    axis = axis / torch.norm(axis)
+    axis = axis / torch.norm(axis)  # Normalize to unit vector
     angle = torch.rand(1) * np.pi / 4  # Up to 45 degrees
+    angle = angle.squeeze()
     
-    # Convert to rotation matrix (simplified)
-    cos_a = torch.cos(angle)
-    sin_a = torch.sin(angle)
-    rotation = torch.eye(3) * cos_a + torch.sin(angle) * torch.cross(axis.unsqueeze(0).repeat(3, 1), torch.eye(3), dim=1)
+    # Convert to rotation matrix using rodrigues_to_matrix utility
+    rotation = rodrigues_to_matrix(axis, angle)
     
     # Random translation
     translation = torch.randn(3) * 0.5
