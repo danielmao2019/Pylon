@@ -92,19 +92,19 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
                 "Cannot use dict CLASS_DIST when split=None (implies predefined splits exist)"
             self.split = None
             return
-        
+
         assert isinstance(split, str), f"split must be string or None, got {type(split)=}"
         assert split in self.SPLIT_OPTIONS, f"{split=} not in {self.SPLIT_OPTIONS=}"
-        
+
         self.split = split
-        
+
         if split_percentages is not None:
             assert isinstance(split_percentages, tuple), f"split_percentages must be tuple, got {type(split_percentages)=}"
             assert len(split_percentages) == len(self.SPLIT_OPTIONS), f"{split_percentages=}, {self.SPLIT_OPTIONS=}"
             assert all(isinstance(x, (int, float)) for x in split_percentages), f"All percentages must be numeric, got {split_percentages=}"
             assert abs(sum(split_percentages) - 1.0) < 0.01, f"Percentages must sum to 1.0, got sum={sum(split_percentages)}"
             self.split_percentages = split_percentages
-        
+
         # Normalize DATASET_SIZE to always be int for the selected split
         if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
             if isinstance(self.DATASET_SIZE, dict):
@@ -116,7 +116,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
                 assert split_percentages is not None, "int DATASET_SIZE requires split_percentages"
             else:
                 assert False, f"DATASET_SIZE must be dict or int, got {type(self.DATASET_SIZE)=}"
-        
+
         if hasattr(self, 'CLASS_DIST') and isinstance(self.CLASS_DIST, dict):
             assert split_percentages is None, "Cannot use split_percentages with CLASS_DIST"
             assert set(self.CLASS_DIST.keys()) == set(self.SPLIT_OPTIONS), f"CLASS_DIST keys {self.CLASS_DIST.keys()} != SPLIT_OPTIONS {self.SPLIT_OPTIONS}"
@@ -131,14 +131,14 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def _init_annotations_all_splits(self) -> None:
         """Initialize annotations for the single specified split or everything if split=None.
-        
+
         If split_percentages is provided, performs deterministic random split first,
         then initializes only the requested split's annotations.
         """
         # Initialize annotations and check dataset size (always needed)
         self._init_annotations()
         self._check_dataset_size()
-        
+
         if self.split is None:
             # Load everything - no split processing needed
             pass
@@ -146,14 +146,14 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Perform deterministic random split
             assert isinstance(self.split, str), "split must be string when using split_percentages"
             assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
-            
+
             sizes = tuple(int(percent * len(self.annotations)) for percent in self.split_percentages)
             cutoffs = [0] + list(itertools.accumulate(sizes))
-            
+
             # Use deterministic shuffle with base_seed for reproducibility
             rng = random.Random(self.base_seed)
             rng.shuffle(self.annotations)
-            
+
             # Extract only the requested split's annotations
             split_idx = self.SPLIT_OPTIONS.index(self.split)
             self.annotations = self.annotations[cutoffs[split_idx]:cutoffs[split_idx+1]]
@@ -161,7 +161,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Predefined split - annotations already loaded correctly
             assert isinstance(self.split, str), "split must be string when using predefined splits"
             assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
-        
+
         # Apply indices filtering if provided
         self._filter_annotations_by_indices()
 
@@ -172,7 +172,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     def _check_dataset_size(self) -> None:
         if not hasattr(self, 'DATASET_SIZE') or self.DATASET_SIZE is None:
             return
-        
+
         assert isinstance(self.DATASET_SIZE, int), f"DATASET_SIZE should be normalized to int in _init_split, got {type(self.DATASET_SIZE)=}"
         assert len(self.annotations) == self.DATASET_SIZE, f"{len(self.annotations)=}, {self.DATASET_SIZE=}"
 
@@ -204,11 +204,11 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         assert isinstance(use_disk_cache, bool), f"{type(use_disk_cache)=}"
         assert isinstance(max_cache_memory_percent, float), f"{type(max_cache_memory_percent)=}"
         assert 0.0 <= max_cache_memory_percent <= 100.0, f"{max_cache_memory_percent=}"
-        
+
         if use_cpu_cache or use_disk_cache:
             # Generate version hash for this dataset configuration
             version_hash = self.get_cache_version_hash()
-            
+
             # For datasets without data_root (e.g., random datasets), use a default location
             # For datasets with soft links, resolve to real path to ensure cache is in target location (e.g., /pub not /home)
             if hasattr(self, 'data_root'):
@@ -218,7 +218,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             else:
                 # Use dataset class name for default location when no data_root is provided
                 data_root_for_cache = f'/tmp/cache/{self.__class__.__name__.lower()}'
-            
+
             self.cache = CombinedDatasetCache(
                 data_root=data_root_for_cache,
                 version_hash=version_hash,
@@ -235,36 +235,36 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning.
-        
+
         Subclasses should override this method to add their specific parameters.
-        
+
         Note: data_root is intentionally excluded from the version dict to ensure
         cache hashes are stable across different filesystem locations (e.g., soft links).
         """
         version_dict = {
             'class_name': self.__class__.__name__,
         }
-        
+
         # NOTE: We explicitly DO NOT include data_root in the version dict
         # This ensures that the same dataset accessed through different paths
         # (e.g., soft links, relocated datasets) will have the same cache hash
-        
+
         # Add split information
         if hasattr(self, 'split') and self.split is not None:
             version_dict['split'] = self.split
-        
+
         if hasattr(self, 'split_percentages') and self.split_percentages is not None:
             version_dict['split_percentages'] = self.split_percentages
-        
+
         # Add base parameters that affect dataset content
         if hasattr(self, 'base_seed') and self.base_seed is not None:
             version_dict['base_seed'] = self.base_seed
-        
+
         if hasattr(self, 'indices') and self.indices is not None:
             version_dict['indices'] = self.indices
-        
+
         return version_dict
-    
+
     def get_cache_version_hash(self) -> str:
         """Generate deterministic hash from dataset configuration."""
         version_dict = self._get_cache_version_dict()
@@ -357,20 +357,20 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> Optional['html.Div']:
         """Create custom display for this dataset's datapoints.
-        
+
         This method allows datasets to provide custom visualization logic
         that will be used by the data viewer instead of the default display functions.
-        
+
         Args:
             datapoint: Dictionary containing inputs, labels, and meta_info from dataset
             class_labels: Optional dictionary mapping class indices to label names
             camera_state: Optional dictionary containing camera position state for 3D visualizations
             settings_3d: Optional dictionary containing 3D visualization settings
-            
+
         Returns:
             Optional html.Div: Custom HTML layout for displaying this datapoint.
             Return None to indicate fallback to predefined display functions.
-            
+
         Note:
             This is an abstract static method that must be implemented by all dataset subclasses.
             Return None if you want to use the default display functions based on dataset type.

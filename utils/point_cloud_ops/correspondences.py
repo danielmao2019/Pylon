@@ -23,8 +23,6 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
     assert src_points.device == tgt_points.device, f"{src_points.device=}, {tgt_points.device=}"
     assert transform is None or (isinstance(transform, torch.Tensor) and transform.shape == (4, 4)), f"Invalid transform shape: {transform.shape if transform is not None else None}"
     assert isinstance(radius, (int, float)) and radius > 0, f"radius must be positive number, got {radius}"
-    
-    device = src_points.device
 
     # Transform source points to reference frame if transform provided
     if transform is not None:
@@ -39,21 +37,22 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
         reference_points=src_points,
         k=None,  # Return all neighbors within radius
         return_distances=True,
-        radius=radius
+        radius=radius,
+        method='scipy',
     )
-    
+
     # Create correspondence pairs using vectorized operations
     # distances and indices are [N_tgt, k] where k = src_points.shape[0]
     # We need to convert to correspondence format [K, 2] where each row is [src_idx, tgt_idx]
-    
+
     # Find valid correspondences (distance < inf and index >= 0)
     valid_mask = (distances < float('inf')) & (indices >= 0)
-    
+
     # Get the coordinates of valid correspondences
     tgt_idx_coords, k_coords = torch.where(valid_mask)
     src_idx_coords = indices[tgt_idx_coords, k_coords]
-    
+
     # Stack to create correspondence pairs [src_idx, tgt_idx]
     correspondences = torch.stack([src_idx_coords, tgt_idx_coords], dim=1)
-    
+
     return correspondences
