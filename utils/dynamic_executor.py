@@ -305,8 +305,8 @@ class DynamicThreadPoolExecutor:
 
             if decision:
                 logging.debug(f"[DynamicExecutor] Planning to add worker: current={current_workers}, "
-                      f"CPU {current_stats['cpu_percent']:.1f}%→{projected_cpu:.1f}%, "
-                      f"GPU {current_stats['gpu_memory_percent']:.1f}%→{projected_gpu:.1f}%, "
+                      f"CPU {current_stats['cpu_percent']:.1f}%->{projected_cpu:.1f}%, "
+                      f"GPU {current_stats['gpu_memory_percent']:.1f}%->{projected_gpu:.1f}%, "
                       f"pending={self._pending_tasks}")
 
             return decision

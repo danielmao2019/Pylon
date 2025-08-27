@@ -24,7 +24,7 @@ The benchmark simulates realistic user interaction patterns and measures:
 
 ### Available Scenarios
 
-- **`navigation`** - Navigation slider dragging (0 → 50, 20ms intervals)
+- **`navigation`** - Navigation slider dragging (0 -> 50, 20ms intervals)
 - **`3d_settings`** - 3D settings adjustment (point size, opacity sliders)
 - **`mixed`** - Mixed interactions (navigation + 3D settings + transforms)
 - **`stress`** - Stress test (100+ events in 1 second)

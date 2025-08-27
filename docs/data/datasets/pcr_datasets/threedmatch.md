@@ -258,8 +258,8 @@ if self.overlap_min < overlap <= self.overlap_max:
 | > 0.7 | 199 | 14.9% |
 
 ### Test Sets
-- **3DMatch**: 1,623 total pairs → 1,520 filtered pairs (93.7% have overlap > 0.3)
-- **3DLoMatch**: 1,781 total pairs → 1,772 filtered pairs (99.5% have 0.1 < overlap ≤ 0.3)
+- **3DMatch**: 1,623 total pairs -> 1,520 filtered pairs (93.7% have overlap > 0.3)
+- **3DLoMatch**: 1,781 total pairs -> 1,772 filtered pairs (99.5% have 0.1 < overlap ≤ 0.3)
 - **Cross-dataset overlap**: 103 pairs from 3DMatch.pkl match 3DLoMatch filter range
 
 </details>

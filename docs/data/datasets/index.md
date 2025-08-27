@@ -86,7 +86,7 @@ These datasets are for 3D point cloud registration tasks.
 
 | Wrapper | Class Name | Purpose | Documentation |
 |---------|-----------|---------|---------------|
-| ProjectionDatasetWrapper | `ProjectionDatasetWrapper` | 3D→2D Projection | *Documentation needed* |
+| ProjectionDatasetWrapper | `ProjectionDatasetWrapper` | 3D->2D Projection | *Documentation needed* |
 
 ## Dataset Categories Summary
 

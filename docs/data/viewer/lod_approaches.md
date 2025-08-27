@@ -4,7 +4,7 @@ This document describes four different approaches for intelligent point cloud do
 
 ## Problem Statement
 
-We need to downsample point clouds in 3D space before sending to Plotly, while preserving visual quality. The key challenge is determining which points to keep without doing expensive 3D→2D projection (which would duplicate Plotly's work).
+We need to downsample point clouds in 3D space before sending to Plotly, while preserving visual quality. The key challenge is determining which points to keep without doing expensive 3D->2D projection (which would duplicate Plotly's work).
 
 ## Approach 1: Distance-Weighted Voxel Sampling
 

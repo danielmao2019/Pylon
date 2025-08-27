@@ -135,7 +135,7 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         }
 
         # Create transformation matrix
-        # NOTE: The metadata contains target→source transform, but we need source→target
+        # NOTE: The metadata contains target->source transform, but we need source->target
         # So we create the matrix and then invert it
         rotation = torch.tensor(annotation['rotation'], dtype=torch.float32, device=self.device)
         translation = torch.tensor(annotation['translation'], dtype=torch.float32, device=self.device)
@@ -143,7 +143,7 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         transform_tgt_to_src[:3, :3] = rotation
         transform_tgt_to_src[:3, 3] = translation
         
-        # Invert to get source→target transformation
+        # Invert to get source->target transformation
         transform = torch.inverse(transform_tgt_to_src)
 
         # Get or compute correspondences with caching

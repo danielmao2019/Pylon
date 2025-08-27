@@ -7,10 +7,10 @@ API Design Principles:
 - Fail fast: Use assertions to enforce API contracts
 
 Data Flow:
-1. Dataset → torch.Tensor (CPU)
-2. apply_lod_to_point_cloud → torch.Tensor ONLY (enforced by assertions)
-3. create_point_cloud_figure → torch.Tensor ONLY (enforced by assertions)
-4. Plotly visualization → numpy conversion (internal, at the very end)
+1. Dataset -> torch.Tensor (CPU)
+2. apply_lod_to_point_cloud -> torch.Tensor ONLY (enforced by assertions)
+3. create_point_cloud_figure -> torch.Tensor ONLY (enforced by assertions)
+4. Plotly visualization -> numpy conversion (internal, at the very end)
 """
 from typing import Dict, Optional, Union, Any, Tuple
 import numpy as np
@@ -143,7 +143,7 @@ def apply_lod_to_point_cloud(
     """Apply Level of Detail processing to point cloud data.
     
     This function works entirely with torch tensors for optimal performance.
-    All inputs must be torch tensors - use numpy→torch conversion before calling.
+    All inputs must be torch tensors - use numpy->torch conversion before calling.
     
     Args:
         points: Point cloud positions as torch.Tensor (N, 3)
