@@ -55,7 +55,33 @@ def test_euler_angles_round_trip():
         max_error = torch.max(angle_errors)
         assert max_error < 1e-5, f"Test {i}: Angle recovery error {max_error:.6f}, canonical: {angles_canonical}, recovered: {angles_recovered}"
 
+
 def test_euler_matrix_round_trip():
-    # start from sampling euler angles, convert to matrix, convert back to angles, and then convert to matrix
-    # check matrix recovery
-    return
+    """Test matrix recovery: angles -> matrix -> angles -> matrix.
+    
+    This test randomly samples 10 sets of Euler angles, converts to matrix,
+    back to angles, then back to matrix again. Checks that the original and 
+    final matrices are identical.
+    """
+    torch.manual_seed(42)  # For reproducible tests
+    
+    for i in range(10):
+        # Sample random Euler angles from [-pi, +pi] for XYZ convention
+        angles = (torch.rand(3) - 0.5) * 2 * math.pi
+        
+        # Convert to canonical form using helper
+        angles_canonical = euler_canonical(angles)
+        
+        # Convert canonical Euler angles to matrix
+        R_original = euler_to_matrix(angles_canonical)
+        
+        # Convert matrix back to Euler angles
+        angles_recovered = matrix_to_euler(R_original)
+        
+        # Convert recovered angles back to matrix
+        R_recovered = euler_to_matrix(angles_recovered)
+        
+        # Check exact matrix recovery
+        matrix_errors = torch.abs(R_original - R_recovered)
+        max_error = torch.max(matrix_errors)
+        assert max_error < 1e-5, f"Test {i}: Matrix recovery error {max_error:.6f}"

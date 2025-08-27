@@ -76,6 +76,38 @@ def test_axis_angle_round_trip():
         assert angle_error < 1e-5, f"Test {i}: Angle recovery error {angle_error:.6f}, canonical: {angle_canonical:.6f}, recovered: {angle_recovered:.6f}"
         assert axis_error < 1e-5, f"Test {i}: Axis recovery error {axis_error:.6f}"
 
+
 def test_axis_angle_matrix_round_trip():
-    # similar to euelr
-    return
+    """Test matrix recovery: axis-angle -> matrix -> axis-angle -> matrix.
+    
+    This test randomly samples 10 pairs of rotation axes and angles, converts to matrix,
+    back to axis-angle, then back to matrix again. Checks that the original and 
+    final matrices are identical.
+    """
+    torch.manual_seed(42)  # For reproducible tests
+    
+    for i in range(10):
+        # Sample random rotation axis (unit vector)
+        axis = torch.randn(3)
+        axis = axis / torch.norm(axis)  # Normalize to unit vector
+        
+        # Sample random rotation angle from [-pi, +pi]
+        angle = (torch.rand(1) - 0.5) * 2 * math.pi
+        angle = angle.squeeze()
+        
+        # Convert to canonical form (non-negative angle)
+        axis_canonical, angle_canonical = axis_angle_canonical(axis, angle)
+        
+        # Convert canonical axis-angle to matrix
+        R_original = axis_angle_to_matrix(axis_canonical, angle_canonical)
+        
+        # Convert matrix back to axis-angle
+        axis_recovered, angle_recovered = matrix_to_axis_angle(R_original)
+        
+        # Convert recovered axis-angle back to matrix
+        R_recovered = axis_angle_to_matrix(axis_recovered, angle_recovered)
+        
+        # Check exact matrix recovery
+        matrix_errors = torch.abs(R_original - R_recovered)
+        max_error = torch.max(matrix_errors)
+        assert max_error < 1e-5, f"Test {i}: Matrix recovery error {max_error:.6f}"
