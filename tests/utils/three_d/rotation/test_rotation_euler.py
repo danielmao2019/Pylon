@@ -3,6 +3,30 @@ import math
 from utils.three_d.rotation.euler import euler_to_matrix, matrix_to_euler, euler_canonical
 
 
+def test_euler_canonical_idempotent():
+    """Test that euler_canonical is idempotent - applying it twice gives same result as once.
+    
+    This test randomly samples 10 sets of Euler angles from [-π, +π], applies
+    the canonical form helper once and twice, and verifies the results are identical.
+    """
+    torch.manual_seed(42)  # For reproducible tests
+    
+    for i in range(10):
+        # Sample random Euler angles from [-pi, +pi]
+        angles = (torch.rand(3) - 0.5) * 2 * math.pi
+        
+        # Apply canonical form once
+        canonical_once = euler_canonical(angles)
+        
+        # Apply canonical form twice
+        canonical_twice = euler_canonical(canonical_once)
+        
+        # Check that applying once and twice gives same result
+        angle_errors = torch.abs(canonical_once - canonical_twice)
+        max_error = torch.max(angle_errors)
+        assert max_error < 1e-5, f"Test {i}: Canonical idempotent error {max_error:.6f}, once: {canonical_once}, twice: {canonical_twice}"
+
+
 def test_euler_angles_round_trip():
     """Test Euler angles to matrix conversion and back using XYZ convention.
     
@@ -30,30 +54,8 @@ def test_euler_angles_round_trip():
         angle_errors = torch.abs(angles_canonical - angles_recovered)
         max_error = torch.max(angle_errors)
         assert max_error < 1e-5, f"Test {i}: Angle recovery error {max_error:.6f}, canonical: {angles_canonical}, recovered: {angles_recovered}"
-    
-    print("All Euler angles round-trip tests passed!")
+
+def test_euler_matrix_round_trip():
+    # start from sampling euler angles, convert to matrix, convert back to angles, and then convert to matrix
+    # check matrix recovery
     return
-
-
-def test_euler_canonical_idempotent():
-    """Test that euler_canonical is idempotent - applying it twice gives same result as once.
-    
-    This test randomly samples 10 sets of Euler angles from [-π, +π], applies
-    the canonical form helper once and twice, and verifies the results are identical.
-    """
-    torch.manual_seed(42)  # For reproducible tests
-    
-    for i in range(10):
-        # Sample random Euler angles from [-pi, +pi]
-        angles = (torch.rand(3) - 0.5) * 2 * math.pi
-        
-        # Apply canonical form once
-        canonical_once = euler_canonical(angles)
-        
-        # Apply canonical form twice
-        canonical_twice = euler_canonical(canonical_once)
-        
-        # Check that applying once and twice gives same result
-        angle_errors = torch.abs(canonical_once - canonical_twice)
-        max_error = torch.max(angle_errors)
-        assert max_error < 1e-5, f"Test {i}: Canonical idempotent error {max_error:.6f}, once: {canonical_once}, twice: {canonical_twice}"
