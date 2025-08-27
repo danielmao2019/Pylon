@@ -3,7 +3,7 @@ import math
 from utils.three_d.rotation import axis_angle_to_matrix, matrix_to_axis_angle
 
 
-def test():
+def test_axis_angle_round_trip():
     """Test axis-angle to matrix conversion and back using Rodrigues' formula.
     
     This test randomly samples 10 pairs of rotation axes (unit vectors) and rotation 

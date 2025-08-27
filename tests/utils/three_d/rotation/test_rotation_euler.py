@@ -3,7 +3,7 @@ import math
 from utils.three_d.rotation import euler_to_matrix, matrix_to_euler
 
 
-def test():
+def test_euler_angles_round_trip():
     """Test Euler angles to matrix conversion and back using XYZ convention.
     
     This test randomly samples 10 sets of Euler angles from [0, 2π) for XYZ convention.
