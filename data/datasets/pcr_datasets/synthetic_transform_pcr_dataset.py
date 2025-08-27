@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import threading
@@ -10,7 +9,7 @@ import torch
 
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from utils.determinism.hash_utils import deterministic_hash
-from utils.io.json import serialize_object
+from utils.io.json import save_json
 from utils.io.point_clouds.load_point_cloud import load_point_cloud
 from utils.point_cloud_ops import apply_transform
 from utils.point_cloud_ops.correspondences import get_correspondences
@@ -46,7 +45,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         overlap_range: Tuple[float, float] = (0.3, 1.0),
         min_points: int = 512,
         max_trials: int = 1000,
-        cache_filepath: Optional[str] = None,
+        cache_dir: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
@@ -58,7 +57,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             overlap_range: Overlap range (overlap_min, overlap_max] for filtering
             min_points: Minimum number of points filter for cache generation
             max_trials: Maximum number of trials to generate valid transforms
-            cache_filepath: Path to cache file (if None, no caching is used)
+            cache_dir: Directory to store cache files (if None, no caching is used)
             **kwargs: Additional arguments passed to BaseDataset (including data_root)
         """
         self.overlap_range = overlap_range
@@ -67,26 +66,25 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         self.translation_mag = translation_mag
         self.min_points = min_points
         self.max_trials = max_trials
-        self.cache_filepath = cache_filepath
-
-        # Initialize trials cache (2-level hierarchical)
-        if cache_filepath is not None:
-            assert cache_filepath.endswith(".json"), (
-                f"Cache file must be JSON format, got: {cache_filepath}"
-            )
-            # Ensure parent directory can be created
-            cache_dir = os.path.dirname(cache_filepath)
-            if cache_dir:  # Only create if there's actually a directory part
-                os.makedirs(cache_dir, exist_ok=True)
-            self._load_trials_cache()
-        else:
-            # No caching
-            self.trials_cache = {}
+        self.cache_dir = cache_dir
 
         # Initialize cache lock (will be recreated after pickle if needed)
         self._cache_lock = None
 
         super().__init__(**kwargs)
+
+        # Initialize trials cache after super().__init__ so we have access to get_cache_version_hash()
+        if cache_dir is not None:
+            # Ensure cache directory exists
+            os.makedirs(cache_dir, exist_ok=True)
+            # Compute and store cache filepath once
+            version_hash = self.get_cache_version_hash()
+            self.cache_filepath = os.path.join(cache_dir, f"{version_hash}.json")
+            self._load_trials_cache()
+        else:
+            # No caching
+            self.cache_filepath = None
+            self.trials_cache = {}
 
     @property
     def cache_lock(self) -> threading.Lock:
@@ -122,31 +120,29 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         raise NotImplementedError("Subclasses must implement _init_annotations")
 
     def _load_trials_cache(self) -> None:
-        """Load cached trials (overlap ratios) from disk."""
+        """Load cached trials (overlap ratios) from version-specific cache file."""
+        assert self.cache_filepath is not None
         if os.path.exists(self.cache_filepath):
             with open(self.cache_filepath, 'r') as f:
-                content = f.read().strip()
-                if content:  # Only try to parse if file is not empty
-                    loaded_cache = json.loads(content)
+                loaded_cache = json.load(f)
 
-                    # Validate cache structure - will raise AssertionError if invalid
-                    self._validate_trials_cache_structure(loaded_cache)
+                # Validate cache structure - will raise AssertionError if invalid
+                self._validate_trials_cache_structure(loaded_cache)
 
-                    self.trials_cache = loaded_cache
-                else:
-                    self.trials_cache = {}
+                self.trials_cache = loaded_cache
         else:
+            # Create empty cache file for this version
             self.trials_cache = {}
+            with self.cache_lock:
+                self._save_trials_cache()
 
     def _validate_trials_cache_structure(self, cache_data: Any) -> None:
-        """Validate that trials cache has the expected 2-level hierarchical structure.
+        """Validate that trials cache has the expected structure.
 
         Expected structure:
         {
-            "dataset_version_hash": {
-                "annotation_hash": [overlap_ratio_1, overlap_ratio_2, ...],
-                ...
-            },
+            "0": [overlap_ratio_1, overlap_ratio_2, ...],
+            "1": [overlap_ratio_1, overlap_ratio_2, ...],
             ...
         }
 
@@ -158,80 +154,38 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             f"Cache data must be a dictionary, got {type(cache_data)}"
         )
 
-        # Check each dataset version level (first level)
-        for version_key, version_data in cache_data.items():
-            # Version key should be a string
-            assert isinstance(version_key, str), (
-                f"Version key must be string, got {type(version_key)}"
+        # Check each dataset index level
+        for idx_key, overlap_list in cache_data.items():
+            # Index key should be a string (representing dataset index)
+            assert isinstance(idx_key, str), (
+                f"Index key must be string, got {type(idx_key)}"
+            )
+            
+            # Check if key can be converted to int (valid dataset index)
+            try:
+                int(idx_key)
+            except ValueError:
+                assert False, f"Index key must be convertible to int, got: {idx_key}"
+
+            # Overlap list should be a list
+            assert isinstance(overlap_list, list), (
+                f"Overlap list must be list, got {type(overlap_list)}"
             )
 
-            # Version data should be a dictionary
-            assert isinstance(version_data, dict), (
-                f"Version data must be dictionary, got {type(version_data)}"
-            )
-
-            # Check each annotation level (second level)
-            for annotation_key, overlap_list in version_data.items():
-                # Annotation key should be a string
-                assert isinstance(annotation_key, str), (
-                    f"Annotation key must be string, got {type(annotation_key)}"
-                )
-
-                # Overlap list should be a list of floats
-                assert isinstance(overlap_list, list), (
-                    f"Overlap list must be list, got {type(overlap_list)}"
-                )
-
-                # Each overlap should be a float or None (for failed generations)
-                for i, overlap in enumerate(overlap_list):
-                    if overlap is not None:
-                        assert isinstance(overlap, (int, float)), (
-                            f"Overlap {i} must be number or None, got {type(overlap)}"
-                        )
-                        assert 0.0 <= overlap <= 1.0, (
-                            f"Overlap {i} must be in [0, 1], got {overlap}"
-                        )
+            # Each overlap should be a float or None (for failed generations)
+            for i, overlap in enumerate(overlap_list):
+                if overlap is not None:
+                    assert isinstance(overlap, (int, float)), (
+                        f"Overlap {i} for idx {idx_key} must be number or None, got {type(overlap)}"
+                    )
+                    assert 0.0 <= overlap <= 1.0, (
+                        f"Overlap {i} for idx {idx_key} must be in [0, 1], got {overlap}"
+                    )
 
     def _save_trials_cache(self) -> None:
-        """Save trials cache to disk (thread-safe)."""
-        if self.cache_filepath is not None:
-            cache_dir = os.path.dirname(self.cache_filepath)
-            if cache_dir:
-                os.makedirs(cache_dir, exist_ok=True)
-            with open(self.cache_filepath, 'w') as f:
-                json.dump(self.trials_cache, f, indent=2)
-
-    def _get_dataset_version_key(self) -> str:
-        """Generate first-level cache key from dataset version dictionary.
-
-        Returns:
-            String hash of the dataset version dictionary
-        """
-        version_dict = self._get_cache_version_dict()
-        # Create a deterministic string representation
-        version_str = json.dumps(version_dict, sort_keys=True)
-        version_hash = hashlib.md5(version_str.encode()).hexdigest()[:12]
-        return version_hash
-
-    def _get_annotation_cache_key(self, annotation: Dict[str, Any]) -> str:
-        """Generate second-level cache key from annotation.
-
-        Handles torch tensors and other complex objects in annotations by
-        serializing them to JSON-compatible format before hashing.
-
-        Args:
-            annotation: Annotation dictionary from self.annotations[idx]
-
-        Returns:
-            String hash of the annotation
-        """
-        # Serialize annotation to handle torch tensors and other non-JSON types
-        serialized_annotation = serialize_object(annotation)
-
-        # Create a deterministic string representation of the serialized annotation
-        annotation_str = json.dumps(serialized_annotation, sort_keys=True)
-        annotation_hash = hashlib.md5(annotation_str.encode()).hexdigest()[:8]
-        return annotation_hash
+        """Save trials cache to version-specific cache file (thread-safe)."""
+        assert self.cache_filepath is not None
+        save_json(self.trials_cache, self.cache_filepath)
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         """Load a synthetic datapoint using trial-based caching logic.
@@ -374,8 +328,8 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         """Search for valid cached transform or generate new ones using trial-based caching.
 
         This method iterates through trials (starting from 0) to find a transform that
-        produces overlap within the specified range. It uses a 2-level cache to store
-        overlap ratios for each trial.
+        produces overlap within the specified range. It uses dataset indices as cache keys
+        to store overlap ratios for each trial.
 
         Args:
             t1_pc_filepath: Path to first point cloud file
@@ -385,27 +339,21 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         Returns:
             Tuple of (src_pc, tgt_pc, overlap_ratio, transform_matrix, current_trial)
         """
-        # Initialize cache keys and structure
-        dataset_version_key = self._get_dataset_version_key()
-        annotation = self.annotations[idx]
-        annotation_key = self._get_annotation_cache_key(annotation)
+        # Use dataset index as cache key
+        idx_key = str(idx)
 
         # Thread-safe cache structure initialization
         with self.cache_lock:
-            if dataset_version_key not in self.trials_cache:
-                self.trials_cache[dataset_version_key] = {}
-            
-            version_cache = self.trials_cache[dataset_version_key]
-            if annotation_key not in version_cache:
-                version_cache[annotation_key] = []
+            if idx_key not in self.trials_cache:
+                self.trials_cache[idx_key] = []
             
             # Make a copy to avoid concurrent modification issues
-            cached_overlaps = version_cache[annotation_key].copy()
+            cached_overlaps = self.trials_cache[idx_key].copy()
 
         # Iterate through trials to find valid transform
         for trial_idx in range(self.max_trials):
             # Generate transform matrix for this trial
-            trial_seed = deterministic_hash((annotation_key, trial_idx))
+            trial_seed = deterministic_hash((idx, trial_idx))
             transform_matrix = self._sample_transform(trial_seed)
             
             # Process cached trial
@@ -429,36 +377,39 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                         f"Generated overlap {generated_overlap} should match cached value {cached_overlap} "
                         f"for trial {trial_idx} (diff: {abs(generated_overlap - cached_overlap)})"
                     )
-                    
+
+                    print(f"DEBUG: _search_or_generate: datapoint {idx} using cached trial {trial_idx}.")
                     return src_pc, tgt_pc, generated_overlap, transform_matrix, trial_idx
-            
-            # Process new trial (not cached)
-            src_pc, tgt_pc, overlap_ratio = self._generate(
-                t1_pc_filepath=t1_pc_filepath,
-                t2_pc_filepath=t2_pc_filepath,
-                transform_matrix=transform_matrix,
-                idx=idx,
-            )
-            
-            # Cache the result (thread-safe)
-            with self.cache_lock:
-                cache_list = self.trials_cache[dataset_version_key][annotation_key]
-                assert len(cache_list) == trial_idx, (
-                    f"Expected cache list length {trial_idx}, got {len(cache_list)}"
+
+            else:
+                # Process new trial (not cached)
+                src_pc, tgt_pc, overlap_ratio = self._generate(
+                    t1_pc_filepath=t1_pc_filepath,
+                    t2_pc_filepath=t2_pc_filepath,
+                    transform_matrix=transform_matrix,
+                    idx=idx,
                 )
-                cache_list.append(overlap_ratio)
                 
-                if self.cache_filepath is not None:
-                    self._save_trials_cache()
-            
-            # Check if new trial produces valid overlap
-            if overlap_ratio is not None and self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
-                return src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx
+                # Cache the result (thread-safe)
+                with self.cache_lock:
+                    cache_list = self.trials_cache[idx_key]
+                    assert len(cache_list) == trial_idx, (
+                        f"Expected cache list length {trial_idx}, got {len(cache_list)}"
+                    )
+                    cache_list.append(overlap_ratio)
+                    
+                    if self.cache_filepath is not None:
+                        self._save_trials_cache()
+                
+                # Check if new trial produces valid overlap
+                if overlap_ratio is not None and self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
+                    print(f"DEBUG: _search_or_generate: datapoint {idx} using newly generated trial {trial_idx}...")
+                    return src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx
 
         # No valid transform found within max_trials
         raise RuntimeError(
             f"Failed to find valid transform after {self.max_trials} trials. "
-            f"Overlap range: {self.overlap_range}, idx: {idx}, annotation: {annotation}"
+            f"Overlap range: {self.overlap_range}, idx: {idx}, annotation: {self.annotations[idx]}"
         )
 
     def _sample_transform(self, seed: int) -> torch.Tensor:
