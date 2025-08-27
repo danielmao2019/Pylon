@@ -148,9 +148,9 @@ def _load_datapoint(self, idx):
 
 The framework automatically applies transforms after device transfer:
 
-1. `dataset._load_datapoint(idx)` → Raw data
-2. Device transfer → Data moved to target device  
-3. `dataset.transforms(datapoint)` → Transforms applied by framework
+1. `dataset._load_datapoint(idx)` -> Raw data
+2. Device transfer -> Data moved to target device  
+3. `dataset.transforms(datapoint)` -> Transforms applied by framework
 4. Return transformed data to user
 
 ### Transform Configuration

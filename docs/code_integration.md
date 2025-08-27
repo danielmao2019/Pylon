@@ -395,7 +395,7 @@ python temp_test_utils_imports.py
 - **If multiple possible solutions**: "I see several ways to fix this: [list options]. Which direction should I take?"
 
 **Import Fixing Guidelines**:
-- **Change ONLY the import paths**: `from .layers` → `from models.change_detection.model_name.layers`
+- **Change ONLY the import paths**: `from .layers` -> `from models.change_detection.model_name.layers`
 - **Preserve original formatting**: Keep empty lines, comments, and order exactly as in original
 - **No cleanup**: Don't remove unused imports or reorganize - this increases diff noise for review
 

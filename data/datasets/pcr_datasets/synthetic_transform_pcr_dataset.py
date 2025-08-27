@@ -22,13 +22,13 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     Key Concepts:
     - STOCHASTIC phase: Randomly sample transforms, compute overlaps, cache mapping
     - DETERMINISTIC phase: Load from cache for reproducible results
-    - Transform-to-overlap mapping: Cache stores transform configs → overlap values
+    - Transform-to-overlap mapping: Cache stores transform configs -> overlap values
     - Dynamic sizing: Uses annotations from subclass to determine dataset size
 
     Features:
     - Transform-to-overlap cache for reproducible generation
     - Dynamic sizing based on subclass annotations
-    - Stochastic sampling → deterministic loading workflow
+    - Stochastic sampling -> deterministic loading workflow
     - No try-catch blocks - fail fast with clear errors
     """
 

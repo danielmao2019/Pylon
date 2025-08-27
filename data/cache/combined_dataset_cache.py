@@ -4,7 +4,7 @@ from data.cache.disk_dataset_cache import DiskDatasetCache
 
 
 class CombinedDatasetCache:
-    """Unified cache interface combining CPU memory and disk caching with hierarchy: CPU → Disk → Source."""
+    """Unified cache interface combining CPU memory and disk caching with hierarchy: CPU -> Disk -> Source."""
 
     def __init__(
         self,
@@ -57,7 +57,7 @@ class CombinedDatasetCache:
 
     def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
-        Get item from cache hierarchy: CPU → Disk → None.
+        Get item from cache hierarchy: CPU -> Disk -> None.
         
         If found in disk but not CPU, populate CPU cache.
         """

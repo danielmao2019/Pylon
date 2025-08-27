@@ -946,10 +946,10 @@ DATASET_GROUPS = {
 ```
 
 **Dataset Type Guidelines**:
-- `semseg`: Semantic segmentation datasets (single image → label map)
-- `2dcd`: 2D change detection datasets (two images → change map)  
-- `3dcd`: 3D change detection datasets (two point clouds → change map)
-- `pcr`: Point cloud registration datasets (two point clouds → transformation)
+- `semseg`: Semantic segmentation datasets (single image -> label map)
+- `2dcd`: 2D change detection datasets (two images -> change map)  
+- `3dcd`: 3D change detection datasets (two point clouds -> change map)
+- `pcr`: Point cloud registration datasets (two point clouds -> transformation)
 
 #### 2. Create Viewer Configuration
 

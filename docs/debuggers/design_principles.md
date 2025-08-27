@@ -48,7 +48,7 @@ self._buffer_queue = queue.Queue()
 ### Memory Management
 - **Page-based storage**: Configurable size limits prevent memory overflow
 - **Background processing**: Non-blocking buffer operations during training
-- **CPU conversion**: Use apply_tensor_op for efficient GPU → CPU tensor transfer
+- **CPU conversion**: Use apply_tensor_op for efficient GPU -> CPU tensor transfer
 - **Deep size calculation**: Accurate memory tracking for intelligent page splitting
 
 ### Performance Optimizations

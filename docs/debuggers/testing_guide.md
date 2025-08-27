@@ -49,7 +49,7 @@ tests/debuggers/
 - **Error Handling**: Malformed data handling
 
 #### API Integration Tests (14 tests)
-- **Complete Data Flow**: Call → debuggers → buffer
+- **Complete Data Flow**: Call -> debuggers -> buffer
 - **Model Parameter Passing**: Verification model reaches child debuggers
 - **Error Propagation**: Exception handling from child debuggers
 - **Device Handling**: Mixed GPU/CPU tensor support
