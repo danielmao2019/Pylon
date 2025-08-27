@@ -1,6 +1,6 @@
 import torch
 import math
-from utils.three_d.rotation.euler import euler_to_matrix, matrix_to_euler, to_canonical_form
+from utils.three_d.rotation.euler import euler_to_matrix, matrix_to_euler, euler_canonical
 
 
 def test_euler_angles_round_trip():
@@ -18,7 +18,7 @@ def test_euler_angles_round_trip():
         angles = (torch.rand(3) - 0.5) * 2 * math.pi
         
         # Convert to canonical form using helper
-        angles_canonical = to_canonical_form(angles)
+        angles_canonical = euler_canonical(angles)
         
         # Convert canonical Euler angles to matrix
         R = euler_to_matrix(angles_canonical)

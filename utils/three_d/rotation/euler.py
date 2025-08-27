@@ -9,7 +9,7 @@ import torch
 import math
 
 
-def to_canonical_form(angles: torch.Tensor) -> torch.Tensor:
+def euler_canonical(angles: torch.Tensor) -> torch.Tensor:
     """Convert Euler angles to canonical form where Y rotation is in [-pi/2, +pi/2].
     
     This resolves the Euler angle ambiguity by choosing the representation where
@@ -138,4 +138,6 @@ def matrix_to_euler(
         
     angles = torch.tensor([alpha, beta, gamma], dtype=R.dtype, device=R.device)
     
-    return angles
+    # Apply canonical form to result
+    canonical_angles = euler_canonical(angles)
+    return canonical_angles

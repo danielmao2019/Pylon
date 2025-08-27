@@ -1,6 +1,6 @@
 import torch
 import math
-from utils.three_d.rotation.rodrigues import axis_angle_to_matrix, matrix_to_axis_angle, to_canonical_form
+from utils.three_d.rotation.rodrigues import axis_angle_to_matrix, matrix_to_axis_angle, axis_angle_canonical
 
 
 def test_axis_angle_round_trip():
@@ -24,7 +24,7 @@ def test_axis_angle_round_trip():
         angle = angle.squeeze()
         
         # Convert to canonical form (non-negative angle)
-        axis_canonical, angle_canonical = to_canonical_form(axis, angle)
+        axis_canonical, angle_canonical = axis_angle_canonical(axis, angle)
         
         # Convert canonical axis-angle to matrix
         R = axis_angle_to_matrix(axis_canonical, angle_canonical)
