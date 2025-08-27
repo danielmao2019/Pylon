@@ -21,7 +21,7 @@ def axis_angle_to_matrix(
     
     Args:
         axis: Unit vector of shape (3,) representing rotation axis
-        angle: Scalar tensor representing rotation angle in radians [0, 2π)
+        angle: Scalar tensor representing rotation angle in radians [-π, +π]
         
     Returns:
         Rotation matrix of shape (3, 3)
@@ -49,7 +49,7 @@ def euler_to_matrix(
     """Convert Euler angles to rotation matrix using XYZ convention.
     
     Args:
-        angles: Tensor of shape (3,) containing rotation angles in radians [0, 2π)
+        angles: Tensor of shape (3,) containing rotation angles in radians [-π, +π]
                 [X rotation, Y rotation, Z rotation]
         
     Returns:
@@ -106,7 +106,7 @@ def matrix_to_axis_angle(
     Returns:
         Tuple of (axis, angle) where:
         - axis: Unit vector of shape (3,)
-        - angle: Scalar tensor in radians [0, 2π)
+        - angle: Scalar tensor in radians [0, π] (always non-negative)
     """
     # Extract rotation angle from trace
     trace = torch.trace(R)
@@ -147,8 +147,8 @@ def matrix_to_axis_angle(
         # Ensure unit vector
         axis = axis / torch.norm(axis)
     
-    # Ensure angle is in [0, 2π) range
-    angle = angle % (2 * math.pi)
+    # Note: angle from arccos is already in [0, π] (non-negative)
+    # The axis direction is chosen to ensure this canonical form
     
     return axis, angle
 
@@ -164,7 +164,7 @@ def matrix_to_euler(
         eps: Small value for gimbal lock detection
         
     Returns:
-        Tensor of shape (3,) containing Euler angles in radians [0, 2π)
+        Tensor of shape (3,) containing Euler angles in radians [-π, +π]
         [X rotation, Y rotation, Z rotation]
     """
     # Check for gimbal lock
@@ -185,7 +185,6 @@ def matrix_to_euler(
         
     angles = torch.tensor([alpha, beta, gamma], dtype=R.dtype, device=R.device)
     
-    # Normalize angles to [0, 2π) range
-    angles = angles % (2 * math.pi)
+    # atan2 already returns angles in [-π, +π] range - no normalization needed
     
     return angles
