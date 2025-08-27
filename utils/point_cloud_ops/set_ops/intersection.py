@@ -383,7 +383,6 @@ def compute_registration_overlap(
         src_points = apply_transform(points=src_points, transform=transform)
 
     # Get nearest neighbor distances (ref -> src)
-    print("compute_registration_overlap: Calling get_nearest_neighbor_distances...")
     nn_distances = get_nearest_neighbor_distances(ref_points, src_points)
 
     # Compute overlap as fraction of ref points with neighbors within radius

@@ -5,7 +5,7 @@ import tempfile
 import os
 import torch
 from data.cache.disk_dataset_cache import DiskDatasetCache
-from utils.ops import buffer_equal
+from utils.ops import buffer_equal, buffer_allclose
 
 
 @pytest.fixture
@@ -27,9 +27,7 @@ def sample_datapoint():
             'mask': torch.randint(0, 2, (64, 64))
         },
         'meta_info': {
-            'path': '/test/image.jpg',
             'index': 42,
-            'dataset': 'test'
         }
     }
 
@@ -86,12 +84,15 @@ def test_put_and_get_basic(temp_cache_dir, sample_datapoint):
     assert os.path.exists(cache_file)
     assert cache.exists(0) is True
     
-    # Test get operation
+    # Test get operation with strict comparison using buffer_allclose
     result = cache.get(0)
     assert result is not None
     assert 'inputs' in result
     assert 'labels' in result
     assert 'meta_info' in result
+    
+    # Strict comparison using buffer_allclose
+    assert buffer_allclose(result, sample_datapoint)
 
 
 def test_data_integrity(temp_cache_dir, sample_datapoint):

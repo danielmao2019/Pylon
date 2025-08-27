@@ -160,7 +160,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             assert isinstance(idx_key, str), (
                 f"Index key must be string, got {type(idx_key)}"
             )
-            
+
             # Check if key can be converted to int (valid dataset index)
             try:
                 int(idx_key)
@@ -346,7 +346,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         with self.cache_lock:
             if idx_key not in self.trials_cache:
                 self.trials_cache[idx_key] = []
-            
+
             # Make a copy to avoid concurrent modification issues
             cached_overlaps = self.trials_cache[idx_key].copy()
 
@@ -355,11 +355,11 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             # Generate transform matrix for this trial
             trial_seed = deterministic_hash((idx, trial_idx))
             transform_matrix = self._sample_transform(trial_seed)
-            
+
             # Process cached trial
             if trial_idx < len(cached_overlaps):
                 cached_overlap = cached_overlaps[trial_idx]
-                
+
                 # Check if cached overlap is valid and in range
                 if cached_overlap is not None and self.overlap_range[0] < cached_overlap <= self.overlap_range[1]:
                     # Valid cached trial - generate point clouds
@@ -369,7 +369,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                         transform_matrix=transform_matrix,
                         idx=idx,
                     )
-                    
+
                     assert generated_overlap is not None, (
                         f"Generated overlap should not be None for cached valid trial {trial_idx}"
                     )
@@ -389,7 +389,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                     transform_matrix=transform_matrix,
                     idx=idx,
                 )
-                
+
                 # Cache the result (thread-safe)
                 with self.cache_lock:
                     cache_list = self.trials_cache[idx_key]
@@ -397,10 +397,10 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                         f"Expected cache list length {trial_idx}, got {len(cache_list)}"
                     )
                     cache_list.append(overlap_ratio)
-                    
+
                     if self.cache_filepath is not None:
                         self._save_trials_cache()
-                
+
                 # Check if new trial produces valid overlap
                 if overlap_ratio is not None and self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
                     print(f"DEBUG: _search_or_generate: datapoint {idx} using newly generated trial {trial_idx}...")
@@ -433,24 +433,24 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         # Sample random rotation axis (unit vector)
         rotation_axis = torch.randn(3, generator=generator)
         rotation_axis = rotation_axis / torch.norm(rotation_axis)
-        
+
         # Sample rotation angle uniformly from [0, rotation_mag] (in degrees)
         rotation_angle_deg = torch.rand(1, generator=generator) * self.rotation_mag
         rotation_angle_rad = rotation_angle_deg * np.pi / 180
-        
+
         # Convert axis-angle to rotation matrix using Rodrigues' formula
         K = torch.tensor([
             [0, -rotation_axis[2], rotation_axis[1]],
             [rotation_axis[2], 0, -rotation_axis[0]],
             [-rotation_axis[1], rotation_axis[0], 0]
         ], dtype=torch.float32)
-        
+
         R = (
             torch.eye(3, dtype=torch.float32)
             + torch.sin(rotation_angle_rad) * K
             + (1 - torch.cos(rotation_angle_rad)) * (K @ K)
         )
-        
+
         # Assert that the rotation matrix corresponds to the sampled angle
         computed_angle = torch.acos(torch.clamp((torch.trace(R) - 1) / 2, -1, 1))
         assert torch.abs(computed_angle - rotation_angle_rad) < 1e-4, \
@@ -460,10 +460,10 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         # Sample random direction on unit sphere
         translation_direction = torch.randn(3, generator=generator)
         translation_direction = translation_direction / torch.norm(translation_direction)
-        
+
         # Sample magnitude uniformly from [0, translation_mag]
         translation_magnitude = torch.rand(1, generator=generator) * self.translation_mag
-        
+
         # Apply magnitude to direction vector
         translation = translation_direction * translation_magnitude
 
