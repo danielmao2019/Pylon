@@ -21,7 +21,7 @@ def axis_angle_to_matrix(
     
     Args:
         axis: Unit vector of shape (3,) representing rotation axis
-        angle: Scalar tensor representing rotation angle in radians [-π, +π]
+        angle: Scalar tensor representing rotation angle in radians [-pi, +pi]
         
     Returns:
         Rotation matrix of shape (3, 3)
@@ -49,7 +49,7 @@ def euler_to_matrix(
     """Convert Euler angles to rotation matrix using XYZ convention.
     
     Args:
-        angles: Tensor of shape (3,) containing rotation angles in radians [-π, +π]
+        angles: Tensor of shape (3,) containing rotation angles in radians [-pi, +pi]
                 [X rotation, Y rotation, Z rotation]
         
     Returns:
@@ -99,6 +99,9 @@ def matrix_to_axis_angle(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Extract axis-angle representation from rotation matrix.
     
+    Returns canonical form where angle is always non-negative [0, pi].
+    The axis direction is chosen to ensure this canonical form.
+    
     Args:
         R: Rotation matrix of shape (3, 3)
         eps: Small value for numerical stability
@@ -106,7 +109,7 @@ def matrix_to_axis_angle(
     Returns:
         Tuple of (axis, angle) where:
         - axis: Unit vector of shape (3,)
-        - angle: Scalar tensor in radians [0, π] (always non-negative)
+        - angle: Scalar tensor in radians [0, pi] (always non-negative)
     """
     # Extract rotation angle from trace
     trace = torch.trace(R)
@@ -147,9 +150,6 @@ def matrix_to_axis_angle(
         # Ensure unit vector
         axis = axis / torch.norm(axis)
     
-    # Note: angle from arccos is already in [0, π] (non-negative)
-    # The axis direction is chosen to ensure this canonical form
-    
     return axis, angle
 
 
@@ -159,13 +159,17 @@ def matrix_to_euler(
 ) -> torch.Tensor:
     """Extract Euler angles from rotation matrix using XYZ convention.
     
+    Returns canonical form with Y rotation constrained to [-pi/2, +pi/2]
+    to resolve Euler angle ambiguity.
+    
     Args:
         R: Rotation matrix of shape (3, 3)
         eps: Small value for gimbal lock detection
         
     Returns:
-        Tensor of shape (3,) containing Euler angles in radians [-π, +π]
+        Tensor of shape (3,) containing Euler angles in radians [-pi, +pi]
         [X rotation, Y rotation, Z rotation]
+        Y rotation is constrained to [-pi/2, +pi/2] for canonical form
     """
     # Check for gimbal lock
     sy = torch.sqrt(R[0, 0]**2 + R[1, 0]**2)
@@ -178,9 +182,9 @@ def matrix_to_euler(
         beta = torch.atan2(R[0, 2], sy)         # Y rotation
         gamma = torch.atan2(-R[0, 1], R[0, 0])  # Z rotation
         
-        # Handle Euler angle ambiguity: choose canonical form where beta is in [-π/2, π/2]
+        # Handle Euler angle ambiguity: choose canonical form where beta is in [-pi/2, pi/2]
         if torch.abs(beta) > math.pi / 2:
-            # Use alternate solution: (α+π, π-β, γ+π)
+            # Use alternate solution: (alpha+pi, pi-beta, gamma+pi)
             alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
             beta = math.pi - beta if beta > 0 else -math.pi - beta
             gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
@@ -191,7 +195,5 @@ def matrix_to_euler(
         gamma = torch.tensor(0.0, dtype=R.dtype, device=R.device)  # Z rotation = 0
         
     angles = torch.tensor([alpha, beta, gamma], dtype=R.dtype, device=R.device)
-    
-    # Angles are now in canonical form with beta constrained to [-π/2, π/2]
     
     return angles
