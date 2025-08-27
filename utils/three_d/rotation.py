@@ -177,6 +177,13 @@ def matrix_to_euler(
         alpha = torch.atan2(-R[1, 2], R[2, 2])  # X rotation
         beta = torch.atan2(R[0, 2], sy)         # Y rotation
         gamma = torch.atan2(-R[0, 1], R[0, 0])  # Z rotation
+        
+        # Handle Euler angle ambiguity: choose canonical form where beta is in [-π/2, π/2]
+        if torch.abs(beta) > math.pi / 2:
+            # Use alternate solution: (α+π, π-β, γ+π)
+            alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
+            beta = math.pi - beta if beta > 0 else -math.pi - beta
+            gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
     else:
         # Gimbal lock case - lose one degree of freedom
         alpha = torch.atan2(R[2, 1], R[1, 1])   # X rotation
@@ -185,6 +192,6 @@ def matrix_to_euler(
         
     angles = torch.tensor([alpha, beta, gamma], dtype=R.dtype, device=R.device)
     
-    # atan2 already returns angles in [-π, +π] range - no normalization needed
+    # Angles are now in canonical form with beta constrained to [-π/2, π/2]
     
     return angles
