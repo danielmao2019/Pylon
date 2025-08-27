@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import pytest
 from utils.point_cloud_ops import apply_transform
+from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 
 @pytest.fixture
@@ -22,28 +23,30 @@ def random_point_cloud():
 def random_transform():
     """Fixture to generate a random 4x4 transformation matrix."""
     def _generate(use_numpy=False):
-        # Create a random rotation matrix using Rodrigues formula
+        # Create a random rotation using Rodrigues representation
         angle = np.random.uniform(0, 2 * np.pi)
         axis = np.random.rand(3).astype(np.float32)
-        axis = axis / np.linalg.norm(axis)
+        axis = axis / np.linalg.norm(axis)  # Normalize to unit vector
 
-        K = np.array([
-            [0, -axis[2], axis[1]],
-            [axis[2], 0, -axis[0]],
-            [-axis[1], axis[0], 0]
-        ], dtype=np.float32)
-        R = np.eye(3, dtype=np.float32) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
+        # Convert to torch tensors for rodrigues_to_matrix utility
+        axis_torch = torch.tensor(axis, dtype=torch.float32)
+        angle_torch = torch.tensor(angle, dtype=torch.float32)
+
+        # Create rotation matrix using rodrigues_to_matrix utility
+        R = rodrigues_to_matrix(axis_torch, angle_torch)
 
         # Create a random translation vector
         t = np.random.rand(3).astype(np.float32) * 10
 
         # Create the 4x4 transform matrix
-        transform = np.eye(4, dtype=np.float32)
-        transform[:3, :3] = R
-        transform[:3, 3] = t
-
-        if not use_numpy:
-            transform = torch.tensor(transform, dtype=torch.float32)
+        if use_numpy:
+            transform = np.eye(4, dtype=np.float32)
+            transform[:3, :3] = R.numpy()
+            transform[:3, 3] = t
+        else:
+            transform = torch.eye(4, dtype=torch.float32)
+            transform[:3, :3] = R
+            transform[:3, 3] = torch.tensor(t, dtype=torch.float32)
 
         return transform
     return _generate
