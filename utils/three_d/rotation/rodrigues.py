@@ -10,7 +10,7 @@ import torch
 import math
 
 
-def axis_angle_canonical(axis: torch.Tensor, angle: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def rodrigues_canonical(axis: torch.Tensor, angle: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Convert axis-angle representation to canonical form with non-negative angle [0, pi].
     
     This resolves the axis-angle ambiguity by choosing the representation where
@@ -126,5 +126,5 @@ def matrix_to_axis_angle(
         axis = axis / torch.norm(axis)
     
     # Apply canonical form to result
-    canonical_axis, canonical_angle = axis_angle_canonical(axis, angle)
+    canonical_axis, canonical_angle = rodrigues_canonical(axis, angle)
     return canonical_axis, canonical_angle

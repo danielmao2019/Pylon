@@ -1,10 +1,10 @@
 import torch
 import math
-from utils.three_d.rotation.rodrigues import axis_angle_to_matrix, matrix_to_axis_angle, axis_angle_canonical
+from utils.three_d.rotation.rodrigues import axis_angle_to_matrix, matrix_to_axis_angle, rodrigues_canonical
 
 
 def test_rodrigues_canonical_idempotent():
-    """Test that axis_angle_canonical is idempotent - applying it twice gives same result as once.
+    """Test that rodrigues_canonical is idempotent - applying it twice gives same result as once.
     
     This test randomly samples 10 pairs of rotation axes and angles, applies
     the canonical form helper once and twice, and verifies the results are identical.
@@ -21,10 +21,10 @@ def test_rodrigues_canonical_idempotent():
         angle = angle.squeeze()
         
         # Apply canonical form once
-        axis_once, angle_once = axis_angle_canonical(axis, angle)
+        axis_once, angle_once = rodrigues_canonical(axis, angle)
         
         # Apply canonical form twice
-        axis_twice, angle_twice = axis_angle_canonical(axis_once, angle_once)
+        axis_twice, angle_twice = rodrigues_canonical(axis_once, angle_once)
         
         # Check that applying once and twice gives same result
         angle_error = torch.abs(angle_once - angle_twice)
@@ -54,7 +54,7 @@ def test_axis_angle_round_trip():
         angle = angle.squeeze()
         
         # Convert to canonical form (non-negative angle)
-        axis_canonical, angle_canonical = axis_angle_canonical(axis, angle)
+        axis_canonical, angle_canonical = rodrigues_canonical(axis, angle)
         
         # Convert canonical axis-angle to matrix
         R = axis_angle_to_matrix(axis_canonical, angle_canonical)
@@ -96,7 +96,7 @@ def test_axis_angle_matrix_round_trip():
         angle = angle.squeeze()
         
         # Convert to canonical form (non-negative angle)
-        axis_canonical, angle_canonical = axis_angle_canonical(axis, angle)
+        axis_canonical, angle_canonical = rodrigues_canonical(axis, angle)
         
         # Convert canonical axis-angle to matrix
         R_original = axis_angle_to_matrix(axis_canonical, angle_canonical)
