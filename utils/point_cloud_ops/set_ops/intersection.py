@@ -6,6 +6,7 @@ import torch
 
 from utils.input_checks.point_cloud import check_pc_xyz
 from utils.point_cloud_ops.knn.knn import knn
+from utils.point_cloud_ops.apply_transform import apply_transform
 
 
 def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -> int:
@@ -84,11 +85,11 @@ def _tensor_intersection(
     # Validate point clouds using check_pc_xyz
     check_pc_xyz(src_points)
     check_pc_xyz(tgt_points)
-    
+
     # Validate radius parameter
     assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
-    
+
     assert src_points.device == tgt_points.device, f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
 
     # Reshape for broadcasting: (N, 1, 3) - (1, M, 3) = (N, M, 3)
@@ -222,7 +223,7 @@ def _kdtree_intersection(
     # Validate point clouds using check_pc_xyz
     check_pc_xyz(src_points)
     check_pc_xyz(tgt_points)
-    
+
     # Validate radius parameter
     assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
@@ -293,7 +294,7 @@ def compute_pc_iou(
     # Validate point clouds using check_pc_xyz
     check_pc_xyz(src_points)
     check_pc_xyz(tgt_points)
-    
+
     # Validate radius parameter
     assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
@@ -317,20 +318,20 @@ def get_nearest_neighbor_distances(
     support_points: torch.Tensor,
 ) -> torch.Tensor:
     """Get nearest neighbor distances for query points in support points.
-    
+
     This function replicates GeoTransformer's get_nearest_neighbor behavior.
-    
+
     Args:
         query_points: Query point cloud positions, shape (N, 3)
         support_points: Support point cloud positions, shape (M, 3)
-        
+
     Returns:
         Distances to nearest neighbors, shape (N,)
     """
     # Validate inputs
     check_pc_xyz(query_points)
     check_pc_xyz(support_points)
-    
+
     # Find nearest neighbors using KNN module
     distances, _ = knn(
         query_points=query_points,
@@ -338,10 +339,10 @@ def get_nearest_neighbor_distances(
         k=1,  # Find single nearest neighbor
         return_distances=True
     )
-    
+
     # Squeeze to get shape (N,) instead of (N, 1)
     distances = distances.squeeze(1)
-    
+
     return distances
 
 
@@ -352,45 +353,40 @@ def compute_registration_overlap(
     positive_radius: float = 0.1
 ) -> float:
     """Compute overlap between two point clouds (GeoTransformer style).
-    
+
     This function replicates GeoTransformer's compute_overlap behavior:
     - Directional overlap: fraction of ref points with src neighbors within radius
     - Used for filtering registration pairs based on coverage
-    
+
     Args:
         ref_points: Reference point cloud positions, shape (N, 3)
         src_points: Source point cloud positions, shape (M, 3)
         transform: Optional 4x4 transformation matrix to apply to src_points
         positive_radius: Distance threshold for considering points as overlapping
-        
+
     Returns:
         Overlap ratio as fraction of reference points with close source neighbors
     """
     # Validate point clouds using check_pc_xyz
     check_pc_xyz(ref_points)
     check_pc_xyz(src_points)
-    
+
+    # Validate dtype compatibility
+    assert src_points.dtype == ref_points.dtype, f"dtype mismatch: src_points {src_points.dtype}, ref_points {ref_points.dtype}"
+
     # Validate radius parameter
     assert isinstance(positive_radius, (int, float)), f"positive_radius must be int or float, got {type(positive_radius)}"
     assert positive_radius > 0, f"positive_radius must be greater than 0, got {positive_radius}"
-    
-    # Validate dtype compatibility
-    assert src_points.dtype == ref_points.dtype, f"dtype mismatch: src_points {src_points.dtype}, ref_points {ref_points.dtype}"
-    
+
     # Apply transformation to source points if provided
     if transform is not None:
-        assert isinstance(transform, torch.Tensor), f"transform must be torch.Tensor, got {type(transform)}"
-        assert transform.shape == (4, 4), f"transform must have shape (4, 4), got {transform.shape}"
-        transform = transform.to(src_points.dtype)
-        # Apply SE(3) transformation: src_transformed = (R @ src.T + t).T
-        R = transform[:3, :3]
-        t = transform[:3, 3]
-        src_points = (R @ src_points.T + t.unsqueeze(1)).T
-    
+        src_points = apply_transform(points=src_points, transform=transform)
+
     # Get nearest neighbor distances (ref -> src)
+    print("compute_registration_overlap: Calling get_nearest_neighbor_distances...")
     nn_distances = get_nearest_neighbor_distances(ref_points, src_points)
-    
+
     # Compute overlap as fraction of ref points with neighbors within radius
     overlap = torch.mean((nn_distances < positive_radius).float()).item()
-    
+
     return overlap
