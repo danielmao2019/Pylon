@@ -3,7 +3,7 @@
 from utils.three_d.rotation.rodrigues import (
     axis_angle_to_matrix,
     matrix_to_axis_angle,
-    axis_angle_canonical
+    rodrigues_canonical
 )
 from utils.three_d.rotation.euler import (
     euler_to_matrix,
@@ -14,7 +14,7 @@ from utils.three_d.rotation.euler import (
 __all__ = [
     'axis_angle_to_matrix',
     'matrix_to_axis_angle', 
-    'axis_angle_canonical',
+    'rodrigues_canonical',
     'euler_to_matrix', 
     'matrix_to_euler',
     'euler_canonical'
