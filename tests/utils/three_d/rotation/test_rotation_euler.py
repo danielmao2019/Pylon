@@ -1,6 +1,6 @@
 import torch
 import math
-from utils.three_d.rotation import euler_to_matrix, matrix_to_euler
+from utils.three_d.rotation.euler import euler_to_matrix, matrix_to_euler, to_canonical_form
 
 
 def test_euler_angles_round_trip():
@@ -17,22 +17,19 @@ def test_euler_angles_round_trip():
         # Sample random Euler angles from [-pi, +pi] for XYZ convention
         angles = (torch.rand(3) - 0.5) * 2 * math.pi
         
-        # Get the canonical form by doing a round-trip through matrix
-        R = euler_to_matrix(angles)
-        angles_canonical = matrix_to_euler(R)
+        # Convert to canonical form using helper
+        angles_canonical = to_canonical_form(angles)
         
-        # Now test that the canonical form round-trips exactly
-        R2 = euler_to_matrix(angles_canonical)
-        angles_recovered = matrix_to_euler(R2)
+        # Convert canonical Euler angles to matrix
+        R = euler_to_matrix(angles_canonical)
         
-        # Due to Euler angle ambiguity, validate that matrices are equivalent
-        # This is the mathematically correct test - same rotation, potentially different angles
-        R_error = torch.max(torch.abs(R - R2))
-        assert R_error < 1e-6, f"Test {i}: Matrix equivalence error {R_error:.6f}"
+        # Convert matrix back to Euler angles
+        angles_recovered = matrix_to_euler(R)
         
-        # Also check that recovered angles are reasonable (not NaN, in valid range)
-        assert torch.all(torch.isfinite(angles_recovered)), f"Test {i}: Non-finite angles: {angles_recovered}"
-        assert torch.all(torch.abs(angles_recovered) <= math.pi + 1e-6), f"Test {i}: Angles out of [-pi,pi] range: {angles_recovered}"
+        # Check exact angle recovery (canonical form should round-trip exactly)
+        angle_errors = torch.abs(angles_canonical - angles_recovered)
+        max_error = torch.max(angle_errors)
+        assert max_error < 1e-5, f"Test {i}: Angle recovery error {max_error:.6f}, canonical: {angles_canonical}, recovered: {angles_recovered}"
     
     print("All Euler angles round-trip tests passed!")
     return

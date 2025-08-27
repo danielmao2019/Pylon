@@ -1,6 +1,6 @@
 import torch
 import math
-from utils.three_d.rotation import axis_angle_to_matrix, matrix_to_axis_angle
+from utils.three_d.rotation.rodrigues import axis_angle_to_matrix, matrix_to_axis_angle, to_canonical_form
 
 
 def test_axis_angle_round_trip():
@@ -19,12 +19,15 @@ def test_axis_angle_round_trip():
         axis = torch.randn(3)
         axis = axis / torch.norm(axis)  # Normalize to unit vector
         
-        # Sample random rotation angle from [-π, +π]
+        # Sample random rotation angle from [-pi, +pi]
         angle = (torch.rand(1) - 0.5) * 2 * math.pi
         angle = angle.squeeze()
         
-        # Convert axis-angle to matrix
-        R = axis_angle_to_matrix(axis, angle)
+        # Convert to canonical form (non-negative angle)
+        axis_canonical, angle_canonical = to_canonical_form(axis, angle)
+        
+        # Convert canonical axis-angle to matrix
+        R = axis_angle_to_matrix(axis_canonical, angle_canonical)
         
         # Convert matrix back to axis-angle
         axis_recovered, angle_recovered = matrix_to_axis_angle(R)
@@ -36,21 +39,11 @@ def test_axis_angle_round_trip():
         orthogonal_check = torch.mm(R, R.T) - torch.eye(3)
         assert torch.max(torch.abs(orthogonal_check)) < 1e-5, f"Test {i}: Matrix should be orthogonal"
         
-        # Check axis-angle recovery
-        # Note: recovered angle is always in [0, π], but original might be negative
-        # If original angle is negative, we expect recovered axis to be flipped
-        if angle >= 0:
-            # Positive angle: should recover exact values
-            angle_error = torch.abs(angle - angle_recovered)
-            axis_error = torch.norm(axis - axis_recovered)
-        else:
-            # Negative angle: should recover (-axis, |angle|)
-            expected_angle = torch.abs(angle)
-            expected_axis = -axis
-            angle_error = torch.abs(expected_angle - angle_recovered)
-            axis_error = torch.norm(expected_axis - axis_recovered)
+        # Check exact axis-angle recovery (canonical form should round-trip exactly)
+        angle_error = torch.abs(angle_canonical - angle_recovered)
+        axis_error = torch.norm(axis_canonical - axis_recovered)
         
-        assert angle_error < 1e-5, f"Test {i}: Angle recovery error {angle_error:.6f}, original: {angle:.6f}, recovered: {angle_recovered:.6f}"
+        assert angle_error < 1e-5, f"Test {i}: Angle recovery error {angle_error:.6f}, canonical: {angle_canonical:.6f}, recovered: {angle_recovered:.6f}"
         assert axis_error < 1e-5, f"Test {i}: Axis recovery error {axis_error:.6f}"
     
     print("All axis-angle round-trip tests passed!")

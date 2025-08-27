@@ -10,6 +10,34 @@ import torch
 import math
 
 
+def to_canonical_form(axis: torch.Tensor, angle: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Convert axis-angle representation to canonical form with non-negative angle [0, pi].
+    
+    This resolves the axis-angle ambiguity by choosing the representation where
+    the angle is always non-negative. If the input angle is negative, the axis 
+    is flipped and the angle is made positive.
+    
+    Args:
+        axis: Unit vector representing rotation axis, shape (3,)
+        angle: Rotation angle in radians [-pi, +pi], scalar tensor
+    
+    Returns:
+        Tuple of (canonical_axis, canonical_angle) where:
+        - canonical_axis: Unit vector, shape (3,) 
+        - canonical_angle: Angle in radians [0, pi], scalar tensor
+    """
+    if angle < 0:
+        # Negative angle: flip axis and make angle positive
+        canonical_axis = -axis
+        canonical_angle = torch.abs(angle)
+    else:
+        # Non-negative angle: keep as is
+        canonical_axis = axis
+        canonical_angle = angle
+    
+    return canonical_axis, canonical_angle
+
+
 def axis_angle_to_matrix(
     axis: torch.Tensor, 
     angle: torch.Tensor
