@@ -1,4 +1,43 @@
 
+"""Euler angles rotation utilities.
+
+This module provides functions for converting between Euler angles and rotation matrices,
+including canonical form helpers to resolve Euler angle ambiguity.
+"""
+
+import torch
+import math
+
+
+def to_canonical_form(angles: torch.Tensor) -> torch.Tensor:
+    """Convert Euler angles to canonical form where Y rotation is in [-pi/2, +pi/2].
+    
+    This resolves the Euler angle ambiguity by choosing the representation where
+    the middle rotation (Y axis, beta) is constrained to [-pi/2, +pi/2].
+    
+    Args:
+        angles: Euler angles [alpha, beta, gamma] in radians [-pi, +pi], shape (3,)
+    
+    Returns:
+        Canonical Euler angles with beta constrained to [-pi/2, +pi/2], shape (3,)
+    """
+    alpha, beta, gamma = angles[0], angles[1], angles[2]
+    
+    # Constrain beta to [-pi/2, +pi/2]
+    if beta > math.pi / 2:
+        # beta > pi/2: use alternate solution (alpha+pi, pi-beta, gamma+pi)
+        alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
+        beta = math.pi - beta
+        gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
+    elif beta < -math.pi / 2:
+        # beta < -pi/2: use alternate solution (alpha+pi, -pi-beta, gamma+pi)  
+        alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
+        beta = -math.pi - beta
+        gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
+        
+    return torch.tensor([alpha, beta, gamma], dtype=angles.dtype, device=angles.device)
+
+
 def euler_to_matrix(
     angles: torch.Tensor
 ) -> torch.Tensor:
@@ -49,23 +88,6 @@ def euler_to_matrix(
     return R
 
 
-def to_canonical_form(angles: torch.Tensor) -> torch.Tensor:
-    """Convert Euler angles to canonical form where Y rotation is in [-pi/2, +pi/2]."""
-    alpha, beta, gamma = angles[0], angles[1], angles[2]
-    
-    # Constrain beta to [-pi/2, +pi/2]
-    if beta > math.pi / 2:
-        # beta > pi/2: use alternate solution (alpha+pi, pi-beta, gamma+pi)
-        alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
-        beta = math.pi - beta
-        gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
-    elif beta < -math.pi / 2:
-        # beta < -pi/2: use alternate solution (alpha+pi, -pi-beta, gamma+pi)  
-        alpha = alpha + math.pi if alpha <= 0 else alpha - math.pi
-        beta = -math.pi - beta
-        gamma = gamma + math.pi if gamma <= 0 else gamma - math.pi
-        
-    return torch.tensor([alpha, beta, gamma])
 
 
 def matrix_to_euler(

@@ -1,4 +1,15 @@
 
+"""Rodrigues formula for axis-angle rotation utilities.
+
+This module provides functions for converting between axis-angle representations
+and rotation matrices using Rodrigues' rotation formula.
+"""
+
+from typing import Tuple
+import torch
+import math
+
+
 def axis_angle_to_matrix(
     axis: torch.Tensor, 
     angle: torch.Tensor
