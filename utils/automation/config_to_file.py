@@ -1,5 +1,6 @@
 from typing import List, Set, Dict, Union, Any
 import os
+import functools
 
 
 class ConfigToFile:
@@ -112,6 +113,15 @@ class ConfigToFile:
 
             lines.append(f"{indent_str}}}")
             return '\n'.join(lines)
+        elif isinstance(value, functools.partial):
+            # Handle functools.partial objects
+            func_name = value.func.__name__
+            if value.keywords:
+                # Create functools.partial(..., key=value, ...)
+                keyword_args = ', '.join(f'{k}={repr(v)}' for k, v in value.keywords.items())
+                return f'functools.partial({func_name}, {keyword_args})'
+            else:
+                return f'functools.partial({func_name})'
         elif hasattr(value, '__module__') and hasattr(value, '__name__'):
             # This is a class or function reference
             return value.__name__
@@ -151,6 +161,15 @@ class ConfigToFile:
             else:
                 # Regular dictionary
                 return {k: self._analyze_value(v, f'{path}[{k}]') for k, v in value.items()}
+        elif isinstance(value, functools.partial):
+            # Handle functools.partial objects
+            # Add import for functools
+            self._add_import('functools')
+            # Add import for the wrapped function
+            func_module = value.func.__module__
+            func_name = value.func.__name__
+            self._add_from_import(func_module, func_name)
+            return value
         elif hasattr(value, '__module__') and hasattr(value, '__name__'):
             # This is a class or function reference
             module = value.__module__
