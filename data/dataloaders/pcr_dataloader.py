@@ -1,19 +1,22 @@
 import os
 import json
 import xxhash
+import torch
 from typing import List, Dict, Any
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
 from data.datasets.index_dataset import IndexDataset
+from utils.ops.apply import apply_tensor_op
 
 
 class PCRCachedCollator:
     """Picklable collator wrapper for PCR dataloader with caching functionality."""
     
-    def __init__(self, original_dataset, collator, cache):
+    def __init__(self, original_dataset, collator, cache, device=torch.device('cuda')):
         self.original_dataset = original_dataset
         self.collator = collator
         self.cache = cache
+        self.device = device
     
     def __call__(self, datapoints: List[int]):
         assert isinstance(datapoints, list)
@@ -23,7 +26,7 @@ class PCRCachedCollator:
         assert self.cache is not None
         cached_result = self.cache.get(key)
         if cached_result is not None:
-            return cached_result
+            return apply_tensor_op(func=lambda x: x.to(self.device), inputs=cached_result)
         else:
             actual_datapoints = [self.original_dataset[idx] for idx in datapoints]
             batched_datapoints = self.collator(actual_datapoints)
@@ -42,6 +45,7 @@ class PCRDataloader(BaseDataLoader):
         max_cache_memory_percent: float = 80.0,
         enable_cpu_validation: bool = False,
         enable_disk_validation: bool = False,
+        device=torch.device('cuda'),
         **kwargs,
     ) -> None:
         self._init_cache(
@@ -55,7 +59,7 @@ class PCRDataloader(BaseDataLoader):
         )
         if self.cache is not None:
             index_dataset = IndexDataset(size=len(dataset))
-            cached_collator = PCRCachedCollator(dataset, collator, self.cache)
+            cached_collator = PCRCachedCollator(original_dataset=dataset, collator=collator, cache=self.cache, device=device)
             super().__init__(dataset=index_dataset, collate_fn=cached_collator, **kwargs)
         else:
             super().__init__(dataset=dataset, collate_fn=collator, **kwargs)
