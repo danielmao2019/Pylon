@@ -71,7 +71,6 @@ class ViewerBackend:
         self.point_size: float = default_settings['point_size']
         self.point_opacity: float = default_settings['point_opacity']
         self.sym_diff_radius: float = default_settings['sym_diff_radius']
-        self.corr_radius: float = default_settings['corr_radius']
         self.lod_type: str = default_settings['lod_type']
 
         # Initialize dataset configurations
@@ -338,7 +337,6 @@ class ViewerBackend:
             'point_size': self.point_size,
             'point_opacity': self.point_opacity,
             'sym_diff_radius': self.sym_diff_radius,
-            'corr_radius': self.corr_radius,
             'lod_type': self.lod_type
         }
 

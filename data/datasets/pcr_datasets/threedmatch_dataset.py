@@ -3,7 +3,6 @@ import os
 import pickle
 import torch
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
-from utils.point_cloud_ops.correspondences import get_correspondences
 from utils.io.point_clouds.load_point_cloud import load_point_cloud
 
 
@@ -19,7 +18,7 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
     """
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
-    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
+    INPUT_NAMES = ['src_pc', 'tgt_pc']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
 
@@ -146,14 +145,10 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         # Invert to get source->target transformation
         transform = torch.inverse(transform_tgt_to_src)
 
-        # Get or compute correspondences with caching
-        correspondences = self._get_cached_correspondences(annotation, src_pc['pos'], tgt_pc['pos'], transform)
-
         # Prepare inputs
         inputs = {
             'src_pc': src_pc,
             'tgt_pc': tgt_pc,
-            'correspondences': correspondences,
         }
 
         # Prepare labels
@@ -173,61 +168,6 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
 
         return inputs, labels, meta_info
 
-    def _get_cached_correspondences(
-        self,
-        annotation: Dict[str, Any],
-        src_points: torch.Tensor,
-        tgt_points: torch.Tensor,
-        transform: torch.Tensor
-    ) -> torch.Tensor:
-        """Get correspondences with caching mechanism.
-
-        Args:
-            annotation: Annotation dictionary containing paths and metadata
-            src_points: Source point cloud positions [M, 3]
-            tgt_points: Target point cloud positions [N, 3]
-            transform: Transformation matrix [4, 4]
-
-        Returns:
-            Correspondences tensor [K, 2]
-        """
-        # Create cache directory (sibling to data_root)
-        cache_dir = os.path.join(os.path.dirname(self.data_root), f'{os.path.basename(self.data_root)}_correspondences_cache')
-        os.makedirs(cache_dir, exist_ok=True)
-
-        # Create simple cache key from file basenames and radius
-        src_name = os.path.basename(annotation['src_path']).split('.')[0]
-        tgt_name = os.path.basename(annotation['tgt_path']).split('.')[0]
-        cache_key = f"{src_name}_{tgt_name}_{self.matching_radius}"
-        cache_file = os.path.join(cache_dir, f"{cache_key}.pkl")
-
-        # Try to load from cache
-        if os.path.exists(cache_file):
-            try:
-                with open(cache_file, 'rb') as f:
-                    correspondences = pickle.load(f)
-                return torch.tensor(correspondences, dtype=torch.int64, device=self.device)
-            except:
-                # Cache file corrupted, recompute
-                pass
-
-        # Compute correspondences
-        correspondences = get_correspondences(
-            src_points=src_points,
-            tgt_points=tgt_points,
-            transform=transform,
-            radius=self.matching_radius,
-        )
-
-        # Save to cache
-        try:
-            with open(cache_file, 'wb') as f:
-                pickle.dump(correspondences.cpu().numpy(), f)
-        except:
-            # Cache write failed, but continue
-            pass
-
-        return correspondences
 
 
 class ThreeDMatchDataset(_ThreeDMatchBaseDataset):

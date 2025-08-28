@@ -105,6 +105,7 @@ class D3FeatCriterion(SingleTaskCriterion):
 
         # Extract ground truth
         correspondences = y_true['correspondences']  # [K, 2]
+        assert len(correspondences) > 0, "No correspondences found"
 
         # Get actual batch lengths from stack_lengths (first layer contains original splits)
         assert 'stack_lengths' in y_pred, "y_pred must contain 'stack_lengths' from model output"
@@ -121,45 +122,41 @@ class D3FeatCriterion(SingleTaskCriterion):
         scores_tgt = scores[N_src:]        # [N_tgt, 1]
 
         # Get corresponding descriptors based on correspondences
-        if correspondences.numel() > 0:
-            corr_src_idx = correspondences[:, 0].long()
-            corr_tgt_idx = correspondences[:, 1].long()
+        corr_src_idx = correspondences[:, 0].long()
+        corr_tgt_idx = correspondences[:, 1].long()
 
-            # Defensive bounds checking to prevent CUDA assertion errors
-            assert corr_src_idx.max() < N_src, f'Source correspondence index out of bounds: max={corr_src_idx.max()}, N_src={N_src}'
-            assert corr_tgt_idx.max() < N_tgt, f'Target correspondence index out of bounds: max={corr_tgt_idx.max()}, N_tgt={N_tgt}'
-            assert corr_src_idx.min() >= 0, f'Source correspondence index negative: min={corr_src_idx.min()}'
-            assert corr_tgt_idx.min() >= 0, f'Target correspondence index negative: min={corr_tgt_idx.min()}'
+        # Defensive bounds checking to prevent CUDA assertion errors
+        assert corr_src_idx.max() < N_src, f'Source correspondence index out of bounds: max={corr_src_idx.max()}, N_src={N_src}'
+        assert corr_tgt_idx.max() < N_tgt, f'Target correspondence index out of bounds: max={corr_tgt_idx.max()}, N_tgt={N_tgt}'
+        assert corr_src_idx.min() >= 0, f'Source correspondence index negative: min={corr_src_idx.min()}'
+        assert corr_tgt_idx.min() >= 0, f'Target correspondence index negative: min={corr_tgt_idx.min()}'
 
-            anchor_desc = desc_src[corr_src_idx]      # [K, feature_dim]
-            positive_desc = desc_tgt[corr_tgt_idx]    # [K, feature_dim]
-            anchor_scores = scores_src[corr_src_idx]  # [K, 1]
-            positive_scores = scores_tgt[corr_tgt_idx] # [K, 1]
+        anchor_desc = desc_src[corr_src_idx]      # [K, feature_dim]
+        positive_desc = desc_tgt[corr_tgt_idx]    # [K, feature_dim]
+        anchor_scores = scores_src[corr_src_idx]  # [K, 1]
+        positive_scores = scores_tgt[corr_tgt_idx] # [K, 1]
 
-            # Use the provided dist_keypts from ground truth (like original D3Feat)
-            # Note: In actual training, dist_keypts should come from y_true, but for now
-            # we'll create a placeholder. This should be fixed when integrating with proper data pipeline.
-            if 'dist_keypts' in y_true:
-                dist_keypts = y_true['dist_keypts']
-            else:
-                # Fallback: create identity matrix as in original D3Feat when no distance provided
-                num_corr = anchor_desc.shape[0]
-                dist_keypts = torch.eye(num_corr, device=anchor_desc.device)
-
-            # Compute descriptor loss
-            desc_loss, _, _, _, _, dists = self.descriptor_loss(
-                anchor_desc, positive_desc, dist_keypts
-            )
-
-            # Compute detection loss
-            det_loss = self.det_loss(dists, anchor_scores, positive_scores)
-
-            # Combined loss
-            total_loss = (self.desc_loss_weight * desc_loss +
-                         self.det_loss_weight * det_loss)
+        # Use the provided dist_keypts from ground truth (like original D3Feat)
+        # Note: In actual training, dist_keypts should come from y_true, but for now
+        # we'll create a placeholder. This should be fixed when integrating with proper data pipeline.
+        if 'dist_keypts' in y_true:
+            dist_keypts = y_true['dist_keypts']
         else:
-            # No correspondences available
-            total_loss = torch.tensor(0.0, device=descriptors.device, requires_grad=True)
+            # Fallback: create identity matrix as in original D3Feat when no distance provided
+            num_corr = anchor_desc.shape[0]
+            dist_keypts = torch.eye(num_corr, device=anchor_desc.device)
+
+        # Compute descriptor loss
+        desc_loss, _, _, _, _, dists = self.descriptor_loss(
+            anchor_desc, positive_desc, dist_keypts
+        )
+
+        # Compute detection loss
+        det_loss = self.det_loss(dists, anchor_scores, positive_scores)
+
+        # Combined loss
+        total_loss = (self.desc_loss_weight * desc_loss +
+                        self.det_loss_weight * det_loss)
 
         # Add to buffer if enabled
         if self.use_buffer:

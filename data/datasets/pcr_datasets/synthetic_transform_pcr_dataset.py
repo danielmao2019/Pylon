@@ -12,7 +12,6 @@ from utils.determinism.hash_utils import deterministic_hash
 from utils.io.json import save_json
 from utils.io.point_clouds.load_point_cloud import load_point_cloud
 from utils.point_cloud_ops import apply_transform
-from utils.point_cloud_ops.correspondences import get_correspondences
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
 
 
@@ -221,14 +220,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             idx=idx,
         )
 
-        # Find correspondences
-        correspondences = get_correspondences(
-            src_points=src_pc['pos'],
-            tgt_points=tgt_pc['pos'],
-            transform=transform_matrix,
-            radius=self.matching_radius,
-        )
-
         # Add default features if not present
         if 'feat' not in src_pc:
             src_pc['feat'] = torch.ones(
@@ -247,8 +238,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         inputs = {
             'src_pc': src_pc,
             'tgt_pc': tgt_pc,
-            'correspondences': correspondences,
-            'transform': transform_matrix,
         }
 
         labels = {

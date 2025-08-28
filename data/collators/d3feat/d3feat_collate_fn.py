@@ -90,33 +90,30 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
     device = pts0.device
     
     # Get correspondences and compute distance matrix (stay in torch)
-    if 'correspondences' in inputs:
-        sel_corr = inputs['correspondences']
-        
-        # Filter out invalid correspondences (indices out of bounds)
-        src_size = pts0.shape[0]
-        tgt_size = pts1.shape[0]
-        
-        # Filter out invalid correspondences (indices out of bounds)
-        valid_mask = (sel_corr[:, 0] < src_size) & (sel_corr[:, 1] < tgt_size)
-        sel_corr = sel_corr[valid_mask]
-        
-        # Limit correspondences for memory efficiency during calibration
-        max_corr_for_calibration = 1000
-        if sel_corr.shape[0] > max_corr_for_calibration:
-            # Randomly sample correspondences to avoid memory issues
-            indices = torch.randperm(sel_corr.shape[0], device=device)[:max_corr_for_calibration]
-            sel_corr = sel_corr[indices]
-        
-        # Compute distance matrix from correspondences (use torch.cdist)
-        if sel_corr.shape[0] > 0:
-            corr_pts_src = pts0[sel_corr[:, 0]]
-            dist_keypts = torch.cdist(corr_pts_src, corr_pts_src)
-        else:
-            dist_keypts = torch.empty((0, 0), dtype=torch.float32, device=device)
-    else:
-        sel_corr = torch.empty((0, 2), dtype=torch.long, device=device)
-        dist_keypts = torch.empty((0, 0), dtype=torch.float32, device=device)
+    assert 'correspondences' in inputs
+    assert len(inputs['correspondences']) > 0
+    sel_corr = inputs['correspondences']
+    
+    # Filter out invalid correspondences (indices out of bounds)
+    src_size = pts0.shape[0]
+    tgt_size = pts1.shape[0]
+    
+    # Filter out invalid correspondences (indices out of bounds)
+    valid_mask = (sel_corr[:, 0] < src_size) & (sel_corr[:, 1] < tgt_size)
+    assert torch.all(valid_mask), f"Invalid correspondences found ({(1-valid_mask.float().mean().item())*100}% invalid)"
+    sel_corr = sel_corr[valid_mask]
+    
+    # Limit correspondences for memory efficiency during calibration
+    max_corr_for_calibration = 1000
+    if sel_corr.shape[0] > max_corr_for_calibration:
+        # Randomly sample correspondences to avoid memory issues
+        indices = torch.randperm(sel_corr.shape[0], device=device)[:max_corr_for_calibration]
+        sel_corr = sel_corr[indices]
+    
+    # Compute distance matrix from correspondences (use torch.cdist)
+    assert sel_corr.shape[0] > 0
+    corr_pts_src = pts0[sel_corr[:, 0]]
+    dist_keypts = torch.cdist(corr_pts_src, corr_pts_src)
     
     # Batch points and features (keep on device)
     batched_points = torch.cat([pts0, pts1], dim=0).float()  # [N_total, 3]
