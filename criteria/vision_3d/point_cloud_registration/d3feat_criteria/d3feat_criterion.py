@@ -4,9 +4,8 @@ D3Feat Criterion Wrapper for Pylon API Compatibility.
 This module provides Pylon-compatible wrapper around the original D3Feat loss functions.
 """
 
-from typing import Dict, Tuple, Any, Optional, List
+from typing import Dict, Optional
 import torch
-import torch.nn as nn
 
 from criteria.base_criterion import BaseCriterion
 from criteria.vision_3d.point_cloud_registration.d3feat_criteria.loss import (
@@ -16,7 +15,7 @@ from criteria.vision_3d.point_cloud_registration.d3feat_criteria.loss import (
 
 class D3FeatCriterion(BaseCriterion):
     """Pylon wrapper for D3Feat criterion supporting both CircleLoss and ContrastiveLoss."""
-    
+
     def __init__(
         self,
         loss_type: str = 'circle',
@@ -28,7 +27,7 @@ class D3FeatCriterion(BaseCriterion):
         neg_margin: float = 1.4,
         pos_optimal: float = 0.1,
         neg_optimal: float = 1.4,
-        # Contrastive loss parameters  
+        # Contrastive loss parameters
         metric: str = 'euclidean',
         # Common parameters
         desc_loss_weight: float = 1.0,
@@ -36,7 +35,7 @@ class D3FeatCriterion(BaseCriterion):
         **kwargs
     ):
         """Initialize D3Feat criterion.
-        
+
         Args:
             loss_type: Type of loss to use ('circle' or 'contrastive')
             dist_type: Distance metric type for circle loss
@@ -51,19 +50,19 @@ class D3FeatCriterion(BaseCriterion):
             det_loss_weight: Detection loss weight
         """
         super(D3FeatCriterion, self).__init__(**kwargs)
-        
+
         assert loss_type in ['circle', 'contrastive'], f"loss_type must be 'circle' or 'contrastive', got {loss_type}"
-        
+
         self.loss_type = loss_type
         self.desc_loss_weight = desc_loss_weight
         self.det_loss_weight = det_loss_weight
-        
+
         # Set DIRECTIONS based on loss type
         if loss_type == 'circle':
             self.DIRECTIONS = {"circle_loss": -1}  # Lower is better
         else:
             self.DIRECTIONS = {"contrastive_loss": -1}  # Lower is better
-        
+
         # Initialize loss functions based on type
         if loss_type == 'circle':
             self.descriptor_loss = _CircleLoss(
@@ -85,58 +84,58 @@ class D3FeatCriterion(BaseCriterion):
                 safe_radius=safe_radius
             )
             self.det_loss = _DetLoss(metric=metric)
-        
+
     def __call__(
-        self, 
-        y_pred: Dict[str, torch.Tensor], 
+        self,
+        y_pred: Dict[str, torch.Tensor],
         y_true: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         """Compute D3Feat losses and add to buffer.
-        
+
         Args:
             y_pred: Model predictions with 'descriptors' and 'scores'
             y_true: Ground truth with 'correspondences' and potentially other keys
-            
+
         Returns:
             Single loss tensor
         """
         # Extract predictions
         descriptors = y_pred['descriptors']  # [N_total, feature_dim]
         scores = y_pred['scores']            # [N_total, 1]
-        
+
         # Extract ground truth
         correspondences = y_true['correspondences']  # [K, 2]
-        
+
         # Get actual batch lengths from stack_lengths (first layer contains original splits)
         assert 'stack_lengths' in y_pred, "y_pred must contain 'stack_lengths' from model output"
         assert len(y_pred['stack_lengths']) > 0, "stack_lengths must not be empty"
-        
+
         batch_lengths = y_pred['stack_lengths'][0]  # [N_src, N_tgt]
         N_src = int(batch_lengths[0].item())
         N_tgt = int(batch_lengths[1].item())
-        
+
         # Split descriptors and scores
         desc_src = descriptors[:N_src]     # [N_src, feature_dim]
         desc_tgt = descriptors[N_src:]     # [N_tgt, feature_dim]
         scores_src = scores[:N_src]        # [N_src, 1]
         scores_tgt = scores[N_src:]        # [N_tgt, 1]
-        
+
         # Get corresponding descriptors based on correspondences
         if correspondences.numel() > 0:
             corr_src_idx = correspondences[:, 0].long()
             corr_tgt_idx = correspondences[:, 1].long()
-            
+
             # Defensive bounds checking to prevent CUDA assertion errors
             assert corr_src_idx.max() < N_src, f'Source correspondence index out of bounds: max={corr_src_idx.max()}, N_src={N_src}'
             assert corr_tgt_idx.max() < N_tgt, f'Target correspondence index out of bounds: max={corr_tgt_idx.max()}, N_tgt={N_tgt}'
             assert corr_src_idx.min() >= 0, f'Source correspondence index negative: min={corr_src_idx.min()}'
             assert corr_tgt_idx.min() >= 0, f'Target correspondence index negative: min={corr_tgt_idx.min()}'
-            
+
             anchor_desc = desc_src[corr_src_idx]      # [K, feature_dim]
             positive_desc = desc_tgt[corr_tgt_idx]    # [K, feature_dim]
             anchor_scores = scores_src[corr_src_idx]  # [K, 1]
             positive_scores = scores_tgt[corr_tgt_idx] # [K, 1]
-            
+
             # Use the provided dist_keypts from ground truth (like original D3Feat)
             # Note: In actual training, dist_keypts should come from y_true, but for now
             # we'll create a placeholder. This should be fixed when integrating with proper data pipeline.
@@ -146,47 +145,44 @@ class D3FeatCriterion(BaseCriterion):
                 # Fallback: create identity matrix as in original D3Feat when no distance provided
                 num_corr = anchor_desc.shape[0]
                 dist_keypts = torch.eye(num_corr, device=anchor_desc.device)
-            
+
             # Compute descriptor loss
-            desc_loss, accuracy, furthest_pos, avg_neg, _, dists = self.descriptor_loss(
+            desc_loss, _, _, _, _, dists = self.descriptor_loss(
                 anchor_desc, positive_desc, dist_keypts
             )
-            
+
             # Compute detection loss
             det_loss = self.det_loss(dists, anchor_scores, positive_scores)
-            
+
             # Combined loss
-            total_loss = (self.desc_loss_weight * desc_loss + 
+            total_loss = (self.desc_loss_weight * desc_loss +
                          self.det_loss_weight * det_loss)
         else:
             # No correspondences available
             total_loss = torch.tensor(0.0, device=descriptors.device, requires_grad=True)
-            desc_loss = torch.tensor(0.0, device=descriptors.device)
-            det_loss = torch.tensor(0.0, device=descriptors.device)
-            accuracy = 0.0
-        
+
         # Add to buffer if enabled
         if self.use_buffer:
             self.add_to_buffer(total_loss)
         return total_loss
-    
+
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, float]:
         """Summarize losses from buffer.
-        
+
         Returns:
             Dictionary with loss statistics
         """
         assert self.use_buffer, "Buffer must be enabled to summarize losses"
-            
+
         # Wait for buffer to be processed
         self._buffer_queue.join()
-        
+
         with self._buffer_lock:
             assert len(self.buffer) > 0, "Buffer is empty - no losses to summarize"
-            
+
             losses = torch.stack(self.buffer)
             avg_loss = float(losses.mean())
-            
+
         if self.loss_type == 'circle':
             return {"circle_loss": avg_loss}
         else:

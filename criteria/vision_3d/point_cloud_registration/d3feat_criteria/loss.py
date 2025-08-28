@@ -28,7 +28,7 @@ def cdist(a, b, metric='euclidean'):
         undefined. Thus, it will never return exact zero in these cases.
     """
     if metric == 'cosine':
-        return torch.sqrt(2 - 2 * torch.matmul(a, b.T))
+        return torch.sqrt(torch.clamp(2 - 2 * torch.matmul(a, b.T), min=1.0e-07))
     elif metric == 'arccosine':
         return torch.acos(torch.matmul(a, b.T))
     else:
