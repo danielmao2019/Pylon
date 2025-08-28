@@ -78,17 +78,6 @@ def create_3d_controls(visible=False, **kwargs):
                 updatemode='drag'
             ),
 
-            # Correspondence radius slider
-            html.Label("Correspondence Radius", style={'margin-top': '20px'}),
-            dcc.Slider(
-                id='correspondence-radius-slider',
-                min=0.0,
-                max=1.0,
-                value=settings['corr_radius'],
-                marks={i/10: str(i/10) for i in range(0, 11, 2)},
-                step=0.01,
-                updatemode='drag'
-            ),
         ], id='pcr-controls', style={'display': 'none'}),  # Hidden by default, shown only for PCR datasets
 
         # Density controls (only visible when lod_type == 'none')

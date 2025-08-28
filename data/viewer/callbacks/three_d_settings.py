@@ -16,7 +16,6 @@ from data.viewer.utils.debounce import debounce
         Input('point-size-slider', 'value'),
         Input('point-opacity-slider', 'value'),
         Input('radius-slider', 'value'),
-        Input('correspondence-radius-slider', 'value'),
         Input('lod-type-dropdown', 'value'),
         Input('density-slider', 'value')
     ],
@@ -27,7 +26,6 @@ def update_3d_settings(
     point_size: float,
     point_opacity: float,
     sym_diff_radius: float,
-    corr_radius: float,
     lod_type: str,
     density_percentage: int
 ) -> List[Dict[str, Union[str, int, float, bool]]]:
@@ -40,7 +38,6 @@ def update_3d_settings(
         point_size: Size of points in the 3D visualization
         point_opacity: Opacity of points (0.0 to 1.0)
         sym_diff_radius: Radius for symmetric difference computation
-        corr_radius: Radius for correspondence visualization
         lod_type: Type of LOD to use ("continuous", "discrete", or "none")
         density_percentage: Percentage of points to display when LOD is 'none' (1-100)
     
@@ -56,7 +53,6 @@ def update_3d_settings(
         'point_size': point_size,
         'point_opacity': point_opacity,
         'sym_diff_radius': sym_diff_radius,
-        'corr_radius': corr_radius,
         'lod_type': lod_type,
         'density_percentage': density_percentage
     }

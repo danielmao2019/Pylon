@@ -4,12 +4,11 @@ This module provides the BasePCRDataset class that inherits from BaseDataset
 and includes type-specific display methods for point cloud registration datasets.
 """
 from typing import Dict, Any, Optional, List, Tuple, Union
-import random
 import numpy as np
 import torch
 from dash import html
 import plotly.graph_objects as go
-from utils.point_cloud_ops import apply_transform, get_correspondences
+from utils.point_cloud_ops import apply_transform
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
@@ -27,12 +26,12 @@ class BasePCRDataset(BaseDataset):
     from this class to automatically get appropriate display functionality.
     
     Expected data structure:
-    - inputs: {'src_pc': Dict, 'tgt_pc': Dict, [optional] 'correspondences': torch.Tensor}
+    - inputs: {'src_pc': Dict, 'tgt_pc': Dict}
       OR: {'points': List[torch.Tensor], 'lengths'/'stack_lengths': List[torch.Tensor]} (batched format)
     - labels: {'transform': torch.Tensor}
     """
     
-    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
+    INPUT_NAMES = ['src_pc', 'tgt_pc']
     LABEL_NAMES = ['transform']
     
     @staticmethod
@@ -165,89 +164,6 @@ class BasePCRDataset(BaseDataset):
                 point_cloud_id=point_cloud_id,
                 axis_ranges=axis_ranges,
             )
-
-    @staticmethod
-    def create_correspondence_visualization(
-        src_points: torch.Tensor,
-        tgt_points: torch.Tensor,
-        radius: float = 0.1,
-        point_size: float = 2,
-        point_opacity: float = 0.8,
-        camera_state: Optional[Dict[str, Any]] = None,
-        lod_type: str = "continuous",
-        density_percentage: int = 100,
-        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
-    ) -> go.Figure:
-        """Create a visualization of correspondences between transformed source and target point clouds.
-
-        Args:
-            src_points: Transformed source point cloud [N, 3] or [1, N, 3]
-            tgt_points: Target point cloud [M, 3] or [1, M, 3]
-            radius: Radius for finding correspondences
-            point_size: Size of points in visualization
-            point_opacity: Opacity of points in visualization
-            camera_state: Optional dictionary containing camera position state
-            lod_type: Type of LOD ("continuous", "discrete", or "none")
-            density_percentage: Percentage of points to display when lod_type is "none" (1-100)
-            point_cloud_id: Unique identifier for LOD caching
-
-        Returns:
-            Plotly figure showing the correspondence visualization
-        """
-        # Normalize points to unbatched format
-        src_points_normalized = _normalize_points(src_points)
-        tgt_points_normalized = _normalize_points(tgt_points)
-        
-        src_points_np = src_points_normalized.cpu().numpy()
-        tgt_points_np = tgt_points_normalized.cpu().numpy()
-
-        # Find correspondences based on radius
-        correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
-
-        # Create figure with both point clouds
-        corr_fig = create_point_cloud_display(
-            points=src_points_normalized,
-            title="Point Cloud Correspondences",
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state,
-            lod_type=lod_type,
-            density_percentage=density_percentage,
-            point_cloud_id=point_cloud_id,
-        )
-
-        # Add target points
-        corr_fig.add_trace(go.Scatter3d(
-            x=tgt_points_np[:, 0],
-            y=tgt_points_np[:, 1],
-            z=tgt_points_np[:, 2],
-            mode='markers',
-            marker=dict(size=point_size, color='red', opacity=point_opacity),
-            name='Target Points'
-        ))
-
-        # Create list of correspondence line traces
-        correspondence_traces = []
-        for src_idx, tgt_idx in correspondences:
-            src_point = src_points_np[src_idx]
-            tgt_point = tgt_points_np[tgt_idx]
-            correspondence_traces.append(go.Scatter3d(
-                x=[src_point[0], tgt_point[0]],
-                y=[src_point[1], tgt_point[1]],
-                z=[src_point[2], tgt_point[2]],
-                mode='lines',
-                line=dict(color='gray', width=1),
-                showlegend=False
-            ))
-
-        if len(correspondence_traces) > 10:
-            correspondence_traces = random.sample(correspondence_traces, 10)
-
-        # Add all correspondence traces at once
-        if correspondence_traces:
-            corr_fig.add_traces(correspondence_traces)
-
-        return corr_fig
 
     @staticmethod
     def _compute_transform_info(transform: torch.Tensor) -> Dict[str, Any]:
@@ -438,7 +354,6 @@ class BasePCRDataset(BaseDataset):
         point_opacity: float = 0.8,
         camera_state: Optional[Dict[str, Any]] = None,
         sym_diff_radius: float = 0.05,
-        corr_radius: float = 0.1,
         lod_type: str = "continuous",
         density_percentage: int = 100
     ) -> html.Div:
@@ -450,7 +365,6 @@ class BasePCRDataset(BaseDataset):
             point_opacity: Opacity of points in visualization
             camera_state: Optional dictionary containing camera position state
             sym_diff_radius: Radius for computing symmetric difference
-            corr_radius: Radius for finding correspondences between point clouds
             lod_type: Type of LOD ("continuous", "discrete", or "none")
 
         Returns:
@@ -555,16 +469,6 @@ class BasePCRDataset(BaseDataset):
         figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
         figures = figure_creator.create_figures_parallel(figure_tasks)
 
-        # TODO: Add correspondence visualization
-        # figures.append(BasePCRDataset.create_correspondence_visualization(
-        #     src_pc_transformed,
-        #     tgt_pc,
-        #     radius=corr_radius,
-        #     point_size=point_size,
-        #     point_opacity=point_opacity,
-        #     camera_state=camera_state,
-        # ))
-
         # Compute transform information
         transform_info = BasePCRDataset._compute_transform_info(transform)
         
@@ -584,138 +488,6 @@ class BasePCRDataset(BaseDataset):
             html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
             BasePCRDataset._create_transform_info_section(transform_info),
             BasePCRDataset._create_statistics_section(src_stats_children, tgt_stats_children),
-            BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
-        ])
-
-    @staticmethod
-    def display_datapoint_batched(
-        datapoint: Dict[str, Any],
-        point_size: float = 2,
-        point_opacity: float = 0.8,
-        camera_state: Optional[Dict[str, Any]] = None,
-        sym_diff_radius: float = 0.05,
-        corr_radius: float = 0.1,
-        lod_type: str = "continuous",
-        density_percentage: int = 100
-    ) -> html.Div:
-        """Display a batched point cloud registration datapoint.
-
-        Args:
-            datapoint: Dictionary containing inputs, labels, and meta_info
-            point_size: Size of points in visualization
-            point_opacity: Opacity of points in visualization
-            camera_state: Optional dictionary containing camera position state
-            sym_diff_radius: Radius for computing symmetric difference
-            corr_radius: Radius for finding correspondences between point clouds
-            lod_type: Type of LOD ("continuous", "discrete", or "none")
-
-        Returns:
-            html.Div containing the visualization
-        """
-        # Validate structure and inputs (includes all basic validation)
-        validate_pcr_structure(datapoint)
-        
-        inputs = datapoint['inputs']
-        all_figures = []
-
-        # Process each level in the hierarchy
-        for level in range(len(inputs['points'])):
-            # Split points into source and target
-            src_points, tgt_points = BasePCRDataset.split_points_by_lengths(
-                inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
-            )
-
-            # For top level (level 0), show all visualizations
-            if level == 0:
-                figure_tasks = [
-                    lambda src=src_points, lvl=level: create_point_cloud_display(
-                        points=src,
-                        title=f"Source Point Cloud (Level {lvl})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
-                    ),
-                    lambda tgt=tgt_points, lvl=level: create_point_cloud_display(
-                        points=tgt,
-                        title=f"Target Point Cloud (Level {lvl})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
-                    ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_union_with_title(
-                        src_points=src,
-                        tgt_points=tgt,
-                        title=f"Union (Level {lvl})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"union_batch_{lvl}")
-                    ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_sym_diff_with_title(
-                        src_points=src,
-                        tgt_points=tgt,
-                        title=f"Symmetric Difference (Level {lvl})",
-                        radius=sym_diff_radius,
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"sym_diff_batch_{lvl}")
-                    ),
-                ]
-
-                # Create figures in parallel using centralized utility
-                figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
-                level_figures = figure_creator.create_figures_parallel(figure_tasks)
-                all_figures.extend(level_figures)
-
-                # TODO: Add correspondence visualization
-                # corr_fig = BasePCRDataset.create_correspondence_visualization(
-                #     src_points, tgt_points, radius=corr_radius, point_size=point_size,
-                #     point_opacity=point_opacity, camera_state=camera_state,
-                # )
-                # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
-                # all_figures.append(corr_fig)
-            else:
-                # For lower levels, only show source and target
-                all_figures.extend([
-                    create_point_cloud_display(
-                        points=src_points,
-                        title=f"Source Point Cloud (Level {level})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
-                    ),
-                    create_point_cloud_display(
-                        points=tgt_points,
-                        title=f"Target Point Cloud (Level {level})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{level}"),
-                    )
-                ])
-
-        # Create grid layout using centralized utilities
-        grid_items = create_figure_grid(all_figures, width_style="50%", height_style="520px")
-        
-        return html.Div([
-            html.H3("Point Cloud Registration Visualization (Hierarchical)"),
-            html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
             BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
         ])
 
@@ -756,14 +528,7 @@ class BasePCRDataset(BaseDataset):
             assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
             display_kwargs.update(settings_3d)
 
-        # Check if we have hierarchical data (from collators)
-        if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
-            return BasePCRDataset.display_datapoint_batched(
-                datapoint,
-                **display_kwargs
-            )
-        else:
-            return BasePCRDataset.display_datapoint_single(
-                datapoint,
-                **display_kwargs
-            )
+        return BasePCRDataset.display_datapoint_single(
+            datapoint,
+            **display_kwargs
+        )

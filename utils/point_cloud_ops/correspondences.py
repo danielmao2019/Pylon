@@ -1,16 +1,21 @@
-from typing import Optional
+from typing import Optional, Union, Dict
 import torch
 from utils.point_cloud_ops.apply_transform import apply_transform
 from utils.point_cloud_ops.knn.knn import knn
-from utils.input_checks.point_cloud import check_pc_xyz
+from utils.input_checks.point_cloud import check_point_cloud
 
 
-def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, transform: Optional[torch.Tensor], radius: float) -> torch.Tensor:
+def get_correspondences(
+    source: Union[torch.Tensor, Dict[str, torch.Tensor]],
+    target: Union[torch.Tensor, Dict[str, torch.Tensor]],
+    transform: Optional[torch.Tensor],
+    radius: float,
+) -> torch.Tensor:
     """Find correspondences between two point clouds within a matching radius.
 
     Args:
-        src_points (torch.Tensor): Source point cloud [M, 3]
-        tgt_points (torch.Tensor): Target point cloud [N, 3]
+        source (torch.Tensor or Dict[str, torch.Tensor]): Source point cloud [M, 3]
+        target (torch.Tensor or Dict[str, torch.Tensor]): Target point cloud [N, 3]
         transform (torch.Tensor): Transformation matrix from source to target [4, 4] or None
         radius (float): Maximum distance threshold for correspondence matching
 
@@ -18,8 +23,17 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
         torch.Tensor: Correspondence indices [K, 2] where K is number of correspondences
     """
     # Validate inputs
-    check_pc_xyz(src_points)
-    check_pc_xyz(tgt_points)
+    if isinstance(source, dict):
+        check_point_cloud(source)
+        src_points = source['pos']
+    else:
+        src_points = source
+    if isinstance(target, dict):
+        check_point_cloud(target)
+        tgt_points = target['pos']
+    else:
+        tgt_points = target
+
     assert src_points.device == tgt_points.device, f"{src_points.device=}, {tgt_points.device=}"
     assert transform is None or (isinstance(transform, torch.Tensor) and transform.shape == (4, 4)), f"Invalid transform shape: {transform.shape if transform is not None else None}"
     assert isinstance(radius, (int, float)) and radius > 0, f"radius must be positive number, got {radius}"

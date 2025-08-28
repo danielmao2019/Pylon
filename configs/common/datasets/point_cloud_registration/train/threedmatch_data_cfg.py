@@ -1,4 +1,3 @@
-import torch
 import data
 import utils
 
@@ -16,7 +15,7 @@ data_cfg = {
                     'transforms': [
                         (
                             {
-                                'class': utils.point_cloud_ops.random_select.RandomSelect,
+                                'class': utils.point_cloud_ops.RandomSelect,
                                 'args': {
                                     'count': 5000,
                                 },
@@ -25,7 +24,7 @@ data_cfg = {
                         ),
                         (
                             {
-                                'class': utils.point_cloud_ops.random_select.RandomSelect,
+                                'class': utils.point_cloud_ops.RandomSelect,
                                 'args': {
                                     'count': 5000,
                                 },
@@ -66,13 +65,4 @@ data_cfg = {
             },
         },
     },
-    'train_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'batch_size': 1,
-            'num_workers': 4,
-            'shuffle': True,
-        },
-    },
-    'criterion': None,
 }
