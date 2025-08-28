@@ -118,26 +118,33 @@ class DiskDatasetCache(BaseCache):
         """Thread-safe cache retrieval from disk with validation."""
         cache_filepath = self._get_cache_filepath(idx)
         
-        if not os.path.exists(cache_filepath):
+        if not os.path.isfile(cache_filepath):
             return None
         
         with self.lock:
-            # Load from disk directly to target device if specified
-            map_location = device if device is not None else 'cpu'
-            cached_data = load_torch(cache_filepath, map_location=map_location)
-            
-            # Extract value and checksum
-            value = {
-                'inputs': cached_data['inputs'],
-                'labels': cached_data['labels'],
-                'meta_info': cached_data['meta_info'],
-            }
-            
-            if self.enable_validation:
-                stored_checksum = cached_data.get('checksum', '')
-                self._validate_item(idx, value, stored_checksum)
-            
-            return value
+            try:
+                # Load from disk directly to target device if specified
+                map_location = device if device is not None else 'cpu'
+                cached_data = load_torch(cache_filepath, map_location=map_location)
+                
+                # Extract the required keys (removing checksum if present)
+                value = {k: v for k, v in cached_data.items() if k != 'checksum'}
+                
+                if self.enable_validation:
+                    stored_checksum = cached_data.get('checksum', '')
+                    self._validate_item(idx, value, stored_checksum)
+                
+                return value
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to load corrupted cache file {cache_filepath}: {e}")
+                # Remove corrupted file so it can be regenerated
+                try:
+                    os.remove(cache_filepath)
+                    self.logger.info(f"Removed corrupted cache file: {cache_filepath}")
+                except Exception as remove_error:
+                    self.logger.warning(f"Failed to remove corrupted cache file: {remove_error}")
+                return None
 
     def put(self, idx: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache storage to disk with checksum computation."""

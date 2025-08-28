@@ -21,7 +21,7 @@ def load_torch(filepath: str, map_location: Optional[str] = None) -> Any:
     """
     try:
         # Input validation
-        assert os.path.exists(filepath), f"File does not exist: {filepath}"
+        assert os.path.isfile(filepath), f"Path does not exist or is not a file: {filepath}"
         assert os.path.getsize(filepath) > 0, f"File is empty: {filepath}"
         
         # Load with map_location if specified
