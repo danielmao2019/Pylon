@@ -7,13 +7,13 @@ This module provides Pylon-compatible wrapper around the original D3Feat loss fu
 from typing import Dict, Optional
 import torch
 
-from criteria.base_criterion import BaseCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from criteria.vision_3d.point_cloud_registration.d3feat_criteria.loss import (
     _CircleLoss, _ContrastiveLoss, _DetLoss
 )
 
 
-class D3FeatCriterion(BaseCriterion):
+class D3FeatCriterion(SingleTaskCriterion):
     """Pylon wrapper for D3Feat criterion supporting both CircleLoss and ContrastiveLoss."""
 
     def __init__(
@@ -165,25 +165,3 @@ class D3FeatCriterion(BaseCriterion):
         if self.use_buffer:
             self.add_to_buffer(total_loss)
         return total_loss
-
-    def summarize(self, output_path: Optional[str] = None) -> Dict[str, float]:
-        """Summarize losses from buffer.
-
-        Returns:
-            Dictionary with loss statistics
-        """
-        assert self.use_buffer, "Buffer must be enabled to summarize losses"
-
-        # Wait for buffer to be processed
-        self._buffer_queue.join()
-
-        with self._buffer_lock:
-            assert len(self.buffer) > 0, "Buffer is empty - no losses to summarize"
-
-            losses = torch.stack(self.buffer)
-            avg_loss = float(losses.mean())
-
-        if self.loss_type == 'circle':
-            return {"circle_loss": avg_loss}
-        else:
-            return {"contrastive_loss": avg_loss}
