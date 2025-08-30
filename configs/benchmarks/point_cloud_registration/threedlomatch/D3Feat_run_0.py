@@ -11,7 +11,7 @@ from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransfor
 from metrics.vision_3d.point_cloud_registration.d3feat_metrics.d3feat_metric import D3FeatDescriptorMetric
 from models.point_cloud_registration.d3feat.d3feat_model import D3FeatModel
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.point_cloud_ops.random_select import RandomSelect
 
 
