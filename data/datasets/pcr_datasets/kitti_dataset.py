@@ -174,12 +174,12 @@ class KITTIDataset(BasePCRDataset):
             'src_pc': {
                 'pos': torch.from_numpy(xyz0).float(),
                 'reflectance': torch.from_numpy(xyzr0[:, 3]).float().unsqueeze(-1),
-                'features': torch.ones(xyz0.shape[0], 1),  # Dummy unit features for PARENet
+                'feat': torch.ones(xyz0.shape[0], 1),  # Dummy unit features for PARENet
             },
             'tgt_pc': {
                 'pos': torch.from_numpy(xyz1).float(),
                 'reflectance': torch.from_numpy(xyzr1[:, 3]).float().unsqueeze(-1),
-                'features': torch.ones(xyz1.shape[0], 1),  # Dummy unit features for PARENet
+                'feat': torch.ones(xyz1.shape[0], 1),  # Dummy unit features for PARENet
             },
         }
         labels = {
