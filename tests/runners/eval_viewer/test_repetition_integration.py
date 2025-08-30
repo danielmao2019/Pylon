@@ -4,11 +4,11 @@ import json
 import os
 from unittest.mock import patch, MagicMock
 
-from runners.eval_viewer.backend.initialization import initialize_log_dirs
-from runners.eval_viewer.backend.repetition_discovery import discover_experiment_groups
+from runners.viewers.eval_viewer.backend.initialization import initialize_log_dirs
+from runners.viewers.eval_viewer.backend.repetition_discovery import discover_experiment_groups
 
 
-@patch('runners.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
+@patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
 def test_repetition_discovery_integration_basic(mock_extract, temp_log_dir):
     """Test basic integration of repetition discovery."""
     # Mock extract_log_dir_info to avoid config file dependencies
@@ -44,7 +44,7 @@ def test_repetition_discovery_integration_basic(mock_extract, temp_log_dir):
     assert len(group.repetition_paths) == 2
 
 
-@patch('runners.eval_viewer.backend.initialization.os.path.normpath')
+@patch('runners.viewers.eval_viewer.backend.initialization.os.path.normpath')
 def test_repetition_integration_with_initialize_log_dirs(mock_normpath, temp_log_dir):
     """Test integration with initialize_log_dirs function."""
     mock_normpath.return_value = temp_log_dir
@@ -99,8 +99,8 @@ def test_repetition_integration_with_initialize_log_dirs(mock_normpath, temp_log
 
 def test_experiment_group_aggregation_mathematical_correctness():
     """Test that aggregation produces mathematically correct results."""
-    from runners.eval_viewer.backend.repetition_discovery import aggregate_log_dir_infos
-    from runners.eval_viewer.backend.initialization import LogDirInfo
+    from runners.viewers.eval_viewer.backend.repetition_discovery import aggregate_log_dir_infos
+    from runners.viewers.eval_viewer.backend.initialization import LogDirInfo
     
     # Create LogDirInfo objects with known values
     infos = []

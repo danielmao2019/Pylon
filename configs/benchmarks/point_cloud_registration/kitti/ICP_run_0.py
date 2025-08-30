@@ -7,7 +7,7 @@ from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import
 from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import TransformInlierRatio
 from metrics.wrappers.hybrid_metric import HybridMetric
 from models.point_cloud_registration.classic.icp import ICP
-from runners.base_evaluator import BaseEvaluator
+from runners.evaluators.base_evaluator import BaseEvaluator
 
 
 config = {

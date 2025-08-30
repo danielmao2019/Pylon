@@ -3,8 +3,8 @@ from typing import Dict, List, Any
 import os
 import json
 import torch
-from runners.multi_stage_trainer import MultiStageTrainer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.multi_stage_trainer import MultiStageTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 import optimizers

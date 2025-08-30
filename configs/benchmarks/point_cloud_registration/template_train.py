@@ -1,6 +1,6 @@
 import torch
 import optimizers
-from runners import SupervisedSingleTaskTrainer
+from runners.trainers import SupervisedSingleTaskTrainer
 
 
 config = {

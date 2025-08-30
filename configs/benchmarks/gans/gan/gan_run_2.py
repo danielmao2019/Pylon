@@ -37,7 +37,7 @@ config = {
     },
 }
 
-from runners.gan_trainers import GANTrainer
+from runners.trainers.gan_trainers import GANTrainer
 config['runner'] = GANTrainer
 
 # dataset config

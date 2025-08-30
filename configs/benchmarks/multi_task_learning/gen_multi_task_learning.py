@@ -22,7 +22,7 @@ def gen_single_task_configs(dataset_name: str, model_name: str, task_name: str) 
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
-    config += f"from runners import SupervisedSingleTaskTrainer\n"
+    config += f"from runners.trainers import SupervisedSingleTaskTrainer\n"
     config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
     config += '\n'
     # add dataset config
@@ -78,7 +78,7 @@ def gen_method_configs(dataset_name: str, model_name: str, method_name: str) -> 
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
-    config += f"from runners import SupervisedMultiTaskTrainer\n"
+    config += f"from runners.trainers import SupervisedMultiTaskTrainer\n"
     config += f"config['runner'] = SupervisedMultiTaskTrainer\n"
     config += '\n'
     # add dataset config

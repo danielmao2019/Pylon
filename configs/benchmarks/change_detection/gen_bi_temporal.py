@@ -18,8 +18,8 @@ import data
 import models
 import criteria
 import metrics
-from runners import SupervisedSingleTaskTrainer
-from runners.gan_trainers import CSA_CDGAN_Trainer
+from runners.trainers import SupervisedSingleTaskTrainer
+from runners.trainers.gan_trainers import CSA_CDGAN_Trainer
 
 # Load template config
 from configs.benchmarks.change_detection.template import config as template_config

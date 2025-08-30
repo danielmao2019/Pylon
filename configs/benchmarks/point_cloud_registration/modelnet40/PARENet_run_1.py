@@ -10,7 +10,7 @@ from data.transforms.vision_3d.clamp import Clamp
 from metrics.vision_3d.point_cloud_registration.parenet_metric.parenet_metric import PARENetMetric
 from models.point_cloud_registration.parenet.parenet_model import PARENetModel
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 config = {

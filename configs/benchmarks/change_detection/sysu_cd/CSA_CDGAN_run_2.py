@@ -19,7 +19,7 @@ from models.change_detection.csa_cdgan.generator import CSA_CDGAN_Generator
 from models.change_detection.csa_cdgan.model import CSA_CDGAN
 from optimizers.single_task_optimizer import SingleTaskOptimizer
 from optimizers.wrappers.multi_part_optimizer import MultiPartOptimizer
-from runners.gan_trainers.csa_cdgan_trainer import CSA_CDGAN_Trainer
+from runners.trainers.gan_trainers.csa_cdgan_trainer import CSA_CDGAN_Trainer
 from schedulers.lr_lambdas.constant import ConstantLambda
 from schedulers.wrappers.multi_part_scheduler import MultiPartScheduler
 
