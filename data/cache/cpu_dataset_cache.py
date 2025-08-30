@@ -25,12 +25,15 @@ class CPUDatasetCache(BaseCache):
         Raises:
             ValueError: If max_memory_percent is not between 0 and 100
         """
+        # Initialize base class (sets up _lock and logger)
+        super().__init__()
+
         if not 0 <= max_memory_percent <= 100:
             raise ValueError(f"max_memory_percent must be between 0 and 100, got {max_memory_percent}")
 
         self.max_memory_percent = max_memory_percent
         self.enable_validation = enable_validation
-        
+
         # Track which keys have been validated this session (first-access-only)
         self.validated_keys: Set[int] = set()
 
@@ -39,47 +42,6 @@ class CPUDatasetCache(BaseCache):
         self.checksums = {}  # key -> checksum mapping for validation
         self.memory_usage = {}  # key -> memory usage in bytes
         self.total_memory = 0  # Total memory usage in bytes
-
-        # Setup logging
-        self.logger = logging.getLogger(__name__)
-
-        # Initialize lock
-        self._init_lock()
-
-    def _init_lock(self):
-        """Initialize the thread lock. Called both at init and after unpickling."""
-        self.lock = threading.Lock()
-
-    def __getstate__(self):
-        """Get object state for pickling, excluding the lock."""
-        state = self.__dict__.copy()
-        # Don't pickle the lock or logger
-        del state['lock']
-        del state['logger']
-        return state
-
-    def __setstate__(self, state):
-        """Restore object state from pickling and recreate the lock."""
-        self.__dict__.update(state)
-        # Restore unpicklable objects
-        self._init_lock()
-        self.logger = logging.getLogger(__name__)
-
-    def __deepcopy__(self, memo):
-        """Implement deep copy support."""
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-
-        # Deep copy all attributes except lock and logger
-        for k, v in self.__dict__.items():
-            if k not in ('lock', 'logger'):
-                setattr(result, k, copy.deepcopy(v, memo))
-
-        # Initialize new lock and logger
-        result._init_lock()
-        result.logger = logging.getLogger(__name__)
-        return result
 
     def _compute_checksum(self, value: Dict[str, Any]) -> str:
         """Compute a fast checksum for a cached item using xxhash."""
@@ -99,7 +61,7 @@ class CPUDatasetCache(BaseCache):
         """Validate a cached item against its stored checksum (first-access-only per session)."""
         if not self.enable_validation:
             return True
-        
+
         # Only validate on first access per session
         if idx in self.validated_keys:
             return True
@@ -112,14 +74,14 @@ class CPUDatasetCache(BaseCache):
 
         if not is_valid:
             raise ValueError(f"Cache validation failed for idx {idx} - data corruption detected")
-        
+
         # Mark as validated for this session
         self.validated_keys.add(idx)
         return is_valid
 
     def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Thread-safe cache retrieval with LRU update and validation."""
-        with self.lock:
+        with self._lock:
             if idx in self.cache:
                 value = self.cache[idx]
 
@@ -156,13 +118,13 @@ class CPUDatasetCache(BaseCache):
 
     def put(self, idx: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache insertion with memory management and checksum computation."""
-        with self.lock:
+        with self._lock:
             # Make a copy and transfer tensors to CPU if needed
             copied_value = copy.deepcopy(value)
             # Ensure all tensors are on CPU for CPU cache storage
             from utils.ops import apply_tensor_op
             copied_value = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=copied_value)
-            
+
             new_item_memory = self._calculate_item_memory(copied_value)
 
             # Remove old entry if it exists
@@ -194,17 +156,13 @@ class CPUDatasetCache(BaseCache):
 
     def clear(self) -> None:
         """Clear all cached items."""
-        with self.lock:
+        with self._lock:
             self.cache.clear()
             self.checksums.clear()
             self.memory_usage.clear()
             self.validated_keys.clear()
             self.total_memory = 0
-    
+
     def get_size(self) -> int:
         """Get number of cached items."""
         return len(self.cache)
-    
-    def _get_memory_usage(self) -> float:
-        """Get current memory usage percentage."""
-        return psutil.Process().memory_percent()

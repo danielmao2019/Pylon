@@ -29,51 +29,28 @@ class DiskDatasetCache(BaseCache):
             dataset_class_name: Name of the dataset class for metadata
             version_dict: Dictionary containing version parameters for metadata
         """
+        # Initialize base class (sets up _lock and logger)
+        super().__init__()
+
         self.cache_dir = cache_dir
         self.version_hash = version_hash
         self.enable_validation = enable_validation
         self.dataset_class_name = dataset_class_name
         self.version_dict = version_dict
-        
+
         # Track which keys have been validated this session (first-access-only)
         self.validated_keys: Set[int] = set()
-        
+
         # Create cache directory and version-specific directory
         os.makedirs(cache_dir, exist_ok=True)
         self.version_dir = os.path.join(cache_dir, version_hash)
         os.makedirs(self.version_dir, exist_ok=True)
-        
+
         # Metadata file path
         self.metadata_file = os.path.join(cache_dir, 'cache_metadata.json')
-        
-        
-        # Setup logging
-        self.logger = logging.getLogger(__name__)
-        
-        # Initialize lock
-        self._init_lock()
-        
+
         # Update metadata
         self._update_metadata()
-
-    def _init_lock(self):
-        """Initialize the thread lock. Called both at init and after unpickling."""
-        self.lock = threading.Lock()
-
-    def __getstate__(self):
-        """Get object state for pickling, excluding the lock."""
-        state = self.__dict__.copy()
-        # Don't pickle the lock or logger
-        del state['lock']
-        del state['logger']
-        return state
-
-    def __setstate__(self, state):
-        """Restore object state from pickling and recreate the lock."""
-        self.__dict__.update(state)
-        # Restore unpicklable objects
-        self._init_lock()
-        self.logger = logging.getLogger(__name__)
 
     def _get_cache_filepath(self, idx: int) -> str:
         """Get the cache file path for a given index."""
@@ -97,16 +74,16 @@ class DiskDatasetCache(BaseCache):
         """Validate a cached item against its stored checksum (first-access-only per session)."""
         if not self.enable_validation:
             return
-        
+
         # Only validate on first access per session
         if idx in self.validated_keys:
             return
 
         current_checksum = self._compute_checksum(value)
-        
+
         if current_checksum != stored_checksum:
             raise ValueError(f"Disk cache validation failed - data corruption detected")
-        
+
         # Mark as validated for this session
         self.validated_keys.add(idx)
 
@@ -117,25 +94,25 @@ class DiskDatasetCache(BaseCache):
     def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Thread-safe cache retrieval from disk with validation."""
         cache_filepath = self._get_cache_filepath(idx)
-        
+
         if not os.path.isfile(cache_filepath):
             return None
-        
-        with self.lock:
+
+        with self._lock:
             try:
                 # Load from disk directly to target device if specified
                 map_location = device if device is not None else 'cpu'
                 cached_data = load_torch(cache_filepath, map_location=map_location)
-                
+
                 # Extract the required keys (removing checksum if present)
                 value = {k: v for k, v in cached_data.items() if k != 'checksum'}
-                
+
                 if self.enable_validation:
                     stored_checksum = cached_data.get('checksum', '')
                     self._validate_item(idx, value, stored_checksum)
-                
+
                 return value
-                
+
             except Exception as e:
                 self.logger.warning(f"Failed to load corrupted cache file {cache_filepath}: {e}")
                 # Remove corrupted file so it can be regenerated
@@ -149,24 +126,24 @@ class DiskDatasetCache(BaseCache):
     def put(self, idx: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache storage to disk with checksum computation."""
         cache_filepath = self._get_cache_filepath(idx)
-        
-        with self.lock:
+
+        with self._lock:
             # Prepare data for storage
             cached_data = {
                 'inputs': value['inputs'],
                 'labels': value['labels'],
                 'meta_info': value['meta_info'],
             }
-            
+
             if self.enable_validation:
                 cached_data['checksum'] = self._compute_checksum(value)
-            
+
             # Use atomic save function
             save_torch(cached_data, cache_filepath)
 
     def clear(self) -> None:
         """Clear all cache files for this version."""
-        with self.lock:
+        with self._lock:
             if os.path.exists(self.version_dir):
                 for filename in os.listdir(self.version_dir):
                     if filename.endswith('.pt'):
@@ -177,15 +154,15 @@ class DiskDatasetCache(BaseCache):
         if not os.path.exists(self.version_dir):
             return 0
         return len([f for f in os.listdir(self.version_dir) if f.endswith('.pt')])
-    
+
     def _update_metadata(self) -> None:
         """Update cache metadata JSON file with current version info."""
-        with self.lock:
+        with self._lock:
             # Load existing metadata
             metadata = {}
             if os.path.exists(self.metadata_file):
                 metadata = load_json(self.metadata_file)
-            
+
             # Preserve existing created_at timestamp if this version already exists
             if self.version_hash in metadata:
                 created_at = metadata[self.version_hash]['created_at']
@@ -199,19 +176,19 @@ class DiskDatasetCache(BaseCache):
                 'version_dir': self.version_dir,
                 'enable_validation': self.enable_validation,
             }
-            
+
             # Add dataset class name and version dict if available
             if self.dataset_class_name is not None:
                 version_metadata['dataset_class_name'] = self.dataset_class_name
-            
+
             if self.version_dict is not None:
                 version_metadata['version_dict'] = self.version_dict
-            
+
             metadata[self.version_hash] = version_metadata
-            
+
             # Write updated metadata
             save_json(metadata, self.metadata_file)
-    
+
     def get_metadata(self) -> Dict[str, Any]:
         """Get metadata for all cache versions."""
         if os.path.exists(self.metadata_file):
