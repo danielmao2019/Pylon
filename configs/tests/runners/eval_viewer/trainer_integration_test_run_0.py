@@ -1,13 +1,12 @@
 """Simple trainer config for eval_viewer integration testing."""
 from typing import Dict
 import torch
-from runners import SupervisedSingleTaskTrainer
+from runners.trainers import SupervisedSingleTaskTrainer
 from criteria.wrappers import PyTorchCriterionWrapper
 from metrics.wrappers import PyTorchMetricWrapper
 from optimizers import SingleTaskOptimizer
 from schedulers.lr_lambdas import ConstantLambda
 from data.datasets.random_datasets import BaseRandomDataset
-from data.transforms import Compose
 
 
 class SimpleTestModel(torch.nn.Module):

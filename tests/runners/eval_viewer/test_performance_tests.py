@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import gc
 from concurrent.futures import ThreadPoolExecutor
-from runners.eval_viewer.backend.visualization import create_score_map_grid, create_overlaid_score_map
+from runners.viewers.eval_viewer.backend.visualization import create_score_map_grid, create_overlaid_score_map
 
 
 def test_large_dataset_handling():

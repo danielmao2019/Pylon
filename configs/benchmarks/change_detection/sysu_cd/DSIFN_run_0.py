@@ -16,7 +16,7 @@ from data.transforms.vision_2d.random_rotation import RandomRotation
 from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
 from models.change_detection.dsifn.dsifn_model import DSIFN
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 config = {

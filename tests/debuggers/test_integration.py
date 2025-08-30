@@ -7,7 +7,7 @@ import copy
 from debuggers.wrappers.sequential_debugger import SequentialDebugger
 from debuggers.forward_debugger import ForwardDebugger
 from debuggers.base_debugger import BaseDebugger
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from configs.examples.linear.config import config as linear_config
 
 

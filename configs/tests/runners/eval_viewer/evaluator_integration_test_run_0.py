@@ -1,7 +1,7 @@
 """Simple evaluator config for eval_viewer integration testing."""
 from typing import Dict
 import torch
-from runners import BaseEvaluator
+from runners.evaluators import BaseEvaluator
 from metrics.wrappers import PyTorchMetricWrapper
 from data.datasets.random_datasets import BaseRandomDataset
 

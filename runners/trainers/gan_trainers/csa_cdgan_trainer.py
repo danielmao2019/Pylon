@@ -1,7 +1,7 @@
 from typing import Dict
 import time
 import torch
-from runners.gan_trainers import GAN_BaseTrainer
+from runners.trainers.gan_trainers import GAN_BaseTrainer
 import utils
 
 

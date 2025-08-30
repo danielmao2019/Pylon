@@ -3,7 +3,7 @@ import numpy as np
 import json
 import os
 import tempfile
-from runners.eval_viewer.backend.initialization import (
+from runners.viewers.eval_viewer.backend.initialization import (
     get_score_map_epoch_metric,
     get_metric_names_aggregated,
     get_metric_names_per_datapoint,
