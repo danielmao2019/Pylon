@@ -9,12 +9,15 @@ from utils.io.point_clouds.load_point_cloud import load_point_cloud
 class _ThreeDMatchBaseDataset(BasePCRDataset):
     """Base dataset for 3DMatch family of datasets for point cloud registration.
 
-    This dataset contains RGB-D scans of real-world indoor scenes from the 3DMatch benchmark.
-    It is commonly used for evaluating point cloud registration algorithms.
-
     Paper:
         3DMatch: Learning Local Geometric Descriptors from RGB-D Reconstructions
         https://arxiv.org/abs/1603.08182
+
+    Used in:
+        * (2020) D3Feat: Joint Learning of Dense Detection and Description of 3D Local Features
+        * (2021) PREDATOR: Registration of 3D Point Clouds with Low Overlap
+        * (2022) Geometric Transformer for Fast and Robust Point Cloud Registration
+        * (2023) BUFFER: Balancing Accuracy, Efficiency, and Generalizability in Point Cloud Registration
     """
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
@@ -141,7 +144,7 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         transform_tgt_to_src = torch.eye(4, dtype=torch.float32, device=self.device)
         transform_tgt_to_src[:3, :3] = rotation
         transform_tgt_to_src[:3, 3] = translation
-        
+
         # Invert to get source->target transformation
         transform = torch.inverse(transform_tgt_to_src)
 
@@ -160,25 +163,16 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         meta_info = {
             'src_path': annotation['src_path'],
             'tgt_path': annotation['tgt_path'],
-            'scene_name': annotation.get('scene_name', 'unknown'),
-            'overlap': annotation.get('overlap', 0.0),
-            'src_frame': annotation.get('frag_id0', 0),
-            'tgt_frame': annotation.get('frag_id1', 0),
+            'scene_name': annotation['scene_name'],
+            'overlap': annotation['overlap'],
+            'src_frame': annotation['frag_id0'],
+            'tgt_frame': annotation['frag_id1'],
         }
 
         return inputs, labels, meta_info
 
 
-
 class ThreeDMatchDataset(_ThreeDMatchBaseDataset):
-    """3DMatch dataset for point cloud registration.
-
-    Official 3DMatch dataset considers only scan pairs with >30% overlap.
-
-    Paper:
-        3DMatch: Learning Local Geometric Descriptors from RGB-D Reconstructions
-        https://arxiv.org/abs/1603.08182
-    """
 
     DATASET_SIZE = {
         'train': 14313,  # 3DMatch train (overlap > 0.3)
@@ -196,15 +190,6 @@ class ThreeDMatchDataset(_ThreeDMatchBaseDataset):
 
 
 class ThreeDLoMatchDataset(_ThreeDMatchBaseDataset):
-    """3DLoMatch dataset for point cloud registration.
-
-    3DLoMatch considers only scan pairs with overlaps between 10% and 30%.
-    This is a more challenging variant of 3DMatch for low-overlap scenarios.
-
-    Paper:
-        3DMatch: Learning Local Geometric Descriptors from RGB-D Reconstructions
-        https://arxiv.org/abs/1603.08182
-    """
 
     DATASET_SIZE = {
         'train': 6225,   # 3DLoMatch train (0.1 < overlap <= 0.3)
