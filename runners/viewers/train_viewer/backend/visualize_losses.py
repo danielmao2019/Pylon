@@ -6,11 +6,11 @@ import numpy as np
 
 def visualize_losses(losses: List[torch.Tensor], title: str = "Training Losses by Epoch") -> go.Figure:
     """Create a plotly figure visualizing training losses across epochs.
-    
+
     Args:
         losses: List of loss tensors, one per epoch
         title: Title for the plot
-        
+
     Returns:
         Plotly figure with loss curves, different color for each epoch
     """
@@ -19,20 +19,20 @@ def visualize_losses(losses: List[torch.Tensor], title: str = "Training Losses b
     assert isinstance(losses, list), f"losses must be list, got {type(losses)}"
     assert len(losses) > 0, f"losses must not be empty"
     assert all(isinstance(loss, torch.Tensor) for loss in losses), "All losses must be torch.Tensor"
-    
+
     fig = go.Figure()
-    
+
     # Generate distinct colors for each epoch
     colors = [
         f'hsl({(i * 360) / len(losses)}, 70%, 50%)'
         for i in range(len(losses))
     ]
-    
+
     for epoch_idx, epoch_losses in enumerate(losses):
         # Convert tensor to numpy for plotting
         loss_values = epoch_losses.detach().cpu().numpy()
         batch_indices = np.arange(len(loss_values))
-        
+
         fig.add_trace(go.Scatter(
             x=batch_indices,
             y=loss_values,
@@ -41,7 +41,7 @@ def visualize_losses(losses: List[torch.Tensor], title: str = "Training Losses b
             line=dict(color=colors[epoch_idx]),
             marker=dict(size=4)
         ))
-    
+
     fig.update_layout(
         title=title,
         xaxis_title='Batch Index',
@@ -55,5 +55,5 @@ def visualize_losses(losses: List[torch.Tensor], title: str = "Training Losses b
             x=1.01
         )
     )
-    
+
     return fig
