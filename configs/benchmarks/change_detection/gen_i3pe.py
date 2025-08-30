@@ -7,7 +7,7 @@ project_root = os.path.abspath(os.path.join(script_dir, "../../.."))
 sys.path.insert(0, project_root)
 os.chdir(project_root)
 
-from runners import MultiValDatasetTrainer
+from runners.trainers import MultiValDatasetTrainer
 from utils.automation.config_to_file import add_heading
 from utils.automation.config_seeding import generate_seeded_configs
 from utils.builders.builder import semideepcopy

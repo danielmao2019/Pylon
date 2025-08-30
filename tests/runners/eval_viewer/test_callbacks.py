@@ -3,11 +3,11 @@
 import pytest
 import numpy as np
 import plotly.graph_objects as go
-from runners.eval_viewer.callbacks.update_plots import (
+from runners.viewers.eval_viewer.callbacks.update_plots import (
     create_aggregated_scores_plot,
     create_grid_and_colorbar
 )
-from runners.eval_viewer.callbacks.datapoint_viewer import (
+from runners.viewers.eval_viewer.callbacks.datapoint_viewer import (
     register_datapoint_viewer_callbacks
 )
 

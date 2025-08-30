@@ -18,7 +18,7 @@ import data
 import models
 import criteria
 import metrics
-from runners import SupervisedSingleTaskTrainer
+from runners.trainers import SupervisedSingleTaskTrainer
 
 # Load template config
 from configs.benchmarks.change_detection.template import config as template_config

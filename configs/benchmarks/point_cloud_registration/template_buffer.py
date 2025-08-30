@@ -2,7 +2,7 @@ import torch
 import criteria
 import metrics
 import optimizers
-from runners.pcr_trainers import BufferTrainer
+from runners.trainers.pcr_trainers import BufferTrainer
 
 import copy
 from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg, get_kitti_transforms

@@ -9,7 +9,7 @@ from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import 
 from metrics.common.confusion_matrix import ConfusionMatrix
 from models.change_detection.siamese_kpconv.siamese_kpconv_model import SiameseKPConv
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 config = {

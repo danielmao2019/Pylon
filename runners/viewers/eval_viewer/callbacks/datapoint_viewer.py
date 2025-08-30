@@ -4,7 +4,7 @@ from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 import dash
 from data.viewer.backend.backend import DatasetType
-from runners.eval_viewer.backend.initialization import LogDirInfo, load_debug_outputs
+from runners.viewers.eval_viewer.backend.initialization import LogDirInfo, load_debug_outputs
 from utils.builders.builder import build_from_config
 
 import logging

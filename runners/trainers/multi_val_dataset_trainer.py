@@ -4,7 +4,7 @@ import glob
 import time
 import torch
 import threading
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.builders import build_from_config
 from utils.io.json import save_json
 

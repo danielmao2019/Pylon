@@ -10,7 +10,7 @@ from data.transforms.vision_3d.clamp import Clamp
 from metrics.vision_3d.point_cloud_registration.overlappredator_metric.overlappredator_metric import OverlapPredatorMetric
 from models.point_cloud_registration.overlappredator.overlappredator import OverlapPredator
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 config = {

@@ -7,7 +7,7 @@ import re
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass
-from runners.eval_viewer.backend.initialization import LogDirInfo, extract_log_dir_info
+from runners.viewers.eval_viewer.backend.initialization import LogDirInfo, extract_log_dir_info
 import logging
 
 logger = logging.getLogger(__name__)

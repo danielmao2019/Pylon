@@ -12,7 +12,7 @@ from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransfor
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.geotransformer_metric import GeoTransformerMetric
 from models.point_cloud_registration.geotransformer.geotransformer import GeoTransformer
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.point_cloud_ops.correspondences import get_correspondences
 from utils.point_cloud_ops.random_select import RandomSelect
 

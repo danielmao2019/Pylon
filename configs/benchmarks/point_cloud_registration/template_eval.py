@@ -1,4 +1,4 @@
-from runners import BaseEvaluator
+from runners.evaluators import BaseEvaluator
 
 
 config = {

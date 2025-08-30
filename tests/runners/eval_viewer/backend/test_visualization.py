@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from runners.eval_viewer.backend.visualization import (
+from runners.viewers.eval_viewer.backend.visualization import (
     create_score_map_grid,
     create_overlaid_score_map,
     get_color_for_score

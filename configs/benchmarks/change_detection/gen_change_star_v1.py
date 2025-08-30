@@ -18,7 +18,7 @@ import data
 import models
 import criteria
 import metrics
-from runners import MultiValDatasetTrainer
+from runners.trainers import MultiValDatasetTrainer
 
 # Load template config
 from configs.benchmarks.change_detection.template import config as template_config
