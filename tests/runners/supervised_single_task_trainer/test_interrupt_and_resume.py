@@ -7,7 +7,7 @@ import time
 import json
 import torch
 
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import utils
 from utils.automation.progress_tracking.session_progress import check_epoch_finished
 from utils.ops import buffer_allclose

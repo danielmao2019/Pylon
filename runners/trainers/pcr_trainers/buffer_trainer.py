@@ -1,4 +1,4 @@
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 class BufferTrainer(SupervisedSingleTaskTrainer):

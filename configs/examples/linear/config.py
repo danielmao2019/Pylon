@@ -1,6 +1,6 @@
 from typing import Dict
 import torch
-from runners import SupervisedSingleTaskTrainer
+from runners.trainers import SupervisedSingleTaskTrainer
 from criteria.wrappers import PyTorchCriterionWrapper
 from metrics.wrappers import PyTorchMetricWrapper
 from optimizers import SingleTaskOptimizer

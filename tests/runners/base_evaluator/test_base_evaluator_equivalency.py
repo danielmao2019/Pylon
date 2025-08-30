@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from metrics.base_metric import BaseMetric
-from runners.base_evaluator import BaseEvaluator
+from runners.evaluators.base_evaluator import BaseEvaluator
 from utils.logging.text_logger import TextLogger
 from utils.ops import transpose_buffer
 from utils.io.json import save_json

@@ -20,7 +20,7 @@ from models.change_detection.changer.modules.changer_decoder import ChangerDecod
 from models.change_detection.changer.modules.interaction_layer import ChannelExchange, SpatialExchange
 from models.change_detection.changer.modules.interaction_mit import IA_MixVisionTransformer
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 config = {

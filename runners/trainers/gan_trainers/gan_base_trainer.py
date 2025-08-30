@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from runners import BaseTrainer
+from runners.trainers.base_trainer import BaseTrainer
 from utils.builders import build_from_config
 
 

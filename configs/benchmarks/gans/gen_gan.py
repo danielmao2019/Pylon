@@ -19,7 +19,7 @@ def main() -> None:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
-    config += f"from runners.gan_trainers import GANTrainer\n"
+    config += f"from runners.trainers.gan_trainers import GANTrainer\n"
     config += f"config['runner'] = GANTrainer\n"
     config += '\n'
     # add dataset config

@@ -1,7 +1,7 @@
 import pytest
 import torch
 from unittest.mock import Mock, patch
-from runners.base_trainer import BaseTrainer
+from runners.trainers.base_trainer import BaseTrainer
 
 
 class TestableBaseTrainer(BaseTrainer):

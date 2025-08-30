@@ -18,7 +18,7 @@ from models.change_detection.cdmaskformer.backbone import CDMaskFormerBackbone
 from models.change_detection.cdmaskformer.build_model import CDMaskFormer
 from models.change_detection.cdmaskformer.head import CDMaskFormerHead
 from optimizers.single_task_optimizer import SingleTaskOptimizer
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 config = {
