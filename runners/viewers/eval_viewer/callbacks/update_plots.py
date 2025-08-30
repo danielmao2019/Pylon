@@ -5,9 +5,9 @@ from dash import Input, Output, State, dcc
 from dash.exceptions import PreventUpdate
 import dash
 import plotly.graph_objects as go
-from runners.eval_viewer.backend.initialization import LogDirInfo
-from runners.eval_viewer.backend.visualization import create_overlaid_score_map
-from runners.eval_viewer.layout.main_layout import create_button_grid, create_color_bar
+from runners.viewers.eval_viewer.backend.initialization import LogDirInfo
+from runners.viewers.eval_viewer.backend.visualization import create_overlaid_score_map
+from runners.viewers.eval_viewer.layout.main_layout import create_button_grid, create_color_bar
 
 
 def create_aggregated_scores_plot(epoch_scores: List[np.ndarray], log_dirs: List[str], metric_name: str) -> go.Figure:

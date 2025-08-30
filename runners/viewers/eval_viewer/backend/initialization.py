@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import visualization utilities to avoid code duplication
-from runners.eval_viewer.backend.visualization import create_score_map_grid
+from runners.viewers.eval_viewer.backend.visualization import create_score_map_grid
 
 
 def get_dataset_type(dataset_name: str) -> DatasetType:
@@ -618,7 +618,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     assert isinstance(force_reload, bool), f"force_reload must be bool, got {type(force_reload)}"
     
     # Import repetition discovery functions
-    from runners.eval_viewer.backend.repetition_discovery import discover_experiment_groups, aggregate_log_dir_infos
+    from runners.viewers.eval_viewer.backend.repetition_discovery import discover_experiment_groups, aggregate_log_dir_infos
     
     # Step 1: Discover experiment groups and their repetitions
     experiment_groups = discover_experiment_groups(log_dirs=log_dirs)

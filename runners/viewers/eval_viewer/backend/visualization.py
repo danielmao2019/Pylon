@@ -38,8 +38,6 @@ def create_score_map_grid(scores: Union[List[float], np.ndarray]) -> np.ndarray:
     return score_map
 
 
-
-
 def create_overlaid_score_map(score_maps: List[np.ndarray], percentile: float = 25) -> np.ndarray:
     """
     Returns the normalized overlaid score map (success rate map) as a 2D numpy array.
