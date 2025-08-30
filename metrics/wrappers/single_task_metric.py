@@ -1,4 +1,4 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 import torch
 from metrics.base_metric import BaseMetric
 from utils.input_checks.str_types import check_write_file
@@ -42,7 +42,7 @@ class SingleTaskMetric(BaseMetric):
         self.add_to_buffer(scores, datapoint)
         return scores
 
-    def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
+    def summarize(self, output_path: Optional[str] = None) -> Dict[str, torch.Tensor]:
         r"""This method averages scores across all data points in buffer.
         """
         assert self.use_buffer and hasattr(self, 'buffer') and self.buffer is not None
