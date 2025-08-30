@@ -42,4 +42,16 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8050, help="Port number")
     args = parser.parse_args()
     
+    # Read log directories from file
+    import os
+    log_dirs_file = os.path.join(os.path.dirname(__file__), 'log_dirs.txt')
+    assert os.path.isfile(log_dirs_file), f"Log directories file must exist: {log_dirs_file}"
+    
+    with open(log_dirs_file, 'r') as f:
+        log_dirs = [line.strip() for line in f.readlines() if line.strip()]
+    if log_dirs:
+        log_dirs_text = ", ".join(log_dirs)
+        print(f"Found log directories in {log_dirs_file}:")
+        print(log_dirs_text)
+    
     run_app(port=args.port)
