@@ -6,7 +6,7 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from runners.eval_viewer.backend.initialization import (
+from runners.viewers.eval_viewer.backend.initialization import (
     initialize_log_dirs,
     extract_log_dir_info,
     LogDirInfo
@@ -211,7 +211,7 @@ def test_real_error_propagation_integration(real_trainer_log_dir):
 
 def test_real_callback_data_flow_integration(real_trainer_log_dir, real_evaluator_log_dir):
     """Test that real data flows correctly from backend to callback functions."""
-    from runners.eval_viewer.callbacks.update_plots import create_aggregated_scores_plot
+    from runners.viewers.eval_viewer.callbacks.update_plots import create_aggregated_scores_plot
     
     # Extract real data from both runs using actual config files
     trainer_info = extract_log_dir_info(real_trainer_log_dir, force_reload=True)

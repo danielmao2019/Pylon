@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from runners.eval_viewer.backend.initialization import (
+from runners.viewers.eval_viewer.backend.initialization import (
     LogDirInfo,
     _validate_log_dir_consistency,
     compute_per_metric_color_scales

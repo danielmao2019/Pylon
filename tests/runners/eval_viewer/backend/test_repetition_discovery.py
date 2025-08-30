@@ -5,14 +5,14 @@ import os
 import tempfile
 from unittest.mock import patch, MagicMock
 
-from runners.eval_viewer.backend.repetition_discovery import (
+from runners.viewers.eval_viewer.backend.repetition_discovery import (
     discover_experiment_groups,
     aggregate_log_dir_infos,
     _extract_base_path,
     _discover_repetitions,
     ExperimentGroup
 )
-from runners.eval_viewer.backend.initialization import LogDirInfo
+from runners.viewers.eval_viewer.backend.initialization import LogDirInfo
 
 
 # ==========================================
@@ -209,7 +209,7 @@ def mock_repetition_setup(temp_log_dir):
     return icp_dirs
 
 
-@patch('runners.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
+@patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
 def test_discover_experiment_groups_single_experiment(mock_extract, mock_repetition_setup):
     """Test discover_experiment_groups with single experiment."""
     # Mock extract_log_dir_info to return valid LogDirInfo
@@ -228,7 +228,7 @@ def test_discover_experiment_groups_single_experiment(mock_extract, mock_repetit
     assert len(group.repetition_paths) == 3
 
 
-@patch('runners.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
+@patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
 def test_discover_experiment_groups_input_validation(mock_extract):
     """Test discover_experiment_groups input validation."""
     with pytest.raises(AssertionError, match="log_dirs must not be None"):
@@ -273,7 +273,7 @@ def sample_experiment_group(temp_log_dir):
     )
 
 
-@patch('runners.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
+@patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
 def test_experiment_group_get_log_dir_infos(mock_extract, sample_experiment_group):
     """Test ExperimentGroup.get_log_dir_infos."""
     # Mock extract_log_dir_info
@@ -292,7 +292,7 @@ def test_experiment_group_get_log_dir_infos(mock_extract, sample_experiment_grou
         assert call[1]['force_reload'] is True
 
 
-@patch('runners.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
+@patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
 def test_experiment_group_handles_extraction_errors(mock_extract, sample_experiment_group):
     """Test ExperimentGroup handles extraction errors gracefully."""
     # Make second extraction fail

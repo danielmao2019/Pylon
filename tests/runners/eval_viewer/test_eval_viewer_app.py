@@ -20,7 +20,7 @@ import jsbeautifier
 project_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.append(project_root)
 
-from runners.eval_viewer.app import run_app
+from runners.viewers.eval_viewer.app import run_app
 
 
 def create_dummy_metric_scores(num_datapoints: int, epoch: int = 0, max_epochs: int = 5) -> Dict[str, Any]:
