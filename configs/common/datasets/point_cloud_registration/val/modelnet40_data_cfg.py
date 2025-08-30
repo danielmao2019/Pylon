@@ -2,7 +2,7 @@ import data
 
 
 data_cfg = {
-    'train_dataset': {  # Note: viewer always looks for 'train_dataset' key even for val configs
+    'val_dataset': {
         'class': data.datasets.ModelNet40Dataset,
         'args': {
             'data_root': 'data/datasets/soft_links/ModelNet40',

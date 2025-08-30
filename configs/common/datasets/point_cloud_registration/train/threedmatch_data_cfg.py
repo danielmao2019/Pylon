@@ -1,5 +1,7 @@
+from functools import partial
 import data
 import utils
+from utils.point_cloud_ops.correspondences import get_correspondences
 
 
 data_cfg = {
@@ -31,6 +33,11 @@ data_cfg = {
                             },
                             [('inputs', 'tgt_pc')],
                         ),
+                        {
+                            'op': partial(get_correspondences, radius=0.0375),
+                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
+                            'output_names': [('inputs', 'correspondences')],
+                        },
                         (
                             {
                                 'class': data.transforms.vision_3d.RandomRigidTransform,

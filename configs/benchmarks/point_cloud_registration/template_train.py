@@ -31,7 +31,7 @@ config = {
                 'class': torch.optim.Adam,
                 'args': {
                     'params': None,
-                    'lr': 1.0e-4,
+                    'lr': 1.0e-3,
                     'weight_decay': 1.0e-06,
                 },
             },
@@ -42,7 +42,7 @@ config = {
         'class': torch.optim.lr_scheduler.StepLR,
         'args': {
             'optimizer': None,
-            'step_size': 1000,
+            'step_size': 1e3,
             'gamma': 0.95,
         },
     },

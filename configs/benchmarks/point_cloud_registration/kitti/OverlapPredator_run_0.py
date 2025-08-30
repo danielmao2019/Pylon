@@ -2,9 +2,17 @@
 # Please do not attempt to modify manually.
 from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data.dataloader import DataLoader
 from criteria.vision_3d.point_cloud_registration.overlappredator_criterion.overlappredator_criterion import OverlapPredatorCriterion
+from data.dataloaders.overlappredator_dataloader import OverlapPredatorDataloader
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
+from data.transforms.compose import Compose
+from data.transforms.identity import Identity
+from data.transforms.vision_3d.clamp import Clamp
+from data.transforms.vision_3d.downsample import DownSample
+from data.transforms.vision_3d.estimate_normals import EstimateNormals
+from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
+from data.transforms.vision_3d.shuffle import Shuffle
+from data.transforms.vision_3d.uniform_pos_noise import UniformPosNoise
 from metrics.vision_3d.point_cloud_registration.overlappredator_metric.overlappredator_metric import OverlapPredatorMetric
 from models.point_cloud_registration.overlappredator.overlappredator import OverlapPredator
 from optimizers.single_task_optimizer import SingleTaskOptimizer
@@ -24,13 +32,105 @@ config = {
         'args': {
             'data_root': './data/datasets/soft_links/KITTI',
             'split': 'train',
+            'transforms_cfg': {
+                'class': Compose,
+                'args': {
+                    'transforms': [{
+    'op': {
+        'class': UniformPosNoise,
+        'args': {
+            'min': -0.025,
+            'max': 0.025,
+        },
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+}, {
+    'op': {
+        'class': DownSample,
+        'args': {
+            'voxel_size': 0.05,
+        },
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+    'output_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
+}, {
+    'op': {
+        'class': Shuffle,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
+}, {
+    'op': {
+        'class': RandomRigidTransform,
+        'args': {
+            'rot_mag': 180.0,
+            'trans_mag': 0.0,
+            'method': 'Euler',
+            'num_axis': 3,
+        },
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'), ('labels', 'transform')],
+}, {
+    'op': {
+        'class': DownSample,
+        'args': {
+            'voxel_size': 0.3,
+        },
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
+    'output_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': Shuffle,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 40000,
+        },
+    },
+    'input_names': [('inputs', 'src_pc_sds')],
+}, {
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 40000,
+        },
+    },
+    'input_names': [('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': EstimateNormals,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': Identity,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'), ('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds'), ('labels', 'transform'), ('meta_info', 'seq'), ('meta_info', 't0'), ('meta_info', 't1')],
+}],
+                },
+            },
         },
     },
     'train_dataloader': {
-        'class': DataLoader,
+        'class': OverlapPredatorDataloader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
+            'shuffle': True,
+            'config': {
+                'deform_radius': 5.0,
+                'num_layers': 4,
+                'first_subsampling_dl': 0.3,
+                'conv_radius': 4.25,
+                'architecture': ['simple', 'resnetb', 'resnetb_strided', 'resnetb', 'resnetb', 'resnetb_strided', 'resnetb', 'resnetb', 'resnetb_strided', 'resnetb', 'resnetb', 'nearest_upsample', 'unary', 'nearest_upsample', 'unary', 'nearest_upsample', 'last_unary'],
+            },
         },
     },
     'criterion': {
@@ -55,13 +155,105 @@ config = {
         'args': {
             'data_root': './data/datasets/soft_links/KITTI',
             'split': 'val',
+            'transforms_cfg': {
+                'class': Compose,
+                'args': {
+                    'transforms': [{
+    'op': {
+        'class': UniformPosNoise,
+        'args': {
+            'min': -0.025,
+            'max': 0.025,
+        },
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+}, {
+    'op': {
+        'class': DownSample,
+        'args': {
+            'voxel_size': 0.05,
+        },
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+    'output_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
+}, {
+    'op': {
+        'class': Shuffle,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
+}, {
+    'op': {
+        'class': RandomRigidTransform,
+        'args': {
+            'rot_mag': 180.0,
+            'trans_mag': 0.0,
+            'method': 'Euler',
+            'num_axis': 3,
+        },
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'), ('labels', 'transform')],
+}, {
+    'op': {
+        'class': DownSample,
+        'args': {
+            'voxel_size': 0.3,
+        },
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
+    'output_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': Shuffle,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 40000,
+        },
+    },
+    'input_names': [('inputs', 'src_pc_sds')],
+}, {
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 40000,
+        },
+    },
+    'input_names': [('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': EstimateNormals,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+}, {
+    'op': {
+        'class': Identity,
+        'args': {},
+    },
+    'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'), ('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds'), ('labels', 'transform'), ('meta_info', 'seq'), ('meta_info', 't0'), ('meta_info', 't1')],
+}],
+                },
+            },
         },
     },
     'val_dataloader': {
-        'class': DataLoader,
+        'class': OverlapPredatorDataloader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
+            'shuffle': False,
+            'config': {
+                'deform_radius': 5.0,
+                'num_layers': 4,
+                'first_subsampling_dl': 0.3,
+                'conv_radius': 4.25,
+                'architecture': ['simple', 'resnetb', 'resnetb_strided', 'resnetb', 'resnetb', 'resnetb_strided', 'resnetb', 'resnetb', 'resnetb_strided', 'resnetb', 'resnetb', 'nearest_upsample', 'unary', 'nearest_upsample', 'unary', 'nearest_upsample', 'last_unary'],
+            },
         },
     },
     'test_dataset': None,
@@ -110,7 +302,7 @@ config = {
                 'class': Adam,
                 'args': {
                     'params': None,
-                    'lr': 0.0001,
+                    'lr': 0.001,
                     'weight_decay': 1e-06,
                 },
             },
@@ -120,7 +312,7 @@ config = {
         'class': StepLR,
         'args': {
             'optimizer': None,
-            'step_size': 1000,
+            'step_size': 1000.0,
             'gamma': 0.95,
         },
     },

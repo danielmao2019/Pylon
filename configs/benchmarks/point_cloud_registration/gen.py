@@ -17,41 +17,35 @@ from models.point_cloud_registration.classic import ICP, RANSAC_FPFH
 # Load template configs
 from configs.benchmarks.point_cloud_registration.template_eval import config as eval_template_config
 from configs.benchmarks.point_cloud_registration.template_train import config as train_template_config
-from configs.benchmarks.point_cloud_registration.template_buffer import config as buffer_template_config
 
 
 def build_eval_config(dataset: str, model: str):
     """
     Build config for eval-only models (ICP, RANSAC_FPFH, TeaserPlusPlus).
     """
-    # Determine dataset name and overlap
-    if dataset.startswith('single_temporal_pcr') or dataset.startswith('bi_temporal_pcr'):
-        overlap = float(dataset.split('_')[-1])
-        dataset_name = '_'.join(dataset.split('_')[:-1])
-    else:
-        overlap = None
-        dataset_name = dataset
-
     # Start with eval template
     config = semideepcopy(eval_template_config)
 
-    # Load dataset-specific eval data config
-    if dataset_name == 'kitti':
-        from configs.common.datasets.point_cloud_registration.eval.kitti_data_cfg import data_cfg as eval_data_cfg
-    elif dataset_name == 'single_temporal_pcr':
-        from configs.common.datasets.point_cloud_registration.eval.single_temporal_pcr_data_cfg import data_cfg as eval_data_cfg
-    elif dataset_name == 'bi_temporal_pcr':
-        from configs.common.datasets.point_cloud_registration.eval.bi_temporal_pcr_data_cfg import data_cfg as eval_data_cfg
+    # Load dataset config
+    if dataset == 'kitti':
+        from configs.common.datasets.point_cloud_registration.eval.kitti_data_cfg import data_cfg as dataset_cfg
+    elif dataset == 'threedmatch':
+        from configs.common.datasets.point_cloud_registration.eval.threedmatch_data_cfg import data_cfg as dataset_cfg
+    elif dataset == 'threedlomatch':
+        from configs.common.datasets.point_cloud_registration.eval.threedlomatch_data_cfg import data_cfg as dataset_cfg
+    elif dataset == 'modelnet40':
+        from configs.common.datasets.point_cloud_registration.eval.modelnet40_data_cfg import data_cfg as dataset_cfg
     else:
-        raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
+        raise NotImplementedError(f"Dataset {dataset} not implemented for eval")
 
-    # Deep copy configs and set overlap if needed
-    if overlap is not None:
-        eval_data_cfg = semideepcopy(eval_data_cfg)
-        eval_data_cfg['eval_dataset']['args']['overlap'] = overlap
+    # Load dataloader and metric configs
+    from configs.common.dataloaders.point_cloud_registration.standard_dataloader_cfg import dataloader_cfg
+    from configs.common.metrics.point_cloud_registration.standard_metric_cfg import metric_cfg
 
-    # Update template with dataset config
-    config.update(eval_data_cfg)
+    # Update template with dataset, dataloader, and metric configs
+    config.update(dataset_cfg)
+    config['eval_dataloader'] = dataloader_cfg
+    config['metric'] = metric_cfg
 
     # Model-specific config
     if model == 'TeaserPlusPlus':
@@ -69,113 +63,89 @@ def build_eval_config(dataset: str, model: str):
 
 def build_training_config(dataset: str, model: str):
     """
-    Build config for training models (GeoTransformer, OverlapPredator, BUFFER).
+    Build config for training models (GeoTransformer, OverlapPredator, PARENet, D3Feat).
     """
-    # Determine dataset name and overlap
-    if dataset.startswith('single_temporal_pcr') or dataset.startswith('bi_temporal_pcr'):
-        overlap = float(dataset.split('_')[-1])
-        dataset_name = '_'.join(dataset.split('_')[:-1])
-    else:
-        overlap = None
-        dataset_name = dataset
+    # Start with training template
+    config = semideepcopy(train_template_config)
 
-    if model == 'BUFFER':
-        # Start with BUFFER template (list of stage configs)
-        config = semideepcopy(buffer_template_config)
-        # Note: BUFFER template already contains all necessary configuration
-        # No additional customization needed for different datasets
-        return config
+    # Load dataset configs once for all models
+    from configs.common.datasets.point_cloud_registration.train import kitti_data_cfg, threedmatch_data_cfg, threedlomatch_data_cfg, modelnet40_data_cfg
+    from configs.common.datasets.point_cloud_registration.val import kitti_data_cfg as val_kitti, threedmatch_data_cfg as val_threedmatch, threedlomatch_data_cfg as val_threedlomatch, modelnet40_data_cfg as val_modelnet40
+    dataset_map = {
+        'kitti': (kitti_data_cfg.data_cfg, val_kitti.data_cfg),
+        'threedmatch': (threedmatch_data_cfg.data_cfg, val_threedmatch.data_cfg),
+        'threedlomatch': (threedlomatch_data_cfg.data_cfg, val_threedlomatch.data_cfg),
+        'modelnet40': (modelnet40_data_cfg.data_cfg, val_modelnet40.data_cfg),
+    }
+    
+    # Get dataset configurations
+    if dataset not in dataset_map:
+        raise NotImplementedError(f"Dataset {dataset} not implemented")
+    
+    train_dataset_cfg, val_dataset_cfg = dataset_map[dataset]
 
-    else:
-        # Regular training models (GeoTransformer, OverlapPredator)
-        # Start with training template
-        config = semideepcopy(train_template_config)
+    # Load all model-specific configs once
+    from configs.common.dataloaders.point_cloud_registration import geotransformer_dataloader_cfg, overlappredator_dataloader_cfg, parenet_dataloader_cfg, d3feat_dataloader_cfg
+    from configs.common.models.point_cloud_registration import geotransformer_cfg, overlappredator_cfg, parenet_cfg
+    from configs.common.models.point_cloud_registration.d3feat import d3feat_model_cfg
+    from configs.common.criteria.point_cloud_registration import geotransformer_criterion_cfg, overlappredator_criterion_cfg, parenet_criterion_cfg, d3feat_criterion_cfg
+    from configs.common.metrics.point_cloud_registration import geotransformer_metric_cfg, overlappredator_metric_cfg, parenet_metric_cfg, d3feat_metric_cfg
 
-        # Import train data config
-        if model == 'GeoTransformer':
-            if dataset_name == 'kitti':
-                # For kitti, use general data config since no model-specific ones exist
-                from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
-            elif dataset_name == 'single_temporal_pcr':
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_single_temporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_single_temporal_pcr_data_cfg import data_cfg as val_data_cfg
-            else:  # bi_temporal_pcr
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as val_data_cfg
+    # Model configuration map
+    model_map = {
+        'GeoTransformer': {
+            'train_dataloader_cfg': geotransformer_dataloader_cfg.train_dataloader_cfg,
+            'val_dataloader_cfg': geotransformer_dataloader_cfg.val_dataloader_cfg,
+            'model_cfg': geotransformer_cfg.model_cfg,
+            'criterion_cfg': geotransformer_criterion_cfg.criterion_cfg,
+            'metric_cfg': geotransformer_metric_cfg.metric_cfg,
+        },
+        'OverlapPredator': {
+            'train_dataloader_cfg': overlappredator_dataloader_cfg.train_dataloader_cfg,
+            'val_dataloader_cfg': overlappredator_dataloader_cfg.val_dataloader_cfg,
+            'model_cfg': overlappredator_cfg.model_cfg,
+            'criterion_cfg': overlappredator_criterion_cfg.criterion_cfg,
+            'metric_cfg': overlappredator_metric_cfg.metric_cfg,
+        },
+        'PARENet': {
+            'train_dataloader_cfg': parenet_dataloader_cfg.train_dataloader_cfg,
+            'val_dataloader_cfg': parenet_dataloader_cfg.val_dataloader_cfg,
+            'model_cfg': parenet_cfg.model_cfg,
+            'criterion_cfg': parenet_criterion_cfg.criterion_cfg,
+            'metric_cfg': parenet_metric_cfg.metric_cfg,
+        },
+        'D3Feat': {
+            'train_dataloader_cfg': d3feat_dataloader_cfg.train_dataloader_cfg,
+            'val_dataloader_cfg': d3feat_dataloader_cfg.val_dataloader_cfg,
+            'model_cfg': d3feat_model_cfg.config,
+            'criterion_cfg': d3feat_criterion_cfg.criterion_cfg,
+            'metric_cfg': d3feat_metric_cfg.metric_cfg,
+        },
+    }
 
-            from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
-            from configs.common.criteria.point_cloud_registration.geotransformer_criterion_cfg import criterion_cfg
-            from configs.common.metrics.point_cloud_registration.geotransformer_metric_cfg import metric_cfg
+    # Get model configurations
+    if model not in model_map:
+        raise NotImplementedError(f"Model {model} not implemented")
+    
+    model_configs = model_map[model]
+    train_dataloader_cfg = model_configs['train_dataloader_cfg']
+    val_dataloader_cfg = model_configs['val_dataloader_cfg']
+    model_cfg = model_configs['model_cfg']
+    criterion_cfg = model_configs['criterion_cfg']
+    metric_cfg = model_configs['metric_cfg']
 
-        elif model == 'OverlapPredator':
-            if dataset_name == 'kitti':
-                # For kitti, use general data config since no model-specific ones exist
-                from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
-            elif dataset_name == 'single_temporal_pcr':
-                from configs.common.datasets.point_cloud_registration.train.overlappredator_single_temporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.overlappredator_single_temporal_pcr_data_cfg import data_cfg as val_data_cfg
-            else:  # bi_temporal_pcr
-                from configs.common.datasets.point_cloud_registration.train.overlappredator_bi_temporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.overlappredator_bi_temporal_pcr_data_cfg import data_cfg as val_data_cfg
+    # Update template with all configs
+    config.update({
+        'train_dataset': train_dataset_cfg['train_dataset'],
+        'train_dataloader': train_dataloader_cfg,
+        'criterion': criterion_cfg,
+        'val_dataset': val_dataset_cfg['val_dataset'],
+        'val_dataloader': val_dataloader_cfg,
+        'metric': metric_cfg,
+        'model': model_cfg,
+    })
 
-            from configs.common.models.point_cloud_registration.overlappredator_cfg import model_cfg
-            from configs.common.criteria.point_cloud_registration.overlappredator_criterion_cfg import criterion_cfg
-            from configs.common.metrics.point_cloud_registration.overlappredator_metric_cfg import metric_cfg
-        
-        elif model == 'D3Feat':
-            # D3Feat only works with ThreeDMatch dataset
-            if dataset_name != 'threedmatch':
-                raise NotImplementedError(f"D3Feat is only compatible with threedmatch dataset, not {dataset_name}")
-                
-            from configs.common.datasets.point_cloud_registration.train.d3feat_threedmatch_data_cfg import data_cfg as train_data_cfg
-            from configs.common.datasets.point_cloud_registration.val.d3feat_threedmatch_data_cfg import data_cfg as val_data_cfg
-
-            from configs.common.models.point_cloud_registration.d3feat.d3feat_model_cfg import config as model_cfg
-            from configs.common.criteria.point_cloud_registration.d3feat_criterion_cfg import criterion_cfg
-            from configs.common.metrics.point_cloud_registration.d3feat_metric_cfg import metric_cfg
-            
-        elif model == 'PARENet':
-            if dataset_name == 'kitti':
-                # Use PARENet-specific data config with collate_fn
-                from configs.common.datasets.point_cloud_registration.train.parenet_kitti_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.parenet_kitti_data_cfg import data_cfg as val_data_cfg
-            elif dataset_name == 'single_temporal_pcr':
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_single_temporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_single_temporal_pcr_data_cfg import data_cfg as val_data_cfg
-            else:  # bi_temporal_pcr
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as val_data_cfg
-
-            from configs.common.models.point_cloud_registration.parenet_cfg import model_cfg
-            from configs.common.criteria.point_cloud_registration.parenet_criterion_cfg import criterion_cfg
-            from configs.common.metrics.point_cloud_registration.parenet_metric_cfg import metric_cfg
-        else:
-            raise NotImplementedError(f"Model {model} not implemented")
-
-        # Deep copy configs and set overlap if needed
-        if overlap is not None:
-            train_data = semideepcopy(train_data_cfg)
-            val_data = semideepcopy(val_data_cfg)
-            train_data['train_dataset']['args']['overlap'] = overlap
-            val_data['val_dataset']['args']['overlap'] = overlap
-        else:
-            train_data = train_data_cfg
-            val_data = val_data_cfg
-
-        # Update template with dataset and model configs
-        config.update({
-            'train_dataset': train_data['train_dataset'],
-            'train_dataloader': train_data['train_dataloader'],
-            'criterion': criterion_cfg,
-            'val_dataset': val_data['val_dataset'],
-            'val_dataloader': val_data['val_dataloader'],
-            'metric': metric_cfg,
-            'model': model_cfg,
-        })
-
-        return config
+    return config
 
 
 def generate_configs(dataset: str, model: str) -> None:
@@ -222,16 +192,16 @@ if __name__ == "__main__":
     standard_combinations = itertools.product(
         [
             'kitti',
+            'modelnet40',
+            'threedmatch',
+            'threedlomatch',
         ],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
-            'GeoTransformer', 'OverlapPredator', 'BUFFER', 'PARENet',
+            'GeoTransformer', 'OverlapPredator', 'PARENet', 'D3Feat',
         ],
     )
     
-    # D3Feat only works with ThreeDMatch
-    d3feat_combinations = [('threedmatch', 'D3Feat')]
-    
     # Generate all configs
-    for dataset, model in itertools.chain(standard_combinations, d3feat_combinations):
+    for dataset, model in standard_combinations:
         main(dataset, model)

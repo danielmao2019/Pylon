@@ -1,5 +1,5 @@
-import torch
 import data
+from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import get_kitti_transforms
 
 
 data_cfg = {
@@ -8,14 +8,7 @@ data_cfg = {
         'args': {
             'data_root': './data/datasets/soft_links/KITTI',
             'split': 'val',
+            'transforms_cfg': get_kitti_transforms('Euler', 3),
         },
     },
-    'val_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'batch_size': 1,
-            'num_workers': 4,
-        },
-    },
-    'metric': None,
 }
