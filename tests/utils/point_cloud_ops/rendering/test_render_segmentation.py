@@ -235,7 +235,7 @@ def test_render_segmentation_empty_pointcloud():
     
     camera_extrinsics = torch.eye(4, dtype=torch.float32)
     
-    with pytest.raises(AssertionError, match="Point cloud cannot be empty"):
+    with pytest.raises(AssertionError, match="Labels tensor must not be empty"):
         render_segmentation_from_pointcloud(
             pc_data=pc_data,
             camera_intrinsics=camera_intrinsics,
