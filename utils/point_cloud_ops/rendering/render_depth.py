@@ -145,9 +145,7 @@ def render_depth_from_pointcloud(
     )
 
     # Step 11: Fill depth map with sorted depths (use absolute values for positive depths)
-    pixel_coords_x = points[:, 0].long()
-    pixel_coords_y = points[:, 1].long()
-    depth_map[pixel_coords_y, pixel_coords_x] = torch.abs(points[:, 2])
+    depth_map[points[:, 1].long(), points[:, 0].long()] = torch.abs(points[:, 2])
 
     # Convert to float32 for final output
     depth_map = depth_map.to(dtype=torch.float32)
@@ -159,7 +157,7 @@ def render_depth_from_pointcloud(
             dtype=torch.bool,
             device=points.device
         )
-        valid_mask[pixel_coords_y, pixel_coords_x] = True
+        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
         
         return depth_map, valid_mask
     else:

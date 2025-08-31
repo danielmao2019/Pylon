@@ -166,9 +166,7 @@ def render_segmentation_from_pointcloud(
     )
 
     # Step 11: Fill segmentation map with sorted labels
-    pixel_coords_x = points[:, 0].long()
-    pixel_coords_y = points[:, 1].long()
-    seg_map[pixel_coords_y, pixel_coords_x] = labels
+    seg_map[points[:, 1].long(), points[:, 0].long()] = labels
 
     # Convert to int64 for final output
     seg_map = seg_map.to(dtype=torch.int64)
@@ -180,7 +178,7 @@ def render_segmentation_from_pointcloud(
             dtype=torch.bool,
             device=points.device
         )
-        valid_mask[pixel_coords_y, pixel_coords_x] = True
+        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
         
         return seg_map, valid_mask
     else:

@@ -8,7 +8,7 @@ from typing import Dict, Tuple
 from .coordinates import apply_coordinate_transform
 
 
-def render_rgb_from_pointcloud(
+def render_rgb_from_pointcloud_o3d(
     pc_data: Dict[str, torch.Tensor],
     camera_intrinsics: torch.Tensor,
     camera_extrinsics: torch.Tensor,
