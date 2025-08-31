@@ -175,10 +175,8 @@ def render_rgb_from_pointcloud(
     )
 
     # Step 12: Fill RGB image with sorted colors (closest points overwrite farther ones)
-    # Assign RGB values for each channel
-    rgb_image[0, points[:, 1].long(), points[:, 0].long()] = colors[:, 0].float()  # R channel
-    rgb_image[1, points[:, 1].long(), points[:, 0].long()] = colors[:, 1].float()  # G channel
-    rgb_image[2, points[:, 1].long(), points[:, 0].long()] = colors[:, 2].float()  # B channel
+    # Assign all RGB channels at once using advanced indexing
+    rgb_image[:, points[:, 1].long(), points[:, 0].long()] = colors.float().T
 
     if return_mask:
         # Step 13: Create valid mask
