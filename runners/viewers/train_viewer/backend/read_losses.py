@@ -18,7 +18,7 @@ def read_losses(logs_dirpath: str) -> List[torch.Tensor]:
     # Input validation following CLAUDE.md fail-fast patterns
     assert logs_dirpath is not None, "logs_dirpath must not be None"
     assert isinstance(logs_dirpath, str), f"logs_dirpath must be str, got {type(logs_dirpath)}"
-    assert os.path.isfile(logs_dirpath), f"logs_dirpath must exist: {logs_dirpath}"
+    assert os.path.isdir(logs_dirpath), f"logs_dirpath must exist and be path to a directory: {logs_dirpath}"
 
     results = []
     expected_length = None

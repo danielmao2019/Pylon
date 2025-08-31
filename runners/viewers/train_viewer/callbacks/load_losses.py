@@ -18,53 +18,58 @@ def register_callbacks(app: dash.Dash) -> None:
     assert isinstance(app, dash.Dash), f"app must be Dash instance, got {type(app)}"
     
     @app.callback(
-        Output('plots-container', 'children'),
-        [
-            Input('load-button', 'n_clicks')
-        ],
-        [
-            dash.State('log-dirs-input', 'value')
-        ]
+        [Output('plots-container', 'children'),
+         Output('smoothing-info', 'children')],
+        [Input('refresh-button', 'n_clicks'),
+         Input('smoothing-slider', 'value')]
     )
-    def update_losses_plots(n_clicks: int, log_dirs_text: str) -> List[Any]:
-        """Update the losses plots when load button is clicked.
+    def update_losses_plots(n_clicks: int, smoothing_window: int) -> Tuple[List[Any], str]:
+        """Update the losses plots when refresh button is clicked or smoothing changes.
         
         Args:
-            n_clicks: Number of times load button was clicked
-            log_dirs_text: Comma-separated paths to log directories
+            n_clicks: Number of times refresh button was clicked
+            smoothing_window: Window size for smoothing
             
         Returns:
-            List of plot components
+            Tuple of (plot components, smoothing info text)
         """
-        if n_clicks == 0:
-            raise PreventUpdate
-            
-        if not log_dirs_text:
-            return []
-            
-        # Parse comma-separated paths
-        log_dirs = [path.strip() for path in log_dirs_text.split(',') if path.strip()]
+        # Read log directories from file
+        log_dirs_file = os.path.join(os.path.dirname(__file__), '..', 'log_dirs.txt')
+        
+        if not os.path.isfile(log_dirs_file):
+            return [html.P(f"Log directories file not found: {log_dirs_file}", style={'color': 'red', 'textAlign': 'center'})], ""
+        
+        with open(log_dirs_file, 'r') as f:
+            log_dirs = [line.strip() for line in f.readlines() if line.strip()]
         
         if not log_dirs:
-            return []
+            return [html.P("No log directories found in log_dirs.txt", style={'color': 'orange', 'textAlign': 'center'})], ""
             
         plots = []
         
         for log_dir in log_dirs:
-            assert os.path.exists(log_dir)
+            if not os.path.exists(log_dir):
+                plots.append(html.P(f"Log directory does not exist: {log_dir}", style={'color': 'red', 'margin': '10px'}))
+                continue
             
-            # Load losses (automatically detects available epochs)
-            losses = read_losses(log_dir)
-            
-            # Create visualization with log dir as title
-            fig = visualize_losses(losses, title=log_dir)
-            
-            # Add plot to container
-            plots.append(
-                dcc.Graph(
-                    figure=fig,
-                    style={'height': '600px', 'marginBottom': '20px'}
+            try:
+                # Load losses (automatically detects available epochs)
+                losses = read_losses(log_dir)
+                
+                # Create visualization with smoothing
+                fig = visualize_losses(losses, smoothing_window=smoothing_window, title=log_dir)
+                
+                # Add plot to container
+                plots.append(
+                    dcc.Graph(
+                        figure=fig,
+                        style={'height': '600px', 'marginBottom': '20px'}
+                    )
                 )
-            )
+            except Exception as e:
+                plots.append(html.P(f"Error loading {log_dir}: {str(e)}", style={'color': 'red', 'margin': '10px'}))
+        
+        # Create smoothing info text
+        smoothing_info = f"Window size: {smoothing_window} {'(no smoothing)' if smoothing_window == 1 else 'iterations'}"
             
-        return plots
+        return plots, smoothing_info
