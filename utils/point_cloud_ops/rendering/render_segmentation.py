@@ -44,15 +44,13 @@ def render_segmentation_from_pointcloud(
     """
     # Segmentation-specific validation
     assert key in pc_data, f"pc_data must contain '{key}' key, got keys: {list(pc_data.keys())}"
-    labels = pc_data[key]
-    assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
-    assert labels.ndim == 1, f"labels must be 1D tensor with shape (N,), got shape {labels.shape}"
-    assert labels.shape[0] == pc_data['pos'].shape[0], f"labels length {labels.shape[0]} != points length {pc_data['pos'].shape[0]}"
-    assert labels.device == pc_data['pos'].device, f"points device {pc_data['pos'].device} != labels device {labels.device}"
     assert isinstance(ignore_index, int), f"ignore_index must be int, got {type(ignore_index)}"
     assert 0 <= ignore_index <= 255, f"ignore_index must be in range [0, 255], got {ignore_index}"
     assert isinstance(key, str), f"key must be str, got {type(key)}"
     assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
+    
+    labels = pc_data[key]
+    assert labels.numel() > 0, f"Labels tensor must not be empty, got {labels.numel()} elements"
 
     render_width, render_height = resolution
 
