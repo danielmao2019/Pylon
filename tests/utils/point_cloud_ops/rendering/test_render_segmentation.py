@@ -309,7 +309,7 @@ def test_render_segmentation_invalid_inputs():
     valid_extrinsics = torch.eye(4, dtype=torch.float32)
     
     # Test missing 'pos' key
-    with pytest.raises(AssertionError, match="must contain 'pos' key"):
+    with pytest.raises(AssertionError, match="pc.keys()="):
         render_segmentation_from_pointcloud(
             pc_data={'labels': torch.zeros(1, dtype=torch.int64)},
             camera_intrinsics=valid_intrinsics,
