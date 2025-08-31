@@ -1,7 +1,11 @@
-"""RGB rendering from point clouds using projection methods."""
+"""RGB rendering from point clouds using Open3D."""
 
 import torch
-from typing import Dict, Tuple, Union
+import numpy as np
+import open3d as o3d
+from typing import Dict, Tuple
+
+from .coordinates import apply_coordinate_transform
 
 
 def render_rgb_from_pointcloud(
@@ -9,15 +13,13 @@ def render_rgb_from_pointcloud(
     camera_intrinsics: torch.Tensor,
     camera_extrinsics: torch.Tensor,
     resolution: Tuple[int, int],
-    convention: str = "opengl",
-    ignore_value: float = 0.0,
-    return_mask: bool = False
-) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-    """Render RGB image from point cloud using camera projection.
+    convention: str = "opengl"
+) -> torch.Tensor:
+    """Render RGB image from point cloud using Open3D offscreen renderer.
 
     Projects 3D point cloud coordinates with RGB colors onto 2D image plane
-    using camera parameters and generates an RGB image. Uses efficient tensor
-    operations for projection and depth sorting.
+    using camera parameters and Open3D rendering. Creates a photorealistic RGB
+    image with proper depth sorting and lighting effects.
 
     Args:
         pc_data: Point cloud dictionary containing 'pos' key with 3D coordinates
@@ -25,19 +27,13 @@ def render_rgb_from_pointcloud(
         camera_intrinsics: 3x3 camera intrinsics matrix with focal lengths and principal point
         camera_extrinsics: 4x4 camera extrinsics matrix (camera-to-world transform)
         resolution: Target resolution as (width, height) tuple - intrinsics scaled automatically
-        convention: Camera extrinsics convention ("opengl" supported, "standard" not implemented)
-        ignore_value: Fill value for pixels with no point projections (default: 0.0)
-        return_mask: If True, also return valid pixel mask (default: False)
+        convention: Camera extrinsics convention ("opengl" or "standard")
 
     Returns:
-        If return_mask is False:
-            RGB image tensor of shape [3, H, W] with normalized values in [0, 1]
-        If return_mask is True:
-            Tuple of (RGB image tensor, valid mask tensor of shape [H, W] with boolean values)
+        RGB image tensor of shape [3, H, W] with normalized values in [0, 1]
 
     Raises:
-        AssertionError: If point cloud is empty, RGB data is missing, or no points project within bounds
-        NotImplementedError: If convention other than "opengl" is specified
+        AssertionError: If point cloud is empty, RGB data is missing, or camera parameters are invalid
     """
     # Step 1: Input validation
     assert isinstance(pc_data, dict), f"pc_data must be dict, got {type(pc_data)}"
@@ -79,17 +75,9 @@ def render_rgb_from_pointcloud(
     assert isinstance(convention, str), f"convention must be str, got {type(convention)}"
     assert convention in ["opengl", "standard"], f"convention must be 'opengl' or 'standard', got '{convention}'"
 
-    # Validate ignore_value
-    assert isinstance(ignore_value, (int, float)), f"ignore_value must be int or float, got {type(ignore_value)}"
-
-    # Validate return_mask
-    assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
-
     render_width, render_height = resolution
 
     # Step 2: Device and dtype conversions
-    points = points.clone().to(dtype=torch.float64)
-    colors = colors.clone().to(dtype=torch.float64)
     camera_intrinsics = camera_intrinsics.clone().to(device=points.device, dtype=torch.float64)
     camera_extrinsics = camera_extrinsics.clone().to(device=points.device, dtype=torch.float64)
 
@@ -117,81 +105,63 @@ def render_rgb_from_pointcloud(
     is_in_255_range = colors.min() >= 0 and colors.max() <= 255 and colors.max() > 1.0
 
     # Normalize colors if needed
-    if is_integer_dtype or is_in_255_range:
+    if is_integer_dtype and is_in_255_range:
         colors = colors / 255.0
 
-    # Ensure colors are in [0, 1] range
-    colors = torch.clamp(colors, 0.0, 1.0)
+    # Step 5: Prepare point cloud data for Open3D
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points.cpu().double().numpy())
+    pcd.colors = o3d.utility.Vector3dVector(colors.cpu().double().numpy())
 
-    # Step 5: Camera convention conversion
+    # Step 6: Initialize renderer and set projection
+    renderer = o3d.visualization.rendering.OffscreenRenderer(render_width, render_height)
+    renderer.scene.set_background([0.0, 0.0, 0.0, 1.0])  # Black background
+
+    # Setup material with unlit shader for consistent appearance
+    material = o3d.visualization.rendering.MaterialRecord()
+    material.shader = "defaultUnlit"  # No lighting effects for consistent colors
+    material.point_size = 2.0         # Slightly larger points to reduce gaps
+    renderer.scene.add_geometry("pcd", pcd, material)
+
+    # Configure camera projection with intrinsics
+    renderer.scene.camera.set_projection(
+        camera_intrinsics.cpu().double().numpy(),
+        0.1, 1000.0,  # Near and far clipping planes
+        render_width, render_height
+    )
+
+    # Step 7: Do projection - define pos, forward, up, set look_at, and render
+    # Extract camera pose from camera-to-world extrinsics matrix
     if convention == "opengl":
-        # Convert to world-to-camera by inverting camera-to-world extrinsics
-        # Use materialize_tensor to avoid lazy wrapper issues
-        from utils.ops.materialize_tensor import materialize_tensor
-        materialized_extrinsics = materialize_tensor(camera_extrinsics)
-        world_to_camera = torch.inverse(materialized_extrinsics)
+        # camera_extrinsics is already camera-to-world transform
+        pos = camera_extrinsics[:3, 3]        # Camera position in world coordinates
+        forward = -camera_extrinsics[:3, 2]   # Forward direction (-Z in OpenGL)
+        up = camera_extrinsics[:3, 1]         # Up direction (Y in OpenGL)
     else:
-        raise NotImplementedError("Standard convention not implemented yet")
-
-    # Step 6: Transform points into camera local frame
-    # Use addmm for memory efficiency: points @ R.T + t
-    points = torch.addmm(world_to_camera[:3, 3], points, world_to_camera[:3, :3].T)
-
-    # Step 7: Filter points based on z coordinate (OpenGL: negative Z in front)
-    depth_mask = points[:, 2] < 0
-    points = points[depth_mask]
-    colors = colors[depth_mask]
-    assert len(points) > 0, f"No points in front of camera for RGB rendering, got {len(points)} valid points"
-
-    # Step 8: Project points into 2D
-    # Matrix multiplication preserves depth column due to [0, 0, 1] row assertion above
-    points = (camera_intrinsics @ points.T).T
-
-    # Perspective division and horizontal flip
-    points[:, 0] /= points[:, 2]  # Perspective division for x
-    points[:, 1] /= points[:, 2]  # Perspective division for y
-    points[:, 0] = (render_width - 1) - points[:, 0]  # Apply horizontal flip correction
-
-    # Step 9: Filter points within image bounds
-    bounds_mask = (
-        (points[:, 0] >= 0) & (points[:, 0] < render_width) &
-        (points[:, 1] >= 0) & (points[:, 1] < render_height)
-    )
-    points = points[bounds_mask]
-    colors = colors[bounds_mask]
-    assert len(points) > 0, f"No points within image bounds for RGB rendering, got {len(points)} valid points"
-
-    # Step 10: Sort points by depth (closest first)
-    sort_indices = torch.argsort(torch.abs(points[:, 2]))
-    points = points[sort_indices]
-    colors = colors[sort_indices]
-
-    # Step 11: Allocate RGB image (3 channels)
-    rgb_image = torch.full(
-        (3, render_height, render_width),
-        ignore_value,
-        dtype=torch.float32,
-        device=points.device
-    )
-
-    # Step 12: Fill RGB image with sorted colors (closest points overwrite farther ones)
-    pixel_coords_x = points[:, 0].long()
-    pixel_coords_y = points[:, 1].long()
-    
-    # Assign RGB values for each channel
-    rgb_image[0, pixel_coords_y, pixel_coords_x] = colors[:, 0].float()  # R channel
-    rgb_image[1, pixel_coords_y, pixel_coords_x] = colors[:, 1].float()  # G channel
-    rgb_image[2, pixel_coords_y, pixel_coords_x] = colors[:, 2].float()  # B channel
-
-    if return_mask:
-        # Step 13: Create valid mask
-        valid_mask = torch.zeros(
-            (render_height, render_width),
-            dtype=torch.bool,
-            device=points.device
+        # Standard convention: transform to OpenGL coordinate system
+        transformed_extrinsics = apply_coordinate_transform(
+            camera_extrinsics,
+            source_convention="standard",
+            target_convention="opengl"
         )
-        valid_mask[pixel_coords_y, pixel_coords_x] = True
-        
-        return rgb_image, valid_mask
-    else:
-        return rgb_image
+        # transformed_extrinsics is camera-to-world transform
+        pos = transformed_extrinsics[:3, 3]        # Camera position in world coordinates
+        forward = -transformed_extrinsics[:3, 2]   # Forward direction (-Z in OpenGL)
+        up = transformed_extrinsics[:3, 1]         # Up direction (Y in OpenGL)
+
+    # Position camera in 3D scene and render
+    renderer.scene.camera.look_at(
+        center=(pos + forward * 10).cpu().double().numpy(),  # Look-at target point
+        eye=pos.cpu().double().numpy(),                      # Camera position
+        up=up.cpu().double().numpy(),                        # Up vector
+    )
+    
+    # Render scene to image
+    img = renderer.render_to_image()
+    img_array = np.asarray(img)
+
+    # Step 8: Convert to torch.Tensor, apply /255 normalization, and permute
+    rendered_rgb = torch.from_numpy(img_array).float() / 255.0
+    rendered_rgb = rendered_rgb.permute(2, 0, 1)  # Convert [H, W, 3] -> [3, H, W]
+
+    return rendered_rgb
