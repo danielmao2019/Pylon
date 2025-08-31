@@ -175,13 +175,10 @@ def render_rgb_from_pointcloud(
     )
 
     # Step 12: Fill RGB image with sorted colors (closest points overwrite farther ones)
-    pixel_coords_x = points[:, 0].long()
-    pixel_coords_y = points[:, 1].long()
-    
     # Assign RGB values for each channel
-    rgb_image[0, pixel_coords_y, pixel_coords_x] = colors[:, 0].float()  # R channel
-    rgb_image[1, pixel_coords_y, pixel_coords_x] = colors[:, 1].float()  # G channel
-    rgb_image[2, pixel_coords_y, pixel_coords_x] = colors[:, 2].float()  # B channel
+    rgb_image[0, points[:, 1].long(), points[:, 0].long()] = colors[:, 0].float()  # R channel
+    rgb_image[1, points[:, 1].long(), points[:, 0].long()] = colors[:, 1].float()  # G channel
+    rgb_image[2, points[:, 1].long(), points[:, 0].long()] = colors[:, 2].float()  # B channel
 
     if return_mask:
         # Step 13: Create valid mask
@@ -190,7 +187,7 @@ def render_rgb_from_pointcloud(
             dtype=torch.bool,
             device=points.device
         )
-        valid_mask[pixel_coords_y, pixel_coords_x] = True
+        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
         
         return rgb_image, valid_mask
     else:
