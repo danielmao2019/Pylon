@@ -180,7 +180,7 @@ config = {
         'class': StepLR,
         'args': {
             'optimizer': None,
-            'step_size': 1000.0,
+            'step_size': None,
             'gamma': 0.95,
         },
     },

@@ -53,7 +53,7 @@ data_cfg = {
                             {
                                 'class': data.transforms.vision_3d.GaussianPosNoise,
                                 'args': {
-                                    'std': 0.01,
+                                    'std': 0.005,
                                 },
                             },
                             [('inputs', 'src_pc')],
@@ -62,7 +62,7 @@ data_cfg = {
                             {
                                 'class': data.transforms.vision_3d.GaussianPosNoise,
                                 'args': {
-                                    'std': 0.01,
+                                    'std': 0.005,
                                 },
                             },
                             [('inputs', 'tgt_pc')],

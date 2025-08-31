@@ -68,7 +68,7 @@ config = {
     {
             'class': GaussianPosNoise,
             'args': {
-                'std': 0.01,
+                'std': 0.005,
             },
         },
     [('inputs', 'src_pc')]
@@ -76,7 +76,7 @@ config = {
     {
             'class': GaussianPosNoise,
             'args': {
-                'std': 0.01,
+                'std': 0.005,
             },
         },
     [('inputs', 'tgt_pc')]
@@ -222,7 +222,7 @@ config = {
         'class': StepLR,
         'args': {
             'optimizer': None,
-            'step_size': 1000.0,
+            'step_size': None,
             'gamma': 0.95,
         },
     },

@@ -42,7 +42,7 @@ config = {
         'class': torch.optim.lr_scheduler.StepLR,
         'args': {
             'optimizer': None,
-            'step_size': 1e3,
+            'step_size': None,  # to be set to len(train_dataloader) by @utils/builders/scheduler_builder.py, meaning step every epoch.
             'gamma': 0.95,
         },
     },
