@@ -9,6 +9,7 @@ from utils.ops.dict_as_tensor import (
     buffer_mean,
     transpose_buffer,
 )
+from utils.ops.materialize_tensor import materialize_tensor
 
 
 __all__ = (
@@ -24,4 +25,5 @@ __all__ = (
     'buffer_div',
     'buffer_mean',
     'transpose_buffer',
+    'materialize_tensor',
 )

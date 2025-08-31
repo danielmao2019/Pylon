@@ -1,7 +1,7 @@
 """Segmentation rendering from point clouds using projection."""
 
 import torch
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 
 def render_segmentation_from_pointcloud(
@@ -11,8 +11,9 @@ def render_segmentation_from_pointcloud(
     resolution: Tuple[int, int],
     convention: str = "opengl",
     ignore_index: int = 255,
-    key: str = "labels"
-) -> torch.Tensor:
+    key: str = "labels",
+    return_mask: bool = False
+) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """Render segmentation map from point cloud using camera projection.
 
     Projects 3D point cloud coordinates with segmentation labels onto 2D image
@@ -28,9 +29,13 @@ def render_segmentation_from_pointcloud(
         convention: Camera extrinsics convention ("opengl" supported, "standard" not implemented)
         ignore_index: Fill value for pixels with no point projections (default: 255)
         key: Key name for segmentation labels in pc_data (default: "labels")
+        return_mask: If True, also return valid pixel mask (default: False)
 
     Returns:
-        Segmentation map tensor of shape [H, W] with integer labels
+        If return_mask is False:
+            Segmentation map tensor of shape [H, W] with integer labels
+        If return_mask is True:
+            Tuple of (segmentation map tensor, valid mask tensor of shape [H, W] with boolean values)
 
     Raises:
         AssertionError: If point cloud is empty, labels are missing, or no points project within bounds
@@ -81,6 +86,9 @@ def render_segmentation_from_pointcloud(
 
     # Validate key parameter
     assert isinstance(key, str), f"key must be str, got {type(key)}"
+
+    # Validate return_mask
+    assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
 
     render_width, render_height = resolution
 
@@ -161,4 +169,17 @@ def render_segmentation_from_pointcloud(
     seg_map[points[:, 1].long(), points[:, 0].long()] = labels
 
     # Convert to int64 for final output
-    return seg_map.to(dtype=torch.int64)
+    seg_map = seg_map.to(dtype=torch.int64)
+
+    if return_mask:
+        # Step 12: Create valid mask
+        valid_mask = torch.zeros(
+            (render_height, render_width),
+            dtype=torch.bool,
+            device=points.device
+        )
+        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
+        
+        return seg_map, valid_mask
+    else:
+        return seg_map

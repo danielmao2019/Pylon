@@ -1,7 +1,7 @@
 """Depth rendering from point clouds using projection methods."""
 
 import torch
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 
 def render_depth_from_pointcloud(
@@ -10,8 +10,9 @@ def render_depth_from_pointcloud(
     camera_extrinsics: torch.Tensor,
     resolution: Tuple[int, int],
     convention: str = "opengl",
-    ignore_value: float = -1.0
-) -> torch.Tensor:
+    ignore_value: float = -1.0,
+    return_mask: bool = False
+) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """Render depth map from point cloud using camera projection.
 
     Projects 3D point cloud coordinates onto 2D image plane using camera
@@ -25,9 +26,13 @@ def render_depth_from_pointcloud(
         resolution: Target resolution as (width, height) tuple - intrinsics scaled automatically
         convention: Camera extrinsics convention ("opengl" supported, "standard" not implemented)
         ignore_value: Fill value for pixels with no point projections (default: -1.0)
+        return_mask: If True, also return valid pixel mask (default: False)
 
     Returns:
-        Depth map tensor of shape [H, W] with depth values in camera coordinate system
+        If return_mask is False:
+            Depth map tensor of shape [H, W] with depth values in camera coordinate system
+        If return_mask is True:
+            Tuple of (depth map tensor, valid mask tensor of shape [H, W] with boolean values)
 
     Raises:
         AssertionError: If point cloud is empty or no points project within image bounds
@@ -66,6 +71,9 @@ def render_depth_from_pointcloud(
 
     # Validate ignore_value
     assert isinstance(ignore_value, (int, float)), f"ignore_value must be int or float, got {type(ignore_value)}"
+
+    # Validate return_mask
+    assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
 
     render_width, render_height = resolution
 
@@ -140,4 +148,17 @@ def render_depth_from_pointcloud(
     depth_map[points[:, 1].long(), points[:, 0].long()] = torch.abs(points[:, 2])
 
     # Convert to float32 for final output
-    return depth_map.to(dtype=torch.float32)
+    depth_map = depth_map.to(dtype=torch.float32)
+
+    if return_mask:
+        # Step 12: Create valid mask
+        valid_mask = torch.zeros(
+            (render_height, render_width),
+            dtype=torch.bool,
+            device=points.device
+        )
+        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
+        
+        return depth_map, valid_mask
+    else:
+        return depth_map
