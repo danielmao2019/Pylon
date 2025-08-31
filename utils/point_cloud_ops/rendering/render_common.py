@@ -2,6 +2,7 @@
 
 import torch
 from typing import Dict, Tuple
+from utils.input_checks.point_cloud import check_point_cloud
 
 
 def prepare_points_for_rendering(
@@ -33,21 +34,20 @@ def prepare_points_for_rendering(
         NotImplementedError: If convention other than "opengl" is specified
     """
     render_width, render_height = resolution
-    points = pc_data['pos']
 
-    # Basic input validation (common to all)
-    assert isinstance(pc_data, dict), f"pc_data must be dict, got {type(pc_data)}"
-    assert 'pos' in pc_data, f"pc_data must contain 'pos' key, got keys: {list(pc_data.keys())}"
-    assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
-    assert points.ndim == 2, f"points must be 2D tensor with shape (N, 3), got shape {points.shape}"
-    assert points.shape[1] == 3, f"points must have 3 coordinates (XYZ), got shape {points.shape}"
-    assert points.shape[0] > 0, f"Point cloud cannot be empty, got {points.shape[0]} points"
+    # Use existing point cloud validation
+    check_point_cloud(pc_data)
+    points = pc_data['pos']
+    
+    # Validate camera matrices
     assert isinstance(camera_intrinsics, torch.Tensor), f"camera_intrinsics must be torch.Tensor, got {type(camera_intrinsics)}"
     assert camera_intrinsics.shape == (3, 3), f"camera_intrinsics must be 3x3 matrix, got shape {camera_intrinsics.shape}"
     assert isinstance(camera_extrinsics, torch.Tensor), f"camera_extrinsics must be torch.Tensor, got {type(camera_extrinsics)}"
     assert camera_extrinsics.shape == (4, 4), f"camera_extrinsics must be 4x4 matrix, got shape {camera_extrinsics.shape}"
     assert points.device == camera_intrinsics.device, f"points device {points.device} != camera_intrinsics device {camera_intrinsics.device}"
     assert points.device == camera_extrinsics.device, f"points device {points.device} != camera_extrinsics device {camera_extrinsics.device}"
+    
+    # Validate resolution and convention
     assert isinstance(resolution, (tuple, list)), f"resolution must be tuple or list, got {type(resolution)}"
     assert len(resolution) == 2, f"resolution must have 2 elements (width, height), got {len(resolution)}"
     assert all(isinstance(x, int) and x > 0 for x in resolution), f"resolution must be positive integers, got {resolution}"

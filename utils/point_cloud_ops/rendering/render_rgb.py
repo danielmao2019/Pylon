@@ -42,16 +42,12 @@ def render_rgb_from_pointcloud(
     """
     # RGB-specific validation
     assert 'rgb' in pc_data, f"pc_data must contain 'rgb' key, got keys: {list(pc_data.keys())}"
-    colors = pc_data['rgb']
-    assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
-    assert colors.ndim == 2, f"colors must be 2D tensor with shape (N, 3), got shape {colors.shape}"
-    assert colors.shape[1] == 3, f"colors must have 3 channels (RGB), got shape {colors.shape}"
-    assert colors.shape[0] == pc_data['pos'].shape[0], f"colors length {colors.shape[0]} != points length {pc_data['pos'].shape[0]}"
-    assert colors.device == pc_data['pos'].device, f"points device {pc_data['pos'].device} != colors device {colors.device}"
     assert isinstance(ignore_value, (int, float)), f"ignore_value must be int or float, got {type(ignore_value)}"
     assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
 
     render_width, render_height = resolution
+    colors = pc_data['rgb']
+    assert colors.numel() > 0, f"Colors tensor must not be empty, got {colors.numel()} elements"
 
     # Handle color normalization
     colors = colors.clone().to(dtype=torch.float64)
