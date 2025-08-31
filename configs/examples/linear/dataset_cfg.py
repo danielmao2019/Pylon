@@ -18,8 +18,10 @@ dataset_cfg = {
     'class': BaseRandomDataset,
     'args': {
         'num_examples': 10,
-        'initial_seed': 0,
+        'base_seed': 0,
         'device': device,
+        'use_cpu_cache': False,
+        'use_disk_cache': False,
         'gen_func_config': {
             'inputs': {
                 'x': (
