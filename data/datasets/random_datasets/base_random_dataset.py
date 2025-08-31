@@ -38,17 +38,10 @@ class BaseRandomDataset(BaseDataset):
                 assert isinstance(config[key1][key2][1], dict), f"{type(config[key1][key2][1])=}"
         self.gen_func_config = config
 
-    def _init_annotations_all_(
-        self,
-        split: Optional[Union[str, Tuple[float, ...]]],
-        indices: Optional[Union[List[int], Dict[str, List[int]]]],
-    ) -> None:
-        r"""Intentionally doing nothing.
-        """
-        pass
-
-    def _init_annotations(self) -> None:
-        r"""Intentionally doing nothing.
+    def _init_annotations_all_splits(self) -> None:
+        r"""Override to skip annotation initialization for random datasets.
+        
+        BaseRandomDataset generates data on-the-fly and doesn't use annotations.
         """
         pass
 
