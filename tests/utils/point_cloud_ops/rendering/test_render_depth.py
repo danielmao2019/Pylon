@@ -192,7 +192,7 @@ def test_render_depth_empty_pointcloud():
     
     camera_extrinsics = torch.eye(4, dtype=torch.float32)
     
-    with pytest.raises(AssertionError, match="Point cloud cannot be empty"):
+    with pytest.raises(AssertionError, match="Expected positive number of points, got 0"):
         render_depth_from_pointcloud(
             pc_data=pc_data,
             camera_intrinsics=camera_intrinsics,
@@ -289,7 +289,7 @@ def test_render_depth_invalid_inputs():
     valid_extrinsics = torch.eye(4, dtype=torch.float32)
     
     # Test missing 'pos' key
-    with pytest.raises(AssertionError, match="must contain 'pos' key"):
+    with pytest.raises(AssertionError, match="pc.keys()="):
         render_depth_from_pointcloud(
             pc_data={},
             camera_intrinsics=valid_intrinsics,

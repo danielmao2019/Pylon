@@ -191,7 +191,7 @@ def test_render_rgb_empty_pointcloud():
     
     camera_extrinsics = torch.eye(4, dtype=torch.float32)
     
-    with pytest.raises(AssertionError, match="Point cloud cannot be empty"):
+    with pytest.raises(AssertionError, match="Colors tensor must not be empty"):
         render_rgb_from_pointcloud(
             pc_data=pc_data,
             camera_intrinsics=camera_intrinsics,
@@ -275,7 +275,7 @@ def test_render_rgb_invalid_inputs():
     valid_extrinsics = torch.eye(4, dtype=torch.float32)
     
     # Test missing 'pos' key
-    with pytest.raises(AssertionError, match="must contain 'pos' key"):
+    with pytest.raises(AssertionError, match="pc.keys()="):
         render_rgb_from_pointcloud(
             pc_data={'rgb': torch.zeros((1, 3))},
             camera_intrinsics=valid_intrinsics,
