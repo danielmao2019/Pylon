@@ -3,8 +3,10 @@ import torch
 import plotly.graph_objects as go
 import numpy as np
 
+from runners.viewers.train_viewer.backend.utils import apply_smoothing
 
-def visualize_losses(losses: List[torch.Tensor], title: str = "Training Losses by Epoch") -> go.Figure:
+
+def visualize_losses(losses: List[torch.Tensor], smoothing_window: int = 1, title: str = "Training Losses by Epoch") -> go.Figure:
     """Create a plotly figure visualizing training losses across epochs.
 
     Args:
@@ -22,20 +24,39 @@ def visualize_losses(losses: List[torch.Tensor], title: str = "Training Losses b
 
     fig = go.Figure()
 
-    # Generate distinct colors for each epoch
+    # Generate smooth color transition across epochs
+    # Start from red (0°) and smoothly transition through the color wheel
     colors = [
-        f'hsl({(i * 360) / len(losses)}, 70%, 50%)'
+        f'hsl({(i * 300) / max(len(losses) - 1, 1)}, 70%, 50%)'
         for i in range(len(losses))
     ]
 
-    for epoch_idx, epoch_losses in enumerate(losses):
-        # Convert tensor to numpy for plotting
-        loss_values = epoch_losses.detach().cpu().numpy()
-        batch_indices = np.arange(len(loss_values))
+    # Concatenate all losses and apply smoothing on the full sequence
+    all_losses = torch.cat(losses)
+    all_loss_values = all_losses.detach().cpu().numpy()
+
+    # Apply smoothing on concatenated losses
+    smoothed_losses = apply_smoothing(all_loss_values, smoothing_window)
+
+    # Track start and end indices for each epoch
+    epoch_boundaries = []
+    current_idx = 0
+    for epoch_losses in losses:
+        epoch_length = len(epoch_losses)
+        epoch_boundaries.append((current_idx, current_idx + epoch_length))
+        current_idx += epoch_length
+
+    # Plot each epoch with its proper indices
+    for epoch_idx, (start_idx, end_idx) in enumerate(epoch_boundaries):
+        # Extract smoothed values for this epoch
+        epoch_smoothed_values = smoothed_losses[start_idx:end_idx]
+
+        # Use start_idx to end_idx directly as batch indices
+        batch_indices = np.arange(start_idx, end_idx)
 
         fig.add_trace(go.Scatter(
             x=batch_indices,
-            y=loss_values,
+            y=epoch_smoothed_values,
             mode='lines+markers',
             name=f'Epoch {epoch_idx}',
             line=dict(color=colors[epoch_idx]),
