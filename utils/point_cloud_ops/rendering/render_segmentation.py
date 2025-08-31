@@ -2,6 +2,7 @@
 
 import torch
 from typing import Dict, Tuple, Union
+from .render_common import prepare_points_for_rendering
 
 
 def render_segmentation_from_pointcloud(
@@ -41,121 +42,31 @@ def render_segmentation_from_pointcloud(
         AssertionError: If point cloud is empty, labels are missing, or no points project within bounds
         NotImplementedError: If convention other than "opengl" is specified
     """
-    # Step 1: Input validation
-    assert isinstance(pc_data, dict), f"pc_data must be dict, got {type(pc_data)}"
-    assert 'pos' in pc_data, f"pc_data must contain 'pos' key, got keys: {list(pc_data.keys())}"
+    # Segmentation-specific validation
     assert key in pc_data, f"pc_data must contain '{key}' key, got keys: {list(pc_data.keys())}"
-
-    points = pc_data['pos']
     labels = pc_data[key]
-
-    # Validate points tensor
-    assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
-    assert points.ndim == 2, f"points must be 2D tensor with shape (N, 3), got shape {points.shape}"
-    assert points.shape[1] == 3, f"points must have 3 coordinates (XYZ), got shape {points.shape}"
-    assert points.shape[0] > 0, f"Point cloud cannot be empty, got {points.shape[0]} points"
-
-    # Validate segmentation labels tensor
     assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
     assert labels.ndim == 1, f"labels must be 1D tensor with shape (N,), got shape {labels.shape}"
-    assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
-
-    # Validate camera matrices
-    assert isinstance(camera_intrinsics, torch.Tensor), f"camera_intrinsics must be torch.Tensor, got {type(camera_intrinsics)}"
-    assert camera_intrinsics.shape == (3, 3), f"camera_intrinsics must be 3x3 matrix, got shape {camera_intrinsics.shape}"
-    assert isinstance(camera_extrinsics, torch.Tensor), f"camera_extrinsics must be torch.Tensor, got {type(camera_extrinsics)}"
-    assert camera_extrinsics.shape == (4, 4), f"camera_extrinsics must be 4x4 matrix, got shape {camera_extrinsics.shape}"
-
-    # Validate all tensors are on same device
-    assert points.device == camera_intrinsics.device, f"points device {points.device} != camera_intrinsics device {camera_intrinsics.device}"
-    assert points.device == camera_extrinsics.device, f"points device {points.device} != camera_extrinsics device {camera_extrinsics.device}"
-    assert points.device == labels.device, f"points device {points.device} != labels device {labels.device}"
-
-    # Validate resolution
-    assert isinstance(resolution, (tuple, list)), f"resolution must be tuple or list, got {type(resolution)}"
-    assert len(resolution) == 2, f"resolution must have 2 elements (width, height), got {len(resolution)}"
-    assert all(isinstance(x, int) and x > 0 for x in resolution), f"resolution must be positive integers, got {resolution}"
-
-    # Validate convention
-    assert isinstance(convention, str), f"convention must be str, got {type(convention)}"
-    assert convention in ["opengl", "standard"], f"convention must be 'opengl' or 'standard', got '{convention}'"
-
-    # Validate ignore_index
+    assert labels.shape[0] == pc_data['pos'].shape[0], f"labels length {labels.shape[0]} != points length {pc_data['pos'].shape[0]}"
+    assert labels.device == pc_data['pos'].device, f"points device {pc_data['pos'].device} != labels device {labels.device}"
     assert isinstance(ignore_index, int), f"ignore_index must be int, got {type(ignore_index)}"
     assert 0 <= ignore_index <= 255, f"ignore_index must be in range [0, 255], got {ignore_index}"
-
-    # Validate key parameter
     assert isinstance(key, str), f"key must be str, got {type(key)}"
-
-    # Validate return_mask
     assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
 
     render_width, render_height = resolution
 
-    # Step 2: Device and dtype conversions
-    points = points.clone().to(dtype=torch.float64)
-    camera_intrinsics = camera_intrinsics.clone().to(device=points.device, dtype=torch.float64)
-    camera_extrinsics = camera_extrinsics.clone().to(device=points.device, dtype=torch.float64)
-
-    # Step 3: Scale camera intrinsics in-place
-    original_width = int(camera_intrinsics[0, 2] * 2)   # Estimate from principal point cx
-    original_height = int(camera_intrinsics[1, 2] * 2)  # Estimate from principal point cy
-    scale_x = render_width / original_width
-    scale_y = render_height / original_height
-
-    camera_intrinsics[0, 0] *= scale_x  # Scale focal length fx
-    camera_intrinsics[1, 1] *= scale_y  # Scale focal length fy
-    camera_intrinsics[0, 2] *= scale_x  # Scale principal point cx
-    camera_intrinsics[1, 2] *= scale_y  # Scale principal point cy
-
-    # Assert last row is [0, 0, 1] to ensure depth preservation during projection
-    assert torch.allclose(
-        camera_intrinsics[2, :],
-        torch.tensor([0.0, 0.0, 1.0], device=camera_intrinsics.device, dtype=camera_intrinsics.dtype)
-    ), f"Camera intrinsics last row must be [0, 0, 1], got {camera_intrinsics[2, :]}"
-
-    # Step 4: Camera convention conversion
-    if convention == "opengl":
-        # Convert to world-to-camera by inverting camera-to-world extrinsics
-        # Use materialize_tensor to avoid lazy wrapper issues
-        from utils.ops.materialize_tensor import materialize_tensor
-        materialized_extrinsics = materialize_tensor(camera_extrinsics)
-        world_to_camera = torch.inverse(materialized_extrinsics)
-    else:
-        raise NotImplementedError("Standard convention not implemented yet")
-
-    # Step 5: Transform points into camera local frame
-    # Use addmm for memory efficiency: points @ R.T + t
-    points = torch.addmm(world_to_camera[:3, 3], points, world_to_camera[:3, :3].T)
-
-    # Step 6: Filter points based on z coordinate (OpenGL: negative Z in front)
-    depth_mask = points[:, 2] < 0
-    points = points[depth_mask]
-    labels = labels[depth_mask]
-    assert len(points) > 0, f"No points in front of camera for segmentation rendering, got {len(points)} valid points"
-
-    # Step 7: Project points into 2D
-    # Matrix multiplication preserves depth column due to [0, 0, 1] row assertion above
-    points = (camera_intrinsics @ points.T).T
-
-    # Perspective division and horizontal flip
-    points[:, 0] /= points[:, 2]  # Perspective division for x
-    points[:, 1] /= points[:, 2]  # Perspective division for y
-    points[:, 0] = (render_width - 1) - points[:, 0]  # Apply horizontal flip correction
-
-    # Step 8: Filter points within image bounds
-    bounds_mask = (
-        (points[:, 0] >= 0) & (points[:, 0] < render_width) &
-        (points[:, 1] >= 0) & (points[:, 1] < render_height)
+    # Use common preprocessing
+    points, filtered_indices = prepare_points_for_rendering(
+        pc_data=pc_data,
+        camera_intrinsics=camera_intrinsics,
+        camera_extrinsics=camera_extrinsics,
+        resolution=resolution,
+        convention=convention
     )
-    points = points[bounds_mask]
-    labels = labels[bounds_mask]
-    assert len(points) > 0, f"No points within image bounds for segmentation rendering, got {len(points)} valid points"
 
-    # Step 9: Sort points by depth (closest first)
-    sort_indices = torch.argsort(torch.abs(points[:, 2]))
-    points = points[sort_indices]
-    labels = labels[sort_indices]
+    # Filter and sort labels to match processed points
+    labels = labels[filtered_indices]
 
     # Step 10: Allocate segmentation map
     seg_map = torch.full(
