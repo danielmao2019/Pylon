@@ -309,7 +309,7 @@ def test_render_segmentation_invalid_inputs():
     valid_extrinsics = torch.eye(4, dtype=torch.float32)
     
     # Test missing 'pos' key
-    with pytest.raises(AssertionError, match="pc.keys()="):
+    with pytest.raises(AssertionError, match=r"pc\.keys\(\)=dict_keys\(\['labels'\]\)"):
         render_segmentation_from_pointcloud(
             pc_data={'labels': torch.zeros(1, dtype=torch.int64)},
             camera_intrinsics=valid_intrinsics,
@@ -327,7 +327,7 @@ def test_render_segmentation_invalid_inputs():
         )
     
     # Test mismatched lengths
-    with pytest.raises(AssertionError, match="labels length .* != points length"):
+    with pytest.raises(AssertionError, match=r"\{pos: torch\.Size\(\[2, 3\]\), labels: torch\.Size\(\[3\]\)\}"):
         render_segmentation_from_pointcloud(
             pc_data={
                 'pos': torch.zeros((2, 3)),

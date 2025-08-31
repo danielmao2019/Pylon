@@ -275,7 +275,7 @@ def test_render_rgb_invalid_inputs():
     valid_extrinsics = torch.eye(4, dtype=torch.float32)
     
     # Test missing 'pos' key
-    with pytest.raises(AssertionError, match="pc.keys()="):
+    with pytest.raises(AssertionError, match=r"pc\.keys\(\)=dict_keys\(\['rgb'\]\)"):
         render_rgb_from_pointcloud(
             pc_data={'rgb': torch.zeros((1, 3))},
             camera_intrinsics=valid_intrinsics,
@@ -293,7 +293,7 @@ def test_render_rgb_invalid_inputs():
         )
     
     # Test mismatched pos and rgb lengths
-    with pytest.raises(AssertionError, match="colors length .* != points length"):
+    with pytest.raises(AssertionError, match=r"\{pos: torch\.Size\(\[2, 3\]\), rgb: torch\.Size\(\[3, 3\]\)\}"):
         render_rgb_from_pointcloud(
             pc_data={
                 'pos': torch.zeros((2, 3)),

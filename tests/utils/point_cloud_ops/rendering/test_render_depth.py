@@ -289,7 +289,7 @@ def test_render_depth_invalid_inputs():
     valid_extrinsics = torch.eye(4, dtype=torch.float32)
     
     # Test missing 'pos' key
-    with pytest.raises(AssertionError, match="pc.keys()="):
+    with pytest.raises(AssertionError, match=r"pc\.keys\(\)=dict_keys\(\[\]\)"):
         render_depth_from_pointcloud(
             pc_data={},
             camera_intrinsics=valid_intrinsics,
