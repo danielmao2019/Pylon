@@ -227,6 +227,18 @@ class BasePCRDataset(BaseDataset):
         ], style={'margin-top': '20px'})
 
     @staticmethod
+    def _create_correspondence_stats_section(correspondences: torch.Tensor) -> html.Div:
+        """Create correspondence statistics section."""
+        num_correspondences = correspondences.shape[0]
+        
+        return html.Div([
+            html.H4("Correspondence Statistics:"),
+            html.Ul([
+                html.Li(f"Number of correspondences: {num_correspondences}")
+            ], style={'margin-left': '20px', 'margin-top': '5px'})
+        ], style={'margin-top': '20px'})
+
+    @staticmethod
     def _format_value(key: str, value: Any) -> str:
         """Format a value for display based on key name and value type."""
         if isinstance(value, list) and len(value) == 3 and all(isinstance(x, (int, float)) for x in value):
@@ -612,10 +624,20 @@ class BasePCRDataset(BaseDataset):
         # Create layout using centralized utilities
         grid_items = create_figure_grid(figures, width_style="50%", height_style="520px")
         
-        return html.Div([
+        # Build layout sections
+        layout_sections = [
             html.H3("Point Cloud Registration Visualization"),
             html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
             BasePCRDataset._create_transform_info_section(transform_info),
-            BasePCRDataset._create_statistics_section(src_stats_children, tgt_stats_children),
-            BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
-        ])
+            BasePCRDataset._create_statistics_section(src_stats_children, tgt_stats_children)
+        ]
+        
+        # Add correspondence statistics if correspondences are available
+        if 'correspondences' in inputs:
+            correspondences = inputs['correspondences']
+            layout_sections.append(BasePCRDataset._create_correspondence_stats_section(correspondences))
+        
+        # Add meta info section last
+        layout_sections.append(BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {})))
+        
+        return html.Div(layout_sections)
