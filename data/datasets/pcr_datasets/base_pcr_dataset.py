@@ -284,34 +284,35 @@ class BasePCRDataset(BaseDataset):
             BasePCRDataset._dict_to_html_list(meta_info)
         ], style={'margin-top': '20px'})
 
-
     @staticmethod
     def create_correspondence_visualization(
         src_points: torch.Tensor,
         tgt_points: torch.Tensor,
-        radius: float = 0.1,
+        correspondences: torch.Tensor,
         point_size: float = 2,
         point_opacity: float = 0.8,
         camera_state: Optional[Dict[str, Any]] = None,
         lod_type: str = "continuous",
         density_percentage: int = 100,
         point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+        title: str = "Point Cloud Correspondences",
     ) -> go.Figure:
-        """Create a visualization of correspondences between transformed source and target point clouds.
+        """Create a side-by-side dual view visualization of correspondences between source and target point clouds.
 
         Args:
-            src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+            src_points: Source point cloud [N, 3] or [1, N, 3]
             tgt_points: Target point cloud [M, 3] or [1, M, 3]
-            radius: Radius for finding correspondences
+            correspondences: Correspondence pairs [K, 2] where each row is (src_idx, tgt_idx)
             point_size: Size of points in visualization
             point_opacity: Opacity of points in visualization
             camera_state: Optional dictionary containing camera position state
             lod_type: Type of LOD ("continuous", "discrete", or "none")
             density_percentage: Percentage of points to display when lod_type is "none" (1-100)
             point_cloud_id: Unique identifier for LOD caching
+            title: Title for the visualization
 
         Returns:
-            Plotly figure showing the correspondence visualization
+            Plotly figure showing the side-by-side correspondence visualization
         """
         # Normalize points to unbatched format
         src_points_normalized = _normalize_points(src_points)
@@ -319,54 +320,128 @@ class BasePCRDataset(BaseDataset):
         
         src_points_np = src_points_normalized.cpu().numpy()
         tgt_points_np = tgt_points_normalized.cpu().numpy()
+        correspondences_np = correspondences.cpu().numpy()
 
-        # Find correspondences based on radius
-        correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
-
-        # Create figure with both point clouds
-        corr_fig = create_point_cloud_display(
-            points=src_points_normalized,
-            title="Point Cloud Correspondences",
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state,
-            lod_type=lod_type,
-            density_percentage=density_percentage,
-            point_cloud_id=point_cloud_id,
-        )
-
-        # Add target points
-        corr_fig.add_trace(go.Scatter3d(
-            x=tgt_points_np[:, 0],
-            y=tgt_points_np[:, 1],
-            z=tgt_points_np[:, 2],
+        # Calculate spatial bounds for proper side-by-side positioning
+        src_bounds = {
+            'x': [src_points_np[:, 0].min(), src_points_np[:, 0].max()],
+            'y': [src_points_np[:, 1].min(), src_points_np[:, 1].max()], 
+            'z': [src_points_np[:, 2].min(), src_points_np[:, 2].max()]
+        }
+        tgt_bounds = {
+            'x': [tgt_points_np[:, 0].min(), tgt_points_np[:, 0].max()],
+            'y': [tgt_points_np[:, 1].min(), tgt_points_np[:, 1].max()],
+            'z': [tgt_points_np[:, 2].min(), tgt_points_np[:, 2].max()]
+        }
+        
+        # Calculate offset to position target cloud to the right of source cloud
+        src_width = src_bounds['x'][1] - src_bounds['x'][0]
+        tgt_width = tgt_bounds['x'][1] - tgt_bounds['x'][0]
+        gap = max(src_width, tgt_width) * 0.3  # 30% gap between clouds
+        x_offset = src_bounds['x'][1] + gap - tgt_bounds['x'][0]
+        
+        # Offset target points for side-by-side layout
+        tgt_points_offset = tgt_points_np.copy()
+        tgt_points_offset[:, 0] += x_offset
+        
+        # Create figure
+        fig = go.Figure()
+        
+        # Add source point cloud (left side)
+        fig.add_trace(go.Scatter3d(
+            x=src_points_np[:, 0],
+            y=src_points_np[:, 1], 
+            z=src_points_np[:, 2],
+            mode='markers',
+            marker=dict(size=point_size, color='blue', opacity=point_opacity),
+            name='Source Points',
+            showlegend=True
+        ))
+        
+        # Add target point cloud (right side, offset)
+        fig.add_trace(go.Scatter3d(
+            x=tgt_points_offset[:, 0],
+            y=tgt_points_offset[:, 1],
+            z=tgt_points_offset[:, 2], 
             mode='markers',
             marker=dict(size=point_size, color='red', opacity=point_opacity),
-            name='Target Points'
+            name='Target Points',
+            showlegend=True
         ))
-
-        # Create list of correspondence line traces
-        correspondence_traces = []
-        for src_idx, tgt_idx in correspondences:
-            src_point = src_points_np[src_idx]
-            tgt_point = tgt_points_np[tgt_idx]
-            correspondence_traces.append(go.Scatter3d(
-                x=[src_point[0], tgt_point[0]],
-                y=[src_point[1], tgt_point[1]],
-                z=[src_point[2], tgt_point[2]],
-                mode='lines',
-                line=dict(color='gray', width=1),
-                showlegend=False
+        
+        # Highlight corresponding points with brighter colors and draw connection lines
+        if len(correspondences_np) > 0:
+            # Limit to reasonable number of correspondences for visibility
+            max_correspondences = 50
+            if len(correspondences_np) > max_correspondences:
+                # Sample correspondences for visualization
+                sample_indices = np.random.choice(len(correspondences_np), max_correspondences, replace=False)
+                correspondences_display = correspondences_np[sample_indices]
+            else:
+                correspondences_display = correspondences_np
+                
+            # Extract corresponding points
+            src_corr_indices = correspondences_display[:, 0].astype(int)
+            tgt_corr_indices = correspondences_display[:, 1].astype(int)
+            
+            src_corr_points = src_points_np[src_corr_indices]
+            tgt_corr_points_offset = tgt_points_offset[tgt_corr_indices]
+            
+            # Add highlighted corresponding points
+            fig.add_trace(go.Scatter3d(
+                x=src_corr_points[:, 0],
+                y=src_corr_points[:, 1],
+                z=src_corr_points[:, 2],
+                mode='markers',
+                marker=dict(size=point_size*1.5, color='cyan', opacity=1.0),
+                name=f'Source Correspondences ({len(correspondences_display)})',
+                showlegend=True
             ))
+            
+            fig.add_trace(go.Scatter3d(
+                x=tgt_corr_points_offset[:, 0], 
+                y=tgt_corr_points_offset[:, 1],
+                z=tgt_corr_points_offset[:, 2],
+                mode='markers', 
+                marker=dict(size=point_size*1.5, color='yellow', opacity=1.0),
+                name=f'Target Correspondences ({len(correspondences_display)})',
+                showlegend=True
+            ))
+            
+            # Add correspondence lines connecting the two sides
+            for i in range(len(correspondences_display)):
+                src_point = src_corr_points[i]
+                tgt_point = tgt_corr_points_offset[i]
+                
+                fig.add_trace(go.Scatter3d(
+                    x=[src_point[0], tgt_point[0]],
+                    y=[src_point[1], tgt_point[1]], 
+                    z=[src_point[2], tgt_point[2]],
+                    mode='lines',
+                    line=dict(color='green', width=2, dash='dash'),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+        
+        # Update layout for proper 3D visualization
+        fig.update_layout(
+            title=f"{title} ({len(correspondences_np)} total correspondences)",
+            scene=dict(
+                xaxis_title="X",
+                yaxis_title="Y", 
+                zaxis_title="Z",
+                aspectmode='data'  # Maintain aspect ratio
+            ),
+            showlegend=True,
+            width=1000,  # Wider to accommodate side-by-side layout
+            height=600
+        )
+        
+        # Apply camera state if provided
+        if camera_state is not None:
+            fig.update_layout(scene_camera=camera_state)
 
-        if len(correspondence_traces) > 10:
-            correspondence_traces = random.sample(correspondence_traces, 10)
-
-        # Add all correspondence traces at once
-        if correspondence_traces:
-            corr_fig.add_traces(correspondence_traces)
-
-        return corr_fig
+        return fig
 
     @staticmethod
     def display_datapoint(
