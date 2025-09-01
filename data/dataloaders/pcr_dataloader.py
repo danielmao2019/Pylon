@@ -136,6 +136,22 @@ class PCRDataloader(BaseDataLoader):
         return xxhash.xxh64(hash_str.encode()).hexdigest()[:16]
 
     @staticmethod
+    def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Split concatenated points into source and target using lengths.
+
+        Args:
+            points: Concatenated points tensor [src_points, tgt_points]
+            lengths: Lengths tensor indicating split point
+
+        Returns:
+            Tuple of (source_points, target_points)
+        """
+        total_length = lengths[0]
+        src_points = points[:total_length//2]
+        tgt_points = points[total_length//2:total_length]
+        return src_points, tgt_points
+
+    @staticmethod
     def create_correspondence_visualization(
         src_points: torch.Tensor,
         tgt_points: torch.Tensor,
@@ -255,7 +271,7 @@ class PCRDataloader(BaseDataLoader):
         # Process each level in the hierarchy
         for level in range(len(inputs['points'])):
             # Split points into source and target
-            src_points, tgt_points = BasePCRDataset.split_points_by_lengths(
+            src_points, tgt_points = PCRDataloader.split_points_by_lengths(
                 inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
             )
 
