@@ -213,7 +213,7 @@ class PCRDataloader(BaseDataLoader):
                         density_percentage=density_percentage,
                         point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                     ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_union_with_title(
+                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset.create_union_visualization(
                         src_points=src,
                         tgt_points=tgt,
                         title=f"Union (Level {lvl})",
@@ -224,7 +224,7 @@ class PCRDataloader(BaseDataLoader):
                         density_percentage=density_percentage,
                         point_cloud_id=build_point_cloud_id(datapoint, f"union_batch_{lvl}")
                     ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_sym_diff_with_title(
+                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset.create_symmetric_difference_visualization(
                         src_points=src,
                         tgt_points=tgt,
                         title=f"Symmetric Difference (Level {lvl})",

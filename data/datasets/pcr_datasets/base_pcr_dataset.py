@@ -46,6 +46,7 @@ class BasePCRDataset(BaseDataset):
         point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
         density_percentage: int = 100,
         axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+        title: str = "Union (Transformed Source + Target)",
     ) -> go.Figure:
         """Create a visualization of the union of transformed source and target point clouds.
 
@@ -58,6 +59,8 @@ class BasePCRDataset(BaseDataset):
             lod_type: Type of LOD ("continuous", "discrete", or "none")
             point_cloud_id: Unique identifier for LOD caching
             density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+            axis_ranges: Optional dictionary containing axis ranges for consistent scaling
+            title: Title for the visualization
 
         Returns:
             Plotly figure showing the union visualization
@@ -79,7 +82,7 @@ class BasePCRDataset(BaseDataset):
         return create_point_cloud_display(
             points=union_points,
             colors=union_colors,
-            title="Union (Transformed Source + Target)",
+            title=title,
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
@@ -101,6 +104,7 @@ class BasePCRDataset(BaseDataset):
         point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
         density_percentage: int = 100,
         axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+        title: str = "Symmetric Difference",
     ) -> go.Figure:
         """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -114,6 +118,8 @@ class BasePCRDataset(BaseDataset):
             lod_type: Type of LOD ("continuous", "discrete", or "none")
             point_cloud_id: Unique identifier for LOD caching
             density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+            axis_ranges: Optional dictionary containing axis ranges for consistent scaling
+            title: Title for the visualization
 
         Returns:
             Plotly figure showing the symmetric difference visualization
@@ -143,7 +149,7 @@ class BasePCRDataset(BaseDataset):
             return create_point_cloud_display(
                 points=sym_diff_points,
                 colors=sym_diff_colors,
-                title="Symmetric Difference",
+                title=title,
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
@@ -156,7 +162,7 @@ class BasePCRDataset(BaseDataset):
             # If no symmetric difference, show empty point cloud
             return create_point_cloud_display(
                 torch.zeros((1, 3), device=src_points_normalized.device),
-                title="Symmetric Difference (Empty)",
+                title=f"{title} (Empty)",
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
@@ -278,59 +284,6 @@ class BasePCRDataset(BaseDataset):
             BasePCRDataset._dict_to_html_list(meta_info)
         ], style={'margin-top': '20px'})
 
-    @staticmethod
-    def _create_union_with_title(
-        src_points: torch.Tensor,
-        tgt_points: torch.Tensor,
-        title: str,
-        point_size: float,
-        point_opacity: float,
-        camera_state: Optional[Dict[str, Any]],
-        lod_type: str,
-        density_percentage: int = 100,
-        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
-    ) -> go.Figure:
-        """Create union visualization with custom title."""
-        union_fig = BasePCRDataset.create_union_visualization(
-            src_points=src_points,
-            tgt_points=tgt_points,
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state,
-            lod_type=lod_type,
-            point_cloud_id=point_cloud_id,
-            density_percentage=density_percentage
-        )
-        union_fig.update_layout(title=title)
-        return union_fig
-
-    @staticmethod
-    def _create_sym_diff_with_title(
-        src_points: torch.Tensor,
-        tgt_points: torch.Tensor,
-        title: str,
-        radius: float,
-        point_size: float,
-        point_opacity: float,
-        camera_state: Optional[Dict[str, Any]],
-        lod_type: str,
-        density_percentage: int = 100,
-        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
-    ) -> go.Figure:
-        """Create symmetric difference visualization with custom title."""
-        sym_diff_fig = BasePCRDataset.create_symmetric_difference_visualization(
-            src_points=src_points,
-            tgt_points=tgt_points,
-            radius=radius,
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state,
-            lod_type=lod_type,
-            point_cloud_id=point_cloud_id,
-            density_percentage=density_percentage
-        )
-        sym_diff_fig.update_layout(title=title)
-        return sym_diff_fig
 
     @staticmethod
     def create_correspondence_visualization(
