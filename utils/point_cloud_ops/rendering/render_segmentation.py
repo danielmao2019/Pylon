@@ -2,7 +2,11 @@
 
 import torch
 from typing import Dict, Tuple, Union
-from .render_common import prepare_points_for_rendering
+from utils.point_cloud_ops.rendering.render_common import (
+    validate_rendering_inputs,
+    prepare_points_for_rendering,
+    create_valid_mask
+)
 
 
 def render_segmentation_from_pointcloud(
@@ -11,7 +15,7 @@ def render_segmentation_from_pointcloud(
     camera_extrinsics: torch.Tensor,
     resolution: Tuple[int, int],
     convention: str = "opengl",
-    ignore_index: int = 255,
+    ignore_value: int = 255,
     key: str = "labels",
     return_mask: bool = False
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -28,7 +32,7 @@ def render_segmentation_from_pointcloud(
         camera_extrinsics: 4x4 camera extrinsics matrix (camera-to-world transform)
         resolution: Target resolution as (width, height) tuple - intrinsics scaled automatically
         convention: Camera extrinsics convention ("opengl" supported, "standard" not implemented)
-        ignore_index: Fill value for pixels with no point projections (default: 255)
+        ignore_value: Fill value for pixels with no point projections (default: 255)
         key: Key name for segmentation labels in pc_data (default: "labels")
         return_mask: If True, also return valid pixel mask (default: False)
 
@@ -44,11 +48,18 @@ def render_segmentation_from_pointcloud(
     """
     # Segmentation-specific validation
     assert key in pc_data, f"pc_data must contain '{key}' key, got keys: {list(pc_data.keys())}"
-    assert isinstance(ignore_index, int), f"ignore_index must be int, got {type(ignore_index)}"
-    assert 0 <= ignore_index <= 255, f"ignore_index must be in range [0, 255], got {ignore_index}"
-    assert isinstance(key, str), f"key must be str, got {type(key)}"
-    assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
-    
+
+    # Common input validation
+    validate_rendering_inputs(
+        pc_data=pc_data,
+        camera_intrinsics=camera_intrinsics,
+        camera_extrinsics=camera_extrinsics,
+        resolution=resolution,
+        convention=convention,
+        ignore_value=ignore_value,
+        return_mask=return_mask
+    )
+
     labels = pc_data[key]
     assert labels.numel() > 0, f"Labels tensor must not be empty, got {labels.numel()} elements"
 
@@ -69,7 +80,7 @@ def render_segmentation_from_pointcloud(
     # Step 10: Allocate segmentation map
     seg_map = torch.full(
         (render_height, render_width),
-        ignore_index,
+        ignore_value,
         dtype=labels.dtype,
         device=labels.device
     )
@@ -82,13 +93,7 @@ def render_segmentation_from_pointcloud(
 
     if return_mask:
         # Step 12: Create valid mask
-        valid_mask = torch.zeros(
-            (render_height, render_width),
-            dtype=torch.bool,
-            device=points.device
-        )
-        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
-        
+        valid_mask = create_valid_mask(points, resolution, points.device)
         return seg_map, valid_mask
     else:
         return seg_map

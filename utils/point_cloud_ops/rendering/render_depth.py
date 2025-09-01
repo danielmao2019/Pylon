@@ -2,7 +2,11 @@
 
 import torch
 from typing import Dict, Tuple, Union
-from .render_common import prepare_points_for_rendering
+from utils.point_cloud_ops.rendering.render_common import (
+    validate_rendering_inputs,
+    prepare_points_for_rendering,
+    create_valid_mask
+)
 
 
 def render_depth_from_pointcloud(
@@ -39,9 +43,16 @@ def render_depth_from_pointcloud(
         AssertionError: If point cloud is empty or no points project within image bounds
         NotImplementedError: If convention other than "opengl" is specified
     """
-    # Depth-specific validation
-    assert isinstance(ignore_value, (int, float)), f"ignore_value must be int or float, got {type(ignore_value)}"
-    assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
+    # Common input validation
+    validate_rendering_inputs(
+        pc_data=pc_data,
+        camera_intrinsics=camera_intrinsics,
+        camera_extrinsics=camera_extrinsics,
+        resolution=resolution,
+        convention=convention,
+        ignore_value=ignore_value,
+        return_mask=return_mask
+    )
 
     render_width, render_height = resolution
 
@@ -70,13 +81,7 @@ def render_depth_from_pointcloud(
 
     if return_mask:
         # Step 12: Create valid mask
-        valid_mask = torch.zeros(
-            (render_height, render_width),
-            dtype=torch.bool,
-            device=points.device
-        )
-        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
-        
+        valid_mask = create_valid_mask(points, resolution, points.device)
         return depth_map, valid_mask
     else:
         return depth_map

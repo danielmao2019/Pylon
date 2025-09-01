@@ -2,7 +2,11 @@
 
 import torch
 from typing import Dict, Tuple, Union
-from .render_common import prepare_points_for_rendering
+from utils.point_cloud_ops.rendering.render_common import (
+    validate_rendering_inputs,
+    prepare_points_for_rendering,
+    create_valid_mask
+)
 
 
 def render_rgb_from_pointcloud(
@@ -42,8 +46,17 @@ def render_rgb_from_pointcloud(
     """
     # RGB-specific validation
     assert 'rgb' in pc_data, f"pc_data must contain 'rgb' key, got keys: {list(pc_data.keys())}"
-    assert isinstance(ignore_value, (int, float)), f"ignore_value must be int or float, got {type(ignore_value)}"
-    assert isinstance(return_mask, bool), f"return_mask must be bool, got {type(return_mask)}"
+
+    # Common input validation
+    validate_rendering_inputs(
+        pc_data=pc_data,
+        camera_intrinsics=camera_intrinsics,
+        camera_extrinsics=camera_extrinsics,
+        resolution=resolution,
+        convention=convention,
+        ignore_value=ignore_value,
+        return_mask=return_mask
+    )
 
     render_width, render_height = resolution
     colors = pc_data['rgb']
@@ -88,13 +101,7 @@ def render_rgb_from_pointcloud(
 
     if return_mask:
         # Step 13: Create valid mask
-        valid_mask = torch.zeros(
-            (render_height, render_width),
-            dtype=torch.bool,
-            device=points.device
-        )
-        valid_mask[points[:, 1].long(), points[:, 0].long()] = True
-        
+        valid_mask = create_valid_mask(points, resolution, points.device)
         return rgb_image, valid_mask
     else:
         return rgb_image
