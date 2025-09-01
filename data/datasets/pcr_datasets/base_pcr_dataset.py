@@ -4,6 +4,7 @@ This module provides the BasePCRDataset class that inherits from BaseDataset
 and includes type-specific display methods for point cloud registration datasets.
 """
 from typing import Dict, Any, Optional, List, Tuple, Union
+import random
 import numpy as np
 import torch
 from dash import html
@@ -330,6 +331,89 @@ class BasePCRDataset(BaseDataset):
         )
         sym_diff_fig.update_layout(title=title)
         return sym_diff_fig
+
+    @staticmethod
+    def create_correspondence_visualization(
+        src_points: torch.Tensor,
+        tgt_points: torch.Tensor,
+        radius: float = 0.1,
+        point_size: float = 2,
+        point_opacity: float = 0.8,
+        camera_state: Optional[Dict[str, Any]] = None,
+        lod_type: str = "continuous",
+        density_percentage: int = 100,
+        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    ) -> go.Figure:
+        """Create a visualization of correspondences between transformed source and target point clouds.
+
+        Args:
+            src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+            tgt_points: Target point cloud [M, 3] or [1, M, 3]
+            radius: Radius for finding correspondences
+            point_size: Size of points in visualization
+            point_opacity: Opacity of points in visualization
+            camera_state: Optional dictionary containing camera position state
+            lod_type: Type of LOD ("continuous", "discrete", or "none")
+            density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+            point_cloud_id: Unique identifier for LOD caching
+
+        Returns:
+            Plotly figure showing the correspondence visualization
+        """
+        # Normalize points to unbatched format
+        src_points_normalized = _normalize_points(src_points)
+        tgt_points_normalized = _normalize_points(tgt_points)
+        
+        src_points_np = src_points_normalized.cpu().numpy()
+        tgt_points_np = tgt_points_normalized.cpu().numpy()
+
+        # Find correspondences based on radius
+        correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
+
+        # Create figure with both point clouds
+        corr_fig = create_point_cloud_display(
+            points=src_points_normalized,
+            title="Point Cloud Correspondences",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            density_percentage=density_percentage,
+            point_cloud_id=point_cloud_id,
+        )
+
+        # Add target points
+        corr_fig.add_trace(go.Scatter3d(
+            x=tgt_points_np[:, 0],
+            y=tgt_points_np[:, 1],
+            z=tgt_points_np[:, 2],
+            mode='markers',
+            marker=dict(size=point_size, color='red', opacity=point_opacity),
+            name='Target Points'
+        ))
+
+        # Create list of correspondence line traces
+        correspondence_traces = []
+        for src_idx, tgt_idx in correspondences:
+            src_point = src_points_np[src_idx]
+            tgt_point = tgt_points_np[tgt_idx]
+            correspondence_traces.append(go.Scatter3d(
+                x=[src_point[0], tgt_point[0]],
+                y=[src_point[1], tgt_point[1]],
+                z=[src_point[2], tgt_point[2]],
+                mode='lines',
+                line=dict(color='gray', width=1),
+                showlegend=False
+            ))
+
+        if len(correspondence_traces) > 10:
+            correspondence_traces = random.sample(correspondence_traces, 10)
+
+        # Add all correspondence traces at once
+        if correspondence_traces:
+            corr_fig.add_traces(correspondence_traces)
+
+        return corr_fig
 
     @staticmethod
     def display_datapoint_single(
