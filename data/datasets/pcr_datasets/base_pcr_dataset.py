@@ -369,32 +369,47 @@ class BasePCRDataset(BaseDataset):
         return corr_fig
 
     @staticmethod
-    def display_datapoint_single(
+    def display_datapoint(
         datapoint: Dict[str, Any],
-        point_size: float = 2,
-        point_opacity: float = 0.8,
+        class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        sym_diff_radius: float = 0.05,
-        lod_type: str = "continuous",
-        density_percentage: int = 100
+        settings_3d: Optional[Dict[str, Any]] = None
     ) -> html.Div:
-        """Display a single point cloud registration datapoint.
-
+        """Display a point cloud registration datapoint.
+        
         Args:
-            datapoint: Dictionary containing inputs, labels, and meta_info
-            point_size: Size of points in visualization
-            point_opacity: Opacity of points in visualization
-            camera_state: Optional dictionary containing camera position state
-            sym_diff_radius: Radius for computing symmetric difference
-            lod_type: Type of LOD ("continuous", "discrete", or "none")
-
+            datapoint: Dictionary containing inputs, labels, and meta_info from dataset
+            class_labels: Optional dictionary mapping class indices to label names (unused for PCR)
+            camera_state: Optional dictionary containing camera position state for 3D visualizations
+            settings_3d: Optional dictionary containing 3D visualization settings
+            
         Returns:
-            html.Div containing the visualization
+            html.Div: HTML layout for displaying this datapoint
         """
+        # Validate inputs
+        assert datapoint is not None, "datapoint must not be None"
+        assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
+        
         # Validate structure and inputs (includes all basic validation)
         validate_pcr_structure(datapoint)
         
         inputs = datapoint['inputs']
+
+        # Extract visualization settings
+        point_size = 2
+        point_opacity = 0.8
+        sym_diff_radius = 0.05
+        lod_type = "continuous"
+        density_percentage = 100
+        
+        # Unpack 3D settings if provided
+        if settings_3d is not None:
+            assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
+            point_size = settings_3d.get('point_size', point_size)
+            point_opacity = settings_3d.get('point_opacity', point_opacity)
+            sym_diff_radius = settings_3d.get('sym_diff_radius', sym_diff_radius)
+            lod_type = settings_3d.get('lod_type', lod_type)
+            density_percentage = settings_3d.get('density_percentage', density_percentage)
 
         # Extract point clouds
         src_pc = inputs['src_pc']['pos']  # Source point cloud
@@ -511,45 +526,3 @@ class BasePCRDataset(BaseDataset):
             BasePCRDataset._create_statistics_section(src_stats_children, tgt_stats_children),
             BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
         ])
-
-    @staticmethod
-    def display_datapoint(
-        datapoint: Dict[str, Any],
-        class_labels: Optional[Dict[str, List[str]]] = None,
-        camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
-    ) -> html.Div:
-        """Display a point cloud registration datapoint.
-        
-        Args:
-            datapoint: Dictionary containing inputs, labels, and meta_info from dataset
-            class_labels: Optional dictionary mapping class indices to label names (unused for PCR)
-            camera_state: Optional dictionary containing camera position state for 3D visualizations
-            settings_3d: Optional dictionary containing 3D visualization settings
-            
-        Returns:
-            html.Div: HTML layout for displaying this datapoint
-        """
-        # Validate inputs
-        assert datapoint is not None, "datapoint must not be None"
-        assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
-        
-        # Validate structure and inputs (includes all basic validation)
-        validate_pcr_structure(datapoint)
-        
-        inputs = datapoint['inputs']
-
-        # Handle optional parameters
-        display_kwargs = {}
-        if camera_state is not None:
-            display_kwargs['camera_state'] = camera_state
-        
-        # Unpack 3D settings if provided
-        if settings_3d is not None:
-            assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
-            display_kwargs.update(settings_3d)
-
-        return BasePCRDataset.display_datapoint_single(
-            datapoint,
-            **display_kwargs
-        )
