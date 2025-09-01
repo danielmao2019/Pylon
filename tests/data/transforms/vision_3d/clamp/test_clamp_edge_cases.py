@@ -4,7 +4,7 @@ from data.transforms.vision_3d.clamp import Clamp
 
 
 def test_clamp_empty_point_cloud():
-    """Test Clamp transform with empty point cloud (should pass through unchanged)."""
+    """Test Clamp transform with empty point cloud (should raise assertion error)."""
     clamp = Clamp(max_points=100)
     
     pc = {
@@ -12,15 +12,13 @@ def test_clamp_empty_point_cloud():
         'feat': torch.empty(0, 4, dtype=torch.float32, device='cuda'),
     }
     
-    # Empty point cloud should pass through unchanged (0 <= max_points)
-    result = clamp(pc, seed=42)
-    assert torch.equal(result['pos'], pc['pos'])
-    assert torch.equal(result['feat'], pc['feat'])
-    assert result.keys() == pc.keys()  # No indices added when no clamping
+    # Empty point cloud should raise AssertionError due to validation
+    with pytest.raises(AssertionError, match="Expected positive number of points"):
+        clamp(pc, seed=42)
 
 
 def test_clamp_empty_point_cloud_multi_args():
-    """Test Clamp transform with multiple empty point clouds."""
+    """Test Clamp transform with multiple empty point clouds (should raise assertion error)."""
     clamp = Clamp(max_points=100)
     
     pc1 = {
@@ -32,12 +30,9 @@ def test_clamp_empty_point_cloud_multi_args():
         'feat': torch.empty(0, 4, dtype=torch.float32, device='cuda'),
     }
     
-    # Both empty point clouds should pass through unchanged
-    result1, result2 = clamp(pc1, pc2, seed=42)
-    assert torch.equal(result1['pos'], pc1['pos'])
-    assert torch.equal(result1['feat'], pc1['feat'])
-    assert torch.equal(result2['pos'], pc2['pos'])
-    assert torch.equal(result2['feat'], pc2['feat'])
+    # Empty point clouds should raise AssertionError due to validation
+    with pytest.raises(AssertionError, match="Expected positive number of points"):
+        clamp(pc1, pc2, seed=42)
 
 
 def test_clamp_single_point():
