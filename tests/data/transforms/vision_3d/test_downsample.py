@@ -37,10 +37,10 @@ def multiple_point_clouds():
     }
     pcs.append(pc2)
 
-    # Third PC: empty point cloud
+    # Third PC: small point cloud (not empty, since empty is invalid)
     pc3 = {
-        'pos': torch.empty(0, 3),
-        'rgb': torch.empty(0, 3)
+        'pos': torch.randn(10, 3),
+        'rgb': torch.rand(10, 3)
     }
     pcs.append(pc3)
 
@@ -102,7 +102,7 @@ def test_downsample_voxel_size_effect(sample_point_cloud):
 
 
 def test_downsample_empty_point_cloud():
-    # Test with an empty point cloud
+    # Test with an empty point cloud (should raise assertion error)
     empty_pc = {
         'pos': torch.empty(0, 3),
         'rgb': torch.empty(0, 3),
@@ -110,11 +110,10 @@ def test_downsample_empty_point_cloud():
     }
 
     downsample = DownSample(voxel_size=0.1)
-    result = downsample(empty_pc)
-
-    # Should return empty tensors
-    for key, value in result.items():
-        assert value.shape[0] == 0
+    
+    # Empty point cloud should raise AssertionError due to validation
+    with pytest.raises(AssertionError, match="Expected positive number of points"):
+        downsample(empty_pc)
 
 
 def test_downsample_single_point():
@@ -152,11 +151,8 @@ def test_downsample_multiple_point_clouds(multiple_point_clouds):
             assert isinstance(value, torch.Tensor)
             assert value.shape[0] == num_points
 
-        # Check that the number of points decreased (unless it was empty)
-        if original_pc['pos'].shape[0] > 0:
-            assert num_points <= original_pc['pos'].shape[0]
-        else:
-            assert num_points == 0
+        # Check that the number of points decreased or stayed the same
+        assert num_points <= original_pc['pos'].shape[0]
 
         # Check that the data types are preserved
         for key in result_pc.keys():
