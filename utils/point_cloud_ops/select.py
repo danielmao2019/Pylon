@@ -13,13 +13,18 @@ class Select:
         if isinstance(self.indices, list):
             self.indices = torch.tensor(self.indices, dtype=torch.int64, device=pc['pos'].device)
         else:
+            assert self.indices.dtype == torch.int64
             assert self.indices.device == pc['pos'].device, f"{self.indices.device=}, {pc['pos'].device=}"
+        
+        # Validate indices are non-negative
+        assert torch.all(self.indices >= 0), f"Negative indices not allowed, got: {self.indices[self.indices < 0].tolist()}"
+        
         result = {}
         for key, val in pc.items():
             if key == 'indices':
                 continue
             result[key] = val[self.indices]
-        result['indices'] = result['indices'][self.indices] if 'indices' in result else self.indices
+        result['indices'] = pc['indices'][self.indices] if 'indices' in pc else self.indices
         return result
 
     def __str__(self) -> str:
