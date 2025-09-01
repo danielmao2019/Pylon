@@ -2,9 +2,8 @@ import os
 import json
 import xxhash
 import torch
-from typing import List, Dict, Any, Optional, Union, Tuple
+from typing import List, Dict, Any, Optional, Tuple
 from dash import html
-import plotly.graph_objects as go
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
 from data.datasets.index_dataset import IndexDataset
