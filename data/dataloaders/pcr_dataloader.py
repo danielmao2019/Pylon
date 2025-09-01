@@ -1,11 +1,9 @@
 import os
 import json
 import xxhash
-import random
 import torch
-from typing import List, Dict, Any, Optional, Union, Tuple
+from typing import List, Dict, Any, Optional, Tuple
 from dash import html
-import plotly.graph_objects as go
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
 from data.datasets.index_dataset import IndexDataset
@@ -136,87 +134,20 @@ class PCRDataloader(BaseDataLoader):
         return xxhash.xxh64(hash_str.encode()).hexdigest()[:16]
 
     @staticmethod
-    def create_correspondence_visualization(
-        src_points: torch.Tensor,
-        tgt_points: torch.Tensor,
-        radius: float = 0.1,
-        point_size: float = 2,
-        point_opacity: float = 0.8,
-        camera_state: Optional[Dict[str, Any]] = None,
-        lod_type: str = "continuous",
-        density_percentage: int = 100,
-        point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
-    ) -> go.Figure:
-        """Create a visualization of correspondences between transformed source and target point clouds.
+    def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Split concatenated points into source and target using lengths.
 
         Args:
-            src_points: Transformed source point cloud [N, 3] or [1, N, 3]
-            tgt_points: Target point cloud [M, 3] or [1, M, 3]
-            radius: Radius for finding correspondences
-            point_size: Size of points in visualization
-            point_opacity: Opacity of points in visualization
-            camera_state: Optional dictionary containing camera position state
-            lod_type: Type of LOD ("continuous", "discrete", or "none")
-            density_percentage: Percentage of points to display when lod_type is "none" (1-100)
-            point_cloud_id: Unique identifier for LOD caching
+            points: Concatenated points tensor [src_points, tgt_points]
+            lengths: Lengths tensor indicating split point
 
         Returns:
-            Plotly figure showing the correspondence visualization
+            Tuple of (source_points, target_points)
         """
-        # Normalize points to unbatched format
-        src_points_normalized = _normalize_points(src_points)
-        tgt_points_normalized = _normalize_points(tgt_points)
-        
-        src_points_np = src_points_normalized.cpu().numpy()
-        tgt_points_np = tgt_points_normalized.cpu().numpy()
-
-        # Find correspondences based on radius
-        correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
-
-        # Create figure with both point clouds
-        corr_fig = create_point_cloud_display(
-            points=src_points_normalized,
-            title="Point Cloud Correspondences",
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state,
-            lod_type=lod_type,
-            density_percentage=density_percentage,
-            point_cloud_id=point_cloud_id,
-        )
-
-        # Add target points
-        corr_fig.add_trace(go.Scatter3d(
-            x=tgt_points_np[:, 0],
-            y=tgt_points_np[:, 1],
-            z=tgt_points_np[:, 2],
-            mode='markers',
-            marker=dict(size=point_size, color='red', opacity=point_opacity),
-            name='Target Points'
-        ))
-
-        # Create list of correspondence line traces
-        correspondence_traces = []
-        for src_idx, tgt_idx in correspondences:
-            src_point = src_points_np[src_idx]
-            tgt_point = tgt_points_np[tgt_idx]
-            correspondence_traces.append(go.Scatter3d(
-                x=[src_point[0], tgt_point[0]],
-                y=[src_point[1], tgt_point[1]],
-                z=[src_point[2], tgt_point[2]],
-                mode='lines',
-                line=dict(color='gray', width=1),
-                showlegend=False
-            ))
-
-        if len(correspondence_traces) > 10:
-            correspondence_traces = random.sample(correspondence_traces, 10)
-
-        # Add all correspondence traces at once
-        if correspondence_traces:
-            corr_fig.add_traces(correspondence_traces)
-
-        return corr_fig
+        total_length = lengths[0]
+        src_points = points[:total_length//2]
+        tgt_points = points[total_length//2:total_length]
+        return src_points, tgt_points
 
     @staticmethod 
     def display_batched_datapoint(
@@ -255,12 +186,22 @@ class PCRDataloader(BaseDataLoader):
         # Process each level in the hierarchy
         for level in range(len(inputs['points'])):
             # Split points into source and target
-            src_points, tgt_points = BasePCRDataset.split_points_by_lengths(
+            src_points, tgt_points = PCRDataloader.split_points_by_lengths(
                 inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
             )
 
             # For top level (level 0), show all visualizations
             if level == 0:
+                # Get transform and apply it to source points
+                assert 'labels' in datapoint, "datapoint must have 'labels' for transformation"
+                assert 'transform' in datapoint['labels'], "datapoint['labels'] must have 'transform' for transformation"
+                transform = datapoint['labels']['transform']
+                assert isinstance(transform, torch.Tensor), f"transform must be torch.Tensor, got {type(transform)}"
+                
+                # Transform source points
+                from utils.point_cloud_ops import apply_transform
+                src_points_transformed = apply_transform(src_points, transform)
+                
                 figure_tasks = [
                     lambda src=src_points, lvl=level: create_point_cloud_display(
                         points=src,
@@ -282,8 +223,8 @@ class PCRDataloader(BaseDataLoader):
                         density_percentage=density_percentage,
                         point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                     ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_union_with_title(
-                        src_points=src,
+                    lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level: BasePCRDataset.create_union_visualization(
+                        src_points=src_transformed,  # Use transformed source points
                         tgt_points=tgt,
                         title=f"Union (Level {lvl})",
                         point_size=point_size,
@@ -293,8 +234,8 @@ class PCRDataloader(BaseDataLoader):
                         density_percentage=density_percentage,
                         point_cloud_id=build_point_cloud_id(datapoint, f"union_batch_{lvl}")
                     ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset._create_sym_diff_with_title(
-                        src_points=src,
+                    lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level: BasePCRDataset.create_symmetric_difference_visualization(
+                        src_points=src_transformed,  # Use transformed source points
                         tgt_points=tgt,
                         title=f"Symmetric Difference (Level {lvl})",
                         radius=sym_diff_radius,
@@ -307,18 +248,33 @@ class PCRDataloader(BaseDataLoader):
                     ),
                 ]
 
+                # Add correspondence visualization if correspondences are available (only for level 0)
+                if 'correspondences' in inputs:
+                    correspondences = inputs['correspondences']
+                    # Validate correspondences format
+                    assert isinstance(correspondences, torch.Tensor), f"correspondences must be torch.Tensor, got {type(correspondences)}"
+                    assert correspondences.ndim == 2, f"correspondences must be 2D tensor, got {correspondences.ndim}D"
+                    assert correspondences.shape[1] == 2, f"correspondences must have shape (N, 2), got shape {correspondences.shape}"
+                    
+                    figure_tasks.append(
+                        lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level, corr=correspondences: BasePCRDataset.create_correspondence_visualization(
+                            src_points=src_transformed,  # Use transformed source points
+                            tgt_points=tgt,
+                            correspondences=corr,
+                            point_size=point_size,
+                            point_opacity=point_opacity,
+                            camera_state=camera_state,
+                            lod_type=lod_type,
+                            density_percentage=density_percentage,
+                            point_cloud_id=build_point_cloud_id(datapoint, f"correspondences_batch_{lvl}"),
+                            title=f"Point Cloud Correspondences (Level {lvl})",
+                        )
+                    )
+
                 # Create figures in parallel using centralized utility
                 figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
                 level_figures = figure_creator.create_figures_parallel(figure_tasks)
                 all_figures.extend(level_figures)
-
-                # TODO: Add correspondence visualization
-                # corr_fig = BasePCRDataset.create_correspondence_visualization(
-                #     src_points, tgt_points, radius=corr_radius, point_size=point_size,
-                #     point_opacity=point_opacity, camera_state=camera_state,
-                # )
-                # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
-                # all_figures.append(corr_fig)
             else:
                 # For lower levels, only show source and target
                 all_figures.extend([
