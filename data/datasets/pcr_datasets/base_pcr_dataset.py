@@ -581,7 +581,7 @@ class BasePCRDataset(BaseDataset):
             correspondences = inputs['correspondences']
             figure_tasks.append(
                 lambda: BasePCRDataset.create_correspondence_visualization(
-                    src_pc,  # Use original source points (not transformed)
+                    src_pc_transformed,  # Use transformed source points for alignment visualization
                     tgt_pc,
                     correspondences=correspondences,
                     point_size=point_size,
