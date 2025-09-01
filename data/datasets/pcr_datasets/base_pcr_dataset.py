@@ -576,6 +576,24 @@ class BasePCRDataset(BaseDataset):
             ),
         ]
 
+        # Add correspondence visualization if correspondences are available
+        if 'correspondences' in inputs:
+            correspondences = inputs['correspondences']
+            figure_tasks.append(
+                lambda: BasePCRDataset.create_correspondence_visualization(
+                    src_pc,  # Use original source points (not transformed)
+                    tgt_pc,
+                    correspondences=correspondences,
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    density_percentage=density_percentage,
+                    point_cloud_id=build_point_cloud_id(datapoint, "correspondences"),
+                    title="Point Cloud Correspondences",
+                )
+            )
+
         # Create figures in parallel using centralized utility
         figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
         figures = figure_creator.create_figures_parallel(figure_tasks)
