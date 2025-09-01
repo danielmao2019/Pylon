@@ -487,8 +487,8 @@ class BasePCRDataset(BaseDataset):
             density_percentage = settings_3d.get('density_percentage', density_percentage)
 
         # Extract point clouds
-        src_pc = inputs['src_pc']['pos']  # Source point cloud
-        tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
+        src_xyz = inputs['src_pc']['pos']  # Source point cloud
+        tgt_xyz = inputs['tgt_pc']['pos']  # Target point cloud
 
         # Extract RGB colors if available
         src_rgb = inputs['src_pc'].get('rgb')
@@ -500,10 +500,10 @@ class BasePCRDataset(BaseDataset):
             transform = torch.eye(4)  # Default to identity transform if not provided
 
         # Apply transform to source point cloud
-        src_pc_transformed = apply_transform(src_pc, transform)
+        src_pc_transformed = apply_transform(src_xyz, transform)
 
         # Compute unified axis ranges across all point clouds for consistent scaling
-        all_points = [src_pc, tgt_pc, src_pc_transformed]
+        all_points = [src_xyz, tgt_xyz, src_pc_transformed]
         x_coords = torch.cat([pc[:, 0] for pc in all_points])
         y_coords = torch.cat([pc[:, 1] for pc in all_points])
         z_coords = torch.cat([pc[:, 2] for pc in all_points])
@@ -528,7 +528,7 @@ class BasePCRDataset(BaseDataset):
         # Define figure creation tasks
         figure_tasks = [
             lambda: create_point_cloud_display(
-                points=src_pc,
+                points=src_xyz,
                 colors=src_rgb,
                 title="Source Point Cloud",
                 point_size=point_size,
@@ -540,7 +540,7 @@ class BasePCRDataset(BaseDataset):
                 axis_ranges=unified_axis_ranges,
             ),
             lambda: create_point_cloud_display(
-                points=tgt_pc,
+                points=tgt_xyz,
                 colors=tgt_rgb,
                 title="Target Point Cloud",
                 point_size=point_size,
@@ -553,7 +553,7 @@ class BasePCRDataset(BaseDataset):
             ),
             lambda: BasePCRDataset.create_union_visualization(
                 src_pc_transformed,
-                tgt_pc,
+                tgt_xyz,
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
@@ -564,7 +564,7 @@ class BasePCRDataset(BaseDataset):
             ),
             lambda: BasePCRDataset.create_symmetric_difference_visualization(
                 src_pc_transformed,
-                tgt_pc,
+                tgt_xyz,
                 radius=sym_diff_radius,
                 point_size=point_size,
                 point_opacity=point_opacity,
@@ -582,7 +582,7 @@ class BasePCRDataset(BaseDataset):
             figure_tasks.append(
                 lambda: BasePCRDataset.create_correspondence_visualization(
                     src_pc_transformed,  # Use transformed source points for alignment visualization
-                    tgt_pc,
+                    tgt_xyz,
                     correspondences=correspondences,
                     point_size=point_size,
                     point_opacity=point_opacity,

@@ -192,6 +192,16 @@ class PCRDataloader(BaseDataLoader):
 
             # For top level (level 0), show all visualizations
             if level == 0:
+                # Get transform and apply it to source points
+                assert 'labels' in datapoint, "datapoint must have 'labels' for transformation"
+                assert 'transform' in datapoint['labels'], "datapoint['labels'] must have 'transform' for transformation"
+                transform = datapoint['labels']['transform']
+                assert isinstance(transform, torch.Tensor), f"transform must be torch.Tensor, got {type(transform)}"
+                
+                # Transform source points
+                from utils.point_cloud_ops import apply_transform
+                src_points_transformed = apply_transform(src_points, transform)
+                
                 figure_tasks = [
                     lambda src=src_points, lvl=level: create_point_cloud_display(
                         points=src,
@@ -213,8 +223,8 @@ class PCRDataloader(BaseDataLoader):
                         density_percentage=density_percentage,
                         point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                     ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset.create_union_visualization(
-                        src_points=src,
+                    lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level: BasePCRDataset.create_union_visualization(
+                        src_points=src_transformed,  # Use transformed source points
                         tgt_points=tgt,
                         title=f"Union (Level {lvl})",
                         point_size=point_size,
@@ -224,8 +234,8 @@ class PCRDataloader(BaseDataLoader):
                         density_percentage=density_percentage,
                         point_cloud_id=build_point_cloud_id(datapoint, f"union_batch_{lvl}")
                     ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: BasePCRDataset.create_symmetric_difference_visualization(
-                        src_points=src,
+                    lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level: BasePCRDataset.create_symmetric_difference_visualization(
+                        src_points=src_transformed,  # Use transformed source points
                         tgt_points=tgt,
                         title=f"Symmetric Difference (Level {lvl})",
                         radius=sym_diff_radius,
@@ -247,8 +257,8 @@ class PCRDataloader(BaseDataLoader):
                     assert correspondences.shape[1] == 2, f"correspondences must have shape (N, 2), got shape {correspondences.shape}"
                     
                     figure_tasks.append(
-                        lambda src=src_points, tgt=tgt_points, lvl=level, corr=correspondences: BasePCRDataset.create_correspondence_visualization(
-                            src_points=src,
+                        lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level, corr=correspondences: BasePCRDataset.create_correspondence_visualization(
+                            src_points=src_transformed,  # Use transformed source points
                             tgt_points=tgt,
                             correspondences=corr,
                             point_size=point_size,
