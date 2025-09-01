@@ -238,18 +238,33 @@ class PCRDataloader(BaseDataLoader):
                     ),
                 ]
 
+                # Add correspondence visualization if correspondences are available (only for level 0)
+                if 'correspondences' in inputs:
+                    correspondences = inputs['correspondences']
+                    # Validate correspondences format
+                    assert isinstance(correspondences, torch.Tensor), f"correspondences must be torch.Tensor, got {type(correspondences)}"
+                    assert correspondences.ndim == 2, f"correspondences must be 2D tensor, got {correspondences.ndim}D"
+                    assert correspondences.shape[1] == 2, f"correspondences must have shape (N, 2), got shape {correspondences.shape}"
+                    
+                    figure_tasks.append(
+                        lambda src=src_points, tgt=tgt_points, lvl=level, corr=correspondences: BasePCRDataset.create_correspondence_visualization(
+                            src_points=src,
+                            tgt_points=tgt,
+                            correspondences=corr,
+                            point_size=point_size,
+                            point_opacity=point_opacity,
+                            camera_state=camera_state,
+                            lod_type=lod_type,
+                            density_percentage=density_percentage,
+                            point_cloud_id=build_point_cloud_id(datapoint, f"correspondences_batch_{lvl}"),
+                            title=f"Point Cloud Correspondences (Level {lvl})",
+                        )
+                    )
+
                 # Create figures in parallel using centralized utility
                 figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
                 level_figures = figure_creator.create_figures_parallel(figure_tasks)
                 all_figures.extend(level_figures)
-
-                # TODO: Add correspondence visualization
-                # corr_fig = BasePCRDataset.create_correspondence_visualization(
-                #     src_points, tgt_points, radius=corr_radius, point_size=point_size,
-                #     point_opacity=point_opacity, camera_state=camera_state,
-                # )
-                # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
-                # all_figures.append(corr_fig)
             else:
                 # For lower levels, only show source and target
                 all_figures.extend([
