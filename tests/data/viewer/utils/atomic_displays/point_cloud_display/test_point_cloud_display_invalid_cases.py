@@ -33,7 +33,13 @@ def sample_datapoint():
 def test_create_point_cloud_display_invalid_points_type():
     """Test assertion failure for invalid points type."""
     with pytest.raises(AssertionError) as exc_info:
-        create_point_cloud_display("not_a_tensor", "Test")
+        create_point_cloud_display(
+            points="not_a_tensor",
+            colors=None,
+            labels=None,
+            highlight_indices=None,
+            title="Test"
+        )
     
     assert "Expected torch.Tensor" in str(exc_info.value)
 
@@ -43,7 +49,13 @@ def test_create_point_cloud_display_invalid_points_shape():
     points = torch.randn(100, 4, dtype=torch.float32)  # 4D instead of 3D
     
     with pytest.raises(AssertionError) as exc_info:
-        create_point_cloud_display(points, "Test")
+        create_point_cloud_display(
+            points=points,
+            colors=None,
+            labels=None,
+            highlight_indices=None,
+            title="Test"
+        )
     
     assert "Expected 3 coordinates" in str(exc_info.value)
 
@@ -53,7 +65,13 @@ def test_create_point_cloud_display_empty_points():
     points = torch.empty(0, 3, dtype=torch.float32)
     
     with pytest.raises(AssertionError) as exc_info:
-        create_point_cloud_display(points, "Test")
+        create_point_cloud_display(
+            points=points,
+            colors=None,
+            labels=None,
+            highlight_indices=None,
+            title="Test"
+        )
     
     assert "Point cloud cannot be empty" in str(exc_info.value)
 
