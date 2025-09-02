@@ -3,6 +3,9 @@
 import torch
 from typing import Dict, Tuple, Union, Optional
 from utils.input_checks.point_cloud import check_point_cloud
+from utils.three_d.camera.conventions import apply_coordinate_transform
+from utils.three_d.camera.project import project_3d_to_2d
+from utils.ops.materialize_tensor import materialize_tensor
 
 
 def validate_rendering_inputs(
@@ -21,7 +24,7 @@ def validate_rendering_inputs(
         camera_intrinsics: 3x3 camera intrinsics matrix
         camera_extrinsics: 4x4 camera extrinsics matrix
         resolution: Target resolution as (width, height) tuple
-        convention: Camera extrinsics convention ("opengl" supported)
+        convention: Camera extrinsics convention ("opengl", "standard", "opencv" supported)
         ignore_value: Optional ignore value to validate (if provided)
         return_mask: Whether to return a mask along with the rendered output
 
@@ -48,7 +51,7 @@ def validate_rendering_inputs(
 
     # Validate convention
     assert isinstance(convention, str), f"convention must be str, got {type(convention)}"
-    assert convention in ["opengl", "standard"], f"convention must be 'opengl' or 'standard', got '{convention}'"
+    assert convention in ["opengl", "standard", "opencv"], f"convention must be 'opengl', 'standard', or 'opencv', got '{convention}'"
 
     # Validate ignore_value if provided
     if ignore_value is not None:
@@ -76,7 +79,7 @@ def prepare_points_for_rendering(
         camera_intrinsics: 3x3 camera intrinsics matrix
         camera_extrinsics: 4x4 camera extrinsics matrix
         resolution: Target resolution as (width, height) tuple
-        convention: Camera extrinsics convention ("opengl" supported)
+        convention: Camera extrinsics convention ("opengl", "standard", "opencv" supported)
 
     Returns:
         Tuple of (projected_points, sort_indices) where:
@@ -112,30 +115,27 @@ def prepare_points_for_rendering(
         torch.tensor([0.0, 0.0, 1.0], device=camera_intrinsics.device, dtype=camera_intrinsics.dtype)
     ), f"Camera intrinsics last row must be [0, 0, 1], got {camera_intrinsics[2, :]}"
 
-    # Camera convention conversion
-    if convention == "opengl":
-        # Convert to world-to-camera by inverting camera-to-world extrinsics
-        from utils.ops.materialize_tensor import materialize_tensor
-        materialized_extrinsics = materialize_tensor(camera_extrinsics)
-        world_to_camera = torch.inverse(materialized_extrinsics)
-    else:
-        raise NotImplementedError("Standard convention not implemented yet")
+    # Convert camera extrinsics to OpenCV convention for projection
+    camera_extrinsics = apply_coordinate_transform(
+        camera_extrinsics=camera_extrinsics,
+        source_convention=convention,
+        target_convention="opencv"
+    )
+    
+    # Convert to world-to-camera by inverting camera-to-world extrinsics
+    world_to_camera = torch.inverse(materialize_tensor(camera_extrinsics))
 
-    # Transform points into camera local frame
+    # Transform points into camera local frame (OpenCV convention)
     points = torch.addmm(world_to_camera[:3, 3], points, world_to_camera[:3, :3].T)
 
-    # Filter points based on z coordinate (OpenGL: negative Z in front)
-    depth_mask = points[:, 2] < 0
+    # Filter points based on z coordinate (OpenCV: positive Z in front)
+    depth_mask = points[:, 2] > 0
     points = points[depth_mask]
     assert len(points) > 0, f"No points in front of camera for rendering, got {len(points)} valid points"
-
-    # Project points into 2D
-    points = (camera_intrinsics @ points.T).T
-
-    # Perspective division and horizontal flip
-    points[:, 0] /= points[:, 2]  # Perspective division for x
-    points[:, 1] /= points[:, 2]  # Perspective division for y
-    points[:, 0] = (render_width - 1) - points[:, 0]  # Apply horizontal flip correction
+    
+    # Project points into 2D in-place, reusing memory
+    project_3d_to_2d(points, camera_intrinsics, inplace=True)
+    # points now contains [x, y, depth]
 
     # Filter points within image bounds
     bounds_mask = (
@@ -146,12 +146,13 @@ def prepare_points_for_rendering(
     assert len(points) > 0, f"No points within image bounds for rendering, got {len(points)} valid points"
 
     # Sort points by depth (closest first)
-    sort_indices = torch.argsort(torch.abs(points[:, 2]))
+    sort_indices = torch.argsort(points[:, 2])
     points = points[sort_indices]
 
     # Create mapping from original indices through filtering to final sorted order
-    original_indices = torch.arange(pc_data['pos'].shape[0], device=pc_data['pos'].device)
-    filtered_indices = original_indices[depth_mask][bounds_mask][sort_indices]
+    filtered_indices = torch.arange(
+        pc_data['pos'].shape[0], device=pc_data['pos'].device,
+    )[depth_mask][bounds_mask][sort_indices]
 
     return points, filtered_indices
 

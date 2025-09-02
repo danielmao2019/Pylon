@@ -5,7 +5,7 @@ import numpy as np
 import open3d as o3d
 from typing import Dict, Tuple
 
-from .coordinates import apply_coordinate_transform
+from utils.three_d.camera.conventions import apply_coordinate_transform
 
 
 def render_rgb_from_pointcloud_o3d(
