@@ -105,6 +105,7 @@ class Base3DCDDataset(BaseDataset):
                 points=points_1,
                 colors=rgb_1,
                 labels=None,
+                highlight_indices=None,
                 title="Point Cloud 1",
                 point_size=point_size,
                 point_opacity=point_opacity,
@@ -117,6 +118,7 @@ class Base3DCDDataset(BaseDataset):
                 points=points_2,
                 colors=rgb_2,
                 labels=None,
+                highlight_indices=None,
                 title="Point Cloud 2",
                 point_size=point_size,
                 point_opacity=point_opacity,
@@ -127,7 +129,9 @@ class Base3DCDDataset(BaseDataset):
             ),
             lambda: create_point_cloud_display(
                 points=points_2,  # Use points_2 for change map visualization
+                colors=None,
                 labels=change_map,  # Keep as int64 for proper label processing
+                highlight_indices=None,
                 title="Change Map",
                 point_size=point_size,
                 point_opacity=point_opacity,

@@ -237,12 +237,20 @@ def _create_base_point_cloud_figure(
     points: torch.Tensor,
     colors: Optional[torch.Tensor],
     labels: Optional[torch.Tensor],
+    highlight_indices: Optional[torch.Tensor],
     point_size: float,
     point_opacity: float,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]],
-    camera_state: Optional[Dict[str, Any]]
+    camera_state: Optional[Dict[str, Any]],
 ) -> go.Figure:
     """Create base point cloud figure with specified parameters."""
+    # Input validation for highlight_indices
+    if highlight_indices is not None:
+        assert isinstance(highlight_indices, torch.Tensor), f"highlight_indices must be torch.Tensor, got {type(highlight_indices)}"
+        assert highlight_indices.dtype in [torch.int32, torch.int64], f"highlight_indices must be integer tensor, got {highlight_indices.dtype}"
+        assert torch.all(highlight_indices >= 0), f"highlight_indices must be non-negative, got min: {highlight_indices.min()}"
+        assert torch.all(highlight_indices < len(points)), f"highlight_indices must be < len(points)={len(points)}, got max: {highlight_indices.max()}"
+    
     # Process colors from labels if needed (keep in torch tensors)
     if colors is not None:
         final_colors = colors
@@ -256,23 +264,71 @@ def _create_base_point_cloud_figure(
     points_np = point_cloud_to_numpy(points)
     colors_np = point_cloud_to_numpy(final_colors) if final_colors is not None else None
     
-    # Create Plotly scatter plot 
-    scatter3d_kwargs = dict(
-        x=points_np[:, 0],
-        y=points_np[:, 1],
-        z=points_np[:, 2],
-        mode='markers',
-        marker=dict(size=point_size, opacity=point_opacity),
-        hoverinfo='skip',  # Disable hover for performance
-    )
-    
-    if colors_np is not None:
-        scatter3d_kwargs['marker']['color'] = colors_np
-    else:
-        scatter3d_kwargs['marker']['color'] = 'steelblue'
-    
+    # Create figure and add traces based on highlighting logic
     fig = go.Figure()
-    fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
+    
+    if highlight_indices is not None:
+        highlight_indices_np = highlight_indices.cpu().numpy()
+        
+        # Create mask for all points
+        all_indices = np.arange(len(points))
+        highlight_mask = np.isin(all_indices, highlight_indices_np)
+        non_highlight_mask = ~highlight_mask
+        
+        # Create separate traces for highlighted and non-highlighted points
+        if non_highlight_mask.any():  # Add non-highlighted points trace
+            non_highlight_kwargs = dict(
+                x=points_np[non_highlight_mask, 0],
+                y=points_np[non_highlight_mask, 1],
+                z=points_np[non_highlight_mask, 2],
+                mode='markers',
+                marker=dict(size=point_size, opacity=point_opacity * 0.05),  # Decreased opacity
+                hoverinfo='skip',
+                showlegend=False
+            )
+            
+            if colors_np is not None:
+                non_highlight_kwargs['marker']['color'] = colors_np[non_highlight_mask]
+            else:
+                non_highlight_kwargs['marker']['color'] = 'steelblue'
+            
+            fig.add_trace(go.Scatter3d(**non_highlight_kwargs))
+        
+        if highlight_mask.any():  # Add highlighted points trace
+            highlight_kwargs = dict(
+                x=points_np[highlight_mask, 0],
+                y=points_np[highlight_mask, 1],
+                z=points_np[highlight_mask, 2],
+                mode='markers',
+                marker=dict(size=point_size, opacity=point_opacity),  # Full opacity
+                hoverinfo='skip',
+                showlegend=False
+            )
+            
+            if colors_np is not None:
+                highlight_kwargs['marker']['color'] = colors_np[highlight_mask]
+            else:
+                highlight_kwargs['marker']['color'] = 'red'  # Different color for highlights
+            
+            fig.add_trace(go.Scatter3d(**highlight_kwargs))
+    else:
+        # No highlighting - single trace with uniform opacity
+        scatter3d_kwargs = dict(
+            x=points_np[:, 0],
+            y=points_np[:, 1],
+            z=points_np[:, 2],
+            mode='markers',
+            marker=dict(size=point_size, opacity=point_opacity),
+            hoverinfo='skip',
+            showlegend=False
+        )
+        
+        if colors_np is not None:
+            scatter3d_kwargs['marker']['color'] = colors_np
+        else:
+            scatter3d_kwargs['marker']['color'] = 'steelblue'
+        
+        fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
     
     # Calculate bounding box - use provided ranges if available, otherwise compute from data
     if axis_ranges:
@@ -341,6 +397,7 @@ def create_point_cloud_display(
     points: torch.Tensor,
     colors: Optional[torch.Tensor] = None,
     labels: Optional[torch.Tensor] = None,
+    highlight_indices: Optional[torch.Tensor] = None,
     title: str = "Point Cloud",
     point_size: float = 2,
     point_opacity: float = 0.8,
@@ -418,7 +475,16 @@ def create_point_cloud_display(
         if camera_state is None:
             # Create initial figure to let Plotly auto-calculate camera, then extract it
             logger.info(f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state")
-            temp_fig = _create_base_point_cloud_figure(points, colors, labels, point_size, point_opacity, axis_ranges, None)
+            temp_fig = _create_base_point_cloud_figure(
+                points=points,
+                colors=colors,
+                labels=labels,
+                highlight_indices=None,
+                point_size=point_size,
+                point_opacity=point_opacity,
+                axis_ranges=axis_ranges,
+                camera_state=None
+            )
             effective_camera_state = _extract_default_camera_from_figure(temp_fig, points)
         else:
             effective_camera_state = camera_state
@@ -455,24 +521,55 @@ def create_point_cloud_display(
     
     # 🔍 CRITICAL FIX: Downsample for browser memory limits
     # Browser cannot handle 1.6M points - causes "Array buffer allocation failed"
-    MAX_BROWSER_POINTS = 100000  # Maximum points browser can handle reliably
+    MAX_BROWSER_POINTS = 50000  # Maximum points browser can handle reliably
     if len(points_tensor) > MAX_BROWSER_POINTS:
         print(f"⚠️ [POINT_CLOUD_DISPLAY] Downsampling {len(points_tensor)} points to {MAX_BROWSER_POINTS} for browser rendering")
+        # Store original size before downsampling
+        original_size = len(points_tensor)
+        
         # Random sampling to preserve overall structure
-        indices = torch.randperm(len(points_tensor))[:MAX_BROWSER_POINTS]
-        points_tensor = points_tensor[indices]
+        sample_indices = torch.randperm(original_size)[:MAX_BROWSER_POINTS]
+        points_tensor = points_tensor[sample_indices]
         if colors_tensor is not None:
-            colors_tensor = colors_tensor[indices]
+            colors_tensor = colors_tensor[sample_indices]
         if labels_tensor is not None:
-            labels_tensor = labels_tensor[indices]
+            labels_tensor = labels_tensor[sample_indices]
+        
+        # Filter highlight_indices to only include indices that are in the sampled subset
+        if highlight_indices is not None:
+            # Create a reverse mapping tensor for fast lookup on the same device as highlight_indices
+            # Size must be the original point cloud size since sample_indices contains values up to original_size-1
+            reverse_mapping = torch.full((original_size,), -1, dtype=torch.int64, device=highlight_indices.device)
+            # Set the new indices for sampled points (ensure arange is on same device too)
+            reverse_mapping[sample_indices] = torch.arange(len(sample_indices), dtype=torch.int64, device=highlight_indices.device)
+            
+            # Map highlight_indices to new indices using vectorized lookup
+            # This will be -1 for indices not in sample
+            new_highlight_indices = reverse_mapping[highlight_indices]
+            
+            # Keep only valid indices (those that are >= 0)
+            valid_mask = new_highlight_indices >= 0
+            filtered_highlight_indices = new_highlight_indices[valid_mask]
+            
+            # Set to None if no valid indices remain
+            if filtered_highlight_indices.numel() == 0:
+                highlight_indices = None
+            else:
+                highlight_indices = filtered_highlight_indices
         
         # Update title to show downsampling
         title = f"{title} (Downsampled: {MAX_BROWSER_POINTS:,}/{original_count:,})"
     
     # Create final figure with LOD-processed data
     fig = _create_base_point_cloud_figure(
-        points_tensor, colors_tensor, labels_tensor,
-        point_size, point_opacity, axis_ranges, camera_state
+        points=points_tensor,
+        colors=colors_tensor,
+        labels=labels_tensor,
+        highlight_indices=highlight_indices,
+        point_size=point_size,
+        point_opacity=point_opacity,
+        axis_ranges=axis_ranges,
+        camera_state=camera_state
     )
     
     fig.update_layout(
