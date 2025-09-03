@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
 from utils.point_cloud_ops.random_select import RandomSelect
-from data.viewer.utils.lod_utils import get_camera_position
+from data.transforms.vision_3d.pclod.lod_utils import get_camera_position
 import logging
 
 logger = logging.getLogger(__name__)
