@@ -17,8 +17,8 @@ import numpy as np
 import torch
 import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
-from data.viewer.utils.continuous_lod import ContinuousLOD
-from data.viewer.utils.discrete_lod import DiscreteLOD
+from data.transforms.vision_3d.pclod import create_lod_function
+from utils.point_cloud_ops.random_select import RandomSelect
 import logging
 
 logger = logging.getLogger(__name__)
@@ -130,109 +130,6 @@ def _convert_labels_to_colors_torch(labels: torch.Tensor) -> torch.Tensor:
     return colors
 
 
-def apply_lod_to_point_cloud(
-    points: torch.Tensor,
-    colors: Optional[torch.Tensor] = None,
-    labels: Optional[torch.Tensor] = None,
-    camera_state: Optional[Dict[str, Any]] = None,
-    lod_type: Optional[str] = None,
-    lod_config: Optional[Dict[str, Any]] = None,
-    density_percentage: Optional[int] = None,
-    point_cloud_id: Optional[Union[str, Tuple[str, ...]]] = None,
-) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
-    """Apply Level of Detail processing to point cloud data.
-    
-    This function works entirely with torch tensors for optimal performance.
-    All inputs must be torch tensors - use numpy->torch conversion before calling.
-    
-    Args:
-        points: Point cloud positions as torch.Tensor (N, 3)
-        colors: Optional color data as torch.Tensor (N, 3) or (N, C)
-        labels: Optional label data as torch.Tensor (N,)
-        camera_state: Camera viewing state dictionary (required for continuous/discrete LOD)
-        lod_type: Type of LOD ("continuous", "discrete", or "none")
-        lod_config: Optional LOD configuration parameters
-        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
-        point_cloud_id: Unique identifier for discrete LOD caching
-        
-    Returns:
-        Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
-        
-    Raises:
-        AssertionError: If inputs don't meet requirements
-    """
-    # Input validation
-    assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
-    
-    logger.info(f"apply_lod_to_point_cloud called: points={points.shape}, lod_type={lod_type}, density_percentage={density_percentage}")
-    assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
-    
-    if colors is not None:
-        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
-        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
-    
-    if labels is not None:
-        assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
-        assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
-    
-    # Ensure float type for computations
-    points = points.float()
-    
-    # Early return if no processing needed
-    if lod_type is None or (lod_type == "none" and (density_percentage is None or density_percentage >= 100)):
-        logger.info(f"No processing applied: lod_type={lod_type}, density_percentage={density_percentage}")
-        return points, colors, labels
-    
-    # Prepare point cloud dictionary
-    pc_dict = {'pos': points}
-    if colors is not None:
-        pc_dict['rgb'] = colors
-    if labels is not None:
-        pc_dict['labels'] = labels
-    
-    # Apply processing based on type
-    if lod_type == "none":
-        # Validate density_percentage with assertions
-        assert density_percentage is not None, "density_percentage is required when lod_type is 'none'"
-        assert isinstance(density_percentage, int), f"density_percentage must be int, got {type(density_percentage)}"
-        assert 1 <= density_percentage <= 100, f"density_percentage must be 1-100, got {density_percentage}"
-        assert density_percentage < 100, f"density_percentage < 100 should be handled by early return, got {density_percentage}"
-        
-        # Density-based subsampling
-        assert point_cloud_id is not None, "point_cloud_id is required for density-based subsampling"
-        from data.viewer.utils.density_lod import DensityLOD
-        density_lod = DensityLOD()
-        normalized_id = normalize_point_cloud_id(point_cloud_id)
-        downsampled = density_lod.subsample(normalized_id, density_percentage, pc_dict)
-        logger.info(f"Density subsampling: {len(points)} -> {len(downsampled['pos'])} points ({density_percentage}%)")
-        
-    elif lod_type == "continuous":
-        # Continuous LOD requires camera state - fail fast if not provided
-        assert camera_state is not None, "camera_state is required for continuous LOD"
-        lod = ContinuousLOD(**(lod_config or {}))
-        downsampled = lod.subsample(pc_dict, camera_state)
-        logger.info(f"Continuous LOD applied: {len(points)} -> {len(downsampled['pos'])} points")
-        
-    elif lod_type == "discrete":
-        # Discrete LOD requires camera state and point cloud ID - fail fast if not provided
-        assert camera_state is not None, "camera_state is required for discrete LOD"
-        assert point_cloud_id is not None, "point_cloud_id is required for discrete LOD"
-        lod = DiscreteLOD(**(lod_config or {}))
-        normalized_id = normalize_point_cloud_id(point_cloud_id)
-        downsampled = lod.subsample(normalized_id, camera_state, pc_dict)
-        logger.info(f"Discrete LOD applied: {len(points)} -> {len(downsampled['pos'])} points")
-        
-    else:
-        raise ValueError(f"Unknown LOD type: {lod_type}. Must be 'none', 'continuous', or 'discrete'.")
-        
-    # Extract processed data
-    processed_points = downsampled['pos']
-    processed_colors = downsampled.get('rgb')
-    processed_labels = downsampled.get('labels')
-    
-    return processed_points, processed_colors, processed_labels
-
-
 def _create_base_point_cloud_figure(
     points: torch.Tensor,
     colors: Optional[torch.Tensor],
@@ -244,6 +141,9 @@ def _create_base_point_cloud_figure(
     camera_state: Optional[Dict[str, Any]],
 ) -> go.Figure:
     """Create base point cloud figure with specified parameters."""
+    # Input validation - colors and labels are mutually exclusive
+    assert not (colors is not None and labels is not None), "colors and labels cannot both be provided - they are mutually exclusive"
+    
     # Input validation for highlight_indices
     if highlight_indices is not None:
         assert isinstance(highlight_indices, torch.Tensor), f"highlight_indices must be torch.Tensor, got {type(highlight_indices)}"
@@ -404,7 +304,6 @@ def create_point_cloud_display(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "none",
     lod_config: Optional[Dict[str, Any]] = None,
-    density_percentage: Optional[int] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
     **kwargs: Any
@@ -418,13 +317,17 @@ def create_point_cloud_display(
         points: Point cloud positions tensor of shape [N, 3]
         colors: Optional color tensor of shape [N, 3] or [N, C]
         labels: Optional label tensor of shape [N]
+        highlight_indices: Optional tensor of indices to highlight
         title: Title for the point cloud display
         point_size: Size of the points in visualization
         point_opacity: Opacity of the points in visualization
         camera_state: Optional camera state for syncing views (None for auto-calculation)
-        lod_type: Type of LOD ("continuous", "discrete", or "none")
-        lod_config: Optional LOD configuration parameters
-        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+        lod_type: Type of LOD ("none", "density", "continuous", or "discrete")
+        lod_config: LOD configuration dictionary:
+            - For "none": Should be None or empty dict
+            - For "density": {"density": int} where density is percentage (1-100)
+            - For "continuous": {"camera_state": dict, ...other params...}
+            - For "discrete": {"camera_state": dict, ...other params...}
         point_cloud_id: Unique identifier for LOD caching
         axis_ranges: Optional fixed axis ranges for consistent scaling
         **kwargs: Additional arguments
@@ -461,16 +364,23 @@ def create_point_cloud_display(
     if lod_config is not None:
         assert isinstance(lod_config, dict), f"lod_config must be dict, got {type(lod_config)}"
     
-    if density_percentage is not None:
-        assert isinstance(density_percentage, int), f"density_percentage must be int, got {type(density_percentage)}"
-        assert 1 <= density_percentage <= 100, f"density_percentage must be 1-100, got {density_percentage}"
     
     if axis_ranges is not None:
         assert isinstance(axis_ranges, dict), f"axis_ranges must be dict, got {type(axis_ranges)}"
     
     original_count = len(points)
     
-    # For advanced LOD (continuous/discrete), we need to determine effective camera state
+    # Prepare point cloud dictionary
+    pc_dict = {'pos': points.float()}  # Ensure float type for computations
+    if colors is not None:
+        pc_dict['rgb'] = colors
+    if labels is not None:
+        pc_dict['labels'] = labels
+    
+    # Prepare LOD configuration
+    effective_lod_config = lod_config or {}
+    
+    # For advanced LOD (continuous/discrete), we need to add camera_state to config
     if lod_type in ["continuous", "discrete"]:
         if camera_state is None:
             # Create initial figure to let Plotly auto-calculate camera, then extract it
@@ -488,66 +398,79 @@ def create_point_cloud_display(
             effective_camera_state = _extract_default_camera_from_figure(temp_fig, points)
         else:
             effective_camera_state = camera_state
-    else:
-        effective_camera_state = camera_state  # May be None for simple LOD
+        
+        # Add camera_state to LOD config
+        effective_lod_config = dict(effective_lod_config)  # Make a copy
+        effective_lod_config['camera_state'] = effective_camera_state
     
-    # Apply LOD processing (pure torch tensor operations)
-    points_tensor, colors_tensor, labels_tensor = apply_lod_to_point_cloud(
-        points=points,
-        colors=colors,
-        labels=labels,
-        camera_state=effective_camera_state,  # Use effective camera state
+    # Normalize point_cloud_id if provided
+    normalized_id = normalize_point_cloud_id(point_cloud_id) if point_cloud_id else None
+    
+    # Create LOD function using factory
+    lod_function = create_lod_function(
         lod_type=lod_type,
-        lod_config=lod_config,
-        density_percentage=density_percentage,
-        point_cloud_id=point_cloud_id
+        lod_config=effective_lod_config,
+        point_cloud_id=normalized_id
     )
     
+    # Apply LOD processing
+    processed_pc = lod_function(pc_dict)
+    
+    # Extract processed data (keep reference to processed_pc for further processing)
+    points_tensor = processed_pc['pos']
+    colors_tensor = processed_pc.get('rgb')
+    labels_tensor = processed_pc.get('labels')
+    
     # Update title with LOD info
-    if lod_type == "none" and density_percentage is not None and density_percentage < 100 and len(points_tensor) < original_count:
-        density_suffix = f" (Density: {density_percentage}%: {len(points_tensor):,}/{original_count:,})"
+    if lod_type == "density" and len(points_tensor) < original_count:
+        density_pct = effective_lod_config.get('density', 100)
+        density_suffix = f" (Density: {density_pct}%: {len(points_tensor):,}/{original_count:,})"
         title = f"{title}{density_suffix}"
         logger.info(f"Density applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
-    elif lod_type and lod_type != "none" and len(points_tensor) < original_count:
+    elif lod_type in ["continuous", "discrete"] and len(points_tensor) < original_count:
         lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
         title = f"{title}{lod_suffix}"
         logger.info(f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
     else:
-        logger.info(f"No LOD/Density title update: lod_type={lod_type}, density_percentage={density_percentage}, original={original_count}, processed={len(points_tensor)}")
+        logger.info(f"No LOD/Density title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}")
     
     # Handle edge case of empty point clouds
     if len(points_tensor) == 0:
-        points_tensor = torch.tensor([[0, 0, 0]], dtype=torch.float32)
+        processed_pc['pos'] = torch.tensor([[0, 0, 0]], dtype=torch.float32)
+        points_tensor = processed_pc['pos']
     
     # 🔍 CRITICAL FIX: Downsample for browser memory limits
     # Browser cannot handle 1.6M points - causes "Array buffer allocation failed"
     MAX_BROWSER_POINTS = 50000  # Maximum points browser can handle reliably
     if len(points_tensor) > MAX_BROWSER_POINTS:
-        print(f"⚠️ [POINT_CLOUD_DISPLAY] Downsampling {len(points_tensor)} points to {MAX_BROWSER_POINTS} for browser rendering")
-        # Store original size before downsampling
-        original_size = len(points_tensor)
+        logger.info(f"Applying browser downsampling: {len(points_tensor)} -> {MAX_BROWSER_POINTS} points")
         
-        # Random sampling to preserve overall structure
-        sample_indices = torch.randperm(original_size)[:MAX_BROWSER_POINTS]
-        points_tensor = points_tensor[sample_indices]
-        if colors_tensor is not None:
-            colors_tensor = colors_tensor[sample_indices]
-        if labels_tensor is not None:
-            labels_tensor = labels_tensor[sample_indices]
+        # Use RandomSelect for browser downsampling with deterministic seeding
+        # This maintains index chaining and provides reproducible results
+        browser_downsample = RandomSelect(count=MAX_BROWSER_POINTS)
+        processed_pc = browser_downsample(processed_pc, seed=42)  # Fixed seed for reproducibility
         
-        # Filter highlight_indices to only include indices that are in the sampled subset
-        if highlight_indices is not None:
-            # Create a reverse mapping tensor for fast lookup on the same device as highlight_indices
-            # Size must be the original point cloud size since sample_indices contains values up to original_size-1
-            reverse_mapping = torch.full((original_size,), -1, dtype=torch.int64, device=highlight_indices.device)
-            # Set the new indices for sampled points (ensure arange is on same device too)
-            reverse_mapping[sample_indices] = torch.arange(len(sample_indices), dtype=torch.int64, device=highlight_indices.device)
+        # Extract data after browser downsampling
+        points_tensor = processed_pc['pos']
+        colors_tensor = processed_pc.get('rgb')
+        labels_tensor = processed_pc.get('labels')
+        
+        # Get final chained indices relative to original point cloud
+        # These indices map from final points back to original point cloud
+        final_indices = processed_pc.get('indices')
+        
+        # Filter highlight_indices using the final chained indices
+        if highlight_indices is not None and final_indices is not None:
+            # Create a reverse mapping from original indices to new positions
+            # final_indices contains the original indices that were selected
+            reverse_mapping = torch.full((original_count,), -1, dtype=torch.int64, device=highlight_indices.device)
+            new_positions = torch.arange(len(final_indices), dtype=torch.int64, device=highlight_indices.device)
+            reverse_mapping[final_indices] = new_positions
             
-            # Map highlight_indices to new indices using vectorized lookup
-            # This will be -1 for indices not in sample
+            # Map highlight_indices to new positions
             new_highlight_indices = reverse_mapping[highlight_indices]
             
-            # Keep only valid indices (those that are >= 0)
+            # Keep only valid indices (those that are >= 0, meaning they were selected)
             valid_mask = new_highlight_indices >= 0
             filtered_highlight_indices = new_highlight_indices[valid_mask]
             
@@ -558,7 +481,7 @@ def create_point_cloud_display(
                 highlight_indices = filtered_highlight_indices
         
         # Update title to show downsampling
-        title = f"{title} (Downsampled: {MAX_BROWSER_POINTS:,}/{original_count:,})"
+        title = f"{title} (Browser limit: {MAX_BROWSER_POINTS:,}/{original_count:,})"
     
     # Create final figure with LOD-processed data
     fig = _create_base_point_cloud_figure(

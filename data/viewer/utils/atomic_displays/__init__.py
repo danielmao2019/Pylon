@@ -43,7 +43,6 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
     create_point_cloud_display,
     get_point_cloud_display_stats,
     build_point_cloud_id,
-    apply_lod_to_point_cloud,
     normalize_point_cloud_id,
     point_cloud_to_numpy
 )
@@ -72,7 +71,6 @@ __all__ = [
     # Utility functions
     'image_to_numpy',
     'build_point_cloud_id',
-    'apply_lod_to_point_cloud',
     'normalize_point_cloud_id',
     'point_cloud_to_numpy'
 ]
