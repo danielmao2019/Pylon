@@ -1,5 +1,5 @@
 """Image display utilities for RGB/grayscale image visualization."""
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import random
 import numpy as np
 import torch
@@ -61,6 +61,7 @@ def create_image_display(
     image: torch.Tensor,
     title: str,
     colorscale: str = "Viridis",
+    resolution: Optional[Tuple[int, int]] = None,
     **kwargs: Any
 ) -> go.Figure:
     """Create image display for RGB or grayscale images.
@@ -69,6 +70,7 @@ def create_image_display(
         image: Image tensor of shape [C, H, W] or [N, C, H, W] (batched)
         title: Title for the image display
         colorscale: Color scale to use for the image
+        resolution: Optional display resolution as (height, width) tuple
         **kwargs: Additional arguments
         
     Returns:
@@ -83,6 +85,13 @@ def create_image_display(
     assert image.numel() > 0, f"Image tensor cannot be empty"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
     assert isinstance(colorscale, str), f"Expected str colorscale, got {type(colorscale)}"
+    
+    # Validate resolution if provided
+    if resolution is not None:
+        assert isinstance(resolution, tuple), f"Expected tuple for resolution, got {type(resolution)}"
+        assert len(resolution) == 2, f"Expected resolution as (height, width), got {len(resolution)} elements"
+        assert all(isinstance(x, int) for x in resolution), f"Resolution values must be integers, got {resolution}"
+        assert all(x > 0 for x in resolution), f"Resolution values must be positive, got {resolution}"
     
     # Handle batched input - extract single sample for visualization
     if image.ndim == 4:
@@ -101,15 +110,25 @@ def create_image_display(
         color_continuous_scale=colorscale
     )
 
-    fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=20, r=20, t=40, b=20),
-        coloraxis_showscale=True,
-        showlegend=False,
-        height=400,
-        xaxis=dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
-        yaxis=dict(autorange='reversed')  # Standard image convention
-    )
+    # Define common layout parameters
+    layout_params = {
+        'title_x': 0.5,
+        'margin': dict(l=20, r=20, t=40, b=20),
+        'coloraxis_showscale': True,
+        'showlegend': False,
+        'height': 400,  # Default height
+        'xaxis': dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
+        'yaxis': dict(autorange='reversed')  # Standard image convention
+    }
+    
+    # Update dimensions if resolution is provided
+    if resolution is not None:
+        height, width = resolution
+        layout_params['height'] = height
+        layout_params['width'] = width
+    
+    # Apply all layout parameters at once
+    fig.update_layout(**layout_params)
 
     return fig
 
