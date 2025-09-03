@@ -113,6 +113,61 @@ def _opencv_to_opengl() -> torch.Tensor:
     ], dtype=torch.float64)
 
 
+def _opencv_to_standard() -> torch.Tensor:
+    """Get transformation matrix from OpenCV to standard coordinate system.
+    
+    OpenCV convention:
+    - X: right
+    - Y: down  
+    - Z: forward (camera looks down +Z axis)
+    
+    Standard convention:
+    - X: right
+    - Y: forward (camera looks down +Y axis)
+    - Z: up
+    
+    The transformation maps coordinate axes:
+    - OpenCV X (right) -> Standard X (right)
+    - OpenCV Y (down) -> Standard -Z (down)
+    - OpenCV Z (forward) -> Standard Y (forward)
+    
+    This preserves the camera's orientation in world space:
+    - OpenCV forward (+Z) -> Standard forward (+Y)
+    - OpenCV down (+Y) -> Standard down (-Z)
+    - OpenCV right (+X) -> Standard right (+X)
+    
+    Returns:
+        4x4 transformation matrix
+    """
+    return torch.tensor([
+        [1, 0, 0, 0],    # Standard X = OpenCV X (right stays right)
+        [0, 0, 1, 0],    # Standard Y = OpenCV Z (forward: Z becomes Y)
+        [0, -1, 0, 0],   # Standard Z = OpenCV -Y (up: down becomes up)
+        [0, 0, 0, 1]     # Homogeneous
+    ], dtype=torch.float64)
+
+
+def _standard_to_opencv() -> torch.Tensor:
+    """Get transformation matrix from standard to OpenCV coordinate system.
+    
+    This is the inverse of opencv_to_standard_transform().
+    
+    Standard convention -> OpenCV convention:
+    - Standard X (right) -> OpenCV X (right)
+    - Standard Y (forward) -> OpenCV Z (forward)
+    - Standard Z (up) -> OpenCV -Y (down)
+    
+    Returns:
+        4x4 transformation matrix
+    """
+    return torch.tensor([
+        [1, 0, 0, 0],    # OpenCV X = Standard X (right stays right)
+        [0, 0, -1, 0],   # OpenCV Y = Standard -Z (down: up becomes down)
+        [0, 1, 0, 0],    # OpenCV Z = Standard Y (forward: Y becomes Z)
+        [0, 0, 0, 1]     # Homogeneous
+    ], dtype=torch.float64)
+
+
 def apply_coordinate_transform(
     camera_extrinsics: torch.Tensor, 
     source_convention: str = "opengl",
@@ -120,10 +175,15 @@ def apply_coordinate_transform(
 ) -> torch.Tensor:
     """Transform camera pose between different coordinate system conventions.
     
+    Supported coordinate conventions:
+    - "standard": X=right, Y=forward, Z=up (camera looks down +Y axis)
+    - "opengl": X=right, Y=up, Z=backward (camera looks down -Z axis)  
+    - "opencv": X=right, Y=down, Z=forward (camera looks down +Z axis)
+    
     Args:
-        camera_pose: 4x4 camera extrinsics matrix
-        source_convention: Source coordinate convention ("opengl", "standard")
-        target_convention: Target coordinate convention ("opengl", "standard")
+        camera_extrinsics: 4x4 camera extrinsics matrix
+        source_convention: Source coordinate convention ("opengl", "standard", "opencv")
+        target_convention: Target coordinate convention ("opengl", "standard", "opencv")
         
     Returns:
         Transformed 4x4 camera pose in target convention
@@ -150,10 +210,14 @@ def apply_coordinate_transform(
         transform = _opengl_to_opencv()
     elif source_convention == "opencv" and target_convention == "opengl":
         transform = _opencv_to_opengl()
+    elif source_convention == "opencv" and target_convention == "standard":
+        transform = _opencv_to_standard()
+    elif source_convention == "standard" and target_convention == "opencv":
+        transform = _standard_to_opencv()
     else:
         raise ValueError(
             f"Unsupported transformation: {source_convention} -> {target_convention}. "
-            f"Supported: 'opengl' <-> 'standard', 'opengl' <-> 'opencv'"
+            f"Supported: 'opengl' <-> 'standard', 'opengl' <-> 'opencv', 'opencv' <-> 'standard'"
         )
     
     # Move transform to same device and dtype as camera pose
