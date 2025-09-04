@@ -2,7 +2,7 @@ from typing import Dict, Union
 import torch
 import open3d as o3d
 from data.transforms.base_transform import BaseTransform
-from utils.input_checks.point_cloud import check_point_cloud
+from utils.input_checks.check_point_cloud import check_point_cloud
 from utils.point_cloud_ops.select import Select
 
 

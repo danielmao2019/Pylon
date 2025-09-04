@@ -2,7 +2,7 @@
 
 import torch
 from typing import Dict, Tuple, Union, Optional
-from utils.input_checks.point_cloud import check_point_cloud
+from utils.input_checks.check_point_cloud import check_point_cloud
 from utils.three_d.camera.conventions import apply_coordinate_transform
 from utils.three_d.camera.project import project_3d_to_2d
 from utils.ops.materialize_tensor import materialize_tensor

@@ -1,5 +1,5 @@
 import pytest
-from utils.input_checks.str_types import check_read_file
+from utils.input_checks.check_path import check_read_file
 import os
 from tempfile import NamedTemporaryFile
 

@@ -1,5 +1,5 @@
 import torch
-from utils.input_checks.point_cloud import check_pc_xyz
+from utils.input_checks.check_point_cloud import check_pc_xyz
 
 
 def project_3d_to_2d(

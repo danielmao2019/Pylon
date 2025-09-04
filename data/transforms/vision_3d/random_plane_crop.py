@@ -2,7 +2,7 @@ from typing import Dict, Optional, Union, Sequence
 import numpy as np
 import torch
 from data.transforms.base_transform import BaseTransform
-from utils.input_checks.point_cloud import check_point_cloud
+from utils.input_checks.check_point_cloud import check_point_cloud
 
 
 class RandomPlaneCrop(BaseTransform):

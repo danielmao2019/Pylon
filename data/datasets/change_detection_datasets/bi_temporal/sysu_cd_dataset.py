@@ -1,12 +1,9 @@
 from typing import Tuple, Dict, Any
 import os
 import glob
-import random
 import torch
-import matplotlib.pyplot as plt
 from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 import utils
-from utils.input_checks.str_types import check_write_dir
 
 
 class SYSU_CD_Dataset(Base2DCDDataset):

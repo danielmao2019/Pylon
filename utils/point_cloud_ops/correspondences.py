@@ -2,7 +2,7 @@ from typing import Optional, Union, Dict
 import torch
 from utils.point_cloud_ops.apply_transform import apply_transform
 from utils.point_cloud_ops.knn.knn import knn
-from utils.input_checks.point_cloud import check_point_cloud
+from utils.input_checks.check_point_cloud import check_point_cloud
 
 
 def get_correspondences(
