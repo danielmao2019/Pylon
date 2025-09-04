@@ -3,6 +3,7 @@
 import torch
 from typing import Dict, Tuple, Union, Optional
 from utils.input_checks.check_point_cloud import check_point_cloud
+from utils.input_checks.check_camera import check_camera_intrinsics, check_camera_extrinsics
 from utils.three_d.camera.conventions import apply_coordinate_transform
 from utils.three_d.camera.project import project_3d_to_2d
 from utils.ops.materialize_tensor import materialize_tensor
@@ -35,13 +36,10 @@ def validate_rendering_inputs(
     check_point_cloud(pc_data)
     points = pc_data['pos']
 
-    # Validate camera matrices
-    assert isinstance(camera_intrinsics, torch.Tensor), f"camera_intrinsics must be torch.Tensor, got {type(camera_intrinsics)}"
-    assert camera_intrinsics.shape == (3, 3), f"camera_intrinsics must be 3x3 matrix, got shape {camera_intrinsics.shape}"
+    # Validate camera matrices using input_checks utilities
+    check_camera_intrinsics(camera_intrinsics)
+    check_camera_extrinsics(camera_extrinsics)
     assert camera_intrinsics.device == points.device, f"points device {points.device} != camera_intrinsics device {camera_intrinsics.device}"
-
-    assert isinstance(camera_extrinsics, torch.Tensor), f"camera_extrinsics must be torch.Tensor, got {type(camera_extrinsics)}"
-    assert camera_extrinsics.shape == (4, 4), f"camera_extrinsics must be 4x4 matrix, got shape {camera_extrinsics.shape}"
     assert camera_extrinsics.device == points.device, f"points device {points.device} != camera_extrinsics device {camera_extrinsics.device}"
 
     # Validate resolution and convention

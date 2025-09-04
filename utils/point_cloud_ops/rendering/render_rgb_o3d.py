@@ -6,6 +6,7 @@ import open3d as o3d
 from typing import Dict, Tuple
 
 from utils.three_d.camera.conventions import apply_coordinate_transform
+from utils.input_checks.check_camera import check_camera_intrinsics, check_camera_extrinsics
 
 
 def render_rgb_from_pointcloud_o3d(
@@ -55,11 +56,9 @@ def render_rgb_from_pointcloud_o3d(
     assert colors.shape[1] == 3, f"colors must have 3 channels (RGB), got shape {colors.shape}"
     assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
 
-    # Validate camera matrices
-    assert isinstance(camera_intrinsics, torch.Tensor), f"camera_intrinsics must be torch.Tensor, got {type(camera_intrinsics)}"
-    assert camera_intrinsics.shape == (3, 3), f"camera_intrinsics must be 3x3 matrix, got shape {camera_intrinsics.shape}"
-    assert isinstance(camera_extrinsics, torch.Tensor), f"camera_extrinsics must be torch.Tensor, got {type(camera_extrinsics)}"
-    assert camera_extrinsics.shape == (4, 4), f"camera_extrinsics must be 4x4 matrix, got shape {camera_extrinsics.shape}"
+    # Validate camera matrices using input_checks utilities
+    check_camera_intrinsics(camera_intrinsics)
+    check_camera_extrinsics(camera_extrinsics)
 
     # Validate all tensors are on same device
     assert points.device == camera_intrinsics.device, f"points device {points.device} != camera_intrinsics device {camera_intrinsics.device}"

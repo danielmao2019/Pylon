@@ -2,6 +2,7 @@ import torch
 from nerfstudio.pipelines.base_pipeline import Pipeline
 from nerfstudio.cameras.cameras import Cameras, CameraType
 from utils.three_d.camera.conventions import apply_coordinate_transform
+from utils.input_checks.check_camera import check_camera_intrinsics, check_camera_extrinsics
 
 
 def render_rgb_from_gs(
@@ -24,12 +25,10 @@ def render_rgb_from_gs(
     Returns:
         Rendered RGB image as float32 tensor with shape (3, H, W) in range [0, 1].
     """
-    # Validate input parameters
+    # Validate input parameters using utils.input_checks
     assert pipeline is not None, "Pipeline must be provided"
-    assert isinstance(camera_intrinsics, torch.Tensor), "Intrinsics must be a torch tensor"
-    assert camera_intrinsics.shape == (3, 3), f"Intrinsics must be 3x3, got {camera_intrinsics.shape}"
-    assert isinstance(camera_extrinsics, torch.Tensor), "Extrinsics must be a torch tensor"
-    assert camera_extrinsics.shape == (4, 4), f"Extrinsics must be 4x4, got {camera_extrinsics.shape}"
+    check_camera_intrinsics(camera_intrinsics)
+    check_camera_extrinsics(camera_extrinsics)
     assert convention in ["opengl", "standard", "opencv"], f"convention must be 'opengl', 'standard', or 'opencv', got '{convention}'"
     
     # Clone input camera_extrinsics to avoid modifying the original

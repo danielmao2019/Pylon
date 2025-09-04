@@ -6,6 +6,7 @@ and transform them to standardized coordinate systems used in point cloud render
 
 import torch
 from utils.ops.materialize_tensor import materialize_tensor
+from utils.input_checks.check_camera import check_camera_extrinsics
 
 
 def _opengl_to_standard() -> torch.Tensor:
@@ -191,9 +192,8 @@ def apply_coordinate_transform(
     Raises:
         ValueError: If unknown coordinate convention is specified
     """
-    assert isinstance(camera_extrinsics, torch.Tensor), f"camera_pose must be torch.Tensor, got {type(camera_extrinsics)}"
-    assert camera_extrinsics.shape == (4, 4), f"camera_pose must be of shape (4, 4), got {camera_extrinsics.shape}"
-    assert camera_extrinsics.is_floating_point(), f"camera_pose must be a floating point tensor, got {camera_extrinsics.dtype}"
+    # Validate camera extrinsics using input_checks utilities
+    check_camera_extrinsics(camera_extrinsics)
 
     assert source_convention in ["standard", "opengl", "opencv"], f"Unknown source_convention: {source_convention}"
     assert target_convention in ["standard", "opengl", "opencv"], f"Unknown target_convention: {target_convention}"
