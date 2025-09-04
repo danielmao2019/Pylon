@@ -24,6 +24,7 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
 
         # If nameInPly not specified, use first element
         if nameInPly is None:
+            assert len(plydata.elements) == 1, f"PLY file must have exactly one element, got: {list(plydata.elements.keys())}"
             nameInPly = plydata.elements[0].name
 
         num_verts = plydata[nameInPly].count
