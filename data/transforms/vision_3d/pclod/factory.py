@@ -68,8 +68,8 @@ def create_lod_function(
         density_lod = DensityLOD()
         return partial(
             density_lod.subsample,
-            point_cloud_id=point_cloud_id,
-            density_percentage=density_percentage
+            density_percentage=density_percentage,
+            point_cloud_id=point_cloud_id
         )
         
     elif lod_type == "continuous":
@@ -112,8 +112,8 @@ def create_lod_function(
         discrete_lod = DiscreteLOD(**constructor_params)
         return partial(
             discrete_lod.subsample,
-            point_cloud_id=point_cloud_id,
-            camera_state=camera_state
+            camera_state=camera_state,
+            point_cloud_id=point_cloud_id
         )
     
     else:

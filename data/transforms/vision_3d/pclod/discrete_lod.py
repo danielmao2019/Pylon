@@ -44,27 +44,26 @@ class DiscreteLOD:
 
     def subsample(
         self,
-        point_cloud_id: str,
+        point_cloud: Dict[str, torch.Tensor],
         camera_state: Dict[str, Any],
-        point_cloud: Optional[Dict[str, torch.Tensor]] = None
+        point_cloud_id: str
     ) -> Dict[str, torch.Tensor]:
         """Subsample point cloud based on camera distance.
 
         Args:
+            point_cloud: Original point cloud data
+            camera_state: Camera position and orientation information
             point_cloud_id: String identifier for the point cloud
                            e.g., "pcr/kitti:42:source" or "change_detection:10:union"
-            camera_state: Camera position and orientation information
-            point_cloud: Original point cloud data (required if not cached)
 
         Returns:
             Subsampled point cloud at appropriate LOD level
         """
+        check_point_cloud(point_cloud)
         assert isinstance(point_cloud_id, str), f"point_cloud_id must be str, got {type(point_cloud_id)}"
         
-        # Ensure we have the original point cloud
+        # Ensure we have the original point cloud cached
         if point_cloud_id not in _global_original_cache:
-            if point_cloud is None:
-                raise ValueError(f"Point cloud {point_cloud_id} not found. Provide point_cloud parameter.")
             _global_original_cache[point_cloud_id] = point_cloud
 
         # Compute LOD levels if not already done
