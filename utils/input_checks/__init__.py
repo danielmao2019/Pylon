@@ -13,8 +13,8 @@ from utils.input_checks.tensor_types import check_semantic_segmentation, check_s
 from utils.input_checks.tensor_types import check_depth_estimation
 from utils.input_checks.tensor_types import check_normal_estimation
 from utils.input_checks.tensor_types import check_instance_segmentation, check_instance_segmentation_pred, check_instance_segmentation_true
-from utils.input_checks.tensor_types import check_point_cloud_segmentation, check_point_cloud_segmentation_pred, check_point_cloud_segmentation_true
 from utils.input_checks.check_point_cloud import check_point_cloud, check_pc_xyz, check_pc_rgb
+from utils.input_checks.check_point_cloud import check_point_cloud_segmentation, check_point_cloud_segmentation_pred, check_point_cloud_segmentation_true
 
 __all__ = (
     # str types
@@ -33,10 +33,10 @@ __all__ = (
     'check_instance_segmentation',
     'check_instance_segmentation_pred',
     'check_instance_segmentation_true',
-    'check_point_cloud_segmentation',
-    'check_point_cloud_segmentation_pred',
-    'check_point_cloud_segmentation_true',
     'check_point_cloud',
     'check_pc_xyz',
     'check_pc_rgb',
+    'check_point_cloud_segmentation',
+    'check_point_cloud_segmentation_pred',
+    'check_point_cloud_segmentation_true',
 )
