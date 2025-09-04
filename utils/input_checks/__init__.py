@@ -2,10 +2,10 @@
 UTILS.INPUT_CHECKS API
 """
 # str types
-from utils.input_checks.str_types import check_read_file
-from utils.input_checks.str_types import check_write_file
-from utils.input_checks.str_types import check_read_dir
-from utils.input_checks.str_types import check_write_dir
+from utils.input_checks.check_path import check_read_file
+from utils.input_checks.check_path import check_write_file
+from utils.input_checks.check_path import check_read_dir
+from utils.input_checks.check_path import check_write_dir
 # tensor types
 from utils.input_checks.tensor_types import check_image
 from utils.input_checks.tensor_types import check_classification
@@ -14,7 +14,7 @@ from utils.input_checks.tensor_types import check_depth_estimation
 from utils.input_checks.tensor_types import check_normal_estimation
 from utils.input_checks.tensor_types import check_instance_segmentation, check_instance_segmentation_pred, check_instance_segmentation_true
 from utils.input_checks.tensor_types import check_point_cloud_segmentation, check_point_cloud_segmentation_pred, check_point_cloud_segmentation_true
-from utils.input_checks.point_cloud import check_point_cloud, check_pc_xyz, check_pc_rgb
+from utils.input_checks.check_point_cloud import check_point_cloud, check_pc_xyz, check_pc_rgb
 
 __all__ = (
     # str types

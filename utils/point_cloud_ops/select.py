@@ -1,6 +1,6 @@
 from typing import Any, Dict, Union, List
 import torch
-from utils.input_checks.point_cloud import check_point_cloud
+from utils.input_checks.check_point_cloud import check_point_cloud
 
 
 class Select:

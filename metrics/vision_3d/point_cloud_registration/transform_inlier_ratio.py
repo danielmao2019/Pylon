@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 import torch
 from metrics.base_metric import BaseMetric
-from utils.input_checks.str_types import check_write_file
+from utils.input_checks.check_path import check_write_file
 from utils.io.json import save_json
 from utils.ops.dict_as_tensor import transpose_buffer
 

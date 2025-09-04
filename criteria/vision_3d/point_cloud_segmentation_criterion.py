@@ -1,7 +1,7 @@
 from typing import Tuple, Optional
 import torch
 from criteria.wrappers import SingleTaskCriterion
-from utils.input_checks import check_point_cloud_segmentation
+from utils.input_checks.check_point_cloud import check_point_cloud_segmentation
 
 
 class PointCloudSegmentationCriterion(SingleTaskCriterion):

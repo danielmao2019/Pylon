@@ -1,7 +1,7 @@
 from typing import List, Union, Tuple
 import torch
 from utils.point_cloud_ops.knn.knn import knn
-from utils.input_checks.point_cloud import check_pc_xyz
+from utils.input_checks.check_point_cloud import check_pc_xyz
 
 
 def _normalize_points(points: torch.Tensor) -> torch.Tensor:

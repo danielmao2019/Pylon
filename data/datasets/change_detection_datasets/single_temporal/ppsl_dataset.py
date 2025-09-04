@@ -1,12 +1,9 @@
 from typing import Tuple, Dict, Any, Optional, List
-import os
 import random
 import torch
 import torchvision
-import matplotlib.pyplot as plt
 from data.datasets import BaseSyntheticDataset
 from data.transforms.torchvision_wrapper import TorchvisionWrapper
-from utils.input_checks.str_types import check_write_dir
 
 
 class PPSLDataset(BaseSyntheticDataset):

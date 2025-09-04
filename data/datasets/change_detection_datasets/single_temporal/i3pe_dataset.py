@@ -1,13 +1,10 @@
 from typing import Tuple, Dict, Union, Any, Optional, List
-import os
 import random
 import numpy
 import torch
-import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 from skimage.segmentation import slic
 from data.datasets import BaseSyntheticDataset
-from utils.input_checks.str_types import check_write_dir
 
 
 class I3PEDataset(BaseSyntheticDataset):

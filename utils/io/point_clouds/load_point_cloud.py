@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from plyfile import PlyData
 import laspy
-from utils.input_checks.point_cloud import check_point_cloud
+from utils.input_checks.check_point_cloud import check_point_cloud
 
 
 def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:

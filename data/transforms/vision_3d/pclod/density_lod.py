@@ -1,7 +1,8 @@
 """Density-based Level of Detail system with percentage-based subsampling."""
 from typing import Dict
 import torch
-from utils.input_checks.point_cloud import check_point_cloud
+
+from utils.input_checks.check_point_cloud import check_point_cloud
 from utils.point_cloud_ops.random_select import RandomSelect
 import logging
 

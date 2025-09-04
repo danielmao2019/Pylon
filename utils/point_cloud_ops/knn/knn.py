@@ -1,7 +1,7 @@
 from typing import Tuple, Optional, Union
 import torch
 import numpy as np
-from utils.input_checks.point_cloud import check_pc_xyz
+from utils.input_checks.check_point_cloud import check_pc_xyz
 from utils.point_cloud_ops.knn.knn_faiss import _knn_faiss
 from utils.point_cloud_ops.knn.knn_pytorch3d import _knn_pytorch3d
 from utils.point_cloud_ops.knn.knn_torch import _knn_torch

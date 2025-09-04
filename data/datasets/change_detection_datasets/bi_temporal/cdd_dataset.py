@@ -4,9 +4,6 @@ import glob
 import torch
 from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
 import utils
-import random
-import matplotlib.pyplot as plt
-from utils.input_checks.str_types import check_write_dir
 
 
 class CDDDataset(Base2DCDDataset):
