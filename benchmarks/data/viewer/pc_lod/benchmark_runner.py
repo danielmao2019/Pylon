@@ -42,10 +42,14 @@ class LODBenchmarkRunner:
             gc.collect()  # Clean memory
             
             start_time = time.perf_counter()
+            # Create pc dictionary for display
+            pc = {'pos': points}
+            if colors is not None:
+                pc['rgb'] = colors
+            
             fig_no_lod = create_point_cloud_display(
-                points=points,
-                colors=colors,
-                labels=None,
+                pc=pc,
+                key=None,
                 highlight_indices=None,
                 title=f"No LOD {run}",
                 camera_state=camera_pose.camera_state,
@@ -63,10 +67,14 @@ class LODBenchmarkRunner:
             gc.collect()  # Clean memory
             
             start_time = time.perf_counter()
+            # Create pc dictionary for display
+            pc = {'pos': points}
+            if colors is not None:
+                pc['rgb'] = colors
+            
             fig_lod = create_point_cloud_display(
-                points=points,
-                colors=colors,
-                labels=None,
+                pc=pc,
+                key=None,
                 highlight_indices=None,
                 title=f"ContinuousLOD {run}",
                 camera_state=camera_pose.camera_state,

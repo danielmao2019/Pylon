@@ -130,17 +130,248 @@ def _convert_labels_to_colors_torch(labels: torch.Tensor) -> torch.Tensor:
     return colors
 
 
-def _create_base_point_cloud_figure(
-    points: torch.Tensor,
-    colors: Optional[torch.Tensor],
-    labels: Optional[torch.Tensor],
+def _extract_default_camera_from_figure(fig: go.Figure, points: torch.Tensor) -> Dict[str, Any]:
+    """Extract Plotly's auto-calculated camera state from a figure.
+    
+    When camera_state=None, Plotly automatically calculates optimal camera positioning.
+    This function extracts that calculated camera state so it can be used for LOD processing.
+    """
+    # Get point cloud bounds
+    points_np = points.cpu().numpy()
+    pc_center = points_np.mean(axis=0)
+    pc_size = points_np.max(axis=0) - points_np.min(axis=0)
+    max_dim = np.max(pc_size)
+    
+    # Plotly's default camera positioning logic (approximation)
+    # When no camera is specified, Plotly typically positions camera at:
+    # - Distance: ~1.5-2x the data span from center
+    # - Angle: Diagonal view (positive x, y, z from center)
+    distance_factor = 1.5
+    camera_offset = max_dim * distance_factor
+    
+    # Calculate camera position (Plotly's typical auto-calculation)
+    eye_pos = pc_center + np.array([camera_offset, camera_offset, camera_offset * 0.7])
+    
+    # Create camera state in Plotly format
+    camera_state = {
+        'eye': {'x': float(eye_pos[0]), 'y': float(eye_pos[1]), 'z': float(eye_pos[2])},
+        'center': {'x': float(pc_center[0]), 'y': float(pc_center[1]), 'z': float(pc_center[2])},
+        'up': {'x': 0, 'y': 0, 'z': 1}
+    }
+    
+    logger.info(f"Extracted auto-calculated camera state: eye={camera_state['eye']}, center={camera_state['center']}")
+    return camera_state
+
+
+def _apply_lod_processing(
+    pc_dict: Dict[str, torch.Tensor],
+    key: Optional[str],
+    lod_type: str,
+    lod_config: Optional[Dict[str, Any]],
+    camera_state: Optional[Dict[str, Any]],
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]],
+    point_size: float,
+    point_opacity: float,
+    axis_ranges: Optional[Dict[str, Tuple[float, float]]],
+    original_count: int,
+    title: str
+) -> Tuple[Dict[str, torch.Tensor], str]:
+    """Apply LOD processing to point cloud data.
+    
+    Args:
+        pc_dict: Point cloud dictionary with 'pos' and optional other fields
+        key: Optional key name for labels
+        lod_type: Type of LOD ("none", "density", "continuous", or "discrete")
+        lod_config: LOD configuration dictionary
+        camera_state: Optional camera state for syncing views
+        point_cloud_id: Unique identifier for LOD caching
+        point_size: Size of points for visualization
+        point_opacity: Opacity of points for visualization
+        axis_ranges: Optional fixed axis ranges
+        original_count: Original point count before processing
+        title: Current title to update with LOD info
+        
+    Returns:
+        Tuple of (processed_pc_dict, updated_title)
+    """
+    # Prepare LOD configuration
+    effective_lod_config = lod_config or {}
+    
+    # For advanced LOD (continuous/discrete), we need to add camera_state to config
+    if lod_type in ["continuous", "discrete"]:
+        if camera_state is None:
+            # Create initial figure to let Plotly auto-calculate camera, then extract it
+            logger.info(f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state")
+            temp_fig = _create_point_cloud_figure(
+                pc=pc_dict,
+                key=key,
+                highlight_indices=None,
+                point_size=point_size,
+                point_opacity=point_opacity,
+                axis_ranges=axis_ranges,
+                camera_state=None
+            )
+            effective_camera_state = _extract_default_camera_from_figure(temp_fig, pc_dict['pos'])
+        else:
+            effective_camera_state = camera_state
+        
+        # Add camera_state to LOD config
+        effective_lod_config = dict(effective_lod_config)  # Make a copy
+        effective_lod_config['camera_state'] = effective_camera_state
+    
+    # Normalize point_cloud_id if provided
+    normalized_id = normalize_point_cloud_id(point_cloud_id) if point_cloud_id else None
+    
+    # Create LOD function using factory
+    lod_function = create_lod_function(
+        lod_type=lod_type,
+        lod_config=effective_lod_config,
+        point_cloud_id=normalized_id
+    )
+    
+    # Apply LOD processing
+    processed_pc = lod_function(pc_dict)
+    
+    # Extract processed data
+    points_tensor = processed_pc['pos']
+    
+    # Update title with LOD info
+    updated_title = title
+    if lod_type == "density" and len(points_tensor) < original_count:
+        density_pct = effective_lod_config.get('density', 100)
+        density_suffix = f" (Density: {density_pct}%: {len(points_tensor):,}/{original_count:,})"
+        updated_title = f"{title}{density_suffix}"
+        logger.info(f"Density applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
+    elif lod_type in ["continuous", "discrete"] and len(points_tensor) < original_count:
+        lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
+        updated_title = f"{title}{lod_suffix}"
+        logger.info(f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
+    else:
+        logger.info(f"No LOD/Density title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}")
+    
+    # Handle edge case of empty point clouds
+    if len(points_tensor) == 0:
+        processed_pc['pos'] = torch.tensor([[0, 0, 0]], dtype=torch.float32)
+    
+    return processed_pc, updated_title
+
+
+def _apply_browser_downsampling(
+    processed_pc: Dict[str, torch.Tensor],
+    highlight_indices: Optional[torch.Tensor],
+    original_count: int,
+    title: str
+) -> Tuple[Dict[str, torch.Tensor], Optional[torch.Tensor], str]:
+    """Apply browser downsampling to point cloud data for memory limits.
+    
+    Args:
+        processed_pc: Point cloud dictionary after LOD processing
+        highlight_indices: Optional tensor of indices to highlight
+        original_count: Original point count before any processing
+        title: Current title to update with downsampling info
+        
+    Returns:
+        Tuple of (downsampled_pc_dict, updated_highlight_indices, updated_title)
+    """
+    # 🔍 CRITICAL FIX: Downsample for browser memory limits
+    # Browser cannot handle 1.6M points - causes "Array buffer allocation failed"
+    MAX_BROWSER_POINTS = 50000  # Maximum points browser can handle reliably
+    points_tensor = processed_pc['pos']
+    
+    if len(points_tensor) <= MAX_BROWSER_POINTS:
+        return processed_pc, highlight_indices, title
+    
+    logger.info(f"Applying browser downsampling: {len(points_tensor)} -> {MAX_BROWSER_POINTS} points")
+    
+    # Use RandomSelect for browser downsampling with deterministic seeding
+    # This maintains index chaining and provides reproducible results
+    browser_downsample = RandomSelect(count=MAX_BROWSER_POINTS)
+    downsampled_pc = browser_downsample(processed_pc, seed=42)  # Fixed seed for reproducibility
+    
+    # Get final chained indices relative to original point cloud
+    # These indices map from final points back to original point cloud
+    final_indices = downsampled_pc.get('indices')
+    
+    # Filter highlight_indices using the final chained indices
+    updated_highlight_indices = highlight_indices
+    if highlight_indices is not None and final_indices is not None:
+        # Create a reverse mapping from original indices to new positions
+        # final_indices contains the original indices that were selected
+        reverse_mapping = torch.full((original_count,), -1, dtype=torch.int64, device=highlight_indices.device)
+        new_positions = torch.arange(len(final_indices), dtype=torch.int64, device=highlight_indices.device)
+        reverse_mapping[final_indices] = new_positions
+        
+        # Map highlight_indices to new positions
+        new_highlight_indices = reverse_mapping[highlight_indices]
+        
+        # Keep only valid indices (those that are >= 0, meaning they were selected)
+        valid_mask = new_highlight_indices >= 0
+        filtered_highlight_indices = new_highlight_indices[valid_mask]
+        
+        # Set to None if no valid indices remain
+        if filtered_highlight_indices.numel() == 0:
+            updated_highlight_indices = None
+        else:
+            updated_highlight_indices = filtered_highlight_indices
+    
+    # Update title to show downsampling
+    updated_title = f"{title} (Browser limit: {MAX_BROWSER_POINTS:,}/{original_count:,})"
+    
+    return downsampled_pc, updated_highlight_indices, updated_title
+
+
+def _create_point_cloud_figure(
+    pc: Dict[str, torch.Tensor],
+    key: Optional[str],
     highlight_indices: Optional[torch.Tensor],
     point_size: float,
     point_opacity: float,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]],
     camera_state: Optional[Dict[str, Any]],
 ) -> go.Figure:
-    """Create base point cloud figure with specified parameters."""
+    """Create base point cloud figure with specified parameters.
+    
+    Args:
+        pc: Point cloud dictionary containing:
+            - 'pos': Point cloud positions tensor of shape [N, 3] (required)
+            - 'rgb': Optional color tensor of shape [N, 3] or [N, C]
+            - Other fields including the label field specified by 'key'
+        key: Optional key name to extract labels from pc dictionary (e.g., 'classification', 'labels')
+        highlight_indices: Optional tensor of indices to highlight
+        point_size: Size of the points in visualization
+        point_opacity: Opacity of the points in visualization
+        axis_ranges: Optional fixed axis ranges for consistent scaling
+        camera_state: Optional camera state for syncing views
+        
+    Returns:
+        Plotly figure for point cloud visualization
+        
+    Raises:
+        AssertionError: If inputs don't meet requirements
+    """
+    # CRITICAL: Input validation with fail-fast assertions
+    assert isinstance(pc, dict), f"Expected dict for pc, got {type(pc)}"
+    assert 'pos' in pc, f"pc must have 'pos' key, got keys: {list(pc.keys())}"
+    
+    # Extract points, colors, and labels from pc dictionary
+    points = pc['pos']
+    colors = pc.get('rgb', None)
+    labels = pc.get(key, None) if key is not None else None
+    
+    # Validate extracted tensors
+    assert isinstance(points, torch.Tensor), f"Expected torch.Tensor for pc['pos'], got {type(points)}"
+    assert points.ndim == 2, f"Expected 2D tensor [N,3], got shape {points.shape}"
+    assert points.shape[1] == 3, f"Expected 3 coordinates, got {points.shape[1]}"
+    assert points.numel() > 0, f"Point cloud cannot be empty"
+    
+    if colors is not None:
+        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
+        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
+    
+    if labels is not None:
+        assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
+        assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
+    
     # Input validation - colors and labels are mutually exclusive
     assert not (colors is not None and labels is not None), "colors and labels cannot both be provided - they are mutually exclusive"
     
@@ -260,43 +491,9 @@ def _create_base_point_cloud_figure(
     return fig
 
 
-def _extract_default_camera_from_figure(fig: go.Figure, points: torch.Tensor) -> Dict[str, Any]:
-    """Extract Plotly's auto-calculated camera state from a figure.
-    
-    When camera_state=None, Plotly automatically calculates optimal camera positioning.
-    This function extracts that calculated camera state so it can be used for LOD processing.
-    """
-    # Get point cloud bounds
-    points_np = points.cpu().numpy()
-    pc_center = points_np.mean(axis=0)
-    pc_size = points_np.max(axis=0) - points_np.min(axis=0)
-    max_dim = np.max(pc_size)
-    
-    # Plotly's default camera positioning logic (approximation)
-    # When no camera is specified, Plotly typically positions camera at:
-    # - Distance: ~1.5-2x the data span from center
-    # - Angle: Diagonal view (positive x, y, z from center)
-    distance_factor = 1.5
-    camera_offset = max_dim * distance_factor
-    
-    # Calculate camera position (Plotly's typical auto-calculation)
-    eye_pos = pc_center + np.array([camera_offset, camera_offset, camera_offset * 0.7])
-    
-    # Create camera state in Plotly format
-    camera_state = {
-        'eye': {'x': float(eye_pos[0]), 'y': float(eye_pos[1]), 'z': float(eye_pos[2])},
-        'center': {'x': float(pc_center[0]), 'y': float(pc_center[1]), 'z': float(pc_center[2])},
-        'up': {'x': 0, 'y': 0, 'z': 1}
-    }
-    
-    logger.info(f"Extracted auto-calculated camera state: eye={camera_state['eye']}, center={camera_state['center']}")
-    return camera_state
-
-
 def create_point_cloud_display(
-    points: torch.Tensor,
-    colors: Optional[torch.Tensor] = None,
-    labels: Optional[torch.Tensor] = None,
+    pc: Dict[str, torch.Tensor],
+    key: Optional[str] = None,
     highlight_indices: Optional[torch.Tensor] = None,
     title: str = "Point Cloud",
     point_size: float = 2,
@@ -314,9 +511,11 @@ def create_point_cloud_display(
     to numpy arrays at the very end for Plotly visualization.
     
     Args:
-        points: Point cloud positions tensor of shape [N, 3]
-        colors: Optional color tensor of shape [N, 3] or [N, C]
-        labels: Optional label tensor of shape [N]
+        pc: Point cloud dictionary containing:
+            - 'pos': Point cloud positions tensor of shape [N, 3] (required)
+            - 'rgb': Optional color tensor of shape [N, 3] or [N, C]
+            - Other fields including the label field specified by 'key'
+        key: Optional key name to extract labels from pc dictionary (e.g., 'classification', 'labels')
         highlight_indices: Optional tensor of indices to highlight
         title: Title for the point cloud display
         point_size: Size of the points in visualization
@@ -338,8 +537,17 @@ def create_point_cloud_display(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # CRITICAL: Input validation with fail-fast assertions (validate points first for logging)
-    assert isinstance(points, torch.Tensor), f"Expected torch.Tensor, got {type(points)}"
+    # CRITICAL: Input validation with fail-fast assertions
+    assert isinstance(pc, dict), f"Expected dict for pc, got {type(pc)}"
+    assert 'pos' in pc, f"pc must have 'pos' key, got keys: {list(pc.keys())}"
+    
+    # Extract points, colors, and labels from pc dictionary
+    points = pc['pos']
+    colors = pc.get('rgb', None)
+    labels = pc.get(key, None) if key is not None else None
+    
+    # Validate extracted tensors
+    assert isinstance(points, torch.Tensor), f"Expected torch.Tensor for pc['pos'], got {type(points)}"
     
     logger.info(f"create_point_cloud_display called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
     assert points.ndim == 2, f"Expected 2D tensor [N,3], got shape {points.shape}"
@@ -364,7 +572,6 @@ def create_point_cloud_display(
     if lod_config is not None:
         assert isinstance(lod_config, dict), f"lod_config must be dict, got {type(lod_config)}"
     
-    
     if axis_ranges is not None:
         assert isinstance(axis_ranges, dict), f"axis_ranges must be dict, got {type(axis_ranges)}"
     
@@ -377,117 +584,33 @@ def create_point_cloud_display(
     if labels is not None:
         pc_dict['labels'] = labels
     
-    # Prepare LOD configuration
-    effective_lod_config = lod_config or {}
-    
-    # For advanced LOD (continuous/discrete), we need to add camera_state to config
-    if lod_type in ["continuous", "discrete"]:
-        if camera_state is None:
-            # Create initial figure to let Plotly auto-calculate camera, then extract it
-            logger.info(f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state")
-            temp_fig = _create_base_point_cloud_figure(
-                points=points,
-                colors=colors,
-                labels=labels,
-                highlight_indices=None,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                axis_ranges=axis_ranges,
-                camera_state=None
-            )
-            effective_camera_state = _extract_default_camera_from_figure(temp_fig, points)
-        else:
-            effective_camera_state = camera_state
-        
-        # Add camera_state to LOD config
-        effective_lod_config = dict(effective_lod_config)  # Make a copy
-        effective_lod_config['camera_state'] = effective_camera_state
-    
-    # Normalize point_cloud_id if provided
-    normalized_id = normalize_point_cloud_id(point_cloud_id) if point_cloud_id else None
-    
-    # Create LOD function using factory
-    lod_function = create_lod_function(
+    # Apply LOD processing
+    processed_pc, title = _apply_lod_processing(
+        pc_dict=pc_dict,
+        key=key,
         lod_type=lod_type,
-        lod_config=effective_lod_config,
-        point_cloud_id=normalized_id
+        lod_config=lod_config,
+        camera_state=camera_state,
+        point_cloud_id=point_cloud_id,
+        point_size=point_size,
+        point_opacity=point_opacity,
+        axis_ranges=axis_ranges,
+        original_count=original_count,
+        title=title
     )
     
-    # Apply LOD processing
-    processed_pc = lod_function(pc_dict)
-    
-    # Extract processed data (keep reference to processed_pc for further processing)
-    points_tensor = processed_pc['pos']
-    colors_tensor = processed_pc.get('rgb')
-    labels_tensor = processed_pc.get('labels')
-    
-    # Update title with LOD info
-    if lod_type == "density" and len(points_tensor) < original_count:
-        density_pct = effective_lod_config.get('density', 100)
-        density_suffix = f" (Density: {density_pct}%: {len(points_tensor):,}/{original_count:,})"
-        title = f"{title}{density_suffix}"
-        logger.info(f"Density applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
-    elif lod_type in ["continuous", "discrete"] and len(points_tensor) < original_count:
-        lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
-        title = f"{title}{lod_suffix}"
-        logger.info(f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
-    else:
-        logger.info(f"No LOD/Density title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}")
-    
-    # Handle edge case of empty point clouds
-    if len(points_tensor) == 0:
-        processed_pc['pos'] = torch.tensor([[0, 0, 0]], dtype=torch.float32)
-        points_tensor = processed_pc['pos']
-    
-    # 🔍 CRITICAL FIX: Downsample for browser memory limits
-    # Browser cannot handle 1.6M points - causes "Array buffer allocation failed"
-    MAX_BROWSER_POINTS = 50000  # Maximum points browser can handle reliably
-    if len(points_tensor) > MAX_BROWSER_POINTS:
-        logger.info(f"Applying browser downsampling: {len(points_tensor)} -> {MAX_BROWSER_POINTS} points")
-        
-        # Use RandomSelect for browser downsampling with deterministic seeding
-        # This maintains index chaining and provides reproducible results
-        browser_downsample = RandomSelect(count=MAX_BROWSER_POINTS)
-        processed_pc = browser_downsample(processed_pc, seed=42)  # Fixed seed for reproducibility
-        
-        # Extract data after browser downsampling
-        points_tensor = processed_pc['pos']
-        colors_tensor = processed_pc.get('rgb')
-        labels_tensor = processed_pc.get('labels')
-        
-        # Get final chained indices relative to original point cloud
-        # These indices map from final points back to original point cloud
-        final_indices = processed_pc.get('indices')
-        
-        # Filter highlight_indices using the final chained indices
-        if highlight_indices is not None and final_indices is not None:
-            # Create a reverse mapping from original indices to new positions
-            # final_indices contains the original indices that were selected
-            reverse_mapping = torch.full((original_count,), -1, dtype=torch.int64, device=highlight_indices.device)
-            new_positions = torch.arange(len(final_indices), dtype=torch.int64, device=highlight_indices.device)
-            reverse_mapping[final_indices] = new_positions
-            
-            # Map highlight_indices to new positions
-            new_highlight_indices = reverse_mapping[highlight_indices]
-            
-            # Keep only valid indices (those that are >= 0, meaning they were selected)
-            valid_mask = new_highlight_indices >= 0
-            filtered_highlight_indices = new_highlight_indices[valid_mask]
-            
-            # Set to None if no valid indices remain
-            if filtered_highlight_indices.numel() == 0:
-                highlight_indices = None
-            else:
-                highlight_indices = filtered_highlight_indices
-        
-        # Update title to show downsampling
-        title = f"{title} (Browser limit: {MAX_BROWSER_POINTS:,}/{original_count:,})"
+    # Apply browser downsampling for memory limits
+    processed_pc, highlight_indices, title = _apply_browser_downsampling(
+        processed_pc=processed_pc,
+        highlight_indices=highlight_indices,
+        original_count=original_count,
+        title=title
+    )
     
     # Create final figure with LOD-processed data
-    fig = _create_base_point_cloud_figure(
-        points=points_tensor,
-        colors=colors_tensor,
-        labels=labels_tensor,
+    fig = _create_point_cloud_figure(
+        pc=processed_pc,
+        key=key,
         highlight_indices=highlight_indices,
         point_size=point_size,
         point_opacity=point_opacity,
