@@ -46,7 +46,7 @@ def test_create_point_cloud_display_basic(point_cloud_3d):
     pc = {'pos': point_cloud_3d}
     fig = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Test Point Cloud", 
         lod_type="none"
@@ -61,7 +61,7 @@ def test_create_point_cloud_display_with_colors(point_cloud_3d, point_cloud_colo
     pc = {'pos': point_cloud_3d, 'rgb': point_cloud_colors}
     fig = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Colored Point Cloud",
         lod_type="none"
@@ -76,7 +76,7 @@ def test_create_point_cloud_display_with_labels(point_cloud_3d, point_cloud_labe
     pc = {'pos': point_cloud_3d, 'classification': point_cloud_labels}
     fig = create_point_cloud_display(
         pc=pc,
-        key='classification',  # Use 'classification' as the label key
+        color_key='classification',  # Use 'classification' as the label key
         highlight_indices=None,
         title="Labeled Point Cloud",
         lod_type="none"
@@ -95,7 +95,7 @@ def test_create_point_cloud_display_with_lod():
     # Test continuous LOD (needs camera_state)
     fig_continuous = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Continuous LOD",
         lod_type="continuous",
@@ -106,7 +106,7 @@ def test_create_point_cloud_display_with_lod():
     # Test discrete LOD (needs point_cloud_id and camera_state)
     fig_discrete = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Discrete LOD",
         lod_type="discrete",
@@ -118,7 +118,7 @@ def test_create_point_cloud_display_with_lod():
     # Test none LOD
     fig_none = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="No LOD",
         lod_type="none"
@@ -136,7 +136,7 @@ def test_point_cloud_display_pipeline(point_cloud_3d):
     pc = {'pos': point_cloud_3d}
     fig = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Pipeline Test",
         lod_type="none"
@@ -153,7 +153,7 @@ def test_large_point_cloud_performance():
     # This should complete without error
     fig = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Large PC Test",
         lod_type="none"
@@ -170,7 +170,7 @@ def test_edge_case_point_clouds():
     pc = {'pos': tiny_pc}
     fig = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Tiny PC",
         lod_type="none"
@@ -182,7 +182,7 @@ def test_edge_case_point_clouds():
     pc = {'pos': huge_pc}
     fig = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Huge PC",
         lod_type="none"
@@ -194,7 +194,7 @@ def test_edge_case_point_clouds():
     pc = {'pos': mixed_pc}
     fig = create_point_cloud_display(
         pc=pc,
-        key=None,
+        color_key=None,
         highlight_indices=None,
         title="Mixed PC",
         lod_type="none"

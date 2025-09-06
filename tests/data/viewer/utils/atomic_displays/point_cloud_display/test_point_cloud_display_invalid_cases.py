@@ -35,7 +35,7 @@ def test_create_point_cloud_display_invalid_pc_type():
     with pytest.raises(AssertionError) as exc_info:
         create_point_cloud_display(
             pc="not_a_dict",  # Should be a dict
-            key=None,
+            color_key=None,
             highlight_indices=None,
             title="Test"
         )
@@ -50,7 +50,7 @@ def test_create_point_cloud_display_missing_pos_key():
     with pytest.raises(AssertionError) as exc_info:
         create_point_cloud_display(
             pc=pc,
-            key=None,
+            color_key=None,
             highlight_indices=None,
             title="Test"
         )
@@ -66,7 +66,7 @@ def test_create_point_cloud_display_invalid_points_shape():
     with pytest.raises(AssertionError) as exc_info:
         create_point_cloud_display(
             pc=pc,
-            key=None,
+            color_key=None,
             highlight_indices=None,
             title="Test"
         )
@@ -82,7 +82,7 @@ def test_create_point_cloud_display_empty_points():
     with pytest.raises(AssertionError) as exc_info:
         create_point_cloud_display(
             pc=pc,
-            key=None,
+            color_key=None,
             highlight_indices=None,
             title="Test"
         )
@@ -96,7 +96,7 @@ def test_create_point_cloud_display_invalid_title_type():
     pc = {'pos': points}
     
     with pytest.raises(AssertionError) as exc_info:
-        create_point_cloud_display(pc=pc, key=None, title=123)  # Invalid title type
+        create_point_cloud_display(pc=pc, color_key=None, title=123)  # Invalid title type
     
     assert "Expected str title" in str(exc_info.value)
 

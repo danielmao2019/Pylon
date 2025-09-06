@@ -204,7 +204,8 @@ def _apply_lod_processing(
             logger.info(f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state")
             temp_fig = _create_point_cloud_figure(
                 pc=pc_dict,
-                key=key,
+                color_key=key,
+                color_type=None,  # No color_type needed for temp figure
                 highlight_indices=None,
                 point_size=point_size,
                 point_opacity=point_opacity,
@@ -322,7 +323,8 @@ def _apply_browser_downsampling(
 
 def _create_point_cloud_figure(
     pc: Dict[str, torch.Tensor],
-    key: Optional[str],
+    color_key: Optional[str],
+    color_type: Optional[str],
     highlight_indices: Optional[torch.Tensor],
     point_size: float,
     point_opacity: float,
@@ -353,27 +355,62 @@ def _create_point_cloud_figure(
     assert isinstance(pc, dict), f"Expected dict for pc, got {type(pc)}"
     assert 'pos' in pc, f"pc must have 'pos' key, got keys: {list(pc.keys())}"
     
-    # Extract points, colors, and labels from pc dictionary
+    # Extract points from pc dictionary
     points = pc['pos']
-    colors = pc.get('rgb', None)
-    labels = pc.get(key, None) if key is not None else None
-    
-    # Validate extracted tensors
     assert isinstance(points, torch.Tensor), f"Expected torch.Tensor for pc['pos'], got {type(points)}"
     assert points.ndim == 2, f"Expected 2D tensor [N,3], got shape {points.shape}"
     assert points.shape[1] == 3, f"Expected 3 coordinates, got {points.shape[1]}"
     assert points.numel() > 0, f"Point cloud cannot be empty"
     
-    if colors is not None:
+    # Check if 'rgb' field is provided first and prepare marker color configuration
+    if 'rgb' in pc:
+        colors = pc['rgb']
         assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
         assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
-    
-    if labels is not None:
+        # Prepare marker dict for RGB colors
+        colors_np = point_cloud_to_numpy(colors)
+        marker_color_config = {'color': colors_np}
+    else:
+        # No 'rgb' field - must use color_key
+        assert color_key is not None, f"color_key must be provided when 'rgb' is not in pc dict, got keys: {list(pc.keys())}"
+        assert color_key in pc, f"color_key '{color_key}' must be in pc dict, got keys: {list(pc.keys())}"
+        
+        labels = pc[color_key]
         assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
         assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
-    
-    # Input validation - colors and labels are mutually exclusive
-    assert not (colors is not None and labels is not None), "colors and labels cannot both be provided - they are mutually exclusive"
+        
+        # Check if color_type is provided, if not, guess based on color_key
+        if color_type is None:
+            # Guess color_type based on color_key
+            if color_key in ['classification', 'change_map']:
+                color_type = 'classification'
+            elif color_key == 'density':
+                color_type = 'regression'
+            else:
+                raise ValueError(f"Cannot infer color_type from color_key '{color_key}'. Please specify color_type as 'classification' or 'regression'")
+        
+        assert isinstance(color_type, str), f"color_type must be str, got {type(color_type)}"
+        assert color_type in ["classification", "regression"], f"color_type must be 'classification' or 'regression', got {color_type!r}"
+        
+        # Prepare marker dict based on color_type
+        if color_type == 'classification':
+            # Convert labels to colors (in torch)
+            colors = _convert_labels_to_colors_torch(labels)
+            colors_np = point_cloud_to_numpy(colors)
+            marker_color_config = {'color': colors_np}
+        else:  # color_type == 'regression'
+            # For regression, use Plotly's colorscale with the raw label values
+            labels_np = point_cloud_to_numpy(labels)
+            # Define global color range for consistent scale
+            cmin, cmax = float(labels_np.min()), float(labels_np.max())
+            marker_color_config = {
+                'color': labels_np,
+                'colorscale': 'Viridis',
+                'showscale': True,
+                'colorbar': dict(title=color_key or 'Value'),
+                'cmin': cmin,
+                'cmax': cmax
+            }
     
     # Input validation for highlight_indices
     if highlight_indices is not None:
@@ -382,18 +419,8 @@ def _create_point_cloud_figure(
         assert torch.all(highlight_indices >= 0), f"highlight_indices must be non-negative, got min: {highlight_indices.min()}"
         assert torch.all(highlight_indices < len(points)), f"highlight_indices must be < len(points)={len(points)}, got max: {highlight_indices.max()}"
     
-    # Process colors from labels if needed (keep in torch tensors)
-    if colors is not None:
-        final_colors = colors
-    elif labels is not None:
-        # Convert labels to colors (in torch)
-        final_colors = _convert_labels_to_colors_torch(labels)
-    else:
-        final_colors = None
-    
-    # Convert to numpy ONLY for Plotly (at the absolute final moment)
+    # Convert points to numpy for Plotly
     points_np = point_cloud_to_numpy(points)
-    colors_np = point_cloud_to_numpy(final_colors) if final_colors is not None else None
     
     # Create figure and add traces based on highlighting logic
     fig = go.Figure()
@@ -408,56 +435,61 @@ def _create_point_cloud_figure(
         
         # Create separate traces for highlighted and non-highlighted points
         if non_highlight_mask.any():  # Add non-highlighted points trace
+            # Prepare marker config for non-highlighted points
+            marker_config = dict(size=point_size, opacity=point_opacity * 0.05)  # Decreased opacity
+            
+            # Apply color configuration with masking
+            assert 'color' in marker_color_config, f"marker_color_config must have 'color' key, got keys: {list(marker_color_config.keys())}"
+            marker_config.update(marker_color_config)
+            marker_config['color'] = marker_color_config['color'][non_highlight_mask]
+            
             non_highlight_kwargs = dict(
                 x=points_np[non_highlight_mask, 0],
                 y=points_np[non_highlight_mask, 1],
                 z=points_np[non_highlight_mask, 2],
                 mode='markers',
-                marker=dict(size=point_size, opacity=point_opacity * 0.05),  # Decreased opacity
+                marker=marker_config,
                 hoverinfo='skip',
                 showlegend=False
             )
             
-            if colors_np is not None:
-                non_highlight_kwargs['marker']['color'] = colors_np[non_highlight_mask]
-            else:
-                non_highlight_kwargs['marker']['color'] = 'steelblue'
-            
             fig.add_trace(go.Scatter3d(**non_highlight_kwargs))
         
         if highlight_mask.any():  # Add highlighted points trace
+            # Prepare marker config for highlighted points
+            marker_config = dict(size=point_size, opacity=point_opacity)  # Full opacity
+            
+            # Apply color configuration with masking
+            assert 'color' in marker_color_config, f"marker_color_config must have 'color' key, got keys: {list(marker_color_config.keys())}"
+            marker_config.update(marker_color_config)
+            marker_config['color'] = marker_color_config['color'][highlight_mask]
+            marker_config['showscale'] = False  # Don't show scale twice
+            
             highlight_kwargs = dict(
                 x=points_np[highlight_mask, 0],
                 y=points_np[highlight_mask, 1],
                 z=points_np[highlight_mask, 2],
                 mode='markers',
-                marker=dict(size=point_size, opacity=point_opacity),  # Full opacity
+                marker=marker_config,
                 hoverinfo='skip',
                 showlegend=False
             )
             
-            if colors_np is not None:
-                highlight_kwargs['marker']['color'] = colors_np[highlight_mask]
-            else:
-                highlight_kwargs['marker']['color'] = 'red'  # Different color for highlights
-            
             fig.add_trace(go.Scatter3d(**highlight_kwargs))
     else:
         # No highlighting - single trace with uniform opacity
+        marker_config = dict(size=point_size, opacity=point_opacity)
+        marker_config.update(marker_color_config)
+        
         scatter3d_kwargs = dict(
             x=points_np[:, 0],
             y=points_np[:, 1],
             z=points_np[:, 2],
             mode='markers',
-            marker=dict(size=point_size, opacity=point_opacity),
+            marker=marker_config,
             hoverinfo='skip',
             showlegend=False
         )
-        
-        if colors_np is not None:
-            scatter3d_kwargs['marker']['color'] = colors_np
-        else:
-            scatter3d_kwargs['marker']['color'] = 'steelblue'
         
         fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
     
@@ -493,9 +525,10 @@ def _create_point_cloud_figure(
 
 def create_point_cloud_display(
     pc: Dict[str, torch.Tensor],
-    key: Optional[str] = None,
+    title: str,
+    color_key: Optional[str] = None,
+    color_type: Optional[str] = None,
     highlight_indices: Optional[torch.Tensor] = None,
-    title: str = "Point Cloud",
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
@@ -506,9 +539,6 @@ def create_point_cloud_display(
     **kwargs: Any
 ) -> go.Figure:
     """Create point cloud display with LOD optimization.
-    
-    This function works with torch tensors throughout processing and only converts
-    to numpy arrays at the very end for Plotly visualization.
     
     Args:
         pc: Point cloud dictionary containing:
@@ -544,7 +574,7 @@ def create_point_cloud_display(
     # Extract points, colors, and labels from pc dictionary
     points = pc['pos']
     colors = pc.get('rgb', None)
-    labels = pc.get(key, None) if key is not None else None
+    labels = pc.get(color_key, None) if color_key is not None else None
     
     # Validate extracted tensors
     assert isinstance(points, torch.Tensor), f"Expected torch.Tensor for pc['pos'], got {type(points)}"
@@ -587,7 +617,7 @@ def create_point_cloud_display(
     # Apply LOD processing
     processed_pc, title = _apply_lod_processing(
         pc_dict=pc_dict,
-        key=key,
+        key=color_key,
         lod_type=lod_type,
         lod_config=lod_config,
         camera_state=camera_state,
@@ -610,7 +640,8 @@ def create_point_cloud_display(
     # Create final figure with LOD-processed data
     fig = _create_point_cloud_figure(
         pc=processed_pc,
-        key=key,
+        color_key=color_key,
+        color_type=color_type,
         highlight_indices=highlight_indices,
         point_size=point_size,
         point_opacity=point_opacity,

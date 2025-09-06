@@ -103,7 +103,7 @@ class Base3DCDDataset(BaseDataset):
         figure_tasks = [
             lambda: create_point_cloud_display(
                 pc=inputs['pc_1'],  # Already has 'pos' and optionally 'rgb'
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title="Point Cloud 1",
                 point_size=point_size,
@@ -115,7 +115,7 @@ class Base3DCDDataset(BaseDataset):
             ),
             lambda: create_point_cloud_display(
                 pc=inputs['pc_2'],  # Already has 'pos' and optionally 'rgb'
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title="Point Cloud 2",
                 point_size=point_size,
@@ -127,7 +127,7 @@ class Base3DCDDataset(BaseDataset):
             ),
             lambda: create_point_cloud_display(
                 pc={'pos': points_2, 'classification': change_map},  # Create pc dict with change map as classification
-                key='classification',  # Use 'classification' as the label key
+                color_key='classification',  # Use 'classification' as the label key
                 highlight_indices=None,
                 title="Change Map",
                 point_size=point_size,
