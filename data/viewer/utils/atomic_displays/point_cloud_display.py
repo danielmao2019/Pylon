@@ -607,16 +607,9 @@ def create_point_cloud_display(
     
     original_count = len(points)
     
-    # Prepare point cloud dictionary
-    pc_dict = {'pos': points.float()}  # Ensure float type for computations
-    if colors is not None:
-        pc_dict['rgb'] = colors
-    if labels is not None:
-        pc_dict['labels'] = labels
-    
     # Apply LOD processing
     processed_pc, title = _apply_lod_processing(
-        pc_dict=pc_dict,
+        pc_dict=pc,
         key=color_key,
         lod_type=lod_type,
         lod_config=lod_config,
