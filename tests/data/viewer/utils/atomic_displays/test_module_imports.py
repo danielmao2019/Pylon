@@ -3,7 +3,6 @@
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
 import pytest
-from typing import Any, Callable
 
 
 # ================================================================================
@@ -16,7 +15,6 @@ def test_atomic_displays_module_imports():
     from data.viewer.utils.atomic_displays.image_display import (
         create_image_display,
         get_image_display_stats,
-        image_to_numpy
     )
     from data.viewer.utils.atomic_displays.depth_display import (
         create_depth_display,
@@ -50,7 +48,6 @@ def test_atomic_displays_module_imports():
     # Verify all functions are callable
     assert callable(create_image_display)
     assert callable(get_image_display_stats)
-    assert callable(image_to_numpy)
     assert callable(create_depth_display)
     assert callable(get_depth_display_stats)
     assert callable(create_normal_display)
@@ -120,7 +117,6 @@ def test_atomic_displays_from_import():
         get_segmentation_display_stats,
         get_point_cloud_display_stats,
         get_instance_surrogate_display_stats,
-        image_to_numpy,
         build_point_cloud_id,
         apply_lod_to_point_cloud,
         normalize_point_cloud_id,
@@ -143,7 +139,6 @@ def test_atomic_displays_from_import():
         get_segmentation_display_stats,
         get_point_cloud_display_stats,
         get_instance_surrogate_display_stats,
-        image_to_numpy,
         build_point_cloud_id,
         apply_lod_to_point_cloud,
         normalize_point_cloud_id,
@@ -443,7 +438,6 @@ def test_atomic_displays_import_performance():
         get_segmentation_display_stats,
         get_point_cloud_display_stats,
         get_instance_surrogate_display_stats,
-        image_to_numpy,
         build_point_cloud_id,
         apply_lod_to_point_cloud,
         normalize_point_cloud_id,

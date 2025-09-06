@@ -4,13 +4,10 @@ CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any, Optional
 
-import plotly.graph_objects as go
 
 from data.viewer.utils.atomic_displays.image_display import (
-    image_to_numpy,
+    _image_to_numpy,
     create_image_display
 )
 
@@ -22,7 +19,7 @@ from data.viewer.utils.atomic_displays.image_display import (
 def test_image_to_numpy_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
-        image_to_numpy("not_a_tensor")
+        _image_to_numpy("not_a_tensor")
     
     assert "Expected torch.Tensor" in str(exc_info.value)
 
@@ -32,7 +29,7 @@ def test_image_to_numpy_invalid_batch_size():
     image = torch.randint(0, 255, (2, 3, 32, 32), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_to_numpy(image)
+        _image_to_numpy(image)
     
     assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
 
@@ -42,7 +39,7 @@ def test_image_to_numpy_invalid_shape():
     image = torch.randint(0, 255, (100,), dtype=torch.uint8)
     
     with pytest.raises(AssertionError) as exc_info:
-        image_to_numpy(image)
+        _image_to_numpy(image)
     
     assert "Expected 3D tensor [C,H,W]" in str(exc_info.value)
 
@@ -107,3 +104,27 @@ def test_create_image_display_invalid_colorscale_type():
         create_image_display(image, "Test", colorscale=123)
     
     assert "Expected str colorscale" in str(exc_info.value)
+
+
+def test_batch_size_one_assertion_create_display():
+    """Test that batch size > 1 raises assertion error in create_image_display."""
+    invalid_batched_image = torch.randint(0, 255, (2, 3, 32, 32), dtype=torch.uint8)
+    
+    with pytest.raises(AssertionError, match="Expected batch size 1 for visualization"):
+        create_image_display(invalid_batched_image, "Should Fail")
+
+
+def test_invalid_2channel_image_error():
+    """Test that 2-channel images raise ValueError as they are not supported."""
+    two_channel_image = torch.randint(0, 255, (2, 32, 32), dtype=torch.uint8)
+    
+    with pytest.raises(ValueError, match="2-channel images are not supported"):
+        _image_to_numpy(two_channel_image)
+
+
+def test_batched_invalid_2channel_image_error():
+    """Test that batched 2-channel images raise ValueError."""
+    batched_two_channel_image = torch.randint(0, 255, (1, 2, 32, 32), dtype=torch.uint8)
+    
+    with pytest.raises(ValueError, match="2-channel images are not supported"):
+        create_image_display(batched_two_channel_image, "Should Fail")

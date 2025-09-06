@@ -7,7 +7,83 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-def image_to_numpy(image: torch.Tensor) -> np.ndarray:
+def create_image_display(
+    image: torch.Tensor,
+    title: str,
+    colorscale: str = "Viridis",
+    resolution: Optional[Tuple[int, int]] = None,
+    **kwargs: Any
+) -> go.Figure:
+    """Create image display for RGB or grayscale images.
+    
+    Args:
+        image: Image tensor of shape [C, H, W] or [N, C, H, W] (batched)
+        title: Title for the image display
+        colorscale: Color scale to use for the image
+        resolution: Optional display resolution as (height, width) tuple
+        **kwargs: Additional arguments
+        
+    Returns:
+        Plotly figure for image visualization
+        
+    Raises:
+        AssertionError: If inputs don't meet requirements
+    """
+    # CRITICAL: Input validation with fail-fast assertions
+    assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
+    assert image.ndim in [3, 4], f"Expected 3D [C,H,W] or 4D [N,C,H,W] tensor, got shape {image.shape}"
+    assert image.numel() > 0, f"Image tensor cannot be empty"
+    assert isinstance(title, str), f"Expected str title, got {type(title)}"
+    assert isinstance(colorscale, str), f"Expected str colorscale, got {type(colorscale)}"
+    
+    # Validate resolution if provided
+    if resolution is not None:
+        assert isinstance(resolution, tuple), f"Expected tuple for resolution, got {type(resolution)}"
+        assert len(resolution) == 2, f"Expected resolution as (height, width), got {len(resolution)} elements"
+        assert all(isinstance(x, int) for x in resolution), f"Resolution values must be integers, got {resolution}"
+        assert all(x > 0 for x in resolution), f"Resolution values must be positive, got {resolution}"
+    
+    # Handle batched input - extract single sample for visualization
+    if image.ndim == 4:
+        assert image.shape[0] == 1, f"Expected batch size 1 for visualization, got {image.shape[0]}"
+        image = image[0]  # [N, C, H, W] -> [C, H, W]
+    
+    # Validate unbatched tensor shape (allow multi-channel, will be handled by image_to_numpy)
+    assert image.shape[0] >= 1, f"Expected at least 1 channel, got {image.shape[0]}"
+    
+    # Convert image to numpy for visualization
+    img: np.ndarray = _image_to_numpy(image)
+
+    fig = px.imshow(
+        img,
+        title=title,
+        color_continuous_scale=colorscale
+    )
+
+    # Define common layout parameters
+    layout_params = {
+        'title_x': 0.5,
+        'margin': dict(l=20, r=20, t=40, b=20),
+        'coloraxis_showscale': True,
+        'showlegend': False,
+        'height': 400,  # Default height
+        'xaxis': dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
+        'yaxis': dict(autorange='reversed')  # Standard image convention
+    }
+    
+    # Update dimensions if resolution is provided
+    if resolution is not None:
+        height, width = resolution
+        layout_params['height'] = height
+        layout_params['width'] = width
+    
+    # Apply all layout parameters at once
+    fig.update_layout(**layout_params)
+
+    return fig
+
+
+def _image_to_numpy(image: torch.Tensor) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable image.
     
     Args:
@@ -55,82 +131,6 @@ def image_to_numpy(image: torch.Tensor) -> np.ndarray:
             return np.transpose(img, (1, 2, 0))
     else:
         raise ValueError(f"Unsupported tensor shape for image conversion: {img.shape}")
-
-
-def create_image_display(
-    image: torch.Tensor,
-    title: str,
-    colorscale: str = "Viridis",
-    resolution: Optional[Tuple[int, int]] = None,
-    **kwargs: Any
-) -> go.Figure:
-    """Create image display for RGB or grayscale images.
-    
-    Args:
-        image: Image tensor of shape [C, H, W] or [N, C, H, W] (batched)
-        title: Title for the image display
-        colorscale: Color scale to use for the image
-        resolution: Optional display resolution as (height, width) tuple
-        **kwargs: Additional arguments
-        
-    Returns:
-        Plotly figure for image visualization
-        
-    Raises:
-        AssertionError: If inputs don't meet requirements
-    """
-    # CRITICAL: Input validation with fail-fast assertions
-    assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
-    assert image.ndim in [3, 4], f"Expected 3D [C,H,W] or 4D [N,C,H,W] tensor, got shape {image.shape}"
-    assert image.numel() > 0, f"Image tensor cannot be empty"
-    assert isinstance(title, str), f"Expected str title, got {type(title)}"
-    assert isinstance(colorscale, str), f"Expected str colorscale, got {type(colorscale)}"
-    
-    # Validate resolution if provided
-    if resolution is not None:
-        assert isinstance(resolution, tuple), f"Expected tuple for resolution, got {type(resolution)}"
-        assert len(resolution) == 2, f"Expected resolution as (height, width), got {len(resolution)} elements"
-        assert all(isinstance(x, int) for x in resolution), f"Resolution values must be integers, got {resolution}"
-        assert all(x > 0 for x in resolution), f"Resolution values must be positive, got {resolution}"
-    
-    # Handle batched input - extract single sample for visualization
-    if image.ndim == 4:
-        assert image.shape[0] == 1, f"Expected batch size 1 for visualization, got {image.shape[0]}"
-        image = image[0]  # [N, C, H, W] -> [C, H, W]
-    
-    # Validate unbatched tensor shape (allow multi-channel, will be handled by image_to_numpy)
-    assert image.shape[0] >= 1, f"Expected at least 1 channel, got {image.shape[0]}"
-    
-    # Convert image to numpy for visualization
-    img: np.ndarray = image_to_numpy(image)
-
-    fig = px.imshow(
-        img,
-        title=title,
-        color_continuous_scale=colorscale
-    )
-
-    # Define common layout parameters
-    layout_params = {
-        'title_x': 0.5,
-        'margin': dict(l=20, r=20, t=40, b=20),
-        'coloraxis_showscale': True,
-        'showlegend': False,
-        'height': 400,  # Default height
-        'xaxis': dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
-        'yaxis': dict(autorange='reversed')  # Standard image convention
-    }
-    
-    # Update dimensions if resolution is provided
-    if resolution is not None:
-        height, width = resolution
-        layout_params['height'] = height
-        layout_params['width'] = width
-    
-    # Apply all layout parameters at once
-    fig.update_layout(**layout_params)
-
-    return fig
 
 
 def get_image_display_stats(
