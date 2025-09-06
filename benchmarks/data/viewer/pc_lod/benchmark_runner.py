@@ -49,7 +49,7 @@ class LODBenchmarkRunner:
             
             fig_no_lod = create_point_cloud_display(
                 pc=pc,
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title=f"No LOD {run}",
                 camera_state=camera_pose.camera_state,
@@ -74,7 +74,7 @@ class LODBenchmarkRunner:
             
             fig_lod = create_point_cloud_display(
                 pc=pc,
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title=f"ContinuousLOD {run}",
                 camera_state=camera_pose.camera_state,

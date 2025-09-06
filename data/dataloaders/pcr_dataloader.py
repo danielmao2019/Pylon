@@ -205,7 +205,7 @@ class PCRDataloader(BaseDataLoader):
                 figure_tasks = [
                     lambda src=src_points, lvl=level: create_point_cloud_display(
                         pc={'pos': src},
-                        key=None,
+                        color_key=None,
                         highlight_indices=None,
                         title=f"Source Point Cloud (Level {lvl})",
                         point_size=point_size,
@@ -217,7 +217,7 @@ class PCRDataloader(BaseDataLoader):
                     ),
                     lambda tgt=tgt_points, lvl=level: create_point_cloud_display(
                         pc={'pos': tgt},
-                        key=None,
+                        color_key=None,
                         highlight_indices=None,
                         title=f"Target Point Cloud (Level {lvl})",
                         point_size=point_size,
@@ -284,7 +284,7 @@ class PCRDataloader(BaseDataLoader):
                 all_figures.extend([
                     create_point_cloud_display(
                         pc={'pos': src_points},
-                        key=None,
+                        color_key=None,
                         highlight_indices=None,
                         title=f"Source Point Cloud (Level {level})",
                         point_size=point_size,
@@ -296,7 +296,7 @@ class PCRDataloader(BaseDataLoader):
                     ),
                     create_point_cloud_display(
                         pc={'pos': tgt_points},
-                        key=None,
+                        color_key=None,
                         highlight_indices=None,
                         title=f"Target Point Cloud (Level {level})",
                         point_size=point_size,

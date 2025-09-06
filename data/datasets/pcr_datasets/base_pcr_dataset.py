@@ -81,7 +81,7 @@ class BasePCRDataset(BaseDataset):
 
         return create_point_cloud_display(
             pc={'pos': union_points, 'rgb': union_colors},
-            key=None,
+            color_key=None,
             highlight_indices=None,
             title=title,
             point_size=point_size,
@@ -149,7 +149,7 @@ class BasePCRDataset(BaseDataset):
 
             return create_point_cloud_display(
                 pc={'pos': sym_diff_points, 'rgb': sym_diff_colors},
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title=title,
                 point_size=point_size,
@@ -164,7 +164,7 @@ class BasePCRDataset(BaseDataset):
             # If no symmetric difference, show empty point cloud
             return create_point_cloud_display(
                 pc={'pos': torch.zeros((1, 3), device=src_points_normalized.device)},
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title=f"{title} (Empty)",
                 point_size=point_size,
@@ -545,7 +545,7 @@ class BasePCRDataset(BaseDataset):
         figure_tasks = [
             lambda: create_point_cloud_display(
                 pc=inputs['src_pc'],  # Already has 'pos' and optionally 'rgb'
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title="Source Point Cloud",
                 point_size=point_size,
@@ -558,7 +558,7 @@ class BasePCRDataset(BaseDataset):
             ),
             lambda: create_point_cloud_display(
                 pc=inputs['tgt_pc'],  # Already has 'pos' and optionally 'rgb'
-                key=None,
+                color_key=None,
                 highlight_indices=None,
                 title="Target Point Cloud",
                 point_size=point_size,
