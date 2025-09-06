@@ -80,9 +80,8 @@ class BasePCRDataset(BaseDataset):
         union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
         return create_point_cloud_display(
-            points=union_points,
-            colors=union_colors,
-            labels=None,
+            pc={'pos': union_points, 'rgb': union_colors},
+            key=None,
             highlight_indices=None,
             title=title,
             point_size=point_size,
@@ -149,9 +148,8 @@ class BasePCRDataset(BaseDataset):
             sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
             return create_point_cloud_display(
-                points=sym_diff_points,
-                colors=sym_diff_colors,
-                labels=None,
+                pc={'pos': sym_diff_points, 'rgb': sym_diff_colors},
+                key=None,
                 highlight_indices=None,
                 title=title,
                 point_size=point_size,
@@ -165,9 +163,8 @@ class BasePCRDataset(BaseDataset):
         else:
             # If no symmetric difference, show empty point cloud
             return create_point_cloud_display(
-                points=torch.zeros((1, 3), device=src_points_normalized.device),
-                colors=None,
-                labels=None,
+                pc={'pos': torch.zeros((1, 3), device=src_points_normalized.device)},
+                key=None,
                 highlight_indices=None,
                 title=f"{title} (Empty)",
                 point_size=point_size,
@@ -547,9 +544,8 @@ class BasePCRDataset(BaseDataset):
         # Define figure creation tasks
         figure_tasks = [
             lambda: create_point_cloud_display(
-                points=src_xyz,
-                colors=src_rgb,
-                labels=None,
+                pc=inputs['src_pc'],  # Already has 'pos' and optionally 'rgb'
+                key=None,
                 highlight_indices=None,
                 title="Source Point Cloud",
                 point_size=point_size,
@@ -561,9 +557,8 @@ class BasePCRDataset(BaseDataset):
                 axis_ranges=unified_axis_ranges,
             ),
             lambda: create_point_cloud_display(
-                points=tgt_xyz,
-                colors=tgt_rgb,
-                labels=None,
+                pc=inputs['tgt_pc'],  # Already has 'pos' and optionally 'rgb'
+                key=None,
                 highlight_indices=None,
                 title="Target Point Cloud",
                 point_size=point_size,

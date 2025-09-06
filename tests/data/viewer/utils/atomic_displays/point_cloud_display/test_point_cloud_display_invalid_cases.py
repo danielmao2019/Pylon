@@ -30,29 +30,43 @@ def sample_datapoint():
 # create_point_cloud_display Tests - Invalid Cases
 # ================================================================================
 
-def test_create_point_cloud_display_invalid_points_type():
-    """Test assertion failure for invalid points type."""
+def test_create_point_cloud_display_invalid_pc_type():
+    """Test assertion failure for invalid pc type."""
     with pytest.raises(AssertionError) as exc_info:
         create_point_cloud_display(
-            points="not_a_tensor",
-            colors=None,
-            labels=None,
+            pc="not_a_dict",  # Should be a dict
+            key=None,
             highlight_indices=None,
             title="Test"
         )
     
-    assert "Expected torch.Tensor" in str(exc_info.value)
+    assert "Expected dict for pc" in str(exc_info.value)
+
+
+def test_create_point_cloud_display_missing_pos_key():
+    """Test assertion failure for missing 'pos' key."""
+    pc = {'rgb': torch.randn(100, 3)}  # Missing 'pos' key
+    
+    with pytest.raises(AssertionError) as exc_info:
+        create_point_cloud_display(
+            pc=pc,
+            key=None,
+            highlight_indices=None,
+            title="Test"
+        )
+    
+    assert "pc must have 'pos' key" in str(exc_info.value)
 
 
 def test_create_point_cloud_display_invalid_points_shape():
     """Test assertion failure for invalid points shape."""
     points = torch.randn(100, 4, dtype=torch.float32)  # 4D instead of 3D
+    pc = {'pos': points}
     
     with pytest.raises(AssertionError) as exc_info:
         create_point_cloud_display(
-            points=points,
-            colors=None,
-            labels=None,
+            pc=pc,
+            key=None,
             highlight_indices=None,
             title="Test"
         )
@@ -63,12 +77,12 @@ def test_create_point_cloud_display_invalid_points_shape():
 def test_create_point_cloud_display_empty_points():
     """Test assertion failure for empty points."""
     points = torch.empty(0, 3, dtype=torch.float32)
+    pc = {'pos': points}
     
     with pytest.raises(AssertionError) as exc_info:
         create_point_cloud_display(
-            points=points,
-            colors=None,
-            labels=None,
+            pc=pc,
+            key=None,
             highlight_indices=None,
             title="Test"
         )
@@ -79,9 +93,10 @@ def test_create_point_cloud_display_empty_points():
 def test_create_point_cloud_display_invalid_title_type():
     """Test assertion failure for invalid title type."""
     points = torch.randn(100, 3, dtype=torch.float32)
+    pc = {'pos': points}
     
     with pytest.raises(AssertionError) as exc_info:
-        create_point_cloud_display(points, title=123)  # Use keyword arg to avoid positional confusion
+        create_point_cloud_display(pc=pc, key=None, title=123)  # Invalid title type
     
     assert "Expected str title" in str(exc_info.value)
 

@@ -204,9 +204,8 @@ class PCRDataloader(BaseDataLoader):
                 
                 figure_tasks = [
                     lambda src=src_points, lvl=level: create_point_cloud_display(
-                        points=src,
-                        colors=None,
-                        labels=None,
+                        pc={'pos': src},
+                        key=None,
                         highlight_indices=None,
                         title=f"Source Point Cloud (Level {lvl})",
                         point_size=point_size,
@@ -217,9 +216,8 @@ class PCRDataloader(BaseDataLoader):
                         point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
                     ),
                     lambda tgt=tgt_points, lvl=level: create_point_cloud_display(
-                        points=tgt,
-                        colors=None,
-                        labels=None,
+                        pc={'pos': tgt},
+                        key=None,
                         highlight_indices=None,
                         title=f"Target Point Cloud (Level {lvl})",
                         point_size=point_size,
@@ -285,9 +283,8 @@ class PCRDataloader(BaseDataLoader):
                 # For lower levels, only show source and target
                 all_figures.extend([
                     create_point_cloud_display(
-                        points=src_points,
-                        colors=None,
-                        labels=None,
+                        pc={'pos': src_points},
+                        key=None,
                         highlight_indices=None,
                         title=f"Source Point Cloud (Level {level})",
                         point_size=point_size,
@@ -298,9 +295,8 @@ class PCRDataloader(BaseDataLoader):
                         point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
                     ),
                     create_point_cloud_display(
-                        points=tgt_points,
-                        colors=None,
-                        labels=None,
+                        pc={'pos': tgt_points},
+                        key=None,
                         highlight_indices=None,
                         title=f"Target Point Cloud (Level {level})",
                         point_size=point_size,
