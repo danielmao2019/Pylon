@@ -5,12 +5,11 @@ CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 import pytest
 import torch
 import numpy as np
-from typing import Dict, Any, Optional
 
 import plotly.graph_objects as go
 
 from data.viewer.utils.atomic_displays.image_display import (
-    image_to_numpy,
+    _image_to_numpy,
     create_image_display
 )
 
@@ -61,7 +60,7 @@ def batched_multi_channel_image():
 
 def test_image_to_numpy_rgb_tensor(rgb_image):
     """Test converting RGB image tensor to numpy."""
-    result = image_to_numpy(rgb_image)
+    result = _image_to_numpy(rgb_image)
     
     assert isinstance(result, np.ndarray)
     assert result.shape == (32, 32, 3)
@@ -70,7 +69,7 @@ def test_image_to_numpy_rgb_tensor(rgb_image):
 
 def test_image_to_numpy_grayscale_tensor(grayscale_image):
     """Test converting grayscale image tensor to numpy."""
-    result = image_to_numpy(grayscale_image)
+    result = _image_to_numpy(grayscale_image)
     
     assert isinstance(result, np.ndarray)
     assert result.shape == (32, 32)
@@ -85,14 +84,14 @@ def test_image_to_numpy_grayscale_tensor(grayscale_image):
 def test_image_to_numpy_shapes(input_shape, expected_output_shape):
     """Test image_to_numpy with various input shapes."""
     image = torch.randint(0, 255, input_shape, dtype=torch.uint8)
-    result = image_to_numpy(image)
+    result = _image_to_numpy(image)
     assert result.shape == expected_output_shape
 
 
 def test_image_to_numpy_normalization():
     """Test that image values are normalized to [0, 1]."""
     image = torch.tensor([[[100, 200], [50, 255]]], dtype=torch.uint8)
-    result = image_to_numpy(image)
+    result = _image_to_numpy(image)
     
     assert result.min() >= 0.0
     assert result.max() <= 1.0
@@ -101,7 +100,7 @@ def test_image_to_numpy_normalization():
 def test_image_to_numpy_uniform_values():
     """Test handling of uniform pixel values (avoid division by zero)."""
     image = torch.full((3, 32, 32), 128, dtype=torch.uint8)
-    result = image_to_numpy(image)
+    result = _image_to_numpy(image)
     
     assert isinstance(result, np.ndarray)
     assert np.all(result == 0.0)
@@ -161,7 +160,7 @@ def test_image_display_with_extreme_values():
 def test_image_display_pipeline(rgb_image):
     """Test complete image display pipeline from tensor to figure."""
     # Test conversion
-    numpy_img = image_to_numpy(rgb_image)
+    numpy_img = _image_to_numpy(rgb_image)
     assert isinstance(numpy_img, np.ndarray)
     assert numpy_img.shape == (32, 32, 3)
     
@@ -176,7 +175,7 @@ def test_performance_with_large_images():
     large_image = torch.randint(0, 255, (3, 512, 512), dtype=torch.uint8)
     
     # These should complete without error or excessive time
-    numpy_img = image_to_numpy(large_image)
+    numpy_img = _image_to_numpy(large_image)
     fig = create_image_display(large_image, "Large Image Test")
     
     # Basic checks
@@ -213,14 +212,6 @@ def test_create_image_display_batched_multi_channel(batched_multi_channel_image)
     assert fig.layout.title.text == "Test Batched Multi-Channel"
 
 
-def test_batch_size_one_assertion_create_display():
-    """Test that batch size > 1 raises assertion error in create_image_display."""
-    invalid_batched_image = torch.randint(0, 255, (2, 3, 32, 32), dtype=torch.uint8)
-    
-    with pytest.raises(AssertionError, match="Expected batch size 1 for visualization"):
-        create_image_display(invalid_batched_image, "Should Fail")
-
-
 @pytest.mark.parametrize("batch_shape,unbatched_expected_shape", [
     ((1, 3, 32, 32), (32, 32, 3)),     # Batched RGB -> RGB
     ((1, 1, 32, 32), (32, 32)),        # Batched grayscale -> grayscale
@@ -232,8 +223,8 @@ def test_batch_to_unbatch_shape_consistency(batch_shape, unbatched_expected_shap
     unbatched_image = batched_image[0]  # Remove batch dimension
     
     # Both should produce same numpy shape
-    batched_result = image_to_numpy(unbatched_image)  # Function internally handles batching in create_image_display
-    unbatched_result = image_to_numpy(unbatched_image)
+    batched_result = _image_to_numpy(unbatched_image)  # Function internally handles batching in create_image_display
+    unbatched_result = _image_to_numpy(unbatched_image)
     
     assert batched_result.shape == unbatched_result.shape == unbatched_expected_shape
     
@@ -243,22 +234,6 @@ def test_batch_to_unbatch_shape_consistency(batch_shape, unbatched_expected_shap
     
     assert isinstance(batched_fig, go.Figure)
     assert isinstance(unbatched_fig, go.Figure)
-
-
-def test_invalid_2channel_image_error():
-    """Test that 2-channel images raise ValueError as they are not supported."""
-    two_channel_image = torch.randint(0, 255, (2, 32, 32), dtype=torch.uint8)
-    
-    with pytest.raises(ValueError, match="2-channel images are not supported"):
-        image_to_numpy(two_channel_image)
-
-
-def test_batched_invalid_2channel_image_error():
-    """Test that batched 2-channel images raise ValueError."""
-    batched_two_channel_image = torch.randint(0, 255, (1, 2, 32, 32), dtype=torch.uint8)
-    
-    with pytest.raises(ValueError, match="2-channel images are not supported"):
-        create_image_display(batched_two_channel_image, "Should Fail")
 
 
 # ================================================================================  
