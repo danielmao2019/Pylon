@@ -1,9 +1,8 @@
 """Normal display utilities for surface normal visualization."""
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import torch
-import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
+from data.viewer.utils.atomic_displays.image_display import create_image_display
 
 
 def create_normal_display(
@@ -47,21 +46,11 @@ def create_normal_display(
     normals_normalized = (normals + 1.0) / 2.0
     normals_normalized = torch.clamp(normals_normalized, 0.0, 1.0)
     
-    # Convert to numpy and transpose to [H, W, 3] for visualization
-    normals_np = normals_normalized.detach().cpu().numpy()
-    normals_rgb = np.transpose(normals_np, (1, 2, 0))  # [3, H, W] -> [H, W, 3]
-    
-    # Create RGB visualization of normals
-    fig = px.imshow(
-        normals_rgb,
-        title=title
-    )
-    
-    # Update layout for better visualization
-    fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=20, r=20, t=40, b=20),
-        height=400
+    # Use existing image display utility
+    fig = create_image_display(
+        image=normals_normalized,
+        title=title,
+        **kwargs
     )
     
     return fig
@@ -93,19 +82,37 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
     assert normals.shape[0] == 3, f"Expected 3 channels, got {normals.shape[0]}"
     
     # Calculate statistics
-    # Valid normals must be finite AND have non-zero magnitude
-    finite_mask = torch.isfinite(normals).all(dim=0)
-    magnitudes = torch.norm(normals, dim=0)
-    nonzero_mask = magnitudes > 1e-8  # Threshold for numerical stability
-    valid_mask = finite_mask & nonzero_mask
+    total_pixels = normals.shape[1] * normals.shape[2]
+    
+    # Create masks for different pixel types
+    nan_mask = torch.isnan(normals).any(dim=0)
+    inf_mask = torch.isinf(normals).any(dim=0)
+    ignore_mask = torch.norm(normals, dim=0) <= 1e-8
+    valid_mask = ~(nan_mask | inf_mask | ignore_mask)
+    
+    # Count pixels
+    nan_pixels = nan_mask.sum().item()
+    inf_pixels = inf_mask.sum().item()
+    ignore_pixels = ignore_mask.sum().item()
+    valid_pixels = valid_mask.sum().item()
+    
+    # Calculate percentages
+    nan_pct = (nan_pixels / total_pixels) * 100 if total_pixels > 0 else 0
+    inf_pct = (inf_pixels / total_pixels) * 100 if total_pixels > 0 else 0
+    ignore_pct = (ignore_pixels / total_pixels) * 100 if total_pixels > 0 else 0
+    valid_pct = (valid_pixels / total_pixels) * 100 if total_pixels > 0 else 0
+    
     valid_normals = normals[:, valid_mask]
     
     if valid_normals.numel() == 0:
         return {
             'shape': list(normals.shape),
             'dtype': str(normals.dtype),
-            'valid_pixels': 0,
-            'total_pixels': normals.shape[1] * normals.shape[2],
+            'total_pixels': total_pixels,
+            'valid_pixels': f"{valid_pixels} ({valid_pct:.1f}%)",
+            'nan_pixels': f"{nan_pixels} ({nan_pct:.1f}%)",
+            'inf_pixels': f"{inf_pixels} ({inf_pct:.1f}%)",
+            'ignore_pixels': f"{ignore_pixels} ({ignore_pct:.1f}%)",
             'x_range': 'N/A',
             'y_range': 'N/A', 
             'z_range': 'N/A',
@@ -115,8 +122,11 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
     return {
         'shape': list(normals.shape),
         'dtype': str(normals.dtype),
-        'valid_pixels': valid_normals.shape[1],
-        'total_pixels': normals.shape[1] * normals.shape[2],
+        'total_pixels': total_pixels,
+        'valid_pixels': f"{valid_pixels} ({valid_pct:.1f}%)",
+        'nan_pixels': f"{nan_pixels} ({nan_pct:.1f}%)",
+        'inf_pixels': f"{inf_pixels} ({inf_pct:.1f}%)",
+        'ignore_pixels': f"{ignore_pixels} ({ignore_pct:.1f}%)",
         'x_range': f"[{float(valid_normals[0].min()):.3f}, {float(valid_normals[0].max()):.3f}]",
         'y_range': f"[{float(valid_normals[1].min()):.3f}, {float(valid_normals[1].max()):.3f}]",
         'z_range': f"[{float(valid_normals[2].min()):.3f}, {float(valid_normals[2].max()):.3f}]",

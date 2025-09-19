@@ -1,7 +1,8 @@
-import torch
-import plotly.graph_objects as go
-import numpy as np
 from typing import List
+import torch
+import numpy as np
+import plotly.graph_objects as go
+from utils.input_checks.check_camera import check_camera_extrinsics
 
 
 def add_camera_to_fig(fig, camera_extrinsics: torch.Tensor, convention: str) -> go.Figure:
@@ -15,6 +16,7 @@ def add_camera_to_fig(fig, camera_extrinsics: torch.Tensor, convention: str) -> 
     Returns:
         Updated plotly figure with camera visualization
     """
+    check_camera_extrinsics(camera_extrinsics)
     # 1. Camera position as diamond marker
     camera_pos = camera_extrinsics[:3, 3].cpu().numpy()
     fig.add_trace(go.Scatter3d(
@@ -24,7 +26,7 @@ def add_camera_to_fig(fig, camera_extrinsics: torch.Tensor, convention: str) -> 
         mode='markers',
         marker=dict(
             symbol='diamond',
-            size=8,
+            size=4,
             color='black',
             line=dict(color='white', width=2)
         ),
@@ -41,11 +43,56 @@ def add_camera_to_fig(fig, camera_extrinsics: torch.Tensor, convention: str) -> 
     return fig
 
 
+def _update_fig_ranges_with_points(fig, points: np.ndarray) -> go.Figure:
+    """Update figure axis ranges to include given points.
+    
+    Args:
+        fig: Plotly figure to update
+        points: Array of shape (N, 3) containing points to include
+        
+    Returns:
+        Updated figure with expanded axis ranges
+    """
+    # Calculate point bounds
+    x_min, x_max = points[:, 0].min(), points[:, 0].max()
+    y_min, y_max = points[:, 1].min(), points[:, 1].max() 
+    z_min, z_max = points[:, 2].min(), points[:, 2].max()
+    
+    # Get current figure ranges - handle Plotly Scene object attributes
+    current_scene = fig.layout.scene
+    if current_scene is not None:
+        # Extract current ranges from Plotly Scene object
+        current_x_range = getattr(current_scene.xaxis, 'range', None) or [x_min, x_max]
+        current_y_range = getattr(current_scene.yaxis, 'range', None) or [y_min, y_max]
+        current_z_range = getattr(current_scene.zaxis, 'range', None) or [z_min, z_max]
+    else:
+        # No existing scene, use point bounds as initial ranges
+        current_x_range = [x_min, x_max]
+        current_y_range = [y_min, y_max]
+        current_z_range = [z_min, z_max]
+    
+    # Expand ranges to include new points
+    new_x_range = [min(current_x_range[0], x_min), max(current_x_range[1], x_max)]
+    new_y_range = [min(current_y_range[0], y_min), max(current_y_range[1], y_max)]
+    new_z_range = [min(current_z_range[0], z_min), max(current_z_range[1], z_max)]
+    
+    # Update figure layout with expanded ranges
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(range=new_x_range),
+            yaxis=dict(range=new_y_range),
+            zaxis=dict(range=new_z_range)
+        )
+    )
+    
+    return fig
+
+
 def _add_camera_axes_vis(fig, camera_extrinsics: torch.Tensor, convention: str) -> go.Figure:
     """Add camera axes visualization - ALWAYS red=right, green=forward, blue=up."""
     camera_pos = camera_extrinsics[:3, 3].cpu().numpy()
     rotation_matrix = camera_extrinsics[:3, :3].cpu().numpy()
-    scale = 0.5
+    scale = 4
     
     # ALWAYS use standard RGB axis colors: red=right, green=forward, blue=up
     # Map camera coordinate system to standard world axes based on convention
@@ -97,13 +144,21 @@ def _add_camera_axes_vis(fig, camera_extrinsics: torch.Tensor, convention: str) 
         showlegend=False
     ))
     
+    # Update figure ranges to include camera position and all axis endpoints
+    axis_points = np.array([
+        camera_pos,
+        camera_pos + right_axis,
+        camera_pos + forward_axis,
+        camera_pos + up_axis
+    ])
+    fig = _update_fig_ranges_with_points(fig, axis_points)
+    
     return fig
 
 
 def _add_camera_frustum_vis(fig, camera_extrinsics: torch.Tensor, convention: str) -> go.Figure:
     """Add camera frustum visualization in gold color."""
-    scale = 0.5
-    frustum_depth = scale * 2
+    frustum_depth = 8
     frustum_points = _get_camera_frustum_points(camera_extrinsics, frustum_depth, convention)
     
     # Add frustum wireframe
@@ -116,6 +171,9 @@ def _add_camera_frustum_vis(fig, camera_extrinsics: torch.Tensor, convention: st
             line=dict(color='gold', width=2),
             showlegend=False
         ))
+    
+    # Update figure ranges to include all frustum points
+    fig = _update_fig_ranges_with_points(fig, frustum_points)
     
     return fig
 
