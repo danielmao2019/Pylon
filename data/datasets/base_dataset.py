@@ -35,6 +35,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         max_cache_memory_percent: float = 80.0,
         enable_cpu_validation: bool = False,
         enable_disk_validation: bool = False,
+        overwrite_cache: bool = False,
         device: Optional[Union[torch.device, str]] = torch.device('cuda'),
         check_sha1sum: Optional[bool] = False,
     ) -> None:
@@ -51,6 +52,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             max_cache_memory_percent (float): maximum percentage of system memory to use for cache
             enable_cpu_validation (bool): validate cached data consistency. Default: False
             enable_disk_validation (bool): validate disk cached data consistency. Default: False
+            overwrite_cache (bool): force regeneration of cached datapoints. Default: False
             device (torch.device): target device for tensors. Default: cuda
             check_sha1sum (bool): verify dataset integrity with SHA1 checksum. Default: False
         """
@@ -59,6 +61,12 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # input checks
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
+
+        # Validate overwrite_cache
+        assert isinstance(overwrite_cache, bool), f"overwrite_cache must be bool, got {type(overwrite_cache)=}"
+        if overwrite_cache:
+            assert use_cpu_cache or use_disk_cache, "When overwrite_cache=True, at least one of use_cpu_cache or use_disk_cache must be True"
+        self.overwrite_cache = overwrite_cache
 
         # initialize
         super(BaseDataset, self).__init__()
@@ -319,13 +327,21 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         from utils.determinism.hash_utils import convert_to_seed
         self.base_seed = convert_to_seed(seed)
 
-    def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
-        # Try to get raw datapoint from cache first
+    def _load_datapoint_with_cache(self, idx: int) -> Dict[str, Any]:
+        """Load datapoint with caching support.
+
+        Args:
+            idx: Index of the datapoint to load
+
+        Returns:
+            Dictionary containing inputs, labels, and meta_info
+        """
+        # Try to get raw datapoint from cache first (unless overwrite_cache is True)
         raw_datapoint = None
-        if self.cache is not None:
+        if self.cache is not None and not self.overwrite_cache:
             raw_datapoint = self.cache.get(idx, device=self.device)
 
-        # If not in cache, load from disk and cache it
+        # If not in cache, or cache is disabled, or overwrite_cache is True, load from disk and cache it
         if raw_datapoint is None:
             # Load raw datapoint
             inputs, labels, meta_info = self._load_datapoint(idx)
@@ -342,6 +358,12 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Cache the raw datapoint
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
+
+        return raw_datapoint
+
+    def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
+        # Load datapoint with caching
+        raw_datapoint = self._load_datapoint_with_cache(idx)
 
         # Apply device transfer only if not already on target device (cache may have done this)
         datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=raw_datapoint)
