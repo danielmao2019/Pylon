@@ -41,8 +41,8 @@ class SemanticSegmentationMetric(SingleTaskMetric):
             f"{iou.tolist()=}, {nan_mask.tolist()=}, {(iou[nan_mask] == 0)=}, {torch.isnan(iou[nan_mask])=}"
         iou[nan_mask] = float('nan')
         # output check
-        assert iou.shape == (num_classes,), f"{iou.shape=}, {num_classes=}"
-        assert iou.is_floating_point(), f"{iou.dtype=}"
+        assert iou.shape == (num_classes,), f"IoU tensor shape must be ({num_classes},) for {num_classes} classes. Got shape: {iou.shape}"
+        assert iou.is_floating_point(), f"IoU tensor must be floating point type for precision. Got dtype: {iou.dtype}"
         score = {
             'class_IoU': iou,
             'mean_IoU': torch.nanmean(iou),
@@ -72,10 +72,10 @@ class SemanticSegmentationMetric(SingleTaskMetric):
             )(y_pred)
         # make prediction from output
         y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
-        assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
+        assert y_pred.shape == y_true.shape, f"Predicted and true mask shapes must match. Got y_pred.shape={y_pred.shape}, y_true.shape={y_true.shape}"
         # apply valid mask
         valid_mask = y_true != self.ignore_index
-        assert valid_mask.sum() >= 1
+        assert valid_mask.sum() >= 1, f"No valid pixels found. All pixels have ignore_index={self.ignore_index}. Valid mask sum: {valid_mask.sum()}"
         y_pred = y_pred[valid_mask]
         y_true = y_true[valid_mask]
         # compute IoU
@@ -98,11 +98,11 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         result: Dict[str, torch.Tensor] = {}
         # summarize IoU
         iou = torch.stack(buffer['class_IoU'], dim=0)
-        assert iou.shape == (num_datapoints, num_classes), f"{iou.shape=}, {num_datapoints=}, {num_classes=}"
+        assert iou.shape == (num_datapoints, num_classes), f"Stacked IoU buffer must have shape ({num_datapoints}, {num_classes}). Got shape: {iou.shape} for {num_datapoints} datapoints and {num_classes} classes"
         class_iou = torch.nanmean(iou, dim=0)
-        assert class_iou.shape == (num_classes,), f"{class_iou.shape=}"
+        assert class_iou.shape == (num_classes,), f"Class-wise IoU must have shape ({num_classes},) for {num_classes} classes. Got shape: {class_iou.shape}"
         mean_iou = torch.nanmean(class_iou)
-        assert mean_iou.ndim == 0, f"{mean_iou.shape=}"
+        assert mean_iou.ndim == 0, f"Mean IoU must be a scalar (0-dimensional tensor). Got shape: {mean_iou.shape}"
         result.update({
             'class_IoU': class_iou,
             'mean_IoU': mean_iou,
@@ -120,8 +120,8 @@ class SemanticSegmentationMetric(SingleTaskMetric):
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         """Summarize the metric."""
         self._buffer_queue.join()  # Wait for all items to be processed
-        assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
-        assert len(self.buffer) != 0
+        assert self._buffer_queue.empty(), f"Buffer queue must be empty before summarizing. Queue size: {self._buffer_queue.qsize()}"
+        assert len(self.buffer) != 0, f"Buffer cannot be empty when summarizing. Buffer length: {len(self.buffer)}"
 
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.get_buffer())
 
