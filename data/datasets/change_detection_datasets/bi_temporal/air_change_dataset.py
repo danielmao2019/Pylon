@@ -4,7 +4,7 @@ import os
 import glob
 import random
 import torch
-from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
+from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 from data.transforms.vision_2d.crop.crop import Crop
 import utils
 

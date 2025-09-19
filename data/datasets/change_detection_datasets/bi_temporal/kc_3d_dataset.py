@@ -4,7 +4,7 @@ import pickle
 import numpy
 import torch
 import torchvision
-from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
+from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
 import utils
 
 

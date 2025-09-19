@@ -13,22 +13,25 @@ from data.viewer.utils.settings_config import ViewerSettings
 
 
 # Dataset type definition for backward compatibility with eval viewer
-DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'general']
+DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'ivision', 'general']
 
 # Dataset groupings by type for UI organization
 DATASET_GROUPS = {
     'semseg': ['coco_stuff_164k', 'whu_bd'],
-    '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
-    '3dcd': ['urb3dcd', 'slpccd'],
+    '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'ivision_2dcd_original', 'ivision_2dcd_synthetic'],
+    '3dcd': ['urb3dcd', 'slpccd', 'ivision_3dcd'],
     'pcr': [
-        'kitti', 'threedmatch', 'threedlomatch', 'modelnet40',
+        'kitti', 'threedmatch', 'threedlomatch', 'modelnet40', 'lidar_camera_pose_pcr',
         'buffer',
+        'ivision_pcr', 'geotransformer_ivision_pcr', 'overlappredator_ivision_pcr',
     ],
     'mtl': [
         'multi_mnist', 'celeb_a', 'multi_task_facial_landmark',
         'nyu_v2_c', 'nyu_v2_f', 'city_scapes_c', 'city_scapes_f', 'pascal_context',
         'ade_20k',
+        'ivision_mt',
     ],
+    'ivision': ['ivision_image'],
     'general': ['BaseRandomDataset'],  # General-purpose datasets for testing
 }
 
@@ -44,6 +47,10 @@ REQUIRES_3D_CLASSES = [
     'BufferDataset',
     'URB3DCDDataset',
     'SLPCCDDataset',
+    'iVISION_MT_Dataset',
+    'iVISION_PCR_DATASET',
+    'iVISION_3DCD_Dataset',
+    'iVISION_2DCD_Dataset',
 ]
 
 
@@ -85,6 +92,7 @@ class ViewerBackend:
             '3dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
             'pcr': os.path.join(repo_root, 'configs/common/datasets/point_cloud_registration/train'),
             'mtl': os.path.join(repo_root, 'configs/common/datasets/multi_task_learning/train'),
+            'ivision': os.path.join(repo_root, 'configs/common/datasets/ivision'),
         }
 
         # Load dataset configurations
@@ -139,9 +147,22 @@ class ViewerBackend:
             config_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config_module)
 
-            # Get the dataset config following the same pattern as main.py
-            data_cfg = config_module.data_cfg
-            dataset_cfg = data_cfg['train_dataset']
+            # Try to load dataset config - support both old and new formats
+            dataset_cfg = None
+            
+            # Try new format first (train_dataset_cfg directly in module)
+            if hasattr(config_module, 'train_dataset_cfg'):
+                dataset_cfg = config_module.train_dataset_cfg
+            # Fall back to old format (data_cfg['train_dataset'])
+            elif hasattr(config_module, 'data_cfg'):
+                self.logger.warning(f"DEPRECATED: {config_info['path']} uses old config format. Please migrate to new format with train_dataset_cfg, val_dataset_cfg, test_dataset_cfg")
+                data_cfg = config_module.data_cfg
+                dataset_cfg = data_cfg['train_dataset']
+            else:
+                raise ValueError(f"Config file {config_info['path']} has neither 'train_dataset_cfg' (new format) nor 'data_cfg' (old format)")
+            
+            if dataset_cfg is None:
+                raise ValueError(f"Could not load dataset configuration from {config_info['path']}")
 
             # Build the dataset
             dataset = build_from_config(dataset_cfg)
@@ -362,8 +383,8 @@ class ViewerBackend:
             Dataset type string
         """
         # Import the base display classes to check inheritance
-        from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
-        from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
+        from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
+        from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
         from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
         from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
         from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset

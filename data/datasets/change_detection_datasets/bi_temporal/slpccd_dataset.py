@@ -3,7 +3,7 @@ import os
 import numpy as np
 import torch
 from sklearn.neighbors import KDTree
-from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
+from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 from utils.point_cloud_ops.sampling import GridSampling3D
 from utils.point_cloud_ops import normalize_point_cloud
 import utils

@@ -13,8 +13,8 @@ import numpy as np
 from typing import Dict, Any
 from dash import html
 from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
-from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
-from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
+from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
+from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 
 # Import real production dataset classes

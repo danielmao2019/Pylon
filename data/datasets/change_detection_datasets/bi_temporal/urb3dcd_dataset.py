@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from sklearn.neighbors import KDTree
 from utils.point_cloud_ops.sampling import GridSampling3D, CylinderSampling
-from data.datasets.change_detection_datasets.base_3d_cd_dataset import Base3DCDDataset
+from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
 import utils
 
 

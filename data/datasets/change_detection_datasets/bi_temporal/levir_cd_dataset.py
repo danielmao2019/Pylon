@@ -1,7 +1,7 @@
 from typing import Tuple, List, Dict, Any, Optional
 import os
 import torch
-from data.datasets.change_detection_datasets.base_2d_cd_dataset import Base2DCDDataset
+from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 import utils
 
 
