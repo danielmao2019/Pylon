@@ -1,6 +1,7 @@
 from typing import Any, Dict, Tuple
 import os
 import pickle
+import numpy
 import torch
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from utils.io.point_clouds.load_point_cloud import load_point_cloud
@@ -82,6 +83,8 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         self.annotations = []
         for item in metadata_list:
             overlap = item['overlap']
+            assert isinstance(overlap, numpy.float64), f"{type(overlap)=}"
+            overlap = overlap.item()
             if self.overlap_min < overlap <= self.overlap_max:
                 # Extract scene names and ensure they match
                 src_scene = item['pcd0'].split('/')[0]
