@@ -362,24 +362,16 @@ def _create_point_cloud_figure(
     assert points.shape[1] == 3, f"Expected 3 coordinates, got {points.shape[1]}"
     assert points.numel() > 0, f"Point cloud cannot be empty"
     
-    # Check if 'rgb' field is provided first and prepare marker color configuration
-    if 'rgb' in pc:
-        colors = pc['rgb']
-        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
-        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
-        # Prepare marker dict for RGB colors
-        colors_np = point_cloud_to_numpy(colors)
-        marker_color_config = {'color': colors_np}
-    else:
-        # No 'rgb' field - must use color_key
-        assert color_key is not None, f"color_key must be provided when 'rgb' is not in pc dict, got keys: {list(pc.keys())}"
+    # CORRECTED LOGIC: Check color_key first, then fall back to 'rgb'
+    if color_key is not None:
+        # color_key is provided - use pc[color_key]
         assert color_key in pc, f"color_key '{color_key}' must be in pc dict, got keys: {list(pc.keys())}"
         
         labels = pc[color_key]
         assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
         assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
         
-        # Check if color_type is provided, if not, guess based on color_key
+        # Determine color_type: use provided arg or guess from color_key
         if color_type is None:
             # Guess color_type based on color_key
             if color_key in ['classification', 'change_map']:
@@ -411,6 +403,15 @@ def _create_point_cloud_figure(
                 'cmin': cmin,
                 'cmax': cmax
             }
+    else:
+        # No color_key provided - must use 'rgb' field
+        assert 'rgb' in pc, f"'rgb' must be in pc dict when color_key is not provided, got keys: {list(pc.keys())}"
+        colors = pc['rgb']
+        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
+        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
+        # Prepare marker dict for RGB colors
+        colors_np = point_cloud_to_numpy(colors)
+        marker_color_config = {'color': colors_np}
     
     # Input validation for highlight_indices
     if highlight_indices is not None:
