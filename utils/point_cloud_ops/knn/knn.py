@@ -14,7 +14,8 @@ def knn(
     k: Optional[int] = None,
     method: str = "pytorch3d",
     return_distances: bool = True,
-    radius: Optional[float] = None
+    radius: Optional[float] = None,
+    chunk_size: Optional[int] = None,
 ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
     """Compute k-nearest neighbors using various backends.
     
@@ -59,14 +60,15 @@ def knn(
             query_points=query_points,
             reference_points=reference_points,
             k=k,
-            radius=radius
+            radius=radius,
         )
     elif method == "pytorch3d":
         distances, indices = _knn_pytorch3d(
             query_points=query_points,
             reference_points=reference_points,
             k=k,
-            radius=radius
+            radius=radius,
+            chunk_size=chunk_size,
         )
     elif method == "torch":
         distances, indices = _knn_torch(
