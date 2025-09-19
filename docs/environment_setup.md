@@ -79,10 +79,7 @@ pip install setuptools==59.5.0
 
 # Install OpenMMLab packages (compatible versions)
 pip install -U openmim
-mim install mmengine
-mim install mmcv==2.1.0
-mim install mmdet==3.2.0
-mim install mmsegmentation==1.2.2
+mim install mmengine mmcv==2.1.0 mmdet==3.2.0 mmsegmentation==1.2.2
 
 # Install other dependencies
 conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
@@ -101,7 +98,10 @@ pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/seg
 ### 4.4. Point cloud registration related
 
 ```bash
-conda install pytorch3d -c pytorch3d --freeze-installed
+# Install PyTorch3D from source to ensure CUDA compatibility
+# Note: conda install pytorch3d breaks CUDA PyTorch, so we build from source
+pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
+
 pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
 pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
 git clone https://github.com/KinglittleQ/torch-batch-svd.git && cd torch-batch-svd && python setup.py install && cd ..
