@@ -95,12 +95,13 @@ def update_dataset_options(selected_group: Optional[str]) -> List[Union[List[Dic
         Output('datapoint-index-slider', 'marks'),
         Output('datapoint-display', 'children', allow_duplicate=True),
         Output('dataset-info-display', 'children'),
-        Output('transforms-section', 'children')
+        Output('transforms-section', 'children'),
+        Output('transforms-store', 'data', allow_duplicate=True)
     ],
     inputs=[Input('dataset-dropdown', 'value')],
     group="dataset"
 )
-def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, html.Div]]:
+def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, html.Div, List]]:
     """Load a selected dataset and update all related UI components.
     
     This is a PURE UI callback - it only updates UI components.
@@ -127,6 +128,9 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
     
     logger.info("Dataset loaded successfully, returning updated UI components")
 
+    # Initialize all transform indices as selected by default
+    all_transform_indices = [transform['index'] for transform in dataset_info['transforms']]
+
     return [
         dataset_info,                                           # dataset-info
         0,                                                      # slider min
@@ -136,6 +140,7 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
         success_message,                                        # datapoint-display
         create_dataset_info_display(dataset_info),             # dataset-info-display
         create_transforms_section(dataset_info['transforms']), # transforms-section
+        all_transform_indices,                                 # transforms-store (initialize with all selected)
     ]
 
 
@@ -159,7 +164,7 @@ def update_transforms_section(dataset_info: Dict[str, Any]) -> List[html.Div]:
 # Helper Functions
 # =========================================================================
 
-def _create_empty_dataset_state() -> List[Union[Dict[str, Any], int, html.Div]]:
+def _create_empty_dataset_state() -> List[Union[Dict[str, Any], int, html.Div, List]]:
     """Create UI state for when no dataset is selected."""
     return [
         {},                              # dataset-info (empty)
@@ -170,6 +175,7 @@ def _create_empty_dataset_state() -> List[Union[Dict[str, Any], int, html.Div]]:
         html.Div("No dataset selected."), # datapoint-display
         create_dataset_info_display(),    # dataset-info-display
         create_transforms_section(),      # transforms-section
+        [],                              # transforms-store (empty list)
     ]
 
 

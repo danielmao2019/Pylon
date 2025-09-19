@@ -73,7 +73,8 @@ def update_current_index(current_idx: int) -> List[str]:
         Input('camera-state', 'data')
     ],
     states=[
-        State('dataset-info', 'data')
+        State('dataset-info', 'data'),
+        State('transforms-store', 'data')
     ],
     group="navigation"
 )
@@ -82,7 +83,8 @@ def update_datapoint_from_navigation(
     datapoint_idx: int,
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
     camera_state: Dict,
-    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
+    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
+    transforms_store: Optional[List[int]]
 ) -> List[html.Div]:
     """
     Update the displayed datapoint when navigation index changes.
@@ -105,15 +107,16 @@ def update_datapoint_from_navigation(
     dataset_type: str = dataset_info['type']
     logger.info(f"Navigating to index {datapoint_idx} in dataset: {dataset_name}")
 
-    # For navigation updates, use all available transforms by default
-    transforms = dataset_info['transforms']
-    all_transform_indices = [transform['index'] for transform in transforms]
+    # Transforms should always be initialized before user can navigate
+    assert transforms_store is not None, "transforms_store must be initialized before navigation"
+    assert isinstance(transforms_store, list), f"transforms_store must be a list, got {type(transforms_store)}"
+    logger.info(f"Using stored transform indices: {transforms_store}")
 
     # Get datapoint from backend through registry using kwargs
     datapoint = registry.viewer.backend.get_datapoint(
         dataset_name=dataset_name,
         index=datapoint_idx,
-        transform_indices=all_transform_indices
+        transform_indices=transforms_store
     )
 
     logger.info(f"Dataset type: {dataset_type}")

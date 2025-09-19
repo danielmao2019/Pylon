@@ -19,7 +19,7 @@ def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
     layout = html.Div([
         # Hidden stores for keeping track of state
         dcc.Store(id='dataset-info', data={}),
-        dcc.Store(id='transforms-store', data={}),
+        dcc.Store(id='transforms-store', data=None),
         dcc.Store(id='3d-settings-store', data={}),
         dcc.Store(id='camera-state', data=None),
         

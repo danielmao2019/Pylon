@@ -19,7 +19,7 @@ from data.viewer.viewer import DatasetViewer
 def main() -> None:
     """Run the dataset viewer application."""
     parser = argparse.ArgumentParser(description="Dataset Viewer CLI")
-    parser.add_argument("--debug", action="store_true", help="Run in debug mode")
+    parser.add_argument("--debug", action="store_true", default=False, help="Run in debug mode")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8050, help="Port to bind to")
     

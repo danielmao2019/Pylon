@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @callback(
     outputs=[
         Output('datapoint-display', 'children'),
+        Output('transforms-store', 'data')
     ],
     inputs=[
         Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
@@ -33,7 +34,7 @@ def update_datapoint_from_transforms(
     camera_state: Dict,
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
     datapoint_idx: int
-) -> List[html.Div]:
+) -> List[Union[html.Div, Dict]]:
     """
     Update the displayed datapoint when transform selections change.
     Also handles 3D point cloud visualization settings.
@@ -43,7 +44,7 @@ def update_datapoint_from_transforms(
     # Handle case where no dataset is selected (normal UI state)
     if dataset_info is None or dataset_info == {}:
         # Thread-safe return instead of raising PreventUpdate in debounced context
-        return [dash.no_update]
+        return [dash.no_update, dash.no_update]
     
     # Assert dataset info structure is valid - fail fast if corrupted
     assert dataset_info is not None, "Dataset info must not be None"
@@ -112,4 +113,5 @@ def update_datapoint_from_transforms(
     )
 
     logger.info("Display created successfully with transform selection")
-    return [display]
+    # Store the selected transform indices for use by navigation callback
+    return [display, selected_indices]
