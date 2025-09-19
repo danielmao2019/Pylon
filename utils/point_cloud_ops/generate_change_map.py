@@ -5,87 +5,120 @@ based on nearest neighbor matching and segmentation labels.
 """
 
 import torch
-from typing import Dict
-from sklearn.neighbors import NearestNeighbors
+from typing import Dict, Optional
+from utils.point_cloud_ops.knn.knn import knn
 
 
 def generate_change_map(
-    pc_from: Dict[str, torch.Tensor],
-    pc_to: Dict[str, torch.Tensor],
+    src_pc: Dict[str, torch.Tensor],
+    tgt_pc: Dict[str, torch.Tensor],
     threshold: float,
-    ignore_index: int = 255
+    seg_ignore_value: int = 255,
+    change_ignore_value: int = 255,
+    chunk_size: Optional[int] = None,
 ) -> torch.Tensor:
     """Generate change map from source to target point cloud.
     
-    For each point in pc_to, finds nearest neighbor in pc_from:
-    - If distance < threshold and same segmentation: unchanged (0)
-    - If distance < threshold and different segmentation: changed (1)
-    - If distance >= threshold: ignore index
+    Computes change detection labels for each point in the target point cloud
+    by finding nearest neighbors in the source point cloud and comparing
+    their segmentation labels.
+    
+    Change Detection Logic:
+    -----------------------
+    For each point in target point cloud:
+    1. If target point has ignore segmentation → label as ignore (change_ignore_value)
+    2. Find nearest neighbor in source point cloud (excluding source ignore points)
+    3. If no valid source points exist → label as changed (1)
+    4. If nearest neighbor distance >= threshold → label as changed (1)
+    5. If distance < threshold:
+       - Same segmentation class → label as unchanged (0)
+       - Different segmentation class → label as changed (1)
     
     Args:
-        pc_from: Source point cloud (T1) with 'pos' and 'classification' keys
-        pc_to: Target point cloud (T2) with 'pos' and 'classification' keys
-        threshold: Distance threshold in meters
-        ignore_index: Label for points with no valid match (default: 255)
+        src_pc: Source point cloud (T1) with keys:
+            - 'pos': [N_src, 3] tensor of 3D positions
+            - 'classification': [N_src] tensor of segmentation labels
+        tgt_pc: Target point cloud (T2) with keys:
+            - 'pos': [N_tgt, 3] tensor of 3D positions
+            - 'classification': [N_tgt] tensor of segmentation labels
+        threshold: Distance threshold in meters for matching points
+        seg_ignore_value: Segmentation label to ignore (default: 255)
+        change_ignore_value: Output label for ignored points (default: 255)
+        chunk_size: Optional batch size for KNN computation to save memory
         
     Returns:
-        Change labels for each point in pc_to
+        torch.Tensor: Change labels [N_tgt] with values:
+            - 0: unchanged (matched point with same segmentation)
+            - 1: changed (no match or different segmentation)
+            - change_ignore_value: ignored points
     """
-    # Extract positions and segmentation labels
-    pos_from = pc_from['pos'].cpu().numpy()
-    pos_to = pc_to['pos'].cpu().numpy()
-    seg_from = pc_from['classification'].cpu().numpy()
-    seg_to = pc_to['classification'].cpu().numpy()
+    # Step 1: Extract data from point cloud dictionaries
+    src_pos = src_pc['pos']  # [N_src, 3] - 3D positions
+    tgt_pos = tgt_pc['pos']  # [N_tgt, 3] - 3D positions
+    src_seg = src_pc['classification']  # [N_src] - segmentation labels
+    tgt_seg = tgt_pc['classification']  # [N_tgt] - segmentation labels
     
-    # Handle empty point clouds
-    if pos_to.shape[0] == 0:
-        return torch.zeros(0, dtype=torch.uint8, device=pc_to['pos'].device)
+    device = tgt_pos.device
     
-    if pos_from.shape[0] == 0:
-        # No points in source -> all points are new (ignore index)
-        return torch.full((pos_to.shape[0],), ignore_index, dtype=torch.uint8, device=pc_to['pos'].device)
+    # Step 2: Handle edge case - empty target point cloud
+    if tgt_pos.shape[0] == 0:
+        return torch.zeros(0, dtype=torch.uint8, device=device)
     
-    # Build KD-tree for nearest neighbor search
-    nn_model = NearestNeighbors(n_neighbors=1, algorithm='kd_tree')
-    nn_model.fit(pos_from)
+    # Step 3: Initialize all target points as "changed" (conservative default)
+    change_labels = torch.ones(tgt_pos.shape[0], dtype=torch.int64, device=device)
     
-    # Find nearest neighbors
-    distances, indices = nn_model.kneighbors(pos_to)
-    distances = distances.squeeze()
-    indices = indices.squeeze()
+    # Step 4: Mark target points with ignore segmentation
+    tgt_ignore_mask = tgt_seg == seg_ignore_value
+    change_labels[tgt_ignore_mask] = change_ignore_value
     
-    # Convert to torch tensors on correct device
-    device = pc_to['pos'].device
-    distances = torch.from_numpy(distances).to(device=device)
-    indices = torch.from_numpy(indices).to(device=device)
+    # Step 5: Handle edge case - empty or all-ignore source point cloud
+    if src_pos.shape[0] == 0:
+        # No source points available for matching
+        return change_labels  # All non-ignore targets remain "changed"
     
-    # Vectorized change label generation
-    # Initialize all labels as ignore index on the correct device
-    change_labels = torch.full((pos_to.shape[0],), ignore_index, dtype=torch.uint8, device=device)
+    # Step 6: Filter out ignore points from source (only match to valid points)
+    src_valid_mask = src_seg != seg_ignore_value
+    if not src_valid_mask.any():
+        # No valid source points for matching
+        return change_labels  # All non-ignore targets remain "changed"
     
-    # Create mask for points within threshold
-    within_threshold = distances < threshold
+    src_pos_valid = src_pos[src_valid_mask]  # Valid source positions
+    src_seg_valid = src_seg[src_valid_mask]  # Valid source segmentations
     
-    # Convert numpy segmentation arrays to torch tensors on correct device
-    seg_from_torch = torch.from_numpy(seg_from).to(device=device)
-    seg_to_torch = torch.from_numpy(seg_to).to(device=device)
+    # Step 7: Find nearest neighbor in source for each target point
+    distances, indices = knn(
+        query_points=tgt_pos,
+        reference_points=src_pos_valid,
+        k=1,  # Only need closest match
+        method="pytorch3d",
+        return_distances=True,
+        chunk_size=chunk_size,  # Optional memory optimization
+    )
     
-    # Get segmentation labels for matched points
-    matched_seg_from = seg_from_torch[indices[within_threshold]]
-    matched_seg_to = seg_to_torch[within_threshold]
+    # Reshape results (remove k=1 dimension)
+    distances = distances.squeeze(1)  # [N_tgt] - distance to nearest source point
+    indices = indices.squeeze(1)      # [N_tgt] - index of nearest source point
     
-    # Check if segmentation labels match
-    seg_matches = matched_seg_from == matched_seg_to
+    # Step 8: Identify target points with valid matches (within threshold)
+    # Note: Exclude already-ignored target points from this check
+    within_threshold = (distances < threshold) & (~tgt_ignore_mask)
     
-    # Create indices for updating change_labels using torch operations
-    within_threshold_indices = torch.where(within_threshold)[0]
-    
-    # Set unchanged (0) for matching segmentations
-    unchanged_indices = within_threshold_indices[seg_matches]
-    change_labels[unchanged_indices] = 0
-    
-    # Set changed (1) for non-matching segmentations
-    changed_indices = within_threshold_indices[~seg_matches]
-    change_labels[changed_indices] = 1
+    # Step 9: Compare segmentations for matched points
+    if within_threshold.any():
+        # Extract segmentation labels for matched point pairs
+        matched_src_seg = src_seg_valid[indices[within_threshold]]
+        matched_tgt_seg = tgt_seg[within_threshold]
+        
+        # Check if segmentation classes match
+        seg_matches = matched_src_seg == matched_tgt_seg
+        
+        # Get global indices of target points within threshold
+        within_threshold_indices = torch.where(within_threshold)[0]
+        
+        # Step 10: Update labels for unchanged points (same segmentation)
+        unchanged_indices = within_threshold_indices[seg_matches]
+        change_labels[unchanged_indices] = 0  # Mark as unchanged
+        
+        # Note: Points with different segmentations remain "changed" (1)
     
     return change_labels
