@@ -25,6 +25,7 @@ class Launcher(BaseAgent):
         log_path: str = "",
         project_dir: str = "",
         conda_env: str = "",
+        git_branch: str = "main",
         keep_tmux: Optional[bool] = False,
         force_progress_recompute: bool = False,
     ) -> None:
@@ -57,6 +58,7 @@ class Launcher(BaseAgent):
         )
         self.project_dir = project_dir
         self.conda_env = conda_env
+        self.git_branch = git_branch
         self.keep_tmux = keep_tmux
         self.logger = TextLogger(filepath=log_path)
         self.ssh_pool = _ssh_pool
@@ -70,16 +72,16 @@ class Launcher(BaseAgent):
 
         def process_gpu(gpu):
             gpu_stuck_info = {}
-            if not gpu['connected']:
+            if not gpu.connected:
                 return {}
-            for proc in gpu['processes']:
-                if proc.user != gpu['server'].split('@')[0]:
+            for proc in gpu.processes:
+                if proc.user != gpu.server.split('@')[0]:
                     continue
                 if 'python main.py --config-filepath' not in proc.cmd:
                     continue
                 cfg = parse_config(proc.cmd)
                 if cfg in stuck_cfgs:
-                    gpu_stuck_info[cfg] = (gpu['server'], proc.pid)
+                    gpu_stuck_info[cfg] = (gpu.server, proc.pid)
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
@@ -96,9 +98,9 @@ class Launcher(BaseAgent):
 
     def _remove_outdated(self, all_running_status: List[RunStatus]) -> None:
         outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
-        self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
-        with ThreadPoolExecutor() as executor:
-            list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
+        # self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
+        # with ThreadPoolExecutor() as executor:
+        #     list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
 
     def _find_missing_runs(self, all_running_status: List[RunStatus]) -> List[str]:
         r"""
@@ -132,12 +134,12 @@ class Launcher(BaseAgent):
         # Find idle GPUs with CPU constraints
         for gpu in self.system_monitor.connected_gpus:
             # Check GPU constraints
-            gpu_util_ok = gpu['util_stats']['avg'] < 50
-            gpu_mem_ok = (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
-            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p.cmd]) < num_jobs
+            gpu_util_ok = gpu.util_stats['avg'] < 50
+            gpu_mem_ok = (gpu.max_memory - gpu.memory_stats['avg']) > 12 * 1024
+            gpu_jobs_ok = len([p for p in gpu.processes if 'python main.py --config-filepath' in p.cmd]) < num_jobs
 
             # Check CPU constraints for the same server
-            server = gpu['server']
+            server = gpu.server
             cpu_ok = False
             if server in cpu_status_by_server:
                 cpu = cpu_status_by_server[server]
@@ -151,8 +153,8 @@ class Launcher(BaseAgent):
             # GPU is only considered idle if both GPU and CPU resources are available
             if gpu_util_ok and gpu_mem_ok and gpu_jobs_ok and cpu_ok:
                 idle_gpus.append({
-                    'server': gpu['server'],
-                    'resource_id': gpu['index'],
+                    'server': gpu.server,
+                    'resource_id': gpu.index,
                 })
 
         self.logger.warning(f"Disconnected GPUs: {self.system_monitor.disconnected_gpus}")
@@ -189,8 +191,8 @@ class Launcher(BaseAgent):
 
             cmd = ' && '.join([
                 f"cd {self.project_dir}",
-                "git checkout main",
-                "git pull --rebase origin main",
+                f"git checkout {self.git_branch}",
+                f"git pull",
                 "source ~/.bashrc",
                 f"source ~/miniconda3/bin/activate {self.conda_env}",
                 f"mkdir -p {os.path.dirname(error_log)}",
