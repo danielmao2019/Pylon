@@ -204,10 +204,19 @@ class BaseTrainer(ABC):
         for idx in range(self.tot_epochs):
             epoch_dir = os.path.join(self.work_dir, f"epoch_{idx}")
 
-            if not check_epoch_finished(
+            # Check if epoch is finished (has expected files)
+            epoch_finished = check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=self.expected_files,
-            ):
+            )
+
+            # For interval-based checkpoints, also require checkpoint if this epoch should have one
+            checkpoint_method = self.config.get('checkpoint_method', 'latest')
+            if isinstance(checkpoint_method, int) and checkpoint_method > 0:
+                if idx in self.checkpoint_indices:
+                    epoch_finished = epoch_finished and os.path.isfile(os.path.join(epoch_dir, "checkpoint.pt"))
+
+            if not epoch_finished:
                 break
 
             if os.path.isfile(os.path.join(epoch_dir, "checkpoint.pt")):
@@ -745,8 +754,8 @@ class BaseTrainer(ABC):
     def _init_components_(self) -> None:
         self._init_logger()
         self._init_determinism()
-        self._init_state()
         self._init_checkpoint_indices()
+        self._init_state()
         self._init_dataloaders()
         self._init_criterion()
         self._init_metric()
