@@ -7,41 +7,43 @@ Following CLAUDE.md testing patterns:
 """
 import pytest
 from agents.tracker.base_tracker import BaseTracker
+from agents.tracker.trainer_tracker import TrainerTracker
+from agents.tracker.evaluator_tracker import EvaluatorTracker
 
 
 # ============================================================================
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
-def test_base_progress_tracker_trainer_input_validation(TrainerProgressTrackerForTesting):
+def test_base_tracker_trainer_input_validation():
     """Test input validation during TrainerTracker initialization."""
     # Test invalid work_dir type
     with pytest.raises(AssertionError) as exc_info:
-        TrainerProgressTrackerForTesting(123)  # Integer instead of string
+        TrainerTracker(123)  # Integer instead of string
     assert "work_dir must be str" in str(exc_info.value)
     
     # Test nonexistent work_dir
     nonexistent_dir = "/this/path/does/not/exist"
     with pytest.raises(AssertionError) as exc_info:
-        TrainerProgressTrackerForTesting(nonexistent_dir)
+        TrainerTracker(nonexistent_dir)
     assert "work_dir does not exist" in str(exc_info.value)
 
 
-def test_base_progress_tracker_evaluator_input_validation(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_input_validation():
     """Test input validation during EvaluatorTracker initialization."""
     # Test invalid work_dir type
     with pytest.raises(AssertionError) as exc_info:
-        EvaluatorProgressTrackerForTesting(123)  # Integer instead of string
+        EvaluatorTracker(123)  # Integer instead of string
     assert "work_dir must be str" in str(exc_info.value)
     
     # Test nonexistent work_dir
     nonexistent_dir = "/this/path/does/not/exist"
     with pytest.raises(AssertionError) as exc_info:
-        EvaluatorProgressTrackerForTesting(nonexistent_dir)
+        EvaluatorTracker(nonexistent_dir)
     assert "work_dir does not exist" in str(exc_info.value)
 
 
-def test_base_progress_tracker_abstract_methods_must_be_implemented():
+def test_base_tracker_abstract_methods_must_be_implemented():
     """Test that abstract methods must be implemented by subclasses."""
     
     # Test that we can't instantiate BaseTracker directly

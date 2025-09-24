@@ -18,11 +18,12 @@ from agents.tracker.base_tracker import ProgressInfo
 # TESTS FOR BaseTracker - INITIALIZATION
 # ============================================================================
 
-def test_base_progress_tracker_trainer_initialization_with_config(TrainerProgressTrackerForTesting):
+def test_base_tracker_trainer_initialization_with_config():
     """Test BaseTracker initialization with config for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'test_model'}
-        tracker = TrainerProgressTrackerForTesting(work_dir, config)
+        from agents.tracker.trainer_tracker import TrainerTracker
+        tracker = TrainerTracker(work_dir, config)
         
         assert tracker.work_dir == work_dir
         assert tracker.config == config
@@ -30,11 +31,12 @@ def test_base_progress_tracker_trainer_initialization_with_config(TrainerProgres
         assert tracker._cache_time is None
 
 
-def test_base_progress_tracker_evaluator_initialization_with_config(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_initialization_with_config():
     """Test BaseTracker initialization with config for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'test_model'}
-        tracker = EvaluatorProgressTrackerForTesting(work_dir, config)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir, config)
         
         assert tracker.work_dir == work_dir
         assert tracker.config == config
@@ -42,10 +44,11 @@ def test_base_progress_tracker_evaluator_initialization_with_config(EvaluatorPro
         assert tracker._cache_time is None
 
 
-def test_base_progress_tracker_trainer_initialization_without_config(TrainerProgressTrackerForTesting):
+def test_base_tracker_trainer_initialization_without_config():
     """Test BaseTracker initialization without config for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
-        tracker = TrainerProgressTrackerForTesting(work_dir)
+        from agents.tracker.trainer_tracker import TrainerTracker
+        tracker = TrainerTracker(work_dir)
         
         assert tracker.work_dir == work_dir
         assert tracker.config is None
@@ -53,10 +56,11 @@ def test_base_progress_tracker_trainer_initialization_without_config(TrainerProg
         assert tracker._cache_time is None
 
 
-def test_base_progress_tracker_evaluator_initialization_without_config(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_initialization_without_config():
     """Test BaseTracker initialization without config for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
-        tracker = EvaluatorProgressTrackerForTesting(work_dir)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir)
         
         assert tracker.work_dir == work_dir
         assert tracker.config is None
@@ -68,13 +72,14 @@ def test_base_progress_tracker_evaluator_initialization_without_config(Evaluator
 # TESTS FOR BaseTracker - CACHING MECHANISM
 # ============================================================================
 
-def test_base_progress_tracker_trainer_caching_basic(TrainerProgressTrackerForTesting, create_progress_json):
+def test_base_tracker_trainer_caching_basic(create_progress_json):
     """Test basic caching functionality for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create progress.json for fast path
         create_progress_json(work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerProgressTrackerForTesting(work_dir)
+        from agents.tracker.trainer_tracker import TrainerTracker
+        tracker = TrainerTracker(work_dir)
         
         # First call should calculate and cache
         progress1 = tracker.get_progress()
@@ -87,7 +92,7 @@ def test_base_progress_tracker_trainer_caching_basic(TrainerProgressTrackerForTe
         assert progress2 == progress1
 
 
-def test_base_progress_tracker_evaluator_caching_basic(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_caching_basic():
     """Test basic caching functionality for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for completed evaluation
@@ -96,7 +101,8 @@ def test_base_progress_tracker_evaluator_caching_basic(EvaluatorProgressTrackerF
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorProgressTrackerForTesting(work_dir)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir)
         
         # First call should calculate and cache
         progress1 = tracker.get_progress()
@@ -109,7 +115,7 @@ def test_base_progress_tracker_evaluator_caching_basic(EvaluatorProgressTrackerF
         assert progress2 == progress1
 
 
-def test_base_progress_tracker_trainer_force_progress_recompute(TrainerProgressTrackerForTesting, create_progress_json, create_epoch_files, create_real_config):
+def test_base_tracker_trainer_force_progress_recompute(create_progress_json, create_epoch_files, create_real_config):
     """Test force progress recompute bypasses cache for TrainerTracker."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -123,7 +129,8 @@ def test_base_progress_tracker_trainer_force_progress_recompute(TrainerProgressT
         # Create outdated progress.json showing 2 epochs
         create_progress_json(work_dir, completed_epochs=2, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerProgressTrackerForTesting(work_dir)
+        from agents.tracker.trainer_tracker import TrainerTracker
+        tracker = TrainerTracker(work_dir)
         
         # First call - should return cached result
         progress1 = tracker.get_progress()
@@ -153,11 +160,12 @@ def test_base_progress_tracker_trainer_force_progress_recompute(TrainerProgressT
             os.chdir(original_cwd)
 
 
-def test_base_progress_tracker_evaluator_force_progress_recompute(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_force_progress_recompute():
     """Test force progress recompute bypasses cache for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Start with no evaluation file (incomplete)
-        tracker = EvaluatorProgressTrackerForTesting(work_dir)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir)
         
         # First call - should show incomplete
         progress1 = tracker.get_progress()
@@ -178,14 +186,15 @@ def test_base_progress_tracker_evaluator_force_progress_recompute(EvaluatorProgr
         assert progress3.completed_epochs == 1  # New result - now complete
 
 
-def test_base_progress_tracker_trainer_cache_timeout(TrainerProgressTrackerForTesting, create_progress_json):
+def test_base_tracker_trainer_cache_timeout(create_progress_json):
     """Test that cache expires after timeout for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create initial progress.json
         create_progress_json(work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100)
         
         # Use very short cache timeout for testing
-        tracker = TrainerProgressTrackerForTesting(work_dir)
+        from agents.tracker.trainer_tracker import TrainerTracker
+        tracker = TrainerTracker(work_dir)
         tracker._cache_timeout = 0.1  # 100ms
         
         # First call
@@ -203,11 +212,12 @@ def test_base_progress_tracker_trainer_cache_timeout(TrainerProgressTrackerForTe
         assert progress2.completed_epochs == 30
 
 
-def test_base_progress_tracker_evaluator_cache_timeout(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_cache_timeout():
     """Test that cache expires after timeout for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Use very short cache timeout for testing
-        tracker = EvaluatorProgressTrackerForTesting(work_dir)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir)
         tracker._cache_timeout = 0.1  # 100ms
         
         # First call - no evaluation file (incomplete)
@@ -232,7 +242,7 @@ def test_base_progress_tracker_evaluator_cache_timeout(EvaluatorProgressTrackerF
 # TESTS FOR BaseTracker - PROGRESS.JSON HANDLING
 # ============================================================================
 
-def test_base_progress_tracker_trainer_saves_progress_json(TrainerProgressTrackerForTesting, create_epoch_files, create_real_config):
+def test_base_tracker_trainer_saves_progress_json(create_epoch_files, create_real_config):
     """Test that get_progress saves progress.json file for TrainerTracker."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -255,7 +265,8 @@ def test_base_progress_tracker_trainer_saves_progress_json(TrainerProgressTracke
         os.chdir(temp_root)
         
         try:
-            tracker = TrainerProgressTrackerForTesting(work_dir)
+            from agents.tracker.trainer_tracker import TrainerTracker
+            tracker = TrainerTracker(work_dir)
             
             # Get progress
             progress = tracker.get_progress()
@@ -279,7 +290,7 @@ def test_base_progress_tracker_trainer_saves_progress_json(TrainerProgressTracke
             os.chdir(original_cwd)
 
 
-def test_base_progress_tracker_evaluator_saves_progress_json(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_saves_progress_json():
     """Test that get_progress saves progress.json file for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for completed evaluation
@@ -288,7 +299,8 @@ def test_base_progress_tracker_evaluator_saves_progress_json(EvaluatorProgressTr
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorProgressTrackerForTesting(work_dir)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir)
         
         # Get progress
         progress = tracker.get_progress()
@@ -316,13 +328,14 @@ def test_base_progress_tracker_evaluator_saves_progress_json(EvaluatorProgressTr
 # TESTS FOR BaseTracker - ABSTRACT METHOD CONTRACTS
 # ============================================================================
 
-def test_base_progress_tracker_trainer_implementation_contracts(TrainerProgressTrackerForTesting, create_progress_json):
+def test_base_tracker_trainer_implementation_contracts(create_progress_json):
     """Test that TrainerTracker follows expected contracts."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create progress.json for realistic test
         create_progress_json(work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerProgressTrackerForTesting(work_dir)
+        from agents.tracker.trainer_tracker import TrainerTracker
+        tracker = TrainerTracker(work_dir)
         
         # Test abstract method implementations
         assert tracker.get_runner_type() == 'trainer'
@@ -342,7 +355,7 @@ def test_base_progress_tracker_trainer_implementation_contracts(TrainerProgressT
         assert progress.runner_type == 'trainer'
 
 
-def test_base_progress_tracker_evaluator_implementation_contracts(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_implementation_contracts():
     """Test that EvaluatorTracker follows expected contracts."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for realistic test
@@ -351,7 +364,8 @@ def test_base_progress_tracker_evaluator_implementation_contracts(EvaluatorProgr
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorProgressTrackerForTesting(work_dir)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir)
         
         # Test abstract method implementations
         assert tracker.get_runner_type() == 'evaluator'
@@ -375,7 +389,7 @@ def test_base_progress_tracker_evaluator_implementation_contracts(EvaluatorProgr
 # TESTS FOR BaseTracker - EDGE CASES
 # ============================================================================
 
-def test_base_progress_tracker_progress_info_dataclass():
+def test_base_tracker_progress_info_dataclass():
     """Test ProgressInfo dataclass behavior."""
     # Test creation with all fields
     progress = ProgressInfo(
@@ -420,7 +434,7 @@ def test_base_progress_tracker_progress_info_dataclass():
 # Note: Runner type variations are tested via separate TrainerTracker and EvaluatorTracker tests
 
 
-def test_base_progress_tracker_trainer_deterministic_behavior(TrainerProgressTrackerForTesting, create_epoch_files, create_real_config):
+def test_base_tracker_trainer_deterministic_behavior(create_epoch_files, create_real_config):
     """Test that TrainerTracker behavior is deterministic."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -443,7 +457,8 @@ def test_base_progress_tracker_trainer_deterministic_behavior(TrainerProgressTra
         os.chdir(temp_root)
         
         try:
-            tracker = TrainerProgressTrackerForTesting(work_dir)
+            from agents.tracker.trainer_tracker import TrainerTracker
+            tracker = TrainerTracker(work_dir)
             
             # Multiple calls should give same result
             results = []
@@ -460,7 +475,7 @@ def test_base_progress_tracker_trainer_deterministic_behavior(TrainerProgressTra
             os.chdir(original_cwd)
 
 
-def test_base_progress_tracker_evaluator_deterministic_behavior(EvaluatorProgressTrackerForTesting):
+def test_base_tracker_evaluator_deterministic_behavior():
     """Test that EvaluatorTracker behavior is deterministic."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for consistent results
@@ -469,7 +484,8 @@ def test_base_progress_tracker_evaluator_deterministic_behavior(EvaluatorProgres
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorProgressTrackerForTesting(work_dir)
+        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        tracker = EvaluatorTracker(work_dir)
         
         # Multiple calls should give same result
         results = []
