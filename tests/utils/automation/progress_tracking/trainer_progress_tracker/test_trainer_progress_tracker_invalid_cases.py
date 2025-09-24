@@ -9,8 +9,8 @@ import os
 import tempfile
 import json
 import pytest
-from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
-from utils.automation.progress_tracking.base_progress_tracker import ProgressInfo
+from agents.tracker.trainer_progress_tracker import TrainerProgressTracker
+from agents.tracker.base_progress_tracker import ProgressInfo
 
 
 # ============================================================================
