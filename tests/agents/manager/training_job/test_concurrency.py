@@ -88,7 +88,7 @@ def test_reader_writer_conflict_resolution(create_progress_json, EXPECTED_FILES)
         def reader_thread():
             for _ in range(5):
                 try:
-                    progress = get_session_progress(work_dir, expected_files)
+                    progress = TrainingJob.get_session_progress(work_dir, expected_files)
                     results["reads"].append(progress.completed_epochs)
                     time.sleep(0.01)  # Small delay to increase chance of conflicts
                 except Exception as e:
@@ -308,7 +308,7 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
             
             def force_recompute_thread(thread_id):
                 for i in range(3):
-                    progress = get_session_progress(work_dir, expected_files, force_progress_recompute=True)
+                    progress = TrainingJob.get_session_progress(work_dir, expected_files, force_progress_recompute=True)
                     results.append((thread_id, i, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase interleaving
             
@@ -358,15 +358,13 @@ def test_mixed_tracker_types_concurrent_access():
         
         def trainer_worker():
             for i in range(5):
-                tracker = TrainerTracker(trainer_dir)
-                progress = tracker.get_progress()
+                progress = TrainingJob.get_session_progress(trainer_dir, TrainingJob.get_expected_files())
                 results.append(("trainer", progress.completed_epochs))
                 time.sleep(0.01)
         
         def evaluator_worker():
             for i in range(5):
-                tracker = EvaluatorTracker(evaluator_dir)
-                progress = tracker.get_progress()
+                progress = EvaluationJob.calculate_progress(evaluator_dir, config=None)
                 results.append(("evaluator", progress.completed_epochs))
                 time.sleep(0.01)
         
