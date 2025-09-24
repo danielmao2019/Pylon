@@ -18,7 +18,7 @@ from agents.tracker.evaluator_tracker import EvaluatorTracker
 # TESTS FOR EvaluatorTracker - BASIC FUNCTIONALITY
 # ============================================================================
 
-def test_evaluator_progress_tracker_initialization():
+def test_evaluator_tracker_initialization():
     """Test that EvaluatorTracker initializes correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'some_config': 'value'}
@@ -31,7 +31,7 @@ def test_evaluator_progress_tracker_initialization():
         assert tracker.get_log_pattern() == "eval_*.log"
 
 
-def test_evaluator_progress_tracker_initialization_no_config():
+def test_evaluator_tracker_initialization_no_config():
     """Test initialization without config."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = EvaluatorTracker(work_dir)
@@ -45,7 +45,7 @@ def test_evaluator_progress_tracker_initialization_no_config():
 # TESTS FOR EvaluatorTracker - PROGRESS CALCULATION
 # ============================================================================
 
-def test_evaluator_progress_tracker_complete_evaluation():
+def test_evaluator_tracker_complete_evaluation():
     """Test progress calculation when evaluation is complete."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json (complete evaluation)
@@ -71,7 +71,7 @@ def test_evaluator_progress_tracker_complete_evaluation():
         assert progress.early_stopped_at_epoch is None
 
 
-def test_evaluator_progress_tracker_incomplete_evaluation():
+def test_evaluator_tracker_incomplete_evaluation():
     """Test progress calculation when evaluation is not complete."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty work directory (no evaluation_scores.json)
@@ -88,7 +88,7 @@ def test_evaluator_progress_tracker_incomplete_evaluation():
         assert progress.early_stopped_at_epoch is None
 
 
-def test_evaluator_progress_tracker_empty_evaluation_file():
+def test_evaluator_tracker_empty_evaluation_file():
     """Test progress calculation with empty evaluation file."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create empty evaluation_scores.json
@@ -104,7 +104,7 @@ def test_evaluator_progress_tracker_empty_evaluation_file():
         assert progress.progress_percentage == 0.0
 
 
-def test_evaluator_progress_tracker_malformed_evaluation_file():
+def test_evaluator_tracker_malformed_evaluation_file():
     """Test that malformed evaluation file is treated as incomplete."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create malformed evaluation_scores.json
@@ -124,7 +124,7 @@ def test_evaluator_progress_tracker_malformed_evaluation_file():
 # TESTS FOR EvaluatorTracker - FILE CHECKING
 # ============================================================================
 
-def test_evaluator_progress_tracker_check_files_exist_valid():
+def test_evaluator_tracker_check_files_exist_valid():
     """Test _check_files_exist with valid evaluation file."""
     with tempfile.TemporaryDirectory() as work_dir:
         eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
@@ -135,7 +135,7 @@ def test_evaluator_progress_tracker_check_files_exist_valid():
         assert tracker._check_files_exist() == True
 
 
-def test_evaluator_progress_tracker_check_files_exist_missing():
+def test_evaluator_tracker_check_files_exist_missing():
     """Test _check_files_exist with missing evaluation file."""
     with tempfile.TemporaryDirectory() as work_dir:
         # No evaluation_scores.json file
@@ -144,7 +144,7 @@ def test_evaluator_progress_tracker_check_files_exist_missing():
         assert tracker._check_files_exist() == False
 
 
-def test_evaluator_progress_tracker_check_files_exist_empty():
+def test_evaluator_tracker_check_files_exist_empty():
     """Test _check_files_exist with empty evaluation file."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create empty file
@@ -160,7 +160,7 @@ def test_evaluator_progress_tracker_check_files_exist_empty():
 # TESTS FOR EvaluatorTracker - CACHING
 # ============================================================================
 
-def test_evaluator_progress_tracker_caching():
+def test_evaluator_tracker_caching():
     """Test that progress caching works correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
         eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
@@ -182,7 +182,7 @@ def test_evaluator_progress_tracker_caching():
         assert progress3.completed_epochs == 1  # Same result but forced recalculation
 
 
-def test_evaluator_progress_tracker_progress_json_creation():
+def test_evaluator_tracker_progress_json_creation():
     """Test that progress.json is created with correct format."""
     with tempfile.TemporaryDirectory() as work_dir:
         eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
@@ -212,7 +212,7 @@ def test_evaluator_progress_tracker_progress_json_creation():
 # TESTS FOR EvaluatorTracker - DETERMINISM
 # ============================================================================
 
-def test_evaluator_progress_tracker_deterministic():
+def test_evaluator_tracker_deterministic():
     """Test that progress calculation is deterministic across multiple calls."""
     with tempfile.TemporaryDirectory() as work_dir:
         eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
@@ -237,7 +237,7 @@ def test_evaluator_progress_tracker_deterministic():
 # TESTS FOR EvaluatorTracker - EDGE CASES
 # ============================================================================
 
-def test_evaluator_progress_tracker_evaluation_with_subdirectories():
+def test_evaluator_tracker_evaluation_with_subdirectories():
     """Test that tracker works when work_dir has subdirectories."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create subdirectories (should be ignored)
@@ -262,7 +262,7 @@ def test_evaluator_progress_tracker_evaluation_with_subdirectories():
 # TESTS FOR EvaluatorTracker - INTEGRATION
 # ============================================================================
 
-def test_evaluator_progress_tracker_with_config():
+def test_evaluator_tracker_with_config():
     """Test evaluator tracker with various config values."""
     with tempfile.TemporaryDirectory() as work_dir:
         eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}

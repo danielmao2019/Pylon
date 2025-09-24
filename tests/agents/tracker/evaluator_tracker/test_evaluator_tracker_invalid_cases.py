@@ -12,7 +12,7 @@ from agents.tracker.evaluator_tracker import EvaluatorTracker
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
-def test_evaluator_progress_tracker_nonexistent_work_dir():
+def test_evaluator_tracker_nonexistent_work_dir():
     """Test initialization with nonexistent work directory."""
     nonexistent_dir = "/this/path/does/not/exist"
     
@@ -22,7 +22,7 @@ def test_evaluator_progress_tracker_nonexistent_work_dir():
     assert "work_dir does not exist" in str(exc_info.value)
 
 
-def test_evaluator_progress_tracker_invalid_work_dir_type():
+def test_evaluator_tracker_invalid_work_dir_type():
     """Test initialization with invalid work_dir type."""
     with pytest.raises(AssertionError) as exc_info:
         EvaluatorTracker(123)  # Integer instead of string
