@@ -23,7 +23,6 @@ class BaseJob:
 
     def __init__(
         self,
-        *,
         config: str,
         work_dir: str,
         progress: ProgressInfo,
