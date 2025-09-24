@@ -1,5 +1,5 @@
 """
-Integration tests for run_status functionality with enhanced ProgressInfo and ProcessInfo.
+Integration tests for job_status functionality with enhanced ProgressInfo and ProcessInfo.
 Focus on realistic testing with minimal mocking for end-to-end scenarios.
 
 Following CLAUDE.md testing patterns:
@@ -23,7 +23,7 @@ from utils.automation.progress_tracking import ProgressInfo
 # ============================================================================
 
 def test_integration_full_pipeline(setup_realistic_experiment_structure):
-    """Integration test for the complete enhanced run_status pipeline with minimal mocking."""
+    """Integration test for the complete enhanced job_status pipeline with minimal mocking."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiments with different states
         experiments = [

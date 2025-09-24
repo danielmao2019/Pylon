@@ -1,5 +1,5 @@
 """
-Test run_status functionality with enhanced ProgressInfo and ProcessInfo integration.
+Test job_status functionality with enhanced ProgressInfo and ProcessInfo integration.
 Focus on realistic testing with minimal mocking for individual function testing.
 
 Following CLAUDE.md testing patterns:
@@ -127,7 +127,7 @@ def test_get_job_status_with_process_info(create_epoch_files, create_real_config
     ("stuck", "stuck"),          # Running on GPU but no log updates  
     ("failed", "failed"),        # No log updates, not on GPU
 ])
-def test_run_status_determination(status_scenario, expected_status, create_epoch_files, create_real_config):
+def test_job_status_determination(status_scenario, expected_status, create_epoch_files, create_real_config):
     """Test different run status determination scenarios with realistic data."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
