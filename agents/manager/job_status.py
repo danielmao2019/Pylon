@@ -6,9 +6,9 @@ import time
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.monitor.system_monitor import SystemMonitor
-from utils.monitor.gpu_status import GPUStatus
-from utils.monitor.process_info import ProcessInfo
+from agents.monitor.system_monitor import SystemMonitor
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.process_info import ProcessInfo
 from agents.tracker import ProgressInfo, create_tracker
 from utils.io.config import load_config
 

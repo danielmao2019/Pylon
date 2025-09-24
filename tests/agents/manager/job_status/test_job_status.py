@@ -21,8 +21,8 @@ from agents.manager import (
     _build_config_to_process_mapping,
     JobStatus,
 )
-from utils.monitor.gpu_status import GPUStatus
-from utils.monitor.process_info import ProcessInfo
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.process_info import ProcessInfo
 from agents.tracker import ProgressInfo
 
 

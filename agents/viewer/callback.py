@@ -3,7 +3,7 @@ import datetime
 from dash import Input, Output
 from agents.viewer.backend import get_progress
 from agents.viewer.layout import generate_table_data, generate_table_style
-from utils.monitor.system_monitor import SystemMonitor
+from agents.monitor.system_monitor import SystemMonitor
 
 
 def register_callbacks(

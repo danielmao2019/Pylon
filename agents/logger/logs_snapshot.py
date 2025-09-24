@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 import os
 import json
 from datetime import datetime
-from utils.monitor.system_monitor import SystemMonitor
+from agents.monitor.system_monitor import SystemMonitor
 from agents.manager import get_all_job_status
 from utils.io.json import serialize_object
 

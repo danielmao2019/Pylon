@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 import datetime
 from dash import dcc, html, dash_table
 from agents.viewer.backend import get_progress
-from utils.monitor.system_monitor import SystemMonitor
+from agents.monitor.system_monitor import SystemMonitor
 
 
 def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str]) -> List[Dict[str, Any]]:
