@@ -1,8 +1,8 @@
 from typing import List, Dict
 import queue
 import threading
-from utils.ssh.connector import SSHConnector, LocalhostConnector
-from utils.ssh.error import SSHCommandError
+from agents.connector.connector import SSHConnector, LocalhostConnector
+from agents.connector.error import SSHCommandError
 
 
 class SSHConnectionPool:

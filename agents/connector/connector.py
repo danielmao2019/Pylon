@@ -2,8 +2,8 @@ from typing import List
 import subprocess
 import threading
 import paramiko
-from utils.ssh.error import SSHCommandError
-from utils.ssh.result import SSHResult, LocalhostResult
+from agents.connector.error import SSHCommandError
+from agents.connector.result import SSHResult, LocalhostResult
 
 
 class SSHConnector:

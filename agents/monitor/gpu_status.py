@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, asdict, field
 from agents.monitor.process_info import ProcessInfo, get_all_processes
-from utils.ssh.pool import SSHConnectionPool
+from agents.connector.pool import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
