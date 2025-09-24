@@ -8,7 +8,7 @@ Following CLAUDE.md testing patterns:
 import os
 import tempfile
 import pytest
-from agents.tracker.tracker_factory import create_progress_tracker
+from agents.tracker.tracker_factory import create_tracker
 
 
 # ============================================================================
@@ -27,7 +27,7 @@ def test_create_progress_tracker_config_epochs_field():
         
         # Should fail fast with clear assertion error
         with pytest.raises(AssertionError, match="Config must have 'runner' key"):
-            create_progress_tracker(work_dir, config)
+            create_tracker(work_dir, config)
 
 
 def test_create_progress_tracker_fail_fast_no_patterns():
@@ -38,7 +38,7 @@ def test_create_progress_tracker_fail_fast_no_patterns():
             f.write("irrelevant content")
         
         with pytest.raises(ValueError) as exc_info:
-            create_progress_tracker(work_dir)
+            create_tracker(work_dir)
         
         error_msg = str(exc_info.value)
         assert "Unable to detect runner type" in error_msg
@@ -52,7 +52,7 @@ def test_create_progress_tracker_fail_fast_nonexistent_directory():
     nonexistent_dir = "/this/path/does/not/exist"
     
     with pytest.raises(ValueError) as exc_info:
-        create_progress_tracker(nonexistent_dir)
+        create_tracker(nonexistent_dir)
     
     error_msg = str(exc_info.value)
     assert "Unable to detect runner type" in error_msg
@@ -69,7 +69,7 @@ def test_create_progress_tracker_invalid_config():
         }
         
         with pytest.raises(ValueError) as exc_info:
-            create_progress_tracker(work_dir, config)
+            create_tracker(work_dir, config)
         
         assert "Unable to detect runner type" in str(exc_info.value)
 
@@ -84,4 +84,4 @@ def test_create_progress_tracker_config_string_class_name():
         }
         
         with pytest.raises(AssertionError, match="Expected runner to be a class"):
-            create_progress_tracker(work_dir, config)
+            create_tracker(work_dir, config)

@@ -6,7 +6,7 @@ Following CLAUDE.md testing patterns:
 - Abstract method contract testing
 """
 import pytest
-from agents.tracker.base_tracker import BaseProgressTracker
+from agents.tracker.base_tracker import BaseTracker
 
 
 # ============================================================================
@@ -44,12 +44,12 @@ def test_base_progress_tracker_evaluator_input_validation(EvaluatorProgressTrack
 def test_base_progress_tracker_abstract_methods_must_be_implemented():
     """Test that abstract methods must be implemented by subclasses."""
     
-    # Test that we can't instantiate BaseProgressTracker directly
+    # Test that we can't instantiate BaseTracker directly
     with pytest.raises(TypeError):
-        BaseProgressTracker("/tmp")  # Should fail - abstract class
+        BaseTracker("/tmp")  # Should fail - abstract class
     
     # Test that incomplete implementation fails
-    class IncompleteTracker(BaseProgressTracker):
+    class IncompleteTracker(BaseTracker):
         def get_runner_type(self):
             return 'trainer'
         # Missing other abstract methods
