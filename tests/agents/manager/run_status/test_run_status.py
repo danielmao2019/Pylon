@@ -208,7 +208,8 @@ def test_get_all_run_status_returns_mapping(create_real_config, create_epoch_fil
                 create_epoch_files(work_dir, epoch_idx)
         
         # Create minimal SystemMonitor mock (only necessary mock)
-        connected_gpus_data = [{'server': 'test_server', 'index': 0, 'processes': []}]
+        from utils.monitor.gpu_status import GPUStatus
+        connected_gpus_data = [GPUStatus(server='test_server', index=0, max_memory=0, processes=[], connected=True)]
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
         
         original_cwd = os.getcwd()
