@@ -36,13 +36,13 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         status.cpu_cores = info['cpu_cores']
         status.processes = info['processes'] or []
 
-        current_memory = info.get('current_memory')
+        current_memory = info['current_memory']
         if current_memory is not None:
             status.memory_window.append(current_memory)
 
-        status.cpu_window.append(info.get('current_cpu'))
+        status.cpu_window.append(info['current_cpu'])
 
-        current_load = info.get('current_load')
+        current_load = info['current_load']
         if current_load is not None:
             status.load_window.append(current_load)
 

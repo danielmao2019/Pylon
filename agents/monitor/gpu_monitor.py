@@ -43,8 +43,8 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
             status.util_window.clear()
 
         status.connected = True
-        status.max_memory = info['max_memory'] or 0
-        status.processes = info['processes'] or []
+        status.max_memory = info['max_memory'] if info['max_memory'] is not None else 0
+        status.processes = info['processes'] if info['processes'] is not None else []
 
         status.memory_window.append(info['current_memory'])
         status.util_window.append(info['current_util'])
