@@ -6,8 +6,6 @@ for agent-related tests.
 """
 import os
 import tempfile
-import sys
-from pathlib import Path
 import pytest
 
 # ============================================================================
