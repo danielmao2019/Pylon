@@ -11,7 +11,7 @@ import tempfile
 import json
 import pytest
 from agents.manager.progress_info import ProgressInfo
-from agents.manager.training_job import TrainingJob as TrainerTracker
+from agents.manager.training_job import TrainingJob
 
 # ============================================================================
 # TESTS FOR TrainerTracker - BASIC FUNCTIONALITY
@@ -20,8 +20,8 @@ from agents.manager.training_job import TrainingJob as TrainerTracker
 def test_trainer_tracker_initialization():
     """Test that TrainerTracker initializes correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
-        assert TrainerTracker.get_expected_files() == ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-        assert TrainerTracker.get_log_pattern() == "train_val*.log"
+        assert TrainingJob.get_expected_files() == ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        assert TrainingJob.get_log_pattern() == "train_val*.log"
 
 
 def test_trainer_tracker_initialization_no_config():
@@ -29,7 +29,7 @@ def test_trainer_tracker_initialization_no_config():
     with tempfile.TemporaryDirectory() as work_dir:
         # API moved to classmethods; smoke check by calling calculate_progress with minimal config
         # No config file present; just ensure classmethods exist
-        progress = TrainerTracker.calculate_progress(work_dir, config={'epochs': 0})
+        progress = TrainingJob.calculate_progress(work_dir, config={'epochs': 0})
         assert progress.runner_type == 'trainer'
 
 
@@ -45,7 +45,7 @@ def test_trainer_tracker_fast_path_normal_run(create_progress_json):
         # Create existing progress.json for normal run (57/100 epochs)
         create_progress_json(work_dir, completed_epochs=57, early_stopped=False, tot_epochs=100)
         
-        progress = TrainerTracker.calculate_progress(work_dir, config)
+        progress = TrainingJob.calculate_progress(work_dir, config)
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'trainer'
@@ -66,7 +66,7 @@ def test_trainer_tracker_fast_path_early_stopped(create_progress_json):
                            early_stopped_at_epoch=57, tot_epochs=100)
         
         # Fast path: use cached progress.json directly to preserve early-stopped metadata
-        progress = TrainerTracker.get_session_progress(work_dir, TrainerTracker.get_expected_files())
+        progress = TrainingJob.get_session_progress(work_dir, TrainingJob.get_expected_files())
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'trainer'
@@ -85,7 +85,7 @@ def test_trainer_tracker_no_config_epochs(create_progress_json):
         # Create existing progress.json
         create_progress_json(work_dir, completed_epochs=30, early_stopped=False, tot_epochs=100)
         
-        progress = TrainerTracker.calculate_progress(work_dir, config)
+        progress = TrainingJob.calculate_progress(work_dir, config)
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'trainer'

@@ -9,7 +9,7 @@ import os
 import tempfile
 import json
 import pytest
-from agents.manager.training_job import TrainingJob as TrainerTracker
+from agents.manager.training_job import TrainingJob
 
 
 # ============================================================================
@@ -20,13 +20,13 @@ def test_trainer_tracker_nonexistent_work_dir():
     """Nonexistent directory should lead to ValueError when computing progress."""
     nonexistent_dir = "/this/path/does/not/exist"
     with pytest.raises(Exception):
-        TrainerTracker.get_session_progress(nonexistent_dir, TrainerTracker.get_expected_files())
+        TrainingJob.get_session_progress(nonexistent_dir, TrainingJob.get_expected_files())
 
 
 def test_trainer_tracker_invalid_work_dir_type():
     """Invalid work_dir type should raise via path handling when computing progress."""
     with pytest.raises(Exception):
-        TrainerTracker.get_session_progress(123, TrainerTracker.get_expected_files())  # type: ignore[arg-type]
+        TrainingJob.get_session_progress(123, TrainingJob.get_expected_files())  # type: ignore[arg-type]
 
 
 def test_trainer_tracker_malformed_progress_json(create_real_config):
@@ -59,6 +59,6 @@ def test_trainer_tracker_malformed_progress_json(create_real_config):
         try:
             # Malformed JSON should raise exception since file exists but is malformed
             with pytest.raises(Exception):
-                TrainerTracker.get_session_progress(work_dir, TrainerTracker.get_expected_files())
+                TrainingJob.get_session_progress(work_dir, TrainingJob.get_expected_files())
         finally:
             os.chdir(original_cwd)

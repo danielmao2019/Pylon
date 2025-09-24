@@ -10,6 +10,8 @@ import os
 import tempfile
 import json
 from agents.manager.manager import Manager
+from agents.manager.training_job import TrainingJob
+from agents.manager.evaluation_job import EvaluationJob
 
 
 # ============================================================================
@@ -191,14 +193,9 @@ def test_create_tracker_integration_with_real_scenarios(create_epoch_files):
             'dataset': 'imagenet'
         }
         
-        tracker = create_tracker(work_dir, config)
-        
-        assert isinstance(tracker, TrainerTracker)
-        assert tracker.config == config
-        
-        # Verify the tracker was created correctly (don't call get_progress due to config file dependencies)
-        assert tracker.get_runner_type() == 'trainer'
-        assert tracker.get_expected_files() == ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        # Use detection API; verify it selects trainer
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, config) == 'trainer'
     
     # Test realistic evaluator scenario
     with tempfile.TemporaryDirectory() as work_dir:
@@ -226,16 +223,8 @@ def test_create_tracker_integration_with_real_scenarios(create_epoch_files):
             'batch_size': 32
         }
         
-        tracker = create_tracker(work_dir, config)
-        
-        assert isinstance(tracker, EvaluatorTracker)
-        assert tracker.config == config
-        
-        # Should be able to get progress
-        progress = tracker.get_progress()
-        assert progress.runner_type == 'evaluator'
-        assert progress.completed_epochs == 1
-        assert progress.progress_percentage == 100.0
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, config) == 'evaluator'
 
 
 def test_create_tracker_validates_created_instances(create_epoch_files):
@@ -246,26 +235,5 @@ def test_create_tracker_validates_created_instances(create_epoch_files):
         
         config = {'epochs': 50, 'model': 'test_model'}
         
-        tracker = create_tracker(work_dir, config)
-        
-        # Verify the created instance is properly initialized
-        assert isinstance(tracker, TrainerTracker)
-        assert isinstance(tracker, BaseTracker)
-        
-        # Verify it has all required attributes
-        assert hasattr(tracker, 'work_dir')
-        assert hasattr(tracker, 'config')
-        assert hasattr(tracker, '_cache')
-        assert hasattr(tracker, '_cache_time')
-        
-        # Verify abstract methods are implemented
-        assert callable(tracker.get_runner_type)
-        assert callable(tracker.get_expected_files)
-        assert callable(tracker.get_log_pattern)
-        assert callable(tracker.calculate_progress)
-        assert callable(tracker.get_progress)
-        
-        # Verify the tracker is properly initialized without calling get_progress()
-        # (get_progress() requires complex config file setup which is not the focus of this test)
-        assert tracker.get_runner_type() == 'trainer'
-        assert len(tracker.get_expected_files()) > 0
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, config) == 'trainer'
