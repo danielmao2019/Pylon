@@ -10,7 +10,7 @@ from utils.io.json import serialize_object
 class LogsSnapshot:
     """Creates and manages snapshots of logs directory state.
     
-    This class provides a simple wrapper around the enhanced run_status functionality
+    This class provides a simple wrapper around the enhanced job_status functionality
     to create daily snapshots of experiment states for comparison and analysis.
     """
     
@@ -39,7 +39,7 @@ class LogsSnapshot:
         self.snapshot_dir = "./agents/snapshots"
         
     def create_snapshot(self, timestamp: str, system_monitor: SystemMonitor) -> Dict[str, Any]:
-        """Create snapshot of logs directory state using enhanced run_status.
+        """Create snapshot of logs directory state using enhanced job_status.
         
         Args:
             timestamp: Timestamp string for the snapshot
