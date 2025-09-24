@@ -54,22 +54,22 @@ def test_get_job_status_basic_functionality(create_epoch_files, create_real_conf
         
         try:
             # NO MOCKS - use real function with real data structures
-            run_status = get_job_status(
+            job_status = get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
             # Should return JobStatus with enhanced ProgressInfo - JobStatus is now a dataclass
-            assert isinstance(run_status, JobStatus)
-            assert run_status.config == config_path
+            assert isinstance(job_status, JobStatus)
+            assert job_status.config == config_path
             expected_work_dir = "./logs/test_run"  # What get_work_dir actually returns
-            assert run_status.work_dir == expected_work_dir
-            assert isinstance(run_status.progress, ProgressInfo)
-            assert run_status.progress.completed_epochs == 5
-            assert run_status.progress.early_stopped == False
-            assert run_status.status == 'failed'  # No recent log updates, not running on GPU
-            assert run_status.process_info is None  # Not running on GPU
+            assert job_status.work_dir == expected_work_dir
+            assert isinstance(job_status.progress, ProgressInfo)
+            assert job_status.progress.completed_epochs == 5
+            assert job_status.progress.early_stopped == False
+            assert job_status.status == 'failed'  # No recent log updates, not running on GPU
+            assert job_status.process_info is None  # Not running on GPU
             
         finally:
             os.chdir(original_cwd)
@@ -106,16 +106,16 @@ def test_get_job_status_with_process_info(create_epoch_files, create_real_config
         
         try:
             # NO MOCKS - use real function with real data structures
-            run_status = get_job_status(
+            job_status = get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
             # Should show as stuck (running on GPU but no recent log updates)
-            assert run_status.status == 'stuck'
-            assert run_status.process_info == process_info
-            assert run_status.progress.completed_epochs == 3
+            assert job_status.status == 'stuck'
+            assert job_status.process_info == process_info
+            assert job_status.progress.completed_epochs == 3
             
         finally:
             os.chdir(original_cwd)
@@ -171,13 +171,13 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
         
         try:
             # NO MOCKS - use real function with real data
-            run_status = get_run_status(
+            job_status = get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
-            assert run_status.status == expected_status
+            assert job_status.status == expected_status
             
         finally:
             os.chdir(original_cwd)
@@ -353,15 +353,15 @@ def test_get_job_status_invalid_config_path():
         try:
             # The function should handle the missing config when trying to compute progress
             # but since the work_dir exists but is empty, it will return 0 completed epochs
-            run_status = get_job_status(
+            job_status = get_job_status(
                 config=invalid_config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
             # Should return failed status for invalid config
-            assert run_status.status == 'failed'
-            assert run_status.process_info is None
+            assert job_status.status == 'failed'
+            assert job_status.process_info is None
             
         except FileNotFoundError:
             # If the config path resolution fails, that's also acceptable behavior
