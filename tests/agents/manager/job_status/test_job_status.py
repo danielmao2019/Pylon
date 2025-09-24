@@ -12,18 +12,18 @@ from typing import Dict, Any
 import os
 import tempfile
 import pytest
-from agents.manager import BaseJob
+from agents.manager import BaseJob, Manager
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
 from agents.tracker import ProgressInfo
 
 
 # ============================================================================
-# TESTS FOR get_job_status (REALISTIC - MINIMAL MOCKING)
+# TESTS FOR BaseJob.build (REALISTIC - MINIMAL MOCKING)
 # ============================================================================
 
-def test_get_job_status_basic_functionality(create_epoch_files, create_real_config):
-    """Test basic get_job_status functionality with enhanced return type."""
+def test_base_job_build_basic_functionality(create_epoch_files, create_real_config):
+    """Test BaseJob.build basic functionality with enhanced return type."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -46,7 +46,7 @@ def test_get_job_status_basic_functionality(create_epoch_files, create_real_conf
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = BaseJob.get_job_status(
+            job_status = BaseJob.build(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
@@ -67,8 +67,8 @@ def test_get_job_status_basic_functionality(create_epoch_files, create_real_conf
             os.chdir(original_cwd)
 
 
-def test_get_job_status_with_process_info(create_epoch_files, create_real_config):
-    """Test get_job_status when experiment is running on GPU."""
+def test_base_job_build_with_process_info(create_epoch_files, create_real_config):
+    """Test BaseJob.build when experiment is running on GPU."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -98,7 +98,7 @@ def test_get_job_status_with_process_info(create_epoch_files, create_real_config
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = BaseJob.get_job_status(
+            job_status = BaseJob.build(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
@@ -163,7 +163,7 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
         
         try:
             # NO MOCKS - use real function with real data
-            job_status = BaseJob.get_job_status(
+            job_status = BaseJob.build(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
@@ -176,11 +176,11 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
 
 
 # ============================================================================
-# TESTS FOR get_all_job_status (REALISTIC WITH MINIMAL MOCK)
+# TESTS FOR Manager.build_jobs (REALISTIC WITH MINIMAL MOCK)
 # ============================================================================
 
 def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes):
-    """Test that get_all_job_status returns Dict[str, BaseJob] with minimal SystemMonitor mock."""
+    """Test that Manager.build_jobs returns Dict[str, BaseJob] with minimal SystemMonitor mock."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiment directories
         experiments = ["exp1", "exp2", "exp3"]
@@ -211,11 +211,12 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
         os.chdir(temp_root)
         
         try:
-            result = BaseJob.get_all_job_status(
+            manager = Manager(
                 config_files=config_files,
                 epochs=100,
                 system_monitors=monitor_map,
             )
+            result = manager.build_jobs()
             
             # Should return mapping instead of list
             assert isinstance(result, dict), f"Expected dict, got {type(result)}"
@@ -249,7 +250,7 @@ def test_base_job_parse_config():
         BaseJob.parse_config("python main.py --other-flag configs/exp1.py")  # Missing --config-filepath
 
 
-def test_base_job_build_config_to_process_mapping():
+def test_manager_build_config_to_process_mapping():
     """Test building config to ProcessInfo mapping from GPU data."""
     connected_gpus = [
         GPUStatus(
@@ -282,7 +283,7 @@ def test_base_job_build_config_to_process_mapping():
         ),
     ]
     
-    mapping = BaseJob._build_config_to_process_mapping(connected_gpus)
+    mapping = Manager.build_config_to_process_mapping(connected_gpus)
     
     # Should only include processes with python main.py --config-filepath
     assert len(mapping) == 2
@@ -331,8 +332,8 @@ def test_base_job_get_epoch_last_update(EXPECTED_FILES, create_epoch_files):
 # TESTS FOR EDGE CASES AND ERROR HANDLING
 # ============================================================================
 
-def test_get_job_status_invalid_config_path():
-    """Test get_job_status with invalid config path."""
+def test_base_job_build_invalid_config_path():
+    """Test BaseJob.build with invalid config path."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create a work dir but no config file, and no epoch files
         logs_dir = os.path.join(temp_root, "logs")
@@ -348,7 +349,7 @@ def test_get_job_status_invalid_config_path():
         try:
             # The function should handle the missing config when trying to compute progress
             # but since the work_dir exists but is empty, it will return 0 completed epochs
-            job_status = BaseJob.get_job_status(
+            job_status = BaseJob.build(
                 config=invalid_config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
@@ -382,7 +383,7 @@ def test_parse_config_edge_cases():
 def test_build_config_to_process_mapping_empty_gpu_data():
     """Test building config mapping with empty GPU data."""
     connected_gpus = []
-    mapping = BaseJob._build_config_to_process_mapping(connected_gpus)
+    mapping = Manager.build_config_to_process_mapping(connected_gpus)
     assert len(mapping) == 0
     assert mapping == {}
 
@@ -403,6 +404,6 @@ def test_build_config_to_process_mapping_no_matching_processes():
         )
     ]
     
-    mapping = BaseJob._build_config_to_process_mapping(connected_gpus)
+    mapping = Manager.build_config_to_process_mapping(connected_gpus)
     assert len(mapping) == 0
     assert mapping == {}

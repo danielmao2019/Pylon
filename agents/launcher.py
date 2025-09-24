@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import random
 from agents.base_agent import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
-from agents.manager import BaseJob
+from agents.manager import BaseJob, Manager
 from utils.logging import TextLogger
 from agents.connector.pool import _ssh_pool
 
@@ -219,14 +219,15 @@ class Launcher(BaseAgent):
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
-            all_running_status_dict = BaseJob.get_all_job_status(
+            manager = Manager(
                 config_files=self.config_files,
                 epochs=self.epochs,
+                system_monitors=self.system_monitors,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
-                system_monitors=self.system_monitors,
                 force_progress_recompute=self.force_progress_recompute,
             )
+            all_running_status_dict = manager.build_jobs()
             all_running_status = list(all_running_status_dict.values())
 
             self.logger.info("Removing stuck jobs...")

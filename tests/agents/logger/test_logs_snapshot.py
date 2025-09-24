@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 from agents.logger import LogsSnapshot
 from agents.monitor.system_monitor import SystemMonitor
-from agents.manager import BaseJob
+from agents.manager import BaseJob, Manager
 from agents.tracker.base_tracker import ProgressInfo
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.gpu_status import GPUStatus
@@ -158,8 +158,8 @@ def test_logs_snapshot_initialization_validation():
 
 def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
     """Test snapshot creation."""
-    # Mock BaseJob.get_all_job_status to return test data
-    def mock_get_all_job_status(cls, **kwargs):
+    # Mock Manager.build_jobs to return test data
+    def mock_build_jobs(self):
         return {
             "configs/exp/baseline.py": BaseJob(
                 config="configs/exp/baseline.py",
@@ -180,7 +180,7 @@ def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
             )
         }
     
-    monkeypatch.setattr(BaseJob, "get_all_job_status", classmethod(mock_get_all_job_status))
+    monkeypatch.setattr(Manager, "build_jobs", mock_build_jobs)
     
     snapshot = LogsSnapshot(
         config_files=sample_config_files,

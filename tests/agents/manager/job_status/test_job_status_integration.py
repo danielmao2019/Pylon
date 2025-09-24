@@ -11,7 +11,7 @@ from typing import Any
 import os
 import tempfile
 import pytest
-from agents.manager import BaseJob
+from agents.manager import BaseJob, Manager
 from agents.tracker import ProgressInfo
 
 
@@ -39,11 +39,12 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
         
         try:
             # Test the complete pipeline with minimal SystemMonitor mock
-            all_statuses = BaseJob.get_all_job_status(
+            manager = Manager(
                 config_files=config_files,
                 epochs=100,
-                system_monitors=system_monitors
+                system_monitors=system_monitors,
             )
+            all_statuses = manager.build_jobs()
             
             # Verify results
             assert isinstance(all_statuses, dict)
@@ -94,11 +95,12 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
         
         try:
             # Test comprehensive status detection
-            all_statuses = BaseJob.get_all_job_status(
+            manager = Manager(
                 config_files=config_files,
                 epochs=100,
-                system_monitors=system_monitors
+                system_monitors=system_monitors,
             )
+            all_statuses = manager.build_jobs()
             
             # Verify comprehensive results
             assert len(all_statuses) == len(experiments)
@@ -142,11 +144,12 @@ def test_integration_no_running_experiments(setup_realistic_experiment_structure
         os.chdir(temp_root)
         
         try:
-            all_statuses = BaseJob.get_all_job_status(
+            manager = Manager(
                 config_files=config_files,
                 epochs=100,
-                system_monitors=system_monitors
+                system_monitors=system_monitors,
             )
+            all_statuses = manager.build_jobs()
             
             # All experiments should have no process_info
             for config_path in config_files:
@@ -177,11 +180,12 @@ def test_integration_all_running_experiments(setup_realistic_experiment_structur
         os.chdir(temp_root)
         
         try:
-            all_statuses = BaseJob.get_all_job_status(
+            manager = Manager(
                 config_files=config_files,
                 epochs=100,
-                system_monitors=system_monitors
+                system_monitors=system_monitors,
             )
+            all_statuses = manager.build_jobs()
             
             # All experiments should have process_info
             for config_path in config_files:
@@ -213,11 +217,12 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
         os.chdir(temp_root)
         
         try:
-            all_statuses = BaseJob.get_all_job_status(
+            manager = Manager(
                 config_files=config_files,
                 epochs=100,
-                system_monitors=system_monitors
+                system_monitors=system_monitors,
             )
+            all_statuses = manager.build_jobs()
             
             # Verify all experiments are processed
             assert len(all_statuses) == 20

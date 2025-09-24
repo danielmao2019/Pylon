@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 from agents.monitor.system_monitor import SystemMonitor
-from agents.manager import BaseJob
+from agents.manager import BaseJob, Manager
 from utils.io.json import serialize_object
 
 
@@ -51,15 +51,16 @@ class LogsSnapshot:
         assert isinstance(timestamp, str), f"timestamp must be str, got {type(timestamp)}"
         assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
         
-        # Use enhanced get_all_job_status that returns Dict[str, BaseJob] with ProcessInfo
+        # Build job statuses via Manager for Dict[str, BaseJob] with ProcessInfo
         monitor_map = {system_monitor.server: system_monitor}
-        run_statuses = BaseJob.get_all_job_status(
+        manager = Manager(
             config_files=self.config_files,
             epochs=self.epochs,
             system_monitors=monitor_map,
             sleep_time=self.sleep_time,
             outdated_days=self.outdated_days,
         )
+        run_statuses = manager.build_jobs()
         
         snapshot = {
             'timestamp': timestamp,

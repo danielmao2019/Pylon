@@ -3,13 +3,9 @@ from __future__ import annotations
 import glob
 import os
 import time
-from functools import partial
 from typing import Dict, List, Literal, Optional
-from concurrent.futures import ThreadPoolExecutor
 
-from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
-from agents.monitor.system_monitor import SystemMonitor
 from agents.tracker import ProgressInfo, create_tracker
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.io.config import load_config
@@ -19,7 +15,7 @@ _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
 class BaseJob:
-    """Object-oriented representation of a training job."""
+    """Object-oriented representation of a single training job."""
 
     def __init__(
         self,
@@ -46,53 +42,7 @@ class BaseJob:
         }
 
     @classmethod
-    def get_all_job_status(
-        cls,
-        config_files: List[str],
-        epochs: int,
-        system_monitors: Dict[str, SystemMonitor],
-        sleep_time: int = 86400,
-        outdated_days: int = 30,
-        force_progress_recompute: bool = False,
-    ) -> Dict[str, 'BaseJob']:
-        """Retrieve status for all provided config files."""
-        assert isinstance(config_files, list)
-        assert isinstance(epochs, int)
-        assert isinstance(sleep_time, int)
-        assert isinstance(outdated_days, int)
-        assert isinstance(system_monitors, dict)
-        assert all(isinstance(monitor, SystemMonitor) for monitor in system_monitors.values())
-
-        all_connected_gpus = [
-            gpu
-            for monitor in system_monitors.values()
-            for gpu in monitor.connected_gpus
-        ]
-        config_to_process_info = cls._build_config_to_process_mapping(all_connected_gpus)
-
-        with ThreadPoolExecutor() as executor:
-            results = list(
-                executor.map(
-                    partial(
-                        cls.get_job_status,
-                        epochs=epochs,
-                        config_to_process_info=config_to_process_info,
-                        sleep_time=sleep_time,
-                        outdated_days=outdated_days,
-                        force_progress_recompute=force_progress_recompute,
-                    ),
-                    config_files,
-                )
-            )
-
-        all_job_status = dict(zip(config_files, results))
-        assert set(all_job_status.keys()) == {status.config for status in all_job_status.values()}, (
-            "Mismatch between config_files and status.config values"
-        )
-        return all_job_status
-
-    @classmethod
-    def get_job_status(
+    def build(
         cls,
         config: str,
         epochs: int,
@@ -101,7 +51,7 @@ class BaseJob:
         outdated_days: int = 30,
         force_progress_recompute: bool = False,
     ) -> 'BaseJob':
-        """Get the current status of a training job for a single config."""
+        """Construct a BaseJob instance for the provided config."""
         work_dir = get_work_dir(config)
         config_dict = load_config(config)
 
@@ -130,7 +80,7 @@ class BaseJob:
         else:
             status = 'failed'
 
-        process_info = config_to_process_info.get(config, None)
+        process_info = config_to_process_info.get(config)
 
         return cls(
             config=config,
@@ -139,23 +89,6 @@ class BaseJob:
             status=status,
             process_info=process_info,
         )
-
-    @classmethod
-    def _build_config_to_process_mapping(
-        cls,
-        connected_gpus: List[GPUStatus],
-    ) -> Dict[str, ProcessInfo]:
-        """Build mapping from config file to ProcessInfo for running experiments."""
-        config_to_process: Dict[str, ProcessInfo] = {}
-        for gpu in connected_gpus:
-            for process in gpu.processes:
-                assert isinstance(process, ProcessInfo), (
-                    f"Expected ProcessInfo instance, got {type(process)}"
-                )
-                if 'python main.py --config-filepath' in process.cmd:
-                    config = cls.parse_config(process.cmd)
-                    config_to_process[config] = process
-        return config_to_process
 
     @staticmethod
     def parse_config(cmd: str) -> str:
@@ -208,3 +141,6 @@ class BaseJob:
         if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
             return value.to_dict()
         return value
+
+
+__all__ = ['BaseJob']
