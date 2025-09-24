@@ -395,9 +395,11 @@ def test_build_config_to_process_mapping_empty_gpu_data():
 
 def test_build_config_to_process_mapping_no_matching_processes():
     """Test building config mapping when no processes match pattern."""
+    from utils.monitor.gpu_status import GPUStatus
     connected_gpus = [
-        {
-            'processes': [
+        GPUStatus(
+            server='test_server', index=0, max_memory=0,
+            processes=[
                 ProcessInfo(
                     pid='12345',
                     user='testuser',
@@ -405,7 +407,7 @@ def test_build_config_to_process_mapping_no_matching_processes():
                     start_time='Mon Jan  1 10:00:00 2024'
                 )
             ]
-        }
+        )
     ]
     
     mapping = _build_config_to_process_mapping(connected_gpus)
