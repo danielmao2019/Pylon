@@ -6,9 +6,9 @@
 
 **CRITICAL:** Test subdirectories should **NOT** start with `test_` prefix - use descriptive names instead:
 - ✅ `tests/utils/automation/progress_tracking/session_progress/`
-- ✅ `tests/utils/automation/progress_tracking/base_progress_tracker/`
+- ✅ `tests/utils/automation/progress_tracking/base_tracker/`
 - ❌ `tests/utils/automation/progress_tracking/test_session_progress/`
-- ❌ `tests/utils/automation/progress_tracking/test_base_progress_tracker/`
+- ❌ `tests/utils/automation/progress_tracking/test_base_tracker/`
 
 **CRITICAL:** Use pytest functions only - NO test classes:
 - **Framework**: Use `pytest` with plain functions ONLY

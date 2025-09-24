@@ -1,8 +1,8 @@
 from typing import Dict, Any, Optional
 from .runner_detection import detect_runner_type
-from .base_progress_tracker import BaseProgressTracker
-from .trainer_progress_tracker import TrainerProgressTracker
-from .evaluator_progress_tracker import EvaluatorProgressTracker
+from .base_tracker import BaseProgressTracker
+from .trainer_tracker import TrainerProgressTracker
+from .evaluator_tracker import EvaluatorProgressTracker
 
 
 def create_progress_tracker(work_dir: str, config: Optional[Dict[str, Any]] = None) -> BaseProgressTracker:
@@ -13,7 +13,7 @@ def create_progress_tracker(work_dir: str, config: Optional[Dict[str, Any]] = No
         config: Optional config dictionary for additional context
         
     Returns:
-        Appropriate progress tracker instance (TrainerProgressTracker or EvaluatorProgressTracker)
+        Appropriate tracker instance (TrainerProgressTracker or EvaluatorProgressTracker)
         
     Raises:
         ValueError: If runner type cannot be determined (delegated to detect_runner_type)

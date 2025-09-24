@@ -1,5 +1,5 @@
 from typing import List, Literal
-from .base_progress_tracker import BaseProgressTracker, ProgressInfo
+from .base_tracker import BaseProgressTracker, ProgressInfo
 
 
 class TrainerProgressTracker(BaseProgressTracker):

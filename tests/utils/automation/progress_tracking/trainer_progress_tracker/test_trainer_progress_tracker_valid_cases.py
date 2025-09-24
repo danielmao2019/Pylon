@@ -1,5 +1,5 @@
 """
-Test TrainerProgressTracker functionality for trainer progress tracking - VALID CASES.
+Test TrainerProgressTracker functionality for trainer tracking - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
@@ -11,7 +11,7 @@ import tempfile
 import json
 import pytest
 from agents.tracker import ProgressInfo
-from agents.tracker.trainer_progress_tracker import TrainerProgressTracker
+from agents.tracker.trainer_tracker import TrainerProgressTracker
 
 
 # ============================================================================

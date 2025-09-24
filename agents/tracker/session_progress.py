@@ -8,7 +8,7 @@ from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
 
 # Import the unified ProgressInfo from base module
-from .base_progress_tracker import ProgressInfo
+from .base_tracker import ProgressInfo
 
 
 # ============================================================================

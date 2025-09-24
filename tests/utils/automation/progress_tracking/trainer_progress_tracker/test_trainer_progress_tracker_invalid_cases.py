@@ -9,7 +9,7 @@ import os
 import tempfile
 import json
 import pytest
-from agents.tracker.trainer_progress_tracker import TrainerProgressTracker
+from agents.tracker.trainer_tracker import TrainerProgressTracker
 from agents.tracker.base_progress_tracker import ProgressInfo
 
 
