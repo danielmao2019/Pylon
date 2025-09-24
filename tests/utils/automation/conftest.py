@@ -28,128 +28,16 @@ def EXPECTED_FILES():
 # COMMON TEST DATA CREATION HELPERS
 # ============================================================================
 
-@pytest.fixture
-def create_epoch_files():
-    """Fixture that provides function to create all expected files for a completed epoch.
-
-    This is the most comprehensive version that supports optional validation scores.
-    Used across all test files for creating realistic epoch data.
-
-    Returns:
-        Function(work_dir: str, epoch_idx: int, validation_score: Optional[float] = None) -> None
-    """
-    def _create_epoch_files(work_dir: str, epoch_idx: int, validation_score: Optional[float] = None) -> None:
-        epoch_dir = os.path.join(work_dir, f"epoch_{epoch_idx}")
-        os.makedirs(epoch_dir, exist_ok=True)
-
-        # Create training_losses.pt
-        training_losses_path = os.path.join(epoch_dir, "training_losses.pt")
-        torch.save({"loss": torch.tensor(0.5)}, training_losses_path)
-
-        # Create optimizer_buffer.json
-        optimizer_buffer_path = os.path.join(epoch_dir, "optimizer_buffer.json")
-        with open(optimizer_buffer_path, 'w') as f:
-            json.dump({"lr": 0.001}, f)
-
-        # Create validation_scores.json with realistic structure
-        validation_scores_path = os.path.join(epoch_dir, "validation_scores.json")
-
-        if validation_score is None:
-            score_value = 0.4 - epoch_idx * 0.01  # Improving scores (decreasing loss)
-        else:
-            score_value = validation_score
-
-        validation_scores = {
-            "aggregated": {"loss": score_value},
-            "per_datapoint": {"loss": [score_value]}
-        }
-        with open(validation_scores_path, 'w') as f:
-            json.dump(validation_scores, f)
-
-    return _create_epoch_files
+# Moved to tests/agents/tracker/conftest.py
+# moved to tests/agents/tracker/conftest.py
 
 
-@pytest.fixture
-def create_progress_json():
-    """Fixture that provides function to create progress.json file for fast path testing.
-
-    Returns:
-        Function(work_dir: str, completed_epochs: int, early_stopped: bool = False,
-                early_stopped_at_epoch: Optional[int] = None, tot_epochs: int = 100) -> None
-    """
-    def _create_progress_json(
-        work_dir: str,
-        completed_epochs: int,
-        early_stopped: bool = False,
-        early_stopped_at_epoch: Optional[int] = None,
-        tot_epochs: int = 100
-    ) -> None:
-        progress_data = {
-            "completed_epochs": completed_epochs,
-            "progress_percentage": 100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
-            "early_stopped": early_stopped,
-            "early_stopped_at_epoch": early_stopped_at_epoch
-        }
-        progress_file = os.path.join(work_dir, "progress.json")
-        save_json(progress_data, progress_file)
-
-    return _create_progress_json
+# Moved to tests/agents/tracker/conftest.py
+# moved to tests/agents/tracker/conftest.py
 
 
-@pytest.fixture
-def create_real_config():
-    """Fixture that provides function to create real config file for testing.
-
-    This is the most comprehensive version that supports early stopping configuration.
-    Used across all test files for creating realistic config files.
-
-    Returns:
-        Function(config_path: str, work_dir: str, epochs: int = 100,
-                early_stopping_enabled: bool = False, patience: int = 5) -> None
-    """
-    def _create_real_config(
-        config_path: str,
-        work_dir: str,
-        epochs: int = 100,
-        early_stopping_enabled: bool = False,
-        patience: int = 5
-    ) -> None:
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
-
-        config_content = f'''import torch
-from metrics.wrappers import PyTorchMetricWrapper
-from runners.early_stopping import EarlyStopping
-from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
-
-config = {{
-    'runner': SupervisedSingleTaskTrainer,
-    'epochs': {epochs},
-    'work_dir': '{work_dir}',
-    'metric': {{
-        'class': PyTorchMetricWrapper,
-        'args': {{
-            'metric': torch.nn.MSELoss(reduction='mean'),
-        }},
-    }},'''
-
-        if early_stopping_enabled:
-            config_content += f'''
-    'early_stopping': {{
-        'class': EarlyStopping,
-        'args': {{
-            'enabled': True,
-            'epochs': {patience},
-        }},
-    }},'''
-
-        config_content += '''
-}
-'''
-
-        with open(config_path, 'w') as f:
-            f.write(config_content)
-
-    return _create_real_config
+# Moved to tests/agents/tracker/conftest.py
+# moved to tests/agents/tracker/conftest.py
 
 
 @pytest.fixture

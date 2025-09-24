@@ -26,7 +26,7 @@ class ProgressInfo:
         return asdict(self)
 
 
-class BaseProgressTracker(ABC):
+class BaseTracker(ABC):
     """Abstract base class for progress tracking."""
     
     def __init__(self, work_dir: str, config: Optional[Dict[str, Any]] = None):

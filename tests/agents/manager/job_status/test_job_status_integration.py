@@ -15,7 +15,7 @@ from agents.manager import (
     get_all_job_status,
     JobStatus
 )
-from utils.automation.progress_tracking import ProgressInfo
+from agents.tracker import ProgressInfo
 
 
 # ============================================================================

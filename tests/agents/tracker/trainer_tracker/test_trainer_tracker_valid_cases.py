@@ -1,5 +1,5 @@
 """
-Test TrainerProgressTracker functionality for trainer progress tracking - VALID CASES.
+Test TrainerTracker functionality for trainer tracking - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
@@ -10,19 +10,18 @@ import os
 import tempfile
 import json
 import pytest
-from utils.automation.progress_tracking import ProgressInfo
-from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
-
+from agents.tracker import ProgressInfo
+from agents.tracker.trainer_tracker import TrainerTracker
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - BASIC FUNCTIONALITY
+# TESTS FOR TrainerTracker - BASIC FUNCTIONALITY
 # ============================================================================
 
-def test_trainer_progress_tracker_initialization():
-    """Test that TrainerProgressTracker initializes correctly."""
+def test_trainer_tracker_initialization():
+    """Test that TrainerTracker initializes correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'some_config': 'value'}
-        tracker = TrainerProgressTracker(work_dir, config)
+        tracker = TrainerTracker(work_dir, config)
         
         assert tracker.work_dir == work_dir
         assert tracker.config == config
@@ -31,10 +30,10 @@ def test_trainer_progress_tracker_initialization():
         assert tracker.get_log_pattern() == "train_val*.log"
 
 
-def test_trainer_progress_tracker_initialization_no_config():
+def test_trainer_tracker_initialization_no_config():
     """Test initialization without config."""
     with tempfile.TemporaryDirectory() as work_dir:
-        tracker = TrainerProgressTracker(work_dir)
+        tracker = TrainerTracker(work_dir)
         
         assert tracker.work_dir == work_dir
         assert tracker.config is None
@@ -42,10 +41,10 @@ def test_trainer_progress_tracker_initialization_no_config():
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - PROGRESS CALCULATION (FAST PATH)
+# TESTS FOR TrainerTracker - PROGRESS CALCULATION (FAST PATH)
 # ============================================================================
 
-def test_trainer_progress_tracker_fast_path_normal_run(create_progress_json):
+def test_trainer_tracker_fast_path_normal_run(create_progress_json):
     """Test progress calculation using existing progress.json (fast path)."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'some_model'}
@@ -53,7 +52,7 @@ def test_trainer_progress_tracker_fast_path_normal_run(create_progress_json):
         # Create existing progress.json for normal run (57/100 epochs)
         create_progress_json(work_dir, completed_epochs=57, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerProgressTracker(work_dir, config)
+        tracker = TrainerTracker(work_dir, config)
         progress = tracker.get_progress()
         
         assert isinstance(progress, ProgressInfo)
@@ -65,7 +64,7 @@ def test_trainer_progress_tracker_fast_path_normal_run(create_progress_json):
         assert progress.early_stopped_at_epoch is None
 
 
-def test_trainer_progress_tracker_fast_path_early_stopped(create_progress_json):
+def test_trainer_tracker_fast_path_early_stopped(create_progress_json):
     """Test progress calculation with early stopping (fast path)."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'some_model'}
@@ -74,7 +73,7 @@ def test_trainer_progress_tracker_fast_path_early_stopped(create_progress_json):
         create_progress_json(work_dir, completed_epochs=57, early_stopped=True, 
                            early_stopped_at_epoch=57, tot_epochs=100)
         
-        tracker = TrainerProgressTracker(work_dir, config)
+        tracker = TrainerTracker(work_dir, config)
         progress = tracker.get_progress()
         
         assert isinstance(progress, ProgressInfo)
@@ -86,7 +85,7 @@ def test_trainer_progress_tracker_fast_path_early_stopped(create_progress_json):
         assert progress.early_stopped_at_epoch == 57
 
 
-def test_trainer_progress_tracker_no_config_epochs(create_progress_json):
+def test_trainer_tracker_no_config_epochs(create_progress_json):
     """Test progress calculation when config doesn't have epochs."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'model': 'some_model'}  # No epochs field
@@ -94,7 +93,7 @@ def test_trainer_progress_tracker_no_config_epochs(create_progress_json):
         # Create existing progress.json
         create_progress_json(work_dir, completed_epochs=30, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerProgressTracker(work_dir, config)
+        tracker = TrainerTracker(work_dir, config)
         progress = tracker.get_progress()
         
         assert isinstance(progress, ProgressInfo)
@@ -104,7 +103,7 @@ def test_trainer_progress_tracker_no_config_epochs(create_progress_json):
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - PROGRESS CALCULATION (SLOW PATH)
+# TESTS FOR TrainerTracker - PROGRESS CALCULATION (SLOW PATH)
 # ============================================================================
 
 @pytest.mark.parametrize("completed_epochs,expected_completed", [
@@ -115,7 +114,7 @@ def test_trainer_progress_tracker_no_config_epochs(create_progress_json):
     (75, 75),    # Three quarters completed
     (99, 99),    # Almost complete
 ])
-def test_trainer_progress_tracker_slow_path_normal_runs(completed_epochs, expected_completed, create_epoch_files, create_real_config):
+def test_trainer_tracker_slow_path_normal_runs(completed_epochs, expected_completed, create_epoch_files, create_real_config):
     """Test slow path (no progress.json) for various completion levels."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -139,7 +138,7 @@ def test_trainer_progress_tracker_slow_path_normal_runs(completed_epochs, expect
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             progress = tracker.get_progress()
             
             # Should return ProgressInfo dataclass
@@ -158,7 +157,7 @@ def test_trainer_progress_tracker_slow_path_normal_runs(completed_epochs, expect
             os.chdir(original_cwd)
 
 
-def test_trainer_progress_tracker_slow_path_with_early_stopping(create_epoch_files, create_real_config):
+def test_trainer_tracker_slow_path_with_early_stopping(create_epoch_files, create_real_config):
     """Test slow path calculation when early stopping is detected."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -183,7 +182,7 @@ def test_trainer_progress_tracker_slow_path_with_early_stopping(create_epoch_fil
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             progress = tracker.get_progress()
             
             # Should detect the epochs correctly
@@ -197,10 +196,10 @@ def test_trainer_progress_tracker_slow_path_with_early_stopping(create_epoch_fil
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - CACHING
+# TESTS FOR TrainerTracker - CACHING
 # ============================================================================
 
-def test_trainer_progress_tracker_caching(create_progress_json, create_epoch_files, create_real_config):
+def test_trainer_tracker_caching(create_progress_json, create_epoch_files, create_real_config):
     """Test that progress caching works correctly."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -227,7 +226,7 @@ def test_trainer_progress_tracker_caching(create_progress_json, create_epoch_fil
         os.chdir(temp_root)
         
         try:
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             
             # First call should compute progress
             progress1 = tracker.get_progress()
@@ -245,7 +244,7 @@ def test_trainer_progress_tracker_caching(create_progress_json, create_epoch_fil
             os.chdir(original_cwd)
 
 
-def test_trainer_progress_tracker_progress_json_creation(create_epoch_files, create_real_config):
+def test_trainer_tracker_progress_json_creation(create_epoch_files, create_real_config):
     """Test that progress.json is created with correct format."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -269,7 +268,7 @@ def test_trainer_progress_tracker_progress_json_creation(create_epoch_files, cre
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             progress = tracker.get_progress()
             
             # Check that progress.json was created
@@ -290,10 +289,10 @@ def test_trainer_progress_tracker_progress_json_creation(create_epoch_files, cre
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - DETERMINISM
+# TESTS FOR TrainerTracker - DETERMINISM
 # ============================================================================
 
-def test_trainer_progress_tracker_deterministic(create_progress_json, create_epoch_files, create_real_config):
+def test_trainer_tracker_deterministic(create_progress_json, create_epoch_files, create_real_config):
     """Test that progress calculation is deterministic across multiple calls."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -320,7 +319,7 @@ def test_trainer_progress_tracker_deterministic(create_progress_json, create_epo
         os.chdir(temp_root)
         
         try:
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             
             # Multiple calls should give same result
             results = []
@@ -338,10 +337,10 @@ def test_trainer_progress_tracker_deterministic(create_progress_json, create_epo
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - EDGE CASES (VALID ONLY)
+# TESTS FOR TrainerTracker - EDGE CASES (VALID ONLY)
 # ============================================================================
 
-def test_trainer_progress_tracker_empty_work_dir(create_real_config):
+def test_trainer_tracker_empty_work_dir(create_real_config):
     """Test progress calculation with empty work directory."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -361,7 +360,7 @@ def test_trainer_progress_tracker_empty_work_dir(create_real_config):
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             progress = tracker.get_progress()
             
             # Should return ProgressInfo dataclass with 0 completed epochs
@@ -377,10 +376,10 @@ def test_trainer_progress_tracker_empty_work_dir(create_real_config):
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - INTEGRATION
+# TESTS FOR TrainerTracker - INTEGRATION
 # ============================================================================
 
-def test_trainer_progress_tracker_with_various_configs(create_progress_json):
+def test_trainer_tracker_with_various_configs(create_progress_json):
     """Test trainer tracker with various config values."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create progress.json
@@ -394,7 +393,7 @@ def test_trainer_progress_tracker_with_various_configs(create_progress_json):
         ]
         
         for config in test_configs:
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             progress = tracker.get_progress()
             
             # Config should affect total_epochs
@@ -403,7 +402,7 @@ def test_trainer_progress_tracker_with_various_configs(create_progress_json):
             assert progress.runner_type == 'trainer'
 
 
-def test_trainer_progress_tracker_integration_with_session_progress(create_epoch_files, create_real_config):
+def test_trainer_tracker_integration_with_session_progress(create_epoch_files, create_real_config):
     """Test integration with moved session_progress module."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -427,7 +426,7 @@ def test_trainer_progress_tracker_integration_with_session_progress(create_epoch
         
         try:
             config = {'epochs': 100, 'model': 'integration_test'}
-            tracker = TrainerProgressTracker(work_dir, config)
+            tracker = TrainerTracker(work_dir, config)
             progress = tracker.get_progress()
             
             # Should correctly integrate with session_progress logic

@@ -13,7 +13,7 @@ import tempfile
 import json
 import pytest
 import torch
-from utils.automation.progress_tracking.session_progress import (
+from agents.tracker.session_progress import (
     get_session_progress,
     check_epoch_finished,
     check_file_loadable,

@@ -49,13 +49,13 @@ Since test directories do NOT contain `__init__.py` files, using fixtures instea
 # tests/utils/automation/progress_tracking/conftest.py
 
 @pytest.fixture
-def ConcreteProgressTracker():
-    """Fixture that provides ConcreteProgressTracker class for testing BaseProgressTracker."""
+def ConcreteTracker():
+    """Fixture that provides ConcreteTracker class for testing Base tracker API."""
     from typing import List, Literal
-    from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker, ProgressInfo
+    from agents.tracker.base_tracker import BaseTracker, ProgressInfo
     
-    class ConcreteProgressTrackerImpl(BaseProgressTracker):
-        """Concrete implementation for testing BaseProgressTracker functionality."""
+    class ConcreteTrackerImpl(BaseTracker):
+        """Concrete implementation for testing tracker functionality."""
         
         def __init__(self, work_dir: str, config=None, runner_type: Literal['trainer', 'evaluator'] = 'trainer'):
             super().__init__(work_dir, config)
@@ -88,11 +88,11 @@ def ConcreteProgressTracker():
             """Test helper to control calculate_progress output."""
             self._test_progress_result = result
     
-    return ConcreteProgressTrackerImpl
+    return ConcreteTrackerImpl
 
 # Usage in test files - auto-discovered, no import needed:
-def test_something(ConcreteProgressTracker):
-    tracker = ConcreteProgressTracker("/some/work/dir")
+def test_something(ConcreteTracker):
+    tracker = ConcreteTracker("/some/work/dir")
     # test implementation
 ```
 
@@ -154,10 +154,10 @@ When multiple test files share the same helper classes via fixtures:
 tests/utils/automation/progress_tracking/
 ├── conftest.py                           # Shared fixtures (including class factories)
 ├── test_runner_detection.py             # Uses fixtures from conftest.py
-├── test_progress_tracker_factory/
+├── test_tracker_factory/
 │   ├── test_valid_cases.py              # Uses fixtures from ../conftest.py  
 │   └── test_invalid_cases.py            # Uses fixtures from ../conftest.py
-└── test_base_progress_tracker/
+└── test_base_tracker/
     ├── test_valid_cases.py              # Uses fixtures from ../conftest.py
     └── test_invalid_cases.py            # Uses fixtures from ../conftest.py
 ```

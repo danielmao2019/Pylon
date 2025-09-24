@@ -1,5 +1,5 @@
 """
-Test progress_tracker_factory functionality for creating appropriate trackers - VALID CASES.
+Test tracker_factory functionality for creating appropriate trackers - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
@@ -9,18 +9,18 @@ Following CLAUDE.md testing patterns:
 import os
 import tempfile
 import json
-from utils.automation.progress_tracking.progress_tracker_factory import create_progress_tracker
-from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
-from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
-from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker
+from agents.tracker.tracker_factory import create_tracker
+from agents.tracker.trainer_tracker import TrainerTracker
+from agents.tracker.evaluator_tracker import EvaluatorTracker
+from agents.tracker.base_tracker import BaseTracker
 
 
 # ============================================================================
-# TESTS FOR create_progress_tracker - BASIC FUNCTIONALITY
+# TESTS FOR create_tracker - BASIC FUNCTIONALITY
 # ============================================================================
 
-def test_create_progress_tracker_returns_evaluator_for_evaluation_pattern():
-    """Test factory returns EvaluatorProgressTracker for evaluator pattern."""
+def test_create_tracker_returns_evaluator_for_evaluation_pattern():
+    """Test factory returns EvaluatorTracker for evaluator pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json (evaluator pattern)
         eval_scores = {
@@ -30,31 +30,31 @@ def test_create_progress_tracker_returns_evaluator_for_evaluation_pattern():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = create_progress_tracker(work_dir)
+        tracker = create_tracker(work_dir)
         
-        assert isinstance(tracker, EvaluatorProgressTracker)
-        assert isinstance(tracker, BaseProgressTracker)  # Should inherit from base
+        assert isinstance(tracker, EvaluatorTracker)
+        assert isinstance(tracker, BaseTracker)  # Should inherit from base
         assert tracker.get_runner_type() == 'evaluator'
         assert tracker.work_dir == work_dir
         assert tracker.config is None
 
 
-def test_create_progress_tracker_returns_trainer_for_trainer_pattern(create_epoch_files):
-    """Test factory returns TrainerProgressTracker for trainer pattern."""
+def test_create_tracker_returns_trainer_for_trainer_pattern(create_epoch_files):
+    """Test factory returns TrainerTracker for trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern: epoch_0/validation_scores.json
         create_epoch_files(work_dir, 0)
         
-        tracker = create_progress_tracker(work_dir)
+        tracker = create_tracker(work_dir)
         
-        assert isinstance(tracker, TrainerProgressTracker)
-        assert isinstance(tracker, BaseProgressTracker)  # Should inherit from base
+        assert isinstance(tracker, TrainerTracker)
+        assert isinstance(tracker, BaseTracker)  # Should inherit from base
         assert tracker.get_runner_type() == 'trainer'
         assert tracker.work_dir == work_dir
         assert tracker.config is None
 
 
-def test_create_progress_tracker_with_config():
+def test_create_tracker_with_config():
     """Test factory passes config correctly to created tracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -68,18 +68,18 @@ def test_create_progress_tracker_with_config():
             'epochs': 100
         }
         
-        tracker = create_progress_tracker(work_dir, config)
+        tracker = create_tracker(work_dir, config)
         
-        assert isinstance(tracker, EvaluatorProgressTracker)
+        assert isinstance(tracker, EvaluatorTracker)
         assert tracker.config == config
         assert tracker.work_dir == work_dir
 
 
 # ============================================================================
-# TESTS FOR create_progress_tracker - CONFIG-BASED DETECTION
+# TESTS FOR create_tracker - CONFIG-BASED DETECTION
 # ============================================================================
 
-def test_create_progress_tracker_config_evaluator_class():
+def test_create_tracker_config_evaluator_class():
     """Test factory uses config for evaluator detection when no file patterns."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
@@ -90,13 +90,13 @@ def test_create_progress_tracker_config_evaluator_class():
             'runner': mock_evaluator_class
         }
         
-        tracker = create_progress_tracker(work_dir, config)
+        tracker = create_tracker(work_dir, config)
         
-        assert isinstance(tracker, EvaluatorProgressTracker)
+        assert isinstance(tracker, EvaluatorTracker)
         assert tracker.config == config
 
 
-def test_create_progress_tracker_config_trainer_class():
+def test_create_tracker_config_trainer_class():
     """Test factory uses config for trainer detection when no file patterns."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
@@ -107,17 +107,17 @@ def test_create_progress_tracker_config_trainer_class():
             'runner': mock_trainer_class
         }
         
-        tracker = create_progress_tracker(work_dir, config)
+        tracker = create_tracker(work_dir, config)
         
-        assert isinstance(tracker, TrainerProgressTracker)
+        assert isinstance(tracker, TrainerTracker)
         assert tracker.config == config
 
 
 # ============================================================================
-# TESTS FOR create_progress_tracker - PRECEDENCE RULES
+# TESTS FOR create_tracker - PRECEDENCE RULES
 # ============================================================================
 
-def test_create_progress_tracker_evaluator_pattern_takes_precedence(create_epoch_files):
+def test_create_tracker_evaluator_pattern_takes_precedence(create_epoch_files):
     """Test that evaluator file pattern takes precedence over trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create both patterns
@@ -127,12 +127,12 @@ def test_create_progress_tracker_evaluator_pattern_takes_precedence(create_epoch
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)  # Evaluator pattern
         
-        tracker = create_progress_tracker(work_dir)
+        tracker = create_tracker(work_dir)
         
-        assert isinstance(tracker, EvaluatorProgressTracker)  # Evaluator wins
+        assert isinstance(tracker, EvaluatorTracker)  # Evaluator wins
 
 
-def test_create_progress_tracker_file_pattern_over_config(create_epoch_files):
+def test_create_tracker_file_pattern_over_config(create_epoch_files):
     """Test that file patterns take precedence over config."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer file pattern
@@ -144,17 +144,17 @@ def test_create_progress_tracker_file_pattern_over_config(create_epoch_files):
             'runner': mock_evaluator_class
         }
         
-        tracker = create_progress_tracker(work_dir, config)
+        tracker = create_tracker(work_dir, config)
         
         # File pattern should win over config
-        assert isinstance(tracker, TrainerProgressTracker)
+        assert isinstance(tracker, TrainerTracker)
 
 
 # ============================================================================
-# TESTS FOR create_progress_tracker - EDGE CASES
+# TESTS FOR create_tracker - EDGE CASES
 # ============================================================================
 
-def test_create_progress_tracker_various_config_formats():
+def test_create_tracker_various_config_formats():
     """Test factory with various config formats."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -172,16 +172,16 @@ def test_create_progress_tracker_various_config_formats():
         ]
         
         for config in test_configs:
-            tracker = create_progress_tracker(work_dir, config)
-            assert isinstance(tracker, EvaluatorProgressTracker)
+            tracker = create_tracker(work_dir, config)
+            assert isinstance(tracker, EvaluatorTracker)
             assert tracker.config == config
 
 
 # ============================================================================
-# TESTS FOR create_progress_tracker - DETERMINISM
+# TESTS FOR create_tracker - DETERMINISM
 # ============================================================================
 
-def test_create_progress_tracker_deterministic():
+def test_create_tracker_deterministic():
     """Test that factory creates consistent tracker types."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -190,19 +190,19 @@ def test_create_progress_tracker_deterministic():
             json.dump(eval_scores, f)
         
         # Create multiple trackers
-        trackers = [create_progress_tracker(work_dir) for _ in range(5)]
+        trackers = [create_tracker(work_dir) for _ in range(5)]
         
         # All should be the same type
-        assert all(isinstance(t, EvaluatorProgressTracker) for t in trackers)
+        assert all(isinstance(t, EvaluatorTracker) for t in trackers)
         assert all(t.work_dir == work_dir for t in trackers)
         assert all(t.config is None for t in trackers)
 
 
 # ============================================================================
-# TESTS FOR create_progress_tracker - INTEGRATION
+# TESTS FOR create_tracker - INTEGRATION
 # ============================================================================
 
-def test_create_progress_tracker_integration_with_real_scenarios(create_epoch_files):
+def test_create_tracker_integration_with_real_scenarios(create_epoch_files):
     """Test factory with realistic trainer and evaluator scenarios."""
     
     # Test realistic trainer scenario
@@ -218,9 +218,9 @@ def test_create_progress_tracker_integration_with_real_scenarios(create_epoch_fi
             'dataset': 'imagenet'
         }
         
-        tracker = create_progress_tracker(work_dir, config)
+        tracker = create_tracker(work_dir, config)
         
-        assert isinstance(tracker, TrainerProgressTracker)
+        assert isinstance(tracker, TrainerTracker)
         assert tracker.config == config
         
         # Verify the tracker was created correctly (don't call get_progress due to config file dependencies)
@@ -253,9 +253,9 @@ def test_create_progress_tracker_integration_with_real_scenarios(create_epoch_fi
             'batch_size': 32
         }
         
-        tracker = create_progress_tracker(work_dir, config)
+        tracker = create_tracker(work_dir, config)
         
-        assert isinstance(tracker, EvaluatorProgressTracker)
+        assert isinstance(tracker, EvaluatorTracker)
         assert tracker.config == config
         
         # Should be able to get progress
@@ -265,7 +265,7 @@ def test_create_progress_tracker_integration_with_real_scenarios(create_epoch_fi
         assert progress.progress_percentage == 100.0
 
 
-def test_create_progress_tracker_validates_created_instances(create_epoch_files):
+def test_create_tracker_validates_created_instances(create_epoch_files):
     """Test that factory creates properly initialized tracker instances."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern
@@ -273,11 +273,11 @@ def test_create_progress_tracker_validates_created_instances(create_epoch_files)
         
         config = {'epochs': 50, 'model': 'test_model'}
         
-        tracker = create_progress_tracker(work_dir, config)
+        tracker = create_tracker(work_dir, config)
         
         # Verify the created instance is properly initialized
-        assert isinstance(tracker, TrainerProgressTracker)
-        assert isinstance(tracker, BaseProgressTracker)
+        assert isinstance(tracker, TrainerTracker)
+        assert isinstance(tracker, BaseTracker)
         
         # Verify it has all required attributes
         assert hasattr(tracker, 'work_dir')

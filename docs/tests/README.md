@@ -10,8 +10,8 @@ This directory contains comprehensive testing guidelines for the Pylon framework
 - Avoids complex import issues when sharing code between test files
 
 **CRITICAL:** Test subdirectories should **NOT** start with `test_` prefix - use descriptive names instead.
-- Use component/module names: `session_progress/`, `base_progress_tracker/`
-- NOT test prefixes: `test_session_progress/`, `test_base_progress_tracker/`
+- Use component/module names: `session_progress/`, `base_tracker/`
+- NOT test prefixes: `test_session_progress/`, `test_base_tracker/`
 - This follows standard directory naming conventions and improves readability
 
 **CRITICAL:** Always run pytest from the project root directory. Never run from within test subdirectories.
