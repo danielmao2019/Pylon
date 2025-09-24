@@ -11,7 +11,7 @@ from typing import Any
 import os
 import tempfile
 import pytest
-from utils.automation.run_status import (
+from agents.manager import (
     get_all_run_status,
     RunStatus
 )

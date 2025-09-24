@@ -12,15 +12,16 @@ from typing import Dict, Any
 import os
 import tempfile
 import pytest
-from utils.automation.run_status import (
+from agents.manager import (
     get_run_status,
     get_all_run_status,
     parse_config,
     get_log_last_update,
     get_epoch_last_update,
     _build_config_to_process_mapping,
-    RunStatus
+    RunStatus,
 )
+from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.process_info import ProcessInfo
 from utils.automation.progress_tracking import ProgressInfo
 
@@ -208,7 +209,7 @@ def test_get_all_run_status_returns_mapping(create_real_config, create_epoch_fil
                 create_epoch_files(work_dir, epoch_idx)
         
         # Create minimal SystemMonitor mock (only necessary mock)
-        connected_gpus_data = [{'server': 'test_server', 'index': 0, 'processes': []}]
+        connected_gpus_data = [GPUStatus(server='test_server', index=0, max_memory=0, processes=[], connected=True)]
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
         
         original_cwd = os.getcwd()
@@ -256,8 +257,9 @@ def test_parse_config():
 def test_build_config_to_process_mapping():
     """Test building config to ProcessInfo mapping from GPU data."""
     connected_gpus = [
-        {
-            'processes': [
+        GPUStatus(
+            server='test_server', index=0, max_memory=0,
+            processes=[
                 ProcessInfo(
                     pid='12345',
                     user='testuser',
@@ -271,9 +273,10 @@ def test_build_config_to_process_mapping():
                     start_time='Mon Jan  1 11:00:00 2024'
                 )
             ]
-        },
-        {
-            'processes': [
+        ),
+        GPUStatus(
+            server='test_server', index=1, max_memory=0,
+            processes=[
                 ProcessInfo(
                     pid='54321',
                     user='testuser',
@@ -281,7 +284,7 @@ def test_build_config_to_process_mapping():
                     start_time='Mon Jan  1 12:00:00 2024'
                 )
             ]
-        }
+        ),
     ]
     
     mapping = _build_config_to_process_mapping(connected_gpus)
@@ -392,8 +395,9 @@ def test_build_config_to_process_mapping_empty_gpu_data():
 def test_build_config_to_process_mapping_no_matching_processes():
     """Test building config mapping when no processes match pattern."""
     connected_gpus = [
-        {
-            'processes': [
+        GPUStatus(
+            server='test_server', index=0, max_memory=0,
+            processes=[
                 ProcessInfo(
                     pid='12345',
                     user='testuser',
@@ -401,7 +405,7 @@ def test_build_config_to_process_mapping_no_matching_processes():
                     start_time='Mon Jan  1 10:00:00 2024'
                 )
             ]
-        }
+        )
     ]
     
     mapping = _build_config_to_process_mapping(connected_gpus)

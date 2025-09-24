@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 from utils.monitor.system_monitor import SystemMonitor
-from utils.automation.run_status import get_all_run_status
+from agents.manager import get_all_run_status
 from utils.io.json import serialize_object
 
 
