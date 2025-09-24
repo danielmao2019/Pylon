@@ -9,7 +9,7 @@ from utils.automation.cfg_log_conversion import get_work_dir
 from utils.monitor.system_monitor import SystemMonitor
 from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.process_info import ProcessInfo
-from utils.automation.progress_tracking import ProgressInfo, create_progress_tracker
+from agents.tracker import ProgressInfo, create_progress_tracker
 from utils.io.config import load_config
 
 

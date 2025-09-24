@@ -23,7 +23,7 @@ from agents.manager import (
 )
 from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.process_info import ProcessInfo
-from utils.automation.progress_tracking import ProgressInfo
+from agents.tracker import ProgressInfo
 
 
 # ============================================================================
