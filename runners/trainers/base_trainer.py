@@ -205,7 +205,7 @@ class BaseTrainer(ABC):
             epoch_dir = os.path.join(self.work_dir, f"epoch_{idx}")
 
             # Check if epoch is finished (has expected files)
-            epoch_finished = check_epoch_finished(
+            epoch_finished = TrainingJob._check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=self.expected_files,
             )
@@ -613,7 +613,7 @@ class BaseTrainer(ABC):
             epoch_dir = os.path.join(self.work_dir, f"epoch_{epoch_idx}")
 
             # Check if epoch is completed
-            if not check_epoch_finished(
+            if not TrainingJob._check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=self.expected_files
             ):
@@ -695,7 +695,7 @@ class BaseTrainer(ABC):
             epoch = int(os.path.basename(epoch_dir).split('_')[1])
 
             # remove only if next epoch has finished
-            if check_epoch_finished(
+            if TrainingJob._check_epoch_finished(
                 epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
                 expected_files=self.expected_files,
             ):
