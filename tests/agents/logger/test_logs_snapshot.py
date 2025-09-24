@@ -11,6 +11,7 @@ from agents.monitor.system_monitor import SystemMonitor
 from agents.manager import JobStatus
 from agents.tracker.base_tracker import ProgressInfo
 from agents.monitor.process_info import ProcessInfo
+from agents.monitor.gpu_status import GPUStatus
 from utils.io.json import serialize_object
 
 
@@ -46,19 +47,22 @@ def sample_expected_files():
 def mock_system_monitor():
     """Create a mock SystemMonitor for testing."""
     mock_monitor = Mock(spec=SystemMonitor)
+    mock_monitor.server = 'server1'
     mock_monitor.connected_gpus = [
-        {
-            'server': 'server1',
-            'gpu_id': 0,
-            'processes': [
+        GPUStatus(
+            server='server1',
+            index=0,
+            window_size=10,
+            processes=[
                 ProcessInfo(
                     pid='12345',
                     user='testuser',
                     cmd='python main.py --config-filepath configs/exp/baseline.py',
                     start_time='2025-07-17 10:00:00'
                 )
-            ]
-        }
+            ],
+            connected=True
+        )
     ]
     return mock_monitor
 

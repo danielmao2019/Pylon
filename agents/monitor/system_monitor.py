@@ -1,4 +1,6 @@
-from typing import List, Dict, Optional, Any
+from typing import Dict, List, Optional, Any
+from agents.connector.pool import _ssh_pool
+from agents.connector.error import SSHCommandError
 from agents.monitor.gpu_monitor import GPUMonitor
 from agents.monitor.cpu_monitor import CPUMonitor
 from agents.monitor.gpu_status import GPUStatus
@@ -6,126 +8,116 @@ from agents.monitor.cpu_status import CPUStatus
 
 
 class SystemMonitor:
-    """
-    Combined monitor that aggregates both CPU and GPU information.
-    Provides a unified interface for system resource monitoring.
-    """
+    """Monitor CPU and GPUs for a single server."""
 
     def __init__(
         self,
-        gpu_indices_by_server: Optional[Dict[str, List[int]]] = None,
-        cpu_servers: Optional[List[str]] = None,
-        timeout: int = 5
+        server: str,
+        gpu_indices: Optional[List[int]] = None,
+        timeout: int = 5,
+        window_size: int = 10,
     ):
-        """
-        Initialize system monitor with both CPU and GPU monitoring.
-
-        Args:
-            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices, or None for localhost
-            cpu_servers: List of server names to monitor for CPU, or None for localhost only
-            timeout: SSH command timeout in seconds
-        """
+        self.server = server
         self.timeout = timeout
-
-        # Initialize GPU monitor
-        self.gpu_monitor = GPUMonitor(gpu_indices_by_server, timeout=timeout)
-
-        # Initialize CPU monitor
-        # If cpu_servers is not provided, use the same servers as GPU monitor
-        if cpu_servers is None and gpu_indices_by_server is not None:
-            cpu_servers = list(gpu_indices_by_server.keys())
-        self.cpu_monitor = CPUMonitor(cpu_servers, timeout=timeout)
-
-        # Track if monitoring is started
+        self.window_size = window_size
+        self.cpu_monitor = CPUMonitor(server, timeout=timeout, window_size=window_size)
+        if gpu_indices is None:
+            gpu_indices = self._discover_gpu_indices(server)
+        self.gpu_monitors: Dict[int, GPUMonitor] = {
+            idx: GPUMonitor(server, idx, timeout=timeout, window_size=window_size)
+            for idx in gpu_indices
+        }
         self._monitoring_started = False
 
-    def start(self):
-        """Start both CPU and GPU monitoring"""
-        self.gpu_monitor.start()
+    def start(self) -> None:
         self.cpu_monitor.start()
+        for monitor in self.gpu_monitors.values():
+            monitor.start()
         self._monitoring_started = True
 
-    def stop(self):
-        """Stop both CPU and GPU monitoring"""
-        self.gpu_monitor.stop()
+    def stop(self) -> None:
         self.cpu_monitor.stop()
+        for monitor in self.gpu_monitors.values():
+            monitor.stop()
         self._monitoring_started = False
 
-    def __del__(self):
-        """Automatically stop monitoring when instance is destroyed"""
+    def __del__(self) -> None:
         self.stop()
 
     @property
-    def gpus(self) -> List[GPUStatus]:
-        """Get all GPUs"""
-        return self.gpu_monitor.gpus
+    def cpu(self) -> CPUStatus:
+        return self.cpu_monitor.cpu
 
     @property
-    def cpus(self) -> List[CPUStatus]:
-        """Get all CPUs"""
-        return self.cpu_monitor.cpus
+    def gpus(self) -> List[GPUStatus]:
+        return [monitor.gpu for monitor in self.gpu_monitors.values()]
+
+    @property
+    def connected_cpu(self) -> Optional[CPUStatus]:
+        status = self.cpu_monitor.cpu
+        return status if status.connected else None
 
     @property
     def connected_gpus(self) -> List[GPUStatus]:
-        """Get all connected GPUs"""
-        return self.gpu_monitor.connected_gpus
+        return [gpu for gpu in self.gpus if gpu.connected]
 
     @property
-    def connected_cpus(self) -> List[CPUStatus]:
-        """Get all connected CPUs"""
-        return self.cpu_monitor.connected_cpus
+    def disconnected_cpu(self) -> Optional[str]:
+        return None if self.cpu_monitor.cpu.connected else self.server
 
     @property
-    def disconnected_gpus(self) -> Dict[str, List[int]]:
-        """Get all disconnected GPUs"""
-        return self.gpu_monitor.disconnected_gpus
-
-    @property
-    def disconnected_cpus(self) -> List[str]:
-        """Get all disconnected CPUs"""
-        return self.cpu_monitor.disconnected_cpus
+    def disconnected_gpus(self) -> List[int]:
+        return [gpu.index for gpu in self.gpus if not gpu.connected]
 
     def get_all_running_commands(self) -> List[str]:
-        """Get all running commands from both CPU and GPU processes"""
-        gpu_commands = self.gpu_monitor.get_all_running_commands()
-        cpu_commands = self.cpu_monitor.get_all_running_commands()
-
-        # Combine and deduplicate commands
-        all_commands = list(set(gpu_commands + cpu_commands))
-        return all_commands
+        commands = self.cpu_monitor.get_all_running_commands()
+        for monitor in self.gpu_monitors.values():
+            commands.extend(monitor.get_all_running_commands())
+        return list(set(commands))
 
     def get_system_status(self) -> Dict[str, Any]:
-        """Get comprehensive system status including both CPU and GPU info"""
-        gpu_stats = self.gpu_monitor._check()
-        cpu_stats = self.cpu_monitor._check()
-
         return {
-            'gpu_stats': gpu_stats,
-            'cpu_stats': cpu_stats,
+            'cpu': self.cpu_monitor.cpu.to_dict(),
+            'gpus': [gpu.to_dict() for gpu in self.gpus],
+            'disconnected_cpu': self.disconnected_cpu,
             'disconnected_gpus': self.disconnected_gpus,
-            'disconnected_cpus': self.disconnected_cpus,
             'monitoring_active': self._monitoring_started,
         }
 
-    def log_stats(self, logger):
-        """Log stats from both CPU and GPU monitors"""
-        # Log GPU stats
-        gpu_stats = self.gpu_monitor._check()
-        if gpu_stats:
-            # Prefix GPU stats with 'gpu_'
-            gpu_stats_prefixed = {}
-            for gpu_key, gpu_data in gpu_stats.items():
-                for key, value in gpu_data.items():
-                    gpu_stats_prefixed[f'gpu_{key}'] = value
-            logger.update_buffer(gpu_stats_prefixed)
+    def log_stats(self, logger) -> None:
+        cpu = self.cpu
+        gpu_stats = {
+            f'gpu_{gpu.index}_{field}': value
+            for gpu in self.gpus
+            for field, value in gpu.to_dict().items()
+            if field != 'server'
+        }
+        cpu_stats = {
+            f'cpu_{field}': value
+            for field, value in cpu.to_dict().items()
+            if field != 'server'
+        }
+        logger.update_buffer({**cpu_stats, **gpu_stats})
 
-        # Log CPU stats
-        cpu_stats = self.cpu_monitor._check()
-        if cpu_stats:
-            # Prefix CPU stats with 'cpu_'
-            cpu_stats_prefixed = {}
-            for cpu_key, cpu_data in cpu_stats.items():
-                for key, value in cpu_data.items():
-                    if key != 'server':  # Avoid duplicate server field
-                        cpu_stats_prefixed[f'cpu_{key}'] = value
-            logger.update_buffer(cpu_stats_prefixed)
+    def _discover_gpu_indices(self, server: str) -> List[int]:
+        try:
+            output = _ssh_pool.execute(
+                server,
+                ['nvidia-smi', '--query-gpu=index', '--format=csv,noheader'],
+            )
+        except SSHCommandError:
+            return []
+        except Exception as exc:  # noqa: BLE001 - discovery failures are non-fatal
+            print(f"WARNING: Unable to query GPUs for {server}: {exc}")
+            return []
+
+        indices: List[int] = []
+        for line in output.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                indices.append(int(stripped.split()[0]))
+            except ValueError:
+                continue
+        return indices

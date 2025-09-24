@@ -209,8 +209,11 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
                 create_epoch_files(work_dir, epoch_idx)
         
         # Create minimal SystemMonitor mock (only necessary mock)
-        connected_gpus_data = [GPUStatus(server='test_server', index=0, max_memory=0, processes=[], connected=True)]
+        connected_gpus_data = [
+            GPUStatus(server='test_server', index=0, window_size=10, max_memory=0, processes=[], connected=True)
+        ]
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
+        monitor_map = {'test_server': system_monitor}
         
         original_cwd = os.getcwd()
         os.chdir(temp_root)
@@ -219,7 +222,7 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
             result = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
-                system_monitor=system_monitor
+                system_monitors=monitor_map,
             )
             
             # Should return mapping instead of list
@@ -258,7 +261,7 @@ def test_build_config_to_process_mapping():
     """Test building config to ProcessInfo mapping from GPU data."""
     connected_gpus = [
         GPUStatus(
-            server='test_server', index=0, max_memory=0,
+            server='test_server', index=0, window_size=10, max_memory=0,
             processes=[
                 ProcessInfo(
                     pid='12345',
@@ -275,7 +278,7 @@ def test_build_config_to_process_mapping():
             ]
         ),
         GPUStatus(
-            server='test_server', index=1, max_memory=0,
+            server='test_server', index=1, window_size=10, max_memory=0,
             processes=[
                 ProcessInfo(
                     pid='54321',
@@ -396,7 +399,7 @@ def test_build_config_to_process_mapping_no_matching_processes():
     """Test building config mapping when no processes match pattern."""
     connected_gpus = [
         GPUStatus(
-            server='test_server', index=0, max_memory=0,
+            server='test_server', index=0, window_size=10, max_memory=0,
             processes=[
                 ProcessInfo(
                     pid='12345',

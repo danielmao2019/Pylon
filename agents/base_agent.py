@@ -1,6 +1,8 @@
 from typing import Tuple, List, Dict
 from abc import ABC
 from agents.monitor.system_monitor import SystemMonitor
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.cpu_status import CPUStatus
 
 
 class BaseAgent(ABC):
@@ -23,19 +25,45 @@ class BaseAgent(ABC):
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
         self.force_progress_recompute = force_progress_recompute
-        self._init_system_monitor(gpu_pool, timeout)
+        self._init_system_monitors(gpu_pool, timeout)
         self.user_names = user_names
 
-    def _init_system_monitor(self, gpu_pool: List[Tuple[str, List[int]]], timeout: int) -> None:
-        # Convert gpu_pool format to gpu_indices_by_server format
-        servers = [x[0] for x in gpu_pool]
-        assert len(set(servers)) == len(servers), f"{servers=}"
-        gpu_indices_by_server = {}
-        cpu_servers = []
+    def _init_system_monitors(self, gpu_pool: List[Tuple[str, List[int]]], timeout: int) -> None:
+        self.system_monitors: Dict[str, SystemMonitor] = {}
         for server, indices in gpu_pool:
-            gpu_indices_by_server[server] = indices
-            cpu_servers.append(server)
+            monitor = SystemMonitor(server=server, gpu_indices=indices, timeout=timeout)
+            monitor.start()
+            self.system_monitors[server] = monitor
+        self.servers = list(self.system_monitors.keys())
 
-        self.system_monitor = SystemMonitor(gpu_indices_by_server, cpu_servers=cpu_servers, timeout=timeout)
-        self.system_monitor.start()
-        self.servers = [server for server, _ in gpu_pool]
+    @property
+    def connected_gpus(self) -> List[GPUStatus]:
+        return [
+            gpu
+            for monitor in self.system_monitors.values()
+            for gpu in monitor.connected_gpus
+        ]
+
+    @property
+    def connected_cpus(self) -> List[CPUStatus]:
+        return [
+            monitor.cpu
+            for monitor in self.system_monitors.values()
+            if monitor.cpu.connected
+        ]
+
+    @property
+    def disconnected_gpus(self) -> Dict[str, List[int]]:
+        return {
+            server: monitor.disconnected_gpus
+            for server, monitor in self.system_monitors.items()
+            if monitor.disconnected_gpus
+        }
+
+    @property
+    def disconnected_cpus(self) -> List[str]:
+        return [
+            server
+            for server, monitor in self.system_monitors.items()
+            if monitor.disconnected_cpu
+        ]

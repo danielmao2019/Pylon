@@ -134,6 +134,7 @@ def create_minimal_system_monitor_with_processes():
                 raise TypeError(f"connected_gpus[{i}] must be GPUStatus, got {type(gpu)}")
 
         mock_monitor = Mock(spec=SystemMonitor)
+        mock_monitor.server = 'test_server'
         mock_monitor.connected_gpus = connected_gpus
         return mock_monitor
 
@@ -181,13 +182,13 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
             for i, config_path in enumerate(running_experiments)
         ]
         connected_gpus_data = [
-            GPUStatus(server='test_server', index=0, max_memory=0, processes=processes, connected=True)
+            GPUStatus(server='test_server', index=0, window_size=10, max_memory=0, processes=processes, connected=True)
         ] if running_experiments else [
-            GPUStatus(server='test_server', index=0, max_memory=0, processes=[], connected=True)
+            GPUStatus(server='test_server', index=0, window_size=10, max_memory=0, processes=[], connected=True)
         ]
 
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
 
-        return config_files, work_dirs, system_monitor
+        return config_files, work_dirs, {'test_server': system_monitor}
 
     return _setup_realistic_experiment_structure

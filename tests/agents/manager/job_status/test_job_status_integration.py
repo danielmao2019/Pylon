@@ -33,7 +33,7 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
             ("failed_exp", "failed", 2, False),       # Few epochs, not running
         ]
         
-        config_files, work_dirs, system_monitor = setup_realistic_experiment_structure(
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
             temp_root, experiments
         )
         
@@ -45,7 +45,7 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
             all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
-                system_monitor=system_monitor
+                system_monitors=system_monitors
             )
             
             # Verify results
@@ -88,7 +88,7 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
             ("completed_exp", "finished", 100, False),     # Fully completed
         ]
         
-        config_files, work_dirs, system_monitor = setup_realistic_experiment_structure(
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
             temp_root, experiments
         )
         
@@ -100,7 +100,7 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
             all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
-                system_monitor=system_monitor
+                system_monitors=system_monitors
             )
             
             # Verify comprehensive results
@@ -137,7 +137,7 @@ def test_integration_no_running_experiments(setup_realistic_experiment_structure
             ("failed_exp2", "failed", 0, False),
         ]
         
-        config_files, work_dirs, system_monitor = setup_realistic_experiment_structure(
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
             temp_root, experiments
         )
         
@@ -148,7 +148,7 @@ def test_integration_no_running_experiments(setup_realistic_experiment_structure
             all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
-                system_monitor=system_monitor
+                system_monitors=system_monitors
             )
             
             # All experiments should have no process_info
@@ -172,7 +172,7 @@ def test_integration_all_running_experiments(setup_realistic_experiment_structur
             ("stuck_exp2", "stuck", 60, False),
         ]
         
-        config_files, work_dirs, system_monitor = setup_realistic_experiment_structure(
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
             temp_root, experiments
         )
         
@@ -183,7 +183,7 @@ def test_integration_all_running_experiments(setup_realistic_experiment_structur
             all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
-                system_monitor=system_monitor
+                system_monitors=system_monitors
             )
             
             # All experiments should have process_info
@@ -208,7 +208,7 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
             for i in range(20)
         ]
         
-        config_files, work_dirs, system_monitor = setup_realistic_experiment_structure(
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
             temp_root, experiments
         )
         
@@ -219,7 +219,7 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
             all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
-                system_monitor=system_monitor
+                system_monitors=system_monitors
             )
             
             # Verify all experiments are processed

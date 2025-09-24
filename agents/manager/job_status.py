@@ -41,28 +41,33 @@ class JobStatus:
 def get_all_job_status(
     config_files: List[str],
     epochs: int,
+    system_monitors: Dict[str, SystemMonitor],
     sleep_time: int = 86400,
     outdated_days: int = 30,
-    system_monitor: SystemMonitor = None,
     force_progress_recompute: bool = False,
 ) -> Dict[str, JobStatus]:
     """
     Args:
         config_files: List of config file paths
         epochs: Total number of epochs
+        system_monitors: Mapping from server name to SystemMonitor instance
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
-        system_monitor: System monitor (CPU + GPU)
         force_progress_recompute: If True, bypass cache and recompute progress from scratch
     """
     assert isinstance(config_files, list)
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
     assert isinstance(outdated_days, int)
-    assert isinstance(system_monitor, SystemMonitor)
+    assert isinstance(system_monitors, dict)
+    assert all(isinstance(monitor, SystemMonitor) for monitor in system_monitors.values())
 
     # Query all GPUs ONCE for efficiency
-    all_connected_gpus = system_monitor.connected_gpus
+    all_connected_gpus = [
+        gpu
+        for monitor in system_monitors.values()
+        for gpu in monitor.connected_gpus
+    ]
     config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
 
     with ThreadPoolExecutor() as executor:
@@ -77,7 +82,8 @@ def get_all_job_status(
                         sleep_time=sleep_time,
                         outdated_days=outdated_days,
                         force_progress_recompute=force_progress_recompute,
-                    ), config_files
+                    ),
+                    config_files
                 )
             )
         }
