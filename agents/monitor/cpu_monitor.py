@@ -9,13 +9,14 @@ from utils.timeout import with_timeout
 class CPUMonitor(BaseMonitor[CPUStatus]):
     """Monitor CPU utilisation for a single server."""
 
-    def __init__(self, server: str, timeout: int = 5):
+    def __init__(self, server: str, timeout: int = 5, window_size: int = 10):
         self.server = server
+        self.window_size = window_size
         self.status: CPUStatus
         super().__init__(timeout=timeout)
 
     def _initialize_state(self) -> None:
-        self.status = CPUStatus(server=self.server)
+        self.status = CPUStatus(server=self.server, window_size=None)
 
     def _update_resource(self) -> None:
         info = self._collect_cpu_info(self.server, self.ssh_pool, timeout=self.timeout)
@@ -26,6 +27,7 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
 
         # Ensure previous status state exists
         status = self.status
+        status.window_size = self.window_size
         if not status.connected:
             status.memory_window.clear()
             status.cpu_window.clear()
@@ -50,10 +52,12 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         self._update_stats(status)
 
     def _mark_disconnected(self) -> None:
-        self.status = CPUStatus(server=self.server, connected=False, window_size=self.status.window_size)
+        self.status = CPUStatus(server=self.server, connected=False, window_size=None)
+        assert self.status.window_size is None
 
     @staticmethod
     def _trim_windows(status: CPUStatus) -> None:
+        assert status.window_size is not None, "window_size must be set when CPU is connected"
         if len(status.memory_window) > status.window_size:
             status.memory_window = status.memory_window[-status.window_size:]
         if len(status.cpu_window) > status.window_size:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime
 from contextlib import ExitStack
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import dash
 from dash import dcc, html, dash_table
@@ -40,13 +40,24 @@ def parse_args() -> argparse.Namespace:
         default=8050,
         help="Port to serve the dashboard on (default: 8050).",
     )
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=10,
+        help="Rolling window size for CPU/GPU statistics (default: 10 samples).",
+    )
     return parser.parse_args()
 
 
-def create_monitors(servers: List[str], timeout: int, stack: ExitStack) -> Dict[str, SystemMonitor]:
+def create_monitors(
+    servers: List[str],
+    timeout: int,
+    window_size: int,
+    stack: ExitStack,
+) -> Dict[str, SystemMonitor]:
     monitors: Dict[str, SystemMonitor] = {}
     for server in servers:
-        monitor = SystemMonitor(server=server, timeout=timeout)
+        monitor = SystemMonitor(server=server, timeout=timeout, window_size=window_size)
         stack.callback(monitor.stop)
         monitors[server] = monitor
     return monitors
@@ -116,6 +127,15 @@ def build_style(rows: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
     app = dash.Dash(__name__)
 
+    first_monitor = next(iter(monitors.values()), None)
+    window_size: Optional[int] = first_monitor.window_size if first_monitor else None
+    update_period_seconds = interval_ms / 1000.0
+    meta_parts: List[str] = []
+    if window_size is not None:
+        meta_parts.append(f"Window size: {window_size} samples")
+    meta_parts.append(f"Update period: {update_period_seconds:.2f}s")
+    meta_text = ' · '.join(meta_parts)
+
     columns = [
         {'name': 'Server', 'id': 'Server'},
         {'name': 'Resource', 'id': 'Resource'},
@@ -134,6 +154,7 @@ def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
     app.layout = html.Div(
         [
             html.H2("Agents Monitor Dashboard"),
+            html.Div(meta_text, id='monitor-meta', style={'margin': '8px 0', 'color': '#555'}),
             html.Div(id='last-update', style={'margin': '10px 0'}),
             dash_table.DataTable(
                 id='resource-table',
@@ -165,7 +186,12 @@ def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
 def main() -> None:
     args = parse_args()
     with ExitStack() as stack:
-        monitors = create_monitors(args.servers, timeout=args.timeout, stack=stack)
+        monitors = create_monitors(
+            args.servers,
+            timeout=args.timeout,
+            window_size=args.window_size,
+            stack=stack,
+        )
         app = make_app(monitors, args.interval)
         app.run(debug=False, port=args.port)
 

@@ -14,8 +14,7 @@ def test_gpu_monitor_optional(monitor_server: str, gpu_index: int | None, probe_
 
     monitor = GPUMonitor(server=monitor_server, index=gpu_index, timeout=probe_timeout)
 
-    assert monitor.gpu.window_size is not None
-    window = monitor.gpu.window_size
+    window = monitor.window_size
     for _ in range(window):
         monitor._update_resource()
         time.sleep(0.1)
@@ -24,6 +23,7 @@ def test_gpu_monitor_optional(monitor_server: str, gpu_index: int | None, probe_
     if not gpu_status.connected:
         pytest.skip("GPU reported as disconnected; skipping detailed assertions")
 
+    assert gpu_status.window_size == monitor.window_size
     assert gpu_status.max_memory is not None
     assert gpu_status.memory_stats is not None
     assert gpu_status.memory_stats['avg'] is not None

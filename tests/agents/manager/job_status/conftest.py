@@ -182,9 +182,9 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
             for i, config_path in enumerate(running_experiments)
         ]
         connected_gpus_data = [
-            GPUStatus(server='test_server', index=0, max_memory=0, processes=processes, connected=True)
+            GPUStatus(server='test_server', index=0, window_size=10, max_memory=0, processes=processes, connected=True)
         ] if running_experiments else [
-            GPUStatus(server='test_server', index=0, max_memory=0, processes=[], connected=True)
+            GPUStatus(server='test_server', index=0, window_size=10, max_memory=0, processes=[], connected=True)
         ]
 
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)

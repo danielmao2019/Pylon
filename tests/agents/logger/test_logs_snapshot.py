@@ -52,6 +52,7 @@ def mock_system_monitor():
         GPUStatus(
             server='server1',
             index=0,
+            window_size=10,
             processes=[
                 ProcessInfo(
                     pid='12345',

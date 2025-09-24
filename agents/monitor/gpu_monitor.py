@@ -11,9 +11,10 @@ from utils.timeout import with_timeout
 class GPUMonitor(BaseMonitor[GPUStatus]):
     """Monitor utilisation for a single GPU on a server."""
 
-    def __init__(self, server: str, index: int, timeout: int = 5):
+    def __init__(self, server: str, index: int, timeout: int = 5, window_size: int = 10):
         self.server = server
         self.index = index
+        self.window_size = window_size
         self.status: GPUStatus
         super().__init__(timeout=timeout)
 
@@ -28,16 +29,18 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
             else:
                 physical_device_index = device_index
             self.index = physical_device_index
-        self.status = GPUStatus(server=self.server, index=self.index, connected=False, window_size=10)
+        self.status = GPUStatus(server=self.server, index=self.index, connected=False, window_size=None)
 
     def _update_resource(self) -> None:
         info = self._collect_gpu_info(self.server, self.index, self.ssh_pool, timeout=self.timeout)
 
         if not info['connected']:
-            self.status = GPUStatus(server=self.server, index=self.index, connected=False, window_size=self.status.window_size)
+            self.status = GPUStatus(server=self.server, index=self.index, connected=False, window_size=None)
+            assert self.status.window_size is None
             return
 
         status = self.status
+        status.window_size = self.window_size
         if not status.connected:
             status.memory_window.clear()
             status.util_window.clear()
@@ -49,6 +52,7 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
         status.memory_window.append(info['current_memory'])
         status.util_window.append(info['current_util'])
 
+        assert status.window_size is not None, "window_size must be set when GPU is connected"
         if len(status.memory_window) > status.window_size:
             status.memory_window = status.memory_window[-status.window_size:]
         if len(status.util_window) > status.window_size:

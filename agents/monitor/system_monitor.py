@@ -15,14 +15,16 @@ class SystemMonitor:
         server: str,
         gpu_indices: Optional[List[int]] = None,
         timeout: int = 5,
+        window_size: int = 10,
     ):
         self.server = server
         self.timeout = timeout
-        self.cpu_monitor = CPUMonitor(server, timeout=timeout)
+        self.window_size = window_size
+        self.cpu_monitor = CPUMonitor(server, timeout=timeout, window_size=window_size)
         if gpu_indices is None:
             gpu_indices = self._discover_gpu_indices(server)
         self.gpu_monitors: Dict[int, GPUMonitor] = {
-            idx: GPUMonitor(server, idx, timeout=timeout)
+            idx: GPUMonitor(server, idx, timeout=timeout, window_size=window_size)
             for idx in gpu_indices
         }
         self._monitoring_started = False

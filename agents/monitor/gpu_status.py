@@ -8,9 +8,9 @@ class GPUStatus:
     """Status information for a GPU."""
     server: str
     index: int
+    window_size: Optional[int]
     max_memory: Optional[int] = None
     processes: List[ProcessInfo] = field(default_factory=list)
-    window_size: int = 0
     memory_window: List[int] = field(default_factory=list)
     util_window: List[int] = field(default_factory=list)
     memory_stats: Optional[Dict[str, Optional[float]]] = None
