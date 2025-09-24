@@ -10,7 +10,6 @@ import tempfile
 import json
 import pytest
 from agents.tracker.session_progress import get_session_progress
-from agents.tracker.base_progress_tracker import ProgressInfo
 
 
 # ============================================================================
