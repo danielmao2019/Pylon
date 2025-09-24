@@ -1,8 +1,8 @@
 from typing import List, Literal
-from .base_tracker import BaseProgressTracker, ProgressInfo
+from agents.tracker.base_tracker import BaseTracker, ProgressInfo
 
 
-class TrainerProgressTracker(BaseProgressTracker):
+class TrainerTracker(BaseTracker):
     """Progress tracker for BaseTrainer runs."""
     
     def get_runner_type(self) -> Literal['trainer']:
@@ -17,7 +17,7 @@ class TrainerProgressTracker(BaseProgressTracker):
     def calculate_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
         """Calculate trainer-specific progress using moved session_progress logic."""
         # Use moved session_progress logic (now in same module)
-        from .session_progress import get_session_progress
+        from agents.tracker.session_progress import get_session_progress
         
         # Get basic progress info (preserves existing logic)  
         # Pass the force_progress_recompute flag through to get_session_progress

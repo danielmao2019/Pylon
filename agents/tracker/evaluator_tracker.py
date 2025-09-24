@@ -1,9 +1,9 @@
 from typing import List, Literal
 import os
-from .base_tracker import BaseProgressTracker, ProgressInfo
+from agents.tracker.base_tracker import BaseTracker, ProgressInfo
 
 
-class EvaluatorProgressTracker(BaseProgressTracker):
+class EvaluatorTracker(BaseTracker):
     """Progress tracker for BaseEvaluator runs."""
     
     def get_runner_type(self) -> Literal['evaluator']:
