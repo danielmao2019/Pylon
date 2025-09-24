@@ -119,7 +119,7 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
                 assert job_status.status in ["running", "finished", "failed", "stuck", "outdated"]
                 
                 # Verify config and work_dir are correctly populated
-                assert job_status.config == config_path
+                assert job_status.config_filepath == config_path
                 assert isinstance(job_status.work_dir, str)
                 
         finally:

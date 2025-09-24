@@ -59,7 +59,7 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
             
             # Should return BaseJob with enhanced ProgressInfo
             assert isinstance(job_status, BaseJob)
-            assert job_status.config == config_path
+            assert job_status.config_filepath == config_path
             expected_work_dir = BaseJob.get_work_dir(config_path)
             assert job_status.work_dir == expected_work_dir
             assert isinstance(job_status.progress, ProgressInfo)
@@ -336,7 +336,7 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
             for config_path in config_files:
                 assert config_path in result
                 assert isinstance(result[config_path], BaseJob)
-                assert result[config_path].config == config_path
+                assert result[config_path].config_filepath == config_path
                 assert isinstance(result[config_path].progress, ProgressInfo)
                 assert hasattr(result[config_path].progress, 'completed_epochs')
                 

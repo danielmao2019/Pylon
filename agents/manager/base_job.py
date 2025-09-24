@@ -17,12 +17,16 @@ _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 class BaseJob(ABC):
     """Object-oriented representation of a single training job."""
 
-    def __init__(self, config: str) -> None:
-        self.config = config
+    def __init__(self, config_filepath: str) -> None:
+        self.config_filepath = config_filepath
         self.work_dir: Optional[str] = None
         self.progress: Optional[ProgressInfo] = None
         self.status: Optional[_JobStatus] = None
         self.process_info: Optional[ProcessInfo] = None
+
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
 
     def populate(
         self,
@@ -33,11 +37,52 @@ class BaseJob(ABC):
         outdated_days: int,
         force_progress_recompute: bool,
     ) -> None:
-        work_dir = self.get_work_dir(self.config)
-        config_dict = load_config(self.config)
+        work_dir = self.get_work_dir(self.config_filepath)
+        config_dict = load_config(self.config_filepath)
 
         # Use polymorphism: subclass provides its own behavior
         progress = self.calculate_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
+        self.status = self.get_status()
+        self.work_dir = work_dir
+        self.progress = progress
+        self.process_info = config_to_process_info.get(self.config_filepath)
+
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
+
+    @classmethod
+    def get_work_dir(cls, config_filepath: str) -> str:
+        """Derive work directory path from a config file path."""
+        rel_path = os.path.splitext(os.path.relpath(config_filepath, start='./configs'))[0]
+        return os.path.join('./logs', rel_path)
+
+    @classmethod
+    def get_config_filepath(cls, work_dir: str) -> str:
+        """Derive config file path from a work directory path."""
+        rel_path = os.path.relpath(work_dir, './logs')
+        return os.path.join('./configs', rel_path) + '.py'
+
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
+
+    @classmethod
+    @abstractmethod
+    def calculate_progress(
+        cls,
+        work_dir: str,
+        config: Optional[Dict],
+        *,
+        force_progress_recompute: bool = False,
+    ) -> ProgressInfo:
+        ...
+
+    # ====================================================================================================
+    #
+    # ====================================================================================================
+
+    def get_status():
         log_pattern = self.get_log_pattern()
         expected_files = self.get_expected_files()
 
@@ -58,49 +103,21 @@ class BaseJob(ABC):
                 status = 'outdated'
             else:
                 status = 'finished'
-        elif self.config in config_to_process_info:
+        elif self.config_filepath in config_to_process_info:
             status = 'stuck'
         else:
             status = 'failed'
-
-        self.work_dir = work_dir
-        self.progress = progress
-        self.status = status
-        self.process_info = config_to_process_info.get(self.config)
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            'config': self.config,
-            'work_dir': self.work_dir,
-            'progress': self._serialize(self.progress),
-            'status': self.status,
-            'process_info': self._serialize(self.process_info),
-        }
+        return status
 
     @classmethod
-    def get_work_dir(cls, config_file: str) -> str:
-        """Derive work directory path from a config file path."""
-        rel_path = os.path.splitext(os.path.relpath(config_file, start='./configs'))[0]
-        return os.path.join('./logs', rel_path)
+    @abstractmethod
+    def get_log_pattern(cls) -> str:
+        ...
 
     @classmethod
-    def get_config(cls, work_dir: str) -> str:
-        """Derive config file path from a work directory path."""
-        rel_path = os.path.relpath(work_dir, './logs')
-        return os.path.join('./configs', rel_path) + '.py'
-
-    @staticmethod
-    def parse_config(cmd: str) -> str:
-        """Extract config filepath from command string."""
-        assert isinstance(cmd, str), f"cmd={cmd!r}"
-        assert 'python' in cmd, f"cmd={cmd!r}"
-        assert '--config-filepath' in cmd, f"cmd={cmd!r}"
-        parts = cmd.split(' ')
-        for idx, part in enumerate(parts):
-            if part == '--config-filepath':
-                return parts[idx + 1]
-        raise AssertionError('Config filepath not found in command string')
+    @abstractmethod
+    def get_expected_files(cls) -> List[str]:
+        ...
 
     @staticmethod
     def get_log_last_update(
@@ -134,6 +151,32 @@ class BaseJob(ABC):
         ]
         return max(timestamps) if timestamps else None
 
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'config': self.config_filepath,
+            'work_dir': self.work_dir,
+            'progress': self._serialize(self.progress),
+            'status': self.status,
+            'process_info': self._serialize(self.process_info),
+        }
+
+    @staticmethod
+    def parse_config(cmd: str) -> str:
+        """Extract config filepath from command string."""
+        assert isinstance(cmd, str), f"cmd={cmd!r}"
+        assert 'python' in cmd, f"cmd={cmd!r}"
+        assert '--config-filepath' in cmd, f"cmd={cmd!r}"
+        parts = cmd.split(' ')
+        for idx, part in enumerate(parts):
+            if part == '--config-filepath':
+                return parts[idx + 1]
+        raise AssertionError('Config filepath not found in command string')
+
     @staticmethod
     def _serialize(value):
         if value is None:
@@ -141,25 +184,3 @@ class BaseJob(ABC):
         if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
             return value.to_dict()
         return value
-
-    # ----- Abstract interface implemented by subclasses -----
-    @classmethod
-    @abstractmethod
-    def get_expected_files(cls) -> List[str]:
-        ...
-
-    @classmethod
-    @abstractmethod
-    def get_log_pattern(cls) -> str:
-        ...
-
-    @classmethod
-    @abstractmethod
-    def calculate_progress(
-        cls,
-        work_dir: str,
-        config: Optional[Dict],
-        *,
-        force_progress_recompute: bool = False,
-    ) -> ProgressInfo:
-        ...

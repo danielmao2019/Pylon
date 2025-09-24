@@ -106,7 +106,7 @@ class Manager:
             results = list(executor.map(_construct, self.config_files))
 
         jobs = dict(zip(self.config_files, results))
-        assert set(jobs.keys()) == {job.config for job in jobs.values()}, (
+        assert set(jobs.keys()) == {job.config_filepath for job in jobs.values()}, (
             "Mismatch between config files and built job configs"
         )
         return jobs

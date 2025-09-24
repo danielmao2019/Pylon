@@ -67,7 +67,7 @@ class Launcher(BaseAgent):
     # ====================================================================================================
 
     def _remove_stuck(self, all_running_status: List[BaseJob]) -> None:
-        stuck_cfgs = [run.config for run in all_running_status if run.status == 'stuck']
+        stuck_cfgs = [run.config_filepath for run in all_running_status if run.status == 'stuck']
 
         def process_gpu(gpu):
             gpu_stuck_info = {}
@@ -107,7 +107,7 @@ class Launcher(BaseAgent):
             result (List[str]): the config filepaths for the missing experiment runs.
         """
         return [
-            run.config for run in all_running_status if run.status == 'failed'
+            run.config_filepath for run in all_running_status if run.status == 'failed'
         ]
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:

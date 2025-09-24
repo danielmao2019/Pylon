@@ -8,6 +8,6 @@ def test_work_dir_roundtrip():
     cfg = './configs/foo/bar/baz.py'
     work = BaseJob.get_work_dir(cfg)
     assert work == './logs/foo/bar/baz'
-    cfg2 = BaseJob.get_config(work)
+    cfg2 = BaseJob.get_config_filepath(work)
     assert cfg2 == cfg
 

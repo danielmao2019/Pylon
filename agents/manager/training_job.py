@@ -76,7 +76,7 @@ class TrainingJob(BaseJob):
                 break
             completed_epochs += 1
 
-        config_path = BaseJob.get_config(work_dir)
+        config_path = BaseJob.get_config_filepath(work_dir)
         config = load_config(config_path)
         tot_epochs = config['epochs']
         early_stopping_config = config.get('early_stopping')
