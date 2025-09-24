@@ -12,15 +12,7 @@ from typing import Dict, Any
 import os
 import tempfile
 import pytest
-from agents.manager import (
-    get_job_status,
-    get_all_job_status,
-    parse_config,
-    get_log_last_update,
-    get_epoch_last_update,
-    _build_config_to_process_mapping,
-    JobStatus,
-)
+from agents.manager import BaseJob
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
 from agents.tracker import ProgressInfo
@@ -54,14 +46,14 @@ def test_get_job_status_basic_functionality(create_epoch_files, create_real_conf
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = get_job_status(
+            job_status = BaseJob.get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
-            # Should return JobStatus with enhanced ProgressInfo - JobStatus is now a dataclass
-            assert isinstance(job_status, JobStatus)
+            # Should return BaseJob with enhanced ProgressInfo - BaseJob is now a dataclass
+            assert isinstance(job_status, BaseJob)
             assert job_status.config == config_path
             expected_work_dir = "./logs/test_run"  # What get_work_dir actually returns
             assert job_status.work_dir == expected_work_dir
@@ -106,7 +98,7 @@ def test_get_job_status_with_process_info(create_epoch_files, create_real_config
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = get_job_status(
+            job_status = BaseJob.get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
@@ -171,7 +163,7 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
         
         try:
             # NO MOCKS - use real function with real data
-            job_status = get_job_status(
+            job_status = BaseJob.get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
@@ -188,7 +180,7 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
 # ============================================================================
 
 def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes):
-    """Test that get_all_job_status returns Dict[str, JobStatus] with minimal SystemMonitor mock."""
+    """Test that get_all_job_status returns Dict[str, BaseJob] with minimal SystemMonitor mock."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiment directories
         experiments = ["exp1", "exp2", "exp3"]
@@ -219,7 +211,7 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
         os.chdir(temp_root)
         
         try:
-            result = get_all_job_status(
+            result = BaseJob.get_all_job_status(
                 config_files=config_files,
                 epochs=100,
                 system_monitors=monitor_map,
@@ -229,10 +221,10 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
             assert isinstance(result, dict), f"Expected dict, got {type(result)}"
             assert len(result) == 3
             
-            # Check that keys are config paths and values are JobStatus objects
+            # Check that keys are config paths and values are BaseJob objects
             for config_path in config_files:
                 assert config_path in result
-                assert isinstance(result[config_path], JobStatus)
+                assert isinstance(result[config_path], BaseJob)
                 assert result[config_path].config == config_path
                 assert isinstance(result[config_path].progress, ProgressInfo)
                 assert hasattr(result[config_path].progress, 'completed_epochs')
@@ -245,19 +237,19 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
 # TESTS FOR HELPER FUNCTIONS (NO MOCKS NEEDED)
 # ============================================================================
 
-def test_parse_config():
+def test_base_job_parse_config():
     """Test config parsing from command strings."""
     # Test valid commands
-    assert parse_config("python main.py --config-filepath configs/exp1.py") == "configs/exp1.py"
-    assert parse_config("python main.py --config-filepath /absolute/path/config.py") == "/absolute/path/config.py"
-    assert parse_config("python3 main.py --debug --config-filepath configs/test.py --verbose") == "configs/test.py"
+    assert BaseJob.parse_config("python main.py --config-filepath configs/exp1.py") == "configs/exp1.py"
+    assert BaseJob.parse_config("python main.py --config-filepath /absolute/path/config.py") == "/absolute/path/config.py"
+    assert BaseJob.parse_config("python3 main.py --debug --config-filepath configs/test.py --verbose") == "configs/test.py"
     
     # Test assertions for invalid commands (missing --config-filepath)
     with pytest.raises(AssertionError):
-        parse_config("python main.py --other-flag configs/exp1.py")  # Missing --config-filepath
+        BaseJob.parse_config("python main.py --other-flag configs/exp1.py")  # Missing --config-filepath
 
 
-def test_build_config_to_process_mapping():
+def test_base_job_build_config_to_process_mapping():
     """Test building config to ProcessInfo mapping from GPU data."""
     connected_gpus = [
         GPUStatus(
@@ -290,7 +282,7 @@ def test_build_config_to_process_mapping():
         ),
     ]
     
-    mapping = _build_config_to_process_mapping(connected_gpus)
+    mapping = BaseJob._build_config_to_process_mapping(connected_gpus)
     
     # Should only include processes with python main.py --config-filepath
     assert len(mapping) == 2
@@ -303,34 +295,34 @@ def test_build_config_to_process_mapping():
     assert mapping["configs/exp2.py"].pid == "54321"
 
 
-def test_get_log_last_update():
+def test_base_job_get_log_last_update():
     """Test log timestamp detection."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Test empty directory
-        assert get_log_last_update(temp_dir) is None
+        assert BaseJob.get_log_last_update(temp_dir) is None
         
         # Create log file
         log_file = os.path.join(temp_dir, "train_val_latest.log")
         with open(log_file, 'w') as f:
             f.write("test log content")
         
-        timestamp = get_log_last_update(temp_dir)
+        timestamp = BaseJob.get_log_last_update(temp_dir)
         assert timestamp is not None
         assert isinstance(timestamp, float)
 
 
-def test_get_epoch_last_update(EXPECTED_FILES, create_epoch_files):
+def test_base_job_get_epoch_last_update(EXPECTED_FILES, create_epoch_files):
     """Test epoch file timestamp detection."""
     with tempfile.TemporaryDirectory() as temp_dir:
         expected_files = EXPECTED_FILES
         
         # Test empty directory
-        assert get_epoch_last_update(temp_dir, expected_files) is None
+        assert BaseJob.get_epoch_last_update(temp_dir, expected_files) is None
         
         # Create epoch files
         create_epoch_files(temp_dir, 0)
         
-        timestamp = get_epoch_last_update(temp_dir, expected_files)
+        timestamp = BaseJob.get_epoch_last_update(temp_dir, expected_files)
         assert timestamp is not None
         assert isinstance(timestamp, float)
 
@@ -356,7 +348,7 @@ def test_get_job_status_invalid_config_path():
         try:
             # The function should handle the missing config when trying to compute progress
             # but since the work_dir exists but is empty, it will return 0 completed epochs
-            job_status = get_job_status(
+            job_status = BaseJob.get_job_status(
                 config=invalid_config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
@@ -378,19 +370,19 @@ def test_get_job_status_invalid_config_path():
 def test_parse_config_edge_cases():
     """Test parse_config with edge case command strings."""
     # Test with python3
-    assert parse_config("python3 main.py --config-filepath configs/exp.py") == "configs/exp.py"
+    assert BaseJob.parse_config("python3 main.py --config-filepath configs/exp.py") == "configs/exp.py"
     
     # Test with absolute path
-    assert parse_config("python main.py --config-filepath /home/user/configs/exp.py") == "/home/user/configs/exp.py"
+    assert BaseJob.parse_config("python main.py --config-filepath /home/user/configs/exp.py") == "/home/user/configs/exp.py"
     
     # Test with additional flags
-    assert parse_config("python main.py --debug --config-filepath configs/exp.py --verbose") == "configs/exp.py"
+    assert BaseJob.parse_config("python main.py --debug --config-filepath configs/exp.py --verbose") == "configs/exp.py"
 
 
 def test_build_config_to_process_mapping_empty_gpu_data():
     """Test building config mapping with empty GPU data."""
     connected_gpus = []
-    mapping = _build_config_to_process_mapping(connected_gpus)
+    mapping = BaseJob._build_config_to_process_mapping(connected_gpus)
     assert len(mapping) == 0
     assert mapping == {}
 
@@ -411,6 +403,6 @@ def test_build_config_to_process_mapping_no_matching_processes():
         )
     ]
     
-    mapping = _build_config_to_process_mapping(connected_gpus)
+    mapping = BaseJob._build_config_to_process_mapping(connected_gpus)
     assert len(mapping) == 0
     assert mapping == {}

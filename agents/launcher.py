@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import random
 from agents.base_agent import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
-from agents.manager import JobStatus, get_all_job_status, parse_config
+from agents.manager import BaseJob
 from utils.logging import TextLogger
 from agents.connector.pool import _ssh_pool
 
@@ -67,7 +67,7 @@ class Launcher(BaseAgent):
     # experiment management
     # ====================================================================================================
 
-    def _remove_stuck(self, all_running_status: List[JobStatus]) -> None:
+    def _remove_stuck(self, all_running_status: List[BaseJob]) -> None:
         stuck_cfgs = [run.config for run in all_running_status if run.status == 'stuck']
 
         def process_gpu(gpu):
@@ -79,7 +79,7 @@ class Launcher(BaseAgent):
                     continue
                 if 'python main.py --config-filepath' not in proc.cmd:
                     continue
-                cfg = parse_config(proc.cmd)
+                cfg = BaseJob.parse_config(proc.cmd)
                 if cfg in stuck_cfgs:
                     gpu_stuck_info[cfg] = (gpu.server, proc.pid)
             return gpu_stuck_info
@@ -96,13 +96,13 @@ class Launcher(BaseAgent):
         for server, pid in stuck_cfgs_info.values():
             self.ssh_pool.execute(server, ['kill', '-9', str(pid)])
 
-    def _remove_outdated(self, all_running_status: List[JobStatus]) -> None:
+    def _remove_outdated(self, all_running_status: List[BaseJob]) -> None:
         outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
         # self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
         # with ThreadPoolExecutor() as executor:
         #     list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
 
-    def _find_missing_runs(self, all_running_status: List[JobStatus]) -> List[str]:
+    def _find_missing_runs(self, all_running_status: List[BaseJob]) -> List[str]:
         r"""
         Returns:
             result (List[str]): the config filepaths for the missing experiment runs.
@@ -162,7 +162,7 @@ class Launcher(BaseAgent):
 
         return idle_gpus
 
-    def _launch_missing(self, all_running: List[JobStatus], num_jobs: int) -> bool:
+    def _launch_missing(self, all_running: List[BaseJob], num_jobs: int) -> bool:
         r"""
         Returns:
             done (bool): nothing more to launch.
@@ -219,7 +219,7 @@ class Launcher(BaseAgent):
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
-            all_running_status_dict = get_all_job_status(
+            all_running_status_dict = BaseJob.get_all_job_status(
                 config_files=self.config_files,
                 epochs=self.epochs,
                 sleep_time=self.sleep_time,

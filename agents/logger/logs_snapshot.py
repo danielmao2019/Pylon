@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 from agents.monitor.system_monitor import SystemMonitor
-from agents.manager import get_all_job_status
+from agents.manager import BaseJob
 from utils.io.json import serialize_object
 
 
@@ -46,14 +46,14 @@ class LogsSnapshot:
             system_monitor: SystemMonitor instance for GPU/process queries
             
         Returns:
-            Dictionary containing snapshot data with enhanced JobStatus mapping
+            Dictionary containing snapshot data with enhanced BaseJob mapping
         """
         assert isinstance(timestamp, str), f"timestamp must be str, got {type(timestamp)}"
         assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
         
-        # Use enhanced get_all_job_status that returns Dict[str, JobStatus] with ProcessInfo
+        # Use enhanced get_all_job_status that returns Dict[str, BaseJob] with ProcessInfo
         monitor_map = {system_monitor.server: system_monitor}
-        run_statuses = get_all_job_status(
+        run_statuses = BaseJob.get_all_job_status(
             config_files=self.config_files,
             epochs=self.epochs,
             system_monitors=monitor_map,
@@ -63,7 +63,7 @@ class LogsSnapshot:
         
         snapshot = {
             'timestamp': timestamp,
-            'job_statuses': run_statuses,  # Dict[str, JobStatus] with enhanced progress and ProcessInfo
+            'job_statuses': run_statuses,  # Dict[str, BaseJob] with enhanced progress and ProcessInfo
             'snapshot_metadata': {
                 'total_configs': len(self.config_files),
                 'epochs': self.epochs,

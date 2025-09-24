@@ -1,5 +1,5 @@
 from typing import List
-from agents.manager import get_all_job_status
+from agents.manager import BaseJob
 from agents.monitor.system_monitor import SystemMonitor
 
 
@@ -29,7 +29,7 @@ def get_progress(
     assert isinstance(force_progress_recompute, bool), f"force_progress_recompute must be bool, got {type(force_progress_recompute)}"
 
     monitor_map = {system_monitor.server: system_monitor}
-    all_job_status = get_all_job_status(
+    all_job_status = BaseJob.get_all_job_status(
         config_files,
         epochs,
         monitor_map,

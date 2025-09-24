@@ -105,7 +105,7 @@ class DailySummaryGenerator:
         Returns:
             Formatted experiment statistics section
         """
-        current_statuses = current['job_statuses']  # Dict[str, JobStatus]
+        current_statuses = current['job_statuses']  # Dict[str, BaseJob]
         
         # Count experiments by status
         status_counts = {}
@@ -251,7 +251,7 @@ class DailySummaryGenerator:
         Returns:
             Formatted progress overview section
         """
-        current_statuses = current['job_statuses']  # Dict[str, JobStatus]
+        current_statuses = current['job_statuses']  # Dict[str, BaseJob]
         
         # Calculate overall completion percentage
         total_progress = 0
@@ -313,7 +313,7 @@ class DailySummaryGenerator:
         Returns:
             Formatted resource utilization section
         """
-        current_statuses = current['job_statuses']  # Dict[str, JobStatus]
+        current_statuses = current['job_statuses']  # Dict[str, BaseJob]
         
         # Count running processes by server
         server_processes = {}
