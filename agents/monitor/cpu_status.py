@@ -9,17 +9,17 @@ from utils.timeout import with_timeout
 class CPUStatus:
     """Status information for a CPU/server."""
     server: str
-    max_memory: int  # Total system memory in MB
-    cpu_cores: int  # Number of CPU cores
+    max_memory: Optional[int] = None  # Total system memory in MB
+    cpu_cores: Optional[int] = None  # Number of CPU cores
     processes: List[ProcessInfo] = field(default_factory=list)
-    window_size: int = 0
+    window_size: int = 10
     memory_window: List[int] = field(default_factory=list)  # Memory usage in MB
-    cpu_window: List[float] = field(default_factory=list)  # CPU utilization percentage
+    cpu_window: List[Optional[float]] = field(default_factory=list)  # CPU utilization percentage
     load_window: List[float] = field(default_factory=list)  # Load average (1min)
-    memory_stats: Dict[str, Optional[float]] = field(default_factory=dict)
-    cpu_stats: Dict[str, Optional[float]] = field(default_factory=dict)
-    load_stats: Dict[str, Optional[float]] = field(default_factory=dict)
-    connected: bool = True
+    memory_stats: Optional[Dict[str, Optional[float]]] = None
+    cpu_stats: Optional[Dict[str, Optional[float]]] = None
+    load_stats: Optional[Dict[str, Optional[float]]] = None
+    connected: bool = False
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -150,6 +150,6 @@ def get_server_cpu_info(server: str, pool: SSHConnectionPool, timeout: int = 10)
             'current_cpu': None,
             'current_load': None,
             'cpu_cores': None,
-            'processes': None,
+            'processes': [],
             'connected': False,
         }
