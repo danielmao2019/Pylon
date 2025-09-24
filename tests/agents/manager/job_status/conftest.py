@@ -134,6 +134,7 @@ def create_minimal_system_monitor_with_processes():
                 raise TypeError(f"connected_gpus[{i}] must be GPUStatus, got {type(gpu)}")
 
         mock_monitor = Mock(spec=SystemMonitor)
+        mock_monitor.server = 'test_server'
         mock_monitor.connected_gpus = connected_gpus
         return mock_monitor
 

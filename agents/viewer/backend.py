@@ -28,8 +28,14 @@ def get_progress(
     assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
     assert isinstance(force_progress_recompute, bool), f"force_progress_recompute must be bool, got {type(force_progress_recompute)}"
 
+    monitor_map = {system_monitor.server: system_monitor}
     all_job_status = get_all_job_status(
-        config_files, epochs, sleep_time, outdated_days, system_monitor, force_progress_recompute
+        config_files,
+        epochs,
+        monitor_map,
+        sleep_time=sleep_time,
+        outdated_days=outdated_days,
+        force_progress_recompute=force_progress_recompute,
     )
     all_job_progress = [s.progress.progress_percentage for s in all_job_status.values()]
 

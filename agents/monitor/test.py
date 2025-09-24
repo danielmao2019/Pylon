@@ -1,9 +1,10 @@
 """Minimal Dash app for monitoring resources across servers."""
+
 from __future__ import annotations
 
 import argparse
 import datetime
-import atexit
+from contextlib import ExitStack
 from typing import Dict, List
 
 import dash
@@ -33,17 +34,21 @@ def parse_args() -> argparse.Namespace:
         default=5,
         help="SSH command timeout in seconds (default: 5).",
     )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8050,
+        help="Port to serve the dashboard on (default: 8050).",
+    )
     return parser.parse_args()
 
 
-def create_monitors(servers: List[str], timeout: int) -> Dict[str, SystemMonitor]:
-    monitors = {server: SystemMonitor(server=server, timeout=timeout) for server in servers}
-
-    def _shutdown():
-        for monitor in monitors.values():
-            monitor.stop()
-
-    atexit.register(_shutdown)
+def create_monitors(servers: List[str], timeout: int, stack: ExitStack) -> Dict[str, SystemMonitor]:
+    monitors: Dict[str, SystemMonitor] = {}
+    for server in servers:
+        monitor = SystemMonitor(server=server, timeout=timeout)
+        stack.callback(monitor.stop)
+        monitors[server] = monitor
     return monitors
 
 
@@ -159,9 +164,10 @@ def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
 
 def main() -> None:
     args = parse_args()
-    monitors = create_monitors(args.servers, timeout=args.timeout)
-    app = make_app(monitors, args.interval)
-    app.run_server(debug=False)
+    with ExitStack() as stack:
+        monitors = create_monitors(args.servers, timeout=args.timeout, stack=stack)
+        app = make_app(monitors, args.interval)
+        app.run(debug=False, port=args.port)
 
 
 if __name__ == '__main__':
