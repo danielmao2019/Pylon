@@ -105,14 +105,13 @@ def test_logs_snapshot_initialization(sample_config_files, sample_expected_files
     """Test LogsSnapshot initialization with valid parameters."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20,
         sleep_time=3600,
         outdated_days=15
     )
     
     assert snapshot.config_files == sample_config_files
-    assert snapshot.expected_files == sample_expected_files
+    # expected_files are handled by downstream utilities; not part of LogsSnapshot API
     assert snapshot.epochs == 20
     assert snapshot.sleep_time == 3600
     assert snapshot.outdated_days == 15
@@ -123,7 +122,6 @@ def test_logs_snapshot_initialization_with_defaults(sample_config_files, sample_
     """Test LogsSnapshot initialization with default parameters."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     
@@ -137,23 +135,15 @@ def test_logs_snapshot_initialization_validation():
     with pytest.raises(AssertionError, match="config_files must be list"):
         LogsSnapshot(
             config_files="not_a_list",
-            expected_files=["file.json"],
             epochs=20
         )
     
-    # Test invalid expected_files type
-    with pytest.raises(AssertionError, match="expected_files must be list"):
-        LogsSnapshot(
-            config_files=["config.py"],
-            expected_files="not_a_list",
-            epochs=20
-        )
+    # expected_files is not an argument to LogsSnapshot
     
     # Test invalid epochs type
     with pytest.raises(AssertionError, match="epochs must be int"):
         LogsSnapshot(
             config_files=["config.py"],
-            expected_files=["file.json"],
             epochs="20"
         )
 
@@ -190,7 +180,6 @@ def test_create_snapshot(sample_config_files, sample_expected_files, mock_system
     
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     
@@ -208,7 +197,6 @@ def test_create_snapshot_parameter_validation(sample_config_files, sample_expect
     """Test create_snapshot parameter validation."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     
@@ -229,7 +217,6 @@ def test_save_and_load_snapshot(temp_snapshot_dir, sample_config_files, sample_e
     """Test saving and loading snapshots."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -268,7 +255,6 @@ def test_save_snapshot_parameter_validation(temp_snapshot_dir, sample_config_fil
     """Test save_snapshot parameter validation."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -290,7 +276,6 @@ def test_load_nonexistent_snapshot(temp_snapshot_dir, sample_config_files, sampl
     """Test loading nonexistent snapshot returns None."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -303,7 +288,6 @@ def test_load_corrupted_snapshot(temp_snapshot_dir, sample_config_files, sample_
     """Test loading corrupted snapshot returns None."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -368,7 +352,6 @@ def test_list_snapshots_empty_directory(temp_snapshot_dir, sample_config_files, 
     """Test listing snapshots in empty directory."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -381,7 +364,6 @@ def test_list_snapshots_with_files(temp_snapshot_dir, sample_config_files, sampl
     """Test listing snapshots with existing files."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -406,7 +388,6 @@ def test_cleanup_old_snapshots(temp_snapshot_dir, sample_config_files, sample_ex
     """Test cleanup of old snapshots."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -441,7 +422,6 @@ def test_cleanup_old_snapshots_parameter_validation(sample_config_files, sample_
     """Test cleanup_old_snapshots parameter validation."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     
@@ -458,7 +438,6 @@ def test_get_snapshot_statistics_empty(temp_snapshot_dir, sample_config_files, s
     """Test snapshot statistics for empty directory."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -475,7 +454,6 @@ def test_get_snapshot_statistics_with_files(temp_snapshot_dir, sample_config_fil
     """Test snapshot statistics with existing files."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = temp_snapshot_dir
@@ -508,7 +486,6 @@ def test_snapshot_directory_creation(sample_config_files, sample_expected_files)
         
         snapshot = LogsSnapshot(
             config_files=sample_config_files,
-            expected_files=sample_expected_files,
             epochs=20
         )
         snapshot.snapshot_dir = nonexistent_dir
@@ -525,7 +502,6 @@ def test_cleanup_nonexistent_directory(sample_config_files, sample_expected_file
     """Test cleanup when snapshot directory doesn't exist."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     snapshot.snapshot_dir = "/nonexistent/directory"
@@ -538,7 +514,6 @@ def test_load_snapshot_parameter_validation(sample_config_files, sample_expected
     """Test load_snapshot parameter validation."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
-        expected_files=sample_expected_files,
         epochs=20
     )
     
