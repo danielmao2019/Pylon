@@ -5,9 +5,10 @@ import os
 import json
 
 from agents.manager.progress_info import ProgressInfo
+from agents.manager.base_job import BaseJob
 
 
-class EvaluationJob:
+class EvaluationJob(BaseJob):
     """Copied evaluator logic as classmethods for manager jobs."""
 
     @classmethod
@@ -45,4 +46,3 @@ class EvaluationJob:
         except (json.JSONDecodeError, IOError):
             return False
         return True
-

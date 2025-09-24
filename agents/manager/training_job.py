@@ -5,7 +5,10 @@ from typing import List
 from agents.manager.progress_info import ProgressInfo
 
 
-class TrainingJob:
+from agents.manager.base_job import BaseJob
+
+
+class TrainingJob(BaseJob):
     """Copied trainer logic as classmethods for manager jobs."""
 
     @classmethod

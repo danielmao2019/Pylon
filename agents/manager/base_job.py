@@ -4,6 +4,7 @@ import glob
 import os
 import time
 from typing import Dict, List, Literal, Optional
+from abc import ABC, abstractmethod
 
 from agents.monitor.process_info import ProcessInfo
 from agents.manager.progress_info import ProgressInfo
@@ -15,7 +16,7 @@ from utils.io.config import load_config
 _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
-class BaseJob:
+class BaseJob(ABC):
     """Object-oriented representation of a single training job."""
 
     def __init__(self, config: str) -> None:
@@ -37,17 +38,10 @@ class BaseJob:
         work_dir = self.get_work_dir(self.config)
         config_dict = load_config(self.config)
 
-        # Minimal runner-type detection: look for evaluation artifacts
-        runner = 'evaluator' if os.path.exists(os.path.join(work_dir, 'evaluation_scores.json')) else 'trainer'
-
-        if runner == 'evaluator':
-            progress = EvaluationJob.calculate_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
-            log_pattern = EvaluationJob.get_log_pattern()
-            expected_files = EvaluationJob.get_expected_files()
-        else:
-            progress = TrainingJob.calculate_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
-            log_pattern = TrainingJob.get_log_pattern()
-            expected_files = TrainingJob.get_expected_files()
+        # Use polymorphism: subclass provides its own behavior
+        progress = self.calculate_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
+        log_pattern = self.get_log_pattern()
+        expected_files = self.get_expected_files()
 
         log_last_update = self.get_log_last_update(work_dir, log_pattern)
         epoch_last_update = self.get_epoch_last_update(work_dir, expected_files)
@@ -149,3 +143,25 @@ class BaseJob:
         if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
             return value.to_dict()
         return value
+
+    # ----- Abstract interface implemented by subclasses -----
+    @classmethod
+    @abstractmethod
+    def get_expected_files(cls) -> List[str]:
+        ...
+
+    @classmethod
+    @abstractmethod
+    def get_log_pattern(cls) -> str:
+        ...
+
+    @classmethod
+    @abstractmethod
+    def calculate_progress(
+        cls,
+        work_dir: str,
+        config: Optional[Dict],
+        *,
+        force_progress_recompute: bool = False,
+    ) -> ProgressInfo:
+        ...
