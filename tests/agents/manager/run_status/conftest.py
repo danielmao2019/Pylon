@@ -16,6 +16,12 @@ from utils.io.json import save_json
 
 
 @pytest.fixture
+def EXPECTED_FILES():
+    """Standard expected files per epoch used by run_status tests."""
+    return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+
+
+@pytest.fixture
 def create_epoch_files():
     def _create_epoch_files(work_dir: str, epoch_idx: int, validation_score: Optional[float] = None) -> None:
         epoch_dir = os.path.join(work_dir, f"epoch_{epoch_idx}")
