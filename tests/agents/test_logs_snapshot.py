@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from unittest.mock import Mock
 import pytest
-from agents.logs_snapshot import LogsSnapshot
+from agents.logger import LogsSnapshot
 from utils.monitor.system_monitor import SystemMonitor
 from utils.automation.run_status import RunStatus
 from utils.automation.progress_tracking.session_progress import ProgressInfo
