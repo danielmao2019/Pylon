@@ -7,202 +7,128 @@ from utils.timeout import with_timeout
 
 
 class CPUMonitor(BaseMonitor[CPUStatus]):
+    """Monitor CPU utilisation for a single server."""
 
-    def __init__(self, servers: Optional[List[str]] = None, timeout: int = 5):
-        """
-        Initialize CPU monitor with servers to monitor.
-
-        Args:
-            servers: List of server names to monitor, or None for localhost only
-            timeout: SSH command timeout in seconds
-        """
-        self.servers_list = servers
+    def __init__(self, server: str, timeout: int = 5):
+        self.server = server
+        self.status: CPUStatus
         super().__init__(timeout=timeout)
 
-    def _init_status_structures(self) -> None:
-        """Initialize CPU status data structures."""
-        if self.servers_list is None:
-            self.cpus_by_server: Dict[str, CPUStatus] = {
-                'localhost': CPUStatus(server='localhost', connected=False)
-            }
-        else:
-            self.cpus_by_server = {
-                server: CPUStatus(server=server, connected=False)
-                for server in self.servers_list
-            }
+    def _initialize_state(self) -> None:
+        self.status = CPUStatus(server=self.server)
 
-    def _get_servers_list(self) -> List[str]:
-        """Get list of servers being monitored."""
-        return list(self.cpus_by_server.keys())
+    def _update_resource(self) -> None:
+        info = self._collect_cpu_info(self.server, self.ssh_pool, timeout=self.timeout)
 
-    def _update_single_server(self, server: str) -> None:
-        """Update CPU info for a single server"""
-        # Get CPU info for this server
-        server_cpu_info = self._get_server_cpu_info(server, self.ssh_pool, timeout=self.timeout)
-
-        # Update the CPU with the results
-        self._update_single_cpu(self.cpus_by_server[server], server_cpu_info)
-
-    def _update_single_cpu(self, cpu_status: CPUStatus, cpu_info: Dict[str, Any]) -> None:
-        """Update a single CPU with the provided info"""
-        # Update connection status
-        cpu_status.connected = bool(cpu_info['connected'])
-
-        # If query failed, set all fields to None except server
-        if not cpu_status.connected:
-            cpu_status.max_memory = None
-            cpu_status.cpu_cores = None
-            cpu_status.processes = []
-            cpu_status.memory_window.clear()
-            cpu_status.cpu_window.clear()
-            cpu_status.load_window.clear()
-            cpu_status.memory_stats = None
-            cpu_status.cpu_stats = None
-            cpu_status.load_stats = None
+        if not info['connected']:
+            self._mark_disconnected()
             return
 
-        # Update processes
-        cpu_status.processes = cpu_info.get('processes') or []
+        # Ensure previous status state exists
+        status = self.status
+        if not status.connected:
+            status.memory_window.clear()
+            status.cpu_window.clear()
+            status.load_window.clear()
 
-        # Update max memory and cpu cores
-        cpu_status.max_memory = cpu_info.get('max_memory')
-        cpu_status.cpu_cores = cpu_info.get('cpu_cores')
+        status.connected = True
+        status.max_memory = info['max_memory']
+        status.cpu_cores = info['cpu_cores']
+        status.processes = info['processes'] or []
 
-        # Update rolling windows
-        current_memory = cpu_info.get('current_memory')
+        current_memory = info.get('current_memory')
         if current_memory is not None:
-            cpu_status.memory_window.append(current_memory)
+            status.memory_window.append(current_memory)
 
-        current_cpu = cpu_info.get('current_cpu')
-        cpu_status.cpu_window.append(current_cpu)
+        status.cpu_window.append(info.get('current_cpu'))
 
-        current_load = cpu_info.get('current_load')
+        current_load = info.get('current_load')
         if current_load is not None:
-            cpu_status.load_window.append(current_load)
+            status.load_window.append(current_load)
 
-        # Trim windows if needed
-        if len(cpu_status.memory_window) > cpu_status.window_size:
-            cpu_status.memory_window = cpu_status.memory_window[-cpu_status.window_size:]
-        if len(cpu_status.cpu_window) > cpu_status.window_size:
-            cpu_status.cpu_window = cpu_status.cpu_window[-cpu_status.window_size:]
-        if len(cpu_status.load_window) > cpu_status.window_size:
-            cpu_status.load_window = cpu_status.load_window[-cpu_status.window_size:]
+        self._trim_windows(status)
+        self._update_stats(status)
 
-        # Update stats - handle None values gracefully
-        memory_values = cpu_status.memory_window
+    def _mark_disconnected(self) -> None:
+        self.status = CPUStatus(server=self.server, connected=False, window_size=self.status.window_size)
+
+    @staticmethod
+    def _trim_windows(status: CPUStatus) -> None:
+        if len(status.memory_window) > status.window_size:
+            status.memory_window = status.memory_window[-status.window_size:]
+        if len(status.cpu_window) > status.window_size:
+            status.cpu_window = status.cpu_window[-status.window_size:]
+        if len(status.load_window) > status.window_size:
+            status.load_window = status.load_window[-status.window_size:]
+
+    @staticmethod
+    def _update_stats(status: CPUStatus) -> None:
+        memory_values = status.memory_window
         if memory_values:
-            cpu_status.memory_stats = {
+            status.memory_stats = {
                 'min': min(memory_values),
                 'max': max(memory_values),
                 'avg': sum(memory_values) / len(memory_values),
             }
         else:
-            cpu_status.memory_stats = {
-                'min': None,
-                'max': None,
-                'avg': None,
-            }
+            status.memory_stats = {'min': None, 'max': None, 'avg': None}
 
-        valid_cpu_values = [v for v in cpu_status.cpu_window if v is not None]
+        valid_cpu_values = [value for value in status.cpu_window if value is not None]
         if valid_cpu_values:
-            cpu_status.cpu_stats = {
+            status.cpu_stats = {
                 'min': min(valid_cpu_values),
                 'max': max(valid_cpu_values),
                 'avg': sum(valid_cpu_values) / len(valid_cpu_values),
             }
         else:
-            cpu_status.cpu_stats = {
-                'min': None,
-                'max': None,
-                'avg': None,
-            }
-        
-        if cpu_status.load_window:
-            cpu_status.load_stats = {
-                'min': min(cpu_status.load_window),
-                'max': max(cpu_status.load_window),
-                'avg': sum(cpu_status.load_window) / len(cpu_status.load_window),
+            status.cpu_stats = {'min': None, 'max': None, 'avg': None}
+
+        load_values = status.load_window
+        if load_values:
+            status.load_stats = {
+                'min': min(load_values),
+                'max': max(load_values),
+                'avg': sum(load_values) / len(load_values),
             }
         else:
-            cpu_status.load_stats = {
-                'min': None,
-                'max': None,
-                'avg': None,
-            }
-
-    def _check(self) -> Dict:
-        """Returns current status of all CPUs without rolling windows"""
-        return {
-            cpu.server: {
-                'server': cpu.server,
-                'max_memory': cpu.max_memory,
-                'memory_min': cpu.memory_stats.get('min') if cpu.memory_stats else None,
-                'memory_max': cpu.memory_stats.get('max') if cpu.memory_stats else None,
-                'memory_avg': cpu.memory_stats.get('avg') if cpu.memory_stats else None,
-                'cpu_min': cpu.cpu_stats.get('min') if cpu.cpu_stats else None,
-                'cpu_max': cpu.cpu_stats.get('max') if cpu.cpu_stats else None,
-                'cpu_avg': cpu.cpu_stats.get('avg') if cpu.cpu_stats else None,
-                'load_min': cpu.load_stats.get('min') if cpu.load_stats else None,
-                'load_max': cpu.load_stats.get('max') if cpu.load_stats else None,
-                'load_avg': cpu.load_stats.get('avg') if cpu.load_stats else None,
-                'connected': cpu.connected,
-            }
-            for cpu in self.cpus_by_server.values()
-        }
+            status.load_stats = {'min': None, 'max': None, 'avg': None}
 
     @property
-    def cpus(self) -> List[CPUStatus]:
-        """Get all CPUs"""
-        return list(self.cpus_by_server.values())
-
-    @property
-    def connected_cpus(self) -> List[CPUStatus]:
-        """Get all connected CPUs"""
-        return [cpu for cpu in self.cpus_by_server.values() if cpu.connected]
-
-    @property
-    def disconnected_cpus(self) -> List[str]:
-        """Get all disconnected CPUs"""
-        return [cpu.server for cpu in self.cpus_by_server.values() if not cpu.connected]
+    def cpu(self) -> CPUStatus:
+        return self.status
 
     def get_all_running_commands(self) -> List[str]:
-        """Get all running commands on all servers"""
-        all_cpus = [cpu for cpu in self.cpus_by_server.values() if cpu.connected]
-        all_processes = [
-            process for cpu in all_cpus for process in cpu.processes
+        return [
+            process.cmd
+            for process in self.status.processes
             if process.cmd.startswith('python main.py --config-filepath')
         ]
-        all_running_commands = [process.cmd for process in all_processes]
-        return all_running_commands
 
     @staticmethod
-    def _get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, Any]:
-        """Get memory and CPU utilization for a server."""
+    def _collect_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, Any]:
         mem_cmd = ["cat", "/proc/meminfo"]
         mem_output = pool.execute(server, mem_cmd)
 
         mem_total = 0
         mem_available = 0
-
         for line in mem_output.splitlines():
             if line.startswith('MemTotal:'):
-                mem_total = int(line.split()[1]) // 1024  # Convert KB to MB
+                mem_total = int(line.split()[1]) // 1024
             elif line.startswith('MemAvailable:'):
-                mem_available = int(line.split()[1]) // 1024  # Convert KB to MB
+                mem_available = int(line.split()[1]) // 1024
 
         mem_used = mem_total - mem_available
 
         top_cmd = ["top", "-bn1"]
         top_output = pool.execute(server, top_cmd)
-
-        cpu_util = None
+        cpu_util: Optional[float] = None
         for line in top_output.splitlines():
             if '%Cpu' in line:
                 parts = line.split()
-                for i, part in enumerate(parts):
-                    if 'us,' in part and i > 0:
+                for idx, part in enumerate(parts):
+                    if 'us,' in part and idx > 0:
                         try:
-                            cpu_util = float(parts[i - 1])
+                            cpu_util = float(parts[idx - 1])
                         except ValueError:
                             cpu_util = None
                         break
@@ -225,11 +151,11 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         }
 
     @staticmethod
-    def _get_server_cpu_processes(server: str, pool: SSHConnectionPool) -> List[ProcessInfo]:
+    def _collect_cpu_processes(server: str, pool: SSHConnectionPool) -> List[ProcessInfo]:
         all_processes = get_all_processes(server, pool)
         return list(all_processes.values())
 
-    def _get_server_cpu_info(
+    def _collect_cpu_info(
         self,
         server: str,
         pool: SSHConnectionPool,
@@ -237,22 +163,22 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
     ) -> Dict[str, Any]:
         @with_timeout(seconds=timeout)
         def _query():
-            cpu_stats = self._get_server_cpu_mem_util(server, pool)
-            processes = self._get_server_cpu_processes(server, pool)
+            stats = self._collect_cpu_mem_util(server, pool)
+            processes = self._collect_cpu_processes(server, pool)
             return {
                 'server': server,
-                'max_memory': cpu_stats['memory_total'],
-                'current_memory': cpu_stats['memory_used'],
-                'current_cpu': cpu_stats['cpu_util'],
-                'current_load': cpu_stats['load_avg'],
-                'cpu_cores': cpu_stats['cpu_cores'],
+                'max_memory': stats['memory_total'],
+                'current_memory': stats['memory_used'],
+                'current_cpu': stats['cpu_util'],
+                'current_load': stats['load_avg'],
+                'cpu_cores': stats['cpu_cores'],
                 'processes': processes,
                 'connected': True,
             }
 
         try:
             return _query()
-        except Exception as exc:  # noqa: BLE001 - log and mark disconnected
+        except Exception as exc:  # noqa: BLE001
             print(f"ERROR: Failed to get CPU info for server {server}: {exc}")
             return {
                 'server': server,

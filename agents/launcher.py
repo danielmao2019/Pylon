@@ -85,7 +85,7 @@ class Launcher(BaseAgent):
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_gpu, self.system_monitor.connected_gpus))
+            results = list(executor.map(process_gpu, self.connected_gpus))
 
         # Combine all GPU results into a single dictionary
         stuck_cfgs_info = {}
@@ -128,11 +128,11 @@ class Launcher(BaseAgent):
 
         # Build a map of server -> CPU status for quick lookup
         cpu_status_by_server = {}
-        for cpu in self.system_monitor.connected_cpus:
+        for cpu in self.connected_cpus:
             cpu_status_by_server[cpu['server']] = cpu
 
         # Find idle GPUs with CPU constraints
-        for gpu in self.system_monitor.connected_gpus:
+        for gpu in self.connected_gpus:
             # Check GPU constraints
             gpu_util_ok = gpu.util_stats['avg'] < 50
             gpu_mem_ok = (gpu.max_memory - gpu.memory_stats['avg']) > 12 * 1024
@@ -157,8 +157,8 @@ class Launcher(BaseAgent):
                     'resource_id': gpu.index,
                 })
 
-        self.logger.warning(f"Disconnected GPUs: {self.system_monitor.disconnected_gpus}")
-        self.logger.warning(f"Disconnected CPUs: {self.system_monitor.disconnected_cpus}")
+        self.logger.warning(f"Disconnected GPUs: {self.disconnected_gpus}")
+        self.logger.warning(f"Disconnected CPUs: {self.disconnected_cpus}")
 
         return idle_gpus
 
@@ -224,7 +224,7 @@ class Launcher(BaseAgent):
                 epochs=self.epochs,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
-                system_monitor=self.system_monitor,
+                system_monitors=self.system_monitors,
                 force_progress_recompute=self.force_progress_recompute,
             )
             all_running_status = list(all_running_status_dict.values())

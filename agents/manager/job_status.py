@@ -43,7 +43,7 @@ def get_all_job_status(
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
-    system_monitor: SystemMonitor = None,
+    system_monitors: Dict[str, SystemMonitor],
     force_progress_recompute: bool = False,
 ) -> Dict[str, JobStatus]:
     """
@@ -59,10 +59,15 @@ def get_all_job_status(
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
     assert isinstance(outdated_days, int)
-    assert isinstance(system_monitor, SystemMonitor)
+    assert isinstance(system_monitors, dict)
+    assert all(isinstance(monitor, SystemMonitor) for monitor in system_monitors.values())
 
     # Query all GPUs ONCE for efficiency
-    all_connected_gpus = system_monitor.connected_gpus
+    all_connected_gpus = [
+        gpu
+        for monitor in system_monitors.values()
+        for gpu in monitor.connected_gpus
+    ]
     config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
 
     with ThreadPoolExecutor() as executor:
@@ -77,7 +82,8 @@ def get_all_job_status(
                         sleep_time=sleep_time,
                         outdated_days=outdated_days,
                         force_progress_recompute=force_progress_recompute,
-                    ), config_files
+                    ),
+                    config_files
                 )
             )
         }
