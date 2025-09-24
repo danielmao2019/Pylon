@@ -219,7 +219,7 @@ class Launcher(BaseAgent):
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
-            all_running_status_dict = get_all_run_status(
+            all_running_status_dict = get_all_job_status(
                 config_files=self.config_files,
                 epochs=self.epochs,
                 sleep_time=self.sleep_time,
