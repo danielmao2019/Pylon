@@ -186,7 +186,7 @@ def test_create_snapshot(sample_config_files, sample_expected_files, mock_system
             )
         }
     
-    monkeypatch.setattr("agents.logs_snapshot.get_all_run_status", mock_get_all_run_status)
+    monkeypatch.setattr("agents.logger.logs_snapshot.get_all_run_status", mock_get_all_run_status)
     
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
