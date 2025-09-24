@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 from agents.logger import LogsSnapshot
 from utils.monitor.system_monitor import SystemMonitor
-from utils.automation.run_status import RunStatus
+from agents.manager import RunStatus
 from utils.automation.progress_tracking.session_progress import ProgressInfo
 from utils.monitor.process_info import ProcessInfo
 from utils.io.json import serialize_object

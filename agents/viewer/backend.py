@@ -1,5 +1,5 @@
 from typing import List
-from utils.automation.run_status import get_all_run_status
+from agents.manager import get_all_run_status
 from utils.monitor.system_monitor import SystemMonitor
 
 
