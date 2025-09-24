@@ -14,12 +14,12 @@ import pytest
 @pytest.fixture
 def TrainerProgressTrackerForTesting():
     """Fixture that provides TrainerProgressTracker for testing BaseProgressTracker functionality."""
-    from agents.tracker.trainer_progress_tracker import TrainerProgressTracker
+    from agents.tracker.trainer_tracker import TrainerProgressTracker
     return TrainerProgressTracker
 
 
 @pytest.fixture 
 def EvaluatorProgressTrackerForTesting():
     """Fixture that provides EvaluatorProgressTracker for testing BaseProgressTracker functionality."""
-    from agents.tracker.evaluator_progress_tracker import EvaluatorProgressTracker
+    from agents.tracker.evaluator_tracker import EvaluatorProgressTracker
     return EvaluatorProgressTracker

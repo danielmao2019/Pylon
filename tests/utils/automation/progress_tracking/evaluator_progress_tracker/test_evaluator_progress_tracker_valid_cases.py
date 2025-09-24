@@ -11,7 +11,7 @@ import tempfile
 import json
 import pytest
 from agents.tracker import ProgressInfo
-from agents.tracker.evaluator_progress_tracker import EvaluatorProgressTracker
+from agents.tracker.evaluator_tracker import EvaluatorProgressTracker
 
 
 # ============================================================================

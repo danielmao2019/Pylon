@@ -5,7 +5,7 @@ Following CLAUDE.md testing patterns:
 - Invalid input testing with exception verification
 """
 import pytest
-from agents.tracker.evaluator_progress_tracker import EvaluatorProgressTracker
+from agents.tracker.evaluator_tracker import EvaluatorProgressTracker
 
 
 # ============================================================================

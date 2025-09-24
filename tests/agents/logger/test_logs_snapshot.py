@@ -9,7 +9,7 @@ import pytest
 from agents.logger import LogsSnapshot
 from utils.monitor.system_monitor import SystemMonitor
 from agents.manager import JobStatus
-from agents.tracker.base_progress_tracker import ProgressInfo
+from agents.tracker.base_tracker import ProgressInfo
 from utils.monitor.process_info import ProcessInfo
 from utils.io.json import serialize_object
 
