@@ -81,7 +81,7 @@ class BaseJob(ABC):
         config_to_process_info: Dict[str, ProcessInfo],
     ) -> _JobStatus:
         log_last_update = self.get_log_last_update()
-        epoch_last_update = self.get_epoch_last_update()
+        artifact_last_update = self.get_artifact_last_update()
 
         is_running_status = (
             log_last_update is not None and (time.time() - log_last_update <= sleep_time)
@@ -91,8 +91,8 @@ class BaseJob(ABC):
         if is_running_status:
             status: _JobStatus = 'running'
         elif is_complete:
-            if epoch_last_update is not None and (
-                time.time() - epoch_last_update > outdated_days * 24 * 60 * 60
+            if artifact_last_update is not None and (
+                time.time() - artifact_last_update > outdated_days * 24 * 60 * 60
             ):
                 status = 'outdated'
             else:
@@ -108,7 +108,7 @@ class BaseJob(ABC):
         ...
 
     @abstractmethod
-    def get_epoch_last_update(self) -> Optional[float]:
+    def get_artifact_last_update(self) -> Optional[float]:
         ...
 
     # ====================================================================================================

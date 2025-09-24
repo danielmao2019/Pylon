@@ -177,7 +177,7 @@ class TrainingJob(BaseJob):
             return None
         return max(os.path.getmtime(fp) for fp in logs)
 
-    def get_epoch_last_update(self) -> Optional[float]:
+    def get_artifact_last_update(self) -> Optional[float]:
         """Get the timestamp of the last epoch file update."""
         if not os.path.isdir(self.work_dir):
             return None

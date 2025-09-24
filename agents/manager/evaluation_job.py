@@ -60,7 +60,7 @@ class EvaluationJob(BaseJob):
         assert len(logs) == 1, f"Expected a single log file matching {self.LOG_PATTERN}, got {logs!r}"
         return os.path.getmtime(logs[0])
 
-    def get_epoch_last_update(self) -> Optional[float]:
+    def get_artifact_last_update(self) -> Optional[float]:
         if not os.path.isdir(self.work_dir):
             return None
         timestamps = []
