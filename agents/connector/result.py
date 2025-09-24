@@ -1,4 +1,4 @@
-from utils.ssh.error import SSHCommandError
+from agents.connector.error import SSHCommandError
 
 
 class SSHResult:

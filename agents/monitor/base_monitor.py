@@ -2,7 +2,7 @@ from typing import List, Dict, Optional, Any, TypeVar, Generic
 import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from utils.ssh.pool import _ssh_pool, SSHConnectionPool
+from agents.connector.pool import _ssh_pool, SSHConnectionPool
 
 
 T = TypeVar('T')  # Type variable for status objects

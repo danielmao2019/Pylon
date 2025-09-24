@@ -1,6 +1,6 @@
 from typing import Dict
 from dataclasses import dataclass, asdict
-from utils.ssh.pool import SSHConnectionPool
+from agents.connector.pool import SSHConnectionPool
 
 
 @dataclass
