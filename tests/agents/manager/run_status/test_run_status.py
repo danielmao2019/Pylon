@@ -19,8 +19,9 @@ from agents.manager import (
     get_log_last_update,
     get_epoch_last_update,
     _build_config_to_process_mapping,
-    RunStatus
+    RunStatus,
 )
+from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.process_info import ProcessInfo
 from utils.automation.progress_tracking import ProgressInfo
 
@@ -208,7 +209,6 @@ def test_get_all_run_status_returns_mapping(create_real_config, create_epoch_fil
                 create_epoch_files(work_dir, epoch_idx)
         
         # Create minimal SystemMonitor mock (only necessary mock)
-        from utils.monitor.gpu_status import GPUStatus
         connected_gpus_data = [GPUStatus(server='test_server', index=0, max_memory=0, processes=[], connected=True)]
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
         
