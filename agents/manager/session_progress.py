@@ -1,63 +1,28 @@
 from typing import List, Optional, Tuple
 import os
 import torch
-from dataclasses import dataclass, asdict
-from agents.manager.base_job import BaseJob
 
+from agents.manager.base_job import BaseJob
 from utils.io.config import load_config
 from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
-
-# Import the unified ProgressInfo from base module
 from agents.manager.progress_info import ProgressInfo
 
 
-# ============================================================================
-# MAIN PUBLIC FUNCTIONS
-# ============================================================================
-
 def get_session_progress(work_dir: str, expected_files: List[str], force_progress_recompute: bool = False) -> ProgressInfo:
-    """Enhanced progress calculation with early stopping detection.
-    
-    Returns full progress info including early stopping details.
-    
-    Args:
-        work_dir: Directory containing epoch results
-        expected_files: List of expected files per epoch
-        force_progress_recompute: If True, bypass cached progress.json and recompute from scratch
-        
-    Returns:
-        ProgressInfo dict with completed_epochs, progress_percentage, early_stopped, early_stopped_at_epoch
-    """
-    # Try fast path: read progress.json with file locking (unless force_progress_recompute is True)
     progress_file = os.path.join(work_dir, "progress.json")
-    
-    # Skip cache if force_progress_recompute is True
     if not force_progress_recompute and os.path.exists(progress_file):
-        # File exists - any issues (empty, malformed, etc.) should raise
         data = load_json(progress_file)
         return ProgressInfo(**data)
-    
-    # Slow path: re-compute and create progress.json
     return _compute_and_cache_progress(work_dir, expected_files, force_progress_recompute)
 
 
-# ============================================================================
-# PROGRESS CALCULATION FUNCTIONS
-# ============================================================================
-
 def _compute_and_cache_progress(work_dir: str, expected_files: List[str], force_progress_recompute: bool = False) -> ProgressInfo:
-    """Compute progress and create/update progress.json file using thread-safe utilities."""
     progress_file = os.path.join(work_dir, "progress.json")
-    
-    # Double-check if progress file was created while we were waiting
-    # (load_json uses atomic operations)
-    # Skip this check if force_progress_recompute is True
     if not force_progress_recompute and os.path.exists(progress_file):
         data = load_json(progress_file)
         return ProgressInfo(**data)
-    
-    # Count completed epochs (original logic)
+
     completed_epochs = 0
     while True:
         if not check_epoch_finished(
@@ -67,50 +32,38 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str], force_
         ):
             break
         completed_epochs += 1
-    
-    # Load config to detect early stopping
+
     config_path = BaseJob.get_config(work_dir)
     config = load_config(config_path)
     tot_epochs = config['epochs']
     early_stopping_config = config.get('early_stopping')
-    
+
     early_stopped = False
     early_stopped_at_epoch = None
-    
+
     if early_stopping_config and completed_epochs < tot_epochs:
-        # Early stopping is configured and we have fewer epochs than expected
-        # Detect if early stopping was triggered
         early_stopped, early_stopped_at_epoch = _detect_early_stopping(
             work_dir, expected_files, config, completed_epochs
         )
-    
-    # Create progress.json for future caching
+
     progress_data = ProgressInfo(
         completed_epochs=completed_epochs,
         progress_percentage=100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
         early_stopped=early_stopped,
         early_stopped_at_epoch=early_stopped_at_epoch,
-        runner_type='trainer',  # session_progress is trainer-specific
+        runner_type='trainer',
         total_epochs=tot_epochs
     )
-    
-    # Use atomic save (prevents race conditions)
     save_json(progress_data, progress_file)
-    
-    # Return the ProgressInfo dataclass instance
     return progress_data
 
 
 def _detect_early_stopping(work_dir: str, expected_files: List[str], config: dict, completed_epochs: int) -> Tuple[bool, Optional[int]]:
-    """Detect if early stopping was triggered."""
-    # Build metric and early stopping objects to detect early stopping
     metric = build_from_config(config['metric']) if config.get('metric') else None
-    
     if metric is None:
         return False, None
-        
+
     early_stopping_config = config['early_stopping']
-    
     early_stopping = build_from_config(
         config=early_stopping_config,
         work_dir=work_dir,
@@ -119,26 +72,16 @@ def _detect_early_stopping(work_dir: str, expected_files: List[str], config: dic
         expected_files=expected_files,
         logger=None
     )
-    
-    # Check if early stopping would be triggered at the last completed epoch
+
     if completed_epochs > early_stopping.patience:
         last_epoch = completed_epochs - 1
         if early_stopping.was_triggered_at_epoch(last_epoch):
             return True, last_epoch + 1
-    
+
     return False, None
 
 
-# ============================================================================
-# FILE CHECKING UTILITIES
-# ============================================================================
-
 def check_epoch_finished(epoch_dir: str, expected_files: List[str], check_load: Optional[bool] = True) -> bool:
-    r"""Check if an epoch is finished based on three criteria:
-        1. File exists.
-        2. File non-empty.
-        3. File load-able (if check_load is True).
-    """
     if not os.path.isdir(epoch_dir):
         return False
     return all([
@@ -150,12 +93,9 @@ def check_epoch_finished(epoch_dir: str, expected_files: List[str], check_load: 
 
 
 def check_file_loadable(filepath: str) -> bool:
-    """Check if a file can be loaded (json or pt)."""
     assert os.path.isfile(filepath)
     assert filepath.endswith(".json") or filepath.endswith(".pt")
-    
     if filepath.endswith(".json"):
-        # Use atomic JSON loading
         try:
             load_json(filepath)
             return True
@@ -169,3 +109,4 @@ def check_file_loadable(filepath: str) -> bool:
             return False
     else:
         assert 0
+
