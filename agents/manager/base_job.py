@@ -23,27 +23,7 @@ class BaseJob:
         self.status: Optional[_JobStatus] = None
         self.process_info: Optional[ProcessInfo] = None
 
-    @classmethod
-    def build(
-        cls,
-        config: str,
-        epochs: int,
-        config_to_process_info: Dict[str, ProcessInfo],
-        sleep_time: int = 86400,
-        outdated_days: int = 30,
-        force_progress_recompute: bool = False,
-    ) -> 'BaseJob':
-        job = cls(config=config)
-        job._populate(
-            epochs=epochs,
-            config_to_process_info=config_to_process_info,
-            sleep_time=sleep_time,
-            outdated_days=outdated_days,
-            force_progress_recompute=force_progress_recompute,
-        )
-        return job
-
-    def _populate(
+    def populate(
         self,
         *,
         epochs: int,

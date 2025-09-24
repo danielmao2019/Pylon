@@ -19,11 +19,11 @@ from agents.tracker import ProgressInfo
 
 
 # ============================================================================
-# TESTS FOR BaseJob.build (REALISTIC - MINIMAL MOCKING)
+# TESTS FOR BaseJob.populate (REALISTIC - MINIMAL MOCKING)
 # ============================================================================
 
-def test_base_job_build_basic_functionality(create_epoch_files, create_real_config):
-    """Test BaseJob.build basic functionality with enhanced return type."""
+def test_base_job_populate_basic_functionality(create_epoch_files, create_real_config):
+    """Test BaseJob.populate basic functionality with enhanced return type."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -46,10 +46,13 @@ def test_base_job_build_basic_functionality(create_epoch_files, create_real_conf
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = BaseJob.build(
-                config=config_path,
+            job_status = BaseJob(config_path)
+            job_status.populate(
                 epochs=100,
-                config_to_process_info=config_to_process_info
+                config_to_process_info=config_to_process_info,
+                sleep_time=86400,
+                outdated_days=30,
+                force_progress_recompute=False
             )
             
             # Should return BaseJob with enhanced ProgressInfo
@@ -67,8 +70,8 @@ def test_base_job_build_basic_functionality(create_epoch_files, create_real_conf
             os.chdir(original_cwd)
 
 
-def test_base_job_build_with_process_info(create_epoch_files, create_real_config):
-    """Test BaseJob.build when experiment is running on GPU."""
+def test_base_job_populate_with_process_info(create_epoch_files, create_real_config):
+    """Test BaseJob.populate when experiment is running on GPU."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -98,10 +101,13 @@ def test_base_job_build_with_process_info(create_epoch_files, create_real_config
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = BaseJob.build(
-                config=config_path,
+            job_status = BaseJob(config_path)
+            job_status.populate(
                 epochs=100,
-                config_to_process_info=config_to_process_info
+                config_to_process_info=config_to_process_info,
+                sleep_time=86400,
+                outdated_days=30,
+                force_progress_recompute=False
             )
             
             # Should show as stuck (running on GPU but no recent log updates)
@@ -163,10 +169,13 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
         
         try:
             # NO MOCKS - use real function with real data
-            job_status = BaseJob.build(
-                config=config_path,
+            job_status = BaseJob(config_path)
+            job_status.populate(
                 epochs=100,
-                config_to_process_info=config_to_process_info
+                config_to_process_info=config_to_process_info,
+                sleep_time=86400,
+                outdated_days=30,
+                force_progress_recompute=False
             )
             
             assert job_status.status == expected_status
@@ -332,8 +341,8 @@ def test_base_job_get_epoch_last_update(EXPECTED_FILES, create_epoch_files):
 # TESTS FOR EDGE CASES AND ERROR HANDLING
 # ============================================================================
 
-def test_base_job_build_invalid_config_path():
-    """Test BaseJob.build with invalid config path."""
+def test_base_job_populate_invalid_config_path():
+    """Test BaseJob.populate with invalid config path."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create a work dir but no config file, and no epoch files
         logs_dir = os.path.join(temp_root, "logs")
@@ -349,10 +358,13 @@ def test_base_job_build_invalid_config_path():
         try:
             # The function should handle the missing config when trying to compute progress
             # but since the work_dir exists but is empty, it will return 0 completed epochs
-            job_status = BaseJob.build(
-                config=invalid_config_path,
+            job_status = BaseJob(invalid_config_path)
+            job_status.populate(
                 epochs=100,
-                config_to_process_info=config_to_process_info
+                config_to_process_info=config_to_process_info,
+                sleep_time=86400,
+                outdated_days=30,
+                force_progress_recompute=False
             )
             
             # Should return failed status for invalid config

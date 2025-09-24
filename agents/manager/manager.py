@@ -43,17 +43,19 @@ class Manager:
         ]
         config_to_process_info = self.build_config_to_process_mapping(all_connected_gpus)
 
-        builder = partial(
-            BaseJob.build,
-            epochs=self.epochs,
-            config_to_process_info=config_to_process_info,
-            sleep_time=self.sleep_time,
-            outdated_days=self.outdated_days,
-            force_progress_recompute=self.force_progress_recompute,
-        )
+        def _construct(config: str) -> BaseJob:
+            job = BaseJob(config)
+            job.populate(
+                epochs=self.epochs,
+                config_to_process_info=config_to_process_info,
+                sleep_time=self.sleep_time,
+                outdated_days=self.outdated_days,
+                force_progress_recompute=self.force_progress_recompute,
+            )
+            return job
 
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(builder, self.config_files))
+            results = list(executor.map(_construct, self.config_files))
 
         jobs = dict(zip(self.config_files, results))
         assert set(jobs.keys()) == {job.config for job in jobs.values()}, (
