@@ -66,7 +66,7 @@ class BaseJob(ABC):
         self,
         force_progress_recompute: bool = False,
     ) -> ProgressInfo:
-        ...
+        pass
 
     # ====================================================================================================
     #
@@ -105,11 +105,11 @@ class BaseJob(ABC):
 
     @abstractmethod
     def get_log_last_update(self) -> Optional[float]:
-        ...
+        pass
 
     @abstractmethod
     def get_artifact_last_update(self) -> Optional[float]:
-        ...
+        pass
 
     # ====================================================================================================
     # 
