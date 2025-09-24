@@ -255,9 +255,11 @@ def test_parse_config():
 
 def test_build_config_to_process_mapping():
     """Test building config to ProcessInfo mapping from GPU data."""
+    from utils.monitor.gpu_status import GPUStatus
     connected_gpus = [
-        {
-            'processes': [
+        GPUStatus(
+            server='test_server', index=0, max_memory=0,
+            processes=[
                 ProcessInfo(
                     pid='12345',
                     user='testuser',
@@ -271,9 +273,10 @@ def test_build_config_to_process_mapping():
                     start_time='Mon Jan  1 11:00:00 2024'
                 )
             ]
-        },
-        {
-            'processes': [
+        ),
+        GPUStatus(
+            server='test_server', index=1, max_memory=0,
+            processes=[
                 ProcessInfo(
                     pid='54321',
                     user='testuser',
@@ -281,7 +284,7 @@ def test_build_config_to_process_mapping():
                     start_time='Mon Jan  1 12:00:00 2024'
                 )
             ]
-        }
+        ),
     ]
     
     mapping = _build_config_to_process_mapping(connected_gpus)
