@@ -41,18 +41,18 @@ class JobStatus:
 def get_all_job_status(
     config_files: List[str],
     epochs: int,
+    system_monitors: Dict[str, SystemMonitor],
     sleep_time: int = 86400,
     outdated_days: int = 30,
-    system_monitors: Dict[str, SystemMonitor],
     force_progress_recompute: bool = False,
 ) -> Dict[str, JobStatus]:
     """
     Args:
         config_files: List of config file paths
         epochs: Total number of epochs
+        system_monitors: Mapping from server name to SystemMonitor instance
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
-        system_monitor: System monitor (CPU + GPU)
         force_progress_recompute: If True, bypass cache and recompute progress from scratch
     """
     assert isinstance(config_files, list)
