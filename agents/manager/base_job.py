@@ -41,7 +41,7 @@ class BaseJob(ABC):
         config_dict = load_config(self.config_filepath)
 
         # Use polymorphism: subclass provides its own behavior
-        progress = self.calculate_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
+        progress = self.get_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
         self.status = self.get_status()
         self.work_dir = work_dir
         self.progress = progress
@@ -69,7 +69,7 @@ class BaseJob(ABC):
 
     @classmethod
     @abstractmethod
-    def calculate_progress(
+    def get_progress(
         cls,
         work_dir: str,
         config: Optional[Dict],

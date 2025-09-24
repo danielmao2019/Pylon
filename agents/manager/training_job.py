@@ -22,8 +22,12 @@ class TrainingJob(BaseJob):
     def get_log_pattern(cls) -> str:
         return "train_val*.log"
 
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
+
     @classmethod
-    def calculate_progress(cls, work_dir: str, config: dict | None, force_progress_recompute: bool = False) -> ProgressInfo:
+    def get_progress(cls, work_dir: str, config: dict | None, force_progress_recompute: bool = False) -> ProgressInfo:
         basic_progress = cls.get_session_progress(
             work_dir,
             cls.get_expected_files(),
@@ -101,34 +105,6 @@ class TrainingJob(BaseJob):
         return progress_data
 
     @classmethod
-    def _detect_early_stopping(
-        cls,
-        work_dir: str,
-        expected_files: List[str],
-        config: Dict,
-        completed_epochs: int,
-    ) -> Tuple[bool, Optional[int]]:
-        metric = build_from_config(config['metric']) if config.get('metric') else None
-        if metric is None:
-            return False, None
-
-        early_stopping_config = config['early_stopping']
-        early_stopping = build_from_config(
-            config=early_stopping_config,
-            work_dir=work_dir,
-            tot_epochs=config['epochs'],
-            metric=metric,
-            expected_files=expected_files,
-            logger=None,
-        )
-
-        if completed_epochs > early_stopping.patience:
-            last_epoch = completed_epochs - 1
-            if early_stopping.was_triggered_at_epoch(last_epoch):
-                return True, last_epoch + 1
-        return False, None
-
-    @classmethod
     def _check_epoch_finished(
         cls,
         epoch_dir: str,
@@ -162,3 +138,31 @@ class TrainingJob(BaseJob):
                 return False
         else:
             assert 0
+
+    @classmethod
+    def _detect_early_stopping(
+        cls,
+        work_dir: str,
+        expected_files: List[str],
+        config: Dict,
+        completed_epochs: int,
+    ) -> Tuple[bool, Optional[int]]:
+        metric = build_from_config(config['metric']) if config.get('metric') else None
+        if metric is None:
+            return False, None
+
+        early_stopping_config = config['early_stopping']
+        early_stopping = build_from_config(
+            config=early_stopping_config,
+            work_dir=work_dir,
+            tot_epochs=config['epochs'],
+            metric=metric,
+            expected_files=expected_files,
+            logger=None,
+        )
+
+        if completed_epochs > early_stopping.patience:
+            last_epoch = completed_epochs - 1
+            if early_stopping.was_triggered_at_epoch(last_epoch):
+                return True, last_epoch + 1
+        return False, None

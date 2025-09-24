@@ -20,7 +20,7 @@ class EvaluationJob(BaseJob):
         return "eval_*.log"
 
     @classmethod
-    def calculate_progress(cls, work_dir: str, config: dict | None, force_progress_recompute: bool = False) -> ProgressInfo:
+    def get_progress(cls, work_dir: str, config: dict | None, force_progress_recompute: bool = False) -> ProgressInfo:
         eval_complete = cls._check_files_exist(work_dir)
 
         progress_percentage = 100.0 if eval_complete else 0.0
