@@ -1,5 +1,103 @@
 """
 Manager module fixtures shared across tests. No imports from this file; use fixtures via parameters only.
+
+import os
+import json
+import tempfile
+import time
+import pytest
+
+
+@pytest.fixture
+def temp_manager_root():
+    """Create a temporary root and chdir so ./configs and ./logs resolve correctly.
+
+    Yields (root_path) and restores CWD after the test.
+    """
+    with tempfile.TemporaryDirectory() as root:
+        configs = os.path.join(root, 'configs')
+        logs = os.path.join(root, 'logs')
+        os.makedirs(configs, exist_ok=True)
+        os.makedirs(logs, exist_ok=True)
+        cwd = os.getcwd()
+        os.chdir(root)
+        try:
+            yield root
+        finally:
+            os.chdir(cwd)
+
+
+@pytest.fixture
+def write_config():
+    """Fixture to write a config file under ./configs with provided dict as 'config'.
+
+    Usage: write_config('exp.py', {'epochs': 100}) -> returns './configs/exp.py'
+    """
+    def _write(name: str, config: dict) -> str:
+        path = os.path.join('./configs', name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f:
+            f.write('config = ' + json.dumps(config) + '\n')
+        return path
+    return _write
+
+
+@pytest.fixture
+def make_trainer_epoch():
+    """Create required trainer epoch files in ./logs/<exp>/epoch_<idx>.
+
+    Valid JSON files for optimizer_buffer.json and validation_scores.json.
+    training_losses.pt is created as non-empty bytes (content not loaded in tests using fast path).
+    Returns the epoch directory path.
+    """
+    def _make(exp_name: str, idx: int = 0) -> str:
+        work = os.path.join('./logs', exp_name)
+        epoch_dir = os.path.join(work, f'epoch_{idx}')
+        os.makedirs(epoch_dir, exist_ok=True)
+        with open(os.path.join(epoch_dir, 'validation_scores.json'), 'w') as f:
+            json.dump({'acc': 0.9}, f)
+        with open(os.path.join(epoch_dir, 'optimizer_buffer.json'), 'w') as f:
+            json.dump({'lr': 1e-3}, f)
+        with open(os.path.join(epoch_dir, 'training_losses.pt'), 'wb') as f:
+            f.write(b'\x00')
+        return epoch_dir
+    return _make
+
+
+@pytest.fixture
+def write_eval_scores():
+    """Create evaluation_scores.json under ./logs/<exp> with valid JSON.
+
+    Returns the work directory path.
+    """
+    def _write(exp_name: str) -> str:
+        work = os.path.join('./logs', exp_name)
+        os.makedirs(work, exist_ok=True)
+        with open(os.path.join(work, 'evaluation_scores.json'), 'w') as f:
+            json.dump({'aggregated': {'acc': 1.0}, 'per_datapoint': {'acc': [1.0]}}, f)
+        return work
+    return _write
+
+
+@pytest.fixture
+def touch_log():
+    """Touch a log file in ./logs/<exp> matching TrainingJob.get_log_pattern().
+
+    touch_log('exp', age_seconds=0) creates a fresh log; set age_seconds to age it.
+    Returns the log path.
+    """
+    def _touch(exp_name: str, *, age_seconds: int = 0, name: str = 'train_val.log') -> str:
+        work = os.path.join('./logs', exp_name)
+        os.makedirs(work, exist_ok=True)
+        log_path = os.path.join(work, name)
+        with open(log_path, 'a'):
+            os.utime(log_path, None)
+        if age_seconds > 0:
+            t = time.time() - age_seconds
+            os.utime(log_path, (t, t))
+        return log_path
+    return _touch
+
 """
 from typing import Optional
 import os

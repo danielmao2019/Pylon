@@ -46,7 +46,7 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = BaseJob(config_path)
+            job_status = TrainingJob(config_path)
             job_status.populate(
                 epochs=100,
                 config_to_process_info=config_to_process_info,
@@ -101,7 +101,7 @@ def test_base_job_populate_with_process_info(create_epoch_files, create_real_con
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = BaseJob(config_path)
+            job_status = TrainingJob(config_path)
             job_status.populate(
                 epochs=100,
                 config_to_process_info=config_to_process_info,
@@ -169,7 +169,7 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
         
         try:
             # NO MOCKS - use real function with real data
-            job_status = BaseJob(config_path)
+            job_status = TrainingJob(config_path)
             job_status.populate(
                 epochs=100,
                 config_to_process_info=config_to_process_info,
@@ -358,7 +358,8 @@ def test_base_job_populate_invalid_config_path():
         try:
             # The function should handle the missing config when trying to compute progress
             # but since the work_dir exists but is empty, it will return 0 completed epochs
-            job_status = BaseJob(invalid_config_path)
+            # Invalid path should still be handled gracefully by path helpers
+            job_status = TrainingJob(invalid_config_path)
             job_status.populate(
                 epochs=100,
                 config_to_process_info=config_to_process_info,
