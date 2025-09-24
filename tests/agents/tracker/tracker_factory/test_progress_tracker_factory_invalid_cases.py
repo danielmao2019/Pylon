@@ -1,5 +1,5 @@
 """
-Test progress_tracker_factory functionality - INVALID CASES (pytest.raises).
+Test tracker_factory functionality - INVALID CASES (pytest.raises).
 
 Following CLAUDE.md testing patterns:
 - Invalid input testing with exception verification

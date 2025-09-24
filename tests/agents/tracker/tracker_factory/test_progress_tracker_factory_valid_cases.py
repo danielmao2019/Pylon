@@ -1,5 +1,5 @@
 """
-Test progress_tracker_factory functionality for creating appropriate trackers - VALID CASES.
+Test tracker_factory functionality for creating appropriate trackers - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
