@@ -16,7 +16,7 @@ from agents.tracker.trainer_tracker import TrainerTracker
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
-def test_trainer_progress_tracker_nonexistent_work_dir():
+def test_trainer_tracker_nonexistent_work_dir():
     """Test initialization with nonexistent work directory."""
     nonexistent_dir = "/this/path/does/not/exist"
     
@@ -26,7 +26,7 @@ def test_trainer_progress_tracker_nonexistent_work_dir():
     assert "work_dir does not exist" in str(exc_info.value)
 
 
-def test_trainer_progress_tracker_invalid_work_dir_type():
+def test_trainer_tracker_invalid_work_dir_type():
     """Test initialization with invalid work_dir type."""
     with pytest.raises(AssertionError) as exc_info:
         TrainerTracker(123)  # Integer instead of string
@@ -34,7 +34,7 @@ def test_trainer_progress_tracker_invalid_work_dir_type():
     assert "work_dir must be str" in str(exc_info.value)
 
 
-def test_trainer_progress_tracker_malformed_progress_json(create_real_config):
+def test_trainer_tracker_malformed_progress_json(create_real_config):
     """Test that malformed progress.json fails fast and loud."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
