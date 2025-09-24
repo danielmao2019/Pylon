@@ -101,14 +101,14 @@ def test_trainingjob_check_epoch_finished_and_file_loadable(tmp_path):
 def test_evaluationjob_incomplete_and_complete():
     with tempfile.TemporaryDirectory() as work_dir:
         # Incomplete
-        p0 = EvaluationJob.calculate_progress(work_dir, None)
+        p0 = EvaluationJob.get_progress(work_dir, None)
         assert p0.completed_epochs == 0
         assert p0.progress_percentage == 0.0
 
         # Complete
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump({"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f)
-        p1 = EvaluationJob.calculate_progress(work_dir, None)
+        p1 = EvaluationJob.get_progress(work_dir, None)
         assert p1.completed_epochs == 1
         assert p1.progress_percentage == 100.0
 

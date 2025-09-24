@@ -56,7 +56,7 @@ def test_multiple_readers_via_calculate_progress(create_progress_json):
         
         # Function for reader threads calling calculate_progress
         def read_with_calc():
-            return TrainingJob.calculate_progress(work_dir, config=None)
+            return TrainingJob.get_progress(work_dir, config=None)
         
         # Run 8 concurrent readers
         results = []
@@ -171,7 +171,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
                         create_epoch_files(work_dir, epoch_idx)
                     
                     # Use TrainingJob to compute and save progress
-                    progress = TrainingJob.calculate_progress(work_dir, config=None, force_progress_recompute=True)
+                    progress = TrainingJob.get_progress(work_dir, config=None, force_progress_recompute=True)
                     
                     results.append((thread_id, update_round, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase chance of conflicts
@@ -364,7 +364,7 @@ def test_mixed_runner_types_concurrent_access():
         
         def evaluator_worker():
             for i in range(5):
-                progress = EvaluationJob.calculate_progress(evaluator_dir, config=None)
+                progress = EvaluationJob.get_progress(evaluator_dir, config=None)
                 results.append(("evaluator", progress.completed_epochs))
                 time.sleep(0.01)
         
