@@ -1,4 +1,6 @@
 from typing import Dict, List, Optional, Any
+from agents.connector.pool import _ssh_pool
+from agents.connector.error import SSHCommandError
 from agents.monitor.gpu_monitor import GPUMonitor
 from agents.monitor.cpu_monitor import CPUMonitor
 from agents.monitor.gpu_status import GPUStatus
@@ -17,9 +19,11 @@ class SystemMonitor:
         self.server = server
         self.timeout = timeout
         self.cpu_monitor = CPUMonitor(server, timeout=timeout)
+        if gpu_indices is None:
+            gpu_indices = self._discover_gpu_indices(server)
         self.gpu_monitors: Dict[int, GPUMonitor] = {
             idx: GPUMonitor(server, idx, timeout=timeout)
-            for idx in (gpu_indices or [])
+            for idx in gpu_indices
         }
         self._monitoring_started = False
 
@@ -92,3 +96,26 @@ class SystemMonitor:
             if field != 'server'
         }
         logger.update_buffer({**cpu_stats, **gpu_stats})
+
+    def _discover_gpu_indices(self, server: str) -> List[int]:
+        try:
+            output = _ssh_pool.execute(
+                server,
+                ['nvidia-smi', '--query-gpu=index', '--format=csv,noheader'],
+            )
+        except SSHCommandError:
+            return []
+        except Exception as exc:  # noqa: BLE001 - discovery failures are non-fatal
+            print(f"WARNING: Unable to query GPUs for {server}: {exc}")
+            return []
+
+        indices: List[int] = []
+        for line in output.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                indices.append(int(stripped.split()[0]))
+            except ValueError:
+                continue
+        return indices

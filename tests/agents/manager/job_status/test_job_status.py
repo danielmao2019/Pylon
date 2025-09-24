@@ -211,6 +211,7 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
         # Create minimal SystemMonitor mock (only necessary mock)
         connected_gpus_data = [GPUStatus(server='test_server', index=0, max_memory=0, processes=[], connected=True)]
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
+        monitor_map = {'test_server': system_monitor}
         
         original_cwd = os.getcwd()
         os.chdir(temp_root)
@@ -219,7 +220,7 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
             result = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
-                system_monitor=system_monitor
+                system_monitors=monitor_map,
             )
             
             # Should return mapping instead of list

@@ -52,12 +52,13 @@ class LogsSnapshot:
         assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
         
         # Use enhanced get_all_job_status that returns Dict[str, JobStatus] with ProcessInfo
+        monitor_map = {system_monitor.server: system_monitor}
         run_statuses = get_all_job_status(
             config_files=self.config_files,
             epochs=self.epochs,
+            system_monitors=monitor_map,
             sleep_time=self.sleep_time,
             outdated_days=self.outdated_days,
-            system_monitor=system_monitor
         )
         
         snapshot = {

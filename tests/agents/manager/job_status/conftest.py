@@ -188,6 +188,6 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
 
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
 
-        return config_files, work_dirs, system_monitor
+        return config_files, work_dirs, {'test_server': system_monitor}
 
     return _setup_realistic_experiment_structure
