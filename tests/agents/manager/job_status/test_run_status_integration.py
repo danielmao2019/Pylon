@@ -53,7 +53,7 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
             assert len(all_statuses) == len(experiments)
             
             for config_path in config_files:
-                run_status = all_statuses[config_path]
+                job_status = all_statuses[config_path]
                 exp_name = os.path.basename(config_path).replace('.py', '')
                 
                 # Find expected data for this experiment
@@ -61,16 +61,16 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
                 target_status, epochs_completed = exp_data[1], exp_data[2]
                 
                 # Verify enhanced JobStatus fields
-                assert isinstance(run_status.progress, ProgressInfo)
-                assert run_status.progress.completed_epochs == epochs_completed
-                assert isinstance(run_status.progress.early_stopped, bool)
+                assert isinstance(job_status.progress, ProgressInfo)
+                assert job_status.progress.completed_epochs == epochs_completed
+                assert isinstance(job_status.progress.early_stopped, bool)
                 
                 # For running/stuck experiments, should have ProcessInfo
                 if target_status in ["running", "stuck"]:
-                    assert run_status.process_info is not None
-                    assert run_status.process_info.cmd.endswith(config_path)
+                    assert job_status.process_info is not None
+                    assert job_status.process_info.cmd.endswith(config_path)
                 else:
-                    assert run_status.process_info is None
+                    assert job_status.process_info is None
                     
         finally:
             os.chdir(original_cwd)
@@ -108,20 +108,20 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
             
             # Check specific experiment outcomes
             for config_path in config_files:
-                run_status = all_statuses[config_path]
+                job_status = all_statuses[config_path]
                 exp_name = os.path.basename(config_path).replace('.py', '')
                 
                 # Verify progress tracking is working correctly
-                assert hasattr(run_status.progress, 'completed_epochs')
-                assert hasattr(run_status.progress, 'early_stopped')
-                assert hasattr(run_status.progress, 'progress_percentage')
+                assert hasattr(job_status.progress, 'completed_epochs')
+                assert hasattr(job_status.progress, 'early_stopped')
+                assert hasattr(job_status.progress, 'progress_percentage')
                 
                 # Verify status determination is working
-                assert run_status.status in ["running", "finished", "failed", "stuck", "outdated"]
+                assert job_status.status in ["running", "finished", "failed", "stuck", "outdated"]
                 
                 # Verify config and work_dir are correctly populated
-                assert run_status.config == config_path
-                assert isinstance(run_status.work_dir, str)
+                assert job_status.config == config_path
+                assert isinstance(job_status.work_dir, str)
                 
         finally:
             os.chdir(original_cwd)
@@ -153,9 +153,9 @@ def test_integration_no_running_experiments(setup_realistic_experiment_structure
             
             # All experiments should have no process_info
             for config_path in config_files:
-                run_status = all_statuses[config_path]
-                assert run_status.process_info is None
-                assert run_status.status in ["finished", "failed"]
+                job_status = all_statuses[config_path]
+                assert job_status.process_info is None
+                assert job_status.status in ["finished", "failed"]
                 
         finally:
             os.chdir(original_cwd)
@@ -188,12 +188,12 @@ def test_integration_all_running_experiments(setup_realistic_experiment_structur
             
             # All experiments should have process_info
             for config_path in config_files:
-                run_status = all_statuses[config_path]
-                assert run_status.process_info is not None
-                assert run_status.status in ["running", "stuck"]
-                assert hasattr(run_status.process_info, 'pid')
-                assert hasattr(run_status.process_info, 'cmd')
-                assert run_status.process_info.cmd.endswith(config_path)
+                job_status = all_statuses[config_path]
+                assert job_status.process_info is not None
+                assert job_status.status in ["running", "stuck"]
+                assert hasattr(job_status.process_info, 'pid')
+                assert hasattr(job_status.process_info, 'cmd')
+                assert job_status.process_info.cmd.endswith(config_path)
                 
         finally:
             os.chdir(original_cwd)
@@ -227,12 +227,12 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
             
             # Verify each experiment has correct structure
             for i, config_path in enumerate(config_files):
-                run_status = all_statuses[config_path]
+                job_status = all_statuses[config_path]
                 expected_epochs = i % 10
                 
-                assert run_status.progress.completed_epochs == expected_epochs
-                assert hasattr(run_status.progress, 'completed_epochs')
-                assert run_status.status == "failed"  # All are failed in this test
+                assert job_status.progress.completed_epochs == expected_epochs
+                assert hasattr(job_status.progress, 'completed_epochs')
+                assert job_status.status == "failed"  # All are failed in this test
                 
         finally:
             os.chdir(original_cwd)
