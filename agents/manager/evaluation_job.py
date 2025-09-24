@@ -11,17 +11,15 @@ from agents.manager.base_job import BaseJob
 class EvaluationJob(BaseJob):
     """Copied evaluator logic as classmethods for manager jobs."""
 
-    @classmethod
-    def get_expected_files(cls) -> List[str]:
-        return ["evaluation_scores.json"]
+    EXPECTED_FILES = ["evaluation_scores.json"]
+    LOG_PATTERN = "eval_*.log"
 
-    @classmethod
-    def get_log_pattern(cls) -> str:
-        return "eval_*.log"
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
 
-    @classmethod
-    def get_progress(cls, work_dir: str, config: dict | None, force_progress_recompute: bool = False) -> ProgressInfo:
-        eval_complete = cls._check_files_exist(work_dir)
+    def get_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
+        eval_complete = self._check_files_exist(self.work_dir)
 
         progress_percentage = 100.0 if eval_complete else 0.0
         completed_epochs = 1 if eval_complete else 0
@@ -37,12 +35,23 @@ class EvaluationJob(BaseJob):
 
     @classmethod
     def _check_files_exist(cls, work_dir: str) -> bool:
-        filepath = os.path.join(work_dir, "evaluation_scores.json")
-        if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
-            return False
-        try:
-            with open(filepath, 'r') as f:
+        for filename in cls.EXPECTED_FILES:
+            filepath = os.path.join(work_dir, filename)
+            if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+                return False
+            try:
+                with open(filepath, 'r') as f:
                 json.load(f)
         except (json.JSONDecodeError, IOError):
             return False
         return True
+
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
+
+    def get_log_last_update(self) -> Optional[float]:
+        return
+
+    def get_epoch_last_update(self) -> Optional[float]:
+        return

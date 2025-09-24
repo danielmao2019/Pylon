@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple, Dict
 import os
+import glob
 import torch
 
 from agents.manager.progress_info import ProgressInfo
@@ -14,27 +15,23 @@ from utils.builders.builder import build_from_config
 class TrainingJob(BaseJob):
     """Copied trainer logic as classmethods for manager jobs."""
 
-    @classmethod
-    def get_expected_files(cls) -> List[str]:
-        return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-
-    @classmethod
-    def get_log_pattern(cls) -> str:
-        return "train_val*.log"
+    EXPECTED_FILES = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+    LOG_PATTERN = "train_val*.log"
 
     # ====================================================================================================
     # 
     # ====================================================================================================
 
-    @classmethod
-    def get_progress(cls, work_dir: str, config: dict | None, force_progress_recompute: bool = False) -> ProgressInfo:
-        basic_progress = cls.get_session_progress(
-            work_dir,
-            cls.get_expected_files(),
+    def get_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
+        basic_progress = self.get_session_progress(
+            self.work_dir,
+            self.get_expected_files(),
             force_progress_recompute=force_progress_recompute,
         )
 
-        total_epochs = config.get('epochs') if isinstance(config, dict) else None
+        assert isinstance(self.config_dict, dict)
+        assert 'epochs' in self.config_dict
+        total_epochs = self.config_dict['epochs']
 
         return ProgressInfo(
             completed_epochs=basic_progress.completed_epochs,
@@ -166,3 +163,31 @@ class TrainingJob(BaseJob):
             if early_stopping.was_triggered_at_epoch(last_epoch):
                 return True, last_epoch + 1
         return False, None
+
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
+
+    def get_log_last_update(self) -> Optional[float]:
+        """Get the timestamp of the last log update."""
+        if not os.path.isdir(self.work_dir):
+            return None
+        logs = glob.glob(os.path.join(self.work_dir, self.LOG_PATTERN))
+        if not logs:
+            return None
+        return max(os.path.getmtime(fp) for fp in logs)
+
+    def get_epoch_last_update(self) -> Optional[float]:
+        """Get the timestamp of the last epoch file update."""
+        if not os.path.isdir(self.work_dir):
+            return None
+        epoch_dirs = glob.glob(os.path.join(self.work_dir, 'epoch_*'))
+        if not epoch_dirs:
+            return None
+        timestamps = [
+            os.path.getmtime(os.path.join(epoch_dir, filename))
+            for epoch_dir in epoch_dirs
+            for filename in self.EXPECTED_FILES
+            if os.path.isfile(os.path.join(epoch_dir, filename))
+        ]
+        return max(timestamps) if timestamps else None

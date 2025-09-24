@@ -19,10 +19,11 @@ class BaseJob(ABC):
 
     def __init__(self, config_filepath: str) -> None:
         self.config_filepath = config_filepath
-        self.work_dir: Optional[str] = None
-        self.progress: Optional[ProgressInfo] = None
-        self.status: Optional[_JobStatus] = None
-        self.process_info: Optional[ProcessInfo] = None
+        self.work_dir: str = self.get_work_dir(self.config_filepath)
+        self.config_dict = load_config(self.config_filepath)
+        self.progress: ProgressInfo
+        self.status: _JobStatus
+        self.process_info: ProcessInfo
 
     # ====================================================================================================
     # 
@@ -37,14 +38,8 @@ class BaseJob(ABC):
         outdated_days: int,
         force_progress_recompute: bool,
     ) -> None:
-        work_dir = self.get_work_dir(self.config_filepath)
-        config_dict = load_config(self.config_filepath)
-
-        # Use polymorphism: subclass provides its own behavior
-        progress = self.get_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
-        self.status = self.get_status()
-        self.work_dir = work_dir
-        self.progress = progress
+        self.progress = self.get_progress(force_progress_recompute)
+        self.status = self.get_status(sleep_time, epochs, outdated_days, config_to_process_info)
         self.process_info = config_to_process_info.get(self.config_filepath)
 
     # ====================================================================================================
@@ -67,13 +62,9 @@ class BaseJob(ABC):
     # 
     # ====================================================================================================
 
-    @classmethod
     @abstractmethod
     def get_progress(
-        cls,
-        work_dir: str,
-        config: Optional[Dict],
-        *,
+        self,
         force_progress_recompute: bool = False,
     ) -> ProgressInfo:
         ...
@@ -82,17 +73,21 @@ class BaseJob(ABC):
     #
     # ====================================================================================================
 
-    def get_status():
-        log_pattern = self.get_log_pattern()
-        expected_files = self.get_expected_files()
 
-        log_last_update = self.get_log_last_update(work_dir, log_pattern)
-        epoch_last_update = self.get_epoch_last_update(work_dir, expected_files)
+    def get_status(
+        self,
+sleep_time,
+epochs,
+outdated_days,
+config_to_process_info,
+    ):
+        log_last_update = self.get_log_last_update()
+        epoch_last_update = self.get_epoch_last_update()
 
         is_running_status = (
             log_last_update is not None and (time.time() - log_last_update <= sleep_time)
         )
-        is_complete = progress.completed_epochs >= epochs
+        is_complete = self.progress.completed_epochs >= epochs
 
         if is_running_status:
             status: _JobStatus = 'running'
@@ -109,47 +104,13 @@ class BaseJob(ABC):
             status = 'failed'
         return status
 
-    @classmethod
     @abstractmethod
-    def get_log_pattern(cls) -> str:
+    def get_log_last_update(self) -> Optional[float]:
         ...
 
-    @classmethod
     @abstractmethod
-    def get_expected_files(cls) -> List[str]:
+    def get_epoch_last_update(self) -> Optional[float]:
         ...
-
-    @staticmethod
-    def get_log_last_update(
-        work_dir: str,
-        log_pattern: str = 'train_val*.log',
-    ) -> Optional[float]:
-        """Get the timestamp of the last log update."""
-        if not os.path.isdir(work_dir):
-            return None
-        logs = glob.glob(os.path.join(work_dir, log_pattern))
-        if not logs:
-            return None
-        return max(os.path.getmtime(fp) for fp in logs)
-
-    @staticmethod
-    def get_epoch_last_update(
-        work_dir: str,
-        expected_files: List[str],
-    ) -> Optional[float]:
-        """Get the timestamp of the last epoch file update."""
-        if not os.path.isdir(work_dir):
-            return None
-        epoch_dirs = glob.glob(os.path.join(work_dir, 'epoch_*'))
-        if not epoch_dirs:
-            return None
-        timestamps = [
-            os.path.getmtime(os.path.join(epoch_dir, filename))
-            for epoch_dir in epoch_dirs
-            for filename in expected_files
-            if os.path.isfile(os.path.join(epoch_dir, filename))
-        ]
-        return max(timestamps) if timestamps else None
 
     # ====================================================================================================
     # 
