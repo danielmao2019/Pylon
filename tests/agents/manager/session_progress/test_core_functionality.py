@@ -13,12 +13,8 @@ import tempfile
 import json
 import pytest
 import torch
-from agents.tracker.session_progress import (
-    get_session_progress,
-    check_epoch_finished,
-    check_file_loadable,
-    ProgressInfo
-)
+from agents.manager.training_job import TrainingJob
+from agents.manager.progress_info import ProgressInfo
 
 
 # ============================================================================
@@ -33,7 +29,7 @@ def test_get_session_progress_fast_path_normal_run(create_progress_json, EXPECTE
         # Create progress.json for normal run (57/100 epochs)
         create_progress_json(work_dir, completed_epochs=57, early_stopped=False, tot_epochs=100)
         
-        progress = get_session_progress(work_dir, expected_files)
+        progress = TrainingJob.get_session_progress(work_dir, expected_files)
         
         # Should return ProgressInfo dataclass
         assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
@@ -52,7 +48,7 @@ def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, 
         create_progress_json(work_dir, completed_epochs=57, early_stopped=True, 
                            early_stopped_at_epoch=57, tot_epochs=100)
         
-        progress = get_session_progress(work_dir, expected_files)
+        progress = TrainingJob.get_session_progress(work_dir, expected_files)
         
         # Should return ProgressInfo dataclass
         assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
@@ -90,12 +86,12 @@ def test_get_session_progress_force_progress_recompute(create_progress_json, cre
         
         try:
             # Normal call should use cached progress.json
-            progress_cached = get_session_progress(work_dir, expected_files, force_progress_recompute=False)
+            progress_cached = TrainingJob.get_session_progress(work_dir, expected_files, force_progress_recompute=False)
             assert progress_cached.completed_epochs == 2  # From cached progress.json
             assert progress_cached.progress_percentage == 2.0
             
             # Force recompute should bypass cache and recompute from filesystem
-            progress_recomputed = get_session_progress(work_dir, expected_files, force_progress_recompute=True)
+            progress_recomputed = TrainingJob.get_session_progress(work_dir, expected_files, force_progress_recompute=True)
             assert progress_recomputed.completed_epochs == 5  # From actual filesystem
             assert progress_recomputed.progress_percentage == 5.0
             assert progress_recomputed.early_stopped == False
@@ -136,7 +132,7 @@ def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_c
         os.chdir(temp_root)
         
         try:
-            progress = get_session_progress(work_dir, expected_files)
+            progress = TrainingJob.get_session_progress(work_dir, expected_files)
             
             # Should return ProgressInfo dataclass
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
@@ -163,7 +159,7 @@ def test_get_session_progress_deterministic(create_progress_json, EXPECTED_FILES
         # Run multiple times and verify same result
         results = []
         for _ in range(3):
-            progress = get_session_progress(work_dir, expected_files)
+            progress = TrainingJob.get_session_progress(work_dir, expected_files)
             results.append(progress)
         
         assert all(r == results[0] for r in results), f"Results not deterministic: {results}"
@@ -213,15 +209,15 @@ def test_check_epoch_finished(create_epoch_files, EXPECTED_FILES):
         expected_files = EXPECTED_FILES
         
         # Test empty directory
-        assert not check_epoch_finished(epoch_dir, expected_files)
+        assert not TrainingJob._check_epoch_finished(epoch_dir, expected_files)
         
         # Create epoch directory
         os.makedirs(epoch_dir, exist_ok=True)
-        assert not check_epoch_finished(epoch_dir, expected_files)
+        assert not TrainingJob._check_epoch_finished(epoch_dir, expected_files)
         
         # Create files one by one
         create_epoch_files(temp_dir, 0)
-        assert check_epoch_finished(epoch_dir, expected_files)
+        assert TrainingJob._check_epoch_finished(epoch_dir, expected_files)
 
 
 def test_check_file_loadable():
@@ -231,15 +227,15 @@ def test_check_file_loadable():
         json_file = os.path.join(temp_dir, "test.json")
         with open(json_file, 'w') as f:
             json.dump({"test": "data"}, f)
-        assert check_file_loadable(json_file)
+        assert TrainingJob._check_file_loadable(json_file)
         
         # Test valid PT file
         pt_file = os.path.join(temp_dir, "test.pt")
         torch.save({"test": torch.tensor([1, 2, 3])}, pt_file)
-        assert check_file_loadable(pt_file)
+        assert TrainingJob._check_file_loadable(pt_file)
         
         # Test invalid JSON file
         invalid_json = os.path.join(temp_dir, "invalid.json")
         with open(invalid_json, 'w') as f:
             f.write("invalid json content {")
-        assert not check_file_loadable(invalid_json)
+        assert not TrainingJob._check_file_loadable(invalid_json)

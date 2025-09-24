@@ -9,7 +9,7 @@ import torch
 
 from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import utils
-from agents.tracker.session_progress import check_epoch_finished
+from agents.manager.training_job import TrainingJob
 from utils.ops import buffer_allclose
 from configs.examples.linear.config import config
 import copy
@@ -43,9 +43,10 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
         while not stop_observing.is_set():
             # Check if target epoch is complete
             epoch_dir = os.path.join(config['work_dir'], f"epoch_{end_epoch-1}")  # 0-based indexing
-            if os.path.exists(epoch_dir) and check_epoch_finished(
+            if os.path.exists(epoch_dir) and TrainingJob._check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=trainer.expected_files,
+                check_load=True,
             ):
                 # Set interrupt flag immediately
                 stop_training.set()

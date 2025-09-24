@@ -8,7 +8,7 @@ Following CLAUDE.md testing patterns:
 import os
 import tempfile
 import pytest
-from agents.tracker.tracker_factory import create_tracker
+from agents.manager.manager import Manager
 
 
 # ============================================================================
@@ -27,7 +27,8 @@ def test_create_tracker_config_epochs_field():
         
         # Should fail fast with clear assertion error
         with pytest.raises(AssertionError, match="Config must have 'runner' key"):
-            create_tracker(work_dir, config)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config)
 
 
 def test_create_tracker_fail_fast_no_patterns():
@@ -38,13 +39,12 @@ def test_create_tracker_fail_fast_no_patterns():
             f.write("irrelevant content")
         
         with pytest.raises(ValueError) as exc_info:
-            create_tracker(work_dir)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, None)
         
         error_msg = str(exc_info.value)
-        assert "Unable to detect runner type" in error_msg
+        assert "Unable to determine runner type" in error_msg
         assert work_dir in error_msg
-        assert "Available files:" in error_msg
-        assert "some_file.txt" in error_msg
 
 
 def test_create_tracker_fail_fast_nonexistent_directory():
@@ -52,10 +52,11 @@ def test_create_tracker_fail_fast_nonexistent_directory():
     nonexistent_dir = "/this/path/does/not/exist"
     
     with pytest.raises(ValueError) as exc_info:
-        create_tracker(nonexistent_dir)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        m._detect_runner_type(nonexistent_dir, None)
     
     error_msg = str(exc_info.value)
-    assert "Unable to detect runner type" in error_msg
+    assert "Unable to determine runner type" in error_msg
     assert nonexistent_dir in error_msg
 
 
@@ -69,9 +70,10 @@ def test_create_tracker_invalid_config():
         }
         
         with pytest.raises(ValueError) as exc_info:
-            create_tracker(work_dir, config)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config)
         
-        assert "Unable to detect runner type" in str(exc_info.value)
+        assert "Unable to determine runner type" in str(exc_info.value)
 
 
 def test_create_tracker_config_string_class_name():
@@ -84,4 +86,5 @@ def test_create_tracker_config_string_class_name():
         }
         
         with pytest.raises(AssertionError, match="Expected runner to be a class"):
-            create_tracker(work_dir, config)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config)

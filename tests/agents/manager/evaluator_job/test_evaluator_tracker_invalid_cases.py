@@ -1,30 +1,27 @@
 """
-Test EvaluatorTracker functionality - INVALID CASES (pytest.raises).
+Evaluator detection behavior - INVALID CASES (pytest.raises).
 
-Following CLAUDE.md testing patterns:
-- Invalid input testing with exception verification
+Aligned to Manager._detect_runner_type API.
 """
 import pytest
-from agents.tracker.evaluator_tracker import EvaluatorTracker
+from agents.manager.manager import Manager
 
 
 # ============================================================================
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
-def test_evaluator_tracker_nonexistent_work_dir():
-    """Test initialization with nonexistent work directory."""
+def test_evaluator_detection_nonexistent_work_dir():
+    """Nonexistent directory should raise informative ValueError."""
     nonexistent_dir = "/this/path/does/not/exist"
-    
-    with pytest.raises(AssertionError) as exc_info:
-        EvaluatorTracker(nonexistent_dir)
-    
-    assert "work_dir does not exist" in str(exc_info.value)
+    m = Manager(config_files=[], epochs=1, system_monitors={})
+    with pytest.raises(ValueError) as exc_info:
+        m._detect_runner_type(nonexistent_dir, None)
+    assert "Unable to determine runner type" in str(exc_info.value)
 
 
-def test_evaluator_tracker_invalid_work_dir_type():
-    """Test initialization with invalid work_dir type."""
-    with pytest.raises(AssertionError) as exc_info:
-        EvaluatorTracker(123)  # Integer instead of string
-    
-    assert "work_dir must be str" in str(exc_info.value)
+def test_evaluator_detection_invalid_work_dir_type():
+    """Invalid work_dir type should error via path handling."""
+    m = Manager(config_files=[], epochs=1, system_monitors={})
+    with pytest.raises(Exception):
+        m._detect_runner_type(123, None)  # type: ignore[arg-type]

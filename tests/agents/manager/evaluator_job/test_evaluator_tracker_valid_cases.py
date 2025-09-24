@@ -11,7 +11,7 @@ import tempfile
 import json
 import pytest
 from agents.manager.progress_info import ProgressInfo
-from agents.tracker.evaluator_tracker import EvaluatorTracker
+from agents.manager.evaluation_job import EvaluationJob
 
 
 # ============================================================================
@@ -22,11 +22,8 @@ def test_evaluator_tracker_initialization():
     """Test that EvaluatorTracker initializes correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'some_config': 'value'}
-        tracker = EvaluatorTracker(work_dir, config)
+        tracker = EvaluationJob
         
-        assert tracker.work_dir == work_dir
-        assert tracker.config == config
-        assert tracker.get_runner_type() == 'evaluator'
         assert tracker.get_expected_files() == ["evaluation_scores.json"]
         assert tracker.get_log_pattern() == "eval_*.log"
 
@@ -34,11 +31,8 @@ def test_evaluator_tracker_initialization():
 def test_evaluator_tracker_initialization_no_config():
     """Test initialization without config."""
     with tempfile.TemporaryDirectory() as work_dir:
-        tracker = EvaluatorTracker(work_dir)
-        
-        assert tracker.work_dir == work_dir
-        assert tracker.config is None
-        assert tracker.get_runner_type() == 'evaluator'
+        tracker = EvaluationJob
+        assert tracker.get_expected_files() == ["evaluation_scores.json"]
 
 
 # ============================================================================
@@ -59,8 +53,7 @@ def test_evaluator_tracker_complete_evaluation():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorTracker(work_dir)
-        progress = tracker.get_progress()
+        progress = EvaluationJob.calculate_progress(work_dir, config=None)
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'evaluator'
@@ -76,8 +69,7 @@ def test_evaluator_tracker_incomplete_evaluation():
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty work directory (no evaluation_scores.json)
         
-        tracker = EvaluatorTracker(work_dir)
-        progress = tracker.get_progress()
+        progress = EvaluationJob.calculate_progress(work_dir, config=None)
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'evaluator'
@@ -96,8 +88,7 @@ def test_evaluator_tracker_empty_evaluation_file():
         with open(eval_file, 'w') as f:
             f.write("")  # Empty file
         
-        tracker = EvaluatorTracker(work_dir)
-        progress = tracker.get_progress()
+        progress = EvaluationJob.calculate_progress(work_dir, config=None)
         
         # Empty file should be treated as incomplete
         assert progress.completed_epochs == 0
@@ -131,8 +122,7 @@ def test_evaluator_tracker_check_files_exist_valid():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorTracker(work_dir)
-        assert tracker._check_files_exist() == True
+        assert EvaluationJob._check_files_exist(work_dir) == True
 
 
 def test_evaluator_tracker_check_files_exist_missing():
@@ -140,8 +130,7 @@ def test_evaluator_tracker_check_files_exist_missing():
     with tempfile.TemporaryDirectory() as work_dir:
         # No evaluation_scores.json file
         
-        tracker = EvaluatorTracker(work_dir)
-        assert tracker._check_files_exist() == False
+        assert EvaluationJob._check_files_exist(work_dir) == False
 
 
 def test_evaluator_tracker_check_files_exist_empty():
@@ -152,8 +141,7 @@ def test_evaluator_tracker_check_files_exist_empty():
         with open(eval_file, 'w') as f:
             pass  # Empty file
         
-        tracker = EvaluatorTracker(work_dir)
-        assert tracker._check_files_exist() == False  # Empty file should fail
+        assert EvaluationJob._check_files_exist(work_dir) == False  # Empty file should fail
 
 
 # ============================================================================
@@ -167,18 +155,16 @@ def test_evaluator_tracker_caching():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorTracker(work_dir)
-        
         # First call should compute progress
-        progress1 = tracker.get_progress()
+        progress1 = EvaluationJob.calculate_progress(work_dir, config=None)
         assert progress1.completed_epochs == 1
         
         # Second call should use cache (within cache timeout)
-        progress2 = tracker.get_progress()
+        progress2 = EvaluationJob.calculate_progress(work_dir, config=None)
         assert progress2 == progress1
         
         # Force progress recompute should bypass cache
-        progress3 = tracker.get_progress(force_progress_recompute=True)
+        progress3 = EvaluationJob.calculate_progress(work_dir, config=None, force_progress_recompute=True)
         assert progress3.completed_epochs == 1  # Same result but forced recalculation
 
 
@@ -189,8 +175,7 @@ def test_evaluator_tracker_progress_json_creation():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorTracker(work_dir)
-        progress = tracker.get_progress()
+        progress = EvaluationJob.calculate_progress(work_dir, config=None)
         
         # Check that progress.json was created
         progress_file = os.path.join(work_dir, "progress.json")
@@ -219,12 +204,10 @@ def test_evaluator_tracker_deterministic():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = EvaluatorTracker(work_dir)
-        
         # Multiple calls should give same result
         results = []
         for _ in range(5):
-            progress = tracker.get_progress(force_progress_recompute=True)
+            progress = EvaluationJob.calculate_progress(work_dir, config=None, force_progress_recompute=True)
             results.append(progress)
         
         # All results should be identical

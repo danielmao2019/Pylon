@@ -9,7 +9,7 @@ import os
 import tempfile
 import json
 import pytest
-from agents.tracker.session_progress import get_session_progress
+from agents.manager.training_job import TrainingJob
 
 
 # ============================================================================
@@ -62,7 +62,7 @@ def test_non_empty_progress_json_loading():
         expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
         
         # This should successfully load from the JSON file without trying to recompute
-        progress = get_session_progress(work_dir, expected_files)
+        progress = TrainingJob.get_session_progress(work_dir, expected_files)
         
         # Verify the loaded data matches what we saved
         assert progress.completed_epochs == 5

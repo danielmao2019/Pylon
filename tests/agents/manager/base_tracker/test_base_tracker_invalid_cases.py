@@ -5,56 +5,47 @@ Following CLAUDE.md testing patterns:
 - Invalid input testing with exception verification
 - Abstract method contract testing
 """
+import os
 import pytest
-from agents.tracker.base_tracker import BaseTracker
-from agents.tracker.trainer_tracker import TrainerTracker
-from agents.tracker.evaluator_tracker import EvaluatorTracker
+from agents.manager.manager import Manager
 
 
 # ============================================================================
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
-def test_base_tracker_trainer_input_validation():
-    """Test input validation during TrainerTracker initialization."""
-    # Test invalid work_dir type
-    with pytest.raises(AssertionError) as exc_info:
-        TrainerTracker(123)  # Integer instead of string
-    assert "work_dir must be str" in str(exc_info.value)
-    
-    # Test nonexistent work_dir
+def test_manager_detect_trainer_input_validation():
+    """Validate Manager._detect_runner_type input handling for trainer case."""
+    m = Manager(config_files=[], epochs=1, system_monitors={})
+    # Non-string path should raise due to os.path functions; simulate by expecting ValueError
+    with pytest.raises(Exception):
+        m._detect_runner_type(123, None)  # type: ignore[arg-type]
+    # Nonexistent directory yields ValueError with informative message
     nonexistent_dir = "/this/path/does/not/exist"
-    with pytest.raises(AssertionError) as exc_info:
-        TrainerTracker(nonexistent_dir)
-    assert "work_dir does not exist" in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
+        m._detect_runner_type(nonexistent_dir, None)
+    assert "Unable to determine runner type" in str(exc_info.value)
 
 
-def test_base_tracker_evaluator_input_validation():
-    """Test input validation during EvaluatorTracker initialization."""
-    # Test invalid work_dir type
-    with pytest.raises(AssertionError) as exc_info:
-        EvaluatorTracker(123)  # Integer instead of string
-    assert "work_dir must be str" in str(exc_info.value)
-    
-    # Test nonexistent work_dir
+def test_manager_detect_evaluator_input_validation():
+    """Validate Manager._detect_runner_type input handling for evaluator case."""
+    m = Manager(config_files=[], epochs=1, system_monitors={})
+    with pytest.raises(Exception):
+        m._detect_runner_type(123, None)  # type: ignore[arg-type]
     nonexistent_dir = "/this/path/does/not/exist"
-    with pytest.raises(AssertionError) as exc_info:
-        EvaluatorTracker(nonexistent_dir)
-    assert "work_dir does not exist" in str(exc_info.value)
+    with pytest.raises(ValueError) as exc_info:
+        m._detect_runner_type(nonexistent_dir, None)
+    assert "Unable to determine runner type" in str(exc_info.value)
 
 
-def test_base_tracker_abstract_methods_must_be_implemented():
-    """Test that abstract methods must be implemented by subclasses."""
-    
-    # Test that we can't instantiate BaseTracker directly
-    with pytest.raises(TypeError):
-        BaseTracker("/tmp")  # Should fail - abstract class
-    
-    # Test that incomplete implementation fails
-    class IncompleteTracker(BaseTracker):
-        def get_runner_type(self):
-            return 'trainer'
-        # Missing other abstract methods
-    
-    with pytest.raises(TypeError):
-        IncompleteTracker("/tmp")  # Should fail - missing abstract methods
+def test_manager_detect_requires_artifacts_or_config():
+    """Manager requires expected artifacts or runner class in config."""
+    m = Manager(config_files=[], epochs=1, system_monitors={})
+    with pytest.raises(ValueError):
+        with pytest.TempdirFactory():
+            pass
+    # Use a real temp dir without artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        with pytest.raises(ValueError):
+            m._detect_runner_type(d, None)

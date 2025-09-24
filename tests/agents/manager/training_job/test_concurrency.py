@@ -12,9 +12,9 @@ import time
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from agents.tracker.trainer_tracker import TrainerTracker
-from agents.tracker.evaluator_tracker import EvaluatorTracker
-from agents.tracker.session_progress import get_session_progress
+from agents.manager.training_job import TrainingJob
+from agents.manager.evaluation_job import EvaluationJob
+from agents.manager.manager import Manager
 from utils.io.json import load_json, save_json
 
 
@@ -32,7 +32,7 @@ def test_multiple_readers_same_progress_file(create_progress_json, EXPECTED_FILE
         
         # Function for reader threads
         def read_progress():
-            return get_session_progress(work_dir, expected_files)
+            return TrainingJob.get_session_progress(work_dir, expected_files)
         
         # Run 10 concurrent readers
         results = []
@@ -56,8 +56,7 @@ def test_multiple_tracker_readers_same_file(create_progress_json):
         
         # Function for tracker reader threads
         def read_with_tracker():
-            tracker = TrainerTracker(work_dir)
-            return tracker.get_progress()
+            return TrainingJob.calculate_progress(work_dir, config=None)
         
         # Run 8 concurrent tracker readers
         results = []
@@ -172,8 +171,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
                         create_epoch_files(work_dir, epoch_idx)
                     
                     # Use TrainerTracker to compute and save progress
-                    tracker = TrainerTracker(work_dir)
-                    progress = tracker.get_progress(force_progress_recompute=True)
+                    progress = TrainingJob.calculate_progress(work_dir, config=None, force_progress_recompute=True)
                     
                     results.append((thread_id, update_round, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase chance of conflicts

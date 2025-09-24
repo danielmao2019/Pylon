@@ -9,17 +9,14 @@ Following CLAUDE.md testing patterns:
 import os
 import tempfile
 import json
-from agents.tracker.tracker_factory import create_tracker
-from agents.tracker.trainer_tracker import TrainerTracker
-from agents.tracker.evaluator_tracker import EvaluatorTracker
-from agents.tracker.base_tracker import BaseTracker
+from agents.manager.manager import Manager
 
 
 # ============================================================================
 # TESTS FOR create_tracker - BASIC FUNCTIONALITY
 # ============================================================================
 
-def test_create_tracker_returns_evaluator_for_evaluation_pattern():
+def test_detect_runner_evaluator_for_evaluation_pattern():
     """Test factory returns EvaluatorTracker for evaluator pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json (evaluator pattern)
@@ -30,31 +27,21 @@ def test_create_tracker_returns_evaluator_for_evaluation_pattern():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        tracker = create_tracker(work_dir)
-        
-        assert isinstance(tracker, EvaluatorTracker)
-        assert isinstance(tracker, BaseTracker)  # Should inherit from base
-        assert tracker.get_runner_type() == 'evaluator'
-        assert tracker.work_dir == work_dir
-        assert tracker.config is None
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, None) == 'evaluator'
 
 
-def test_create_tracker_returns_trainer_for_trainer_pattern(create_epoch_files):
+def test_detect_runner_trainer_for_trainer_pattern(create_epoch_files):
     """Test factory returns TrainerTracker for trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern: epoch_0/validation_scores.json
         create_epoch_files(work_dir, 0)
         
-        tracker = create_tracker(work_dir)
-        
-        assert isinstance(tracker, TrainerTracker)
-        assert isinstance(tracker, BaseTracker)  # Should inherit from base
-        assert tracker.get_runner_type() == 'trainer'
-        assert tracker.work_dir == work_dir
-        assert tracker.config is None
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, None) == 'trainer'
 
 
-def test_create_tracker_with_config():
+def test_detect_runner_with_config():
     """Test factory passes config correctly to created tracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -68,18 +55,15 @@ def test_create_tracker_with_config():
             'epochs': 100
         }
         
-        tracker = create_tracker(work_dir, config)
-        
-        assert isinstance(tracker, EvaluatorTracker)
-        assert tracker.config == config
-        assert tracker.work_dir == work_dir
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, config) == 'evaluator'
 
 
 # ============================================================================
 # TESTS FOR create_tracker - CONFIG-BASED DETECTION
 # ============================================================================
 
-def test_create_tracker_config_evaluator_class():
+def test_detect_runner_config_evaluator_class():
     """Test factory uses config for evaluator detection when no file patterns."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
@@ -90,13 +74,11 @@ def test_create_tracker_config_evaluator_class():
             'runner': mock_evaluator_class
         }
         
-        tracker = create_tracker(work_dir, config)
-        
-        assert isinstance(tracker, EvaluatorTracker)
-        assert tracker.config == config
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, config) == 'evaluator'
 
 
-def test_create_tracker_config_trainer_class():
+def test_detect_runner_config_trainer_class():
     """Test factory uses config for trainer detection when no file patterns."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
@@ -107,17 +89,15 @@ def test_create_tracker_config_trainer_class():
             'runner': mock_trainer_class
         }
         
-        tracker = create_tracker(work_dir, config)
-        
-        assert isinstance(tracker, TrainerTracker)
-        assert tracker.config == config
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, config) == 'trainer'
 
 
 # ============================================================================
 # TESTS FOR create_tracker - PRECEDENCE RULES
 # ============================================================================
 
-def test_create_tracker_evaluator_pattern_takes_precedence(create_epoch_files):
+def test_detect_runner_evaluator_pattern_takes_precedence(create_epoch_files):
     """Test that evaluator file pattern takes precedence over trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create both patterns
@@ -127,12 +107,11 @@ def test_create_tracker_evaluator_pattern_takes_precedence(create_epoch_files):
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)  # Evaluator pattern
         
-        tracker = create_tracker(work_dir)
-        
-        assert isinstance(tracker, EvaluatorTracker)  # Evaluator wins
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, None) == 'evaluator'
 
 
-def test_create_tracker_file_pattern_over_config(create_epoch_files):
+def test_detect_runner_file_pattern_over_config(create_epoch_files):
     """Test that file patterns take precedence over config."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer file pattern
@@ -144,17 +123,15 @@ def test_create_tracker_file_pattern_over_config(create_epoch_files):
             'runner': mock_evaluator_class
         }
         
-        tracker = create_tracker(work_dir, config)
-        
-        # File pattern should win over config
-        assert isinstance(tracker, TrainerTracker)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        assert m._detect_runner_type(work_dir, config) == 'trainer'
 
 
 # ============================================================================
 # TESTS FOR create_tracker - EDGE CASES
 # ============================================================================
 
-def test_create_tracker_various_config_formats():
+def test_detect_runner_various_config_formats():
     """Test factory with various config formats."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -171,17 +148,16 @@ def test_create_tracker_various_config_formats():
             {'runner': {'class': None}},            # None runner class
         ]
         
+        m = Manager(config_files=[], epochs=1, system_monitors={})
         for config in test_configs:
-            tracker = create_tracker(work_dir, config)
-            assert isinstance(tracker, EvaluatorTracker)
-            assert tracker.config == config
+            assert m._detect_runner_type(work_dir, config) == 'evaluator'
 
 
 # ============================================================================
 # TESTS FOR create_tracker - DETERMINISM
 # ============================================================================
 
-def test_create_tracker_deterministic():
+def test_detect_runner_deterministic():
     """Test that factory creates consistent tracker types."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -190,12 +166,9 @@ def test_create_tracker_deterministic():
             json.dump(eval_scores, f)
         
         # Create multiple trackers
-        trackers = [create_tracker(work_dir) for _ in range(5)]
-        
-        # All should be the same type
-        assert all(isinstance(t, EvaluatorTracker) for t in trackers)
-        assert all(t.work_dir == work_dir for t in trackers)
-        assert all(t.config is None for t in trackers)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        results = [m._detect_runner_type(work_dir, None) for _ in range(5)]
+        assert all(r == 'evaluator' for r in results)
 
 
 # ============================================================================
