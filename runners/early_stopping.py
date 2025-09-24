@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional, List
 import os
 import json
 from runners.model_comparison import compare_scores, get_metric_directions
-from agents.tracker.session_progress import check_epoch_finished
+from agents.manager.training_job import TrainingJob
 
 
 class EarlyStopping:
@@ -66,7 +66,7 @@ class EarlyStopping:
             epoch_dir = os.path.join(self.work_dir, f"epoch_{current_epoch}")
 
             # Check if epoch is completed
-            if not check_epoch_finished(
+            if not TrainingJob._check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=self.expected_files
             ):
@@ -153,7 +153,7 @@ class EarlyStopping:
             scores_path = os.path.join(epoch_dir, "validation_scores.json")
 
             # Check if epoch is complete (includes file existence check)
-            if not check_epoch_finished(
+            if not TrainingJob._check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=self.expected_files
             ):
