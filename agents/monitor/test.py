@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime
 from contextlib import ExitStack
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import dash
 from dash import dcc, html, dash_table
@@ -68,7 +68,6 @@ def build_table_rows(monitors: Dict[str, SystemMonitor]) -> List[Dict[str, str]]
             {
                 'Server': server,
                 'Resource': 'CPU',
-                'Index': '-',
                 'Connected': 'Yes' if cpu['connected'] else 'No',
                 'Memory Min': f"{cpu_memory_stats['min']:.2f}" if cpu_memory_stats['min'] is not None else 'n/a',
                 'Memory Max': f"{cpu_memory_stats['max']:.2f}" if cpu_memory_stats['max'] is not None else 'n/a',
@@ -87,8 +86,7 @@ def build_table_rows(monitors: Dict[str, SystemMonitor]) -> List[Dict[str, str]]
             rows.append(
                 {
                     'Server': server,
-                    'Resource': 'GPU',
-                    'Index': str(gpu['index']),
+                    'Resource': f"GPU-{gpu['index']}",
                     'Connected': 'Yes' if gpu['connected'] else 'No',
                     'Memory Min': f"{gpu_memory_stats['min']:.2f}" if gpu_memory_stats['min'] is not None else 'n/a',
                     'Memory Max': f"{gpu_memory_stats['max']:.2f}" if gpu_memory_stats['max'] is not None else 'n/a',
@@ -102,14 +100,17 @@ def build_table_rows(monitors: Dict[str, SystemMonitor]) -> List[Dict[str, str]]
     return rows
 
 
-def build_style(rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
+def build_style(rows: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     disconnected_query = '{Connected} = "No"'
-    return [
-        {
-            'if': {'filter_query': disconnected_query},
-            'backgroundColor': '#ffe5e5',
-        }
-    ] if rows else []
+    style_rules: List[Dict[str, Any]] = []
+    if rows:
+        style_rules.append(
+            {
+                'if': {'filter_query': disconnected_query},
+                'backgroundColor': '#ffe5e5',
+            }
+        )
+    return style_rules
 
 
 def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
@@ -118,7 +119,6 @@ def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
     columns = [
         {'name': 'Server', 'id': 'Server'},
         {'name': 'Resource', 'id': 'Resource'},
-        {'name': 'Index', 'id': 'Index'},
         {'name': 'Connected', 'id': 'Connected'},
         {'name': 'Memory Min', 'id': 'Memory Min'},
         {'name': 'Memory Max', 'id': 'Memory Max'},
