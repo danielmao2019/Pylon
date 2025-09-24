@@ -86,7 +86,7 @@ def sample_process_info():
 
 
 @pytest.fixture
-def sample_run_status(sample_progress_info, sample_process_info):
+def sample_job_status(sample_progress_info, sample_process_info):
     """Sample JobStatus for testing."""
     return JobStatus(
         config="configs/exp/baseline.py",
@@ -187,10 +187,10 @@ def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
     result = snapshot.create_snapshot(timestamp, mock_system_monitor)
     
     assert result['timestamp'] == timestamp
-    assert 'run_statuses' in result
+    assert 'job_statuses' in result
     assert 'snapshot_metadata' in result
     assert result['snapshot_metadata']['total_configs'] == len(sample_config_files)
-    assert "configs/exp/baseline.py" in result['run_statuses']
+    assert "configs/exp/baseline.py" in result['job_statuses']
 
 
 def test_create_snapshot_parameter_validation(sample_config_files, mock_system_monitor):
@@ -213,7 +213,7 @@ def test_create_snapshot_parameter_validation(sample_config_files, mock_system_m
 # SNAPSHOT SAVING AND LOADING TESTS
 # ============================================================================
 
-def test_save_and_load_snapshot(temp_snapshot_dir, sample_config_files, sample_expected_files, sample_run_status):
+def test_save_and_load_snapshot(temp_snapshot_dir, sample_config_files, sample_expected_files, sample_job_status):
     """Test saving and loading snapshots."""
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
@@ -224,8 +224,8 @@ def test_save_and_load_snapshot(temp_snapshot_dir, sample_config_files, sample_e
     # Create test snapshot data
     snapshot_data = {
         'timestamp': '2025-07-17_123000',
-        'run_statuses': {
-            'configs/exp/baseline.py': sample_run_status
+        'job_statuses': {
+            'configs/exp/baseline.py': sample_job_status
         },
         'snapshot_metadata': {
             'total_configs': 1,
@@ -247,7 +247,7 @@ def test_save_and_load_snapshot(temp_snapshot_dir, sample_config_files, sample_e
     loaded_data = snapshot.load_snapshot(filename)
     assert loaded_data is not None
     assert loaded_data['timestamp'] == '2025-07-17_123000'
-    assert 'run_statuses' in loaded_data
+    assert 'job_statuses' in loaded_data
     assert 'snapshot_metadata' in loaded_data
 
 
@@ -305,24 +305,24 @@ def test_load_corrupted_snapshot(temp_snapshot_dir, sample_config_files):
 # JSON SERIALIZATION TESTS
 # ============================================================================
 
-def test_generic_serialization(sample_run_status):
+def test_generic_serialization(sample_job_status):
     """Test generic JSON serialization of snapshot data."""
     
     snapshot_data = {
         'timestamp': '2025-07-17_123000',
-        'run_statuses': {
-            'configs/exp/baseline.py': sample_run_status
+        'job_statuses': {
+            'configs/exp/baseline.py': sample_job_status
         },
         'snapshot_metadata': {'total_configs': 1}
     }
     
     serializable = serialize_object(snapshot_data)
     
-    # Verify run_statuses are serialized as dicts (dataclasses converted to dict)
-    assert isinstance(serializable['run_statuses']['configs/exp/baseline.py'], dict)
-    assert 'config' in serializable['run_statuses']['configs/exp/baseline.py']
-    assert 'progress' in serializable['run_statuses']['configs/exp/baseline.py']
-    assert 'process_info' in serializable['run_statuses']['configs/exp/baseline.py']
+    # Verify job_statuses are serialized as dicts (dataclasses converted to dict)
+    assert isinstance(serializable['job_statuses']['configs/exp/baseline.py'], dict)
+    assert 'config' in serializable['job_statuses']['configs/exp/baseline.py']
+    assert 'progress' in serializable['job_statuses']['configs/exp/baseline.py']
+    assert 'process_info' in serializable['job_statuses']['configs/exp/baseline.py']
     
     # Verify it can be JSON serialized
     json_str = json.dumps(serializable)
@@ -491,7 +491,7 @@ def test_snapshot_directory_creation(sample_config_files):
         snapshot.snapshot_dir = nonexistent_dir
         
         # Save a snapshot - should create directory
-        snapshot_data = {'timestamp': '2025-07-17_123000', 'run_statuses': {}}
+        snapshot_data = {'timestamp': '2025-07-17_123000', 'job_statuses': {}}
         snapshot.save_snapshot(snapshot_data, "test.json")
         
         assert os.path.exists(nonexistent_dir)

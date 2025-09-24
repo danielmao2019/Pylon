@@ -46,12 +46,12 @@ class LogsSnapshot:
             system_monitor: SystemMonitor instance for GPU/process queries
             
         Returns:
-            Dictionary containing snapshot data with enhanced RunStatus mapping
+            Dictionary containing snapshot data with enhanced JobStatus mapping
         """
         assert isinstance(timestamp, str), f"timestamp must be str, got {type(timestamp)}"
         assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
         
-        # Use enhanced get_all_run_status that returns Dict[str, RunStatus] with ProcessInfo
+        # Use enhanced get_all_job_status that returns Dict[str, JobStatus] with ProcessInfo
         run_statuses = get_all_job_status(
             config_files=self.config_files,
             epochs=self.epochs,
@@ -62,7 +62,7 @@ class LogsSnapshot:
         
         snapshot = {
             'timestamp': timestamp,
-            'run_statuses': run_statuses,  # Dict[str, RunStatus] with enhanced progress and ProcessInfo
+            'job_statuses': run_statuses,  # Dict[str, JobStatus] with enhanced progress and ProcessInfo
             'snapshot_metadata': {
                 'total_configs': len(self.config_files),
                 'epochs': self.epochs,
