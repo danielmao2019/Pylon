@@ -11,9 +11,9 @@ import os
 import tempfile
 import json
 import time
-from agents.tracker.base_tracker import ProgressInfo
-from agents.tracker.trainer_tracker import TrainerTracker
-from agents.tracker.evaluator_tracker import EvaluatorTracker
+from agents.manager.progress_info import ProgressInfo
+from agents.manager.training_job import TrainingJob
+from agents.manager.evaluation_job import EvaluationJob
 
 
 # ============================================================================
@@ -187,7 +187,7 @@ def test_base_tracker_trainer_cache_timeout(create_progress_json):
         create_progress_json(work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100)
         
         # Use very short cache timeout for testing
-        from agents.tracker.trainer_tracker import TrainerTracker
+        from agents.manager.training_job import TrainingJob
         tracker = TrainerTracker(work_dir)
         tracker._cache_timeout = 0.1  # 100ms
         
@@ -210,7 +210,7 @@ def test_base_tracker_evaluator_cache_timeout():
     """Test that cache expires after timeout for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Use very short cache timeout for testing
-        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        from agents.manager.evaluation_job import EvaluationJob
         tracker = EvaluatorTracker(work_dir)
         tracker._cache_timeout = 0.1  # 100ms
         
@@ -326,7 +326,7 @@ def test_base_tracker_trainer_implementation_contracts(create_progress_json):
         # Create progress.json for realistic test
         create_progress_json(work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100)
         
-        from agents.tracker.trainer_tracker import TrainerTracker
+        from agents.manager.training_job import TrainingJob
         tracker = TrainerTracker(work_dir)
         
         # Test abstract method implementations
@@ -356,7 +356,7 @@ def test_base_tracker_evaluator_implementation_contracts():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        from agents.tracker.evaluator_tracker import EvaluatorTracker
+        from agents.manager.evaluation_job import EvaluationJob
         tracker = EvaluatorTracker(work_dir)
         
         # Test abstract method implementations
