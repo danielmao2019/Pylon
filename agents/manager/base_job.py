@@ -7,6 +7,8 @@ from typing import Dict, List, Literal, Optional
 
 from agents.monitor.process_info import ProcessInfo
 from agents.manager.progress_info import ProgressInfo
+from agents.manager.training_job import TrainingJob
+from agents.manager.evaluation_job import EvaluationJob
 from utils.io.config import load_config
 
 
@@ -35,13 +37,20 @@ class BaseJob:
         work_dir = self.get_work_dir(self.config)
         config_dict = load_config(self.config)
 
-        # NOTE: Temporarily keep using tracker until jobs are moved.
-        from agents.tracker.tracker_factory import create_tracker  # local import to avoid module-level deps
-        tracker = create_tracker(work_dir, config_dict)
-        progress = tracker.get_progress(force_progress_recompute=force_progress_recompute)
+        # Minimal runner-type detection: look for evaluation artifacts
+        runner = 'evaluator' if os.path.exists(os.path.join(work_dir, 'evaluation_scores.json')) else 'trainer'
 
-        log_last_update = self.get_log_last_update(work_dir, tracker.get_log_pattern())
-        epoch_last_update = self.get_epoch_last_update(work_dir, tracker.get_expected_files())
+        if runner == 'evaluator':
+            progress = EvaluationJob.calculate_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
+            log_pattern = EvaluationJob.get_log_pattern()
+            expected_files = EvaluationJob.get_expected_files()
+        else:
+            progress = TrainingJob.calculate_progress(work_dir, config_dict, force_progress_recompute=force_progress_recompute)
+            log_pattern = TrainingJob.get_log_pattern()
+            expected_files = TrainingJob.get_expected_files()
+
+        log_last_update = self.get_log_last_update(work_dir, log_pattern)
+        epoch_last_update = self.get_epoch_last_update(work_dir, expected_files)
 
         is_running_status = (
             log_last_update is not None and (time.time() - log_last_update <= sleep_time)
