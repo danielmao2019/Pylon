@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import glob
 import os
 import time
-from typing import Dict, List, Literal, Optional
+from typing import Dict, Literal, Optional
 from abc import ABC, abstractmethod
 
 from agents.monitor.process_info import ProcessInfo
@@ -76,11 +75,11 @@ class BaseJob(ABC):
 
     def get_status(
         self,
-sleep_time,
-epochs,
-outdated_days,
-config_to_process_info,
-    ):
+        sleep_time: int,
+        epochs: int,
+        outdated_days: int,
+        config_to_process_info: Dict[str, ProcessInfo],
+    ) -> _JobStatus:
         log_last_update = self.get_log_last_update()
         epoch_last_update = self.get_epoch_last_update()
 

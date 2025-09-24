@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import List
-import os
+import glob
 import json
+import os
+from typing import Optional
 
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.base_job import BaseJob
@@ -40,10 +41,10 @@ class EvaluationJob(BaseJob):
             if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
                 return False
             try:
-                with open(filepath, 'r') as f:
-                json.load(f)
-        except (json.JSONDecodeError, IOError):
-            return False
+                with open(filepath, 'r', encoding='utf-8') as file_obj:
+                    json.load(file_obj)
+            except (json.JSONDecodeError, OSError):
+                return False
         return True
 
     # ====================================================================================================
@@ -51,7 +52,20 @@ class EvaluationJob(BaseJob):
     # ====================================================================================================
 
     def get_log_last_update(self) -> Optional[float]:
-        return
+        if not os.path.isdir(self.work_dir):
+            return None
+        logs = glob.glob(os.path.join(self.work_dir, self.LOG_PATTERN))
+        if not logs:
+            return None
+        assert len(logs) == 1, f"Expected a single log file matching {self.LOG_PATTERN}, got {logs!r}"
+        return os.path.getmtime(logs[0])
 
     def get_epoch_last_update(self) -> Optional[float]:
-        return
+        if not os.path.isdir(self.work_dir):
+            return None
+        timestamps = []
+        for filename in self.EXPECTED_FILES:
+            filepath = os.path.join(self.work_dir, filename)
+            if os.path.isfile(filepath):
+                timestamps.append(os.path.getmtime(filepath))
+        return max(timestamps) if timestamps else None
