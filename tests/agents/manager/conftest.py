@@ -1,6 +1,5 @@
 """
-Fixtures specific to agents.tracker test suite, copied from utils/automation where shared.
-Only tracker-related helpers are included to avoid unintended coupling.
+Manager module fixtures shared across tests. No imports from this file; use fixtures via parameters only.
 """
 from typing import Optional
 import os

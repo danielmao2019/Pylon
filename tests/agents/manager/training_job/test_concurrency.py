@@ -1,7 +1,7 @@
 """
 Test progress tracking under concurrent access scenarios.
 
-These tests validate that the progress tracking system handles multiple
+These tests validate that the progress system handles multiple
 processes/threads accessing progress files simultaneously without corruption
 or race conditions.
 """
@@ -48,20 +48,20 @@ def test_multiple_readers_same_progress_file(create_progress_json, EXPECTED_FILE
         assert all(r.early_stopped == False for r in results)
 
 
-def test_multiple_tracker_readers_same_file(create_progress_json):
+def test_multiple_readers_via_calculate_progress(create_progress_json):
     """Test multiple TrainingJob classmethods reading same progress.json."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create progress.json
         create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
         
-        # Function for tracker reader threads
-        def read_with_tracker():
+        # Function for reader threads calling calculate_progress
+        def read_with_calc():
             return TrainingJob.calculate_progress(work_dir, config=None)
         
-        # Run 8 concurrent tracker readers
+        # Run 8 concurrent readers
         results = []
         with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(read_with_tracker) for _ in range(8)]
+            futures = [executor.submit(read_with_calc) for _ in range(8)]
             for future in as_completed(futures):
                 results.append(future.result())
         
@@ -160,7 +160,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
             results = []
             
             def tracker_writer_thread(thread_id):
-                """Each thread simulates a progress tracker updating progress."""
+                """Each thread simulates a progress updater writing progress.json."""
                 # Create varying numbers of epoch files to simulate different progress states
                 base_epochs = thread_id * 2  # Thread 0: 0 epochs, Thread 1: 2 epochs, etc.
                 
@@ -176,7 +176,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
                     results.append((thread_id, update_round, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase chance of conflicts
             
-            # Run 5 concurrent tracker writers
+            # Run 5 concurrent writers
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(tracker_writer_thread, thread_id) for thread_id in range(5)]
                 for future in as_completed(futures):
@@ -216,23 +216,23 @@ def test_cache_invalidation_race_conditions(create_progress_json):
         # Create initial progress.json
         create_progress_json(work_dir, completed_epochs=5, early_stopped=False, tot_epochs=100)
         
-        # Create tracker instances (they'll cache results)
+        # Create job class references (cache resides in files)
         trackers = [TrainingJob for _ in range(3)]
         
         results = []
         
         def cache_and_read(tracker_id):
-            tracker = trackers[tracker_id]
+            job_cls = trackers[tracker_id]
             
             # First read - should cache
-            progress1 = tracker.get_progress()
+            progress1 = job_cls.get_session_progress(work_dir, expected_files)
             results.append(("first_read", tracker_id, progress1.completed_epochs))
             
             # Small delay to let other threads potentially update the file
             time.sleep(0.05)
             
             # Second read - should use cache unless invalidated
-            progress2 = tracker.get_progress()
+            progress2 = job_cls.get_session_progress(work_dir, expected_files)
             results.append(("second_read", tracker_id, progress2.completed_epochs))
             
             # Skip force recompute for this test to avoid config path issues
@@ -248,7 +248,7 @@ def test_cache_invalidation_race_conditions(create_progress_json):
         # Run concurrent cache operations and file updates
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = []
-            # Start tracker threads
+            # Start reader/writer threads
             for i in range(3):
                 futures.append(executor.submit(cache_and_read, i))
             # Start file updater
@@ -261,14 +261,14 @@ def test_cache_invalidation_race_conditions(create_progress_json):
         # Analyze results - should not have any errors/exceptions
         assert len(results) > 0
         
-        # Group results by tracker
+        # Group results by reader id
         tracker_results = {}
         for operation, tracker_id, epochs in results:
             if tracker_id not in tracker_results:
                 tracker_results[tracker_id] = []
             tracker_results[tracker_id].append((operation, epochs))
         
-        # Each tracker should have completed read operations
+        # Each reader should have completed read operations
         for tracker_id in range(3):
             assert tracker_id in tracker_results
             ops = [op for op, _ in tracker_results[tracker_id]]
@@ -328,10 +328,10 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
 
 
 # ============================================================================
-# CONCURRENCY TESTS - MIXED TRACKER TYPES
+# CONCURRENCY TESTS - MIXED RUNNER TYPES
 # ============================================================================
 
-def test_mixed_tracker_types_concurrent_access():
+def test_mixed_runner_types_concurrent_access():
     """Test TrainingJob and EvaluationJob accessing different files concurrently."""
     with tempfile.TemporaryDirectory() as base_dir:
         trainer_dir = os.path.join(base_dir, "trainer")
@@ -380,8 +380,8 @@ def test_mixed_tracker_types_concurrent_access():
                 future.result()
         
         # Verify results
-        trainer_results = [epochs for tracker_type, epochs in results if tracker_type == "trainer"]
-        evaluator_results = [epochs for tracker_type, epochs in results if tracker_type == "evaluator"]
+        trainer_results = [epochs for kind, epochs in results if kind == "trainer"]
+        evaluator_results = [epochs for kind, epochs in results if kind == "evaluator"]
         
         assert len(trainer_results) == 10  # 2 workers * 5 operations each
         assert len(evaluator_results) == 10  # 2 workers * 5 operations each

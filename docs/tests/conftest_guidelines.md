@@ -2,7 +2,7 @@
 
 ## Core Principles
 
-**CRITICAL RULE: NEVER import from conftest.py files. Always use fixtures instead.**
+CRITICAL RULE: NEVER import from conftest.py files. Always use fixtures instead.
 
 **conftest.py files are for pytest fixtures ONLY, not for imports**
 
@@ -44,7 +44,7 @@ Since test directories do NOT contain `__init__.py` files, using fixtures instea
 
 ## Examples
 
-### ✅ CORRECT - Helper class as fixture in conftest.py:
+### ✅ CORRECT - Helper class as fixture in conftest.py (no imports)
 ```python
 # tests/utils/automation/progress_tracking/conftest.py
 
@@ -52,51 +52,21 @@ Since test directories do NOT contain `__init__.py` files, using fixtures instea
 def ConcreteTracker():
     """Fixture that provides ConcreteTracker class for testing Base tracker API."""
     from typing import List, Literal
-    from agents.tracker.base_tracker import BaseTracker, ProgressInfo
-    
-    class ConcreteTrackerImpl(BaseTracker):
-        """Concrete implementation for testing tracker functionality."""
-        
-        def __init__(self, work_dir: str, config=None, runner_type: Literal['trainer', 'evaluator'] = 'trainer'):
-            super().__init__(work_dir, config)
-            self._runner_type = runner_type
-            self._test_progress_result = None
-        
-        def get_runner_type(self) -> Literal['trainer', 'evaluator']:
-            return self._runner_type
-        
-        def get_expected_files(self) -> List[str]:
-            return ["test_file.json", "another_file.pt"]
-        
-        def get_log_pattern(self) -> str:
-            return "test_*.log"
-        
-        def calculate_progress(self) -> ProgressInfo:
-            # Mock implementation for testing
-            if self._test_progress_result is None:
-                return ProgressInfo(
-                    completed_epochs=10,
-                    progress_percentage=50.0,
-                    early_stopped=False,
-                    early_stopped_at_epoch=None,
-                    runner_type=self._runner_type,
-                    total_epochs=20
-                )
-            return self._test_progress_result
-        
-        def set_test_progress_result(self, result: ProgressInfo):
-            """Test helper to control calculate_progress output."""
-            self._test_progress_result = result
-    
-    return ConcreteTrackerImpl
+    # Provide a simple helper class purely for tests
+    class Helper:
+        def __init__(self, value: int):
+            self.value = value
+        def add(self, x: int) -> int:
+            return self.value + x
+    return Helper
 
 # Usage in test files - auto-discovered, no import needed:
-def test_something(ConcreteTracker):
-    tracker = ConcreteTracker("/some/work/dir")
-    # test implementation
+def test_something(Helper):
+    inst = Helper(2)
+    assert inst.add(3) == 5
 ```
 
-### ✅ CORRECT - Data fixture in conftest.py:
+### ✅ CORRECT - Data fixture in conftest.py (no imports)
 ```python
 # tests/utils/automation/progress_tracking/conftest.py
 
@@ -120,14 +90,14 @@ def test_something(temp_work_dir, create_epoch_files):
     # test implementation
 ```
 
-### ❌ WRONG - Importing from conftest.py:
+### ❌ WRONG - Importing from conftest.py
 ```python
 # ❌ NEVER DO THIS:
-from .conftest import ConcreteProgressTracker  # WRONG - no imports from conftest!
-from ..conftest import ConcreteProgressTracker  # WRONG - no imports from conftest!
+from .conftest import SomeFixture  # WRONG - no imports from conftest!
+from ..conftest import AnotherFixture  # WRONG - no imports from conftest!
 
 def test_something():
-    tracker = ConcreteProgressTracker("/some/work/dir")  # WRONG approach
+    use = SomeFixture  # WRONG approach
 ```
 
 ### ❌ WRONG - Class only used in one file:
@@ -153,11 +123,10 @@ When multiple test files share the same helper classes via fixtures:
 ```
 tests/utils/automation/progress_tracking/
 ├── conftest.py                           # Shared fixtures (including class factories)
-├── test_runner_detection.py             # Uses fixtures from conftest.py
-├── test_tracker_factory/
+├── runner_detection/
 │   ├── test_valid_cases.py              # Uses fixtures from ../conftest.py  
 │   └── test_invalid_cases.py            # Uses fixtures from ../conftest.py
-└── test_base_tracker/
+└── some_other_suite/
     ├── test_valid_cases.py              # Uses fixtures from ../conftest.py
     └── test_invalid_cases.py            # Uses fixtures from ../conftest.py
 ```
