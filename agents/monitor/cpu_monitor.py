@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional, Any
-from utils.monitor.base_monitor import BaseMonitor
-from utils.monitor.cpu_status import CPUStatus, get_server_cpu_info
+from agents.monitor.base_monitor import BaseMonitor
+from agents.monitor.cpu_status import CPUStatus, get_server_cpu_info
 
 
 class CPUMonitor(BaseMonitor[CPUStatus]):

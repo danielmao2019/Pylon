@@ -1,8 +1,8 @@
 from typing import List, Dict, Optional, Any
-from utils.monitor.gpu_monitor import GPUMonitor
-from utils.monitor.cpu_monitor import CPUMonitor
-from utils.monitor.gpu_status import GPUStatus
-from utils.monitor.cpu_status import CPUStatus
+from agents.monitor.gpu_monitor import GPUMonitor
+from agents.monitor.cpu_monitor import CPUMonitor
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.cpu_status import CPUStatus
 
 
 class SystemMonitor:

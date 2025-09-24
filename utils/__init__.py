@@ -10,7 +10,6 @@ from utils import input_checks
 from utils import io
 from utils import logging
 from utils import models
-from utils import monitor
 from utils import ops
 from utils import point_cloud_ops
 
@@ -31,7 +30,6 @@ __all__ = (
     'io',
     'logging',
     'models',
-    'monitor',
     'ops',
     'point_cloud_ops',
 

@@ -10,7 +10,7 @@ import json
 import pytest
 import torch
 from unittest.mock import Mock
-from utils.monitor.system_monitor import SystemMonitor
+from agents.monitor.system_monitor import SystemMonitor
 from utils.io.json import save_json
 
 
@@ -105,7 +105,7 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
                 running_experiments.append(config_path)
 
         # Create realistic GPU process data
-        from utils.monitor.process_info import ProcessInfo
+        from agents.monitor.process_info import ProcessInfo
         connected_gpus_data = [
             {
                 'server': 'test_server',

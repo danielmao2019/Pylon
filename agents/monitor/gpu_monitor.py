@@ -1,8 +1,8 @@
 from typing import List, Dict, Optional, Any
 import os
 import torch
-from utils.monitor.base_monitor import BaseMonitor
-from utils.monitor.gpu_status import GPUStatus, get_server_gpus_info
+from agents.monitor.base_monitor import BaseMonitor
+from agents.monitor.gpu_status import GPUStatus, get_server_gpus_info
 
 
 class GPUMonitor(BaseMonitor[GPUStatus]):

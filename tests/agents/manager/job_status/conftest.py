@@ -10,8 +10,9 @@ import json
 import pytest
 import torch
 from unittest.mock import Mock
-from utils.monitor.gpu_status import GPUStatus
-from utils.monitor.system_monitor import SystemMonitor
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.system_monitor import SystemMonitor
+from agents.monitor.process_info import ProcessInfo
 from utils.io.json import save_json
 
 
@@ -169,8 +170,7 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
             if target_status in ["running", "stuck"]:
                 running_experiments.append(config_path)
 
-        from utils.monitor.process_info import ProcessInfo
-        from utils.monitor.gpu_status import GPUStatus
+        # imported at top: ProcessInfo, GPUStatus
         processes = [
             ProcessInfo(
                 pid=f'1234{i}',

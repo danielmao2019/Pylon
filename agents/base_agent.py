@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict
 from abc import ABC
-from utils.monitor.system_monitor import SystemMonitor
+from agents.monitor.system_monitor import SystemMonitor
 
 
 class BaseAgent(ABC):

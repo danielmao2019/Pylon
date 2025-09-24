@@ -1,6 +1,6 @@
 from typing import List
 from agents.manager import get_all_job_status
-from utils.monitor.system_monitor import SystemMonitor
+from agents.monitor.system_monitor import SystemMonitor
 
 
 def get_progress(
