@@ -1,5 +1,5 @@
 """
-Test BaseProgressTracker functionality and abstract interface contracts - VALID CASES.
+Test BaseTracker functionality and abstract interface contracts - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
@@ -11,16 +11,15 @@ import os
 import tempfile
 import json
 import time
-import pytest
-from agents.tracker.base_tracker import BaseTracker, ProgressInfo
+from agents.tracker.base_tracker import ProgressInfo
 
 
 # ============================================================================
-# TESTS FOR BaseProgressTracker - INITIALIZATION
+# TESTS FOR BaseTracker - INITIALIZATION
 # ============================================================================
 
 def test_base_progress_tracker_trainer_initialization_with_config(TrainerProgressTrackerForTesting):
-    """Test BaseProgressTracker initialization with config for TrainerProgressTracker."""
+    """Test BaseTracker initialization with config for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'test_model'}
         tracker = TrainerProgressTrackerForTesting(work_dir, config)
@@ -32,7 +31,7 @@ def test_base_progress_tracker_trainer_initialization_with_config(TrainerProgres
 
 
 def test_base_progress_tracker_evaluator_initialization_with_config(EvaluatorProgressTrackerForTesting):
-    """Test BaseProgressTracker initialization with config for EvaluatorProgressTracker."""
+    """Test BaseTracker initialization with config for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'test_model'}
         tracker = EvaluatorProgressTrackerForTesting(work_dir, config)
@@ -44,7 +43,7 @@ def test_base_progress_tracker_evaluator_initialization_with_config(EvaluatorPro
 
 
 def test_base_progress_tracker_trainer_initialization_without_config(TrainerProgressTrackerForTesting):
-    """Test BaseProgressTracker initialization without config for TrainerProgressTracker."""
+    """Test BaseTracker initialization without config for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = TrainerProgressTrackerForTesting(work_dir)
         
@@ -55,7 +54,7 @@ def test_base_progress_tracker_trainer_initialization_without_config(TrainerProg
 
 
 def test_base_progress_tracker_evaluator_initialization_without_config(EvaluatorProgressTrackerForTesting):
-    """Test BaseProgressTracker initialization without config for EvaluatorProgressTracker."""
+    """Test BaseTracker initialization without config for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = EvaluatorProgressTrackerForTesting(work_dir)
         
@@ -66,11 +65,11 @@ def test_base_progress_tracker_evaluator_initialization_without_config(Evaluator
 
 
 # ============================================================================
-# TESTS FOR BaseProgressTracker - CACHING MECHANISM
+# TESTS FOR BaseTracker - CACHING MECHANISM
 # ============================================================================
 
 def test_base_progress_tracker_trainer_caching_basic(TrainerProgressTrackerForTesting, create_progress_json):
-    """Test basic caching functionality for TrainerProgressTracker."""
+    """Test basic caching functionality for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create progress.json for fast path
         create_progress_json(work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100)
@@ -89,7 +88,7 @@ def test_base_progress_tracker_trainer_caching_basic(TrainerProgressTrackerForTe
 
 
 def test_base_progress_tracker_evaluator_caching_basic(EvaluatorProgressTrackerForTesting):
-    """Test basic caching functionality for EvaluatorProgressTracker."""
+    """Test basic caching functionality for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for completed evaluation
         import json
@@ -111,7 +110,7 @@ def test_base_progress_tracker_evaluator_caching_basic(EvaluatorProgressTrackerF
 
 
 def test_base_progress_tracker_trainer_force_progress_recompute(TrainerProgressTrackerForTesting, create_progress_json, create_epoch_files, create_real_config):
-    """Test force progress recompute bypasses cache for TrainerProgressTracker."""
+    """Test force progress recompute bypasses cache for TrainerTracker."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
         logs_dir = os.path.join(temp_root, "logs")
@@ -155,7 +154,7 @@ def test_base_progress_tracker_trainer_force_progress_recompute(TrainerProgressT
 
 
 def test_base_progress_tracker_evaluator_force_progress_recompute(EvaluatorProgressTrackerForTesting):
-    """Test force progress recompute bypasses cache for EvaluatorProgressTracker."""
+    """Test force progress recompute bypasses cache for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Start with no evaluation file (incomplete)
         tracker = EvaluatorProgressTrackerForTesting(work_dir)
@@ -180,7 +179,7 @@ def test_base_progress_tracker_evaluator_force_progress_recompute(EvaluatorProgr
 
 
 def test_base_progress_tracker_trainer_cache_timeout(TrainerProgressTrackerForTesting, create_progress_json):
-    """Test that cache expires after timeout for TrainerProgressTracker."""
+    """Test that cache expires after timeout for TrainerTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create initial progress.json
         create_progress_json(work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100)
@@ -205,7 +204,7 @@ def test_base_progress_tracker_trainer_cache_timeout(TrainerProgressTrackerForTe
 
 
 def test_base_progress_tracker_evaluator_cache_timeout(EvaluatorProgressTrackerForTesting):
-    """Test that cache expires after timeout for EvaluatorProgressTracker."""
+    """Test that cache expires after timeout for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Use very short cache timeout for testing
         tracker = EvaluatorProgressTrackerForTesting(work_dir)
@@ -230,11 +229,11 @@ def test_base_progress_tracker_evaluator_cache_timeout(EvaluatorProgressTrackerF
 
 
 # ============================================================================
-# TESTS FOR BaseProgressTracker - PROGRESS.JSON HANDLING
+# TESTS FOR BaseTracker - PROGRESS.JSON HANDLING
 # ============================================================================
 
 def test_base_progress_tracker_trainer_saves_progress_json(TrainerProgressTrackerForTesting, create_epoch_files, create_real_config):
-    """Test that get_progress saves progress.json file for TrainerProgressTracker."""
+    """Test that get_progress saves progress.json file for TrainerTracker."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
         logs_dir = os.path.join(temp_root, "logs")
@@ -281,7 +280,7 @@ def test_base_progress_tracker_trainer_saves_progress_json(TrainerProgressTracke
 
 
 def test_base_progress_tracker_evaluator_saves_progress_json(EvaluatorProgressTrackerForTesting):
-    """Test that get_progress saves progress.json file for EvaluatorProgressTracker."""
+    """Test that get_progress saves progress.json file for EvaluatorTracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for completed evaluation
         import json
@@ -314,11 +313,11 @@ def test_base_progress_tracker_evaluator_saves_progress_json(EvaluatorProgressTr
 
 
 # ============================================================================
-# TESTS FOR BaseProgressTracker - ABSTRACT METHOD CONTRACTS
+# TESTS FOR BaseTracker - ABSTRACT METHOD CONTRACTS
 # ============================================================================
 
 def test_base_progress_tracker_trainer_implementation_contracts(TrainerProgressTrackerForTesting, create_progress_json):
-    """Test that TrainerProgressTracker follows expected contracts."""
+    """Test that TrainerTracker follows expected contracts."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create progress.json for realistic test
         create_progress_json(work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100)
@@ -344,7 +343,7 @@ def test_base_progress_tracker_trainer_implementation_contracts(TrainerProgressT
 
 
 def test_base_progress_tracker_evaluator_implementation_contracts(EvaluatorProgressTrackerForTesting):
-    """Test that EvaluatorProgressTracker follows expected contracts."""
+    """Test that EvaluatorTracker follows expected contracts."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for realistic test
         import json
@@ -373,7 +372,7 @@ def test_base_progress_tracker_evaluator_implementation_contracts(EvaluatorProgr
 
 
 # ============================================================================
-# TESTS FOR BaseProgressTracker - EDGE CASES
+# TESTS FOR BaseTracker - EDGE CASES
 # ============================================================================
 
 def test_base_progress_tracker_progress_info_dataclass():
@@ -418,11 +417,11 @@ def test_base_progress_tracker_progress_info_dataclass():
     assert progress != progress3
 
 
-# Note: Runner type variations are tested via separate TrainerProgressTracker and EvaluatorProgressTracker tests
+# Note: Runner type variations are tested via separate TrainerTracker and EvaluatorTracker tests
 
 
 def test_base_progress_tracker_trainer_deterministic_behavior(TrainerProgressTrackerForTesting, create_epoch_files, create_real_config):
-    """Test that TrainerProgressTracker behavior is deterministic."""
+    """Test that TrainerTracker behavior is deterministic."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
         logs_dir = os.path.join(temp_root, "logs")
@@ -462,7 +461,7 @@ def test_base_progress_tracker_trainer_deterministic_behavior(TrainerProgressTra
 
 
 def test_base_progress_tracker_evaluator_deterministic_behavior(EvaluatorProgressTrackerForTesting):
-    """Test that EvaluatorProgressTracker behavior is deterministic."""
+    """Test that EvaluatorTracker behavior is deterministic."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json for consistent results
         import json
@@ -482,11 +481,3 @@ def test_base_progress_tracker_evaluator_deterministic_behavior(EvaluatorProgres
         assert all(r == results[0] for r in results)
         assert all(r.completed_epochs == 1 for r in results)
         assert all(r.progress_percentage == 100.0 for r in results)
-
-
-# ============================================================================
-# TESTS FOR BaseProgressTracker - INTEGRATION
-# ============================================================================
-
-# Note: Various progress states are tested via individual TrainerProgressTracker and EvaluatorProgressTracker tests
-# with realistic file structures representing different completion levels

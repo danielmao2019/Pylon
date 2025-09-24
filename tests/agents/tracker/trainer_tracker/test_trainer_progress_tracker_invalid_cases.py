@@ -1,5 +1,5 @@
 """
-Test TrainerProgressTracker functionality - INVALID CASES (pytest.raises).
+Test TrainerTracker functionality - INVALID CASES (pytest.raises).
 
 Following CLAUDE.md testing patterns:
 - Invalid input testing with exception verification
@@ -10,7 +10,6 @@ import tempfile
 import json
 import pytest
 from agents.tracker.trainer_tracker import TrainerTracker
-from agents.tracker.base_tracker import ProgressInfo
 
 
 # ============================================================================

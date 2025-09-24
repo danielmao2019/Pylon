@@ -1,5 +1,5 @@
 """
-Test EvaluatorProgressTracker functionality for evaluator progress tracking - VALID CASES.
+Test EvaluatorTracker functionality for evaluator progress tracking - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
@@ -15,11 +15,11 @@ from agents.tracker.evaluator_tracker import EvaluatorTracker
 
 
 # ============================================================================
-# TESTS FOR EvaluatorProgressTracker - BASIC FUNCTIONALITY
+# TESTS FOR EvaluatorTracker - BASIC FUNCTIONALITY
 # ============================================================================
 
 def test_evaluator_progress_tracker_initialization():
-    """Test that EvaluatorProgressTracker initializes correctly."""
+    """Test that EvaluatorTracker initializes correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'some_config': 'value'}
         tracker = EvaluatorTracker(work_dir, config)
@@ -42,7 +42,7 @@ def test_evaluator_progress_tracker_initialization_no_config():
 
 
 # ============================================================================
-# TESTS FOR EvaluatorProgressTracker - PROGRESS CALCULATION
+# TESTS FOR EvaluatorTracker - PROGRESS CALCULATION
 # ============================================================================
 
 def test_evaluator_progress_tracker_complete_evaluation():
@@ -121,7 +121,7 @@ def test_evaluator_progress_tracker_malformed_evaluation_file():
 
 
 # ============================================================================
-# TESTS FOR EvaluatorProgressTracker - FILE CHECKING
+# TESTS FOR EvaluatorTracker - FILE CHECKING
 # ============================================================================
 
 def test_evaluator_progress_tracker_check_files_exist_valid():
@@ -157,7 +157,7 @@ def test_evaluator_progress_tracker_check_files_exist_empty():
 
 
 # ============================================================================
-# TESTS FOR EvaluatorProgressTracker - CACHING
+# TESTS FOR EvaluatorTracker - CACHING
 # ============================================================================
 
 def test_evaluator_progress_tracker_caching():
@@ -209,7 +209,7 @@ def test_evaluator_progress_tracker_progress_json_creation():
 
 
 # ============================================================================
-# TESTS FOR EvaluatorProgressTracker - DETERMINISM
+# TESTS FOR EvaluatorTracker - DETERMINISM
 # ============================================================================
 
 def test_evaluator_progress_tracker_deterministic():
@@ -234,7 +234,7 @@ def test_evaluator_progress_tracker_deterministic():
 
 
 # ============================================================================
-# TESTS FOR EvaluatorProgressTracker - EDGE CASES
+# TESTS FOR EvaluatorTracker - EDGE CASES
 # ============================================================================
 
 def test_evaluator_progress_tracker_evaluation_with_subdirectories():
@@ -259,7 +259,7 @@ def test_evaluator_progress_tracker_evaluation_with_subdirectories():
 
 
 # ============================================================================
-# TESTS FOR EvaluatorProgressTracker - INTEGRATION
+# TESTS FOR EvaluatorTracker - INTEGRATION
 # ============================================================================
 
 def test_evaluator_progress_tracker_with_config():

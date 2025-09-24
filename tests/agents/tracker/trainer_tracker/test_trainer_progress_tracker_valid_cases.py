@@ -1,5 +1,5 @@
 """
-Test TrainerProgressTracker functionality for trainer tracking - VALID CASES.
+Test TrainerTracker functionality for trainer tracking - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
@@ -13,13 +13,12 @@ import pytest
 from agents.tracker import ProgressInfo
 from agents.tracker.trainer_tracker import TrainerTracker
 
-
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - BASIC FUNCTIONALITY
+# TESTS FOR TrainerTracker - BASIC FUNCTIONALITY
 # ============================================================================
 
 def test_trainer_progress_tracker_initialization():
-    """Test that TrainerProgressTracker initializes correctly."""
+    """Test that TrainerTracker initializes correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'some_config': 'value'}
         tracker = TrainerTracker(work_dir, config)
@@ -42,7 +41,7 @@ def test_trainer_progress_tracker_initialization_no_config():
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - PROGRESS CALCULATION (FAST PATH)
+# TESTS FOR TrainerTracker - PROGRESS CALCULATION (FAST PATH)
 # ============================================================================
 
 def test_trainer_progress_tracker_fast_path_normal_run(create_progress_json):
@@ -104,7 +103,7 @@ def test_trainer_progress_tracker_no_config_epochs(create_progress_json):
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - PROGRESS CALCULATION (SLOW PATH)
+# TESTS FOR TrainerTracker - PROGRESS CALCULATION (SLOW PATH)
 # ============================================================================
 
 @pytest.mark.parametrize("completed_epochs,expected_completed", [
@@ -197,7 +196,7 @@ def test_trainer_progress_tracker_slow_path_with_early_stopping(create_epoch_fil
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - CACHING
+# TESTS FOR TrainerTracker - CACHING
 # ============================================================================
 
 def test_trainer_progress_tracker_caching(create_progress_json, create_epoch_files, create_real_config):
@@ -290,7 +289,7 @@ def test_trainer_progress_tracker_progress_json_creation(create_epoch_files, cre
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - DETERMINISM
+# TESTS FOR TrainerTracker - DETERMINISM
 # ============================================================================
 
 def test_trainer_progress_tracker_deterministic(create_progress_json, create_epoch_files, create_real_config):
@@ -338,7 +337,7 @@ def test_trainer_progress_tracker_deterministic(create_progress_json, create_epo
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - EDGE CASES (VALID ONLY)
+# TESTS FOR TrainerTracker - EDGE CASES (VALID ONLY)
 # ============================================================================
 
 def test_trainer_progress_tracker_empty_work_dir(create_real_config):
@@ -377,7 +376,7 @@ def test_trainer_progress_tracker_empty_work_dir(create_real_config):
 
 
 # ============================================================================
-# TESTS FOR TrainerProgressTracker - INTEGRATION
+# TESTS FOR TrainerTracker - INTEGRATION
 # ============================================================================
 
 def test_trainer_progress_tracker_with_various_configs(create_progress_json):

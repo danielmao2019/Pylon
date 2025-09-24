@@ -1,5 +1,5 @@
 """
-Test BaseProgressTracker functionality - INVALID CASES (pytest.raises).
+Test BaseTracker functionality - INVALID CASES (pytest.raises).
 
 Following CLAUDE.md testing patterns:
 - Invalid input testing with exception verification
@@ -14,7 +14,7 @@ from agents.tracker.base_tracker import BaseTracker
 # ============================================================================
 
 def test_base_progress_tracker_trainer_input_validation(TrainerProgressTrackerForTesting):
-    """Test input validation during TrainerProgressTracker initialization."""
+    """Test input validation during TrainerTracker initialization."""
     # Test invalid work_dir type
     with pytest.raises(AssertionError) as exc_info:
         TrainerProgressTrackerForTesting(123)  # Integer instead of string
@@ -28,7 +28,7 @@ def test_base_progress_tracker_trainer_input_validation(TrainerProgressTrackerFo
 
 
 def test_base_progress_tracker_evaluator_input_validation(EvaluatorProgressTrackerForTesting):
-    """Test input validation during EvaluatorProgressTracker initialization."""
+    """Test input validation during EvaluatorTracker initialization."""
     # Test invalid work_dir type
     with pytest.raises(AssertionError) as exc_info:
         EvaluatorProgressTrackerForTesting(123)  # Integer instead of string

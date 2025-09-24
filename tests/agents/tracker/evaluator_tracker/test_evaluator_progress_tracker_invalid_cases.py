@@ -1,5 +1,5 @@
 """
-Test EvaluatorProgressTracker functionality - INVALID CASES (pytest.raises).
+Test EvaluatorTracker functionality - INVALID CASES (pytest.raises).
 
 Following CLAUDE.md testing patterns:
 - Invalid input testing with exception verification
