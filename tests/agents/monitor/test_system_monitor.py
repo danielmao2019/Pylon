@@ -14,7 +14,8 @@ def test_system_monitor_status_snapshot(monitor_server: str, gpu_index: int | No
     monitor = SystemMonitor(server=monitor_server, gpu_indices=gpu_indices, timeout=5)
 
     # warm up cpu and all gpu monitors
-    window = monitor.cpu_monitor.cpu.window_size or 10
+    assert monitor.cpu_monitor.cpu.window_size is not None
+    window = monitor.cpu_monitor.cpu.window_size
     for _ in range(window):
         monitor.cpu_monitor._update_resource()
         for gpu_monitor in monitor.gpu_monitors.values():

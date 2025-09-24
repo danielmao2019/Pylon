@@ -14,7 +14,8 @@ def test_gpu_monitor_optional(monitor_server: str, gpu_index: int | None, probe_
 
     monitor = GPUMonitor(server=monitor_server, index=gpu_index, timeout=probe_timeout)
 
-    window = monitor.gpu.window_size or 10
+    assert monitor.gpu.window_size is not None
+    window = monitor.gpu.window_size
     for _ in range(window):
         monitor._update_resource()
         time.sleep(0.1)
