@@ -17,16 +17,16 @@ from utils.io.config import load_config
 # TYPE DEFINITIONS
 # ============================================================================
 
-_RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
+_JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
 @dataclass
-class RunStatus:
-    """Status information for a training run."""
+class JobStatus:
+    """Status information for a training job."""
     config: str
     work_dir: str
     progress: ProgressInfo
-    status: _RunStatus
+    status: _JobStatus
     process_info: Optional[ProcessInfo] = None
     
     def to_dict(self) -> dict:
@@ -38,14 +38,14 @@ class RunStatus:
 # MAIN PUBLIC FUNCTIONS
 # ============================================================================
 
-def get_all_run_status(
+def get_all_job_status(
     config_files: List[str],
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
     system_monitor: SystemMonitor = None,
     force_progress_recompute: bool = False,
-) -> Dict[str, RunStatus]:
+) -> Dict[str, JobStatus]:
     """
     Args:
         config_files: List of config file paths
@@ -66,12 +66,12 @@ def get_all_run_status(
     config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
 
     with ThreadPoolExecutor() as executor:
-        all_run_status = {
+        all_job_status = {
             config: status 
             for config, status in zip(
                 config_files,
                 executor.map(
-                    partial(get_run_status,
+                    partial(get_job_status,
                         epochs=epochs,
                         config_to_process_info=config_to_process_info,
                         sleep_time=sleep_time,
@@ -83,32 +83,32 @@ def get_all_run_status(
         }
     
     # Validate that status.config matches the keys (config_files)
-    assert set(all_run_status.keys()) == {status.config for status in all_run_status.values()}, \
+    assert set(all_job_status.keys()) == {status.config for status in all_job_status.values()}, \
         f"Mismatch between config_files and status.config values"
     
-    return all_run_status
+    return all_job_status
 
 
-def get_run_status(
+def get_job_status(
     config: str,
     epochs: int,
     config_to_process_info: Dict[str, ProcessInfo],
     sleep_time: int = 86400,
     outdated_days: int = 30,
     force_progress_recompute: bool = False
-) -> RunStatus:
-    """Get the current status of a training run.
+) -> JobStatus:
+    """Get the current status of a training job.
 
     Args:
-        config: Path to the config file used for this run
+        config: Path to the config file used for this job
         epochs: Total number of epochs for the training
         config_to_process_info: Mapping from config to ProcessInfo for running experiments
-        sleep_time: Time in seconds to consider a run as "stuck" if no updates
-        outdated_days: Number of days after which a finished run is considered outdated
+        sleep_time: Time in seconds to consider a job as "stuck" if no updates
+        outdated_days: Number of days after which a finished job is considered outdated
         force_progress_recompute: If True, bypass cache and recompute progress from scratch
 
     Returns:
-        RunStatus object containing the current status of the run
+        JobStatus object containing the current status of the job
     """
     work_dir = get_work_dir(config)
     config_dict = load_config(config)  # Load actual config
@@ -140,7 +140,7 @@ def get_run_status(
     
     process_info = config_to_process_info.get(config, None)
     
-    return RunStatus(
+    return JobStatus(
         config=config,
         work_dir=work_dir,
         progress=progress,  # Now includes runner_type and enhanced info

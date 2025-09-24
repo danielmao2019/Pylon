@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 from agents.logger import LogsSnapshot
 from utils.monitor.system_monitor import SystemMonitor
-from agents.manager import RunStatus
+from agents.manager import JobStatus
 from utils.automation.progress_tracking.session_progress import ProgressInfo
 from utils.monitor.process_info import ProcessInfo
 from utils.io.json import serialize_object
@@ -87,8 +87,8 @@ def sample_process_info():
 
 @pytest.fixture
 def sample_run_status(sample_progress_info, sample_process_info):
-    """Sample RunStatus for testing."""
-    return RunStatus(
+    """Sample JobStatus for testing."""
+    return JobStatus(
         config="configs/exp/baseline.py",
         work_dir="./logs/baseline_run",
         progress=sample_progress_info,
@@ -154,10 +154,10 @@ def test_logs_snapshot_initialization_validation():
 
 def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
     """Test snapshot creation."""
-    # Mock get_all_run_status to return test data
-    def mock_get_all_run_status(**kwargs):
+    # Mock get_all_job_status to return test data
+    def mock_get_all_job_status(**kwargs):
         return {
-            "configs/exp/baseline.py": RunStatus(
+            "configs/exp/baseline.py": JobStatus(
                 config="configs/exp/baseline.py",
                 work_dir="./logs/baseline_run",
                 progress=ProgressInfo(
@@ -176,7 +176,7 @@ def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
             )
         }
     
-    monkeypatch.setattr("agents.logger.logs_snapshot.get_all_run_status", mock_get_all_run_status)
+    monkeypatch.setattr("agents.logger.logs_snapshot.get_all_job_status", mock_get_all_job_status)
     
     snapshot = LogsSnapshot(
         config_files=sample_config_files,

@@ -12,8 +12,8 @@ import os
 import tempfile
 import pytest
 from agents.manager import (
-    get_all_run_status,
-    RunStatus
+    get_all_job_status,
+    JobStatus
 )
 from utils.automation.progress_tracking import ProgressInfo
 
@@ -42,7 +42,7 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
         
         try:
             # Test the complete pipeline with minimal SystemMonitor mock
-            all_statuses = get_all_run_status(
+            all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
                 system_monitor=system_monitor
@@ -60,7 +60,7 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
                 exp_data = next(exp for exp in experiments if exp[0] == exp_name)
                 target_status, epochs_completed = exp_data[1], exp_data[2]
                 
-                # Verify enhanced RunStatus fields
+                # Verify enhanced JobStatus fields
                 assert isinstance(run_status.progress, ProgressInfo)
                 assert run_status.progress.completed_epochs == epochs_completed
                 assert isinstance(run_status.progress.early_stopped, bool)
@@ -97,7 +97,7 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
         
         try:
             # Test comprehensive status detection
-            all_statuses = get_all_run_status(
+            all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
                 system_monitor=system_monitor
@@ -145,7 +145,7 @@ def test_integration_no_running_experiments(setup_realistic_experiment_structure
         os.chdir(temp_root)
         
         try:
-            all_statuses = get_all_run_status(
+            all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
                 system_monitor=system_monitor
@@ -180,7 +180,7 @@ def test_integration_all_running_experiments(setup_realistic_experiment_structur
         os.chdir(temp_root)
         
         try:
-            all_statuses = get_all_run_status(
+            all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
                 system_monitor=system_monitor
@@ -216,7 +216,7 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
         os.chdir(temp_root)
         
         try:
-            all_statuses = get_all_run_status(
+            all_statuses = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
                 system_monitor=system_monitor

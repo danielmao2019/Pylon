@@ -105,7 +105,7 @@ class DailySummaryGenerator:
         Returns:
             Formatted experiment statistics section
         """
-        current_statuses = current['run_statuses']  # Dict[str, RunStatus]
+        current_statuses = current['run_statuses']  # Dict[str, JobStatus]
         
         # Count experiments by status
         status_counts = {}

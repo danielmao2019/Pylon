@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 from utils.monitor.system_monitor import SystemMonitor
-from agents.manager import get_all_run_status
+from agents.manager import get_all_job_status
 from utils.io.json import serialize_object
 
 
@@ -52,7 +52,7 @@ class LogsSnapshot:
         assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
         
         # Use enhanced get_all_run_status that returns Dict[str, RunStatus] with ProcessInfo
-        run_statuses = get_all_run_status(
+        run_statuses = get_all_job_status(
             config_files=self.config_files,
             epochs=self.epochs,
             sleep_time=self.sleep_time,
