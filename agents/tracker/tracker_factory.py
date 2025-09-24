@@ -13,7 +13,7 @@ def create_tracker(work_dir: str, config: Optional[Dict[str, Any]] = None) -> Ba
         config: Optional config dictionary for additional context
         
     Returns:
-        Appropriate tracker instance (TrainerProgressTracker or EvaluatorProgressTracker)
+        Appropriate tracker instance (TrainerTracker or EvaluatorTracker)
         
     Raises:
         ValueError: If runner type cannot be determined (delegated to detect_runner_type)

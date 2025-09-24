@@ -52,9 +52,9 @@ Since test directories do NOT contain `__init__.py` files, using fixtures instea
 def ConcreteTracker():
     """Fixture that provides ConcreteTracker class for testing Base tracker API."""
     from typing import List, Literal
-    from agents.tracker.base_tracker import BaseProgressTracker, ProgressInfo
+    from agents.tracker.base_tracker import BaseTracker, ProgressInfo
     
-    class ConcreteTrackerImpl(BaseProgressTracker):
+    class ConcreteTrackerImpl(BaseTracker):
         """Concrete implementation for testing tracker functionality."""
         
         def __init__(self, work_dir: str, config=None, runner_type: Literal['trainer', 'evaluator'] = 'trainer'):
