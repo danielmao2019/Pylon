@@ -15,7 +15,7 @@ from agents.tracker.tracker_factory import create_tracker
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
-def test_create_progress_tracker_config_epochs_field():
+def test_create_tracker_config_epochs_field():
     """Test factory fails fast when config lacks 'runner' key."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns, no runner class - invalid config
@@ -30,7 +30,7 @@ def test_create_progress_tracker_config_epochs_field():
             create_tracker(work_dir, config)
 
 
-def test_create_progress_tracker_fail_fast_no_patterns():
+def test_create_tracker_fail_fast_no_patterns():
     """Test that factory fails fast when no patterns match."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory with some irrelevant files
@@ -47,7 +47,7 @@ def test_create_progress_tracker_fail_fast_no_patterns():
         assert "some_file.txt" in error_msg
 
 
-def test_create_progress_tracker_fail_fast_nonexistent_directory():
+def test_create_tracker_fail_fast_nonexistent_directory():
     """Test fail fast behavior with nonexistent directory."""
     nonexistent_dir = "/this/path/does/not/exist"
     
@@ -59,7 +59,7 @@ def test_create_progress_tracker_fail_fast_nonexistent_directory():
     assert nonexistent_dir in error_msg
 
 
-def test_create_progress_tracker_invalid_config():
+def test_create_tracker_invalid_config():
     """Test factory with invalid config that doesn't help detection."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Config with runner class that doesn't contain Trainer or Evaluator (direct class reference)
@@ -74,7 +74,7 @@ def test_create_progress_tracker_invalid_config():
         assert "Unable to detect runner type" in str(exc_info.value)
 
 
-def test_create_progress_tracker_config_string_class_name():
+def test_create_tracker_config_string_class_name():
     """Test factory when runner class is a string instead of actual class."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, rely on config

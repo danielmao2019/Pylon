@@ -19,7 +19,7 @@ from agents.tracker.base_tracker import BaseTracker
 # TESTS FOR create_tracker - BASIC FUNCTIONALITY
 # ============================================================================
 
-def test_create_progress_tracker_returns_evaluator_for_evaluation_pattern():
+def test_create_tracker_returns_evaluator_for_evaluation_pattern():
     """Test factory returns EvaluatorTracker for evaluator pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluation_scores.json (evaluator pattern)
@@ -39,7 +39,7 @@ def test_create_progress_tracker_returns_evaluator_for_evaluation_pattern():
         assert tracker.config is None
 
 
-def test_create_progress_tracker_returns_trainer_for_trainer_pattern(create_epoch_files):
+def test_create_tracker_returns_trainer_for_trainer_pattern(create_epoch_files):
     """Test factory returns TrainerTracker for trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern: epoch_0/validation_scores.json
@@ -54,7 +54,7 @@ def test_create_progress_tracker_returns_trainer_for_trainer_pattern(create_epoc
         assert tracker.config is None
 
 
-def test_create_progress_tracker_with_config():
+def test_create_tracker_with_config():
     """Test factory passes config correctly to created tracker."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -79,7 +79,7 @@ def test_create_progress_tracker_with_config():
 # TESTS FOR create_tracker - CONFIG-BASED DETECTION
 # ============================================================================
 
-def test_create_progress_tracker_config_evaluator_class():
+def test_create_tracker_config_evaluator_class():
     """Test factory uses config for evaluator detection when no file patterns."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
@@ -96,7 +96,7 @@ def test_create_progress_tracker_config_evaluator_class():
         assert tracker.config == config
 
 
-def test_create_progress_tracker_config_trainer_class():
+def test_create_tracker_config_trainer_class():
     """Test factory uses config for trainer detection when no file patterns."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
@@ -117,7 +117,7 @@ def test_create_progress_tracker_config_trainer_class():
 # TESTS FOR create_tracker - PRECEDENCE RULES
 # ============================================================================
 
-def test_create_progress_tracker_evaluator_pattern_takes_precedence(create_epoch_files):
+def test_create_tracker_evaluator_pattern_takes_precedence(create_epoch_files):
     """Test that evaluator file pattern takes precedence over trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create both patterns
@@ -132,7 +132,7 @@ def test_create_progress_tracker_evaluator_pattern_takes_precedence(create_epoch
         assert isinstance(tracker, EvaluatorTracker)  # Evaluator wins
 
 
-def test_create_progress_tracker_file_pattern_over_config(create_epoch_files):
+def test_create_tracker_file_pattern_over_config(create_epoch_files):
     """Test that file patterns take precedence over config."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer file pattern
@@ -154,7 +154,7 @@ def test_create_progress_tracker_file_pattern_over_config(create_epoch_files):
 # TESTS FOR create_tracker - EDGE CASES
 # ============================================================================
 
-def test_create_progress_tracker_various_config_formats():
+def test_create_tracker_various_config_formats():
     """Test factory with various config formats."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -181,7 +181,7 @@ def test_create_progress_tracker_various_config_formats():
 # TESTS FOR create_tracker - DETERMINISM
 # ============================================================================
 
-def test_create_progress_tracker_deterministic():
+def test_create_tracker_deterministic():
     """Test that factory creates consistent tracker types."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create evaluator pattern
@@ -202,7 +202,7 @@ def test_create_progress_tracker_deterministic():
 # TESTS FOR create_tracker - INTEGRATION
 # ============================================================================
 
-def test_create_progress_tracker_integration_with_real_scenarios(create_epoch_files):
+def test_create_tracker_integration_with_real_scenarios(create_epoch_files):
     """Test factory with realistic trainer and evaluator scenarios."""
     
     # Test realistic trainer scenario
@@ -265,7 +265,7 @@ def test_create_progress_tracker_integration_with_real_scenarios(create_epoch_fi
         assert progress.progress_percentage == 100.0
 
 
-def test_create_progress_tracker_validates_created_instances(create_epoch_files):
+def test_create_tracker_validates_created_instances(create_epoch_files):
     """Test that factory creates properly initialized tracker instances."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern
