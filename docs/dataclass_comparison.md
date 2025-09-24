@@ -28,7 +28,7 @@ This document compares three Python data structure approaches: `dataclass`, `Typ
 from dataclasses import dataclass, field, asdict
 
 @dataclass
-class RunStatus:
+class JobStatus:
     config: str
     work_dir: str
     progress: dict = field(default_factory=dict)
@@ -58,7 +58,7 @@ class RunStatus:
 ```python
 from typing import TypedDict, Optional
 
-class RunStatus(TypedDict):
+class JobStatus(TypedDict):
     config: str
     work_dir: str
     progress: dict
@@ -84,7 +84,7 @@ class RunStatus(TypedDict):
 ```python
 from typing import NamedTuple, Optional
 
-class RunStatus(NamedTuple):
+class JobStatus(NamedTuple):
     config: str
     work_dir: str
     progress: dict
@@ -132,7 +132,7 @@ NamedTuple creation: 0.0198s  (2x slower)
 ### Problem with TypedDict
 ```python
 # TypedDict - just type hints, no runtime safety
-status: RunStatus = {
+status: JobStatus = {
     'config': 'exp.py',
     'work_dir': './logs',
     'progress': {},
@@ -149,7 +149,7 @@ status['status'] = 123          # No error!
 ### Problem with NamedTuple
 ```python
 # NamedTuple - immutable, awkward updates
-status = RunStatus(
+status = JobStatus(
     config='exp.py',
     work_dir='./logs',
     progress={},
@@ -167,7 +167,7 @@ status = status._replace(status='running')  # Awkward!
 ### Solution with dataclass
 ```python
 # dataclass - best of both worlds
-status = RunStatus(
+status = JobStatus(
     config='exp.py',
     work_dir='./logs'
     # Other fields use defaults
@@ -189,14 +189,14 @@ data = asdict(status)  # Convert to dict for JSON
 ### From TypedDict to dataclass
 ```python
 # Before (TypedDict)
-class RunStatus(TypedDict):
+class JobStatus(TypedDict):
     config: str
     work_dir: str
     progress: dict
 
 # After (dataclass)
 @dataclass
-class RunStatus:
+class JobStatus:
     config: str
     work_dir: str
     progress: dict = field(default_factory=dict)
@@ -248,7 +248,7 @@ The slight performance overhead in creation time (2.4x) is negligible compared t
 ### Refactored Components:
 - `ProgressInfo` - Training progress tracking
 - `ProcessInfo` - System process information
-- `RunStatus` - Experiment run status
+- `JobStatus` - Experiment job status
 - `GPUStatus` - GPU monitoring status
 - `CPUStatus` - CPU monitoring status
 - `LogDirInfo` - Log directory information

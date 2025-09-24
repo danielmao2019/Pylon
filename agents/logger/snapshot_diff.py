@@ -16,16 +16,16 @@ class SnapshotDiff:
             previous_snapshot: Previous snapshot data for comparison (may be None)
         """
         assert isinstance(current_snapshot, dict), f"current_snapshot must be dict, got {type(current_snapshot)}"
-        assert 'run_statuses' in current_snapshot, "current_snapshot must have 'run_statuses' key"
+        assert 'job_statuses' in current_snapshot, "current_snapshot must have 'job_statuses' key"
         
         if previous_snapshot is not None:
             assert isinstance(previous_snapshot, dict), f"previous_snapshot must be dict, got {type(previous_snapshot)}"
-            assert 'run_statuses' in previous_snapshot, "previous_snapshot must have 'run_statuses' key"
+            assert 'job_statuses' in previous_snapshot, "previous_snapshot must have 'job_statuses' key"
         
         self.current_snapshot = current_snapshot
         self.previous_snapshot = previous_snapshot
-        self.current_statuses = current_snapshot['run_statuses']
-        self.previous_statuses = previous_snapshot['run_statuses'] if previous_snapshot else {}
+        self.current_statuses = current_snapshot['job_statuses']
+        self.previous_statuses = previous_snapshot['job_statuses'] if previous_snapshot else {}
     
     @classmethod
     def create_diff(cls, current_snapshot: Dict[str, Any], previous_snapshot: Optional[Dict[str, Any]] = None) -> 'SnapshotDiff':

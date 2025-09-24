@@ -1,11 +1,11 @@
 """Agent manager package."""
 
-from agents.manager.run_status import (
-    RunStatus,
+from agents.manager.job_status import (
+    JobStatus,
     ProgressInfo,
     ProcessInfo,
-    get_all_run_status,
-    get_run_status,
+    get_all_job_status,
+    get_job_status,
     parse_config,
     get_log_last_update,
     get_epoch_last_update,
@@ -13,11 +13,11 @@ from agents.manager.run_status import (
 )
 
 __all__ = [
-    "RunStatus",
+    "JobStatus",
     "ProgressInfo",
     "ProcessInfo",
-    "get_all_run_status",
-    "get_run_status",
+    "get_all_job_status",
+    "get_job_status",
     "parse_config",
     "get_log_last_update",
     "get_epoch_last_update",

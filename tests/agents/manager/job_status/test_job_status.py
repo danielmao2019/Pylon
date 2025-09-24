@@ -1,5 +1,5 @@
 """
-Test run_status functionality with enhanced ProgressInfo and ProcessInfo integration.
+Test job_status functionality with enhanced ProgressInfo and ProcessInfo integration.
 Focus on realistic testing with minimal mocking for individual function testing.
 
 Following CLAUDE.md testing patterns:
@@ -13,13 +13,13 @@ import os
 import tempfile
 import pytest
 from agents.manager import (
-    get_run_status,
-    get_all_run_status,
+    get_job_status,
+    get_all_job_status,
     parse_config,
     get_log_last_update,
     get_epoch_last_update,
     _build_config_to_process_mapping,
-    RunStatus,
+    JobStatus,
 )
 from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.process_info import ProcessInfo
@@ -27,11 +27,11 @@ from utils.automation.progress_tracking import ProgressInfo
 
 
 # ============================================================================
-# TESTS FOR get_run_status (REALISTIC - MINIMAL MOCKING)
+# TESTS FOR get_job_status (REALISTIC - MINIMAL MOCKING)
 # ============================================================================
 
-def test_get_run_status_basic_functionality(create_epoch_files, create_real_config):
-    """Test basic get_run_status functionality with enhanced return type."""
+def test_get_job_status_basic_functionality(create_epoch_files, create_real_config):
+    """Test basic get_job_status functionality with enhanced return type."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -54,29 +54,29 @@ def test_get_run_status_basic_functionality(create_epoch_files, create_real_conf
         
         try:
             # NO MOCKS - use real function with real data structures
-            run_status = get_run_status(
+            job_status = get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
-            # Should return RunStatus with enhanced ProgressInfo - RunStatus is now a dataclass
-            assert isinstance(run_status, RunStatus)
-            assert run_status.config == config_path
+            # Should return JobStatus with enhanced ProgressInfo - JobStatus is now a dataclass
+            assert isinstance(job_status, JobStatus)
+            assert job_status.config == config_path
             expected_work_dir = "./logs/test_run"  # What get_work_dir actually returns
-            assert run_status.work_dir == expected_work_dir
-            assert isinstance(run_status.progress, ProgressInfo)
-            assert run_status.progress.completed_epochs == 5
-            assert run_status.progress.early_stopped == False
-            assert run_status.status == 'failed'  # No recent log updates, not running on GPU
-            assert run_status.process_info is None  # Not running on GPU
+            assert job_status.work_dir == expected_work_dir
+            assert isinstance(job_status.progress, ProgressInfo)
+            assert job_status.progress.completed_epochs == 5
+            assert job_status.progress.early_stopped == False
+            assert job_status.status == 'failed'  # No recent log updates, not running on GPU
+            assert job_status.process_info is None  # Not running on GPU
             
         finally:
             os.chdir(original_cwd)
 
 
-def test_get_run_status_with_process_info(create_epoch_files, create_real_config):
-    """Test get_run_status when experiment is running on GPU."""
+def test_get_job_status_with_process_info(create_epoch_files, create_real_config):
+    """Test get_job_status when experiment is running on GPU."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -106,16 +106,16 @@ def test_get_run_status_with_process_info(create_epoch_files, create_real_config
         
         try:
             # NO MOCKS - use real function with real data structures
-            run_status = get_run_status(
+            job_status = get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
             # Should show as stuck (running on GPU but no recent log updates)
-            assert run_status.status == 'stuck'
-            assert run_status.process_info == process_info
-            assert run_status.progress.completed_epochs == 3
+            assert job_status.status == 'stuck'
+            assert job_status.process_info == process_info
+            assert job_status.progress.completed_epochs == 3
             
         finally:
             os.chdir(original_cwd)
@@ -127,8 +127,8 @@ def test_get_run_status_with_process_info(create_epoch_files, create_real_config
     ("stuck", "stuck"),          # Running on GPU but no log updates  
     ("failed", "failed"),        # No log updates, not on GPU
 ])
-def test_run_status_determination(status_scenario, expected_status, create_epoch_files, create_real_config):
-    """Test different run status determination scenarios with realistic data."""
+def test_job_status_determination(status_scenario, expected_status, create_epoch_files, create_real_config):
+    """Test different job status determination scenarios with realistic data."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -171,24 +171,24 @@ def test_run_status_determination(status_scenario, expected_status, create_epoch
         
         try:
             # NO MOCKS - use real function with real data
-            run_status = get_run_status(
+            job_status = get_job_status(
                 config=config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
-            assert run_status.status == expected_status
+            assert job_status.status == expected_status
             
         finally:
             os.chdir(original_cwd)
 
 
 # ============================================================================
-# TESTS FOR get_all_run_status (REALISTIC WITH MINIMAL MOCK)
+# TESTS FOR get_all_job_status (REALISTIC WITH MINIMAL MOCK)
 # ============================================================================
 
-def test_get_all_run_status_returns_mapping(create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes):
-    """Test that get_all_run_status returns Dict[str, RunStatus] with minimal SystemMonitor mock."""
+def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes):
+    """Test that get_all_job_status returns Dict[str, JobStatus] with minimal SystemMonitor mock."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiment directories
         experiments = ["exp1", "exp2", "exp3"]
@@ -216,7 +216,7 @@ def test_get_all_run_status_returns_mapping(create_real_config, create_epoch_fil
         os.chdir(temp_root)
         
         try:
-            result = get_all_run_status(
+            result = get_all_job_status(
                 config_files=config_files,
                 epochs=100,
                 system_monitor=system_monitor
@@ -226,10 +226,10 @@ def test_get_all_run_status_returns_mapping(create_real_config, create_epoch_fil
             assert isinstance(result, dict), f"Expected dict, got {type(result)}"
             assert len(result) == 3
             
-            # Check that keys are config paths and values are RunStatus objects
+            # Check that keys are config paths and values are JobStatus objects
             for config_path in config_files:
                 assert config_path in result
-                assert isinstance(result[config_path], RunStatus)
+                assert isinstance(result[config_path], JobStatus)
                 assert result[config_path].config == config_path
                 assert isinstance(result[config_path].progress, ProgressInfo)
                 assert hasattr(result[config_path].progress, 'completed_epochs')
@@ -336,8 +336,8 @@ def test_get_epoch_last_update(EXPECTED_FILES, create_epoch_files):
 # TESTS FOR EDGE CASES AND ERROR HANDLING
 # ============================================================================
 
-def test_get_run_status_invalid_config_path():
-    """Test get_run_status with invalid config path."""
+def test_get_job_status_invalid_config_path():
+    """Test get_job_status with invalid config path."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create a work dir but no config file, and no epoch files
         logs_dir = os.path.join(temp_root, "logs")
@@ -353,15 +353,15 @@ def test_get_run_status_invalid_config_path():
         try:
             # The function should handle the missing config when trying to compute progress
             # but since the work_dir exists but is empty, it will return 0 completed epochs
-            run_status = get_run_status(
+            job_status = get_job_status(
                 config=invalid_config_path,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
             
             # Should return failed status for invalid config
-            assert run_status.status == 'failed'
-            assert run_status.process_info is None
+            assert job_status.status == 'failed'
+            assert job_status.process_info is None
             
         except FileNotFoundError:
             # If the config path resolution fails, that's also acceptable behavior

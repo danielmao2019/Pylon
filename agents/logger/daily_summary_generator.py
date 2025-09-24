@@ -105,7 +105,7 @@ class DailySummaryGenerator:
         Returns:
             Formatted experiment statistics section
         """
-        current_statuses = current['run_statuses']  # Dict[str, RunStatus]
+        current_statuses = current['job_statuses']  # Dict[str, JobStatus]
         
         # Count experiments by status
         status_counts = {}
@@ -251,7 +251,7 @@ class DailySummaryGenerator:
         Returns:
             Formatted progress overview section
         """
-        current_statuses = current['run_statuses']  # Dict[str, RunStatus]
+        current_statuses = current['job_statuses']  # Dict[str, JobStatus]
         
         # Calculate overall completion percentage
         total_progress = 0
@@ -313,7 +313,7 @@ class DailySummaryGenerator:
         Returns:
             Formatted resource utilization section
         """
-        current_statuses = current['run_statuses']  # Dict[str, RunStatus]
+        current_statuses = current['job_statuses']  # Dict[str, JobStatus]
         
         # Count running processes by server
         server_processes = {}
@@ -442,12 +442,12 @@ class DailySummaryGenerator:
         
         snapshot_dir = "./agents/snapshots"
         if not os.path.exists(snapshot_dir):
-            return {'run_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
+            return {'job_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
         
         # Find all snapshot files
         snapshot_files = glob.glob(os.path.join(snapshot_dir, "*.json"))
         if not snapshot_files:
-            return {'run_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
+            return {'job_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
         
         # Get the most recent file
         latest_file = max(snapshot_files, key=os.path.getmtime)
@@ -460,7 +460,7 @@ class DailySummaryGenerator:
             with open(filepath, 'r') as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError, OSError):
-            return {'run_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
+            return {'job_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
     
     def _load_previous_snapshot(self) -> Optional[Dict[str, Any]]:
         """Load previous snapshot for comparison."""
@@ -493,6 +493,6 @@ class DailySummaryGenerator:
         
         timestamp = previous_snapshot.get('timestamp', 'Unknown')
         total_configs = previous_snapshot.get('snapshot_metadata', {}).get('total_configs', 0)
-        active_experiments = len(previous_snapshot.get('run_statuses', {}))
+        active_experiments = len(previous_snapshot.get('job_statuses', {}))
         
         return f"Snapshot {timestamp} ({active_experiments}/{total_configs} active experiments)"

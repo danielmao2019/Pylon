@@ -454,7 +454,7 @@ obj = build_from_config(config)
 **Automation and Distributed Training:**
 - **SSH connection pooling**: Thread-safe multi-server experiment management
 - **GPU monitoring**: Real-time utilization tracking across servers
-- **Run status monitoring**: Automatic detection of stuck/failed/finished experiments
+- **Job status monitoring**: Automatic detection of stuck/failed/finished experiments
 - **Config generation**: Automated creation of experiment variants with different seeds
 
 **Determinism and Reproducibility:**

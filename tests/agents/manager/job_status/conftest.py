@@ -1,5 +1,5 @@
 """
-Local fixtures for agents.manager.run_status tests.
+Local fixtures for agents.manager.job_status tests.
 
 Copied or moved from tests/utils/automation/conftest.py to keep
 manager tests self-contained.
@@ -17,7 +17,7 @@ from utils.io.json import save_json
 
 @pytest.fixture
 def EXPECTED_FILES():
-    """Standard expected files per epoch used by run_status tests."""
+    """Standard expected files per epoch used by job_status tests."""
     return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
 
 
