@@ -8,8 +8,6 @@ from abc import ABC, abstractmethod
 
 from agents.monitor.process_info import ProcessInfo
 from agents.manager.progress_info import ProgressInfo
-from agents.manager.training_job import TrainingJob
-from agents.manager.evaluation_job import EvaluationJob
 from utils.io.config import load_config
 
 
