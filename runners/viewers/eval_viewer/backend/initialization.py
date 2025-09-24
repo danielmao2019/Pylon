@@ -27,7 +27,7 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
 
 
 # Use shared runner detection utility for code reuse and consistency
-from utils.automation.progress_tracking.runner_detection import detect_runner_type
+from agents.tracker.runner_detection import detect_runner_type
 
 @dataclass
 class LogDirInfo:
