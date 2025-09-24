@@ -1,6 +1,9 @@
 from typing import List, Dict, Optional, Any
 from agents.monitor.base_monitor import BaseMonitor
-from agents.monitor.cpu_status import CPUStatus, get_server_cpu_info
+from agents.monitor.cpu_status import CPUStatus
+from agents.monitor.process_info import ProcessInfo, get_all_processes
+from agents.connector.pool import SSHConnectionPool
+from utils.timeout import with_timeout
 
 
 class CPUMonitor(BaseMonitor[CPUStatus]):
@@ -35,7 +38,7 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
     def _update_single_server(self, server: str) -> None:
         """Update CPU info for a single server"""
         # Get CPU info for this server
-        server_cpu_info = get_server_cpu_info(server, self.ssh_pool, timeout=self.timeout)
+        server_cpu_info = self._get_server_cpu_info(server, self.ssh_pool, timeout=self.timeout)
 
         # Update the CPU with the results
         self._update_single_cpu(self.cpus_by_server[server], server_cpu_info)
@@ -171,3 +174,93 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         ]
         all_running_commands = [process.cmd for process in all_processes]
         return all_running_commands
+
+    @staticmethod
+    def _get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, Any]:
+        """Get memory and CPU utilization for a server."""
+        mem_cmd = ["cat", "/proc/meminfo"]
+        mem_output = pool.execute(server, mem_cmd)
+
+        mem_total = 0
+        mem_available = 0
+
+        for line in mem_output.splitlines():
+            if line.startswith('MemTotal:'):
+                mem_total = int(line.split()[1]) // 1024  # Convert KB to MB
+            elif line.startswith('MemAvailable:'):
+                mem_available = int(line.split()[1]) // 1024  # Convert KB to MB
+
+        mem_used = mem_total - mem_available
+
+        top_cmd = ["top", "-bn1"]
+        top_output = pool.execute(server, top_cmd)
+
+        cpu_util = None
+        for line in top_output.splitlines():
+            if '%Cpu' in line:
+                parts = line.split()
+                for i, part in enumerate(parts):
+                    if 'us,' in part and i > 0:
+                        try:
+                            cpu_util = float(parts[i - 1])
+                        except ValueError:
+                            cpu_util = None
+                        break
+                break
+
+        load_cmd = ["cat", "/proc/loadavg"]
+        load_output = pool.execute(server, load_cmd)
+        load_avg = float(load_output.split()[0])
+
+        cores_cmd = ["nproc"]
+        cores_output = pool.execute(server, cores_cmd)
+        cpu_cores = int(cores_output.strip())
+
+        return {
+            'memory_total': mem_total,
+            'memory_used': mem_used,
+            'cpu_util': cpu_util,
+            'load_avg': load_avg,
+            'cpu_cores': cpu_cores,
+        }
+
+    @staticmethod
+    def _get_server_cpu_processes(server: str, pool: SSHConnectionPool) -> List[ProcessInfo]:
+        all_processes = get_all_processes(server, pool)
+        return list(all_processes.values())
+
+    def _get_server_cpu_info(
+        self,
+        server: str,
+        pool: SSHConnectionPool,
+        timeout: int = 10,
+    ) -> Dict[str, Any]:
+        @with_timeout(seconds=timeout)
+        def _query():
+            cpu_stats = self._get_server_cpu_mem_util(server, pool)
+            processes = self._get_server_cpu_processes(server, pool)
+            return {
+                'server': server,
+                'max_memory': cpu_stats['memory_total'],
+                'current_memory': cpu_stats['memory_used'],
+                'current_cpu': cpu_stats['cpu_util'],
+                'current_load': cpu_stats['load_avg'],
+                'cpu_cores': cpu_stats['cpu_cores'],
+                'processes': processes,
+                'connected': True,
+            }
+
+        try:
+            return _query()
+        except Exception as exc:  # noqa: BLE001 - log and mark disconnected
+            print(f"ERROR: Failed to get CPU info for server {server}: {exc}")
+            return {
+                'server': server,
+                'max_memory': None,
+                'current_memory': None,
+                'current_cpu': None,
+                'current_load': None,
+                'cpu_cores': None,
+                'processes': [],
+                'connected': False,
+            }
