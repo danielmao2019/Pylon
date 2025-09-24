@@ -1,17 +1,9 @@
 import time
-import pytest
-import torch
 from agents.monitor.system_monitor import SystemMonitor
 
 
 def test_system_monitor_status_snapshot(monitor_server: str, gpu_index: int | None):
-    gpu_indices = []
-    if gpu_index is not None:
-        if monitor_server == 'localhost' and not torch.cuda.is_available():
-            pytest.skip("CUDA not available on localhost")
-        gpu_indices = [gpu_index]
-
-    monitor = SystemMonitor(server=monitor_server, gpu_indices=gpu_indices, timeout=5)
+    monitor = SystemMonitor(server=monitor_server, timeout=5)
 
     # warm up cpu and all gpu monitors
     assert monitor.cpu_monitor.cpu.window_size is not None
@@ -40,11 +32,15 @@ def test_system_monitor_status_snapshot(monitor_server: str, gpu_index: int | No
         f" cpu_util_avg={cpu_util}",
         f" gpu_count={len(status['gpus'])}"
     )
-    for gpu in status['gpus']:
+    gpu_statuses = status['gpus']
+    if gpu_index is not None:
+        assert any(gpu['index'] == gpu_index for gpu in gpu_statuses)
+
+    for gpu in gpu_statuses:
         assert gpu['max_memory'] is not None
-        assert gpu.get('memory_stats') is not None
+        assert gpu['memory_stats'] is not None
         assert gpu['memory_stats']['avg'] is not None
-        assert gpu.get('util_stats') is not None
+        assert gpu['util_stats'] is not None
         assert gpu['util_stats']['avg'] is not None
         gpu_mem_pct = 100 * gpu['memory_stats']['avg'] / gpu['max_memory']
         util_avg = gpu['util_stats']['avg']

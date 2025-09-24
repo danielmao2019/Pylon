@@ -56,40 +56,42 @@ def build_table_rows(monitors: Dict[str, SystemMonitor]) -> List[Dict[str, str]]
 
         status = monitor.get_system_status()
         cpu = status['cpu']
-        cpu_mem_pct = (
-            (cpu['memory_stats']['avg'] / cpu['max_memory']) * 100
-            if cpu['max_memory'] and cpu['memory_stats'] and cpu['memory_stats']['avg'] is not None
-            else None
-        )
-        cpu_util_pct = cpu['cpu_stats']['avg'] if cpu['cpu_stats'] else None
+        cpu_memory_stats = cpu['memory_stats'] if cpu['memory_stats'] else {'min': None, 'max': None, 'avg': None}
+        cpu_util_stats = cpu['cpu_stats'] if cpu['cpu_stats'] else {'min': None, 'max': None, 'avg': None}
+        cpu_max_memory = cpu['max_memory']
         rows.append(
             {
                 'Server': server,
                 'Resource': 'CPU',
                 'Index': '-',
                 'Connected': 'Yes' if cpu['connected'] else 'No',
-                'Memory %': f"{cpu_mem_pct:.2f}" if cpu_mem_pct is not None else 'n/a',
-                'Util %': f"{cpu_util_pct:.2f}" if cpu_util_pct is not None else 'n/a',
-                'Processes': str(len(cpu['processes'])) if cpu['processes'] else '0',
+                'Memory Min': f"{cpu_memory_stats['min']:.2f}" if cpu_memory_stats['min'] is not None else 'n/a',
+                'Memory Max': f"{cpu_memory_stats['max']:.2f}" if cpu_memory_stats['max'] is not None else 'n/a',
+                'Memory Avg': f"{cpu_memory_stats['avg']:.2f}" if cpu_memory_stats['avg'] is not None else 'n/a',
+                'Max Memory': f"{cpu_max_memory:.2f}" if cpu_max_memory is not None else 'n/a',
+                'Util Min': f"{cpu_util_stats['min']:.2f}" if cpu_util_stats['min'] is not None else 'n/a',
+                'Util Max': f"{cpu_util_stats['max']:.2f}" if cpu_util_stats['max'] is not None else 'n/a',
+                'Util Avg': f"{cpu_util_stats['avg']:.2f}" if cpu_util_stats['avg'] is not None else 'n/a',
             }
         )
 
         for gpu in status['gpus']:
-            gpu_mem_pct = (
-                (gpu['memory_stats']['avg'] / gpu['max_memory']) * 100
-                if gpu['max_memory'] and gpu['memory_stats'] and gpu['memory_stats']['avg'] is not None
-                else None
-            )
-            gpu_util_pct = gpu['util_stats']['avg'] if gpu['util_stats'] else None
+            gpu_memory_stats = gpu['memory_stats'] if gpu['memory_stats'] else {'min': None, 'max': None, 'avg': None}
+            gpu_util_stats = gpu['util_stats'] if gpu['util_stats'] else {'min': None, 'max': None, 'avg': None}
+            gpu_max_memory = gpu['max_memory']
             rows.append(
                 {
                     'Server': server,
                     'Resource': 'GPU',
                     'Index': str(gpu['index']),
                     'Connected': 'Yes' if gpu['connected'] else 'No',
-                    'Memory %': f"{gpu_mem_pct:.2f}" if gpu_mem_pct is not None else 'n/a',
-                    'Util %': f"{gpu_util_pct:.2f}" if gpu_util_pct is not None else 'n/a',
-                    'Processes': str(len(gpu['processes'])) if gpu['processes'] else '0',
+                    'Memory Min': f"{gpu_memory_stats['min']:.2f}" if gpu_memory_stats['min'] is not None else 'n/a',
+                    'Memory Max': f"{gpu_memory_stats['max']:.2f}" if gpu_memory_stats['max'] is not None else 'n/a',
+                    'Memory Avg': f"{gpu_memory_stats['avg']:.2f}" if gpu_memory_stats['avg'] is not None else 'n/a',
+                    'Max Memory': f"{gpu_max_memory:.2f}" if gpu_max_memory is not None else 'n/a',
+                    'Util Min': f"{gpu_util_stats['min']:.2f}" if gpu_util_stats['min'] is not None else 'n/a',
+                    'Util Max': f"{gpu_util_stats['max']:.2f}" if gpu_util_stats['max'] is not None else 'n/a',
+                    'Util Avg': f"{gpu_util_stats['avg']:.2f}" if gpu_util_stats['avg'] is not None else 'n/a',
                 }
             )
     return rows
@@ -113,9 +115,13 @@ def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
         {'name': 'Resource', 'id': 'Resource'},
         {'name': 'Index', 'id': 'Index'},
         {'name': 'Connected', 'id': 'Connected'},
-        {'name': 'Memory %', 'id': 'Memory %'},
-        {'name': 'Util %', 'id': 'Util %'},
-        {'name': 'Processes', 'id': 'Processes'},
+        {'name': 'Memory Min', 'id': 'Memory Min'},
+        {'name': 'Memory Max', 'id': 'Memory Max'},
+        {'name': 'Memory Avg', 'id': 'Memory Avg'},
+        {'name': 'Max Memory', 'id': 'Max Memory'},
+        {'name': 'Util Min', 'id': 'Util Min'},
+        {'name': 'Util Max', 'id': 'Util Max'},
+        {'name': 'Util Avg', 'id': 'Util Avg'},
     ]
 
     initial_rows = build_table_rows(monitors)
