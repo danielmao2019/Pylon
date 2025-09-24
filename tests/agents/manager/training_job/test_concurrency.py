@@ -49,7 +49,7 @@ def test_multiple_readers_same_progress_file(create_progress_json, EXPECTED_FILE
 
 
 def test_multiple_tracker_readers_same_file(create_progress_json):
-    """Test multiple TrainerTracker instances reading same progress.json."""
+    """Test multiple TrainingJob classmethods reading same progress.json."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create progress.json
         create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
@@ -170,7 +170,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
                     for epoch_idx in range(current_epochs + 1):  # +1 to ensure the epoch exists
                         create_epoch_files(work_dir, epoch_idx)
                     
-                    # Use TrainerTracker to compute and save progress
+                    # Use TrainingJob to compute and save progress
                     progress = TrainingJob.calculate_progress(work_dir, config=None, force_progress_recompute=True)
                     
                     results.append((thread_id, update_round, progress.completed_epochs))
@@ -217,7 +217,7 @@ def test_cache_invalidation_race_conditions(create_progress_json):
         create_progress_json(work_dir, completed_epochs=5, early_stopped=False, tot_epochs=100)
         
         # Create tracker instances (they'll cache results)
-        trackers = [TrainerTracker(work_dir) for _ in range(3)]
+        trackers = [TrainingJob for _ in range(3)]
         
         results = []
         
@@ -332,7 +332,7 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
 # ============================================================================
 
 def test_mixed_tracker_types_concurrent_access():
-    """Test TrainerTracker and EvaluatorTracker accessing different files concurrently."""
+    """Test TrainingJob and EvaluationJob accessing different files concurrently."""
     with tempfile.TemporaryDirectory() as base_dir:
         trainer_dir = os.path.join(base_dir, "trainer")
         evaluator_dir = os.path.join(base_dir, "evaluator")
