@@ -189,7 +189,7 @@ def EXPECTED_FILES():
 
 @pytest.fixture
 def create_system_monitor_with_processes():
-    """Return a factory that creates a monitors dict with a real SystemMonitor containing given processes.
+    """Return a factory that creates a monitors dict with a SystemMonitor-like object exposing connected_gpus.
 
     Usage:
         monitors = create_system_monitor_with_processes([
@@ -201,12 +201,18 @@ def create_system_monitor_with_processes():
     from agents.monitor.gpu_status import GPUStatus
     from agents.monitor.process_info import ProcessInfo
 
+    class LocalSystemMonitor(SystemMonitor):
+        def __init__(self, server: str, window_size: int, gpus):
+            super().__init__(server=server, window_size=window_size)
+            self._local_connected_gpus = gpus
+        @property
+        def connected_gpus(self):
+            return self._local_connected_gpus
+
     def _factory(cmds):
-        sm = SystemMonitor(server='test', window_size=10)
         processes = [ProcessInfo(pid=str(i+1), user='u', cmd=cmd, start_time='t') for i, cmd in enumerate(cmds)]
-        sm.connected_gpus = [
-            GPUStatus(server='test', index=0, window_size=10, max_memory=0, processes=processes, connected=True)
-        ]
-        return {'test': sm}
+        gpus = [GPUStatus(server='localhost', index=0, window_size=10, max_memory=0, processes=processes, connected=True)]
+        sm = LocalSystemMonitor(server='localhost', window_size=10, gpus=gpus)
+        return {'localhost': sm}
 
     return _factory
