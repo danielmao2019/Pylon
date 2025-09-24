@@ -11,23 +11,6 @@ from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 
 
-class DummyGPU:
-    def __init__(self, processes):
-        self.processes = processes
-
-
-class DummySystemMonitor:
-    def __init__(self, connected_gpus):
-        self.connected_gpus = connected_gpus
-
-
-class DummyProcessInfo:
-    def __init__(self, cmd):
-        self.cmd = cmd
-    def to_dict(self):  # for serialization in BaseJob._serialize
-        return {"cmd": self.cmd}
-
-
 def test_build_jobs_minimal_integration(monkeypatch):
     with tempfile.TemporaryDirectory() as temp_root:
         # Layout: ./configs/x.py -> ./logs/x
