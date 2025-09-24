@@ -6,7 +6,7 @@ Following CLAUDE.md testing patterns:
 - Abstract method contract testing
 """
 import pytest
-from agents.tracker.base_progress_tracker import BaseProgressTracker
+from agents.tracker.base_tracker import BaseProgressTracker
 
 
 # ============================================================================

@@ -9,10 +9,10 @@ Following CLAUDE.md testing patterns:
 import os
 import tempfile
 import json
-from agents.tracker.progress_tracker_factory import create_progress_tracker
-from agents.tracker.trainer_progress_tracker import TrainerProgressTracker
-from agents.tracker.evaluator_progress_tracker import EvaluatorProgressTracker
-from agents.tracker.base_progress_tracker import BaseProgressTracker
+from agents.tracker.tracker_factory import create_progress_tracker
+from agents.tracker.trainer_tracker import TrainerProgressTracker
+from agents.tracker.evaluator_tracker import EvaluatorProgressTracker
+from agents.tracker.base_tracker import BaseProgressTracker
 
 
 # ============================================================================
