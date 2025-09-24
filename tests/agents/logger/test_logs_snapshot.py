@@ -92,13 +92,12 @@ def sample_process_info():
 @pytest.fixture
 def sample_job_status(sample_progress_info, sample_process_info):
     """Sample BaseJob for testing."""
-    return BaseJob(
-        config="configs/exp/baseline.py",
-        work_dir="./logs/baseline_run",
-        progress=sample_progress_info,
-        status="running",
-        process_info=sample_process_info
-    )
+    job = BaseJob('configs/exp/baseline.py')
+    job.work_dir = './logs/baseline_run'
+    job.progress = sample_progress_info
+    job.status = 'running'
+    job.process_info = sample_process_info
+    return job
 
 
 # ============================================================================
@@ -160,25 +159,22 @@ def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
     """Test snapshot creation."""
     # Mock Manager.build_jobs to return test data
     def mock_build_jobs(self):
-        return {
-            "configs/exp/baseline.py": BaseJob(
-                config="configs/exp/baseline.py",
-                work_dir="./logs/baseline_run",
-                progress=ProgressInfo(
-                    completed_epochs=15,
-                    progress_percentage=75.0,
-                    early_stopped=False,
-                    early_stopped_at_epoch=None
-                ),
-                status="running",
-                process_info=ProcessInfo(
-                    pid='12345', 
-                    user='testuser', 
-                    cmd='python main.py --config-filepath configs/exp/baseline.py',
-                    start_time='2025-07-17 10:00:00'
-                )
-            )
-        }
+        job = BaseJob('configs/exp/baseline.py')
+        job.work_dir = './logs/baseline_run'
+        job.progress = ProgressInfo(
+            completed_epochs=15,
+            progress_percentage=75.0,
+            early_stopped=False,
+            early_stopped_at_epoch=None
+        )
+        job.status = 'running'
+        job.process_info = ProcessInfo(
+            pid='12345',
+            user='testuser',
+            cmd='python main.py --config-filepath configs/exp/baseline.py',
+            start_time='2025-07-17 10:00:00'
+        )
+        return {'configs/exp/baseline.py': job}
     
     monkeypatch.setattr(Manager, "build_jobs", mock_build_jobs)
     

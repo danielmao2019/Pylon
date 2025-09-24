@@ -17,29 +17,12 @@ _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 class BaseJob:
     """Object-oriented representation of a single training job."""
 
-    def __init__(
-        self,
-        config: str,
-        work_dir: str,
-        progress: ProgressInfo,
-        status: _JobStatus,
-        process_info: Optional[ProcessInfo] = None,
-    ) -> None:
+    def __init__(self, config: str) -> None:
         self.config = config
-        self.work_dir = work_dir
-        self.progress = progress
-        self.status = status
-        self.process_info = process_info
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            'config': self.config,
-            'work_dir': self.work_dir,
-            'progress': self._serialize(self.progress),
-            'status': self.status,
-            'process_info': self._serialize(self.process_info),
-        }
+        self.work_dir: Optional[str] = None
+        self.progress: Optional[ProgressInfo] = None
+        self.status: Optional[_JobStatus] = None
+        self.process_info: Optional[ProcessInfo] = None
 
     @classmethod
     def build(
@@ -51,15 +34,33 @@ class BaseJob:
         outdated_days: int = 30,
         force_progress_recompute: bool = False,
     ) -> 'BaseJob':
-        """Construct a BaseJob instance for the provided config."""
-        work_dir = get_work_dir(config)
-        config_dict = load_config(config)
+        job = cls(config=config)
+        job._populate(
+            epochs=epochs,
+            config_to_process_info=config_to_process_info,
+            sleep_time=sleep_time,
+            outdated_days=outdated_days,
+            force_progress_recompute=force_progress_recompute,
+        )
+        return job
+
+    def _populate(
+        self,
+        *,
+        epochs: int,
+        config_to_process_info: Dict[str, ProcessInfo],
+        sleep_time: int,
+        outdated_days: int,
+        force_progress_recompute: bool,
+    ) -> None:
+        work_dir = get_work_dir(self.config)
+        config_dict = load_config(self.config)
 
         tracker = create_tracker(work_dir, config_dict)
         progress = tracker.get_progress(force_progress_recompute=force_progress_recompute)
 
-        log_last_update = cls.get_log_last_update(work_dir, tracker.get_log_pattern())
-        epoch_last_update = cls.get_epoch_last_update(work_dir, tracker.get_expected_files())
+        log_last_update = self.get_log_last_update(work_dir, tracker.get_log_pattern())
+        epoch_last_update = self.get_epoch_last_update(work_dir, tracker.get_expected_files())
 
         is_running_status = (
             log_last_update is not None and (time.time() - log_last_update <= sleep_time)
@@ -75,20 +76,25 @@ class BaseJob:
                 status = 'outdated'
             else:
                 status = 'finished'
-        elif config in config_to_process_info:
+        elif self.config in config_to_process_info:
             status = 'stuck'
         else:
             status = 'failed'
 
-        process_info = config_to_process_info.get(config)
+        self.work_dir = work_dir
+        self.progress = progress
+        self.status = status
+        self.process_info = config_to_process_info.get(self.config)
 
-        return cls(
-            config=config,
-            work_dir=work_dir,
-            progress=progress,
-            status=status,
-            process_info=process_info,
-        )
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'config': self.config,
+            'work_dir': self.work_dir,
+            'progress': self._serialize(self.progress),
+            'status': self.status,
+            'process_info': self._serialize(self.process_info),
+        }
 
     @staticmethod
     def parse_config(cmd: str) -> str:
@@ -141,6 +147,3 @@ class BaseJob:
         if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
             return value.to_dict()
         return value
-
-
-__all__ = ['BaseJob']
