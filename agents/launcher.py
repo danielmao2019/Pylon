@@ -7,7 +7,7 @@ from agents.base_agent import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
 from agents.manager import JobStatus, get_all_job_status, parse_config
 from utils.logging import TextLogger
-from utils.ssh.pool import _ssh_pool
+from agents.connector.pool import _ssh_pool
 
 
 class Launcher(BaseAgent):
