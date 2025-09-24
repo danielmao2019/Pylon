@@ -4,7 +4,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import random
 from agents.base_agent import BaseAgent
-from utils.automation.cfg_log_conversion import get_work_dir
 from agents.manager import BaseJob, Manager
 from utils.logging import TextLogger
 from agents.connector.pool import _ssh_pool
@@ -181,7 +180,7 @@ class Launcher(BaseAgent):
         missing_runs = missing_runs[:num_launch]
 
         def launch_job(resource, run):
-            error_log = os.path.join(get_work_dir(run), "error.log")
+            error_log = os.path.join(BaseJob.get_work_dir(run), "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
 

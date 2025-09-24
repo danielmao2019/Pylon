@@ -7,7 +7,6 @@ from typing import Dict, List, Literal, Optional
 
 from agents.monitor.process_info import ProcessInfo
 from agents.tracker import ProgressInfo, create_tracker
-from utils.automation.cfg_log_conversion import get_work_dir
 from utils.io.config import load_config
 
 
@@ -53,7 +52,7 @@ class BaseJob:
         outdated_days: int,
         force_progress_recompute: bool,
     ) -> None:
-        work_dir = get_work_dir(self.config)
+        work_dir = self.get_work_dir(self.config)
         config_dict = load_config(self.config)
 
         tracker = create_tracker(work_dir, config_dict)
@@ -95,6 +94,18 @@ class BaseJob:
             'status': self.status,
             'process_info': self._serialize(self.process_info),
         }
+
+    @classmethod
+    def get_work_dir(cls, config_file: str) -> str:
+        """Derive work directory path from a config file path."""
+        rel_path = os.path.splitext(os.path.relpath(config_file, start='./configs'))[0]
+        return os.path.join('./logs', rel_path)
+
+    @classmethod
+    def get_config(cls, work_dir: str) -> str:
+        """Derive config file path from a work directory path."""
+        rel_path = os.path.relpath(work_dir, './logs')
+        return os.path.join('./configs', rel_path) + '.py'
 
     @staticmethod
     def parse_config(cmd: str) -> str:

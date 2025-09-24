@@ -2,7 +2,8 @@ from typing import List, Optional, Tuple
 import os
 import torch
 from dataclasses import dataclass, asdict
-from utils.automation.cfg_log_conversion import get_config
+from agents.manager.base_job import BaseJob
+
 from utils.io.config import load_config
 from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
@@ -68,7 +69,7 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str], force_
         completed_epochs += 1
     
     # Load config to detect early stopping
-    config_path = get_config(work_dir)
+    config_path = BaseJob.get_config(work_dir)
     config = load_config(config_path)
     tot_epochs = config['epochs']
     early_stopping_config = config.get('early_stopping')

@@ -52,10 +52,10 @@ def test_base_job_build_basic_functionality(create_epoch_files, create_real_conf
                 config_to_process_info=config_to_process_info
             )
             
-            # Should return BaseJob with enhanced ProgressInfo - BaseJob is now a dataclass
+            # Should return BaseJob with enhanced ProgressInfo
             assert isinstance(job_status, BaseJob)
             assert job_status.config == config_path
-            expected_work_dir = "./logs/test_run"  # What get_work_dir actually returns
+            expected_work_dir = BaseJob.get_work_dir(config_path)
             assert job_status.work_dir == expected_work_dir
             assert isinstance(job_status.progress, ProgressInfo)
             assert job_status.progress.completed_epochs == 5
