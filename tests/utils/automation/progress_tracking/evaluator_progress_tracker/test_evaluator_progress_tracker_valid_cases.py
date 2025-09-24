@@ -10,8 +10,8 @@ import os
 import tempfile
 import json
 import pytest
-from utils.automation.progress_tracking import ProgressInfo
-from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
+from agents.tracker import ProgressInfo
+from agents.tracker.evaluator_progress_tracker import EvaluatorProgressTracker
 
 
 # ============================================================================

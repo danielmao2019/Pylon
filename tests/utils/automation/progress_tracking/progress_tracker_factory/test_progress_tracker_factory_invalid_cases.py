@@ -8,7 +8,7 @@ Following CLAUDE.md testing patterns:
 import os
 import tempfile
 import pytest
-from utils.automation.progress_tracking.progress_tracker_factory import create_progress_tracker
+from agents.tracker.progress_tracker_factory import create_progress_tracker
 
 
 # ============================================================================

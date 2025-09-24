@@ -12,9 +12,9 @@ import time
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
-from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
-from utils.automation.progress_tracking.session_progress import get_session_progress
+from agents.tracker.trainer_progress_tracker import TrainerProgressTracker
+from agents.tracker.evaluator_progress_tracker import EvaluatorProgressTracker
+from agents.tracker.session_progress import get_session_progress
 from utils.io.json import load_json, save_json
 
 

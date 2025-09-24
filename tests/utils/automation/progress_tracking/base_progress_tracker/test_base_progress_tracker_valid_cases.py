@@ -12,7 +12,7 @@ import tempfile
 import json
 import time
 import pytest
-from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker, ProgressInfo
+from agents.tracker.base_progress_tracker import BaseProgressTracker, ProgressInfo
 
 
 # ============================================================================

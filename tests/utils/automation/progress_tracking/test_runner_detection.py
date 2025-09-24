@@ -11,7 +11,7 @@ import os
 import tempfile
 import json
 import pytest
-from utils.automation.progress_tracking.runner_detection import detect_runner_type
+from agents.tracker.runner_detection import detect_runner_type
 
 
 # ============================================================================
