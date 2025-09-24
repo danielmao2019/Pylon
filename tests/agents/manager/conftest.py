@@ -185,3 +185,28 @@ config = {{
 @pytest.fixture
 def EXPECTED_FILES():
     return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+
+
+@pytest.fixture
+def create_system_monitor_with_processes():
+    """Return a factory that creates a monitors dict with a real SystemMonitor containing given processes.
+
+    Usage:
+        monitors = create_system_monitor_with_processes([
+            "python main.py --config-filepath ./configs/exp.py",
+        ])
+        manager = Manager(config_files=[...], system_monitors=monitors, ...)
+    """
+    from agents.monitor.system_monitor import SystemMonitor
+    from agents.monitor.gpu_status import GPUStatus
+    from agents.monitor.process_info import ProcessInfo
+
+    def _factory(cmds):
+        sm = SystemMonitor(server='test', window_size=10)
+        processes = [ProcessInfo(pid=str(i+1), user='u', cmd=cmd, start_time='t') for i, cmd in enumerate(cmds)]
+        sm.connected_gpus = [
+            GPUStatus(server='test', index=0, window_size=10, max_memory=0, processes=processes, connected=True)
+        ]
+        return {'test': sm}
+
+    return _factory

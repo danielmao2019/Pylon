@@ -225,14 +225,14 @@ def test_cache_invalidation_race_conditions(create_progress_json):
             job_cls = trackers[tracker_id]
             
             # First read - should cache
-            progress1 = job_cls.get_session_progress(work_dir, expected_files)
+            progress1 = job_cls.get_session_progress(work_dir, TrainingJob.get_expected_files())
             results.append(("first_read", tracker_id, progress1.completed_epochs))
             
             # Small delay to let other threads potentially update the file
             time.sleep(0.05)
             
             # Second read - should use cache unless invalidated
-            progress2 = job_cls.get_session_progress(work_dir, expected_files)
+            progress2 = job_cls.get_session_progress(work_dir, TrainingJob.get_expected_files())
             results.append(("second_read", tracker_id, progress2.completed_epochs))
             
             # Skip force recompute for this test to avoid config path issues

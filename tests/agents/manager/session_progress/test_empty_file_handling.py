@@ -190,7 +190,7 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
             os.rename(whitespace_file, progress_file)
             
             with pytest.raises(RuntimeError) as exc_info:
-                get_session_progress(work_dir, expected_files)
+                TrainingJob.get_session_progress(work_dir, expected_files)
             assert "Error loading JSON" in str(exc_info.value)
         finally:
             os.chdir(original_cwd)

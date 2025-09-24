@@ -72,9 +72,8 @@ def test_build_jobs_minimal_integration(monkeypatch):
         os.chdir(temp_root)
         try:
             # Prepare dummy system monitors (empty; not critical for detection)
-            monitors = {"dummy": DummySystemMonitor(connected_gpus=[DummyGPU(processes=[
-                DummyProcessInfo(cmd="python main.py --config-filepath ./configs/train_exp.py")
-            ])])}
+            # Real SystemMonitor is required by Manager assertions; provide an empty dict instead
+            monitors = {}
 
             m = Manager(config_files=["./configs/train_exp.py", "./configs/eval_exp.py"], epochs=1, system_monitors=monitors)
             jobs = m.build_jobs()
@@ -96,7 +95,7 @@ def test_build_jobs_minimal_integration(monkeypatch):
             os.chdir(cwd)
 
 
-def test_build_jobs_mixed_runners_and_statuses():
+def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_processes):
     import time
     with tempfile.TemporaryDirectory() as temp_root:
         configs_dir = os.path.join(temp_root, "configs")
@@ -153,14 +152,9 @@ def test_build_jobs_mixed_runners_and_statuses():
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            # Dummy monitors with a process mapped to trainer_stuck
-            monitors = {
-                'm': DummySystemMonitor([
-                    DummyGPU([
-                        DummyProcessInfo(cmd="python main.py --config-filepath ./configs/trainer_stuck.py")
-                    ])
-                ])
-            }
+            monitors = create_system_monitor_with_processes([
+                'python main.py --config-filepath ./configs/trainer_stuck.py'
+            ])
             m = Manager(config_files=["./configs/trainer_running.py", "./configs/trainer_stuck.py", "./configs/evaluator_old.py"], epochs=10, system_monitors=monitors, sleep_time=3600, outdated_days=30)
             jobs = m.build_jobs()
             jr = jobs["./configs/trainer_running.py"]

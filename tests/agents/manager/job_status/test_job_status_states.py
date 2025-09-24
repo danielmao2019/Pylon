@@ -12,21 +12,7 @@ from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 
 
-class DummyGPU:
-    def __init__(self, processes):
-        self.processes = processes
-
-
-class DummySystemMonitor:
-    def __init__(self, connected_gpus):
-        self.connected_gpus = connected_gpus
-
-
-class DummyProcessInfo:
-    def __init__(self, cmd):
-        self.cmd = cmd
-    def to_dict(self):
-        return {"cmd": self.cmd}
+import pytest
 
 
 def _touch(path):
@@ -34,7 +20,7 @@ def _touch(path):
         os.utime(path, None)
 
 
-def test_job_status_running_vs_finished(monkeypatch):
+def test_job_status_running_vs_finished(create_system_monitor_with_processes):
     with tempfile.TemporaryDirectory() as temp_root:
         configs = os.path.join(temp_root, 'configs')
         logs = os.path.join(temp_root, 'logs')
@@ -64,7 +50,9 @@ def test_job_status_running_vs_finished(monkeypatch):
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            monitors = {"m": DummySystemMonitor([DummyGPU([DummyProcessInfo(cmd="python main.py --config-filepath ./configs/exp.py")])])}
+            monitors = create_system_monitor_with_processes([
+                'python main.py --config-filepath ./configs/exp.py'
+            ])
             m = Manager(config_files=["./configs/exp.py"], epochs=1, system_monitors=monitors, sleep_time=3600)
             jobs = m.build_jobs()
             job = jobs["./configs/exp.py"]
@@ -79,4 +67,3 @@ def test_job_status_running_vs_finished(monkeypatch):
             assert job.status in {'finished', 'outdated'}
         finally:
             os.chdir(cwd)
-

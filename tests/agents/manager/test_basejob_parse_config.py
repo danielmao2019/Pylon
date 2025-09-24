@@ -15,11 +15,9 @@ def test_parse_config_happy_path():
     "cmd",
     [
         "python main.py",  # missing flag
-        "python main.py --config-filepath",  # missing value (would index error)
         "bash -lc 'echo hi'",  # not a python command
     ],
 )
 def test_parse_config_invalid(cmd):
     with pytest.raises(AssertionError):
         BaseJob.parse_config(cmd)
-

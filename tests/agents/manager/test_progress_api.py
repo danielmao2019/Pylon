@@ -78,7 +78,7 @@ def test_trainingjob_slow_path_counts_epochs(create_epoch_files, create_real_con
 
         assert isinstance(progress, ProgressInfo)
         assert progress.completed_epochs == 7
-        assert progress.progress_percentage == 7.0
+        assert abs(progress.progress_percentage - 7.0) < 1e-9
 
 
 def test_trainingjob_check_epoch_finished_and_file_loadable(tmp_path):
@@ -123,4 +123,3 @@ def test_evaluationjob_check_files_exist():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump({"aggregated": {}, "per_datapoint": {}}, f)
         assert EvaluationJob._check_files_exist(work_dir) is True
-
