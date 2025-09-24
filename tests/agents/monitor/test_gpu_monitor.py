@@ -1,3 +1,4 @@
+import time
 import pytest
 import torch
 from agents.monitor.gpu_monitor import GPUMonitor
@@ -12,17 +13,32 @@ def test_gpu_monitor_optional(monitor_server: str, gpu_index: int | None, probe_
         pytest.skip("CUDA not available on localhost")
 
     monitor = GPUMonitor(server=monitor_server, index=gpu_index, timeout=probe_timeout)
+
+    window = monitor.gpu.window_size or 10
+    for _ in range(window):
+        monitor._update_resource()
+        time.sleep(0.1)
+
     gpu_status = monitor.gpu
+    if not gpu_status.connected:
+        pytest.skip("GPU reported as disconnected; skipping detailed assertions")
+
+    assert gpu_status.max_memory is not None
+    assert gpu_status.memory_stats is not None
+    assert gpu_status.memory_stats['avg'] is not None
+    assert gpu_status.util_stats is not None
+    assert gpu_status.util_stats['avg'] is not None
+
+    mem_pct = 100 * gpu_status.memory_stats['avg'] / gpu_status.max_memory
+    util_avg = gpu_status.util_stats['avg']
 
     print(
         "GPU status for", monitor_server,
         f"index={gpu_index}",
         f"connected={gpu_status.connected}",
-        f"util={gpu_status.util_stats}",
+        f"memory_pct={mem_pct}",
+        f"util_avg={util_avg}",
     )
-
-    if not gpu_status.connected:
-        pytest.skip("GPU reported as disconnected; skipping detailed assertions")
 
     assert gpu_status.server == monitor_server
     assert gpu_status.index == gpu_index
