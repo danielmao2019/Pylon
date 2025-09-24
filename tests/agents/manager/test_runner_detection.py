@@ -11,7 +11,7 @@ import os
 import tempfile
 import json
 import pytest
-from agents.tracker.runner_detection import detect_runner_type
+from agents.manager.manager import Manager
 
 
 # ============================================================================
@@ -29,7 +29,8 @@ def test_detect_runner_type_evaluator_pattern():
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)
         
-        runner_type = detect_runner_type(work_dir)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        runner_type = m._detect_runner_type(work_dir, None)
         assert runner_type == 'evaluator'
 
 
@@ -39,7 +40,8 @@ def test_detect_runner_type_trainer_pattern(create_epoch_files):
         # Create trainer pattern: epoch_0/validation_scores.json
         create_epoch_files(work_dir, 0)
         
-        runner_type = detect_runner_type(work_dir)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        runner_type = m._detect_runner_type(work_dir, None)
         assert runner_type == 'trainer'
 
 
@@ -53,7 +55,8 @@ def test_detect_runner_type_evaluator_takes_precedence(create_epoch_files):
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(eval_scores, f)  # Evaluator pattern
         
-        runner_type = detect_runner_type(work_dir)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        runner_type = m._detect_runner_type(work_dir, None)
         assert runner_type == 'evaluator'  # Evaluator wins
 
 
@@ -68,7 +71,8 @@ def test_detect_runner_type_config_evaluator_class():
             'runner': mock_evaluator_class
         }
         
-        runner_type = detect_runner_type(work_dir, config)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        runner_type = m._detect_runner_type(work_dir, config)
         assert runner_type == 'evaluator'
 
 
@@ -83,7 +87,8 @@ def test_detect_runner_type_config_trainer_class():
             'runner': mock_trainer_class
         }
         
-        runner_type = detect_runner_type(work_dir, config)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        runner_type = m._detect_runner_type(work_dir, config)
         assert runner_type == 'trainer'
 
 
@@ -96,7 +101,8 @@ def test_detect_runner_type_deterministic():
             json.dump(eval_scores, f)
         
         # Run multiple times
-        results = [detect_runner_type(work_dir) for _ in range(5)]
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        results = [m._detect_runner_type(work_dir, None) for _ in range(5)]
         
         # All results should be the same
         assert all(r == 'evaluator' for r in results)
@@ -119,7 +125,8 @@ def test_detect_runner_type_config_epochs_field():
         
         # Should fail fast with clear assertion error
         with pytest.raises(AssertionError, match="Config must have 'runner' key"):
-            detect_runner_type(work_dir, config)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config)
 
 
 def test_detect_runner_type_fail_fast_no_patterns():
@@ -130,7 +137,8 @@ def test_detect_runner_type_fail_fast_no_patterns():
             f.write("irrelevant content")
         
         with pytest.raises(ValueError) as exc_info:
-            detect_runner_type(work_dir)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, None)
         
         error_msg = str(exc_info.value)
         assert "Unable to detect runner type" in error_msg
@@ -147,7 +155,8 @@ def test_detect_runner_type_fail_fast_nonexistent_directory():
     nonexistent_dir = "/this/path/does/not/exist"
     
     with pytest.raises(ValueError) as exc_info:
-        detect_runner_type(nonexistent_dir)
+        m = Manager(config_files=[], epochs=1, system_monitors={})
+        m._detect_runner_type(nonexistent_dir, None)
     
     error_msg = str(exc_info.value)
     assert "Unable to detect runner type" in error_msg
@@ -165,7 +174,8 @@ def test_detect_runner_type_fail_fast_with_config_info():
         
         # Should fail fast with assertion error since no 'runner' key
         with pytest.raises(AssertionError, match="Config must have 'runner' key"):
-            detect_runner_type(work_dir, config)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config)
 
 
 def test_detect_runner_type_epoch_0_exists_but_no_validation_scores():
@@ -179,7 +189,8 @@ def test_detect_runner_type_epoch_0_exists_but_no_validation_scores():
             f.write("content")
         
         with pytest.raises(ValueError) as exc_info:
-            detect_runner_type(work_dir)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, None)
         
         assert "Unable to detect runner type" in str(exc_info.value)
 
@@ -194,7 +205,8 @@ def test_detect_runner_type_invalid_config_runner_class():
         }
         
         with pytest.raises(ValueError) as exc_info:
-            detect_runner_type(work_dir, config)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config)
         
         assert "Unable to detect runner type" in str(exc_info.value)
 
@@ -209,7 +221,8 @@ def test_detect_runner_type_various_invalid_configs(config_variant):
         # Empty work directory
         
         with pytest.raises(ValueError) as exc_info:
-            detect_runner_type(work_dir, config_variant)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config_variant)
         
         assert "Unable to detect runner type" in str(exc_info.value)
 
@@ -223,7 +236,8 @@ def test_detect_runner_type_configs_missing_runner_key(config_variant):
         # Empty work directory
         
         with pytest.raises(AssertionError, match="Config must have 'runner' key"):
-            detect_runner_type(work_dir, config_variant)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config_variant)
 
 
 @pytest.mark.parametrize("config_variant", [
@@ -236,7 +250,8 @@ def test_detect_runner_type_configs_invalid_runner_type(config_variant):
         # Empty work directory
         
         with pytest.raises(AssertionError, match="Expected runner to be a class"):
-            detect_runner_type(work_dir, config_variant)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config_variant)
 
 
 def test_detect_runner_type_config_string_class_name():
@@ -247,4 +262,5 @@ def test_detect_runner_type_config_string_class_name():
         }
         
         with pytest.raises(AssertionError, match="Expected runner to be a class"):
-            detect_runner_type(work_dir, config)
+            m = Manager(config_files=[], epochs=1, system_monitors={})
+            m._detect_runner_type(work_dir, config)
