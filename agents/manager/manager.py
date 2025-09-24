@@ -5,6 +5,9 @@ from functools import partial
 from typing import Dict, List
 
 from agents.manager.base_job import BaseJob
+from agents.manager.training_job import TrainingJob
+from agents.manager.evaluation_job import EvaluationJob
+from utils.io.config import load_config
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.system_monitor import SystemMonitor
@@ -34,6 +37,45 @@ class Manager:
         self.outdated_days = outdated_days
         self.force_progress_recompute = force_progress_recompute
 
+    def _detect_runner_type(self, work_dir: str, config: dict | None) -> str:
+        """Detect runner type from work_dir structure or config.
+
+        Moved from tracker to manager without modification in logic.
+        """
+        import os
+        # Strategy 1: Check existing files (based on eval_viewer's proven approach)
+        # Check for BaseEvaluator pattern: evaluation_scores.json directly in work_dir
+        if os.path.exists(os.path.join(work_dir, "evaluation_scores.json")):
+            return 'evaluator'
+
+        # Check for BaseTrainer pattern: epoch folders with validation_scores.json
+        epoch_0_dir = os.path.join(work_dir, "epoch_0")
+        validation_scores_path = os.path.join(epoch_0_dir, "validation_scores.json")
+        if os.path.exists(epoch_0_dir) and os.path.exists(validation_scores_path):
+            return 'trainer'
+
+        # Strategy 2: Check config if available (additional context)
+        if config:
+            assert 'runner' in config, f"Config must have 'runner' key, got keys: {list(config.keys())}"
+            runner_config = config['runner']
+            # Enforce contract: runner config must be a direct class reference
+            assert isinstance(runner_config, type), (
+                f"Expected runner to be a class, got {type(runner_config)}: {runner_config}"
+            )
+            
+            # Infer by class name convention (kept identical to original behavior if any)
+            name = runner_config.__name__.lower()
+            if 'evaluat' in name:
+                return 'evaluator'
+            if 'train' in name:
+                return 'trainer'
+
+        # Fail fast if cannot determine
+        raise ValueError(
+            f"Unable to determine runner type for work_dir={work_dir!r}. "
+            f"Expected evaluator or trainer artifacts."
+        )
+
     def build_jobs(self) -> Dict[str, BaseJob]:
         """Build BaseJob instances for all configs."""
         all_connected_gpus = [
@@ -44,7 +86,13 @@ class Manager:
         config_to_process_info = self.build_config_to_process_mapping(all_connected_gpus)
 
         def _construct(config: str) -> BaseJob:
-            job = BaseJob(config)
+            work_dir = BaseJob.get_work_dir(config)
+            config_dict = load_config(config)
+            runner = self._detect_runner_type(work_dir, config_dict)
+            if runner == 'evaluator':
+                job: BaseJob = EvaluationJob(config)  # type: ignore[assignment]
+            else:
+                job = TrainingJob(config)  # type: ignore[assignment]
             job.populate(
                 epochs=self.epochs,
                 config_to_process_info=config_to_process_info,
