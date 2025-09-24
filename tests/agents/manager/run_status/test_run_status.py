@@ -256,7 +256,6 @@ def test_parse_config():
 
 def test_build_config_to_process_mapping():
     """Test building config to ProcessInfo mapping from GPU data."""
-    from utils.monitor.gpu_status import GPUStatus
     connected_gpus = [
         GPUStatus(
             server='test_server', index=0, max_memory=0,
@@ -395,7 +394,6 @@ def test_build_config_to_process_mapping_empty_gpu_data():
 
 def test_build_config_to_process_mapping_no_matching_processes():
     """Test building config mapping when no processes match pattern."""
-    from utils.monitor.gpu_status import GPUStatus
     connected_gpus = [
         GPUStatus(
             server='test_server', index=0, max_memory=0,
