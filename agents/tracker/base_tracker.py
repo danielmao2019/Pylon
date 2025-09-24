@@ -6,24 +6,7 @@ import os
 from utils.io.json import save_json
 
 
-@dataclass  
-class ProgressInfo:
-    """Simplified progress information focusing on progress tracking only."""
-    # REQUIRED: Existing fields (backward compatibility)
-    completed_epochs: int
-    progress_percentage: float
-    early_stopped: bool = False
-    early_stopped_at_epoch: Optional[int] = None
-    
-    # NEW: Runner type identification
-    runner_type: Literal['trainer', 'evaluator', 'multi_stage'] = 'trainer'
-    
-    # NEW: Enhanced metadata (but focused)
-    total_epochs: Optional[int] = None  # None for evaluators
-    
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization (backward compatibility)."""
-        return asdict(self)
+from agents.manager.progress_info import ProgressInfo
 
 
 class BaseTracker(ABC):

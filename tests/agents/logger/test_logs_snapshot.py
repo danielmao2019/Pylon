@@ -9,7 +9,7 @@ import pytest
 from agents.logger import LogsSnapshot
 from agents.monitor.system_monitor import SystemMonitor
 from agents.manager import BaseJob, Manager
-from agents.tracker.base_tracker import ProgressInfo
+from agents.manager.progress_info import ProgressInfo
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.gpu_status import GPUStatus
 from utils.io.json import serialize_object

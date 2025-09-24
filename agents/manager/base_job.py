@@ -6,7 +6,7 @@ import time
 from typing import Dict, List, Literal, Optional
 
 from agents.monitor.process_info import ProcessInfo
-from agents.tracker import ProgressInfo, create_tracker
+from agents.manager.progress_info import ProgressInfo
 from utils.io.config import load_config
 
 
@@ -35,6 +35,8 @@ class BaseJob:
         work_dir = self.get_work_dir(self.config)
         config_dict = load_config(self.config)
 
+        # NOTE: Temporarily keep using tracker until jobs are moved.
+        from agents.tracker.tracker_factory import create_tracker  # local import to avoid module-level deps
         tracker = create_tracker(work_dir, config_dict)
         progress = tracker.get_progress(force_progress_recompute=force_progress_recompute)
 

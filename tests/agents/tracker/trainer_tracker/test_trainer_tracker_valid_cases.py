@@ -10,7 +10,7 @@ import os
 import tempfile
 import json
 import pytest
-from agents.tracker import ProgressInfo
+from agents.manager.progress_info import ProgressInfo
 from agents.tracker.trainer_tracker import TrainerTracker
 
 # ============================================================================

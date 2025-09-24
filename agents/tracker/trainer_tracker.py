@@ -1,5 +1,6 @@
 from typing import List, Literal
-from agents.tracker.base_tracker import BaseTracker, ProgressInfo
+from agents.tracker.base_tracker import BaseTracker
+from agents.manager.progress_info import ProgressInfo
 
 
 class TrainerTracker(BaseTracker):

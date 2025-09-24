@@ -12,7 +12,7 @@ import os
 import tempfile
 import pytest
 from agents.manager import BaseJob, Manager
-from agents.tracker import ProgressInfo
+from agents.manager.progress_info import ProgressInfo
 
 
 # ============================================================================

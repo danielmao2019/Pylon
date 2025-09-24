@@ -1,6 +1,7 @@
 from typing import List, Literal
 import os
-from agents.tracker.base_tracker import BaseTracker, ProgressInfo
+from agents.tracker.base_tracker import BaseTracker
+from agents.manager.progress_info import ProgressInfo
 
 
 class EvaluatorTracker(BaseTracker):

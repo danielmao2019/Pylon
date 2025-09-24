@@ -15,7 +15,7 @@ import pytest
 from agents.manager import BaseJob, Manager
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
-from agents.tracker import ProgressInfo
+from agents.manager.progress_info import ProgressInfo
 
 
 # ============================================================================
