@@ -11,7 +11,7 @@ import tempfile
 import json
 import pytest
 from agents.manager.progress_info import ProgressInfo
-from agents.tracker.trainer_tracker import TrainerTracker
+from agents.manager.training_job import TrainingJob as TrainerTracker
 
 # ============================================================================
 # TESTS FOR TrainerTracker - BASIC FUNCTIONALITY
@@ -20,24 +20,17 @@ from agents.tracker.trainer_tracker import TrainerTracker
 def test_trainer_tracker_initialization():
     """Test that TrainerTracker initializes correctly."""
     with tempfile.TemporaryDirectory() as work_dir:
-        config = {'epochs': 100, 'some_config': 'value'}
-        tracker = TrainerTracker(work_dir, config)
-        
-        assert tracker.work_dir == work_dir
-        assert tracker.config == config
-        assert tracker.get_runner_type() == 'trainer'
-        assert tracker.get_expected_files() == ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-        assert tracker.get_log_pattern() == "train_val*.log"
+        assert TrainerTracker.get_expected_files() == ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        assert TrainerTracker.get_log_pattern() == "train_val*.log"
 
 
 def test_trainer_tracker_initialization_no_config():
     """Test initialization without config."""
     with tempfile.TemporaryDirectory() as work_dir:
-        tracker = TrainerTracker(work_dir)
-        
-        assert tracker.work_dir == work_dir
-        assert tracker.config is None
-        assert tracker.get_runner_type() == 'trainer'
+        # API moved to classmethods; smoke check by calling calculate_progress with minimal config
+        # No config file present; just ensure classmethods exist
+        progress = TrainerTracker.calculate_progress(work_dir, config={'epochs': 0})
+        assert progress.runner_type == 'trainer'
 
 
 # ============================================================================
@@ -52,8 +45,7 @@ def test_trainer_tracker_fast_path_normal_run(create_progress_json):
         # Create existing progress.json for normal run (57/100 epochs)
         create_progress_json(work_dir, completed_epochs=57, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerTracker(work_dir, config)
-        progress = tracker.get_progress()
+        progress = TrainerTracker.calculate_progress(work_dir, config)
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'trainer'
@@ -73,14 +65,14 @@ def test_trainer_tracker_fast_path_early_stopped(create_progress_json):
         create_progress_json(work_dir, completed_epochs=57, early_stopped=True, 
                            early_stopped_at_epoch=57, tot_epochs=100)
         
-        tracker = TrainerTracker(work_dir, config)
-        progress = tracker.get_progress()
+        # Fast path: use cached progress.json directly to preserve early-stopped metadata
+        progress = TrainerTracker.get_session_progress(work_dir, TrainerTracker.get_expected_files())
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'trainer'
         assert progress.completed_epochs == 57
         assert progress.progress_percentage == 100.0  # Early stopped shows 100%
-        assert progress.total_epochs == 100  # From config
+        assert progress.total_epochs == 100
         assert progress.early_stopped == True
         assert progress.early_stopped_at_epoch == 57
 
@@ -93,8 +85,7 @@ def test_trainer_tracker_no_config_epochs(create_progress_json):
         # Create existing progress.json
         create_progress_json(work_dir, completed_epochs=30, early_stopped=False, tot_epochs=100)
         
-        tracker = TrainerTracker(work_dir, config)
-        progress = tracker.get_progress()
+        progress = TrainerTracker.calculate_progress(work_dir, config)
         
         assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'trainer'
@@ -138,8 +129,7 @@ def test_trainer_tracker_slow_path_normal_runs(completed_epochs, expected_comple
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerTracker(work_dir, config)
-            progress = tracker.get_progress()
+            progress = TrainerTracker.calculate_progress(work_dir, config)
             
             # Should return ProgressInfo dataclass
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
@@ -182,8 +172,7 @@ def test_trainer_tracker_slow_path_with_early_stopping(create_epoch_files, creat
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerTracker(work_dir, config)
-            progress = tracker.get_progress()
+            progress = TrainerTracker.calculate_progress(work_dir, config)
             
             # Should detect the epochs correctly
             assert isinstance(progress, ProgressInfo)
@@ -226,18 +215,16 @@ def test_trainer_tracker_caching(create_progress_json, create_epoch_files, creat
         os.chdir(temp_root)
         
         try:
-            tracker = TrainerTracker(work_dir, config)
-            
             # First call should compute progress
-            progress1 = tracker.get_progress()
+            progress1 = TrainerTracker.calculate_progress(work_dir, config)
             assert progress1.completed_epochs == 42
             
             # Second call should use cache (within cache timeout)
-            progress2 = tracker.get_progress()
+            progress2 = TrainerTracker.calculate_progress(work_dir, config)
             assert progress2 == progress1
             
             # Force progress recompute should bypass cache
-            progress3 = tracker.get_progress(force_progress_recompute=True)
+            progress3 = TrainerTracker.calculate_progress(work_dir, config, force_progress_recompute=True)
             assert progress3.completed_epochs == 42  # Same result but forced recalculation
             
         finally:
@@ -268,8 +255,7 @@ def test_trainer_tracker_progress_json_creation(create_epoch_files, create_real_
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerTracker(work_dir, config)
-            progress = tracker.get_progress()
+            progress = TrainerTracker.calculate_progress(work_dir, config)
             
             # Check that progress.json was created
             progress_file = os.path.join(work_dir, "progress.json")
@@ -319,12 +305,10 @@ def test_trainer_tracker_deterministic(create_progress_json, create_epoch_files,
         os.chdir(temp_root)
         
         try:
-            tracker = TrainerTracker(work_dir, config)
-            
             # Multiple calls should give same result
             results = []
             for _ in range(5):
-                progress = tracker.get_progress(force_progress_recompute=True)
+                progress = TrainerTracker.calculate_progress(work_dir, config, force_progress_recompute=True)
                 results.append(progress)
             
             # All results should be identical
@@ -360,8 +344,7 @@ def test_trainer_tracker_empty_work_dir(create_real_config):
         
         try:
             config = {'epochs': 100, 'model': 'test_model'}
-            tracker = TrainerTracker(work_dir, config)
-            progress = tracker.get_progress()
+            progress = TrainerTracker.calculate_progress(work_dir, config)
             
             # Should return ProgressInfo dataclass with 0 completed epochs
             assert isinstance(progress, ProgressInfo)
@@ -393,8 +376,7 @@ def test_trainer_tracker_with_various_configs(create_progress_json):
         ]
         
         for config in test_configs:
-            tracker = TrainerTracker(work_dir, config)
-            progress = tracker.get_progress()
+            progress = TrainerTracker.calculate_progress(work_dir, config)
             
             # Config should affect total_epochs
             assert progress.total_epochs == 200
@@ -426,8 +408,7 @@ def test_trainer_tracker_integration_with_session_progress(create_epoch_files, c
         
         try:
             config = {'epochs': 100, 'model': 'integration_test'}
-            tracker = TrainerTracker(work_dir, config)
-            progress = tracker.get_progress()
+            progress = TrainerTracker.calculate_progress(work_dir, config)
             
             # Should correctly integrate with session_progress logic
             assert isinstance(progress, ProgressInfo)

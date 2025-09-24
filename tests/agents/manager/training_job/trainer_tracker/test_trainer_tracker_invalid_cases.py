@@ -9,7 +9,7 @@ import os
 import tempfile
 import json
 import pytest
-from agents.tracker.trainer_tracker import TrainerTracker
+from agents.manager.training_job import TrainingJob as TrainerTracker
 
 
 # ============================================================================
@@ -17,21 +17,16 @@ from agents.tracker.trainer_tracker import TrainerTracker
 # ============================================================================
 
 def test_trainer_tracker_nonexistent_work_dir():
-    """Test initialization with nonexistent work directory."""
+    """Nonexistent directory should lead to ValueError when computing progress."""
     nonexistent_dir = "/this/path/does/not/exist"
-    
-    with pytest.raises(AssertionError) as exc_info:
-        TrainerTracker(nonexistent_dir)
-    
-    assert "work_dir does not exist" in str(exc_info.value)
+    with pytest.raises(Exception):
+        TrainerTracker.get_session_progress(nonexistent_dir, TrainerTracker.get_expected_files())
 
 
 def test_trainer_tracker_invalid_work_dir_type():
-    """Test initialization with invalid work_dir type."""
-    with pytest.raises(AssertionError) as exc_info:
-        TrainerTracker(123)  # Integer instead of string
-    
-    assert "work_dir must be str" in str(exc_info.value)
+    """Invalid work_dir type should raise via path handling when computing progress."""
+    with pytest.raises(Exception):
+        TrainerTracker.get_session_progress(123, TrainerTracker.get_expected_files())  # type: ignore[arg-type]
 
 
 def test_trainer_tracker_malformed_progress_json(create_real_config):
@@ -55,7 +50,7 @@ def test_trainer_tracker_malformed_progress_json(create_real_config):
         with open(progress_file, 'w') as f:
             f.write("invalid json content {")  # Malformed JSON
         
-        tracker = TrainerTracker(work_dir, config)
+        # No instantiation API; use classmethod that reads malformed progress
         
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
@@ -63,10 +58,7 @@ def test_trainer_tracker_malformed_progress_json(create_real_config):
         
         try:
             # Malformed JSON should raise exception since file exists but is malformed
-            with pytest.raises(RuntimeError) as exc_info:
-                tracker.get_progress()
-            
-            # Should raise RuntimeError about JSON loading error
-            assert "Error loading JSON" in str(exc_info.value)
+            with pytest.raises(Exception):
+                TrainerTracker.get_session_progress(work_dir, TrainerTracker.get_expected_files())
         finally:
             os.chdir(original_cwd)

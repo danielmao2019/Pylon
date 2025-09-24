@@ -186,7 +186,7 @@ def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPEC
         os.chdir(temp_root)
         
         try:
-            progress = get_session_progress(work_dir, expected_files)
+            progress = TrainingJob.get_session_progress(work_dir, expected_files)
             
             # Should return ProgressInfo dataclass with 0 completed epochs
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
