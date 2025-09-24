@@ -128,7 +128,7 @@ def test_get_job_status_with_process_info(create_epoch_files, create_real_config
     ("failed", "failed"),        # No log updates, not on GPU
 ])
 def test_job_status_determination(status_scenario, expected_status, create_epoch_files, create_real_config):
-    """Test different run status determination scenarios with realistic data."""
+    """Test different job status determination scenarios with realistic data."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")

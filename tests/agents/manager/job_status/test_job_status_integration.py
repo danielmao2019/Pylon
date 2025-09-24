@@ -116,7 +116,7 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
                 assert hasattr(job_status.progress, 'early_stopped')
                 assert hasattr(job_status.progress, 'progress_percentage')
                 
-                # Verify status determination is working
+                # Verify job status determination is working
                 assert job_status.status in ["running", "finished", "failed", "stuck", "outdated"]
                 
                 # Verify config and work_dir are correctly populated
