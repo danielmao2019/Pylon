@@ -9,7 +9,7 @@ from utils.timeout import with_timeout
 class CPUMonitor(BaseMonitor[CPUStatus]):
     """Monitor CPU utilisation for a single server."""
 
-    def __init__(self, server: str, timeout: int = 5, window_size: int = 10):
+    def __init__(self, server: str = 'localhost', timeout: int = 5, window_size: int = 10):
         self.server = server
         self.window_size = window_size
         self.status: CPUStatus

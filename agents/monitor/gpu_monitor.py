@@ -11,7 +11,7 @@ from utils.timeout import with_timeout
 class GPUMonitor(BaseMonitor[GPUStatus]):
     """Monitor utilisation for a single GPU on a server."""
 
-    def __init__(self, server: str, index: int, timeout: int = 5, window_size: int = 10):
+    def __init__(self, server: str = 'localhost', index: Optional[int] = None, timeout: int = 5, window_size: int = 10):
         self.server = server
         self.index = index
         self.window_size = window_size
