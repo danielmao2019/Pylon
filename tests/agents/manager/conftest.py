@@ -1,5 +1,6 @@
 """
 Manager module fixtures shared across tests. No imports from this file; use fixtures via parameters only.
+"""
 
 import os
 import json
@@ -98,11 +99,7 @@ def touch_log():
         return log_path
     return _touch
 
-"""
 from typing import Optional
-import os
-import json
-import pytest
 import torch
 from utils.io.json import save_json
 
