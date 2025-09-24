@@ -1,6 +1,6 @@
 import os
 import pytest
-from agents.agent_log_parser import AgentLogParser
+from agents.logger import AgentLogParser
 
 
 # ============================================================================
