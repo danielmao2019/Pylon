@@ -72,7 +72,7 @@ class DefaultJob(BaseJob, ABC):
     # 
     # ====================================================================================================
 
-    def compute_status(self, *, progress: ProgressInfo) -> _JobStatus:
+    def compute_status(self, progress: ProgressInfo) -> _JobStatus:
         runtime = self.runtime
         log_last_update = self.get_log_last_update()
         artifact_last_update = self.get_artifact_last_update()

@@ -50,7 +50,7 @@ class BaseJob(ABC):
         """Return up-to-date progress information for the job."""
 
     @abstractmethod
-    def compute_status(self, *, progress: ProgressInfo) -> str:
+    def compute_status(self, progress: ProgressInfo) -> str:
         """Determine high-level status (e.g. running/finished/failed)."""
 
     def describe(self) -> str:
