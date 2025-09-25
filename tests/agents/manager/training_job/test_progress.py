@@ -1,18 +1,19 @@
 """
-New progress API test suite for agents.manager module.
+TrainingJob progress API scenarios migrated from the shared manager suite.
 
-Covers only the implemented source API:
-- TrainingJob: get_progress, _check_epoch_finished, _check_file_loadable
+Covers:
+- TrainingJob.get_progress fast-path and epoch counting
+- TrainingJob._check_epoch_finished and _check_file_loadable helpers
 """
+import json
 import os
 import tempfile
-import json
+
 import torch
 
 from agents.manager.training_job import TrainingJob
 from agents.manager.progress_info import ProgressInfo
 
-# ---------------- TrainingJob progress API ----------------
 
 def test_trainingjob_fast_path_uses_progress_json(create_progress_json):
     with tempfile.TemporaryDirectory() as root:
@@ -77,12 +78,11 @@ def test_trainingjob_check_epoch_finished_and_file_loadable(tmp_path):
     epoch_dir = tmp_path / "epoch_0"
     epoch_dir.mkdir(parents=True, exist_ok=True)
     # create expected files
-    (epoch_dir / "training_losses.pt").write_bytes(b"\x80")  # will overwrite below with real tensor
+    (epoch_dir / "training_losses.pt").write_bytes(b"\x80")  # overwritten with tensor below
     (epoch_dir / "optimizer_buffer.json").write_text(json.dumps({"lr": 1e-3}))
     (epoch_dir / "validation_scores.json").write_text(json.dumps({"acc": 0.9}))
     torch.save({"loss": torch.tensor([1.0, 0.5])}, epoch_dir / "training_losses.pt")
 
     assert TrainingJob._check_file_loadable(str(epoch_dir / "validation_scores.json"))
     assert TrainingJob._check_file_loadable(str(epoch_dir / "training_losses.pt"))
-
     assert TrainingJob._check_epoch_finished(str(epoch_dir), TrainingJob.EXPECTED_FILES)
