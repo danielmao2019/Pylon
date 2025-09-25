@@ -5,11 +5,8 @@ These tests validate that the progress system handles multiple
 processes/threads accessing progress files simultaneously without corruption
 or race conditions.
 """
-import pytest
 import tempfile
-import threading
 import time
-import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from agents.manager.training_job import TrainingJob
