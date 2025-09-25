@@ -17,7 +17,7 @@ from agents.manager.training_job import TrainingJob
 # ============================================================================
 
 def test_empty_progress_json_file_detection(create_real_config):
-    """Test that empty progress.json files raise exceptions."""
+    """Empty progress.json should trigger recompute and yield zero progress."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
@@ -42,10 +42,13 @@ def test_empty_progress_json_file_detection(create_real_config):
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            with pytest.raises(RuntimeError, match="Error loading JSON.*File is empty"):
-                TrainingJob("./configs/empty.py").get_progress()
+            progress = TrainingJob("./configs/empty.py").get_progress()
         finally:
             os.chdir(cwd)
+
+        assert progress.completed_epochs == 0
+        assert progress.progress_percentage == 0.0
+        assert os.path.getsize(progress_file) > 0
 
 
 def test_non_empty_progress_json_loading(create_real_config):
@@ -97,7 +100,7 @@ def test_non_empty_progress_json_loading(create_real_config):
 
 
 def test_malformed_progress_json_error_handling(create_real_config):
-    """Test that malformed progress.json files raise appropriate errors."""
+    """Malformed progress.json should be handled by recomputing progress."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
         logs_dir = os.path.join(temp_root, "logs")
@@ -127,14 +130,12 @@ def test_malformed_progress_json_error_handling(create_real_config):
         os.chdir(temp_root)
         
         try:
-            # Malformed JSON should raise an exception since file exists but is malformed
-            with pytest.raises(RuntimeError) as exc_info:
-                TrainingJob("./configs/test_malformed.py").get_progress()
-            
-            # Should raise RuntimeError about JSON loading error
-            assert "Error loading JSON" in str(exc_info.value)
+            progress = TrainingJob("./configs/test_malformed.py").get_progress()
         finally:
             os.chdir(original_cwd)
+
+        assert progress.completed_epochs == 0
+        assert os.path.getsize(progress_file) > 0
 
 
 # ============================================================================
@@ -206,15 +207,14 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
             os.rename(empty_file, progress_file)
             
             # Should raise RuntimeError from load_json about empty file
-            with pytest.raises(RuntimeError, match="Error loading JSON.*File is empty"):
-                job.get_progress()
+            progress_empty = job.get_progress()
+            assert progress_empty.completed_epochs == 0
             
             # Whitespace file - should raise exception since file exists but is malformed JSON
             os.rename(progress_file, empty_file)  # Move back
             os.rename(whitespace_file, progress_file)
             
-            with pytest.raises(RuntimeError) as exc_info:
-                job.get_progress()
-            assert "Error loading JSON" in str(exc_info.value)
+            progress_whitespace = job.get_progress()
+            assert progress_whitespace.completed_epochs == 0
         finally:
             os.chdir(original_cwd)
