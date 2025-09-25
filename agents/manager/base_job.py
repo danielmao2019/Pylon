@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Dict, Literal, Optional
 from abc import ABC, abstractmethod
+from typing import Dict, Literal, Optional
 
-from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.progress_info import ProgressInfo
 from agents.monitor.process_info import ProcessInfo
 from utils.io.config import load_config
@@ -88,7 +87,7 @@ class BaseJob(ABC):
             log_last_update is not None and (time.time() - log_last_update <= sleep_time)
         )
 
-        if isinstance(self, EvaluationJob):
+        if self.__class__.__name__ == 'EvaluationJob':
             is_complete = self.progress.completed_epochs >= 1
         else:
             is_complete = (
