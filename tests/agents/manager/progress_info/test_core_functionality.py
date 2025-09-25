@@ -21,40 +21,69 @@ from agents.manager.progress_info import ProgressInfo
 # TESTS FOR get_session_progress (NO MOCKS - PURE FUNCTIONS)
 # ============================================================================
 
-def test_get_session_progress_fast_path_normal_run(create_progress_json, EXPECTED_FILES):
+def test_get_session_progress_fast_path_normal_run(create_progress_json, create_real_config, EXPECTED_FILES):
     """Test fast path with progress.json for normal (non-early stopped) run."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        expected_files = EXPECTED_FILES
-        
+    with tempfile.TemporaryDirectory() as temp_root:
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "fast_normal")
+        os.makedirs(work_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
         # Create progress.json for normal run (57/100 epochs)
         create_progress_json(work_dir, completed_epochs=57, early_stopped=False, tot_epochs=100)
-        
-        progress = TrainingJob.get_session_progress(work_dir, expected_files)
-        
+
+        config_path = os.path.join(configs_dir, "fast_normal.py")
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+
+        cwd = os.getcwd()
+        os.chdir(temp_root)
+        try:
+            progress = TrainingJob("./configs/fast_normal.py").get_progress()
+        finally:
+            os.chdir(cwd)
+
         # Should return ProgressInfo dataclass
         assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
         assert progress.completed_epochs == 57
         assert abs(progress.progress_percentage - 57.0) < 0.01  # Handle floating point precision
-        assert progress.early_stopped == False
+        assert progress.early_stopped is False
         assert progress.early_stopped_at_epoch is None
 
 
-def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, EXPECTED_FILES):
+def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, create_real_config, EXPECTED_FILES):
     """Test fast path with progress.json for early stopped run."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        expected_files = EXPECTED_FILES
-        
+    with tempfile.TemporaryDirectory() as temp_root:
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "fast_early")
+        os.makedirs(work_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
         # Create progress.json for early stopped run
-        create_progress_json(work_dir, completed_epochs=57, early_stopped=True, 
-                           early_stopped_at_epoch=57, tot_epochs=100)
-        
-        progress = TrainingJob.get_session_progress(work_dir, expected_files)
-        
+        create_progress_json(
+            work_dir,
+            completed_epochs=57,
+            early_stopped=True,
+            early_stopped_at_epoch=57,
+            tot_epochs=100,
+        )
+
+        config_path = os.path.join(configs_dir, "fast_early.py")
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=True)
+
+        cwd = os.getcwd()
+        os.chdir(temp_root)
+        try:
+            progress = TrainingJob("./configs/fast_early.py").get_progress()
+        finally:
+            os.chdir(cwd)
+
         # Should return ProgressInfo dataclass
         assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
         assert progress.completed_epochs == 57
         assert progress.progress_percentage == 100.0  # Early stopped shows 100%
-        assert progress.early_stopped == True
+        assert progress.early_stopped is True
         assert progress.early_stopped_at_epoch == 57
 
 
@@ -85,13 +114,15 @@ def test_get_session_progress_force_progress_recompute(create_progress_json, cre
         os.chdir(temp_root)
         
         try:
+            job = TrainingJob("./configs/test_force_recompute.py")
+
             # Normal call should use cached progress.json
-            progress_cached = TrainingJob.get_session_progress(work_dir, expected_files, force_progress_recompute=False)
+            progress_cached = job.get_progress(force_progress_recompute=False)
             assert progress_cached.completed_epochs == 2  # From cached progress.json
             assert progress_cached.progress_percentage == 2.0
             
             # Force recompute should bypass cache and recompute from filesystem
-            progress_recomputed = TrainingJob.get_session_progress(work_dir, expected_files, force_progress_recompute=True)
+            progress_recomputed = job.get_progress(force_progress_recompute=True)
             assert progress_recomputed.completed_epochs == 5  # From actual filesystem
             assert progress_recomputed.progress_percentage == 5.0
             assert progress_recomputed.early_stopped == False
@@ -132,7 +163,8 @@ def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_c
         os.chdir(temp_root)
         
         try:
-            progress = TrainingJob.get_session_progress(work_dir, expected_files)
+            job = TrainingJob("./configs/test_normal_run.py")
+            progress = job.get_progress()
             
             # Should return ProgressInfo dataclass
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
@@ -148,20 +180,29 @@ def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_c
             os.chdir(original_cwd)
 
 
-def test_get_session_progress_deterministic(create_progress_json, EXPECTED_FILES):
+def test_get_session_progress_deterministic(create_progress_json, create_real_config, EXPECTED_FILES):
     """Test that progress calculation is deterministic across multiple calls."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        expected_files = EXPECTED_FILES
-        
-        # Create progress.json
+    with tempfile.TemporaryDirectory() as temp_root:
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "deterministic")
+        os.makedirs(work_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
         create_progress_json(work_dir, completed_epochs=42, early_stopped=False)
-        
-        # Run multiple times and verify same result
+        config_path = os.path.join(configs_dir, "deterministic.py")
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+
         results = []
-        for _ in range(3):
-            progress = TrainingJob.get_session_progress(work_dir, expected_files)
-            results.append(progress)
-        
+        cwd = os.getcwd()
+        os.chdir(temp_root)
+        try:
+            for _ in range(3):
+                progress = TrainingJob("./configs/deterministic.py").get_progress()
+                results.append(progress)
+        finally:
+            os.chdir(cwd)
+
         assert all(r == results[0] for r in results), f"Results not deterministic: {results}"
         assert results[0].completed_epochs == 42
 
@@ -186,7 +227,7 @@ def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPEC
         os.chdir(temp_root)
         
         try:
-            progress = TrainingJob.get_session_progress(work_dir, expected_files)
+            progress = TrainingJob("./configs/test_empty.py").get_progress()
             
             # Should return ProgressInfo dataclass with 0 completed epochs
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"

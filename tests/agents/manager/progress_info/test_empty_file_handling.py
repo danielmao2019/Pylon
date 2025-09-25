@@ -16,58 +16,81 @@ from agents.manager.training_job import TrainingJob
 # EDGE CASE TESTS - EMPTY FILE HANDLING
 # ============================================================================
 
-def test_empty_progress_json_file_detection():
+def test_empty_progress_json_file_detection(create_real_config):
     """Test that empty progress.json files raise exceptions."""
-    with tempfile.TemporaryDirectory() as work_dir:
+    with tempfile.TemporaryDirectory() as temp_root:
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "empty")
+        os.makedirs(work_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
         # Create empty progress.json file
         progress_file = os.path.join(work_dir, "progress.json")
         with open(progress_file, 'w') as f:
             pass  # Create empty file
-        
+
         # Verify the file exists and is empty
         assert os.path.exists(progress_file)
         assert os.path.getsize(progress_file) == 0
-        
-        # Test that get_session_progress raises exception for empty file
-        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-        
+
+        # Create minimal config so TrainingJob can be instantiated
+        config_path = os.path.join(configs_dir, "empty.py")
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+
         # Should raise RuntimeError from load_json about empty file
-        with pytest.raises(RuntimeError, match="Error loading JSON.*File is empty"):
-            TrainingJob.get_session_progress(work_dir, expected_files)
+        cwd = os.getcwd()
+        os.chdir(temp_root)
+        try:
+            with pytest.raises(RuntimeError, match="Error loading JSON.*File is empty"):
+                TrainingJob("./configs/empty.py").get_progress()
+        finally:
+            os.chdir(cwd)
 
 
-def test_non_empty_progress_json_loading():
+def test_non_empty_progress_json_loading(create_real_config):
     """Test that non-empty progress.json files are loaded correctly."""
-    with tempfile.TemporaryDirectory() as work_dir:
+    with tempfile.TemporaryDirectory() as temp_root:
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "non_empty")
+        os.makedirs(work_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
         # Create valid progress.json file with content
         progress_file = os.path.join(work_dir, "progress.json")
-        
+
         test_data = {
             "completed_epochs": 5,
             "progress_percentage": 50.0,
             "early_stopped": False,
             "early_stopped_at_epoch": None,
             "runner_type": "trainer",
-            "total_epochs": 10
+            "total_epochs": 10,
         }
-        
+
         with open(progress_file, 'w') as f:
             json.dump(test_data, f)
-        
+
         # Verify the file exists and has content
         assert os.path.exists(progress_file)
         assert os.path.getsize(progress_file) > 0
-        
-        # Test that get_session_progress loads the file correctly
-        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-        
-        # This should successfully load from the JSON file without trying to recompute
-        progress = TrainingJob.get_session_progress(work_dir, expected_files)
-        
+
+        # Create minimal config so TrainingJob can be instantiated
+        config_path = os.path.join(configs_dir, "non_empty.py")
+        create_real_config(config_path, work_dir, epochs=10, early_stopping_enabled=False)
+
+        cwd = os.getcwd()
+        os.chdir(temp_root)
+        try:
+            progress = TrainingJob("./configs/non_empty.py").get_progress()
+        finally:
+            os.chdir(cwd)
+
         # Verify the loaded data matches what we saved
         assert progress.completed_epochs == 5
         assert progress.progress_percentage == 50.0
-        assert progress.early_stopped == False
+        assert progress.early_stopped is False
         assert progress.early_stopped_at_epoch is None
         assert progress.runner_type == "trainer"
         assert progress.total_epochs == 10
@@ -106,7 +129,7 @@ def test_malformed_progress_json_error_handling(create_real_config):
         try:
             # Malformed JSON should raise an exception since file exists but is malformed
             with pytest.raises(RuntimeError) as exc_info:
-                TrainingJob.get_session_progress(work_dir, expected_files)
+                TrainingJob("./configs/test_malformed.py").get_progress()
             
             # Should raise RuntimeError about JSON loading error
             assert "Error loading JSON" in str(exc_info.value)
@@ -177,20 +200,21 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
         os.chdir(temp_root)
         
         try:
+            job = TrainingJob("./configs/test_whitespace.py")
             # Empty file - should raise exception since file exists but is empty
             progress_file = os.path.join(work_dir, "progress.json")
             os.rename(empty_file, progress_file)
             
             # Should raise RuntimeError from load_json about empty file
             with pytest.raises(RuntimeError, match="Error loading JSON.*File is empty"):
-                TrainingJob.get_session_progress(work_dir, expected_files)
+                job.get_progress()
             
             # Whitespace file - should raise exception since file exists but is malformed JSON
             os.rename(progress_file, empty_file)  # Move back
             os.rename(whitespace_file, progress_file)
             
             with pytest.raises(RuntimeError) as exc_info:
-                TrainingJob.get_session_progress(work_dir, expected_files)
+                job.get_progress()
             assert "Error loading JSON" in str(exc_info.value)
         finally:
             os.chdir(original_cwd)

@@ -9,20 +9,36 @@ from agents.manager.evaluation_job import EvaluationJob
 
 
 def test_evaluationjob_incomplete_and_complete():
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Incomplete
-        job = object.__new__(EvaluationJob)
-        job.work_dir = work_dir
-        p0 = job.get_progress()
-        assert p0.completed_epochs == 0
-        assert p0.progress_percentage == 0.0
+    with tempfile.TemporaryDirectory() as temp_root:
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "eval_case")
+        config_path = os.path.join(configs_dir, "eval_case.py")
 
-        # Complete
-        with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
-            json.dump({"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f)
-        p1 = job.get_progress()
-        assert p1.completed_epochs == 1
-        assert p1.progress_percentage == 100.0
+        os.makedirs(work_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
+        with open(config_path, 'w', encoding='utf-8') as f:
+            f.write("config = {}\n")
+
+        cwd = os.getcwd()
+        os.chdir(temp_root)
+        try:
+            job = EvaluationJob("./configs/eval_case.py")
+
+            # Incomplete
+            p0 = job.get_progress()
+            assert p0.completed_epochs == 0
+            assert p0.progress_percentage == 0.0
+
+            # Complete
+            with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
+                json.dump({"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f)
+            p1 = job.get_progress()
+            assert p1.completed_epochs == 1
+            assert p1.progress_percentage == 100.0
+        finally:
+            os.chdir(cwd)
 
 
 def test_evaluationjob_check_files_exist():

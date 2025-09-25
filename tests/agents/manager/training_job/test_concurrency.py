@@ -197,6 +197,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
         
         try:
             results = []
+            rel_config = "./configs/test_concurrent_writers.py"
             
             def tracker_writer_thread(thread_id):
                 """Each thread simulates a progress updater writing progress.json."""
@@ -210,7 +211,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
                         create_epoch_files(work_dir, epoch_idx)
                     
                     # Use TrainingJob to compute and save progress
-                    job = TrainingJob(config_path)
+                    job = TrainingJob(rel_config)
                     progress = job.get_progress(force_progress_recompute=True)
                     
                     results.append((thread_id, update_round, progress.completed_epochs))
@@ -250,65 +251,56 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
 # CONCURRENCY TESTS - CACHE INVALIDATION RACES
 # ============================================================================
 
-def test_cache_invalidation_race_conditions(create_progress_json):
+def test_cache_invalidation_race_conditions(create_progress_json, create_real_config):
     """Test cache invalidation when multiple trackers access same file."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Create initial progress.json
+    with tempfile.TemporaryDirectory() as temp_root:
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "cache_invalidation")
+        config_path = os.path.join(configs_dir, "cache_invalidation.py")
+
+        os.makedirs(work_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
         create_progress_json(work_dir, completed_epochs=5, early_stopped=False, tot_epochs=100)
-        
-        # Create job class references (cache resides in files)
-        trackers = [TrainingJob for _ in range(3)]
-        
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+
         results = []
-        
+        rel_config = "./configs/cache_invalidation.py"
+
         def cache_and_read(tracker_id):
-            job_cls = trackers[tracker_id]
-            
-            # First read - should cache
-            progress1 = job_cls.get_session_progress(work_dir, TrainingJob.get_expected_files())
-            results.append(("first_read", tracker_id, progress1.completed_epochs))
-            
-            # Small delay to let other threads potentially update the file
-            time.sleep(0.05)
-            
-            # Second read - should use cache unless invalidated
-            progress2 = job_cls.get_session_progress(work_dir, TrainingJob.get_expected_files())
-            results.append(("second_read", tracker_id, progress2.completed_epochs))
-            
-            # Skip force recompute for this test to avoid config path issues
-            # The test focuses on cache behavior, not force recompute
-        
+            cwd = os.getcwd()
+            os.chdir(temp_root)
+            try:
+                job = TrainingJob(rel_config)
+                progress1 = job.get_progress()
+                results.append(("first_read", tracker_id, progress1.completed_epochs))
+
+                time.sleep(0.05)
+
+                progress2 = job.get_progress()
+                results.append(("second_read", tracker_id, progress2.completed_epochs))
+            finally:
+                os.chdir(cwd)
+
         def file_updater():
-            # Update the file while trackers are reading
             time.sleep(0.02)
             create_progress_json(work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100)
             time.sleep(0.02)
             create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
-        
-        # Run concurrent cache operations and file updates
+
         with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = []
-            # Start reader/writer threads
-            for i in range(3):
-                futures.append(executor.submit(cache_and_read, i))
-            # Start file updater
+            futures = [executor.submit(cache_and_read, i) for i in range(3)]
             futures.append(executor.submit(file_updater))
-            
-            # Wait for all to complete
             for future in as_completed(futures):
                 future.result()
-        
-        # Analyze results - should not have any errors/exceptions
+
         assert len(results) > 0
-        
-        # Group results by reader id
+
         tracker_results = {}
         for operation, tracker_id, epochs in results:
-            if tracker_id not in tracker_results:
-                tracker_results[tracker_id] = []
-            tracker_results[tracker_id].append((operation, epochs))
-        
-        # Each reader should have completed read operations
+            tracker_results.setdefault(tracker_id, []).append((operation, epochs))
+
         for tracker_id in range(3):
             assert tracker_id in tracker_results
             ops = [op for op, _ in tracker_results[tracker_id]]
@@ -345,12 +337,19 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
         
         try:
             results = []
-            
+            rel_config = "./configs/test_concurrent_force.py"
+
             def force_recompute_thread(thread_id):
-                for i in range(3):
-                    progress = TrainingJob.get_progress(work_dir, expected_files, force_progress_recompute=True)
-                    results.append((thread_id, i, progress.completed_epochs))
-                    time.sleep(0.01)  # Small delay to increase interleaving
+                cwd = os.getcwd()
+                os.chdir(temp_root)
+                try:
+                    job = TrainingJob(rel_config)
+                    for i in range(3):
+                        progress = job.get_progress(force_progress_recompute=True)
+                        results.append((thread_id, i, progress.completed_epochs))
+                        time.sleep(0.01)  # Small delay to increase interleaving
+                finally:
+                    os.chdir(cwd)
             
             # Run 4 concurrent force recompute operations
             with ThreadPoolExecutor(max_workers=4) as executor:
