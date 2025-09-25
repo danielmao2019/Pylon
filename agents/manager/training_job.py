@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from typing import List, Optional, Tuple, Dict
+import glob
 import logging
 import os
-import glob
 import torch
 
 from agents.manager.progress_info import ProgressInfo
