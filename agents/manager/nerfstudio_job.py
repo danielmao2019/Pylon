@@ -15,14 +15,15 @@ class NerfStudioJob(BaseJob):
     def __init__(
         self,
         command: str,
-        work_dir: Optional[str] = None,
     ) -> None:
-        self._work_dir = self._resolve_work_dir(command=command, explicit=work_dir)
+        self._work_dir = self._resolve_work_dir(command)
         self._expected_steps = self._extract_int_flag(command)
+        self._last_metrics: Optional[Dict[str, object]] = None
         super().__init__(command=command)
 
     def compute_progress(self) -> ProgressInfo:
         data = self._load_metrics()
+        self._last_metrics = data
 
         completed_steps = int(data.get("latest_step", data.get("completed_steps", 0)) or 0)
         total_steps = data.get("total_steps", self._expected_steps)
@@ -48,7 +49,12 @@ class NerfStudioJob(BaseJob):
         )
 
     def compute_status(self, progress: ProgressInfo) -> str:
-        expected_total = self._expected_steps if self._expected_steps is not None else progress.total_epochs
+        metrics = self._last_metrics or self._load_metrics()
+        self._last_metrics = metrics
+
+        expected_total = metrics.get("total_steps")
+        if expected_total is None:
+            expected_total = self._expected_steps if self._expected_steps is not None else progress.total_epochs
         try:
             expected_total_int = int(expected_total) if expected_total is not None else None
         except (TypeError, ValueError):
@@ -61,6 +67,8 @@ class NerfStudioJob(BaseJob):
             return "running"
         if progress.completed_epochs > 0:
             return "running"
+        if self._did_fail(metrics):
+            return "failed"
         return "pending"
 
     def derive_work_dir(self) -> str:
@@ -84,10 +92,7 @@ class NerfStudioJob(BaseJob):
         return data if isinstance(data, dict) else {}
 
     @staticmethod
-    def _resolve_work_dir(command: str, explicit: Optional[str]) -> str:
-        if explicit:
-            return os.path.normpath(os.path.expanduser(explicit))
-
+    def _resolve_work_dir(command: str) -> str:
         try:
             tokens = shlex.split(command)
         except ValueError:
@@ -110,7 +115,7 @@ class NerfStudioJob(BaseJob):
 
         raise ValueError(
             "Unable to determine work directory for NerfStudioJob. "
-            "Provide a supported command flag (e.g. --output-dir) or pass work_dir explicitly."
+            "Provide a supported command flag (e.g. --output-dir) in the command."
         )
 
     @staticmethod
@@ -141,3 +146,16 @@ class NerfStudioJob(BaseJob):
                     except (TypeError, ValueError):
                         continue
         return None
+
+    @staticmethod
+    def _did_fail(metrics: Dict[str, object]) -> bool:
+        flag = metrics.get("had_error")
+        if isinstance(flag, bool):
+            return flag
+        status = metrics.get("status")
+        if isinstance(status, str) and status.lower() in {"failed", "error", "crashed"}:
+            return True
+        errors = metrics.get("errors")
+        if isinstance(errors, (list, tuple)) and len(errors) > 0:
+            return True
+        return False
