@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from agents.manager.base_job import BaseJob
 from agents.manager.progress_info import ProgressInfo
@@ -15,18 +15,17 @@ class NerfStudioJob(BaseJob):
     def __init__(
         self,
         command: str,
-        env: Optional[Dict[str, str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        work_dir: Optional[str] = None,
     ) -> None:
-        meta = dict(metadata or {})
-        self._work_dir = self._extract_work_dir(command=command, metadata=meta)
-        super().__init__(command=command, env=env, metadata=meta)
+        self._work_dir = self._resolve_work_dir(command=command, explicit=work_dir)
+        self._expected_steps = self._extract_int_flag(command)
+        super().__init__(command=command)
 
     def compute_progress(self) -> ProgressInfo:
         data = self._load_metrics()
 
         completed_steps = int(data.get("latest_step", data.get("completed_steps", 0)) or 0)
-        total_steps = data.get("total_steps", self.metadata.get("total_steps"))
+        total_steps = data.get("total_steps", self._expected_steps)
         try:
             total_steps_int = int(total_steps) if total_steps is not None else None
         except (TypeError, ValueError):
@@ -49,7 +48,7 @@ class NerfStudioJob(BaseJob):
         )
 
     def compute_status(self, progress: ProgressInfo) -> str:
-        expected_total = self.metadata.get("total_steps", progress.total_epochs)
+        expected_total = self._expected_steps if self._expected_steps is not None else progress.total_epochs
         try:
             expected_total_int = int(expected_total) if expected_total is not None else None
         except (TypeError, ValueError):
@@ -62,8 +61,6 @@ class NerfStudioJob(BaseJob):
             return "running"
         if progress.completed_epochs > 0:
             return "running"
-        if self.metadata.get("had_error"):
-            return "failed"
         return "pending"
 
     def derive_work_dir(self) -> str:
@@ -73,7 +70,7 @@ class NerfStudioJob(BaseJob):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _load_metrics(self) -> Dict[str, Any]:
+    def _load_metrics(self) -> Dict[str, object]:
         if not self.work_dir:
             return {}
         metrics_path = os.path.join(self.work_dir, "metrics.json")
@@ -87,11 +84,9 @@ class NerfStudioJob(BaseJob):
         return data if isinstance(data, dict) else {}
 
     @staticmethod
-    def _extract_work_dir(command: str, metadata: Dict[str, Any]) -> str:
-        if 'work_dir' in metadata and isinstance(metadata['work_dir'], str):
-            path = metadata['work_dir'].strip()
-            if path:
-                return os.path.normpath(os.path.expanduser(path))
+    def _resolve_work_dir(command: str, explicit: Optional[str]) -> str:
+        if explicit:
+            return os.path.normpath(os.path.expanduser(explicit))
 
         try:
             tokens = shlex.split(command)
@@ -115,5 +110,34 @@ class NerfStudioJob(BaseJob):
 
         raise ValueError(
             "Unable to determine work directory for NerfStudioJob. "
-            "Provide a supported command flag (e.g. --output-dir) or set 'work_dir' in metadata."
+            "Provide a supported command flag (e.g. --output-dir) or pass work_dir explicitly."
         )
+
+    @staticmethod
+    def _extract_int_flag(command: str) -> Optional[int]:
+        try:
+            tokens = shlex.split(command)
+        except ValueError:
+            tokens = command.split()
+
+        candidate_flags = (
+            '--max-num-iterations', '--max_num_iterations',
+            '--steps', '--total-steps', '--total_steps'
+        )
+        for flag in candidate_flags:
+            if flag in tokens:
+                idx = tokens.index(flag)
+                if idx + 1 < len(tokens):
+                    value = tokens[idx + 1]
+                    try:
+                        return int(value)
+                    except (TypeError, ValueError):
+                        continue
+            prefix = f"{flag}="
+            for token in tokens:
+                if token.startswith(prefix):
+                    try:
+                        return int(token[len(prefix):])
+                    except (TypeError, ValueError):
+                        continue
+        return None
