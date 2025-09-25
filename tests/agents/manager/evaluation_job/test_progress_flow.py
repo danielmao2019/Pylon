@@ -11,14 +11,16 @@ from agents.manager.evaluation_job import EvaluationJob
 def test_evaluationjob_incomplete_and_complete():
     with tempfile.TemporaryDirectory() as work_dir:
         # Incomplete
-        p0 = EvaluationJob.get_progress(work_dir, None)
+        job = object.__new__(EvaluationJob)
+        job.work_dir = work_dir
+        p0 = job.get_progress()
         assert p0.completed_epochs == 0
         assert p0.progress_percentage == 0.0
 
         # Complete
         with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
             json.dump({"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f)
-        p1 = EvaluationJob.get_progress(work_dir, None)
+        p1 = job.get_progress()
         assert p1.completed_epochs == 1
         assert p1.progress_percentage == 100.0
 
