@@ -79,21 +79,13 @@ class DefaultJob(BaseJob, ABC):
             return False
         return (now - last_log) <= runtime.sleep_time
 
+    @abstractmethod
     def _is_complete(
         self,
         progress: ProgressInfo,
         runtime: JobRuntimeParams,
     ) -> bool:
-        if progress.early_stopped:
-            return True
-        target_epochs = runtime.epochs or progress.total_epochs or self.config_dict.get('epochs')
-        try:
-            target_int = int(target_epochs) if target_epochs is not None else 0
-        except (TypeError, ValueError):
-            target_int = 0
-        if target_int <= 0:
-            return False
-        return progress.completed_epochs >= target_int
+        """Return True when the job should count as complete."""
 
     def _is_outdated(self, runtime: JobRuntimeParams, now: float) -> bool:
         if runtime.outdated_days <= 0:
