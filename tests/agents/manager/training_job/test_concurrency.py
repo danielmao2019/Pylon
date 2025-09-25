@@ -39,25 +39,25 @@ def test_multiple_readers_same_progress_file(create_progress_json):
         with open(config_path, 'w') as f:
             f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
 
-        def read_progress():
-            cwd = os.getcwd()
-            os.chdir(root)
-            try:
+        original_cwd = os.getcwd()
+        os.chdir(root)
+        try:
+            def read_progress():
                 job = TrainingJob(config_path)
                 return job.get_progress()
-            finally:
-                os.chdir(cwd)
 
-        results = []
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(read_progress) for _ in range(10)]
-            for future in as_completed(futures):
-                results.append(future.result())
+            results = []
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(read_progress) for _ in range(10)]
+                for future in as_completed(futures):
+                    results.append(future.result())
 
-        assert len(results) == 10
-        assert all(r.completed_epochs == 42 for r in results)
-        assert all(r.progress_percentage == 42.0 for r in results)
-        assert all(r.early_stopped is False for r in results)
+            assert len(results) == 10
+            assert all(r.completed_epochs == 42 for r in results)
+            assert all(r.progress_percentage == 42.0 for r in results)
+            assert all(r.early_stopped is False for r in results)
+        finally:
+            os.chdir(original_cwd)
 
 
 def test_multiple_readers_via_get_progress(create_progress_json):
@@ -76,24 +76,24 @@ def test_multiple_readers_via_get_progress(create_progress_json):
         with open(config_path, 'w') as f:
             f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
 
-        def read_with_calc():
-            cwd = os.getcwd()
-            os.chdir(root)
-            try:
+        original_cwd = os.getcwd()
+        os.chdir(root)
+        try:
+            def read_with_calc():
                 job = TrainingJob(config_path)
                 return job.get_progress()
-            finally:
-                os.chdir(cwd)
 
-        results = []
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(read_with_calc) for _ in range(8)]
-            for future in as_completed(futures):
-                results.append(future.result())
+            results = []
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = [executor.submit(read_with_calc) for _ in range(8)]
+                for future in as_completed(futures):
+                    results.append(future.result())
 
-        assert len(results) == 8
-        assert all(r.completed_epochs == 25 for r in results)
-        assert all(r.runner_type == 'trainer' for r in results)
+            assert len(results) == 8
+            assert all(r.completed_epochs == 25 for r in results)
+            assert all(r.runner_type == 'trainer' for r in results)
+        finally:
+            os.chdir(original_cwd)
 
 
 # ============================================================================
@@ -119,57 +119,57 @@ def test_reader_writer_conflict_resolution(create_progress_json):
 
         results = {"reads": [], "writes": []}
 
-        def compute_progress() -> ProgressInfo:
-            cwd = os.getcwd()
-            os.chdir(root)
-            try:
+        original_cwd = os.getcwd()
+        os.chdir(root)
+        try:
+            def compute_progress() -> ProgressInfo:
                 job = TrainingJob(config_path)
                 return job.get_progress()
-            finally:
-                os.chdir(cwd)
 
-        def reader_thread():
-            for _ in range(5):
-                try:
-                    progress = compute_progress()
-                    results["reads"].append(progress.completed_epochs)
-                    time.sleep(0.01)
-                except Exception as e:
-                    results["reads"].append(f"ERROR: {e}")
+            def reader_thread():
+                for _ in range(5):
+                    try:
+                        progress = compute_progress()
+                        results["reads"].append(progress.completed_epochs)
+                        time.sleep(0.01)
+                    except Exception as e:
+                        results["reads"].append(f"ERROR: {e}")
 
-        def writer_thread():
-            for i in range(3):
-                try:
-                    new_epochs = 20 + i * 10
-                    create_progress_json(work_dir, completed_epochs=new_epochs, early_stopped=False, tot_epochs=100)
-                    results["writes"].append(new_epochs)
-                    time.sleep(0.02)
-                except Exception as e:
-                    results["writes"].append(f"ERROR: {e}")
+            def writer_thread():
+                for i in range(3):
+                    try:
+                        new_epochs = 20 + i * 10
+                        create_progress_json(work_dir, completed_epochs=new_epochs, early_stopped=False, tot_epochs=100)
+                        results["writes"].append(new_epochs)
+                        time.sleep(0.02)
+                    except Exception as e:
+                        results["writes"].append(f"ERROR: {e}")
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [
-                executor.submit(reader_thread),
-                executor.submit(reader_thread),
-                executor.submit(writer_thread),
-                executor.submit(writer_thread),
-            ]
-            for future in as_completed(futures):
-                future.result()
-        
-        # Verify no errors occurred
-        read_errors = [r for r in results["reads"] if isinstance(r, str) and r.startswith("ERROR")]
-        write_errors = [w for w in results["writes"] if isinstance(w, str) and w.startswith("ERROR")]
-        
-        assert len(read_errors) == 0, f"Reader errors: {read_errors}"
-        assert len(write_errors) == 0, f"Writer errors: {write_errors}"
-        
-        # Verify we got some reads and writes
-        valid_reads = [r for r in results["reads"] if isinstance(r, int)]
-        valid_writes = [w for w in results["writes"] if isinstance(w, int)]
-        
-        assert len(valid_reads) > 0, "Should have successful reads"
-        assert len(valid_writes) > 0, "Should have successful writes"
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [
+                    executor.submit(reader_thread),
+                    executor.submit(reader_thread),
+                    executor.submit(writer_thread),
+                    executor.submit(writer_thread),
+                ]
+                for future in as_completed(futures):
+                    future.result()
+
+            # Verify no errors occurred
+            read_errors = [r for r in results["reads"] if isinstance(r, str) and r.startswith("ERROR")]
+            write_errors = [w for w in results["writes"] if isinstance(w, str) and w.startswith("ERROR")]
+
+            assert len(read_errors) == 0, f"Reader errors: {read_errors}"
+            assert len(write_errors) == 0, f"Writer errors: {write_errors}"
+            
+            # Verify we got some reads and writes
+            valid_reads = [r for r in results["reads"] if isinstance(r, int)]
+            valid_writes = [w for w in results["writes"] if isinstance(w, int)]
+
+            assert len(valid_reads) > 0, "Should have successful reads"
+            assert len(valid_writes) > 0, "Should have successful writes"
+        finally:
+            os.chdir(original_cwd)
 
 
 # ============================================================================
@@ -268,10 +268,10 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
         results = []
         rel_config = "./configs/cache_invalidation.py"
 
-        def cache_and_read(tracker_id):
-            cwd = os.getcwd()
-            os.chdir(temp_root)
-            try:
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        try:
+            def cache_and_read(tracker_id):
                 job = TrainingJob(rel_config)
                 progress1 = job.get_progress()
                 results.append(("first_read", tracker_id, progress1.completed_epochs))
@@ -280,32 +280,32 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
 
                 progress2 = job.get_progress()
                 results.append(("second_read", tracker_id, progress2.completed_epochs))
-            finally:
-                os.chdir(cwd)
 
-        def file_updater():
-            time.sleep(0.02)
-            create_progress_json(work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100)
-            time.sleep(0.02)
-            create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
+            def file_updater():
+                time.sleep(0.02)
+                create_progress_json(work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100)
+                time.sleep(0.02)
+                create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [executor.submit(cache_and_read, i) for i in range(3)]
-            futures.append(executor.submit(file_updater))
-            for future in as_completed(futures):
-                future.result()
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(cache_and_read, i) for i in range(3)]
+                futures.append(executor.submit(file_updater))
+                for future in as_completed(futures):
+                    future.result()
 
-        assert len(results) > 0
+            assert len(results) > 0
 
-        tracker_results = {}
-        for operation, tracker_id, epochs in results:
-            tracker_results.setdefault(tracker_id, []).append((operation, epochs))
+            tracker_results = {}
+            for operation, tracker_id, epochs in results:
+                tracker_results.setdefault(tracker_id, []).append((operation, epochs))
 
-        for tracker_id in range(3):
-            assert tracker_id in tracker_results
-            ops = [op for op, _ in tracker_results[tracker_id]]
-            assert "first_read" in ops
-            assert "second_read" in ops
+            for tracker_id in range(3):
+                assert tracker_id in tracker_results
+                ops = [op for op, _ in tracker_results[tracker_id]]
+                assert "first_read" in ops
+                assert "second_read" in ops
+        finally:
+            os.chdir(original_cwd)
 
 
 # ============================================================================
@@ -334,34 +334,29 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             results = []
             rel_config = "./configs/test_concurrent_force.py"
 
             def force_recompute_thread(thread_id):
-                cwd = os.getcwd()
-                os.chdir(temp_root)
-                try:
-                    job = TrainingJob(rel_config)
-                    for i in range(3):
-                        progress = job.get_progress(force_progress_recompute=True)
-                        results.append((thread_id, i, progress.completed_epochs))
-                        time.sleep(0.01)  # Small delay to increase interleaving
-                finally:
-                    os.chdir(cwd)
+                job = TrainingJob(rel_config)
+                for i in range(3):
+                    progress = job.get_progress(force_progress_recompute=True)
+                    results.append((thread_id, i, progress.completed_epochs))
+                    time.sleep(0.01)  # Small delay to increase interleaving
             
             # Run 4 concurrent force recompute operations
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(force_recompute_thread, thread_id) for thread_id in range(4)]
                 for future in as_completed(futures):
                     future.result()
-            
+
             # All should get the same result (10 epochs from filesystem)
             assert len(results) == 12  # 4 threads * 3 operations each
             epochs_values = [epochs for _, _, epochs in results]
             assert all(epochs == 10 for epochs in epochs_values), f"Expected all 10, got: {set(epochs_values)}"
-            
+
         finally:
             os.chdir(original_cwd)
 
@@ -404,51 +399,47 @@ def test_mixed_runner_types_concurrent_access():
         eval_scores = {"aggregated": {"acc": 0.95}, "per_datapoint": {"acc": [0.95]}}
         save_json(eval_scores, os.path.join(evaluator_dir, "evaluation_scores.json"))
 
-        def trainer_worker():
-            cwd = os.getcwd()
-            os.chdir(base_dir)
-            try:
+        original_cwd = os.getcwd()
+        os.chdir(base_dir)
+
+        try:
+            def trainer_worker():
                 job = TrainingJob("./configs/trainer.py")
                 for _ in range(5):
                     progress = job.get_progress()
                     results.append(("trainer", progress.completed_epochs))
                     time.sleep(0.01)
-            finally:
-                os.chdir(cwd)
 
-        def evaluator_worker():
-            cwd = os.getcwd()
-            os.chdir(base_dir)
-            try:
+            def evaluator_worker():
                 job = EvaluationJob("./configs/evaluator.py")
                 for _ in range(5):
                     progress = job.get_progress()
                     results.append(("evaluator", progress.completed_epochs))
                     time.sleep(0.01)
-            finally:
-                os.chdir(cwd)
 
-        results = []
+            results = []
 
-        # Run concurrent trainer and evaluator operations
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [
-                executor.submit(trainer_worker),
-                executor.submit(trainer_worker),
-                executor.submit(evaluator_worker),
-                executor.submit(evaluator_worker),
-            ]
-            for future in as_completed(futures):
-                future.result()
+            # Run concurrent trainer and evaluator operations
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [
+                    executor.submit(trainer_worker),
+                    executor.submit(trainer_worker),
+                    executor.submit(evaluator_worker),
+                    executor.submit(evaluator_worker),
+                ]
+                for future in as_completed(futures):
+                    future.result()
 
-        # Verify results
-        trainer_results = [epochs for kind, epochs in results if kind == "trainer"]
-        evaluator_results = [epochs for kind, epochs in results if kind == "evaluator"]
+            # Verify results
+            trainer_results = [epochs for kind, epochs in results if kind == "trainer"]
+            evaluator_results = [epochs for kind, epochs in results if kind == "evaluator"]
 
-        assert len(trainer_results) == 10  # 2 workers * 5 operations each
-        assert len(evaluator_results) == 10  # 2 workers * 5 operations each
-        assert all(epochs == 50 for epochs in trainer_results)
-        assert all(epochs == 1 for epochs in evaluator_results)  # Binary for evaluators
+            assert len(trainer_results) == 10  # 2 workers * 5 operations each
+            assert len(evaluator_results) == 10  # 2 workers * 5 operations each
+            assert all(epochs == 50 for epochs in trainer_results)
+            assert all(epochs == 1 for epochs in evaluator_results)  # Binary for evaluators
+        finally:
+            os.chdir(original_cwd)
 
 
 # ============================================================================
