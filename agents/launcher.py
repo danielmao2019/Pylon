@@ -148,10 +148,10 @@ class Launcher(BaseAgent):
                     and cpu.max_memory is not None
                     and cpu.cpu_cores is not None
                     and cpu.load_stats is not None
-                    and cpu.cpu_stats.get('avg') is not None
-                    and cpu.memory_stats.get('avg') is not None
-                    and cpu.load_stats.get('avg') is not None
                 ):
+                    assert 'avg' in cpu.cpu_stats
+                    assert 'avg' in cpu.memory_stats
+                    assert 'avg' in cpu.load_stats
                     cpu_util_ok = cpu.cpu_stats['avg'] < 80
                     cpu_mem_ok = (cpu.max_memory - cpu.memory_stats['avg']) > 4 * 1024  # 4GB
                     cpu_load_ok = cpu.load_stats['avg'] < cpu.cpu_cores  # Load should be less than number of cores
