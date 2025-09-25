@@ -46,7 +46,7 @@ class BaseJob(ABC):
         self.status = self.compute_status(progress=progress)
 
     @abstractmethod
-    def compute_progress(self, *, force: Optional[bool] = None) -> ProgressInfo:
+    def compute_progress(self) -> ProgressInfo:
         """Return up-to-date progress information for the job."""
 
     @abstractmethod

@@ -34,7 +34,7 @@ class NerfStudioJob(BaseJob):
             return {}
         return data if isinstance(data, dict) else {}
 
-    def compute_progress(self, *, force: Optional[bool] = None) -> ProgressInfo:
+    def compute_progress(self) -> ProgressInfo:
         data = self._load_metrics()
 
         completed_steps = int(data.get("latest_step", data.get("completed_steps", 0)) or 0)
