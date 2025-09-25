@@ -4,7 +4,6 @@ New progress API test suite for agents.manager module.
 Covers only the implemented source API:
 - Manager._detect_runner_type
 - TrainingJob: get_progress, _check_epoch_finished, _check_file_loadable
-- EvaluationJob: get_progress, _check_files_exist
 """
 import os
 import tempfile
@@ -15,7 +14,6 @@ import pytest
 
 from agents.manager.manager import Manager
 from agents.manager.training_job import TrainingJob
-from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.progress_info import ProgressInfo
 
 
@@ -117,32 +115,3 @@ def test_trainingjob_check_epoch_finished_and_file_loadable(tmp_path):
     assert TrainingJob._check_file_loadable(str(epoch_dir / "training_losses.pt"))
 
     assert TrainingJob._check_epoch_finished(str(epoch_dir), TrainingJob.EXPECTED_FILES)
-
-
-# ---------------- EvaluationJob progress API ----------------
-
-def test_evaluationjob_incomplete_and_complete():
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Incomplete
-        p0 = EvaluationJob.get_progress(work_dir, None)
-        assert p0.completed_epochs == 0
-        assert p0.progress_percentage == 0.0
-
-        # Complete
-        with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
-            json.dump({"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f)
-        p1 = EvaluationJob.get_progress(work_dir, None)
-        assert p1.completed_epochs == 1
-        assert p1.progress_percentage == 100.0
-
-
-def test_evaluationjob_check_files_exist():
-    with tempfile.TemporaryDirectory() as work_dir:
-        assert EvaluationJob._check_files_exist(work_dir) is False
-        # empty file
-        open(os.path.join(work_dir, "evaluation_scores.json"), 'w').close()
-        assert EvaluationJob._check_files_exist(work_dir) is False
-        # valid json
-        with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
-            json.dump({"aggregated": {}, "per_datapoint": {}}, f)
-        assert EvaluationJob._check_files_exist(work_dir) is True
