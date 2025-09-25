@@ -69,48 +69,6 @@ class DefaultJob(BaseJob, ABC):
 
         return 'failed'
 
-    # ------------------------------------------------------------------
-    # Status helpers (overridable by subclasses)
-    # ------------------------------------------------------------------
-
-    def _is_active(self, runtime: JobRuntimeParams, now: float) -> bool:
-        last_log = self.get_log_last_update()
-        if last_log is None:
-            return False
-        return (now - last_log) <= runtime.sleep_time
-
-    @abstractmethod
-    def _is_complete(
-        self,
-        progress: ProgressInfo,
-        runtime: JobRuntimeParams,
-    ) -> bool:
-        """Return True when the job should count as complete."""
-
-    def _is_outdated(self, runtime: JobRuntimeParams, now: float) -> bool:
-        if runtime.outdated_days <= 0:
-            return False
-        artifact_last_update = self.get_artifact_last_update()
-        if artifact_last_update is None:
-            return False
-        stale_after = runtime.outdated_days * 24 * 60 * 60
-        return (now - artifact_last_update) > stale_after
-
-    def _is_stuck(self, runtime: JobRuntimeParams) -> bool:
-        return self.config_filepath in runtime.config_processes
-
-    @abstractmethod
-    def get_log_last_update(self) -> Optional[float]:
-        pass
-
-    @abstractmethod
-    def get_artifact_last_update(self) -> Optional[float]:
-        pass
-
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
-
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -148,3 +106,45 @@ class DefaultJob(BaseJob, ABC):
     def derive_work_dir(self) -> str:
         rel_path = os.path.splitext(os.path.relpath(self.config_filepath, start='./configs'))[0]
         return os.path.join('./logs', rel_path)
+
+    # ------------------------------------------------------------------
+    # Status helpers (overridable by subclasses)
+    # ------------------------------------------------------------------
+
+    def _is_active(self, runtime: JobRuntimeParams, now: float) -> bool:
+        last_log = self.get_log_last_update()
+        if last_log is None:
+            return False
+        return (now - last_log) <= runtime.sleep_time
+
+    @abstractmethod
+    def _is_complete(
+        self,
+        progress: ProgressInfo,
+        runtime: JobRuntimeParams,
+    ) -> bool:
+        """Return True when the job should count as complete."""
+
+    def _is_outdated(self, runtime: JobRuntimeParams, now: float) -> bool:
+        if runtime.outdated_days <= 0:
+            return False
+        artifact_last_update = self.get_artifact_last_update()
+        if artifact_last_update is None:
+            return False
+        stale_after = runtime.outdated_days * 24 * 60 * 60
+        return (now - artifact_last_update) > stale_after
+
+    def _is_stuck(self, runtime: JobRuntimeParams) -> bool:
+        return self.config_filepath in runtime.config_processes
+
+    # ------------------------------------------------------------------
+    # Abstract data accessors
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def get_log_last_update(self) -> Optional[float]:
+        pass
+
+    @abstractmethod
+    def get_artifact_last_update(self) -> Optional[float]:
+        pass

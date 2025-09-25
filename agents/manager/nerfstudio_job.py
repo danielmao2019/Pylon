@@ -23,19 +23,6 @@ class NerfStudioJob(BaseJob):
         self._work_dir = self._extract_work_dir(command=command, metadata=meta)
         super().__init__(command=command, env=env, metadata=meta)
 
-    def _load_metrics(self) -> Dict[str, Any]:
-        if not self.work_dir:
-            return {}
-        metrics_path = os.path.join(self.work_dir, "metrics.json")
-        if not os.path.exists(metrics_path):
-            return {}
-        try:
-            with open(metrics_path, "r", encoding="utf-8") as handle:
-                data = json.load(handle)
-        except (OSError, json.JSONDecodeError, TypeError):
-            return {}
-        return data if isinstance(data, dict) else {}
-
     def compute_progress(self) -> ProgressInfo:
         data = self._load_metrics()
 
@@ -86,6 +73,19 @@ class NerfStudioJob(BaseJob):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _load_metrics(self) -> Dict[str, Any]:
+        if not self.work_dir:
+            return {}
+        metrics_path = os.path.join(self.work_dir, "metrics.json")
+        if not os.path.exists(metrics_path):
+            return {}
+        try:
+            with open(metrics_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except (OSError, json.JSONDecodeError, TypeError):
+            return {}
+        return data if isinstance(data, dict) else {}
 
     @staticmethod
     def _extract_work_dir(command: str, metadata: Dict[str, Any]) -> str:
