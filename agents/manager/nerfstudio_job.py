@@ -60,11 +60,7 @@ class NerfStudioJob(BaseJob):
             total_epochs=total_steps_int,
         )
 
-    def compute_status(
-        self,
-        *,
-        progress: ProgressInfo,
-    ) -> str:
+    def compute_status(self, progress: ProgressInfo) -> str:
         expected_total = self.metadata.get("total_steps", progress.total_epochs)
         try:
             expected_total_int = int(expected_total) if expected_total is not None else None
