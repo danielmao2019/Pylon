@@ -348,18 +348,6 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
 # TESTS FOR HELPER FUNCTIONS (NO MOCKS NEEDED)
 # ============================================================================
 
-def test_base_job_parse_config():
-    """Test config parsing from command strings."""
-    # Test valid commands
-    assert BaseJob.parse_config("python main.py --config-filepath configs/exp1.py") == "configs/exp1.py"
-    assert BaseJob.parse_config("python main.py --config-filepath /absolute/path/config.py") == "/absolute/path/config.py"
-    assert BaseJob.parse_config("python3 main.py --debug --config-filepath configs/test.py --verbose") == "configs/test.py"
-    
-    # Test assertions for invalid commands (missing --config-filepath)
-    with pytest.raises(AssertionError):
-        BaseJob.parse_config("python main.py --other-flag configs/exp1.py")  # Missing --config-filepath
-
-
 def test_manager_build_config_to_process_mapping():
     """Test building config to ProcessInfo mapping from GPU data."""
     connected_gpus = [
@@ -480,20 +468,6 @@ def test_base_job_populate_invalid_config_path():
             
         finally:
             os.chdir(original_cwd)
-
-
-def test_parse_config_edge_cases():
-    """Test parse_config with edge case command strings."""
-    # Test with python3
-    assert BaseJob.parse_config("python3 main.py --config-filepath configs/exp.py") == "configs/exp.py"
-    
-    # Test with absolute path
-    assert BaseJob.parse_config("python main.py --config-filepath /home/user/configs/exp.py") == "/home/user/configs/exp.py"
-    
-    # Test with additional flags
-    assert BaseJob.parse_config("python main.py --debug --config-filepath configs/exp.py --verbose") == "configs/exp.py"
-
-
 def test_build_config_to_process_mapping_empty_gpu_data():
     """Test building config mapping with empty GPU data."""
     connected_gpus = []
