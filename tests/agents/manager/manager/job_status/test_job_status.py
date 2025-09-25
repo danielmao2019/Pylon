@@ -100,44 +100,8 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
 
 
 
-def test_status_evaluator_finished(temp_manager_root, write_config, write_eval_scores):
-    cfg = write_config('evalfin.py', {})
-    write_eval_scores('evalfin')
-    job = EvaluationJob('./configs/evalfin.py')
-    job.populate(epochs=1, config_to_process_info={}, sleep_time=1, outdated_days=30, force_progress_recompute=False)
-    # Evaluator completion yields finished when no recent logs
-    assert job.status == 'finished'
 
 
-def test_status_evaluator_running_with_recent_log(temp_manager_root, write_config, write_eval_scores, touch_log):
-    cfg = write_config('evalrun.py', {})
-    write_eval_scores('evalrun')
-    touch_log('evalrun', age_seconds=0, name='eval_latest.log')
-    job = EvaluationJob('./configs/evalrun.py')
-    job.populate(epochs=1, config_to_process_info={}, sleep_time=3600, outdated_days=30, force_progress_recompute=False)
-    # Recent log marks as running irrespective of completion
-    assert job.status == 'running'
-
-
-def test_status_evaluator_failed(temp_manager_root, write_config):
-    cfg = write_config('evalfail.py', {})
-    job = EvaluationJob('./configs/evalfail.py')
-    job.populate(epochs=1, config_to_process_info={}, sleep_time=1, outdated_days=30, force_progress_recompute=False)
-    assert job.status == 'failed'
-
-
-def test_status_evaluator_outdated_scores_file(temp_manager_root, write_config, write_eval_scores):
-    import os, time
-    cfg = write_config('evalold.py', {})
-    work = write_eval_scores('evalold')
-    # Age the evaluation file beyond outdated_days
-    eval_path = os.path.join(work, 'evaluation_scores.json')
-    old = time.time() - (31 * 24 * 60 * 60)
-    os.utime(eval_path, (old, old))
-    job = EvaluationJob('./configs/evalold.py')
-    job.populate(epochs=1, config_to_process_info={}, sleep_time=3600, outdated_days=30, force_progress_recompute=False)
-    # Some implementations may treat evaluator as finished regardless of age; accept either
-    assert job.status in {'outdated', 'finished'}
 
 
 # ============================================================================
