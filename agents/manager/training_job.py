@@ -9,7 +9,6 @@ import torch
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.default_job import DefaultJob
 from agents.manager.job_types import RunnerKind
-from agents.manager.runtime import JobRuntimeParams
 from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
 
@@ -85,11 +84,11 @@ class TrainingJob(DefaultJob):
     def _is_complete(
         self,
         progress: ProgressInfo,
-        runtime: JobRuntimeParams,
     ) -> bool:
         if progress.early_stopped:
             return True
 
+        runtime = self.runtime
         target_epochs = runtime.epochs or progress.total_epochs or self.config_dict.get('epochs')
         try:
             target_int = int(target_epochs) if target_epochs is not None else 0
