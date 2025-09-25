@@ -22,50 +22,74 @@ from utils.io.json import load_json, save_json
 # CONCURRENCY TESTS - MULTIPLE READERS
 # ============================================================================
 
-def test_multiple_readers_same_progress_file(create_progress_json, EXPECTED_FILES):
+def test_multiple_readers_same_progress_file(create_progress_json):
     """Test multiple threads reading the same progress.json file simultaneously."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        expected_files = EXPECTED_FILES
-        
-        # Create progress.json
+    with tempfile.TemporaryDirectory() as root:
+        logs_dir = os.path.join(root, 'logs')
+        configs_dir = os.path.join(root, 'configs')
+        os.makedirs(logs_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
+        work_dir = os.path.join(logs_dir, 'exp_readers')
+        os.makedirs(work_dir, exist_ok=True)
         create_progress_json(work_dir, completed_epochs=42, early_stopped=False, tot_epochs=100)
-        
-        # Function for reader threads
+
+        config_path = os.path.join(configs_dir, 'exp_readers.py')
+        with open(config_path, 'w') as f:
+            f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
+
         def read_progress():
-            return TrainingJob.get_session_progress(work_dir, expected_files)
-        
-        # Run 10 concurrent readers
+            cwd = os.getcwd()
+            os.chdir(root)
+            try:
+                job = TrainingJob(config_path)
+                return job.get_progress()
+            finally:
+                os.chdir(cwd)
+
         results = []
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(read_progress) for _ in range(10)]
             for future in as_completed(futures):
                 results.append(future.result())
-        
-        # All readers should get the same result
+
         assert len(results) == 10
         assert all(r.completed_epochs == 42 for r in results)
         assert all(r.progress_percentage == 42.0 for r in results)
-        assert all(r.early_stopped == False for r in results)
+        assert all(r.early_stopped is False for r in results)
 
 
-def test_multiple_readers_via_calculate_progress(create_progress_json):
-    """Test multiple TrainingJob classmethods reading same progress.json."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Create progress.json
+def test_multiple_readers_via_get_progress(create_progress_json):
+    """Test multiple TrainingJob instances reading same progress.json."""
+    with tempfile.TemporaryDirectory() as root:
+        logs_dir = os.path.join(root, 'logs')
+        configs_dir = os.path.join(root, 'configs')
+        os.makedirs(logs_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
+        work_dir = os.path.join(logs_dir, 'exp_calc')
+        os.makedirs(work_dir, exist_ok=True)
         create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
-        
-        # Function for reader threads calling calculate_progress
+
+        config_path = os.path.join(configs_dir, 'exp_calc.py')
+        with open(config_path, 'w') as f:
+            f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
+
         def read_with_calc():
-            return TrainingJob.get_progress(work_dir, config=None)
-        
-        # Run 8 concurrent readers
+            cwd = os.getcwd()
+            os.chdir(root)
+            try:
+                job = TrainingJob(config_path)
+                return job.get_progress()
+            finally:
+                os.chdir(cwd)
+
         results = []
         with ThreadPoolExecutor(max_workers=8) as executor:
             futures = [executor.submit(read_with_calc) for _ in range(8)]
             for future in as_completed(futures):
                 results.append(future.result())
-        
-        # All readers should get consistent results
+
         assert len(results) == 8
         assert all(r.completed_epochs == 25 for r in results)
         assert all(r.runner_type == 'trainer' for r in results)
@@ -75,46 +99,60 @@ def test_multiple_readers_via_calculate_progress(create_progress_json):
 # CONCURRENCY TESTS - READER-WRITER CONFLICTS
 # ============================================================================
 
-def test_reader_writer_conflict_resolution(create_progress_json, EXPECTED_FILES):
+def test_reader_writer_conflict_resolution(create_progress_json):
     """Test readers and writers accessing progress.json simultaneously."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        expected_files = EXPECTED_FILES
-        
-        # Create initial progress.json
+    with tempfile.TemporaryDirectory() as root:
+        logs_dir = os.path.join(root, 'logs')
+        configs_dir = os.path.join(root, 'configs')
+        os.makedirs(logs_dir, exist_ok=True)
+        os.makedirs(configs_dir, exist_ok=True)
+
+        work_dir = os.path.join(logs_dir, 'exp_rw')
+        os.makedirs(work_dir, exist_ok=True)
+
         create_progress_json(work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100)
-        
+
+        config_path = os.path.join(configs_dir, 'exp_rw.py')
+        with open(config_path, 'w') as f:
+            f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
+
         results = {"reads": [], "writes": []}
-        
+
+        def compute_progress() -> ProgressInfo:
+            cwd = os.getcwd()
+            os.chdir(root)
+            try:
+                job = TrainingJob(config_path)
+                return job.get_progress()
+            finally:
+                os.chdir(cwd)
+
         def reader_thread():
             for _ in range(5):
                 try:
-                    progress = TrainingJob.get_session_progress(work_dir, expected_files)
+                    progress = compute_progress()
                     results["reads"].append(progress.completed_epochs)
-                    time.sleep(0.01)  # Small delay to increase chance of conflicts
+                    time.sleep(0.01)
                 except Exception as e:
                     results["reads"].append(f"ERROR: {e}")
-        
+
         def writer_thread():
             for i in range(3):
                 try:
-                    # Update progress.json with new values
                     new_epochs = 20 + i * 10
                     create_progress_json(work_dir, completed_epochs=new_epochs, early_stopped=False, tot_epochs=100)
                     results["writes"].append(new_epochs)
-                    time.sleep(0.02)  # Small delay to increase chance of conflicts
+                    time.sleep(0.02)
                 except Exception as e:
                     results["writes"].append(f"ERROR: {e}")
-        
-        # Run concurrent readers and writers
+
         with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = []
-            # Start 2 reader threads and 2 writer threads
-            futures.append(executor.submit(reader_thread))
-            futures.append(executor.submit(reader_thread))
-            futures.append(executor.submit(writer_thread))
-            futures.append(executor.submit(writer_thread))
-            
-            # Wait for all to complete
+            futures = [
+                executor.submit(reader_thread),
+                executor.submit(reader_thread),
+                executor.submit(writer_thread),
+                executor.submit(writer_thread),
+            ]
             for future in as_completed(futures):
                 future.result()
         

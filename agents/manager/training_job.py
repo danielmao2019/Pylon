@@ -23,62 +23,26 @@ class TrainingJob(BaseJob):
     # ====================================================================================================
 
     def get_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
-        basic_progress = self.get_session_progress(
-            self.work_dir,
-            self.get_expected_files(),
-            force_progress_recompute=force_progress_recompute,
-        )
-
-        assert isinstance(self.config_dict, dict)
-        assert 'epochs' in self.config_dict
-        total_epochs = self.config_dict['epochs']
-
-        return ProgressInfo(
-            completed_epochs=basic_progress.completed_epochs,
-            progress_percentage=basic_progress.progress_percentage,
-            early_stopped=False,
-            early_stopped_at_epoch=None,
-            runner_type='trainer',
-            total_epochs=total_epochs,
-        )
-
-    @classmethod
-    def get_session_progress(
-        cls,
-        work_dir: str,
-        expected_files: List[str],
-        force_progress_recompute: bool = False,
-    ) -> ProgressInfo:
-        progress_file = os.path.join(work_dir, "progress.json")
-        if not force_progress_recompute and os.path.exists(progress_file):
-            data = load_json(progress_file)
-            return ProgressInfo(**data)
-        return cls._compute_and_cache_progress(work_dir, expected_files, force_progress_recompute)
-
-    @classmethod
-    def _compute_and_cache_progress(
-        cls,
-        work_dir: str,
-        expected_files: List[str],
-        force_progress_recompute: bool = False,
-    ) -> ProgressInfo:
-        progress_file = os.path.join(work_dir, "progress.json")
+        """Return cached progress if available, otherwise recompute and cache."""
+        progress_file = os.path.join(self.work_dir, "progress.json")
         if not force_progress_recompute and os.path.exists(progress_file):
             data = load_json(progress_file)
             return ProgressInfo(**data)
 
         completed_epochs = 0
+        expected_files = self.EXPECTED_FILES
+
         while True:
-            if not cls._check_epoch_finished(
-                epoch_dir=os.path.join(work_dir, f"epoch_{completed_epochs}"),
+            epoch_dir = os.path.join(self.work_dir, f"epoch_{completed_epochs}")
+            if not self._check_epoch_finished(
+                epoch_dir=epoch_dir,
                 expected_files=expected_files,
                 check_load=False,
             ):
                 break
             completed_epochs += 1
 
-        config_path = BaseJob.get_config_filepath(work_dir)
-        config = load_config(config_path)
+        config = load_config(self.config_filepath)
         tot_epochs = config['epochs']
         early_stopping_config = config.get('early_stopping')
 
@@ -86,11 +50,14 @@ class TrainingJob(BaseJob):
         early_stopped_at_epoch: Optional[int] = None
 
         if early_stopping_config and completed_epochs < tot_epochs:
-            early_stopped, early_stopped_at_epoch = cls._detect_early_stopping(
-                work_dir, expected_files, config, completed_epochs
+            early_stopped, early_stopped_at_epoch = self._detect_early_stopping(
+                self.work_dir,
+                expected_files,
+                config,
+                completed_epochs,
             )
 
-        progress_data = ProgressInfo(
+        progress = ProgressInfo(
             completed_epochs=completed_epochs,
             progress_percentage=100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
             early_stopped=early_stopped,
@@ -98,8 +65,8 @@ class TrainingJob(BaseJob):
             runner_type='trainer',
             total_epochs=tot_epochs,
         )
-        save_json(progress_data, progress_file)
-        return progress_data
+        save_json(progress, progress_file)
+        return progress
 
     @classmethod
     def _check_epoch_finished(
