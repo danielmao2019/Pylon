@@ -373,11 +373,24 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
 def test_mixed_runner_types_concurrent_access():
     """Test TrainingJob and EvaluationJob accessing different files concurrently."""
     with tempfile.TemporaryDirectory() as base_dir:
-        trainer_dir = os.path.join(base_dir, "trainer")
-        evaluator_dir = os.path.join(base_dir, "evaluator")
+        logs_dir = os.path.join(base_dir, "logs")
+        configs_dir = os.path.join(base_dir, "configs")
+        trainer_dir = os.path.join(logs_dir, "trainer")
+        evaluator_dir = os.path.join(logs_dir, "evaluator")
         os.makedirs(trainer_dir)
         os.makedirs(evaluator_dir)
-        
+        os.makedirs(configs_dir)
+
+        # Write minimal config files so BaseJob constructor succeeds
+        trainer_config_path = os.path.join(configs_dir, "trainer.py")
+        evaluator_config_path = os.path.join(configs_dir, "evaluator.py")
+        with open(trainer_config_path, 'w', encoding='utf-8') as f:
+            f.write("config = {'epochs': 100}
+")
+        with open(evaluator_config_path, 'w', encoding='utf-8') as f:
+            f.write("config = {}
+")
+
         # Create trainer progress.json
         trainer_progress = {
             "completed_epochs": 50,
@@ -388,27 +401,37 @@ def test_mixed_runner_types_concurrent_access():
             "total_epochs": 100,
         }
         save_json(trainer_progress, os.path.join(trainer_dir, "progress.json"))
-        
+
         # Create evaluator evaluation_scores.json
         eval_scores = {"aggregated": {"acc": 0.95}, "per_datapoint": {"acc": [0.95]}}
         save_json(eval_scores, os.path.join(evaluator_dir, "evaluation_scores.json"))
-        
-        results = []
-        
+
         def trainer_worker():
-            for _ in range(5):
-                progress = TrainingJob.get_session_progress(trainer_dir, TrainingJob.get_expected_files())
-                results.append(("trainer", progress.completed_epochs))
-                time.sleep(0.01)
-        
+            cwd = os.getcwd()
+            os.chdir(base_dir)
+            try:
+                job = TrainingJob("./configs/trainer.py")
+                for _ in range(5):
+                    progress = job.get_progress()
+                    results.append(("trainer", progress.completed_epochs))
+                    time.sleep(0.01)
+            finally:
+                os.chdir(cwd)
+
         def evaluator_worker():
-            for _ in range(5):
-                job = object.__new__(EvaluationJob)
-                job.work_dir = evaluator_dir
-                progress = EvaluationJob.get_progress(job)
-                results.append(("evaluator", progress.completed_epochs))
-                time.sleep(0.01)
-        
+            cwd = os.getcwd()
+            os.chdir(base_dir)
+            try:
+                job = EvaluationJob("./configs/evaluator.py")
+                for _ in range(5):
+                    progress = job.get_progress()
+                    results.append(("evaluator", progress.completed_epochs))
+                    time.sleep(0.01)
+            finally:
+                os.chdir(cwd)
+
+        results = []
+
         # Run concurrent trainer and evaluator operations
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = [
@@ -419,11 +442,11 @@ def test_mixed_runner_types_concurrent_access():
             ]
             for future in as_completed(futures):
                 future.result()
-        
+
         # Verify results
         trainer_results = [epochs for kind, epochs in results if kind == "trainer"]
         evaluator_results = [epochs for kind, epochs in results if kind == "evaluator"]
-        
+
         assert len(trainer_results) == 10  # 2 workers * 5 operations each
         assert len(evaluator_results) == 10  # 2 workers * 5 operations each
         assert all(epochs == 50 for epochs in trainer_results)
