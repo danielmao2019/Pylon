@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Dict
+from typing import Dict, List, Optional, Tuple
 import glob
 import logging
 import os
@@ -8,7 +8,6 @@ import torch
 
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.default_job import DefaultJob
-from utils.io.config import load_config
 from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
 
@@ -50,7 +49,7 @@ class TrainingJob(DefaultJob):
                 break
             completed_epochs += 1
 
-        config = load_config(self.config_filepath)
+        config = self.config_dict
         tot_epochs = config['epochs']
         early_stopping_config = config.get('early_stopping')
 
@@ -73,7 +72,7 @@ class TrainingJob(DefaultJob):
             runner_type='trainer',
             total_epochs=tot_epochs,
         )
-        save_json(progress, progress_file)
+        save_json(progress.to_dict(), progress_file)
         return progress
 
     @classmethod

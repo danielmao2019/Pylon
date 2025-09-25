@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from agents.manager.progress_info import ProgressInfo
+from agents.manager.base_job import BaseJob
 from agents.monitor.process_info import ProcessInfo
 from utils.io.config import load_config
 
@@ -13,16 +14,15 @@ from utils.io.config import load_config
 _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
-class DefaultJob(ABC):
+class DefaultJob(BaseJob, ABC):
     """Object-oriented representation of a single training job."""
 
     def __init__(self, config_filepath: str) -> None:
+        work_dir = self.get_work_dir(config_filepath)
+        command = f"python main.py --config-filepath {config_filepath}"
+        super().__init__(command=command, work_dir=work_dir)
         self.config_filepath = config_filepath
-        self.work_dir: str = self.get_work_dir(self.config_filepath)
         self.config_dict = load_config(self.config_filepath)
-        self.progress: ProgressInfo
-        self.status: _JobStatus
-        self.process_info: ProcessInfo
 
     # ====================================================================================================
     # 
@@ -37,9 +37,15 @@ class DefaultJob(ABC):
         outdated_days: int,
         force_progress_recompute: bool,
     ) -> None:
-        self.progress = self.get_progress(force_progress_recompute)
-        self.status = self.get_status(sleep_time, epochs, outdated_days, config_to_process_info)
-        self.process_info = config_to_process_info.get(self.config_filepath)
+        context: Dict[str, Any] = {
+            "epochs": epochs,
+            "sleep_time": sleep_time,
+            "outdated_days": outdated_days,
+            "config_to_process_info": config_to_process_info,
+            "force_progress_recompute": force_progress_recompute,
+        }
+        self.attach_process(config_to_process_info.get(self.config_filepath))
+        self.refresh(context=context)
 
     # ====================================================================================================
     # 
@@ -151,3 +157,45 @@ class DefaultJob(ABC):
         if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
             return value.to_dict()
         return value
+
+    # ------------------------------------------------------------------
+    # BaseJob integration helpers
+    # ------------------------------------------------------------------
+
+    def compute_progress(
+        self, *, context: Optional[Dict[str, Any]] = None
+    ) -> ProgressInfo:
+        force = bool((context or {}).get("force_progress_recompute", False))
+        return self.get_progress(force_progress_recompute=force)
+
+    def compute_status(
+        self,
+        *,
+        progress: ProgressInfo,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> _JobStatus:
+        ctx = context or {}
+        epochs_candidate = ctx.get("epochs", progress.total_epochs or self.config_dict.get('epochs'))
+        try:
+            epochs_int = int(epochs_candidate) if epochs_candidate is not None else 0
+        except (TypeError, ValueError):
+            epochs_int = 0
+
+        sleep_time_candidate = ctx.get("sleep_time", 0)
+        outdated_candidate = ctx.get("outdated_days", 0)
+        try:
+            sleep_time_int = int(sleep_time_candidate)
+        except (TypeError, ValueError):
+            sleep_time_int = 0
+        try:
+            outdated_days_int = int(outdated_candidate)
+        except (TypeError, ValueError):
+            outdated_days_int = 0
+
+        config_to_process_info = ctx.get("config_to_process_info", {})
+        return self.get_status(
+            sleep_time=sleep_time_int,
+            epochs=epochs_int,
+            outdated_days=outdated_days_int,
+            config_to_process_info=config_to_process_info,
+        )
