@@ -385,7 +385,7 @@ def test_mixed_runner_types_concurrent_access():
             "early_stopped": False,
             "early_stopped_at_epoch": None,
             "runner_type": "trainer",
-            "total_epochs": 100
+            "total_epochs": 100,
         }
         save_json(trainer_progress, os.path.join(trainer_dir, "progress.json"))
         
@@ -396,25 +396,27 @@ def test_mixed_runner_types_concurrent_access():
         results = []
         
         def trainer_worker():
-            for i in range(5):
+            for _ in range(5):
                 progress = TrainingJob.get_session_progress(trainer_dir, TrainingJob.get_expected_files())
                 results.append(("trainer", progress.completed_epochs))
                 time.sleep(0.01)
         
         def evaluator_worker():
-            for i in range(5):
-                progress = EvaluationJob.get_progress(evaluator_dir, config=None)
+            for _ in range(5):
+                job = object.__new__(EvaluationJob)
+                job.work_dir = evaluator_dir
+                progress = EvaluationJob.get_progress(job)
                 results.append(("evaluator", progress.completed_epochs))
                 time.sleep(0.01)
         
         # Run concurrent trainer and evaluator operations
         with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = []
-            futures.append(executor.submit(trainer_worker))
-            futures.append(executor.submit(trainer_worker))
-            futures.append(executor.submit(evaluator_worker))
-            futures.append(executor.submit(evaluator_worker))
-            
+            futures = [
+                executor.submit(trainer_worker),
+                executor.submit(trainer_worker),
+                executor.submit(evaluator_worker),
+                executor.submit(evaluator_worker),
+            ]
             for future in as_completed(futures):
                 future.result()
         
