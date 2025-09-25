@@ -385,11 +385,9 @@ def test_mixed_runner_types_concurrent_access():
         trainer_config_path = os.path.join(configs_dir, "trainer.py")
         evaluator_config_path = os.path.join(configs_dir, "evaluator.py")
         with open(trainer_config_path, 'w', encoding='utf-8') as f:
-            f.write("config = {'epochs': 100}
-")
+            f.write("config = {'epochs': 100}\n")
         with open(evaluator_config_path, 'w', encoding='utf-8') as f:
-            f.write("config = {}
-")
+            f.write("config = {}\n")
 
         # Create trainer progress.json
         trainer_progress = {
