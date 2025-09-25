@@ -4,8 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import random
 from agents.base_agent import BaseAgent
-from utils.automation.cfg_log_conversion import get_work_dir
-from agents.manager import JobStatus, get_all_job_status, parse_config
+from agents.manager import BaseJob, Manager
 from utils.logging import TextLogger
 from agents.connector.pool import _ssh_pool
 
@@ -67,8 +66,8 @@ class Launcher(BaseAgent):
     # experiment management
     # ====================================================================================================
 
-    def _remove_stuck(self, all_running_status: List[JobStatus]) -> None:
-        stuck_cfgs = [run.config for run in all_running_status if run.status == 'stuck']
+    def _remove_stuck(self, all_running_status: List[BaseJob]) -> None:
+        stuck_cfgs = [run.config_filepath for run in all_running_status if run.status == 'stuck']
 
         def process_gpu(gpu):
             gpu_stuck_info = {}
@@ -79,7 +78,7 @@ class Launcher(BaseAgent):
                     continue
                 if 'python main.py --config-filepath' not in proc.cmd:
                     continue
-                cfg = parse_config(proc.cmd)
+                cfg = BaseJob.parse_config(proc.cmd)
                 if cfg in stuck_cfgs:
                     gpu_stuck_info[cfg] = (gpu.server, proc.pid)
             return gpu_stuck_info
@@ -96,19 +95,19 @@ class Launcher(BaseAgent):
         for server, pid in stuck_cfgs_info.values():
             self.ssh_pool.execute(server, ['kill', '-9', str(pid)])
 
-    def _remove_outdated(self, all_running_status: List[JobStatus]) -> None:
+    def _remove_outdated(self, all_running_status: List[BaseJob]) -> None:
         outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
         # self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
         # with ThreadPoolExecutor() as executor:
         #     list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
 
-    def _find_missing_runs(self, all_running_status: List[JobStatus]) -> List[str]:
+    def _find_missing_runs(self, all_running_status: List[BaseJob]) -> List[str]:
         r"""
         Returns:
             result (List[str]): the config filepaths for the missing experiment runs.
         """
         return [
-            run.config for run in all_running_status if run.status == 'failed'
+            run.config_filepath for run in all_running_status if run.status == 'failed'
         ]
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
@@ -129,7 +128,7 @@ class Launcher(BaseAgent):
         # Build a map of server -> CPU status for quick lookup
         cpu_status_by_server = {}
         for cpu in self.connected_cpus:
-            cpu_status_by_server[cpu['server']] = cpu
+            cpu_status_by_server[cpu.server] = cpu
 
         # Find idle GPUs with CPU constraints
         for gpu in self.connected_gpus:
@@ -143,11 +142,19 @@ class Launcher(BaseAgent):
             cpu_ok = False
             if server in cpu_status_by_server:
                 cpu = cpu_status_by_server[server]
-                if (cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None and cpu['cpu_cores'] is not None and
-                    cpu['cpu_stats']['avg'] is not None and cpu['memory_stats']['avg'] is not None and cpu['load_stats']['avg'] is not None):
-                    cpu_util_ok = cpu['cpu_stats']['avg'] < 80
-                    cpu_mem_ok = (cpu['max_memory'] - cpu['memory_stats']['avg']) > 4 * 1024  # 4GB
-                    cpu_load_ok = cpu['load_stats']['avg'] < cpu['cpu_cores']  # Load should be less than number of cores
+                if (
+                    cpu.cpu_stats is not None
+                    and cpu.memory_stats is not None
+                    and cpu.max_memory is not None
+                    and cpu.cpu_cores is not None
+                    and cpu.load_stats is not None
+                ):
+                    assert 'avg' in cpu.cpu_stats
+                    assert 'avg' in cpu.memory_stats
+                    assert 'avg' in cpu.load_stats
+                    cpu_util_ok = cpu.cpu_stats['avg'] < 80
+                    cpu_mem_ok = (cpu.max_memory - cpu.memory_stats['avg']) > 4 * 1024  # 4GB
+                    cpu_load_ok = cpu.load_stats['avg'] < cpu.cpu_cores  # Load should be less than number of cores
                     cpu_ok = cpu_util_ok and cpu_mem_ok and cpu_load_ok
 
             # GPU is only considered idle if both GPU and CPU resources are available
@@ -162,7 +169,7 @@ class Launcher(BaseAgent):
 
         return idle_gpus
 
-    def _launch_missing(self, all_running: List[JobStatus], num_jobs: int) -> bool:
+    def _launch_missing(self, all_running: List[BaseJob], num_jobs: int) -> bool:
         r"""
         Returns:
             done (bool): nothing more to launch.
@@ -181,7 +188,7 @@ class Launcher(BaseAgent):
         missing_runs = missing_runs[:num_launch]
 
         def launch_job(resource, run):
-            error_log = os.path.join(get_work_dir(run), "error.log")
+            error_log = os.path.join(BaseJob.get_work_dir(run), "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
 
@@ -191,6 +198,7 @@ class Launcher(BaseAgent):
 
             cmd = ' && '.join([
                 f"cd {self.project_dir}",
+                "git fetch",
                 f"git checkout {self.git_branch}",
                 f"git pull",
                 "source ~/.bashrc",
@@ -219,14 +227,15 @@ class Launcher(BaseAgent):
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
-            all_running_status_dict = get_all_job_status(
+            manager = Manager(
                 config_files=self.config_files,
                 epochs=self.epochs,
+                system_monitors=self.system_monitors,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
-                system_monitors=self.system_monitors,
                 force_progress_recompute=self.force_progress_recompute,
             )
+            all_running_status_dict = manager.build_jobs()
             all_running_status = list(all_running_status_dict.values())
 
             self.logger.info("Removing stuck jobs...")

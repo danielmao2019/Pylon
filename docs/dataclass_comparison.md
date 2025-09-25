@@ -25,18 +25,18 @@ This document compares three Python data structure approaches: `dataclass`, `Typ
 ### 1. dataclass (Recommended)
 
 ```python
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
+from typing import Optional
 
 @dataclass
-class JobStatus:
-    config: str
-    work_dir: str
-    progress: dict = field(default_factory=dict)
-    status: str = "pending"
-    process_info: Optional[dict] = None
-    
-    def is_running(self) -> bool:
-        return self.status == "running"
+class ProgressInfo:
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool = False
+    early_stopped_at_epoch: Optional[int] = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 ```
 
 **Advantages:**
@@ -58,12 +58,11 @@ class JobStatus:
 ```python
 from typing import TypedDict, Optional
 
-class JobStatus(TypedDict):
-    config: str
-    work_dir: str
-    progress: dict
-    status: str
-    process_info: Optional[dict]
+class ProgressInfo(TypedDict):
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool
+    early_stopped_at_epoch: Optional[int]
 ```
 
 **Advantages:**
@@ -84,12 +83,11 @@ class JobStatus(TypedDict):
 ```python
 from typing import NamedTuple, Optional
 
-class JobStatus(NamedTuple):
-    config: str
-    work_dir: str
-    progress: dict
-    status: str
-    process_info: Optional[dict]
+class ProgressInfo(NamedTuple):
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool
+    early_stopped_at_epoch: Optional[int]
 ```
 
 **Advantages:**
@@ -132,56 +130,54 @@ NamedTuple creation: 0.0198s  (2x slower)
 ### Problem with TypedDict
 ```python
 # TypedDict - just type hints, no runtime safety
-status: JobStatus = {
-    'config': 'exp.py',
-    'work_dir': './logs',
-    'progress': {},
-    'status': 'running',
-    'process_info': None
+progress: ProgressInfo = {
+    'completed_epochs': 10,
+    'progress_percentage': 50.0,
+    'early_stopped': False,
+    'early_stopped_at_epoch': None
 }
 
 # These all "work" but shouldn't:
-status['typo_field'] = 'oops'  # No error!
-del status['config']            # No error!
-status['status'] = 123          # No error!
+progress['typo_field'] = 'oops'  # No error!
+del progress['completed_epochs']  # No error!
+progress['progress_percentage'] = 'fifty'  # No error!
 ```
 
 ### Problem with NamedTuple
 ```python
 # NamedTuple - immutable, awkward updates
-status = JobStatus(
-    config='exp.py',
-    work_dir='./logs',
-    progress={},
-    status='pending',
-    process_info=None
+progress = ProgressInfo(
+    completed_epochs=0,
+    progress_percentage=0.0,
+    early_stopped=False,
+    early_stopped_at_epoch=None
 )
 
 # Cannot update fields directly
-# status.status = 'running'  # AttributeError!
+# progress.progress_percentage = 25.0  # AttributeError!
 
 # Must create new instance
-status = status._replace(status='running')  # Awkward!
+progress = progress._replace(progress_percentage=25.0)  # Awkward!
 ```
 
 ### Solution with dataclass
 ```python
 # dataclass - best of both worlds
-status = JobStatus(
-    config='exp.py',
-    work_dir='./logs'
+progress = ProgressInfo(
+    completed_epochs=0,
+    progress_percentage=0.0
     # Other fields use defaults
 )
 
 # Natural updates
-status.status = 'running'
-status.progress['epochs'] = 10
+progress.completed_epochs += 1
+progress.progress_percentage = 10.0
 
 # Type safety
-# status.typo = 'error'  # AttributeError if not using __slots__
+# progress.typo = 'error'  # AttributeError if not using __slots__
 
 # Easy serialization
-data = asdict(status)  # Convert to dict for JSON
+data = asdict(progress)  # Convert to dict for JSON
 ```
 
 ## Migration Guide
@@ -189,17 +185,19 @@ data = asdict(status)  # Convert to dict for JSON
 ### From TypedDict to dataclass
 ```python
 # Before (TypedDict)
-class JobStatus(TypedDict):
-    config: str
-    work_dir: str
-    progress: dict
+class ProgressInfo(TypedDict):
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool
+    early_stopped_at_epoch: Optional[int]
 
 # After (dataclass)
 @dataclass
-class JobStatus:
-    config: str
-    work_dir: str
-    progress: dict = field(default_factory=dict)
+class ProgressInfo:
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool = False
+    early_stopped_at_epoch: Optional[int] = None
 ```
 
 ### From NamedTuple to dataclass
@@ -248,14 +246,13 @@ The slight performance overhead in creation time (2.4x) is negligible compared t
 ### Refactored Components:
 - `ProgressInfo` - Training progress tracking
 - `ProcessInfo` - System process information
-- `JobStatus` - Experiment job status
 - `GPUStatus` - GPU monitoring status
 - `CPUStatus` - CPU monitoring status
 - `LogDirInfo` - Log directory information
 
 ### Benefits Achieved:
 - **Type Safety**: Runtime validation and IDE support
-- **Clean API**: Dot notation access (`status.config` vs `status['config']`)
+- **Clean API**: Dot notation access (`progress.completed_epochs` vs `progress['completed_epochs']`)
 - **Maintainability**: Easy to add methods and properties
 - **Memory Efficiency**: 48 bytes vs 360+ bytes for equivalent dicts
 - **JSON Compatibility**: Automatic serialization via `serialize_object()`

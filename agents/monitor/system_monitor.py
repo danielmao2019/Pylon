@@ -12,7 +12,7 @@ class SystemMonitor:
 
     def __init__(
         self,
-        server: str,
+        server: str = 'localhost',
         gpu_indices: Optional[List[int]] = None,
         timeout: int = 5,
         window_size: int = 10,

@@ -8,8 +8,8 @@ from unittest.mock import Mock
 import pytest
 from agents.logger import LogsSnapshot
 from agents.monitor.system_monitor import SystemMonitor
-from agents.manager import JobStatus
-from agents.tracker.base_tracker import ProgressInfo
+from agents.manager import BaseJob, Manager
+from agents.manager.progress_info import ProgressInfo
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.gpu_status import GPUStatus
 from utils.io.json import serialize_object
@@ -91,14 +91,13 @@ def sample_process_info():
 
 @pytest.fixture
 def sample_job_status(sample_progress_info, sample_process_info):
-    """Sample JobStatus for testing."""
-    return JobStatus(
-        config="configs/exp/baseline.py",
-        work_dir="./logs/baseline_run",
-        progress=sample_progress_info,
-        status="running",
-        process_info=sample_process_info
-    )
+    """Sample BaseJob for testing."""
+    job = BaseJob('configs/exp/baseline.py')
+    job.work_dir = './logs/baseline_run'
+    job.progress = sample_progress_info
+    job.status = 'running'
+    job.process_info = sample_process_info
+    return job
 
 
 # ============================================================================
@@ -158,29 +157,26 @@ def test_logs_snapshot_initialization_validation():
 
 def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
     """Test snapshot creation."""
-    # Mock get_all_job_status to return test data
-    def mock_get_all_job_status(**kwargs):
-        return {
-            "configs/exp/baseline.py": JobStatus(
-                config="configs/exp/baseline.py",
-                work_dir="./logs/baseline_run",
-                progress=ProgressInfo(
-                    completed_epochs=15,
-                    progress_percentage=75.0,
-                    early_stopped=False,
-                    early_stopped_at_epoch=None
-                ),
-                status="running",
-                process_info=ProcessInfo(
-                    pid='12345', 
-                    user='testuser', 
-                    cmd='python main.py --config-filepath configs/exp/baseline.py',
-                    start_time='2025-07-17 10:00:00'
-                )
-            )
-        }
+    # Mock Manager.build_jobs to return test data
+    def mock_build_jobs(self):
+        job = BaseJob('configs/exp/baseline.py')
+        job.work_dir = './logs/baseline_run'
+        job.progress = ProgressInfo(
+            completed_epochs=15,
+            progress_percentage=75.0,
+            early_stopped=False,
+            early_stopped_at_epoch=None
+        )
+        job.status = 'running'
+        job.process_info = ProcessInfo(
+            pid='12345',
+            user='testuser',
+            cmd='python main.py --config-filepath configs/exp/baseline.py',
+            start_time='2025-07-17 10:00:00'
+        )
+        return {'configs/exp/baseline.py': job}
     
-    monkeypatch.setattr("agents.logger.logs_snapshot.get_all_job_status", mock_get_all_job_status)
+    monkeypatch.setattr(Manager, "build_jobs", mock_build_jobs)
     
     snapshot = LogsSnapshot(
         config_files=sample_config_files,
