@@ -1,6 +1,6 @@
 import os
 import tempfile
-from agents.manager import BaseJob, Manager
+from agents.manager import DefaultJob, Manager
 from agents.manager.progress_info import ProgressInfo
 
 
@@ -47,7 +47,7 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
             # Check that keys are config paths and values are BaseJob objects
             for config_path in config_files:
                 assert config_path in result
-                assert isinstance(result[config_path], BaseJob)
+                assert isinstance(result[config_path], DefaultJob)
                 assert result[config_path].config_filepath == config_path
                 assert isinstance(result[config_path].progress, ProgressInfo)
                 assert hasattr(result[config_path].progress, 'completed_epochs')

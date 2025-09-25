@@ -1,13 +1,13 @@
 """
 BaseJob utility tests: path conversions.
 """
-from agents.manager.default_job import BaseJob
+from agents.manager.default_job import DefaultJob
 
 
 def test_work_dir_roundtrip():
     cfg = './configs/foo/bar/baz.py'
-    work = BaseJob.get_work_dir(cfg)
+    work = DefaultJob.get_work_dir(cfg)
     assert work == './logs/foo/bar/baz'
-    cfg2 = BaseJob.get_config_filepath(work)
+    cfg2 = DefaultJob.get_config_filepath(work)
     assert cfg2 == cfg
 

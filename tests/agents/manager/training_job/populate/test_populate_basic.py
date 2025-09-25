@@ -1,7 +1,6 @@
 import os
 import tempfile
-import pytest
-from agents.manager import BaseJob
+from agents.manager import DefaultJob
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.training_job import TrainingJob
 from agents.monitor.process_info import ProcessInfo
@@ -41,9 +40,9 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
             )
             
             # Should return BaseJob with enhanced ProgressInfo
-            assert isinstance(job_status, BaseJob)
+            assert isinstance(job_status, DefaultJob)
             assert job_status.config_filepath == config_path
-            expected_work_dir = BaseJob.get_work_dir(config_path)
+            expected_work_dir = DefaultJob.get_work_dir(config_path)
             assert job_status.work_dir == expected_work_dir
             assert isinstance(job_status.progress, ProgressInfo)
             assert job_status.progress.completed_epochs == 5

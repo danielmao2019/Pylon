@@ -6,7 +6,7 @@ import tempfile
 import json
 
 from agents.manager.manager import Manager
-from agents.manager.default_job import BaseJob
+from agents.manager.default_job import DefaultJob
 from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 
@@ -64,13 +64,13 @@ def test_build_jobs_minimal_integration(monkeypatch):
             assert set(jobs.keys()) == {"./configs/train_exp.py", "./configs/eval_exp.py"}
             # Training job
             tjob = jobs["./configs/train_exp.py"]
-            assert isinstance(tjob, BaseJob)
+            assert isinstance(tjob, DefaultJob)
             assert isinstance(tjob, TrainingJob)
             assert tjob.work_dir == "./logs/train_exp"
             assert tjob.progress is not None
             # Evaluator job
             ejob = jobs["./configs/eval_exp.py"]
-            assert isinstance(ejob, BaseJob)
+            assert isinstance(ejob, DefaultJob)
             assert isinstance(ejob, EvaluationJob)
             assert ejob.work_dir == "./logs/eval_exp"
             assert ejob.progress is not None

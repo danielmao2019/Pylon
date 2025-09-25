@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 from agents.monitor.system_monitor import SystemMonitor
-from agents.manager import BaseJob, Manager
+from agents.manager import Manager
 from utils.io.json import serialize_object
 
 

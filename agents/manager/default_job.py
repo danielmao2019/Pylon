@@ -13,7 +13,7 @@ from utils.io.config import load_config
 _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
-class BaseJob(ABC):
+class DefaultJob(ABC):
     """Object-oriented representation of a single training job."""
 
     def __init__(self, config_filepath: str) -> None:

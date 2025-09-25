@@ -1,7 +1,5 @@
 import os
 import tempfile
-import pytest
-from agents.manager import BaseJob
 from agents.manager.training_job import TrainingJob
 from agents.monitor.process_info import ProcessInfo
 

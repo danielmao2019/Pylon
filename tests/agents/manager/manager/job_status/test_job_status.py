@@ -8,16 +8,12 @@ Following CLAUDE.md testing patterns:
 - Parametrized testing for multiple scenarios
 - Unit testing for specific functions
 """
-from typing import Dict, Any
+from typing import Dict
 import os
 import tempfile
 import pytest
-from agents.manager import BaseJob, Manager
-from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
-from agents.manager.progress_info import ProgressInfo
 from agents.manager.training_job import TrainingJob
-from agents.manager.evaluation_job import EvaluationJob
 
 
 # ============================================================================

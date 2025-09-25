@@ -7,9 +7,6 @@ import time
 import json
 
 from agents.manager.manager import Manager
-from agents.manager.default_job import BaseJob
-from agents.manager.training_job import TrainingJob
-from agents.manager.evaluation_job import EvaluationJob
 
 
 import pytest

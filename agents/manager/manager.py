@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Dict, List
 
-from agents.manager.default_job import BaseJob
+from agents.manager.default_job import DefaultJob
 from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 from utils.io.config import load_config
@@ -76,7 +76,7 @@ class Manager:
             f"Expected evaluator or trainer artifacts."
         )
 
-    def build_jobs(self) -> Dict[str, BaseJob]:
+    def build_jobs(self) -> Dict[str, DefaultJob]:
         """Build BaseJob instances for all configs."""
         all_connected_gpus = [
             gpu
@@ -85,12 +85,12 @@ class Manager:
         ]
         config_to_process_info = self.build_config_to_process_mapping(all_connected_gpus)
 
-        def _construct(config: str) -> BaseJob:
-            work_dir = BaseJob.get_work_dir(config)
+        def _construct(config: str) -> DefaultJob:
+            work_dir = DefaultJob.get_work_dir(config)
             config_dict = load_config(config)
             runner = self._detect_runner_type(work_dir, config_dict)
             if runner == 'evaluator':
-                job: BaseJob = EvaluationJob(config)  # type: ignore[assignment]
+                job: DefaultJob = EvaluationJob(config)  # type: ignore[assignment]
             else:
                 job = TrainingJob(config)  # type: ignore[assignment]
             job.populate(
@@ -124,7 +124,7 @@ class Manager:
                 )
                 if 'python main.py --config-filepath' not in process.cmd:
                     continue
-                config = BaseJob.parse_config(process.cmd)
+                config = DefaultJob.parse_config(process.cmd)
                 config_to_process[config] = process
         return config_to_process
 

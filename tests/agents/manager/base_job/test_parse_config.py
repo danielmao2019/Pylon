@@ -2,7 +2,7 @@
 
 import pytest
 
-from agents.manager.default_job import BaseJob
+from agents.manager.default_job import DefaultJob
 
 
 @pytest.mark.parametrize(
@@ -15,7 +15,7 @@ from agents.manager.default_job import BaseJob
     ],
 )
 def test_parse_config_variants(cmd, expected):
-    assert BaseJob.parse_config(cmd) == expected
+    assert DefaultJob.parse_config(cmd) == expected
 
 
 @pytest.mark.parametrize(
@@ -28,4 +28,4 @@ def test_parse_config_variants(cmd, expected):
 )
 def test_parse_config_invalid(cmd):
     with pytest.raises(AssertionError):
-        BaseJob.parse_config(cmd)
+        DefaultJob.parse_config(cmd)

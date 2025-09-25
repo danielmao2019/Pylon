@@ -1,5 +1,5 @@
 from typing import List
-from agents.manager import BaseJob, Manager
+from agents.manager import Manager
 from agents.monitor.system_monitor import SystemMonitor
 
 

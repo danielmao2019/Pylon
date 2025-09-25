@@ -6,10 +6,10 @@ import os
 from typing import Optional
 
 from agents.manager.progress_info import ProgressInfo
-from agents.manager.default_job import BaseJob
+from agents.manager.default_job import DefaultJob
 
 
-class EvaluationJob(BaseJob):
+class EvaluationJob(DefaultJob):
     """Copied evaluator logic as classmethods for manager jobs."""
 
     EXPECTED_FILES = ["evaluation_scores.json"]
