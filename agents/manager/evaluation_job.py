@@ -8,6 +8,7 @@ from typing import Optional
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.default_job import DefaultJob
 from agents.manager.job_types import RunnerKind
+from agents.manager.runtime import JobRuntimeParams
 
 
 class EvaluationJob(DefaultJob):
@@ -69,3 +70,10 @@ class EvaluationJob(DefaultJob):
             if os.path.isfile(filepath):
                 timestamps.append(os.path.getmtime(filepath))
         return max(timestamps) if timestamps else None
+
+    def _is_complete(
+        self,
+        progress: ProgressInfo,
+        runtime: JobRuntimeParams,
+    ) -> bool:
+        return progress.completed_epochs >= 1

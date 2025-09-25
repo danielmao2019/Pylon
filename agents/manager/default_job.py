@@ -56,38 +56,56 @@ class DefaultJob(BaseJob, ABC):
 
     def compute_status(self, progress: ProgressInfo) -> _JobStatus:
         runtime = self.runtime
-        log_last_update = self.get_log_last_update()
+        now = time.time()
+
+        if self._is_active(runtime, now):
+            return 'running'
+
+        if self._is_complete(progress, runtime):
+            return 'outdated' if self._is_outdated(runtime, now) else 'finished'
+
+        if self._is_stuck(runtime):
+            return 'stuck'
+
+        return 'failed'
+
+    # ------------------------------------------------------------------
+    # Status helpers (overridable by subclasses)
+    # ------------------------------------------------------------------
+
+    def _is_active(self, runtime: JobRuntimeParams, now: float) -> bool:
+        last_log = self.get_log_last_update()
+        if last_log is None:
+            return False
+        return (now - last_log) <= runtime.sleep_time
+
+    def _is_complete(
+        self,
+        progress: ProgressInfo,
+        runtime: JobRuntimeParams,
+    ) -> bool:
+        if progress.early_stopped:
+            return True
+        target_epochs = runtime.epochs or progress.total_epochs or self.config_dict.get('epochs')
+        try:
+            target_int = int(target_epochs) if target_epochs is not None else 0
+        except (TypeError, ValueError):
+            target_int = 0
+        if target_int <= 0:
+            return False
+        return progress.completed_epochs >= target_int
+
+    def _is_outdated(self, runtime: JobRuntimeParams, now: float) -> bool:
+        if runtime.outdated_days <= 0:
+            return False
         artifact_last_update = self.get_artifact_last_update()
+        if artifact_last_update is None:
+            return False
+        stale_after = runtime.outdated_days * 24 * 60 * 60
+        return (now - artifact_last_update) > stale_after
 
-        is_running_status = (
-            log_last_update is not None and (time.time() - log_last_update <= runtime.sleep_time)
-        )
-
-        if self.runner_kind is RunnerKind.EVALUATOR:
-            is_complete = progress.completed_epochs >= 1
-        else:
-            is_complete = (
-                progress.early_stopped
-                or (
-                    runtime.epochs > 0
-                    and progress.completed_epochs >= runtime.epochs
-                )
-            )
-
-        if is_running_status:
-            status: _JobStatus = 'running'
-        elif is_complete:
-            if artifact_last_update is not None and (
-                time.time() - artifact_last_update > runtime.outdated_days * 24 * 60 * 60
-            ):
-                status = 'outdated'
-            else:
-                status = 'finished'
-        elif self.config_filepath in runtime.config_processes:
-            status = 'stuck'
-        else:
-            status = 'failed'
-        return status
+    def _is_stuck(self, runtime: JobRuntimeParams) -> bool:
+        return self.config_filepath in runtime.config_processes
 
     @abstractmethod
     def get_log_last_update(self) -> Optional[float]:
