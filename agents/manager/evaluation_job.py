@@ -7,6 +7,7 @@ from typing import Optional
 
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.default_job import DefaultJob
+from agents.manager.job_types import RunnerKind
 
 
 class EvaluationJob(DefaultJob):
@@ -14,6 +15,7 @@ class EvaluationJob(DefaultJob):
 
     EXPECTED_FILES = ["evaluation_scores.json"]
     LOG_PATTERN = "eval_*.log"
+    runner_kind = RunnerKind.EVALUATOR
 
     # ====================================================================================================
     # 
@@ -30,7 +32,7 @@ class EvaluationJob(DefaultJob):
             progress_percentage=progress_percentage,
             early_stopped=False,
             early_stopped_at_epoch=None,
-            runner_type='evaluator',
+            runner_type=self.runner_kind.value,
             total_epochs=1,
         )
 

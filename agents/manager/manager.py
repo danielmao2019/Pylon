@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-from typing import Dict, List
+from typing import Dict, List, Mapping, Type
 
 from agents.manager.default_job import DefaultJob
 from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
+from agents.manager.job_types import RunnerKind
 from utils.io.config import load_config
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
@@ -16,6 +16,11 @@ from agents.monitor.system_monitor import SystemMonitor
 class Manager:
     """Builds BaseJob instances for a collection of configs."""
 
+    DEFAULT_JOB_CLASSES: Dict[RunnerKind, Type[DefaultJob]] = {
+        RunnerKind.TRAINER: TrainingJob,
+        RunnerKind.EVALUATOR: EvaluationJob,
+    }
+
     def __init__(
         self,
         config_files: List[str],
@@ -24,6 +29,7 @@ class Manager:
         sleep_time: int = 86400,
         outdated_days: int = 30,
         force_progress_recompute: bool = False,
+        job_classes: Mapping[RunnerKind, Type[DefaultJob]] | None = None,
     ) -> None:
         assert isinstance(config_files, list)
         assert isinstance(epochs, int)
@@ -36,8 +42,12 @@ class Manager:
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
         self.force_progress_recompute = force_progress_recompute
+        self.job_classes = dict(job_classes or self.DEFAULT_JOB_CLASSES)
+        for runner_kind, job_cls in self.job_classes.items():
+            assert isinstance(runner_kind, RunnerKind)
+            assert issubclass(job_cls, DefaultJob)
 
-    def _detect_runner_type(self, work_dir: str, config: dict | None) -> str:
+    def _detect_runner_type(self, work_dir: str, config: dict | None) -> RunnerKind:
         """Detect runner type from work_dir structure or config.
 
         Moved from tracker to manager without modification in logic.
@@ -46,13 +56,13 @@ class Manager:
         # Strategy 1: Check existing files (based on eval_viewer's proven approach)
         # Check for BaseEvaluator pattern: evaluation_scores.json directly in work_dir
         if os.path.exists(os.path.join(work_dir, "evaluation_scores.json")):
-            return 'evaluator'
+            return RunnerKind.EVALUATOR
 
         # Check for BaseTrainer pattern: epoch folders with validation_scores.json
         epoch_0_dir = os.path.join(work_dir, "epoch_0")
         validation_scores_path = os.path.join(epoch_0_dir, "validation_scores.json")
         if os.path.exists(epoch_0_dir) and os.path.exists(validation_scores_path):
-            return 'trainer'
+            return RunnerKind.TRAINER
 
         # Strategy 2: Check config if available (additional context)
         if config:
@@ -66,9 +76,9 @@ class Manager:
             # Infer by class name convention (kept identical to original behavior if any)
             name = runner_config.__name__.lower()
             if 'evaluat' in name:
-                return 'evaluator'
+                return RunnerKind.EVALUATOR
             if 'train' in name:
-                return 'trainer'
+                return RunnerKind.TRAINER
 
         # Fail fast if cannot determine
         raise ValueError(
@@ -88,11 +98,13 @@ class Manager:
         def _construct(config: str) -> DefaultJob:
             work_dir = DefaultJob.get_work_dir(config)
             config_dict = load_config(config)
-            runner = self._detect_runner_type(work_dir, config_dict)
-            if runner == 'evaluator':
-                job: DefaultJob = EvaluationJob(config)  # type: ignore[assignment]
-            else:
-                job = TrainingJob(config)  # type: ignore[assignment]
+            runner_kind = self._detect_runner_type(work_dir, config_dict)
+            job_cls = self.job_classes.get(runner_kind)
+            if job_cls is None:
+                raise KeyError(
+                    f"No job class registered for runner {runner_kind!r}"
+                )
+            job = job_cls(config)
             job.populate(
                 epochs=self.epochs,
                 config_to_process_info=config_to_process_info,
@@ -127,6 +139,3 @@ class Manager:
                 config = DefaultJob.parse_config(process.cmd)
                 config_to_process[config] = process
         return config_to_process
-
-
-__all__ = ['Manager']

@@ -8,6 +8,7 @@ import torch
 
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.default_job import DefaultJob
+from agents.manager.job_types import RunnerKind
 from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
 
@@ -17,6 +18,7 @@ class TrainingJob(DefaultJob):
 
     EXPECTED_FILES = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
     LOG_PATTERN = "train_val*.log"
+    runner_kind = RunnerKind.TRAINER
 
     # ====================================================================================================
     # 
@@ -69,7 +71,7 @@ class TrainingJob(DefaultJob):
             progress_percentage=100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
             early_stopped=early_stopped,
             early_stopped_at_epoch=early_stopped_at_epoch,
-            runner_type='trainer',
+            runner_type=self.runner_kind.value,
             total_epochs=tot_epochs,
         )
         save_json(progress.to_dict(), progress_file)
