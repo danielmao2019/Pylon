@@ -188,7 +188,8 @@ class Launcher(BaseAgent):
         missing_runs = missing_runs[:num_launch]
 
         def launch_job(resource, run):
-            error_log = os.path.join(DefaultJob.get_work_dir(run), "error.log")
+            rel_path = os.path.splitext(os.path.relpath(run, start='./configs'))[0]
+            error_log = os.path.join('./logs', rel_path, "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
 

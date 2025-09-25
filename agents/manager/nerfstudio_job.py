@@ -19,7 +19,8 @@ class NerfStudioJob(BaseJob):
         env: Optional[Dict[str, str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
-        super().__init__(command=command, work_dir=work_dir, env=env, metadata=metadata)
+        self._explicit_work_dir = work_dir
+        super().__init__(command=command, env=env, metadata=metadata)
 
     def _load_metrics(self) -> Dict[str, Any]:
         if not self.work_dir:
@@ -77,3 +78,6 @@ class NerfStudioJob(BaseJob):
         if self.metadata.get("had_error"):
             return "failed"
         return "pending"
+
+    def derive_work_dir(self) -> str:
+        return self._explicit_work_dir

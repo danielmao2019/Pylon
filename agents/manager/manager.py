@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Mapping, Type
 
@@ -105,7 +106,7 @@ class Manager:
         )
 
         def _construct(config: str) -> DefaultJob:
-            work_dir = DefaultJob.get_work_dir(config)
+            work_dir = self._work_dir_for_config(config)
             config_dict = load_config(config)
             runner_kind = self._detect_runner_type(work_dir, config_dict)
             job_cls = self.job_classes.get(runner_kind)
@@ -142,3 +143,8 @@ class Manager:
                 config = DefaultJob.parse_config(process.cmd)
                 config_to_process[config] = process
         return config_to_process
+
+    @staticmethod
+    def _work_dir_for_config(config_filepath: str) -> str:
+        rel_path = os.path.splitext(os.path.relpath(config_filepath, start='./configs'))[0]
+        return os.path.join('./logs', rel_path)

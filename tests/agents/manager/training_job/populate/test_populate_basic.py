@@ -1,5 +1,6 @@
 import os
 import tempfile
+from typing import Dict
 from agents.manager import DefaultJob
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.training_job import TrainingJob
@@ -42,7 +43,8 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
             # Should return BaseJob with enhanced ProgressInfo
             assert isinstance(job_status, DefaultJob)
             assert job_status.config_filepath == config_path
-            expected_work_dir = DefaultJob.get_work_dir(config_path)
+            rel_path = os.path.splitext(os.path.relpath(config_path, start='./configs'))[0]
+            expected_work_dir = os.path.join('./logs', rel_path)
             assert job_status.work_dir == expected_work_dir
             assert isinstance(job_status.progress, ProgressInfo)
             assert job_status.progress.completed_epochs == 5
@@ -52,4 +54,3 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
             
         finally:
             os.chdir(original_cwd)
-

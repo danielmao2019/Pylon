@@ -7,7 +7,6 @@ from typing import Any, Dict, Literal, Optional
 
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.base_job import BaseJob
-from agents.monitor.process_info import ProcessInfo
 from utils.io.config import load_config
 from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
@@ -22,9 +21,6 @@ class DefaultJob(BaseJob, ABC):
     runner_kind: RunnerKind | None = None
 
     def __init__(self, config_filepath: str) -> None:
-        work_dir = self.get_work_dir(config_filepath)
-        command = f"python main.py --config-filepath {config_filepath}"
-        super().__init__(command=command, work_dir=work_dir)
         self.config_filepath = config_filepath
         self.config_dict = load_config(self.config_filepath)
         runner_kind = getattr(self.__class__, "runner_kind", None)
@@ -33,6 +29,8 @@ class DefaultJob(BaseJob, ABC):
                 f"{self.__class__.__name__} must define runner_kind"
             )
         self.runner_kind: RunnerKind = runner_kind
+        command = f"python main.py --config-filepath {config_filepath}"
+        super().__init__(command=command)
         default_epochs = int(self.config_dict.get('epochs', 0) or 0)
         self._runtime: JobRuntimeParams = JobRuntimeParams(
             epochs=default_epochs,
@@ -51,16 +49,6 @@ class DefaultJob(BaseJob, ABC):
         self._runtime = runtime
         self.attach_process(runtime.process_for(self.config_filepath))
         self.refresh()
-
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
-
-    @classmethod
-    def get_work_dir(cls, config_filepath: str) -> str:
-        """Derive work directory path from a config file path."""
-        rel_path = os.path.splitext(os.path.relpath(config_filepath, start='./configs'))[0]
-        return os.path.join('./logs', rel_path)
 
     # ====================================================================================================
     # 
@@ -146,3 +134,7 @@ class DefaultJob(BaseJob, ABC):
     @property
     def runtime(self) -> JobRuntimeParams:
         return self._runtime
+
+    def derive_work_dir(self) -> str:
+        rel_path = os.path.splitext(os.path.relpath(self.config_filepath, start='./configs'))[0]
+        return os.path.join('./logs', rel_path)

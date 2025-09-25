@@ -20,7 +20,6 @@ class BaseJob(ABC):
         self,
         command: str,
         *,
-        work_dir: Optional[str] = None,
         env: Optional[Mapping[str, str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -28,7 +27,7 @@ class BaseJob(ABC):
             "Job command must be a non-empty string"
         )
         self.command = command
-        self.work_dir = work_dir
+        self.work_dir = self.derive_work_dir()
         self.env = dict(env or {})
         self.metadata = dict(metadata or {})
         self.process_info: Optional[ProcessInfo] = None
@@ -56,6 +55,10 @@ class BaseJob(ABC):
     def describe(self) -> str:
         """Human-friendly descriptor, defaulting to the launch command."""
         return self.command
+
+    @abstractmethod
+    def derive_work_dir(self) -> str:
+        """Return the canonical work directory for this job instance."""
 
     def to_dict(self) -> Dict[str, Any]:
         """Light-weight serialisable view of the job state."""
