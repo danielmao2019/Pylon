@@ -52,24 +52,18 @@ class DefaultJob(BaseJob, ABC):
         self.progress = progress
         self.status = self.compute_status(progress)
 
+    def compute_status(self, progress: ProgressInfo) -> _JobStatus:
+        if self._is_active():
+            return 'running'
+        if self._is_complete(progress):
+            return 'outdated' if self._is_outdated() else 'finished'
+        if self._is_stuck():
+            return 'stuck'
+        return 'failed'
+
     # ====================================================================================================
     # 
     # ====================================================================================================
-
-    def compute_status(self, progress: ProgressInfo) -> _JobStatus:
-        runtime = self.runtime
-        now = time.time()
-
-        if self._is_active(runtime, now):
-            return 'running'
-
-        if self._is_complete(progress, runtime):
-            return 'outdated' if self._is_outdated(runtime, now) else 'finished'
-
-        if self._is_stuck(runtime):
-            return 'stuck'
-
-        return 'failed'
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -113,31 +107,31 @@ class DefaultJob(BaseJob, ABC):
     # Status helpers (overridable by subclasses)
     # ------------------------------------------------------------------
 
-    def _is_active(self, runtime: JobRuntimeParams, now: float) -> bool:
+    def _is_active(self) -> bool:
         last_log = self.get_log_last_update()
         if last_log is None:
             return False
-        return (now - last_log) <= runtime.sleep_time
+        return (time.time() - last_log) <= self.runtime.sleep_time
 
     @abstractmethod
     def _is_complete(
         self,
         progress: ProgressInfo,
-        runtime: JobRuntimeParams,
     ) -> bool:
         """Return True when the job should count as complete."""
 
-    def _is_outdated(self, runtime: JobRuntimeParams, now: float) -> bool:
+    def _is_outdated(self) -> bool:
+        runtime = self.runtime
         if runtime.outdated_days <= 0:
             return False
         artifact_last_update = self.get_artifact_last_update()
         if artifact_last_update is None:
             return False
         stale_after = runtime.outdated_days * 24 * 60 * 60
-        return (now - artifact_last_update) > stale_after
+        return (time.time() - artifact_last_update) > stale_after
 
-    def _is_stuck(self, runtime: JobRuntimeParams) -> bool:
-        return self.config_filepath in runtime.config_processes
+    def _is_stuck(self) -> bool:
+        return self.config_filepath in self.runtime.config_processes
 
     # ------------------------------------------------------------------
     # Abstract data accessors

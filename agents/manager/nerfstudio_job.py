@@ -16,14 +16,11 @@ class NerfStudioJob(BaseJob):
         self,
         command: str,
     ) -> None:
-        self._work_dir = self._resolve_work_dir(command)
         self._expected_steps = self._extract_int_flag(command)
-        self._last_metrics: Optional[Dict[str, object]] = None
         super().__init__(command=command)
 
     def compute_progress(self) -> ProgressInfo:
         data = self._load_metrics()
-        self._last_metrics = data
 
         completed_steps = int(data.get("latest_step", data.get("completed_steps", 0)) or 0)
         total_steps = data.get("total_steps", self._expected_steps)
@@ -49,30 +46,43 @@ class NerfStudioJob(BaseJob):
         )
 
     def compute_status(self, progress: ProgressInfo) -> str:
-        metrics = self._last_metrics or self._load_metrics()
-        self._last_metrics = metrics
-
-        expected_total = metrics.get("total_steps")
-        if expected_total is None:
-            expected_total = self._expected_steps if self._expected_steps is not None else progress.total_epochs
-        try:
-            expected_total_int = int(expected_total) if expected_total is not None else None
-        except (TypeError, ValueError):
-            expected_total_int = None
-
-        if expected_total_int is not None and expected_total_int > 0:
-            if progress.completed_epochs >= expected_total_int:
-                return "finished"
         if self.process_info is not None:
             return "running"
-        if progress.completed_epochs > 0:
-            return "running"
-        if self._did_fail(metrics):
-            return "failed"
-        return "pending"
+
+        target = progress.total_epochs or self._expected_steps
+        try:
+            target_int = int(target) if target is not None else 0
+        except (TypeError, ValueError):
+            target_int = 0
+        if target_int > 0 and progress.completed_epochs >= target_int:
+            return "finished"
+
+        return "failed"
 
     def derive_work_dir(self) -> str:
-        return self._work_dir
+        try:
+            tokens = shlex.split(self.command)
+        except ValueError:
+            tokens = self.command.split()
+        flags = (
+            '--output-dir', '--output_dir', '--output',
+            '--workspace', '--run-dir', '--run_dir', '--logdir', '--log-dir'
+        )
+        for flag in flags:
+            if flag in tokens:
+                idx = tokens.index(flag)
+                if idx + 1 < len(tokens):
+                    candidate = tokens[idx + 1]
+                    if candidate:
+                        return os.path.normpath(os.path.expanduser(candidate))
+            prefix = f"{flag}="
+            for token in tokens:
+                if token.startswith(prefix) and len(token) > len(prefix):
+                    return os.path.normpath(os.path.expanduser(token[len(prefix):]))
+        raise ValueError(
+            "Unable to determine work directory for NerfStudioJob. "
+            "Provide a supported command flag (e.g. --output-dir) in the command."
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -90,33 +100,6 @@ class NerfStudioJob(BaseJob):
         except (OSError, json.JSONDecodeError, TypeError):
             return {}
         return data if isinstance(data, dict) else {}
-
-    @staticmethod
-    def _resolve_work_dir(command: str) -> str:
-        try:
-            tokens = shlex.split(command)
-        except ValueError:
-            tokens = command.split()
-        lookup_flags = (
-            '--output-dir', '--output_dir', '--output',
-            '--workspace', '--run-dir', '--run_dir', '--logdir', '--log-dir'
-        )
-        for flag in lookup_flags:
-            if flag in tokens:
-                idx = tokens.index(flag)
-                if idx + 1 < len(tokens):
-                    candidate = tokens[idx + 1]
-                    if candidate:
-                        return os.path.normpath(os.path.expanduser(candidate))
-            prefix = f"{flag}="
-            for token in tokens:
-                if token.startswith(prefix) and len(token) > len(prefix):
-                    return os.path.normpath(os.path.expanduser(token[len(prefix):]))
-
-        raise ValueError(
-            "Unable to determine work directory for NerfStudioJob. "
-            "Provide a supported command flag (e.g. --output-dir) in the command."
-        )
 
     @staticmethod
     def _extract_int_flag(command: str) -> Optional[int]:
@@ -146,16 +129,3 @@ class NerfStudioJob(BaseJob):
                     except (TypeError, ValueError):
                         continue
         return None
-
-    @staticmethod
-    def _did_fail(metrics: Dict[str, object]) -> bool:
-        flag = metrics.get("had_error")
-        if isinstance(flag, bool):
-            return flag
-        status = metrics.get("status")
-        if isinstance(status, str) and status.lower() in {"failed", "error", "crashed"}:
-            return True
-        errors = metrics.get("errors")
-        if isinstance(errors, (list, tuple)) and len(errors) > 0:
-            return True
-        return False

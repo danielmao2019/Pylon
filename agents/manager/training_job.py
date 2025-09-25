@@ -88,8 +88,11 @@ class TrainingJob(DefaultJob):
         if progress.early_stopped:
             return True
 
-        runtime = self.runtime
-        target_epochs = runtime.epochs or progress.total_epochs or self.config_dict.get('epochs')
+        target_epochs = (
+            self.runtime.epochs
+            or progress.total_epochs
+            or self.config_dict.get('epochs')
+        )
         try:
             target_int = int(target_epochs) if target_epochs is not None else 0
         except (TypeError, ValueError):
