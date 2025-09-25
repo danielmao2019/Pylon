@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional, Tuple, Dict
+import logging
 import os
 import glob
 import torch
@@ -26,8 +27,16 @@ class TrainingJob(BaseJob):
         """Return cached progress if available, otherwise recompute and cache."""
         progress_file = os.path.join(self.work_dir, "progress.json")
         if not force_progress_recompute and os.path.exists(progress_file):
-            data = load_json(progress_file)
-            return ProgressInfo(**data)
+            try:
+                data = load_json(progress_file)
+            except RuntimeError as exc:
+                logging.warning(
+                    "Failed to load cached trainer progress from %s: %s. Recomputing progress.",
+                    progress_file,
+                    exc,
+                )
+            else:
+                return ProgressInfo(**data)
 
         completed_epochs = 0
 
