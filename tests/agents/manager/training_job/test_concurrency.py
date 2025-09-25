@@ -210,7 +210,8 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
                         create_epoch_files(work_dir, epoch_idx)
                     
                     # Use TrainingJob to compute and save progress
-                    progress = TrainingJob.get_progress(work_dir, config=None, force_progress_recompute=True)
+                    job = TrainingJob(config_path)
+                    progress = job.get_progress(force_progress_recompute=True)
                     
                     results.append((thread_id, update_round, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase chance of conflicts
@@ -347,7 +348,7 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
             
             def force_recompute_thread(thread_id):
                 for i in range(3):
-                    progress = TrainingJob.get_session_progress(work_dir, expected_files, force_progress_recompute=True)
+                    progress = TrainingJob.get_progress(work_dir, expected_files, force_progress_recompute=True)
                     results.append((thread_id, i, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase interleaving
             
