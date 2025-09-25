@@ -198,6 +198,7 @@ class Launcher(BaseAgent):
 
             cmd = ' && '.join([
                 f"cd {self.project_dir}",
+                "git fetch",
                 f"git checkout {self.git_branch}",
                 f"git pull",
                 "source ~/.bashrc",
