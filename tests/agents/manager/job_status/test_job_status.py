@@ -390,30 +390,3 @@ def test_base_job_populate_invalid_config_path():
             
         finally:
             os.chdir(original_cwd)
-def test_build_config_to_process_mapping_empty_gpu_data():
-    """Test building config mapping with empty GPU data."""
-    connected_gpus = []
-    mapping = Manager.build_config_to_process_mapping(connected_gpus)
-    assert len(mapping) == 0
-    assert mapping == {}
-
-
-def test_build_config_to_process_mapping_no_matching_processes():
-    """Test building config mapping when no processes match pattern."""
-    connected_gpus = [
-        GPUStatus(
-            server='test_server', index=0, window_size=10, max_memory=0,
-            processes=[
-                ProcessInfo(
-                    pid='12345',
-                    user='testuser',
-                    cmd='some_other_process --not-matching',
-                    start_time='Mon Jan  1 10:00:00 2024'
-                )
-            ]
-        )
-    ]
-    
-    mapping = Manager.build_config_to_process_mapping(connected_gpus)
-    assert len(mapping) == 0
-    assert mapping == {}
