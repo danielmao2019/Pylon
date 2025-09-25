@@ -7,7 +7,7 @@ import os
 import torch
 
 from agents.manager.progress_info import ProgressInfo
-from agents.manager.base_job import BaseJob
+from agents.manager.default_job import BaseJob
 from utils.io.config import load_config
 from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config

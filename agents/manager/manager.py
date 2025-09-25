@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Dict, List
 
-from agents.manager.base_job import BaseJob
+from agents.manager.default_job import BaseJob
 from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 from utils.io.config import load_config

@@ -1,7 +1,7 @@
 """
 BaseJob utility tests: path conversions.
 """
-from agents.manager.base_job import BaseJob
+from agents.manager.default_job import BaseJob
 
 
 def test_work_dir_roundtrip():

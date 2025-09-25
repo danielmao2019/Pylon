@@ -2,7 +2,7 @@
 
 import pytest
 
-from agents.manager.base_job import BaseJob
+from agents.manager.default_job import BaseJob
 
 
 @pytest.mark.parametrize(
