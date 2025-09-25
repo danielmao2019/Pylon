@@ -2,11 +2,10 @@ import os
 import tempfile
 from agents.manager import BaseJob, Manager
 from agents.manager.progress_info import ProgressInfo
-from agents.monitor.gpu_status import GPUStatus
 
 
 
-def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes):
+def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_files, create_system_monitor_with_processes):
     """Test that Manager.build_jobs returns Dict[str, BaseJob] with minimal SystemMonitor mock."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiment directories
@@ -27,12 +26,8 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
             for epoch_idx in range(2):
                 create_epoch_files(work_dir, epoch_idx)
         
-        # Create minimal SystemMonitor mock (only necessary mock)
-        connected_gpus_data = [
-            GPUStatus(server='test_server', index=0, window_size=10, max_memory=0, processes=[], connected=True)
-        ]
-        system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
-        monitor_map = {'test_server': system_monitor}
+        # Create minimal SystemMonitor mapping (no running processes)
+        monitor_map = create_system_monitor_with_processes([])
         
         original_cwd = os.getcwd()
         os.chdir(temp_root)
