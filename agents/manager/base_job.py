@@ -38,12 +38,6 @@ class BaseJob(ABC):
         """Associate runtime process information (if available)."""
         self.process_info = process_info
 
-    def refresh(self) -> None:
-        """Recompute progress and status using subclass-specific logic."""
-        progress = self.compute_progress()
-        self.progress = progress
-        self.status = self.compute_status(progress=progress)
-
     @abstractmethod
     def compute_progress(self) -> ProgressInfo:
         """Return up-to-date progress information for the job."""

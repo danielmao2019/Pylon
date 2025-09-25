@@ -48,7 +48,9 @@ class DefaultJob(BaseJob, ABC):
         """Attach runtime parameters and recompute state."""
         self._runtime = runtime
         self.attach_process(runtime.process_for(self.config_filepath))
-        self.refresh()
+        progress = self.compute_progress()
+        self.progress = progress
+        self.status = self.compute_status(progress)
 
     # ====================================================================================================
     # 
