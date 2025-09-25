@@ -62,12 +62,6 @@ class DefaultJob(BaseJob, ABC):
         rel_path = os.path.splitext(os.path.relpath(config_filepath, start='./configs'))[0]
         return os.path.join('./logs', rel_path)
 
-    @classmethod
-    def get_config_filepath(cls, work_dir: str) -> str:
-        """Derive config file path from a work directory path."""
-        rel_path = os.path.relpath(work_dir, './logs')
-        return os.path.join('./configs', rel_path) + '.py'
-
     # ====================================================================================================
     # 
     # ====================================================================================================
