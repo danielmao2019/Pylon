@@ -21,7 +21,7 @@ class EvaluationJob(DefaultJob):
     # 
     # ====================================================================================================
 
-    def get_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
+    def compute_progress(self, *, force: Optional[bool] = None) -> ProgressInfo:
         eval_complete = self._check_files_exist(self.work_dir)
 
         progress_percentage = 100.0 if eval_complete else 0.0

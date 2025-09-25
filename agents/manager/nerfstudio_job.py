@@ -34,14 +34,11 @@ class NerfStudioJob(BaseJob):
             return {}
         return data if isinstance(data, dict) else {}
 
-    def compute_progress(
-        self, *, context: Optional[Dict[str, Any]] = None
-    ) -> ProgressInfo:
+    def compute_progress(self, *, force: Optional[bool] = None) -> ProgressInfo:
         data = self._load_metrics()
-        ctx = context or {}
 
         completed_steps = int(data.get("latest_step", data.get("completed_steps", 0)) or 0)
-        total_steps = data.get("total_steps", ctx.get("total_steps"))
+        total_steps = data.get("total_steps", self.metadata.get("total_steps"))
         try:
             total_steps_int = int(total_steps) if total_steps is not None else None
         except (TypeError, ValueError):
@@ -67,10 +64,8 @@ class NerfStudioJob(BaseJob):
         self,
         *,
         progress: ProgressInfo,
-        context: Optional[Dict[str, Any]] = None,
     ) -> str:
-        ctx = context or {}
-        expected_total = ctx.get("total_steps", progress.total_epochs)
+        expected_total = self.metadata.get("total_steps", progress.total_epochs)
         try:
             expected_total_int = int(expected_total) if expected_total is not None else None
         except (TypeError, ValueError):
@@ -83,6 +78,6 @@ class NerfStudioJob(BaseJob):
             return "running"
         if progress.completed_epochs > 0:
             return "running"
-        if ctx.get("had_error"):
+        if self.metadata.get("had_error"):
             return "failed"
         return "pending"

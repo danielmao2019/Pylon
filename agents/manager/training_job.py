@@ -24,9 +24,10 @@ class TrainingJob(DefaultJob):
     # 
     # ====================================================================================================
 
-    def get_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
+    def compute_progress(self, *, force: Optional[bool] = None) -> ProgressInfo:
         """Return cached progress if available, otherwise recompute and cache."""
         progress_file = os.path.join(self.work_dir, "progress.json")
+        force_progress_recompute = self.runtime.force_progress_recompute if force is None else force
         if not force_progress_recompute and os.path.exists(progress_file):
             try:
                 data = load_json(progress_file)

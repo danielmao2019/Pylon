@@ -39,16 +39,14 @@ class BaseJob(ABC):
         """Associate runtime process information (if available)."""
         self.process_info = process_info
 
-    def refresh(self, *, context: Optional[Dict[str, Any]] = None) -> None:
+    def refresh(self) -> None:
         """Recompute progress and status using subclass-specific logic."""
-        progress = self.compute_progress(context=context)
+        progress = self.compute_progress()
         self.progress = progress
-        self.status = self.compute_status(progress=progress, context=context)
+        self.status = self.compute_status(progress=progress)
 
     @abstractmethod
-    def compute_progress(
-        self, *, context: Optional[Dict[str, Any]] = None
-    ) -> ProgressInfo:
+    def compute_progress(self, *, force: Optional[bool] = None) -> ProgressInfo:
         """Return up-to-date progress information for the job."""
 
     @abstractmethod
@@ -56,7 +54,6 @@ class BaseJob(ABC):
         self,
         *,
         progress: ProgressInfo,
-        context: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Determine high-level status (e.g. running/finished/failed)."""
 

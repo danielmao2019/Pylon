@@ -10,6 +10,7 @@ from agents.manager.base_job import BaseJob
 from agents.monitor.process_info import ProcessInfo
 from utils.io.config import load_config
 from agents.manager.job_types import RunnerKind
+from agents.manager.runtime import JobRuntimeParams
 
 
 _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
@@ -32,29 +33,24 @@ class DefaultJob(BaseJob, ABC):
                 f"{self.__class__.__name__} must define runner_kind"
             )
         self.runner_kind: RunnerKind = runner_kind
+        default_epochs = int(self.config_dict.get('epochs', 0) or 0)
+        self._runtime: JobRuntimeParams = JobRuntimeParams(
+            epochs=default_epochs,
+            sleep_time=0,
+            outdated_days=0,
+            config_processes={},
+            force_progress_recompute=False,
+        )
 
     # ====================================================================================================
     # 
     # ====================================================================================================
 
-    def populate(
-        self,
-        *,
-        epochs: int,
-        config_to_process_info: Dict[str, ProcessInfo],
-        sleep_time: int,
-        outdated_days: int,
-        force_progress_recompute: bool,
-    ) -> None:
-        context: Dict[str, Any] = {
-            "epochs": epochs,
-            "sleep_time": sleep_time,
-            "outdated_days": outdated_days,
-            "config_to_process_info": config_to_process_info,
-            "force_progress_recompute": force_progress_recompute,
-        }
-        self.attach_process(config_to_process_info.get(self.config_filepath))
-        self.refresh(context=context)
+    def configure(self, runtime: JobRuntimeParams) -> None:
+        """Attach runtime parameters and recompute state."""
+        self._runtime = runtime
+        self.attach_process(runtime.process_for(self.config_filepath))
+        self.refresh()
 
     # ====================================================================================================
     # 
@@ -76,50 +72,40 @@ class DefaultJob(BaseJob, ABC):
     # 
     # ====================================================================================================
 
-    @abstractmethod
-    def get_progress(
+    def compute_status(
         self,
-        force_progress_recompute: bool = False,
-    ) -> ProgressInfo:
-        pass
-
-    # ====================================================================================================
-    #
-    # ====================================================================================================
-
-
-    def get_status(
-        self,
-        sleep_time: int,
-        epochs: int,
-        outdated_days: int,
-        config_to_process_info: Dict[str, ProcessInfo],
+        *,
+        progress: ProgressInfo,
     ) -> _JobStatus:
+        runtime = self.runtime
         log_last_update = self.get_log_last_update()
         artifact_last_update = self.get_artifact_last_update()
 
         is_running_status = (
-            log_last_update is not None and (time.time() - log_last_update <= sleep_time)
+            log_last_update is not None and (time.time() - log_last_update <= runtime.sleep_time)
         )
 
         if self.runner_kind is RunnerKind.EVALUATOR:
-            is_complete = self.progress.completed_epochs >= 1
+            is_complete = progress.completed_epochs >= 1
         else:
             is_complete = (
-                self.progress.early_stopped
-                or self.progress.completed_epochs >= epochs
+                progress.early_stopped
+                or (
+                    runtime.epochs > 0
+                    and progress.completed_epochs >= runtime.epochs
+                )
             )
 
         if is_running_status:
             status: _JobStatus = 'running'
         elif is_complete:
             if artifact_last_update is not None and (
-                time.time() - artifact_last_update > outdated_days * 24 * 60 * 60
+                time.time() - artifact_last_update > runtime.outdated_days * 24 * 60 * 60
             ):
                 status = 'outdated'
             else:
                 status = 'finished'
-        elif self.config_filepath in config_to_process_info:
+        elif self.config_filepath in runtime.config_processes:
             status = 'stuck'
         else:
             status = 'failed'
@@ -167,44 +153,6 @@ class DefaultJob(BaseJob, ABC):
             return value.to_dict()
         return value
 
-    # ------------------------------------------------------------------
-    # BaseJob integration helpers
-    # ------------------------------------------------------------------
-
-    def compute_progress(
-        self, *, context: Optional[Dict[str, Any]] = None
-    ) -> ProgressInfo:
-        force = bool((context or {}).get("force_progress_recompute", False))
-        return self.get_progress(force_progress_recompute=force)
-
-    def compute_status(
-        self,
-        *,
-        progress: ProgressInfo,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> _JobStatus:
-        ctx = context or {}
-        epochs_candidate = ctx.get("epochs", progress.total_epochs or self.config_dict.get('epochs'))
-        try:
-            epochs_int = int(epochs_candidate) if epochs_candidate is not None else 0
-        except (TypeError, ValueError):
-            epochs_int = 0
-
-        sleep_time_candidate = ctx.get("sleep_time", 0)
-        outdated_candidate = ctx.get("outdated_days", 0)
-        try:
-            sleep_time_int = int(sleep_time_candidate)
-        except (TypeError, ValueError):
-            sleep_time_int = 0
-        try:
-            outdated_days_int = int(outdated_candidate)
-        except (TypeError, ValueError):
-            outdated_days_int = 0
-
-        config_to_process_info = ctx.get("config_to_process_info", {})
-        return self.get_status(
-            sleep_time=sleep_time_int,
-            epochs=epochs_int,
-            outdated_days=outdated_days_int,
-            config_to_process_info=config_to_process_info,
-        )
+    @property
+    def runtime(self) -> JobRuntimeParams:
+        return self._runtime

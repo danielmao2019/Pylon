@@ -7,6 +7,7 @@ from agents.manager.default_job import DefaultJob
 from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.job_types import RunnerKind
+from agents.manager.runtime import JobRuntimeParams
 from utils.io.config import load_config
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
@@ -95,6 +96,14 @@ class Manager:
         ]
         config_to_process_info = self.build_config_to_process_mapping(all_connected_gpus)
 
+        runtime = JobRuntimeParams(
+            epochs=self.epochs,
+            sleep_time=self.sleep_time,
+            outdated_days=self.outdated_days,
+            config_processes=config_to_process_info,
+            force_progress_recompute=self.force_progress_recompute,
+        )
+
         def _construct(config: str) -> DefaultJob:
             work_dir = DefaultJob.get_work_dir(config)
             config_dict = load_config(config)
@@ -105,13 +114,7 @@ class Manager:
                     f"No job class registered for runner {runner_kind!r}"
                 )
             job = job_cls(config)
-            job.populate(
-                epochs=self.epochs,
-                config_to_process_info=config_to_process_info,
-                sleep_time=self.sleep_time,
-                outdated_days=self.outdated_days,
-                force_progress_recompute=self.force_progress_recompute,
-            )
+            job.configure(runtime)
             return job
 
         with ThreadPoolExecutor() as executor:
