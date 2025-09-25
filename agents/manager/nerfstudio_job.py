@@ -15,7 +15,6 @@ class NerfStudioJob(BaseJob):
     def __init__(
         self,
         command: str,
-        *,
         env: Optional[Dict[str, str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:

@@ -19,7 +19,6 @@ class BaseJob(ABC):
     def __init__(
         self,
         command: str,
-        *,
         env: Optional[Mapping[str, str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
