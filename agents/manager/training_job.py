@@ -27,8 +27,7 @@ class TrainingJob(DefaultJob):
     def compute_progress(self) -> ProgressInfo:
         """Return cached progress if available, otherwise recompute and cache."""
         progress_file = os.path.join(self.work_dir, "progress.json")
-        force_progress_recompute = self.runtime.force_progress_recompute
-        if not force_progress_recompute and os.path.exists(progress_file):
+        if not self.runtime.force_progress_recompute and os.path.exists(progress_file):
             try:
                 data = load_json(progress_file)
             except RuntimeError as exc:
