@@ -30,13 +30,12 @@ class TrainingJob(BaseJob):
             return ProgressInfo(**data)
 
         completed_epochs = 0
-        expected_files = self.EXPECTED_FILES
 
         while True:
             epoch_dir = os.path.join(self.work_dir, f"epoch_{completed_epochs}")
             if not self._check_epoch_finished(
                 epoch_dir=epoch_dir,
-                expected_files=expected_files,
+                expected_files=self.EXPECTED_FILES,
                 check_load=False,
             ):
                 break
@@ -52,7 +51,7 @@ class TrainingJob(BaseJob):
         if early_stopping_config and completed_epochs < tot_epochs:
             early_stopped, early_stopped_at_epoch = self._detect_early_stopping(
                 self.work_dir,
-                expected_files,
+                self.EXPECTED_FILES,
                 config,
                 completed_epochs,
             )
