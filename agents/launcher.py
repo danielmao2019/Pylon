@@ -128,7 +128,7 @@ class Launcher(BaseAgent):
         # Build a map of server -> CPU status for quick lookup
         cpu_status_by_server = {}
         for cpu in self.connected_cpus:
-            cpu_status_by_server[cpu['server']] = cpu
+            cpu_status_by_server[cpu.server] = cpu
 
         # Find idle GPUs with CPU constraints
         for gpu in self.connected_gpus:
@@ -142,11 +142,19 @@ class Launcher(BaseAgent):
             cpu_ok = False
             if server in cpu_status_by_server:
                 cpu = cpu_status_by_server[server]
-                if (cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None and cpu['cpu_cores'] is not None and
-                    cpu['cpu_stats']['avg'] is not None and cpu['memory_stats']['avg'] is not None and cpu['load_stats']['avg'] is not None):
-                    cpu_util_ok = cpu['cpu_stats']['avg'] < 80
-                    cpu_mem_ok = (cpu['max_memory'] - cpu['memory_stats']['avg']) > 4 * 1024  # 4GB
-                    cpu_load_ok = cpu['load_stats']['avg'] < cpu['cpu_cores']  # Load should be less than number of cores
+                if (
+                    cpu.cpu_stats is not None
+                    and cpu.memory_stats is not None
+                    and cpu.max_memory is not None
+                    and cpu.cpu_cores is not None
+                    and cpu.load_stats is not None
+                    and cpu.cpu_stats.get('avg') is not None
+                    and cpu.memory_stats.get('avg') is not None
+                    and cpu.load_stats.get('avg') is not None
+                ):
+                    cpu_util_ok = cpu.cpu_stats['avg'] < 80
+                    cpu_mem_ok = (cpu.max_memory - cpu.memory_stats['avg']) > 4 * 1024  # 4GB
+                    cpu_load_ok = cpu.load_stats['avg'] < cpu.cpu_cores  # Load should be less than number of cores
                     cpu_ok = cpu_util_ok and cpu_mem_ok and cpu_load_ok
 
             # GPU is only considered idle if both GPU and CPU resources are available
