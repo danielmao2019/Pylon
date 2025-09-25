@@ -1,21 +1,42 @@
-"""The purpose of this set of test cases is to compare training performance against other frameworks,
-including the native PyTorch for loop.
+"""Tests for interrupt-resume behaviour of `SupervisedSingleTaskTrainer`.
+
+Each test executes inside an isolated temporary workspace with fresh
+`./logs` and `./configs` directories to avoid polluting the repository.
 """
+
+import json
 import os
+import tempfile
 import threading
 import time
-import json
+from pathlib import Path
+from typing import Dict
+
+import copy
+
 import torch
 
-from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import utils
 from agents.manager.training_job import TrainingJob
+from configs.examples.linear.config import config as base_config
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.ops import buffer_allclose
-from configs.examples.linear.config import config
-import copy
-config = copy.deepcopy(config)
-config['work_dir'] = "./logs/tests/supervised_single_task_trainer/interrupt_and_resume"
-config['checkpoint_method'] = 'all'  # Save all checkpoints for comparison
+
+def _prepare_workspace(base: Path) -> Dict[str, str]:
+    logs_dir = base / "logs"
+    configs_dir = base / "configs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    configs_dir.mkdir(parents=True, exist_ok=True)
+    return {"logs": str(logs_dir), "configs": str(configs_dir)}
+
+
+def _build_config(base: Path, work_dir: str) -> dict:
+    cfg = copy.deepcopy(base_config)
+    cfg['work_dir'] = work_dir
+    cfg['checkpoint_method'] = 'all'
+    cfg['log_dir'] = work_dir
+    cfg['config_dir'] = str(base / "configs")
+    return cfg
 
 
 def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
@@ -41,17 +62,13 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     def observer_thread():
         """Monitor training progress and interrupt after target epoch."""
         while not stop_observing.is_set():
-            # Check if target epoch is complete
-            epoch_dir = os.path.join(config['work_dir'], f"epoch_{end_epoch-1}")  # 0-based indexing
+            epoch_dir = os.path.join(config['work_dir'], f"epoch_{end_epoch-1}")
             if os.path.exists(epoch_dir) and TrainingJob._check_epoch_finished(
-                epoch_dir=epoch_dir,
-                expected_files=trainer.expected_files,
-                check_load=True,
+                epoch_dir, trainer.expected_files, check_load=True
             ):
-                # Set interrupt flag immediately
                 stop_training.set()
                 break
-            time.sleep(0.1)  # Check every 100ms
+            time.sleep(0.1)
 
     # Start observer thread
     observer = threading.Thread(target=observer_thread)
@@ -84,45 +101,35 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
 
 
 def test_interrupt_and_resume() -> None:
-    """Test that training can be interrupted and resumed from a checkpoint.
+    """Test that training can be interrupted and resumed from a checkpoint."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        base = Path(temp_dir)
+        paths = _prepare_workspace(base)
 
-    This test:
-    1. Starts training in main thread and runs until epoch 3
-    2. Creates a new trainer to resume from epoch 3
-    3. Runs until epoch 6
-    4. Verifies files match against reference run
-    """
-    # Clean up any existing test directories
-    os.system(f"rm -rf {config['work_dir']}")
-    os.system("rm -rf ./logs/tests/supervised_single_task_trainer/reference_run")
+        interrupted_work = os.path.join(paths['logs'], "interrupt_run")
+        reference_work = os.path.join(paths['logs'], "reference_run")
 
-    # Create reference run: train continuously from epoch 0 to 6
-    reference_config = copy.deepcopy(config)
-    reference_config['work_dir'] = "./logs/tests/supervised_single_task_trainer/reference_run"
-    train_until_epoch(reference_config, start_epoch=0, end_epoch=6)
+        interrupted_cfg = _build_config(base, interrupted_work)
+        reference_cfg = _build_config(base, reference_work)
 
-    # Create interrupted run: train from epoch 0 to 3, then from 3 to 6
-    train_until_epoch(config, start_epoch=0, end_epoch=3)
-    train_until_epoch(config, start_epoch=3, end_epoch=6)
+        train_until_epoch(reference_cfg, start_epoch=0, end_epoch=6)
+        train_until_epoch(interrupted_cfg, start_epoch=0, end_epoch=3)
+        train_until_epoch(interrupted_cfg, start_epoch=3, end_epoch=6)
 
-    # Compare files against reference run
-    reference_dir = reference_config['work_dir']
-    for epoch in range(6):
-        interrupted_epoch_dir = os.path.join(config['work_dir'], f"epoch_{epoch}")
-        reference_epoch_dir = os.path.join(reference_dir, f"epoch_{epoch}")
+        for epoch in range(6):
+            interrupted_epoch_dir = os.path.join(interrupted_cfg['work_dir'], f"epoch_{epoch}")
+            reference_epoch_dir = os.path.join(reference_cfg['work_dir'], f"epoch_{epoch}")
 
-        # Compare training losses
-        interrupted_losses = torch.load(os.path.join(interrupted_epoch_dir, "training_losses.pt"))
-        reference_losses = torch.load(os.path.join(reference_epoch_dir, "training_losses.pt"))
-        assert torch.allclose(interrupted_losses, reference_losses, rtol=1e-01, atol=0), \
-            f"Training losses mismatch at epoch {epoch}"
+            interrupted_losses = torch.load(os.path.join(interrupted_epoch_dir, "training_losses.pt"))
+            reference_losses = torch.load(os.path.join(reference_epoch_dir, "training_losses.pt"))
+            assert torch.allclose(interrupted_losses, reference_losses, rtol=1e-01, atol=0), \
+                f"Training losses mismatch at epoch {epoch}"
 
-        # Compare validation scores
-        with open(os.path.join(interrupted_epoch_dir, "validation_scores.json")) as f:
-            interrupted_scores = json.load(f)
-        with open(os.path.join(reference_epoch_dir, "validation_scores.json")) as f:
-            reference_scores = json.load(f)
-        assert buffer_allclose(interrupted_scores, reference_scores, rtol=1e-01, atol=0), \
-            f"Validation scores mismatch at epoch {epoch}"
+            with open(os.path.join(interrupted_epoch_dir, "validation_scores.json")) as f:
+                interrupted_scores = json.load(f)
+            with open(os.path.join(reference_epoch_dir, "validation_scores.json")) as f:
+                reference_scores = json.load(f)
+            assert buffer_allclose(interrupted_scores, reference_scores, rtol=1e-01, atol=0), \
+                f"Validation scores mismatch at epoch {epoch}"
 
-        print(f"Epoch {epoch} files match between interrupted and reference training")
+            print(f"Epoch {epoch} files match between interrupted and reference training")
