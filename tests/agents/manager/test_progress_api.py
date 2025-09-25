@@ -9,9 +9,6 @@ import tempfile
 import json
 import torch
 
-import pytest
-
-from agents.manager.manager import Manager
 from agents.manager.training_job import TrainingJob
 from agents.manager.progress_info import ProgressInfo
 
