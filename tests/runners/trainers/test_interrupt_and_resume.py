@@ -4,6 +4,7 @@ Each test executes inside an isolated temporary workspace with fresh
 `./logs` and `./configs` directories to avoid polluting the repository.
 """
 
+import copy
 import json
 import os
 import tempfile
@@ -11,8 +12,6 @@ import threading
 import time
 from pathlib import Path
 from typing import Dict
-
-import copy
 
 import torch
 
