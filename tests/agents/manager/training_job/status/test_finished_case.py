@@ -1,11 +1,5 @@
 from agents.manager.training_job import TrainingJob
 
-
-
-
-
-
-
 def test_status_trainer_finished_no_recent_logs(temp_manager_root, write_config, make_trainer_epoch):
     cfg = write_config('finished.py', {'epochs': 3})
     for i in range(3):
