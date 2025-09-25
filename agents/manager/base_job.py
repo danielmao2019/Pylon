@@ -5,8 +5,9 @@ import time
 from typing import Dict, Literal, Optional
 from abc import ABC, abstractmethod
 
-from agents.monitor.process_info import ProcessInfo
+from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.progress_info import ProgressInfo
+from agents.monitor.process_info import ProcessInfo
 from utils.io.config import load_config
 
 
@@ -86,7 +87,14 @@ class BaseJob(ABC):
         is_running_status = (
             log_last_update is not None and (time.time() - log_last_update <= sleep_time)
         )
-        is_complete = self.progress.completed_epochs >= epochs
+
+        if isinstance(self, EvaluationJob):
+            is_complete = self.progress.completed_epochs >= 1
+        else:
+            is_complete = (
+                self.progress.early_stopped
+                or self.progress.completed_epochs >= epochs
+            )
 
         if is_running_status:
             status: _JobStatus = 'running'

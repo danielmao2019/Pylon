@@ -145,7 +145,7 @@ def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_proces
             je = jobs["./configs/evaluator_old.py"]
             assert jr.status == 'running'
             assert js.status == 'stuck'
-            # Evaluator completion is binary in current logic; aged eval is treated as finished
-            assert je.status == 'finished'
+            # Evaluator completion is binary, but aged artifacts mark it as outdated
+            assert je.status == 'outdated'
         finally:
             os.chdir(cwd)
