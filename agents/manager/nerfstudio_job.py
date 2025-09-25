@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 from typing import Any, Dict, Optional
 
 from agents.manager.base_job import BaseJob
@@ -15,12 +16,12 @@ class NerfStudioJob(BaseJob):
         self,
         command: str,
         *,
-        work_dir: str,
         env: Optional[Dict[str, str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
-        self._explicit_work_dir = work_dir
-        super().__init__(command=command, env=env, metadata=metadata)
+        meta = dict(metadata or {})
+        self._work_dir = self._extract_work_dir(command=command, metadata=meta)
+        super().__init__(command=command, env=env, metadata=meta)
 
     def _load_metrics(self) -> Dict[str, Any]:
         if not self.work_dir:
@@ -80,4 +81,40 @@ class NerfStudioJob(BaseJob):
         return "pending"
 
     def derive_work_dir(self) -> str:
-        return self._explicit_work_dir
+        return self._work_dir
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_work_dir(command: str, metadata: Dict[str, Any]) -> str:
+        if 'work_dir' in metadata and isinstance(metadata['work_dir'], str):
+            path = metadata['work_dir'].strip()
+            if path:
+                return os.path.normpath(os.path.expanduser(path))
+
+        try:
+            tokens = shlex.split(command)
+        except ValueError:
+            tokens = command.split()
+        lookup_flags = (
+            '--output-dir', '--output_dir', '--output',
+            '--workspace', '--run-dir', '--run_dir', '--logdir', '--log-dir'
+        )
+        for flag in lookup_flags:
+            if flag in tokens:
+                idx = tokens.index(flag)
+                if idx + 1 < len(tokens):
+                    candidate = tokens[idx + 1]
+                    if candidate:
+                        return os.path.normpath(os.path.expanduser(candidate))
+            prefix = f"{flag}="
+            for token in tokens:
+                if token.startswith(prefix) and len(token) > len(prefix):
+                    return os.path.normpath(os.path.expanduser(token[len(prefix):]))
+
+        raise ValueError(
+            "Unable to determine work directory for NerfStudioJob. "
+            "Provide a supported command flag (e.g. --output-dir) or set 'work_dir' in metadata."
+        )
