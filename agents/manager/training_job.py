@@ -40,7 +40,7 @@ class TrainingJob(DefaultJob):
                 return ProgressInfo(**data)
 
         completed_epochs = 0
-        expected_files = list(self.expected_files)
+        expected_files = list(self.EXPECTED_FILES)
 
         while True:
             epoch_dir = os.path.join(self.work_dir, f"epoch_{completed_epochs}")

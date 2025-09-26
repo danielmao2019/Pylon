@@ -120,15 +120,10 @@ class BaseJob(ABC):
     # Shared artifact helpers
     # ------------------------------------------------------------------
 
-    @property
-    def expected_files(self) -> Sequence[str]:
-        """Return the collection of expected artifact glob patterns."""
-        return tuple(self.EXPECTED_FILES)
-
     def iter_expected_artifact_paths(self) -> Iterable[str]:
         """Yield existing artifact file paths that match expected patterns."""
         seen: set[str] = set()
-        for raw_pattern in self.expected_files:
+        for raw_pattern in self.EXPECTED_FILES:
             if not raw_pattern:
                 continue
             normalized = raw_pattern.replace('/', os.sep)

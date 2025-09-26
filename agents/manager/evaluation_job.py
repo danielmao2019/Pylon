@@ -23,7 +23,7 @@ class EvaluationJob(DefaultJob):
 
     def compute_progress(self) -> ProgressInfo:
         eval_complete = True
-        for filename in self.expected_files:
+        for filename in self.EXPECTED_FILES:
             filepath = os.path.join(self.work_dir, filename)
             if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
                 eval_complete = False
