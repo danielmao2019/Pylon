@@ -200,7 +200,7 @@ def create_system_monitor_with_processes():
         monitors = create_system_monitor_with_processes([
             "python main.py --config-filepath ./configs/exp.py",
         ])
-        manager = Manager(config_files=[...], system_monitors=monitors, ...)
+        manager = Manager(commands=[...], system_monitors=monitors, ...)
     """
     from agents.monitor.system_monitor import SystemMonitor
     from agents.monitor.gpu_status import GPUStatus

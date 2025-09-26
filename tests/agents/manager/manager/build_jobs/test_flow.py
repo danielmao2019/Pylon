@@ -58,7 +58,10 @@ def test_build_jobs_minimal_integration(monkeypatch):
             # Real SystemMonitor is required by Manager assertions; provide an empty dict instead
             monitors = {}
 
-            m = Manager(config_files=["./configs/train_exp.py", "./configs/eval_exp.py"], epochs=1, system_monitors=monitors)
+            m = Manager(commands=[
+                "python main.py --config-filepath ./configs/train_exp.py",
+                "python main.py --config-filepath ./configs/eval_exp.py",
+            ], epochs=1, system_monitors=monitors)
             jobs = m.build_jobs()
 
             assert set(jobs.keys()) == {"./configs/train_exp.py", "./configs/eval_exp.py"}
@@ -138,7 +141,11 @@ def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_proces
             monitors = create_system_monitor_with_processes([
                 'python main.py --config-filepath ./configs/trainer_stuck.py'
             ])
-            m = Manager(config_files=["./configs/trainer_running.py", "./configs/trainer_stuck.py", "./configs/evaluator_old.py"], epochs=10, system_monitors=monitors, sleep_time=3600, outdated_days=30)
+            m = Manager(commands=[
+                "python main.py --config-filepath ./configs/trainer_running.py",
+                "python main.py --config-filepath ./configs/trainer_stuck.py",
+                "python main.py --config-filepath ./configs/evaluator_old.py",
+            ], epochs=10, system_monitors=monitors, sleep_time=3600, outdated_days=30)
             jobs = m.build_jobs()
             jr = jobs["./configs/trainer_running.py"]
             js = jobs["./configs/trainer_stuck.py"]
