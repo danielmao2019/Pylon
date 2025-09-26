@@ -9,6 +9,9 @@ import pytest
 from typing import Optional
 import torch
 from utils.io.json import save_json
+from agents.monitor.system_monitor import SystemMonitor
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.process_info import ProcessInfo
 
 
 def make_command(config_path: str) -> str:
@@ -199,10 +202,6 @@ def create_system_monitor_with_processes():
         ])
         manager = Manager(commands=[...], system_monitors=monitors, ...)
     """
-    from agents.monitor.system_monitor import SystemMonitor
-    from agents.monitor.gpu_status import GPUStatus
-    from agents.monitor.process_info import ProcessInfo
-
     class LocalSystemMonitor(SystemMonitor):
         def __init__(self, server: str, window_size: int, gpus):
             super().__init__(server=server, window_size=window_size)
