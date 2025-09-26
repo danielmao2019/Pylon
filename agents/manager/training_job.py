@@ -99,6 +99,34 @@ class TrainingJob(DefaultJob):
             return False
         return progress.completed_epochs >= target_int
 
+    def get_artifact_last_update(self) -> Optional[float]:
+        """Return modification time of the newest epoch artifact."""
+        if not os.path.isdir(self.work_dir):
+            return None
+
+        epoch_dirs = [
+            os.path.join(self.work_dir, name)
+            for name in os.listdir(self.work_dir)
+            if name.startswith('epoch_') and os.path.isdir(os.path.join(self.work_dir, name))
+        ]
+
+        if not epoch_dirs:
+            return None
+
+        latest: Optional[float] = None
+        for epoch_dir in sorted(epoch_dirs):
+            for relative_path in self.EXPECTED_FILES:
+                if not relative_path:
+                    continue
+                artifact_path = os.path.join(epoch_dir, relative_path)
+                if not os.path.isfile(artifact_path):
+                    continue
+                artifact_mtime = os.path.getmtime(artifact_path)
+                if latest is None or artifact_mtime > latest:
+                    latest = artifact_mtime
+
+        return latest
+
     @classmethod
     def _check_epoch_finished(
         cls,
