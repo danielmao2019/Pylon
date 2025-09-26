@@ -61,7 +61,7 @@ class TrainingJob(DefaultJob):
         if early_stopping_config and completed_epochs < tot_epochs:
             early_stopped, early_stopped_at_epoch = self._detect_early_stopping(
                 self.work_dir,
-                list(self.EXPECTED_FILES),
+                self.EXPECTED_FILES,
                 config,
                 completed_epochs,
             )
