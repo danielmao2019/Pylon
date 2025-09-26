@@ -1,6 +1,7 @@
 import os
 import tempfile
-from agents.manager import DefaultJob, Manager
+from agents.manager.default_job import DefaultJob
+from agents.manager.manager import Manager
 from agents.manager.progress_info import ProgressInfo
 
 
@@ -33,11 +34,8 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
         os.chdir(temp_root)
         
         try:
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=monitor_map,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=monitor_map)
             result = manager.build_jobs()
             
             # Should return mapping instead of list
@@ -46,11 +44,12 @@ def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_fil
             
             # Check that keys are config paths and values are BaseJob objects
             for config_path in config_files:
-                assert config_path in result
-                assert isinstance(result[config_path], DefaultJob)
-                assert result[config_path].config_filepath == config_path
-                assert isinstance(result[config_path].progress, ProgressInfo)
-                assert hasattr(result[config_path].progress, 'completed_epochs')
+                key = f"python main.py --config-filepath {config_path}"
+                assert key in result
+                assert isinstance(result[key], DefaultJob)
+                assert result[key].config_filepath == config_path
+                assert isinstance(result[key].progress, ProgressInfo)
+                assert hasattr(result[key].progress, 'completed_epochs')
                 
         finally:
             os.chdir(original_cwd)

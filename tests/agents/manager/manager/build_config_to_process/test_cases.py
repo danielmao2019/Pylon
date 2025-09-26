@@ -1,4 +1,4 @@
-from agents.manager import Manager
+from agents.manager.manager import Manager
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
 

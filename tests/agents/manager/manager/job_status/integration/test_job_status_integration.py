@@ -12,7 +12,7 @@ import os
 import tempfile
 import pytest
 
-from agents.manager import Manager
+from agents.manager.manager import Manager
 from agents.manager.progress_info import ProgressInfo
 
 
@@ -40,11 +40,8 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
         
         try:
             # Test the complete pipeline with minimal SystemMonitor mock
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
             
             # Verify results
@@ -52,7 +49,7 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
             assert len(all_statuses) == len(experiments)
             
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 exp_name = os.path.basename(config_path).replace('.py', '')
                 
                 # Find expected data for this experiment
@@ -96,11 +93,8 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
         
         try:
             # Test comprehensive status detection
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
             
             # Verify comprehensive results
@@ -108,7 +102,7 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
             
             # Check specific experiment outcomes
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 exp_name = os.path.basename(config_path).replace('.py', '')
                 
                 # Verify progress tracking is working correctly
@@ -145,16 +139,13 @@ def test_integration_no_running_experiments(setup_realistic_experiment_structure
         os.chdir(temp_root)
         
         try:
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
             
             # All experiments should have no process_info
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 assert job_status.process_info is None
                 assert job_status.status in ["finished", "failed"]
                 
@@ -181,16 +172,13 @@ def test_integration_all_running_experiments(setup_realistic_experiment_structur
         os.chdir(temp_root)
         
         try:
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
             
             # All experiments should have process_info
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 assert job_status.process_info is not None
                 assert job_status.status in ["running", "stuck"]
                 assert hasattr(job_status.process_info, 'pid')
@@ -218,11 +206,8 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
         os.chdir(temp_root)
         
         try:
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
             
             # Verify all experiments are processed
@@ -230,7 +215,7 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
             
             # Verify each experiment has correct structure
             for i, config_path in enumerate(config_files):
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 expected_epochs = i % 10
                 
                 assert job_status.progress.completed_epochs == expected_epochs
