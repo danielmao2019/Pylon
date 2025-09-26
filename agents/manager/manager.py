@@ -81,8 +81,9 @@ class Manager:
         return jobs
 
     def _detect_runner_type(self, command: str) -> RunnerKind:
-        if self._detect_nerfstudio(command):
-            return RunnerKind.NERFSTUDIO
+        command_result = self._detect_from_command(command)
+        if command_result is not None:
+            return command_result
 
         artifact_result, config_path = self._detect_from_artifacts(command)
         if artifact_result is not None:
@@ -97,14 +98,16 @@ class Manager:
         )
 
     @staticmethod
-    def _detect_nerfstudio(command: str) -> bool:
+    def _detect_from_command(command: str) -> RunnerKind | None:
         tokens = [token for token in command.split() if token]
         if not tokens:
-            return False
+            return None
         executable = tokens[0]
         if executable.startswith('ns-') or 'nerfstudio' in executable.lower():
-            return True
-        return any('nerfstudio' in token.lower() for token in tokens[1:])
+            return RunnerKind.NERFSTUDIO
+        if any('nerfstudio' in token.lower() for token in tokens[1:]):
+            return RunnerKind.NERFSTUDIO
+        return None
 
     @staticmethod
     def _detect_from_artifacts(command: str) -> tuple[RunnerKind | None, str]:
