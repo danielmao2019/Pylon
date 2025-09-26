@@ -18,7 +18,8 @@ class DefaultJob(BaseJob, ABC):
 
     runner_kind: RunnerKind | None = None
 
-    def __init__(self, config_filepath: str) -> None:
+    def __init__(self, command: str) -> None:
+        config_filepath = self.parse_config(command)
         self.config_filepath = config_filepath
         self.config_dict = load_config(self.config_filepath)
         runner_kind = getattr(self.__class__, "runner_kind", None)
@@ -27,8 +28,24 @@ class DefaultJob(BaseJob, ABC):
                 f"{self.__class__.__name__} must define runner_kind"
             )
         self.runner_kind: RunnerKind = runner_kind
-        command = f"python main.py --config-filepath {config_filepath}"
         super().__init__(command=command)
+
+    def derive_work_dir(self) -> str:
+        config_path = self.parse_config(self.command)
+        rel_path = os.path.splitext(os.path.relpath(config_path, start='./configs'))[0]
+        return os.path.join('./logs', rel_path)
+
+    @staticmethod
+    def parse_config(cmd: str) -> str:
+        """Extract config filepath from command string."""
+        assert isinstance(cmd, str), f"cmd={cmd!r}"
+        assert 'python' in cmd, f"cmd={cmd!r}"
+        assert '--config-filepath' in cmd, f"cmd={cmd!r}"
+        parts = cmd.split(' ')
+        for idx, part in enumerate(parts):
+            if part == '--config-filepath':
+                return parts[idx + 1]
+        raise AssertionError('Config filepath not found in command string')
 
     # ------------------------------------------------------------------
     # Status helpers
@@ -39,10 +56,6 @@ class DefaultJob(BaseJob, ABC):
         if last_log is None:
             return False
         return (time.time() - last_log) <= runtime.sleep_time
-
-    @abstractmethod
-    def is_complete(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> bool:
-        """Return True when the job should count as complete."""
 
     def is_stuck(self, runtime: JobRuntimeParams) -> bool:
         return self.command in runtime.command_processes
@@ -62,28 +75,12 @@ class DefaultJob(BaseJob, ABC):
         }
 
     @staticmethod
-    def parse_config(cmd: str) -> str:
-        """Extract config filepath from command string."""
-        assert isinstance(cmd, str), f"cmd={cmd!r}"
-        assert 'python' in cmd, f"cmd={cmd!r}"
-        assert '--config-filepath' in cmd, f"cmd={cmd!r}"
-        parts = cmd.split(' ')
-        for idx, part in enumerate(parts):
-            if part == '--config-filepath':
-                return parts[idx + 1]
-        raise AssertionError('Config filepath not found in command string')
-
-    @staticmethod
     def _serialize(value):
         if value is None:
             return None
         if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
             return value.to_dict()
         return value
-
-    def derive_work_dir(self) -> str:
-        rel_path = os.path.splitext(os.path.relpath(self.config_filepath, start='./configs'))[0]
-        return os.path.join('./logs', rel_path)
 
     # ------------------------------------------------------------------
     # Abstract data accessors

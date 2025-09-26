@@ -36,6 +36,10 @@ class BaseJob(ABC):
         self.progress: Optional[ProgressInfo] = None
         self.status: Optional[str] = None
 
+    @abstractmethod
+    def derive_work_dir(self) -> str:
+        """Return the canonical work directory for this job instance."""
+
     def configure(self, runtime: JobRuntimeParams) -> None:
         """Attach runtime parameters and recompute state."""
         self.attach_process(runtime.process_for(self.command))
@@ -60,14 +64,6 @@ class BaseJob(ABC):
         if self.is_stuck(runtime):
             return "stuck"
         return "failed"
-
-    def describe(self) -> str:
-        """Human-friendly descriptor, defaulting to the launch command."""
-        return self.command
-
-    @abstractmethod
-    def derive_work_dir(self) -> str:
-        """Return the canonical work directory for this job instance."""
 
     def to_dict(self) -> Dict[str, Any]:
         """Light-weight serialisable view of the job state."""
