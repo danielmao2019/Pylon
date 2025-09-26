@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import glob
 import os
 import time
 from abc import ABC, abstractmethod
@@ -120,26 +119,13 @@ class BaseJob(ABC):
     # Shared artifact helpers
     # ------------------------------------------------------------------
 
-    def iter_expected_artifact_paths(self) -> Iterable[str]:
-        """Yield existing artifact file paths that match expected patterns."""
-        seen: set[str] = set()
-        for raw_pattern in self.EXPECTED_FILES:
-            if not raw_pattern:
-                continue
-            normalized = raw_pattern.replace('/', os.sep)
-            primary_pattern = os.path.join(self.work_dir, normalized)
-            patterns_to_try: List[str] = [primary_pattern]
-
-            if '**' not in normalized and os.sep not in normalized:
-                patterns_to_try.append(os.path.join(self.work_dir, '**', normalized))
-
-            for pattern in patterns_to_try:
-                for match in glob.glob(pattern, recursive=True):
-                    if os.path.isfile(match) and match not in seen:
-                        seen.add(match)
-                        yield match
-
     def get_artifact_last_update(self) -> Optional[float]:
         """Return the most recent modification timestamp across expected files."""
-        timestamps = [os.path.getmtime(path) for path in self.iter_expected_artifact_paths()]
+        timestamps = []
+        for relative_path in self.EXPECTED_FILES:
+            if not relative_path:
+                continue
+            artifact_path = os.path.join(self.work_dir, relative_path)
+            if os.path.isfile(artifact_path):
+                timestamps.append(os.path.getmtime(artifact_path))
         return max(timestamps, default=None)
