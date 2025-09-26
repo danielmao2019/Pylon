@@ -42,7 +42,7 @@ def test_empty_progress_json_file_detection(create_real_config):
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            progress = TrainingJob("./configs/empty.py").get_progress()
+            progress = TrainingJob("python main.py --config-filepath ./configs/empty.py").get_progress()
         finally:
             os.chdir(cwd)
 
@@ -86,7 +86,7 @@ def test_non_empty_progress_json_loading(create_real_config):
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            progress = TrainingJob("./configs/non_empty.py").get_progress()
+            progress = TrainingJob("python main.py --config-filepath ./configs/non_empty.py").get_progress()
         finally:
             os.chdir(cwd)
 
@@ -130,7 +130,7 @@ def test_malformed_progress_json_error_handling(create_real_config):
         os.chdir(temp_root)
         
         try:
-            progress = TrainingJob("./configs/test_malformed.py").get_progress()
+            progress = TrainingJob("python main.py --config-filepath ./configs/test_malformed.py").get_progress()
         finally:
             os.chdir(original_cwd)
 

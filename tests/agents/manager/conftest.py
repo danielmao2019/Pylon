@@ -9,6 +9,11 @@ import time
 import pytest
 
 
+def make_command(config_path: str) -> str:
+    """Helper to build the canonical launch command for a config file."""
+    return f"python main.py --config-filepath {config_path}"
+
+
 @pytest.fixture
 def temp_manager_root():
     """Create a temporary root and chdir so ./configs and ./logs resolve correctly.

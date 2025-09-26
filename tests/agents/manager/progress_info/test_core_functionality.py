@@ -39,7 +39,7 @@ def test_get_session_progress_fast_path_normal_run(create_progress_json, create_
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            progress = TrainingJob("./configs/fast_normal.py").get_progress()
+            progress = TrainingJob("python main.py --config-filepath ./configs/fast_normal.py").get_progress()
         finally:
             os.chdir(cwd)
 
@@ -75,7 +75,7 @@ def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, 
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            progress = TrainingJob("./configs/fast_early.py").get_progress()
+            progress = TrainingJob("python main.py --config-filepath ./configs/fast_early.py").get_progress()
         finally:
             os.chdir(cwd)
 
@@ -114,7 +114,7 @@ def test_get_session_progress_force_progress_recompute(create_progress_json, cre
         os.chdir(temp_root)
         
         try:
-            job = TrainingJob("./configs/test_force_recompute.py")
+            job = TrainingJob("python main.py --config-filepath ./configs/test_force_recompute.py")
 
             # Normal call should use cached progress.json
             progress_cached = job.get_progress(force_progress_recompute=False)
@@ -163,7 +163,7 @@ def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_c
         os.chdir(temp_root)
         
         try:
-            job = TrainingJob("./configs/test_normal_run.py")
+            job = TrainingJob("python main.py --config-filepath ./configs/test_normal_run.py")
             progress = job.get_progress()
             
             # Should return ProgressInfo dataclass
@@ -198,7 +198,7 @@ def test_get_session_progress_deterministic(create_progress_json, create_real_co
         os.chdir(temp_root)
         try:
             for _ in range(3):
-                progress = TrainingJob("./configs/deterministic.py").get_progress()
+                progress = TrainingJob("python main.py --config-filepath ./configs/deterministic.py").get_progress()
                 results.append(progress)
         finally:
             os.chdir(cwd)
@@ -227,7 +227,7 @@ def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPEC
         os.chdir(temp_root)
         
         try:
-            progress = TrainingJob("./configs/test_empty.py").get_progress()
+            progress = TrainingJob("python main.py --config-filepath ./configs/test_empty.py").get_progress()
             
             # Should return ProgressInfo dataclass with 0 completed epochs
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"

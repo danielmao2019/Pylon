@@ -60,28 +60,6 @@ class DefaultJob(BaseJob, ABC):
     def is_stuck(self, runtime: JobRuntimeParams) -> bool:
         return self.command in runtime.command_processes
 
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            'config': self.config_filepath,
-            'work_dir': self.work_dir,
-            'progress': self._serialize(self.progress),
-            'status': self.status,
-            'process_info': self._serialize(self.process_info),
-        }
-
-    @staticmethod
-    def _serialize(value):
-        if value is None:
-            return None
-        if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
-            return value.to_dict()
-        return value
-
     # ------------------------------------------------------------------
     # Abstract data accessors
     # ------------------------------------------------------------------

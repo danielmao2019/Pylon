@@ -20,7 +20,7 @@ def test_base_job_get_log_last_update(create_real_config):
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = TrainingJob("./configs/log_case.py")
+            job = TrainingJob("python main.py --config-filepath ./configs/log_case.py")
 
             # Ensure no logs exist yet
             assert job.get_log_last_update() is None
@@ -52,7 +52,7 @@ def test_base_job_get_artifact_last_update(EXPECTED_FILES, create_epoch_files, c
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = TrainingJob("./configs/artifact_case.py")
+            job = TrainingJob("python main.py --config-filepath ./configs/artifact_case.py")
 
             # Initially no artifacts
             assert job.get_artifact_last_update() is None
