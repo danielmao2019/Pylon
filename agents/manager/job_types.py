@@ -11,3 +11,4 @@ class RunnerKind(str, Enum):
 
     TRAINER = "trainer"
     EVALUATOR = "evaluator"
+    NERFSTUDIO = "nerfstudio"

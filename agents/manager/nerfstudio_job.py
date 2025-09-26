@@ -6,6 +6,7 @@ import shlex
 from agents.manager.base_job import BaseJob
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.runtime import JobRuntimeParams
+from agents.manager.job_types import RunnerKind
 
 
 class NerfStudioJob(BaseJob):
@@ -16,6 +17,7 @@ class NerfStudioJob(BaseJob):
         "dataparser_transforms.json",
         os.path.join("checkpoints", "step-000029999.ckpt"),
     ]
+    runner_kind = RunnerKind.NERFSTUDIO
 
     def derive_work_dir(self) -> str:
         try:
