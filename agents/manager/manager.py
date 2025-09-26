@@ -15,6 +15,8 @@ from utils.io.config import load_config
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.system_monitor import SystemMonitor
+from runners.evaluators.base_evaluator import BaseEvaluator
+from runners.trainers.base_trainer import BaseTrainer
 
 
 class Manager:
@@ -141,10 +143,9 @@ class Manager:
 
         runner = config.get('runner')
         if isinstance(runner, type):
-            name = runner.__name__.lower()
-            if 'evaluat' in name:
+            if issubclass(runner, BaseEvaluator):
                 return RunnerKind.EVALUATOR
-            if 'train' in name or 'trainer' in name:
+            if issubclass(runner, BaseTrainer):
                 return RunnerKind.TRAINER
 
         return None
