@@ -16,9 +16,6 @@ class NerfStudioJob(BaseJob):
         os.path.join("checkpoints", "step-000029999.ckpt"),
     ]
 
-    def __init__(self, command: str) -> None:
-        super().__init__(command=command)
-
     def derive_work_dir(self) -> str:
         try:
             tokens = shlex.split(self.command)
