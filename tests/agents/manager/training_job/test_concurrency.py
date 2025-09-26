@@ -10,6 +10,7 @@ import time
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from agents.manager.training_job import TrainingJob
+from agents.manager.runtime import JobRuntimeParams
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.manager import Manager
 from agents.manager.progress_info import ProgressInfo
