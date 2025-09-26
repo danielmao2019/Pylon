@@ -4,7 +4,6 @@ import os
 import time
 
 
-
 def test_status_evaluator_finished(temp_manager_root, write_config, write_eval_scores):
     cfg = write_config('evalfin.py', {})
     write_eval_scores('evalfin')

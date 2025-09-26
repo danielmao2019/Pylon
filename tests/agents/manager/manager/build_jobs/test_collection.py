@@ -6,7 +6,6 @@ from agents.manager.manager import Manager
 from agents.manager.progress_info import ProgressInfo
 
 
-
 def test_get_all_job_status_returns_mapping(create_real_config, create_epoch_files, create_system_monitor_with_processes):
     """Test that Manager.build_jobs returns Dict[str, BaseJob] with minimal SystemMonitor mock."""
     with tempfile.TemporaryDirectory() as temp_root:

@@ -11,7 +11,6 @@ import pytest
 from agents.manager.manager import Manager
 
 
-
 def _touch(path):
     with open(path, 'a'):
         os.utime(path, None)
