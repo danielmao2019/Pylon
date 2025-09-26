@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 from agents.manager.base_job import BaseJob
 from agents.manager.progress_info import ProgressInfo
@@ -17,21 +17,33 @@ class NerfStudioJob(BaseJob):
         super().__init__(command=command)
 
     def compute_progress(self) -> ProgressInfo:
-        data = self._load_metrics()
+        metrics = self._load_metrics()
 
-        completed_steps = int(data.get("latest_step", data.get("completed_steps", 0)) or 0)
-        total_steps = data.get("total_steps", self._expected_steps)
-        try:
-            total_steps_int = int(total_steps) if total_steps is not None else None
-        except (TypeError, ValueError):
-            total_steps_int = None
+        completed_steps = self._extract_int(metrics, (
+            "latest_step",
+            "step",
+            "completed_steps",
+            "iteration",
+            "global_step",
+        ))
+        assert completed_steps is not None, (
+            "NerfStudioJob expects metrics.json to include a step counter"
+        )
 
-        if total_steps_int and total_steps_int > 0:
-            progress_pct = min(100.0, (completed_steps / total_steps_int) * 100.0)
-        elif completed_steps > 0:
-            progress_pct = 100.0
-        else:
-            progress_pct = 0.0
+        total_steps = self._extract_int(metrics, (
+            "total_steps",
+            "max_num_iterations",
+            "max_iterations",
+            "num_iterations",
+        ))
+        if total_steps is None:
+            total_steps = self._expected_steps
+        assert total_steps is not None, (
+            "Provide --max-num-iterations or ensure metrics.json exposes total_steps"
+        )
+        assert total_steps > 0, "Total steps must be positive"
+
+        progress_pct = min(100.0, (completed_steps / total_steps) * 100.0)
 
         return ProgressInfo(
             completed_epochs=completed_steps,
@@ -39,7 +51,7 @@ class NerfStudioJob(BaseJob):
             early_stopped=False,
             early_stopped_at_epoch=None,
             runner_type='nerfstudio',
-            total_epochs=total_steps_int,
+            total_epochs=total_steps,
         )
 
     def derive_work_dir(self) -> str:
@@ -100,15 +112,63 @@ class NerfStudioJob(BaseJob):
     # ------------------------------------------------------------------
 
     def _load_metrics(self) -> Dict[str, object]:
-        metrics_path = os.path.join(self.work_dir, "metrics.json")
-        if not os.path.exists(metrics_path):
-            return {}
+        for filename in ("metrics.json", "metrics.jsonl"):
+            path = os.path.join(self.work_dir, filename)
+            if not os.path.isfile(path):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    if filename.endswith(".jsonl"):
+                        last_payload = None
+                        for line in handle:
+                            stripped = line.strip()
+                            if not stripped:
+                                continue
+                            last_payload = json.loads(stripped)
+                        assert last_payload is not None, f"{filename} is empty"
+                        assert isinstance(last_payload, dict), (
+                            f"Expected dict objects in {filename}"
+                        )
+                        return last_payload
+                    data = json.load(handle)
+            except (OSError, json.JSONDecodeError) as exc:
+                raise AssertionError(f"Failed to read {filename}: {exc}") from exc
+
+            assert isinstance(data, dict), f"Expected dict payload in {filename}"
+            return data
+
+        raise AssertionError(
+            "NerfStudioJob expects metrics.json or metrics.jsonl in the work directory"
+        )
+
+    @staticmethod
+    def _extract_int(mapping: Dict[str, object], keys: Sequence[str]) -> Optional[int]:
+        for key in keys:
+            if key not in mapping:
+                continue
+            value = NerfStudioJob._coerce_non_negative_int(mapping.get(key))
+            if value is not None:
+                return value
+        return None
+
+    @staticmethod
+    def _coerce_non_negative_int(value: object) -> Optional[int]:
+        if value is None or isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value if value >= 0 else None
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
         try:
-            with open(metrics_path, "r", encoding="utf-8") as handle:
-                data = json.load(handle)
-        except (OSError, json.JSONDecodeError, TypeError):
-            return {}
-        return data if isinstance(data, dict) else {}
+            number = int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            try:
+                number = int(float(str(value)))
+            except (TypeError, ValueError):
+                return None
+        return number if number >= 0 else None
 
     @staticmethod
     def _extract_int_flag(command: str) -> Optional[int]:
