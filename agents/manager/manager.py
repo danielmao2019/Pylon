@@ -99,13 +99,7 @@ class Manager:
 
     @staticmethod
     def _detect_from_command(command: str) -> RunnerKind | None:
-        tokens = [token for token in command.split() if token]
-        if not tokens:
-            return None
-        executable = tokens[0]
-        if executable.startswith('ns-') or 'nerfstudio' in executable.lower():
-            return RunnerKind.NERFSTUDIO
-        if any('nerfstudio' in token.lower() for token in tokens[1:]):
+        if 'ns-train' in command:
             return RunnerKind.NERFSTUDIO
         return None
 
