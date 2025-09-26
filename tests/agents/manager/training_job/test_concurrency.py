@@ -42,7 +42,7 @@ def test_multiple_readers_same_progress_file(create_progress_json):
             command = f"python main.py --config-filepath {config_path}"
             def read_progress():
                 job = TrainingJob(command)
-                return job.get_progress()
+                return job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
 
             results = []
             with ThreadPoolExecutor(max_workers=10) as executor:
@@ -80,7 +80,7 @@ def test_multiple_readers_via_get_progress(create_progress_json):
             command = f"python main.py --config-filepath {config_path}"
             def read_with_calc():
                 job = TrainingJob(command)
-                return job.get_progress()
+                return job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
 
             results = []
             with ThreadPoolExecutor(max_workers=8) as executor:
@@ -124,7 +124,7 @@ def test_reader_writer_conflict_resolution(create_progress_json):
             command = f"python main.py --config-filepath {config_path}"
             def compute_progress() -> ProgressInfo:
                 job = TrainingJob(command)
-                return job.get_progress()
+                return job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
 
             def reader_thread():
                 for _ in range(5):
@@ -213,7 +213,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
                     
                     # Use TrainingJob to compute and save progress
                     job = TrainingJob(command)
-                    progress = job.get_progress(force_progress_recompute=True)
+                    progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=True))
                     
                     results.append((thread_id, update_round, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase chance of conflicts
@@ -275,12 +275,12 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
         try:
             def cache_and_read(tracker_id):
                 job = TrainingJob(command)
-                progress1 = job.get_progress()
+                progress1 = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
                 results.append(("first_read", tracker_id, progress1.completed_epochs))
 
                 time.sleep(0.05)
 
-                progress2 = job.get_progress()
+                progress2 = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
                 results.append(("second_read", tracker_id, progress2.completed_epochs))
 
             def file_updater():
@@ -345,7 +345,7 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
             def force_recompute_thread(thread_id):
                 job = TrainingJob(command)
                 for i in range(3):
-                    progress = job.get_progress(force_progress_recompute=True)
+                    progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=True))
                     results.append((thread_id, i, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase interleaving
             
@@ -412,14 +412,14 @@ def test_mixed_runner_types_concurrent_access():
             def trainer_worker():
                 job = TrainingJob(trainer_command)
                 for _ in range(5):
-                    progress = job.get_progress()
+                    progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
                     results.append(("trainer", progress.completed_epochs))
                     time.sleep(0.01)
 
             def evaluator_worker():
                 job = EvaluationJob(evaluator_command)
                 for _ in range(5):
-                    progress = job.get_progress()
+                    progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
                     results.append(("evaluator", progress.completed_epochs))
                     time.sleep(0.01)
 

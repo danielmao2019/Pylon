@@ -6,6 +6,7 @@ import os
 import tempfile
 
 from agents.manager.evaluation_job import EvaluationJob
+from agents.manager.runtime import JobRuntimeParams
 
 
 def test_evaluationjob_incomplete_and_complete():
@@ -27,14 +28,14 @@ def test_evaluationjob_incomplete_and_complete():
             job = EvaluationJob("python main.py --config-filepath ./configs/eval_case.py")
 
             # Incomplete
-            p0 = job.get_progress()
+            p0 = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
             assert p0.completed_epochs == 0
             assert p0.progress_percentage == 0.0
 
             # Complete
             with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
                 json.dump({"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f)
-            p1 = job.get_progress()
+            p1 = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
             assert p1.completed_epochs == 1
             assert p1.progress_percentage == 100.0
         finally:

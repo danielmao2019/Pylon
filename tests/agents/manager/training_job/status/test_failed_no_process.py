@@ -5,5 +5,5 @@ def test_status_trainer_failed_no_logs_no_process(temp_manager_root, write_confi
     for i in range(2):
         make_trainer_epoch('failed', i)
     job = TrainingJob('python main.py --config-filepath ./configs/failed.py')
-    job.populate(epochs=10, config_to_process_info={}, sleep_time=1, outdated_days=30, force_progress_recompute=False)
+    job.configure(JobRuntimeParams(epochs=10, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
     assert job.status == 'failed'

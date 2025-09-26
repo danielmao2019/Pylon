@@ -34,7 +34,7 @@ def test_trainingjob_fast_path_uses_progress_json(create_progress_json):
         os.chdir(root)
         try:
             job = TrainingJob(f"python main.py --config-filepath {config_path}")
-            progress = job.get_progress()
+            progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
         finally:
             os.chdir(cwd)
 
@@ -65,7 +65,7 @@ def test_trainingjob_slow_path_counts_epochs(create_epoch_files):
         os.chdir(root)
         try:
             job = TrainingJob(f"python main.py --config-filepath {config_path}")
-            progress = job.get_progress(force_progress_recompute=True)
+            progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=True))
         finally:
             os.chdir(cwd)
 

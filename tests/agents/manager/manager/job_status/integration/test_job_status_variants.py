@@ -21,7 +21,7 @@ def test_trainer_stuck_with_stale_log_and_process(temp_manager_root, write_confi
     command = 'python main.py --config-filepath ./configs/stuck_stale.py'
     proc = ProcessInfo(pid='9', user='u', cmd=command, start_time='t')
     job = TrainingJob(command)
-    job.populate(epochs=10, config_to_process_info={command: proc}, sleep_time=3600, outdated_days=30, force_progress_recompute=False)
+    job.configure(JobRuntimeParams(epochs=10, sleep_time=3600, outdated_days=30, command_processes={command: proc}, force_progress_recompute=False))
     assert job.status == 'stuck'
 
 
@@ -29,7 +29,7 @@ def test_trainer_failed_no_epochs_no_logs(temp_manager_root, write_config):
     # No epochs, no logs, no processes -> failed
     write_config('failed_empty.py', {'epochs': 5})
     job = TrainingJob('python main.py --config-filepath ./configs/failed_empty.py')
-    job.populate(epochs=5, config_to_process_info={}, sleep_time=3600, outdated_days=30, force_progress_recompute=False)
+    job.configure(JobRuntimeParams(epochs=5, sleep_time=3600, outdated_days=30, command_processes={}, force_progress_recompute=False))
     assert job.status == 'failed'
 
 
@@ -40,7 +40,7 @@ def test_evaluator_failed_empty_eval_file(temp_manager_root, write_config):
     os.makedirs(work, exist_ok=True)
     open(os.path.join(work, 'evaluation_scores.json'), 'w').close()  # zero-byte
     job = EvaluationJob('python main.py --config-filepath ./configs/eval_empty.py')
-    job.populate(epochs=1, config_to_process_info={}, sleep_time=3600, outdated_days=30, force_progress_recompute=False)
+    job.configure(JobRuntimeParams(epochs=1, sleep_time=3600, outdated_days=30, command_processes={}, force_progress_recompute=False))
     assert job.status == 'failed'
 
 
@@ -55,5 +55,5 @@ def test_trainer_failed_non_matching_log_name(temp_manager_root, write_config, m
     with open(os.path.join(work, 'other.log'), 'a'):
         os.utime(os.path.join(work, 'other.log'), None)
     job = TrainingJob('python main.py --config-filepath ./configs/failed_logname.py')
-    job.populate(epochs=10, config_to_process_info={}, sleep_time=3600, outdated_days=30, force_progress_recompute=False)
+    job.configure(JobRuntimeParams(epochs=10, sleep_time=3600, outdated_days=30, command_processes={}, force_progress_recompute=False))
     assert job.status == 'failed'

@@ -2,6 +2,7 @@ import os
 import tempfile
 from agents.manager.training_job import TrainingJob
 from agents.monitor.process_info import ProcessInfo
+from agents.manager.runtime import JobRuntimeParams
 
 
 def test_base_job_populate_with_process_info(create_epoch_files, create_real_config):
@@ -37,13 +38,7 @@ def test_base_job_populate_with_process_info(create_epoch_files, create_real_con
         try:
             # NO MOCKS - use real function with real data structures
             job_status = TrainingJob(command)
-            job_status.populate(
-                epochs=100,
-                config_to_process_info=config_to_process_info,
-                sleep_time=86400,
-                outdated_days=30,
-                force_progress_recompute=False
-            )
+            job_status.configure(JobRuntimeParams(epochs=100, sleep_time=86400, outdated_days=30, command_processes=config_to_process_info, force_progress_recompute=False))
             
             # Should show as stuck (running on GPU but no recent log updates)
             assert job_status.status == 'stuck'
