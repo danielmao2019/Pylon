@@ -8,16 +8,13 @@ Following CLAUDE.md testing patterns:
 - Parametrized testing for multiple scenarios
 - Unit testing for specific functions
 """
-from typing import Dict, Any
+from typing import Dict
 import os
 import tempfile
 import pytest
-from agents.manager import BaseJob, Manager
-from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
-from agents.manager.progress_info import ProgressInfo
 from agents.manager.training_job import TrainingJob
-from agents.manager.evaluation_job import EvaluationJob
+from agents.manager.runtime import JobRuntimeParams
 
 
 # ============================================================================
@@ -61,28 +58,33 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
         # Create config file
         create_real_config(config_path, work_dir, epochs=100)
         
+        command = f"python main.py --config-filepath {config_path}"
+
         # Set up process info (real data structures, not mocks)
         config_to_process_info = {}
         if status_scenario == "stuck":
-            config_to_process_info[config_path] = ProcessInfo(
+            process = ProcessInfo(
                 pid='12345',
                 user='testuser',
-                cmd=f'python main.py --config-filepath {config_path}',
+                cmd=command,
                 start_time='Mon Jan  1 10:00:00 2024'
             )
-        
+            config_to_process_info[command] = process
+
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             # NO MOCKS - use real function with real data
-            job_status = TrainingJob(config_path)
-            job_status.populate(
-                epochs=100,
-                config_to_process_info=config_to_process_info,
-                sleep_time=86400,
-                outdated_days=30,
-                force_progress_recompute=False
+            job_status = TrainingJob(command)
+            job_status.configure(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=86400,
+                    outdated_days=30,
+                    command_processes=config_to_process_info,
+                    force_progress_recompute=False,
+                )
             )
             
             assert job_status.status == expected_status
@@ -126,22 +128,25 @@ def test_base_job_populate_invalid_config_path():
         invalid_config_path = os.path.join(temp_root, "nonexistent", "config.py")
         
         os.makedirs(work_dir, exist_ok=True)
+        command = f"python main.py --config-filepath {invalid_config_path}"
         config_to_process_info: Dict[str, ProcessInfo] = {}
-        
+
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             # The function should handle the missing config when trying to compute progress
             # but since the work_dir exists but is empty, it will return 0 completed epochs
             # Invalid path should still be handled gracefully by path helpers
-            job_status = TrainingJob(invalid_config_path)
-            job_status.populate(
-                epochs=100,
-                config_to_process_info=config_to_process_info,
-                sleep_time=86400,
-                outdated_days=30,
-                force_progress_recompute=False
+            job_status = TrainingJob(command)
+            job_status.configure(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=86400,
+                    outdated_days=30,
+                    command_processes=config_to_process_info,
+                    force_progress_recompute=False,
+                )
             )
             
             # Should return failed status for invalid config

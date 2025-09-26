@@ -1,12 +1,22 @@
 """
 Manager module fixtures shared across tests. No imports from this file; use fixtures via parameters only.
 """
-
 import os
 import json
 import tempfile
 import time
 import pytest
+from typing import Optional
+import torch
+from utils.io.json import save_json
+from agents.monitor.system_monitor import SystemMonitor
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.process_info import ProcessInfo
+
+
+def make_command(config_path: str) -> str:
+    """Helper to build the canonical launch command for a config file."""
+    return f"python main.py --config-filepath {config_path}"
 
 
 @pytest.fixture
@@ -99,11 +109,6 @@ def touch_log():
         return log_path
     return _touch
 
-from typing import Optional
-import torch
-from utils.io.json import save_json
-
-
 @pytest.fixture
 def create_epoch_files():
     def _create_epoch_files(work_dir: str, epoch_idx: int, validation_score: Optional[float] = None) -> None:
@@ -195,12 +200,8 @@ def create_system_monitor_with_processes():
         monitors = create_system_monitor_with_processes([
             "python main.py --config-filepath ./configs/exp.py",
         ])
-        manager = Manager(config_files=[...], system_monitors=monitors, ...)
+        manager = Manager(commands=[...], system_monitors=monitors, ...)
     """
-    from agents.monitor.system_monitor import SystemMonitor
-    from agents.monitor.gpu_status import GPUStatus
-    from agents.monitor.process_info import ProcessInfo
-
     class LocalSystemMonitor(SystemMonitor):
         def __init__(self, server: str, window_size: int, gpus):
             super().__init__(server=server, window_size=window_size)

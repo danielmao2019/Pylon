@@ -6,7 +6,7 @@ import tempfile
 import json
 
 from agents.manager.manager import Manager
-from agents.manager.base_job import BaseJob
+from agents.manager.default_job import DefaultJob
 from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 
@@ -25,9 +25,15 @@ def test_build_jobs_minimal_integration(monkeypatch):
 
         # Minimal config contents with fields used by code
         with open(cfg_train, 'w') as f:
-            f.write("config = { 'epochs': 100 }\n")
+            f.write(
+                "from runners.trainers.base_trainer import BaseTrainer\n"
+                "config = { 'runner': BaseTrainer, 'epochs': 100 }\n"
+            )
         with open(cfg_eval, 'w') as f:
-            f.write("config = { }\n")
+            f.write(
+                "from runners.evaluators.base_evaluator import BaseEvaluator\n"
+                "config = { 'runner': BaseEvaluator }\n"
+            )
 
         # Create matching logs dirs
         work_train = os.path.join(logs_dir, "train_exp")
@@ -58,19 +64,23 @@ def test_build_jobs_minimal_integration(monkeypatch):
             # Real SystemMonitor is required by Manager assertions; provide an empty dict instead
             monitors = {}
 
-            m = Manager(config_files=["./configs/train_exp.py", "./configs/eval_exp.py"], epochs=1, system_monitors=monitors)
+            commands = [
+                "python main.py --config-filepath ./configs/train_exp.py",
+                "python main.py --config-filepath ./configs/eval_exp.py",
+            ]
+            m = Manager(commands=commands, epochs=1, system_monitors=monitors)
             jobs = m.build_jobs()
 
-            assert set(jobs.keys()) == {"./configs/train_exp.py", "./configs/eval_exp.py"}
+            assert set(jobs.keys()) == set(commands)
             # Training job
-            tjob = jobs["./configs/train_exp.py"]
-            assert isinstance(tjob, BaseJob)
+            tjob = jobs["python main.py --config-filepath ./configs/train_exp.py"]
+            assert isinstance(tjob, DefaultJob)
             assert isinstance(tjob, TrainingJob)
             assert tjob.work_dir == "./logs/train_exp"
             assert tjob.progress is not None
             # Evaluator job
-            ejob = jobs["./configs/eval_exp.py"]
-            assert isinstance(ejob, BaseJob)
+            ejob = jobs["python main.py --config-filepath ./configs/eval_exp.py"]
+            assert isinstance(ejob, DefaultJob)
             assert isinstance(ejob, EvaluationJob)
             assert ejob.work_dir == "./logs/eval_exp"
             assert ejob.progress is not None
@@ -89,7 +99,10 @@ def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_proces
         # trainer_running: partial epochs + fresh log
         cfg_run = os.path.join(configs_dir, 'trainer_running.py')
         with open(cfg_run, 'w') as f:
-            f.write("config = { 'epochs': 10 }\n")
+            f.write(
+                "from runners.trainers.base_trainer import BaseTrainer\n"
+                "config = { 'runner': BaseTrainer, 'epochs': 10 }\n"
+            )
         work_run = os.path.join(logs_dir, 'trainer_running')
         os.makedirs(work_run, exist_ok=True)
         e0 = os.path.join(work_run, 'epoch_0')
@@ -107,7 +120,10 @@ def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_proces
         # trainer_stuck: partial epochs + process mapping, no fresh log
         cfg_stuck = os.path.join(configs_dir, 'trainer_stuck.py')
         with open(cfg_stuck, 'w') as f:
-            f.write("config = { 'epochs': 10 }\n")
+            f.write(
+                "from runners.trainers.base_trainer import BaseTrainer\n"
+                "config = { 'runner': BaseTrainer, 'epochs': 10 }\n"
+            )
         work_stuck = os.path.join(logs_dir, 'trainer_stuck')
         os.makedirs(work_stuck, exist_ok=True)
         e0s = os.path.join(work_stuck, 'epoch_0')
@@ -122,7 +138,10 @@ def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_proces
         # evaluator_outdated: eval file aged
         cfg_eval = os.path.join(configs_dir, 'evaluator_old.py')
         with open(cfg_eval, 'w') as f:
-            f.write("config = { }\n")
+            f.write(
+                "from runners.evaluators.base_evaluator import BaseEvaluator\n"
+                "config = { 'runner': BaseEvaluator }\n"
+            )
         work_eval = os.path.join(logs_dir, 'evaluator_old')
         os.makedirs(work_eval, exist_ok=True)
         eval_file = os.path.join(work_eval, 'evaluation_scores.json')
@@ -138,11 +157,16 @@ def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_proces
             monitors = create_system_monitor_with_processes([
                 'python main.py --config-filepath ./configs/trainer_stuck.py'
             ])
-            m = Manager(config_files=["./configs/trainer_running.py", "./configs/trainer_stuck.py", "./configs/evaluator_old.py"], epochs=10, system_monitors=monitors, sleep_time=3600, outdated_days=30)
+            commands = [
+                "python main.py --config-filepath ./configs/trainer_running.py",
+                "python main.py --config-filepath ./configs/trainer_stuck.py",
+                "python main.py --config-filepath ./configs/evaluator_old.py",
+            ]
+            m = Manager(commands=commands, epochs=10, system_monitors=monitors, sleep_time=3600, outdated_days=30)
             jobs = m.build_jobs()
-            jr = jobs["./configs/trainer_running.py"]
-            js = jobs["./configs/trainer_stuck.py"]
-            je = jobs["./configs/evaluator_old.py"]
+            jr = jobs["python main.py --config-filepath ./configs/trainer_running.py"]
+            js = jobs["python main.py --config-filepath ./configs/trainer_stuck.py"]
+            je = jobs["python main.py --config-filepath ./configs/evaluator_old.py"]
             assert jr.status == 'running'
             assert js.status == 'stuck'
             # Evaluator completion is binary, but aged artifacts mark it as outdated

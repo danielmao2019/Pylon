@@ -1,32 +1,34 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Dict
+from typing import Dict, List, Optional, Tuple
 import glob
 import logging
 import os
 import torch
 
 from agents.manager.progress_info import ProgressInfo
-from agents.manager.base_job import BaseJob
-from utils.io.config import load_config
+from agents.manager.default_job import DefaultJob
+from agents.manager.job_types import RunnerKind
+from agents.manager.runtime import JobRuntimeParams
 from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
 
 
-class TrainingJob(BaseJob):
+class TrainingJob(DefaultJob):
     """Copied trainer logic as classmethods for manager jobs."""
 
     EXPECTED_FILES = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
     LOG_PATTERN = "train_val*.log"
+    runner_kind = RunnerKind.TRAINER
 
     # ====================================================================================================
     # 
     # ====================================================================================================
 
-    def get_progress(self, force_progress_recompute: bool = False) -> ProgressInfo:
+    def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
         """Return cached progress if available, otherwise recompute and cache."""
         progress_file = os.path.join(self.work_dir, "progress.json")
-        if not force_progress_recompute and os.path.exists(progress_file):
+        if not runtime.force_progress_recompute and os.path.exists(progress_file):
             try:
                 data = load_json(progress_file)
             except RuntimeError as exc:
@@ -50,7 +52,7 @@ class TrainingJob(BaseJob):
                 break
             completed_epochs += 1
 
-        config = load_config(self.config_filepath)
+        config = self.config_dict
         tot_epochs = config['epochs']
         early_stopping_config = config.get('early_stopping')
 
@@ -70,11 +72,61 @@ class TrainingJob(BaseJob):
             progress_percentage=100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
             early_stopped=early_stopped,
             early_stopped_at_epoch=early_stopped_at_epoch,
-            runner_type='trainer',
+            runner_type=self.runner_kind.value,
             total_epochs=tot_epochs,
         )
-        save_json(progress, progress_file)
+        save_json(progress.to_dict(), progress_file)
         return progress
+
+    # ------------------------------------------------------------------
+    # Completion semantics
+    # ------------------------------------------------------------------
+
+    def is_complete(
+        self,
+        progress: ProgressInfo,
+        runtime: JobRuntimeParams,
+    ) -> bool:
+        if progress.early_stopped:
+            return True
+
+        target_epochs = runtime.epochs or progress.total_epochs or self.config_dict.get('epochs')
+        try:
+            target_int = int(target_epochs) if target_epochs is not None else 0
+        except (TypeError, ValueError):
+            target_int = 0
+
+        if target_int <= 0:
+            return False
+        return progress.completed_epochs >= target_int
+
+    def get_artifact_last_update(self) -> Optional[float]:
+        """Return modification time of the newest epoch artifact."""
+        if not os.path.isdir(self.work_dir):
+            return None
+
+        epoch_dirs = [
+            os.path.join(self.work_dir, name)
+            for name in os.listdir(self.work_dir)
+            if name.startswith('epoch_') and os.path.isdir(os.path.join(self.work_dir, name))
+        ]
+
+        if not epoch_dirs:
+            return None
+
+        latest: Optional[float] = None
+        for epoch_dir in sorted(epoch_dirs):
+            for relative_path in self.EXPECTED_FILES:
+                if not relative_path:
+                    continue
+                artifact_path = os.path.join(epoch_dir, relative_path)
+                if not os.path.isfile(artifact_path):
+                    continue
+                artifact_mtime = os.path.getmtime(artifact_path)
+                if latest is None or artifact_mtime > latest:
+                    latest = artifact_mtime
+
+        return latest
 
     @classmethod
     def _check_epoch_finished(
@@ -151,18 +203,3 @@ class TrainingJob(BaseJob):
         if not logs:
             return None
         return max(os.path.getmtime(fp) for fp in logs)
-
-    def get_artifact_last_update(self) -> Optional[float]:
-        """Get the timestamp of the last epoch file update."""
-        if not os.path.isdir(self.work_dir):
-            return None
-        epoch_dirs = glob.glob(os.path.join(self.work_dir, 'epoch_*'))
-        if not epoch_dirs:
-            return None
-        timestamps = [
-            os.path.getmtime(os.path.join(epoch_dir, filename))
-            for epoch_dir in epoch_dirs
-            for filename in self.EXPECTED_FILES
-            if os.path.isfile(os.path.join(epoch_dir, filename))
-        ]
-        return max(timestamps) if timestamps else None

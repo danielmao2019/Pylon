@@ -3,151 +3,119 @@ from __future__ import annotations
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, Literal, Optional
+from typing import Any, Dict, Optional, Sequence, Literal
 
 from agents.manager.progress_info import ProgressInfo
 from agents.monitor.process_info import ProcessInfo
-from utils.io.config import load_config
+from agents.manager.runtime import JobRuntimeParams
 
 
 _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
 class BaseJob(ABC):
-    """Object-oriented representation of a single training job."""
+    """Generic representation of a job launched via an arbitrary command.
 
-    def __init__(self, config_filepath: str) -> None:
-        self.config_filepath = config_filepath
-        self.work_dir: str = self.get_work_dir(self.config_filepath)
-        self.config_dict = load_config(self.config_filepath)
-        self.progress: ProgressInfo
-        self.status: _JobStatus
-        self.process_info: ProcessInfo
+    The base class captures the command invocation and shared state needed by
+    concrete implementations. Subclasses are responsible for deriving
+    progress/status semantics from project-specific artefacts.
+    """
 
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
+    EXPECTED_FILES: Sequence[str] = ()
 
-    def populate(
+    def __init__(
         self,
-        *,
-        epochs: int,
-        config_to_process_info: Dict[str, ProcessInfo],
-        sleep_time: int,
-        outdated_days: int,
-        force_progress_recompute: bool,
+        command: str,
     ) -> None:
-        self.progress = self.get_progress(force_progress_recompute)
-        self.status = self.get_status(sleep_time, epochs, outdated_days, config_to_process_info)
-        self.process_info = config_to_process_info.get(self.config_filepath)
-
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
-
-    @classmethod
-    def get_work_dir(cls, config_filepath: str) -> str:
-        """Derive work directory path from a config file path."""
-        rel_path = os.path.splitext(os.path.relpath(config_filepath, start='./configs'))[0]
-        return os.path.join('./logs', rel_path)
-
-    @classmethod
-    def get_config_filepath(cls, work_dir: str) -> str:
-        """Derive config file path from a work directory path."""
-        rel_path = os.path.relpath(work_dir, './logs')
-        return os.path.join('./configs', rel_path) + '.py'
-
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
-
-    @abstractmethod
-    def get_progress(
-        self,
-        force_progress_recompute: bool = False,
-    ) -> ProgressInfo:
-        pass
-
-    # ====================================================================================================
-    #
-    # ====================================================================================================
-
-
-    def get_status(
-        self,
-        sleep_time: int,
-        epochs: int,
-        outdated_days: int,
-        config_to_process_info: Dict[str, ProcessInfo],
-    ) -> _JobStatus:
-        log_last_update = self.get_log_last_update()
-        artifact_last_update = self.get_artifact_last_update()
-
-        is_running_status = (
-            log_last_update is not None and (time.time() - log_last_update <= sleep_time)
+        assert isinstance(command, str) and command.strip(), (
+            "Job command must be a non-empty string"
         )
-
-        if self.__class__.__name__ == 'EvaluationJob':
-            is_complete = self.progress.completed_epochs >= 1
-        else:
-            is_complete = (
-                self.progress.early_stopped
-                or self.progress.completed_epochs >= epochs
-            )
-
-        if is_running_status:
-            status: _JobStatus = 'running'
-        elif is_complete:
-            if artifact_last_update is not None and (
-                time.time() - artifact_last_update > outdated_days * 24 * 60 * 60
-            ):
-                status = 'outdated'
-            else:
-                status = 'finished'
-        elif self.config_filepath in config_to_process_info:
-            status = 'stuck'
-        else:
-            status = 'failed'
-        return status
+        self.command = command
+        self.work_dir = self.derive_work_dir()
+        self.process_info: Optional[ProcessInfo] = None
+        self.progress: Optional[ProgressInfo] = None
+        self.status: Optional[str] = None
 
     @abstractmethod
-    def get_log_last_update(self) -> Optional[float]:
-        pass
+    def derive_work_dir(self) -> str:
+        """Return the canonical work directory for this job instance."""
+
+    def configure(self, runtime: JobRuntimeParams) -> None:
+        """Attach runtime parameters and recompute state."""
+        self.attach_process(runtime.process_for(self.command))
+        progress = self.compute_progress(runtime)
+        self.progress = progress
+        self.status = self.compute_status(progress, runtime)
+
+    def attach_process(self, process_info: Optional[ProcessInfo]) -> None:
+        """Associate runtime process information (if available)."""
+        self.process_info = process_info
 
     @abstractmethod
-    def get_artifact_last_update(self) -> Optional[float]:
-        pass
+    def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
+        """Return up-to-date progress information for the job."""
 
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
+    def compute_status(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> str:
+        """Determine high-level status (e.g. running/finished/failed)."""
+        if self.is_active(runtime):
+            return "running"
+        if self.is_complete(progress, runtime):
+            return "outdated" if self.is_outdated(runtime) else "finished"
+        if self.is_stuck(runtime):
+            return "stuck"
+        return "failed"
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
+    def to_dict(self) -> Dict[str, Any]:
+        """Light-weight serialisable view of the job state."""
         return {
-            'config': self.config_filepath,
-            'work_dir': self.work_dir,
-            'progress': self._serialize(self.progress),
-            'status': self.status,
-            'process_info': self._serialize(self.process_info),
+            "command": self.command,
+            "work_dir": self.work_dir,
+            "progress": self.progress.to_dict() if self.progress else None,
+            "status": self.status,
+            "process_info": self.process_info.to_dict() if self.process_info else None,
         }
 
-    @staticmethod
-    def parse_config(cmd: str) -> str:
-        """Extract config filepath from command string."""
-        assert isinstance(cmd, str), f"cmd={cmd!r}"
-        assert 'python' in cmd, f"cmd={cmd!r}"
-        assert '--config-filepath' in cmd, f"cmd={cmd!r}"
-        parts = cmd.split(' ')
-        for idx, part in enumerate(parts):
-            if part == '--config-filepath':
-                return parts[idx + 1]
-        raise AssertionError('Config filepath not found in command string')
+    # ------------------------------------------------------------------
+    # Status helper hooks (overridable by subclasses)
+    # ------------------------------------------------------------------
 
-    @staticmethod
-    def _serialize(value):
-        if value is None:
-            return None
-        if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
-            return value.to_dict()
-        return value
+    @abstractmethod
+    def is_active(self, runtime: JobRuntimeParams) -> bool:
+        """Return True while the job is actively progressing."""
+        raise NotImplementedError
+
+    def is_outdated(self, runtime: JobRuntimeParams) -> bool:
+        if runtime.outdated_days <= 0:
+            return False
+
+        artifact_last_update = self.get_artifact_last_update()
+        if artifact_last_update is None:
+            return False
+
+        stale_after = runtime.outdated_days * 24 * 60 * 60
+        return (time.time() - artifact_last_update) > stale_after
+
+    @abstractmethod
+    def is_complete(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> bool:
+        """Return True when the job should count as complete."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_stuck(self, runtime: JobRuntimeParams) -> bool:
+        """Return True when the job appears hung."""
+        raise NotImplementedError
+
+    # ------------------------------------------------------------------
+    # Shared artifact helpers
+    # ------------------------------------------------------------------
+
+    def get_artifact_last_update(self) -> Optional[float]:
+        """Return the most recent modification timestamp across expected files."""
+        timestamps = []
+        for relative_path in self.EXPECTED_FILES:
+            if not relative_path:
+                continue
+            artifact_path = os.path.join(self.work_dir, relative_path)
+            if os.path.isfile(artifact_path):
+                timestamps.append(os.path.getmtime(artifact_path))
+        return max(timestamps, default=None)

@@ -7,70 +7,66 @@ Following CLAUDE.md testing patterns:
 - Realistic multi-experiment scenarios
 - End-to-end workflow validation
 """
+
 from typing import Any
 import os
 import tempfile
 import pytest
 
-from agents.manager import BaseJob, Manager
+from agents.manager.manager import Manager
 from agents.manager.progress_info import ProgressInfo
-
 
 # ============================================================================
 # INTEGRATION TESTS (REALISTIC WITH MINIMAL MOCK)
 # ============================================================================
+
 
 def test_integration_full_pipeline(setup_realistic_experiment_structure):
     """Integration test for the complete enhanced job_status pipeline with minimal mocking."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiments with different states
         experiments = [
-            ("running_exp", "running", 5, True),     # Running on GPU, recent logs
-            ("stuck_exp", "stuck", 3, False),        # Running on GPU, no recent logs  
-            ("finished_exp", "finished", 100, False), # All epochs completed
-            ("failed_exp", "failed", 2, False),       # Few epochs, not running
+            ("running_exp", "running", 5, True),  # Running on GPU, recent logs
+            ("stuck_exp", "stuck", 3, False),  # Running on GPU, no recent logs
+            ("finished_exp", "finished", 100, False),  # All epochs completed
+            ("failed_exp", "failed", 2, False),  # Few epochs, not running
         ]
-        
-        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
-            temp_root, experiments
-        )
-        
+
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(temp_root, experiments)
+
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             # Test the complete pipeline with minimal SystemMonitor mock
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
-            
+
             # Verify results
             assert isinstance(all_statuses, dict)
             assert len(all_statuses) == len(experiments)
-            
+
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 exp_name = os.path.basename(config_path).replace('.py', '')
-                
+
                 # Find expected data for this experiment
                 exp_data = next(exp for exp in experiments if exp[0] == exp_name)
                 target_status, epochs_completed = exp_data[1], exp_data[2]
-                
+
                 # Verify enhanced BaseJob fields
                 assert isinstance(job_status.progress, ProgressInfo)
                 assert job_status.progress.completed_epochs == epochs_completed
                 assert isinstance(job_status.progress.early_stopped, bool)
-                
+
                 # For running/stuck experiments, should have ProcessInfo
                 if target_status in ["running", "stuck"]:
                     assert job_status.process_info is not None
                     assert job_status.process_info.cmd.endswith(config_path)
                 else:
                     assert job_status.process_info is None
-                    
+
         finally:
             os.chdir(original_cwd)
 
@@ -81,48 +77,49 @@ def test_integration_mixed_experiment_states(setup_realistic_experiment_structur
         # Create experiments with more diverse scenarios
         experiments = [
             ("early_stopped_exp", "finished", 25, False),  # Early stopped experiment
-            ("long_running_exp", "running", 80, True),     # Long-running experiment
-            ("quick_failure_exp", "failed", 1, False),     # Quick failure
-            ("stuck_halfway_exp", "stuck", 50, False),     # Stuck at halfway point
-            ("completed_exp", "finished", 100, False),     # Fully completed
+            ("long_running_exp", "running", 80, True),  # Long-running experiment
+            ("quick_failure_exp", "failed", 1, False),  # Quick failure
+            ("stuck_halfway_exp", "stuck", 50, False),  # Stuck at halfway point
+            ("completed_exp", "finished", 100, False),  # Fully completed
         ]
-        
-        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
-            temp_root, experiments
-        )
-        
+
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(temp_root, experiments)
+
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             # Test comprehensive status detection
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
-            
+
             # Verify comprehensive results
             assert len(all_statuses) == len(experiments)
-            
+
             # Check specific experiment outcomes
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 exp_name = os.path.basename(config_path).replace('.py', '')
-                
+
                 # Verify progress tracking is working correctly
                 assert hasattr(job_status.progress, 'completed_epochs')
                 assert hasattr(job_status.progress, 'early_stopped')
                 assert hasattr(job_status.progress, 'progress_percentage')
-                
+
                 # Verify job status determination is working
-                assert job_status.status in ["running", "finished", "failed", "stuck", "outdated"]
-                
+                assert job_status.status in [
+                    "running",
+                    "finished",
+                    "failed",
+                    "stuck",
+                    "outdated",
+                ]
+
                 # Verify config and work_dir are correctly populated
                 assert job_status.config_filepath == config_path
                 assert isinstance(job_status.work_dir, str)
-                
+
         finally:
             os.chdir(original_cwd)
 
@@ -136,28 +133,23 @@ def test_integration_no_running_experiments(setup_realistic_experiment_structure
             ("failed_exp1", "failed", 5, False),
             ("failed_exp2", "failed", 0, False),
         ]
-        
-        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
-            temp_root, experiments
-        )
-        
+
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(temp_root, experiments)
+
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
-            
+
             # All experiments should have no process_info
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 assert job_status.process_info is None
                 assert job_status.status in ["finished", "failed"]
-                
+
         finally:
             os.chdir(original_cwd)
 
@@ -172,31 +164,26 @@ def test_integration_all_running_experiments(setup_realistic_experiment_structur
             ("stuck_exp1", "stuck", 40, False),
             ("stuck_exp2", "stuck", 60, False),
         ]
-        
-        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
-            temp_root, experiments
-        )
-        
+
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(temp_root, experiments)
+
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
-            
+
             # All experiments should have process_info
             for config_path in config_files:
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 assert job_status.process_info is not None
                 assert job_status.status in ["running", "stuck"]
                 assert hasattr(job_status.process_info, 'pid')
                 assert hasattr(job_status.process_info, 'cmd')
                 assert job_status.process_info.cmd.endswith(config_path)
-                
+
         finally:
             os.chdir(original_cwd)
 
@@ -205,37 +192,29 @@ def test_integration_large_scale_experiments(setup_realistic_experiment_structur
     """Integration test with many experiments to verify scalability."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create many experiments to test scalability
-        experiments = [
-            (f"exp_{i}", "failed", i % 10, False)  # Various completion levels
-            for i in range(20)
-        ]
-        
-        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(
-            temp_root, experiments
-        )
-        
+        experiments = [(f"exp_{i}", "failed", i % 10, False) for i in range(20)]  # Various completion levels
+
+        config_files, work_dirs, system_monitors = setup_realistic_experiment_structure(temp_root, experiments)
+
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
-            manager = Manager(
-                config_files=config_files,
-                epochs=100,
-                system_monitors=system_monitors,
-            )
+            commands = [f"python main.py --config-filepath {p}" for p in config_files]
+            manager = Manager(commands=commands, epochs=100, system_monitors=system_monitors)
             all_statuses = manager.build_jobs()
-            
+
             # Verify all experiments are processed
             assert len(all_statuses) == 20
-            
+
             # Verify each experiment has correct structure
             for i, config_path in enumerate(config_files):
-                job_status = all_statuses[config_path]
+                job_status = all_statuses[f"python main.py --config-filepath {config_path}"]
                 expected_epochs = i % 10
-                
+
                 assert job_status.progress.completed_epochs == expected_epochs
                 assert hasattr(job_status.progress, 'completed_epochs')
                 assert job_status.status == "failed"  # All are failed in this test
-                
+
         finally:
             os.chdir(original_cwd)

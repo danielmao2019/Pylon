@@ -6,13 +6,9 @@ import tempfile
 import time
 import json
 
-from agents.manager.manager import Manager
-from agents.manager.base_job import BaseJob
-from agents.manager.training_job import TrainingJob
-from agents.manager.evaluation_job import EvaluationJob
-
-
 import pytest
+
+from agents.manager.manager import Manager
 
 
 def _touch(path):
@@ -29,7 +25,10 @@ def test_job_status_running_vs_finished(create_system_monitor_with_processes):
 
         cfg = os.path.join(configs, 'exp.py')
         with open(cfg, 'w') as f:
-            f.write("config = { 'epochs': 1 }\n")
+            f.write(
+                "from runners.trainers.base_trainer import BaseTrainer\n"
+                "config = { 'runner': BaseTrainer, 'epochs': 1 }\n"
+            )
 
         work = os.path.join(logs, 'exp')
         os.makedirs(work, exist_ok=True)
@@ -53,9 +52,9 @@ def test_job_status_running_vs_finished(create_system_monitor_with_processes):
             monitors = create_system_monitor_with_processes([
                 'python main.py --config-filepath ./configs/exp.py'
             ])
-            m = Manager(config_files=["./configs/exp.py"], epochs=1, system_monitors=monitors, sleep_time=3600)
+            m = Manager(commands=["python main.py --config-filepath ./configs/exp.py"], epochs=1, system_monitors=monitors, sleep_time=3600)
             jobs = m.build_jobs()
-            job = jobs["./configs/exp.py"]
+            job = jobs["python main.py --config-filepath ./configs/exp.py"]
             # Since recent log exists and epochs=1 (complete), status should be 'running' due to recent log
             assert job.status == 'running'
 
@@ -63,7 +62,7 @@ def test_job_status_running_vs_finished(create_system_monitor_with_processes):
             old = time.time() - (2 * 3600)
             os.utime(log_path, (old, old))
             jobs = m.build_jobs()
-            job = jobs["./configs/exp.py"]
+            job = jobs["python main.py --config-filepath ./configs/exp.py"]
             assert job.status in {'finished', 'outdated'}
         finally:
             os.chdir(cwd)

@@ -5,20 +5,22 @@ These tests validate that the progress system handles multiple
 processes/threads accessing progress files simultaneously without corruption
 or race conditions.
 """
+
 import tempfile
 import time
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from agents.manager.training_job import TrainingJob
+from agents.manager.runtime import JobRuntimeParams
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.manager import Manager
 from agents.manager.progress_info import ProgressInfo
 from utils.io.json import load_json, save_json
 
-
 # ============================================================================
 # CONCURRENCY TESTS - MULTIPLE READERS
 # ============================================================================
+
 
 def test_multiple_readers_same_progress_file(create_progress_json):
     """Test multiple threads reading the same progress.json file simultaneously."""
@@ -39,9 +41,19 @@ def test_multiple_readers_same_progress_file(create_progress_json):
         original_cwd = os.getcwd()
         os.chdir(root)
         try:
+            command = f"python main.py --config-filepath {config_path}"
+
             def read_progress():
-                job = TrainingJob(config_path)
-                return job.get_progress()
+                job = TrainingJob(command)
+                return job.compute_progress(
+                    JobRuntimeParams(
+                        epochs=100,
+                        sleep_time=1,
+                        outdated_days=30,
+                        command_processes={},
+                        force_progress_recompute=False,
+                    )
+                )
 
             results = []
             with ThreadPoolExecutor(max_workers=10) as executor:
@@ -76,9 +88,19 @@ def test_multiple_readers_via_get_progress(create_progress_json):
         original_cwd = os.getcwd()
         os.chdir(root)
         try:
+            command = f"python main.py --config-filepath {config_path}"
+
             def read_with_calc():
-                job = TrainingJob(config_path)
-                return job.get_progress()
+                job = TrainingJob(command)
+                return job.compute_progress(
+                    JobRuntimeParams(
+                        epochs=100,
+                        sleep_time=1,
+                        outdated_days=30,
+                        command_processes={},
+                        force_progress_recompute=False,
+                    )
+                )
 
             results = []
             with ThreadPoolExecutor(max_workers=8) as executor:
@@ -96,6 +118,7 @@ def test_multiple_readers_via_get_progress(create_progress_json):
 # ============================================================================
 # CONCURRENCY TESTS - READER-WRITER CONFLICTS
 # ============================================================================
+
 
 def test_reader_writer_conflict_resolution(create_progress_json):
     """Test readers and writers accessing progress.json simultaneously."""
@@ -119,9 +142,19 @@ def test_reader_writer_conflict_resolution(create_progress_json):
         original_cwd = os.getcwd()
         os.chdir(root)
         try:
+            command = f"python main.py --config-filepath {config_path}"
+
             def compute_progress() -> ProgressInfo:
-                job = TrainingJob(config_path)
-                return job.get_progress()
+                job = TrainingJob(command)
+                return job.compute_progress(
+                    JobRuntimeParams(
+                        epochs=100,
+                        sleep_time=1,
+                        outdated_days=30,
+                        command_processes={},
+                        force_progress_recompute=False,
+                    )
+                )
 
             def reader_thread():
                 for _ in range(5):
@@ -136,7 +169,12 @@ def test_reader_writer_conflict_resolution(create_progress_json):
                 for i in range(3):
                     try:
                         new_epochs = 20 + i * 10
-                        create_progress_json(work_dir, completed_epochs=new_epochs, early_stopped=False, tot_epochs=100)
+                        create_progress_json(
+                            work_dir,
+                            completed_epochs=new_epochs,
+                            early_stopped=False,
+                            tot_epochs=100,
+                        )
                         results["writes"].append(new_epochs)
                         time.sleep(0.02)
                     except Exception as e:
@@ -158,7 +196,7 @@ def test_reader_writer_conflict_resolution(create_progress_json):
 
             assert len(read_errors) == 0, f"Reader errors: {read_errors}"
             assert len(write_errors) == 0, f"Writer errors: {write_errors}"
-            
+
             # Verify we got some reads and writes
             valid_reads = [r for r in results["reads"] if isinstance(r, int)]
             valid_writes = [w for w in results["writes"] if isinstance(w, int)]
@@ -173,6 +211,7 @@ def test_reader_writer_conflict_resolution(create_progress_json):
 # CONCURRENCY TESTS - MULTIPLE WRITERS
 # ============================================================================
 
+
 def test_multiple_writers_same_progress_file(create_epoch_files, create_real_config, EXPECTED_FILES):
     """Test multiple progress trackers writing to the same progress.json file."""
     with tempfile.TemporaryDirectory() as temp_root:
@@ -181,50 +220,59 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
         configs_dir = os.path.join(temp_root, "configs")
         work_dir = os.path.join(logs_dir, "test_concurrent_writers")
         config_path = os.path.join(configs_dir, "test_concurrent_writers.py")
-        
+
         os.makedirs(work_dir, exist_ok=True)
         expected_files = EXPECTED_FILES
-        
+
         # Create real config
         create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
-        
+
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             results = []
             rel_config = "./configs/test_concurrent_writers.py"
-            
+            command = f"python main.py --config-filepath {rel_config}"
+
             def tracker_writer_thread(thread_id):
                 """Each thread simulates a progress updater writing progress.json."""
                 # Create varying numbers of epoch files to simulate different progress states
                 base_epochs = thread_id * 2  # Thread 0: 0 epochs, Thread 1: 2 epochs, etc.
-                
+
                 for update_round in range(3):
                     # Create epoch files to simulate training progress
                     current_epochs = base_epochs + update_round
                     for epoch_idx in range(current_epochs + 1):  # +1 to ensure the epoch exists
                         create_epoch_files(work_dir, epoch_idx)
-                    
+
                     # Use TrainingJob to compute and save progress
-                    job = TrainingJob(rel_config)
-                    progress = job.get_progress(force_progress_recompute=True)
-                    
+                    job = TrainingJob(command)
+                    progress = job.compute_progress(
+                        JobRuntimeParams(
+                            epochs=100,
+                            sleep_time=1,
+                            outdated_days=30,
+                            command_processes={},
+                            force_progress_recompute=True,
+                        )
+                    )
+
                     results.append((thread_id, update_round, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase chance of conflicts
-            
+
             # Run 5 concurrent writers
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(tracker_writer_thread, thread_id) for thread_id in range(5)]
                 for future in as_completed(futures):
                     future.result()
-            
+
             # Verify final progress.json file is valid and not corrupted
             progress_file = os.path.join(work_dir, "progress.json")
             assert os.path.exists(progress_file)
             final_data = load_json(progress_file)
-            
+
             # Verify structure is correct (standard progress.json format)
             assert "completed_epochs" in final_data
             assert "progress_percentage" in final_data
@@ -233,13 +281,13 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
             assert final_data["runner_type"] == "trainer"
             assert isinstance(final_data["completed_epochs"], int)
             assert final_data["completed_epochs"] >= 0
-            
+
             # Verify all threads completed without errors
             assert len(results) == 15  # 5 threads * 3 updates each
             for thread_id, update_round, epochs in results:
                 assert isinstance(epochs, int)
                 assert epochs >= 0
-                
+
         finally:
             os.chdir(original_cwd)
 
@@ -247,6 +295,7 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
 # ============================================================================
 # CONCURRENCY TESTS - CACHE INVALIDATION RACES
 # ============================================================================
+
 
 def test_cache_invalidation_race_conditions(create_progress_json, create_real_config):
     """Test cache invalidation when multiple trackers access same file."""
@@ -264,18 +313,36 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
 
         results = []
         rel_config = "./configs/cache_invalidation.py"
+        command = f"python main.py --config-filepath {rel_config}"
 
         original_cwd = os.getcwd()
         os.chdir(temp_root)
         try:
+
             def cache_and_read(tracker_id):
-                job = TrainingJob(rel_config)
-                progress1 = job.get_progress()
+                job = TrainingJob(command)
+                progress1 = job.compute_progress(
+                    JobRuntimeParams(
+                        epochs=100,
+                        sleep_time=1,
+                        outdated_days=30,
+                        command_processes={},
+                        force_progress_recompute=False,
+                    )
+                )
                 results.append(("first_read", tracker_id, progress1.completed_epochs))
 
                 time.sleep(0.05)
 
-                progress2 = job.get_progress()
+                progress2 = job.compute_progress(
+                    JobRuntimeParams(
+                        epochs=100,
+                        sleep_time=1,
+                        outdated_days=30,
+                        command_processes={},
+                        force_progress_recompute=False,
+                    )
+                )
                 results.append(("second_read", tracker_id, progress2.completed_epochs))
 
             def file_updater():
@@ -309,6 +376,7 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
 # CONCURRENCY TESTS - FORCE RECOMPUTE RACES
 # ============================================================================
 
+
 def test_multiple_force_recompute_same_file(create_epoch_files, create_real_config, EXPECTED_FILES):
     """Test multiple force_progress_recompute calls simultaneously."""
     with tempfile.TemporaryDirectory() as temp_root:
@@ -317,17 +385,17 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
         configs_dir = os.path.join(temp_root, "configs")
         work_dir = os.path.join(logs_dir, "test_concurrent_force")
         config_path = os.path.join(configs_dir, "test_concurrent_force.py")
-        
+
         os.makedirs(work_dir, exist_ok=True)
         expected_files = EXPECTED_FILES
-        
+
         # Create epoch files
         for epoch_idx in range(10):
             create_epoch_files(work_dir, epoch_idx)
-        
+
         # Create real config
         create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
-        
+
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
@@ -335,14 +403,23 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
         try:
             results = []
             rel_config = "./configs/test_concurrent_force.py"
+            command = f"python main.py --config-filepath {rel_config}"
 
             def force_recompute_thread(thread_id):
-                job = TrainingJob(rel_config)
+                job = TrainingJob(command)
                 for i in range(3):
-                    progress = job.get_progress(force_progress_recompute=True)
+                    progress = job.compute_progress(
+                        JobRuntimeParams(
+                            epochs=100,
+                            sleep_time=1,
+                            outdated_days=30,
+                            command_processes={},
+                            force_progress_recompute=True,
+                        )
+                    )
                     results.append((thread_id, i, progress.completed_epochs))
                     time.sleep(0.01)  # Small delay to increase interleaving
-            
+
             # Run 4 concurrent force recompute operations
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(force_recompute_thread, thread_id) for thread_id in range(4)]
@@ -361,6 +438,7 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
 # ============================================================================
 # CONCURRENCY TESTS - MIXED RUNNER TYPES
 # ============================================================================
+
 
 def test_mixed_runner_types_concurrent_access():
     """Test TrainingJob and EvaluationJob accessing different files concurrently."""
@@ -400,17 +478,36 @@ def test_mixed_runner_types_concurrent_access():
         os.chdir(base_dir)
 
         try:
+            trainer_command = "python main.py --config-filepath ./configs/trainer.py"
+            evaluator_command = "python main.py --config-filepath ./configs/evaluator.py"
+
             def trainer_worker():
-                job = TrainingJob("./configs/trainer.py")
+                job = TrainingJob(trainer_command)
                 for _ in range(5):
-                    progress = job.get_progress()
+                    progress = job.compute_progress(
+                        JobRuntimeParams(
+                            epochs=100,
+                            sleep_time=1,
+                            outdated_days=30,
+                            command_processes={},
+                            force_progress_recompute=False,
+                        )
+                    )
                     results.append(("trainer", progress.completed_epochs))
                     time.sleep(0.01)
 
             def evaluator_worker():
-                job = EvaluationJob("./configs/evaluator.py")
+                job = EvaluationJob(evaluator_command)
                 for _ in range(5):
-                    progress = job.get_progress()
+                    progress = job.compute_progress(
+                        JobRuntimeParams(
+                            epochs=100,
+                            sleep_time=1,
+                            outdated_days=30,
+                            command_processes={},
+                            force_progress_recompute=False,
+                        )
+                    )
                     results.append(("evaluator", progress.completed_epochs))
                     time.sleep(0.01)
 
@@ -443,14 +540,16 @@ def test_mixed_runner_types_concurrent_access():
 # CONCURRENCY TESTS - REALISTIC PROGRESS TRACKING SCENARIOS
 # ============================================================================
 
+
 def test_concurrent_progress_json_creation():
     """Test multiple processes creating progress.json files in different directories."""
     with tempfile.TemporaryDirectory() as base_dir:
+
         def create_progress_worker(worker_id):
             # Each worker creates progress in its own directory
             work_dir = os.path.join(base_dir, f"experiment_{worker_id}")
             os.makedirs(work_dir, exist_ok=True)
-            
+
             # Create multiple progress files (simulating repeated progress updates)
             for update in range(5):
                 progress_data = {
@@ -459,18 +558,18 @@ def test_concurrent_progress_json_creation():
                     "early_stopped": False,
                     "early_stopped_at_epoch": None,
                     "runner_type": "trainer",
-                    "total_epochs": 100
+                    "total_epochs": 100,
                 }
                 progress_file = os.path.join(work_dir, "progress.json")
                 save_json(progress_data, progress_file)
                 time.sleep(0.01)
-        
+
         # Run multiple workers creating progress files
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(create_progress_worker, worker_id) for worker_id in range(5)]
             for future in as_completed(futures):
                 future.result()
-        
+
         # Verify all progress files were created correctly
         for worker_id in range(5):
             progress_file = os.path.join(base_dir, f"experiment_{worker_id}", "progress.json")

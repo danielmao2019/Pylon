@@ -12,6 +12,7 @@ import tempfile
 import torch
 
 from agents.manager.training_job import TrainingJob
+from agents.manager.runtime import JobRuntimeParams
 from agents.manager.progress_info import ProgressInfo
 
 
@@ -33,8 +34,16 @@ def test_trainingjob_fast_path_uses_progress_json(create_progress_json):
         cwd = os.getcwd()
         os.chdir(root)
         try:
-            job = TrainingJob(config_path)
-            progress = job.get_progress()
+            job = TrainingJob(f"python main.py --config-filepath {config_path}")
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
         finally:
             os.chdir(cwd)
 
@@ -64,8 +73,16 @@ def test_trainingjob_slow_path_counts_epochs(create_epoch_files):
         cwd = os.getcwd()
         os.chdir(root)
         try:
-            job = TrainingJob(config_path)
-            progress = job.get_progress(force_progress_recompute=True)
+            job = TrainingJob(f"python main.py --config-filepath {config_path}")
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=True,
+                )
+            )
         finally:
             os.chdir(cwd)
 
