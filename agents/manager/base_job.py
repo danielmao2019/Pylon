@@ -10,6 +10,9 @@ from agents.monitor.process_info import ProcessInfo
 from agents.manager.runtime import JobRuntimeParams
 
 
+_JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
+
+
 class BaseJob(ABC):
     """Generic representation of a job launched via an arbitrary command.
 

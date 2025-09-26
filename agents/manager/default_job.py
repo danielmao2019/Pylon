@@ -12,8 +12,6 @@ from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
 
 
-_JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
-
 
 class DefaultJob(BaseJob, ABC):
     """Object-oriented representation of a single training job."""
