@@ -40,12 +40,13 @@ class TrainingJob(DefaultJob):
                 return ProgressInfo(**data)
 
         completed_epochs = 0
+        expected_files = list(self.expected_files)
 
         while True:
             epoch_dir = os.path.join(self.work_dir, f"epoch_{completed_epochs}")
             if not self._check_epoch_finished(
                 epoch_dir=epoch_dir,
-                expected_files=self.EXPECTED_FILES,
+                expected_files=expected_files,
                 check_load=False,
             ):
                 break
@@ -61,7 +62,7 @@ class TrainingJob(DefaultJob):
         if early_stopping_config and completed_epochs < tot_epochs:
             early_stopped, early_stopped_at_epoch = self._detect_early_stopping(
                 self.work_dir,
-                self.EXPECTED_FILES,
+                expected_files,
                 config,
                 completed_epochs,
             )
@@ -174,18 +175,3 @@ class TrainingJob(DefaultJob):
         if not logs:
             return None
         return max(os.path.getmtime(fp) for fp in logs)
-
-    def get_artifact_last_update(self) -> Optional[float]:
-        """Get the timestamp of the last epoch file update."""
-        if not os.path.isdir(self.work_dir):
-            return None
-        epoch_dirs = glob.glob(os.path.join(self.work_dir, 'epoch_*'))
-        if not epoch_dirs:
-            return None
-        timestamps = [
-            os.path.getmtime(os.path.join(epoch_dir, filename))
-            for epoch_dir in epoch_dirs
-            for filename in self.EXPECTED_FILES
-            if os.path.isfile(os.path.join(epoch_dir, filename))
-        ]
-        return max(timestamps) if timestamps else None

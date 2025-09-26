@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import glob
+import os
+import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from agents.manager.progress_info import ProgressInfo
 from agents.monitor.process_info import ProcessInfo
+from agents.manager.runtime import JobRuntimeParams
 
 
 class BaseJob(ABC):
@@ -14,6 +18,8 @@ class BaseJob(ABC):
     concrete implementations. Subclasses are responsible for deriving
     progress/status semantics from project-specific artefacts.
     """
+
+    EXPECTED_FILES: Sequence[str] = ()
 
     def __init__(
         self,
@@ -27,6 +33,7 @@ class BaseJob(ABC):
         self.process_info: Optional[ProcessInfo] = None
         self.progress: Optional[ProgressInfo] = None
         self.status: Optional[str] = None
+        self._runtime: Optional[JobRuntimeParams] = None
 
     def configure(self, runtime: JobRuntimeParams) -> None:
         """Attach runtime parameters and recompute state."""
@@ -53,6 +60,12 @@ class BaseJob(ABC):
         if self.is_stuck():
             return "stuck"
         return "failed"
+
+    @property
+    def runtime(self) -> JobRuntimeParams:
+        if self._runtime is None:
+            raise RuntimeError("Job runtime has not been configured yet")
+        return self._runtime
 
     def describe(self) -> str:
         """Human-friendly descriptor, defaulting to the launch command."""
@@ -81,10 +94,17 @@ class BaseJob(ABC):
         """Return True while the job is actively progressing."""
         raise NotImplementedError
 
-    @abstractmethod
     def is_outdated(self) -> bool:
-        """Return True when artifacts are stale despite completion."""
-        raise NotImplementedError
+        runtime = self.runtime
+        if runtime.outdated_days <= 0:
+            return False
+
+        artifact_last_update = self.get_artifact_last_update()
+        if artifact_last_update is None:
+            return False
+
+        stale_after = runtime.outdated_days * 24 * 60 * 60
+        return (time.time() - artifact_last_update) > stale_after
 
     @abstractmethod
     def is_complete(self, progress: ProgressInfo) -> bool:
@@ -95,3 +115,36 @@ class BaseJob(ABC):
     def is_stuck(self) -> bool:
         """Return True when the job appears hung."""
         raise NotImplementedError
+
+    # ------------------------------------------------------------------
+    # Shared artifact helpers
+    # ------------------------------------------------------------------
+
+    @property
+    def expected_files(self) -> Sequence[str]:
+        """Return the collection of expected artifact glob patterns."""
+        return tuple(self.EXPECTED_FILES)
+
+    def iter_expected_artifact_paths(self) -> Iterable[str]:
+        """Yield existing artifact file paths that match expected patterns."""
+        seen: set[str] = set()
+        for raw_pattern in self.expected_files:
+            if not raw_pattern:
+                continue
+            normalized = raw_pattern.replace('/', os.sep)
+            primary_pattern = os.path.join(self.work_dir, normalized)
+            patterns_to_try: List[str] = [primary_pattern]
+
+            if '**' not in normalized and os.sep not in normalized:
+                patterns_to_try.append(os.path.join(self.work_dir, '**', normalized))
+
+            for pattern in patterns_to_try:
+                for match in glob.glob(pattern, recursive=True):
+                    if os.path.isfile(match) and match not in seen:
+                        seen.add(match)
+                        yield match
+
+    def get_artifact_last_update(self) -> Optional[float]:
+        """Return the most recent modification timestamp across expected files."""
+        timestamps = [os.path.getmtime(path) for path in self.iter_expected_artifact_paths()]
+        return max(timestamps, default=None)

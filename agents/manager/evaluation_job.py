@@ -23,7 +23,7 @@ class EvaluationJob(DefaultJob):
 
     def compute_progress(self) -> ProgressInfo:
         eval_complete = True
-        for filename in self.EXPECTED_FILES:
+        for filename in self.expected_files:
             filepath = os.path.join(self.work_dir, filename)
             if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
                 eval_complete = False
@@ -69,13 +69,3 @@ class EvaluationJob(DefaultJob):
             return None
         assert len(logs) == 1, f"Expected a single log file matching {self.LOG_PATTERN}, got {logs!r}"
         return os.path.getmtime(logs[0])
-
-    def get_artifact_last_update(self) -> Optional[float]:
-        if not os.path.isdir(self.work_dir):
-            return None
-        timestamps = []
-        for filename in self.EXPECTED_FILES:
-            filepath = os.path.join(self.work_dir, filename)
-            if os.path.isfile(filepath):
-                timestamps.append(os.path.getmtime(filepath))
-        return max(timestamps) if timestamps else None

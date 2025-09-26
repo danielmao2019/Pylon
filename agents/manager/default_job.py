@@ -54,15 +54,6 @@ class DefaultJob(BaseJob, ABC):
     def is_complete(self, progress: ProgressInfo) -> bool:
         """Return True when the job should count as complete."""
 
-    def is_outdated(self) -> bool:
-        if self.runtime.outdated_days <= 0:
-            return False
-        artifact_last_update = self.get_artifact_last_update()
-        if artifact_last_update is None:
-            return False
-        stale_after = self.runtime.outdated_days * 24 * 60 * 60
-        return (time.time() - artifact_last_update) > stale_after
-
     def is_stuck(self) -> bool:
         return self.config_filepath in self.runtime.config_processes
 
@@ -114,8 +105,4 @@ class DefaultJob(BaseJob, ABC):
 
     @abstractmethod
     def get_log_last_update(self) -> Optional[float]:
-        pass
-
-    @abstractmethod
-    def get_artifact_last_update(self) -> Optional[float]:
         pass
