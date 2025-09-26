@@ -12,10 +12,7 @@ from agents.manager.progress_info import ProgressInfo
 class NerfStudioJob(BaseJob):
     """Minimal job wrapper for NeRFStudio commands."""
 
-    def __init__(
-        self,
-        command: str,
-    ) -> None:
+    def __init__(self, command: str) -> None:
         self._expected_steps = self._extract_int_flag(command)
         super().__init__(command=command)
 
@@ -45,30 +42,17 @@ class NerfStudioJob(BaseJob):
             total_epochs=total_steps_int,
         )
 
-    def compute_status(self, progress: ProgressInfo) -> str:
-        if self.process_info is not None:
-            return "running"
-
-        target = progress.total_epochs or self._expected_steps
-        try:
-            target_int = int(target) if target is not None else 0
-        except (TypeError, ValueError):
-            target_int = 0
-        if target_int > 0 and progress.completed_epochs >= target_int:
-            return "finished"
-
-        return "failed"
-
     def derive_work_dir(self) -> str:
         try:
             tokens = shlex.split(self.command)
         except ValueError:
             tokens = self.command.split()
-        flags = (
+
+        lookup_flags = (
             '--output-dir', '--output_dir', '--output',
             '--workspace', '--run-dir', '--run_dir', '--logdir', '--log-dir'
         )
-        for flag in flags:
+        for flag in lookup_flags:
             if flag in tokens:
                 idx = tokens.index(flag)
                 if idx + 1 < len(tokens):
@@ -79,18 +63,43 @@ class NerfStudioJob(BaseJob):
             for token in tokens:
                 if token.startswith(prefix) and len(token) > len(prefix):
                     return os.path.normpath(os.path.expanduser(token[len(prefix):]))
+
         raise ValueError(
             "Unable to determine work directory for NerfStudioJob. "
             "Provide a supported command flag (e.g. --output-dir) in the command."
         )
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Status helpers
+    # ------------------------------------------------------------------
+
+    def is_active(self) -> bool:
+        return self.process_info is not None
+
+    def is_complete(self, progress: ProgressInfo) -> bool:
+        target = progress.total_epochs or self._expected_steps
+        try:
+            target_int = int(target) if target is not None else 0
+        except (TypeError, ValueError):
+            target_int = 0
+        if target_int <= 0:
+            return False
+        return progress.completed_epochs >= target_int
+
+    def is_outdated(self) -> bool:
+        return False
+
+    def is_stuck(self) -> bool:
+        return False
+
+    def is_failed(self, progress: ProgressInfo) -> bool:
+        return not self.is_complete(progress)
+
+    # ------------------------------------------------------------------
+    # Helpers
     # ------------------------------------------------------------------
 
     def _load_metrics(self) -> Dict[str, object]:
-        if not self.work_dir:
-            return {}
         metrics_path = os.path.join(self.work_dir, "metrics.json")
         if not os.path.exists(metrics_path):
             return {}

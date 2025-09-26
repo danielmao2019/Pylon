@@ -51,6 +51,16 @@ class EvaluationJob(DefaultJob):
     # 
     # ====================================================================================================
 
+    def is_complete(
+        self,
+        progress: ProgressInfo,
+    ) -> bool:
+        return progress.completed_epochs >= 1
+
+    # ====================================================================================================
+    # 
+    # ====================================================================================================
+
     def get_log_last_update(self) -> Optional[float]:
         if not os.path.isdir(self.work_dir):
             return None
@@ -69,9 +79,3 @@ class EvaluationJob(DefaultJob):
             if os.path.isfile(filepath):
                 timestamps.append(os.path.getmtime(filepath))
         return max(timestamps) if timestamps else None
-
-    def _is_complete(
-        self,
-        progress: ProgressInfo,
-    ) -> bool:
-        return progress.completed_epochs >= 1

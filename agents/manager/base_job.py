@@ -28,6 +28,14 @@ class BaseJob(ABC):
         self.progress: Optional[ProgressInfo] = None
         self.status: Optional[str] = None
 
+    def configure(self, runtime: JobRuntimeParams) -> None:
+        """Attach runtime parameters and recompute state."""
+        self._runtime = runtime
+        self.attach_process(runtime.process_for(self.config_filepath))
+        progress = self.compute_progress()
+        self.progress = progress
+        self.status = self.compute_status(progress)
+
     def attach_process(self, process_info: Optional[ProcessInfo]) -> None:
         """Associate runtime process information (if available)."""
         self.process_info = process_info
@@ -36,9 +44,15 @@ class BaseJob(ABC):
     def compute_progress(self) -> ProgressInfo:
         """Return up-to-date progress information for the job."""
 
-    @abstractmethod
     def compute_status(self, progress: ProgressInfo) -> str:
         """Determine high-level status (e.g. running/finished/failed)."""
+        if self.is_active():
+            return "running"
+        if self.is_complete(progress):
+            return "outdated" if self.is_outdated() else "finished"
+        if self.is_stuck():
+            return "stuck"
+        return "failed"
 
     def describe(self) -> str:
         """Human-friendly descriptor, defaulting to the launch command."""
@@ -57,3 +71,27 @@ class BaseJob(ABC):
             "status": self.status,
             "process_info": self.process_info.to_dict() if self.process_info else None,
         }
+
+    # ------------------------------------------------------------------
+    # Status helper hooks (overridable by subclasses)
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def is_active(self) -> bool:
+        """Return True while the job is actively progressing."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_outdated(self) -> bool:
+        """Return True when artifacts are stale despite completion."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_complete(self, progress: ProgressInfo) -> bool:
+        """Return True when the job should count as complete."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_stuck(self) -> bool:
+        """Return True when the job appears hung."""
+        raise NotImplementedError
