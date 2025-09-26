@@ -46,7 +46,7 @@ class NerfStudioJob(BaseJob):
     def compute_progress(self) -> ProgressInfo:
         has_expected_files = all(
             os.path.isfile(os.path.join(self.work_dir, relative_path))
-            for relative_path in self.EXPECTED_FILES
+            for relative_path in self.expected_files
         )
 
         return ProgressInfo(
@@ -67,9 +67,6 @@ class NerfStudioJob(BaseJob):
 
     def is_complete(self, progress: ProgressInfo) -> bool:
         return progress.completed_epochs >= 1
-
-    def is_outdated(self) -> bool:
-        return False
 
     def is_stuck(self) -> bool:
         return False

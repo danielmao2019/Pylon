@@ -95,8 +95,8 @@ class BaseJob(ABC):
         raise NotImplementedError
 
     def is_outdated(self) -> bool:
-        runtime = self.runtime
-        if runtime.outdated_days <= 0:
+        runtime = self._runtime
+        if runtime is None or runtime.outdated_days <= 0:
             return False
 
         artifact_last_update = self.get_artifact_last_update()
