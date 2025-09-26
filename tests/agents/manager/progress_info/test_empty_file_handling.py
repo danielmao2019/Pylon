@@ -5,6 +5,7 @@ Following CLAUDE.md testing patterns:
 - Edge case testing pattern for empty files
 - Invalid input testing with specific error verification
 """
+
 import os
 import tempfile
 import json
@@ -13,10 +14,10 @@ import pytest
 from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
 
-
 # ============================================================================
 # EDGE CASE TESTS - EMPTY FILE HANDLING
 # ============================================================================
+
 
 def test_empty_progress_json_file_detection(create_real_config):
     """Empty progress.json should trigger recompute and yield zero progress."""
@@ -127,28 +128,32 @@ def test_malformed_progress_json_error_handling(create_real_config):
         configs_dir = os.path.join(temp_root, "configs")
         work_dir = os.path.join(logs_dir, "test_malformed")
         config_path = os.path.join(configs_dir, "test_malformed.py")
-        
+
         os.makedirs(work_dir, exist_ok=True)
-        
+
         # Create malformed progress.json file
         progress_file = os.path.join(work_dir, "progress.json")
-        
+
         with open(progress_file, 'w') as f:
             f.write("invalid json content {")  # Malformed JSON
-        
+
         # Create real config
         create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
-        
+
         # Verify the file exists and has content
         assert os.path.exists(progress_file)
         assert os.path.getsize(progress_file) > 0
-        
-        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-        
+
+        expected_files = [
+            "training_losses.pt",
+            "optimizer_buffer.json",
+            "validation_scores.json",
+        ]
+
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/test_malformed.py")
             progress = job.compute_progress(
@@ -171,24 +176,25 @@ def test_malformed_progress_json_error_handling(create_real_config):
 # EDGE CASE TESTS - FILE SIZE DETECTION
 # ============================================================================
 
+
 def test_file_size_detection_logic():
     """Test the file size detection logic works correctly."""
     with tempfile.TemporaryDirectory() as temp_dir:
         test_file = os.path.join(temp_dir, "test.json")
-        
+
         # Test empty file
         with open(test_file, 'w') as f:
             pass  # Create empty file
-        
+
         assert os.path.exists(test_file)
         assert os.path.getsize(test_file) == 0
-        
+
         # Test file with content
         with open(test_file, 'w') as f:
             json.dump({"test": "data"}, f)
-        
+
         assert os.path.getsize(test_file) > 0
-        
+
         # Verify we can load the content
         with open(test_file, 'r') as f:
             data = json.load(f)
@@ -203,38 +209,38 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
         configs_dir = os.path.join(temp_root, "configs")
         work_dir = os.path.join(logs_dir, "test_whitespace")
         config_path = os.path.join(configs_dir, "test_whitespace.py")
-        
+
         os.makedirs(work_dir, exist_ok=True)
-        
+
         # Create real config
         create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
-        
+
         # Truly empty file (0 bytes)
         empty_file = os.path.join(temp_root, "empty.json")
         with open(empty_file, 'w') as f:
             pass
         assert os.path.getsize(empty_file) == 0
-        
+
         # File with whitespace (> 0 bytes but invalid JSON)
         whitespace_file = os.path.join(temp_root, "whitespace.json")
         with open(whitespace_file, 'w') as f:
             f.write("   \n  \t  ")
         assert os.path.getsize(whitespace_file) > 0
-        
+
         # The empty file should be detected as size 0
         # The whitespace file should be detected as size > 0 (and would cause JSONDecodeError)
         expected_files = EXPECTED_FILES
-        
+
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
-        
+
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/test_whitespace.py")
             # Empty file - should raise exception since file exists but is empty
             progress_file = os.path.join(work_dir, "progress.json")
             os.rename(empty_file, progress_file)
-            
+
             # Should raise RuntimeError from load_json about empty file
             progress_empty = job.compute_progress(
                 JobRuntimeParams(
@@ -246,11 +252,11 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
                 )
             )
             assert progress_empty.completed_epochs == 0
-            
+
             # Whitespace file - should raise exception since file exists but is malformed JSON
             os.rename(progress_file, empty_file)  # Move back
             os.rename(whitespace_file, progress_file)
-            
+
             progress_whitespace = job.compute_progress(
                 JobRuntimeParams(
                     epochs=1,
