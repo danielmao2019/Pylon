@@ -109,10 +109,8 @@ class Manager:
 
     @staticmethod
     def _extract_config_filepath(command: str) -> str:
+        assert "python main.py --config-filepath" in command
         tokens = [token for token in command.split() if token]
-        for token in tokens:
-            if token.startswith('--config-filepath='):
-                return token.split('=', 1)[1]
         idx = tokens.index('--config-filepath')
         return tokens[idx + 1]
 
