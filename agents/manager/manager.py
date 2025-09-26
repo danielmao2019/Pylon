@@ -127,7 +127,11 @@ class Manager:
             return RunnerKind.EVALUATOR
 
         epoch_dir = os.path.join(config_workdir, 'epoch_0')
-        if os.path.isdir(epoch_dir) and os.path.isfile(os.path.join(epoch_dir, 'validation_scores.json')):
+        # Use TrainingJob.EXPECTED_FILES for trainer artifact detection
+        has_expected_artifact = any(
+            os.path.isfile(os.path.join(epoch_dir, fname)) for fname in TrainingJob.EXPECTED_FILES
+        )
+        if os.path.isdir(epoch_dir) and has_expected_artifact:
             return RunnerKind.TRAINER
 
         return None
