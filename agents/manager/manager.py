@@ -85,13 +85,17 @@ class Manager:
         if command_result is not None:
             return command_result
 
-        artifact_result, config_path = self._detect_from_artifacts(command)
-        if artifact_result is not None:
-            return artifact_result
+        config_filepath = self._extract_config_filepath(command)
 
-        config_result = self._detect_from_config(config_path)
+        config_result = self._detect_from_config(config_filepath)
         if config_result is not None:
             return config_result
+
+        work_dir = self._workdir_from_config(config_filepath)
+
+        artifact_result = self._detect_from_artifacts(work_dir)
+        if artifact_result is not None:
+            return artifact_result
 
         raise ValueError(
             f"Unable to determine runner type for command: {command!r}."
@@ -104,42 +108,36 @@ class Manager:
         return None
 
     @staticmethod
-    def _detect_from_artifacts(command: str) -> tuple[RunnerKind | None, str]:
+    def _extract_config_filepath(command: str) -> str:
         tokens = [token for token in command.split() if token]
-        config_path: str | None = None
-        if '--config-filepath' in tokens:
-            idx = tokens.index('--config-filepath')
-            if idx + 1 < len(tokens):
-                config_path = tokens[idx + 1]
-        if config_path is None:
-            for token in tokens:
-                if token.startswith('--config-filepath='):
-                    config_path = token.split('=', 1)[1]
-                    break
-
-        if not config_path:
-            raise ValueError(
-                f"Unable to determine runner type for command without config: {command!r}"
-            )
-
-        rel_path = os.path.splitext(os.path.relpath(config_path, start='./configs'))[0]
-        work_dir = os.path.join('./logs', rel_path)
-        eval_scores = os.path.join(work_dir, 'evaluation_scores.json')
-        if os.path.isfile(eval_scores):
-            return RunnerKind.EVALUATOR, config_path
-
-        epoch_dir = os.path.join(work_dir, 'epoch_0')
-        if os.path.isdir(epoch_dir) and os.path.isfile(os.path.join(epoch_dir, 'validation_scores.json')):
-            return RunnerKind.TRAINER, config_path
-
-        return None, config_path
+        for token in tokens:
+            if token.startswith('--config-filepath='):
+                return token.split('=', 1)[1]
+        idx = tokens.index('--config-filepath')
+        return tokens[idx + 1]
 
     @staticmethod
-    def _detect_from_config(config_path: str) -> RunnerKind | None:
-        if not os.path.exists(config_path):
+    def _workdir_from_config(config_filepath: str) -> str:
+        return config_filepath.replace('configs', 'logs')
+
+    @staticmethod
+    def _detect_from_artifacts(config_workdir: str) -> RunnerKind | None:
+        eval_scores = os.path.join(config_workdir, 'evaluation_scores.json')
+        if os.path.isfile(eval_scores):
+            return RunnerKind.EVALUATOR
+
+        epoch_dir = os.path.join(config_workdir, 'epoch_0')
+        if os.path.isdir(epoch_dir) and os.path.isfile(os.path.join(epoch_dir, 'validation_scores.json')):
+            return RunnerKind.TRAINER
+
+        return None
+
+    @staticmethod
+    def _detect_from_config(config_filepath: str) -> RunnerKind | None:
+        if not os.path.exists(config_filepath):
             return None
         try:
-            config = load_config(config_path)
+            config = load_config(config_filepath)
         except Exception:
             return None
 
