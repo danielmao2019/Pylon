@@ -76,7 +76,15 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
         try:
             # NO MOCKS - use real function with real data
             job_status = TrainingJob(command)
-            job_status.configure(JobRuntimeParams(epochs=100, sleep_time=86400, outdated_days=30, command_processes=config_to_process_info, force_progress_recompute=False))
+            job_status.configure(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=86400,
+                    outdated_days=30,
+                    command_processes=config_to_process_info,
+                    force_progress_recompute=False,
+                )
+            )
             
             assert job_status.status == expected_status
             
@@ -130,7 +138,15 @@ def test_base_job_populate_invalid_config_path():
             # but since the work_dir exists but is empty, it will return 0 completed epochs
             # Invalid path should still be handled gracefully by path helpers
             job_status = TrainingJob(command)
-            job_status.configure(JobRuntimeParams(epochs=100, sleep_time=86400, outdated_days=30, command_processes=config_to_process_info, force_progress_recompute=False))
+            job_status.configure(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=86400,
+                    outdated_days=30,
+                    command_processes=config_to_process_info,
+                    force_progress_recompute=False,
+                )
+            )
             
             # Should return failed status for invalid config
             assert job_status.status == 'failed'

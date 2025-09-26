@@ -11,5 +11,13 @@ def test_status_trainer_outdated_epochs(temp_manager_root, write_config, make_tr
         p = os.path.join(work, name)
         os.utime(p, (old, old))
     job = TrainingJob('python main.py --config-filepath ./configs/outdated.py')
-    job.configure(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+    job.configure(
+        JobRuntimeParams(
+            epochs=1,
+            sleep_time=1,
+            outdated_days=30,
+            command_processes={},
+            force_progress_recompute=False,
+        )
+    )
     assert job.status == 'outdated'

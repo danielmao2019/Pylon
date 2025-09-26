@@ -44,7 +44,15 @@ def test_empty_progress_json_file_detection(create_real_config):
         os.chdir(temp_root)
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/empty.py")
-            progress = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=1,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
         finally:
             os.chdir(cwd)
 
@@ -89,7 +97,15 @@ def test_non_empty_progress_json_loading(create_real_config):
         os.chdir(temp_root)
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/non_empty.py")
-            progress = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=1,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
         finally:
             os.chdir(cwd)
 
@@ -134,7 +150,15 @@ def test_malformed_progress_json_error_handling(create_real_config):
         
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/test_malformed.py")
-            progress = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=1,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
         finally:
             os.chdir(original_cwd)
 
@@ -211,14 +235,30 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
             os.rename(empty_file, progress_file)
             
             # Should raise RuntimeError from load_json about empty file
-            progress_empty = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress_empty = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=1,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
             assert progress_empty.completed_epochs == 0
             
             # Whitespace file - should raise exception since file exists but is malformed JSON
             os.rename(progress_file, empty_file)  # Move back
             os.rename(whitespace_file, progress_file)
             
-            progress_whitespace = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress_whitespace = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=1,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
             assert progress_whitespace.completed_epochs == 0
         finally:
             os.chdir(original_cwd)

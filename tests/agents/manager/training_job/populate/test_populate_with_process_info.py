@@ -1,8 +1,8 @@
 import os
 import tempfile
 from agents.manager.training_job import TrainingJob
-from agents.monitor.process_info import ProcessInfo
 from agents.manager.runtime import JobRuntimeParams
+from agents.monitor.process_info import ProcessInfo
 
 
 def test_base_job_populate_with_process_info(create_epoch_files, create_real_config):

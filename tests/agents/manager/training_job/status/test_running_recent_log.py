@@ -9,5 +9,13 @@ def test_status_trainer_running_with_recent_log(temp_manager_root, write_config,
     # Fresh log within sleep_time window signals running
     touch_log('running', age_seconds=0)
     job = TrainingJob('python main.py --config-filepath ./configs/running.py')
-    job.configure(JobRuntimeParams(epochs=10, sleep_time=3600, outdated_days=30, command_processes={}, force_progress_recompute=False))
+    job.configure(
+        JobRuntimeParams(
+            epochs=10,
+            sleep_time=3600,
+            outdated_days=30,
+            command_processes={},
+            force_progress_recompute=False,
+        )
+    )
     assert job.status == 'running'

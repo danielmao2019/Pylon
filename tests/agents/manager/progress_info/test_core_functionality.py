@@ -41,7 +41,15 @@ def test_get_session_progress_fast_path_normal_run(create_progress_json, create_
         os.chdir(temp_root)
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/fast_normal.py")
-            progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
         finally:
             os.chdir(cwd)
 
@@ -78,7 +86,15 @@ def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, 
         os.chdir(temp_root)
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/fast_early.py")
-            progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
         finally:
             os.chdir(cwd)
 
@@ -120,12 +136,28 @@ def test_get_session_progress_force_progress_recompute(create_progress_json, cre
             job = TrainingJob("python main.py --config-filepath ./configs/test_force_recompute.py")
 
             # Normal call should use cached progress.json
-            progress_cached = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress_cached = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
             assert progress_cached.completed_epochs == 2  # From cached progress.json
             assert progress_cached.progress_percentage == 2.0
             
             # Force recompute should bypass cache and recompute from filesystem
-            progress_recomputed = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=True))
+            progress_recomputed = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=True,
+                )
+            )
             assert progress_recomputed.completed_epochs == 5  # From actual filesystem
             assert progress_recomputed.progress_percentage == 5.0
             assert progress_recomputed.early_stopped == False
@@ -167,7 +199,15 @@ def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_c
         
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/test_normal_run.py")
-            progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
             
             # Should return ProgressInfo dataclass
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
@@ -202,7 +242,15 @@ def test_get_session_progress_deterministic(create_progress_json, create_real_co
         try:
             for _ in range(3):
                 job = TrainingJob("python main.py --config-filepath ./configs/deterministic.py")
-                progress = job.compute_progress(JobRuntimeParams(epochs=100, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+                progress = job.compute_progress(
+                    JobRuntimeParams(
+                        epochs=100,
+                        sleep_time=1,
+                        outdated_days=30,
+                        command_processes={},
+                        force_progress_recompute=False,
+                    )
+                )
                 results.append(progress)
         finally:
             os.chdir(cwd)
@@ -232,7 +280,15 @@ def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPEC
         
         try:
             job = TrainingJob("python main.py --config-filepath ./configs/test_empty.py")
-            progress = job.compute_progress(JobRuntimeParams(epochs=1, sleep_time=1, outdated_days=30, command_processes={}, force_progress_recompute=False))
+            progress = job.compute_progress(
+                JobRuntimeParams(
+                    epochs=1,
+                    sleep_time=1,
+                    outdated_days=30,
+                    command_processes={},
+                    force_progress_recompute=False,
+                )
+            )
             
             # Should return ProgressInfo dataclass with 0 completed epochs
             assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"

@@ -34,7 +34,15 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
         try:
             # NO MOCKS - use real function with real data structures
             job_status = TrainingJob(command)
-            job_status.configure(JobRuntimeParams(epochs=100, sleep_time=86400, outdated_days=30, command_processes=config_to_process_info, force_progress_recompute=False))
+            job_status.configure(
+                JobRuntimeParams(
+                    epochs=100,
+                    sleep_time=86400,
+                    outdated_days=30,
+                    command_processes=config_to_process_info,
+                    force_progress_recompute=False,
+                )
+            )
             
             # Should return BaseJob with enhanced ProgressInfo
             assert isinstance(job_status, DefaultJob)
