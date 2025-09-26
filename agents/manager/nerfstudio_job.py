@@ -73,6 +73,3 @@ class NerfStudioJob(BaseJob):
 
     def is_stuck(self) -> bool:
         return False
-
-    def is_failed(self, progress: ProgressInfo) -> bool:
-        return not self.is_complete(progress)
