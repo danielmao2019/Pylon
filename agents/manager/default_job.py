@@ -36,7 +36,7 @@ class DefaultJob(BaseJob, ABC):
             epochs=default_epochs,
             sleep_time=0,
             outdated_days=0,
-            config_processes={},
+            command_processes={},
             force_progress_recompute=False,
         )
 
@@ -55,7 +55,7 @@ class DefaultJob(BaseJob, ABC):
         """Return True when the job should count as complete."""
 
     def is_stuck(self) -> bool:
-        return self.config_filepath in self.runtime.config_processes
+        return self.command in self.runtime.command_processes
 
     # ====================================================================================================
     # 

@@ -37,7 +37,7 @@ class BaseJob(ABC):
     def configure(self, runtime: JobRuntimeParams) -> None:
         """Attach runtime parameters and recompute state."""
         self._runtime = runtime
-        self.attach_process(runtime.process_for(self.config_filepath))
+        self.attach_process(runtime.process_for(self.command))
         progress = self.compute_progress()
         self.progress = progress
         self.status = self.compute_status(progress)

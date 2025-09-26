@@ -95,13 +95,13 @@ class Manager:
             for monitor in self.system_monitors.values()
             for gpu in monitor.connected_gpus
         ]
-        config_to_process_info = self.build_config_to_process_mapping(all_connected_gpus)
+        command_to_process_info = self.build_command_to_process_mapping(all_connected_gpus)
 
         runtime = JobRuntimeParams(
             epochs=self.epochs,
             sleep_time=self.sleep_time,
             outdated_days=self.outdated_days,
-            config_processes=config_to_process_info,
+            command_processes=command_to_process_info,
             force_progress_recompute=self.force_progress_recompute,
         )
 
@@ -128,21 +128,26 @@ class Manager:
         return jobs
 
     @staticmethod
-    def build_config_to_process_mapping(
+    def build_command_to_process_mapping(
         connected_gpus: List[GPUStatus],
     ) -> Dict[str, ProcessInfo]:
-        """Build mapping from config file to ProcessInfo for running experiments."""
-        config_to_process: Dict[str, ProcessInfo] = {}
+        """Build mapping from runtime command string to ProcessInfo."""
+        command_to_process: Dict[str, ProcessInfo] = {}
         for gpu in connected_gpus:
             for process in gpu.processes:
                 assert isinstance(process, ProcessInfo), (
                     f'Expected ProcessInfo instance, got {type(process)}'
                 )
+                command_to_process[process.cmd] = process
                 if 'python main.py --config-filepath' not in process.cmd:
                     continue
-                config = DefaultJob.parse_config(process.cmd)
-                config_to_process[config] = process
-        return config_to_process
+                try:
+                    config = DefaultJob.parse_config(process.cmd)
+                except AssertionError:
+                    continue
+                canonical_command = f"python main.py --config-filepath {config}"
+                command_to_process.setdefault(canonical_command, process)
+        return command_to_process
 
     @staticmethod
     def _work_dir_for_config(config_filepath: str) -> str:
