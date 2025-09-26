@@ -1,7 +1,6 @@
 """
 Manager module fixtures shared across tests. No imports from this file; use fixtures via parameters only.
 """
-
 import os
 import json
 import tempfile
@@ -107,7 +106,6 @@ def touch_log():
 from typing import Optional
 import torch
 from utils.io.json import save_json
-
 
 @pytest.fixture
 def create_epoch_files():

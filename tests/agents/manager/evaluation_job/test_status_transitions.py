@@ -1,5 +1,7 @@
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.runtime import JobRuntimeParams
+import os
+import time
 
 
 
@@ -57,7 +59,6 @@ def test_status_evaluator_failed(temp_manager_root, write_config):
 
 
 def test_status_evaluator_outdated_scores_file(temp_manager_root, write_config, write_eval_scores):
-    import os, time
     cfg = write_config('evalold.py', {})
     work = write_eval_scores('evalold')
     # Age the evaluation file beyond outdated_days
