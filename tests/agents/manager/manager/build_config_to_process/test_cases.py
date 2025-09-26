@@ -38,22 +38,20 @@ def test_manager_build_command_to_process_mapping():
     
     mapping = Manager.build_command_to_process_mapping(connected_gpus)
 
-    # Should include actual command strings plus canonical forms where applicable
-    assert len(mapping) == 4
+    # Should include actual command strings observed on the GPUs
+    assert len(mapping) == 3
     exp1_command = "python main.py --config-filepath configs/exp1.py"
     exp2_command = "python main.py --config-filepath configs/exp2.py --debug"
-    exp2_canonical = "python main.py --config-filepath configs/exp2.py"
     other_command = "some_other_process --not-config"
 
     assert exp1_command in mapping
     assert exp2_command in mapping
-    assert exp2_canonical in mapping
     assert other_command in mapping
 
     # Check ProcessInfo content
     assert mapping[exp1_command].pid == "12345"
     assert mapping[exp1_command].cmd == exp1_command
-    assert mapping[exp2_canonical].pid == "54321"
+    assert mapping[exp2_command].pid == "54321"
 
 
 def test_build_command_to_process_mapping_empty_gpu_data():

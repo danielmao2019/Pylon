@@ -139,14 +139,6 @@ class Manager:
                     f'Expected ProcessInfo instance, got {type(process)}'
                 )
                 command_to_process[process.cmd] = process
-                if 'python main.py --config-filepath' not in process.cmd:
-                    continue
-                try:
-                    config = DefaultJob.parse_config(process.cmd)
-                except AssertionError:
-                    continue
-                canonical_command = f"python main.py --config-filepath {config}"
-                command_to_process.setdefault(canonical_command, process)
         return command_to_process
 
     @staticmethod
