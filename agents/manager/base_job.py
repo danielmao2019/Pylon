@@ -32,43 +32,35 @@ class BaseJob(ABC):
         self.process_info: Optional[ProcessInfo] = None
         self.progress: Optional[ProgressInfo] = None
         self.status: Optional[str] = None
-        self._runtime: Optional[JobRuntimeParams] = None
 
     def configure(self, runtime: JobRuntimeParams) -> None:
         """Attach runtime parameters and recompute state."""
-        self._runtime = runtime
         self.attach_process(runtime.process_for(self.command))
-        progress = self.compute_progress()
+        progress = self.compute_progress(runtime)
         self.progress = progress
-        self.status = self.compute_status(progress)
+        self.status = self.compute_status(progress, runtime)
 
     def attach_process(self, process_info: Optional[ProcessInfo]) -> None:
         """Associate runtime process information (if available)."""
         self.process_info = process_info
 
     @abstractmethod
-    def compute_progress(self) -> ProgressInfo:
+    def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
         """Return up-to-date progress information for the job."""
 
-    def compute_status(self, progress: ProgressInfo) -> str:
+    def compute_status(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> str:
         """Determine high-level status (e.g. running/finished/failed)."""
-        if self.is_active():
+        if self.is_active(runtime):
             return "running"
-        if self.is_complete(progress):
-            return "outdated" if self.is_outdated() else "finished"
-        if self.is_stuck():
+        if self.is_complete(progress, runtime):
+            return "outdated" if self.is_outdated(runtime) else "finished"
+        if self.is_stuck(runtime):
             return "stuck"
         return "failed"
 
     def describe(self) -> str:
         """Human-friendly descriptor, defaulting to the launch command."""
         return self.command
-
-    @property
-    def runtime(self) -> JobRuntimeParams:
-        if self._runtime is None:
-            raise RuntimeError("Job runtime has not been configured yet")
-        return self._runtime
 
     @abstractmethod
     def derive_work_dir(self) -> str:
@@ -89,13 +81,12 @@ class BaseJob(ABC):
     # ------------------------------------------------------------------
 
     @abstractmethod
-    def is_active(self) -> bool:
+    def is_active(self, runtime: JobRuntimeParams) -> bool:
         """Return True while the job is actively progressing."""
         raise NotImplementedError
 
-    def is_outdated(self) -> bool:
-        runtime = self._runtime
-        if runtime is None or runtime.outdated_days <= 0:
+    def is_outdated(self, runtime: JobRuntimeParams) -> bool:
+        if runtime.outdated_days <= 0:
             return False
 
         artifact_last_update = self.get_artifact_last_update()
@@ -106,12 +97,12 @@ class BaseJob(ABC):
         return (time.time() - artifact_last_update) > stale_after
 
     @abstractmethod
-    def is_complete(self, progress: ProgressInfo) -> bool:
+    def is_complete(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> bool:
         """Return True when the job should count as complete."""
         raise NotImplementedError
 
     @abstractmethod
-    def is_stuck(self) -> bool:
+    def is_stuck(self, runtime: JobRuntimeParams) -> bool:
         """Return True when the job appears hung."""
         raise NotImplementedError
 

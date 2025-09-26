@@ -8,6 +8,7 @@ from typing import Optional
 from agents.manager.progress_info import ProgressInfo
 from agents.manager.default_job import DefaultJob
 from agents.manager.job_types import RunnerKind
+from agents.manager.runtime import JobRuntimeParams
 
 
 class EvaluationJob(DefaultJob):
@@ -21,7 +22,7 @@ class EvaluationJob(DefaultJob):
     # 
     # ====================================================================================================
 
-    def compute_progress(self) -> ProgressInfo:
+    def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
         eval_complete = True
         for filename in self.EXPECTED_FILES:
             filepath = os.path.join(self.work_dir, filename)
@@ -54,6 +55,7 @@ class EvaluationJob(DefaultJob):
     def is_complete(
         self,
         progress: ProgressInfo,
+        runtime: JobRuntimeParams,
     ) -> bool:
         return progress.completed_epochs >= 1
 

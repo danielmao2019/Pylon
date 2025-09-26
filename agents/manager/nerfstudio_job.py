@@ -5,6 +5,7 @@ import shlex
 
 from agents.manager.base_job import BaseJob
 from agents.manager.progress_info import ProgressInfo
+from agents.manager.runtime import JobRuntimeParams
 
 
 class NerfStudioJob(BaseJob):
@@ -43,7 +44,7 @@ class NerfStudioJob(BaseJob):
             "Provide a supported command flag (e.g. --output-dir) in the command."
         )
 
-    def compute_progress(self) -> ProgressInfo:
+    def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
         has_expected_files = all(
             os.path.isfile(os.path.join(self.work_dir, relative_path))
             for relative_path in self.EXPECTED_FILES
@@ -62,11 +63,11 @@ class NerfStudioJob(BaseJob):
     # Status helpers
     # ------------------------------------------------------------------
 
-    def is_active(self) -> bool:
+    def is_active(self, runtime: JobRuntimeParams) -> bool:
         return self.process_info is not None
 
-    def is_complete(self, progress: ProgressInfo) -> bool:
+    def is_complete(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> bool:
         return progress.completed_epochs >= 1
 
-    def is_stuck(self) -> bool:
+    def is_stuck(self, runtime: JobRuntimeParams) -> bool:
         return False

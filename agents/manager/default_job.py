@@ -31,31 +31,23 @@ class DefaultJob(BaseJob, ABC):
         self.runner_kind: RunnerKind = runner_kind
         command = f"python main.py --config-filepath {config_filepath}"
         super().__init__(command=command)
-        default_epochs = int(self.config_dict.get('epochs', 0) or 0)
-        self._runtime: JobRuntimeParams = JobRuntimeParams(
-            epochs=default_epochs,
-            sleep_time=0,
-            outdated_days=0,
-            command_processes={},
-            force_progress_recompute=False,
-        )
 
     # ------------------------------------------------------------------
     # Status helpers
     # ------------------------------------------------------------------
 
-    def is_active(self) -> bool:
+    def is_active(self, runtime: JobRuntimeParams) -> bool:
         last_log = self.get_log_last_update()
         if last_log is None:
             return False
-        return (time.time() - last_log) <= self.runtime.sleep_time
+        return (time.time() - last_log) <= runtime.sleep_time
 
     @abstractmethod
-    def is_complete(self, progress: ProgressInfo) -> bool:
+    def is_complete(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> bool:
         """Return True when the job should count as complete."""
 
-    def is_stuck(self) -> bool:
-        return self.command in self.runtime.command_processes
+    def is_stuck(self, runtime: JobRuntimeParams) -> bool:
+        return self.command in runtime.command_processes
 
     # ====================================================================================================
     # 
