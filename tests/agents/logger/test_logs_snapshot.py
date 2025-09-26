@@ -92,7 +92,7 @@ def sample_process_info():
 @pytest.fixture
 def sample_job_status(sample_progress_info, sample_process_info):
     """Sample BaseJob for testing."""
-    job = DefaultJob('configs/exp/baseline.py')
+    job = DefaultJob('python main.py --config-filepath configs/exp/baseline.py')
     job.work_dir = './logs/baseline_run'
     job.progress = sample_progress_info
     job.status = 'running'
@@ -159,7 +159,7 @@ def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch):
     """Test snapshot creation."""
     # Mock Manager.build_jobs to return test data
     def mock_build_jobs(self):
-        job = DefaultJob('configs/exp/baseline.py')
+        job = DefaultJob('python main.py --config-filepath configs/exp/baseline.py')
         job.work_dir = './logs/baseline_run'
         job.progress = ProgressInfo(
             completed_epochs=15,

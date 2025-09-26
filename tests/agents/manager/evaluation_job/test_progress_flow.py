@@ -24,7 +24,7 @@ def test_evaluationjob_incomplete_and_complete():
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = EvaluationJob("./configs/eval_case.py")
+            job = EvaluationJob("python main.py --config-filepath ./configs/eval_case.py")
 
             # Incomplete
             p0 = job.get_progress()

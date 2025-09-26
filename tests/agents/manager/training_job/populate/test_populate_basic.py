@@ -24,6 +24,7 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
         create_real_config(config_path, work_dir, epochs=100)
         
         # No running processes (empty config to process info mapping)
+        command = f"python main.py --config-filepath {config_path}"
         config_to_process_info: Dict[str, ProcessInfo] = {}
         
         original_cwd = os.getcwd()
@@ -31,7 +32,7 @@ def test_base_job_populate_basic_functionality(create_epoch_files, create_real_c
         
         try:
             # NO MOCKS - use real function with real data structures
-            job_status = TrainingJob(config_path)
+            job_status = TrainingJob(command)
             job_status.populate(
                 epochs=100,
                 config_to_process_info=config_to_process_info,

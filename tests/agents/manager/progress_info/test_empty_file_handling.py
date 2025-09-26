@@ -201,7 +201,7 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
         os.chdir(temp_root)
         
         try:
-            job = TrainingJob("./configs/test_whitespace.py")
+            job = TrainingJob("python main.py --config-filepath ./configs/test_whitespace.py")
             # Empty file - should raise exception since file exists but is empty
             progress_file = os.path.join(work_dir, "progress.json")
             os.rename(empty_file, progress_file)
