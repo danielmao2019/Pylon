@@ -1,6 +1,7 @@
 from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
 
+
 def test_status_trainer_outdated_epochs(temp_manager_root, write_config, make_trainer_epoch):
     import time, os
     cfg = write_config('outdated.py', {'epochs': 1})

@@ -6,6 +6,9 @@ import json
 import tempfile
 import time
 import pytest
+from typing import Optional
+import torch
+from utils.io.json import save_json
 
 
 def make_command(config_path: str) -> str:
@@ -102,10 +105,6 @@ def touch_log():
             os.utime(log_path, (t, t))
         return log_path
     return _touch
-
-from typing import Optional
-import torch
-from utils.io.json import save_json
 
 @pytest.fixture
 def create_epoch_files():
