@@ -146,11 +146,11 @@ class Manager:
             return None
 
         runner = config.get('runner')
-        if isinstance(runner, type):
-            if issubclass(runner, BaseEvaluator):
-                return RunnerKind.EVALUATOR
-            if issubclass(runner, BaseTrainer):
-                return RunnerKind.TRAINER
+        assert isinstance(runner, type)
+        if issubclass(runner, BaseEvaluator):
+            return RunnerKind.EVALUATOR
+        if issubclass(runner, BaseTrainer):
+            return RunnerKind.TRAINER
 
         return None
 
