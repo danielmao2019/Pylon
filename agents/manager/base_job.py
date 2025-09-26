@@ -60,15 +60,15 @@ class BaseJob(ABC):
             return "stuck"
         return "failed"
 
+    def describe(self) -> str:
+        """Human-friendly descriptor, defaulting to the launch command."""
+        return self.command
+
     @property
     def runtime(self) -> JobRuntimeParams:
         if self._runtime is None:
             raise RuntimeError("Job runtime has not been configured yet")
         return self._runtime
-
-    def describe(self) -> str:
-        """Human-friendly descriptor, defaulting to the launch command."""
-        return self.command
 
     @abstractmethod
     def derive_work_dir(self) -> str:

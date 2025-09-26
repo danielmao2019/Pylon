@@ -91,10 +91,6 @@ class DefaultJob(BaseJob, ABC):
             return value.to_dict()
         return value
 
-    @property
-    def runtime(self) -> JobRuntimeParams:
-        return self._runtime
-
     def derive_work_dir(self) -> str:
         rel_path = os.path.splitext(os.path.relpath(self.config_filepath, start='./configs'))[0]
         return os.path.join('./logs', rel_path)
