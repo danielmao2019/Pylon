@@ -81,14 +81,14 @@ class Manager:
         return jobs
 
     def _detect_runner_type(self, command: str) -> RunnerKind:
-        if self._is_nerfstudio_command(command):
+        if self._detect_nerfstudio(command):
             return RunnerKind.NERFSTUDIO
 
-        artifact_result, config_path = self._runner_from_artifacts(command)
+        artifact_result, config_path = self._detect_from_artifacts(command)
         if artifact_result is not None:
             return artifact_result
 
-        config_result = self._runner_from_config(config_path)
+        config_result = self._detect_from_config(config_path)
         if config_result is not None:
             return config_result
 
@@ -97,7 +97,7 @@ class Manager:
         )
 
     @staticmethod
-    def _is_nerfstudio_command(command: str) -> bool:
+    def _detect_nerfstudio(command: str) -> bool:
         tokens = [token for token in command.split() if token]
         if not tokens:
             return False
@@ -107,7 +107,7 @@ class Manager:
         return any('nerfstudio' in token.lower() for token in tokens[1:])
 
     @staticmethod
-    def _runner_from_artifacts(command: str) -> tuple[RunnerKind | None, str]:
+    def _detect_from_artifacts(command: str) -> tuple[RunnerKind | None, str]:
         tokens = [token for token in command.split() if token]
         config_path: str | None = None
         if '--config-filepath' in tokens:
@@ -138,7 +138,7 @@ class Manager:
         return None, config_path
 
     @staticmethod
-    def _runner_from_config(config_path: str) -> RunnerKind | None:
+    def _detect_from_config(config_path: str) -> RunnerKind | None:
         if not os.path.exists(config_path):
             return None
         try:
