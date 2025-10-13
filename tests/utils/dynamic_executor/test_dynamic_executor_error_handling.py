@@ -16,6 +16,7 @@ def error_function(x: int) -> int:
 def slow_function(x: int, sleep_time: float = 0.01) -> int:
     """Function that takes some time to complete."""
     import time
+
     time.sleep(sleep_time)
     return x * 2
 
@@ -38,6 +39,7 @@ def test_error_propagation():
 
 def test_error_logging_integration():
     """Test that errors are properly logged instead of printed."""
+
     def error_function():
         raise ValueError("Test error")
 
@@ -56,6 +58,7 @@ def test_error_logging_integration():
 
 def test_fail_fast_behavior():
     """Test that executor stops immediately on first error (fail-fast)."""
+
     def intermittent_error_function(x: int) -> int:
         if x == 3:
             raise RuntimeError("Intermittent error")
@@ -76,6 +79,7 @@ def test_fail_fast_behavior():
 
 def test_fail_fast_during_execution():
     """Test that executor fails fast even during concurrent execution."""
+
     def slow_error_function(x: int) -> int:
         time.sleep(0.02)  # Small delay to allow concurrent execution
         if x == 2:
@@ -101,7 +105,9 @@ def test_gpu_error_handling():
     executor = DynamicThreadPoolExecutor(max_workers=2, min_workers=1)
 
     # Test that _get_system_load handles GPU errors gracefully
-    with patch('torch.cuda.memory_allocated', side_effect=RuntimeError("Mock GPU error")):
+    with patch(
+        'torch.cuda.memory_allocated', side_effect=RuntimeError("Mock GPU error")
+    ):
         # This should not raise an exception - GPU errors in monitoring should be handled
         stats = executor._get_system_load()
         assert 'cpu_percent' in stats
@@ -135,6 +141,7 @@ def test_invalid_function_submission():
 
 def test_timeout_error_scenarios():
     """Test timeout handling in fail-fast mode."""
+
     def very_slow_function(x: int) -> int:
         time.sleep(0.2)
         return x * 2
@@ -144,7 +151,9 @@ def test_timeout_error_scenarios():
     # Test with very short timeout - should handle timeout gracefully
     with executor:
         # This should timeout due to very short timeout (0.01s) vs slow function (0.2s)
-        with pytest.raises((TimeoutError, Exception)):  # Handle timeout or concurrent.futures timeout
+        with pytest.raises(
+            (TimeoutError, Exception)
+        ):  # Handle timeout or concurrent.futures timeout
             list(executor.map(very_slow_function, range(5), timeout=0.01))
 
     # Executor should still shutdown cleanly after timeout

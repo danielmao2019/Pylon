@@ -1,4 +1,5 @@
 """Test cases for determinism utilities."""
+
 import torch
 from utils.determinism import set_seed, set_determinism
 
@@ -14,8 +15,12 @@ def test_set_seed():
     tensor3 = torch.randn(10)
     tensor4 = torch.randn(10)
 
-    assert torch.allclose(tensor1, tensor3), "First random tensor should be identical with same seed"
-    assert torch.allclose(tensor2, tensor4), "Second random tensor should be identical with same seed"
+    assert torch.allclose(
+        tensor1, tensor3
+    ), "First random tensor should be identical with same seed"
+    assert torch.allclose(
+        tensor2, tensor4
+    ), "Second random tensor should be identical with same seed"
 
     # Test 2: Different seeds should produce different random numbers
     set_seed(42)
@@ -24,7 +29,9 @@ def test_set_seed():
     set_seed(43)
     tensor6 = torch.randn(10)
 
-    assert not torch.allclose(tensor5, tensor6), "Random tensors should be different with different seeds"
+    assert not torch.allclose(
+        tensor5, tensor6
+    ), "Random tensors should be different with different seeds"
 
 
 def test_set_determinism():
@@ -57,16 +64,23 @@ def test_set_determinism():
 
     # Check results
     assert torch.allclose(data, data2), "Input data should be identical"
-    assert torch.allclose(model.weight, model2.weight), "Model weights should be identical"
+    assert torch.allclose(
+        model.weight, model2.weight
+    ), "Model weights should be identical"
     assert torch.allclose(model.bias, model2.bias), "Model biases should be identical"
     assert torch.allclose(output1, output2), "Outputs should be identical"
     assert torch.allclose(loss1, loss2), "Losses should be identical"
-    assert torch.allclose(model.weight.grad, model2.weight.grad), "Weight gradients should be identical"
-    assert torch.allclose(model.bias.grad, model2.bias.grad), "Bias gradients should be identical"
+    assert torch.allclose(
+        model.weight.grad, model2.weight.grad
+    ), "Weight gradients should be identical"
+    assert torch.allclose(
+        model.bias.grad, model2.bias.grad
+    ), "Bias gradients should be identical"
 
 
 def test_deterministic_dataloader():
     """Test that dataloaders produce deterministic results with set_seed."""
+
     # Create a simple dataset
     class SimpleDataset(torch.utils.data.Dataset):
         def __init__(self, size=100):
@@ -90,8 +104,12 @@ def test_deterministic_dataloader():
     dataloader2 = torch.utils.data.DataLoader(dataset2, batch_size=32, shuffle=True)
     batch2 = next(iter(dataloader2))
 
-    assert torch.allclose(batch1['inputs'], batch2['inputs']), "Dataloader should produce same data order with same seed"
-    assert torch.allclose(batch1['labels'], batch2['labels']), "Dataloader should produce same labels order with same seed"
+    assert torch.allclose(
+        batch1['inputs'], batch2['inputs']
+    ), "Dataloader should produce same data order with same seed"
+    assert torch.allclose(
+        batch1['labels'], batch2['labels']
+    ), "Dataloader should produce same labels order with same seed"
 
     # Test 2: Different seeds should produce different data order
     set_seed(42)
@@ -104,5 +122,9 @@ def test_deterministic_dataloader():
     dataloader4 = torch.utils.data.DataLoader(dataset4, batch_size=32, shuffle=True)
     batch4 = next(iter(dataloader4))
 
-    assert not torch.allclose(batch3['inputs'], batch4['inputs']), "Dataloader should produce different data order with different seeds"
-    assert not torch.allclose(batch3['labels'], batch4['labels']), "Dataloader should produce different labels order with different seeds"
+    assert not torch.allclose(
+        batch3['inputs'], batch4['inputs']
+    ), "Dataloader should produce different data order with different seeds"
+    assert not torch.allclose(
+        batch3['labels'], batch4['labels']
+    ), "Dataloader should produce different labels order with different seeds"

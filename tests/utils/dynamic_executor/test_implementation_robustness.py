@@ -57,7 +57,7 @@ def test_scaling_decision_logic():
         min_workers=1,
         cpu_threshold=80.0,
         gpu_memory_threshold=80.0,
-        monitor_interval=0.1
+        monitor_interval=0.1,
     )
 
     # Get initial worker count
@@ -117,7 +117,7 @@ def test_monitoring_loop_resilience():
         max_workers=2,
         min_workers=1,
         monitor_interval=0.2,  # Increased to reduce test timing issues
-        scale_check_interval=0.2
+        scale_check_interval=0.2,
     )
 
     # Let monitoring run for a while
@@ -141,8 +141,7 @@ def test_monitoring_loop_resilience():
 def test_cooldown_mechanism():
     """Test that scaling cooldown prevents excessive scaling."""
     executor = DynamicThreadPoolExecutor(
-        max_workers=3,  # Reduced to simplify test
-        min_workers=1
+        max_workers=3, min_workers=1  # Reduced to simplify test
     )
 
     # Get initial worker count

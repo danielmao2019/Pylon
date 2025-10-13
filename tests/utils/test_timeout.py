@@ -6,6 +6,7 @@ import threading
 
 def test_timeout_success():
     """Test that a function completing within the timeout period succeeds."""
+
     @with_timeout(seconds=2)
     def quick_function():
         time.sleep(0.1)
@@ -16,6 +17,7 @@ def test_timeout_success():
 
 def test_timeout_failure():
     """Test that a function exceeding the timeout period raises TimeoutError."""
+
     @with_timeout(seconds=0.1)
     def slow_function():
         time.sleep(0.2)
@@ -29,6 +31,7 @@ def test_timeout_failure():
 
 def test_timeout_with_exception():
     """Test that exceptions from the wrapped code are properly propagated."""
+
     @with_timeout(seconds=2)
     def error_function():
         raise ValueError("Test exception")
@@ -60,6 +63,7 @@ def test_timeout_cleanup():
 
 def test_timeout_interrupts_main_thread():
     """Test that the timeout actually interrupts the main thread."""
+
     @with_timeout(seconds=0.1)
     def long_running_function():
         start_time = time.time()
@@ -74,4 +78,6 @@ def test_timeout_interrupts_main_thread():
         long_running_function()
 
     # Verify that we didn't wait too long
-    assert time.time() - start_time < 0.2  # Should be interrupted well before 0.2 seconds
+    assert (
+        time.time() - start_time < 0.2
+    )  # Should be interrupted well before 0.2 seconds

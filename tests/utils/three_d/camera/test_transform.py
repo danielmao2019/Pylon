@@ -68,15 +68,23 @@ def test_world_to_camera_num_divide_equivalence(num_divide):
     N = 1_000_000
     points = torch.randn((N, 3), dtype=torch.float32, device=device)
     extrinsics = torch.eye(4, dtype=torch.float32, device=device)
-    extrinsics[:3, 3] = torch.tensor([0.5, -0.25, 1.0], dtype=torch.float32, device=device)
+    extrinsics[:3, 3] = torch.tensor(
+        [0.5, -0.25, 1.0], dtype=torch.float32, device=device
+    )
 
     # Baseline with no division
-    baseline = world_to_camera_transform(points.clone(), extrinsics, inplace=False, num_divide=0)
+    baseline = world_to_camera_transform(
+        points.clone(), extrinsics, inplace=False, num_divide=0
+    )
 
     # Variant with division (out-of-place)
-    out_oop = world_to_camera_transform(points.clone(), extrinsics, inplace=False, num_divide=num_divide)
+    out_oop = world_to_camera_transform(
+        points.clone(), extrinsics, inplace=False, num_divide=num_divide
+    )
     assert torch.equal(out_oop, baseline)
 
     # Variant with division (in-place)
-    out_ip = world_to_camera_transform(points.clone(), extrinsics, inplace=True, num_divide=num_divide)
+    out_ip = world_to_camera_transform(
+        points.clone(), extrinsics, inplace=True, num_divide=num_divide
+    )
     assert torch.equal(out_ip, baseline)

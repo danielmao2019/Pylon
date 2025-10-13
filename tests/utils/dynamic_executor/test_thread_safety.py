@@ -66,10 +66,7 @@ def test_concurrent_submissions():
     # Submit from multiple threads
     threads = []
     for thread_idx in range(3):
-        thread = threading.Thread(
-            target=submit_and_collect,
-            args=[thread_idx * 10, 10]
-        )
+        thread = threading.Thread(target=submit_and_collect, args=[thread_idx * 10, 10])
         threads.append(thread)
         thread.start()
 
@@ -100,7 +97,9 @@ def test_concurrent_map_operations():
     threads = []
     for thread_id in range(3):
         data_range = range(thread_id * 5, (thread_id + 1) * 5)
-        thread = threading.Thread(target=run_map_operation, args=[thread_id, data_range])
+        thread = threading.Thread(
+            target=run_map_operation, args=[thread_id, data_range]
+        )
         threads.append(thread)
         thread.start()
 

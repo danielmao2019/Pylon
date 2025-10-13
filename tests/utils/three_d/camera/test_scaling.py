@@ -51,5 +51,7 @@ def test_scale_intrinsics_numeric_correctness(intrinsics, resolution, expected):
 def test_scale_intrinsics_inplace_behavior(intrinsics, resolution, expected):
     # Pass resolution through directly (tests use resolution=(H, W))
     out = scale_intrinsics(intrinsics, resolution=resolution, scale=None, inplace=True)
-    assert out.data_ptr() == intrinsics.data_ptr(), "Expected in-place modification to return same tensor"
+    assert (
+        out.data_ptr() == intrinsics.data_ptr()
+    ), "Expected in-place modification to return same tensor"
     assert torch.allclose(intrinsics, expected)

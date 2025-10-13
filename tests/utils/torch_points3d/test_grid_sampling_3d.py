@@ -8,7 +8,7 @@ def test_grid_sampling_3d_basic():
     points = torch.rand(100, 3)  # 100 random 3D points
     data_dict = {
         'pos': points,
-        'change_map': torch.randint(0, 2, (100,))  # Binary labels for each point
+        'change_map': torch.randint(0, 2, (100,)),  # Binary labels for each point
     }
 
     # Test with mean mode
@@ -72,12 +72,14 @@ def test_grid_sampling_3d_invalid_inputs():
 
 def test_grid_sampling_3d_point_indices():
     # Create a simple point cloud with known structure
-    points = torch.tensor([
-        [0.0, 0.0, 0.0],
-        [0.1, 0.0, 0.0],  # Same voxel as first point
-        [1.0, 0.0, 0.0],  # Different voxel
-        [1.1, 0.0, 0.0],  # Same voxel as third point
-    ])
+    points = torch.tensor(
+        [
+            [0.0, 0.0, 0.0],
+            [0.1, 0.0, 0.0],  # Same voxel as first point
+            [1.0, 0.0, 0.0],  # Different voxel
+            [1.1, 0.0, 0.0],  # Same voxel as third point
+        ]
+    )
     data_dict = {'pos': points}
 
     # Test with mean mode

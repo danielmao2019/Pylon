@@ -85,9 +85,7 @@ def test_worker_impact_measurement():
 def test_worker_impact_bounds():
     """Test that worker impact tracking maintains proper bounds."""
     executor = DynamicThreadPoolExecutor(
-        max_workers=3,
-        min_workers=1,
-        monitor_interval=0.05
+        max_workers=3, min_workers=1, monitor_interval=0.05
     )
 
     # Submit work and wait for monitoring to potentially add workers
@@ -133,15 +131,16 @@ def test_memory_usage_patterns():
     memory_increase = final_memory - initial_memory
 
     # Memory increase should be reasonable (less than 50MB)
-    assert memory_increase < 50 * 1024 * 1024, f"Memory increased by {memory_increase / 1024 / 1024:.2f} MB"
+    assert (
+        memory_increase < 50 * 1024 * 1024
+    ), f"Memory increased by {memory_increase / 1024 / 1024:.2f} MB"
 
 
 @pytest.mark.parametrize("min_workers,max_workers", [(1, 1), (2, 2), (1, 4), (3, 6)])
 def test_worker_count_constraints(min_workers: int, max_workers: int):
     """Test that worker counts respect min/max constraints."""
     executor = DynamicThreadPoolExecutor(
-        max_workers=max_workers,
-        min_workers=min_workers
+        max_workers=max_workers, min_workers=min_workers
     )
 
     # Initial worker count should be at least min_workers
@@ -170,7 +169,7 @@ def test_resource_thresholds():
         max_workers=4,
         min_workers=1,
         cpu_threshold=1.0,  # Very low threshold
-        gpu_memory_threshold=1.0  # Very low threshold
+        gpu_memory_threshold=1.0,  # Very low threshold
     )
 
     # Submit work that would normally trigger scaling

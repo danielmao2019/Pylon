@@ -17,12 +17,7 @@ def computation_function(x: int) -> Dict[str, Any]:
     for i in range(x * 1000):
         result += np.sin(i) * np.cos(i)
 
-    return {
-        'input': x,
-        'result': result,
-        'squared': x * x,
-        'timestamp': time.time()
-    }
+    return {'input': x, 'result': result, 'squared': x * x, 'timestamp': time.time()}
 
 
 def error_function(x: int) -> int:
@@ -77,7 +72,9 @@ def test_complex_computation_equivalency():
 
     # Check that inputs and core computations match
     assert len(dynamic_results) == len(sequential_results)
-    for i, (seq_result, dynamic_result) in enumerate(zip(sequential_results, dynamic_results)):
+    for i, (seq_result, dynamic_result) in enumerate(
+        zip(sequential_results, dynamic_results)
+    ):
         assert seq_result['input'] == dynamic_result['input'] == i
         assert seq_result['squared'] == dynamic_result['squared'] == i * i
         # Results should be very close (floating point computation)
@@ -138,6 +135,7 @@ def test_large_dataset_equivalency():
 
 def test_map_order_preservation_with_timeout():
     """Test that map preserves order even with timeout scenarios."""
+
     def variable_time_function(x: int) -> int:
         # Make later items take less time to test ordering
         sleep_time = 0.1 / (x + 1)
@@ -195,19 +193,33 @@ def test_error_equivalency_single_error():
     executor_error_message = str(executor_error)
 
     # Both should have raised an error
-    assert sequential_error is not None, "Sequential execution should have raised an error"
+    assert (
+        sequential_error is not None
+    ), "Sequential execution should have raised an error"
     assert executor_error is not None, "Dynamic executor should have raised an error"
 
     # Error types and messages should be the same
-    assert sequential_error_type == executor_error_type, \
-        f"Error types differ: {sequential_error_type} vs {executor_error_type}"
-    assert sequential_error_message == executor_error_message, \
-        f"Error messages differ: '{sequential_error_message}' vs '{executor_error_message}'"
+    assert (
+        sequential_error_type == executor_error_type
+    ), f"Error types differ: {sequential_error_type} vs {executor_error_type}"
+    assert (
+        sequential_error_message == executor_error_message
+    ), f"Error messages differ: '{sequential_error_message}' vs '{executor_error_message}'"
 
 
 def test_error_equivalency_multiple_potential_errors():
     """Test that both execution methods fail on the first error encountered."""
-    inputs = [1, 2, 3, 4, 5, 6, 7, 8, 9]  # intermittent_error_function fails at x=3 and x=8
+    inputs = [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+    ]  # intermittent_error_function fails at x=3 and x=8
 
     # Sequential execution - should fail at x=3 (first error)
     sequential_error = None
@@ -263,7 +275,7 @@ def test_error_equivalency_no_partial_results():
     # Sequential would have partial results (before error), but executor should have none
     # This demonstrates fail-fast behavior - no partial results returned
     assert len(sequential_partial_results) == 3  # [30, 60, 90] before error at index 3
-    assert len(executor_partial_results) == 0    # Fail-fast: no partial results
+    assert len(executor_partial_results) == 0  # Fail-fast: no partial results
 
     # Error types should be the same
     assert type(sequential_error) == type(executor_error) == ValueError

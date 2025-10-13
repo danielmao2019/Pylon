@@ -484,7 +484,9 @@ def load_3dgs_model_original(
     gaussians.means = gaussians.get_xyz  # align with NerfStudio-style interface
 
     center_np, scale = compute_scene_normalization(model_path)
-    center = torch.tensor(center_np, dtype=gaussians._xyz.dtype, device=gaussians._xyz.device)
+    center = torch.tensor(
+        center_np, dtype=gaussians._xyz.dtype, device=gaussians._xyz.device
+    )
     gaussians._xyz.copy_(gaussians._xyz / scale + center)
     gaussians.means = gaussians.get_xyz
 

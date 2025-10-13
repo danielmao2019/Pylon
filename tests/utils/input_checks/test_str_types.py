@@ -22,12 +22,15 @@ def test_check_read_file_success():
         os.remove(temp_file)
 
 
-@pytest.mark.parametrize("invalid_path", [
-    None,
-    123,
-    ["invalid", "path"],
-    {},
-])
+@pytest.mark.parametrize(
+    "invalid_path",
+    [
+        None,
+        123,
+        ["invalid", "path"],
+        {},
+    ],
+)
 def test_check_read_file_invalid_path_type(invalid_path):
     with pytest.raises(AssertionError, match="type\(path\)="):
         check_read_file(invalid_path)
@@ -39,10 +42,13 @@ def test_check_read_file_file_not_exist():
         check_read_file("/non/existent/file.txt")
 
 
-@pytest.mark.parametrize("invalid_ext", [
-    123,                 # Not a string or list
-    {},                  # Invalid type
-])
+@pytest.mark.parametrize(
+    "invalid_ext",
+    [
+        123,  # Not a string or list
+        {},  # Invalid type
+    ],
+)
 def test_check_read_file_invalid_ext_type_1(invalid_ext):
     temp_file = create_temp_file(".txt")
     try:
@@ -52,9 +58,12 @@ def test_check_read_file_invalid_ext_type_1(invalid_ext):
         os.remove(temp_file)
 
 
-@pytest.mark.parametrize("invalid_ext", [
-    [".txt", 123],       # List with a non-string element
-])
+@pytest.mark.parametrize(
+    "invalid_ext",
+    [
+        [".txt", 123],  # List with a non-string element
+    ],
+)
 def test_check_read_file_invalid_ext_type_2(invalid_ext):
     temp_file = create_temp_file(".txt")
     try:
