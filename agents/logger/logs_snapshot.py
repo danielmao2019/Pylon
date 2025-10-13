@@ -14,25 +14,27 @@ class LogsSnapshot:
     to create daily snapshots of experiment states for comparison and analysis.
     """
     
-    def __init__(self, 
-                 config_files: List[str],
-                 epochs: int,
-                 sleep_time: int = 86400,
-                 outdated_days: int = 30):
+    def __init__(
+        self,
+        commands: List[str],
+        epochs: int,
+        sleep_time: int = 86400,
+        outdated_days: int = 30,
+    ):
         """Initialize snapshot manager.
         
         Args:
-            config_files: List of config file paths to monitor
+            commands: List of command strings to monitor
             epochs: Total number of epochs expected for experiments
             sleep_time: Time to wait for status updates (seconds)
             outdated_days: Number of days to consider a run outdated
         """
-        assert isinstance(config_files, list), f"config_files must be list, got {type(config_files)}"
+        assert isinstance(commands, list), f"commands must be list, got {type(commands)}"
         assert isinstance(epochs, int), f"epochs must be int, got {type(epochs)}"
         assert isinstance(sleep_time, int), f"sleep_time must be int, got {type(sleep_time)}"
         assert isinstance(outdated_days, int), f"outdated_days must be int, got {type(outdated_days)}"
         
-        self.config_files = config_files
+        self.commands = commands
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
@@ -54,19 +56,22 @@ class LogsSnapshot:
         # Build job statuses via Manager for Dict[str, BaseJob] with ProcessInfo
         monitor_map = {system_monitor.server: system_monitor}
         manager = Manager(
-            config_files=self.config_files,
+            commands=self.commands,
             epochs=self.epochs,
             system_monitors=monitor_map,
             sleep_time=self.sleep_time,
             outdated_days=self.outdated_days,
         )
         run_statuses = manager.build_jobs()
+        job_statuses = {
+            command: job.to_dict() for command, job in run_statuses.items()
+        }
         
         snapshot = {
             'timestamp': timestamp,
-            'job_statuses': run_statuses,  # Dict[str, BaseJob] with enhanced progress and ProcessInfo
+            'job_statuses': job_statuses,
             'snapshot_metadata': {
-                'total_configs': len(self.config_files),
+                'total_commands': len(self.commands),
                 'epochs': self.epochs,
                 'sleep_time': self.sleep_time,
                 'outdated_days': self.outdated_days

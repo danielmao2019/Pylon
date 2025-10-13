@@ -38,7 +38,7 @@ def test_system_monitor_status_snapshot(monitor_server: str, gpu_index: int | No
         f"System status for {monitor_server}: cpu_connected={cpu_stats['connected']},"
         f" cpu_memory_pct={cpu_mem_pct}",
         f" cpu_util_avg={cpu_util}",
-        f" gpu_count={len(status['gpus'])}"
+        f" gpu_count={len(status['gpus'])}",
     )
     gpu_statuses = status['gpus']
     if gpu_index is not None:

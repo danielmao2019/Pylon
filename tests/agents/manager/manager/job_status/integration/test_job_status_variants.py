@@ -3,6 +3,7 @@ Extended job status permutations using real classes and real dummy files.
 
 Focus: additional stuck/failed variants beyond the core cases.
 """
+
 import os
 import time
 
@@ -12,7 +13,9 @@ from agents.manager.runtime import JobRuntimeParams
 from agents.monitor.process_info import ProcessInfo
 
 
-def test_trainer_stuck_with_stale_log_and_process(temp_manager_root, write_config, make_trainer_epoch, touch_log):
+def test_trainer_stuck_with_stale_log_and_process(
+    temp_manager_root, write_config, make_trainer_epoch, touch_log
+):
     # Partially complete, stale log, process mapped -> stuck
     write_config('stuck_stale.py', {'epochs': 10})
     for i in range(2):
@@ -69,7 +72,9 @@ def test_evaluator_failed_empty_eval_file(temp_manager_root, write_config):
     assert job.status == 'failed'
 
 
-def test_trainer_failed_non_matching_log_name(temp_manager_root, write_config, make_trainer_epoch):
+def test_trainer_failed_non_matching_log_name(
+    temp_manager_root, write_config, make_trainer_epoch
+):
     # Log present but doesn't match pattern -> not considered running
     write_config('failed_logname.py', {'epochs': 10})
     for i in range(3):

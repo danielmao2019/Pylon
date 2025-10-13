@@ -8,7 +8,7 @@ from agents.monitor.system_monitor import SystemMonitor
 
 def register_callbacks(
     app,
-    config_files: List[str],
+    commands: List[str],
     expected_files: List[str],
     epochs: int,
     sleep_time: int,
@@ -21,7 +21,7 @@ def register_callbacks(
 
     Args:
         app: Dash application instance
-        config_files: List of config file paths
+        commands: List of runtime command strings
         expected_files: List of expected file patterns
         epochs: Total number of epochs
         sleep_time: Time to wait for the status to update
@@ -41,7 +41,7 @@ def register_callbacks(
     )
     def update_table(n_intervals):
         last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        progress = f"Progress: {get_progress(config_files, epochs, sleep_time, outdated_days, system_monitor, force_progress_recompute)}%"
+        progress = f"Progress: {get_progress(commands, epochs, sleep_time, outdated_days, system_monitor, force_progress_recompute)}%"
         table_data = generate_table_data(system_monitor, user_names)
         table_style = generate_table_style(table_data)
         return last_update, progress, table_data, table_style

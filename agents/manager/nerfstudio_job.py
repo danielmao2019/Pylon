@@ -15,15 +15,12 @@ class NerfStudioJob(BaseJob):
     EXPECTED_FILES = [
         "config.yml",
         "dataparser_transforms.json",
-        os.path.join("checkpoints", "step-000029999.ckpt"),
+        os.path.join("nerfstudio_models", "step-000029999.ckpt"),
     ]
     runner_kind = RunnerKind.NERFSTUDIO
 
     def derive_work_dir(self) -> str:
-        try:
-            tokens = shlex.split(self.command)
-        except ValueError:
-            tokens = self.command.split()
+        tokens = shlex.split(self.command)
 
         lookup_flags = (
             '--output-dir', '--output_dir', '--output',
@@ -32,14 +29,18 @@ class NerfStudioJob(BaseJob):
         for flag in lookup_flags:
             if flag in tokens:
                 idx = tokens.index(flag)
-                if idx + 1 < len(tokens):
-                    candidate = tokens[idx + 1]
-                    if candidate:
-                        return os.path.normpath(os.path.expanduser(candidate))
+                assert idx + 1 < len(tokens), (
+                    f"Flag {flag} is missing a value in command {self.command!r}"
+                )
+                candidate = tokens[idx + 1]
+                assert candidate, f"Empty value provided for {flag}"
+                return os.path.normpath(os.path.expanduser(candidate))
             prefix = f"{flag}="
             for token in tokens:
                 if token.startswith(prefix) and len(token) > len(prefix):
-                    return os.path.normpath(os.path.expanduser(token[len(prefix):]))
+                    candidate = token[len(prefix):]
+                    assert candidate, f"Empty value provided for {flag}"
+                    return os.path.normpath(os.path.expanduser(candidate))
 
         raise ValueError(
             "Unable to determine work directory for NerfStudioJob. "
@@ -47,17 +48,22 @@ class NerfStudioJob(BaseJob):
         )
 
     def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
-        has_expected_files = all(
-            os.path.isfile(os.path.join(self.work_dir, relative_path))
-            for relative_path in self.EXPECTED_FILES
-        )
+        completed_run = False
+
+        if os.path.isdir(self.work_dir):
+            for root, _dirs, _files in os.walk(self.work_dir):
+                if all(
+                    os.path.isfile(os.path.join(root, relative_path))
+                    for relative_path in self.EXPECTED_FILES
+                ):
+                    completed_run = True
+                    break
 
         return ProgressInfo(
-            completed_epochs=1 if has_expected_files else 0,
-            progress_percentage=100.0 if has_expected_files else 0.0,
+            completed_epochs=1 if completed_run else 0,
+            progress_percentage=100.0 if completed_run else 0.0,
             early_stopped=False,
             early_stopped_at_epoch=None,
-            runner_type='nerfstudio',
             total_epochs=1,
         )
 
@@ -73,3 +79,33 @@ class NerfStudioJob(BaseJob):
 
     def is_stuck(self, runtime: JobRuntimeParams) -> bool:
         return False
+
+    def tmux_session_name(self) -> str:
+        data_dir = self._extract_data_dir()
+        basename = os.path.basename(os.path.normpath(data_dir))
+        assert basename, f"Unable to derive session name from data dir {data_dir!r}"
+        return f"ns-train-{basename}"
+
+    def _extract_data_dir(self) -> str:
+        tokens = shlex.split(self.command)
+
+        flag = '--data'
+        if flag in tokens:
+            idx = tokens.index(flag)
+            assert idx + 1 < len(tokens), (
+                f"Flag {flag} is missing a value in command {self.command!r}"
+            )
+            candidate = tokens[idx + 1]
+            assert candidate, f"Empty value provided for {flag}"
+            return os.path.expanduser(candidate)
+
+        prefix = f"{flag}="
+        for token in tokens:
+            if token.startswith(prefix) and len(token) > len(prefix):
+                candidate = token[len(prefix):]
+                assert candidate, f"Empty value provided for {flag}"
+                return os.path.expanduser(candidate)
+
+        raise ValueError(
+            "NerfStudio command must specify data directory via --data"
+        )

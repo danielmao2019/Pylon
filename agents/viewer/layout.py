@@ -96,7 +96,7 @@ def generate_table_style(table_data):
 
 
 def create_layout(
-    config_files: List[str],
+    commands: List[str],
     expected_files: List[str],
     epochs: int,
     sleep_time: int,
@@ -108,7 +108,7 @@ def create_layout(
     """Create the dashboard layout.
 
     Args:
-        config_files: List of config file paths
+        commands: List of runtime command strings
         expected_files: List of expected file patterns
         epochs: Total number of epochs
         sleep_time: Time to wait for the status to update
@@ -120,7 +120,7 @@ def create_layout(
     Returns:
         html.Div: The dashboard layout
     """
-    assert isinstance(config_files, list)
+    assert isinstance(commands, list)
     assert isinstance(expected_files, list)
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
@@ -131,7 +131,7 @@ def create_layout(
 
 
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    initial_progress = f"Progress: {get_progress(config_files, epochs, sleep_time, outdated_days, system_monitor, force_progress_recompute)}%"
+    initial_progress = f"Progress: {get_progress(commands, epochs, sleep_time, outdated_days, system_monitor, force_progress_recompute)}%"
     initial_data = generate_table_data(system_monitor, user_names)
     initial_style = generate_table_style(initial_data)
 

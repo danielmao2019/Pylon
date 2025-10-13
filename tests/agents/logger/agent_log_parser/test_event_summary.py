@@ -6,11 +6,12 @@ from agents.logger import AgentLogParser
 # EVENT SUMMARY TESTS
 # ============================================================================
 
+
 def test_get_event_summary_empty():
     """Test event summary with no events."""
     parser = AgentLogParser(agent_log_path="/nonexistent/file.log")
     summary = parser.get_event_summary_since_yesterday()
-    
+
     assert summary['total_events'] == 0
     assert summary['event_counts'] == {}
     assert summary['critical_issues'] == 0
@@ -24,10 +25,10 @@ def test_get_event_summary_with_events(temp_agent_log, sample_log_entries):
     with open(temp_agent_log, 'w') as f:
         for entry in sample_log_entries:
             f.write(entry + '\n')
-    
+
     parser = AgentLogParser(agent_log_path=temp_agent_log)
     summary = parser.get_event_summary_since_yesterday()
-    
+
     assert summary['total_events'] > 0
     assert len(summary['event_counts']) > 0
     assert summary['critical_issues'] >= 2  # experiment_error + critical_error

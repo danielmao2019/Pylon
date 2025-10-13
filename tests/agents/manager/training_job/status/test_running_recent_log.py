@@ -2,7 +2,9 @@ from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
 
 
-def test_status_trainer_running_with_recent_log(temp_manager_root, write_config, make_trainer_epoch, touch_log):
+def test_status_trainer_running_with_recent_log(
+    temp_manager_root, write_config, make_trainer_epoch, touch_log
+):
     cfg = write_config('running.py', {'epochs': 10})
     # Partial progress
     for i in range(3):

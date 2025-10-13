@@ -1,6 +1,7 @@
 """
 Job status determination tests using BaseJob utility methods and Manager.populate logic.
 """
+
 import os
 import tempfile
 import time
@@ -49,10 +50,15 @@ def test_job_status_running_vs_finished(create_system_monitor_with_processes):
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            monitors = create_system_monitor_with_processes([
-                'python main.py --config-filepath ./configs/exp.py'
-            ])
-            m = Manager(commands=["python main.py --config-filepath ./configs/exp.py"], epochs=1, system_monitors=monitors, sleep_time=3600)
+            monitors = create_system_monitor_with_processes(
+                ['python main.py --config-filepath ./configs/exp.py']
+            )
+            m = Manager(
+                commands=["python main.py --config-filepath ./configs/exp.py"],
+                epochs=1,
+                system_monitors=monitors,
+                sleep_time=3600,
+            )
             jobs = m.build_jobs()
             job = jobs["python main.py --config-filepath ./configs/exp.py"]
             # Since recent log exists and epochs=1 (complete), status should be 'running' due to recent log

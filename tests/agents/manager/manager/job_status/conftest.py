@@ -12,6 +12,7 @@ import pytest
 import torch
 from unittest.mock import Mock
 from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.cpu_status import CPUStatus
 from agents.monitor.system_monitor import SystemMonitor
 from agents.monitor.process_info import ProcessInfo
 from utils.io.json import save_json
@@ -25,7 +26,9 @@ def EXPECTED_FILES():
 
 @pytest.fixture
 def create_epoch_files():
-    def _create_epoch_files(work_dir: str, epoch_idx: int, validation_score: Optional[float] = None) -> None:
+    def _create_epoch_files(
+        work_dir: str, epoch_idx: int, validation_score: Optional[float] = None
+    ) -> None:
         epoch_dir = os.path.join(work_dir, f"epoch_{epoch_idx}")
         os.makedirs(epoch_dir, exist_ok=True)
 
@@ -65,7 +68,9 @@ def create_progress_json():
     ) -> None:
         progress_data = {
             "completed_epochs": completed_epochs,
-            "progress_percentage": (100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0)),
+            "progress_percentage": (
+                100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0)
+            ),
             "early_stopped": early_stopped,
             "early_stopped_at_epoch": early_stopped_at_epoch,
         }
@@ -125,28 +130,60 @@ config = {{
 @pytest.fixture
 def create_minimal_system_monitor_with_processes():
     def _create_minimal_system_monitor_with_processes(
-        connected_gpus: List[GPUStatus],
+        cpu_processes: List[ProcessInfo],
+        gpu_processes: List[ProcessInfo],
     ) -> Mock:
-        """Return a SystemMonitor mock with connected_gpus as GPUStatus objects only.
-
-        Enforces the latest API: callers must pass a list of GPUStatus.
-        """
-        assert isinstance(connected_gpus, list), f"connected_gpus must be list, got {type(connected_gpus)}"
-        for i, gpu in enumerate(connected_gpus):
-            if not isinstance(gpu, GPUStatus):
-                raise TypeError(f"connected_gpus[{i}] must be GPUStatus, got {type(gpu)}")
+        """Return a SystemMonitor mock with built-in CPU/GPU status for provided processes."""
+        for label, items in {
+            'cpu_processes': cpu_processes,
+            'gpu_processes': gpu_processes,
+        }.items():
+            assert isinstance(items, list), (
+                f"{label} must be list, got {type(items)}"
+            )
+            for i, process in enumerate(items):
+                if not isinstance(process, ProcessInfo):
+                    raise TypeError(
+                        f"{label}[{i}] must be ProcessInfo, got {type(process)}"
+                    )
 
         mock_monitor = Mock(spec=SystemMonitor)
         mock_monitor.server = 'test_server'
-        mock_monitor.connected_gpus = connected_gpus
+        mock_monitor.connected_gpus = [
+            GPUStatus(
+                server='test_server',
+                index=0,
+                window_size=10,
+                max_memory=0,
+                processes=gpu_processes,
+                connected=True,
+            )
+        ]
+        mock_monitor.connected_cpu = CPUStatus(
+            server='test_server',
+            window_size=10,
+            max_memory=0,
+            processes=cpu_processes,
+            memory_window=[],
+            cpu_window=[],
+            load_window=[],
+            memory_stats=None,
+            cpu_stats=None,
+            load_stats=None,
+            connected=True,
+        )
         return mock_monitor
 
     return _create_minimal_system_monitor_with_processes
 
 
 @pytest.fixture
-def setup_realistic_experiment_structure(create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes):
-    def _setup_realistic_experiment_structure(temp_root: str, experiments: List[tuple]) -> tuple:
+def setup_realistic_experiment_structure(
+    create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes
+):
+    def _setup_realistic_experiment_structure(
+        temp_root: str, experiments: List[tuple]
+    ) -> tuple:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
 
@@ -175,7 +212,7 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
                 running_experiments.append(config_path)
 
         # imported at top: ProcessInfo, GPUStatus
-        processes = [
+        gpu_processes = [
             ProcessInfo(
                 pid=f'1234{i}',
                 user='testuser',
@@ -184,31 +221,10 @@ def setup_realistic_experiment_structure(create_real_config, create_epoch_files,
             )
             for i, config_path in enumerate(running_experiments)
         ]
-        connected_gpus_data = (
-            [
-                GPUStatus(
-                    server='test_server',
-                    index=0,
-                    window_size=10,
-                    max_memory=0,
-                    processes=processes,
-                    connected=True,
-                )
-            ]
-            if running_experiments
-            else [
-                GPUStatus(
-                    server='test_server',
-                    index=0,
-                    window_size=10,
-                    max_memory=0,
-                    processes=[],
-                    connected=True,
-                )
-            ]
+        system_monitor = create_minimal_system_monitor_with_processes(
+            cpu_processes=[],
+            gpu_processes=gpu_processes if running_experiments else [],
         )
-
-        system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
 
         return config_files, work_dirs, {'test_server': system_monitor}
 

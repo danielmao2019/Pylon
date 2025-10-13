@@ -24,7 +24,9 @@ from agents.manager.progress_info import ProgressInfo
 # ============================================================================
 
 
-def test_get_session_progress_fast_path_normal_run(create_progress_json, create_real_config, EXPECTED_FILES):
+def test_get_session_progress_fast_path_normal_run(
+    create_progress_json, create_real_config, EXPECTED_FILES
+):
     """Test fast path with progress.json for normal (non-early stopped) run."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
@@ -34,15 +36,21 @@ def test_get_session_progress_fast_path_normal_run(create_progress_json, create_
         os.makedirs(configs_dir, exist_ok=True)
 
         # Create progress.json for normal run (57/100 epochs)
-        create_progress_json(work_dir, completed_epochs=57, early_stopped=False, tot_epochs=100)
+        create_progress_json(
+            work_dir, completed_epochs=57, early_stopped=False, tot_epochs=100
+        )
 
         config_path = os.path.join(configs_dir, "fast_normal.py")
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/fast_normal.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/fast_normal.py"
+            )
             progress = job.compute_progress(
                 JobRuntimeParams(
                     epochs=100,
@@ -56,14 +64,20 @@ def test_get_session_progress_fast_path_normal_run(create_progress_json, create_
             os.chdir(cwd)
 
         # Should return ProgressInfo dataclass
-        assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+        assert isinstance(
+            progress, ProgressInfo
+        ), f"Expected ProgressInfo, got {type(progress)}"
         assert progress.completed_epochs == 57
-        assert abs(progress.progress_percentage - 57.0) < 0.01  # Handle floating point precision
+        assert (
+            abs(progress.progress_percentage - 57.0) < 0.01
+        )  # Handle floating point precision
         assert progress.early_stopped is False
         assert progress.early_stopped_at_epoch is None
 
 
-def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, create_real_config, EXPECTED_FILES):
+def test_get_session_progress_fast_path_early_stopped_run(
+    create_progress_json, create_real_config, EXPECTED_FILES
+):
     """Test fast path with progress.json for early stopped run."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
@@ -82,12 +96,16 @@ def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, 
         )
 
         config_path = os.path.join(configs_dir, "fast_early.py")
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=True)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=True
+        )
 
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/fast_early.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/fast_early.py"
+            )
             progress = job.compute_progress(
                 JobRuntimeParams(
                     epochs=100,
@@ -101,14 +119,18 @@ def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, 
             os.chdir(cwd)
 
         # Should return ProgressInfo dataclass
-        assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+        assert isinstance(
+            progress, ProgressInfo
+        ), f"Expected ProgressInfo, got {type(progress)}"
         assert progress.completed_epochs == 57
         assert progress.progress_percentage == 100.0  # Early stopped shows 100%
         assert progress.early_stopped is True
         assert progress.early_stopped_at_epoch == 57
 
 
-def test_get_session_progress_force_progress_recompute(create_progress_json, create_epoch_files, create_real_config, EXPECTED_FILES):
+def test_get_session_progress_force_progress_recompute(
+    create_progress_json, create_epoch_files, create_real_config, EXPECTED_FILES
+):
     """Test that force_progress_recompute bypasses cached progress.json and recomputes from filesystem."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -121,21 +143,27 @@ def test_get_session_progress_force_progress_recompute(create_progress_json, cre
         expected_files = EXPECTED_FILES
 
         # Create outdated progress.json showing 2 completed epochs
-        create_progress_json(work_dir, completed_epochs=2, early_stopped=False, tot_epochs=100)
+        create_progress_json(
+            work_dir, completed_epochs=2, early_stopped=False, tot_epochs=100
+        )
 
         # But actually create 5 completed epochs on filesystem
         for epoch_idx in range(5):
             create_epoch_files(work_dir, epoch_idx)
 
         # Create real config (needed for slow path)
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
 
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/test_force_recompute.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/test_force_recompute.py"
+            )
 
             # Normal call should use cached progress.json
             progress_cached = job.compute_progress(
@@ -202,14 +230,18 @@ def test_get_session_progress_slow_path_normal_runs(
             create_epoch_files(work_dir, epoch_idx)
 
         # Create real config (no early stopping)
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
 
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/test_normal_run.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/test_normal_run.py"
+            )
             progress = job.compute_progress(
                 JobRuntimeParams(
                     epochs=100,
@@ -221,20 +253,26 @@ def test_get_session_progress_slow_path_normal_runs(
             )
 
             # Should return ProgressInfo dataclass
-            assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+            assert isinstance(
+                progress, ProgressInfo
+            ), f"Expected ProgressInfo, got {type(progress)}"
             assert progress.completed_epochs == expected_completed
             assert progress.early_stopped == False
             assert progress.early_stopped_at_epoch is None
 
             # Verify progress.json was created
             progress_file = os.path.join(work_dir, "progress.json")
-            assert os.path.exists(progress_file), "progress.json should have been created"
+            assert os.path.exists(
+                progress_file
+            ), "progress.json should have been created"
 
         finally:
             os.chdir(original_cwd)
 
 
-def test_get_session_progress_deterministic(create_progress_json, create_real_config, EXPECTED_FILES):
+def test_get_session_progress_deterministic(
+    create_progress_json, create_real_config, EXPECTED_FILES
+):
     """Test that progress calculation is deterministic across multiple calls."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
@@ -245,14 +283,18 @@ def test_get_session_progress_deterministic(create_progress_json, create_real_co
 
         create_progress_json(work_dir, completed_epochs=42, early_stopped=False)
         config_path = os.path.join(configs_dir, "deterministic.py")
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         results = []
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
             for _ in range(3):
-                job = TrainingJob("python main.py --config-filepath ./configs/deterministic.py")
+                job = TrainingJob(
+                    "python main.py --config-filepath ./configs/deterministic.py"
+                )
                 progress = job.compute_progress(
                     JobRuntimeParams(
                         epochs=100,
@@ -266,11 +308,15 @@ def test_get_session_progress_deterministic(create_progress_json, create_real_co
         finally:
             os.chdir(cwd)
 
-        assert all(r == results[0] for r in results), f"Results not deterministic: {results}"
+        assert all(
+            r == results[0] for r in results
+        ), f"Results not deterministic: {results}"
         assert results[0].completed_epochs == 42
 
 
-def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPECTED_FILES):
+def test_get_session_progress_edge_case_empty_work_dir(
+    create_real_config, EXPECTED_FILES
+):
     """Test progress calculation with empty work directory."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -283,14 +329,18 @@ def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPEC
         expected_files = EXPECTED_FILES
 
         # Create real config
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
         os.chdir(temp_root)
 
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/test_empty.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/test_empty.py"
+            )
             progress = job.compute_progress(
                 JobRuntimeParams(
                     epochs=1,
@@ -302,7 +352,9 @@ def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPEC
             )
 
             # Should return ProgressInfo dataclass with 0 completed epochs
-            assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+            assert isinstance(
+                progress, ProgressInfo
+            ), f"Expected ProgressInfo, got {type(progress)}"
             assert progress.completed_epochs == 0
             assert progress.early_stopped == False
             assert progress.early_stopped_at_epoch is None

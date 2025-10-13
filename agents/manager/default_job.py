@@ -1,22 +1,22 @@
 from __future__ import annotations
 
+import glob
 import os
 import time
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Literal, Optional
+from abc import ABC
+from typing import Optional
 
-from agents.manager.progress_info import ProgressInfo
 from agents.manager.base_job import BaseJob
 from utils.io.config import load_config
 from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
 
 
-
 class DefaultJob(BaseJob, ABC):
     """Object-oriented representation of a single training job."""
 
     runner_kind: RunnerKind | None = None
+    LOG_PATTERN: str = ""
 
     def __init__(self, command: str) -> None:
         config_filepath = self.parse_config(command)
@@ -48,7 +48,7 @@ class DefaultJob(BaseJob, ABC):
         raise AssertionError('Config filepath not found in command string')
 
     # ------------------------------------------------------------------
-    # Status helpers
+    # compute status helpers
     # ------------------------------------------------------------------
 
     def is_active(self, runtime: JobRuntimeParams) -> bool:
@@ -60,10 +60,26 @@ class DefaultJob(BaseJob, ABC):
     def is_stuck(self, runtime: JobRuntimeParams) -> bool:
         return self.command in runtime.command_processes
 
-    # ------------------------------------------------------------------
-    # Abstract data accessors
-    # ------------------------------------------------------------------
-
-    @abstractmethod
     def get_log_last_update(self) -> Optional[float]:
-        pass
+        assert self.LOG_PATTERN, (
+            "Cannot call get_log_last_update on DefaultJob without defining LOG_PATTERN."
+        )
+        if not os.path.isdir(self.work_dir):
+            return None
+        logs = glob.glob(os.path.join(self.work_dir, self.LOG_PATTERN))
+        if not logs:
+            return None
+        return max(os.path.getmtime(filepath) for filepath in logs)
+
+    def tmux_session_name(self) -> str:
+        """Return a tmux-friendly identifier relative to ``./configs/benchmarks``."""
+
+        config_path = os.path.abspath(self.config_filepath)
+        benchmarks_root = os.path.abspath(os.path.join('.', 'configs', 'benchmarks'))
+
+        relative_path = os.path.relpath(config_path, benchmarks_root)
+        assert not relative_path.startswith('..') and relative_path != '.', (
+            f"Config {self.config_filepath!r} must live under './configs/benchmarks'"
+        )
+
+        return relative_path

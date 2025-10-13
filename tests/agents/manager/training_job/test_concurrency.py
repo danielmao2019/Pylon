@@ -32,11 +32,17 @@ def test_multiple_readers_same_progress_file(create_progress_json):
 
         work_dir = os.path.join(logs_dir, 'exp_readers')
         os.makedirs(work_dir, exist_ok=True)
-        create_progress_json(work_dir, completed_epochs=42, early_stopped=False, tot_epochs=100)
+        create_progress_json(
+            work_dir, completed_epochs=42, early_stopped=False, tot_epochs=100
+        )
 
         config_path = os.path.join(configs_dir, 'exp_readers.py')
         with open(config_path, 'w') as f:
-            f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
+            f.write(
+                'config = {"epochs": 100, "work_dir": "'
+                + work_dir.replace('\\', '/')
+                + '"}\n'
+            )
 
         original_cwd = os.getcwd()
         os.chdir(root)
@@ -79,11 +85,17 @@ def test_multiple_readers_via_get_progress(create_progress_json):
 
         work_dir = os.path.join(logs_dir, 'exp_calc')
         os.makedirs(work_dir, exist_ok=True)
-        create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
+        create_progress_json(
+            work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100
+        )
 
         config_path = os.path.join(configs_dir, 'exp_calc.py')
         with open(config_path, 'w') as f:
-            f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
+            f.write(
+                'config = {"epochs": 100, "work_dir": "'
+                + work_dir.replace('\\', '/')
+                + '"}\n'
+            )
 
         original_cwd = os.getcwd()
         os.chdir(root)
@@ -110,7 +122,6 @@ def test_multiple_readers_via_get_progress(create_progress_json):
 
             assert len(results) == 8
             assert all(r.completed_epochs == 25 for r in results)
-            assert all(r.runner_type == 'trainer' for r in results)
         finally:
             os.chdir(original_cwd)
 
@@ -131,11 +142,17 @@ def test_reader_writer_conflict_resolution(create_progress_json):
         work_dir = os.path.join(logs_dir, 'exp_rw')
         os.makedirs(work_dir, exist_ok=True)
 
-        create_progress_json(work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100)
+        create_progress_json(
+            work_dir, completed_epochs=10, early_stopped=False, tot_epochs=100
+        )
 
         config_path = os.path.join(configs_dir, 'exp_rw.py')
         with open(config_path, 'w') as f:
-            f.write('config = {"epochs": 100, "work_dir": "' + work_dir.replace('\\', '/') + '"}\n')
+            f.write(
+                'config = {"epochs": 100, "work_dir": "'
+                + work_dir.replace('\\', '/')
+                + '"}\n'
+            )
 
         results = {"reads": [], "writes": []}
 
@@ -191,8 +208,16 @@ def test_reader_writer_conflict_resolution(create_progress_json):
                     future.result()
 
             # Verify no errors occurred
-            read_errors = [r for r in results["reads"] if isinstance(r, str) and r.startswith("ERROR")]
-            write_errors = [w for w in results["writes"] if isinstance(w, str) and w.startswith("ERROR")]
+            read_errors = [
+                r
+                for r in results["reads"]
+                if isinstance(r, str) and r.startswith("ERROR")
+            ]
+            write_errors = [
+                w
+                for w in results["writes"]
+                if isinstance(w, str) and w.startswith("ERROR")
+            ]
 
             assert len(read_errors) == 0, f"Reader errors: {read_errors}"
             assert len(write_errors) == 0, f"Writer errors: {write_errors}"
@@ -212,7 +237,9 @@ def test_reader_writer_conflict_resolution(create_progress_json):
 # ============================================================================
 
 
-def test_multiple_writers_same_progress_file(create_epoch_files, create_real_config, EXPECTED_FILES):
+def test_multiple_writers_same_progress_file(
+    create_epoch_files, create_real_config, EXPECTED_FILES
+):
     """Test multiple progress trackers writing to the same progress.json file."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -225,7 +252,9 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
         expected_files = EXPECTED_FILES
 
         # Create real config
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
@@ -239,12 +268,16 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
             def tracker_writer_thread(thread_id):
                 """Each thread simulates a progress updater writing progress.json."""
                 # Create varying numbers of epoch files to simulate different progress states
-                base_epochs = thread_id * 2  # Thread 0: 0 epochs, Thread 1: 2 epochs, etc.
+                base_epochs = (
+                    thread_id * 2
+                )  # Thread 0: 0 epochs, Thread 1: 2 epochs, etc.
 
                 for update_round in range(3):
                     # Create epoch files to simulate training progress
                     current_epochs = base_epochs + update_round
-                    for epoch_idx in range(current_epochs + 1):  # +1 to ensure the epoch exists
+                    for epoch_idx in range(
+                        current_epochs + 1
+                    ):  # +1 to ensure the epoch exists
                         create_epoch_files(work_dir, epoch_idx)
 
                     # Use TrainingJob to compute and save progress
@@ -264,7 +297,10 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
 
             # Run 5 concurrent writers
             with ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [executor.submit(tracker_writer_thread, thread_id) for thread_id in range(5)]
+                futures = [
+                    executor.submit(tracker_writer_thread, thread_id)
+                    for thread_id in range(5)
+                ]
                 for future in as_completed(futures):
                     future.result()
 
@@ -277,8 +313,6 @@ def test_multiple_writers_same_progress_file(create_epoch_files, create_real_con
             assert "completed_epochs" in final_data
             assert "progress_percentage" in final_data
             assert "early_stopped" in final_data
-            assert "runner_type" in final_data
-            assert final_data["runner_type"] == "trainer"
             assert isinstance(final_data["completed_epochs"], int)
             assert final_data["completed_epochs"] >= 0
 
@@ -308,8 +342,12 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
         os.makedirs(work_dir, exist_ok=True)
         os.makedirs(configs_dir, exist_ok=True)
 
-        create_progress_json(work_dir, completed_epochs=5, early_stopped=False, tot_epochs=100)
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_progress_json(
+            work_dir, completed_epochs=5, early_stopped=False, tot_epochs=100
+        )
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         results = []
         rel_config = "./configs/cache_invalidation.py"
@@ -347,9 +385,13 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
 
             def file_updater():
                 time.sleep(0.02)
-                create_progress_json(work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100)
+                create_progress_json(
+                    work_dir, completed_epochs=15, early_stopped=False, tot_epochs=100
+                )
                 time.sleep(0.02)
-                create_progress_json(work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100)
+                create_progress_json(
+                    work_dir, completed_epochs=25, early_stopped=False, tot_epochs=100
+                )
 
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(cache_and_read, i) for i in range(3)]
@@ -377,7 +419,9 @@ def test_cache_invalidation_race_conditions(create_progress_json, create_real_co
 # ============================================================================
 
 
-def test_multiple_force_recompute_same_file(create_epoch_files, create_real_config, EXPECTED_FILES):
+def test_multiple_force_recompute_same_file(
+    create_epoch_files, create_real_config, EXPECTED_FILES
+):
     """Test multiple force_progress_recompute calls simultaneously."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -394,7 +438,9 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
             create_epoch_files(work_dir, epoch_idx)
 
         # Create real config
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Change to temp_root so relative paths work
         original_cwd = os.getcwd()
@@ -422,14 +468,19 @@ def test_multiple_force_recompute_same_file(create_epoch_files, create_real_conf
 
             # Run 4 concurrent force recompute operations
             with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = [executor.submit(force_recompute_thread, thread_id) for thread_id in range(4)]
+                futures = [
+                    executor.submit(force_recompute_thread, thread_id)
+                    for thread_id in range(4)
+                ]
                 for future in as_completed(futures):
                     future.result()
 
             # All should get the same result (10 epochs from filesystem)
             assert len(results) == 12  # 4 threads * 3 operations each
             epochs_values = [epochs for _, _, epochs in results]
-            assert all(epochs == 10 for epochs in epochs_values), f"Expected all 10, got: {set(epochs_values)}"
+            assert all(
+                epochs == 10 for epochs in epochs_values
+            ), f"Expected all 10, got: {set(epochs_values)}"
 
         finally:
             os.chdir(original_cwd)
@@ -465,7 +516,6 @@ def test_mixed_runner_types_concurrent_access():
             "progress_percentage": 50.0,
             "early_stopped": False,
             "early_stopped_at_epoch": None,
-            "runner_type": "trainer",
             "total_epochs": 100,
         }
         save_json(trainer_progress, os.path.join(trainer_dir, "progress.json"))
@@ -479,7 +529,9 @@ def test_mixed_runner_types_concurrent_access():
 
         try:
             trainer_command = "python main.py --config-filepath ./configs/trainer.py"
-            evaluator_command = "python main.py --config-filepath ./configs/evaluator.py"
+            evaluator_command = (
+                "python main.py --config-filepath ./configs/evaluator.py"
+            )
 
             def trainer_worker():
                 job = TrainingJob(trainer_command)
@@ -526,12 +578,16 @@ def test_mixed_runner_types_concurrent_access():
 
             # Verify results
             trainer_results = [epochs for kind, epochs in results if kind == "trainer"]
-            evaluator_results = [epochs for kind, epochs in results if kind == "evaluator"]
+            evaluator_results = [
+                epochs for kind, epochs in results if kind == "evaluator"
+            ]
 
             assert len(trainer_results) == 10  # 2 workers * 5 operations each
             assert len(evaluator_results) == 10  # 2 workers * 5 operations each
             assert all(epochs == 50 for epochs in trainer_results)
-            assert all(epochs == 1 for epochs in evaluator_results)  # Binary for evaluators
+            assert all(
+                epochs == 1 for epochs in evaluator_results
+            )  # Binary for evaluators
         finally:
             os.chdir(original_cwd)
 
@@ -557,7 +613,6 @@ def test_concurrent_progress_json_creation():
                     "progress_percentage": update * 10.0,
                     "early_stopped": False,
                     "early_stopped_at_epoch": None,
-                    "runner_type": "trainer",
                     "total_epochs": 100,
                 }
                 progress_file = os.path.join(work_dir, "progress.json")
@@ -566,14 +621,18 @@ def test_concurrent_progress_json_creation():
 
         # Run multiple workers creating progress files
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(create_progress_worker, worker_id) for worker_id in range(5)]
+            futures = [
+                executor.submit(create_progress_worker, worker_id)
+                for worker_id in range(5)
+            ]
             for future in as_completed(futures):
                 future.result()
 
         # Verify all progress files were created correctly
         for worker_id in range(5):
-            progress_file = os.path.join(base_dir, f"experiment_{worker_id}", "progress.json")
+            progress_file = os.path.join(
+                base_dir, f"experiment_{worker_id}", "progress.json"
+            )
             assert os.path.exists(progress_file)
             data = load_json(progress_file)
             assert data["completed_epochs"] == 40  # Final update
-            assert data["runner_type"] == "trainer"

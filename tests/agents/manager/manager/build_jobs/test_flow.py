@@ -1,6 +1,7 @@
 """
 Integration test for Manager.build_jobs with lightweight setup.
 """
+
 import os
 import tempfile
 import json
@@ -90,6 +91,7 @@ def test_build_jobs_minimal_integration(monkeypatch):
 
 def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_processes):
     import time
+
     with tempfile.TemporaryDirectory() as temp_root:
         configs_dir = os.path.join(temp_root, "configs")
         logs_dir = os.path.join(temp_root, "logs")
@@ -154,15 +156,21 @@ def test_build_jobs_mixed_runners_and_statuses(create_system_monitor_with_proces
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            monitors = create_system_monitor_with_processes([
-                'python main.py --config-filepath ./configs/trainer_stuck.py'
-            ])
+            monitors = create_system_monitor_with_processes(
+                ['python main.py --config-filepath ./configs/trainer_stuck.py']
+            )
             commands = [
                 "python main.py --config-filepath ./configs/trainer_running.py",
                 "python main.py --config-filepath ./configs/trainer_stuck.py",
                 "python main.py --config-filepath ./configs/evaluator_old.py",
             ]
-            m = Manager(commands=commands, epochs=10, system_monitors=monitors, sleep_time=3600, outdated_days=30)
+            m = Manager(
+                commands=commands,
+                epochs=10,
+                system_monitors=monitors,
+                sleep_time=3600,
+                outdated_days=30,
+            )
             jobs = m.build_jobs()
             jr = jobs["python main.py --config-filepath ./configs/trainer_running.py"]
             js = jobs["python main.py --config-filepath ./configs/trainer_stuck.py"]

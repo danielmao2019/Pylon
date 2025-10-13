@@ -1,4 +1,5 @@
 """Pytest configuration for monitor integration checks."""
+
 import pytest
 
 

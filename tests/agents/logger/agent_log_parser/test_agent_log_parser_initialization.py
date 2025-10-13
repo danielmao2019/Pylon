@@ -6,6 +6,7 @@ from agents.logger import AgentLogParser
 # INITIALIZATION TESTS
 # ============================================================================
 
+
 def test_agent_log_parser_initialization():
     """Test AgentLogParser initialization with default and custom paths."""
     # Test default path
@@ -16,7 +17,7 @@ def test_agent_log_parser_initialization():
     assert 'error_message' in parser.patterns
     assert 'ssh_launch' in parser.patterns
     assert 'timestamp' in parser.patterns
-    
+
     # Test custom path
     custom_path = "/custom/path/agent.log"
     parser = AgentLogParser(agent_log_path=custom_path)
@@ -26,6 +27,8 @@ def test_agent_log_parser_initialization():
 def test_regex_patterns_compiled():
     """Test that all regex patterns are properly compiled."""
     parser = AgentLogParser()
-    
+
     for pattern_name, pattern in parser.patterns.items():
-        assert hasattr(pattern, 'search'), f"Pattern {pattern_name} should be compiled regex"
+        assert hasattr(
+            pattern, 'search'
+        ), f"Pattern {pattern_name} should be compiled regex"

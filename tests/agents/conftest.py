@@ -4,6 +4,7 @@ Shared test fixtures and helper functions for agent tests.
 This conftest.py provides common test data creation functions and import handling
 for agent-related tests.
 """
+
 import os
 import tempfile
 import pytest
@@ -13,11 +14,16 @@ import pytest
 # ============================================================================
 
 # Standard expected files for most tests
-EXPECTED_FILES = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+EXPECTED_FILES = [
+    "training_losses.pt",
+    "optimizer_buffer.json",
+    "validation_scores.json",
+]
 
 # ============================================================================
 # PYTEST FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 def temp_agent_log():
@@ -33,7 +39,7 @@ def sample_config_files():
     return [
         "configs/exp/baseline.py",
         "configs/exp/model_v2.py",
-        "configs/exp/ablation.py"
+        "configs/exp/ablation.py",
     ]
 
 

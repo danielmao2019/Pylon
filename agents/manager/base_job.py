@@ -51,9 +51,17 @@ class BaseJob(ABC):
         """Associate runtime process information (if available)."""
         self.process_info = process_info
 
+    # ----------------------------------------------------------------------------------------------------
+    # compute progress
+    # ----------------------------------------------------------------------------------------------------
+
     @abstractmethod
     def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
         """Return up-to-date progress information for the job."""
+
+    # ----------------------------------------------------------------------------------------------------
+    # compute status
+    # ----------------------------------------------------------------------------------------------------
 
     def compute_status(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> str:
         """Determine high-level status (e.g. running/finished/failed)."""
@@ -64,20 +72,6 @@ class BaseJob(ABC):
         if self.is_stuck(runtime):
             return "stuck"
         return "failed"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Light-weight serialisable view of the job state."""
-        return {
-            "command": self.command,
-            "work_dir": self.work_dir,
-            "progress": self.progress.to_dict() if self.progress else None,
-            "status": self.status,
-            "process_info": self.process_info.to_dict() if self.process_info else None,
-        }
-
-    # ------------------------------------------------------------------
-    # Status helper hooks (overridable by subclasses)
-    # ------------------------------------------------------------------
 
     @abstractmethod
     def is_active(self, runtime: JobRuntimeParams) -> bool:
@@ -105,10 +99,6 @@ class BaseJob(ABC):
         """Return True when the job appears hung."""
         raise NotImplementedError
 
-    # ------------------------------------------------------------------
-    # Shared artifact helpers
-    # ------------------------------------------------------------------
-
     def get_artifact_last_update(self) -> Optional[float]:
         """Return the most recent modification timestamp across expected files."""
         timestamps = []
@@ -119,3 +109,22 @@ class BaseJob(ABC):
             if os.path.isfile(artifact_path):
                 timestamps.append(os.path.getmtime(artifact_path))
         return max(timestamps, default=None)
+
+    # ----------------------------------------------------------------------------------------------------
+    # 
+    # ----------------------------------------------------------------------------------------------------
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Light-weight serialisable view of the job state."""
+        return {
+            "command": self.command,
+            "work_dir": self.work_dir,
+            "progress": self.progress.to_dict() if self.progress else None,
+            "status": self.status,
+            "process_info": self.process_info.to_dict() if self.process_info else None,
+        }
+
+    @abstractmethod
+    def tmux_session_name(self) -> str:
+        """Return a short identifier to incorporate into tmux session names."""
+        raise NotImplementedError

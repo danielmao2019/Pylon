@@ -21,8 +21,9 @@ def test_status_evaluator_finished(temp_manager_root, write_config, write_eval_s
     assert job.status == 'finished'
 
 
-
-def test_status_evaluator_running_with_recent_log(temp_manager_root, write_config, write_eval_scores, touch_log):
+def test_status_evaluator_running_with_recent_log(
+    temp_manager_root, write_config, write_eval_scores, touch_log
+):
     cfg = write_config('evalrun.py', {})
     write_eval_scores('evalrun')
     touch_log('evalrun', age_seconds=0, name='eval_latest.log')
@@ -40,7 +41,6 @@ def test_status_evaluator_running_with_recent_log(temp_manager_root, write_confi
     assert job.status == 'running'
 
 
-
 def test_status_evaluator_failed(temp_manager_root, write_config):
     cfg = write_config('evalfail.py', {})
     job = EvaluationJob('python main.py --config-filepath ./configs/evalfail.py')
@@ -56,8 +56,9 @@ def test_status_evaluator_failed(temp_manager_root, write_config):
     assert job.status == 'failed'
 
 
-
-def test_status_evaluator_outdated_scores_file(temp_manager_root, write_config, write_eval_scores):
+def test_status_evaluator_outdated_scores_file(
+    temp_manager_root, write_config, write_eval_scores
+):
     cfg = write_config('evalold.py', {})
     work = write_eval_scores('evalold')
     # Age the evaluation file beyond outdated_days

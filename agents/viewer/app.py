@@ -9,7 +9,7 @@ class AgentsViewerApp(BaseAgent):
 
     def __init__(
         self,
-        config_files: List[str],
+        commands: List[str],
         expected_files: List[str],
         epochs: int,
         sleep_time: int = 180,
@@ -20,11 +20,38 @@ class AgentsViewerApp(BaseAgent):
         force_progress_recompute: bool = False,
     ) -> None:
         super(AgentsViewerApp, self).__init__(
-            config_files, expected_files, epochs, sleep_time, outdated_days, gpu_pool, user_names, timeout, force_progress_recompute,
+            commands=commands,
+            expected_files=expected_files,
+            epochs=epochs,
+            sleep_time=sleep_time,
+            outdated_days=outdated_days,
+            gpu_pool=gpu_pool,
+            user_names=user_names,
+            timeout=timeout,
+            force_progress_recompute=force_progress_recompute,
         )
         self.app = dash.Dash(__name__)
-        self.app.layout = create_layout(config_files, expected_files, epochs, sleep_time, outdated_days, self.system_monitor, user_names, force_progress_recompute)
-        register_callbacks(self.app, config_files, expected_files, epochs, sleep_time, outdated_days, self.system_monitor, user_names, force_progress_recompute)
+        self.app.layout = create_layout(
+            commands,
+            expected_files,
+            epochs,
+            sleep_time,
+            outdated_days,
+            self.system_monitor,
+            user_names,
+            force_progress_recompute,
+        )
+        register_callbacks(
+            self.app,
+            commands,
+            expected_files,
+            epochs,
+            sleep_time,
+            outdated_days,
+            self.system_monitor,
+            user_names,
+            force_progress_recompute,
+        )
 
     def run(self, port: Optional[int] = 8050) -> None:
         self.app.run(port=port)

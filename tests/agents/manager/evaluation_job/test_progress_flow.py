@@ -1,6 +1,7 @@
 """
 EvaluationJob progress-related tests.
 """
+
 import json
 import os
 import tempfile
@@ -25,7 +26,9 @@ def test_evaluationjob_incomplete_and_complete():
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = EvaluationJob("python main.py --config-filepath ./configs/eval_case.py")
+            job = EvaluationJob(
+                "python main.py --config-filepath ./configs/eval_case.py"
+            )
 
             # Incomplete
             p0 = job.compute_progress(
@@ -42,7 +45,9 @@ def test_evaluationjob_incomplete_and_complete():
 
             # Complete
             with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
-                json.dump({"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f)
+                json.dump(
+                    {"aggregated": {"acc": 1.0}, "per_datapoint": {"acc": [1.0]}}, f
+                )
             p1 = job.compute_progress(
                 JobRuntimeParams(
                     epochs=1,
@@ -75,7 +80,9 @@ def test_evaluationjob_progress_file_validation():
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = EvaluationJob("python main.py --config-filepath ./configs/eval_case.py")
+            job = EvaluationJob(
+                "python main.py --config-filepath ./configs/eval_case.py"
+            )
             runtime = JobRuntimeParams(
                 epochs=1,
                 sleep_time=1,

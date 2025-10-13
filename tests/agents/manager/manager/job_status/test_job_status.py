@@ -3,11 +3,12 @@ Test job_status functionality with enhanced ProgressInfo and ProcessInfo integra
 Focus on realistic testing with minimal mocking for individual function testing.
 
 Following CLAUDE.md testing patterns:
-- Correctness verification with known inputs/outputs  
+- Correctness verification with known inputs/outputs
 - Edge case testing
 - Parametrized testing for multiple scenarios
 - Unit testing for specific functions
 """
+
 from typing import Dict
 import os
 import tempfile
@@ -22,23 +23,27 @@ from agents.manager.runtime import JobRuntimeParams
 # ============================================================================
 
 
-
-@pytest.mark.parametrize("status_scenario,expected_status", [
-    ("running", "running"),      # Recent log updates
-    ("finished", "finished"),    # Completed all epochs
-    ("stuck", "stuck"),          # Running on GPU but no log updates  
-    ("failed", "failed"),        # No log updates, not on GPU
-])
-def test_job_status_determination(status_scenario, expected_status, create_epoch_files, create_real_config):
+@pytest.mark.parametrize(
+    "status_scenario,expected_status",
+    [
+        ("running", "running"),  # Recent log updates
+        ("finished", "finished"),  # Completed all epochs
+        ("stuck", "stuck"),  # Running on GPU but no log updates
+        ("failed", "failed"),  # No log updates, not on GPU
+    ],
+)
+def test_job_status_determination(
+    status_scenario, expected_status, create_epoch_files, create_real_config
+):
     """Test different job status determination scenarios with realistic data."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
         configs_dir = os.path.join(temp_root, "configs")
         work_dir = os.path.join(logs_dir, "test_status")
         config_path = os.path.join(configs_dir, "test_status.py")
-        
+
         os.makedirs(work_dir, exist_ok=True)
-        
+
         # Set up scenarios
         if status_scenario == "finished":
             # Create all 100 epochs
@@ -48,16 +53,16 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
             # Create partial epochs
             for epoch_idx in range(10):
                 create_epoch_files(work_dir, epoch_idx)
-            
+
             if status_scenario == "running":
                 # Create recent log file
                 log_file = os.path.join(work_dir, "train_val_latest.log")
                 with open(log_file, 'w') as f:
                     f.write("Recent training log")
-        
+
         # Create config file
         create_real_config(config_path, work_dir, epochs=100)
-        
+
         command = f"python main.py --config-filepath {config_path}"
 
         # Set up process info (real data structures, not mocks)
@@ -67,7 +72,7 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
                 pid='12345',
                 user='testuser',
                 cmd=command,
-                start_time='Mon Jan  1 10:00:00 2024'
+                start_time='Mon Jan  1 10:00:00 2024',
             )
             config_to_process_info[command] = process
 
@@ -86,9 +91,9 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
                     force_progress_recompute=False,
                 )
             )
-            
+
             assert job_status.status == expected_status
-            
+
         finally:
             os.chdir(original_cwd)
 
@@ -96,14 +101,6 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
 # ============================================================================
 # EXPLICIT STATUS CASES USING REAL FILES AND CLASSES
 # ============================================================================
-
-
-
-
-
-
-
-
 
 
 # ============================================================================
@@ -119,6 +116,7 @@ def test_job_status_determination(status_scenario, expected_status, create_epoch
 # TESTS FOR EDGE CASES AND ERROR HANDLING
 # ============================================================================
 
+
 def test_base_job_populate_invalid_config_path():
     """Test BaseJob.populate with invalid config path."""
     with tempfile.TemporaryDirectory() as temp_root:
@@ -126,7 +124,7 @@ def test_base_job_populate_invalid_config_path():
         logs_dir = os.path.join(temp_root, "logs")
         work_dir = os.path.join(logs_dir, "invalid_exp")
         invalid_config_path = os.path.join(temp_root, "nonexistent", "config.py")
-        
+
         os.makedirs(work_dir, exist_ok=True)
         command = f"python main.py --config-filepath {invalid_config_path}"
         config_to_process_info: Dict[str, ProcessInfo] = {}
@@ -148,15 +146,15 @@ def test_base_job_populate_invalid_config_path():
                     force_progress_recompute=False,
                 )
             )
-            
+
             # Should return failed status for invalid config
             assert job_status.status == 'failed'
             assert job_status.process_info is None
-            
+
         except FileNotFoundError:
             # If the config path resolution fails, that's also acceptable behavior
             # The system is not designed to handle completely invalid paths gracefully
             pass
-            
+
         finally:
             os.chdir(original_cwd)

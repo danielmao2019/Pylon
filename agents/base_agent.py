@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional
 from abc import ABC
 from agents.monitor.system_monitor import SystemMonitor
 from agents.monitor.gpu_status import GPUStatus
@@ -9,8 +9,8 @@ class BaseAgent(ABC):
 
     def __init__(
         self,
-        config_files: List[str],
-        expected_files: List[str],
+        commands: List[str],
+        expected_files: Optional[List[str]] = None,
         epochs: int = 100,
         sleep_time: int = 180,
         outdated_days: int = 120,
@@ -19,8 +19,9 @@ class BaseAgent(ABC):
         timeout: int = 5,
         force_progress_recompute: bool = False,
     ) -> None:
-        self.config_files = config_files
-        self.expected_files = expected_files
+        assert isinstance(commands, list), f"commands must be list, got {type(commands)}"
+        self.commands = [command.strip() for command in commands]
+        self.expected_files = expected_files or []
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days

@@ -39,7 +39,9 @@ def test_empty_progress_json_file_detection(create_real_config):
 
         # Create minimal config so TrainingJob can be instantiated
         config_path = os.path.join(configs_dir, "empty.py")
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Should raise RuntimeError from load_json about empty file
         cwd = os.getcwd()
@@ -80,7 +82,6 @@ def test_non_empty_progress_json_loading(create_real_config):
             "progress_percentage": 50.0,
             "early_stopped": False,
             "early_stopped_at_epoch": None,
-            "runner_type": "trainer",
             "total_epochs": 10,
         }
 
@@ -93,7 +94,9 @@ def test_non_empty_progress_json_loading(create_real_config):
 
         # Create minimal config so TrainingJob can be instantiated
         config_path = os.path.join(configs_dir, "non_empty.py")
-        create_real_config(config_path, work_dir, epochs=10, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=10, early_stopping_enabled=False
+        )
 
         cwd = os.getcwd()
         os.chdir(temp_root)
@@ -116,7 +119,6 @@ def test_non_empty_progress_json_loading(create_real_config):
         assert progress.progress_percentage == 50.0
         assert progress.early_stopped is False
         assert progress.early_stopped_at_epoch is None
-        assert progress.runner_type == "trainer"
         assert progress.total_epochs == 10
 
 
@@ -138,7 +140,9 @@ def test_malformed_progress_json_error_handling(create_real_config):
             f.write("invalid json content {")  # Malformed JSON
 
         # Create real config
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Verify the file exists and has content
         assert os.path.exists(progress_file)
@@ -155,7 +159,9 @@ def test_malformed_progress_json_error_handling(create_real_config):
         os.chdir(temp_root)
 
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/test_malformed.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/test_malformed.py"
+            )
             progress = job.compute_progress(
                 JobRuntimeParams(
                     epochs=1,
@@ -213,7 +219,9 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
         os.makedirs(work_dir, exist_ok=True)
 
         # Create real config
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         # Truly empty file (0 bytes)
         empty_file = os.path.join(temp_root, "empty.json")
@@ -236,7 +244,9 @@ def test_zero_byte_file_vs_whitespace_file(create_real_config, EXPECTED_FILES):
         os.chdir(temp_root)
 
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/test_whitespace.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/test_whitespace.py"
+            )
             # Empty file - should raise exception since file exists but is empty
             progress_file = os.path.join(work_dir, "progress.json")
             os.rename(empty_file, progress_file)

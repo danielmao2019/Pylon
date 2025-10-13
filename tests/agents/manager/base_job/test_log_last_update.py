@@ -15,7 +15,9 @@ def test_base_job_get_log_last_update(create_real_config):
         os.makedirs(work_dir, exist_ok=True)
         os.makedirs(configs_dir, exist_ok=True)
 
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         cwd = os.getcwd()
         os.chdir(temp_root)
@@ -36,7 +38,9 @@ def test_base_job_get_log_last_update(create_real_config):
             os.chdir(cwd)
 
 
-def test_base_job_get_artifact_last_update(EXPECTED_FILES, create_epoch_files, create_real_config):
+def test_base_job_get_artifact_last_update(
+    EXPECTED_FILES, create_epoch_files, create_real_config
+):
     """Test artifact timestamp detection for TrainingJob."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
@@ -47,12 +51,16 @@ def test_base_job_get_artifact_last_update(EXPECTED_FILES, create_epoch_files, c
         os.makedirs(work_dir, exist_ok=True)
         os.makedirs(configs_dir, exist_ok=True)
 
-        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        create_real_config(
+            config_path, work_dir, epochs=100, early_stopping_enabled=False
+        )
 
         cwd = os.getcwd()
         os.chdir(temp_root)
         try:
-            job = TrainingJob("python main.py --config-filepath ./configs/artifact_case.py")
+            job = TrainingJob(
+                "python main.py --config-filepath ./configs/artifact_case.py"
+            )
 
             # Initially no artifacts
             assert job.get_artifact_last_update() is None

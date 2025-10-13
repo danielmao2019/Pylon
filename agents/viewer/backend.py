@@ -4,7 +4,7 @@ from agents.monitor.system_monitor import SystemMonitor
 
 
 def get_progress(
-    config_files: List[str],
+    commands: List[str],
     epochs: int,
     sleep_time: int,
     outdated_days: int,
@@ -13,15 +13,15 @@ def get_progress(
 ) -> float:
     """
     Args:
-        config_files: List of config file paths
+        commands: List of runtime command strings
         epochs: Total number of epochs
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
         system_monitor: System monitor (CPU + GPU)
         force_progress_recompute: If True, bypass cache and recompute progress from scratch
     """
-    assert isinstance(config_files, list), f"config_files must be list, got {type(config_files)}"
-    assert len(config_files) > 0, f"config_files must not be empty, got {len(config_files)} files"
+    assert isinstance(commands, list), f"commands must be list, got {type(commands)}"
+    assert len(commands) > 0, f"commands must not be empty, got {len(commands)} entries"
     assert isinstance(epochs, int), f"epochs must be int, got {type(epochs)}"
     assert isinstance(sleep_time, int), f"sleep_time must be int, got {type(sleep_time)}"
     assert isinstance(outdated_days, int), f"outdated_days must be int, got {type(outdated_days)}"
@@ -30,7 +30,7 @@ def get_progress(
 
     monitor_map = {system_monitor.server: system_monitor}
     manager = Manager(
-        config_files=config_files,
+        commands=commands,
         epochs=epochs,
         system_monitors=monitor_map,
         sleep_time=sleep_time,

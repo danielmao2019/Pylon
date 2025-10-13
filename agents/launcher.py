@@ -4,7 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import random
 from agents.base_agent import BaseAgent
-from agents.manager import DefaultJob, Manager
+from agents.manager import BaseJob, Manager
 from utils.logging import TextLogger
 from agents.connector.pool import _ssh_pool
 
@@ -13,8 +13,8 @@ class Launcher(BaseAgent):
 
     def __init__(
         self,
-        config_files: List[str],
-        expected_files: List[str],
+        commands: List[str],
+        expected_files: Optional[List[str]] = None,
         epochs: int = 100,
         sleep_time: int = 180,
         outdated_days: int = 120,
@@ -30,8 +30,8 @@ class Launcher(BaseAgent):
     ) -> None:
         r"""
         Args:
-            config_files (List[str]): the set of experiments to take care of.
-            expected_files (List[str]): the expected files under a work dir to check for.
+            commands (List[str]): canonical commands representing the experiments to manage.
+            expected_files (Optional[List[str]]): the expected files under a work dir to check for.
             epochs (int): the number of epochs to run.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
             outdated_days (int): the number of days to wait to consider a run outdated.
@@ -44,9 +44,14 @@ class Launcher(BaseAgent):
             keep_tmux (Optional[bool]): whether to keep the tmux session alive.
             force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
         """
+        assert isinstance(commands, list) and commands, (
+            "commands must be a non-empty list"
+        )
+        normalized_commands = [command.strip() for command in commands]
+
         super(Launcher, self).__init__(
-            config_files=config_files,
-            expected_files=expected_files,
+            commands=normalized_commands,
+            expected_files=expected_files or [],
             epochs=epochs,
             sleep_time=sleep_time,
             outdated_days=outdated_days,
@@ -66,8 +71,12 @@ class Launcher(BaseAgent):
     # experiment management
     # ====================================================================================================
 
-    def _remove_stuck(self, all_running_status: List[DefaultJob]) -> None:
-        stuck_cfgs = [run.config_filepath for run in all_running_status if run.status == 'stuck']
+    def _remove_stuck(self, all_jobs: List[BaseJob]) -> None:
+        stuck_commands = {
+            run.command.strip() for run in all_jobs if run.status == 'stuck'
+        }
+        if not stuck_commands:
+            return
 
         def process_gpu(gpu):
             gpu_stuck_info = {}
@@ -76,11 +85,11 @@ class Launcher(BaseAgent):
             for proc in gpu.processes:
                 if proc.user != gpu.server.split('@')[0]:
                     continue
-                if 'python main.py --config-filepath' not in proc.cmd:
-                    continue
-                cfg = DefaultJob.parse_config(proc.cmd)
-                if cfg in stuck_cfgs:
-                    gpu_stuck_info[cfg] = (gpu.server, proc.pid)
+                proc_cmd = proc.cmd.strip()
+                if proc_cmd in stuck_commands or any(
+                    proc_cmd.endswith(cmd) for cmd in stuck_commands
+                ):
+                    gpu_stuck_info[proc_cmd] = (gpu.server, proc.pid)
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
@@ -95,20 +104,18 @@ class Launcher(BaseAgent):
         for server, pid in stuck_cfgs_info.values():
             self.ssh_pool.execute(server, ['kill', '-9', str(pid)])
 
-    def _remove_outdated(self, all_running_status: List[DefaultJob]) -> None:
+    def _remove_outdated(self, all_running_status: List[BaseJob]) -> None:
         outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
         # self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
         # with ThreadPoolExecutor() as executor:
         #     list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
 
-    def _find_missing_runs(self, all_running_status: List[DefaultJob]) -> List[str]:
+    def _find_missing_jobs(self, all_jobs: List[BaseJob]) -> List[BaseJob]:
         r"""
         Returns:
-            result (List[str]): the config filepaths for the missing experiment runs.
+            result (List[BaseJob]): the BaseJob instances for missing experiment runs.
         """
-        return [
-            run.config_filepath for run in all_running_status if run.status == 'failed'
-        ]
+        return [job for job in all_jobs if job.status == 'failed']
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
@@ -124,6 +131,7 @@ class Launcher(BaseAgent):
             }
         """
         idle_gpus = []
+        tracked_commands = {cmd.strip() for cmd in self.commands}
 
         # Build a map of server -> CPU status for quick lookup
         cpu_status_by_server = {}
@@ -133,9 +141,25 @@ class Launcher(BaseAgent):
         # Find idle GPUs with CPU constraints
         for gpu in self.connected_gpus:
             # Check GPU constraints
-            gpu_util_ok = gpu.util_stats['avg'] < 50
-            gpu_mem_ok = (gpu.max_memory - gpu.memory_stats['avg']) > 12 * 1024
-            gpu_jobs_ok = len([p for p in gpu.processes if 'python main.py --config-filepath' in p.cmd]) < num_jobs
+            util_avg = None
+            if gpu.util_stats and gpu.util_stats.get('avg') is not None:
+                util_avg = gpu.util_stats['avg']
+            mem_avg = None
+            if gpu.memory_stats and gpu.memory_stats.get('avg') is not None:
+                mem_avg = gpu.memory_stats['avg']
+            max_mem = gpu.max_memory if gpu.max_memory is not None else 0
+
+            gpu_util_ok = util_avg is not None and util_avg < 50
+            gpu_mem_ok = (
+                mem_avg is not None and max_mem > 0 and (max_mem - mem_avg) > 12 * 1024
+            )
+            tracked_processes = [
+                process
+                for process in gpu.processes
+                if process.cmd.strip() in tracked_commands
+                or any(process.cmd.strip().endswith(cmd) for cmd in tracked_commands)
+            ]
+            gpu_jobs_ok = len(tracked_processes) < num_jobs
 
             # Check CPU constraints for the same server
             server = gpu.server
@@ -169,29 +193,39 @@ class Launcher(BaseAgent):
 
         return idle_gpus
 
-    def _launch_missing(self, all_running: List[DefaultJob], num_jobs: int) -> bool:
+    def _launch_missing(self, all_jobs: List[BaseJob], num_jobs: int) -> bool:
         r"""
         Returns:
             done (bool): nothing more to launch.
         """
-        missing_runs: List[str] = self._find_missing_runs(all_running)
-        if len(missing_runs) == 0:
+        missing_jobs: List[BaseJob] = self._find_missing_jobs(all_jobs)
+        if len(missing_jobs) == 0:
             return True
         idle_gpus: List[Dict[str, Any]] = self._find_idle_gpus(num_jobs)
         if len(idle_gpus) == 0:
             self.logger.info("Waiting for idle GPUs (with sufficient CPU resources)...")
             return False
-        random.shuffle(missing_runs)
+        random.shuffle(missing_jobs)
         random.shuffle(idle_gpus)
-        num_launch = min(len(idle_gpus), len(missing_runs))
+        num_launch = min(len(idle_gpus), len(missing_jobs))
         idle_gpus = idle_gpus[:num_launch]
-        missing_runs = missing_runs[:num_launch]
+        missing_jobs = missing_jobs[:num_launch]
 
-        def launch_job(resource, run):
-            rel_path = os.path.splitext(os.path.relpath(run, start='./configs'))[0]
-            error_log = os.path.join('./logs', rel_path, "error.log")
+        def launch_job(resource, job: BaseJob):
+            # Step 1: Extract and validate the work directory from the job
+            command = job.command.strip()
+            work_dir = job.work_dir
+            assert isinstance(work_dir, str) and work_dir, (
+                f"Job {command} does not provide a valid work_dir"
+            )
+            norm_work_dir = os.path.normpath(work_dir)
+            
+            # Step 2: Define the error log path using the job work directory
+            error_log = os.path.join(norm_work_dir, "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
-                self.logger.error(f"Please fix {run}. {error_log=}.")
+                self.logger.error(
+                    f"Found non-empty error log for command '{command}'. error_log='{error_log}'"
+                )
 
             # Set GPU environment variables (all jobs are GPU-based)
             device_env = f"CUDA_VISIBLE_DEVICES={resource['resource_id']}"
@@ -201,52 +235,57 @@ class Launcher(BaseAgent):
                 f"cd {self.project_dir}",
                 "git fetch",
                 f"git checkout {self.git_branch}",
-                f"git pull",
+                "git stash", "git pull", "git stash pop || true",
                 "source ~/.bashrc",
                 f"source ~/miniconda3/bin/activate {self.conda_env}",
                 f"mkdir -p {os.path.dirname(error_log)}",
                 ' '.join([
                     "MKL_SERVICE_FORCE_INTEL=1",
                     device_env,
-                    "python", "main.py", "--config-filepath", run,
+                    command,
                     # "2>", error_log,
                 ]),
             ])
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
-            session_name = f"{'/'.join(os.path.splitext(run)[0].split('/')[-2:])}-{resource_label}"
+            session_name = f"{job.tmux_session_name()}-{resource_label}"
             tmux_cmd = f"tmux new-session -d -s {session_name} \"{cmd}\""
 
             self.logger.info(f"Executing command on {resource['server']} ({resource_label}): {tmux_cmd}")
-            self.ssh_pool.execute(resource['server'], [tmux_cmd])
+            self.ssh_pool.execute(resource['server'], ["bash", "-lc", tmux_cmd])
 
-        for gpu, run in zip(idle_gpus, missing_runs):
-            launch_job(gpu, run)
+        for gpu, job in zip(idle_gpus, missing_jobs):
+            launch_job(gpu, job)
+            time.sleep(3)
         return False
 
-    def spawn(self, num_jobs: Optional[int] = 1) -> None:
+    def spawn(self, num_jobs: int = 1) -> None:
         while True:
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
             manager = Manager(
-                config_files=self.config_files,
+                commands=self.commands,
                 epochs=self.epochs,
                 system_monitors=self.system_monitors,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
                 force_progress_recompute=self.force_progress_recompute,
             )
-            all_running_status_dict = manager.build_jobs()
-            all_running_status = list(all_running_status_dict.values())
+            all_jobs = list(manager.build_jobs().values())
+
+            avg_progress = manager.compute_average_progress()
+            self.logger.info(
+                f"Average progress across commands: {avg_progress:.2f}%"
+            )
 
             self.logger.info("Removing stuck jobs...")
-            self._remove_stuck(all_running_status)
+            self._remove_stuck(all_jobs)
 
             self.logger.info("Removing outdated jobs...")
-            self._remove_outdated(all_running_status)
+            self._remove_outdated(all_jobs)
 
             self.logger.info("Launching missing jobs...")
-            done = self._launch_missing(all_running_status, num_jobs=num_jobs)
+            done = self._launch_missing(all_jobs, num_jobs=num_jobs)
 
             if done:
                 self.logger.info("All done.")

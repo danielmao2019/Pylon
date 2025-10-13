@@ -1,16 +1,19 @@
-"""
-Manager module fixtures shared across tests. No imports from this file; use fixtures via parameters only.
-"""
+"""Manager fixtures shared across tests."""
+
 import os
 import json
 import tempfile
 import time
+from typing import List, Optional
+
 import pytest
-from typing import Optional
 import torch
+
+
 from utils.io.json import save_json
 from agents.monitor.system_monitor import SystemMonitor
 from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.cpu_status import CPUStatus
 from agents.monitor.process_info import ProcessInfo
 
 
@@ -44,12 +47,14 @@ def write_config():
 
     Usage: write_config('exp.py', {'epochs': 100}) -> returns './configs/exp.py'
     """
+
     def _write(name: str, config: dict) -> str:
         path = os.path.join('./configs', name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w') as f:
             f.write('config = ' + json.dumps(config) + '\n')
         return path
+
     return _write
 
 
@@ -61,6 +66,7 @@ def make_trainer_epoch():
     training_losses.pt is created as non-empty bytes (content not loaded in tests using fast path).
     Returns the epoch directory path.
     """
+
     def _make(exp_name: str, idx: int = 0) -> str:
         work = os.path.join('./logs', exp_name)
         epoch_dir = os.path.join(work, f'epoch_{idx}')
@@ -72,6 +78,7 @@ def make_trainer_epoch():
         with open(os.path.join(epoch_dir, 'training_losses.pt'), 'wb') as f:
             f.write(b'\x00')
         return epoch_dir
+
     return _make
 
 
@@ -81,12 +88,14 @@ def write_eval_scores():
 
     Returns the work directory path.
     """
+
     def _write(exp_name: str) -> str:
         work = os.path.join('./logs', exp_name)
         os.makedirs(work, exist_ok=True)
         with open(os.path.join(work, 'evaluation_scores.json'), 'w') as f:
             json.dump({'aggregated': {'acc': 1.0}, 'per_datapoint': {'acc': [1.0]}}, f)
         return work
+
     return _write
 
 
@@ -97,7 +106,10 @@ def touch_log():
     touch_log('exp', age_seconds=0) creates a fresh log; set age_seconds to age it.
     Returns the log path.
     """
-    def _touch(exp_name: str, *, age_seconds: int = 0, name: str = 'train_val.log') -> str:
+
+    def _touch(
+        exp_name: str, *, age_seconds: int = 0, name: str = 'train_val.log'
+    ) -> str:
         work = os.path.join('./logs', exp_name)
         os.makedirs(work, exist_ok=True)
         log_path = os.path.join(work, name)
@@ -107,22 +119,34 @@ def touch_log():
             t = time.time() - age_seconds
             os.utime(log_path, (t, t))
         return log_path
+
     return _touch
+
 
 @pytest.fixture
 def create_epoch_files():
-    def _create_epoch_files(work_dir: str, epoch_idx: int, validation_score: Optional[float] = None) -> None:
+    def _create_epoch_files(
+        work_dir: str, epoch_idx: int, validation_score: Optional[float] = None
+    ) -> None:
         epoch_dir = os.path.join(work_dir, f"epoch_{epoch_idx}")
         os.makedirs(epoch_dir, exist_ok=True)
 
-        torch.save({"loss": torch.tensor(0.5)}, os.path.join(epoch_dir, "training_losses.pt"))
+        torch.save(
+            {"loss": torch.tensor(0.5)}, os.path.join(epoch_dir, "training_losses.pt")
+        )
         with open(os.path.join(epoch_dir, "optimizer_buffer.json"), 'w') as f:
             json.dump({"lr": 0.001}, f)
 
-        score_value = 0.4 - epoch_idx * 0.01 if validation_score is None else validation_score
-        validation_scores = {"aggregated": {"loss": score_value}, "per_datapoint": {"loss": [score_value]}}
+        score_value = (
+            0.4 - epoch_idx * 0.01 if validation_score is None else validation_score
+        )
+        validation_scores = {
+            "aggregated": {"loss": score_value},
+            "per_datapoint": {"loss": [score_value]},
+        }
         with open(os.path.join(epoch_dir, "validation_scores.json"), 'w') as f:
             json.dump(validation_scores, f)
+
     return _create_epoch_files
 
 
@@ -137,11 +161,14 @@ def create_progress_json():
     ) -> None:
         progress_data = {
             "completed_epochs": completed_epochs,
-            "progress_percentage": 100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
+            "progress_percentage": (
+                100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0)
+            ),
             "early_stopped": early_stopped,
             "early_stopped_at_epoch": early_stopped_at_epoch,
         }
         save_json(progress_data, os.path.join(work_dir, "progress.json"))
+
     return _create_progress_json
 
 
@@ -184,6 +211,7 @@ config = {{
 """
         with open(config_path, 'w') as f:
             f.write(content)
+
     return _create_real_config
 
 
@@ -202,18 +230,66 @@ def create_system_monitor_with_processes():
         ])
         manager = Manager(commands=[...], system_monitors=monitors, ...)
     """
+
     class LocalSystemMonitor(SystemMonitor):
-        def __init__(self, server: str, window_size: int, gpus):
-            super().__init__(server=server, window_size=window_size)
-            self._local_connected_gpus = gpus
+        def __init__(
+            self,
+            server: str,
+            gpu_processes: List[ProcessInfo],
+            cpu_processes: List[ProcessInfo],
+        ):
+            # Do not call super().__init__; we only need minimal data for tests.
+            self.server = server
+            self.timeout = 5
+            self.window_size = 10
+            self.cpu_monitor = None
+            self.gpu_monitors = {}
+            self._monitoring_started = False
+            self._connected_gpus = [
+                GPUStatus(
+                    server=server,
+                    index=0,
+                    window_size=self.window_size,
+                    max_memory=0,
+                    processes=gpu_processes,
+                    connected=True,
+                )
+            ]
+            self._connected_cpu = CPUStatus(
+                server=server,
+                window_size=self.window_size,
+                max_memory=0,
+                processes=cpu_processes,
+                memory_window=[],
+                cpu_window=[],
+                load_window=[],
+                memory_stats=None,
+                cpu_stats=None,
+                load_stats=None,
+                connected=bool(cpu_processes),
+            ) if cpu_processes else None
+
         @property
-        def connected_gpus(self):
-            return self._local_connected_gpus
+        def connected_gpus(self) -> List[GPUStatus]:
+            return self._connected_gpus
+
+        @property
+        def connected_cpu(self) -> Optional[CPUStatus]:
+            return self._connected_cpu
+
+        def stop(self) -> None:  # pragma: no cover - inert for test stub
+            return
 
     def _factory(cmds):
-        processes = [ProcessInfo(pid=str(i+1), user='u', cmd=cmd, start_time='t') for i, cmd in enumerate(cmds)]
-        gpus = [GPUStatus(server='localhost', index=0, window_size=10, max_memory=0, processes=processes, connected=True)]
-        sm = LocalSystemMonitor(server='localhost', window_size=10, gpus=gpus)
-        return {'localhost': sm}
+        gpu_processes = [
+            ProcessInfo(pid=str(i + 1), user='u', cmd=cmd, start_time='t')
+            for i, cmd in enumerate(cmds)
+        ]
+        monitor = LocalSystemMonitor(
+            server='localhost',
+            gpu_processes=gpu_processes,
+            cpu_processes=[],
+        )
+        return {'localhost': monitor}
 
     return _factory
