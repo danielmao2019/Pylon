@@ -5,7 +5,6 @@ logs
 data/datasets/soft_links
 agents/snapshots
 agents/summaries
-project
 
 # Python packaging
 *.egg-info/
