@@ -12,8 +12,12 @@ def load_image(
     filepaths: Optional[Union[str, List[str]]] = None,
     height: Optional[int] = None,
     width: Optional[int] = None,
-    sub: Optional[Union[float, int, Sequence[float], Sequence[int], torch.Tensor]] = None,
-    div: Optional[Union[float, int, Sequence[float], Sequence[int], torch.Tensor]] = None,
+    sub: Optional[
+        Union[float, int, Sequence[float], Sequence[int], torch.Tensor]
+    ] = None,
+    div: Optional[
+        Union[float, int, Sequence[float], Sequence[int], torch.Tensor]
+    ] = None,
     normalization: Optional[Literal["min-max", "mean-std"]] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> torch.Tensor:
@@ -93,7 +97,9 @@ def _load_image(filepath: str) -> torch.Tensor:
         image = torch.from_numpy(numpy.array(image, dtype=numpy.int32))
         assert image.ndim == 2, f"{image.shape=}"
     else:
-        raise NotImplementedError(f"Conversion from PIL image to PyTorch tensor not implemented for {mode=}.")
+        raise NotImplementedError(
+            f"Conversion from PIL image to PyTorch tensor not implemented for {mode=}."
+        )
     return image
 
 
@@ -116,8 +122,9 @@ def _load_multispectral_image(
     # input checks
     if isinstance(filepaths, str):
         filepaths = [filepaths]
-    assert isinstance(filepaths, list), \
-        f"'filepaths' must be a list. Got {type(filepaths)}."
+    assert isinstance(
+        filepaths, list
+    ), f"'filepaths' must be a list. Got {type(filepaths)}."
     for path in filepaths:
         check_read_file(path=path, ext=['.tif', '.tiff'])
     if len(filepaths) == 0:
@@ -153,7 +160,10 @@ def _load_multispectral_image(
             width = max(band.size(2) for band in bands)
 
         # Resize bands and concatenate
-        resized_bands = [torchvision.transforms.functional.resize(band, size=(height, width)) for band in bands]
+        resized_bands = [
+            torchvision.transforms.functional.resize(band, size=(height, width))
+            for band in bands
+        ]
         return torch.cat(resized_bands, dim=0)
 
 
@@ -166,10 +176,15 @@ def _normalize(
     """Normalize the image using subtraction, division, min-max, or mean-std normalization."""
     # input checks
     assert isinstance(image, torch.Tensor)
-    assert normalization in {None, "min-max", "mean-std"}, f"Invalid normalization method: {normalization}"
-    assert all((
-        arg is None or isinstance(arg, (float, int, list, tuple, torch.Tensor))
-    ) for arg in [sub, div])
+    assert normalization in {
+        None,
+        "min-max",
+        "mean-std",
+    }, f"Invalid normalization method: {normalization}"
+    assert all(
+        (arg is None or isinstance(arg, (float, int, list, tuple, torch.Tensor)))
+        for arg in [sub, div]
+    )
     if normalization and (sub is not None or div is not None):
         raise ValueError("'normalization' cannot be used together with 'sub' or 'div'.")
 
@@ -192,12 +207,18 @@ def _normalize(
         return value_tensor.view(-1, 1, 1) if ndim == 3 else value_tensor
 
     if sub is not None:
-        sub_tensor = prepare_tensor(sub, image.size(0) if image.ndim == 3 else 1, image.ndim)
+        sub_tensor = prepare_tensor(
+            sub, image.size(0) if image.ndim == 3 else 1, image.ndim
+        )
         image = image - sub_tensor
 
     if div is not None:
-        div_tensor = prepare_tensor(div, image.size(0) if image.ndim == 3 else 1, image.ndim)
-        div_tensor = torch.where(div_tensor.abs() < 1.0e-6, 1.0e-6, div_tensor)  # Avoid division by zero issues
+        div_tensor = prepare_tensor(
+            div, image.size(0) if image.ndim == 3 else 1, image.ndim
+        )
+        div_tensor = torch.where(
+            div_tensor.abs() < 1.0e-6, 1.0e-6, div_tensor
+        )  # Avoid division by zero issues
         image = image / div_tensor
 
     if normalization == "min-max":
@@ -206,7 +227,9 @@ def _normalize(
 
     elif normalization == "mean-std":
         mean_val, std_val = image.mean(), image.std()
-        std_val = torch.where(std_val < 1.0e-6, 1.0e-6, std_val)  # Avoid division by zero
+        std_val = torch.where(
+            std_val < 1.0e-6, 1.0e-6, std_val
+        )  # Avoid division by zero
         image = (image - mean_val) / std_val
 
     return image
@@ -219,4 +242,6 @@ def save_image(tensor: torch.Tensor, filepath: str) -> None:
     elif tensor.ndim == 2 and tensor.dtype == torch.uint8:
         Image.fromarray(tensor.numpy()).save(filepath)
     else:
-        raise NotImplementedError(f"Unrecognized tensor format: shape={tensor.shape}, dtype={tensor.dtype}.")
+        raise NotImplementedError(
+            f"Unrecognized tensor format: shape={tensor.shape}, dtype={tensor.dtype}."
+        )

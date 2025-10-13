@@ -10,13 +10,13 @@ _config_cache_lock = threading.Lock()
 
 def load_config(config_path: str) -> Dict[str, Any]:
     """Thread-safe config loading with caching to prevent import deadlocks.
-    
+
     This function prevents Python import deadlocks that occur when multiple threads
     try to import the same modules simultaneously during concurrent config loading.
-    
+
     Args:
         config_path: Path to the .py config file
-        
+
     Returns:
         The config dictionary from the loaded module
     """
