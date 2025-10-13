@@ -1,4 +1,3 @@
-
 """Euler angles rotation utilities.
 
 This module provides functions for converting between Euler angles and rotation matrices,
@@ -38,9 +37,7 @@ def euler_canonical(angles: torch.Tensor) -> torch.Tensor:
     return torch.tensor([alpha, beta, gamma], dtype=angles.dtype, device=angles.device)
 
 
-def euler_to_matrix(
-    angles: torch.Tensor
-) -> torch.Tensor:
+def euler_to_matrix(angles: torch.Tensor) -> torch.Tensor:
     """Convert Euler angles to rotation matrix using XYZ convention.
 
     Args:
@@ -52,7 +49,7 @@ def euler_to_matrix(
     """
     # Extract individual angles for XYZ convention
     alpha = angles[0]  # X rotation
-    beta = angles[1]   # Y rotation
+    beta = angles[1]  # Y rotation
     gamma = angles[2]  # Z rotation
 
     # Compute trigonometric values
@@ -61,25 +58,19 @@ def euler_to_matrix(
     cg, sg = torch.cos(gamma), torch.sin(gamma)
 
     # Rotation around X axis
-    R_x = torch.tensor([
-        [1, 0, 0],
-        [0, ca, -sa],
-        [0, sa, ca]
-    ], dtype=angles.dtype, device=angles.device)
+    R_x = torch.tensor(
+        [[1, 0, 0], [0, ca, -sa], [0, sa, ca]], dtype=angles.dtype, device=angles.device
+    )
 
     # Rotation around Y axis
-    R_y = torch.tensor([
-        [cb, 0, sb],
-        [0, 1, 0],
-        [-sb, 0, cb]
-    ], dtype=angles.dtype, device=angles.device)
+    R_y = torch.tensor(
+        [[cb, 0, sb], [0, 1, 0], [-sb, 0, cb]], dtype=angles.dtype, device=angles.device
+    )
 
     # Rotation around Z axis
-    R_z = torch.tensor([
-        [cg, -sg, 0],
-        [sg, cg, 0],
-        [0, 0, 1]
-    ], dtype=angles.dtype, device=angles.device)
+    R_z = torch.tensor(
+        [[cg, -sg, 0], [sg, cg, 0], [0, 0, 1]], dtype=angles.dtype, device=angles.device
+    )
 
     # Compose rotations: R = Rx @ Ry @ Rz
     # Applied in reverse order: Z first, then Y, then X
@@ -88,10 +79,7 @@ def euler_to_matrix(
     return R
 
 
-def matrix_to_euler(
-    R: torch.Tensor,
-    eps: float = 1e-6
-) -> torch.Tensor:
+def matrix_to_euler(R: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     """Extract Euler angles from rotation matrix using XYZ convention.
 
     Returns canonical form where Y rotation is constrained to [-pi/2, +pi/2]
@@ -107,7 +95,7 @@ def matrix_to_euler(
         Y rotation is constrained to [-pi/2, +pi/2] for canonical form
     """
     # Check for gimbal lock
-    sy = torch.sqrt(R[0, 0]**2 + R[1, 0]**2)
+    sy = torch.sqrt(R[0, 0] ** 2 + R[1, 0] ** 2)
 
     singular = sy < eps  # Gimbal lock when cos(beta) ≈ 0
 
@@ -121,8 +109,8 @@ def matrix_to_euler(
 
     else:
         # Gimbal lock case - lose one degree of freedom
-        alpha = torch.atan2(R[2, 1], R[1, 1])   # X rotation
-        beta = torch.atan2(R[0, 2], sy)         # Y rotation
+        alpha = torch.atan2(R[2, 1], R[1, 1])  # X rotation
+        beta = torch.atan2(R[0, 2], sy)  # Y rotation
         gamma = torch.tensor(0.0, dtype=R.dtype, device=R.device)  # Z rotation = 0
 
     angles = torch.tensor([alpha, beta, gamma], dtype=R.dtype, device=R.device)

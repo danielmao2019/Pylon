@@ -7,8 +7,7 @@ NUMERICAL_STABILITY = 1.0e-07
 
 
 def get_gram_matrix(
-    grad_list: List[torch.Tensor],
-    other: List[torch.Tensor] = None
+    grad_list: List[torch.Tensor], other: List[torch.Tensor] = None
 ) -> torch.Tensor:
     r"""This function computes a matrix whose (i, j)-th entry is torch.dot(grad_list[i], other[j]).
     other is default to grad_list so the output would be the true Gram matrix of grad_list.
@@ -23,7 +22,9 @@ def get_gram_matrix(
     # initialization
     num_tasks = len(grad_list)
     # compute result
-    result = torch.zeros(size=(num_tasks, num_tasks), dtype=torch.float32, device=torch.device('cuda'))
+    result = torch.zeros(
+        size=(num_tasks, num_tasks), dtype=torch.float32, device=torch.device('cuda')
+    )
     for i in range(num_tasks):
         loop = range(i, num_tasks) if other is None else range(num_tasks)
         for j in loop:
@@ -40,13 +41,14 @@ def get_gram_matrix(
 def get_cosine_matrix(
     grads_list: List[torch.Tensor],
 ) -> torch.Tensor:
-    r"""This function computes a matrix whose (i, j)-th entry is torch.nn.CosineSimilarity(dim=0)(grad_list[i], grad_list[j]).
-    """
+    r"""This function computes a matrix whose (i, j)-th entry is torch.nn.CosineSimilarity(dim=0)(grad_list[i], grad_list[j])."""
     assert type(grads_list) == list, f"{type(grads_list)=}"
     assert all([type(elem) == torch.Tensor for elem in grads_list])
     assert all([elem.ndim == 1 for elem in grads_list])
     return apply_pairwise(
-        func=torch.nn.CosineSimilarity(dim=0), inputs=grads_list, symmetric=True,
+        func=torch.nn.CosineSimilarity(dim=0),
+        inputs=grads_list,
+        symmetric=True,
     )
 
 
@@ -71,7 +73,9 @@ def get_entropy(
     assert not torch.any(torch.isnan(stack))
     assert 0 <= stack.min() <= stack.max() <= 1, f"{stack.min()=}, {stack.max()=}"
     # compute entropy
-    entropy = -torch.sum(stack * torch.log(stack + NUMERICAL_STABILITY), dim=0, keepdim=False)
+    entropy = -torch.sum(
+        stack * torch.log(stack + NUMERICAL_STABILITY), dim=0, keepdim=False
+    )
     assert len(entropy.shape) == 1, f"{entropy.shape=}"
     assert not torch.any(torch.isnan(entropy))
     assert entropy.min() >= 0, f"{entropy.min()=}"

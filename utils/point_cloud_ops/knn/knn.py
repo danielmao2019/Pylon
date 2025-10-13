@@ -18,7 +18,7 @@ def knn(
     chunk_size: Optional[int] = None,
 ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
     """Compute k-nearest neighbors using various backends.
-    
+
     Args:
         query_points: Query point cloud [N, D] where D is dimension (usually 3)
         reference_points: Reference point cloud [M, D]
@@ -27,11 +27,11 @@ def knn(
             The winner was "pytorch3d", based on the benchmark results, so set as default.
         return_distances: If True, return (distances, indices). If False, return only indices
         radius: Radius for neighborhood search (mutually exclusive with k)
-        
+
     Returns:
         If return_distances=True: (distances, indices)
         If return_distances=False: indices only
-        
+
     Notes:
         - Exactly one of k or radius must be specified (not both, not neither)
         - If k is provided: return k nearest neighbors (inf distance and -1 index for no match)
@@ -40,21 +40,38 @@ def knn(
     # Use check_pc_xyz for point cloud validation
     check_pc_xyz(query_points)
     check_pc_xyz(reference_points)
-    
-    assert query_points.dtype == reference_points.dtype, f"dtype mismatch: {query_points.dtype} vs {reference_points.dtype}"
-    assert query_points.device == reference_points.device, f"device mismatch: {query_points.device} vs {reference_points.device}"
+
+    assert (
+        query_points.dtype == reference_points.dtype
+    ), f"dtype mismatch: {query_points.dtype} vs {reference_points.dtype}"
+    assert (
+        query_points.device == reference_points.device
+    ), f"device mismatch: {query_points.device} vs {reference_points.device}"
     assert k is None or isinstance(k, int), f"k must be None or int, got {type(k)}"
     assert k is None or k > 0, f"k must be positive if provided, got {k}"
-    assert method in ["faiss", "pytorch3d", "torch", "scipy"], f"Unknown method: {method}"
-    assert isinstance(return_distances, bool), f"return_distances must be bool, got {type(return_distances)}"
-    assert radius is None or isinstance(radius, (int, float)), f"radius must be None or numeric, got {type(radius)}"
-    assert radius is None or radius > 0, f"radius must be positive if provided, got {radius}"
-    
+    assert method in [
+        "faiss",
+        "pytorch3d",
+        "torch",
+        "scipy",
+    ], f"Unknown method: {method}"
+    assert isinstance(
+        return_distances, bool
+    ), f"return_distances must be bool, got {type(return_distances)}"
+    assert radius is None or isinstance(
+        radius, (int, float)
+    ), f"radius must be None or numeric, got {type(radius)}"
+    assert (
+        radius is None or radius > 0
+    ), f"radius must be positive if provided, got {radius}"
+
     # k and radius are mutually exclusive
-    assert (k is None) != (radius is None), "Exactly one of k or radius must be specified, not both or neither"
-    
+    assert (k is None) != (
+        radius is None
+    ), "Exactly one of k or radius must be specified, not both or neither"
+
     device = query_points.device
-    
+
     if method == "faiss":
         distances, indices = _knn_faiss(
             query_points=query_points,
@@ -75,34 +92,47 @@ def knn(
             query_points=query_points,
             reference_points=reference_points,
             k=k,
-            radius=radius
+            radius=radius,
         )
     elif method == "scipy":
         distances, indices = _knn_scipy(
             query_points=query_points,
             reference_points=reference_points,
             k=k,
-            radius=radius
+            radius=radius,
         )
-    
+
     # Convert numpy to torch if needed
     if not isinstance(distances, torch.Tensor):
-        assert isinstance(distances, np.ndarray), f"Expected np.ndarray, got {type(distances)}"
+        assert isinstance(
+            distances, np.ndarray
+        ), f"Expected np.ndarray, got {type(distances)}"
         distances = torch.from_numpy(distances).to(device)
     if not isinstance(indices, torch.Tensor):
-        assert isinstance(indices, np.ndarray), f"Expected np.ndarray, got {type(indices)}"
+        assert isinstance(
+            indices, np.ndarray
+        ), f"Expected np.ndarray, got {type(indices)}"
         indices = torch.from_numpy(indices).to(device)
-    
+
     # Ensure correct types
-    assert distances.dtype in [torch.float32, torch.float64], f"Distances have wrong dtype: {distances.dtype}"
+    assert distances.dtype in [
+        torch.float32,
+        torch.float64,
+    ], f"Distances have wrong dtype: {distances.dtype}"
     indices = indices.long()
-    
+
     # Shape validation depends on whether using k-NN or radius search
     if k is not None:
-        assert distances.shape == (query_points.shape[0], k), f"Wrong distances shape for k-NN: {distances.shape}"
-        assert indices.shape == (query_points.shape[0], k), f"Wrong indices shape for k-NN: {indices.shape}"
+        assert distances.shape == (
+            query_points.shape[0],
+            k,
+        ), f"Wrong distances shape for k-NN: {distances.shape}"
+        assert indices.shape == (
+            query_points.shape[0],
+            k,
+        ), f"Wrong indices shape for k-NN: {indices.shape}"
     # For radius search, shape can vary per query point
-    
+
     if return_distances:
         return distances, indices
     else:

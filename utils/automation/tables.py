@@ -26,7 +26,9 @@ INDENTATION = ' ' * 4
 
 
 def compile_tabular(
-    data: List[List[str]], row_names: List[str], col_names: List[str],
+    data: List[List[str]],
+    row_names: List[str],
+    col_names: List[str],
 ) -> str:
     # input checks
     assert type(data) == list, f"{type(data)=}"

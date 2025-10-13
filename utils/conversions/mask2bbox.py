@@ -3,8 +3,7 @@ import torch
 
 
 def mask2bbox(mask: torch.Tensor) -> Tuple[int, int, int, int]:
-    r"""Draws the tightest bounding box around the region with `True` values.
-    """
+    r"""Draws the tightest bounding box around the region with `True` values."""
     assert type(mask) == torch.Tensor, f"{type(mask)=}"
     assert mask.dim() == 2, f"{mask.shape=}"
     assert mask.dtype == torch.bool, f"{mask.dtype=}"

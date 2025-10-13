@@ -13,11 +13,12 @@ def set_determinism() -> None:
 
 def set_seed(seed: Any) -> None:
     """Set seed for all random number generators.
-    
+
     Args:
         seed: Any hashable object to use as seed.
     """
     from utils.determinism.hash_utils import convert_to_seed
+
     seed = convert_to_seed(seed)
     random.seed(seed)
     numpy.random.seed(seed)
@@ -35,7 +36,7 @@ def get_random_states() -> Dict[str, Any]:
 
 def set_random_states(states: Dict[str, Any]) -> None:
     """Set states of all random number generators.
-    
+
     Args:
         states: Dictionary containing states for each random number generator.
     """

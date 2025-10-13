@@ -23,7 +23,7 @@ class CylinderSampling:
         radius: float,
         center: Union[torch.Tensor, np.ndarray],
         align_origin: bool = True,
-        device: Optional[torch.device] = None
+        device: Optional[torch.device] = None,
     ) -> None:
         if radius <= 0:
             raise ValueError("Radius must be positive")
@@ -32,7 +32,9 @@ class CylinderSampling:
         self._center = torch.as_tensor(center, device=device).view(1, -1)
         self._align_origin = align_origin
 
-    def __call__(self, kdtree: KDTree, data_dict: Dict[str, torch.Tensor]) -> Dict[str, Any]:
+    def __call__(
+        self, kdtree: KDTree, data_dict: Dict[str, torch.Tensor]
+    ) -> Dict[str, Any]:
         """Sample points within the cylinder.
 
         Args:
@@ -58,10 +60,14 @@ class CylinderSampling:
         print(f"  Center: {self._center}")
         print(f"  Radius: {self._radius}")
         print(f"  Input points shape: {data_dict['pos'].shape}")
-        print(f"  Input points bounds: min={data_dict['pos'].min(0)[0]}, max={data_dict['pos'].max(0)[0]}")
+        print(
+            f"  Input points bounds: min={data_dict['pos'].min(0)[0]}, max={data_dict['pos'].max(0)[0]}"
+        )
 
         # Query points within radius - still need to convert to numpy for scikit-learn KDTree
-        indices = torch.LongTensor(kdtree.query_radius(self._center.cpu().numpy(), r=self._radius)[0])
+        indices = torch.LongTensor(
+            kdtree.query_radius(self._center.cpu().numpy(), r=self._radius)[0]
+        )
         print(f"  Found {len(indices)} points within radius")
 
         if len(indices) == 0:
@@ -76,12 +82,9 @@ class CylinderSampling:
         sampled_pos = pos[indices]
         if self._align_origin:
             sampled_pos = sampled_pos.clone()
-            sampled_pos[:, :self._center.shape[1]] -= self._center
+            sampled_pos[:, : self._center.shape[1]] -= self._center
 
-        result_dict = {
-            'pos': sampled_pos,
-            'point_idx': indices
-        }
+        result_dict = {'pos': sampled_pos, 'point_idx': indices}
 
         # Sample change map if present
         if 'change_map' in data_dict:
@@ -91,5 +94,8 @@ class CylinderSampling:
 
     def __repr__(self) -> str:
         return "{}(radius={}, center={}, align_origin={})".format(
-            self.__class__.__name__, self._radius, self._center.tolist(), self._align_origin
+            self.__class__.__name__,
+            self._radius,
+            self._center.tolist(),
+            self._align_origin,
         )

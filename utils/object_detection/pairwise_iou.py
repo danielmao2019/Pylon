@@ -1,5 +1,5 @@
-"""Implementation largely based on https://github.com/facebookresearch/detectron2/blob/main/detectron2/structures/boxes.py.
-"""
+"""Implementation largely based on https://github.com/facebookresearch/detectron2/blob/main/detectron2/structures/boxes.py."""
+
 import torch
 
 
@@ -21,10 +21,15 @@ def pairwise_intersection(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.T
     assert type(boxes2) == torch.Tensor, f"{type(boxes2)=}"
     assert boxes2.dim() == 2 and boxes2.shape[1] == 4, f"{boxes2.shape=}"
     # compute intersection
-    width_height = torch.min(boxes1[:, None, 2:], boxes2[:, 2:]) - torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
+    width_height = torch.min(boxes1[:, None, 2:], boxes2[:, 2:]) - torch.max(
+        boxes1[:, None, :2], boxes2[:, :2]
+    )  # [N,M,2]
     width_height.clamp_(min=0)  # [N,M,2]
     intersection = width_height.prod(dim=2)  # [N,M]
-    assert intersection.shape == (len(boxes1), len(boxes2)), f"{intersection.shape=}, {boxes1.shape=}, {boxes2.shape=}"
+    assert intersection.shape == (
+        len(boxes1),
+        len(boxes2),
+    ), f"{intersection.shape=}, {boxes1.shape=}, {boxes2.shape=}"
     assert torch.all(intersection >= 0), f"{intersection.min()=}, {intersection.max()=}"
     return intersection
 

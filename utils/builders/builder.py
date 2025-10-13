@@ -40,7 +40,9 @@ def build_from_config(config: Any, **kwargs) -> Any:
 
         # merge args
         assert type(kwargs) == dict, f"{type(kwargs)=}"
-        assert set(config_copy.keys()) & set(kwargs.keys()) == set(), f"{config_copy.keys()=}, {kwargs.keys()=}"
+        assert (
+            set(config_copy.keys()) & set(kwargs.keys()) == set()
+        ), f"{config_copy.keys()=}, {kwargs.keys()=}"
         config_copy['args'].update(kwargs)
 
         # build args

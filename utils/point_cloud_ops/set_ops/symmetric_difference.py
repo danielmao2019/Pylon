@@ -6,26 +6,32 @@ from utils.input_checks.check_point_cloud import check_pc_xyz
 
 def _normalize_points(points: torch.Tensor) -> torch.Tensor:
     """Normalize points to unbatched format (N, 3) while preserving type.
-    
+
     Args:
         points: Input points, either [N, 3] or [1, N, 3]
-        
+
     Returns:
         Normalized points with shape (N, 3), same type as input
     """
     if points.ndim == 2:
         # Points are unbatched [N, 3]
-        assert points.shape[1] == 3, f"Points must have 3 coordinates, got shape {points.shape}"
+        assert (
+            points.shape[1] == 3
+        ), f"Points must have 3 coordinates, got shape {points.shape}"
         return points
     elif points.ndim == 3:
         # Points are batched [B, N, 3]
         assert points.shape[0] == 1, f"Batch size must be 1, got shape {points.shape}"
-        assert points.shape[2] == 3, f"Points must have 3 coordinates, got shape {points.shape}"
-        
+        assert (
+            points.shape[2] == 3
+        ), f"Points must have 3 coordinates, got shape {points.shape}"
+
         # Squeeze batch dimension
         return points.squeeze(0)
     else:
-        raise ValueError(f"Points must have 2 or 3 dimensions, got shape {points.shape}")
+        raise ValueError(
+            f"Points must have 2 or 3 dimensions, got shape {points.shape}"
+        )
 
 
 def pc_symmetric_difference(
@@ -64,9 +70,9 @@ def pc_symmetric_difference(
         query_points=src_pc_normalized,
         reference_points=tgt_pc_normalized,
         k=1,  # Find nearest neighbor
-        return_distances=True
+        return_distances=True,
     )
-    
+
     # Source points beyond radius are in symmetric difference
     src_diff_mask = distances_src_to_tgt.squeeze(1) > radius
     src_indices = torch.where(src_diff_mask)[0]
@@ -77,9 +83,9 @@ def pc_symmetric_difference(
         query_points=tgt_pc_normalized,
         reference_points=src_pc_normalized,
         k=1,  # Find nearest neighbor
-        return_distances=True
+        return_distances=True,
     )
-    
+
     # Target points beyond radius are in symmetric difference
     tgt_diff_mask = distances_tgt_to_src.squeeze(1) > radius
     tgt_indices = torch.where(tgt_diff_mask)[0]

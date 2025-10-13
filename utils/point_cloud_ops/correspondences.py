@@ -34,9 +34,15 @@ def get_correspondences(
     else:
         tgt_points = target
 
-    assert src_points.device == tgt_points.device, f"{src_points.device=}, {tgt_points.device=}"
-    assert transform is None or (isinstance(transform, torch.Tensor) and transform.shape == (4, 4)), f"Invalid transform shape: {transform.shape if transform is not None else None}"
-    assert isinstance(radius, (int, float)) and radius > 0, f"radius must be positive number, got {radius}"
+    assert (
+        src_points.device == tgt_points.device
+    ), f"{src_points.device=}, {tgt_points.device=}"
+    assert transform is None or (
+        isinstance(transform, torch.Tensor) and transform.shape == (4, 4)
+    ), f"Invalid transform shape: {transform.shape if transform is not None else None}"
+    assert (
+        isinstance(radius, (int, float)) and radius > 0
+    ), f"radius must be positive number, got {radius}"
 
     # Transform source points to reference frame if transform provided
     if transform is not None:

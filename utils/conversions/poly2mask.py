@@ -3,7 +3,9 @@ import numpy as np
 import pycocotools.mask as maskUtils
 
 
-def poly2mask(mask_ann: Union[List[List[float]], Dict[str, Any]], img_h: int, img_w: int) -> np.ndarray:
+def poly2mask(
+    mask_ann: Union[List[List[float]], Dict[str, Any]], img_h: int, img_w: int
+) -> np.ndarray:
     """Convert masks represented with polygon to bitmaps.
 
     Args:

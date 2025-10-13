@@ -11,6 +11,7 @@ class ScreenLogger(BaseLogger):
     A logger that displays the last N iterations in a structured format on the screen.
     Uses rich for a live-updating display of training metrics.
     """
+
     def __init__(
         self,
         max_iterations: int = 10,
@@ -111,7 +112,13 @@ class ScreenLogger(BaseLogger):
 
                 # Write to log file
                 if self.filepath:
-                    string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+                    string = (
+                        content
+                        + " "
+                        + ", ".join(
+                            [f"{key}: {val}" for key, val in self.buffer.items()]
+                        )
+                    )
                     with open(self.filepath, 'a') as f:
                         f.write(string + "\n")
 
@@ -129,7 +136,10 @@ class ScreenLogger(BaseLogger):
             if self.layout == "train":
                 # Get all loss values
                 if self.loss_columns:
-                    loss_values = [self._format_value(data.get(col, "-")) for col in self.loss_columns]
+                    loss_values = [
+                        self._format_value(data.get(col, "-"))
+                        for col in self.loss_columns
+                    ]
                 else:
                     loss_values = [self._format_value(data.get("loss", "-"))]
 
@@ -139,12 +149,15 @@ class ScreenLogger(BaseLogger):
                     *loss_values,  # Unpack loss values
                     self._format_value(data.get("iteration_time")),
                     self._format_value(data.get("memory_max", "-")),
-                    self._format_value(data.get("util_avg", "-"))
+                    self._format_value(data.get("util_avg", "-")),
                 )
             else:  # eval layout
                 # Get all score values
                 if self.score_columns:
-                    score_values = [self._format_value(data.get(col, "-")) for col in self.score_columns]
+                    score_values = [
+                        self._format_value(data.get(col, "-"))
+                        for col in self.score_columns
+                    ]
                 else:
                     score_values = [self._format_value(data.get("score", "-"))]
 
@@ -153,7 +166,7 @@ class ScreenLogger(BaseLogger):
                     *score_values,  # Unpack score values
                     self._format_value(data.get("iteration_time")),
                     self._format_value(data.get("memory_max", "-")),
-                    self._format_value(data.get("util_avg", "-"))
+                    self._format_value(data.get("util_avg", "-")),
                 )
 
     def _create_table(self) -> Table:
@@ -167,7 +180,9 @@ class ScreenLogger(BaseLogger):
             if self.loss_columns:
                 # Add sub-columns for each loss
                 for col in self.loss_columns:
-                    table.add_column(col.replace("loss_", ""), justify="right", style="red")
+                    table.add_column(
+                        col.replace("loss_", ""), justify="right", style="red"
+                    )
             else:
                 table.add_column("Losses", justify="right", style="red")
         else:  # eval layout
@@ -175,7 +190,9 @@ class ScreenLogger(BaseLogger):
             if self.score_columns:
                 # Add sub-columns for each score
                 for col in self.score_columns:
-                    table.add_column(col.replace("score_", ""), justify="right", style="red")
+                    table.add_column(
+                        col.replace("score_", ""), justify="right", style="red"
+                    )
             else:
                 table.add_column("Scores", justify="right", style="red")
 
@@ -197,7 +214,9 @@ class ScreenLogger(BaseLogger):
                 # Second row: empty cells for non-hierarchical columns, individual loss names
                 header_row2 = ["", ""]  # Empty cells for Iteration and Learning Rate
                 # Add individual loss names
-                header_row2.extend([col.replace("loss_", "") for col in self.loss_columns])
+                header_row2.extend(
+                    [col.replace("loss_", "") for col in self.loss_columns]
+                )
                 # Add empty cells for remaining columns
                 header_row2.extend([""] * (len(table.columns) - len(header_row2)))
                 table.add_row(*header_row2)
@@ -214,7 +233,9 @@ class ScreenLogger(BaseLogger):
                 # Second row: empty cell for Iteration, individual score names
                 header_row2 = [""]  # Empty cell for Iteration
                 # Add individual score names
-                header_row2.extend([col.replace("score_", "") for col in self.score_columns])
+                header_row2.extend(
+                    [col.replace("score_", "") for col in self.score_columns]
+                )
                 # Add empty cells for remaining columns
                 header_row2.extend([""] * (len(table.columns) - len(header_row2)))
                 table.add_row(*header_row2)

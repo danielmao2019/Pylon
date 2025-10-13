@@ -3,11 +3,15 @@ import schedulers
 from utils.builders import build_from_config
 
 
-def build_scheduler(trainer: "runners.BaseTrainer", cfg: dict) -> torch.optim.lr_scheduler._LRScheduler:
+def build_scheduler(
+    trainer: "runners.BaseTrainer", cfg: dict
+) -> torch.optim.lr_scheduler._LRScheduler:
     assert isinstance(cfg, dict) and set(cfg.keys()) == {'class', 'args'}
     cfg['args']['optimizer'] = trainer.optimizer.optimizer
     if cfg['class'] == torch.optim.lr_scheduler.LambdaLR:
-        assert set(cfg['args'].keys()).issubset({'optimizer', 'lr_lambda'}), f"{cfg['args'].keys()=}"
+        assert set(cfg['args'].keys()).issubset(
+            {'optimizer', 'lr_lambda'}
+        ), f"{cfg['args'].keys()=}"
         lr_lambda_cfg = cfg['args']['lr_lambda']
         if lr_lambda_cfg['class'] == schedulers.lr_lambdas.ConstantLambda:
             pass
@@ -24,7 +28,9 @@ def build_scheduler(trainer: "runners.BaseTrainer", cfg: dict) -> torch.optim.lr
     elif cfg['class'] == torch.optim.lr_scheduler.ConstantLR:
         pass
     elif cfg['class'] == torch.optim.lr_scheduler.PolynomialLR:
-        assert set(cfg['args'].keys()).issubset({'optimizer', 'total_iters', 'power'}), f"{cfg['args'].keys()=}"
+        assert set(cfg['args'].keys()).issubset(
+            {'optimizer', 'total_iters', 'power'}
+        ), f"{cfg['args'].keys()=}"
         cfg['args']['total_iters'] = len(trainer.train_dataloader) * trainer.tot_epochs
     else:
         raise NotImplementedError

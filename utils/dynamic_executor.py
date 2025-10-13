@@ -12,6 +12,7 @@ from dataclasses import dataclass
 @dataclass
 class WorkerStats:
     """Statistics for tracking worker performance."""
+
     worker_id: int
     tasks_completed: int = 0
     total_time: float = 0.0
@@ -22,7 +23,9 @@ class WorkerStats:
 class DynamicWorker(threading.Thread):
     """A worker thread that can be dynamically started."""
 
-    def __init__(self, worker_id: int, task_queue: queue.Queue, result_callback: Callable):
+    def __init__(
+        self, worker_id: int, task_queue: queue.Queue, result_callback: Callable
+    ):
         super().__init__(daemon=True)
         self.worker_id = worker_id
         self.task_queue = task_queue
@@ -128,7 +131,9 @@ class DynamicThreadPoolExecutor:
 
         # Utilization tracking for smart scaling decisions
         self._last_resource_check = 0
-        self._worker_utilization_impacts: List[Dict[str, float]] = []  # Track impact of each worker addition
+        self._worker_utilization_impacts: List[Dict[str, float]] = (
+            []
+        )  # Track impact of each worker addition
 
         # Start with minimum workers
         self._start_initial_workers()
@@ -154,26 +159,32 @@ class DynamicThreadPoolExecutor:
         worker = DynamicWorker(
             worker_id=worker_id,
             task_queue=self.task_queue,
-            result_callback=self._worker_completed_task
+            result_callback=self._worker_completed_task,
         )
 
         self.workers.append(worker)
         worker.start()
 
         # Schedule measurement of utilization impact after worker has had time to start work
-        timer = threading.Timer(2.0, self._measure_worker_impact, args=[worker_id, baseline_stats])
+        timer = threading.Timer(
+            2.0, self._measure_worker_impact, args=[worker_id, baseline_stats]
+        )
         timer.daemon = True  # Ensure timer thread doesn't prevent shutdown
         timer.start()
 
         return worker_id
 
-    def _worker_completed_task(self, worker_id: int, task_time: float, error: Optional[Exception] = None):
+    def _worker_completed_task(
+        self, worker_id: int, task_time: float, error: Optional[Exception] = None
+    ):
         """Callback when a worker completes a task or encounters an error."""
         with self._lock:
             if error is not None:
                 # Fail-fast: mark as failed and stop all workers
                 self._failed = True
-                logging.error(f"Worker {worker_id} failed, stopping all workers: {error}")
+                logging.error(
+                    f"Worker {worker_id} failed, stopping all workers: {error}"
+                )
 
                 # Stop all workers immediately
                 for worker in self.workers:
@@ -205,7 +216,9 @@ class DynamicThreadPoolExecutor:
                 # Use current device instead of hardcoded device 0
                 current_device = torch.cuda.current_device()
                 gpu_memory_used = torch.cuda.memory_allocated(current_device)
-                gpu_memory_total = torch.cuda.get_device_properties(current_device).total_memory
+                gpu_memory_total = torch.cuda.get_device_properties(
+                    current_device
+                ).total_memory
                 if gpu_memory_total > 0:
                     gpu_memory_percent = (gpu_memory_used / gpu_memory_total) * 100
             except Exception as e:
@@ -227,14 +240,16 @@ class DynamicThreadPoolExecutor:
 
         # Calculate the increase in utilization
         cpu_increase = current_stats['cpu_percent'] - baseline_stats['cpu_percent']
-        gpu_increase = current_stats['gpu_memory_percent'] - baseline_stats['gpu_memory_percent']
+        gpu_increase = (
+            current_stats['gpu_memory_percent'] - baseline_stats['gpu_memory_percent']
+        )
 
         # Only record positive increases (negative could be noise or other system activity)
         impact = {
             'worker_id': worker_id,
             'cpu_increase': max(0, cpu_increase),
             'gpu_increase': max(0, gpu_increase),
-            'timestamp': time.time()
+            'timestamp': time.time(),
         }
 
         with self._lock:
@@ -243,7 +258,9 @@ class DynamicThreadPoolExecutor:
             while len(self._worker_utilization_impacts) > 5:
                 self._worker_utilization_impacts.pop(0)
 
-        logging.info(f"[DynamicExecutor] Worker {worker_id} impact: CPU +{cpu_increase:.1f}%, GPU +{gpu_increase:.1f}%")
+        logging.info(
+            f"[DynamicExecutor] Worker {worker_id} impact: CPU +{cpu_increase:.1f}%, GPU +{gpu_increase:.1f}%"
+        )
 
     def _estimate_worker_impact(self) -> Dict[str, float]:
         """Estimate the average resource impact of adding a new worker."""
@@ -255,13 +272,14 @@ class DynamicThreadPoolExecutor:
             # Calculate moving averages from recent worker additions
             recent_impacts = self._worker_utilization_impacts[-3:]  # Last 3 workers
 
-            avg_cpu_increase = sum(impact['cpu_increase'] for impact in recent_impacts) / len(recent_impacts)
-            avg_gpu_increase = sum(impact['gpu_increase'] for impact in recent_impacts) / len(recent_impacts)
+            avg_cpu_increase = sum(
+                impact['cpu_increase'] for impact in recent_impacts
+            ) / len(recent_impacts)
+            avg_gpu_increase = sum(
+                impact['gpu_increase'] for impact in recent_impacts
+            ) / len(recent_impacts)
 
-            return {
-                'cpu_increase': avg_cpu_increase,
-                'gpu_increase': avg_gpu_increase
-            }
+            return {'cpu_increase': avg_cpu_increase, 'gpu_increase': avg_gpu_increase}
 
     def _should_add_worker(self, current_stats: Dict[str, float]) -> bool:
         """
@@ -278,7 +296,9 @@ class DynamicThreadPoolExecutor:
                 return False
 
             # Must have pending work to justify more workers
-            queue_has_work = not self.task_queue.empty() or self._pending_tasks > current_workers
+            queue_has_work = (
+                not self.task_queue.empty() or self._pending_tasks > current_workers
+            )
             if not queue_has_work:
                 return False
 
@@ -286,8 +306,12 @@ class DynamicThreadPoolExecutor:
             estimated_impact = self._estimate_worker_impact()
 
             # Check if adding a worker would exceed thresholds
-            projected_cpu = current_stats['cpu_percent'] + estimated_impact['cpu_increase']
-            projected_gpu = current_stats['gpu_memory_percent'] + estimated_impact['gpu_increase']
+            projected_cpu = (
+                current_stats['cpu_percent'] + estimated_impact['cpu_increase']
+            )
+            projected_gpu = (
+                current_stats['gpu_memory_percent'] + estimated_impact['gpu_increase']
+            )
 
             # Be conservative - only add if we have significant headroom
             cpu_safe = projected_cpu < (self.cpu_threshold * 0.8)  # 80% of threshold
@@ -296,18 +320,20 @@ class DynamicThreadPoolExecutor:
             # Also check if current utilization suggests we need more workers
             # If utilization is very low, we might not need more workers even with pending tasks
             utilization_suggests_need = (
-                current_stats['cpu_percent'] > 20.0 or  # Some baseline activity
-                current_stats['gpu_memory_percent'] > 5.0 or
-                self._pending_tasks > current_workers * 2  # Significant backlog
+                current_stats['cpu_percent'] > 20.0  # Some baseline activity
+                or current_stats['gpu_memory_percent'] > 5.0
+                or self._pending_tasks > current_workers * 2  # Significant backlog
             )
 
             decision = cpu_safe and gpu_safe and utilization_suggests_need
 
             if decision:
-                logging.debug(f"[DynamicExecutor] Planning to add worker: current={current_workers}, "
-                      f"CPU {current_stats['cpu_percent']:.1f}%->{projected_cpu:.1f}%, "
-                      f"GPU {current_stats['gpu_memory_percent']:.1f}%->{projected_gpu:.1f}%, "
-                      f"pending={self._pending_tasks}")
+                logging.debug(
+                    f"[DynamicExecutor] Planning to add worker: current={current_workers}, "
+                    f"CPU {current_stats['cpu_percent']:.1f}%->{projected_cpu:.1f}%, "
+                    f"GPU {current_stats['gpu_memory_percent']:.1f}%->{projected_gpu:.1f}%, "
+                    f"pending={self._pending_tasks}"
+                )
 
             return decision
 
@@ -335,7 +361,9 @@ class DynamicThreadPoolExecutor:
                         with self._lock:
                             if len(self.workers) < self.max_workers:
                                 worker_id = self._add_worker()
-                                logging.info(f"[DynamicExecutor] Added worker {worker_id}, now {len(self.workers)} total workers")
+                                logging.info(
+                                    f"[DynamicExecutor] Added worker {worker_id}, now {len(self.workers)} total workers"
+                                )
                                 self._last_scale_time = current_time
 
             except Exception as e:
@@ -357,7 +385,13 @@ class DynamicThreadPoolExecutor:
             self.task_queue.put(task_item)
         return future
 
-    def map(self, fn: Callable, *iterables, timeout: Optional[float] = None, chunksize: int = 1):
+    def map(
+        self,
+        fn: Callable,
+        *iterables,
+        timeout: Optional[float] = None,
+        chunksize: int = 1,
+    ):
         """Return an iterator equivalent to map(fn, *iterables)."""
         if not iterables:
             return iter([])
@@ -367,7 +401,9 @@ class DynamicThreadPoolExecutor:
             return iter([])
 
         # Submit all tasks with their original index for order preservation
-        indexed_futures = [(i, self.submit(fn, *args)) for i, args in enumerate(args_list)]
+        indexed_futures = [
+            (i, self.submit(fn, *args)) for i, args in enumerate(args_list)
+        ]
 
         def result_iterator():
             # Collect results and sort by original index to preserve order
@@ -376,7 +412,9 @@ class DynamicThreadPoolExecutor:
 
             try:
                 future_to_index = {future: i for i, future in indexed_futures}
-                for future in as_completed([f for _, f in indexed_futures], timeout=timeout):
+                for future in as_completed(
+                    [f for _, f in indexed_futures], timeout=timeout
+                ):
                     index = future_to_index[future]
                     results[index] = future.result()
                     completed_count += 1
@@ -436,9 +474,7 @@ class DynamicThreadPoolExecutor:
 
 
 def create_dynamic_executor(
-    max_workers: Optional[int] = None,
-    min_workers: int = 1,
-    **kwargs
+    max_workers: Optional[int] = None, min_workers: int = 1, **kwargs
 ) -> DynamicThreadPoolExecutor:
     """
     Create a truly dynamic DynamicThreadPoolExecutor.
@@ -452,7 +488,5 @@ def create_dynamic_executor(
         DynamicThreadPoolExecutor that dynamically scales workers
     """
     return DynamicThreadPoolExecutor(
-        max_workers=max_workers,
-        min_workers=min_workers,
-        **kwargs
+        max_workers=max_workers, min_workers=min_workers, **kwargs
     )

@@ -14,7 +14,9 @@ def log_losses(
     elif type(losses) == dict:
         data = {f"loss_{name}": losses[name] for name in losses}
     else:
-        raise TypeError(f"[ERROR] Losses logging method only implemented for torch.Tensor and Dict[str, torch.Tensor]. Got {type(losses)}.")
+        raise TypeError(
+            f"[ERROR] Losses logging method only implemented for torch.Tensor and Dict[str, torch.Tensor]. Got {type(losses)}."
+        )
     return data
 
 
@@ -30,5 +32,7 @@ def log_scores(
     elif type(scores) == dict:
         data = {f"score_{name}": scores[name] for name in scores}
     else:
-        raise TypeError(f"[ERROR] Scores logging method only implemented for torch.Tensor and Dict[str, torch.Tensor]. Got {type(scores)}.")
+        raise TypeError(
+            f"[ERROR] Scores logging method only implemented for torch.Tensor and Dict[str, torch.Tensor]. Got {type(scores)}."
+        )
     return data

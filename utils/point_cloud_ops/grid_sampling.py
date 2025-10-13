@@ -67,7 +67,9 @@ def grid_sampling(
     num_points_per_pc = [pc['pos'].shape[0] for pc in pcs]
 
     # Create a list to keep track of the start index for each point cloud using cumsum
-    start_indices = [0] + torch.cumsum(torch.tensor(num_points_per_pc[:-1]), dim=0).tolist()
+    start_indices = [0] + torch.cumsum(
+        torch.tensor(num_points_per_pc[:-1]), dim=0
+    ).tolist()
 
     # Concatenate all point clouds
     points_union = torch.cat([pc['pos'] for pc in pcs], dim=0)
@@ -93,9 +95,11 @@ def grid_sampling(
     result = [[] for _ in range(len(pcs))]
 
     # Create a tensor to track which point cloud each point belongs to
-    pc_indices = torch.zeros(len(points_union), dtype=torch.long, device=points_union.device)
+    pc_indices = torch.zeros(
+        len(points_union), dtype=torch.long, device=points_union.device
+    )
     for i, (start, num_points) in enumerate(zip(start_indices, num_points_per_pc)):
-        pc_indices[start:start + num_points] = i
+        pc_indices[start : start + num_points] = i
 
     # Pre-compute masks for each point cloud to avoid redundant calculations
     pc_masks = []
@@ -112,7 +116,9 @@ def grid_sampling(
     cluster_results = {}
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Submit all tasks
-        future_to_args = {executor.submit(process_cluster, args): args for args in process_args}
+        future_to_args = {
+            executor.submit(process_cluster, args): args for args in process_args
+        }
 
         # Process results as they complete
         for future in as_completed(future_to_args):

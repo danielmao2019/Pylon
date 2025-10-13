@@ -53,7 +53,9 @@ class ConfigToFile:
             formatted_items = []
             has_multiline = False
             for item in value:
-                formatted_item = self._format_value(item, indent + 1)  # Format with proper tuple indent
+                formatted_item = self._format_value(
+                    item, indent + 1
+                )  # Format with proper tuple indent
                 formatted_items.append(formatted_item)
                 if '\n' in formatted_item:
                     has_multiline = True
@@ -118,7 +120,9 @@ class ConfigToFile:
             func_name = value.func.__name__
             if value.keywords:
                 # Create functools.partial(..., key=value, ...)
-                keyword_args = ', '.join(f'{k}={repr(v)}' for k, v in value.keywords.items())
+                keyword_args = ', '.join(
+                    f'{k}={repr(v)}' for k, v in value.keywords.items()
+                )
                 return f'functools.partial({func_name}, {keyword_args})'
             else:
                 return f'functools.partial({func_name})'
@@ -139,9 +143,15 @@ class ConfigToFile:
         elif isinstance(value, (bool, int, float, str)):
             return value
         elif isinstance(value, list):
-            return [self._analyze_value(item, f"{path}[{i}]") for i, item in enumerate(value)]
+            return [
+                self._analyze_value(item, f"{path}[{i}]")
+                for i, item in enumerate(value)
+            ]
         elif isinstance(value, tuple):
-            return tuple(self._analyze_value(item, f"{path}[{i}]") for i, item in enumerate(value))
+            return tuple(
+                self._analyze_value(item, f"{path}[{i}]")
+                for i, item in enumerate(value)
+            )
         elif isinstance(value, dict):
             if 'class' in value and hasattr(value['class'], '__module__'):
                 # This is a build_from_config style dictionary
@@ -160,7 +170,9 @@ class ConfigToFile:
                 return result
             else:
                 # Regular dictionary
-                return {k: self._analyze_value(v, f'{path}[{k}]') for k, v in value.items()}
+                return {
+                    k: self._analyze_value(v, f'{path}[{k}]') for k, v in value.items()
+                }
         elif isinstance(value, functools.partial):
             # Handle functools.partial objects
             # Add import for functools
@@ -199,7 +211,13 @@ class ConfigToFile:
         # Add from imports for standard library
         stdlib_from = {}
         for module, items in sorted(self.from_imports.items()):
-            if module != 'typing' and module.split('.')[0] in ['os', 'sys', 'copy', 'itertools', 'random']:
+            if module != 'typing' and module.split('.')[0] in [
+                'os',
+                'sys',
+                'copy',
+                'itertools',
+                'random',
+            ]:
                 stdlib_from[module] = sorted(items)
         for module, items in stdlib_from.items():
             lines.append(f"from {module} import {', '.join(items)}")
@@ -207,7 +225,15 @@ class ConfigToFile:
         # Add external package imports (numpy, torch, etc.)
         external_imports = []
         for imp in sorted(self.imports):
-            if imp not in ['os', 'sys', 'copy', 'itertools', 'random'] and not imp.startswith(('data.', 'models.', 'criteria.', 'metrics.', 'utils.')):
+            if imp not in [
+                'os',
+                'sys',
+                'copy',
+                'itertools',
+                'random',
+            ] and not imp.startswith(
+                ('data.', 'models.', 'criteria.', 'metrics.', 'utils.')
+            ):
                 external_imports.append(imp)
         for imp in external_imports:
             lines.append(f"import {imp}")
@@ -215,9 +241,23 @@ class ConfigToFile:
         # Add from imports for external packages
         external_from = {}
         for module, items in sorted(self.from_imports.items()):
-            if (module != 'typing' and
-                module.split('.')[0] not in ['os', 'sys', 'copy', 'itertools', 'random'] and
-                not module.startswith(('data.', 'models.', 'criteria.', 'metrics.', 'utils.', 'runners.', 'optimizers.', 'schedulers.'))):
+            if (
+                module != 'typing'
+                and module.split('.')[0]
+                not in ['os', 'sys', 'copy', 'itertools', 'random']
+                and not module.startswith(
+                    (
+                        'data.',
+                        'models.',
+                        'criteria.',
+                        'metrics.',
+                        'utils.',
+                        'runners.',
+                        'optimizers.',
+                        'schedulers.',
+                    )
+                )
+            ):
                 external_from[module] = sorted(items)
         for module, items in external_from.items():
             lines.append(f"from {module} import {', '.join(items)}")
@@ -225,7 +265,18 @@ class ConfigToFile:
         # Add project imports
         project_from = {}
         for module, items in sorted(self.from_imports.items()):
-            if module.startswith(('data.', 'models.', 'criteria.', 'metrics.', 'utils.', 'runners.', 'optimizers.', 'schedulers.')):
+            if module.startswith(
+                (
+                    'data.',
+                    'models.',
+                    'criteria.',
+                    'metrics.',
+                    'utils.',
+                    'runners.',
+                    'optimizers.',
+                    'schedulers.',
+                )
+            ):
                 project_from[module] = sorted(items)
         for module, items in project_from.items():
             lines.append(f"from {module} import {', '.join(items)}")
@@ -233,8 +284,7 @@ class ConfigToFile:
         return lines
 
     def generate_config_file(
-        self,
-        config: Union[Dict[str, Any], List[Dict[str, Any]]]
+        self, config: Union[Dict[str, Any], List[Dict[str, Any]]]
     ) -> str:
         """
         Generate a Python config file from a config dictionary or list.
@@ -285,14 +335,13 @@ def add_heading(content: str, generator_path: str) -> str:
     header_lines = [
         f"# This file is automatically generated by `{generator_path}`.",
         "# Please do not attempt to modify manually.",
-        ""
+        "",
     ]
     return "\n".join(header_lines) + content
 
 
 def dict_to_config_file(
-    config: Union[Dict[str, Any], List[Dict[str, Any]]],
-    output_path: str = None
+    config: Union[Dict[str, Any], List[Dict[str, Any]]], output_path: str = None
 ) -> str:
     """
     Convert a config dictionary or list to a Python config file.

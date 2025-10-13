@@ -2,6 +2,7 @@
 as an any immutable object indexed tensor, of any data type. For now, we name dictionaries under this
 view as 'buffer'. A buffer could be tuple, list, dict, numpy.ndarray, and torch.Tensor.
 """
+
 from typing import Tuple, List, Sequence, Set, Dict, Any, Optional
 import numpy
 import torch
@@ -9,13 +10,20 @@ import torch
 
 def buffer_equal(buffer: Any, other: Any) -> bool:
     result = True
-    result = result and (type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float])))
+    result = result and (
+        type(buffer) == type(other)
+        or set([type(buffer), type(other)]).issubset(set([int, float]))
+    )
     if type(buffer) in [tuple, list]:
         result = result and len(buffer) == len(other)
-        result = result and all([buffer_equal(buffer[idx], other[idx]) for idx in range(len(buffer))])
+        result = result and all(
+            [buffer_equal(buffer[idx], other[idx]) for idx in range(len(buffer))]
+        )
     elif type(buffer) == dict:
         result = result and set(buffer.keys()) == set(other.keys())
-        result = result and all([buffer_equal(buffer[key], other[key]) for key in buffer])
+        result = result and all(
+            [buffer_equal(buffer[key], other[key]) for key in buffer]
+        )
     elif type(buffer) == numpy.ndarray:
         result = result and numpy.array_equal(buffer, other)
     elif type(buffer) == torch.Tensor:
@@ -26,7 +34,8 @@ def buffer_equal(buffer: Any, other: Any) -> bool:
 
 
 def buffer_allclose(
-    buffer, other,
+    buffer,
+    other,
     rtol: float = 1e-05,
     atol: float = 1e-08,
     equal_nan: bool = False,
@@ -35,13 +44,19 @@ def buffer_allclose(
     if isinstance(buffer, (tuple, list)):
         assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
         return all(
-            buffer_allclose(buffer[idx], other[idx], rtol=rtol, atol=atol, equal_nan=equal_nan)
+            buffer_allclose(
+                buffer[idx], other[idx], rtol=rtol, atol=atol, equal_nan=equal_nan
+            )
             for idx in range(len(buffer))
         )
     elif isinstance(buffer, dict):
-        assert set(buffer.keys()) == set(other.keys()), f"{buffer.keys()=}, {other.keys()=}"
+        assert set(buffer.keys()) == set(
+            other.keys()
+        ), f"{buffer.keys()=}, {other.keys()=}"
         return all(
-            buffer_allclose(buffer[key], other[key], rtol=rtol, atol=atol, equal_nan=equal_nan)
+            buffer_allclose(
+                buffer[key], other[key], rtol=rtol, atol=atol, equal_nan=equal_nan
+            )
             for key in buffer.keys()
         )
     elif isinstance(buffer, numpy.ndarray):
@@ -56,12 +71,18 @@ def buffer_allclose(
 
 
 def _buffer_add(buffer: Any, other: Any) -> Any:
-    assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float]))
+    assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(
+        set([int, float])
+    )
     if type(buffer) in [tuple, list]:
         assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
-        return type(buffer)([_buffer_add(buffer[idx], other[idx]) for idx in range(len(buffer))])
+        return type(buffer)(
+            [_buffer_add(buffer[idx], other[idx]) for idx in range(len(buffer))]
+        )
     elif type(buffer) == dict:
-        assert set(buffer.keys()) == set(other.keys()), f"{buffer.keys()=}, {other.keys()=}"
+        assert set(buffer.keys()) == set(
+            other.keys()
+        ), f"{buffer.keys()=}, {other.keys()=}"
         return {key: _buffer_add(buffer[key], other[key]) for key in buffer}
     else:
         return buffer + other
@@ -86,7 +107,9 @@ def buffer_scalar_mul(buffer: Any, scalar: Any) -> Any:
         assert type(scalar) in [int, float]
     # compute scalar multiplication
     if type(buffer) in [tuple, list]:
-        return type(buffer)([buffer_scalar_mul(buffer[idx], scalar) for idx in range(len(buffer))])
+        return type(buffer)(
+            [buffer_scalar_mul(buffer[idx], scalar) for idx in range(len(buffer))]
+        )
     elif type(buffer) == dict:
         return {key: buffer_scalar_mul(buffer[key], scalar) for key in buffer}
     else:
@@ -98,13 +121,18 @@ def buffer_sub(buffer: Any, other: Any) -> Any:
 
 
 def buffer_mul(buffer: Any, other: Any) -> Any:
-    assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float])), \
-        f"{type(buffer)=}, {type(other)=}"
+    assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(
+        set([int, float])
+    ), f"{type(buffer)=}, {type(other)=}"
     if type(buffer) in [tuple, list]:
         assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
-        return type(buffer)([buffer_mul(buffer[idx], other[idx]) for idx in range(len(buffer))])
+        return type(buffer)(
+            [buffer_mul(buffer[idx], other[idx]) for idx in range(len(buffer))]
+        )
     elif type(buffer) == dict:
-        assert set(buffer.keys()) == set(other.keys()), f"{buffer.keys()=}, {other.keys()=}"
+        assert set(buffer.keys()) == set(
+            other.keys()
+        ), f"{buffer.keys()=}, {other.keys()=}"
         return {key: buffer_mul(buffer[key], other[key]) for key in buffer}
     else:
         return buffer * other
@@ -124,14 +152,12 @@ def buffer_div(buffer: Any, other: Any) -> Any:
 
 
 def buffer_mean(buffer: Sequence[Any]) -> Any:
-    r"""Take the mean of the buffer along the first axis.
-    """
+    r"""Take the mean of the buffer along the first axis."""
     return buffer_scalar_mul(buffer_add(*list(buffer)), 1 / len(buffer))
 
 
 def get_buffer_structure(buffer: Any) -> List[Tuple[Any, Set[Any]]]:
-    """Get the structure of a buffer.
-    """
+    """Get the structure of a buffer."""
     if isinstance(buffer, (list, tuple)):
         curr_structure = (type(buffer), set(range(len(buffer))))
         next_structures = [get_buffer_structure(elem) for elem in buffer]
@@ -146,15 +172,19 @@ def get_buffer_structure(buffer: Any) -> List[Tuple[Any, Set[Any]]]:
     next_structure = []
     for axis in range(next_n_axes):
         axis_types = set(
-            elem_structures[axis][0] for elem_structures in next_structures
+            elem_structures[axis][0]
+            for elem_structures in next_structures
             if len(elem_structures) > axis
         )
         assert len(axis_types) == 1, f"{axis_types=}"
         axis_type = axis_types.pop()
-        axis_indices = set.union(*[
-            elem_structures[axis][1] for elem_structures in next_structures
-            if len(elem_structures) > axis
-        ])
+        axis_indices = set.union(
+            *[
+                elem_structures[axis][1]
+                for elem_structures in next_structures
+                if len(elem_structures) > axis
+            ]
+        )
         next_structure.append((axis_type, axis_indices))
     return [curr_structure] + next_structure
 
@@ -267,7 +297,9 @@ def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
     Use buffer_permute for more general axis permutations.
     """
     structure = get_buffer_structure(buffer)
-    assert len(structure) >= 2, f"Transpose is not supported for buffers with less than 2 axes."
+    assert (
+        len(structure) >= 2
+    ), f"Transpose is not supported for buffers with less than 2 axes."
     # For transpose, we swap the first two axes and keep the rest in order
     axes = (1, 0) + tuple(range(2, len(structure)))
     return buffer_permute(buffer, axes=axes, buffer_structure=structure)

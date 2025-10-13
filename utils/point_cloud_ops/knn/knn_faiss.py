@@ -25,36 +25,42 @@ def _knn_faiss(
     query_points: torch.Tensor,
     reference_points: torch.Tensor,
     k: Optional[int] = None,
-    radius: Optional[float] = None
+    radius: Optional[float] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """FAISS backend - multi-GPU for k-NN, single GPU for range search."""
     import faiss
-    
+
     assert isinstance(query_points, torch.Tensor), "query_points must be torch.Tensor"
-    assert isinstance(reference_points, torch.Tensor), "reference_points must be torch.Tensor"
-    assert (k is None) != (radius is None), "Exactly one of k or radius must be specified"
+    assert isinstance(
+        reference_points, torch.Tensor
+    ), "reference_points must be torch.Tensor"
+    assert (k is None) != (
+        radius is None
+    ), "Exactly one of k or radius must be specified"
     assert k is None or k > 0, f"k must be positive if provided, got {k}"
-    assert radius is None or radius > 0, f"radius must be positive if provided, got {radius}"
-    
+    assert (
+        radius is None or radius > 0
+    ), f"radius must be positive if provided, got {radius}"
+
     # Check GPU availability for acceleration
     assert hasattr(faiss, 'StandardGpuResources'), "FAISS GPU support not available"
     ngpus = faiss.get_num_gpus()
     assert ngpus > 0, "No CUDA GPUs detected by FAISS"
-    
+
     d = reference_points.shape[1]  # dimension
     assert d == 3, f"Dimension must be 3, got {d}"
-    
+
     # Convert inputs to contiguous float32 numpy arrays
     reference_np = _to_numpy_f32(reference_points)
     query_np = _to_numpy_f32(query_points)
-    
+
     if radius is not None:
         return _knn_faiss_with_r(
             query_np=query_np,
             reference_np=reference_np,
             radius=radius,
             d=d,
-            faiss=faiss
+            faiss=faiss,
         )
     else:
         assert k is not None, "k must not be None for k-NN search"
@@ -64,17 +70,12 @@ def _knn_faiss(
             k=k,
             d=d,
             ngpus=ngpus,
-            faiss=faiss
+            faiss=faiss,
         )
 
 
 def _knn_faiss_with_k(
-    query_np,
-    reference_np,
-    k: int,
-    d: int,
-    ngpus: int,
-    faiss
+    query_np, reference_np, k: int, d: int, ngpus: int, faiss
 ) -> Tuple[np.ndarray, np.ndarray]:
     """FAISS backend for k-NN search - multi-GPU acceleration."""
     assert k > 0, f"k must be positive, got {k}"
@@ -90,83 +91,101 @@ def _knn_faiss_with_k(
         res = faiss.StandardGpuResources()
         index = faiss.GpuIndexFlatL2(res, d)
         index.add(reference_np)
-    
-    assert index.ntotal == reference_np.shape[0], f"Index size mismatch: {index.ntotal} vs {reference_np.shape[0]}"
-    
-    # Standard k-NN search  
+
+    assert (
+        index.ntotal == reference_np.shape[0]
+    ), f"Index size mismatch: {index.ntotal} vs {reference_np.shape[0]}"
+
+    # Standard k-NN search
     k_actual = min(k, len(reference_np))
     distances, indices = index.search(query_np, k_actual)
-    assert distances.shape == (len(query_np), k_actual), f"Wrong distances shape: {distances.shape}"
-    assert indices.shape == (len(query_np), k_actual), f"Wrong indices shape: {indices.shape}"
+    assert distances.shape == (
+        len(query_np),
+        k_actual,
+    ), f"Wrong distances shape: {distances.shape}"
+    assert indices.shape == (
+        len(query_np),
+        k_actual,
+    ), f"Wrong indices shape: {indices.shape}"
     distances = np.sqrt(distances)  # FAISS returns squared distances
-    
+
     # If k > actual reference points, pad with inf/-1
     if k > k_actual:
         n_queries = len(query_np)
         dist_out = np.full((n_queries, k), np.inf, dtype=np.float32)
         idx_out = np.full((n_queries, k), -1, dtype=np.int64)
-        
+
         dist_out[:, :k_actual] = distances
         idx_out[:, :k_actual] = indices
-        
+
         return dist_out, idx_out
     else:
         return distances, indices
 
 
 def _knn_faiss_with_r(
-    query_np,
-    reference_np,
-    radius: float,
-    d: int,
-    faiss
+    query_np, reference_np, radius: float, d: int, faiss
 ) -> Tuple[np.ndarray, np.ndarray]:
     """FAISS backend for range search - CPU-based."""
-    assert isinstance(radius, (int, float)), f"radius must be numeric, got {type(radius)}"
+    assert isinstance(
+        radius, (int, float)
+    ), f"radius must be numeric, got {type(radius)}"
     assert radius > 0, f"radius must be positive, got {radius}"
 
     # Range search requires CPU index (GPU doesn't support range_search)
     index = faiss.IndexFlatL2(d)
     index.add(reference_np)
-    
-    assert index.ntotal == reference_np.shape[0], f"Index size mismatch: {index.ntotal} vs {reference_np.shape[0]}"
-    
+
+    assert (
+        index.ntotal == reference_np.shape[0]
+    ), f"Index size mismatch: {index.ntotal} vs {reference_np.shape[0]}"
+
     # Range search within radius (using CPU index)
-    lims, distances, indices = index.range_search(query_np, radius * radius)  # FAISS uses squared distances
-    assert len(lims) == len(query_np) + 1, f"lims length mismatch: {len(lims)} vs {len(query_np) + 1}"
-    
+    lims, distances, indices = index.range_search(
+        query_np, radius * radius
+    )  # FAISS uses squared distances
+    assert (
+        len(lims) == len(query_np) + 1
+    ), f"lims length mismatch: {len(lims)} vs {len(query_np) + 1}"
+
     # Convert FAISS range search results to dense format
     return _faiss_range_search_to_dense(lims=lims, distances=distances, indices=indices)
 
 
 def _faiss_range_search_to_dense(
-    lims: np.ndarray, 
-    distances: np.ndarray, 
-    indices: np.ndarray
+    lims: np.ndarray, distances: np.ndarray, indices: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Convert FAISS range_search results to dense [N, k] format.
-    
+
     Args:
         lims: Array of length n_queries + 1 indicating where each query's results start/end
         distances: Flat array of all distances (squared) for all queries concatenated
-        indices: Flat array of all indices for all queries concatenated  
-        
+        indices: Flat array of all indices for all queries concatenated
+
     Returns:
         distances_dense: [N, k] array with inf padding, k = max neighbors found
         indices_dense: [N, k] array with -1 padding, k = max neighbors found
     """
     assert isinstance(lims, np.ndarray), f"lims must be np.ndarray, got {type(lims)}"
     assert lims.dtype == np.uint64, f"lims must be uint64, got {lims.dtype}"
-    assert isinstance(distances, np.ndarray), f"distances must be np.ndarray, got {type(distances)}"
-    assert distances.dtype == np.float32, f"distances must be float32, got {distances.dtype}"
-    assert isinstance(indices, np.ndarray), f"indices must be np.ndarray, got {type(indices)}"
+    assert isinstance(
+        distances, np.ndarray
+    ), f"distances must be np.ndarray, got {type(distances)}"
+    assert (
+        distances.dtype == np.float32
+    ), f"distances must be float32, got {distances.dtype}"
+    assert isinstance(
+        indices, np.ndarray
+    ), f"indices must be np.ndarray, got {type(indices)}"
     assert indices.dtype == np.int64, f"indices must be int64, got {indices.dtype}"
 
     # Convert lims to int64 at the start to avoid casting issues
     lims = lims.astype(np.int64)
-    
+
     n_queries = len(lims) - 1
-    assert len(distances) == len(indices), f"distances and indices must have same length"
+    assert len(distances) == len(
+        indices
+    ), f"distances and indices must have same length"
     assert lims[-1] == len(distances), f"lims[-1] must equal len(distances)"
 
     # Find max number of neighbors for any query point

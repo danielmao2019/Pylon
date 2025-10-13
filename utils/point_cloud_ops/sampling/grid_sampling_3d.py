@@ -58,8 +58,11 @@ def grid_cluster(
 
     # Compute unique cell index using row-major ordering
     # This is more robust than Morton encoding for large coordinate ranges
-    strides = torch.tensor([1, grid_size[0], grid_size[0] * grid_size[1]],
-                          device=pos.device, dtype=torch.long)
+    strides = torch.tensor(
+        [1, grid_size[0], grid_size[0] * grid_size[1]],
+        device=pos.device,
+        dtype=torch.long,
+    )
     cluster = (grid_coords * strides.view(1, -1)).sum(dim=1)
 
     return cluster
@@ -69,7 +72,7 @@ def group_data(
     data_dict: Dict[str, torch.Tensor],
     cluster: Optional[torch.Tensor] = None,
     unique_pos_indices: Optional[torch.Tensor] = None,
-    mode: str = "last"
+    mode: str = "last",
 ) -> Dict[str, torch.Tensor]:
     """Group data based on cluster indices.
 
@@ -91,7 +94,9 @@ def group_data(
     if mode == "mean" and cluster is None:
         raise ValueError("In mean mode the cluster argument needs to be specified")
     if mode == "last" and unique_pos_indices is None:
-        raise ValueError("In last mode the unique_pos_indices argument needs to be specified")
+        raise ValueError(
+            "In last mode the unique_pos_indices argument needs to be specified"
+        )
 
     result_dict = {}
 
@@ -101,8 +106,9 @@ def group_data(
         result_dict['pos'] = pos[unique_pos_indices]
     else:  # mode == "mean"
         num_clusters = cluster.max().item() + 1
-        summed = torch.zeros((num_clusters, pos.size(1)),
-                          dtype=pos.dtype, device=pos.device)
+        summed = torch.zeros(
+            (num_clusters, pos.size(1)), dtype=pos.dtype, device=pos.device
+        )
         counts = torch.zeros(num_clusters, dtype=torch.float, device=pos.device)
         for i in range(pos.size(0)):
             summed[cluster[i]] += pos[i]
@@ -116,8 +122,9 @@ def group_data(
             result_dict['feat'] = feat[unique_pos_indices]
         else:  # mode == "mean"
             num_clusters = cluster.max().item() + 1
-            summed = torch.zeros((num_clusters, feat.size(1)),
-                              dtype=feat.dtype, device=feat.device)
+            summed = torch.zeros(
+                (num_clusters, feat.size(1)), dtype=feat.dtype, device=feat.device
+            )
             counts = torch.zeros(num_clusters, dtype=torch.float, device=feat.device)
             for i in range(feat.size(0)):
                 summed[cluster[i]] += feat[i]
@@ -132,11 +139,14 @@ def group_data(
         else:  # mode == "mean"
             num_clusters = cluster.max().item() + 1
             change_min = change_map.min()
-            one_hot = torch.zeros((change_map.size(0), change_map.max() - change_min + 1),
-                               device=change_map.device)
+            one_hot = torch.zeros(
+                (change_map.size(0), change_map.max() - change_min + 1),
+                device=change_map.device,
+            )
             one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
-            summed = torch.zeros((num_clusters, one_hot.size(1)),
-                              device=change_map.device)
+            summed = torch.zeros(
+                (num_clusters, one_hot.size(1)), device=change_map.device
+            )
             for i in range(change_map.size(0)):
                 summed[cluster[i]] += one_hot[i]
             result_dict['change_map'] = summed.argmax(dim=1) + change_min
@@ -167,10 +177,7 @@ class GridSampling3D:
     """
 
     def __init__(
-        self,
-        size: float,
-        mode: str = "mean",
-        device: Optional[torch.device] = None
+        self, size: float, mode: str = "mean", device: Optional[torch.device] = None
     ) -> None:
         if size <= 0:
             raise ValueError("Size must be positive")
@@ -206,7 +213,7 @@ class GridSampling3D:
         size_tensor = torch.tensor(
             [self._grid_size, self._grid_size, self._grid_size],
             dtype=points.dtype,
-            device=points.device if self._device is None else self._device
+            device=points.device if self._device is None else self._device,
         )
         cluster = grid_cluster(points[:, :3], size_tensor)
 

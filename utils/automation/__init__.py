@@ -1,6 +1,7 @@
 """
 UTILS.AUTOMATION API
 """
+
 from utils.automation import tables
 from utils.automation import configs
 from utils.automation import config_seeding

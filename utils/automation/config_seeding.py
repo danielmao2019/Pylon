@@ -14,7 +14,7 @@ def generate_seeded_configs(
     base_seed: str,
     base_work_dir: Optional[str] = None,
     num_repetitions: Optional[int] = 3,
-    ub: Optional[int] = 10**8-1,
+    ub: Optional[int] = 10**8 - 1,
 ) -> List[str]:
     """
     Generate seeded config files from a base config dictionary.
@@ -40,9 +40,7 @@ def generate_seeded_configs(
             base_config, base_seed, base_work_dir, num_repetitions, ub
         )
     else:
-        return _generate_eval_seeded_configs(
-            base_config, base_seed, base_work_dir, ub
-        )
+        return _generate_eval_seeded_configs(base_config, base_seed, base_work_dir, ub)
 
 
 def _generate_train_seeded_configs(
@@ -50,7 +48,7 @@ def _generate_train_seeded_configs(
     base_seed: str,
     base_work_dir: Optional[str] = None,
     num_repetitions: Optional[int] = 3,
-    ub: Optional[int] = 10**8-1,
+    ub: Optional[int] = 10**8 - 1,
 ) -> List[str]:
     """Generate seeded configs for training models."""
     seeded_configs: List[str] = []
@@ -85,7 +83,7 @@ def _generate_eval_seeded_configs(
     base_config: Dict[str, Any],
     base_seed: str,
     base_work_dir: Optional[str] = None,
-    ub: Optional[int] = 10**8-1,
+    ub: Optional[int] = 10**8 - 1,
 ) -> List[str]:
     """Generate seeded configs for eval models."""
     # Seed the random generator
@@ -112,7 +110,7 @@ def _generate_multistage_seeded_configs(
     base_seed: str,
     base_work_dir: Optional[str] = None,
     num_repetitions: Optional[int] = 3,
-    ub: Optional[int] = 10**8-1,
+    ub: Optional[int] = 10**8 - 1,
 ) -> List[str]:
     """Generate seeded configs for multi-stage models like BUFFER."""
     seeded_configs: List[str] = []
@@ -128,7 +126,9 @@ def _generate_multistage_seeded_configs(
         config = semideepcopy(base_config)
 
         # Generate different seeds for each stage (to match old behavior)
-        init_seed_multi_stage = [random.randint(0, ub) for _ in range(len(epochs_per_stage))]
+        init_seed_multi_stage = [
+            random.randint(0, ub) for _ in range(len(epochs_per_stage))
+        ]
         train_seeds_multi_stage = [
             [random.randint(0, ub) for _ in range(num_epochs)]
             for num_epochs in epochs_per_stage
@@ -137,7 +137,9 @@ def _generate_multistage_seeded_configs(
             [random.randint(0, ub) for _ in range(num_epochs)]
             for num_epochs in epochs_per_stage
         ]
-        test_seed_multi_stage = [random.randint(0, ub) for _ in range(len(epochs_per_stage))]
+        test_seed_multi_stage = [
+            random.randint(0, ub) for _ in range(len(epochs_per_stage))
+        ]
 
         # Apply different seeds to each stage
         for stage_idx, stage_config in enumerate(config):

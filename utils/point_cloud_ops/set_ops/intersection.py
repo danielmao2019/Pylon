@@ -20,15 +20,23 @@ def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) 
     Returns:
         Chunk factor to use for recursive implementation
     """
-    assert isinstance(src_points, torch.Tensor), f"src_points must be torch.Tensor, got {type(src_points)}"
-    assert isinstance(tgt_points, torch.Tensor), f"tgt_points must be torch.Tensor, got {type(tgt_points)}"
-    assert src_points.device == tgt_points.device, f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
+    assert isinstance(
+        src_points, torch.Tensor
+    ), f"src_points must be torch.Tensor, got {type(src_points)}"
+    assert isinstance(
+        tgt_points, torch.Tensor
+    ), f"tgt_points must be torch.Tensor, got {type(tgt_points)}"
+    assert (
+        src_points.device == tgt_points.device
+    ), f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
 
     if src_points.device.type == 'cpu':
         return 1
 
     # Get available CUDA memory in bytes
-    available_memory = torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_allocated()
+    available_memory = (
+        torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_allocated()
+    )
 
     # Estimate memory needed for the full computation
     # Each point is 3 floats (12 bytes), and we need to compute N*M distances
@@ -87,10 +95,14 @@ def _tensor_intersection(
     check_pc_xyz(tgt_points)
 
     # Validate radius parameter
-    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert isinstance(
+        radius, (int, float)
+    ), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
 
-    assert src_points.device == tgt_points.device, f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
+    assert (
+        src_points.device == tgt_points.device
+    ), f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
 
     # Reshape for broadcasting: (N, 1, 3) - (1, M, 3) = (N, M, 3)
     src_expanded = src_points.unsqueeze(1)  # Shape: (N, 1, 3)
@@ -117,7 +129,7 @@ def _tensor_intersection_recursive(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
-    chunk_factor: Optional[int] = None
+    chunk_factor: Optional[int] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Calculate the intersection between two point clouds using a recursive divide-and-conquer approach
@@ -135,12 +147,22 @@ def _tensor_intersection_recursive(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
-    assert isinstance(src_points, torch.Tensor), f"src_points must be torch.Tensor, got {type(src_points)}"
-    assert isinstance(tgt_points, torch.Tensor), f"tgt_points must be torch.Tensor, got {type(tgt_points)}"
-    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert isinstance(
+        src_points, torch.Tensor
+    ), f"src_points must be torch.Tensor, got {type(src_points)}"
+    assert isinstance(
+        tgt_points, torch.Tensor
+    ), f"tgt_points must be torch.Tensor, got {type(tgt_points)}"
+    assert isinstance(
+        radius, (int, float)
+    ), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
-    assert chunk_factor is None or isinstance(chunk_factor, int), f"chunk_factor must be int or None, got {type(chunk_factor)}"
-    assert src_points.device == tgt_points.device, f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
+    assert chunk_factor is None or isinstance(
+        chunk_factor, int
+    ), f"chunk_factor must be int or None, got {type(chunk_factor)}"
+    assert (
+        src_points.device == tgt_points.device
+    ), f"Device mismatch: src_points on {src_points.device}, tgt_points on {tgt_points.device}"
 
     # If chunk_factor is not provided, calculate it based on available memory
     if chunk_factor is None:
@@ -153,7 +175,9 @@ def _tensor_intersection_recursive(
         return _tensor_intersection(src_points, tgt_points, radius)
     except torch.cuda.OutOfMemoryError:
         # If OOM occurs, divide the problem and recursively solve
-        print(f"CUDA OOM with chunk_factor={chunk_factor}, dividing problem symmetrically...")
+        print(
+            f"CUDA OOM with chunk_factor={chunk_factor}, dividing problem symmetrically..."
+        )
 
         # Divide both source and target points into chunks
         num_chunks = 2 * chunk_factor
@@ -172,7 +196,9 @@ def _tensor_intersection_recursive(
         tgt_start_indices = [sum(tgt_chunk_sizes[:i]) for i in range(len(tgt_chunks))]
 
         # Process each pair of source and target chunks using itertools.product
-        for (i, src_chunk), (j, tgt_chunk) in product(enumerate(src_chunks), enumerate(tgt_chunks)):
+        for (i, src_chunk), (j, tgt_chunk) in product(
+            enumerate(src_chunks), enumerate(tgt_chunks)
+        ):
             # Recursively process this pair of chunks with a larger chunk factor
             src_indices, tgt_indices = _tensor_intersection_recursive(
                 src_chunk, tgt_chunk, radius, chunk_factor * 2
@@ -190,14 +216,22 @@ def _tensor_intersection_recursive(
 
         # Combine results
         if src_overlapping_indices_list:
-            src_overlapping_indices = torch.unique(torch.cat(src_overlapping_indices_list))
+            src_overlapping_indices = torch.unique(
+                torch.cat(src_overlapping_indices_list)
+            )
         else:
-            src_overlapping_indices = torch.tensor([], dtype=torch.long, device=src_points.device)
+            src_overlapping_indices = torch.tensor(
+                [], dtype=torch.long, device=src_points.device
+            )
 
         if tgt_overlapping_indices_list:
-            tgt_overlapping_indices = torch.unique(torch.cat(tgt_overlapping_indices_list))
+            tgt_overlapping_indices = torch.unique(
+                torch.cat(tgt_overlapping_indices_list)
+            )
         else:
-            tgt_overlapping_indices = torch.tensor([], dtype=torch.long, device=tgt_points.device)
+            tgt_overlapping_indices = torch.tensor(
+                [], dtype=torch.long, device=tgt_points.device
+            )
 
         return src_overlapping_indices, tgt_overlapping_indices
 
@@ -225,7 +259,9 @@ def _kdtree_intersection(
     check_pc_xyz(tgt_points)
 
     # Validate radius parameter
-    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert isinstance(
+        radius, (int, float)
+    ), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
 
     # Convert to numpy for KD-tree operations
@@ -257,14 +293,10 @@ def _kdtree_intersection(
 
     # Convert lists to tensors
     src_overlapping_indices = torch.tensor(
-        src_overlapping_indices,
-        dtype=torch.long,
-        device=src_points.device
+        src_overlapping_indices, dtype=torch.long, device=src_points.device
     )
     tgt_overlapping_indices = torch.tensor(
-        tgt_overlapping_indices,
-        dtype=torch.long,
-        device=tgt_points.device
+        tgt_overlapping_indices, dtype=torch.long, device=tgt_points.device
     )
 
     return src_overlapping_indices, tgt_overlapping_indices
@@ -296,7 +328,9 @@ def compute_pc_iou(
     check_pc_xyz(tgt_points)
 
     # Validate radius parameter
-    assert isinstance(radius, (int, float)), f"radius must be int or float, got {type(radius)}"
+    assert isinstance(
+        radius, (int, float)
+    ), f"radius must be int or float, got {type(radius)}"
     assert radius > 0, f"radius must be greater than 0, got {radius}"
     # Get overlapping indices
     src_overlapping_indices, tgt_overlapping_indices = pc_intersection(
@@ -337,7 +371,7 @@ def get_nearest_neighbor_distances(
         query_points=query_points,
         reference_points=support_points,
         k=1,  # Find single nearest neighbor
-        return_distances=True
+        return_distances=True,
     )
 
     # Squeeze to get shape (N,) instead of (N, 1)
@@ -350,7 +384,7 @@ def compute_registration_overlap(
     ref_points: torch.Tensor,
     src_points: torch.Tensor,
     transform: Optional[torch.Tensor] = None,
-    positive_radius: float = 0.1
+    positive_radius: float = 0.1,
 ) -> float:
     """Compute overlap between two point clouds (GeoTransformer style).
 
@@ -372,11 +406,17 @@ def compute_registration_overlap(
     check_pc_xyz(src_points)
 
     # Validate dtype compatibility
-    assert src_points.dtype == ref_points.dtype, f"dtype mismatch: src_points {src_points.dtype}, ref_points {ref_points.dtype}"
+    assert (
+        src_points.dtype == ref_points.dtype
+    ), f"dtype mismatch: src_points {src_points.dtype}, ref_points {ref_points.dtype}"
 
     # Validate radius parameter
-    assert isinstance(positive_radius, (int, float)), f"positive_radius must be int or float, got {type(positive_radius)}"
-    assert positive_radius > 0, f"positive_radius must be greater than 0, got {positive_radius}"
+    assert isinstance(
+        positive_radius, (int, float)
+    ), f"positive_radius must be int or float, got {type(positive_radius)}"
+    assert (
+        positive_radius > 0
+    ), f"positive_radius must be greater than 0, got {positive_radius}"
 
     # Apply transformation to source points if provided
     if transform is not None:

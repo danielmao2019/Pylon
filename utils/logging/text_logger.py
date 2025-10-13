@@ -74,7 +74,11 @@ class TextLogger(BaseLogger):
                 self.buffer.update(serialize_tensor(content))
         elif msg_type == "FLUSH":
             with self._buffer_lock:
-                string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+                string = (
+                    content
+                    + " "
+                    + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+                )
                 self.core_logger.info(string)
                 self.buffer = {}
 
