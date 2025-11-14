@@ -8,6 +8,8 @@ from typing import Tuple
 import torch
 import math
 
+from utils.input_checks.check_camera import check_rotation_matrix
+
 
 def rodrigues_canonical(
     axis: torch.Tensor, angle: torch.Tensor
@@ -83,6 +85,8 @@ def matrix_to_rodrigues(
         - axis: Unit vector of shape (3,)
         - angle: Scalar tensor in radians [0, pi] (always non-negative)
     """
+    check_rotation_matrix(R)
+
     # Extract rotation angle from trace
     trace = torch.trace(R)
     angle = torch.acos(torch.clamp((trace - 1) / 2, -1, 1))
