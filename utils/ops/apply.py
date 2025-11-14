@@ -6,17 +6,17 @@ def apply_tensor_op(
     func: Callable[[torch.Tensor], torch.Tensor],
     inputs: Union[tuple, list, dict, torch.Tensor, float],
 ) -> Any:
-    if type(inputs) == torch.Tensor:
+    if isinstance(inputs, torch.Tensor):
         return func(inputs)
-    elif type(inputs) == tuple:
+    elif isinstance(inputs, tuple):
         return tuple(
             apply_tensor_op(func=func, inputs=tuple_elem) for tuple_elem in inputs
         )
-    elif type(inputs) == list:
+    elif isinstance(inputs, list):
         return list(
             apply_tensor_op(func=func, inputs=list_elem) for list_elem in inputs
         )
-    elif type(inputs) == dict:
+    elif isinstance(inputs, dict):
         return {
             key: apply_tensor_op(func=func, inputs=inputs[key]) for key in inputs.keys()
         }
