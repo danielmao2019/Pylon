@@ -8,10 +8,15 @@ from agents.manager.base_job import BaseJob
 from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.nerfstudio_job import NerfStudioJob
-from project.agents.manager.nerfstudio_generation_job import MultiServerNerfStudioGenerationJob
+from project.agents.manager.nerfstudio_generation_job import (
+    MultiServerNerfStudioGenerationJob,
+)
 from project.agents.manager.nerfstudio_data_job import NerfStudioDataJob
 from project.agents.manager.las_to_ply_job import LasToPlyOffsetJob
-from project.agents.manager.point_cloud_jobs import DensePointCloudJob, SparsePointCloudJob
+from project.agents.manager.point_cloud_jobs import (
+    DensePointCloudJob,
+    SparsePointCloudJob,
+)
 from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
 from utils.io.config import load_config
@@ -49,7 +54,9 @@ class Manager:
         assert isinstance(commands, list)
         assert isinstance(epochs, int)
         assert isinstance(system_monitors, dict)
-        assert all(isinstance(monitor, SystemMonitor) for monitor in system_monitors.values())
+        assert all(
+            isinstance(monitor, SystemMonitor) for monitor in system_monitors.values()
+        )
 
         self.commands = commands
         self.epochs = epochs
@@ -103,11 +110,13 @@ class Manager:
     def compute_average_progress(self) -> float:
         assert hasattr(self, '_jobs'), "Jobs have not been built yet"
         jobs = getattr(self, '_jobs')
-        assert jobs is not None and len(jobs) > 0, "No jobs available to compute progress"
+        assert (
+            jobs is not None and len(jobs) > 0
+        ), "No jobs available to compute progress"
 
-        assert all(job.progress is not None for job in jobs), (
-            "Job progress must be computed for all jobs"
-        )
+        assert all(
+            job.progress is not None for job in jobs
+        ), "Job progress must be computed for all jobs"
 
         total = sum(job.progress.progress_percentage for job in jobs)
         return total / len(jobs)
@@ -129,9 +138,7 @@ class Manager:
         if artifact_result is not None:
             return artifact_result
 
-        raise ValueError(
-            f"Unable to determine runner type for command: {command!r}."
-        )
+        raise ValueError(f"Unable to determine runner type for command: {command!r}.")
 
     @staticmethod
     def _detect_from_command(command: str) -> RunnerKind | None:
@@ -139,13 +146,21 @@ class Manager:
             return RunnerKind.NERFSTUDIO
         if command.strip().startswith('python gen_ivision_mt_nerfstudio.py'):
             return RunnerKind.NERFSTUDIO_GENERATION
-        if command.strip().startswith('python project/scripts/3_prepare_nerfstudio_data/gen_nerfstudio_data.py'):
+        if command.strip().startswith(
+            'python project/scripts/3_prepare_nerfstudio_data/gen_nerfstudio_data.py'
+        ):
             return RunnerKind.NERFSTUDIO_DATA
-        if command.strip().startswith('python project/scripts/1_coord_transforms/compute_las_to_ply_offsets.py'):
+        if command.strip().startswith(
+            'python project/scripts/1_coord_transforms/compute_las_to_ply_offsets.py'
+        ):
             return RunnerKind.LAS_TO_PLY
-        if command.strip().startswith('python project/scripts/2_preprocess_point_clouds/process_dense_point_clouds.py'):
+        if command.strip().startswith(
+            'python project/scripts/2_preprocess_point_clouds/process_dense_point_clouds.py'
+        ):
             return RunnerKind.DENSE_POINT_CLOUD
-        if command.strip().startswith('python project/scripts/2_preprocess_point_clouds/process_sparse_point_clouds.py'):
+        if command.strip().startswith(
+            'python project/scripts/2_preprocess_point_clouds/process_sparse_point_clouds.py'
+        ):
             return RunnerKind.SPARSE_POINT_CLOUD
         return None
 
@@ -190,7 +205,8 @@ class Manager:
         epoch_dir = os.path.join(config_workdir, 'epoch_0')
         # Use TrainingJob.EXPECTED_FILES for trainer artifact detection
         has_expected_artifact = any(
-            os.path.isfile(os.path.join(epoch_dir, fname)) for fname in TrainingJob.EXPECTED_FILES
+            os.path.isfile(os.path.join(epoch_dir, fname))
+            for fname in TrainingJob.EXPECTED_FILES
         )
         if os.path.isdir(epoch_dir) and has_expected_artifact:
             return RunnerKind.TRAINER
