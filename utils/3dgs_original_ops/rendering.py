@@ -263,15 +263,15 @@ class Camera(nn.Module):
         self.trans = trans
         self.scale = scale
 
-        self.world_view_transform = (
-            torch.tensor(getWorld2View2(R, T, trans, scale)).transpose(0, 1).cuda()
-        )
+        self.world_view_transform = torch.tensor(
+            getWorld2View2(R, T, trans, scale), device=self.data_device
+        ).transpose(0, 1)
         self.projection_matrix = (
             getProjectionMatrix(
                 znear=self.znear, zfar=self.zfar, fovX=self.FoVx, fovY=self.FoVy
             )
             .transpose(0, 1)
-            .cuda()
+            .to(self.data_device)
         )
         self.full_proj_transform = (
             self.world_view_transform.unsqueeze(0).bmm(
@@ -290,6 +290,7 @@ def render(
     separate_sh=False,
     override_color=None,
     use_trained_exp=False,
+    device: torch.device = torch.device("cuda"),
 ):
     """
     Render the scene.
@@ -300,7 +301,7 @@ def render(
     # Create zero tensor. We will use it to make pytorch return gradients of the 2D (screen-space) means
     screenspace_points = (
         torch.zeros_like(
-            pc.get_xyz, dtype=pc.get_xyz.dtype, requires_grad=True, device="cuda"
+            pc.get_xyz, dtype=pc.get_xyz.dtype, requires_grad=True, device=device
         )
         + 0
     )
@@ -419,92 +420,42 @@ def render(
     return out
 
 
-@torch.no_grad()
-def render_rgb_from_3dgs_original(
-    model: Any,
+def _prepare_viewpoint_camera(
     intrinsics: torch.Tensor,
     extrinsics: torch.Tensor,
-    resolution: Optional[Tuple[int, int]] = None,
-    convention: str = "opengl",
-    background: Tuple[int, int, int] = (0, 0, 0),
-) -> torch.Tensor:
-    # input validations
-    assert (
-        model is not None
-    ), "A 3DGS model wrapper or GaussianModel instance is required"
-    assert hasattr(
-        model, "model"
-    ), "render_rgb_from_2dgs expects output of load_2dgs_model"
-    gaussians = model.model
+    convention: str,
+    resolution: Tuple[int, int],
+    device: torch.device,
+) -> Camera:
+    """Construct a Camera from intrinsics/extrinsics and resolution.
 
-    check_camera_intrinsics(intrinsics)
-    check_camera_extrinsics(extrinsics)
-    if resolution is not None:
-        assert isinstance(
-            resolution, tuple
-        ), "resolution must be a tuple of (height, width)"
-        assert len(resolution) == 2, "resolution must be a tuple of (height, width)"
-        target_height, target_width = resolution
-        assert isinstance(target_height, int) and isinstance(
-            target_width, int
-        ), "resolution entries must be integers"
-        assert (
-            target_height > 0 and target_width > 0
-        ), "resolution dimensions must be positive integers"
-    assert convention in [
-        "opengl",
-        "standard",
-        "opencv",
-    ], "convention must be 'opengl', 'standard', or 'opencv'"
-    assert (
-        isinstance(background, tuple) and len(background) == 3
-    ), "background must be an RGB tuple"
-    assert all(
-        isinstance(v, int) for v in background
-    ), "background entries must be integers"
-
-    device = gaussians.get_xyz.device
-    if device.type != "cuda":
-        raise ValueError(f"3DGS rendering requires a CUDA device, received '{device}'")
-
-    base_width = int(round(float(intrinsics[0, 2]) * 2.0))
-    base_height = int(round(float(intrinsics[1, 2]) * 2.0))
-    if base_width <= 0 or base_height <= 0:
-        raise ValueError(
-            "Unable to infer image resolution from intrinsics; provide explicit resolution"
-        )
-
-    if resolution is None:
-        target_height = base_height
-        target_width = base_width
-
-    scale_x = target_width / base_width
-    scale_y = target_height / base_height
-    if not math.isclose(scale_x, scale_y, rel_tol=1e-4, abs_tol=1e-4):
-        raise ValueError(
-            "Non-uniform scaling not supported for 3DGS rendering: "
-            f"scale_x={scale_x}, scale_y={scale_y}"
-        )
-
-    background_tensor = torch.tensor(background, dtype=torch.float32, device=device)
-
-    cam_to_world = apply_coordinate_transform(
-        extrinsics=extrinsics.detach().clone().to(device=device, dtype=torch.float32),
-        source_convention=convention,
-        target_convention="opencv",
-    )
-    cam_to_world_np = cam_to_world.detach().cpu().numpy()
-    world_to_cam_np = np.linalg.inv(cam_to_world_np)
-    rotation = world_to_cam_np[:3, :3]
-    translation = world_to_cam_np[:3, 3]
+    resolution: (height, width)
+    """
+    base_width = int(float(intrinsics[0, 2]) * 2.0)
+    base_height = int(float(intrinsics[1, 2]) * 2.0)
 
     fov_x = focal2fov(float(intrinsics[0, 0]), base_width)
     fov_y = focal2fov(float(intrinsics[1, 1]), base_height)
 
-    dummy_image = Image.new("RGB", (target_width, target_height), color=(0, 0, 0))
+    # Transform extrinsics to opencv convention and split R, T
+    extrinsics_cv = (
+        apply_coordinate_transform(
+            extrinsics=extrinsics.detach().clone().to(device=device, dtype=torch.float32),
+            source_convention=convention,
+            target_convention="opencv",
+        )
+        .detach()
+        .cpu()
+        .numpy()
+    )
+    rotation = extrinsics_cv[:3, :3].astype(np.float32)
+    w2c = np.linalg.inv(extrinsics_cv)
+    translation = w2c[:3, 3].astype(np.float32)
 
-    camera = Camera(
-        resolution=(target_width, target_height),
+    dummy_image = Image.new("RGB", (resolution[1], resolution[0]), color=(0, 0, 0))
+
+    return Camera(
+        resolution=(resolution[1], resolution[0]),
         colmap_id=0,
         R=rotation,
         T=translation,
@@ -518,6 +469,83 @@ def render_rgb_from_3dgs_original(
         data_device=str(device),
     )
 
+
+def _prepare_scaling_modifier(intrinsics: torch.Tensor, resolution: Tuple[int, int]) -> float:
+    """Compute scaling modifier from intrinsics and target resolution.
+
+    The modifier averages the uniform scale factors inferred from the
+    ratio between target resolution and the base resolution derived
+    from the principal point in the intrinsics.
+    """
+    base_width = int(float(intrinsics[0, 2]) * 2.0)
+    base_height = int(float(intrinsics[1, 2]) * 2.0)
+    scale_x = resolution[1] / base_width
+    scale_y = resolution[0] / base_height
+    assert math.isclose(scale_x, scale_y, rel_tol=0.0, abs_tol=0.01), (
+        "Non-uniform scaling not supported for 3DGS rendering: "
+        f"scale_x={scale_x}, scale_y={scale_y}"
+    )
+    return 0.5 * (scale_x + scale_y)
+
+
+@torch.no_grad()
+def render_rgb_from_3dgs_original(
+    model: GaussianModel,
+    intrinsics: torch.Tensor,
+    extrinsics: torch.Tensor,
+    resolution: Optional[Tuple[int, int]] = None,
+    convention: str = "opengl",
+    background: Tuple[int, int, int] = (0, 0, 0),
+    device: torch.device = torch.device("cuda"),
+) -> torch.Tensor:
+    # input validations
+    assert isinstance(model, GaussianModel)
+
+    check_camera_intrinsics(intrinsics)
+    check_camera_extrinsics(extrinsics)
+    # Compute base dimensions from intrinsics
+    base_width = int(float(intrinsics[0, 2]) * 2.0)
+    base_height = int(float(intrinsics[1, 2]) * 2.0)
+    # Always determine resolution (height, width)
+    if not resolution:
+        assert not (
+            base_width <= 0 or base_height <= 0
+        ), "Unable to infer image resolution from intrinsics; provide explicit resolution"
+        resolution = (base_height, base_width)
+    assert isinstance(
+        resolution, tuple
+    ), "resolution must be a tuple of (height, width)"
+    assert len(resolution) == 2, "resolution must be a tuple of (height, width)"
+    assert all(isinstance(v, int) for v in resolution), "resolution entries must be integers"
+    assert all(v > 0 for v in resolution), "resolution dimensions must be positive integers"
+    assert convention in [
+        "opengl",
+        "standard",
+        "opencv",
+    ], "convention must be 'opengl', 'standard', or 'opencv'"
+    assert (
+        isinstance(background, tuple) and len(background) == 3
+    ), "background must be an RGB tuple"
+    assert all(
+        isinstance(v, int) for v in background
+    ), "background entries must be integers"
+
+    device = model.get_xyz.device
+
+    scaling_modifier = _prepare_scaling_modifier(intrinsics=intrinsics, resolution=resolution)
+
+    background_tensor = torch.tensor(background, dtype=torch.float32, device=device)
+
+    # Prepare camera using helper (source convention provided by caller)
+    # Note: helper assumes source convention 'opengl' -> opencv; maintain previous behavior
+    viewpoint_camera = _prepare_viewpoint_camera(
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
+        convention=convention,
+        resolution=resolution,
+        device=device,
+    )
+
     pipeline = SimpleNamespace(
         convert_SHs_python=False,
         compute_cov3D_python=False,
@@ -526,14 +554,15 @@ def render_rgb_from_3dgs_original(
     )
 
     outputs = render(
-        viewpoint_camera=camera,
-        pc=gaussians,
+        viewpoint_camera=viewpoint_camera,
+        pc=model,
         pipe=pipeline,
         bg_color=background_tensor,
-        scaling_modifier=scale_x,
+        scaling_modifier=scaling_modifier,
+        device=device,
     )
     rgb = outputs["render"]
-    expected_shape = (3, target_height, target_width)
+    expected_shape = (3, resolution[0], resolution[1])
     assert (
         rgb.shape == expected_shape
     ), f"Unexpected RGB output shape {tuple(rgb.shape)}; expected {expected_shape}"

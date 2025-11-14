@@ -533,16 +533,22 @@ def render_rgb_from_2dgs(
     fov_y = focal2fov(float(intrinsics[1, 1]), base_height)
 
     # prepare camera extrinsics
-    cam_to_world = apply_coordinate_transform(
-        extrinsics=extrinsics.detach().clone().to(device=device, dtype=torch.float32),
-        source_convention=convention,
-        target_convention="opencv",
+    extrinsics = (
+        apply_coordinate_transform(
+            extrinsics=extrinsics.detach()
+            .clone()
+            .to(device=device, dtype=torch.float32),
+            source_convention=convention,
+            target_convention="opencv",
+        )
+        .detach()
+        .cpu()
+        .numpy()
     )
-    assert cam_to_world.shape == (4, 4), "camera_extrinsics must be 4x4"
-    cam_to_world_cpu = cam_to_world.detach().cpu().numpy()
-    world_to_cam = np.linalg.inv(cam_to_world_cpu)
-    rotation = world_to_cam[:3, :3]
-    translation = world_to_cam[:3, 3]
+
+    rotation = extrinsics[:3, :3].astype(np.float32)
+    w2c = np.linalg.inv(extrinsics)
+    translation = w2c[:3, 3].astype(np.float32)
 
     # prepare dummy image
     dummy_image = torch.zeros(
