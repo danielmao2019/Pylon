@@ -170,7 +170,7 @@ pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/seg
 ```bash
 # Install PyTorch3D from source to ensure CUDA compatibility
 # Note: conda install pytorch3d breaks CUDA PyTorch, so we build from source
-pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
+pip install --no-deps "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 
 pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
 pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
