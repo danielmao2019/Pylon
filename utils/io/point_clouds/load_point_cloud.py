@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from plyfile import PlyData
 import laspy
+import open3d as o3d
+from torch.utils import dlpack as torch_dlpack
 from utils.input_checks.check_point_cloud import check_point_cloud
 
 
@@ -174,6 +176,37 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     return result
 
 
+def _load_from_pcd(filepath: str) -> Dict[str, torch.Tensor]:
+    """Read point cloud data from a PCD file using Open3D tensor IO.
+
+    Returns Dict[str, torch.Tensor] directly without dtype/device conversions.
+    """
+
+    tensor_pcd = o3d.t.io.read_point_cloud(filepath)
+
+    if 'positions' not in tensor_pcd.point:
+        raise ValueError(f"PCD file does not contain positions: {filepath}")
+
+    # Return Open3D tensors converted to torch.Tensor directly, as-is
+    pos_t: torch.Tensor = torch_dlpack.from_dlpack(
+        tensor_pcd.point['positions'].to_dlpack()
+    )
+    result: Dict[str, torch.Tensor] = {'pos': pos_t}
+
+    if 'colors' in tensor_pcd.point:
+        result['rgb'] = torch_dlpack.from_dlpack(
+            tensor_pcd.point['colors'].to_dlpack()
+        )
+
+    for field_name, ten in tensor_pcd.point.items():
+        if field_name in {'positions', 'colors'}:
+            continue
+        # Keep original shape and dtype; no squeezing or casting
+        result[field_name] = torch_dlpack.from_dlpack(ten.to_dlpack())
+
+    return result
+
+
 def _load_from_pth(
     filepath: str, device: Union[str, torch.device] = 'cuda'
 ) -> Dict[str, Union[torch.Tensor, np.ndarray]]:
@@ -261,6 +294,8 @@ def load_point_cloud(
         pc_data = _load_from_pth(filepath, device=device)
     elif file_ext == '.ply':
         pc_data = _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat)
+    elif file_ext == '.pcd':
+        pc_data = _load_from_pcd(filepath)
     elif file_ext in ['.las', '.laz']:
         pc_data = _load_from_las(filepath)
     elif file_ext == '.off':
