@@ -22,7 +22,9 @@ class SSHResult:
             # Check for command failure
             if self._return_code != 0:
                 error = self.fetcherror()
-                raise SSHCommandError(f"Command failed with exit code {self._return_code}: {error}")
+                raise SSHCommandError(
+                    f"Command failed with exit code {self._return_code}: {error}"
+                )
 
         return self._output
 

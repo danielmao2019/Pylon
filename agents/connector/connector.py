@@ -71,9 +71,7 @@ class SSHConnector:
         try:
             with self._lock:
                 stdin, stdout, stderr = self._client.exec_command(
-                    cmd_str,
-                    timeout=self.timeout,
-                    get_pty=False
+                    cmd_str, timeout=self.timeout, get_pty=False
                 )
 
             return SSHResult(stdout, stderr, stdin)
@@ -131,10 +129,7 @@ class LocalhostConnector:
         """Execute command locally using subprocess."""
         try:
             result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout
+                command, capture_output=True, text=True, timeout=self.timeout
             )
             return LocalhostResult(result)
         except subprocess.TimeoutExpired:

@@ -44,9 +44,9 @@ class Launcher(BaseAgent):
             keep_tmux (Optional[bool]): whether to keep the tmux session alive.
             force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
         """
-        assert isinstance(commands, list) and commands, (
-            "commands must be a non-empty list"
-        )
+        assert (
+            isinstance(commands, list) and commands
+        ), "commands must be a non-empty list"
         normalized_commands = [command.strip() for command in commands]
 
         super(Launcher, self).__init__(
@@ -105,7 +105,9 @@ class Launcher(BaseAgent):
             self.ssh_pool.execute(server, ['kill', '-9', str(pid)])
 
     def _remove_outdated(self, all_running_status: List[BaseJob]) -> None:
-        outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
+        outdated_runs = list(
+            filter(lambda x: x.status == 'outdated', all_running_status)
+        )
         # self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
         # with ThreadPoolExecutor() as executor:
         #     list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
@@ -177,16 +179,22 @@ class Launcher(BaseAgent):
                     assert 'avg' in cpu.memory_stats
                     assert 'avg' in cpu.load_stats
                     cpu_util_ok = cpu.cpu_stats['avg'] < 80
-                    cpu_mem_ok = (cpu.max_memory - cpu.memory_stats['avg']) > 4 * 1024  # 4GB
-                    cpu_load_ok = cpu.load_stats['avg'] < cpu.cpu_cores  # Load should be less than number of cores
+                    cpu_mem_ok = (
+                        cpu.max_memory - cpu.memory_stats['avg']
+                    ) > 4 * 1024  # 4GB
+                    cpu_load_ok = (
+                        cpu.load_stats['avg'] < cpu.cpu_cores
+                    )  # Load should be less than number of cores
                     cpu_ok = cpu_util_ok and cpu_mem_ok and cpu_load_ok
 
             # GPU is only considered idle if both GPU and CPU resources are available
             if gpu_util_ok and gpu_mem_ok and gpu_jobs_ok and cpu_ok:
-                idle_gpus.append({
-                    'server': gpu.server,
-                    'resource_id': gpu.index,
-                })
+                idle_gpus.append(
+                    {
+                        'server': gpu.server,
+                        'resource_id': gpu.index,
+                    }
+                )
 
         self.logger.warning(f"Disconnected GPUs: {self.disconnected_gpus}")
         self.logger.warning(f"Disconnected CPUs: {self.disconnected_cpus}")
@@ -215,11 +223,11 @@ class Launcher(BaseAgent):
             # Step 1: Extract and validate the work directory from the job
             command = job.command.strip()
             work_dir = job.work_dir
-            assert isinstance(work_dir, str) and work_dir, (
-                f"Job {command} does not provide a valid work_dir"
-            )
+            assert (
+                isinstance(work_dir, str) and work_dir
+            ), f"Job {command} does not provide a valid work_dir"
             norm_work_dir = os.path.normpath(work_dir)
-            
+
             # Step 2: Define the error log path using the job work directory
             error_log = os.path.join(norm_work_dir, "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
@@ -231,26 +239,34 @@ class Launcher(BaseAgent):
             device_env = f"CUDA_VISIBLE_DEVICES={resource['resource_id']}"
             resource_label = f"GPU-{resource['resource_id']}"
 
-            cmd = ' && '.join([
-                f"cd {self.project_dir}",
-                "git fetch",
-                f"git checkout {self.git_branch}",
-                "git stash", "git pull", "git stash pop || true",
-                "source ~/.bashrc",
-                f"source ~/miniconda3/bin/activate {self.conda_env}",
-                f"mkdir -p {os.path.dirname(error_log)}",
-                ' '.join([
-                    "MKL_SERVICE_FORCE_INTEL=1",
-                    device_env,
-                    command,
-                    # "2>", error_log,
-                ]),
-            ])
+            cmd = ' && '.join(
+                [
+                    f"cd {self.project_dir}",
+                    "git fetch",
+                    f"git checkout {self.git_branch}",
+                    "git stash",
+                    "git pull",
+                    "git stash pop || true",
+                    "source ~/.bashrc",
+                    f"source ~/miniconda3/bin/activate {self.conda_env}",
+                    f"mkdir -p {os.path.dirname(error_log)}",
+                    ' '.join(
+                        [
+                            "MKL_SERVICE_FORCE_INTEL=1",
+                            device_env,
+                            command,
+                            # "2>", error_log,
+                        ]
+                    ),
+                ]
+            )
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
             session_name = f"{job.tmux_session_name()}-{resource_label}"
             tmux_cmd = f"tmux new-session -d -s {session_name} \"{cmd}\""
 
-            self.logger.info(f"Executing command on {resource['server']} ({resource_label}): {tmux_cmd}")
+            self.logger.info(
+                f"Executing command on {resource['server']} ({resource_label}): {tmux_cmd}"
+            )
             self.ssh_pool.execute(resource['server'], ["bash", "-lc", tmux_cmd])
 
         for gpu, job in zip(idle_gpus, missing_jobs):
@@ -260,7 +276,7 @@ class Launcher(BaseAgent):
 
     def spawn(self, num_jobs: int = 1) -> None:
         while True:
-            self.logger.info('='*50)
+            self.logger.info('=' * 50)
 
             self.logger.info("Collecting all running jobs...")
             manager = Manager(
@@ -274,9 +290,7 @@ class Launcher(BaseAgent):
             all_jobs = list(manager.build_jobs().values())
 
             avg_progress = manager.compute_average_progress()
-            self.logger.info(
-                f"Average progress across commands: {avg_progress:.2f}%"
-            )
+            self.logger.info(f"Average progress across commands: {avg_progress:.2f}%")
 
             self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_jobs)

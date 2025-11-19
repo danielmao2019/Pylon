@@ -8,7 +8,12 @@ from agents.connector.error import SSHCommandError
 class SSHConnectionPool:
     """Thread-safe SSH connection pool for reusing persistent connections."""
 
-    def __init__(self, max_connections_per_server: int = 3, connection_timeout: int = 30, command_timeout: int = 30):
+    def __init__(
+        self,
+        max_connections_per_server: int = 3,
+        connection_timeout: int = 30,
+        command_timeout: int = 30,
+    ):
         self.max_connections_per_server = max_connections_per_server
         self.connection_timeout = connection_timeout
         self.command_timeout = command_timeout
@@ -21,7 +26,9 @@ class SSHConnectionPool:
         """Get or create connection pool for a server."""
         with self._lock:
             if server not in self._pools:
-                self._pools[server] = queue.Queue(maxsize=self.max_connections_per_server)
+                self._pools[server] = queue.Queue(
+                    maxsize=self.max_connections_per_server
+                )
                 self._active_connections[server] = 0
                 self._connection_locks[server] = threading.Lock()
             return self._pools[server]
@@ -74,7 +81,9 @@ class SSHConnectionPool:
                 connector.connect()
                 return connector
         except queue.Empty:
-            raise SSHCommandError(f"Connection pool timeout on {server}: no connectors available within {self.connection_timeout}s")
+            raise SSHCommandError(
+                f"Connection pool timeout on {server}: no connectors available within {self.connection_timeout}s"
+            )
 
     def return_connector(self, connector):
         """Return a connector to the pool for reuse."""
