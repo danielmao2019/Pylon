@@ -1,10 +1,7 @@
 """
 RUNNERS API
 """
-from runners import trainers
-from runners import evaluators
-from runners import viewers
-
+from runners import evaluators, trainers, viewers
 
 __all__ = [
     'trainers',

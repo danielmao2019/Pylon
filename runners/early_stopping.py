@@ -1,8 +1,9 @@
-from typing import Dict, Any, Optional, List
-import os
 import json
-from runners.model_comparison import compare_scores, get_metric_directions
+import os
+from typing import Any, Dict, List, Optional
+
 from agents.manager.training_job import TrainingJob
+from runners.model_comparison import compare_scores, get_metric_directions
 
 
 class EarlyStopping:

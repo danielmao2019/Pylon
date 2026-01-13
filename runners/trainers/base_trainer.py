@@ -12,7 +12,7 @@ import criteria
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
-from utils.io import serialize_tensor
+from utils.io.json import serialize_tensor
 from utils.io.json import save_json
 from agents.manager.training_job import TrainingJob
 from agents.monitor.system_monitor import SystemMonitor
@@ -71,21 +71,21 @@ class BaseTrainer(ABC):
         """Save training progress to progress.json file."""
         if self.work_dir is None:
             return
-            
+
         # Determine early stopping status
         early_stopped = False
         early_stopped_at_epoch = None
         if self.early_stopping and self.early_stopping.should_stop_early:
             early_stopped = True
             early_stopped_at_epoch = self.cum_epochs
-            
+
         progress_data = {
             "completed_epochs": self.cum_epochs,
             "progress_percentage": (self.cum_epochs / self.tot_epochs) * 100,
             "early_stopped": early_stopped,
             "early_stopped_at_epoch": early_stopped_at_epoch
         }
-        
+
         progress_file = os.path.join(self.work_dir, "progress.json")
         save_json(progress_data, progress_file)
 

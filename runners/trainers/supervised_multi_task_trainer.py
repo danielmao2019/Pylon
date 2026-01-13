@@ -1,9 +1,10 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import torch
 from .base_trainer import BaseTrainer
-import optimizers
-from utils.ops import apply_tensor_op
+from optimizers.multi_task_optimizers.mtl_optimizer import MTLOptimizer
 from utils.builders import build_from_config
+from utils.ops import apply_tensor_op
 
 try:
     # torch 2.x
@@ -18,8 +19,7 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
     """
 
     def _init_optimizer(self) -> None:
-        r"""Requires self.model.
-        """
+        r"""Requires self.model."""
         # check dependencies
         for name in ['model', 'train_dataloader', 'criterion', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None
@@ -28,15 +28,21 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
         assert 'optimizer' in self.config, f"{self.config.keys()=}"
         # initialize optimizer
         optimizer_config = self.config['optimizer']
-        optimizer_config['args']['optimizer_config']['args']['params'] = list(self.model.parameters())
+        optimizer_config['args']['optimizer_config']['args']['params'] = list(
+            self.model.parameters()
+        )
         dummy_dp0 = self.train_dataloader.dataset[0]
         dummy_dp1 = self.train_dataloader.dataset[1]
         dummy_example = self.train_dataloader.collate_fn([dummy_dp0, dummy_dp1])
-        dummy_example = apply_tensor_op(lambda x: x.cuda(), dummy_example)
+        dummy_example = apply_tensor_op(func=lambda x: x.cuda(), inputs=dummy_example)
         dummy_outputs = self.model(dummy_example['inputs'])
-        dummy_losses = self.criterion(y_pred=dummy_outputs, y_true=dummy_example['labels'])
+        dummy_losses = self.criterion(
+            y_pred=dummy_outputs, y_true=dummy_example['labels']
+        )
         self.optimizer = build_from_config(
-            losses=dummy_losses, shared_rep=dummy_outputs['shared_rep'], logger=self.logger,
+            losses=dummy_losses,
+            shared_rep=dummy_outputs['shared_rep'],
+            logger=self.logger,
             config=optimizer_config,
         )
 
@@ -48,13 +54,17 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
         self.logger.info("Initializing scheduler...")
         assert 'scheduler' in self.config
         assert isinstance(self.train_dataloader, torch.utils.data.DataLoader)
-        assert isinstance(self.optimizer, optimizers.MTLOptimizer)
+        assert isinstance(self.optimizer, MTLOptimizer)
         self.config['scheduler']['args']['lr_lambda'] = build_from_config(
-            steps=len(self.train_dataloader), config=self.config['scheduler']['args']['lr_lambda'],
+            steps=len(self.train_dataloader),
+            config=self.config['scheduler']['args']['lr_lambda'],
         )
         self.scheduler: LRScheduler = build_from_config(
-            optimizer=self.optimizer.optimizer, config=self.config['scheduler'],
+            optimizer=self.optimizer.optimizer,
+            config=self.config['scheduler'],
         )
 
     def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
-        self.optimizer.backward(losses=dp['losses'], shared_rep=dp['outputs']['shared_rep'])
+        self.optimizer.backward(
+            losses=dp['losses'], shared_rep=dp['outputs']['shared_rep']
+        )

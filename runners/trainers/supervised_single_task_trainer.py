@@ -1,8 +1,9 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import torch
+from optimizers.single_task_optimizer import SingleTaskOptimizer
 from runners.trainers.base_trainer import BaseTrainer
-import optimizers
-import utils
+from utils.builders import build_from_config, build_scheduler
 
 
 class SupervisedSingleTaskTrainer(BaseTrainer):
@@ -24,7 +25,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         # initialize optimizer
         optimizer_config = self.config['optimizer']
         optimizer_config['args']['optimizer_config']['args']['params'] = list(self.model.parameters())
-        self.optimizer = utils.builders.build_from_config(optimizer_config)
+        self.optimizer = build_from_config(optimizer_config)
 
     def _init_scheduler(self):
         if not self.config.get('scheduler', None):
@@ -37,10 +38,10 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         # input checks
         assert 'scheduler' in self.config
         assert isinstance(self.train_dataloader, torch.utils.data.DataLoader)
-        assert isinstance(self.optimizer, optimizers.SingleTaskOptimizer)
+        assert isinstance(self.optimizer, SingleTaskOptimizer)
         assert hasattr(self.optimizer, 'optimizer') and isinstance(self.optimizer.optimizer, torch.optim.Optimizer)
         # build scheduler
-        self.scheduler = utils.builders.build_scheduler(trainer=self, cfg=self.config['scheduler'])
+        self.scheduler = build_scheduler(trainer=self, cfg=self.config['scheduler'])
 
     def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         r"""Set gradients in single-task learning setting.

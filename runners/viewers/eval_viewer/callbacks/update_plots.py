@@ -27,12 +27,12 @@ def create_aggregated_scores_plot(epoch_scores: List[np.ndarray], log_dirs: List
     assert isinstance(epoch_scores, list), f"epoch_scores must be list, got {type(epoch_scores)}"
     assert len(epoch_scores) > 0, f"epoch_scores must not be empty"
     assert all(isinstance(scores, np.ndarray) for scores in epoch_scores), f"All epoch_scores must be numpy arrays"
-    
+
     assert log_dirs is not None, "log_dirs must not be None"
     assert isinstance(log_dirs, list), f"log_dirs must be list, got {type(log_dirs)}"
     assert len(log_dirs) == len(epoch_scores), f"log_dirs length {len(log_dirs)} must match epoch_scores length {len(epoch_scores)}"
     assert all(isinstance(log_dir, str) for log_dir in log_dirs), f"All log_dirs must be strings"
-    
+
     assert metric_name is not None, "metric_name must not be None"
     assert isinstance(metric_name, str), f"metric_name must be str, got {type(metric_name)}"
 
@@ -74,28 +74,28 @@ def create_grid_and_colorbar(score_map, run_idx, num_datapoints, min_score, max_
     assert score_map is not None, "score_map must not be None"
     assert isinstance(score_map, np.ndarray), f"score_map must be numpy array, got {type(score_map)}"
     assert score_map.ndim == 2, f"score_map must be 2D, got shape {score_map.shape}"
-    
+
     assert run_idx is not None, "run_idx must not be None"
     assert isinstance(run_idx, int), f"run_idx must be int, got {type(run_idx)}"
     assert run_idx >= 0, f"run_idx must be non-negative, got {run_idx}"
-    
+
     assert num_datapoints is not None, "num_datapoints must not be None"
     assert isinstance(num_datapoints, int), f"num_datapoints must be int, got {type(num_datapoints)}"
     assert num_datapoints > 0, f"num_datapoints must be positive, got {num_datapoints}"
-    
+
     assert min_score is not None, "min_score must not be None"
     assert isinstance(min_score, (int, float)), f"min_score must be numeric, got {type(min_score)}"
-    
+
     assert max_score is not None, "max_score must not be None"
     assert isinstance(max_score, (int, float)), f"max_score must be numeric, got {type(max_score)}"
     assert max_score >= min_score, f"max_score {max_score} must be >= min_score {min_score}"
 
     button_grid = create_button_grid(
-        num_datapoints=num_datapoints, 
-        score_map=score_map, 
+        num_datapoints=num_datapoints,
+        score_map=score_map,
         button_type='individual-grid-button',
-        run_idx=run_idx, 
-        min_score=min_score, 
+        run_idx=run_idx,
+        min_score=min_score,
         max_score=max_score,
     )
     color_bar = create_color_bar(min_score=min_score, max_score=max_score)
@@ -116,20 +116,20 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
     # Input validation following CLAUDE.md fail-fast patterns
     assert app is not None, "app must not be None"
     assert isinstance(app, dash.Dash), f"app must be dash.Dash instance, got {type(app)}"
-    
+
     assert metric_names is not None, "metric_names must not be None"
     assert isinstance(metric_names, list), f"metric_names must be list, got {type(metric_names)}"
     assert len(metric_names) > 0, f"metric_names must not be empty, got {metric_names}"
     assert all(isinstance(name, str) for name in metric_names), f"All metric names must be strings, got {metric_names}"
-    
+
     assert num_datapoints is not None, "num_datapoints must not be None"
     assert isinstance(num_datapoints, int), f"num_datapoints must be int, got {type(num_datapoints)}"
     assert num_datapoints > 0, f"num_datapoints must be positive, got {num_datapoints}"
-    
+
     assert log_dir_infos is not None, "log_dir_infos must not be None"
     assert isinstance(log_dir_infos, dict), f"log_dir_infos must be dict, got {type(log_dir_infos)}"
     assert len(log_dir_infos) > 0, f"log_dir_infos must not be empty"
-    
+
     assert per_metric_color_scales is not None, "per_metric_color_scales must not be None"
     assert isinstance(per_metric_color_scales, np.ndarray), f"per_metric_color_scales must be numpy array, got {type(per_metric_color_scales)}"
     assert per_metric_color_scales.shape == (len(metric_names), 2), f"per_metric_color_scales shape must be ({len(metric_names)}, 2), got {per_metric_color_scales.shape}"
@@ -150,7 +150,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         # Handle None values during app initialization
         if metric_name is None:
             raise PreventUpdate
-            
+
         # Input validation following CLAUDE.md fail-fast patterns
         assert isinstance(metric_name, str), f"metric_name must be str, got {type(metric_name)}"
         assert metric_name in metric_names, f"metric_name {metric_name} not found in available metrics: {metric_names}"
@@ -170,8 +170,8 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
 
         # Create figure using kwargs pattern
         fig = create_aggregated_scores_plot(
-            epoch_scores=epoch_scores, 
-            log_dirs=list(log_dir_infos.keys()), 
+            epoch_scores=epoch_scores,
+            log_dirs=list(log_dir_infos.keys()),
             metric_name=metric_name
         )
         return dcc.Graph(figure=fig)
@@ -188,19 +188,19 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         # Handle None values during app initialization
         if epoch is None or metric_name is None:
             raise PreventUpdate
-            
+
         # Use drag_value if available (while dragging), otherwise use value
         percentile = percentile_drag if percentile_drag is not None else percentile_value
         if percentile is None:
             raise PreventUpdate
-        
+
         # Input validation following CLAUDE.md fail-fast patterns
         assert isinstance(epoch, int), f"epoch must be int, got {type(epoch)}"
         assert epoch >= 0, f"epoch must be non-negative, got {epoch}"
-        
+
         assert isinstance(metric_name, str), f"metric_name must be str, got {type(metric_name)}"
         assert metric_name in metric_names, f"metric_name {metric_name} not found in available metrics: {metric_names}"
-        
+
         assert isinstance(percentile, (int, float)), f"percentile must be numeric, got {type(percentile)}"
         assert 0 <= percentile <= 100, f"percentile must be between 0 and 100, got {percentile}"
 
@@ -219,8 +219,8 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
         overlaid_score_map = create_overlaid_score_map(score_maps=score_maps, percentile=percentile)
         button_grid = create_button_grid(
-            num_datapoints=num_datapoints, 
-            score_map=overlaid_score_map, 
+            num_datapoints=num_datapoints,
+            score_map=overlaid_score_map,
             button_type='overlaid-grid-button',
         )
         min_score = np.nanmin(overlaid_score_map)
@@ -244,11 +244,11 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         # Handle None values during app initialization
         if epoch is None or metric_name is None:
             raise PreventUpdate
-            
+
         # Input validation following CLAUDE.md fail-fast patterns
         assert isinstance(epoch, int), f"epoch must be int, got {type(epoch)}"
         assert epoch >= 0, f"epoch must be non-negative, got {epoch}"
-        
+
         assert isinstance(metric_name, str), f"metric_name must be str, got {type(metric_name)}"
         assert metric_name in metric_names, f"metric_name {metric_name} not found in available metrics: {metric_names}"
 
@@ -276,10 +276,10 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
             future_to_idx = {
                 executor.submit(
                     create_grid_and_colorbar,
-                    score_map=score_map, 
-                    run_idx=i, 
-                    num_datapoints=num_datapoints, 
-                    min_score=min_score, 
+                    score_map=score_map,
+                    run_idx=i,
+                    num_datapoints=num_datapoints,
+                    min_score=min_score,
                     max_score=max_score,
                 ): i for i, score_map in enumerate(score_maps)
             }

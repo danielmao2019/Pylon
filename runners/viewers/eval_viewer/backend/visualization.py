@@ -16,7 +16,7 @@ def create_score_map_grid(scores: Union[List[float], np.ndarray]) -> np.ndarray:
     # Input validation following CLAUDE.md fail-fast patterns
     assert scores is not None, "scores must not be None"
     assert isinstance(scores, (list, np.ndarray)), f"scores must be list or numpy array, got {type(scores)}"
-    
+
     if isinstance(scores, list):
         assert len(scores) > 0, f"scores must not be empty"
         assert all(isinstance(score, (int, float)) for score in scores), f"All scores must be numeric"
@@ -25,7 +25,7 @@ def create_score_map_grid(scores: Union[List[float], np.ndarray]) -> np.ndarray:
         assert scores.ndim == 1, f"scores must be 1D array, got shape {scores.shape}"
         assert len(scores) > 0, f"scores must not be empty"
         scores_array = scores
-    
+
     n = len(scores_array)
     side_length = int(np.ceil(np.sqrt(n)))
 
