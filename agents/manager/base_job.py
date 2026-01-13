@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import os
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Sequence, Literal
 
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.base_progress_info import BaseProgressInfo
 from agents.monitor.process_info import ProcessInfo
 from agents.manager.runtime import JobRuntimeParams
 
@@ -27,13 +25,13 @@ class BaseJob(ABC):
         self,
         command: str,
     ) -> None:
-        assert isinstance(command, str) and command.strip(), (
-            "Job command must be a non-empty string"
-        )
+        assert (
+            isinstance(command, str) and command.strip()
+        ), "Job command must be a non-empty string"
         self.command = command
         self.work_dir = self.derive_work_dir()
         self.process_info: Optional[ProcessInfo] = None
-        self.progress: Optional[ProgressInfo] = None
+        self.progress: Optional[BaseProgressInfo] = None
         self.status: Optional[str] = None
 
     @abstractmethod
@@ -56,14 +54,18 @@ class BaseJob(ABC):
     # ----------------------------------------------------------------------------------------------------
 
     @abstractmethod
-    def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
+    def compute_progress(self, runtime: JobRuntimeParams) -> BaseProgressInfo:
         """Return up-to-date progress information for the job."""
 
     # ----------------------------------------------------------------------------------------------------
     # compute status
     # ----------------------------------------------------------------------------------------------------
 
-    def compute_status(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> str:
+    def compute_status(
+        self,
+        progress: BaseProgressInfo,
+        runtime: JobRuntimeParams,
+    ) -> str:
         """Determine high-level status (e.g. running/finished/failed)."""
         if self.is_active(runtime):
             return "running"
@@ -89,10 +91,15 @@ class BaseJob(ABC):
         stale_after = runtime.outdated_days * 24 * 60 * 60
         return (time.time() - artifact_last_update) > stale_after
 
-    @abstractmethod
-    def is_complete(self, progress: ProgressInfo, runtime: JobRuntimeParams) -> bool:
+    def is_complete(
+        self, progress: BaseProgressInfo, runtime: JobRuntimeParams
+    ) -> bool:
         """Return True when the job should count as complete."""
-        raise NotImplementedError
+        assert 0.0 <= progress.progress_percentage <= 100.0, (
+            f"Progress percentage must be within [0, 100], got "
+            f"{progress.progress_percentage}"
+        )
+        return progress.progress_percentage == 100.0
 
     @abstractmethod
     def is_stuck(self, runtime: JobRuntimeParams) -> bool:
@@ -111,7 +118,7 @@ class BaseJob(ABC):
         return max(timestamps, default=None)
 
     # ----------------------------------------------------------------------------------------------------
-    # 
+    #
     # ----------------------------------------------------------------------------------------------------
 
     def to_dict(self) -> Dict[str, Any]:
