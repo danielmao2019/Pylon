@@ -1,7 +1,5 @@
 """Blender-native mesh loading utilities mirroring PyTorch3D helpers."""
 
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Dict, List, Sequence, Union
 
@@ -13,9 +11,7 @@ def _discover_obj_paths_blender(root: Path) -> List[Path]:
     top_level = sorted(root.glob('*.obj'))
     subdirs = sorted(path for path in root.iterdir() if path.is_dir())
     nested = [obj for sub in subdirs for obj in sorted(sub.glob('*.obj'))]
-    assert not (
-        top_level and nested
-    ), (
+    assert not (top_level and nested), (
         f"Mesh root {root} should contain OBJ files either at the top level "
         "or within immediate subdirectories, not both"
     )
