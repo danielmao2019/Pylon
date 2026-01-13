@@ -10,7 +10,7 @@ from benchmarks.data.viewer.pc_lod.report_generator import ComprehensiveBenchmar
 
 __all__ = [
     'PointCloudSample',
-    'CameraPose', 
+    'CameraPose',
     'BenchmarkStats',
     'PointCloudStreamer',
     'SyntheticPointCloudStreamer',

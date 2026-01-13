@@ -39,37 +39,37 @@ Examples:
 
         """
     )
-    
+
     parser.add_argument(
         '--scenarios',
         nargs='+',
         choices=['navigation', '3d_settings', 'mixed', 'stress', 'buttons', 'camera'],
         help='Scenarios to benchmark (default: all scenarios)'
     )
-    
+
     parser.add_argument(
         '--datapoints',
         type=int,
         default=100,
         help='Number of datapoints in synthetic dataset (default: 100)'
     )
-    
+
     parser.add_argument(
         '--points',
-        type=int, 
+        type=int,
         default=5000,
         help='Number of points per point cloud (default: 5000)'
     )
-    
-    
+
+
     parser.add_argument(
         '--quick',
         action='store_true',
         help='Quick test mode (20 datapoints, 1000 points)'
     )
-    
-    
-    
+
+
+
     return parser.parse_args()
 
 
@@ -79,11 +79,11 @@ def validate_args(args):
         args.datapoints = 20
         args.points = 1000
         print("Quick mode enabled: using 20 datapoints with 1000 points each")
-    
+
     if args.datapoints < 1:
         print("ERROR: datapoints must be at least 1")
         sys.exit(1)
-    
+
     if args.points < 100:
         print("ERROR: points must be at least 100")
         sys.exit(1)
@@ -105,26 +105,26 @@ def main():
     """Main entry point for the benchmark suite."""
     args = parse_args()
     validate_args(args)
-    
+
     print_banner()
-    
+
     # Create benchmark runner
     runner = BenchmarkRunner()
-    
+
     # Run benchmark suite
     results = runner.run_full_benchmark(
         scenarios=args.scenarios,
         num_datapoints=args.datapoints,
         num_points=args.points
     )
-    
+
     # Save results
     output_file = runner.save_results(results)
-    
+
     # Generate visualizations
     viz_dir = runner.generate_visualizations(results)
     print(f"📈 Visualizations saved to: {viz_dir}")
-    
+
     # Generate markdown report
     report_path = runner.generate_report(results)
     print(f"📄 Report generated: {report_path}")

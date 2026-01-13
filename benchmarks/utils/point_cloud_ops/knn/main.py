@@ -10,19 +10,19 @@ def main():
     """Main entry point."""
     # Suppress warnings
     warnings.filterwarnings("ignore")
-    
+
     print("="*60)
     print("KNN Implementation Benchmark")
     print("="*60)
-    
+
     # Run benchmark
     results = run_benchmark()
-    
+
     # Print summary
     print("\n" + "="*60)
     print("SUMMARY")
     print("="*60)
-    
+
     for method in results["methods"]:
         print(f"\n{method}:")
         for size_label, time in zip(results["size_labels"], results["times"][method]):
@@ -30,11 +30,11 @@ def main():
                 print(f"  {size_label}: {time:.4f}s")
             else:
                 print(f"  {size_label}: FAILED")
-    
+
     # Create visualization
     print("\nGenerating visualization...")
     plot_results(results)
-    
+
     print("\nBenchmark complete!")
 
 

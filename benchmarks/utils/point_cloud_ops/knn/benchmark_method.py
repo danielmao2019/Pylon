@@ -1,15 +1,18 @@
 """Single method benchmarking utility for KNN."""
 
-import time
-import torch
-import numpy as np
-import sys
 import os
+import sys
+import time
+from pathlib import Path
 
-# Add project root to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))))
+import numpy as np
+import torch
 
-from utils.point_cloud_ops.knn.knn import knn
+REPO_ROOT = Path(__file__).resolve().parents[4]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from data.structures.three_d.point_cloud.ops.knn.knn import knn
 
 
 def benchmark_knn_method(
@@ -18,10 +21,10 @@ def benchmark_knn_method(
     method: str,
     k: int = 10,
     warmup_runs: int = 1,
-    test_runs: int = 3
+    test_runs: int = 3,
 ) -> float:
     """Benchmark a single KNN method.
-    
+
     Args:
         query_points: Query point cloud
         reference_points: Reference point cloud
@@ -29,7 +32,7 @@ def benchmark_knn_method(
         k: Number of nearest neighbors
         warmup_runs: Number of warmup runs
         test_runs: Number of test runs for timing
-        
+
     Returns:
         Average runtime in seconds
     """
@@ -41,12 +44,12 @@ def benchmark_knn_method(
                 reference_points=reference_points,
                 k=k,
                 method=method,
-                return_distances=True
+                return_distances=True,
             )
         except Exception as e:
             print(f"Warning: {method} failed during warmup: {e}")
             return float('inf')
-    
+
     # Test runs
     times = []
     for _ in range(test_runs):
@@ -57,12 +60,12 @@ def benchmark_knn_method(
                 reference_points=reference_points,
                 k=k,
                 method=method,
-                return_distances=True
+                return_distances=True,
             )
             end_time = time.perf_counter()
             times.append(end_time - start_time)
         except Exception as e:
             print(f"Warning: {method} failed during test: {e}")
             return float('inf')
-    
+
     return np.mean(times)

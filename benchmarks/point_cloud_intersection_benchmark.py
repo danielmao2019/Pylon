@@ -2,19 +2,21 @@
 """
 Benchmark script for comparing different point cloud intersection implementations.
 """
-import time
-import torch
-import matplotlib.pyplot as plt
-from typing import Tuple, List, Dict
 import os
 import sys
+import time
 from functools import partial
+from pathlib import Path
+from typing import Dict, List, Tuple
 
-# Add the project root to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import matplotlib.pyplot as plt
+import torch
 
-# Import the implementations from intersection.py
-from utils.point_cloud_ops.set_ops.intersection import (
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from data.structures.three_d.point_cloud.ops.set_ops.intersection import (
     _kdtree_intersection,
     _tensor_intersection,
     _tensor_intersection_recursive,
@@ -24,8 +26,13 @@ from utils.point_cloud_ops.set_ops.intersection import (
 assert torch.cuda.is_available(), "This benchmark requires a GPU to run"
 
 
-def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: float = 0.3,
-                                radius: float = 0.1, device: str = 'cpu') -> Tuple[torch.Tensor, torch.Tensor]:
+def generate_random_point_clouds(
+    num_src: int,
+    num_tgt: int,
+    overlap_ratio: float = 0.3,
+    radius: float = 0.1,
+    device: str = 'cpu',
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Generate random point clouds with controlled overlap.
 
@@ -47,7 +54,10 @@ def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: floa
 
     # Create overlapping points by adding small random offsets to some source points
     overlap_indices = torch.randperm(num_src)[:num_overlap]
-    overlapping_points = src_points[overlap_indices] + torch.randn(num_overlap, 3, device=device) * radius * 0.5
+    overlapping_points = (
+        src_points[overlap_indices]
+        + torch.randn(num_overlap, 3, device=device) * radius * 0.5
+    )
 
     # Create non-overlapping points
     non_overlap_count = num_tgt - num_overlap
@@ -63,9 +73,11 @@ def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: floa
     return src_points, tgt_points
 
 
-def verify_results(reference_result: Tuple[torch.Tensor, torch.Tensor],
-                  test_result: Tuple[torch.Tensor, torch.Tensor],
-                  impl_name: str) -> bool:
+def verify_results(
+    reference_result: Tuple[torch.Tensor, torch.Tensor],
+    test_result: Tuple[torch.Tensor, torch.Tensor],
+    impl_name: str,
+) -> bool:
     """
     Verify that two implementations produce the same results.
 
@@ -83,7 +95,9 @@ def verify_results(reference_result: Tuple[torch.Tensor, torch.Tensor],
     # Check if the results have the same length
     if len(src_ref) != len(src_test) or len(tgt_ref) != len(tgt_test):
         print(f"❌ {impl_name}: Result length mismatch!")
-        print(f"  Reference: {len(src_ref)} source points, {len(tgt_ref)} target points")
+        print(
+            f"  Reference: {len(src_ref)} source points, {len(tgt_ref)} target points"
+        )
         print(f"  Test: {len(src_test)} source points, {len(tgt_test)} target points")
         return False
 
@@ -120,7 +134,9 @@ def get_gpu_info() -> str:
 
 
 def benchmark_implementations(
-    sizes: List[int], radius: float = 0.1, num_runs: int = 3,
+    sizes: List[int],
+    radius: float = 0.1,
+    num_runs: int = 3,
 ) -> Dict[str, List[float]]:
     """
     Benchmark different implementations with varying point cloud sizes.
@@ -141,7 +157,7 @@ def benchmark_implementations(
     implementations = {
         'tensor_cpu': partial(_tensor_intersection, device='cpu'),
         'tensor_gpu': partial(_tensor_intersection, device='cuda'),
-        'tensor_gpu_recursive': partial(_tensor_intersection_recursive, device='cuda')
+        'tensor_gpu_recursive': partial(_tensor_intersection_recursive, device='cuda'),
     }
 
     results = {name: [] for name in implementations}
@@ -151,7 +167,9 @@ def benchmark_implementations(
         print(f"Benchmarking with size {size}...")
 
         # Generate point clouds
-        src_points, tgt_points = generate_random_point_clouds(size, size, radius=radius, device='cpu')
+        src_points, tgt_points = generate_random_point_clouds(
+            size, size, radius=radius, device='cpu'
+        )
 
         # Get reference result from KD-tree implementation
         reference_result = _kdtree_intersection(src_points, tgt_points, radius)
@@ -216,7 +234,9 @@ def benchmark_implementations(
     return results
 
 
-def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: str = None):
+def plot_results(
+    sizes: List[int], results: Dict[str, List[float]], save_path: str = None
+):
     """
     Plot benchmark results.
 
@@ -238,13 +258,15 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
             # Add OOM annotations if any
             oom_sizes = [size for i, size in enumerate(sizes) if times[i] is None]
             for oom_size in oom_sizes:
-                plt.annotate('OOM',
-                            xy=(oom_size, plt.ylim()[1]),
-                            xytext=(0, 10),
-                            textcoords='offset points',
-                            ha='center',
-                            va='bottom',
-                            arrowprops=dict(arrowstyle='->', color='red'))
+                plt.annotate(
+                    'OOM',
+                    xy=(oom_size, plt.ylim()[1]),
+                    xytext=(0, 10),
+                    textcoords='offset points',
+                    ha='center',
+                    va='bottom',
+                    arrowprops=dict(arrowstyle='->', color='red'),
+                )
 
     plt.xlabel('Point Cloud Size')
     plt.ylabel('Time (seconds)')
@@ -272,7 +294,9 @@ def main():
     results = benchmark_implementations(sizes)
 
     # Plot results
-    plot_results(sizes, results, save_path='results/point_cloud_intersection_benchmark.png')
+    plot_results(
+        sizes, results, save_path='results/point_cloud_intersection_benchmark.png'
+    )
 
     # Print summary
     print("\nSummary:")
