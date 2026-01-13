@@ -1,46 +1,48 @@
-from __future__ import annotations
-
 import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Type
 
 from agents.manager.base_job import BaseJob
-from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
-from agents.manager.nerfstudio_job import NerfStudioJob
-from project.agents.manager.nerfstudio_generation_job import (
-    MultiServerNerfStudioGenerationJob,
-)
-from project.agents.manager.nerfstudio_data_job import NerfStudioDataJob
-from project.agents.manager.las_to_ply_job import LasToPlyOffsetJob
-from project.agents.manager.point_cloud_jobs import (
-    DensePointCloudJob,
-    SparsePointCloudJob,
-)
 from agents.manager.job_types import RunnerKind
+from agents.manager.nerfstudio_job import NerfStudioJob
 from agents.manager.runtime import JobRuntimeParams
-from utils.io.config import load_config
+from agents.manager.training_job import TrainingJob
 from agents.monitor.cpu_status import CPUStatus
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.system_monitor import SystemMonitor
 from runners.evaluators.base_evaluator import BaseEvaluator
 from runners.trainers.base_trainer import BaseTrainer
+from utils.io.config import load_config
+
+_JOB_CLASS_REGISTRY: Dict[RunnerKind, Type[BaseJob]] = {
+    RunnerKind.TRAINER: TrainingJob,
+    RunnerKind.EVALUATOR: EvaluationJob,
+    RunnerKind.NERFSTUDIO: NerfStudioJob,
+}
+
+
+def register_job_class(runner_kind: RunnerKind, job_cls: Type[BaseJob]) -> None:
+    assert isinstance(runner_kind, RunnerKind)
+    assert isinstance(job_cls, type) and issubclass(job_cls, BaseJob)
+    _JOB_CLASS_REGISTRY[runner_kind] = job_cls
+
+
+def register_job_classes(
+    job_classes: Dict[RunnerKind, Type[BaseJob]],
+) -> None:
+    assert isinstance(job_classes, dict)
+    for runner_kind, job_cls in job_classes.items():
+        register_job_class(runner_kind=runner_kind, job_cls=job_cls)
+
+
+def registered_job_classes() -> Dict[RunnerKind, Type[BaseJob]]:
+    return dict(_JOB_CLASS_REGISTRY)
 
 
 class Manager:
     """Builds BaseJob instances for a collection of configs."""
-
-    DEFAULT_JOB_CLASSES: Dict[RunnerKind, Type[BaseJob]] = {
-        RunnerKind.TRAINER: TrainingJob,
-        RunnerKind.EVALUATOR: EvaluationJob,
-        RunnerKind.NERFSTUDIO: NerfStudioJob,
-        RunnerKind.NERFSTUDIO_GENERATION: MultiServerNerfStudioGenerationJob,
-        RunnerKind.NERFSTUDIO_DATA: NerfStudioDataJob,
-        RunnerKind.LAS_TO_PLY: LasToPlyOffsetJob,
-        RunnerKind.DENSE_POINT_CLOUD: DensePointCloudJob,
-        RunnerKind.SPARSE_POINT_CLOUD: SparsePointCloudJob,
-    }
 
     def __init__(
         self,
@@ -64,7 +66,17 @@ class Manager:
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
         self.force_progress_recompute = force_progress_recompute
-        self.job_classes = dict(self.DEFAULT_JOB_CLASSES)
+        self.job_classes = registered_job_classes()
+
+    @classmethod
+    def register_job_class(
+        cls, runner_kind: RunnerKind, job_cls: Type[BaseJob]
+    ) -> None:
+        register_job_class(runner_kind=runner_kind, job_cls=job_cls)
+
+    @classmethod
+    def register_job_classes(cls, job_classes: Dict[RunnerKind, Type[BaseJob]]) -> None:
+        register_job_classes(job_classes)
 
     def build_jobs(self) -> Dict[str, BaseJob]:
         """Build BaseJob instances for all configs."""
@@ -142,26 +154,31 @@ class Manager:
 
     @staticmethod
     def _detect_from_command(command: str) -> RunnerKind | None:
-        if 'ns-train' in command:
+        stripped = command.strip()
+        if 'ns-train' in stripped:
             return RunnerKind.NERFSTUDIO
-        if command.strip().startswith('python gen_ivision_mt_nerfstudio.py'):
+        if stripped.startswith('python gen_ivision_mt_nerfstudio.py'):
             return RunnerKind.NERFSTUDIO_GENERATION
-        if command.strip().startswith(
-            'python project/scripts/3_prepare_nerfstudio_data/gen_nerfstudio_data.py'
+        if stripped.startswith(
+            'python project/pipelines/gen_nerfstudio_data/ivision_lidar/main.py'
         ):
-            return RunnerKind.NERFSTUDIO_DATA
-        if command.strip().startswith(
-            'python project/scripts/1_coord_transforms/compute_las_to_ply_offsets.py'
+            return RunnerKind.PIPELINE
+        if stripped.startswith(
+            'python project/pipelines/gen_nerfstudio_data/video/main.py'
         ):
-            return RunnerKind.LAS_TO_PLY
-        if command.strip().startswith(
-            'python project/scripts/2_preprocess_point_clouds/process_dense_point_clouds.py'
+            return RunnerKind.PIPELINE
+        if stripped.startswith('python project/pipelines/process_point_clouds/main.py'):
+            return RunnerKind.PIPELINE
+        if stripped.startswith(
+            'python project/pipelines/create_google_scanned_objects/main.py'
         ):
-            return RunnerKind.DENSE_POINT_CLOUD
-        if command.strip().startswith(
-            'python project/scripts/2_preprocess_point_clouds/process_sparse_point_clouds.py'
-        ):
-            return RunnerKind.SPARSE_POINT_CLOUD
+            return RunnerKind.GSO_PIPELINE
+        if stripped.startswith('python project/pipelines/benchmark_anytime_gs/main.py'):
+            return RunnerKind.ANYTIME_GS_PIPELINE
+        if stripped.startswith('python project/scripts/gen_change/gen_change.py'):
+            return RunnerKind.CHANGE_MAP
+        if stripped.startswith('python gen_ivision_2dcd.py'):
+            return RunnerKind.IVISION_2DCD
         return None
 
     @staticmethod
