@@ -29,10 +29,10 @@ def point_sample(input: torch.Tensor, point_coords: torch.Tensor, **kwargs: Any)
     return output # [c, 1, self.num_points]
 
 def get_uncertain_point_coords_with_randomness(
-    coarse_logits: torch.Tensor, 
-    uncertainty_func: Callable[[torch.Tensor], torch.Tensor], 
-    num_points: int, 
-    oversample_ratio: int, 
+    coarse_logits: torch.Tensor,
+    uncertainty_func: Callable[[torch.Tensor], torch.Tensor],
+    num_points: int,
+    oversample_ratio: int,
     importance_sample_ratio: float
 ) -> torch.Tensor:
     """

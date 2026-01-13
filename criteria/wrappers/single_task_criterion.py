@@ -1,6 +1,8 @@
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
+
 import torch
-from criteria import BaseCriterion
+
+from criteria.base_criterion import BaseCriterion
 from utils.input_checks import check_write_file
 
 

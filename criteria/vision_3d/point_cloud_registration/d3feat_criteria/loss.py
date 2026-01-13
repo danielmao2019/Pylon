@@ -93,7 +93,7 @@ class _ContrastiveLoss(nn.Module):
         loss = torch.max(furthest_positive - self.pos_margin, torch.zeros_like(diff)) + torch.max(self.neg_margin - closest_negative, torch.zeros_like(diff))
 
         average_negative = (torch.sum(dists, dim=-1) - furthest_positive) / (dists.shape[0] - 1)
-        
+
         return torch.mean(loss), accuracy, furthest_positive.tolist(), average_negative.tolist(), 0, dists
 
 
@@ -145,7 +145,7 @@ class _DetLoss(nn.Module):
     def __init__(self, metric='euclidean'):
         super(_DetLoss, self).__init__()
         self.metric = metric
-    
+
     def forward(self, dists, anc_score, pos_score):
         pids = torch.FloatTensor(np.arange(len(anc_score))).to(anc_score.device)
         pos_mask = torch.eq(torch.unsqueeze(pids, dim=1), torch.unsqueeze(pids, dim=0))

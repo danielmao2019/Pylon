@@ -1,13 +1,8 @@
 """
 CRITERIA API
 """
+from criteria import common, diffusion, vision_2d, vision_3d, wrappers
 from criteria.base_criterion import BaseCriterion
-from criteria import common
-from criteria import vision_2d
-from criteria import vision_3d
-from criteria import diffusion
-from criteria import wrappers
-
 
 __all__ = (
     'BaseCriterion',

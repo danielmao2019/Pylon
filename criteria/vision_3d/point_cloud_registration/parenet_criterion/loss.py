@@ -131,12 +131,12 @@ class _Evaluator(nn.Module):
         src_length_c = output_dict['src_points_c'].shape[0]
         gt_node_corr_overlaps = output_dict['gt_node_corr_overlaps']
         gt_node_corr_indices = output_dict['gt_node_corr_indices']
-        
+
         # Critical bounds checking to prevent IndexError
         assert ref_length_c > 0, f"ref_points_c is empty: shape {output_dict['ref_points_c'].shape}"
         assert src_length_c > 0, f"src_points_c is empty: shape {output_dict['src_points_c'].shape}"
         assert gt_node_corr_indices.numel() > 0, f"gt_node_corr_indices is empty: shape {gt_node_corr_indices.shape}"
-        
+
         masks = torch.gt(gt_node_corr_overlaps, self.acceptance_overlap)
         gt_node_corr_indices = gt_node_corr_indices[masks]
         gt_ref_node_corr_indices = gt_node_corr_indices[:, 0]

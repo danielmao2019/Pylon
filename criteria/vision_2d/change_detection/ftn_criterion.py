@@ -40,7 +40,7 @@ class FTNCriterion(HybridCriterion):
                 }
             },
         ]
-        
+
         super(FTNCriterion, self).__init__(
             combine='sum',
             criteria_cfg=criteria_cfg,
@@ -52,10 +52,10 @@ class FTNCriterion(HybridCriterion):
         assert isinstance(y_pred, tuple) and len(y_pred) == 4, f"{type(y_pred)=}, {len(y_pred)=}"
         assert all(isinstance(x, torch.Tensor) for x in y_pred)
         assert isinstance(y_true, dict) and set(y_true.keys()) == {'change_map'}
-        
+
         total_loss = 0
         for criterion in self.criteria:
             total_loss += criterion(y_pred, y_true['change_map'])
-        
+
         self.add_to_buffer(total_loss)
         return total_loss
