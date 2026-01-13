@@ -15,11 +15,11 @@ class BaseCache(ABC):
         self.logger = logging.getLogger(__name__)
 
     @abstractmethod
-    def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get(self, cache_filepath: str, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Retrieve item from cache.
 
         Args:
-            idx: Index of the datapoint
+            cache_filepath: Absolute filepath used as cache key
             device: Device to load tensors to (e.g., 'cuda:0', 'cpu')
 
         Returns:
@@ -28,12 +28,12 @@ class BaseCache(ABC):
         raise NotImplementedError("Subclasses must implement get()")
 
     @abstractmethod
-    def put(self, idx: int, value: Dict[str, Any]) -> None:
+    def put(self, value: Dict[str, Any], cache_filepath: str) -> None:
         """Store item in cache.
 
         Args:
-            idx: Index of the datapoint
             value: Raw datapoint with 'inputs', 'labels', 'meta_info' keys
+            cache_filepath: Absolute filepath used as cache key
         """
         raise NotImplementedError("Subclasses must implement put()")
 

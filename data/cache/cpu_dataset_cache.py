@@ -1,12 +1,13 @@
 from typing import Dict, Any, Optional, Set
 import copy
-import threading
-import logging
-import xxhash
 from collections import OrderedDict
-import torch
+
 import psutil
+import torch
+import xxhash
+
 from data.cache.base_cache import BaseCache
+from utils.ops import apply_tensor_op
 
 
 class CPUDatasetCache(BaseCache):
@@ -29,13 +30,15 @@ class CPUDatasetCache(BaseCache):
         super().__init__()
 
         if not 0 <= max_memory_percent <= 100:
-            raise ValueError(f"max_memory_percent must be between 0 and 100, got {max_memory_percent}")
+            raise ValueError(
+                f"max_memory_percent must be between 0 and 100, got {max_memory_percent}"
+            )
 
         self.max_memory_percent = max_memory_percent
         self.enable_validation = enable_validation
 
         # Track which keys have been validated this session (first-access-only)
-        self.validated_keys: Set[int] = set()
+        self.validated_keys: Set[str] = set()
 
         # Initialize cache structures
         self.cache = OrderedDict()  # LRU cache with key -> value mapping
@@ -45,6 +48,7 @@ class CPUDatasetCache(BaseCache):
 
     def _compute_checksum(self, value: Dict[str, Any]) -> str:
         """Compute a fast checksum for a cached item using xxhash."""
+
         def prepare_for_hash(item):
             if isinstance(item, torch.Tensor):
                 return item.cpu().numpy().tobytes()
@@ -57,51 +61,63 @@ class CPUDatasetCache(BaseCache):
         hashable_data = prepare_for_hash(value)
         return xxhash.xxh64(str(hashable_data).encode()).hexdigest()
 
-    def _validate_item(self, idx: int, value: Dict[str, Any]) -> bool:
+    def _validate_item(self, cache_key: str, value: Dict[str, Any]) -> bool:
         """Validate a cached item against its stored checksum (first-access-only per session)."""
         if not self.enable_validation:
             return True
 
         # Only validate on first access per session
-        if idx in self.validated_keys:
+        if cache_key in self.validated_keys:
             return True
 
-        if idx not in self.checksums:
+        if cache_key not in self.checksums:
             return False
 
         current_checksum = self._compute_checksum(value)
-        is_valid = current_checksum == self.checksums[idx]
+        is_valid = current_checksum == self.checksums[cache_key]
 
         if not is_valid:
-            raise ValueError(f"Cache validation failed for idx {idx} - data corruption detected")
+            raise ValueError(
+                f"Cache validation failed for key {cache_key} - data corruption detected"
+            )
 
         # Mark as validated for this session
-        self.validated_keys.add(idx)
+        self.validated_keys.add(cache_key)
         return is_valid
 
-    def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get(
+        self, cache_filepath: str, device: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Thread-safe cache retrieval with LRU update and validation."""
+        assert isinstance(
+            cache_filepath, str
+        ), f"cache_filepath must be str, got {type(cache_filepath)=}"
         with self._lock:
-            if idx in self.cache:
-                value = self.cache[idx]
+            if cache_filepath in self.cache:
+                value = self.cache[cache_filepath]
 
-                if self._validate_item(idx, value):
+                if self._validate_item(cache_filepath, value):
                     # Update LRU order
-                    self.cache.move_to_end(idx)
-                    self.logger.debug(f"Current LRU order after get({idx}): {list(self.cache.keys())}")
+                    self.cache.move_to_end(cache_filepath)
+                    self.logger.debug(
+                        f"Current LRU order after get({cache_filepath}): {list(self.cache.keys())}"
+                    )
                     # CPU cache always returns data on CPU, no device transfer
                     return copy.deepcopy(value)
                 else:
                     # Remove invalid item
-                    self.logger.debug(f"Removing invalid idx {idx} from cache")
-                    self.cache.pop(idx)
-                    self.checksums.pop(idx, None)
+                    self.logger.debug(
+                        f"Removing invalid key {cache_filepath} from cache"
+                    )
+                    self.cache.pop(cache_filepath)
+                    self.checksums.pop(cache_filepath, None)
 
             return None
 
     @staticmethod
     def _calculate_item_memory(value: Dict[str, Any]) -> int:
         """Calculate approximate memory usage of a cached item in bytes."""
+
         def process_item(item):
             if isinstance(item, torch.Tensor):
                 # Calculate tensor memory (size in bytes)
@@ -116,29 +132,34 @@ class CPUDatasetCache(BaseCache):
         overhead = 1024  # 1KB overhead for Python objects
         return memory + overhead
 
-    def put(self, idx: int, value: Dict[str, Any]) -> None:
+    def put(self, value: Dict[str, Any], cache_filepath: str) -> None:
         """Thread-safe cache insertion with memory management and checksum computation."""
+        assert isinstance(
+            cache_filepath, str
+        ), f"cache_filepath must be str, got {type(cache_filepath)=}"
         with self._lock:
-            # Make a copy and transfer tensors to CPU if needed
-            copied_value = copy.deepcopy(value)
-            # Ensure all tensors are on CPU for CPU cache storage
-            from utils.ops import apply_tensor_op
-            copied_value = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=copied_value)
+            # Ensure all tensors are on CPU for CPU cache storage without duplicating GPU tensors
+            copied_value = apply_tensor_op(method='detach', inputs=value)
+            copied_value = apply_tensor_op(method='cpu', inputs=copied_value)
 
             new_item_memory = self._calculate_item_memory(copied_value)
 
             # Remove old entry if it exists
-            if idx in self.cache:
-                old_memory = self.memory_usage.pop(idx)
+            if cache_filepath in self.cache:
+                old_memory = self.memory_usage.pop(cache_filepath)
                 self.total_memory -= old_memory
-                self.cache.pop(idx)
-                self.checksums.pop(idx, None)
+                self.cache.pop(cache_filepath)
+                self.checksums.pop(cache_filepath, None)
 
             # Calculate current max cache size in bytes
-            max_cache_bytes = int((self.max_memory_percent / 100.0) * psutil.virtual_memory().total)
+            max_cache_bytes = int(
+                (self.max_memory_percent / 100.0) * psutil.virtual_memory().total
+            )
 
             # Evict items if needed to stay under memory limit
-            while self.cache and (self.total_memory + new_item_memory > max_cache_bytes):
+            while self.cache and (
+                self.total_memory + new_item_memory > max_cache_bytes
+            ):
                 # Get the least recently used key
                 evict_key = next(iter(self.cache))
                 evicted_memory = self.memory_usage.pop(evict_key)
@@ -147,12 +168,12 @@ class CPUDatasetCache(BaseCache):
                 self.checksums.pop(evict_key, None)
 
             # Store new item
-            self.cache[idx] = copied_value
-            self.memory_usage[idx] = new_item_memory
+            self.cache[cache_filepath] = copied_value
+            self.memory_usage[cache_filepath] = new_item_memory
             self.total_memory += new_item_memory
 
             if self.enable_validation:
-                self.checksums[idx] = self._compute_checksum(copied_value)
+                self.checksums[cache_filepath] = self._compute_checksum(copied_value)
 
     def clear(self) -> None:
         """Clear all cached items."""

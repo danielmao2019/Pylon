@@ -1,10 +1,10 @@
-from typing import Dict, Any, Optional, Set
 import os
-import threading
-import logging
-import xxhash
-import torch
 from datetime import datetime
+from typing import Any, Dict, Optional, Set
+
+import torch
+import xxhash
+
 from data.cache.base_cache import BaseCache
 from utils.io.json import load_json, save_json
 from utils.io.torch import load_torch, save_torch
@@ -29,7 +29,6 @@ class DiskDatasetCache(BaseCache):
             dataset_class_name: Name of the dataset class for metadata
             version_dict: Dictionary containing version parameters for metadata
         """
-        # Initialize base class (sets up _lock and logger)
         super().__init__()
 
         self.cache_dir = cache_dir
@@ -38,97 +37,105 @@ class DiskDatasetCache(BaseCache):
         self.dataset_class_name = dataset_class_name
         self.version_dict = version_dict
 
-        # Track which keys have been validated this session (first-access-only)
-        self.validated_keys: Set[int] = set()
+        self.validated_keys: Set[str] = set()
 
-        # Create cache directory and version-specific directory
         os.makedirs(cache_dir, exist_ok=True)
         self.version_dir = os.path.join(cache_dir, version_hash)
         os.makedirs(self.version_dir, exist_ok=True)
 
-        # Metadata file path
         self.metadata_file = os.path.join(cache_dir, 'cache_metadata.json')
-
-        # Update metadata
         self._update_metadata()
-
-    def _get_cache_filepath(self, idx: int) -> str:
-        """Get the cache file path for a given index."""
-        return os.path.join(self.version_dir, f"{idx}.pt")
 
     def _compute_checksum(self, value: Dict[str, Any]) -> str:
         """Compute a fast checksum for a cached item using xxhash."""
+
         def prepare_for_hash(item):
             if isinstance(item, torch.Tensor):
                 return item.cpu().numpy().tobytes()
-            elif isinstance(item, dict):
+            if isinstance(item, dict):
                 return {k: prepare_for_hash(v) for k, v in item.items()}
-            elif isinstance(item, (list, tuple)):
+            if isinstance(item, (list, tuple)):
                 return [prepare_for_hash(x) for x in item]
             return item
 
         hashable_data = prepare_for_hash(value)
         return xxhash.xxh64(str(hashable_data).encode()).hexdigest()
 
-    def _validate_item(self, idx: int, value: Dict[str, Any], stored_checksum: str) -> None:
+    def _validate_item(
+        self, cache_key: str, value: Dict[str, Any], stored_checksum: str
+    ) -> None:
         """Validate a cached item against its stored checksum (first-access-only per session)."""
         if not self.enable_validation:
             return
 
-        # Only validate on first access per session
-        if idx in self.validated_keys:
+        if cache_key in self.validated_keys:
             return
 
         current_checksum = self._compute_checksum(value)
-
         if current_checksum != stored_checksum:
-            raise ValueError(f"Disk cache validation failed - data corruption detected")
+            raise ValueError("Disk cache validation failed - data corruption detected")
 
-        # Mark as validated for this session
-        self.validated_keys.add(idx)
+        self.validated_keys.add(cache_key)
 
-    def exists(self, idx: int) -> bool:
-        """Check if cache file exists for given index."""
-        return os.path.exists(self._get_cache_filepath(idx))
+    def exists(self, cache_filepath: str) -> bool:
+        """Check if cache file exists for given filepath."""
+        assert isinstance(
+            cache_filepath, str
+        ), f"cache_filepath must be str, got {type(cache_filepath)=}"
+        assert os.path.isabs(
+            cache_filepath
+        ), f"cache_filepath must be absolute, got {cache_filepath=}"
+        return os.path.exists(cache_filepath)
 
-    def get(self, idx: int, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get(
+        self, cache_filepath: str, device: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Thread-safe cache retrieval from disk with validation."""
-        cache_filepath = self._get_cache_filepath(idx)
+        assert isinstance(
+            cache_filepath, str
+        ), f"cache_filepath must be str, got {type(cache_filepath)=}"
+        assert os.path.isabs(
+            cache_filepath
+        ), f"cache_filepath must be absolute, got {cache_filepath=}"
 
         if not os.path.isfile(cache_filepath):
             return None
 
         with self._lock:
             try:
-                # Load from disk directly to target device if specified
                 map_location = device if device is not None else 'cpu'
                 cached_data = load_torch(cache_filepath, map_location=map_location)
-
-                # Extract the required keys (removing checksum if present)
                 value = {k: v for k, v in cached_data.items() if k != 'checksum'}
 
                 if self.enable_validation:
                     stored_checksum = cached_data.get('checksum', '')
-                    self._validate_item(idx, value, stored_checksum)
+                    self._validate_item(cache_filepath, value, stored_checksum)
 
                 return value
 
             except Exception as e:
-                self.logger.warning(f"Failed to load corrupted cache file {cache_filepath}: {e}")
-                # Remove corrupted file so it can be regenerated
+                self.logger.warning(
+                    f"Failed to load corrupted cache file {cache_filepath}: {e}"
+                )
                 try:
                     os.remove(cache_filepath)
                     self.logger.info(f"Removed corrupted cache file: {cache_filepath}")
                 except Exception as remove_error:
-                    self.logger.warning(f"Failed to remove corrupted cache file: {remove_error}")
+                    self.logger.warning(
+                        f"Failed to remove corrupted cache file: {remove_error}"
+                    )
                 return None
 
-    def put(self, idx: int, value: Dict[str, Any]) -> None:
+    def put(self, value: Dict[str, Any], cache_filepath: str) -> None:
         """Thread-safe cache storage to disk with checksum computation."""
-        cache_filepath = self._get_cache_filepath(idx)
+        assert isinstance(
+            cache_filepath, str
+        ), f"cache_filepath must be str, got {type(cache_filepath)=}"
+        assert os.path.isabs(
+            cache_filepath
+        ), f"cache_filepath must be absolute, got {cache_filepath=}"
 
         with self._lock:
-            # Prepare data for storage
             cached_data = {
                 'inputs': value['inputs'],
                 'labels': value['labels'],
@@ -138,7 +145,6 @@ class DiskDatasetCache(BaseCache):
             if self.enable_validation:
                 cached_data['checksum'] = self._compute_checksum(value)
 
-            # Use atomic save function
             save_torch(cached_data, cache_filepath)
 
     def clear(self) -> None:
@@ -158,26 +164,22 @@ class DiskDatasetCache(BaseCache):
     def _update_metadata(self) -> None:
         """Update cache metadata JSON file with current version info."""
         with self._lock:
-            # Load existing metadata
             metadata = {}
             if os.path.exists(self.metadata_file):
                 metadata = load_json(self.metadata_file)
 
-            # Preserve existing created_at timestamp if this version already exists
             if self.version_hash in metadata:
                 created_at = metadata[self.version_hash]['created_at']
             else:
                 created_at = datetime.now()
 
-            # Update with current version info
             version_metadata = {
-                'created_at': created_at,  # datetime will be serialized by save_json
+                'created_at': created_at,
                 'cache_dir': self.cache_dir,
                 'version_dir': self.version_dir,
                 'enable_validation': self.enable_validation,
             }
 
-            # Add dataset class name and version dict if available
             if self.dataset_class_name is not None:
                 version_metadata['dataset_class_name'] = self.dataset_class_name
 
@@ -186,11 +188,4 @@ class DiskDatasetCache(BaseCache):
 
             metadata[self.version_hash] = version_metadata
 
-            # Write updated metadata
             save_json(metadata, self.metadata_file)
-
-    def get_metadata(self) -> Dict[str, Any]:
-        """Get metadata for all cache versions."""
-        if os.path.exists(self.metadata_file):
-            return load_json(self.metadata_file)
-        return {}

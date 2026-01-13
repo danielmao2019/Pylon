@@ -4,7 +4,7 @@ from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 @pytest.fixture
-def cache_with_items(sample_datapoint):
+def cache_with_items(sample_datapoint, cache_key_factory):
     """Create a cache with initial items."""
     # Calculate memory needed for 3 items
     item_memory = CPUDatasetCache._calculate_item_memory(sample_datapoint)
@@ -15,7 +15,7 @@ def cache_with_items(sample_datapoint):
 
     cache = CPUDatasetCache(max_memory_percent=max_percent)
     for i in range(3):
-        cache.put(i, sample_datapoint)
+        cache.put(sample_datapoint, cache_filepath=cache_key_factory(i))
     return cache
 
 
@@ -34,7 +34,7 @@ def cache_with_items(sample_datapoint):
     ),
 ])
 def test_lru_eviction_scenarios(
-    cache_with_items, make_datapoint,
+    cache_with_items, make_datapoint, cache_key_factory,
     scenario, access_order, expected_evicted, expected_retained,
 ):
     """Test different LRU eviction scenarios."""
@@ -42,18 +42,18 @@ def test_lru_eviction_scenarios(
 
     # Access items in specified order
     for i in access_order:
-        cache.get(i)
+        cache.get(i, cache_filepath=cache_key_factory(i))
 
     # Add new item which should trigger eviction
-    cache.put(3, make_datapoint(3))
+    cache.put(make_datapoint(3), cache_filepath=cache_key_factory(3))
 
     # Verify evicted items
     for item in expected_evicted:
-        assert item not in cache.cache, f"Item {item} should have been evicted"
+        assert cache_key_factory(item) not in cache.cache, f"Item {item} should have been evicted"
 
     # Verify retained items
     for item in expected_retained:
-        assert item in cache.cache, f"Item {item} should have been retained"
+        assert cache_key_factory(item) in cache.cache, f"Item {item} should have been retained"
 
 
 @pytest.mark.parametrize("scenario,setup_actions,verify_actions,expected_evicted,expected_retained", [
@@ -83,7 +83,7 @@ def test_lru_eviction_scenarios(
     ),
 ])
 def test_lru_complex_scenarios(
-    cache_with_items, make_datapoint,
+    cache_with_items, make_datapoint, cache_key_factory,
     scenario, setup_actions, verify_actions, expected_evicted, expected_retained,
 ):
     """Test complex LRU scenarios with multiple operations."""
@@ -92,21 +92,21 @@ def test_lru_complex_scenarios(
     # Perform setup actions
     for action, key in setup_actions:
         if action == "put":
-            cache.put(key, make_datapoint(key))
+            cache.put(key, make_datapoint(key), cache_filepath=cache_key_factory(key))
         elif action == "get":
-            cache.get(key)
+            cache.get(key, cache_filepath=cache_key_factory(key))
 
     # Perform verification actions
     for action, key in verify_actions:
         if action == "put":
-            cache.put(key, make_datapoint(key))
+            cache.put(key, make_datapoint(key), cache_filepath=cache_key_factory(key))
         elif action == "get":
-            cache.get(key)
+            cache.get(key, cache_filepath=cache_key_factory(key))
 
     # Verify evicted items
     for item in expected_evicted:
-        assert item not in cache.cache, f"Item {item} should have been evicted"
+        assert cache_key_factory(item) not in cache.cache, f"Item {item} should have been evicted"
 
     # Verify retained items
     for item in expected_retained:
-        assert item in cache.cache, f"Item {item} should have been retained"
+        assert cache_key_factory(item) in cache.cache, f"Item {item} should have been retained"

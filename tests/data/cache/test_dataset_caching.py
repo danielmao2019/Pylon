@@ -1,7 +1,9 @@
-import torch
 import shutil
+
 import pytest
+import torch
 from torch.utils.data import DataLoader
+
 from utils.ops import buffer_equal
 
 
@@ -9,6 +11,7 @@ from utils.ops import buffer_equal
 def temp_dir():
     """Create a temporary directory for test outputs."""
     import tempfile
+
     _temp_dir = tempfile.mkdtemp()
     yield _temp_dir
     # Clean up after tests
@@ -17,7 +20,13 @@ def temp_dir():
 
 def test_basic_cache_functionality(SampleDataset, temp_dir):
     """Test basic cache functionality - items are cached and retrievable."""
-    dataset = SampleDataset(data_root=temp_dir, split='train', indices=list(range(10)), use_cpu_cache=True, use_disk_cache=True)
+    dataset = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(10)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+    )
 
     # First access should cache items
     first_access = [dataset[i] for i in range(10)]
@@ -31,7 +40,13 @@ def test_basic_cache_functionality(SampleDataset, temp_dir):
 
 def test_cache_persistence(SampleDataset, temp_dir):
     """Test that cached items persist and are reused."""
-    dataset = SampleDataset(data_root=temp_dir, split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True)
+    dataset = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(5)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+    )
 
     # Access items multiple times in different orders
     access_patterns = [
@@ -54,8 +69,20 @@ def test_cache_persistence(SampleDataset, temp_dir):
 
 def test_cache_memory_isolation(SampleDataset, temp_dir):
     """Test that cached datasets don't share memory."""
-    dataset1 = SampleDataset(data_root=temp_dir, split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True)
-    dataset2 = SampleDataset(data_root=temp_dir, split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True)
+    dataset1 = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(5)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+    )
+    dataset2 = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(5)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+    )
 
     # Access all items in both datasets
     items1 = [dataset1[i] for i in range(5)]
@@ -70,8 +97,20 @@ def test_cache_memory_isolation(SampleDataset, temp_dir):
 
 def test_cache_vs_uncached(SampleDataset, temp_dir):
     """Test that cached and uncached datasets return identical data."""
-    cached = SampleDataset(data_root=temp_dir, split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True)
-    uncached = SampleDataset(data_root=temp_dir, split='train', indices=list(range(5)), use_cpu_cache=False, use_disk_cache=False)
+    cached = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(5)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+    )
+    uncached = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(5)),
+        use_cpu_cache=False,
+        use_disk_cache=False,
+    )
 
     # Multiple access patterns to verify consistency
     for _ in range(3):
@@ -83,8 +122,20 @@ def test_cache_vs_uncached(SampleDataset, temp_dir):
 
 def test_cache_with_dataloader(SampleDataset, temp_dir):
     """Test cache behavior when accessed through DataLoader."""
-    cached = SampleDataset(data_root=temp_dir, split='train', indices=list(range(10)), use_cpu_cache=True, use_disk_cache=True)
-    uncached = SampleDataset(data_root=temp_dir, split='train', indices=list(range(10)), use_cpu_cache=False, use_disk_cache=False)
+    cached = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(10)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+    )
+    uncached = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(10)),
+        use_cpu_cache=False,
+        use_disk_cache=False,
+    )
 
     dataloader_params = {
         'batch_size': 3,
@@ -104,7 +155,13 @@ def test_cache_with_dataloader(SampleDataset, temp_dir):
 
 def test_cache_with_different_batch_sizes(SampleDataset, temp_dir):
     """Test cache consistency with different batch sizes."""
-    dataset = SampleDataset(data_root=temp_dir, split='train', indices=list(range(10)), use_cpu_cache=True, use_disk_cache=True)
+    dataset = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(10)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+    )
 
     # Test with different batch sizes
     batch_sizes = [1, 2, 5]
@@ -136,35 +193,56 @@ def test_cache_with_different_batch_sizes(SampleDataset, temp_dir):
 
 def test_cache_hits_with_transforms(SampleDataset, random_transforms, temp_dir):
     """Test that data is properly cached even with transforms enabled."""
-    dataset = SampleDataset(data_root=temp_dir, split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True, transforms_cfg=random_transforms)
+    dataset = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(5)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+        transforms_cfg=random_transforms,
+    )
 
     # Clear any existing cache to start fresh
-    dataset.cache.clear_all()
-    
+    dataset.cache.clear()
+
     # Verify cache is initially empty after clearing
-    initial_cpu_size = dataset.cache.get_cpu_size()
-    initial_disk_size = dataset.cache.get_disk_size()
+    cpu_size = lambda ds: (
+        len(ds.cache.cpu_cache.cache) if ds.cache.cpu_cache is not None else 0
+    )
+    disk_size = lambda ds: (
+        ds.cache.disk_cache.get_size() if ds.cache.disk_cache is not None else 0
+    )
+
+    initial_cpu_size = cpu_size(dataset)
+    initial_disk_size = disk_size(dataset)
     assert initial_cpu_size == 0
     assert initial_disk_size == 0
-    
+
     # Access the item - should be cached now
     _ = dataset[0]
-    after_first_cpu_size = dataset.cache.get_cpu_size()
-    after_first_disk_size = dataset.cache.get_disk_size()
+    after_first_cpu_size = cpu_size(dataset)
+    after_first_disk_size = disk_size(dataset)
     assert after_first_cpu_size == 1
     assert after_first_disk_size == 1
 
     # Second access should hit cache - cache size should remain the same
     _ = dataset[0]
-    after_second_cpu_size = dataset.cache.get_cpu_size()
-    after_second_disk_size = dataset.cache.get_disk_size()
+    after_second_cpu_size = cpu_size(dataset)
+    after_second_disk_size = disk_size(dataset)
     assert after_second_cpu_size == 1
     assert after_second_disk_size == 1
 
 
 def test_transform_randomness_preserved(SampleDataset, random_transforms, temp_dir):
     """Test that transforms remain random even with cached data."""
-    dataset = SampleDataset(data_root=temp_dir, split='train', indices=list(range(5)), use_cpu_cache=True, use_disk_cache=True, transforms_cfg=random_transforms)
+    dataset = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(5)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+        transforms_cfg=random_transforms,
+    )
 
     dataset.set_base_seed(0)
     first_access = dataset[0]
@@ -174,13 +252,20 @@ def test_transform_randomness_preserved(SampleDataset, random_transforms, temp_d
     # Data should be different due to random transforms
     assert not torch.allclose(
         first_access['inputs']['input'].float(),
-        second_access['inputs']['input'].float()
+        second_access['inputs']['input'].float(),
     )
 
 
 def test_transform_randomness_in_dataloader(SampleDataset, random_transforms, temp_dir):
     """Test that transform randomness works through DataLoader."""
-    dataset = SampleDataset(data_root=temp_dir, split='train', indices=list(range(10)), use_cpu_cache=True, use_disk_cache=True, transforms_cfg=random_transforms)
+    dataset = SampleDataset(
+        data_root=temp_dir,
+        split='train',
+        indices=list(range(10)),
+        use_cpu_cache=True,
+        use_disk_cache=True,
+        transforms_cfg=random_transforms,
+    )
     dataloader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
 
     # Run two epochs and collect results

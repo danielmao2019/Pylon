@@ -3,7 +3,7 @@ import threading
 from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
-def test_cache_thread_safety(sample_datapoint):
+def test_cache_thread_safety(sample_datapoint, cache_key_factory):
     """Test thread safety of cache operations."""
     cache = CPUDatasetCache()
     num_threads = 3
@@ -14,10 +14,11 @@ def test_cache_thread_safety(sample_datapoint):
         try:
             for i in range(ops_per_thread):
                 key = i % 2  # Two keys for better coverage
+                cache_key = cache_key_factory(key)
                 if i % 2 == 0:
-                    cache.put(key, sample_datapoint)
+                    cache.put(sample_datapoint, cache_filepath=cache_key)
                 else:
-                    result = cache.get(key)
+                    result = cache.get(cache_filepath=cache_key)
                     if result is not None:
                         assert torch.all(result['inputs']['image'] == sample_datapoint['inputs']['image'])
         except Exception as e:

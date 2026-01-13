@@ -6,6 +6,14 @@ from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 @pytest.fixture
+def cache_key_factory():
+    """Create deterministic cache filepaths for testing."""
+    def _make_key(index: int) -> str:
+        return f"/tmp/test_cache_{index}.pt"
+    return _make_key
+
+
+@pytest.fixture
 def tensor_params():
     """Parameters for creating test tensors."""
     return {
@@ -50,14 +58,14 @@ def three_item_cache(sample_datapoint):
 
 
 @pytest.fixture
-def cache_with_items(three_item_cache, sample_datapoint):
+def cache_with_items(three_item_cache, sample_datapoint, cache_key_factory):
     """Create a cache pre-populated with 3 items.
 
     Returns a new copy of the cache to ensure test isolation.
     """
     cache = copy.deepcopy(three_item_cache)
     for i in range(3):
-        cache.put(i, copy.deepcopy(sample_datapoint))
+        cache.put(copy.deepcopy(sample_datapoint), cache_filepath=cache_key_factory(i))
     return cache
 
 

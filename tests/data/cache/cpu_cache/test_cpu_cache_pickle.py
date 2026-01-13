@@ -20,6 +20,7 @@ def test_cpu_cache_pickle_basic():
 def test_cpu_cache_pickle_with_data():
     """Test that CPUDatasetCache can be pickled and then used to store data after unpickling."""
     cache1 = CPUDatasetCache(max_memory_percent=50.0, enable_validation=True)
+    key0 = "/tmp/pickle_cache_0.pt"
 
     # Add some test data to first cache
     test_data = {
@@ -27,7 +28,7 @@ def test_cpu_cache_pickle_with_data():
         'labels': {'label': torch.tensor([1])},
         'meta_info': {'idx': 0}
     }
-    cache1.put(0, test_data)
+    cache1.put(test_data, cache_filepath=key0)
     assert cache1.get_size() == 1
 
     # Create a second cache and pickle it
@@ -38,11 +39,11 @@ def test_cpu_cache_pickle_with_data():
     unpickled_cache = pickle.loads(pickled_data)
 
     # Now add data to unpickled cache
-    unpickled_cache.put(0, test_data)
+    unpickled_cache.put(test_data, cache_filepath=key0)
     assert unpickled_cache.get_size() == 1
 
     # Verify cached data works correctly
-    retrieved_data = unpickled_cache.get(0)
+    retrieved_data = unpickled_cache.get(cache_filepath=key0)
     assert retrieved_data is not None
     assert torch.equal(retrieved_data['inputs']['tensor'], test_data['inputs']['tensor'])
 
@@ -70,8 +71,8 @@ def test_cpu_cache_pickle_lock_recreation():
         'labels': {'label': torch.tensor([1])},
         'meta_info': {'idx': 0}
     }
-    unpickled_cache.put(0, test_data)
-    retrieved = unpickled_cache.get(0)
+    unpickled_cache.put(test_data, cache_filepath="/tmp/pickle_cache_lock.pt")
+    retrieved = unpickled_cache.get(cache_filepath="/tmp/pickle_cache_lock.pt")
     assert retrieved is not None
 
 
@@ -98,7 +99,7 @@ def test_cpu_cache_pickle_logger_preservation():
         'labels': {'label': torch.tensor([1])},
         'meta_info': {'idx': 0}
     }
-    unpickled_cache.put(0, test_data)
+    unpickled_cache.put(test_data, cache_filepath="/tmp/pickle_cache_logger.pt")
     # Logger should work without issues during cache operations
 
 
@@ -123,10 +124,10 @@ def test_cpu_cache_pickle_thread_safety_after_unpickling():
     }
 
     # These operations should work without issues with the recreated lock
-    unpickled_cache.put(1, test_data1)
-    unpickled_cache.put(2, test_data2)
-    retrieved_data1 = unpickled_cache.get(1)
-    retrieved_data2 = unpickled_cache.get(2)
+    unpickled_cache.put(test_data1, cache_filepath="/tmp/pickle_cache_1.pt")
+    unpickled_cache.put(test_data2, cache_filepath="/tmp/pickle_cache_2.pt")
+    retrieved_data1 = unpickled_cache.get(cache_filepath="/tmp/pickle_cache_1.pt")
+    retrieved_data2 = unpickled_cache.get(cache_filepath="/tmp/pickle_cache_2.pt")
 
     assert retrieved_data1 is not None
     assert retrieved_data2 is not None
@@ -149,7 +150,7 @@ def test_cpu_cache_pickle_multiprocessing_compatibility():
             'labels': {'label': torch.tensor([3])},
             'meta_info': {'idx': 3}
         }
-        cache.put(3, test_data)
+        cache.put(test_data, cache_filepath="/tmp/pickle_cache_3.pt")
         return cache.get_size()
 
     cache = CPUDatasetCache(max_memory_percent=50.0, enable_validation=False)
@@ -164,6 +165,6 @@ def test_cpu_cache_pickle_multiprocessing_compatibility():
     assert result == 1
 
     # Verify the cache has the expected data
-    retrieved_data = unpickled_cache.get(3)
+    retrieved_data = unpickled_cache.get(cache_filepath="/tmp/pickle_cache_3.pt")
     assert retrieved_data is not None
     assert retrieved_data['labels']['label'].item() == 3

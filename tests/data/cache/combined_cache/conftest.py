@@ -2,6 +2,7 @@ import pytest
 import tempfile
 import torch
 import copy
+import os
 from typing import Dict, Any
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 
@@ -114,7 +115,7 @@ def cache_cpu_only(cache_config_factory):
 
 @pytest.fixture
 def cache_disk_only(cache_config_factory):
-    """Create a cache with only disk enabled.""" 
+    """Create a cache with only disk enabled."""
     return cache_config_factory(
         use_cpu_cache=False,
         use_disk_cache=True
@@ -135,17 +136,24 @@ def hierarchical_test_setup(cache_config_factory, sample_datapoint, different_da
     """Setup for testing hierarchical cache behavior with pre-populated data."""
     def _setup_hierarchy(cpu_data_idx=None, disk_data_idx=None):
         cache = cache_config_factory(use_cpu_cache=True, use_disk_cache=True)
-        
+
         # Pre-populate CPU cache if specified
         if cpu_data_idx is not None:
-            cache.cpu_cache.put(cpu_data_idx, sample_datapoint)
-        
-        # Pre-populate disk cache if specified  
+            cpu_cache_filepath = os.path.join(cache.version_dir, f"{cpu_data_idx}.pt")
+            cache.cpu_cache.put(
+                sample_datapoint,
+                cache_filepath=cpu_cache_filepath,
+            )
+
+        # Pre-populate disk cache if specified
         if disk_data_idx is not None:
-            cache.disk_cache.put(disk_data_idx, different_datapoint)
-            
+            cache.disk_cache.put(
+                different_datapoint,
+                cache_filepath=os.path.join(cache.version_dir, f"{disk_data_idx}.pt"),
+            )
+
         return cache
-    
+
     return _setup_hierarchy
 
 
@@ -164,7 +172,7 @@ def make_datapoint_factory():
     """Factory to create unique datapoints for testing."""
     def _make_datapoint(idx: int, add_variation: bool = True):
         base_value = float(idx) if add_variation else 0.0
-        
+
         return {
             'inputs': {
                 'image': torch.randn(3, 64, 64, dtype=torch.float32) + base_value,
@@ -180,11 +188,11 @@ def make_datapoint_factory():
                 'dataset': 'test_dataset'
             }
         }
-    
+
     return _make_datapoint
 
 
-@pytest.fixture 
+@pytest.fixture
 def large_datapoint():
     """Create a larger datapoint for memory and performance testing."""
     return {

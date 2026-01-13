@@ -40,16 +40,15 @@ def test_checksum_validation_enabled(temp_cache_dir, sample_datapoint):
         version_hash="validation_test",
         enable_validation=True
     )
-    
-    # Store item with validation
-    cache.put(0, sample_datapoint)
-    
+
+    cache_file = os.path.join(cache.version_dir, "0.pt")
+    cache.put(sample_datapoint, cache_filepath=cache_file)
+
     # Retrieve should succeed with valid checksum
-    result = cache.get(0)
+    result = cache.get(cache_filepath=cache_file)
     assert result is not None
-    
+
     # Load cached file and verify checksum is stored
-    cache_file = cache._get_cache_filepath(0)
     cached_data = torch.load(cache_file)
     assert 'checksum' in cached_data
     assert len(cached_data['checksum']) > 0
@@ -62,17 +61,16 @@ def test_checksum_validation_disabled(temp_cache_dir, sample_datapoint):
         version_hash="no_validation_test",
         enable_validation=False
     )
-    
-    # Store item without validation
-    cache.put(0, sample_datapoint)
-    
+
+    cache_file = os.path.join(cache.version_dir, "0.pt")
+    cache.put(sample_datapoint, cache_filepath=cache_file)
+
     # Load cached file and verify no checksum
-    cache_file = cache._get_cache_filepath(0)
     cached_data = torch.load(cache_file)
     assert 'checksum' not in cached_data
-    
+
     # Retrieve should work without validation
-    result = cache.get(0)
+    result = cache.get(cache_filepath=cache_file)
     assert result is not None
 
 
@@ -83,20 +81,19 @@ def test_corruption_detection_and_removal(temp_cache_dir, sample_datapoint):
         version_hash="corruption_test",
         enable_validation=True
     )
-    
-    # Store valid item
-    cache.put(0, sample_datapoint)
-    cache_file = cache._get_cache_filepath(0)
+
+    cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, "0.pt"))
+    cache_file = os.path.join(cache.version_dir, "0.pt")
     assert os.path.exists(cache_file)
-    
+
     # Corrupt the file by writing invalid data
     with open(cache_file, 'w') as f:
         f.write("This is not valid torch data")
-    
+
     # Attempt to retrieve should raise RuntimeError - fail fast and loud
     with pytest.raises(RuntimeError, match="Error loading torch file"):
-        cache.get(0)
-    
+        cache.get(cache_filepath=cache_file)
+
     # File should still exist - we don't mask errors by removing files
     assert os.path.exists(cache_file)
 
@@ -108,21 +105,21 @@ def test_validation_session_tracking(temp_cache_dir, sample_datapoint):
         version_hash="session_test",
         enable_validation=True
     )
-    
-    # Store item
-    cache.put(0, sample_datapoint)
-    
+
+    cache_file = os.path.join(cache.version_dir, "0.pt")
+    cache.put(sample_datapoint, cache_filepath=cache_file)
+
     # First access should validate
-    assert 0 not in cache.validated_keys
-    result1 = cache.get(0)
+    assert cache_file not in cache.validated_keys
+    result1 = cache.get(cache_filepath=cache_file)
     assert result1 is not None
-    assert 0 in cache.validated_keys
-    
+    assert cache_file in cache.validated_keys
+
     # Mock the validation method to track calls
     from unittest.mock import patch
     with patch.object(cache, '_validate_item', wraps=cache._validate_item) as mock_validate:
         # Second access should skip validation
-        result2 = cache.get(0)
+        result2 = cache.get(cache_filepath=cache_file)
         assert result2 is not None
         mock_validate.assert_called_once()  # Should be called but return early
 
@@ -134,12 +131,12 @@ def test_checksum_computation_consistency(temp_cache_dir, sample_datapoint):
         version_hash="checksum_test",
         enable_validation=True
     )
-    
+
     # Compute checksum multiple times for same data
     checksum1 = cache._compute_checksum(sample_datapoint)
     checksum2 = cache._compute_checksum(sample_datapoint)
     checksum3 = cache._compute_checksum(sample_datapoint)
-    
+
     # All checksums should be identical
     assert checksum1 == checksum2 == checksum3
     assert len(checksum1) > 0
@@ -152,7 +149,7 @@ def test_different_data_different_checksums(temp_cache_dir, sample_datapoint):
         version_hash="diff_checksum_test",
         enable_validation=True
     )
-    
+
     # Create modified datapoint
     modified_datapoint = {
         'inputs': {
@@ -162,11 +159,11 @@ def test_different_data_different_checksums(temp_cache_dir, sample_datapoint):
         'labels': sample_datapoint['labels'],
         'meta_info': sample_datapoint['meta_info']
     }
-    
+
     # Compute checksums
     checksum1 = cache._compute_checksum(sample_datapoint)
     checksum2 = cache._compute_checksum(modified_datapoint)
-    
+
     # Checksums should be different
     assert checksum1 != checksum2
 
@@ -178,20 +175,19 @@ def test_validation_with_corrupted_checksum(temp_cache_dir, sample_datapoint):
         version_hash="corrupted_checksum_test",
         enable_validation=True
     )
-    
-    # Store item with validation
-    cache.put(0, sample_datapoint)
-    cache_file = cache._get_cache_filepath(0)
-    
+
+    cache_file = os.path.join(cache.version_dir, "0.pt")
+    cache.put(sample_datapoint, cache_filepath=cache_file)
+
     # Load and modify the stored checksum
     cached_data = torch.load(cache_file)
     cached_data['checksum'] = "invalid_checksum"
     torch.save(cached_data, cache_file)
-    
+
     # Validation should fail fast and loud - ValueError is raised immediately
     with pytest.raises(ValueError, match="validation failed"):
-        cache.get(0)
-    
+        cache.get(cache_filepath=cache_file)
+
     # File should still exist - we don't mask errors by removing files
     assert os.path.exists(cache_file)
 
@@ -199,31 +195,31 @@ def test_validation_with_corrupted_checksum(temp_cache_dir, sample_datapoint):
 def test_validation_reset_on_cache_restart(temp_cache_dir, sample_datapoint):
     """Test that validation tracking resets when cache is recreated."""
     version_hash = "restart_test"
-    
+
     # Create first cache instance
     cache1 = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash=version_hash,
         enable_validation=True
     )
-    
-    # Store and validate item
-    cache1.put(0, sample_datapoint)
-    result1 = cache1.get(0)
+
+    cache_file = os.path.join(cache1.version_dir, "0.pt")
+    cache1.put(sample_datapoint, cache_filepath=cache_file)
+    result1 = cache1.get(cache_filepath=cache_file)
     assert result1 is not None
-    assert 0 in cache1.validated_keys
-    
+    assert cache_file in cache1.validated_keys
+
     # Create new cache instance (simulating restart)
     cache2 = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash=version_hash,
         enable_validation=True
     )
-    
+
     # Validation tracking should be reset
     assert len(cache2.validated_keys) == 0
-    
+
     # Item should still be retrievable and validation should work
-    result2 = cache2.get(0)
+    result2 = cache2.get(cache_filepath=cache_file)
     assert result2 is not None
-    assert 0 in cache2.validated_keys
+    assert cache_file in cache2.validated_keys

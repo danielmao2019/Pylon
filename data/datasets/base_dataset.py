@@ -279,6 +279,12 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         hash_str = json.dumps(version_dict, sort_keys=True)
         return xxhash.xxh64(hash_str.encode()).hexdigest()[:16]
 
+    def _get_cache_filepath(self, idx: int) -> str:
+        """Return cache filepath for a datapoint."""
+        assert self.cache is not None, "Cache must be initialized before requesting cache filepath"
+        cache_root = self.cache.version_dir if hasattr(self.cache, 'version_dir') else self.cache.cache_dir
+        return os.path.join(cache_root, f"{idx}.pt")
+
     def _init_device(self, device: Union[str, torch.device]) -> None:
         if isinstance(device, str):
             device = torch.device(device)
@@ -339,7 +345,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # Try to get raw datapoint from cache first (unless overwrite_cache is True)
         raw_datapoint = None
         if self.cache is not None and not self.overwrite_cache:
-            raw_datapoint = self.cache.get(idx, device=self.device)
+            raw_datapoint = self.cache.get(
+                cache_filepath=self._get_cache_filepath(idx),
+                device=self.device,
+            )
 
         # If not in cache, or cache is disabled, or overwrite_cache is True, load from disk and cache it
         if raw_datapoint is None:
@@ -357,7 +366,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             }
             # Cache the raw datapoint
             if self.cache is not None:
-                self.cache.put(idx, raw_datapoint)
+                self.cache.put(
+                    value=raw_datapoint,
+                    cache_filepath=self._get_cache_filepath(idx),
+                )
 
         return raw_datapoint
 
@@ -366,7 +378,11 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         raw_datapoint = self._load_datapoint_with_cache(idx)
 
         # Apply device transfer only if not already on target device (cache may have done this)
-        datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=raw_datapoint)
+        datapoint = apply_tensor_op(
+            method='to',
+            method_kwargs={'device': self.device},
+            inputs=raw_datapoint,
+        )
         transformed_datapoint = self.transforms(datapoint, seed=(self.base_seed, idx))
         return transformed_datapoint
 
