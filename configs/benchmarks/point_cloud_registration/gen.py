@@ -1,22 +1,23 @@
 import os
 import sys
+from pathlib import Path
 
-# Setup paths
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(script_dir, "../../.."))
-sys.path.insert(0, project_root)
-os.chdir(project_root)
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+os.chdir(REPO_ROOT)
 
-from utils.automation.config_to_file import add_heading
-from utils.automation.config_seeding import generate_seeded_configs
-from utils.builders.builder import semideepcopy
+from configs.benchmarks.point_cloud_registration.template_eval import (
+    config as eval_template_config,
+)
+from configs.benchmarks.point_cloud_registration.template_train import (
+    config as train_template_config,
+)
 
-# Import all necessary classes
 from models.point_cloud_registration.classic import ICP, RANSAC_FPFH
-
-# Load template configs
-from configs.benchmarks.point_cloud_registration.template_eval import config as eval_template_config
-from configs.benchmarks.point_cloud_registration.template_train import config as train_template_config
+from utils.automation.config_seeding import generate_seeded_configs
+from utils.automation.config_to_file import add_heading
+from utils.builders.builder import semideepcopy
 
 
 def build_eval_config(dataset: str, model: str):
@@ -28,19 +29,31 @@ def build_eval_config(dataset: str, model: str):
 
     # Load dataset config
     if dataset == 'kitti':
-        from configs.common.datasets.point_cloud_registration.eval.kitti_data_cfg import data_cfg as dataset_cfg
+        from configs.common.datasets.point_cloud_registration.eval.kitti_data_cfg import (
+            data_cfg as dataset_cfg,
+        )
     elif dataset == 'threedmatch':
-        from configs.common.datasets.point_cloud_registration.eval.threedmatch_data_cfg import data_cfg as dataset_cfg
+        from configs.common.datasets.point_cloud_registration.eval.threedmatch_data_cfg import (
+            data_cfg as dataset_cfg,
+        )
     elif dataset == 'threedlomatch':
-        from configs.common.datasets.point_cloud_registration.eval.threedlomatch_data_cfg import data_cfg as dataset_cfg
+        from configs.common.datasets.point_cloud_registration.eval.threedlomatch_data_cfg import (
+            data_cfg as dataset_cfg,
+        )
     elif dataset == 'modelnet40':
-        from configs.common.datasets.point_cloud_registration.eval.modelnet40_data_cfg import data_cfg as dataset_cfg
+        from configs.common.datasets.point_cloud_registration.eval.modelnet40_data_cfg import (
+            data_cfg as dataset_cfg,
+        )
     else:
         raise NotImplementedError(f"Dataset {dataset} not implemented for eval")
 
     # Load dataloader and metric configs
-    from configs.common.dataloaders.point_cloud_registration.standard_dataloader_cfg import dataloader_cfg
-    from configs.common.metrics.point_cloud_registration.standard_metric_cfg import metric_cfg
+    from configs.common.dataloaders.point_cloud_registration.standard_dataloader_cfg import (
+        dataloader_cfg,
+    )
+    from configs.common.metrics.point_cloud_registration.standard_metric_cfg import (
+        metric_cfg,
+    )
 
     # Update template with dataset, dataloader, and metric configs
     config.update(dataset_cfg)
@@ -50,7 +63,10 @@ def build_eval_config(dataset: str, model: str):
     # Model-specific config
     if model == 'TeaserPlusPlus':
         config['eval_n_jobs'] = 1
-        from configs.common.models.point_cloud_registration.teaserplusplus_cfg import model_cfg
+        from configs.common.models.point_cloud_registration.teaserplusplus_cfg import (
+            model_cfg,
+        )
+
         config['model'] = model_cfg
     else:
         # ICP or RANSAC_FPFH
@@ -69,27 +85,63 @@ def build_training_config(dataset: str, model: str):
     config = semideepcopy(train_template_config)
 
     # Load dataset configs once for all models
-    from configs.common.datasets.point_cloud_registration.train import kitti_data_cfg, threedmatch_data_cfg, threedlomatch_data_cfg, modelnet40_data_cfg
-    from configs.common.datasets.point_cloud_registration.val import kitti_data_cfg as val_kitti, threedmatch_data_cfg as val_threedmatch, threedlomatch_data_cfg as val_threedlomatch, modelnet40_data_cfg as val_modelnet40
+    from configs.common.datasets.point_cloud_registration.train import (
+        kitti_data_cfg,
+        modelnet40_data_cfg,
+        threedlomatch_data_cfg,
+        threedmatch_data_cfg,
+    )
+    from configs.common.datasets.point_cloud_registration.val import (
+        kitti_data_cfg as val_kitti,
+    )
+    from configs.common.datasets.point_cloud_registration.val import (
+        modelnet40_data_cfg as val_modelnet40,
+    )
+    from configs.common.datasets.point_cloud_registration.val import (
+        threedlomatch_data_cfg as val_threedlomatch,
+    )
+    from configs.common.datasets.point_cloud_registration.val import (
+        threedmatch_data_cfg as val_threedmatch,
+    )
+
     dataset_map = {
         'kitti': (kitti_data_cfg.data_cfg, val_kitti.data_cfg),
         'threedmatch': (threedmatch_data_cfg.data_cfg, val_threedmatch.data_cfg),
         'threedlomatch': (threedlomatch_data_cfg.data_cfg, val_threedlomatch.data_cfg),
         'modelnet40': (modelnet40_data_cfg.data_cfg, val_modelnet40.data_cfg),
     }
-    
+
     # Get dataset configurations
     if dataset not in dataset_map:
         raise NotImplementedError(f"Dataset {dataset} not implemented")
-    
+
     train_dataset_cfg, val_dataset_cfg = dataset_map[dataset]
 
     # Load all model-specific configs once
-    from configs.common.dataloaders.point_cloud_registration import geotransformer_dataloader_cfg, overlappredator_dataloader_cfg, parenet_dataloader_cfg, d3feat_dataloader_cfg
-    from configs.common.models.point_cloud_registration import geotransformer_cfg, overlappredator_cfg, parenet_cfg
+    from configs.common.criteria.point_cloud_registration import (
+        d3feat_criterion_cfg,
+        geotransformer_criterion_cfg,
+        overlappredator_criterion_cfg,
+        parenet_criterion_cfg,
+    )
+    from configs.common.dataloaders.point_cloud_registration import (
+        d3feat_dataloader_cfg,
+        geotransformer_dataloader_cfg,
+        overlappredator_dataloader_cfg,
+        parenet_dataloader_cfg,
+    )
+    from configs.common.metrics.point_cloud_registration import (
+        d3feat_metric_cfg,
+        geotransformer_metric_cfg,
+        overlappredator_metric_cfg,
+        parenet_metric_cfg,
+    )
+    from configs.common.models.point_cloud_registration import (
+        geotransformer_cfg,
+        overlappredator_cfg,
+        parenet_cfg,
+    )
     from configs.common.models.point_cloud_registration.d3feat import d3feat_model_cfg
-    from configs.common.criteria.point_cloud_registration import geotransformer_criterion_cfg, overlappredator_criterion_cfg, parenet_criterion_cfg, d3feat_criterion_cfg
-    from configs.common.metrics.point_cloud_registration import geotransformer_metric_cfg, overlappredator_metric_cfg, parenet_metric_cfg, d3feat_metric_cfg
 
     # Model configuration map
     model_map = {
@@ -126,7 +178,7 @@ def build_training_config(dataset: str, model: str):
     # Get model configurations
     if model not in model_map:
         raise NotImplementedError(f"Model {model} not implemented")
-    
+
     model_configs = model_map[model]
     train_dataloader_cfg = model_configs['train_dataloader_cfg']
     val_dataloader_cfg = model_configs['val_dataloader_cfg']
@@ -135,15 +187,17 @@ def build_training_config(dataset: str, model: str):
     metric_cfg = model_configs['metric_cfg']
 
     # Update template with all configs
-    config.update({
-        'train_dataset': train_dataset_cfg['train_dataset'],
-        'train_dataloader': train_dataloader_cfg,
-        'criterion': criterion_cfg,
-        'val_dataset': val_dataset_cfg['val_dataset'],
-        'val_dataloader': val_dataloader_cfg,
-        'metric': metric_cfg,
-        'model': model_cfg,
-    })
+    config.update(
+        {
+            'train_dataset': train_dataset_cfg['train_dataset'],
+            'train_dataloader': train_dataloader_cfg,
+            'criterion': criterion_cfg,
+            'val_dataset': val_dataset_cfg['val_dataset'],
+            'val_dataloader': val_dataloader_cfg,
+            'metric': metric_cfg,
+            'model': model_cfg,
+        }
+    )
 
     return config
 
@@ -163,9 +217,7 @@ def generate_configs(dataset: str, model: str) -> None:
 
     # Generate seeded configs using the new dictionary-based approach
     seeded_configs = generate_seeded_configs(
-        base_config=config,
-        base_seed=relpath,
-        base_work_dir=work_dir
+        base_config=config, base_seed=relpath, base_work_dir=work_dir
     )
 
     # Add heading and save to disk
@@ -187,7 +239,7 @@ def main(dataset: str, model: str) -> None:
 
 if __name__ == "__main__":
     import itertools
-    
+
     # Standard datasets and models
     standard_combinations = itertools.product(
         [
@@ -197,11 +249,16 @@ if __name__ == "__main__":
             'threedlomatch',
         ],
         [
-            'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
-            'GeoTransformer', 'OverlapPredator', 'PARENet', 'D3Feat',
+            'ICP',
+            'RANSAC_FPFH',
+            'TeaserPlusPlus',
+            'GeoTransformer',
+            'OverlapPredator',
+            'PARENet',
+            'D3Feat',
         ],
     )
-    
+
     # Generate all configs
     for dataset, model in standard_combinations:
         main(dataset, model)

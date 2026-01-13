@@ -1,7 +1,7 @@
 from functools import partial
 import data
 import utils
-from utils.point_cloud_ops.correspondences import get_correspondences
+from data.structures.three_d.point_cloud.ops.correspondences import get_correspondences
 
 
 data_cfg = {
@@ -17,7 +17,7 @@ data_cfg = {
                     'transforms': [
                         (
                             {
-                                'class': utils.point_cloud_ops.RandomSelect,
+                                'class': data.structures.three_d.point_cloud.ops.RandomSelect,
                                 'args': {
                                     'count': 5000,
                                 },
@@ -26,7 +26,7 @@ data_cfg = {
                         ),
                         (
                             {
-                                'class': utils.point_cloud_ops.RandomSelect,
+                                'class': data.structures.three_d.point_cloud.ops.RandomSelect,
                                 'args': {
                                     'count': 5000,
                                 },

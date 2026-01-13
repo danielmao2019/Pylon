@@ -1,9 +1,14 @@
-from typing import List
 import os
 import sys
-sys.path.append("../../..")
+from pathlib import Path
+from typing import List
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+os.chdir(REPO_ROOT)
+
 import utils
-os.chdir("../../..")
 
 
 def add_heading(config: str) -> str:
@@ -24,7 +29,9 @@ def main() -> None:
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"
-    config += f"from configs.common.datasets.gans.mnist import config as dataset_config\n"
+    config += (
+        f"from configs.common.datasets.gans.mnist import config as dataset_config\n"
+    )
     config += f"config.update(dataset_config)\n"
     config += '\n'
     # add model config
@@ -45,14 +52,21 @@ def main() -> None:
     # add seeds
     relpath = os.path.join("benchmarks", "gans", "gan")
     seeded_configs: List[str] = utils.automation.configs.generate_seeds(
-        template_config=config, base_seed=relpath,
+        template_config=config,
+        base_seed=relpath,
     )
     # save to disk
     os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
         seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"gan_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs", relpath, f"gan_run_{idx}.py"), mode='w') as f:
+        seeded_config += (
+            f"config['work_dir'] = \""
+            + os.path.join("./logs", relpath, f"gan_run_{idx}")
+            + "\"\n"
+        )
+        with open(
+            os.path.join("./configs", relpath, f"gan_run_{idx}.py"), mode='w'
+        ) as f:
             f.write(seeded_config)
 
 

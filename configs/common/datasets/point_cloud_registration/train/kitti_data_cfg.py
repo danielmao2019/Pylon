@@ -3,7 +3,7 @@ import data
 
 def get_kitti_transforms(method: str = 'Euler', num_axis: int = 3):
     """Create KITTI transforms configuration.
-    
+
     Args:
         method: Rotation method for RandomRigidTransform
         num_axis: Number of rotation axes for RandomRigidTransform

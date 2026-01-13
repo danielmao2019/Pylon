@@ -37,7 +37,7 @@ config = {
     },
 }
 
-from runners import SupervisedMultiTaskTrainer
+from runners.trainers import SupervisedMultiTaskTrainer
 config['runner'] = SupervisedMultiTaskTrainer
 
 # dataset config

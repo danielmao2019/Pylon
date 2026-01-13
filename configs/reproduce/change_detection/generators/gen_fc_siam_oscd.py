@@ -1,9 +1,14 @@
-from typing import List
 import os
 import sys
-sys.path.append("../../../..")
+from pathlib import Path
+from typing import List
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+os.chdir(REPO_ROOT)
+
 import utils
-os.chdir("../../../..")
 
 
 def add_heading(config: str) -> str:
@@ -17,7 +22,9 @@ def add_heading(config: str) -> str:
 def main(arch: str, bands: str) -> None:
     assert arch in {'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff'}
     assert bands in {'3ch', '13ch'}
-    with open(f"./configs/reproduce/change_detection/templates/fc_siam_oscd.py", mode='r') as f:
+    with open(
+        f"./configs/reproduce/change_detection/templates/fc_siam_oscd.py", mode='r'
+    ) as f:
         config = f.read() + '\n'
     config = add_heading(config)
     # add dataset config
@@ -33,20 +40,28 @@ def main(arch: str, bands: str) -> None:
     # add seeds
     relpath = os.path.join("reproduce", "change_detection", "fc_siam_oscd")
     seeded_configs: List[str] = utils.automation.configs.generate_seeds(
-        template_config=config, base_seed=relpath,
+        template_config=config,
+        base_seed=relpath,
     )
     # save to disk
     os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     name = f"fc_siam_oscd_{arch[3:].replace('-', '_')}_{bands}"
     for idx, seeded_config in enumerate(seeded_configs):
         seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"{name}_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs", relpath, f"{name}_run_{idx}.py"), mode='w') as f:
+        seeded_config += (
+            f"config['work_dir'] = \""
+            + os.path.join("./logs", relpath, f"{name}_run_{idx}")
+            + "\"\n"
+        )
+        with open(
+            os.path.join("./configs", relpath, f"{name}_run_{idx}.py"), mode='w'
+        ) as f:
             f.write(seeded_config)
 
 
 if __name__ == "__main__":
     import itertools
+
     for arch, bands in itertools.product(
         ['FC-EF', 'FC-Siam-conc', 'FC-Siam-diff'],
         ['3ch', '13ch'],

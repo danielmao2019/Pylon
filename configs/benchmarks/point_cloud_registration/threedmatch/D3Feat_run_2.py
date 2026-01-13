@@ -13,8 +13,8 @@ from metrics.vision_3d.point_cloud_registration.d3feat_metrics.d3feat_metric imp
 from models.point_cloud_registration.d3feat.d3feat_model import D3FeatModel
 from optimizers.single_task_optimizer import SingleTaskOptimizer
 from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
-from utils.point_cloud_ops.correspondences import get_correspondences
-from utils.point_cloud_ops.random_select import RandomSelect
+from data.structures.three_d.point_cloud.ops.correspondences import get_correspondences
+from data.structures.three_d.point_cloud.random_select import RandomSelect
 
 
 config = {

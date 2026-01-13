@@ -1,19 +1,17 @@
 import os
 import sys
+from pathlib import Path
 
-# Setup paths
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(script_dir, "../../.."))
-sys.path.insert(0, project_root)
-os.chdir(project_root)
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+os.chdir(REPO_ROOT)
 
-from runners.trainers import MultiValDatasetTrainer
-from utils.automation.config_to_file import add_heading
-from utils.automation.config_seeding import generate_seeded_configs
-from utils.builders.builder import semideepcopy
-
-# Load template config
 from configs.benchmarks.change_detection.template import config as template_config
+from runners.trainers import MultiValDatasetTrainer
+from utils.automation.config_seeding import generate_seeded_configs
+from utils.automation.config_to_file import add_heading
+from utils.builders.builder import semideepcopy
 
 
 def build_config():
@@ -27,8 +25,12 @@ def build_config():
     config['runner'] = MultiValDatasetTrainer
 
     # Load dataset-specific configs
-    from configs.common.datasets.change_detection.train.ppsl_whu_bd import data_cfg as train_dataset_config
-    from configs.common.datasets.change_detection.val.all_bi_temporal import data_cfg as val_dataset_config
+    from configs.common.datasets.change_detection.train.ppsl_whu_bd import (
+        data_cfg as train_dataset_config,
+    )
+    from configs.common.datasets.change_detection.val.all_bi_temporal import (
+        data_cfg as val_dataset_config,
+    )
 
     # Update template with dataset configs
     config.update(train_dataset_config)
@@ -36,6 +38,7 @@ def build_config():
 
     # Add model config
     from configs.common.models.change_detection.ppsl_model import model_config
+
     config['model'] = model_config
 
     return config
@@ -53,9 +56,7 @@ def generate_configs() -> None:
 
     # Generate seeded configs using the new dictionary-based approach
     seeded_configs = generate_seeded_configs(
-        base_config=config,
-        base_seed=relpath,
-        base_work_dir=work_dir
+        base_config=config, base_seed=relpath, base_work_dir=work_dir
     )
 
     # Add heading and save to disk

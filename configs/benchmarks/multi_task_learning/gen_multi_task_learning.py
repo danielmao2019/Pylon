@@ -1,11 +1,15 @@
-from typing import List, Optional
 import itertools
 import os
 import sys
-sys.path.append("../../..")
+from pathlib import Path
+from typing import List, Optional
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
 import data
 from utils.automation.configs import generate_seeds
-os.chdir("../../..")
 
 
 def add_heading(config: str) -> str:
@@ -18,7 +22,7 @@ def add_heading(config: str) -> str:
 
 def gen_single_task_configs(dataset_name: str, model_name: str, task_name: str) -> None:
     # initializations
-    with open(f"./configs/common/template.py", mode='r') as f:
+    with open(REPO_ROOT / "configs" / "common" / "template.py", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
@@ -58,23 +62,30 @@ def gen_single_task_configs(dataset_name: str, model_name: str, task_name: str) 
     config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds
-    relpath: str = os.path.join("benchmarks", "multi_task_learning", dataset_name, model_name)
+    relpath: str = os.path.join(
+        "benchmarks", "multi_task_learning", dataset_name, model_name
+    )
     seeded_configs: List[str] = generate_seeds(
         template_config=config,
         base_seed=os.path.join(relpath, f"single_task_{task_name}"),
     )
     # save to disk
-    os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
+    target_dir = REPO_ROOT / "configs" / relpath
+    os.makedirs(target_dir, exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
-        seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"single_task_{task_name}_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs", relpath, f"single_task_{task_name}_run_{idx}.py"), mode='w') as f:
+        seeded_config += "# work dir\n"
+        seeded_config += (
+            "config['work_dir'] = \""
+            + os.path.join("./logs", relpath, f"single_task_{task_name}_run_{idx}")
+            + "\"\n"
+        )
+        with open(target_dir / f"single_task_{task_name}_run_{idx}.py", mode='w') as f:
             f.write(seeded_config)
 
 
 def gen_method_configs(dataset_name: str, model_name: str, method_name: str) -> None:
     # initializations
-    with open(f"./configs/common/template.py", mode='r') as f:
+    with open(REPO_ROOT / "configs" / "common" / "template.py", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
@@ -100,17 +111,24 @@ def gen_method_configs(dataset_name: str, model_name: str, method_name: str) -> 
     config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds
-    relpath: str = os.path.join("benchmarks", "multi_task_learning", dataset_name, model_name)
+    relpath: str = os.path.join(
+        "benchmarks", "multi_task_learning", dataset_name, model_name
+    )
     seeded_configs: List[str] = generate_seeds(
         template_config=config,
         base_seed=os.path.join(relpath, method_name),
     )
     # save to disk
-    os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
+    target_dir = REPO_ROOT / "configs" / relpath
+    os.makedirs(target_dir, exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
-        seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"{method_name}_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs", relpath, f"{method_name}_run_{idx}.py"), mode='w') as f:
+        seeded_config += "# work dir\n"
+        seeded_config += (
+            "config['work_dir'] = \""
+            + os.path.join("./logs", relpath, f"{method_name}_run_{idx}")
+            + "\"\n"
+        )
+        with open(target_dir / f"{method_name}_run_{idx}.py", mode='w') as f:
             f.write(seeded_config)
 
 
@@ -120,15 +138,32 @@ def main(
     method_names: List[str],
     task_names: Optional[List[str]] = [],
 ) -> None:
-    for dataset_name, model_name, task_name in itertools.product(dataset_names, model_names, task_names):
+    for dataset_name, model_name, task_name in itertools.product(
+        dataset_names, model_names, task_names
+    ):
         gen_single_task_configs(dataset_name, model_name, task_name)
-    for dataset_name, model_name, method_name in itertools.product(dataset_names, model_names, method_names):
+    for dataset_name, model_name, method_name in itertools.product(
+        dataset_names, model_names, method_names
+    ):
         gen_method_configs(dataset_name, model_name, method_name)
 
 
 if __name__ == "__main__":
     model_names = ['pspnet_resnet50']
-    method_names = ['baseline', 'rgw', 'pcgrad', 'gradvac', 'mgda', 'mgda_ub', 'cagrad', 'graddrop', 'alignedmtl', 'alignedmtl_ub', 'imtl', 'cosreg']
+    method_names = [
+        'baseline',
+        'rgw',
+        'pcgrad',
+        'gradvac',
+        'mgda',
+        'mgda_ub',
+        'cagrad',
+        'graddrop',
+        'alignedmtl',
+        'alignedmtl_ub',
+        'imtl',
+        'cosreg',
+    ]
     # CityScapes
     dataset_names = ['city_scapes_c', 'city_scapes_f']
     task_names = data.datasets.CityScapesDataset.LABEL_NAMES
@@ -138,6 +173,14 @@ if __name__ == "__main__":
     task_names = data.datasets.NYUv2Dataset.LABEL_NAMES
     main(dataset_names, model_names, method_names, task_names)
     # MultiMNIST
-    main(dataset_names=['multi_mnist'], model_names=['multi_mnist_lenet5'], method_names=method_names)
+    main(
+        dataset_names=['multi_mnist'],
+        model_names=['multi_mnist_lenet5'],
+        method_names=method_names,
+    )
     # CelebA
-    main(dataset_names=['celeb_a'], model_names=['celeb_a_resnet18'], method_names=method_names)
+    main(
+        dataset_names=['celeb_a'],
+        model_names=['celeb_a_resnet18'],
+        method_names=method_names,
+    )

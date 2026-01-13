@@ -1,13 +1,21 @@
+import copy
 import torch
 import criteria
 import metrics
 import optimizers
-from runners.trainers.pcr_trainers import BufferTrainer
+from runners.trainers import pcr_trainers
 
-import copy
-from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg, get_kitti_transforms
-from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
-from configs.common.dataloaders.point_cloud_registration.buffer_dataloader_cfg import train_dataloader_cfg, val_dataloader_cfg
+from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import (
+    data_cfg as train_data_cfg,
+    get_kitti_transforms,
+)
+from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import (
+    data_cfg as val_data_cfg,
+)
+from configs.common.dataloaders.point_cloud_registration.buffer_dataloader_cfg import (
+    train_dataloader_cfg,
+    val_dataloader_cfg,
+)
 from configs.common.models.point_cloud_registration.buffer_cfg import model_cfg
 
 
@@ -37,7 +45,7 @@ scheduler_cfg = {
 config = [
 {
     'stage': 'Ref',
-    'runner': BufferTrainer,
+    'runner': pcr_trainers.BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
@@ -49,7 +57,7 @@ config = [
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_dataloader_cfg),
     'criterion': {
-        'class': criteria.vision_3d.point_cloud_registration.BUFFER_RefStageCriterion,
+        'class': BUFFER_RefStageCriterion,
         'args': {},
     },
     'val_dataset': copy.deepcopy(val_data_cfg['val_dataset']),
@@ -57,7 +65,7 @@ config = [
     'test_dataset': None,
     'test_dataloader': None,
     'metric': {
-        'class': metrics.vision_3d.point_cloud_registration.BUFFER_RefStageMetric,
+        'class': BUFFER_RefStageMetric,
         'args': {},
     },
     # model config
@@ -69,7 +77,7 @@ config = [
 },
 {
     'stage': 'Desc',
-    'runner': BufferTrainer,
+    'runner': pcr_trainers.BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
@@ -81,7 +89,7 @@ config = [
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_dataloader_cfg),
     'criterion': {
-        'class': criteria.vision_3d.point_cloud_registration.BUFFER_DescStageCriterion,
+        'class': BUFFER_DescStageCriterion,
         'args': {},
     },
     'val_dataset': copy.deepcopy(val_data_cfg['val_dataset']),
@@ -89,7 +97,7 @@ config = [
     'test_dataset': None,
     'test_dataloader': None,
     'metric': {
-        'class': metrics.vision_3d.point_cloud_registration.BUFFER_DescStageMetric,
+        'class': BUFFER_DescStageMetric,
         'args': {},
     },
     # model config
@@ -101,7 +109,7 @@ config = [
 },
 {
     'stage': 'Keypt',
-    'runner': BufferTrainer,
+    'runner': pcr_trainers.BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
@@ -113,7 +121,7 @@ config = [
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_dataloader_cfg),
     'criterion': {
-        'class': criteria.vision_3d.point_cloud_registration.BUFFER_KeyptStageCriterion,
+        'class': BUFFER_KeyptStageCriterion,
         'args': {},
     },
     'val_dataset': copy.deepcopy(val_data_cfg['val_dataset']),
@@ -121,7 +129,7 @@ config = [
     'test_dataset': None,
     'test_dataloader': None,
     'metric': {
-        'class': metrics.vision_3d.point_cloud_registration.BUFFER_KeyptStageMetric,
+        'class': BUFFER_KeyptStageMetric,
         'args': {},
     },
     # model config
@@ -133,7 +141,7 @@ config = [
 },
 {
     'stage': 'Inlier',
-    'runner': BufferTrainer,
+    'runner': pcr_trainers.BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
@@ -145,7 +153,7 @@ config = [
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_dataloader_cfg),
     'criterion': {
-        'class': criteria.vision_3d.point_cloud_registration.BUFFER_InlierStageCriterion,
+        'class': BUFFER_InlierStageCriterion,
         'args': {},
     },
     'val_dataset': copy.deepcopy(val_data_cfg['val_dataset']),
@@ -153,7 +161,7 @@ config = [
     'test_dataset': None,
     'test_dataloader': None,
     'metric': {
-        'class': metrics.vision_3d.point_cloud_registration.BUFFER_InlierStageMetric,
+        'class': BUFFER_InlierStageMetric,
         'args': {},
     },
     # model config
