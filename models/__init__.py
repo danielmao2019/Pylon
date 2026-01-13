@@ -1,11 +1,7 @@
 """
 MODELS API
 """
-from models import gans
-from models import multi_task_learning
-from models import change_detection
-from models import point_cloud_registration
-
+from models import change_detection, gans, multi_task_learning, point_cloud_registration
 
 __all__ = (
     'gans',
