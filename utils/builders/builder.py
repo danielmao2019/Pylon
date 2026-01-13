@@ -2,6 +2,7 @@ from typing import Any
 from copy import deepcopy
 import easydict as edict
 import torch
+import tempfile
 
 
 def semideepcopy(obj: Any) -> Any:
@@ -13,7 +14,9 @@ def semideepcopy(obj: Any) -> Any:
     Returns:
         A deep copy of the object, but with PyTorch parameters preserved as references
     """
-    if isinstance(obj, (torch.nn.Parameter, edict.EasyDict)):
+    if isinstance(
+        obj, (torch.nn.Parameter, edict.EasyDict, tempfile.TemporaryDirectory)
+    ):
         return obj
     elif isinstance(obj, dict):
         return {key: semideepcopy(value) for key, value in obj.items()}
