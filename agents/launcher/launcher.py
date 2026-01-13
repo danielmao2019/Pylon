@@ -1,12 +1,22 @@
-from typing import Any, Dict, List, Optional, Tuple
 import os
+import random
+import shlex
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-import random
+from typing import Any, Dict, List, Optional, Tuple
+
 from agents.base_agent import BaseAgent
-from agents.manager import BaseJob, Manager
-from utils.logging import TextLogger
 from agents.connector.pool import _ssh_pool
+from agents.launcher.collector import Collector
+from agents.manager.base_job import BaseJob
+from agents.manager.manager import Manager
+from utils.logging import TextLogger
+
+DEFAULT_COLLECTOR_URL = "http://0.0.0.0:5001/events"
+DEFAULT_COLLECTOR_TOKEN = "default-collector-token"
+_COLLECTOR_STARTED = False
+_COLLECTOR_LOCK = threading.Lock()
 
 
 class Launcher(BaseAgent):
@@ -27,6 +37,8 @@ class Launcher(BaseAgent):
         git_branch: str = "main",
         keep_tmux: Optional[bool] = False,
         force_progress_recompute: bool = False,
+        collector_url: str = DEFAULT_COLLECTOR_URL,
+        collector_token: str = DEFAULT_COLLECTOR_TOKEN,
     ) -> None:
         r"""
         Args:
@@ -43,6 +55,8 @@ class Launcher(BaseAgent):
             conda_env (str): the conda environment to use.
             keep_tmux (Optional[bool]): whether to keep the tmux session alive.
             force_progress_recompute (bool): if True, bypass cache and recompute progress from scratch.
+            collector_url (str): HTTP endpoint for posting failure payloads.
+            collector_token (str): bearer token for collector authentication.
         """
         assert (
             isinstance(commands, list) and commands
@@ -66,6 +80,23 @@ class Launcher(BaseAgent):
         self.keep_tmux = keep_tmux
         self.logger = TextLogger(filepath=log_path)
         self.ssh_pool = _ssh_pool
+        self.collector_url = collector_url.strip()
+        self.collector_token = collector_token.strip()
+        assert self.collector_url, "collector_url must be provided"
+        assert self.collector_token, "collector_token must be provided"
+        self._start_collector()
+
+    def _start_collector(self) -> None:
+        global _COLLECTOR_STARTED
+        with _COLLECTOR_LOCK:
+            if _COLLECTOR_STARTED:
+                return
+            collector = Collector(
+                collector_url=self.collector_url,
+                collector_token=self.collector_token,
+            )
+            collector.start()
+            _COLLECTOR_STARTED = True
 
     # ====================================================================================================
     # experiment management
@@ -220,54 +251,54 @@ class Launcher(BaseAgent):
         missing_jobs = missing_jobs[:num_launch]
 
         def launch_job(resource, job: BaseJob):
-            # Step 1: Extract and validate the work directory from the job
+            # --- Validate job metadata
             command = job.command.strip()
-            work_dir = job.work_dir
-            assert (
-                isinstance(work_dir, str) and work_dir
-            ), f"Job {command} does not provide a valid work_dir"
-            norm_work_dir = os.path.normpath(work_dir)
+            work_dir = os.path.normpath(job.work_dir)
+            assert work_dir, f"Job {command} does not provide a valid work_dir"
 
-            # Step 2: Define the error log path using the job work directory
-            error_log = os.path.join(norm_work_dir, "error.log")
-            if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
-                self.logger.error(
-                    f"Found non-empty error log for command '{command}'. error_log='{error_log}'"
-                )
+            # --- Build remote command runner invocation
+            remote_runner_parts = [
+                "MKL_SERVICE_FORCE_INTEL=1",
+                f"CUDA_VISIBLE_DEVICES={resource['resource_id']}",
+                "python",
+                os.path.join("agents", "launcher", "remote_command.py"),
+                "--command",
+                command,
+                "--collector-url",
+                self.collector_url,
+                "--collector-token",
+                self.collector_token,
+                "--work-dir",
+                work_dir,
+            ]
+            remote_runner = shlex.join(remote_runner_parts)
 
-            # Set GPU environment variables (all jobs are GPU-based)
-            device_env = f"CUDA_VISIBLE_DEVICES={resource['resource_id']}"
+            # --- Build tmux payload
+            setup_steps = [
+                f"cd {self.project_dir}",
+                "git fetch",
+                f"git checkout {self.git_branch}",
+                "git pull || true",
+                "source ~/.bashrc",
+                f"source ~/miniconda3/bin/activate {self.conda_env}",
+                remote_runner,
+            ]
+            payload = " && ".join(setup_steps)
+            if self.keep_tmux:
+                payload = payload + "; exec bash"
+
+            # --- Launch tmux session
             resource_label = f"GPU-{resource['resource_id']}"
-
-            cmd = ' && '.join(
-                [
-                    f"cd {self.project_dir}",
-                    "git fetch",
-                    f"git checkout {self.git_branch}",
-                    "git stash",
-                    "git pull",
-                    "git stash pop || true",
-                    "source ~/.bashrc",
-                    f"source ~/miniconda3/bin/activate {self.conda_env}",
-                    f"mkdir -p {os.path.dirname(error_log)}",
-                    ' '.join(
-                        [
-                            "MKL_SERVICE_FORCE_INTEL=1",
-                            device_env,
-                            command,
-                            # "2>", error_log,
-                        ]
-                    ),
-                ]
-            )
-            cmd = cmd + "; exec bash" if self.keep_tmux else cmd
             session_name = f"{job.tmux_session_name()}-{resource_label}"
-            tmux_cmd = f"tmux new-session -d -s {session_name} \"{cmd}\""
+            tmux_cmd = f"tmux new-session -d -s {session_name} \"{payload}\""
 
             self.logger.info(
                 f"Executing command on {resource['server']} ({resource_label}): {tmux_cmd}"
             )
-            self.ssh_pool.execute(resource['server'], ["bash", "-lc", tmux_cmd])
+            self.ssh_pool.execute(
+                resource['server'],
+                ["bash", "-lc", tmux_cmd],
+            )
 
         for gpu, job in zip(idle_gpus, missing_jobs):
             launch_job(gpu, job)
