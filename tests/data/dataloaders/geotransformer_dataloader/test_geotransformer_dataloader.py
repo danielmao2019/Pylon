@@ -1,10 +1,15 @@
+import logging
+from typing import Any, Dict, Tuple
+
 import pytest
 import torch
-import logging
-from typing import Dict, Any, Tuple
+
+from data.collators.geotransformer.geotransformer_collate_fn import (
+    geotransformer_collate_fn,
+)
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
-from data.collators.geotransformer.geotransformer_collate_fn import geotransformer_collate_fn
 from data.datasets.base_dataset import BaseDataset
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -33,7 +38,7 @@ class DummyPCRDataset(BaseDataset):
         # Create a fixed number of dummy samples
         self.annotations = list(range(10))  # 10 dummy samples
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Generate dummy data with uniformly distributed points."""
         # Generate random points and features using uniform distribution
         # Points are generated in a unit cube [-1, 1]^3
@@ -49,14 +54,8 @@ class DummyPCRDataset(BaseDataset):
         transform = torch.randn(4, 4, device=self.device)
 
         inputs = {
-            'src_pc': {
-                'pos': src_points,
-                'feat': src_feats,
-            },
-            'tgt_pc': {
-                'pos': tgt_points,
-                'feat': tgt_feats,
-            },
+            'src_pc': PointCloud(xyz=src_points, data={'feat': src_feats}),
+            'tgt_pc': PointCloud(xyz=tgt_points, data={'feat': tgt_feats}),
             'correspondences': correspondences,
         }
 

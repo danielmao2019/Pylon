@@ -7,6 +7,7 @@ import torch
 from utils.io.json import save_json
 import open3d as o3d
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def make_open3d_point_cloud(xyz, color=None):
@@ -135,7 +136,7 @@ class KITTIDataset(BasePCRDataset):
         return self._velo2cam
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         ann = self.annotations[idx]
         seq = ann['seq']
@@ -170,17 +171,24 @@ class KITTIDataset(BasePCRDataset):
         else:
             gt_transform = np.load(icp_cache_file)
 
+        src_pc = PointCloud(
+            xyz=torch.from_numpy(xyz0).float().to(self.device),
+            data={
+                'reflectance': torch.from_numpy(xyzr0[:, 3]).float().unsqueeze(-1).to(self.device),
+                'feat': torch.ones(xyz0.shape[0], 1, device=self.device),  # Dummy unit features for PARENet
+            },
+        )
+        tgt_pc = PointCloud(
+            xyz=torch.from_numpy(xyz1).float().to(self.device),
+            data={
+                'reflectance': torch.from_numpy(xyzr1[:, 3]).float().unsqueeze(-1).to(self.device),
+                'feat': torch.ones(xyz1.shape[0], 1, device=self.device),  # Dummy unit features for PARENet
+            },
+        )
+
         inputs = {
-            'src_pc': {
-                'pos': torch.from_numpy(xyz0).float(),
-                'reflectance': torch.from_numpy(xyzr0[:, 3]).float().unsqueeze(-1),
-                'feat': torch.ones(xyz0.shape[0], 1),  # Dummy unit features for PARENet
-            },
-            'tgt_pc': {
-                'pos': torch.from_numpy(xyz1).float(),
-                'reflectance': torch.from_numpy(xyzr1[:, 3]).float().unsqueeze(-1),
-                'feat': torch.ones(xyz1.shape[0], 1),  # Dummy unit features for PARENet
-            },
+            'src_pc': src_pc,
+            'tgt_pc': tgt_pc,
         }
         labels = {
             'transform': torch.from_numpy(gt_transform).float(),

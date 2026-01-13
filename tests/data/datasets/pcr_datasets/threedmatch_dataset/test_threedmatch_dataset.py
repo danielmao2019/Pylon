@@ -5,6 +5,7 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 from utils.builders.builder import build_from_config
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -13,47 +14,35 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
 
     # Validate source point cloud
     src_pc = inputs['src_pc']
-    assert isinstance(src_pc, dict), f"src_pc is not a dict: {type(src_pc)=}"
-    # RandomSelect may add 'indices' key
-    expected_keys = {'pos', 'feat'}
-    allowed_keys = {'pos', 'feat', 'indices'}
-    src_keys = set(src_pc.keys())
-    assert src_keys.issubset(allowed_keys), f"src_pc keys incorrect: {src_pc.keys()=}"
-    assert expected_keys.issubset(src_keys), f"src_pc missing required keys: {src_pc.keys()=}"
+    assert isinstance(src_pc, PointCloud), f"src_pc is not PointCloud: {type(src_pc)=}"
+    src_pos = src_pc.xyz
+    assert src_pos.ndim == 2, f"src_pc.xyz should be 2-dimensional: {src_pos.shape=}"
+    assert src_pos.shape[1] == 3, f"src_pc.xyz should have 3 coordinates: {src_pos.shape=}"
+    assert src_pos.dtype == torch.float32, f"src_pc.xyz dtype incorrect: {src_pos.dtype=}"
 
-    assert isinstance(src_pc['pos'], torch.Tensor), f"src_pc['pos'] is not torch.Tensor: {type(src_pc['pos'])=}"
-    assert src_pc['pos'].ndim == 2, f"src_pc['pos'] should be 2-dimensional: {src_pc['pos'].shape=}"
-    assert src_pc['pos'].shape[1] == 3, f"src_pc['pos'] should have 3 coordinates: {src_pc['pos'].shape=}"
-    assert src_pc['pos'].dtype == torch.float32, f"src_pc['pos'] dtype incorrect: {src_pc['pos'].dtype=}"
-
-    assert isinstance(src_pc['feat'], torch.Tensor), f"src_pc['feat'] is not torch.Tensor: {type(src_pc['feat'])=}"
-    assert src_pc['feat'].ndim == 2, f"src_pc['feat'] should be 2-dimensional: {src_pc['feat'].shape=}"
-    assert src_pc['feat'].shape[1] == 1, f"src_pc['feat'] should have 1 feature: {src_pc['feat'].shape=}"
-    assert src_pc['feat'].dtype == torch.float32, f"src_pc['feat'] dtype incorrect: {src_pc['feat'].dtype=}"
-    assert src_pc['pos'].shape[0] == src_pc['feat'].shape[0], \
-        f"src_pc positions and features should have same number of points: {src_pc['pos'].shape[0]=}, {src_pc['feat'].shape[0]=}"
+    assert hasattr(src_pc, 'feat'), "src_pc missing feat field"
+    assert isinstance(src_pc.feat, torch.Tensor), f"src_pc.feat is not torch.Tensor: {type(src_pc.feat)=}"
+    assert src_pc.feat.ndim == 2, f"src_pc.feat should be 2-dimensional: {src_pc.feat.shape=}"
+    assert src_pc.feat.shape[1] == 1, f"src_pc.feat should have 1 feature: {src_pc.feat.shape=}"
+    assert src_pc.feat.dtype == torch.float32, f"src_pc.feat dtype incorrect: {src_pc.feat.dtype=}"
+    assert src_pos.shape[0] == src_pc.feat.shape[0], \
+        f"src_pc positions and features should have same number of points: {src_pos.shape[0]=}, {src_pc.feat.shape[0]=}"
 
     # Validate target point cloud
     tgt_pc = inputs['tgt_pc']
-    assert isinstance(tgt_pc, dict), f"tgt_pc is not a dict: {type(tgt_pc)=}"
-    # RandomSelect may add 'indices' key
-    expected_keys = {'pos', 'feat'}
-    allowed_keys = {'pos', 'feat', 'indices'}
-    tgt_keys = set(tgt_pc.keys())
-    assert tgt_keys.issubset(allowed_keys), f"tgt_pc keys incorrect: {tgt_pc.keys()=}"
-    assert expected_keys.issubset(tgt_keys), f"tgt_pc missing required keys: {tgt_pc.keys()=}"
+    assert isinstance(tgt_pc, PointCloud), f"tgt_pc is not PointCloud: {type(tgt_pc)=}"
+    tgt_pos = tgt_pc.xyz
+    assert tgt_pos.ndim == 2, f"tgt_pc.xyz should be 2-dimensional: {tgt_pos.shape=}"
+    assert tgt_pos.shape[1] == 3, f"tgt_pc.xyz should have 3 coordinates: {tgt_pos.shape=}"
+    assert tgt_pos.dtype == torch.float32, f"tgt_pc.xyz dtype incorrect: {tgt_pos.dtype=}"
 
-    assert isinstance(tgt_pc['pos'], torch.Tensor), f"tgt_pc['pos'] is not torch.Tensor: {type(tgt_pc['pos'])=}"
-    assert tgt_pc['pos'].ndim == 2, f"tgt_pc['pos'] should be 2-dimensional: {tgt_pc['pos'].shape=}"
-    assert tgt_pc['pos'].shape[1] == 3, f"tgt_pc['pos'] should have 3 coordinates: {tgt_pc['pos'].shape=}"
-    assert tgt_pc['pos'].dtype == torch.float32, f"tgt_pc['pos'] dtype incorrect: {tgt_pc['pos'].dtype=}"
-
-    assert isinstance(tgt_pc['feat'], torch.Tensor), f"tgt_pc['feat'] is not torch.Tensor: {type(tgt_pc['feat'])=}"
-    assert tgt_pc['feat'].ndim == 2, f"tgt_pc['feat'] should be 2-dimensional: {tgt_pc['feat'].shape=}"
-    assert tgt_pc['feat'].shape[1] == 1, f"tgt_pc['feat'] should have 1 feature: {tgt_pc['feat'].shape=}"
-    assert tgt_pc['feat'].dtype == torch.float32, f"tgt_pc['feat'] dtype incorrect: {tgt_pc['feat'].dtype=}"
-    assert tgt_pc['pos'].shape[0] == tgt_pc['feat'].shape[0], \
-        f"tgt_pc positions and features should have same number of points: {tgt_pc['pos'].shape[0]=}, {tgt_pc['feat'].shape[0]=}"
+    assert hasattr(tgt_pc, 'feat'), "tgt_pc missing feat field"
+    assert isinstance(tgt_pc.feat, torch.Tensor), f"tgt_pc.feat is not torch.Tensor: {type(tgt_pc.feat)=}"
+    assert tgt_pc.feat.ndim == 2, f"tgt_pc.feat should be 2-dimensional: {tgt_pc.feat.shape=}"
+    assert tgt_pc.feat.shape[1] == 1, f"tgt_pc.feat should have 1 feature: {tgt_pc.feat.shape=}"
+    assert tgt_pc.feat.dtype == torch.float32, f"tgt_pc.feat dtype incorrect: {tgt_pc.feat.dtype=}"
+    assert tgt_pos.shape[0] == tgt_pc.feat.shape[0], \
+        f"tgt_pc positions and features should have same number of points: {tgt_pos.shape[0]=}, {tgt_pc.feat.shape[0]=}"
 
     # Validate correspondences
     correspondences = inputs['correspondences']
@@ -64,13 +53,13 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
 
     # Check correspondence indices are valid
     if correspondences.shape[0] > 0:
-        assert torch.all(correspondences[:, 0] >= 0) and torch.all(correspondences[:, 0] < src_pc['pos'].shape[0]), \
+        assert torch.all(correspondences[:, 0] >= 0) and torch.all(correspondences[:, 0] < src_pc.num_points), \
             "Invalid source indices in correspondences"
-        assert torch.all(correspondences[:, 1] >= 0) and torch.all(correspondences[:, 1] < tgt_pc['pos'].shape[0]), \
+        assert torch.all(correspondences[:, 1] >= 0) and torch.all(correspondences[:, 1] < tgt_pc.num_points), \
             "Invalid target indices in correspondences"
 
 
-def validate_labels(labels: Dict[str, Any], src_points: torch.Tensor, tgt_points: torch.Tensor, gt_overlap: float, matching_radius: float = 0.1) -> None:
+def validate_labels(labels: Dict[str, Any], src_pc: PointCloud, tgt_pc: PointCloud, gt_overlap: float, matching_radius: float = 0.1) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert labels.keys() == {'transform'}, f"{labels.keys()=}"
     assert isinstance(labels['transform'], torch.Tensor), f"transform is not torch.Tensor: {type(labels['transform'])=}"
@@ -90,32 +79,32 @@ def validate_labels(labels: Dict[str, Any], src_points: torch.Tensor, tgt_points
         "Rotation matrix is not orthogonal"
 
     # Recompute overlap and validate against stored overlap
-    from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-    
+    from data.structures.three_d.point_cloud.ops.set_ops.intersection import compute_registration_overlap
+
     gt_transform = labels['transform']
-    
+
     # Use matching_radius as positive_radius for consistency with dataset
     positive_radius = matching_radius
-    
+
     recomputed_overlap = compute_registration_overlap(
-        ref_points=tgt_points,
-        src_points=src_points,
+        ref_points=tgt_pc.xyz,
+        src_points=src_pc.xyz,
         transform=gt_transform,
         positive_radius=positive_radius
     )
-    
+
     # Test 1: Registration quality - overlap should be reasonable for 3DMatch
     # 3DMatch dataset contains pairs with overlap > 0.3, so this should hold
     assert recomputed_overlap > 0.25, \
         f"PCR relationship poor: overlap={recomputed_overlap:.4f} too low"
-    
+
     # Test 2: Overlap consistency - recomputed should match stored (within tolerance)
     # Allow slightly larger tolerance for 3DMatch due to real-world data variability
     overlap_diff = abs(recomputed_overlap - gt_overlap)
     assert overlap_diff < 0.05, \
         f"Overlap inconsistency: stored={gt_overlap:.4f}, " \
         f"recomputed={recomputed_overlap:.4f}, diff={overlap_diff:.4f}"
-    
+
     # Test 3: Overlap bounds check
     assert 0.0 <= recomputed_overlap <= 1.0, \
         f"Recomputed overlap out of bounds: {recomputed_overlap:.4f}"
@@ -150,8 +139,8 @@ def test_threedmatch_dataset(threedmatch_dataset_config, max_samples, get_sample
         validate_inputs(datapoint['inputs'])
         validate_labels(
             labels=datapoint['labels'],
-            src_points=datapoint['inputs']['src_pc']['pos'],
-            tgt_points=datapoint['inputs']['tgt_pc']['pos'], 
+            src_pc=datapoint['inputs']['src_pc'],
+            tgt_pc=datapoint['inputs']['tgt_pc'],
             gt_overlap=datapoint['meta_info']['overlap'],
             matching_radius=dataset.matching_radius
         )
@@ -178,8 +167,8 @@ def test_threedlomatch_dataset(threedlomatch_dataset_config, max_samples, get_sa
         validate_inputs(datapoint['inputs'])
         validate_labels(
             labels=datapoint['labels'],
-            src_points=datapoint['inputs']['src_pc']['pos'],
-            tgt_points=datapoint['inputs']['tgt_pc']['pos'], 
+            src_pc=datapoint['inputs']['src_pc'],
+            tgt_pc=datapoint['inputs']['tgt_pc'],
             gt_overlap=datapoint['meta_info']['overlap'],
             matching_radius=lomatch_dataset.matching_radius
         )

@@ -1,7 +1,14 @@
 import torch
+
 from data.collators.buffer.buffer_collate_fn import buffer_collate_fn
-from data.collators.geotransformer.geotransformer_collate_fn import geotransformer_collate_fn
-from data.collators.overlappredator.overlappredator_collate_fn import overlappredator_collate_fn
+from data.collators.geotransformer.geotransformer_collate_fn import (
+    geotransformer_collate_fn,
+)
+from data.collators.overlappredator.overlappredator_collate_fn import (
+    overlappredator_collate_fn,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
 from .buffer_collator_gt import buffer_collate_fn_gt
 from .geotransformer_collator_gt import geotransformer_collate_fn_gt
 from .overlappredator_collator_gt import overlappredator_collate_fn_gt
@@ -12,18 +19,18 @@ def create_dummy_buffer_data():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Create dummy point clouds
-    src_pc_fds = {'pos': torch.randn(100, 3, device=device)}
-    tgt_pc_fds = {'pos': torch.randn(100, 3, device=device)}
+    src_pc_fds = PointCloud(xyz=torch.randn(100, 3, device=device))
+    tgt_pc_fds = PointCloud(xyz=torch.randn(100, 3, device=device))
 
     # Create dummy keypoints with normals as features
-    src_pc_sds = {
-        'pos': torch.randn(50, 3, device=device),
-        'normals': torch.randn(50, 3, device=device)
-    }
-    tgt_pc_sds = {
-        'pos': torch.randn(50, 3, device=device),
-        'normals': torch.randn(50, 3, device=device)
-    }
+    src_pc_sds = PointCloud(
+        xyz=torch.randn(50, 3, device=device),
+        data={'normals': torch.randn(50, 3, device=device)},
+    )
+    tgt_pc_sds = PointCloud(
+        xyz=torch.randn(50, 3, device=device),
+        data={'normals': torch.randn(50, 3, device=device)},
+    )
 
     # Create dummy transform
     transform = torch.eye(4, device=device)
@@ -50,14 +57,14 @@ def create_dummy_geotransformer_data():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Create dummy point clouds with features
-    src_pc = {
-        'pos': torch.randn(100, 3, device=device),
-        'feat': torch.randn(100, 32, device=device)  # 32-dim features
-    }
-    tgt_pc = {
-        'pos': torch.randn(100, 3, device=device),
-        'feat': torch.randn(100, 32, device=device)  # 32-dim features
-    }
+    src_pc = PointCloud(
+        xyz=torch.randn(100, 3, device=device),
+        data={'feat': torch.randn(100, 32, device=device)},  # 32-dim features
+    )
+    tgt_pc = PointCloud(
+        xyz=torch.randn(100, 3, device=device),
+        data={'feat': torch.randn(100, 32, device=device)},  # 32-dim features
+    )
 
     # Create dummy transform
     transform = torch.eye(4, device=device)
@@ -83,14 +90,14 @@ def create_dummy_overlappredator_data():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Create dummy point clouds with features
-    src_pc = {
-        'pos': torch.randn(100, 3, device=device),
-        'feat': torch.randn(100, 32, device=device)  # 32-dim features
-    }
-    tgt_pc = {
-        'pos': torch.randn(100, 3, device=device),
-        'feat': torch.randn(100, 32, device=device)  # 32-dim features
-    }
+    src_pc = PointCloud(
+        xyz=torch.randn(100, 3, device=device),
+        data={'feat': torch.randn(100, 32, device=device)},  # 32-dim features
+    )
+    tgt_pc = PointCloud(
+        xyz=torch.randn(100, 3, device=device),
+        data={'feat': torch.randn(100, 32, device=device)},  # 32-dim features
+    )
 
     # Create dummy transform
     transform = torch.eye(4, device=device)

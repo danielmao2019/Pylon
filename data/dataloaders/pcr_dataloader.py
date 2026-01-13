@@ -12,26 +12,31 @@ from utils.ops.apply import apply_tensor_op
 
 class PCRCachedCollator:
     """Picklable collator wrapper for PCR dataloader with caching functionality."""
-    
+
     def __init__(self, original_dataset, collator, cache, device=torch.device('cuda')):
         self.original_dataset = original_dataset
         self.collator = collator
         self.cache = cache
         self.device = device
-    
+
+    def _cache_filepath(self, key: int) -> str:
+        assert hasattr(self.cache, 'version_dir'), "Cache must expose version_dir for PCR caching"
+        return os.path.join(self.cache.version_dir, f"{key}.pt")
+
     def __call__(self, datapoints: List[int]):
         assert isinstance(datapoints, list)
         assert len(datapoints) == 1
         assert isinstance(datapoints[0], int)
         key = datapoints[0]
         assert self.cache is not None
-        cached_result = self.cache.get(key)
+        cache_filepath = self._cache_filepath(key)
+        cached_result = self.cache.get(cache_filepath=cache_filepath)
         if cached_result is not None:
             return apply_tensor_op(func=lambda x: x.to(self.device), inputs=cached_result)
         else:
             actual_datapoints = [self.original_dataset[idx] for idx in datapoints]
             batched_datapoints = self.collator(actual_datapoints)
-            self.cache.put(key, batched_datapoints)
+            self.cache.put(batched_datapoints, cache_filepath=cache_filepath)
             return batched_datapoints
 
 
@@ -80,11 +85,11 @@ class PCRDataloader(BaseDataLoader):
         assert isinstance(use_disk_cache, bool), f"{type(use_disk_cache)=}"
         assert isinstance(max_cache_memory_percent, float), f"{type(max_cache_memory_percent)=}"
         assert 0.0 <= max_cache_memory_percent <= 100.0, f"{max_cache_memory_percent=}"
-        
+
         if use_cpu_cache or use_disk_cache:
             # Generate version hash for this dataset configuration
             version_hash = self.get_cache_version_hash(dataset, collator)
-            
+
             # For datasets without data_root (e.g., random datasets), use a default location
             # For datasets with soft links, resolve to real path to ensure cache is in target location (e.g., /pub not /home)
             if hasattr(dataset, 'data_root'):
@@ -94,7 +99,7 @@ class PCRDataloader(BaseDataLoader):
             else:
                 # Use dataset class name for default location when no data_root is provided
                 data_root_for_cache = f'/tmp/cache/{dataset.__class__.__name__.lower()}'
-            
+
             self.cache = CombinedDatasetCache(
                 data_root=data_root_for_cache,
                 version_hash=version_hash,
@@ -108,17 +113,17 @@ class PCRDataloader(BaseDataLoader):
             )
         else:
             self.cache = None
-    
+
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Return parameters that affect dataloader cache content for cache versioning.
-        
+
         Base implementation provides common fields. Subclasses should call super()
         and add their specific parameters.
-        
+
         Args:
             dataset: The dataset being used
             collator: The collator being used
-            
+
         Returns:
             Dict containing version parameters for this PCR dataloader configuration
         """
@@ -126,7 +131,7 @@ class PCRDataloader(BaseDataLoader):
             'dataloader_class': self.__class__.__name__,
             'dataset_version': dataset.get_cache_version_hash(),
         }
-    
+
     def get_cache_version_hash(self, dataset, collator):
         """Generate deterministic hash from dataloader configuration."""
         version_dict = self._get_cache_version_dict(dataset, collator)
@@ -149,7 +154,7 @@ class PCRDataloader(BaseDataLoader):
         tgt_points = points[total_length//2:total_length]
         return src_points, tgt_points
 
-    @staticmethod 
+    @staticmethod
     def display_batched_datapoint(
         datapoint: Dict[str, Any],
         point_size: float = 2,
@@ -176,10 +181,11 @@ class PCRDataloader(BaseDataLoader):
         from data.viewer.utils.structure_validation import validate_pcr_structure
         from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display, build_point_cloud_id
         from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
-        
+        from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
         # Validate structure and inputs (includes all basic validation)
         validate_pcr_structure(datapoint)
-        
+
         inputs = datapoint['inputs']
         all_figures = []
 
@@ -197,14 +203,14 @@ class PCRDataloader(BaseDataLoader):
                 assert 'transform' in datapoint['labels'], "datapoint['labels'] must have 'transform' for transformation"
                 transform = datapoint['labels']['transform']
                 assert isinstance(transform, torch.Tensor), f"transform must be torch.Tensor, got {type(transform)}"
-                
+
                 # Transform source points
-                from utils.point_cloud_ops import apply_transform
+                from data.structures.three_d.point_cloud.ops import apply_transform
                 src_points_transformed = apply_transform(src_points, transform)
-                
+
                 figure_tasks = [
                     lambda src=src_points, lvl=level: create_point_cloud_display(
-                        pc={'pos': src},
+                        pc=PointCloud(xyz=src),
                         color_key=None,
                         highlight_indices=None,
                         title=f"Source Point Cloud (Level {lvl})",
@@ -216,7 +222,7 @@ class PCRDataloader(BaseDataLoader):
                         point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
                     ),
                     lambda tgt=tgt_points, lvl=level: create_point_cloud_display(
-                        pc={'pos': tgt},
+                        pc=PointCloud(xyz=tgt),
                         color_key=None,
                         highlight_indices=None,
                         title=f"Target Point Cloud (Level {lvl})",
@@ -259,7 +265,7 @@ class PCRDataloader(BaseDataLoader):
                     assert isinstance(correspondences, torch.Tensor), f"correspondences must be torch.Tensor, got {type(correspondences)}"
                     assert correspondences.ndim == 2, f"correspondences must be 2D tensor, got {correspondences.ndim}D"
                     assert correspondences.shape[1] == 2, f"correspondences must have shape (N, 2), got shape {correspondences.shape}"
-                    
+
                     figure_tasks.append(
                         lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level, corr=correspondences: BasePCRDataset.create_correspondence_visualization(
                             src_points=src_transformed,  # Use transformed source points
@@ -283,7 +289,7 @@ class PCRDataloader(BaseDataLoader):
                 # For lower levels, only show source and target
                 all_figures.extend([
                     create_point_cloud_display(
-                        pc={'pos': src_points},
+                        pc=PointCloud(xyz=src_points),
                         color_key=None,
                         highlight_indices=None,
                         title=f"Source Point Cloud (Level {level})",
@@ -295,7 +301,7 @@ class PCRDataloader(BaseDataLoader):
                         point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
                     ),
                     create_point_cloud_display(
-                        pc={'pos': tgt_points},
+                        pc=PointCloud(xyz=tgt_points),
                         color_key=None,
                         highlight_indices=None,
                         title=f"Target Point Cloud (Level {level})",
@@ -310,7 +316,7 @@ class PCRDataloader(BaseDataLoader):
 
         # Create grid layout using centralized utilities
         grid_items = create_figure_grid(all_figures, width_style="50%", height_style="520px")
-        
+
         return html.Div([
             html.H3("Point Cloud Registration Visualization (Hierarchical)"),
             html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),

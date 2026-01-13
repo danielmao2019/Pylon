@@ -1,9 +1,12 @@
 # Reference: https://teaser.readthedocs.io/en/latest/quickstart.html#usage-in-python-projects
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
+
 import torch
 import numpy as np
 import open3d as o3d
 from scipy.spatial import cKDTree
+
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class TeaserPlusPlus(torch.nn.Module):
@@ -105,52 +108,54 @@ class TeaserPlusPlus(torch.nn.Module):
 
         return corres_idx0, corres_idx1
 
-    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
+    def forward(
+        self, inputs: Dict[str, Union[PointCloud, List[PointCloud]]]
+    ) -> torch.Tensor:
         """Perform TEASER++ registration on source and target point clouds.
 
         Args:
             inputs: Dictionary containing:
-                - 'src_pc': Dict with 'pos' key containing source points (B, N, 3)
-                - 'tgt_pc': Dict with 'pos' key containing target points (B, M, 3)
+                - 'src_pc': PointCloud or list of PointClouds holding source positions
+                - 'tgt_pc': PointCloud or list of PointClouds holding target positions
 
         Returns:
             Transformation matrix (B, 4, 4) that aligns source to target
         """
         import teaserpp_python
 
-        # Input validation
         assert isinstance(inputs, dict), "inputs must be a dictionary"
         assert 'src_pc' in inputs, "inputs must contain 'src_pc' key"
         assert 'tgt_pc' in inputs, "inputs must contain 'tgt_pc' key"
-        assert isinstance(inputs['src_pc'], dict), "inputs['src_pc'] must be a dictionary"
-        assert isinstance(inputs['tgt_pc'], dict), "inputs['tgt_pc'] must be a dictionary"
-        assert 'pos' in inputs['src_pc'], "inputs['src_pc'] must contain 'pos' key"
-        assert 'pos' in inputs['tgt_pc'], "inputs['tgt_pc'] must contain 'pos' key"
+        src_pc = inputs['src_pc']
+        tgt_pc = inputs['tgt_pc']
+        src_list = src_pc if isinstance(src_pc, list) else [src_pc]
+        tgt_list = tgt_pc if isinstance(tgt_pc, list) else [tgt_pc]
 
-        # Validate tensor properties
-        assert isinstance(inputs['src_pc']['pos'], torch.Tensor), "Source positions must be a tensor"
-        assert isinstance(inputs['tgt_pc']['pos'], torch.Tensor), "Target positions must be a tensor"
-        assert inputs['src_pc']['pos'].dim() == 3, f"Source positions must be 3D tensor, got {inputs['src_pc']['pos'].dim()}D"
-        assert inputs['tgt_pc']['pos'].dim() == 3, f"Target positions must be 3D tensor, got {inputs['tgt_pc']['pos'].dim()}D"
-        assert inputs['src_pc']['pos'].shape[-1] == 3, f"Source positions must have 3 coordinates, got {inputs['src_pc']['pos'].shape[-1]}"
-        assert inputs['tgt_pc']['pos'].shape[-1] == 3, f"Target positions must have 3 coordinates, got {inputs['tgt_pc']['pos'].shape[-1]}"
-        assert inputs['src_pc']['pos'].shape[0] == inputs['tgt_pc']['pos'].shape[0], \
-            f"Batch sizes must match: source={inputs['src_pc']['pos'].shape[0]}, target={inputs['tgt_pc']['pos'].shape[0]}"
-        assert inputs['src_pc']['pos'].shape[1] > 0, "Source point cloud cannot be empty"
-        assert inputs['tgt_pc']['pos'].shape[1] > 0, "Target point cloud cannot be empty"
+        assert len(src_list) == len(
+            tgt_list
+        ), f"Batch sizes must match: source={len(src_list)}, target={len(tgt_list)}"
+        assert len(src_list) > 0, "src_pc list must not be empty"
+        assert len(tgt_list) > 0, "tgt_pc list must not be empty"
+        assert all(
+            isinstance(pc, PointCloud) for pc in src_list
+        ), f"src_pc entries must be PointClouds"
+        assert all(
+            isinstance(pc, PointCloud) for pc in tgt_list
+        ), f"tgt_pc entries must be PointClouds"
 
-        batch_size = inputs['src_pc']['pos'].shape[0]
-        device = inputs['src_pc']['pos'].device
-
-        # Convert to numpy for TEASER++
-        source_np = inputs['src_pc']['pos'].detach().cpu().numpy()
-        target_np = inputs['tgt_pc']['pos'].detach().cpu().numpy()
+        device = src_list[0].device
+        assert all(
+            pc.device == device for pc in src_list
+        ), "All source point clouds must be on the same device"
+        assert all(
+            pc.device == device for pc in tgt_list
+        ), "All target point clouds must be on the same device as sources"
 
         # Process each batch
         transformations = []
-        for i in range(batch_size):
-            src_points = source_np[i]
-            tgt_points = target_np[i]
+        for src_item, tgt_item in zip(src_list, tgt_list):
+            src_points = src_item.xyz.detach().cpu().numpy()
+            tgt_points = tgt_item.xyz.detach().cpu().numpy()
 
             # If using FPFH correspondences, extract features and find correspondences
             if self.correspondences == 'fpfh':

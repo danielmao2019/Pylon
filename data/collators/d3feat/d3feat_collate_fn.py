@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import data.collators.d3feat.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
 import data.collators.d3feat.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0, random_grid_orient=True):
@@ -9,7 +10,7 @@ def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=Non
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
     device = points.device
-    
+
     if (features is None) and (labels is None):
         s_points, s_len = cpp_subsampling.subsample_batch(points.detach().cpu().numpy().astype(np.float32),
                                                           batches_len.detach().cpu().numpy().astype(np.int32),
@@ -58,11 +59,11 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     :return: neighbors indices
     """
     device = queries.device
-    
-    neighbors = cpp_neighbors.batch_query(queries.detach().cpu().numpy().astype(np.float32), 
-                                         supports.detach().cpu().numpy().astype(np.float32), 
-                                         q_batches.detach().cpu().numpy().astype(np.int32), 
-                                         s_batches.detach().cpu().numpy().astype(np.int32), 
+
+    neighbors = cpp_neighbors.batch_query(queries.detach().cpu().numpy().astype(np.float32),
+                                         supports.detach().cpu().numpy().astype(np.float32),
+                                         q_batches.detach().cpu().numpy().astype(np.int32),
+                                         s_batches.detach().cpu().numpy().astype(np.int32),
                                          radius=radius)
     if max_neighbors > 0:
         return torch.from_numpy(neighbors[:, :max_neighbors]).to(device)
@@ -72,53 +73,56 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
 
 def d3feat_collate_fn(list_data, config, neighborhood_limits):
     """D3Feat collate function for descriptor training.
-    
-    Works directly with torch tensors, only converting to numpy for C++ calls.
+
+    Works directly with torch tensors, only converting to numpy for C++ calls. Expects src_pc and tgt_pc
+    to be PointCloud instances.
     """
     assert len(list_data) == 1
-    
+
     datapoint = list_data[0]
     inputs = datapoint['inputs']
     src_pc = inputs['src_pc']
     tgt_pc = inputs['tgt_pc']
-    
+    assert isinstance(src_pc, PointCloud)
+    assert isinstance(tgt_pc, PointCloud)
+
     # Keep everything as torch tensors on device
-    pts0 = src_pc['pos']
-    pts1 = tgt_pc['pos']
-    feat0 = src_pc['feat']
-    feat1 = tgt_pc['feat']
+    pts0 = src_pc.xyz
+    pts1 = tgt_pc.xyz
+    feat0 = src_pc.feat
+    feat1 = tgt_pc.feat
     device = pts0.device
-    
+
     # Get correspondences and compute distance matrix (stay in torch)
     assert 'correspondences' in inputs
     assert len(inputs['correspondences']) > 0
     sel_corr = inputs['correspondences']
-    
+
     # Filter out invalid correspondences (indices out of bounds)
-    src_size = pts0.shape[0]
-    tgt_size = pts1.shape[0]
-    
+    src_size = src_pc.num_points
+    tgt_size = tgt_pc.num_points
+
     # Filter out invalid correspondences (indices out of bounds)
     valid_mask = (sel_corr[:, 0] < src_size) & (sel_corr[:, 1] < tgt_size)
     assert torch.all(valid_mask), f"Invalid correspondences found ({(1-valid_mask.float().mean().item())*100}% invalid)"
     sel_corr = sel_corr[valid_mask]
-    
+
     # Limit correspondences for memory efficiency during calibration
     max_corr_for_calibration = 1000
     if sel_corr.shape[0] > max_corr_for_calibration:
         # Randomly sample correspondences to avoid memory issues
         indices = torch.randperm(sel_corr.shape[0], device=device)[:max_corr_for_calibration]
         sel_corr = sel_corr[indices]
-    
+
     # Compute distance matrix from correspondences (use torch.cdist)
     assert sel_corr.shape[0] > 0
     corr_pts_src = pts0[sel_corr[:, 0]]
     dist_keypts = torch.cdist(corr_pts_src, corr_pts_src)
-    
+
     # Batch points and features (keep on device)
     batched_points = torch.cat([pts0, pts1], dim=0).float()  # [N_total, 3]
     batched_features = torch.cat([feat0, feat1], dim=0).float()  # [N_total, feat_dim]
-    batched_lengths = torch.tensor([pts0.shape[0], pts1.shape[0]], dtype=torch.int32, device=device)
+    batched_lengths = torch.tensor([src_pc.num_points, tgt_pc.num_points], dtype=torch.int32, device=device)
 
     # Starting radius of convolutions
     r_normal = config.first_subsampling_dl * config.conv_radius
@@ -181,7 +185,7 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
 
             # Subsample indices
             pool_i = batch_neighbors_kpconv(pool_p, batched_points, pool_b, batched_lengths, r, neighborhood_limits[layer])
-            
+
             # Upsample indices (with the radius of the next layer to keep wanted density)
             up_i = batch_neighbors_kpconv(batched_points, pool_p, batched_lengths, pool_b, 2 * r, neighborhood_limits[layer])
 
@@ -226,11 +230,11 @@ def d3feat_collate_fn(list_data, config, neighborhood_limits):
     labels = dict(datapoint['labels'])
     labels['correspondences'] = sel_corr
     labels['dist_keypts'] = dist_keypts
-    
+
     result = {
         'inputs': dict_inputs,
         'labels': labels,
         'meta_info': datapoint['meta_info']
     }
-    
+
     return result

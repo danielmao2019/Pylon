@@ -8,11 +8,14 @@ import numpy as np
 import torch
 
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
+from data.structures.three_d.point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud.ops import apply_transform
+from data.structures.three_d.point_cloud.ops.set_ops.intersection import (
+    compute_registration_overlap,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.determinism.hash_utils import deterministic_hash
 from utils.io.json import save_json
-from utils.io.point_clouds.load_point_cloud import load_point_cloud
-from utils.point_cloud_ops import apply_transform
-from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
 
 
 class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
@@ -95,13 +98,15 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'rotation_mag': self.rotation_mag,
-            'translation_mag': self.translation_mag,
-            'matching_radius': self.matching_radius,
-            'overlap_range': self.overlap_range,
-            'min_points': self.min_points,
-        })
+        version_dict.update(
+            {
+                'rotation_mag': self.rotation_mag,
+                'translation_mag': self.translation_mag,
+                'matching_radius': self.matching_radius,
+                'overlap_range': self.overlap_range,
+                'min_points': self.min_points,
+            }
+        )
         return version_dict
 
     def _init_annotations(self) -> None:
@@ -148,16 +153,16 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             cache_data: Data loaded from cache file
         """
         # Check if cache_data is a dictionary
-        assert isinstance(cache_data, dict), (
-            f"Cache data must be a dictionary, got {type(cache_data)}"
-        )
+        assert isinstance(
+            cache_data, dict
+        ), f"Cache data must be a dictionary, got {type(cache_data)}"
 
         # Check each dataset index level
         for idx_key, overlap_list in cache_data.items():
             # Index key should be a string (representing dataset index)
-            assert isinstance(idx_key, str), (
-                f"Index key must be string, got {type(idx_key)}"
-            )
+            assert isinstance(
+                idx_key, str
+            ), f"Index key must be string, got {type(idx_key)}"
 
             # Check if key can be converted to int (valid dataset index)
             try:
@@ -166,26 +171,28 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                 assert False, f"Index key must be convertible to int, got: {idx_key}"
 
             # Overlap list should be a list
-            assert isinstance(overlap_list, list), (
-                f"Overlap list must be list, got {type(overlap_list)}"
-            )
+            assert isinstance(
+                overlap_list, list
+            ), f"Overlap list must be list, got {type(overlap_list)}"
 
             # Each overlap should be a float or None (for failed generations)
             for i, overlap in enumerate(overlap_list):
                 if overlap is not None:
-                    assert isinstance(overlap, (int, float)), (
-                        f"Overlap {i} for idx {idx_key} must be number or None, got {type(overlap)}"
-                    )
-                    assert 0.0 <= overlap <= 1.0, (
-                        f"Overlap {i} for idx {idx_key} must be in [0, 1], got {overlap}"
-                    )
+                    assert isinstance(
+                        overlap, (int, float)
+                    ), f"Overlap {i} for idx {idx_key} must be number or None, got {type(overlap)}"
+                    assert (
+                        0.0 <= overlap <= 1.0
+                    ), f"Overlap {i} for idx {idx_key} must be in [0, 1], got {overlap}"
 
     def _save_trials_cache(self) -> None:
         """Save trials cache to version-specific cache file (thread-safe)."""
         assert self.cache_filepath is not None
         save_json(self.trials_cache, self.cache_filepath)
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, PointCloud], Dict[str, Any], Dict[str, Any]]:
         """Load a synthetic datapoint using trial-based caching logic.
 
         Args:
@@ -196,42 +203,44 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         """
         # Assert required fields exist in annotation
         annotation = self.annotations[idx]
-        assert 't1_pc_filepath' in annotation, (
-            f"annotation[{idx}] missing 't1_pc_filepath', got keys: {list(annotation.keys())}"
-        )
-        assert 't2_pc_filepath' in annotation, (
-            f"annotation[{idx}] missing 't2_pc_filepath', got keys: {list(annotation.keys())}"
-        )
+        assert (
+            't1_pc_filepath' in annotation
+        ), f"annotation[{idx}] missing 't1_pc_filepath', got keys: {list(annotation.keys())}"
+        assert (
+            't2_pc_filepath' in annotation
+        ), f"annotation[{idx}] missing 't2_pc_filepath', got keys: {list(annotation.keys())}"
 
         # Assert subclass implements _apply_crop
-        assert hasattr(self, '_apply_crop'), (
-            f"Subclass {self.__class__.__name__} must implement _apply_crop method"
-        )
+        assert hasattr(
+            self, '_apply_crop'
+        ), f"Subclass {self.__class__.__name__} must implement _apply_crop method"
 
         # Extract annotation data
         t1_pc_filepath = annotation['t1_pc_filepath']
         t2_pc_filepath = annotation['t2_pc_filepath']
 
         # Core logic: search for valid cached transform or generate new ones
-        src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx = self._search_or_generate(
-            t1_pc_filepath=t1_pc_filepath,
-            t2_pc_filepath=t2_pc_filepath,
-            idx=idx,
+        src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx = (
+            self._search_or_generate(
+                t1_pc_filepath=t1_pc_filepath,
+                t2_pc_filepath=t2_pc_filepath,
+                idx=idx,
+            )
         )
 
         # Add default features if not present
-        if 'feat' not in src_pc:
-            src_pc['feat'] = torch.ones(
-                (src_pc['pos'].shape[0], 1),
+        if not hasattr(src_pc, 'feat'):
+            src_pc.feat = torch.ones(
+                (src_pc.num_points, 1),
                 dtype=torch.float32,
-                device=src_pc['pos'].device,
+                device=src_pc.device,
             )
 
-        if 'feat' not in tgt_pc:
-            tgt_pc['feat'] = torch.ones(
-                (tgt_pc['pos'].shape[0], 1),
+        if not hasattr(tgt_pc, 'feat'):
+            tgt_pc.feat = torch.ones(
+                (tgt_pc.num_points, 1),
                 dtype=torch.float32,
-                device=tgt_pc['pos'].device,
+                device=tgt_pc.device,
             )
 
         inputs = {
@@ -259,7 +268,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         t2_pc_filepath: str,
         transform_matrix: torch.Tensor,
         idx: int,
-    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Optional[float]]:
+    ) -> Tuple[PointCloud, PointCloud, Optional[float]]:
         """Generate processed point clouds and overlap ratio for given parameters.
 
         Args:
@@ -275,12 +284,12 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         t1_pc_data = load_point_cloud(
             t1_pc_filepath,
             device=self.device,
-            dtype=torch.float64,
+            dtype=torch.float32,
         )
         t2_pc_data = load_point_cloud(
             t2_pc_filepath,
             device=self.device,
-            dtype=torch.float64,
+            dtype=torch.float32,
         )
 
         # Apply inverse transform to PC1 and keep PC2 original
@@ -295,12 +304,12 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         tgt_pc = self._apply_crop(idx, tgt_pc_original)
 
         # Check if crops resulted in empty point clouds
-        if src_pc['pos'].shape[0] == 0 or tgt_pc['pos'].shape[0] == 0:
+        if src_pc.num_points == 0 or tgt_pc.num_points == 0:
             overlap_ratio = None
         else:
             overlap_ratio = compute_registration_overlap(
-                ref_points=tgt_pc['pos'],
-                src_points=src_pc['pos'],
+                ref_points=tgt_pc.xyz,
+                src_points=src_pc.xyz,
                 transform=transform_matrix,
                 positive_radius=self.matching_radius * 2,
             )
@@ -312,7 +321,7 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         t1_pc_filepath: str,
         t2_pc_filepath: str,
         idx: int,
-    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], float, torch.Tensor, int]:
+    ) -> Tuple[PointCloud, PointCloud, float, torch.Tensor, int]:
         """Search for valid cached transform or generate new ones using trial-based caching.
 
         This method iterates through trials (starting from 0) to find a transform that
@@ -349,7 +358,10 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                 cached_overlap = cached_overlaps[trial_idx]
 
                 # Check if cached overlap is valid and in range
-                if cached_overlap is not None and self.overlap_range[0] < cached_overlap <= self.overlap_range[1]:
+                if (
+                    cached_overlap is not None
+                    and self.overlap_range[0] < cached_overlap <= self.overlap_range[1]
+                ):
                     # Valid cached trial - generate point clouds
                     src_pc, tgt_pc, generated_overlap = self._generate(
                         t1_pc_filepath=t1_pc_filepath,
@@ -358,16 +370,24 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                         idx=idx,
                     )
 
-                    assert generated_overlap is not None, (
-                        f"Generated overlap should not be None for cached valid trial {trial_idx}"
-                    )
+                    assert (
+                        generated_overlap is not None
+                    ), f"Generated overlap should not be None for cached valid trial {trial_idx}"
                     assert abs(generated_overlap - cached_overlap) < 1e-5, (
                         f"Generated overlap {generated_overlap} should match cached value {cached_overlap} "
                         f"for trial {trial_idx} (diff: {abs(generated_overlap - cached_overlap)})"
                     )
 
-                    print(f"DEBUG: _search_or_generate: datapoint {idx} using cached trial {trial_idx}.")
-                    return src_pc, tgt_pc, generated_overlap, transform_matrix, trial_idx
+                    print(
+                        f"DEBUG: _search_or_generate: datapoint {idx} using cached trial {trial_idx}."
+                    )
+                    return (
+                        src_pc,
+                        tgt_pc,
+                        generated_overlap,
+                        transform_matrix,
+                        trial_idx,
+                    )
 
             else:
                 # Process new trial (not cached)
@@ -381,17 +401,22 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
                 # Cache the result (thread-safe)
                 with self.cache_lock:
                     cache_list = self.trials_cache[idx_key]
-                    assert len(cache_list) == trial_idx, (
-                        f"Expected cache list length {trial_idx}, got {len(cache_list)}"
-                    )
+                    assert (
+                        len(cache_list) == trial_idx
+                    ), f"Expected cache list length {trial_idx}, got {len(cache_list)}"
                     cache_list.append(overlap_ratio)
 
                     if self.cache_filepath is not None:
                         self._save_trials_cache()
 
                 # Check if new trial produces valid overlap
-                if overlap_ratio is not None and self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]:
-                    print(f"DEBUG: _search_or_generate: datapoint {idx} using newly generated trial {trial_idx}...")
+                if (
+                    overlap_ratio is not None
+                    and self.overlap_range[0] < overlap_ratio <= self.overlap_range[1]
+                ):
+                    print(
+                        f"DEBUG: _search_or_generate: datapoint {idx} using newly generated trial {trial_idx}..."
+                    )
                     return src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx
 
         # No valid transform found within max_trials
@@ -427,11 +452,14 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         rotation_angle_rad = rotation_angle_deg * np.pi / 180
 
         # Convert axis-angle to rotation matrix using Rodrigues' formula
-        K = torch.tensor([
-            [0, -rotation_axis[2], rotation_axis[1]],
-            [rotation_axis[2], 0, -rotation_axis[0]],
-            [-rotation_axis[1], rotation_axis[0], 0]
-        ], dtype=torch.float32)
+        K = torch.tensor(
+            [
+                [0, -rotation_axis[2], rotation_axis[1]],
+                [rotation_axis[2], 0, -rotation_axis[0]],
+                [-rotation_axis[1], rotation_axis[0], 0],
+            ],
+            dtype=torch.float32,
+        )
 
         R = (
             torch.eye(3, dtype=torch.float32)
@@ -441,16 +469,21 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
 
         # Assert that the rotation matrix corresponds to the sampled angle
         computed_angle = torch.acos(torch.clamp((torch.trace(R) - 1) / 2, -1, 1))
-        assert torch.abs(computed_angle - rotation_angle_rad) < 1e-4, \
-            f"Rotation matrix angle mismatch: sampled={rotation_angle_rad.item():.6f}, computed={computed_angle.item():.6f}"
+        assert (
+            torch.abs(computed_angle - rotation_angle_rad) < 1e-4
+        ), f"Rotation matrix angle mismatch: sampled={rotation_angle_rad.item():.6f}, computed={computed_angle.item():.6f}"
 
         # Sample translation with proper magnitude constraint
         # Sample random direction on unit sphere
         translation_direction = torch.randn(3, generator=generator)
-        translation_direction = translation_direction / torch.norm(translation_direction)
+        translation_direction = translation_direction / torch.norm(
+            translation_direction
+        )
 
         # Sample magnitude uniformly from [0, translation_mag]
-        translation_magnitude = torch.rand(1, generator=generator) * self.translation_mag
+        translation_magnitude = (
+            torch.rand(1, generator=generator) * self.translation_mag
+        )
 
         # Apply magnitude to direction vector
         translation = translation_direction * translation_magnitude
@@ -464,10 +497,10 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
 
     def _apply_transform(
         self,
-        src_pc_data: Dict[str, torch.Tensor],
-        tgt_pc_data: Dict[str, torch.Tensor],
+        src_pc_data: PointCloud,
+        tgt_pc_data: PointCloud,
         transform_matrix: torch.Tensor,
-    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    ) -> Tuple[PointCloud, PointCloud]:
         """Apply SE(3) transformation only.
 
         Standard PCR convention: source + gt_transform = target
@@ -476,35 +509,42 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         2. src_points (source) = apply inverse transform to create misaligned source
 
         Args:
-            src_pc_data: Raw source point cloud dictionary (pos, rgb, etc.)
-            tgt_pc_data: Raw target point cloud dictionary (same as src_pc_data for single-temporal)
+            src_pc_data: Raw source point cloud
+            tgt_pc_data: Raw target point cloud (same as src_pc_data for single-temporal)
             transform_matrix: 4x4 transformation matrix to align source to target
 
         Returns:
-            Tuple of (src_pc_transformed, tgt_pc_original) dictionaries
+            Tuple of (src_pc_transformed, tgt_pc_original) point clouds
         """
-        transform_matrix = transform_matrix.to(src_pc_data['pos'].dtype)
+        transform_matrix = transform_matrix.to(src_pc_data.xyz.dtype)
         # Following GeoTransformer's approach:
         # ref_points = original (target)
-        tgt_points = tgt_pc_data['pos'].clone()
+        tgt_points = tgt_pc_data.xyz
 
         # src_points = apply inverse transform to create misaligned source
-        transform_inv = torch.linalg.inv(
-            transform_matrix.detach().cpu()
-        ).to(transform_matrix.device)
-        src_points = apply_transform(src_pc_data['pos'], transform_inv)
+        transform_inv = torch.linalg.inv(transform_matrix.detach().cpu()).to(
+            transform_matrix.device
+        )
+        src_points = apply_transform(src_pc_data.xyz, transform_inv)
 
-        # Update point cloud dictionaries with transformed/original positions
-        src_pc_data_transformed = src_pc_data.copy()
-        src_pc_data_transformed['pos'] = src_points
+        src_fields = {
+            name: getattr(src_pc_data, name)
+            for name in src_pc_data.field_names()
+            if name != 'xyz'
+        }
+        tgt_fields = {
+            name: getattr(tgt_pc_data, name)
+            for name in tgt_pc_data.field_names()
+            if name != 'xyz'
+        }
 
-        tgt_pc_data_original = tgt_pc_data.copy()
-        tgt_pc_data_original['pos'] = tgt_points
+        src_pc_data_transformed = PointCloud(xyz=src_points, data=src_fields)
+        tgt_pc_data_original = PointCloud(xyz=tgt_points, data=tgt_fields)
 
         return src_pc_data_transformed, tgt_pc_data_original
 
     @abstractmethod
-    def _apply_crop(self, idx: int, pc_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def _apply_crop(self, idx: int, pc_data: PointCloud) -> PointCloud:
         """Build and apply crop transform to point cloud data.
 
         Subclasses must implement this method to build the crop transform
@@ -512,9 +552,9 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
 
         Args:
             idx: Index into self.annotations
-            pc_data: Point cloud dictionary
+            pc_data: Point cloud
 
         Returns:
-            Cropped point cloud dictionary
+            Cropped point cloud
         """
         raise NotImplementedError("Subclasses must implement _apply_crop")

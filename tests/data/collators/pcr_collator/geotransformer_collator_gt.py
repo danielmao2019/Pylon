@@ -1,7 +1,10 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import torch
+
 from data.collators.geotransformer.grid_subsample import grid_subsample
 from data.collators.geotransformer.radius_search import radius_search
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, neighbor_limits):
@@ -90,7 +93,7 @@ def geotransformer_collate_fn_gt(
 
     Args:
         data_dicts (List[Dict[str, Dict[str, Any]]]): List of datapoints, where each datapoint is a dict with:
-            - inputs: Dict containing 'src_pc', 'tgt_pc', and 'correspondences'
+            - inputs: Dict containing PointCloud 'src_pc', PointCloud 'tgt_pc', and 'correspondences'
             - labels: Dict containing 'transform'
             - meta_info: Dict containing metadata
         num_stages (int): Number of stages for multi-scale processing
@@ -118,11 +121,18 @@ def geotransformer_collate_fn_gt(
     # Main logic
     batch_size = len(data_dicts)
     assert batch_size == 1
-    device = data_dicts[0]['inputs']['src_pc']['pos'].device
+    for datapoint in data_dicts:
+        assert isinstance(datapoint['inputs']['src_pc'], PointCloud), 'src_pc must be a PointCloud'
+        assert isinstance(datapoint['inputs']['tgt_pc'], PointCloud), 'tgt_pc must be a PointCloud'
 
-    feats = torch.cat([dd['inputs']['tgt_pc']['feat'] for dd in data_dicts] + [dd['inputs']['src_pc']['feat'] for dd in data_dicts], dim=0)
-    points_list = [dd['inputs']['tgt_pc']['pos'] for dd in data_dicts] + [dd['inputs']['src_pc']['pos'] for dd in data_dicts]
-    lengths = torch.tensor([points.shape[0] for points in points_list], dtype=torch.long, device=device)
+    device = data_dicts[0]['inputs']['src_pc'].xyz.device
+
+    tgt_pcs = [dd['inputs']['tgt_pc'] for dd in data_dicts]
+    src_pcs = [dd['inputs']['src_pc'] for dd in data_dicts]
+
+    feats = torch.cat([pc.feat for pc in tgt_pcs] + [pc.feat for pc in src_pcs], dim=0)
+    points_list = [pc.xyz for pc in tgt_pcs] + [pc.xyz for pc in src_pcs]
+    lengths = torch.tensor([pc.num_points for pc in tgt_pcs + src_pcs], dtype=torch.long, device=device)
     points = torch.cat(points_list, dim=0)
 
     # Process source and target point clouds separately

@@ -2,18 +2,18 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+from typing import Any, Dict, Optional, Tuple, Union
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any, Optional, Tuple, Union
-
-import plotly.graph_objects as go
 from dash import html
 
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.atomic_displays.point_cloud_display import (
-    create_point_cloud_display
+    create_point_cloud_display,
 )
-
 
 # ================================================================================
 # Fixtures
@@ -43,22 +43,24 @@ def point_cloud_labels():
 
 def test_create_point_cloud_display_basic(point_cloud_3d):
     """Test basic point cloud display creation."""
-    pc = {'pos': point_cloud_3d}
+    pc = PointCloud(
+        xyz=point_cloud_3d, data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)}
+    )
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,
         highlight_indices=None,
-        title="Test Point Cloud", 
+        title="Test Point Cloud",
         lod_type="none"
     )
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Point Cloud"
 
 
 def test_create_point_cloud_display_with_colors(point_cloud_3d, point_cloud_colors):
     """Test point cloud display with colors."""
-    pc = {'pos': point_cloud_3d, 'rgb': point_cloud_colors}
+    pc = PointCloud(xyz=point_cloud_3d, data={'rgb': point_cloud_colors})
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,
@@ -66,14 +68,16 @@ def test_create_point_cloud_display_with_colors(point_cloud_3d, point_cloud_colo
         title="Colored Point Cloud",
         lod_type="none"
     )
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Colored Point Cloud"
 
 
 def test_create_point_cloud_display_with_labels(point_cloud_3d, point_cloud_labels):
     """Test point cloud display with labels."""
-    pc = {'pos': point_cloud_3d, 'classification': point_cloud_labels}
+    pc = PointCloud(
+        xyz=point_cloud_3d, data={'classification': point_cloud_labels}
+    )
     fig = create_point_cloud_display(
         pc=pc,
         color_key='classification',  # Use 'classification' as the label key
@@ -81,7 +85,7 @@ def test_create_point_cloud_display_with_labels(point_cloud_3d, point_cloud_labe
         title="Labeled Point Cloud",
         lod_type="none"
     )
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Labeled Point Cloud"
 
@@ -89,9 +93,12 @@ def test_create_point_cloud_display_with_labels(point_cloud_3d, point_cloud_labe
 def test_create_point_cloud_display_with_lod():
     """Test point cloud display with different LOD types."""
     points = torch.randn(1000, 3, dtype=torch.float32)
-    pc = {'pos': points}
+    pc = PointCloud(
+        xyz=points,
+        data={'rgb': torch.randint(0, 255, (1000, 3), dtype=torch.uint8)},
+    )
     camera_state = {'eye': {'x': 1, 'y': 1, 'z': 1}, 'center': {'x': 0, 'y': 0, 'z': 0}, 'up': {'x': 0, 'y': 0, 'z': 1}}
-    
+
     # Test continuous LOD (needs camera_state)
     fig_continuous = create_point_cloud_display(
         pc=pc,
@@ -102,7 +109,7 @@ def test_create_point_cloud_display_with_lod():
         camera_state=camera_state
     )
     assert isinstance(fig_continuous, go.Figure)
-    
+
     # Test discrete LOD (needs point_cloud_id and camera_state)
     fig_discrete = create_point_cloud_display(
         pc=pc,
@@ -114,7 +121,7 @@ def test_create_point_cloud_display_with_lod():
         camera_state=camera_state
     )
     assert isinstance(fig_discrete, go.Figure)
-    
+
     # Test none LOD
     fig_none = create_point_cloud_display(
         pc=pc,
@@ -133,7 +140,9 @@ def test_create_point_cloud_display_with_lod():
 def test_point_cloud_display_pipeline(point_cloud_3d):
     """Test complete point cloud display pipeline."""
     # Create display
-    pc = {'pos': point_cloud_3d}
+    pc = PointCloud(
+        xyz=point_cloud_3d, data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)}
+    )
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,
@@ -148,8 +157,11 @@ def test_large_point_cloud_performance():
     """Test performance with large point clouds."""
     # Create large point cloud
     large_pc = torch.randn(10000, 3, dtype=torch.float32)
-    pc = {'pos': large_pc}
-    
+    pc = PointCloud(
+        xyz=large_pc,
+        data={'rgb': torch.randint(0, 255, (10000, 3), dtype=torch.uint8)},
+    )
+
     # This should complete without error
     fig = create_point_cloud_display(
         pc=pc,
@@ -158,7 +170,7 @@ def test_large_point_cloud_performance():
         title="Large PC Test",
         lod_type="none"
     )
-    
+
     # Basic checks
     assert isinstance(fig, go.Figure)
 
@@ -167,7 +179,7 @@ def test_edge_case_point_clouds():
     """Test edge cases for point cloud processing."""
     # Very small coordinates
     tiny_pc = torch.full((100, 3), 1e-6, dtype=torch.float32)
-    pc = {'pos': tiny_pc}
+    pc = PointCloud(xyz=tiny_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,
@@ -176,10 +188,10 @@ def test_edge_case_point_clouds():
         lod_type="none"
     )
     assert isinstance(fig, go.Figure)
-    
+
     # Very large coordinates
     huge_pc = torch.full((100, 3), 1e6, dtype=torch.float32)
-    pc = {'pos': huge_pc}
+    pc = PointCloud(xyz=huge_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,
@@ -188,10 +200,10 @@ def test_edge_case_point_clouds():
         lod_type="none"
     )
     assert isinstance(fig, go.Figure)
-    
+
     # Mixed positive/negative
     mixed_pc = torch.randn(100, 3, dtype=torch.float32) * 1000
-    pc = {'pos': mixed_pc}
+    pc = PointCloud(xyz=mixed_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,

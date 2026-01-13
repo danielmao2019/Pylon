@@ -1,7 +1,7 @@
 import torch
 import pytest
 
-from utils.three_d.camera.transform import world_to_camera_transform
+from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
 
 
 @pytest.mark.parametrize(

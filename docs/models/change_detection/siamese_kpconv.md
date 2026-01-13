@@ -23,6 +23,7 @@ The implementation includes:
 ## Usage
 
 ```python
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.change_detection.siamese_kpconv.siamese_kpconv_model import SiameseKPConv
 
 # Initialize model
@@ -35,23 +36,23 @@ model = SiameseKPConv(
     conv_type='simple'        # Type of convolution blocks
 )
 
-# Input format (two point clouds)
+# Input format (two PointCloud objects)
 inputs = {
-    'pc_0': {  # First point cloud
-        'pos': pos_tensor_1,    # [N, 3] point positions
-        'x': feat_tensor_1,     # [N, C] point features
-        'batch': batch_tensor_1 # [N] batch indices
-    },
-    'pc_1': {  # Second point cloud
-        'pos': pos_tensor_2,
-        'x': feat_tensor_2,
-        'batch': batch_tensor_2
-    }
+    'pc_0': PointCloud(
+        xyz=pos_tensor_1,            # [N, 3] point positions
+        data={'x': feat_tensor_1, 'batch': batch_tensor_1}
+    ),
+    'pc_1': PointCloud(
+        xyz=pos_tensor_2,
+        data={'x': feat_tensor_2, 'batch': batch_tensor_2}
+    )
 }
 
 # Forward pass
 change_logits = model(inputs)  # [N, num_classes] - raw logits, not softmax probabilities
 ```
+
+`PointCloud` enforces the `(N, 3)` coordinate shape, non-empty tensors, and consistent optional fields, so you no longer need to inspect `.xyz.shape[0]` for point counts. Rely on `pc.num_points` when deriving batch sizes or pooling operations, and keep any extra `data` fields synchronized with that value.
 
 ## References
 

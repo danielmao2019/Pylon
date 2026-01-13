@@ -37,14 +37,25 @@ labels = torch.randint(0, num_classes, (8,), dtype=torch.int64)
 ```
 
 ### Point Clouds
-Dictionary format with mandatory 'pos' key
+Point clouds are represented by the `PointCloud` class found in `data.structures.three_d.point_cloud.point_cloud`.
+The class ensures that `xyz` is a `(N, 3)` float tensor without NaNs or Infs and exposes `num_points` for length checks.
+
+Because the constructor already asserts these invariants, the rest of the pipeline can
+treat each `PointCloud` instance as the canonical container. Attach optional fields,
+neighbor indices, or pooling metadata directly to the object (for instance through
+attributes or the `.data` dictionary) instead of building ad hoc dicts of tensors.
+Passing the validated `PointCloud` into datasets, collators, and models keeps the
+representation consistent and removes the need for legacy dict-level guards.
 
 ```python
-# Individual point cloud
-pc = {'pos': torch.randn(1024, 3), 'feat': torch.randn(1024, 32)}
-# Batched point clouds (concatenated along point dimension)
-pc = {'pos': torch.randn(2048, 3), 'feat': torch.randn(2048, 32)}
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
+pc = PointCloud(xyz=torch.randn(1024, 3, dtype=torch.float32))
+# Optional fields can be attached via attributes (e.g., `pc.rgb = torch.randn(pc.num_points, 3)`)
+batch = PointCloud(xyz=torch.randn(2048, 3, dtype=torch.float32))
 ```
+
+Avoid reading `pc.xyz.shape[0]` directly; prefer `pc.num_points`.
 
 ### Model Predictions
 Follow task-specific formats

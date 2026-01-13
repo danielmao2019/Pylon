@@ -1,5 +1,10 @@
 import torch
-from data.collators.buffer.buffer_collate_fn import batch_grid_subsampling_kpconv, batch_neighbors_kpconv
+
+from data.collators.buffer.buffer_collate_fn import (
+    batch_grid_subsampling_kpconv,
+    batch_neighbors_kpconv,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.point_cloud_registration.buffer.point_learner import architecture
 
 
@@ -10,19 +15,27 @@ def buffer_collate_fn_gt(list_data, config, neighborhood_limits):
     assert len(list_data) == 1
     list_data = list_data[0]
 
-    s_pts, t_pts = list_data['inputs']['src_pc_fds']['pos'], list_data['inputs']['tgt_pc_fds']['pos']
+    src_pc_fds = list_data['inputs']['src_pc_fds']
+    tgt_pc_fds = list_data['inputs']['tgt_pc_fds']
+    src_pc_sds = list_data['inputs']['src_pc_sds']
+    tgt_pc_sds = list_data['inputs']['tgt_pc_sds']
+    assert isinstance(src_pc_fds, PointCloud)
+    assert isinstance(tgt_pc_fds, PointCloud)
+    assert isinstance(src_pc_sds, PointCloud)
+    assert isinstance(tgt_pc_sds, PointCloud)
+
+    s_pts, t_pts = src_pc_fds.xyz, tgt_pc_fds.xyz
     relt_pose = list_data['labels']['transform']
-    s_kpt, t_kpt = list_data['inputs']['src_pc_sds'], list_data['inputs']['tgt_pc_sds']
-    src_kpt = s_kpt['pos']
-    tgt_kpt = t_kpt['pos']
-    src_f = s_kpt['normals']
-    tgt_f = t_kpt['normals']
+    src_kpt = src_pc_sds.xyz
+    tgt_kpt = tgt_pc_sds.xyz
+    src_f = src_pc_sds.normals
+    tgt_f = tgt_pc_sds.normals
     batched_points_list.append(src_kpt)
     batched_points_list.append(tgt_kpt)
     batched_features_list.append(src_f)
     batched_features_list.append(tgt_f)
-    batched_lengths_list.append(len(src_kpt))
-    batched_lengths_list.append(len(tgt_kpt))
+    batched_lengths_list.append(src_pc_sds.num_points)
+    batched_lengths_list.append(tgt_pc_sds.num_points)
 
     batched_points = torch.cat(batched_points_list, dim=0)
     batched_features = torch.cat(batched_features_list, dim=0)

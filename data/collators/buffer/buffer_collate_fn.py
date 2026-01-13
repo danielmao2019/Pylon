@@ -5,15 +5,16 @@ import data.collators.buffer.cpp_wrappers.cpp_subsampling.grid_subsampling as cp
 import data.collators.buffer.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 from data.collators.pcr_collator import pcr_collate_fn
 from models.point_cloud_registration.buffer.point_learner import architecture as _architecture
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def batch_grid_subsampling_kpconv(
-    points: torch.Tensor, 
-    batches_len: torch.Tensor, 
-    sampleDl: float, 
-    features: Optional[torch.Tensor] = None, 
-    labels: Optional[torch.Tensor] = None, 
-    max_p: int = 0, 
+    points: torch.Tensor,
+    batches_len: torch.Tensor,
+    sampleDl: float,
+    features: Optional[torch.Tensor] = None,
+    labels: Optional[torch.Tensor] = None,
+    max_p: int = 0,
     verbose: int = 0
 ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
@@ -77,11 +78,11 @@ def batch_grid_subsampling_kpconv(
 
 
 def batch_neighbors_kpconv(
-    queries: torch.Tensor, 
-    supports: torch.Tensor, 
-    q_batches: torch.Tensor, 
-    s_batches: torch.Tensor, 
-    radius: float, 
+    queries: torch.Tensor,
+    supports: torch.Tensor,
+    q_batches: torch.Tensor,
+    s_batches: torch.Tensor,
+    radius: float,
     max_neighbors: int
 ) -> torch.Tensor:
     """
@@ -107,12 +108,21 @@ def batch_neighbors_kpconv(
 
 def unpack_buffer_data(data: Dict[str, Any]) -> Dict[str, torch.Tensor]:
     """Unpack data to get points and features."""
-    src_fds_points = data['inputs']['src_pc_fds']['pos']
-    tgt_fds_points = data['inputs']['tgt_pc_fds']['pos']
-    src_sds_points = data['inputs']['src_pc_sds']['pos']
-    tgt_sds_points = data['inputs']['tgt_pc_sds']['pos']
-    src_features = data['inputs']['src_pc_sds']['normals']
-    tgt_features = data['inputs']['tgt_pc_sds']['normals']
+    src_pc_fds = data['inputs']['src_pc_fds']
+    tgt_pc_fds = data['inputs']['tgt_pc_fds']
+    src_pc_sds = data['inputs']['src_pc_sds']
+    tgt_pc_sds = data['inputs']['tgt_pc_sds']
+    assert isinstance(src_pc_fds, PointCloud), f"{type(src_pc_fds)=}"
+    assert isinstance(tgt_pc_fds, PointCloud), f"{type(tgt_pc_fds)=}"
+    assert isinstance(src_pc_sds, PointCloud), f"{type(src_pc_sds)=}"
+    assert isinstance(tgt_pc_sds, PointCloud), f"{type(tgt_pc_sds)=}"
+
+    src_fds_points = src_pc_fds.xyz
+    tgt_fds_points = tgt_pc_fds.xyz
+    src_sds_points = src_pc_sds.xyz
+    tgt_sds_points = tgt_pc_sds.xyz
+    src_features = src_pc_sds.normals
+    tgt_features = tgt_pc_sds.normals
     relt_pose = data['labels']['transform']
 
     # Prepare batched data
@@ -168,7 +178,7 @@ def create_buffer_architecture(config: Any, neighborhood_limits: List[int]) -> L
         layer += 1
         layer_blocks = []
 
-    # This isn't true because we first use uncalibrated neighborhood limits to 
+    # This isn't true because we first use uncalibrated neighborhood limits to
     # compute calibrated neighborhood limits, and then use the calibrated neighborhood
     # limits to do collation for the dataloader.
     # assert len(architecture) == len(neighborhood_limits)

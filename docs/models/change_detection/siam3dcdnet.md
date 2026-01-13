@@ -38,6 +38,9 @@ fused_features = torch.mean(torch.abs(raw - nearest_features), -1)
 ## Usage
 
 ```python
+import torch
+
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.change_detection import Siam3DCDNet
 
 # Create model
@@ -49,19 +52,26 @@ model = Siam3DCDNet(
     k_neighbors=16
 )
 
-# Input format for the model
-# data_dict = {
-#     'pc_0': {
-#         'xyz': [xyz0_l0, xyz0_l1, ...],  # Point coordinates at each level
-#         'neighbors_idx': [neigh0_l0, ...],  # Neighbor indices at each level
-#         'pool_idx': [pool0_l0_l1, ...],  # Pooling indices between levels
-#         'unsam_idx': [unsam0_l0_l1, ...],  # Upsampling indices between levels
-#         'knearst_idx_in_another_pc': knn0_to_1  # Cross-cloud KNN indices
-#     },
-#     'pc_1': {
-#         # Same structure as pc_0
-#     }
-# }
+# Build the inputs using the PointCloud API. Each PointCloud already validates
+# that `xyz` is float, two-dimensional, and non-empty, and exposes `.num_points`.
+batch_size = 2
+num_points = 1024
+xyz0 = torch.randn(batch_size, num_points, 3, dtype=torch.float32)
+xyz1 = torch.randn(batch_size, num_points, 3, dtype=torch.float32)
+pc_0 = PointCloud(xyz=xyz0)
+pc_1 = PointCloud(xyz=xyz1)
+
+# The distributed collator will augment each PointCloud with the neighbors/pooling
+# indices that the backbone expects. At inference time, assemble a mapping of the
+# two PointCloud objects and pass it to the network.
+inputs = {'pc_0': pc_0, 'pc_1': pc_1}
+outputs = model(inputs)
+
+The collator now produces fully validated `PointCloud` instances whose attributes
+carry the pooled/neighbor indices that the backbone consumes. Treat these objects
+as the canonical samples and pass them through the mapping; do not fall back to the
+old dict-of-tensors representation. Because the `PointCloud` constructor already
+asserts a `(N, 3)` float tensor, downstream code can simply rely on `.num_points`.
 
 # Output format
 # {
@@ -69,6 +79,8 @@ model = Siam3DCDNet(
 #     'logits_1': tensor of shape (B, N, num_classes)   # Logits for second point cloud
 # }
 ```
+
+Point clouds should be referenced through `pc.num_points` rather than inspecting `pc.xyz.shape[0]`.
 
 ## Citation
 

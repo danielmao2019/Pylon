@@ -4,7 +4,8 @@ import numpy as np
 import torch
 import pytest
 from plyfile import PlyData, PlyElement
-from utils.io.point_clouds.load_point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 @pytest.fixture
@@ -12,26 +13,6 @@ def temp_dir():
     """Create temporary directory for test files."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield temp_dir
-
-
-def create_test_point_cloud_data(
-    num_points: int = 100, include_features: bool = False, include_rgb: bool = False
-):
-    """Create test point cloud data."""
-    # Generate XYZ coordinates
-    pos_data = torch.rand(num_points, 3) * 10.0  # Scale to [0, 10] range
-
-    result = {'pos': pos_data}
-
-    if include_features:
-        feat_data = torch.rand(num_points, 2)  # 2 feature channels
-        result['feat'] = feat_data
-
-    if include_rgb:
-        rgb_data = torch.rand(num_points, 3)  # RGB in [0, 1] range
-        result['rgb'] = rgb_data
-
-    return result
 
 
 def test_point_cloud_data_consistency(temp_dir):
@@ -47,9 +28,10 @@ def test_point_cloud_data_consistency(temp_dir):
     # Load and verify
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert torch.allclose(result['pos'], original_data)
-    assert result['pos'].shape == original_data.shape
-    assert result['pos'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert torch.allclose(result.xyz, original_data)
+    assert result.xyz.shape == original_data.shape
+    assert result.xyz.dtype == torch.float32
 
 
 def test_point_cloud_coordinate_ranges(temp_dir):
@@ -68,10 +50,11 @@ def test_point_cloud_coordinate_ranges(temp_dir):
 
         result = load_point_cloud(filepath=filepath, device='cpu')
 
-        assert result['pos'].shape == data.shape
-        assert result['pos'].dtype == torch.float32
+        assert isinstance(result, PointCloud)
+        assert result.xyz.shape == data.shape
+        assert result.xyz.dtype == torch.float32
         # Verify the range is preserved (with some tolerance for float conversion)
-        assert torch.allclose(result['pos'], data.float(), atol=1e-6)
+        assert torch.allclose(result.xyz, data.float(), atol=1e-6)
 
 
 def test_point_cloud_feature_dimensions(temp_dir):
@@ -92,9 +75,10 @@ def test_point_cloud_feature_dimensions(temp_dir):
 
         result = load_point_cloud(filepath=filepath, device='cpu')
 
-        assert result['pos'].shape == (30, 3)
-        assert result['feat'].shape == features.shape
-        assert torch.allclose(result['feat'], features, atol=1e-6)
+        assert isinstance(result, PointCloud)
+        assert result.xyz.shape == (30, 3)
+        assert result.feat.shape == features.shape
+        assert torch.allclose(result.feat, features, atol=1e-6)
 
 
 def test_point_cloud_rgb_normalization(temp_dir):
@@ -129,16 +113,9 @@ def test_point_cloud_rgb_normalization(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'rgb' in result
-    assert result['rgb'].shape == (10, 3)
-
-    # Check normalization (RGB values should be in [0, 1])
-    assert result['rgb'].min() >= 0.0
-    assert result['rgb'].max() <= 1.0
-
-    # Verify specific values are correctly normalized
-    expected_tensor = torch.tensor(expected_normalized, dtype=torch.float32)
-    assert torch.allclose(result['rgb'], expected_tensor, atol=1e-6)
+    assert isinstance(result, PointCloud)
+    assert result.rgb.shape == (10, 3)
+    assert result.rgb.dtype == torch.uint8
 
 
 def test_point_cloud_data_types_preservation(temp_dir):
@@ -154,17 +131,17 @@ def test_point_cloud_data_types_preservation(temp_dir):
     result = load_point_cloud(filepath=filepath, device='cpu')
 
     # Position should always be float32
-    assert result['pos'].dtype == torch.float32
+    assert result.xyz.dtype == torch.float32
     # Features should be float32 or float64 (depending on input conversion)
-    assert result['feat'].dtype in [torch.float32, torch.float64]
+    assert result.feat.dtype in [torch.float32, torch.float64]
 
     # Verify data integrity
-    assert torch.allclose(result['pos'], pos_data.float(), atol=1e-6)
+    assert torch.allclose(result.xyz, pos_data.float(), atol=1e-6)
     # Compare with appropriate dtype conversion
-    if result['feat'].dtype == torch.float64:
-        assert torch.allclose(result['feat'], feat_data.double(), atol=1e-6)
+    if result.feat.dtype == torch.float64:
+        assert torch.allclose(result.feat, feat_data.double(), atol=1e-6)
     else:
-        assert torch.allclose(result['feat'], feat_data.float(), atol=1e-6)
+        assert torch.allclose(result.feat, feat_data.float(), atol=1e-6)
 
 
 def test_point_cloud_edge_coordinates(temp_dir):
@@ -180,8 +157,9 @@ def test_point_cloud_edge_coordinates(temp_dir):
         torch.save(data, filepath)
 
         result = load_point_cloud(filepath=filepath, device='cpu')
-        assert result['pos'].shape == data.shape
-        assert result['pos'].dtype == torch.float32
+        assert isinstance(result, PointCloud)
+        assert result.xyz.shape == data.shape
+        assert result.xyz.dtype == torch.float32
 
 
 def test_point_cloud_special_float_values(temp_dir):
@@ -192,15 +170,8 @@ def test_point_cloud_special_float_values(temp_dir):
         [[float('inf'), 0.0, 0.0], [0.0, float('-inf'), 0.0], [1.0, 2.0, 3.0]]
     )
     torch.save(inf_data, inf_filepath)
-
-    # Load and verify infinity values are preserved
-    inf_result = load_point_cloud(filepath=inf_filepath, device='cpu')
-    assert inf_result['pos'].shape == (3, 3)
-    assert inf_result['pos'].dtype == torch.float32
-    assert torch.isinf(inf_result['pos']).any()  # Contains infinity values
-    assert torch.equal(
-        torch.isinf(inf_result['pos']), torch.isinf(inf_data)
-    )  # Same infinity pattern
+    with pytest.raises(AssertionError):
+        load_point_cloud(filepath=inf_filepath, device='cpu')
 
     # Test NaN values
     nan_filepath = os.path.join(temp_dir, "nan.pth")
@@ -208,15 +179,8 @@ def test_point_cloud_special_float_values(temp_dir):
         [[float('nan'), 0.0, 0.0], [0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]
     )
     torch.save(nan_data, nan_filepath)
-
-    # Load and verify NaN values are preserved
-    nan_result = load_point_cloud(filepath=nan_filepath, device='cpu')
-    assert nan_result['pos'].shape == (3, 3)
-    assert nan_result['pos'].dtype == torch.float32
-    assert torch.isnan(nan_result['pos']).any()  # Contains NaN values
-    assert torch.equal(
-        torch.isnan(nan_result['pos']), torch.isnan(nan_data)
-    )  # Same NaN pattern
+    with pytest.raises(AssertionError):
+        load_point_cloud(filepath=nan_filepath, device='cpu')
 
     # Test mixed special values
     mixed_filepath = os.path.join(temp_dir, "mixed_special.pth")
@@ -228,22 +192,8 @@ def test_point_cloud_special_float_values(temp_dir):
         ]
     )
     torch.save(mixed_data, mixed_filepath)
-
-    # Load and verify all special values are preserved
-    mixed_result = load_point_cloud(filepath=mixed_filepath, device='cpu')
-    assert mixed_result['pos'].shape == (3, 3)
-    assert mixed_result['pos'].dtype == torch.float32
-
-    # Verify specific special value locations
-    assert (
-        torch.isinf(mixed_result['pos'][0, 0]) and mixed_result['pos'][0, 0] > 0
-    )  # +inf
-    assert torch.isnan(mixed_result['pos'][0, 1])  # nan
-    assert (
-        torch.isinf(mixed_result['pos'][1, 0]) and mixed_result['pos'][1, 0] < 0
-    )  # -inf
-    assert torch.isnan(mixed_result['pos'][1, 2])  # nan
-    assert torch.isfinite(mixed_result['pos'][2, :]).all()  # All finite values
+    with pytest.raises(AssertionError):
+        load_point_cloud(filepath=mixed_filepath, device='cpu')
 
 
 def test_point_cloud_memory_efficiency(temp_dir):
@@ -258,11 +208,11 @@ def test_point_cloud_memory_efficiency(temp_dir):
     # Load and verify
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert result['pos'].shape == (num_points, 3)
-    assert result['pos'].dtype == torch.float32
+    assert result.xyz.shape == (num_points, 3)
+    assert result.xyz.dtype == torch.float32
 
     # Verify that the data is actually loaded (not just a view)
-    assert result['pos'].is_contiguous()
+    assert result.xyz.is_contiguous()
 
 
 def test_point_cloud_batch_loading(temp_dir):
@@ -290,11 +240,11 @@ def test_point_cloud_batch_loading(temp_dir):
 
     # Verify each result
     for i, result in enumerate(results):
-        assert result['pos'].shape == expected_shapes[i]
-        assert result['pos'].dtype == torch.float32
+        assert result.xyz.shape == expected_shapes[i]
+        assert result.xyz.dtype == torch.float32
 
         # Verify the offset is preserved (roughly)
-        mean_pos = result['pos'].mean(dim=0)
+        mean_pos = result.xyz.mean(dim=0)
         expected_offset = i + 0.5  # Rough expected mean due to offset + random [0,1]
         assert torch.allclose(mean_pos, torch.full((3,), expected_offset), atol=0.2)
 
@@ -308,7 +258,8 @@ def test_point_cloud_validation_integration(temp_dir):
 
     # This should load successfully
     result = load_point_cloud(filepath=valid_filepath, device='cpu')
-    assert 'pos' in result
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
 
     # Create invalid point cloud (wrong shape)
     invalid_data = torch.rand(100, 2)  # Only 2 coordinates instead of 3
@@ -332,14 +283,14 @@ def test_point_cloud_device_consistency(temp_dir):
 
     # Test CPU device
     result_cpu = load_point_cloud(filepath=filepath, device='cpu')
-    assert result_cpu['pos'].device.type == 'cpu'
-    assert result_cpu['feat'].device.type == 'cpu'
+    assert result_cpu.xyz.device.type == 'cpu'
+    assert result_cpu.feat.device.type == 'cpu'
 
     # Test CUDA device (if available)
     if torch.cuda.is_available():
         result_cuda = load_point_cloud(filepath=filepath, device='cuda')
-        assert result_cuda['pos'].device.type == 'cuda'
-        assert result_cuda['feat'].device.type == 'cuda'
+        assert result_cuda.xyz.device.type == 'cuda'
+        assert result_cuda.feat.device.type == 'cuda'
 
 
 def test_point_cloud_deterministic_loading(temp_dir):
@@ -358,34 +309,27 @@ def test_point_cloud_deterministic_loading(temp_dir):
 
     # All results should be identical
     for i in range(1, len(results)):
-        assert torch.equal(results[0]['pos'], results[i]['pos'])
-        assert torch.equal(results[0]['feat'], results[i]['feat'])
+        assert torch.equal(results[0].xyz, results[i].xyz)
+        assert torch.equal(results[0].feat, results[i].feat)
 
 
 def test_point_cloud_metadata_preservation(temp_dir):
     """Test that important metadata is preserved during loading."""
     filepath = os.path.join(temp_dir, "metadata.pth")
 
-    # Create structured data that might contain metadata-like information
-    data = {
-        'points': torch.rand(40, 3),
-        'colors': torch.rand(40, 3),
-        'metadata': {'source': 'test', 'timestamp': '2023-01-01'},
-    }
-
-    # Note: The current load_point_cloud function expects tensor data, not dicts
-    # So we test with tensor data but verify the loading preserves structure
+    # Note: The current load_point_cloud function expects tensor data, so we simulate metadata by
+    # packaging position and color data into a single tensor.
     tensor_data = torch.rand(40, 6)  # XYZ + RGB
     torch.save(tensor_data, filepath)
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert result['pos'].shape == (40, 3)
-    assert result['feat'].shape == (40, 3)  # RGB becomes features
+    assert result.xyz.shape == (40, 3)
+    assert result.feat.shape == (40, 3)  # RGB becomes features
 
     # Verify the data was split correctly
     original_pos = tensor_data[:, :3]
     original_feat = tensor_data[:, 3:]
 
-    assert torch.allclose(result['pos'], original_pos, atol=1e-6)
-    assert torch.allclose(result['feat'], original_feat, atol=1e-6)
+    assert torch.allclose(result.xyz, original_pos, atol=1e-6)
+    assert torch.allclose(result.feat, original_feat, atol=1e-6)

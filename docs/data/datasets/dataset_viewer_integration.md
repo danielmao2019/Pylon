@@ -91,10 +91,12 @@ The Pylon data viewer is designed to adapt to your dataset's API rather than req
 The viewer expects datasets to return data in this format:
 
 ```python
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
 # inputs format that your dataset should return
 inputs = {
-    'src_pc': {'pos': torch.Tensor, 'feat': torch.Tensor},
-    'tgt_pc': {'pos': torch.Tensor, 'feat': torch.Tensor},
+    'src_pc': PointCloud(xyz=src_pos, data={'feat': src_feat, 'batch': src_batch}),
+    'tgt_pc': PointCloud(xyz=tgt_pos, data={'feat': tgt_feat, 'batch': tgt_batch}),
     'correspondences': torch.Tensor  # Optional
 }
 
@@ -103,6 +105,8 @@ labels = {
     'transform': torch.Tensor  # (4, 4) transformation matrix
 }
 ```
+
+The viewer keeps the `PointCloud` objects intact, so you can surface any additional fields (`rgb`, `normals`, `batch`, etc.) via the `PointCloud` API, and readers can rely on `pc.num_points` for counts instead of interrogating raw tensors. `PointCloud` already enforces the `(N, 3)` coordinate shape and consistent feature alignment, so there is no need to write legacy dictionary-based fallbacks or to read `.xyz.shape[0]` directly; downstream logic should trust the `PointCloud` contract instead.
 
 The viewer automatically adapts to handle:
 - Different point cloud sizes

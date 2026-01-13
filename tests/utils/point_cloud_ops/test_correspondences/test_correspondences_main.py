@@ -1,5 +1,5 @@
 import torch
-from utils.point_cloud_ops.correspondences import get_correspondences
+from data.structures.three_d.point_cloud.ops.correspondences import get_correspondences
 
 
 def test_get_correspondences_basic():
@@ -87,7 +87,7 @@ def test_get_correspondences_with_dict_source():
     """Test correspondence finding with source as point cloud dictionary."""
     # Create source point cloud as dictionary
     src_dict = {
-        'pos': torch.tensor(
+        'xyz': torch.tensor(
             [
                 [0.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],
@@ -135,7 +135,7 @@ def test_get_correspondences_with_dict_target():
 
     # Create target point cloud as dictionary
     tgt_dict = {
-        'pos': torch.tensor(
+        'xyz': torch.tensor(
             [
                 [0.05, 0.0, 0.0],  # Close to src[0]
                 [1.05, 0.0, 0.0],  # Close to src[1]
@@ -166,7 +166,7 @@ def test_get_correspondences_with_both_dict():
     """Test correspondence finding with both source and target as dictionaries."""
     # Create both as dictionaries
     src_dict = {
-        'pos': torch.tensor(
+        'xyz': torch.tensor(
             [
                 [0.0, 0.0, 0.0],
                 [1.0, 1.0, 0.0],
@@ -177,7 +177,7 @@ def test_get_correspondences_with_both_dict():
     }
 
     tgt_dict = {
-        'pos': torch.tensor(
+        'xyz': torch.tensor(
             [
                 [0.0, 0.1, 0.0],  # Close to src[0]
                 [1.0, 0.9, 0.0],  # Close to src[1]
@@ -207,7 +207,7 @@ def test_get_correspondences_with_both_dict():
 def test_get_correspondences_dict_with_transform():
     """Test correspondence finding with dictionary input and transformation."""
     src_dict = {
-        'pos': torch.tensor(
+        'xyz': torch.tensor(
             [
                 [0.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],
@@ -217,7 +217,7 @@ def test_get_correspondences_dict_with_transform():
     }
 
     tgt_dict = {
-        'pos': torch.tensor(
+        'xyz': torch.tensor(
             [
                 [0.0, 0.05, 0.0],  # Will match src[0] after rotation (0,0,0) -> (0,0,0)
                 [0.0, 1.05, 0.0],  # Will match src[1] after rotation (1,0,0) -> (0,1,0)

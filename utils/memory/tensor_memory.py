@@ -1,7 +1,10 @@
 """Utilities for measuring GPU memory usage of PyTorch tensors and tensor dictionaries."""
 
+from typing import Any, Dict
+
 import torch
-from typing import Dict, Any
+
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def get_tensor_memory(tensor: torch.Tensor) -> Dict[str, Any]:
@@ -74,3 +77,10 @@ def get_pc_dict_memory(pc_dict: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         'cpu_tensors': cpu_tensor_count,
         'details': details,
     }
+
+
+def get_pc_memory(pc: PointCloud) -> Dict[str, Any]:
+    """Get CPU and GPU memory usage of a PointCloud in MiB."""
+    assert isinstance(pc, PointCloud), f"{type(pc)=}"
+    fields = {name: getattr(pc, name) for name in pc.field_names()}
+    return get_pc_dict_memory(fields)

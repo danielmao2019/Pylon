@@ -3,17 +3,22 @@ import torch
 from data.collators.geotransformer.grid_subsample import grid_subsample
 from data.collators.geotransformer.radius_search import radius_search
 from data.collators.pcr_collator import pcr_collate_fn
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def unpack_geotransformer_data(data: Dict[str, Any]) -> Dict[str, Any]:
     """Unpack data to get points and features."""
-    device = data['inputs']['src_pc']['pos'].device
+    src_pc = data['inputs']['src_pc']
+    tgt_pc = data['inputs']['tgt_pc']
+    assert isinstance(src_pc, PointCloud), f"{type(src_pc)=}"
+    assert isinstance(tgt_pc, PointCloud), f"{type(tgt_pc)=}"
+    device = src_pc.xyz.device
 
     # Prepare batched data
-    src_points = data['inputs']['src_pc']['pos']
-    tgt_points = data['inputs']['tgt_pc']['pos']
-    feats = torch.cat([data['inputs']['tgt_pc']['feat'], data['inputs']['src_pc']['feat']], dim=0)
-    lengths = torch.tensor([len(src_points), len(tgt_points)], dtype=torch.long, device=device)
+    src_points = src_pc.xyz
+    tgt_points = tgt_pc.xyz
+    feats = torch.cat([tgt_pc.feat, src_pc.feat], dim=0)
+    lengths = torch.tensor([src_pc.num_points, tgt_pc.num_points], dtype=torch.long, device=device)
 
     return {
         'src_points': src_points,
@@ -30,7 +35,7 @@ def create_geotransformer_architecture(num_stages: int, voxel_size: float, searc
     architecture = []
     current_voxel_size = voxel_size
     current_radius = search_radius
-    
+
     for i in range(num_stages):
         architecture.append({
             'neighbor': True,
@@ -68,11 +73,11 @@ def pack_geotransformer_results(collated_data: Dict[str, List[torch.Tensor]], un
 
 
 def geotransformer_collate_fn(
-    data_dicts: List[Dict[str, Dict[str, Any]]], 
-    num_stages: int, 
-    voxel_size: float, 
-    search_radius: float, 
-    neighbor_limits: List[int], 
+    data_dicts: List[Dict[str, Dict[str, Any]]],
+    num_stages: int,
+    voxel_size: float,
+    search_radius: float,
+    neighbor_limits: List[int],
     precompute_data: bool = True
 ) -> Dict[str, Dict[str, Any]]:
     r"""Collate function for registration in stack mode.

@@ -4,15 +4,15 @@ This module provides the BasePCRDataset class that inherits from BaseDataset
 and includes type-specific display methods for point cloud registration datasets.
 """
 from typing import Dict, Any, Optional, List, Tuple, Union
-import random
 import numpy as np
 import torch
 from dash import html
 import plotly.graph_objects as go
-from utils.point_cloud_ops import apply_transform
-from utils.point_cloud_ops.set_ops import pc_symmetric_difference
-from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
-from utils.point_cloud_ops.apply_transform import _normalize_transform
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.ops import apply_transform
+from data.structures.three_d.point_cloud.ops.set_ops import pc_symmetric_difference
+from data.structures.three_d.point_cloud.ops.set_ops.symmetric_difference import _normalize_points
+from data.structures.three_d.point_cloud.ops.apply_transform import _normalize_transform
 from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
 from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
 from data.viewer.utils.structure_validation import validate_pcr_structure
@@ -21,20 +21,20 @@ from data.datasets.base_dataset import BaseDataset
 
 class BasePCRDataset(BaseDataset):
     """Base display class for point cloud registration datasets.
-    
+
     This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint
     method for point cloud registration datasets. Concrete dataset classes should inherit
     from this class to automatically get appropriate display functionality.
-    
+
     Expected data structure:
-    - inputs: {'src_pc': Dict, 'tgt_pc': Dict}
+    - inputs: {'src_pc': PointCloud, 'tgt_pc': PointCloud}
       OR: {'points': List[torch.Tensor], 'lengths'/'stack_lengths': List[torch.Tensor]} (batched format)
     - labels: {'transform': torch.Tensor}
     """
-    
+
     INPUT_NAMES = ['src_pc', 'tgt_pc']
     LABEL_NAMES = ['transform']
-    
+
     @staticmethod
     def create_union_visualization(
         src_points: torch.Tensor,
@@ -68,7 +68,7 @@ class BasePCRDataset(BaseDataset):
         # Normalize points to unbatched format
         src_points_normalized = _normalize_points(src_points)
         tgt_points_normalized = _normalize_points(tgt_points)
-        
+
         # Combine points
         union_points = torch.cat([src_points_normalized, tgt_points_normalized], dim=0)
 
@@ -80,7 +80,7 @@ class BasePCRDataset(BaseDataset):
         union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
         return create_point_cloud_display(
-            pc={'pos': union_points, 'rgb': union_colors},
+            pc=PointCloud(xyz=union_points, data={'rgb': union_colors}),
             color_key=None,
             highlight_indices=None,
             title=title,
@@ -128,7 +128,7 @@ class BasePCRDataset(BaseDataset):
         # Normalize points to unbatched format
         src_points_normalized = _normalize_points(src_points)
         tgt_points_normalized = _normalize_points(tgt_points)
-        
+
         # Find points in symmetric difference
         src_indices, tgt_indices = pc_symmetric_difference(src_points_normalized, tgt_points_normalized, radius)
 
@@ -148,7 +148,7 @@ class BasePCRDataset(BaseDataset):
             sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
             return create_point_cloud_display(
-                pc={'pos': sym_diff_points, 'rgb': sym_diff_colors},
+                pc=PointCloud(xyz=sym_diff_points, data={'rgb': sym_diff_colors}),
                 color_key=None,
                 highlight_indices=None,
                 title=title,
@@ -163,7 +163,9 @@ class BasePCRDataset(BaseDataset):
         else:
             # If no symmetric difference, show empty point cloud
             return create_point_cloud_display(
-                pc={'pos': torch.zeros((1, 3), device=src_points_normalized.device)},
+                pc=PointCloud(
+                    xyz=torch.zeros((1, 3), device=src_points_normalized.device)
+                ),
                 color_key=None,
                 highlight_indices=None,
                 title=f"{title} (Empty)",
@@ -181,7 +183,7 @@ class BasePCRDataset(BaseDataset):
         """Compute transform information including rotation angle and translation magnitude."""
         # Normalize transform to handle batched case
         transform_normalized = _normalize_transform(transform, torch.Tensor, target_device=transform.device, target_dtype=transform.dtype)
-        
+
         # Compute rotation angle and translation magnitude
         rotation_matrix = transform_normalized[:3, :3]
         translation_vector = transform_normalized[:3, 3]
@@ -223,7 +225,7 @@ class BasePCRDataset(BaseDataset):
                 html.H4("Source Point Cloud Statistics:"),
                 html.Div(src_stats_children)
             ], style=DisplayStyles.GRID_ITEM_48_MARGIN),
-            
+
             html.Div([
                 html.H4("Target Point Cloud Statistics:"),
                 html.Div(tgt_stats_children)
@@ -234,7 +236,7 @@ class BasePCRDataset(BaseDataset):
     def _create_correspondence_stats_section(correspondences: torch.Tensor) -> html.Div:
         """Create correspondence statistics section."""
         num_correspondences = correspondences.shape[0]
-        
+
         return html.Div([
             html.H4("Correspondence Statistics:"),
             html.Ul([
@@ -260,10 +262,10 @@ class BasePCRDataset(BaseDataset):
     def _dict_to_html_list(data: Dict[str, Any], key_name: str = None) -> html.Div:
         """Convert a dictionary to HTML list structure."""
         items = []
-        
+
         if key_name:
             items.append(html.H5(f"{key_name}:", style={'margin-top': '15px', 'margin-bottom': '5px'}))
-        
+
         list_items = []
         for key, value in data.items():
             if isinstance(value, dict):
@@ -272,17 +274,17 @@ class BasePCRDataset(BaseDataset):
             else:
                 # Simple key-value pair
                 formatted_value = BasePCRDataset._format_value(key, value)
-                
+
                 # Special styling for overlap (important PCR metric)
                 if key == 'overlap':
-                    list_items.append(html.Li(f"{key}: {formatted_value}", 
+                    list_items.append(html.Li(f"{key}: {formatted_value}",
                                             style={'font-weight': 'bold', 'color': '#2E86AB'}))
                 else:
                     list_items.append(html.Li(f"{key}: {formatted_value}"))
-        
+
         if list_items:
             items.append(html.Ul(list_items, style={'margin-left': '20px', 'margin-top': '5px'}))
-        
+
         return html.Div(items)
 
     @staticmethod
@@ -293,7 +295,7 @@ class BasePCRDataset(BaseDataset):
                 html.H4("Datapoint Meta Information:"),
                 html.P("No meta information available")
             ], style={'margin-top': '20px'})
-        
+
         # Convert the entire meta_info dict to HTML lists
         return html.Div([
             html.H4("Datapoint Meta Information:"),
@@ -333,7 +335,7 @@ class BasePCRDataset(BaseDataset):
         # Normalize points to unbatched format
         src_points_normalized = _normalize_points(src_points)
         tgt_points_normalized = _normalize_points(tgt_points)
-        
+
         src_points_np = src_points_normalized.cpu().numpy()
         tgt_points_np = tgt_points_normalized.cpu().numpy()
         correspondences_np = correspondences.cpu().numpy()
@@ -341,7 +343,7 @@ class BasePCRDataset(BaseDataset):
         # Calculate spatial bounds for proper side-by-side positioning
         src_bounds = {
             'x': [src_points_np[:, 0].min(), src_points_np[:, 0].max()],
-            'y': [src_points_np[:, 1].min(), src_points_np[:, 1].max()], 
+            'y': [src_points_np[:, 1].min(), src_points_np[:, 1].max()],
             'z': [src_points_np[:, 2].min(), src_points_np[:, 2].max()]
         }
         tgt_bounds = {
@@ -349,42 +351,42 @@ class BasePCRDataset(BaseDataset):
             'y': [tgt_points_np[:, 1].min(), tgt_points_np[:, 1].max()],
             'z': [tgt_points_np[:, 2].min(), tgt_points_np[:, 2].max()]
         }
-        
+
         # Calculate offset to position target cloud to the right of source cloud
         src_width = src_bounds['x'][1] - src_bounds['x'][0]
         tgt_width = tgt_bounds['x'][1] - tgt_bounds['x'][0]
         gap = max(src_width, tgt_width) * 0.3  # 30% gap between clouds
         x_offset = src_bounds['x'][1] + gap - tgt_bounds['x'][0]
-        
+
         # Offset target points for side-by-side layout
         tgt_points_offset = tgt_points_np.copy()
         tgt_points_offset[:, 0] += x_offset
-        
+
         # Create figure
         fig = go.Figure()
-        
+
         # Add source point cloud (left side)
         fig.add_trace(go.Scatter3d(
             x=src_points_np[:, 0],
-            y=src_points_np[:, 1], 
+            y=src_points_np[:, 1],
             z=src_points_np[:, 2],
             mode='markers',
             marker=dict(size=point_size, color='blue', opacity=point_opacity),
             name='Source Points',
             showlegend=True
         ))
-        
+
         # Add target point cloud (right side, offset)
         fig.add_trace(go.Scatter3d(
             x=tgt_points_offset[:, 0],
             y=tgt_points_offset[:, 1],
-            z=tgt_points_offset[:, 2], 
+            z=tgt_points_offset[:, 2],
             mode='markers',
             marker=dict(size=point_size, color='red', opacity=point_opacity),
             name='Target Points',
             showlegend=True
         ))
-        
+
         # Highlight corresponding points with brighter colors and draw connection lines
         if len(correspondences_np) > 0:
             # Limit to reasonable number of correspondences for visibility
@@ -395,14 +397,14 @@ class BasePCRDataset(BaseDataset):
                 correspondences_display = correspondences_np[sample_indices]
             else:
                 correspondences_display = correspondences_np
-                
+
             # Extract corresponding points
             src_corr_indices = correspondences_display[:, 0].astype(int)
             tgt_corr_indices = correspondences_display[:, 1].astype(int)
-            
+
             src_corr_points = src_points_np[src_corr_indices]
             tgt_corr_points_offset = tgt_points_offset[tgt_corr_indices]
-            
+
             # Add highlighted corresponding points
             fig.add_trace(go.Scatter3d(
                 x=src_corr_points[:, 0],
@@ -413,38 +415,38 @@ class BasePCRDataset(BaseDataset):
                 name=f'Source Correspondences ({len(correspondences_display)})',
                 showlegend=True
             ))
-            
+
             fig.add_trace(go.Scatter3d(
-                x=tgt_corr_points_offset[:, 0], 
+                x=tgt_corr_points_offset[:, 0],
                 y=tgt_corr_points_offset[:, 1],
                 z=tgt_corr_points_offset[:, 2],
-                mode='markers', 
+                mode='markers',
                 marker=dict(size=point_size*1.5, color='yellow', opacity=1.0),
                 name=f'Target Correspondences ({len(correspondences_display)})',
                 showlegend=True
             ))
-            
+
             # Add correspondence lines connecting the two sides
             for i in range(len(correspondences_display)):
                 src_point = src_corr_points[i]
                 tgt_point = tgt_corr_points_offset[i]
-                
+
                 fig.add_trace(go.Scatter3d(
                     x=[src_point[0], tgt_point[0]],
-                    y=[src_point[1], tgt_point[1]], 
+                    y=[src_point[1], tgt_point[1]],
                     z=[src_point[2], tgt_point[2]],
                     mode='lines',
                     line=dict(color='green', width=2, dash='dash'),
                     showlegend=False,
                     hoverinfo='skip'
                 ))
-        
+
         # Update layout for proper 3D visualization
         fig.update_layout(
             title=f"{title} ({len(correspondences_np)} total correspondences)",
             scene=dict(
                 xaxis_title="X",
-                yaxis_title="Y", 
+                yaxis_title="Y",
                 zaxis_title="Z",
                 aspectmode='data'  # Maintain aspect ratio
             ),
@@ -452,7 +454,7 @@ class BasePCRDataset(BaseDataset):
             width=1000,  # Wider to accommodate side-by-side layout
             height=600
         )
-        
+
         # Apply camera state if provided
         if camera_state is not None:
             fig.update_layout(scene_camera=camera_state)
@@ -467,24 +469,30 @@ class BasePCRDataset(BaseDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> html.Div:
         """Display a point cloud registration datapoint.
-        
+
         Args:
             datapoint: Dictionary containing inputs, labels, and meta_info from dataset
             class_labels: Optional dictionary mapping class indices to label names (unused for PCR)
             camera_state: Optional dictionary containing camera position state for 3D visualizations
             settings_3d: Optional dictionary containing 3D visualization settings
-            
+
         Returns:
             html.Div: HTML layout for displaying this datapoint
         """
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
         assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
-        
+
         # Validate structure and inputs (includes all basic validation)
         validate_pcr_structure(datapoint)
-        
+
         inputs = datapoint['inputs']
+
+        src_pc = inputs['src_pc']
+        assert isinstance(src_pc, PointCloud), f"src_pc must be PointCloud, got {type(src_pc)}"
+
+        tgt_pc = inputs['tgt_pc']
+        assert isinstance(tgt_pc, PointCloud), f"tgt_pc must be PointCloud, got {type(tgt_pc)}"
 
         # Extract visualization settings
         point_size = 2
@@ -492,7 +500,7 @@ class BasePCRDataset(BaseDataset):
         sym_diff_radius = 0.05
         lod_type = "continuous"
         density_percentage = 100
-        
+
         # Unpack 3D settings if provided
         if settings_3d is not None:
             assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
@@ -503,12 +511,8 @@ class BasePCRDataset(BaseDataset):
             density_percentage = settings_3d.get('density_percentage', density_percentage)
 
         # Extract point clouds
-        src_xyz = inputs['src_pc']['pos']  # Source point cloud
-        tgt_xyz = inputs['tgt_pc']['pos']  # Target point cloud
-
-        # Extract RGB colors if available
-        src_rgb = inputs['src_pc'].get('rgb')
-        tgt_rgb = inputs['tgt_pc'].get('rgb')
+        src_xyz = src_pc.xyz  # Source point cloud
+        tgt_xyz = tgt_pc.xyz  # Target point cloud
 
         # Extract transform if available
         transform = datapoint['labels'].get('transform')
@@ -523,18 +527,18 @@ class BasePCRDataset(BaseDataset):
         x_coords = torch.cat([pc[:, 0] for pc in all_points])
         y_coords = torch.cat([pc[:, 1] for pc in all_points])
         z_coords = torch.cat([pc[:, 2] for pc in all_points])
-        
+
         # Add small padding for better visualization
         padding = 0.05  # 5% padding
         x_range_unified = [x_coords.min().item(), x_coords.max().item()]
         y_range_unified = [y_coords.min().item(), y_coords.max().item()]
         z_range_unified = [z_coords.min().item(), z_coords.max().item()]
-        
+
         # Apply padding
         x_pad = (x_range_unified[1] - x_range_unified[0]) * padding
         y_pad = (y_range_unified[1] - y_range_unified[0]) * padding
         z_pad = (z_range_unified[1] - z_range_unified[0]) * padding
-        
+
         unified_axis_ranges = {
             'x': (x_range_unified[0] - x_pad, x_range_unified[1] + x_pad),
             'y': (y_range_unified[0] - y_pad, y_range_unified[1] + y_pad),
@@ -544,7 +548,7 @@ class BasePCRDataset(BaseDataset):
         # Define figure creation tasks
         figure_tasks = [
             lambda: create_point_cloud_display(
-                pc=inputs['src_pc'],  # Already has 'pos' and optionally 'rgb'
+                pc=src_pc,
                 color_key=None,
                 highlight_indices=None,
                 title="Source Point Cloud",
@@ -557,7 +561,7 @@ class BasePCRDataset(BaseDataset):
                 axis_ranges=unified_axis_ranges,
             ),
             lambda: create_point_cloud_display(
-                pc=inputs['tgt_pc'],  # Already has 'pos' and optionally 'rgb'
+                pc=tgt_pc,
                 color_key=None,
                 highlight_indices=None,
                 title="Target Point Cloud",
@@ -618,18 +622,18 @@ class BasePCRDataset(BaseDataset):
 
         # Compute transform information
         transform_info = BasePCRDataset._compute_transform_info(transform)
-        
+
         # Get point cloud statistics
         src_stats_dict = get_point_cloud_display_stats(inputs['src_pc'])
         tgt_stats_dict = get_point_cloud_display_stats(inputs['tgt_pc'])
-        
+
         # Convert statistics to HTML elements
         src_stats_children = BasePCRDataset._dict_to_html_list(src_stats_dict)
         tgt_stats_children = BasePCRDataset._dict_to_html_list(tgt_stats_dict)
 
         # Create layout using centralized utilities
         grid_items = create_figure_grid(figures, width_style="50%", height_style="520px")
-        
+
         # Build layout sections
         layout_sections = [
             html.H3("Point Cloud Registration Visualization"),
@@ -637,13 +641,13 @@ class BasePCRDataset(BaseDataset):
             BasePCRDataset._create_transform_info_section(transform_info),
             BasePCRDataset._create_statistics_section(src_stats_children, tgt_stats_children)
         ]
-        
+
         # Add correspondence statistics if correspondences are available
         if 'correspondences' in inputs:
             correspondences = inputs['correspondences']
             layout_sections.append(BasePCRDataset._create_correspondence_stats_section(correspondences))
-        
+
         # Add meta info section last
         layout_sections.append(BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {})))
-        
+
         return html.Div(layout_sections)

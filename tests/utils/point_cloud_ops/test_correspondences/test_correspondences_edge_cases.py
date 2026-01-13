@@ -1,5 +1,5 @@
 import torch
-from utils.point_cloud_ops.correspondences import get_correspondences
+from data.structures.three_d.point_cloud.ops.correspondences import get_correspondences
 
 
 def test_get_correspondences_empty():

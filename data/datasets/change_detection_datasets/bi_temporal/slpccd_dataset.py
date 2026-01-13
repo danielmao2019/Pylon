@@ -4,9 +4,9 @@ import numpy as np
 import torch
 from sklearn.neighbors import KDTree
 from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
-from utils.point_cloud_ops.sampling import GridSampling3D
-from utils.point_cloud_ops import normalize_point_cloud
-import utils
+from data.structures.three_d.point_cloud import PointCloud, load_point_cloud
+from data.structures.three_d.point_cloud.ops.sampling import GridSampling3D
+from data.structures.three_d.point_cloud.ops.normalization import normalize_point_cloud
 
 
 class SLPCCDDataset(Base2DCDDataset):
@@ -26,17 +26,14 @@ class SLPCCDDataset(Base2DCDDataset):
     INPUT_NAMES = ['pc_1', 'pc_2']
     LABEL_NAMES = ['change_map']
     NUM_CLASSES = 2  # Binary classification (changed/unchanged)
-    INV_OBJECT_LABEL = {
-        0: "unchanged",
-        1: "changed"
-    }
+    INV_OBJECT_LABEL = {0: "unchanged", 1: "changed"}
     CLASS_LABELS = {name: i for i, name in INV_OBJECT_LABEL.items()}
     IGNORE_LABEL = -1
     SPLIT_OPTIONS = {'train', 'val', 'test'}
     DATASET_SIZE = {
         'train': 398,  # Number from the train.txt file
-        'val': 95,     # Number from the val.txt file
-        'test': 128    # Number from the test.txt file
+        'val': 95,  # Number from the val.txt file
+        'test': 128,  # Number from the test.txt file
     }
 
     def __init__(
@@ -48,7 +45,7 @@ class SLPCCDDataset(Base2DCDDataset):
         knn_size: Optional[int] = 16,
         cross_knn_size: Optional[int] = 16,
         *args,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Initialize the SLPCCD dataset.
         Args:
@@ -69,7 +66,7 @@ class SLPCCDDataset(Base2DCDDataset):
         if self.use_hierarchy:
             self.grid_samplers = []
             for i in range(hierarchy_levels):
-                size = 0.1 * (2 ** i)  # Increasing grid size for each level
+                size = 0.1 * (2**i)  # Increasing grid size for each level
                 self.grid_samplers.append(GridSampling3D(size=size, mode="mean"))
         super(SLPCCDDataset, self).__init__(*args, **kwargs)
 
@@ -92,17 +89,25 @@ class SLPCCDDataset(Base2DCDDataset):
                 parts = line.strip().split()
                 if len(parts) >= 2:
                     # Convert Windows-style paths to Unix-style
-                    pc_1_path = os.path.join(self.data_root, "test_seg" if self.split == "test" else "train_seg", parts[0].replace('\\', '/'))
-                    pc_2_path = os.path.join(self.data_root, "test_seg" if self.split == "test" else "train_seg", parts[1].replace('\\', '/'))
+                    pc_1_path = os.path.join(
+                        self.data_root,
+                        "test_seg" if self.split == "test" else "train_seg",
+                        parts[0].replace('\\', '/'),
+                    )
+                    pc_2_path = os.path.join(
+                        self.data_root,
+                        "test_seg" if self.split == "test" else "train_seg",
+                        parts[1].replace('\\', '/'),
+                    )
 
-                    annotations.append({
-                        'pc_1_filepath': pc_1_path,
-                        'pc_2_filepath': pc_2_path
-                    })
+                    annotations.append(
+                        {'pc_1_filepath': pc_1_path, 'pc_2_filepath': pc_2_path}
+                    )
         self.annotations = annotations
 
-
-    def _random_subsample_point_cloud(self, pc: torch.Tensor, n_points: int) -> torch.Tensor:
+    def _random_subsample_point_cloud(
+        self, pc: torch.Tensor, n_points: int
+    ) -> torch.Tensor:
         """Randomly subsample or pad point cloud to have exactly n_points.
 
         Args:
@@ -114,10 +119,14 @@ class SLPCCDDataset(Base2DCDDataset):
         """
         if pc.shape[0] == 0:
             # Empty point cloud, return zeros
-            return torch.zeros((n_points, pc.shape[1]), dtype=pc.dtype, device=pc.device)
+            return torch.zeros(
+                (n_points, pc.shape[1]), dtype=pc.dtype, device=pc.device
+            )
         if pc.shape[0] < n_points:
             # Too few points, pad with duplicates
-            indices = torch.randint(0, pc.shape[0], (n_points - pc.shape[0],), device=pc.device)
+            indices = torch.randint(
+                0, pc.shape[0], (n_points - pc.shape[0],), device=pc.device
+            )
             padding = pc[indices]
             return torch.cat([pc, padding], dim=0)
         elif pc.shape[0] > n_points:
@@ -139,14 +148,18 @@ class SLPCCDDataset(Base2DCDDataset):
             neighbors_idx: Indices of k-nearest neighbors for each point (N, k)
         """
         kdtree = KDTree(pc.cpu().numpy())
-        distances, neighbors = kdtree.query(pc.cpu().numpy(), k=k + 1)  # +1 because the first neighbor is the point itself
+        distances, neighbors = kdtree.query(
+            pc.cpu().numpy(), k=k + 1
+        )  # +1 because the first neighbor is the point itself
 
         # Remove self as neighbor (first column)
         neighbors = neighbors[:, 1:]
 
         return torch.from_numpy(neighbors.astype(np.int64))
 
-    def _compute_cross_knn(self, pc1: torch.Tensor, pc2: torch.Tensor, k: int) -> torch.Tensor:
+    def _compute_cross_knn(
+        self, pc1: torch.Tensor, pc2: torch.Tensor, k: int
+    ) -> torch.Tensor:
         """Compute k-nearest neighbors in pc2 for each point in pc1.
         Args:
             pc1: First point cloud tensor of shape (N, 3)
@@ -159,12 +172,10 @@ class SLPCCDDataset(Base2DCDDataset):
         distances, neighbors = kdtree.query(pc1.cpu().numpy(), k=k)
         return torch.from_numpy(neighbors.astype(np.int64))
 
-    def _build_hierarchy(self, pc_dict: Dict[str, torch.Tensor]) -> Dict[str, List[torch.Tensor]]:
+    def _build_hierarchy(self, pc: PointCloud) -> Dict[str, List[torch.Tensor]]:
         """Build hierarchical representation of point cloud.
         Args:
-            pc_dict: Dictionary containing point cloud data
-                - pos: Point positions (N, 3)
-                - feat: Point features (N, D)
+            pc: PointCloud containing positions and features
         Returns:
             Dictionary with hierarchical representation:
                 - xyz: List of point positions at each level [(N_0, 3), (N_1, 3), ...]
@@ -173,34 +184,33 @@ class SLPCCDDataset(Base2DCDDataset):
                 - unsam_idx: List of upsampling indices between levels [(N_0, 1), (N_1, 1), ...]
         """
         hierarchy = {
-            'xyz': [pc_dict['pos']],
-            'feat': [pc_dict['feat']],
-            'neighbors_idx': [self._compute_knn(pc_dict['pos'], self.knn_size)],
+            'xyz': [pc.xyz],
+            'feat': [pc.feat],
+            'neighbors_idx': [self._compute_knn(pc.xyz, self.knn_size)],
             'pool_idx': [],
-            'unsam_idx': []
+            'unsam_idx': [],
         }
-        current_data = {
-            'pos': pc_dict['pos'],
-            'feat': pc_dict['feat']
-        }
+        current_pc = pc
         # Build hierarchy levels
         for i in range(self.hierarchy_levels - 1):
             # Apply grid sampling to get the next level
-            sampled_data = self.grid_samplers[i](current_data)
+            sampled_pc = self.grid_samplers[i](current_pc)
 
             # Store point positions and features
-            hierarchy['xyz'].append(sampled_data['pos'])
-            hierarchy['feat'].append(sampled_data['feat'])
+            hierarchy['xyz'].append(sampled_pc.xyz)
+            hierarchy['feat'].append(sampled_pc.feat)
 
             # Compute KNN for this level
-            hierarchy['neighbors_idx'].append(self._compute_knn(sampled_data['pos'], self.knn_size))
+            hierarchy['neighbors_idx'].append(
+                self._compute_knn(sampled_pc.xyz, self.knn_size)
+            )
 
             # Store pool and upsample indices
-            hierarchy['pool_idx'].append(sampled_data['grid_idx'])
-            hierarchy['unsam_idx'].append(sampled_data['inverse_indices'])
+            hierarchy['pool_idx'].append(sampled_pc.grid_idx)
+            hierarchy['unsam_idx'].append(sampled_pc.inverse_indices)
 
             # Update current data for next level
-            current_data = sampled_data
+            current_pc = sampled_pc
 
         return hierarchy
 
@@ -226,14 +236,14 @@ class SLPCCDDataset(Base2DCDDataset):
         pc_2_seg_filepath = pc_2_filepath.replace('.txt', '_seg.txt')
         has_seg_file = os.path.exists(pc_2_seg_filepath)
 
-        # Load point clouds with float64 precision
-        pc_1 = utils.io.load_point_cloud(pc_1_filepath, dtype=torch.float64)
-        pc_2 = utils.io.load_point_cloud(pc_2_filepath, dtype=torch.float64)
+        # Load point clouds (float32 for processing)
+        pc_1 = load_point_cloud(pc_1_filepath, dtype=torch.float32)
+        pc_2 = load_point_cloud(pc_2_filepath, dtype=torch.float32)
 
-        # Load segmentation file if available with float64 precision
+        # Load segmentation file if available
         pc_2_seg = None
         if has_seg_file:
-            pc_2_seg = utils.io.load_point_cloud(pc_2_seg_filepath, dtype=torch.float64)
+            pc_2_seg = load_point_cloud(pc_2_seg_filepath, dtype=torch.float32)
 
         return {
             'pc_1': pc_1,
@@ -241,32 +251,44 @@ class SLPCCDDataset(Base2DCDDataset):
             'pc_2_seg': pc_2_seg,
             'has_seg_file': has_seg_file,
             'pc_1_filepath': pc_1_filepath,
-            'pc_2_filepath': pc_2_filepath
+            'pc_2_filepath': pc_2_filepath,
         }
 
-    def _extract_positions_and_features(self, pc_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_positions_and_features(
+        self, pc_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Extract positions and features from point cloud tensors.
 
         Args:
-            pc_data: Dictionary containing point cloud tensors
+            pc_data: Dictionary containing point cloud data
 
         Returns:
             Dictionary with extracted positions and features
         """
+        pc_1 = pc_data['pc_1']
+        pc_2 = pc_data['pc_2']
+        assert isinstance(pc_1, PointCloud), f"{type(pc_1)=}"
+        assert isinstance(pc_2, PointCloud), f"{type(pc_2)=}"
+
         # Extract positions
-        pc_1_xyz = pc_data['pc_1'][:, :3]
-        pc_2_xyz = pc_data['pc_2'][:, :3]
+        pc_1_xyz = pc_1.xyz
+        pc_2_xyz = pc_2.xyz
 
-        # Extract features (RGB if available, otherwise ones)
-        if pc_data['pc_1'].size(1) >= 6:  # Has RGB values
-            pc_1_feat = pc_data['pc_1'][:, 3:6]  # RGB values as features
-        else:
-            pc_1_feat = torch.ones((pc_1_xyz.size(0), 1), dtype=torch.float32)
-
-        if pc_data['pc_2'].size(1) >= 6:  # Has RGB values
-            pc_2_feat = pc_data['pc_2'][:, 3:6]  # RGB values as features
-        else:
-            pc_2_feat = torch.ones((pc_2_xyz.size(0), 1), dtype=torch.float32)
+        # Extract features (RGB/features if available, otherwise ones)
+        pc_1_feat = pc_1.feat if hasattr(pc_1, 'feat') else None
+        pc_2_feat = pc_2.feat if hasattr(pc_2, 'feat') else None
+        if pc_1_feat is None:
+            pc_1_feat = torch.ones(
+                (pc_1_xyz.size(0), 1),
+                dtype=torch.float32,
+                device=pc_1_xyz.device,
+            )
+        if pc_2_feat is None:
+            pc_2_feat = torch.ones(
+                (pc_2_xyz.size(0), 1),
+                dtype=torch.float32,
+                device=pc_2_xyz.device,
+            )
 
         # Store original point cloud lengths
         pc_1_raw_length = pc_1_xyz.size(0)
@@ -278,10 +300,12 @@ class SLPCCDDataset(Base2DCDDataset):
             'pc_1_feat': pc_1_feat,
             'pc_2_feat': pc_2_feat,
             'pc_1_raw_length': pc_1_raw_length,
-            'pc_2_raw_length': pc_2_raw_length
+            'pc_2_raw_length': pc_2_raw_length,
         }
 
-    def _extract_change_map(self, pc_data: Dict[str, Any], pc_2_xyz: torch.Tensor) -> torch.Tensor:
+    def _extract_change_map(
+        self, pc_data: Dict[str, Any], pc_2_xyz: torch.Tensor
+    ) -> torch.Tensor:
         """Extract change map labels from point cloud data.
 
         Args:
@@ -291,17 +315,30 @@ class SLPCCDDataset(Base2DCDDataset):
         Returns:
             Change map tensor
         """
+        pc_2 = pc_data['pc_2']
+        assert isinstance(pc_2, PointCloud), f"{type(pc_2)=}"
+
         # Load change labels
         if pc_data['has_seg_file'] and pc_data['pc_2_seg'] is not None:
-            # Load segmentation file containing change labels
-            change_map = pc_data['pc_2_seg'][:, 3].long()  # 4th column of seg file contains labels
+            pc_2_seg = pc_data['pc_2_seg']
+            assert isinstance(pc_2_seg, PointCloud), f"{type(pc_2_seg)=}"
+            assert hasattr(
+                pc_2_seg, 'feat'
+            ), "Segmentation file must contain labels in feat field"
+            change_map = pc_2_seg.feat.view(-1).long()
         else:
-            # If no segmentation file, check if pc_2 has labels in 4th column
-            if pc_data['pc_2'].size(1) > 3:
-                change_map = pc_data['pc_2'][:, 3].long()
+            pc_2_feat = pc_2.feat if hasattr(pc_2, 'feat') else None
+            if pc_2_feat is not None:
+                change_map = (
+                    pc_2_feat[:, 0].long() if pc_2_feat.ndim == 2 else pc_2_feat.long()
+                )
             else:
                 # If no change labels are provided, use dummy labels (all zeros)
-                change_map = torch.zeros(pc_2_xyz.size(0), dtype=torch.long)
+                change_map = torch.zeros(
+                    pc_2_xyz.size(0),
+                    dtype=torch.long,
+                    device=pc_2_xyz.device,
+                )
 
         return change_map
 
@@ -333,24 +370,28 @@ class SLPCCDDataset(Base2DCDDataset):
             if pc_2_xyz.size(0) != self.num_points:
                 if pc_2_xyz.size(0) < self.num_points:
                     # Padding case
-                    indices = torch.randint(0, pc_2_xyz.size(0), (self.num_points - pc_2_xyz.size(0),))
+                    indices = torch.randint(
+                        0, pc_2_xyz.size(0), (self.num_points - pc_2_xyz.size(0),)
+                    )
                     change_map_padding = change_map[indices]
                     change_map = torch.cat([change_map, change_map_padding], dim=0)
                 else:
                     # Subsampling case
-                    indices = torch.randperm(pc_2_xyz.size(0))[:self.num_points]
+                    indices = torch.randperm(pc_2_xyz.size(0))[: self.num_points]
                     change_map = change_map[indices]
 
                 # Subsample second point cloud
                 pc_2_xyz = self._random_subsample_point_cloud(pc_2_xyz, self.num_points)
-                pc_2_feat = self._random_subsample_point_cloud(pc_2_feat, self.num_points)
+                pc_2_feat = self._random_subsample_point_cloud(
+                    pc_2_feat, self.num_points
+                )
 
         return {
             'pc_1_xyz': pc_1_xyz,
             'pc_2_xyz': pc_2_xyz,
             'pc_1_feat': pc_1_feat,
             'pc_2_feat': pc_2_feat,
-            'change_map': change_map
+            'change_map': change_map,
         }
 
     def _compute_neighborhood_info(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -362,19 +403,22 @@ class SLPCCDDataset(Base2DCDDataset):
         Returns:
             Dictionary with KNN information
         """
-        # Create point cloud dictionaries
-        pc_1_dict = {'pos': data['pc_1_xyz'], 'feat': data['pc_1_feat']}
-        pc_2_dict = {'pos': data['pc_2_xyz'], 'feat': data['pc_2_feat']}
+        pc_1 = PointCloud(data={'xyz': data['pc_1_xyz'], 'feat': data['pc_1_feat']})
+        pc_2 = PointCloud(data={'xyz': data['pc_2_xyz'], 'feat': data['pc_2_feat']})
 
         # Compute cross-point cloud nearest neighbors
-        knearst_idx_in_another_pc_1 = self._compute_cross_knn(data['pc_1_xyz'], data['pc_2_xyz'], self.cross_knn_size)
-        knearst_idx_in_another_pc_2 = self._compute_cross_knn(data['pc_2_xyz'], data['pc_1_xyz'], self.cross_knn_size)
+        knearst_idx_in_another_pc_1 = self._compute_cross_knn(
+            pc_1.xyz, pc_2.xyz, self.cross_knn_size
+        )
+        knearst_idx_in_another_pc_2 = self._compute_cross_knn(
+            pc_2.xyz, pc_1.xyz, self.cross_knn_size
+        )
 
         return {
-            'pc_1_dict': pc_1_dict,
-            'pc_2_dict': pc_2_dict,
+            'pc_1': pc_1,
+            'pc_2': pc_2,
             'knearst_idx_in_another_pc_1': knearst_idx_in_another_pc_1,
-            'knearst_idx_in_another_pc_2': knearst_idx_in_another_pc_2
+            'knearst_idx_in_another_pc_2': knearst_idx_in_another_pc_2,
         }
 
     def _build_input_structure(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -390,12 +434,16 @@ class SLPCCDDataset(Base2DCDDataset):
 
         if self.use_hierarchy:
             # Build hierarchical representation for both point clouds
-            pc_1_hierarchy = self._build_hierarchy(data['pc_1_dict'])
-            pc_2_hierarchy = self._build_hierarchy(data['pc_2_dict'])
+            pc_1_hierarchy = self._build_hierarchy(data['pc_1'])
+            pc_2_hierarchy = self._build_hierarchy(data['pc_2'])
 
             # Add cross-point cloud nearest neighbors
-            pc_1_hierarchy['knearst_idx_in_another_pc'] = data['knearst_idx_in_another_pc_1']
-            pc_2_hierarchy['knearst_idx_in_another_pc'] = data['knearst_idx_in_another_pc_2']
+            pc_1_hierarchy['knearst_idx_in_another_pc'] = data[
+                'knearst_idx_in_another_pc_1'
+            ]
+            pc_2_hierarchy['knearst_idx_in_another_pc'] = data[
+                'knearst_idx_in_another_pc_2'
+            ]
 
             # Add raw lengths
             pc_1_hierarchy['raw_length'] = data['pc_1_raw_length']
@@ -406,19 +454,19 @@ class SLPCCDDataset(Base2DCDDataset):
         else:
             # Simple non-hierarchical representation
             inputs['pc_1'] = {
-                'xyz': data['pc_1_dict']['pos'],
-                'neighbors_idx': self._compute_knn(data['pc_1_dict']['pos'], self.knn_size),
+                'xyz': data['pc_1'].xyz,
+                'neighbors_idx': self._compute_knn(data['pc_1'].xyz, self.knn_size),
                 'knearst_idx_in_another_pc': data['knearst_idx_in_another_pc_1'],
                 'raw_length': data['pc_1_raw_length'],
-                'feat': data['pc_1_dict']['feat']
+                'feat': data['pc_1'].feat,
             }
 
             inputs['pc_2'] = {
-                'xyz': data['pc_2_dict']['pos'],
-                'neighbors_idx': self._compute_knn(data['pc_2_dict']['pos'], self.knn_size),
+                'xyz': data['pc_2'].xyz,
+                'neighbors_idx': self._compute_knn(data['pc_2'].xyz, self.knn_size),
                 'knearst_idx_in_another_pc': data['knearst_idx_in_another_pc_2'],
                 'raw_length': data['pc_2_raw_length'],
-                'feat': data['pc_2_dict']['feat']
+                'feat': data['pc_2'].feat,
             }
 
         return inputs
@@ -438,10 +486,12 @@ class SLPCCDDataset(Base2DCDDataset):
             'pc_2_filepath': pc_data['pc_2_filepath'],
             'dir_name': os.path.dirname(pc_data['pc_1_filepath']),
             'file_name_1': os.path.basename(pc_data['pc_1_filepath']),
-            'file_name_2': os.path.basename(pc_data['pc_2_filepath'])
+            'file_name_2': os.path.basename(pc_data['pc_2_filepath']),
         }
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a datapoint from the dataset.
 
         Args:
@@ -463,10 +513,7 @@ class SLPCCDDataset(Base2DCDDataset):
         change_map = self._extract_change_map(pc_data, extracted_data['pc_2_xyz'])
 
         # Combine data for processing
-        data_for_processing = {
-            **extracted_data,
-            'change_map': change_map
-        }
+        data_for_processing = {**extracted_data, 'change_map': change_map}
 
         # Step 4: Process point clouds (normalize and subsample)
         processed_data = self._process_point_clouds(data_for_processing)
@@ -475,17 +522,14 @@ class SLPCCDDataset(Base2DCDDataset):
         data_for_neighborhood = {
             **processed_data,
             'pc_1_raw_length': extracted_data['pc_1_raw_length'],
-            'pc_2_raw_length': extracted_data['pc_2_raw_length']
+            'pc_2_raw_length': extracted_data['pc_2_raw_length'],
         }
 
         # Step 5: Compute neighborhood information
         neighborhood_data = self._compute_neighborhood_info(data_for_neighborhood)
 
         # Combine all data for input structure
-        all_data = {
-            **data_for_neighborhood,
-            **neighborhood_data
-        }
+        all_data = {**data_for_neighborhood, **neighborhood_data}
 
         # Step 6: Build final input structure
         inputs = self._build_input_structure(all_data)
@@ -499,12 +543,14 @@ class SLPCCDDataset(Base2DCDDataset):
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'num_points': self.num_points,
-            'random_subsample': self.random_subsample,
-            'use_hierarchy': self.use_hierarchy,
-            'hierarchy_levels': self.hierarchy_levels,
-            'knn_size': self.knn_size,
-            'cross_knn_size': self.cross_knn_size,
-        })
+        version_dict.update(
+            {
+                'num_points': self.num_points,
+                'random_subsample': self.random_subsample,
+                'use_hierarchy': self.use_hierarchy,
+                'hierarchy_levels': self.hierarchy_levels,
+                'knn_size': self.knn_size,
+                'cross_knn_size': self.cross_knn_size,
+            }
+        )
         return version_dict

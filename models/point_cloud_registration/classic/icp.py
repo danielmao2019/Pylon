@@ -1,7 +1,10 @@
-from typing import Dict
-import torch
+from typing import Dict, List, Union
+
 import numpy as np
 import open3d as o3d
+import torch
+
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class ICP(torch.nn.Module):
@@ -26,13 +29,15 @@ class ICP(torch.nn.Module):
         self.threshold = threshold
         self.max_iterations = max_iterations
 
-    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
+    def forward(
+        self, inputs: Dict[str, Union[PointCloud, List[PointCloud]]]
+    ) -> torch.Tensor:
         """Perform ICP registration on source and target point clouds.
 
         Args:
             inputs: Dictionary containing:
-                - 'src_pc': Dict with 'pos' key containing source points (B, N, 3)
-                - 'tgt_pc': Dict with 'pos' key containing target points (B, M, 3)
+                - 'src_pc': PointCloud or list of PointClouds with source points
+                - 'tgt_pc': PointCloud or list of PointClouds with target points
 
         Returns:
             Transformation matrix (B, 4, 4) that aligns source to target
@@ -44,54 +49,64 @@ class ICP(torch.nn.Module):
         assert isinstance(inputs, dict), "inputs must be a dictionary"
         assert 'src_pc' in inputs, "inputs must contain 'src_pc' key"
         assert 'tgt_pc' in inputs, "inputs must contain 'tgt_pc' key"
-        assert isinstance(inputs['src_pc'], dict), "inputs['src_pc'] must be a dictionary"
-        assert isinstance(inputs['tgt_pc'], dict), "inputs['tgt_pc'] must be a dictionary"
-        assert 'pos' in inputs['src_pc'], "inputs['src_pc'] must contain 'pos' key"
-        assert 'pos' in inputs['tgt_pc'], "inputs['tgt_pc'] must contain 'pos' key"
+        src_pc = inputs['src_pc']
+        tgt_pc = inputs['tgt_pc']
+        if isinstance(src_pc, list):
+            src_list = src_pc
+        else:
+            src_list = [src_pc]
+        if isinstance(tgt_pc, list):
+            tgt_list = tgt_pc
+        else:
+            tgt_list = [tgt_pc]
 
-        # Validate tensor properties
-        assert isinstance(inputs['src_pc']['pos'], torch.Tensor), "Source positions must be a tensor"
-        assert isinstance(inputs['tgt_pc']['pos'], torch.Tensor), "Target positions must be a tensor"
-
-        # Handle both 2D (unbatched) and 3D (batched) tensors
-        if inputs['src_pc']['pos'].dim() == 2:
-            inputs['src_pc']['pos'] = inputs['src_pc']['pos'].unsqueeze(0)
-        if inputs['tgt_pc']['pos'].dim() == 2:
-            inputs['tgt_pc']['pos'] = inputs['tgt_pc']['pos'].unsqueeze(0)
-
-        assert inputs['src_pc']['pos'].dim() == 3, f"Source positions must be 3D tensor, got {inputs['src_pc']['pos'].dim()}D"
-        assert inputs['tgt_pc']['pos'].dim() == 3, f"Target positions must be 3D tensor, got {inputs['tgt_pc']['pos'].dim()}D"
-        assert inputs['src_pc']['pos'].shape[-1] == 3, f"Source positions must have 3 coordinates, got {inputs['src_pc']['pos'].shape[-1]}"
-        assert inputs['tgt_pc']['pos'].shape[-1] == 3, f"Target positions must have 3 coordinates, got {inputs['tgt_pc']['pos'].shape[-1]}"
-        assert inputs['src_pc']['pos'].shape[0] == inputs['tgt_pc']['pos'].shape[0], \
-            f"Batch sizes must match: source={inputs['src_pc']['pos'].shape[0]}, target={inputs['tgt_pc']['pos'].shape[0]}"
-        assert inputs['src_pc']['pos'].shape[1] > 0, "Source point cloud cannot be empty"
-        assert inputs['tgt_pc']['pos'].shape[1] > 0, "Target point cloud cannot be empty"
-
-        batch_size = inputs['src_pc']['pos'].shape[0]
-        device = inputs['src_pc']['pos'].device
-
-        # Convert to numpy for Open3D
-        source_np = inputs['src_pc']['pos'].detach().cpu().numpy()
-        target_np = inputs['tgt_pc']['pos'].detach().cpu().numpy()
+        assert len(src_list) > 0, "src_pc list must not be empty"
+        assert len(tgt_list) > 0, "tgt_pc list must not be empty"
+        assert len(src_list) == len(
+            tgt_list
+        ), f"Batch sizes must match: source={len(src_list)}, target={len(tgt_list)}"
+        assert all(
+            isinstance(pc, PointCloud) for pc in src_list
+        ), f"src_pc must be PointCloud or list of PointClouds, got {type(src_pc)}"
+        assert all(
+            isinstance(pc, PointCloud) for pc in tgt_list
+        ), f"tgt_pc must be PointCloud or list of PointClouds, got {type(tgt_pc)}"
+        device = src_list[0].device
+        assert all(
+            pc.device == device for pc in src_list
+        ), "All source point clouds must be on the same device"
+        assert all(
+            pc.device == device for pc in tgt_list
+        ), "All target point clouds must be on the same device"
 
         # Process each batch
         transformations = []
-        for i in range(batch_size):
+        for src_item, tgt_item in zip(src_list, tgt_list):
             # Create Open3D point clouds
             source_o3d = o3d.geometry.PointCloud()
-            source_o3d.points = o3d.utility.Vector3dVector(source_np[i])
+            source_o3d.points = o3d.utility.Vector3dVector(
+                src_item.xyz.detach().cpu().numpy()
+            )
             target_o3d = o3d.geometry.PointCloud()
-            target_o3d.points = o3d.utility.Vector3dVector(target_np[i])
+            target_o3d.points = o3d.utility.Vector3dVector(
+                tgt_item.xyz.detach().cpu().numpy()
+            )
 
             # Run ICP
             reg_p2p = o3d.pipelines.registration.registration_icp(
-                source_o3d, target_o3d, self.threshold, np.eye(4),
-                o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-                o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=self.max_iterations)
+                source=source_o3d,
+                target=target_o3d,
+                max_correspondence_distance=self.threshold,
+                init=np.eye(4),
+                estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+                criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
+                    max_iteration=self.max_iterations
+                ),
             )
 
             transformations.append(reg_p2p.transformation)
 
         # Convert back to tensor
-        return torch.tensor(np.stack(transformations), dtype=torch.float32, device=device)
+        return torch.tensor(
+            np.stack(transformations), dtype=torch.float32, device=device
+        )

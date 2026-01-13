@@ -1,7 +1,7 @@
-import torch
 import pytest
+import torch
 
-from utils.three_d.camera.scaling import scale_intrinsics
+from data.structures.three_d.camera.scaling import scale_intrinsics
 
 
 @pytest.mark.parametrize(

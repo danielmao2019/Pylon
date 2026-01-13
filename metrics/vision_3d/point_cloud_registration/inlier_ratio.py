@@ -1,7 +1,9 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.point_cloud_ops.apply_transform import apply_transform
+from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class InlierRatio(SingleTaskMetric):
@@ -37,7 +39,7 @@ class InlierRatio(SingleTaskMetric):
 
         Args:
             datapoint: Complete datapoint containing:
-                - 'outputs': {'src_pc': predicted_source_points, 'tgt_pc': predicted_target_correspondences}
+                - 'outputs': {'src_pc': predicted_source_points, 'tgt_pc': predicted_target_correspondences} as PointCloud, (N, 3) tensor, or List[PointCloud] batch
                 - 'labels': {'transform': ground_truth_transform_matrix}
                 - 'meta_info': {...}
 
@@ -46,36 +48,48 @@ class InlierRatio(SingleTaskMetric):
         """
         # Extract predicted correspondences from outputs
         assert 'outputs' in datapoint, "Missing 'outputs' in datapoint"
+        assert 'labels' in datapoint, "Missing 'labels' in datapoint"
+        assert 'src_pc' in datapoint['outputs'] and 'tgt_pc' in datapoint['outputs'], f"Missing point clouds in outputs: {datapoint['outputs'].keys()}"
+        assert 'transform' in datapoint['labels'], f"Missing transform in labels: {datapoint['labels'].keys()}"
         outputs = datapoint['outputs']
-        assert 'src_pc' in outputs and 'tgt_pc' in outputs, f"Missing point clouds in outputs: {outputs.keys()}"
+        labels = datapoint['labels']
 
-        src_points = outputs['src_pc']  # Predicted source points
-        tgt_points = outputs['tgt_pc']  # Predicted target correspondences
+        src_input = outputs['src_pc']  # Predicted source points
+        tgt_input = outputs['tgt_pc']  # Predicted target correspondences
 
-        # Handle different input formats - could be tensors or dicts with 'pos'
-        if isinstance(src_points, dict):
-            assert 'pos' in src_points, "Missing 'pos' in src_pc"
-            src_points = src_points['pos']
-        if isinstance(tgt_points, dict):
-            assert 'pos' in tgt_points, "Missing 'pos' in tgt_pc"
-            tgt_points = tgt_points['pos']
+        def _normalize_point_cloud(pc_input: Any) -> list[PointCloud]:
+            if isinstance(pc_input, list):
+                assert len(pc_input) == 1, f"Expected batch size 1, got {len(pc_input)}"
+                assert all(isinstance(pc, PointCloud) for pc in pc_input), f"Non-PointCloud entries in pc list: {tuple(type(pc) for pc in pc_input)}"
+                return pc_input
+            elif isinstance(pc_input, PointCloud):
+                return [pc_input]
+            elif isinstance(pc_input, torch.Tensor):
+                if pc_input.ndim == 2:
+                    assert pc_input.shape[1] == 3, f"Expected (N, 3) tensor, got {pc_input.shape}"
+                    return [PointCloud(xyz=pc_input)]
+                elif pc_input.ndim == 3:
+                    assert pc_input.shape[0] == 1, f"Expected batch size 1, got {pc_input.shape[0]}"
+                    assert pc_input.shape[2] == 3, f"Expected point dimensionality 3, got {pc_input.shape[2]}"
+                    return [PointCloud(xyz=pc_input.squeeze(0))]
+                else:
+                    assert 0, f"Expected 2D or 3D tensor, got ndim={pc_input.ndim}"
+            else:
+                assert 0, f"Unsupported point cloud input type: {type(pc_input)}"
 
-        # Handle batched input
-        if src_points.ndim == 3:
-            assert src_points.shape[0] == 1, f"Expected batch size 1, got {src_points.shape[0]}"
-            src_points = src_points.squeeze(0)  # (N, 3)
-        if tgt_points.ndim == 3:
-            assert tgt_points.shape[0] == 1, f"Expected batch size 1, got {tgt_points.shape[0]}"
-            tgt_points = tgt_points.squeeze(0)  # (N, 3)
+        src_pcs = _normalize_point_cloud(pc_input=src_input)
+        tgt_pcs = _normalize_point_cloud(pc_input=tgt_input)
+        assert len(src_pcs) == 1 and len(tgt_pcs) == 1, f"Expected single point cloud per batch, got {len(src_pcs)} and {len(tgt_pcs)}"
 
-        assert src_points.ndim == 2 and src_points.shape[1] == 3, f"Expected (N, 3) source points, got {src_points.shape}"
-        assert tgt_points.ndim == 2 and tgt_points.shape[1] == 3, f"Expected (N, 3) target points, got {tgt_points.shape}"
-        assert src_points.shape[0] == tgt_points.shape[0], f"Mismatched correspondence count: {src_points.shape[0]} vs {tgt_points.shape[0]}"
+        src_pc = src_pcs[0]
+        tgt_pc = tgt_pcs[0]
+        outputs['src_pc'] = src_pc
+        outputs['tgt_pc'] = tgt_pc
+        assert src_pc.num_points == tgt_pc.num_points, f"Mismatched correspondence count: {src_pc.num_points} vs {tgt_pc.num_points}"
+        src_points = src_pc.xyz
+        tgt_points = tgt_pc.xyz
 
         # Extract ground truth transformation from labels
-        assert 'labels' in datapoint, "Missing 'labels' in datapoint"
-        labels = datapoint['labels']
-        assert 'transform' in labels, f"Missing transform in labels: {labels.keys()}"
         gt_transform = labels['transform']  # (1, 4, 4)
 
         # Handle batch dimension

@@ -1,13 +1,20 @@
-from typing import Dict, List
 import time
+from typing import Dict, List
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from utils.point_cloud_ops.sampling.grid_sampling_3d import GridSampling3D as GridSampling3Dv1
-from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3D as GridSampling3Dv2
+
+from data.structures.three_d.point_cloud.ops.sampling.grid_sampling_3d import (
+    GridSampling3D as GridSampling3Dv1,
+)
+from data.structures.three_d.point_cloud.ops.sampling.grid_sampling_3d_v2 import (
+    GridSampling3D as GridSampling3Dv2,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
-def create_test_point_cloud(num_points: int, device: torch.device = None) -> Dict[str, torch.Tensor]:
+def create_test_point_cloud(num_points: int, device: torch.device = None) -> PointCloud:
     """Create a test point cloud with random positions and features.
 
     Args:
@@ -29,15 +36,11 @@ def create_test_point_cloud(num_points: int, device: torch.device = None) -> Dic
     # Create random categorical data
     change_map = torch.randint(0, 5, (num_points,), device=device)
 
-    return {
-        'pos': pos,
-        'features': features,
-        'change_map': change_map
-    }
+    return PointCloud(xyz=pos, data={'feat': features, 'change_map': change_map})
 
 
-def compare_results(original_result: Dict[str, torch.Tensor],
-                   optimized_result: Dict[str, torch.Tensor],
+def compare_results(original_result: PointCloud,
+                   optimized_result: PointCloud,
                    rtol: float = 1e-5,
                    atol: float = 1e-5) -> None:
     """Compare results from original and optimized implementations.
@@ -51,15 +54,13 @@ def compare_results(original_result: Dict[str, torch.Tensor],
     Raises:
         AssertionError: If results are not equivalent
     """
-    # Check that both results have the same keys
-    assert original_result.keys() == optimized_result.keys(), "Results have different keys"
+    assert isinstance(original_result, PointCloud)
+    assert isinstance(optimized_result, PointCloud)
+    assert set(original_result.field_names()) == set(optimized_result.field_names()), "Results have different fields"
 
-    # Compare each key
-    for key in original_result:
-        assert key in optimized_result, f"Key '{key}' missing in optimized result"
-
-        original_val = original_result[key]
-        optimized_val = optimized_result[key]
+    for key in original_result.field_names():
+        original_val = getattr(original_result, key)
+        optimized_val = getattr(optimized_result, key)
 
         # Handle None values
         if original_val is None and optimized_val is None:

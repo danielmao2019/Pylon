@@ -1,6 +1,8 @@
-from typing import Tuple
+from typing import Tuple, Union
+
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class PointCloudMetric(SingleTaskMetric):
@@ -12,14 +14,14 @@ class PointCloudMetric(SingleTaskMetric):
     """
 
     def _validate_and_prepare_inputs(
-        self, y_pred: torch.Tensor, y_true: torch.Tensor
+        self, y_pred: Union[torch.Tensor, PointCloud], y_true: Union[torch.Tensor, PointCloud]
     ) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
         """
         Validate and prepare inputs for point cloud metrics.
 
         Args:
-            y_pred: Predicted (transformed) point cloud, shape (N, 3)
-            y_true: Target point cloud, shape (M, 3)
+            y_pred: Predicted (transformed) point cloud as PointCloud or (N, 3) tensor
+            y_true: Target point cloud as PointCloud or (M, 3) tensor
 
         Returns:
             Tuple containing:
@@ -28,17 +30,22 @@ class PointCloudMetric(SingleTaskMetric):
                 - N: Number of points in y_pred
                 - M: Number of points in y_true
         """
-        # Input validation
-        assert y_pred.dim() == 2 and y_pred.size(1) == 3, f"Expected y_pred shape (N, 3), got {y_pred.shape}"
-        assert y_true.dim() == 2 and y_true.size(1) == 3, f"Expected y_true shape (M, 3), got {y_true.shape}"
-        assert not y_pred.isnan().any(), "y_pred contains NaN values"
-        assert not y_true.isnan().any(), "y_true contains NaN values"
+        if isinstance(y_pred, PointCloud):
+            y_pred_tensor = y_pred.xyz
+            y_pred_count = y_pred.num_points
+        else:
+            PointCloud.validate_xyz_tensor(xyz=y_pred)
+            y_pred_tensor = y_pred
+            y_pred_count = y_pred.shape[0]
 
-        # Get dimensions
-        N, _ = y_pred.shape
-        M, _ = y_true.shape
-
-        return y_pred, y_true, N, M
+        if isinstance(y_true, PointCloud):
+            y_true_tensor = y_true.xyz
+            y_true_count = y_true.num_points
+        else:
+            PointCloud.validate_xyz_tensor(xyz=y_true)
+            y_true_tensor = y_true
+            y_true_count = y_true.shape[0]
+        return y_pred_tensor, y_true_tensor, y_pred_count, y_true_count
 
     def _compute_distance_matrix(
         self, y_pred: torch.Tensor, y_true: torch.Tensor

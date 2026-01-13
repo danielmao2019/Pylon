@@ -3,18 +3,17 @@
 Focuses on integration testing between multiple point cloud utilities and performance tests.
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.atomic_displays.point_cloud_display import (
-    get_point_cloud_display_stats,
-    build_point_cloud_id,
     apply_lod_to_point_cloud,
+    build_point_cloud_id,
+    get_point_cloud_display_stats,
     normalize_point_cloud_id,
-    point_cloud_to_numpy
 )
-
 
 # ================================================================================
 # Integration Tests
@@ -26,16 +25,16 @@ def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
     datapoint = {"meta_info": {"idx": 42}}
     pc_id = build_point_cloud_id(datapoint, "source")
     assert isinstance(pc_id, tuple)
-    
+
     # Normalize ID
     normalized_id = normalize_point_cloud_id(pc_id)
     assert isinstance(normalized_id, str)
-    
+
     # Get statistics
-    pc_dict = {'pos': point_cloud_3d}
-    stats = get_point_cloud_display_stats(pc_dict)
+    pc = PointCloud(xyz=point_cloud_3d)
+    stats = get_point_cloud_display_stats(pc)
     assert isinstance(stats, dict)
-    
+
     # Apply LOD (no max_points parameter)
     lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
         points=point_cloud_3d,
@@ -43,11 +42,11 @@ def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
         lod_type="continuous"
     )
     assert isinstance(lod_points, torch.Tensor)
-    
+
     # Convert to numpy
-    pc_numpy = point_cloud_to_numpy(lod_points)
+    pc_numpy = lod_points.cpu().numpy()
     assert isinstance(pc_numpy, np.ndarray)
-    
+
     # Verify consistency
     assert lod_points.shape[0] == pc_numpy.shape[0]
     assert lod_points.shape[1] == pc_numpy.shape[1] == 3
@@ -60,18 +59,18 @@ def test_point_cloud_utilities_determinism(point_cloud_3d, camera_state):
     pc_id_1 = build_point_cloud_id(datapoint, "source")
     pc_id_2 = build_point_cloud_id(datapoint, "source")
     assert pc_id_1 == pc_id_2
-    
-    pc_dict = {'pos': point_cloud_3d}
-    stats_1 = get_point_cloud_display_stats(pc_dict)
-    stats_2 = get_point_cloud_display_stats(pc_dict)
+
+    pc = PointCloud(xyz=point_cloud_3d)
+    stats_1 = get_point_cloud_display_stats(pc)
+    stats_2 = get_point_cloud_display_stats(pc)
     assert stats_1 == stats_2  # Dictionaries should be equal
-    
+
     normalized_1 = normalize_point_cloud_id("test_id")
     normalized_2 = normalize_point_cloud_id("test_id")
     assert normalized_1 == normalized_2
-    
-    numpy_1 = point_cloud_to_numpy(point_cloud_3d)
-    numpy_2 = point_cloud_to_numpy(point_cloud_3d)
+
+    numpy_1 = point_cloud_3d.cpu().numpy()
+    numpy_2 = point_cloud_3d.cpu().numpy()
     assert np.array_equal(numpy_1, numpy_2)
 
 
@@ -84,19 +83,19 @@ def test_performance_with_large_point_clouds():
     # Create large point cloud
     large_pc = torch.randn(10000, 3, dtype=torch.float32)
     camera_state = {"eye": {"x": 1, "y": 1, "z": 1}}
-    
+
     # These should complete without error
     datapoint = {"meta_info": {"idx": 100}}
     pc_id = build_point_cloud_id(datapoint, "large_test")
-    pc_dict = {'pos': large_pc}
+    pc_dict = PointCloud(xyz=large_pc)
     stats = get_point_cloud_display_stats(pc_dict)
     lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
         points=large_pc,
         camera_state=camera_state,
         lod_type="continuous"
     )
-    pc_numpy = point_cloud_to_numpy(lod_points)
-    
+    pc_numpy = lod_points.cpu().numpy()
+
     # Basic checks
     assert isinstance(pc_id, tuple)
     assert isinstance(stats, dict)

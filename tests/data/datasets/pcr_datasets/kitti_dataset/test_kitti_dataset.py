@@ -1,10 +1,13 @@
-from typing import Dict, Any
-import pytest
-import random
-import torch
 import json
+import random
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict
+
+import pytest
+import torch
+
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.builders.builder import build_from_config
 
 
@@ -14,24 +17,21 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
 
     for pc_name in ['src_pc', 'tgt_pc']:
         pc = inputs[pc_name]
-        assert isinstance(pc, dict), f"{pc_name} is not a dict: {type(pc)=}"
-        assert pc.keys() == {'pos', 'reflectance'}, f"{pc_name} keys incorrect: {pc.keys()=}"
+        assert isinstance(pc, PointCloud), f"{pc_name} is not PointCloud: {type(pc)=}"
+        assert pc.field_names() == ('xyz', 'reflectance'), f"{pc_name} fields incorrect: {pc.field_names()=}"
 
-        # Validate position tensor
-        assert isinstance(pc['pos'], torch.Tensor), f"{pc_name}['pos'] is not torch.Tensor: {type(pc['pos'])=}"
-        assert pc['pos'].ndim == 2, f"{pc_name}['pos'] should be 2-dimensional: {pc['pos'].shape=}"
-        assert pc['pos'].shape[1] == 3, f"{pc_name}['pos'] should have 3 coordinates: {pc['pos'].shape=}"
-        assert pc['pos'].dtype == torch.float32, f"{pc_name}['pos'] dtype incorrect: {pc['pos'].dtype=}"
+        assert pc.xyz.ndim == 2, f"{pc_name}.xyz should be 2-dimensional: {pc.xyz.shape=}"
+        assert pc.xyz.shape[1] == 3, f"{pc_name}.xyz should have 3 coordinates: {pc.xyz.shape=}"
+        assert pc.xyz.dtype == torch.float32, f"{pc_name}.xyz dtype incorrect: {pc.xyz.dtype=}"
 
-        # Validate reflectance tensor
-        assert isinstance(pc['reflectance'], torch.Tensor), f"{pc_name}['reflectance'] is not torch.Tensor: {type(pc['reflectance'])=}"
-        assert pc['reflectance'].ndim == 2, f"{pc_name}['reflectance'] should be 2-dimensional: {pc['reflectance'].shape=}"
-        assert pc['reflectance'].shape[1] == 1, f"{pc_name}['reflectance'] should have 1 feature: {pc['reflectance'].shape=}"
-        assert pc['reflectance'].dtype == torch.float32, f"{pc_name}['reflectance'] dtype incorrect: {pc['reflectance'].dtype=}"
+        assert pc.reflectance.ndim == 2, f"{pc_name}.reflectance should be 2-dimensional: {pc.reflectance.shape=}"
+        assert pc.reflectance.shape[1] == 1, f"{pc_name}.reflectance should have 1 feature: {pc.reflectance.shape=}"
+        assert pc.reflectance.dtype == torch.float32, f"{pc_name}.reflectance dtype incorrect: {pc.reflectance.dtype=}"
 
-        # Check shapes match
-        assert pc['pos'].shape[0] == pc['reflectance'].shape[0], \
-            f"{pc_name} positions and reflectance should have same number of points: {pc['pos'].shape[0]=}, {pc['reflectance'].shape[0]=}"
+        assert pc.num_points == pc.reflectance.shape[0], (
+            f"{pc_name} positions and reflectance should have same number of points: "
+            f"{pc.num_points=}, {pc.reflectance.shape[0]=}"
+        )
 
 
 def validate_labels(labels: Dict[str, Any]) -> None:

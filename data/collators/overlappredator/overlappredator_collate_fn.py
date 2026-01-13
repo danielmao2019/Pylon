@@ -2,6 +2,7 @@ import torch
 import data.collators.overlappredator.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
 import data.collators.overlappredator.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 from data.collators.pcr_collator import pcr_collate_fn
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def batch_grid_subsampling_kpconv(points, batches_len, sampleDl, features=None, labels=None, max_p=0, verbose=0, random_grid_orient=True):
@@ -82,20 +83,25 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
 
 def unpack_overlappredator_data(data):
     """Unpack data to get points and features."""
-    src_pcd = data['inputs']['src_pc']['pos']
-    tgt_pcd = data['inputs']['tgt_pc']['pos']
-    src_feats = data['inputs']['src_pc']['feat']
-    tgt_feats = data['inputs']['tgt_pc']['feat']
+    src_pc = data['inputs']['src_pc']
+    tgt_pc = data['inputs']['tgt_pc']
+    assert isinstance(src_pc, PointCloud), f"{type(src_pc)=}"
+    assert isinstance(tgt_pc, PointCloud), f"{type(tgt_pc)=}"
+
+    src_pcd = src_pc.xyz
+    tgt_pcd = tgt_pc.xyz
+    src_feats = src_pc.feat
+    tgt_feats = tgt_pc.feat
     rot = data['labels']['transform'][:3, :3]
     trans = data['labels']['transform'][:3, 3]
     matching_inds = data['inputs']['correspondences']
-    src_pcd_raw = data['inputs']['src_pc']['pos']
-    tgt_pcd_raw = data['inputs']['tgt_pc']['pos']
+    src_pcd_raw = src_pc.xyz
+    tgt_pcd_raw = tgt_pc.xyz
     sample = None
 
     # Prepare batched data
     batched_features = torch.cat([src_feats, tgt_feats], dim=0)
-    batched_lengths = torch.tensor([len(src_pcd), len(tgt_pcd)], dtype=torch.int64, device=batched_features.device)
+    batched_lengths = torch.tensor([src_pc.num_points, tgt_pc.num_points], dtype=torch.int64, device=batched_features.device)
 
     return {
         'src_points': src_pcd,

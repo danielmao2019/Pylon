@@ -4,7 +4,8 @@ import numpy as np
 import torch
 import pytest
 from plyfile import PlyData, PlyElement
-from utils.io.point_clouds.load_point_cloud import (
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.io.load_point_cloud import (
     load_point_cloud,
     _load_from_ply,
     _load_from_txt,
@@ -98,11 +99,9 @@ def test_load_point_cloud_ply_basic(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert isinstance(result, dict)
-    assert 'pos' in result
-    assert isinstance(result['pos'], torch.Tensor)
-    assert result['pos'].shape[1] == 3  # XYZ coordinates
-    assert result['pos'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3  # XYZ coordinates
+    assert result.xyz.dtype == torch.float32
 
 
 def test_load_point_cloud_ply_with_rgb(temp_dir):
@@ -112,13 +111,9 @@ def test_load_point_cloud_ply_with_rgb(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert 'rgb' in result
-    assert result['rgb'].shape[1] == 3  # RGB channels
-    assert result['rgb'].dtype == torch.float32
-    # RGB values should be normalized to [0, 1]
-    assert result['rgb'].min() >= 0.0
-    assert result['rgb'].max() <= 1.0
+    assert isinstance(result, PointCloud)
+    assert result.rgb.shape[1] == 3  # RGB channels
+    assert result.rgb.dtype == torch.uint8
 
 
 def test_load_point_cloud_ply_with_features(temp_dir):
@@ -128,10 +123,8 @@ def test_load_point_cloud_ply_with_features(temp_dir):
 
     result = load_point_cloud(filepath=filepath, name_feat='feature', device='cpu')
 
-    assert 'pos' in result
-    assert 'feat' in result
-    assert result['feat'].shape[1] == 1  # Single feature column
-    assert result['feat'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert result.feat.shape[1] == 1  # Single feature column
 
 
 def test_load_point_cloud_txt_basic(temp_dir):
@@ -141,9 +134,9 @@ def test_load_point_cloud_txt_basic(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert result['pos'].shape[1] == 3
-    assert result['pos'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
+    assert result.xyz.dtype == torch.float32
 
 
 def test_load_point_cloud_txt_with_features(temp_dir):
@@ -153,13 +146,9 @@ def test_load_point_cloud_txt_with_features(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert 'feat' in result
-    assert result['feat'].shape[1] == 1  # Label column as feature
-    assert result['feat'].dtype in [
-        torch.float32,
-        torch.float64,
-    ]  # Allow both float types
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
+    assert result.feat.shape[1] == 1  # Label column as feature
 
 
 def test_load_point_cloud_pth_basic(temp_dir):
@@ -169,9 +158,9 @@ def test_load_point_cloud_pth_basic(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert result['pos'].shape[1] == 3
-    assert result['pos'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
+    assert result.xyz.dtype == torch.float32
 
 
 def test_load_point_cloud_pth_with_features(temp_dir):
@@ -181,10 +170,9 @@ def test_load_point_cloud_pth_with_features(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert 'feat' in result
-    assert result['feat'].shape[1] == 3  # 3 feature columns
-    assert result['feat'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
+    assert result.feat.shape[1] == 3  # 3 feature columns
 
 
 def test_load_point_cloud_off_basic(temp_dir):
@@ -194,9 +182,9 @@ def test_load_point_cloud_off_basic(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert result['pos'].shape == (4, 3)  # 4 vertices, XYZ
-    assert result['pos'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape == (4, 3)  # 4 vertices, XYZ
+    assert result.xyz.dtype == torch.float32
 
 
 def test_load_point_cloud_device_transfer(temp_dir):
@@ -206,12 +194,14 @@ def test_load_point_cloud_device_transfer(temp_dir):
 
     # Test CPU device
     result_cpu = load_point_cloud(filepath=filepath, device='cpu')
-    assert result_cpu['pos'].device.type == 'cpu'
+    assert isinstance(result_cpu, PointCloud)
+    assert result_cpu.xyz.device.type == 'cpu'
 
     # Test CUDA device (if available)
     if torch.cuda.is_available():
         result_cuda = load_point_cloud(filepath=filepath, device='cuda')
-        assert result_cuda['pos'].device.type == 'cuda'
+        assert isinstance(result_cuda, PointCloud)
+        assert result_cuda.xyz.device.type == 'cuda'
 
 
 def test_load_point_cloud_segmentation_labels(temp_dir):
@@ -230,11 +220,9 @@ def test_load_point_cloud_segmentation_labels(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert 'feat' in result
-    assert (
-        result['feat'].dtype == torch.int64
-    )  # Should convert to long for segmentation
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
+    assert result.feat.dtype == torch.int64  # Should convert to long for segmentation
 
 
 def test_load_point_cloud_nonexistent_file():
@@ -260,14 +248,12 @@ def test_load_from_ply_basic(temp_dir):
     filepath = os.path.join(temp_dir, "test.ply")
     create_test_ply_file(filepath, include_rgb=True, include_feat=True)
 
-    result = _load_from_ply(filepath=filepath, name_feat='feature')
+    result = _load_from_ply(filepath=filepath, name_feat='feature', device='cpu')
 
-    assert isinstance(result, dict)
-    assert 'pos' in result
-    assert 'rgb' in result
-    assert 'feat' in result
-    assert isinstance(result['pos'], np.ndarray)
-    assert result['pos'].shape[1] == 3
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
+    assert hasattr(result, 'rgb')
+    assert hasattr(result, 'feat')
 
 
 def test_load_from_txt_basic(temp_dir):
@@ -275,13 +261,11 @@ def test_load_from_txt_basic(temp_dir):
     filepath = os.path.join(temp_dir, "test.txt")
     create_test_txt_file(filepath, include_features=True)
 
-    result = _load_from_txt(filepath=filepath)
+    result = _load_from_txt(filepath=filepath, device='cpu')
 
-    assert isinstance(result, dict)
-    assert 'pos' in result
-    assert 'feat' in result
-    assert isinstance(result['pos'], np.ndarray)
-    assert result['pos'].shape[1] == 3
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape[1] == 3
+    assert hasattr(result, 'feat')
 
 
 def test_load_from_pth_torch_tensor(temp_dir):
@@ -290,14 +274,11 @@ def test_load_from_pth_torch_tensor(temp_dir):
     data = torch.rand(50, 4)  # XYZ + 1 feature
     torch.save(data, filepath)
 
-    result = _load_from_pth(filepath=filepath)
+    result = _load_from_pth(filepath=filepath, device='cpu')
 
-    assert isinstance(result, dict)
-    assert 'pos' in result
-    assert 'feat' in result
-    assert isinstance(result['pos'], torch.Tensor)
-    assert result['pos'].shape == (50, 3)
-    assert result['feat'].shape == (50, 1)
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape == (50, 3)
+    assert result.feat.shape == (50, 1)
 
 
 def test_load_from_pth_numpy_array(temp_dir):
@@ -306,12 +287,10 @@ def test_load_from_pth_numpy_array(temp_dir):
     data = np.random.rand(50, 3).astype(np.float32)
     torch.save(data, filepath)
 
-    result = _load_from_pth(filepath=filepath)
+    result = _load_from_pth(filepath=filepath, device='cpu')
 
-    assert isinstance(result, dict)
-    assert 'pos' in result
-    assert isinstance(result['pos'], np.ndarray)
-    assert result['pos'].shape == (50, 3)
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape == (50, 3)
 
 
 def test_load_from_off_basic(temp_dir):
@@ -321,11 +300,9 @@ def test_load_from_off_basic(temp_dir):
 
     result = _load_from_off(filepath=filepath, device='cpu')
 
-    assert isinstance(result, dict)
-    assert 'pos' in result
-    assert isinstance(result['pos'], torch.Tensor)
-    assert result['pos'].shape == (4, 3)
-    assert result['pos'].device.type == 'cpu'
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape == (4, 3)
+    assert result.xyz.device.type == 'cpu'
 
 
 def test_load_from_off_invalid_format(temp_dir):
@@ -351,7 +328,7 @@ def test_uint16_to_int64_conversion(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert result['pos'].dtype == torch.float32  # pos is always converted to float32
+    assert result.xyz.dtype == torch.float32  # positions are always converted to float32
     # The conversion happens internally in the loading process
 
 
@@ -365,8 +342,8 @@ def test_path_normalization(temp_dir):
 
     result = load_point_cloud(filepath=windows_style_path, device='cpu')
 
-    assert 'pos' in result
-    assert result['pos'].dtype == torch.float32
+    assert isinstance(result, PointCloud)
+    assert result.xyz.dtype == torch.float32
 
 
 def test_empty_point_cloud_handling(temp_dir):
@@ -377,10 +354,8 @@ def test_empty_point_cloud_handling(temp_dir):
     empty_data = torch.empty(0, 3)
     torch.save(empty_data, filepath)
 
-    result = load_point_cloud(filepath=filepath, device='cpu')
-
-    assert result['pos'].shape[0] == 0
-    assert result['pos'].shape[1] == 3
+    with pytest.raises(AssertionError):
+        load_point_cloud(filepath=filepath, device='cpu')
 
 
 def test_load_point_cloud_various_sizes(temp_dir):
@@ -394,9 +369,9 @@ def test_load_point_cloud_various_sizes(temp_dir):
 
         result = load_point_cloud(filepath=filepath, device='cpu')
 
-        assert result['pos'].shape[0] == size
-        assert result['pos'].shape[1] == 3
-        assert result['pos'].dtype == torch.float32
+        assert result.xyz.shape[0] == size
+        assert result.xyz.shape[1] == 3
+        assert result.xyz.dtype == torch.float32
 
 
 def test_load_point_cloud_ply_different_element_names(temp_dir):
@@ -414,8 +389,8 @@ def test_load_point_cloud_ply_different_element_names(temp_dir):
     # Should work with default (None) nameInPly parameter
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert 'pos' in result
-    assert result['pos'].shape == (3, 3)
+    assert isinstance(result, PointCloud)
+    assert result.xyz.shape == (3, 3)
 
 
 def test_load_point_cloud_ply_missing_coordinates(temp_dir):
@@ -478,6 +453,6 @@ def test_load_point_cloud_concurrent_access(temp_dir):
 
     # All results should have the same structure
     for result in results:
-        assert 'pos' in result
-        assert result['pos'].shape[1] == 3
-        assert result['pos'].dtype == torch.float32
+        assert isinstance(result, PointCloud)
+        assert result.xyz.shape[1] == 3
+        assert result.xyz.dtype == torch.float32

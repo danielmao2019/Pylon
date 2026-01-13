@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import pytest
-from utils.point_cloud_ops import apply_transform
+from data.structures.three_d.point_cloud.ops import apply_transform
 from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 

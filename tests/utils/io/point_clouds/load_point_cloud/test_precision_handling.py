@@ -3,8 +3,9 @@ import tempfile
 import numpy as np
 import torch
 from plyfile import PlyData, PlyElement
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
-from utils.io.point_clouds.load_point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 
 
 # ============================================================================
@@ -35,7 +36,7 @@ def test_float64_precision_preservation_large_utm_coordinates():
 
         # Load with float64 precision
         result = load_point_cloud(tmp_file.name, dtype=torch.float64)
-        loaded_coords = result['pos'].cpu().numpy()
+        loaded_coords = result.xyz.cpu().numpy()
 
         # Check precision preservation
         np.testing.assert_allclose(
@@ -70,8 +71,8 @@ def test_float32_precision_loss_large_utm_coordinates():
         result_f32 = load_point_cloud(tmp_file.name, dtype=torch.float32)
         result_f64 = load_point_cloud(tmp_file.name, dtype=torch.float64)
 
-        coords_f32 = result_f32['pos'].cpu().numpy()
-        coords_f64 = result_f64['pos'].cpu().numpy()
+        coords_f32 = result_f32.xyz.cpu().numpy()
+        coords_f64 = result_f64.xyz.cpu().numpy()
 
         # float32 should NOT match original high precision
         with pytest.raises(AssertionError):
@@ -108,7 +109,7 @@ def test_millimeter_precision_preservation():
 
         # Load with float64
         result = load_point_cloud(tmp_file.name, dtype=torch.float64)
-        loaded_coords = result['pos'].cpu().numpy()
+        loaded_coords = result.xyz.cpu().numpy()
 
         # Check that millimeter differences are preserved
         for i in range(1, len(coords)):
@@ -150,8 +151,8 @@ def test_small_coordinates_precision_both_dtypes():
         result_f32 = load_point_cloud(tmp_file.name, dtype=torch.float32)
         result_f64 = load_point_cloud(tmp_file.name, dtype=torch.float64)
 
-        coords_f32 = result_f32['pos'].cpu().numpy()
-        coords_f64 = result_f64['pos'].cpu().numpy()
+        coords_f32 = result_f32.xyz.cpu().numpy()
+        coords_f64 = result_f64.xyz.cpu().numpy()
 
         # Both should preserve precision for small coordinates
         np.testing.assert_allclose(
@@ -195,7 +196,7 @@ def test_txt_format_precision_preservation():
 
         # Load with float64 precision
         result = load_point_cloud(tmp_file.name, dtype=torch.float64)
-        loaded_coords = result['pos'].cpu().numpy()
+        loaded_coords = result.xyz.cpu().numpy()
 
         # Check precision preservation (slightly relaxed due to text parsing)
         np.testing.assert_allclose(
@@ -233,11 +234,11 @@ def test_dtype_parameter_respected():
 
         # Test float32 request
         result_f32 = load_point_cloud(tmp_file.name, dtype=torch.float32)
-        assert result_f32['pos'].dtype == torch.float32
+        assert result_f32.xyz.dtype == torch.float32
 
         # Test float64 request
         result_f64 = load_point_cloud(tmp_file.name, dtype=torch.float64)
-        assert result_f64['pos'].dtype == torch.float64
+        assert result_f64.xyz.dtype == torch.float64
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
@@ -267,8 +268,8 @@ def test_device_transfer_precision_preservation():
         )
 
         # Compare CPU and GPU results
-        coords_cpu = result_cpu['pos'].cpu().numpy()
-        coords_cuda = result_cuda['pos'].cpu().numpy()
+        coords_cpu = result_cpu.xyz.cpu().numpy()
+        coords_cuda = result_cuda.xyz.cpu().numpy()
 
         np.testing.assert_allclose(
             coords_cpu,
@@ -305,8 +306,8 @@ def test_internal_float64_processing():
         result_f64 = load_point_cloud(tmp_file.name, dtype=torch.float64)
 
         # Convert f32 result back to f64 for comparison
-        coords_f32_as_f64 = result_f32['pos'].double().cpu().numpy()
-        coords_f64 = result_f64['pos'].cpu().numpy()
+        coords_f32_as_f64 = result_f32.xyz.double().cpu().numpy()
+        coords_f64 = result_f64.xyz.cpu().numpy()
 
         # The difference should be due to final conversion, not internal processing
         max_error = np.max(np.abs(coords_f32_as_f64 - coords_f64))
@@ -343,7 +344,7 @@ def test_extreme_coordinate_values():
 
         # Load with float64
         result = load_point_cloud(tmp_file.name, dtype=torch.float64)
-        loaded_coords = result['pos'].cpu().numpy()
+        loaded_coords = result.xyz.cpu().numpy()
 
         # Check precision preservation for extreme values
         np.testing.assert_allclose(
@@ -377,7 +378,7 @@ def test_zero_coordinate_precision():
         PlyData([vertex_element]).write(tmp_file.name)
 
         result = load_point_cloud(tmp_file.name, dtype=torch.float64)
-        loaded_coords = result['pos'].cpu().numpy()
+        loaded_coords = result.xyz.cpu().numpy()
 
         # Exact zero should be preserved
         zero_mask = coords_with_zeros == 0.0
@@ -419,7 +420,7 @@ def test_coordinate_system_transformation_precision():
 
         # Load coordinates
         result = load_point_cloud(tmp_file.name, dtype=torch.float64)
-        original_coords = result['pos'].cpu().numpy()
+        original_coords = result.xyz.cpu().numpy()
 
         # Apply small transformation
         transformed_coords = original_coords + translation

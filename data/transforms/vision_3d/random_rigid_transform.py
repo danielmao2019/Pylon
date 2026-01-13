@@ -1,8 +1,9 @@
-from typing import Tuple, Dict, Optional, Any
+from typing import Tuple, Optional, Any
 import numpy as np
 import torch
 from data.transforms.base_transform import BaseTransform
-from utils.point_cloud_ops import apply_transform
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.ops import apply_transform
 from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 
@@ -133,17 +134,17 @@ class RandomRigidTransform(BaseTransform):
 
     def __call__(
         self,
-        src_pc: Dict[str, Any],
-        tgt_pc: Dict[str, Any],
+        src_pc: PointCloud,
+        tgt_pc: PointCloud,
         transform: torch.Tensor,
         seed: Optional[Any] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], torch.Tensor]:
+    ) -> Tuple[PointCloud, PointCloud, torch.Tensor]:
         """
         Apply random rigid transformation to the source point cloud and adjust the transformation matrix.
 
         Args:
-            src_pc: Source point cloud dictionary containing 'pos' key
-            tgt_pc: Target point cloud dictionary containing 'pos' key
+            src_pc: Source point cloud
+            tgt_pc: Target point cloud
             transform: Original transformation matrix from source to target, shape (4, 4)
             seed: The seed to use for the random rigid transform.
 
@@ -153,16 +154,12 @@ class RandomRigidTransform(BaseTransform):
             - Unchanged target point cloud
             - Adjusted transformation matrix
         """
-        # Validate inputs
-        assert isinstance(src_pc, dict), f"{type(src_pc)=}"
-        assert src_pc.keys() >= {'pos'}, f"{src_pc.keys()=}"
-        assert src_pc['pos'].ndim == 2 and src_pc['pos'].shape[1] == 3, f"{src_pc['pos'].shape=}"
-        assert src_pc['pos'].dtype == torch.float32, f"{src_pc['pos'].dtype=}"
-
-        assert isinstance(tgt_pc, dict), f"{type(tgt_pc)=}"
-        assert tgt_pc.keys() >= {'pos'}, f"{tgt_pc.keys()=}"
-        assert tgt_pc['pos'].ndim == 2 and tgt_pc['pos'].shape[1] == 3, f"{tgt_pc['pos'].shape=}"
-        assert tgt_pc['pos'].dtype == torch.float32, f"{tgt_pc['pos'].dtype=}"
+        assert isinstance(src_pc, PointCloud), f"{type(src_pc)=}"
+        assert isinstance(tgt_pc, PointCloud), f"{type(tgt_pc)=}"
+        assert src_pc.xyz.ndim == 2 and src_pc.xyz.shape[1] == 3, f"{src_pc.xyz.shape=}"
+        assert tgt_pc.xyz.ndim == 2 and tgt_pc.xyz.shape[1] == 3, f"{tgt_pc.xyz.shape=}"
+        assert src_pc.xyz.dtype == torch.float32, f"{src_pc.xyz.dtype=}"
+        assert tgt_pc.xyz.dtype == torch.float32, f"{tgt_pc.xyz.dtype=}"
 
         assert isinstance(transform, torch.Tensor), f"{type(transform)=}"
         assert transform.shape == (4, 4), f"{transform.shape=}"
@@ -172,12 +169,22 @@ class RandomRigidTransform(BaseTransform):
         generator = self._get_generator(g_type='torch', seed=seed)
         random_transform = self._sample_rigid_transform(transform.device, generator)
 
-        # Create a new dictionary with the same references to non-pos fields
-        new_src_pc = src_pc.copy()
-        new_tgt_pc = tgt_pc.copy()
-
         # Apply random transformation to the source point cloud
-        new_src_pc['pos'] = apply_transform(src_pc['pos'], random_transform)
+        transformed_src_xyz = apply_transform(
+            points=src_pc.xyz, transform=random_transform
+        )
+        src_fields = {
+            name: getattr(src_pc, name)
+            for name in src_pc.field_names()
+            if name != 'xyz'
+        }
+        new_src_pc = PointCloud(xyz=transformed_src_xyz, data=src_fields)
+        tgt_fields = {
+            name: getattr(tgt_pc, name)
+            for name in tgt_pc.field_names()
+            if name != 'xyz'
+        }
+        new_tgt_pc = PointCloud(xyz=tgt_pc.xyz, data=tgt_fields)
 
         # Adjust the transformation matrix
         # The new transformation is: new_transform = transform @ random_transform^(-1)

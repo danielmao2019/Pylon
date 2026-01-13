@@ -4,7 +4,8 @@ import pickle
 import numpy
 import torch
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
-from utils.io.point_clouds.load_point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class _ThreeDMatchBaseDataset(BasePCRDataset):
@@ -113,7 +114,7 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         })
         return version_dict
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a single datapoint from the dataset.
 
         Args:
@@ -125,19 +126,11 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         # Get annotation
         annotation = self.annotations[idx]
 
-        # Load point clouds (returns Dict[str, torch.Tensor])
-        src_pc_dict = load_point_cloud(annotation['src_path'], device=self.device)
-        tgt_pc_dict = load_point_cloud(annotation['tgt_path'], device=self.device)
-
-        # Create point cloud dictionaries
-        src_pc = {
-            'pos': src_pc_dict['pos'],
-            'feat': torch.ones((src_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=self.device)
-        }
-        tgt_pc = {
-            'pos': tgt_pc_dict['pos'],
-            'feat': torch.ones((tgt_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=self.device)
-        }
+        # Load point clouds (returns PointCloud)
+        src_pc = load_point_cloud(annotation['src_path'], device=self.device)
+        tgt_pc = load_point_cloud(annotation['tgt_path'], device=self.device)
+        src_pc.feat = torch.ones((src_pc.num_points, 1), dtype=torch.float32, device=self.device)
+        tgt_pc.feat = torch.ones((tgt_pc.num_points, 1), dtype=torch.float32, device=self.device)
 
         # Create transformation matrix
         # NOTE: The metadata contains target->source transform, but we need source->target

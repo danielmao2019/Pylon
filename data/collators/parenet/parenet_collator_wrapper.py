@@ -9,13 +9,14 @@ original trainer-based dynamic neighbor computation.
 from typing import List, Any, Dict
 from data.collators.parenet.data import registration_collate_fn_stack_mode, precompute_neibors
 from utils.ops.dict_as_tensor import transpose_buffer
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def pylon_to_parenet_adapter(pylon_data_dicts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Convert Pylon dataset format to PARENet collation format.
 
     Pylon format:
-        inputs: {src_pc: {pos, feat}, tgt_pc: {pos, feat}}
+        inputs: {src_pc: PointCloud, tgt_pc: PointCloud}
         labels: {transform}
 
     PARENet format:
@@ -27,13 +28,15 @@ def pylon_to_parenet_adapter(pylon_data_dicts: List[Dict[str, Any]]) -> List[Dic
         # Extract data from Pylon nested structure
         src_pc = pylon_dict['inputs']['src_pc']
         tgt_pc = pylon_dict['inputs']['tgt_pc']
+        assert isinstance(src_pc, PointCloud)
+        assert isinstance(tgt_pc, PointCloud)
 
         # Convert to PARENet flat structure
         parenet_dict = {
-            'ref_points': tgt_pc['pos'],  # Target becomes reference
-            'src_points': src_pc['pos'],  # Source remains source
-            'ref_feats': tgt_pc['feat'],
-            'src_feats': src_pc['feat'],
+            'ref_points': tgt_pc.xyz,  # Target becomes reference
+            'src_points': src_pc.xyz,  # Source remains source
+            'ref_feats': tgt_pc.feat,
+            'src_feats': src_pc.feat,
             'transform': pylon_dict['labels']['transform'],
         }
 

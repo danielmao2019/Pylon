@@ -90,9 +90,25 @@ meta_info = {
 
 ### Data Type Guidelines
 
-**Inputs**: Can be tensors or dictionaries (e.g., point clouds with pos/feat structure)
+**Inputs**: Can be tensors or structured wrappers (e.g., `PointCloud` for point cloud data)
 **Labels**: Must always be tensors (even multi-task datasets use `{'task1': tensor, 'task2': tensor}`)
 **Meta_info**: Can be any JSON-serializable types (str, int, float, list, dict)
+
+### Point Cloud Inputs
+
+Point cloud inputs should be wrapped in `PointCloud` instances imported from `data.structures.three_d.point_cloud.point_cloud`. Returning a `PointCloud` instead of a raw dictionary keeps all fields on the same device/dtype, automatically validates the coordinate tensor, and exposes the `num_points` property so downstream code never has to reach into `.xyz.shape[0]`.
+
+```python
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
+pc = PointCloud(xyz=torch.randn(8192, 3, dtype=torch.float32))
+pc.feat = torch.randn(pc.num_points, 4, dtype=torch.float32)
+pc.batch = torch.zeros(pc.num_points, dtype=torch.long)
+```
+
+`PointCloud` already asserts the `(N, 3)` coordinate shape, non-empty tensors, and consistent device/dtype alignment. Dataset implementations should not duplicate those checks, nor should they re-wrap data into legacy dictionaries or guard against the old format. When you need to reason about how many points are present, use `pc.num_points` instead of inspecting `.xyz.shape[0]`, and keep any optional data fields aligned with that cardinality. The legacy `check_point_cloud` helper becomes unnecessary once the repository fully relies on `PointCloud`, so avoid reintroducing analogous guard rails inside dataset logic.
+
+If your dataset exposes multiple point clouds per sample (e.g., multi-modal inputs), return each as a separate `PointCloud` value in the `inputs` dictionary so downstream logic can rely on the standard API.
 
 ## Device Handling Philosophy
 

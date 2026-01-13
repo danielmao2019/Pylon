@@ -1,0 +1,81 @@
+from typing import Optional
+import torch
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
+from data.structures.three_d.point_cloud.ops.knn.knn import knn
+
+
+def get_correspondences(
+    source: PointCloud,
+    target: PointCloud,
+    transform: Optional[torch.Tensor],
+    radius: float,
+) -> torch.Tensor:
+    """Find correspondences between two point clouds within a matching radius.
+
+    Args:
+        source: Source point cloud [M, 3]
+        target: Target point cloud [N, 3]
+        transform (torch.Tensor): Transformation matrix from source to target [4, 4] or None
+        radius (float): Maximum distance threshold for correspondence matching
+
+    Returns:
+        torch.Tensor: Correspondence indices [K, 2] where K is number of correspondences
+    """
+    assert isinstance(source, PointCloud), f"{type(source)=}"
+    assert isinstance(target, PointCloud), f"{type(target)=}"
+
+    src_points = source.xyz
+    tgt_points = target.xyz
+    assert (
+        src_points.device == tgt_points.device
+    ), f"{src_points.device=}, {tgt_points.device=}"
+    assert (
+        src_points.dtype == tgt_points.dtype
+    ), f"{src_points.dtype=}, {tgt_points.dtype=}"
+    assert transform is None or (
+        isinstance(transform, torch.Tensor) and transform.shape == (4, 4)
+    ), f"Invalid transform shape: {transform.shape if transform is not None else None}"
+    if transform is not None:
+        assert (
+            transform.device == src_points.device
+        ), f"{transform.device=}, {src_points.device=}"
+        assert (
+            transform.dtype == src_points.dtype
+        ), f"{transform.dtype=}, {src_points.dtype=}"
+    assert (
+        isinstance(radius, (int, float)) and radius > 0
+    ), f"radius must be positive number, got {radius}"
+
+    # Transform source points to reference frame if transform provided
+    if transform is not None:
+        # apply_transform supports torch tensors and will keep them as torch
+        src_points = apply_transform(src_points, transform)
+
+    # Use KNN to find all points within radius (no k limit, just radius)
+    # Original algorithm: for each target point, find all source points within radius
+    # This is equivalent to query=tgt_points, reference=src_points, radius=radius, k=None
+    distances, indices = knn(
+        query_points=tgt_points,
+        reference_points=src_points,
+        k=None,  # Return all neighbors within radius
+        return_distances=True,
+        radius=radius,
+        method='scipy',
+    )
+
+    # Create correspondence pairs using vectorized operations
+    # distances and indices are [N_tgt, k] where k = src_points.shape[0]
+    # We need to convert to correspondence format [K, 2] where each row is [src_idx, tgt_idx]
+
+    # Find valid correspondences (distance < inf and index >= 0)
+    valid_mask = (distances < float('inf')) & (indices >= 0)
+
+    # Get the coordinates of valid correspondences
+    tgt_idx_coords, k_coords = torch.where(valid_mask)
+    src_idx_coords = indices[tgt_idx_coords, k_coords]
+
+    # Stack to create correspondence pairs [src_idx, tgt_idx]
+    correspondences = torch.stack([src_idx_coords, tgt_idx_coords], dim=1)
+
+    return correspondences

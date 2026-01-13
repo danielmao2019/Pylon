@@ -1,9 +1,9 @@
-from typing import Dict, Union
+from typing import Union
 import torch
 import open3d as o3d
 from data.transforms.base_transform import BaseTransform
-from utils.input_checks.check_point_cloud import check_point_cloud
-from utils.point_cloud_ops.select import Select
+from data.structures.three_d.point_cloud.select import Select
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class DownSample(BaseTransform):
@@ -13,16 +13,16 @@ class DownSample(BaseTransform):
         assert voxel_size > 0, f"{voxel_size=}"
         self.voxel_size = float(voxel_size)
 
-    def _call_single(self, pc: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def _call_single(self, pc: PointCloud) -> PointCloud:
         """
         Args:
-            pc (Dict[str, torch.Tensor]): The point cloud to downsample.
+            pc (PointCloud): The point cloud to downsample.
         """
-        check_point_cloud(pc)
+        assert isinstance(pc, PointCloud), f"{type(pc)=}"
 
         # Convert to Open3D point cloud for downsampling
         pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(pc['pos'].detach().cpu().numpy())
+        pcd.points = o3d.utility.Vector3dVector(pc.xyz.detach().cpu().numpy())
 
         # Perform voxel downsampling and get indices directly
         _, _, kept_indices = pcd.voxel_down_sample_and_trace(

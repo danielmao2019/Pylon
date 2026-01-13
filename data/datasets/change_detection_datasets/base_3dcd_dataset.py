@@ -8,6 +8,7 @@ import torch
 from dash import dcc, html
 from data.datasets.base_dataset import BaseDataset
 from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.display_utils import (
     DisplayStyles,
     ParallelFigureCreator,
@@ -19,19 +20,19 @@ from data.viewer.utils.structure_validation import validate_3dcd_structure
 
 class Base3DCDDataset(BaseDataset):
     """Base class for 3D change detection datasets.
-    
+
     This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint
     method for 3D change detection datasets. Concrete dataset classes should inherit
     from this class to automatically get appropriate display functionality.
-    
+
     Expected data structure:
-    - inputs: {'pc_1': Dict, 'pc_2': Dict, [optional] 'kdtree_1': Any, 'kdtree_2': Any}
+    - inputs: {'pc_1': PointCloud, 'pc_2': PointCloud, [optional] 'kdtree_1': Any, 'kdtree_2': Any}
     - labels: {'change_map': torch.Tensor}
     """
-    
+
     INPUT_NAMES = ['pc_1', 'pc_2']
     LABEL_NAMES = ['change_map']
-    
+
     @staticmethod
     def display_datapoint(
         datapoint: Dict[str, Any],
@@ -40,22 +41,22 @@ class Base3DCDDataset(BaseDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> html.Div:
         """Display a 3D change detection datapoint.
-        
+
         Args:
             datapoint: Dictionary containing inputs, labels, and meta_info from dataset
             class_labels: Optional dictionary mapping class indices to label names
             camera_state: Optional dictionary containing camera position state for 3D visualizations
             settings_3d: Optional dictionary containing 3D visualization settings
-            
+
         Returns:
             html.Div: HTML layout for displaying this datapoint
         """
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
         assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
-        
+
         # Handle class_labels parameter (convert to class_names format)
-        class_names = None  
+        class_names = None
         if class_labels is not None:
             # Convert class_labels dict to simple int->str mapping expected by display function
             if isinstance(class_labels, dict) and len(class_labels) > 0:
@@ -63,13 +64,13 @@ class Base3DCDDataset(BaseDataset):
                 first_key = next(iter(class_labels))
                 if isinstance(class_labels[first_key], list):
                     class_names = {i: name for i, name in enumerate(class_labels[first_key])}
-        
+
         # Extract 3D-specific parameters with defaults
         point_size = 2.0
         point_opacity = 0.8
         lod_type = "continuous"
         density_percentage = 100
-        
+
         # Unpack 3D settings if provided
         if settings_3d is not None:
             assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
@@ -77,32 +78,34 @@ class Base3DCDDataset(BaseDataset):
             point_opacity = settings_3d.get('point_opacity', point_opacity)
             lod_type = settings_3d.get('lod_type', lod_type)
             density_percentage = settings_3d.get('density_percentage', density_percentage)
-        
+
         # Validate structure and inputs (includes all basic validation)
         validate_3dcd_structure(datapoint)
-        
+
         inputs = datapoint['inputs']
 
+        pc_1 = inputs['pc_1']
+        assert isinstance(pc_1, PointCloud), f"pc_1 must be PointCloud, got {type(pc_1)}"
+
+        pc_2 = inputs['pc_2']
+        assert isinstance(pc_2, PointCloud), f"pc_2 must be PointCloud, got {type(pc_2)}"
+
         # Extract data
-        points_1 = inputs['pc_1']['pos']  # First point cloud
-        points_2 = inputs['pc_2']['pos']  # Second point cloud
+        points_1 = pc_1.xyz  # First point cloud
+        points_2 = pc_2.xyz  # Second point cloud
         change_map = datapoint['labels']['change_map']
-        
-        # Extract RGB colors if available
-        rgb_1 = inputs['pc_1'].get('rgb')
-        rgb_2 = inputs['pc_2'].get('rgb')
 
         # Get statistics for point clouds
         stats_data = [
-            get_point_cloud_display_stats(inputs['pc_1'], class_names=class_names),
-            get_point_cloud_display_stats(inputs['pc_2'], class_names=class_names),
-            get_point_cloud_display_stats(inputs['pc_2'], change_map, class_names=class_names)  # change_map corresponds to points_2
+            get_point_cloud_display_stats(pc_1, class_names=class_names),
+            get_point_cloud_display_stats(pc_2, class_names=class_names),
+            get_point_cloud_display_stats(pc_2, change_map, class_names=class_names),  # change_map corresponds to points_2
         ]
 
         # Prepare figure creation tasks with proper point cloud IDs
         figure_tasks = [
             lambda: create_point_cloud_display(
-                pc=inputs['pc_1'],  # Already has 'pos' and optionally 'rgb'
+                pc=pc_1,  # Already has xyz and optionally rgb
                 color_key=None,
                 highlight_indices=None,
                 title="Point Cloud 1",
@@ -114,7 +117,7 @@ class Base3DCDDataset(BaseDataset):
                 density_percentage=density_percentage,
             ),
             lambda: create_point_cloud_display(
-                pc=inputs['pc_2'],  # Already has 'pos' and optionally 'rgb'
+                pc=pc_2,  # Already has xyz and optionally rgb
                 color_key=None,
                 highlight_indices=None,
                 title="Point Cloud 2",
@@ -126,7 +129,7 @@ class Base3DCDDataset(BaseDataset):
                 density_percentage=density_percentage,
             ),
             lambda: create_point_cloud_display(
-                pc={'pos': points_2, 'classification': change_map},  # Create pc dict with change map as classification
+                pc=PointCloud(xyz=points_2, data={'classification': change_map}),  # change_map corresponds to points_2
                 color_key='classification',  # Use 'classification' as the label key
                 highlight_indices=None,
                 title="Change Map",
@@ -184,5 +187,5 @@ class Base3DCDDataset(BaseDataset):
             meta_info=datapoint.get('meta_info', {}),
             debug_outputs=datapoint.get('debug')
         )
-        
+
         return result

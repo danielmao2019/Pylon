@@ -6,10 +6,10 @@ from data.datasets.base_dataset import BaseDataset
 from data.transforms.compose import Compose
 from data.transforms.vision_2d.random_rotation import RandomRotation
 from data.transforms.vision_2d.crop.random_crop import RandomCrop
-from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
 from data.transforms.vision_3d.shuffle import Shuffle
 from data.transforms.vision_3d.uniform_pos_noise import UniformPosNoise
 from data.transforms.vision_3d.scale import Scale
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class DummyDataset(BaseDataset):
@@ -35,7 +35,7 @@ class DummyDataset(BaseDataset):
         inputs = {
             'image': torch.randn(3, 64, 64, generator=self.generator),
             'point_cloud': {
-                'pos': torch.randn(1000, 3, generator=self.generator),
+                'xyz': torch.randn(1000, 3, generator=self.generator),
                 'features': torch.randn(1000, 3, generator=self.generator),
             },
         }
@@ -132,7 +132,13 @@ def test_transform_determinism():
         assert batch1['labels'].keys() == batch2['labels'].keys() == {'label'}
         assert batch1['meta_info'].keys() == batch2['meta_info'].keys() == {'idx'}
         assert torch.allclose(batch1['inputs']['image'], batch2['inputs']['image'])
-        assert torch.allclose(batch1['inputs']['point_cloud']['pos'], batch2['inputs']['point_cloud']['pos'])
-        assert torch.allclose(batch1['inputs']['point_cloud']['features'], batch2['inputs']['point_cloud']['features'])
+        assert isinstance(batch1['inputs']['point_cloud'], list)
+        assert isinstance(batch2['inputs']['point_cloud'], list)
+        assert len(batch1['inputs']['point_cloud']) == len(batch2['inputs']['point_cloud'])
+        for pc1, pc2 in zip(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud']):
+            assert isinstance(pc1, PointCloud)
+            assert isinstance(pc2, PointCloud)
+            assert torch.allclose(pc1.xyz, pc2.xyz)
+            assert torch.allclose(pc1.features, pc2.features)
         assert torch.allclose(batch1['labels']['label'], batch2['labels']['label'])
         assert torch.allclose(batch1['meta_info']['idx'], batch2['meta_info']['idx'])

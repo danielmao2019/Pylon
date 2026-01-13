@@ -1,10 +1,15 @@
-from typing import Dict, Any, Tuple
-import pytest
 import logging
+from typing import Any, Dict, Tuple
+
+import pytest
 import torch
-from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
+
+from configs.common.models.point_cloud_registration.geotransformer_cfg import (
+    model_cfg,
+)
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
 from data.datasets.base_dataset import BaseDataset
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.builders.builder import build_from_config
 
 # Configure logging
@@ -50,14 +55,8 @@ class DummyPCRDataset(BaseDataset):
         transform = torch.randn(4, 4, device=self.device)
 
         inputs = {
-            'src_pc': {
-                'pos': src_points,
-                'feat': src_feats,
-            },
-            'tgt_pc': {
-                'pos': tgt_points,
-                'feat': tgt_feats,
-            },
+            'src_pc': PointCloud(xyz=src_points, data={'feat': src_feats}),
+            'tgt_pc': PointCloud(xyz=tgt_points, data={'feat': tgt_feats}),
             'correspondences': correspondences,
         }
 
@@ -183,7 +182,7 @@ def test_geotransformer_forward():
 ])
 def test_geotransformer_memory_growth(num_points, bounds):
     """Test that GPU memory usage stays within expected bounds for different point cloud sizes.
-    
+
     Args:
         num_points: Number of points in the point cloud
         bounds: Dictionary containing memory thresholds in MB for:
@@ -194,20 +193,20 @@ def test_geotransformer_memory_growth(num_points, bounds):
     """
     # Clear CUDA cache before test
     torch.cuda.empty_cache()
-    
+
     # Get initial memory usage
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
-    
+
     # Create model and move to CUDA
     model = build_from_config(model_cfg)
     model = model.cuda()
     model.eval()
-    
+
     # Get memory after model creation
     model_allocated = torch.cuda.memory_allocated()
     model_reserved = torch.cuda.memory_reserved()
-    
+
     # Create dataset and dataloader
     dataset = DummyPCRDataset(num_points=num_points, split='train')
     dataloader = GeoTransformerDataloader(
@@ -219,29 +218,29 @@ def test_geotransformer_memory_growth(num_points, bounds):
         num_workers=0,
         keep_ratio=0.8  # Fixed value
     )
-    
+
     # Get one batch from dataloader
     batch = next(iter(dataloader))
-    
+
     # Get memory after data creation
     data_allocated = torch.cuda.memory_allocated()
     data_reserved = torch.cuda.memory_reserved()
-    
+
     # Run forward pass
     with torch.no_grad():
         output_dict = model(batch['inputs'])
-    
+
     # Get final memory usage
     final_allocated = torch.cuda.memory_allocated()
     final_reserved = torch.cuda.memory_reserved()
-    
+
     # Calculate memory growth
     model_memory = model_allocated - initial_allocated
     data_memory = data_allocated - model_allocated
     forward_memory = final_allocated - data_allocated
     total_memory = final_allocated - initial_allocated
     memory_per_point = total_memory / num_points
-    
+
     # Convert all memory values to MB for logging and comparison
     memory_stats = {
         'initial': initial_allocated / 1024**2,
@@ -252,7 +251,7 @@ def test_geotransformer_memory_growth(num_points, bounds):
         'per_point': memory_per_point / 1024**2,
         'reserved': final_reserved / 1024**2
     }
-    
+
     # Log memory usage statistics with thresholds
     logger.info("\n" + "="*70)
     logger.info(f"MEMORY USAGE FOR {num_points} POINTS")
@@ -265,7 +264,7 @@ def test_geotransformer_memory_growth(num_points, bounds):
     logger.info(f"{'Memory per point:':<25} {memory_stats['per_point']:>10.2f} MB/point")
     logger.info(f"{'Reserved memory:':<25} {memory_stats['reserved']:>10.2f} MB")
     logger.info("="*70)
-    
+
     # Log memory usage percentages relative to thresholds
     logger.info("\nMEMORY USAGE RELATIVE TO THRESHOLDS:")
     logger.info("-"*70)
@@ -273,7 +272,7 @@ def test_geotransformer_memory_growth(num_points, bounds):
         usage_percent = (memory_stats[component] / bounds[component]) * 100
         logger.info(f"{component.capitalize():<10} memory: {usage_percent:>6.1f}% of threshold")
     logger.info("="*70)
-    
+
     # Log suggested new bounds based on actual usage
     logger.info("\nSUGGESTED NEW BOUNDS:")
     logger.info("-"*70)
@@ -282,7 +281,7 @@ def test_geotransformer_memory_growth(num_points, bounds):
     logger.info(f"{'Forward:':<10} {max(memory_stats['forward'] * 1.2, bounds['forward']):>6.1f} MB")
     logger.info(f"{'Total:':<10} {max(memory_stats['total'] * 1.2, bounds['total']):>6.1f} MB")
     logger.info("="*70)
-    
+
     # Assert memory usage is within thresholds
     assert memory_stats['total'] <= bounds['total'], \
         f"Total memory usage ({memory_stats['total']:.2f} MB) exceeds threshold ({bounds['total']} MB) for {num_points} points"

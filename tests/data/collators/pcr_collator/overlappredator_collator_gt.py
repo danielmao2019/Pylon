@@ -1,6 +1,11 @@
 import numpy as np
 import torch
-from data.collators.overlappredator.overlappredator_collate_fn import batch_grid_subsampling_kpconv, batch_neighbors_kpconv
+
+from data.collators.overlappredator.overlappredator_collate_fn import (
+    batch_grid_subsampling_kpconv,
+    batch_neighbors_kpconv,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def overlappredator_collate_fn_gt(list_data, config, neighborhood_limits):
@@ -11,23 +16,28 @@ def overlappredator_collate_fn_gt(list_data, config, neighborhood_limits):
 
     for ind, dp in enumerate(list_data):
         # unpack
-        src_pcd = dp['inputs']['src_pc']['pos']
-        tgt_pcd = dp['inputs']['tgt_pc']['pos']
-        src_feats = dp['inputs']['src_pc']['feat']
-        tgt_feats = dp['inputs']['tgt_pc']['feat']
+        src_pc = dp['inputs']['src_pc']
+        tgt_pc = dp['inputs']['tgt_pc']
+        assert isinstance(src_pc, PointCloud), 'src_pc must be a PointCloud'
+        assert isinstance(tgt_pc, PointCloud), 'tgt_pc must be a PointCloud'
+
+        src_pcd = src_pc.xyz
+        tgt_pcd = tgt_pc.xyz
+        src_feats = src_pc.feat
+        tgt_feats = tgt_pc.feat
         rot = dp['labels']['transform'][:3, :3]
         trans = dp['labels']['transform'][:3, 3]
         matching_inds = dp['inputs']['correspondences']
-        src_pcd_raw = dp['inputs']['src_pc']['pos']
-        tgt_pcd_raw = dp['inputs']['tgt_pc']['pos']
+        src_pcd_raw = src_pc.xyz
+        tgt_pcd_raw = tgt_pc.xyz
         sample = None
 
         batched_points_list.append(src_pcd)
         batched_points_list.append(tgt_pcd)
         batched_features_list.append(src_feats)
         batched_features_list.append(tgt_feats)
-        batched_lengths_list.append(len(src_pcd))
-        batched_lengths_list.append(len(tgt_pcd))
+        batched_lengths_list.append(src_pc.num_points)
+        batched_lengths_list.append(tgt_pc.num_points)
 
     batched_features = torch.cat(batched_features_list, dim=0)
     batched_points = torch.cat(batched_points_list, dim=0)

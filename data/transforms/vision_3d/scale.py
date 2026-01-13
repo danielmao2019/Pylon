@@ -1,7 +1,8 @@
 import torch
-import numpy as np
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 from data.transforms.base_transform import BaseTransform
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.select import Select
 
 
 class Scale(BaseTransform):
@@ -17,29 +18,24 @@ class Scale(BaseTransform):
         assert scale_factor > 0 and scale_factor < 1, f"{scale_factor=}"
         self.scale_factor = scale_factor
 
-    def __call__(self, pc: Dict[str, Any], seed: Optional[Any] = None) -> Dict[str, Any]:
+    def __call__(
+        self, pc: PointCloud, seed: Optional[Any] = None
+    ) -> PointCloud:
         """
         Scale down point cloud and subsample points proportionally.
 
         Args:
-            pc: Dictionary containing point cloud data with 'pos' key
+            pc: Point cloud with required xyz field
 
         Returns:
-            Dictionary with scaled and subsampled point cloud
+            PointCloud with scaled and subsampled points
 
         Raises:
             ValueError: If the scale factor is too small, resulting in 0 points after scaling
         """
-        assert isinstance(pc, dict), f"{type(pc)=}"
-        assert 'pos' in pc, f"'pos' not found in {pc.keys()}"
-        assert pc['pos'].shape[0] > 0, f"{pc['pos'].shape=}"
-        assert all(isinstance(v, torch.Tensor) for v in pc.values()), \
-            f"{[type(v) for v in pc.values()]=}"
-        assert all(pc[k].shape[0] == pc['pos'].shape[0] for k in pc.keys() if k != 'pos'), \
-            f"{pc['pos'].shape=}, {[pc[k].shape for k in pc.keys() if k != 'pos']=}"
+        assert isinstance(pc, PointCloud), f"{type(pc)=}"
 
-        # Get points
-        points = pc['pos']
+        points = pc.xyz
         num_points = points.shape[0]
         device = points.device
 
@@ -55,17 +51,9 @@ class Scale(BaseTransform):
         generator = self._get_generator(g_type='torch', seed=seed)
         indices = torch.randperm(num_points, device=device, generator=generator)[:target_points]
 
-        # Create new dictionary with scaled and subsampled values
-        result = {}
-        for key, value in pc.items():
-            if key == 'pos':
-                # For XYZ coordinates, both subsample and scale
-                result[key] = value[indices] * self.scale_factor
-            else:
-                # For other features, only subsample
-                result[key] = value[indices]
-
-        return result
+        selected = Select(indices)(pc)
+        selected.xyz = selected.xyz * self.scale_factor
+        return selected
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(scale_factor={self.scale_factor})"

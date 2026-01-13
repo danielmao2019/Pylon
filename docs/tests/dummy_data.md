@@ -44,7 +44,19 @@ The framework enforces strict tensor type conventions for:
 - Images (float32, specific channel ordering)  
 - Segmentation masks (int64, specific shapes)
 - Classification labels (int64 scalars/tensors)
-- Point clouds (dictionary format with 'pos' key)
+- Point clouds (use `PointCloud` objects with `xyz` coordinates)
 - Model predictions (task-specific formats)
 
 **Key principle**: Always specify `dtype` when creating test tensors to match the framework requirements.
+
+### Point Cloud Test Inputs
+
+Tests that need point clouds should construct `PointCloud` instances from `data.structures.three_d.point_cloud.point_cloud` rather than pretending with ad-hoc dictionaries. `PointCloud` enforces the expected coordinate shape and dtype, keeps all fields on the same device, and exposes `num_points` so downstream logic never has to look at `.xyz.shape[0]`.
+
+```python
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
+pc = PointCloud(xyz=torch.randn(1024, 3, dtype=torch.float32))
+pc.feat = torch.ones(pc.num_points, 1, dtype=torch.float32)
+assert pc.num_points == 1024
+```

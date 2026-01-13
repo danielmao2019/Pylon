@@ -153,32 +153,36 @@ sun3d-mit_76_studyroom-76-1studyroom2, sun3d-mit_lab_hj-lab_hj_tea_nov_2_2012_sc
 
 ### Input/Output Structure
 ```python
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
 {
     'inputs': {
-        'src_pc': {
-            'pos': torch.Tensor,    # Source point cloud (M, 3)
-            'feat': torch.Tensor,   # Features (M, 1) - all ones
-        },
-        'tgt_pc': {
-            'pos': torch.Tensor,    # Target point cloud (N, 3)
-            'feat': torch.Tensor,   # Features (N, 1) - all ones
-        },
-        'correspondences': torch.Tensor,  # Point correspondences (K, 2)
+        'src_pc': PointCloud(
+            xyz=src_positions,                # Source point cloud (M, 3)
+            data={'feat': src_feat}            # Features aligned with src_pc.num_points
+        ),
+        'tgt_pc': PointCloud(
+            xyz=tgt_positions,                # Target point cloud (N, 3)
+            data={'feat': tgt_feat}            # Features aligned with tgt_pc.num_points
+        ),
+        'correspondences': torch.Tensor,      # Point correspondences (K, 2)
     },
     'labels': {
-        'transform': torch.Tensor,        # 4x4 transformation matrix
+        'transform': torch.Tensor              # 4x4 transformation matrix
     },
     'meta_info': {
-        'idx': int,                      # Dataset index
-        'src_path': str,                 # Source point cloud path
-        'tgt_path': str,                 # Target point cloud path
-        'scene_name': str,               # Scene name
-        'overlap': float,                # Overlap ratio
-        'src_frame': int,                # Source fragment ID
-        'tgt_frame': int,                # Target fragment ID
+        'idx': int,                           # Dataset index
+        'src_path': str,                      # Source point cloud path
+        'tgt_path': str,                      # Target point cloud path
+        'scene_name': str,                    # Scene name
+        'overlap': float,                     # Overlap ratio
+        'src_frame': int,                     # Source fragment ID
+        'tgt_frame': int,                     # Target fragment ID
     }
 }
 ```
+
+`PointCloud` guarantees non-empty coordinate tensors and keeps positional (`xyz`) data synchronized with optional fields, so downstream code should never reintroduce dictionary-based fallbacks or revalidate emptiness manually. Use `pc.num_points` whenever you need to check the number of points instead of peeking at `xyz.shape[0]`, and keep every optional field aligned with that cardinality.
 
 ### File System Structure
 ```

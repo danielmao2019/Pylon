@@ -1,6 +1,8 @@
-import torch
 import numpy as np
 import pytest
+import torch
+
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.point_cloud_registration.classic.teaserplusplus import TeaserPlusPlus
 
 
@@ -17,13 +19,13 @@ def test_teaserplusplus_forward_pass():
         num_target_points = 120
 
         # Create random point clouds
-        src_pc = torch.rand(batch_size, num_source_points, 3)
-        tgt_pc = torch.rand(batch_size, num_target_points, 3)
+        src_pc = PointCloud(xyz=torch.rand(batch_size, num_source_points, 3))
+        tgt_pc = PointCloud(xyz=torch.rand(batch_size, num_target_points, 3))
 
         # Create input dictionary
         inputs = {
-            'src_pc': {'pos': src_pc},
-            'tgt_pc': {'pos': tgt_pc}
+            'src_pc': src_pc,
+            'tgt_pc': tgt_pc,
         }
 
         # Run forward pass

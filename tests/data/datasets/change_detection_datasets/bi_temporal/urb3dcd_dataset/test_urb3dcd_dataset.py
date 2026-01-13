@@ -1,28 +1,29 @@
-from typing import Dict, Any
-import pytest
 import random
-import torch
 from concurrent.futures import ThreadPoolExecutor
-from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
+from typing import Any, Dict
+
+import pytest
+import torch
+
+from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import (
+    Urb3DCDDataset,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from utils.builders.builder import build_from_config
 
 
-def validate_point_cloud(pc: Dict[str, torch.Tensor], name: str) -> None:
-    """Validate a point cloud dictionary."""
-    assert isinstance(pc, dict), f"{name} should be a dictionary"
-    assert 'pos' in pc, f"{name} should have 'pos' key"
-    assert 'feat' in pc, f"{name} should have 'feat' key"
+def validate_point_cloud(pc: PointCloud, name: str) -> None:
+    """Validate a point cloud."""
+    assert isinstance(pc, PointCloud), f"{name} should be PointCloud"
 
-    # Validate pos tensor
-    assert isinstance(pc['pos'], torch.Tensor), f"{name}['pos'] should be a torch.Tensor"
-    assert pc['pos'].ndim == 2, f"{name}['pos'] should have 2 dimensions (N x 3), got {pc['pos'].ndim}"
-    assert pc['pos'].size(1) == 3, f"{name}['pos'] should have 3 features (x,y,z), got {pc['pos'].size(1)}"
-    assert torch.is_floating_point(pc['pos']), f"{name}['pos'] should be of dtype torch.float"
+    assert pc.xyz.ndim == 2, f"{name}.xyz should have 2 dimensions (N x 3), got {pc.xyz.ndim}"
+    assert pc.xyz.size(1) == 3, f"{name}.xyz should have 3 features (x,y,z), got {pc.xyz.size(1)}"
+    assert torch.is_floating_point(pc.xyz), f"{name}.xyz should be of dtype torch.float"
 
-    # Validate feat tensor
-    assert isinstance(pc['feat'], torch.Tensor), f"{name}['feat'] should be a torch.Tensor"
-    assert pc['feat'].ndim == 2, f"{name}['feat'] should have 2 dimensions (N x F), got {pc['feat'].ndim}"
-    assert pc['feat'].size(1) == 1, f"{name}['feat'] should have 1 feature (F), got {pc['feat'].size(1)}"
-    assert torch.is_floating_point(pc['feat']), f"{name}['feat'] should be of dtype torch.float"
+    assert 'feat' in pc.field_names(), f"{name} should have 'feat' key"
+    assert pc.feat.ndim == 2, f"{name}.feat should have 2 dimensions (N x F), got {pc.feat.ndim}"
+    assert pc.feat.size(1) == 1, f"{name}.feat should have 1 feature (F), got {pc.feat.size(1)}"
+    assert torch.is_floating_point(pc.feat), f"{name}.feat should be of dtype torch.float"
 
 
 def validate_change_map(change_map: torch.Tensor) -> None:
@@ -35,10 +36,10 @@ def validate_change_map(change_map: torch.Tensor) -> None:
         f"Unexpected values in change_map: {unique_values}"
 
 
-def validate_point_count_consistency(pc1: Dict[str, torch.Tensor], change_map: torch.Tensor) -> None:
+def validate_point_count_consistency(pc1: PointCloud, change_map: torch.Tensor) -> None:
     """Validate that pc_1 and change_map have the same number of points."""
-    assert pc1['pos'].size(0) == change_map.size(0), \
-        f"Number of points in pc_1 ({pc1['pos'].size(0)}) does not match " \
+    assert pc1.num_points == change_map.size(0), \
+        f"Number of points in pc_1 ({pc1.num_points}) does not match " \
         f"number of points in change_map ({change_map.size(0)})"
 
 
@@ -46,9 +47,7 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
     """Validate the inputs of a datapoint."""
     assert isinstance(inputs, dict)
     assert set(inputs.keys()) == {'pc_1', 'pc_2'}
-    assert isinstance(inputs['pc_1'], dict)
     validate_point_cloud(inputs['pc_1'], 'pc_1')
-    assert isinstance(inputs['pc_2'], dict)
     validate_point_cloud(inputs['pc_2'], 'pc_2')
 
 
@@ -79,8 +78,6 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 @pytest.mark.parametrize('dataset_config', ['train', 'val', 'test'], indirect=True)
 def test_urb3dcd_dataset(dataset_config, max_samples, get_samples_to_test) -> None:
-    from utils.builders.builder import build_from_config
-    
     dataset = build_from_config(dataset_config)
     """Test the Urb3DCDDataset class."""
     print("Dataset initialized.")
@@ -119,11 +116,11 @@ def test_urb3dcd_dataset_grid_sampling(urb3dcd_data_root, max_samples, get_sampl
         fix_samples=False,
         radius=50
     )
-    
+
     assert len(dataset) > 0
     num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = random.sample(range(len(dataset)), num_samples) if num_samples < len(dataset) else list(range(len(dataset)))
-    
+
     def validate_datapoint_grid(idx: int) -> None:
         datapoint = dataset[idx]
         inputs = datapoint['inputs']
@@ -133,7 +130,7 @@ def test_urb3dcd_dataset_grid_sampling(urb3dcd_data_root, max_samples, get_sampl
         validate_labels(labels)
         validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
         validate_meta_info(meta_info, idx)
-    
+
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint_grid, indices)
 
@@ -149,11 +146,11 @@ def test_urb3dcd_dataset_fixed_sampling(urb3dcd_data_root, max_samples, get_samp
         fix_samples=True,  # Fixed sampling mode
         radius=50
     )
-    
+
     assert len(dataset) > 0
     num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = random.sample(range(len(dataset)), num_samples) if num_samples < len(dataset) else list(range(len(dataset)))
-    
+
     def validate_datapoint_fixed(idx: int) -> None:
         datapoint = dataset[idx]
         inputs = datapoint['inputs']
@@ -163,7 +160,7 @@ def test_urb3dcd_dataset_fixed_sampling(urb3dcd_data_root, max_samples, get_samp
         validate_labels(labels)
         validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
         validate_meta_info(meta_info, idx)
-    
+
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint_fixed, indices)
 
@@ -187,10 +184,10 @@ def test_fixed_samples_consistency(urb3dcd_data_root) -> None:
         labels2 = datapoint2['labels']
         meta_info2 = datapoint2['meta_info']
         # Test inputs consistency
-        assert torch.allclose(inputs1['pc_1']['pos'], inputs2['pc_1']['pos'])
-        assert torch.allclose(inputs1['pc_1']['feat'], inputs2['pc_1']['feat'])
-        assert torch.allclose(inputs1['pc_2']['pos'], inputs2['pc_2']['pos'])
-        assert torch.allclose(inputs1['pc_2']['feat'], inputs2['pc_2']['feat'])
+        assert torch.allclose(inputs1['pc_1'].xyz, inputs2['pc_1'].xyz)
+        assert torch.allclose(inputs1['pc_1'].feat, inputs2['pc_1'].feat)
+        assert torch.allclose(inputs1['pc_2'].xyz, inputs2['pc_2'].xyz)
+        assert torch.allclose(inputs1['pc_2'].feat, inputs2['pc_2'].feat)
 
         # Test labels consistency
         assert torch.equal(labels1['change_map'], labels2['change_map'])
