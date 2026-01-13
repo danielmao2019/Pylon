@@ -32,10 +32,10 @@ __all__ = (
     'BUFFER_DescStageMetric',
     'BUFFER_KeyptStageMetric',
     'BUFFER_InlierStageMetric',
-    
+
     'D3FeatAccuracyMetric',
-    'D3FeatIoUMetric', 
+    'D3FeatIoUMetric',
     'D3FeatDescriptorMetric',
-    
+
     'PARENetMetric',
 )

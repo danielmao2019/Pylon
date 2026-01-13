@@ -45,7 +45,7 @@ class HybridMetric(SingleTaskMetric):
         assert all(isinstance(m, BaseMetric) for m in self.metrics)
         assert all(not m.use_buffer for m in self.metrics), "Component metrics should not use buffer"
         assert all(not hasattr(m, 'buffer') for m in self.metrics), "Component metrics should not have buffer attribute"
-        
+
         # Build DIRECTIONS from component metrics by collecting all their score keys
         self.DIRECTIONS = {}
         for i, component_metric in enumerate(self.metrics):
@@ -65,7 +65,7 @@ class HybridMetric(SingleTaskMetric):
             overlapping_keys = set(merged_scores.keys()) & set(scores.keys())
             assert len(overlapping_keys) == 0, f"Key overlap detected: {overlapping_keys}"
             merged_scores.update(scores)
-        
+
         # Add to buffer if this metric uses buffer
         self.add_to_buffer(merged_scores, datapoint)
         return merged_scores

@@ -103,7 +103,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
         assert 'outputs' in datapoint and 'labels' in datapoint
         y_pred = datapoint['outputs']
         y_true = datapoint['labels']
-        
+
         # input checks
         assert type(y_pred) == dict, f"{type(y_pred)=}"
         assert set(['labels', 'bboxes', 'objectness']).issubset(set(y_pred.keys())), f"{y_pred.keys()=}"

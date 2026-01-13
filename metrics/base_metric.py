@@ -1,8 +1,10 @@
-from typing import List, Dict, Any, Optional
-from abc import ABC, abstractmethod
 import queue
 import threading
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
+
 import torch
+
 from utils.ops.apply import apply_tensor_op
 
 

@@ -15,7 +15,7 @@ class SemanticSegmentationMetric(SingleTaskMetric):
     # and not suitable for scalar comparison in early stopping/best model selection
     DIRECTIONS = {
         'mean_IoU': 1,          # Higher is better
-        'accuracy': 1,          # Higher is better  
+        'accuracy': 1,          # Higher is better
         'mean_precision': 1,    # Higher is better
         'mean_recall': 1,       # Higher is better
         'mean_f1': 1,          # Higher is better
