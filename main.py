@@ -1,16 +1,20 @@
 import argparse
+import importlib.util
 import os
 import sys
-import importlib.util
+from pathlib import Path
 
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+REPO_ROOT = Path(__file__).resolve().parents[0]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config-filepath', required=True)
-    parser.add_argument('--debug', action='store_true', help="Modify config for debugging mode")
+    parser.add_argument(
+        '--debug', action='store_true', help="Modify config for debugging mode"
+    )
 
     args = parser.parse_args()
 
@@ -28,7 +32,9 @@ if __name__ == "__main__":
     for config in config_list:
         # Modify config if --debug is provided
         if args.debug:
-            config['work_dir'] = os.path.join("./logs", "debug", os.path.relpath(config['work_dir'], start="./logs"))
+            config['work_dir'] = os.path.join(
+                "./logs", "debug", os.path.relpath(config['work_dir'], start="./logs")
+            )
             os.system(f"rm -rf {config['work_dir']}")
             config['epochs'] = 3
             config['train_seeds'] = config['train_seeds'][:3]
@@ -40,7 +46,9 @@ if __name__ == "__main__":
                 if dataset_key in config and config[dataset_key] is not None:
                     if dataloader_key in config and config[dataloader_key] is not None:
                         batch_size = config[dataloader_key]['args'].get('batch_size', 1)
-                        config[dataset_key]['args']['indices'] = list(range(3 * batch_size))
+                        config[dataset_key]['args']['indices'] = list(
+                            range(3 * batch_size)
+                        )
 
         # Run training
         config['runner'](config=config).run()
