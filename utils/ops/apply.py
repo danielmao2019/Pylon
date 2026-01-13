@@ -1,27 +1,105 @@
-from typing import List, Union, Callable, Optional, Any
+from typing import Any, Callable, Dict, List, Optional, Union
+import copy
 import torch
 
 
 def apply_tensor_op(
+    func: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+    func_kwargs: Optional[Dict[str, Any]] = None,
+    method: Optional[str] = None,
+    method_kwargs: Optional[Dict[str, Any]] = None,
+    inputs: Union[tuple, list, dict, torch.Tensor, float, Any] = None,
+) -> Any:
+    assert (func is not None) ^ (method is not None)
+    if func_kwargs is not None:
+        assert func is not None
+    if method_kwargs is not None:
+        assert method is not None
+    if func is not None:
+        kwargs = {} if func_kwargs is None else func_kwargs
+        return _apply_tensor_func(func=func, func_kwargs=kwargs, inputs=inputs)
+    if method is not None:
+        kwargs = {} if method_kwargs is None else method_kwargs
+        return _apply_tensor_method(method=method, method_kwargs=kwargs, inputs=inputs)
+    assert 0
+
+
+def _apply_tensor_func(
     func: Callable[[torch.Tensor], torch.Tensor],
-    inputs: Union[tuple, list, dict, torch.Tensor, float],
+    func_kwargs: Dict[str, Any],
+    inputs: Union[tuple, list, dict, torch.Tensor, float, Any],
 ) -> Any:
     if isinstance(inputs, torch.Tensor):
-        return func(inputs)
-    elif isinstance(inputs, tuple):
+        return func(inputs, **func_kwargs)
+    if isinstance(inputs, tuple):
         return tuple(
-            apply_tensor_op(func=func, inputs=tuple_elem) for tuple_elem in inputs
+            _apply_tensor_func(
+                func=func, func_kwargs=func_kwargs, inputs=tuple_elem
+            )
+            for tuple_elem in inputs
         )
-    elif isinstance(inputs, list):
+    if isinstance(inputs, list):
         return list(
-            apply_tensor_op(func=func, inputs=list_elem) for list_elem in inputs
+            _apply_tensor_func(func=func, func_kwargs=func_kwargs, inputs=list_elem)
+            for list_elem in inputs
         )
-    elif isinstance(inputs, dict):
+    if isinstance(inputs, dict):
         return {
-            key: apply_tensor_op(func=func, inputs=inputs[key]) for key in inputs.keys()
+            key: _apply_tensor_func(
+                func=func, func_kwargs=func_kwargs, inputs=inputs[key]
+            )
+            for key in inputs.keys()
         }
-    else:
-        return inputs
+    if hasattr(inputs, '__dict__'):
+        cloned = copy.copy(inputs)
+        for attr, value in vars(inputs).items():
+            new_value = _apply_tensor_func(
+                func=func, func_kwargs=func_kwargs, inputs=value
+            )
+            setattr(cloned, attr, new_value)
+        return cloned
+    return inputs
+
+
+def _apply_tensor_method(
+    method: str,
+    method_kwargs: Dict[str, Any],
+    inputs: Union[tuple, list, dict, torch.Tensor, float, Any],
+) -> Any:
+    if hasattr(inputs, method):
+        method_ref = getattr(inputs, method)
+        assert callable(method_ref)
+        return method_ref(**method_kwargs)
+    if isinstance(inputs, tuple):
+        return tuple(
+            _apply_tensor_method(
+                method=method, method_kwargs=method_kwargs, inputs=tuple_elem
+            )
+            for tuple_elem in inputs
+        )
+    if isinstance(inputs, list):
+        return list(
+            _apply_tensor_method(
+                method=method, method_kwargs=method_kwargs, inputs=list_elem
+            )
+            for list_elem in inputs
+        )
+    if isinstance(inputs, dict):
+        return {
+            key: _apply_tensor_method(
+                method=method, method_kwargs=method_kwargs, inputs=inputs[key]
+            )
+            for key in inputs.keys()
+        }
+    if hasattr(inputs, '__dict__'):
+        cloned = copy.copy(inputs)
+        for attr, value in vars(inputs).items():
+            new_value = _apply_tensor_method(
+                method=method, method_kwargs=method_kwargs, inputs=value
+            )
+            setattr(cloned, attr, new_value)
+        return cloned
+    return inputs
 
 
 def apply_op(
