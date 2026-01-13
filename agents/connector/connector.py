@@ -1,9 +1,12 @@
-from typing import List
+import shlex
 import subprocess
 import threading
+from typing import List
+
 import paramiko
+
 from agents.connector.error import SSHCommandError
-from agents.connector.result import SSHResult, LocalhostResult
+from agents.connector.result import LocalhostResult, SSHResult
 
 
 class SSHConnector:
@@ -65,13 +68,16 @@ class SSHConnector:
         """Execute command and return result object."""
         if not self._connected:
             self.connect()
+        assert self._client is not None, "SSH client must be connected before execute"
 
-        cmd_str = ' '.join(command)
+        cmd_str = shlex.join(command)
 
         try:
             with self._lock:
                 stdin, stdout, stderr = self._client.exec_command(
-                    cmd_str, timeout=self.timeout, get_pty=False
+                    cmd_str,
+                    timeout=self.timeout,
+                    get_pty=True,
                 )
 
             return SSHResult(stdout, stderr, stdin)
