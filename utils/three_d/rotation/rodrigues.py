@@ -4,11 +4,12 @@ This module provides functions for converting between Rodrigues representations
 and rotation matrices using Rodrigues' rotation formula.
 """
 
-from typing import Tuple
-import torch
 import math
+from typing import Tuple
 
-from utils.input_checks.check_camera import check_rotation_matrix
+import torch
+
+from data.structures.three_d.camera.camera import Camera
 
 
 def rodrigues_canonical(
@@ -85,7 +86,7 @@ def matrix_to_rodrigues(
         - axis: Unit vector of shape (3,)
         - angle: Scalar tensor in radians [0, pi] (always non-negative)
     """
-    check_rotation_matrix(R)
+    Camera._validate_rotation_matrix(R)
 
     # Extract rotation angle from trace
     trace = torch.trace(R)

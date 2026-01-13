@@ -8,8 +8,7 @@ conversions to keep behaviour consistent across the codebase.
 
 import torch
 
-from utils.input_checks.check_camera import check_rotation_matrix
-from utils.three_d.camera.conventions import apply_coordinate_transform
+from data.structures.three_d.camera.camera import Camera
 from utils.three_d.rotation.euler import euler_to_matrix
 
 
@@ -57,7 +56,7 @@ def matrix_to_pitch_yaw(rotation: torch.Tensor) -> torch.Tensor:
         Tensor ``[pitch, yaw]`` matching the input dtype/device.
     """
 
-    check_rotation_matrix(rotation)
+    Camera._validate_rotation_matrix(rotation)
 
     dtype = rotation.dtype
     device = rotation.device

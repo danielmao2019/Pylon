@@ -1,54 +1,43 @@
 """Render camera geometry into image space using Bresenham lines."""
 
 from typing import Tuple, Union
+
 import torch
-from utils.three_d.camera.camera_vis import camera_vis
-from utils.three_d.camera.conventions import apply_coordinate_transform
-from utils.three_d.camera.project import project_3d_to_2d
-from utils.three_d.camera.transform import world_to_camera_transform
+
+from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
+from data.structures.three_d.point_cloud.camera.transform import (
+    world_to_camera_transform,
+)
+from data.structures.three_d.camera.camera_vis import camera_vis
 
 
 def render_camera(
-    cam_intrinsics: torch.Tensor,
-    cam_extrinsics: torch.Tensor,
-    cam_convention: str,
-    render_at_intrinsics: torch.Tensor,
-    render_at_extrinsics: torch.Tensor,
+    camera: Camera,
+    render_at_camera: Camera,
     render_at_resolution: Tuple[int, int],
-    render_at_convention: str,
     return_mask: bool = False,
     axis_length: float = 4.0,
     frustum_depth: float = 8.0,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-    assert isinstance(cam_intrinsics, torch.Tensor)
-    assert cam_intrinsics.shape == (3, 3)
-    assert isinstance(cam_extrinsics, torch.Tensor)
-    assert cam_extrinsics.shape == (4, 4)
-    assert isinstance(render_at_intrinsics, torch.Tensor)
-    assert render_at_intrinsics.shape == (3, 3)
-    assert isinstance(render_at_extrinsics, torch.Tensor)
-    assert render_at_extrinsics.shape == (4, 4)
+    assert isinstance(camera, Camera), f"{type(camera)=}"
+    assert isinstance(render_at_camera, Camera), f"{type(render_at_camera)=}"
     height, width = render_at_resolution
     assert height > 0
     assert width > 0
 
-    device = render_at_intrinsics.device
-    dtype = render_at_intrinsics.dtype
+    device = render_at_camera.device
+    dtype = render_at_camera.intrinsics.dtype
 
     geometry = camera_vis(
-        intrinsics=cam_intrinsics.to(device=device, dtype=dtype),
-        extrinsics=cam_extrinsics.to(device=device, dtype=dtype),
-        convention=cam_convention,
+        camera=camera.to(device=device),
         axis_length=axis_length,
         frustum_depth=frustum_depth,
     )
 
-    render_intrinsics = render_at_intrinsics.to(device=device, dtype=dtype)
-    render_extrinsics_opencv = apply_coordinate_transform(
-        extrinsics=render_at_extrinsics.to(device=device, dtype=dtype),
-        source_convention=render_at_convention,
-        target_convention='opencv',
-    )
+    render_at_camera = render_at_camera.to(device=device, convention='opencv')
+    render_intrinsics = render_at_camera.intrinsics
+    render_extrinsics = render_at_camera.extrinsics
 
     overlay = torch.zeros(3, height, width, device=device, dtype=dtype)
     mask = torch.zeros(height, width, device=device, dtype=dtype)
@@ -56,7 +45,7 @@ def render_camera(
     def project(points: torch.Tensor) -> torch.Tensor | None:
         points_cam = world_to_camera_transform(
             points=points.to(device=device, dtype=dtype),
-            extrinsics=render_extrinsics_opencv,
+            extrinsics=render_extrinsics,
             inplace=False,
         )
         if not torch.all(points_cam[:, 2] > 1.0e-4):

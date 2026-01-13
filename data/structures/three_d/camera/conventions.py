@@ -4,14 +4,17 @@ This module provides utilities to handle different camera coordinate system conv
 and transform them to standardized coordinate systems used in point cloud rendering.
 """
 
+from typing import TYPE_CHECKING
+
 import torch
 from utils.ops.materialize_tensor import materialize_tensor
-from utils.input_checks.check_camera import check_camera_extrinsics
+
+if TYPE_CHECKING:
+    from data.structures.three_d.camera.camera import Camera
 
 
-def apply_coordinate_transform(
-    extrinsics: torch.Tensor,
-    source_convention: str = "opengl",
+def _transform_convention(
+    camera: "Camera",
     target_convention: str = "standard",
 ) -> torch.Tensor:
     """Transform camera pose between different coordinate system conventions.
@@ -23,8 +26,7 @@ def apply_coordinate_transform(
     - "pytorch3d": X=left, Y=up, Z=forward (right-handed; camera looks down +Z axis)
 
     Args:
-        camera_extrinsics: 4x4 camera extrinsics matrix
-        source_convention: Source coordinate convention ("opengl", "standard", "opencv", "pytorch3d")
+        camera: Camera containing extrinsics/convention
         target_convention: Target coordinate convention ("opengl", "standard", "opencv", "pytorch3d")
 
     Returns:
@@ -33,21 +35,17 @@ def apply_coordinate_transform(
     Raises:
         ValueError: If unknown coordinate convention is specified
     """
-    # Validate camera extrinsics using input_checks utilities
-    check_camera_extrinsics(extrinsics)
+    from data.structures.three_d.camera.camera import Camera
 
-    assert source_convention in [
+    assert isinstance(camera, Camera), f"{type(camera)=}"
+    extrinsics = camera.extrinsics
+    source_convention = camera.convention
+    assert target_convention in {
         "standard",
         "opengl",
         "opencv",
         "pytorch3d",
-    ], f"Unknown source_convention: {source_convention}"
-    assert target_convention in [
-        "standard",
-        "opengl",
-        "opencv",
-        "pytorch3d",
-    ], f"Unknown target_convention: {target_convention}"
+    }, f"Unknown target_convention: {target_convention}"
 
     if source_convention == target_convention:
         return extrinsics
@@ -119,10 +117,10 @@ def _opengl_to_standard() -> torch.Tensor:
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],   # Keep X: OpenGL right → Standard right
+            [1, 0, 0, 0],  # Keep X: OpenGL right → Standard right
             [0, 0, -1, 0],  # -Z→Y: OpenGL forward → Standard forward
-            [0, 1, 0, 0],   # Y→Z: OpenGL up → Standard up
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 1, 0, 0],  # Y→Z: OpenGL up → Standard up
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -151,10 +149,10 @@ def _standard_to_opengl() -> torch.Tensor:
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],   # Keep X: Standard right → OpenGL right
-            [0, 0, 1, 0],   # Z→Y: Standard up → OpenGL up
+            [1, 0, 0, 0],  # Keep X: Standard right → OpenGL right
+            [0, 0, 1, 0],  # Z→Y: Standard up → OpenGL up
             [0, -1, 0, 0],  # Y→-Z: Standard forward → OpenGL forward
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -183,10 +181,10 @@ def _opengl_to_opencv() -> torch.Tensor:
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],   # Keep X: OpenGL right → OpenCV right
+            [1, 0, 0, 0],  # Keep X: OpenGL right → OpenCV right
             [0, -1, 0, 0],  # Negate Y: OpenGL up → OpenCV down
             [0, 0, -1, 0],  # Negate Z: OpenGL forward → OpenCV forward
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -215,10 +213,10 @@ def _opencv_to_opengl() -> torch.Tensor:
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],   # Keep X: OpenCV right → OpenGL right
+            [1, 0, 0, 0],  # Keep X: OpenCV right → OpenGL right
             [0, -1, 0, 0],  # Negate Y: OpenCV down → OpenGL up
             [0, 0, -1, 0],  # Negate Z: OpenCV forward → OpenGL forward
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -247,10 +245,10 @@ def _opencv_to_standard() -> torch.Tensor:
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],   # Keep X: OpenCV right → Standard right
-            [0, 0, 1, 0],   # Z→Y: OpenCV forward → Standard forward
+            [1, 0, 0, 0],  # Keep X: OpenCV right → Standard right
+            [0, 0, 1, 0],  # Z→Y: OpenCV forward → Standard forward
             [0, -1, 0, 0],  # -Y→Z: OpenCV down → Standard down
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -279,10 +277,10 @@ def _standard_to_opencv() -> torch.Tensor:
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],   # Keep X: Standard right → OpenCV right
+            [1, 0, 0, 0],  # Keep X: Standard right → OpenCV right
             [0, 0, -1, 0],  # Z→Y: Standard up → OpenCV down
-            [0, 1, 0, 0],   # Y→Z: Standard forward → OpenCV forward
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 1, 0, 0],  # Y→Z: Standard forward → OpenCV forward
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -312,9 +310,9 @@ def _opengl_to_pytorch3d() -> torch.Tensor:
     return torch.tensor(
         [
             [-1, 0, 0, 0],  # Negate X: OpenGL right → PyTorch3D left
-            [0, 1, 0, 0],   # Keep Y: OpenGL up → PyTorch3D up
+            [0, 1, 0, 0],  # Keep Y: OpenGL up → PyTorch3D up
             [0, 0, -1, 0],  # Negate Z: OpenGL backward → PyTorch3D forward
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -349,9 +347,9 @@ def _standard_to_pytorch3d() -> torch.Tensor:
     return torch.tensor(
         [
             [-1, 0, 0, 0],  # Negate X: Standard right → PyTorch3D left
-            [0, 0, 1, 0],   # Z→Y: Standard up → PyTorch3D up
-            [0, 1, 0, 0],   # Y→Z: Standard forward → PyTorch3D forward
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 0, 1, 0],  # Z→Y: Standard up → PyTorch3D up
+            [0, 1, 0, 0],  # Y→Z: Standard forward → PyTorch3D forward
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
@@ -387,8 +385,8 @@ def _opencv_to_pytorch3d() -> torch.Tensor:
         [
             [-1, 0, 0, 0],  # Negate X: OpenCV right → PyTorch3D left
             [0, -1, 0, 0],  # Negate Y: OpenCV down → PyTorch3D up
-            [0, 0, 1, 0],   # Keep Z: OpenCV forward → PyTorch3D forward
-            [0, 0, 0, 1],   # Homogeneous
+            [0, 0, 1, 0],  # Keep Z: OpenCV forward → PyTorch3D forward
+            [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )

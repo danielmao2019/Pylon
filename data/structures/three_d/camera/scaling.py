@@ -2,7 +2,7 @@ from typing import Optional, Tuple, Union
 
 import torch
 
-from utils.input_checks.check_camera import check_camera_intrinsics
+from data.structures.three_d.camera.camera import Camera
 
 
 def scale_intrinsics(
@@ -26,7 +26,7 @@ def scale_intrinsics(
 
     # ---- Input validation ----
     # 1) Assert-check camera intrinsics using provided API
-    check_camera_intrinsics(intrinsics)
+    Camera._validate_camera_intrinsics(intrinsics)
 
     # 1.a) Inplace must be a boolean
     assert isinstance(inplace, bool), "'inplace' must be a boolean."
@@ -91,6 +91,6 @@ def scale_intrinsics(
     intrinsics[1, 2] = intrinsics[1, 2] * float(scale[1])  # cy
 
     # Final check on resulting intrinsics
-    check_camera_intrinsics(intrinsics)
+    Camera._validate_camera_intrinsics(intrinsics)
 
     return intrinsics

@@ -4,10 +4,11 @@ This module provides functions for converting between Euler angles and rotation 
 including canonical form helpers to resolve Euler angle ambiguity.
 """
 
-import torch
 import math
 
-from utils.input_checks.check_camera import check_rotation_matrix
+import torch
+
+from data.structures.three_d.camera.camera import Camera
 
 
 def euler_to_matrix(angles: torch.Tensor) -> torch.Tensor:
@@ -73,7 +74,7 @@ def matrix_to_euler(
         - 'yzx': [Y rotation, Z rotation, X rotation]
         Y rotation is constrained to [-pi/2, +pi/2] for canonical form
     """
-    check_rotation_matrix(R)
+    Camera._validate_rotation_matrix(R)
 
     # Validate order parameter
     assert isinstance(order, str), f"order must be a string, got {type(order)}"

@@ -1,24 +1,18 @@
 import torch
 import numpy as np
 import plotly.graph_objects as go
-from utils.input_checks.check_camera import check_camera_intrinsics, check_camera_extrinsics
-from utils.three_d.camera.camera_vis import camera_vis
+from data.structures.three_d.camera.camera import Camera, camera_vis
 
 
 def add_camera_to_fig(
     fig: go.Figure,
-    camera_intrinsics: torch.Tensor,
-    camera_extrinsics: torch.Tensor,
-    convention: str,
+    camera: Camera,
     axis_length: float = 4.0,
     frustum_depth: float = 8.0,
 ) -> go.Figure:
-    check_camera_intrinsics(camera_intrinsics)
-    check_camera_extrinsics(camera_extrinsics)
+    assert isinstance(camera, Camera), f"{type(camera)=}"
     vis = camera_vis(
-        intrinsics=camera_intrinsics,
-        extrinsics=camera_extrinsics,
-        convention=convention,
+        camera=camera,
         axis_length=axis_length,
         frustum_depth=frustum_depth,
     )

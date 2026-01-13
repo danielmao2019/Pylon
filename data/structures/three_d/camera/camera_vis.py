@@ -1,36 +1,26 @@
 """Camera visualization primitives."""
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 import torch
-from utils.three_d.camera.conventions import apply_coordinate_transform
+
+from data.structures.three_d.camera.camera import Camera
 
 
 def camera_vis(
-    intrinsics: torch.Tensor,
-    extrinsics: torch.Tensor,
-    convention: str,
+    camera: Camera,
     axis_length: float = 4.0,
     frustum_depth: float = 8.0,
     frustum_color: torch.Tensor | None = None,
 ) -> Dict[str, Any]:
-    assert isinstance(intrinsics, torch.Tensor)
-    assert intrinsics.shape == (3, 3)
-    assert isinstance(extrinsics, torch.Tensor)
-    assert extrinsics.shape == (4, 4)
-    assert isinstance(convention, str)
+    assert isinstance(camera, Camera), f"{type(camera)=}"
     assert axis_length > 0.0
     assert frustum_depth > 0.0
 
-    device = extrinsics.device
-    dtype = extrinsics.dtype
-    intrinsics = intrinsics.to(device=device, dtype=dtype)
-    extrinsics = extrinsics.to(device=device, dtype=dtype)
+    device = camera.device
+    dtype = camera.intrinsics.dtype
 
-    extrinsics_standard = apply_coordinate_transform(
-        extrinsics=extrinsics,
-        source_convention=convention,
-        target_convention='standard',
-    )
+    extrinsics_standard = camera.to(device=device, convention='standard').extrinsics
     rotation_matrix = extrinsics_standard[:3, :3]
     camera_center = extrinsics_standard[:3, 3]
 
