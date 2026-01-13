@@ -8,10 +8,10 @@ from data.viewer.layout.controls.navigation import create_navigation_controls
 
 def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
     """Create the main application layout.
-    
+
     Args:
         available_datasets: Dictionary of available datasets
-        
+
     Returns:
         Dash layout component
     """
@@ -22,7 +22,7 @@ def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
         dcc.Store(id='transforms-store', data=None),
         dcc.Store(id='3d-settings-store', data={}),
         dcc.Store(id='camera-state', data=None),
-        
+
         # Backend sync stores (dummy outputs for pure backend sync callbacks)
         dcc.Store(id='backend-sync-3d-settings', data={}),
         dcc.Store(id='backend-sync-dataset', data={}),
@@ -48,7 +48,7 @@ def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
             html.Div([
                 # Dataset info section
                 html.Div(id='dataset-info-display', style={'margin-bottom': '20px'}),
-                
+
                 # Transforms section
                 html.Div(id='transforms-section', style={'margin-bottom': '20px'}),
 

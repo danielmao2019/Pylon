@@ -2,7 +2,7 @@ from typing import Any, Dict, Tuple, Optional, List
 import os
 import torch
 from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
-from utils.io import load_image
+from utils.io.image import load_image
 
 
 class COCOStuff164KDataset(BaseSemsegDataset):

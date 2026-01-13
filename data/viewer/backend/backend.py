@@ -38,7 +38,7 @@ DATASET_GROUPS = {
 # Registry of dataset classes that require 3D visualization
 REQUIRES_3D_CLASSES = [
     'Base3DCDDataset',
-    'BasePCRDataset', 
+    'BasePCRDataset',
     'Buffer3DDataset',
     'KITTIDataset',
     'ThreeDMatchDataset',
@@ -72,7 +72,7 @@ class ViewerBackend:
         # State management
         self.current_dataset: Optional[str] = None
         self.current_index: int = 0
-        
+
         # Initialize 3D settings from centralized configuration
         default_settings = ViewerSettings.DEFAULT_3D_SETTINGS
         self.point_size: float = default_settings['point_size']
@@ -149,7 +149,7 @@ class ViewerBackend:
 
             # Try to load dataset config - support both old and new formats
             dataset_cfg = None
-            
+
             # Try new format first (train_dataset_cfg directly in module)
             if hasattr(config_module, 'train_dataset_cfg'):
                 dataset_cfg = config_module.train_dataset_cfg
@@ -160,7 +160,7 @@ class ViewerBackend:
                 dataset_cfg = data_cfg['train_dataset']
             else:
                 raise ValueError(f"Config file {config_info['path']} has neither 'train_dataset_cfg' (new format) nor 'data_cfg' (old format)")
-            
+
             if dataset_cfg is None:
                 raise ValueError(f"Could not load dataset configuration from {config_info['path']}")
 
@@ -176,7 +176,7 @@ class ViewerBackend:
             self._clear_transforms()
             for transform in dataset.transforms.transforms:
                 self._register_transform(transform)
-            
+
             # Clear transforms from dataset - viewer will handle all transform application
             dataset.transforms = Compose(transforms=[])
 
@@ -193,17 +193,17 @@ class ViewerBackend:
 
     def _get_dataset_type(self, dataset_name: str) -> str:
         """Determine the type of dataset for UI organization.
-        
+
         Args:
             dataset_name: Name of the dataset to analyze
-            
+
         Returns:
             Dataset type string for UI grouping
         """
         # Ensure dataset is loaded
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
-            
+
         dataset = self._datasets[dataset_name]
         return self._get_dataset_type_from_inheritance(dataset)
 
@@ -223,7 +223,7 @@ class ViewerBackend:
         assert isinstance(index, int), f"index must be int, got {type(index)}"
         assert isinstance(transform_indices, list), f"transform_indices must be list, got {type(transform_indices)}"
         assert all(isinstance(idx, int) for idx in transform_indices), f"All transform indices must be int, got {transform_indices}"
-        
+
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
 
@@ -239,21 +239,21 @@ class ViewerBackend:
 
     def get_dataset_instance(self, dataset_name: str) -> Any:
         """Get the dataset instance for custom display methods.
-        
+
         Args:
             dataset_name: Name of the dataset
-            
+
         Returns:
             Dataset instance
-            
+
         Raises:
             ValueError: If dataset is not loaded
         """
         assert isinstance(dataset_name, str), f"dataset_name must be str, got {type(dataset_name)}"
-        
+
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
-            
+
         return self._datasets[dataset_name]
 
     def _clear_transforms(self) -> None:
@@ -322,7 +322,7 @@ class ViewerBackend:
         # Handle empty transform list case
         if not transform_indices:
             return datapoint
-            
+
         # Select the transforms in the order specified by indices
         # Convert stored transform dicts to the format expected by Compose
         selected_transforms = []
@@ -330,9 +330,9 @@ class ViewerBackend:
             transform_dict = self._transforms[idx]
             # Compose expects the dictionary format with 'op', 'input_names', 'output_names'
             selected_transforms.append(transform_dict)
-        
+
         # Use Compose with type annotation to suppress the warning
-        compose = Compose(transforms=selected_transforms)  # type: ignore
+        compose = Compose(transforms=selected_transforms)
         # Apply transforms with deterministic seed using datapoint index
         return compose(datapoint, seed=(0, datapoint_index))
 
@@ -363,22 +363,22 @@ class ViewerBackend:
 
     def _requires_3d_visualization(self, dataset: Any) -> bool:
         """Check if a dataset requires 3D visualization using hardcoded class registry.
-        
+
         Args:
             dataset: Dataset instance
-            
+
         Returns:
             True if dataset requires 3D visualization
         """
         dataset_class_name = type(dataset).__name__
         return dataset_class_name in REQUIRES_3D_CLASSES
-            
+
     def _get_dataset_type_from_inheritance(self, dataset: Any) -> str:
         """Get dataset type based on class inheritance for fallback cases.
-        
+
         Args:
             dataset: Dataset instance
-            
+
         Returns:
             Dataset type string
         """
@@ -388,7 +388,7 @@ class ViewerBackend:
         from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
         from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
         from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
-        
+
         # Check inheritance hierarchy to determine type
         if isinstance(dataset, BaseMultiTaskDataset):
             return 'mtl'

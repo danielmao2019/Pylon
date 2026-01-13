@@ -36,7 +36,7 @@ class Bi2SingleTemporal(BaseSyntheticDataset):
             'image': inputs[f"img_{input_idx}"],
         }
         return inputs, {}, {'input_idx': input_idx}
-    
+
     def display_datapoint(
         self,
         datapoint: Dict[str, Any],
@@ -45,7 +45,7 @@ class Bi2SingleTemporal(BaseSyntheticDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> None:
         """Minimal display_datapoint implementation for synthetic datasets.
-        
+
         Full visualization support for synthetic datasets is not yet implemented.
         """
         return None

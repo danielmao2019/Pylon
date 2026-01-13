@@ -42,7 +42,7 @@ class GANDataset(BaseSyntheticDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> None:
         """Minimal display_datapoint implementation for synthetic datasets.
-        
+
         Full visualization support for synthetic datasets is not yet implemented.
         """
         return None

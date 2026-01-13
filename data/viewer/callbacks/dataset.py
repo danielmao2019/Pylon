@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Constants
 TYPE_LABELS = {
     'semseg': 'Semantic Segmentation',
-    '2dcd': '2D Change Detection', 
+    '2dcd': '2D Change Detection',
     '3dcd': '3D Change Detection',
     'pcr': 'Point Cloud Registration'
 }
@@ -35,7 +35,7 @@ def reload_dataset_groups(n_clicks: Optional[int]) -> List[Dict[str, str]]:
         raise PreventUpdate
 
     hierarchical_datasets = registry.viewer.backend.get_available_datasets_hierarchical()
-    
+
     # Create group dropdown options
     options = []
     for dataset_type in sorted(hierarchical_datasets.keys()):
@@ -45,7 +45,7 @@ def reload_dataset_groups(n_clicks: Optional[int]) -> List[Dict[str, str]]:
             'label': f"{label} ({dataset_count} datasets)",
             'value': dataset_type
         })
-    
+
     return options
 
 
@@ -69,7 +69,7 @@ def update_dataset_options(selected_group: Optional[str]) -> List[Union[List[Dic
         return [[], True, "First select a category above...", None]
 
     hierarchical_datasets = registry.viewer.backend.get_available_datasets_hierarchical()
-    
+
     if selected_group not in hierarchical_datasets:
         return [[], True, "No datasets found for this category", None]
 
@@ -103,7 +103,7 @@ def update_dataset_options(selected_group: Optional[str]) -> List[Union[List[Dic
 )
 def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, html.Div, List]]:
     """Load a selected dataset and update all related UI components.
-    
+
     This is a PURE UI callback - it only updates UI components.
     Backend synchronization happens in backend_sync.py automatically.
     """
@@ -125,7 +125,7 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
         f"Dataset '{dataset_key}' loaded successfully with {dataset_info['length']} datapoints. "
         "Use the slider to navigate."
     )
-    
+
     logger.info("Dataset loaded successfully, returning updated UI components")
 
     # Initialize all transform indices as selected by default
@@ -156,7 +156,7 @@ def update_transforms_section(dataset_info: Dict[str, Any]) -> List[html.Div]:
 
     transforms = dataset_info['transforms']
     transforms_section = create_transforms_section(transforms)
-    
+
     return [transforms_section]
 
 

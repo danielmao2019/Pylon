@@ -39,7 +39,7 @@ class D3FeatDataLoader(PCRDataloader):
         from easydict import EasyDict
         config = EasyDict(config)
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
-        
+
         # Add architecture configuration like in original D3Feat
         config.architecture = ['simple', 'resnetb']
         for i in range(config.num_layers-1):
@@ -51,7 +51,7 @@ class D3FeatDataLoader(PCRDataloader):
             config.architecture.append('unary')
         config.architecture.append('nearest_upsample')
         config.architecture.append('last_unary')
-        
+
         self.config = config
         self.neighborhood_limits = calibrate_neighbors(
             dataset,
@@ -59,7 +59,7 @@ class D3FeatDataLoader(PCRDataloader):
             collate_fn=d3feat_collate_fn,
         )
         print("neighborhood:", self.neighborhood_limits)
-        
+
         collator = partial(
             d3feat_collate_fn,
             config=config,
@@ -70,7 +70,7 @@ class D3FeatDataLoader(PCRDataloader):
             collator=collator,
             **kwargs,
         )
-    
+
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for D3Feat dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)

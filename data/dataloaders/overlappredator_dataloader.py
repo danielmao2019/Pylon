@@ -39,14 +39,14 @@ class OverlapPredatorDataloader(PCRDataloader):
         from easydict import EasyDict
         config = EasyDict(config)
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
-        
+
         self.config = config
         self.neighborhood_limits = calibrate_neighbors(
             dataset,
             config,
             collate_fn=overlappredator_collate_fn,
         )
-        
+
         collator = partial(
             overlappredator_collate_fn,
             config=config,
@@ -57,7 +57,7 @@ class OverlapPredatorDataloader(PCRDataloader):
             collator=collator,
             **kwargs,
         )
-    
+
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for OverlapPredator dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)

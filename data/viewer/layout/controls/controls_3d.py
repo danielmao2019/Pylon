@@ -16,7 +16,7 @@ def create_3d_controls(visible=False, **kwargs):
     """
     # Get default settings and apply any overrides
     settings = ViewerSettings.get_3d_settings_with_defaults(kwargs)
-    
+
     style = {'display': 'block' if visible else 'none', 'margin-top': '20px'}
 
     return html.Div([

@@ -30,40 +30,40 @@ from data.viewer.utils.debounce import debounce
 @debounce
 def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs.
-    
+
     When a user interacts with one 3D point cloud graph (rotation, zoom, pan), this callback
     automatically applies the same camera transformation to all other point cloud graphs
     for synchronized viewing.
-    
+
     Args:
         all_relayout_data: List of relayout data dictionaries from each point cloud graph.
                           Only one will contain new camera data from user interaction.
         all_figures: List of current figure dictionaries for all point cloud graphs.
                     These will be updated with the new synchronized camera state.
-    
+
     Returns:
         Tuple containing:
         - List[Dict[str, Any]]: Updated figures with synchronized camera states
         - Dict[str, Any]: New camera state dictionary that was applied to all figures
-        
+
     Raises:
         AssertionError: If inputs don't meet requirements (fail-fast validation)
-        
+
     Note:
         This function is decorated with @debounce and runs in a separate thread.
-        Instead of raising PreventUpdate (which would cause threading exceptions), 
+        Instead of raising PreventUpdate (which would cause threading exceptions),
         it returns dash.no_update for all outputs when no valid camera updates are detected.
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(all_relayout_data, list), f"all_relayout_data must be list, got {type(all_relayout_data)}"
     assert isinstance(all_figures, list), f"all_figures must be list, got {type(all_figures)}"
     assert len(all_relayout_data) == len(all_figures), f"Lists must have same length: {len(all_relayout_data)} vs {len(all_figures)}"
-    
+
     # Since we're in a debounced (threaded) context, we can't access ctx.triggered
     # Instead, we determine which graph was updated by checking for non-None relayoutData
     triggered_index = None
     triggered_relayout_data = None
-    
+
     for i, relayout_data in enumerate(all_relayout_data):
         if relayout_data is not None and isinstance(relayout_data, dict) and len(relayout_data) > 0:
             # Skip if it's just a timestamp or other non-camera update
@@ -72,14 +72,14 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
                 triggered_index = i
                 triggered_relayout_data = relayout_data
                 break
-    
+
     if triggered_index is None or triggered_relayout_data is None:
         # No camera updates detected - return unchanged figures
         return [dash.no_update] * len(all_figures), dash.no_update
 
     # Use the triggered relayout data we already found
     relayout_data = triggered_relayout_data
-    
+
     # Check if the relayout_data contains camera information
     if 'scene.camera' not in relayout_data:
         # No camera information in relayout data - return unchanged figures
@@ -93,8 +93,8 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     # to avoid redundant computation - only OTHER figures get updated with the new camera state
     update_func = update_figure_camera(triggered_index, new_camera)
     updated_figures = update_figures_parallel(
-        all_figures, 
-        update_func, 
+        all_figures,
+        update_func,
         ViewerSettings.PERFORMANCE_SETTINGS['max_thread_workers']
     )
 
@@ -122,8 +122,8 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
     # Reset all figures to use Plotly's auto-calculated camera
     reset_func = reset_figure_camera()
     updated_figures = update_figures_parallel(
-        all_figures, 
-        reset_func, 
+        all_figures,
+        reset_func,
         ViewerSettings.PERFORMANCE_SETTINGS['max_thread_workers']
     )
 

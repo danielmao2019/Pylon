@@ -62,7 +62,7 @@ class BufferDataloader(PCRDataloader):
             collator=collator,
             **kwargs,
         )
-    
+
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for Buffer dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)

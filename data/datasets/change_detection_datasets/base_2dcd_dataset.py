@@ -19,19 +19,19 @@ from data.viewer.utils.structure_validation import validate_2dcd_structure
 
 class Base2DCDDataset(BaseDataset):
     """Base class for 2D change detection datasets.
-    
+
     This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint
     method for 2D change detection datasets. Concrete dataset classes should inherit
     from this class to automatically get appropriate display functionality.
-    
+
     Expected data structure:
     - inputs: {'img_1': torch.Tensor, 'img_2': torch.Tensor}
     - labels: {'change_map': torch.Tensor}
     """
-    
+
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
-    
+
     @staticmethod
     def display_datapoint(
         datapoint: Dict[str, Any],
@@ -40,20 +40,20 @@ class Base2DCDDataset(BaseDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> html.Div:
         """Display a 2D change detection datapoint.
-        
+
         Args:
             datapoint: Dictionary containing inputs, labels, and meta_info from dataset
             class_labels: Optional dictionary mapping class indices to label names (unused for 2DCD)
             camera_state: Optional dictionary containing camera position state (unused for 2DCD)
             settings_3d: Optional dictionary containing 3D visualization settings (unused for 2DCD)
-            
+
         Returns:
             html.Div: HTML layout for displaying this datapoint
         """
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
         assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
-        
+
         # Validate structure and inputs (includes all basic validation)
         validate_2dcd_structure(datapoint)
 

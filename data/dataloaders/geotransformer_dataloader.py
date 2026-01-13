@@ -7,12 +7,12 @@ from data.dataloaders.pcr_dataloader import PCRDataloader
 
 
 def calibrate_neighbors_stack_mode(
-    dataset: Any, 
-    collate_fn: Callable, 
-    num_stages: int, 
-    voxel_size: float, 
-    search_radius: float, 
-    keep_ratio: float, 
+    dataset: Any,
+    collate_fn: Callable,
+    num_stages: int,
+    voxel_size: float,
+    search_radius: float,
+    keep_ratio: float,
     sample_threshold: int,
 ) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
@@ -73,7 +73,7 @@ class GeoTransformerDataloader(PCRDataloader):
             keep_ratio=keep_ratio,
             sample_threshold=sample_threshold,
         )
-        
+
         collator = partial(
             geotransformer_collate_fn,
             num_stages=num_stages,
@@ -86,7 +86,7 @@ class GeoTransformerDataloader(PCRDataloader):
             collator=collator,
             **kwargs,
         )
-    
+
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for GeoTransformer dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)

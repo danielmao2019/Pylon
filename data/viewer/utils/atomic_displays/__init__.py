@@ -19,7 +19,7 @@ Usage:
 
 # Import all atomic display functions for easy access
 from data.viewer.utils.atomic_displays.image_display import (
-    create_image_display, 
+    create_image_display,
     get_image_display_stats,
 )
 from data.viewer.utils.atomic_displays.depth_display import (
@@ -42,8 +42,7 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
     create_point_cloud_display,
     get_point_cloud_display_stats,
     build_point_cloud_id,
-    normalize_point_cloud_id,
-    point_cloud_to_numpy
+    normalize_point_cloud_id
 )
 from data.viewer.utils.atomic_displays.instance_surrogate_display import (
     create_instance_surrogate_display,
@@ -53,7 +52,7 @@ from data.viewer.utils.atomic_displays.instance_surrogate_display import (
 __all__ = [
     # Display functions
     'create_image_display',
-    'create_depth_display', 
+    'create_depth_display',
     'create_normal_display',
     'create_edge_display',
     'create_segmentation_display',
@@ -62,13 +61,12 @@ __all__ = [
     # Stats functions
     'get_image_display_stats',
     'get_depth_display_stats',
-    'get_normal_display_stats', 
+    'get_normal_display_stats',
     'get_edge_display_stats',
     'get_segmentation_display_stats',
     'get_point_cloud_display_stats',
     'get_instance_surrogate_display_stats',
     # Utility functions
     'build_point_cloud_id',
-    'normalize_point_cloud_id',
-    'point_cloud_to_numpy'
+    'normalize_point_cloud_id'
 ]

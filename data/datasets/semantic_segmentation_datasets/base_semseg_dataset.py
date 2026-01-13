@@ -19,19 +19,19 @@ from data.viewer.utils.structure_validation import validate_semseg_structure
 
 class BaseSemsegDataset(BaseDataset):
     """Base class for semantic segmentation datasets.
-    
+
     This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint
     method for semantic segmentation datasets. Concrete dataset classes should inherit
     from this class to automatically get appropriate display functionality.
-    
+
     Expected data structure:
     - inputs: {'image': torch.Tensor}
     - labels: {'label': torch.Tensor or Dict}  # Tensor: [H, W], Dict: instance segmentation format
     """
-    
+
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['label']
-    
+
     @staticmethod
     def display_datapoint(
         datapoint: Dict[str, Any],
@@ -40,7 +40,7 @@ class BaseSemsegDataset(BaseDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> html.Div:
         """Display a semantic segmentation datapoint with all relevant information.
-        
+
         Args:
             datapoint: Dictionary containing inputs, labels, and meta_info from dataset.
                 The labels should contain either:
@@ -51,20 +51,20 @@ class BaseSemsegDataset(BaseDataset):
             class_labels: Optional dictionary mapping class indices to label names (unused for semantic segmentation)
             camera_state: Optional dictionary containing camera position state (unused for semantic segmentation)
             settings_3d: Optional dictionary containing 3D visualization settings (unused for semantic segmentation)
-            
+
         Returns:
             html.Div: HTML layout for displaying this datapoint
         """
         # Explicitly acknowledge unused parameters for API consistency
         # These parameters are required to maintain uniform display_datapoint signature across all dataset types
         _ = class_labels  # Not used for semantic segmentation - images don't need class mapping
-        _ = camera_state  # Not used for 2D images - no camera controls needed  
+        _ = camera_state  # Not used for 2D images - no camera controls needed
         _ = settings_3d   # Not used for 2D images - no 3D visualization settings needed
-        
+
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
         assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
-        
+
         # Validate structure and inputs (includes all basic validation)
         validate_semseg_structure(datapoint)
 

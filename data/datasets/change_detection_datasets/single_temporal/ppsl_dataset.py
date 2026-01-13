@@ -80,7 +80,7 @@ class PPSLDataset(BaseSyntheticDataset):
         }
 
         return inputs, labels, meta_info
-    
+
     def display_datapoint(
         self,
         datapoint: Dict[str, Any],
@@ -89,7 +89,7 @@ class PPSLDataset(BaseSyntheticDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> None:
         """Minimal display_datapoint implementation for synthetic datasets.
-        
+
         Full visualization support for synthetic datasets is not yet implemented.
         """
         return None

@@ -32,7 +32,7 @@ def debounce(func: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(func)
     def debounced(*args: Any, **kwargs: Any) -> Any:
         nonlocal current_timer, last_execution_time, last_result, has_executed_first
-        
+
         current_time = time.time()
         time_since_last = current_time - last_execution_time
 
@@ -43,33 +43,33 @@ def debounce(func: Callable[..., Any]) -> Callable[..., Any]:
                 last_execution_time = current_time
                 last_result = func(*args, **kwargs)
                 return last_result
-            
+
             # If enough time has passed since last execution, execute immediately
             if time_since_last >= 1.0:
                 last_execution_time = current_time
                 last_result = func(*args, **kwargs)
                 return last_result
-            
+
             # Rapid call - schedule delayed execution of this call (last call wins)
             if current_timer is not None:
                 current_timer.cancel()
-            
+
             def delayed_execution():
                 nonlocal last_execution_time, last_result
                 with timer_lock:
                     last_execution_time = time.time()
                     last_result = func(*args, **kwargs)
-            
+
             # Schedule execution after remaining time to reach 1 second delay
             remaining_delay = 1.0 - time_since_last
             current_timer = threading.Timer(remaining_delay, delayed_execution)
             current_timer.start()
-            
+
             # Prevent this intermediate call from updating UI
             raise PreventUpdate
 
     # Store reference to timer for testing/cleanup
-    debounced._timer_lock = timer_lock  # type: ignore
-    debounced._get_current_timer = lambda: current_timer  # type: ignore
+    debounced._timer_lock = timer_lock
+    debounced._get_current_timer = lambda: current_timer
 
     return debounced

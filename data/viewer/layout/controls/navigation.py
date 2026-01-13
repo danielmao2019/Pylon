@@ -5,12 +5,12 @@ from dash import html, dcc
 def create_navigation_controls(datapoint_index=0, min_index=0, max_index=10):
     """
     Create navigation controls for browsing through dataset items.
-    
+
     Args:
         datapoint_index: Current index
         min_index: Minimum index value
         max_index: Maximum index value
-        
+
     Returns:
         html.Div containing navigation controls
     """
@@ -25,7 +25,7 @@ def create_navigation_controls(datapoint_index=0, min_index=0, max_index=10):
         marks = {i: str(i) for i in range(min_index, max_index + 1, step)}
         # Always include the last index
         marks[max_index] = str(max_index)
-    
+
     return html.Div([
         html.Div([
             html.Label("Navigate Datapoints:"),

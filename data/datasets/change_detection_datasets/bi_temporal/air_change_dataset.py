@@ -1,12 +1,14 @@
-from typing import Tuple, List, Dict, Any, Optional
+import glob
 import itertools
 import os
-import glob
 import random
+from typing import Any, Dict, List, Tuple
+
 import torch
+
+import utils
 from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 from data.transforms.vision_2d.crop.crop import Crop
-import utils
 
 
 class AirChangeDataset(Base2DCDDataset):
@@ -44,31 +46,37 @@ class AirChangeDataset(Base2DCDDataset):
 
         # Define regions of the L shape (x_start, x_end, y_start, y_end)
         vertical_region = (
-            self.TEST_CROP_SIZE[0], self.IMAGE_SIZE[0] - self.TRAIN_CROP_SIZE[0],
-            0, self.TEST_CROP_SIZE[1],
+            self.TEST_CROP_SIZE[0],
+            self.IMAGE_SIZE[0] - self.TRAIN_CROP_SIZE[0],
+            0,
+            self.TEST_CROP_SIZE[1],
         )
         horizontal_region = (
-            0, self.TEST_CROP_SIZE[0],
-            self.TEST_CROP_SIZE[1], self.IMAGE_SIZE[1] - self.TRAIN_CROP_SIZE[1],
+            0,
+            self.TEST_CROP_SIZE[0],
+            self.TEST_CROP_SIZE[1],
+            self.IMAGE_SIZE[1] - self.TRAIN_CROP_SIZE[1],
         )
         joint_region = (
-            self.TEST_CROP_SIZE[0], self.IMAGE_SIZE[0] - self.TRAIN_CROP_SIZE[0],
-            self.TEST_CROP_SIZE[1], self.IMAGE_SIZE[1] - self.TRAIN_CROP_SIZE[1],
+            self.TEST_CROP_SIZE[0],
+            self.IMAGE_SIZE[0] - self.TRAIN_CROP_SIZE[0],
+            self.TEST_CROP_SIZE[1],
+            self.IMAGE_SIZE[1] - self.TRAIN_CROP_SIZE[1],
         )
 
         # Precompute valid indices in the L-shaped region
         self.train_crop_locs: List[Tuple[int, int]] = [
             *itertools.product(
                 range(vertical_region[0], vertical_region[1]),
-                range(vertical_region[2], vertical_region[3])
+                range(vertical_region[2], vertical_region[3]),
             ),
             *itertools.product(
                 range(horizontal_region[0], horizontal_region[1]),
-                range(horizontal_region[2], horizontal_region[3])
+                range(horizontal_region[2], horizontal_region[3]),
             ),
             *itertools.product(
                 range(joint_region[0], joint_region[1]),
-                range(joint_region[2], joint_region[3])
+                range(joint_region[2], joint_region[3]),
             ),
         ]
 
@@ -87,9 +95,15 @@ class AirChangeDataset(Base2DCDDataset):
 
         for folder in folders:
             # Collect all matching files
-            img_1_raw = glob.glob(os.path.join(self.data_root, folder, "**", "*im1.*"), recursive=True)
-            img_2_raw = glob.glob(os.path.join(self.data_root, folder, "**", "*im2.*"), recursive=True)
-            change_map_raw = glob.glob(os.path.join(self.data_root, folder, "**", "*gt.*"), recursive=True)
+            img_1_raw = glob.glob(
+                os.path.join(self.data_root, folder, "**", "*im1.*"), recursive=True
+            )
+            img_2_raw = glob.glob(
+                os.path.join(self.data_root, folder, "**", "*im2.*"), recursive=True
+            )
+            change_map_raw = glob.glob(
+                os.path.join(self.data_root, folder, "**", "*gt.*"), recursive=True
+            )
 
             # Filter for specific extensions (case-insensitive)
             img_1_filepaths.extend(filter_case_insensitive(img_1_raw, ".bmp"))
@@ -104,43 +118,60 @@ class AirChangeDataset(Base2DCDDataset):
 
         self._init_cropping_configs()
         self.annotations = []
-        for img_1_path, img_2_path, change_map_path in zip(img_1_filepaths, img_2_filepaths, change_map_filepaths):
+        for img_1_path, img_2_path, change_map_path in zip(
+            img_1_filepaths, img_2_filepaths, change_map_filepaths
+        ):
             if self.split == "test":
                 # Testing crops: one crop at the top-left corner
-                self.annotations.append({
-                    "img_1_filepath": img_1_path,
-                    "img_2_filepath": img_2_path,
-                    "change_map_filepath": change_map_path,
-                    "crop_loc": (0, 0),
-                    "crop_size": self.TEST_CROP_SIZE,
-                })
-            elif self.split == "train":
-                # Training crops: randomly sample crop locations
-                crop_locs = random.choices(self.train_crop_locs, k=self.TRAIN_CROPS_PER_IMAGE)
-                for loc in crop_locs:
-                    self.annotations.append({
+                self.annotations.append(
+                    {
                         "img_1_filepath": img_1_path,
                         "img_2_filepath": img_2_path,
                         "change_map_filepath": change_map_path,
-                        "crop_loc": loc,
-                        "crop_size": self.TRAIN_CROP_SIZE,
-                    })
+                        "crop_loc": (0, 0),
+                        "crop_size": self.TEST_CROP_SIZE,
+                    }
+                )
+            elif self.split == "train":
+                # Training crops: randomly sample crop locations
+                crop_locs = random.choices(
+                    self.train_crop_locs, k=self.TRAIN_CROPS_PER_IMAGE
+                )
+                for loc in crop_locs:
+                    self.annotations.append(
+                        {
+                            "img_1_filepath": img_1_path,
+                            "img_2_filepath": img_2_path,
+                            "change_map_filepath": change_map_path,
+                            "crop_loc": loc,
+                            "crop_size": self.TRAIN_CROP_SIZE,
+                        }
+                    )
             else:
-                raise ValueError(f"Invalid split: {self.split}. Expected 'train' or 'test'.")
+                raise ValueError(
+                    f"Invalid split: {self.split}. Expected 'train' or 'test'."
+                )
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         inputs = {
-            f'img_{input_idx}': utils.io.load_image(
+            f'img_{input_idx}': utils.io.image.load_image(
                 filepath=self.annotations[idx][f'img_{input_idx}_filepath'],
-                dtype=torch.float32, sub=None, div=255.0,
-            ) for input_idx in [1, 2]
+                dtype=torch.float32,
+                sub=None,
+                div=255.0,
+            )
+            for input_idx in [1, 2]
         }
         labels = {
-            'change_map': utils.io.load_image(
+            'change_map': utils.io.image.load_image(
                 filepath=self.annotations[idx]['change_map_filepath'],
-                dtype=torch.int64, sub=None, div=255.0,
+                dtype=torch.int64,
+                sub=None,
+                div=255.0,
             )
         }
         meta_info = {
@@ -161,10 +192,12 @@ class AirChangeDataset(Base2DCDDataset):
         version_dict = super()._get_cache_version_dict()
         # AirChangeDataset involves random cropping for training, which affects content
         # The random state affects which crops are selected
-        version_dict.update({
-            'train_crops_per_image': self.TRAIN_CROPS_PER_IMAGE,
-            'image_size': self.IMAGE_SIZE,
-            'test_crop_size': self.TEST_CROP_SIZE,
-            'train_crop_size': self.TRAIN_CROP_SIZE,
-        })
+        version_dict.update(
+            {
+                'train_crops_per_image': self.TRAIN_CROPS_PER_IMAGE,
+                'image_size': self.IMAGE_SIZE,
+                'test_crop_size': self.TEST_CROP_SIZE,
+                'train_crop_size': self.TRAIN_CROP_SIZE,
+            }
+        )
         return version_dict

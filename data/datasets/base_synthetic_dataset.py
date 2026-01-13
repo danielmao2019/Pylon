@@ -40,7 +40,7 @@ class BaseSyntheticDataset(BaseDataset, ABC):
 
     def __len__(self) -> int:
         return self.DATASET_SIZE
-    
+
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()

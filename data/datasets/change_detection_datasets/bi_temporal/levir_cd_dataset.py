@@ -1,8 +1,10 @@
-from typing import Tuple, List, Dict, Any, Optional
 import os
+from typing import Any, Dict, List, Optional, Tuple
+
 import torch
-from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
+
 import utils
+from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 
 
 class LevirCdDataset(Base2DCDDataset):
@@ -77,7 +79,9 @@ class LevirCdDataset(Base2DCDDataset):
             os.listdir(os.path.join(inputs_root, 'A')),
             key=lambda x: int(os.path.splitext(os.path.basename(x))[0].split('_')[1]),
         )
-        assert len(os.listdir(os.path.join(inputs_root, 'A'))), len(os.listdir(os.path.join(inputs_root, 'B')))
+        assert len(os.listdir(os.path.join(inputs_root, 'A'))), len(
+            os.listdir(os.path.join(inputs_root, 'B'))
+        )
         for filename in files_list:
             input_1_filepath = os.path.join(inputs_root, 'A', filename)
             assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
@@ -85,22 +89,26 @@ class LevirCdDataset(Base2DCDDataset):
             assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
             label_filepath = os.path.join(labels_root, filename)
             assert os.path.isfile(label_filepath), f"{label_filepath=}"
-            self.annotations.append({
-                'inputs': {
-                    'input_1_filepath': input_1_filepath,
-                    'input_2_filepath': input_2_filepath,
-                },
-                'labels': {
-                    'label_filepath': label_filepath,
-                },
-            })
+            self.annotations.append(
+                {
+                    'inputs': {
+                        'input_1_filepath': input_1_filepath,
+                        'input_2_filepath': input_2_filepath,
+                    },
+                    'labels': {
+                        'label_filepath': label_filepath,
+                    },
+                }
+            )
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         # LevirCdDataset has no additional parameters beyond BaseDataset
         return super()._get_cache_version_dict()
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """
         Load a single datapoint by index.
 
@@ -117,8 +125,9 @@ class LevirCdDataset(Base2DCDDataset):
         inputs = self._load_inputs(idx)
         labels = self._load_labels(idx)
         height, width = labels['change_map'].shape
-        assert all(x.shape == (3, height, width) for x in [inputs['img_1'], inputs['img_2']]), \
-            f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
+        assert all(
+            x.shape == (3, height, width) for x in [inputs['img_1'], inputs['img_2']]
+        ), f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
         meta_info = {
             'image_resolution': (height, width),
         }
@@ -136,9 +145,11 @@ class LevirCdDataset(Base2DCDDataset):
         """
         inputs: Dict[str, torch.Tensor] = {}
         for input_idx in [1, 2]:
-            img = utils.io.load_image(
+            img = utils.io.image.load_image(
                 filepath=self.annotations[idx]['inputs'][f'input_{input_idx}_filepath'],
-                dtype=torch.float32, sub=None, div=255.0,
+                dtype=torch.float32,
+                sub=None,
+                div=255.0,
             )
             inputs[f'img_{input_idx}'] = img
         return inputs
@@ -156,9 +167,11 @@ class LevirCdDataset(Base2DCDDataset):
         Raises:
             AssertionError: If the loaded label is not 2D.
         """
-        change_map = utils.io.load_image(
+        change_map = utils.io.image.load_image(
             filepath=self.annotations[idx]['labels']['label_filepath'],
-            dtype=torch.int64, sub=None, div=255.0,
+            dtype=torch.int64,
+            sub=None,
+            div=255.0,
         )
         assert change_map.ndim == 2, f"{change_map.shape=}"
         labels = {'change_map': change_map}

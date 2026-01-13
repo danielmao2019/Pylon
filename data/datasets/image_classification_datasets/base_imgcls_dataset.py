@@ -8,19 +8,19 @@ from data.datasets.base_dataset import BaseDataset
 
 class BaseImgClsDataset(BaseDataset):
     """Base class for image classification datasets.
-    
+
     This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint
     method for image classification datasets. Concrete dataset classes should inherit
     from this class to automatically get appropriate display functionality.
-    
+
     Expected data structure:
     - inputs: {'image': torch.Tensor}  # Shape: (C, H, W) or (H, W) for grayscale
     - labels: {'label': torch.Tensor}  # Shape: () for single label or (num_classes,) for multi-label
     """
-    
+
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['label']
-    
+
     @staticmethod
     def display_datapoint(
         datapoint: Dict[str, Any],
@@ -29,13 +29,13 @@ class BaseImgClsDataset(BaseDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> 'html.Div':
         """Display image classification datapoint.
-        
+
         Args:
             datapoint: Dictionary containing 'inputs' and 'labels'
             class_labels: Optional dictionary mapping label names to lists of class names
             camera_state: Not used for 2D images
             settings_3d: Not used for 2D images
-            
+
         Returns:
             Dash HTML component for visualization
         """
@@ -43,23 +43,23 @@ class BaseImgClsDataset(BaseDataset):
         import dash.dcc as dcc
         import plotly.graph_objects as go
         from plotly.subplots import make_subplots
-        
+
         # Extract image and label
         inputs = datapoint.get('inputs', {})
         labels = datapoint.get('labels', {})
-        
+
         image = inputs.get('image')
         label = labels.get('label')
-        
+
         if image is None:
             return html.Div("No image data available")
-        
+
         # Convert tensor to numpy if needed
         if isinstance(image, torch.Tensor):
             image_np = image.detach().cpu().numpy()
         else:
             image_np = image
-        
+
         # Handle different image formats
         if image_np.ndim == 2:
             # Grayscale image (H, W)
@@ -86,14 +86,14 @@ class BaseImgClsDataset(BaseDataset):
                 display_image = image_np
         else:
             return html.Div(f"Unsupported image shape: {image_np.shape}")
-        
+
         # Normalize image to [0, 1] if needed
         if display_image.min() < 0 or display_image.max() > 1:
             display_image = (display_image - display_image.min()) / (display_image.max() - display_image.min() + 1e-8)
-        
+
         # Create figure
         fig = make_subplots(rows=1, cols=1)
-        
+
         # Add image
         if channels == 1 or display_image.ndim == 2:
             # Grayscale
@@ -111,17 +111,17 @@ class BaseImgClsDataset(BaseDataset):
                 go.Image(z=display_image * 255),
                 row=1, col=1
             )
-        
+
         # Update layout
         title_parts = [f"Image ({height}x{width}x{channels})"]
-        
+
         # Add label information
         if label is not None:
             if isinstance(label, torch.Tensor):
                 label_val = label.item() if label.numel() == 1 else label.tolist()
             else:
                 label_val = label
-                
+
             # Add class name if available
             if class_labels and 'label' in class_labels and isinstance(label_val, (int, np.integer)):
                 if 0 <= label_val < len(class_labels['label']):
@@ -131,7 +131,7 @@ class BaseImgClsDataset(BaseDataset):
                     title_parts.append(f"Label: {label_val}")
             else:
                 title_parts.append(f"Label: {label_val}")
-        
+
         fig.update_layout(
             title=" | ".join(title_parts),
             xaxis=dict(showticklabels=False, showgrid=False),
@@ -139,7 +139,7 @@ class BaseImgClsDataset(BaseDataset):
             height=600,
             margin=dict(l=0, r=0, t=40, b=0)
         )
-        
+
         return html.Div([
             dcc.Graph(
                 figure=fig,

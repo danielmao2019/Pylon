@@ -29,7 +29,7 @@ class ProjectionDatasetWrapper(torch.utils.data.Dataset):
 
     def get_cache_version_hash(self) -> str:
         """Get cache version hash delegating to the wrapped dataset.
-        
+
         Returns:
             str: 16-character hexadecimal hash string
         """

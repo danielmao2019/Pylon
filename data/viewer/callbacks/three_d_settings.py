@@ -30,17 +30,17 @@ def update_3d_settings(
     density_percentage: int
 ) -> List[Dict[str, Union[str, int, float, bool]]]:
     """Update 3D settings store when slider values change.
-    
+
     This is now a PURE UI callback - it only updates the UI store.
     Backend synchronization happens in backend_sync.py automatically.
-    
+
     Args:
         point_size: Size of points in the 3D visualization
         point_opacity: Opacity of points (0.0 to 1.0)
         sym_diff_radius: Radius for symmetric difference computation
         lod_type: Type of LOD to use ("continuous", "discrete", or "none")
         density_percentage: Percentage of points to display when LOD is 'none' (1-100)
-    
+
     Returns:
         List containing a dictionary of all 3D settings for UI store
     """
@@ -56,7 +56,7 @@ def update_3d_settings(
         'lod_type': lod_type,
         'density_percentage': density_percentage
     }
-    
+
     # Validate and apply defaults using centralized configuration
     settings = ViewerSettings.validate_3d_settings(
         ViewerSettings.get_3d_settings_with_defaults(raw_settings)
@@ -113,13 +113,13 @@ def update_lod_info_display(lod_type: str) -> List[str]:
     """Update LOD information display based on selected LOD type."""
     if not lod_type:
         return [""]
-    
+
     lod_descriptions = {
         'continuous': 'Real-time adaptive sampling based on camera distance. Provides smooth performance scaling.',
         'discrete': 'Fixed LOD levels with 2x downsampling per level. Predictable performance.',
         'none': 'No level of detail - shows all points. Use density control to adjust point count.'
     }
-    
+
     return [lod_descriptions.get(lod_type, f"Unknown LOD type: {lod_type}")]
 
 

@@ -6,7 +6,7 @@ def pcr_collate_fn(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     architecture: List[Dict[str, Any]],
-    downsample_fn: Callable, 
+    downsample_fn: Callable,
     neighbor_fn: Callable
 ) -> Dict[str, List[torch.Tensor]]:
     assert isinstance(src_points, torch.Tensor)

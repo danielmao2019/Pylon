@@ -95,7 +95,7 @@ def update_datapoint_from_navigation(
     if dataset_info is None or dataset_info == {}:
         # Thread-safe return instead of raising PreventUpdate in debounced context
         return [dash.no_update]
-    
+
     # Assert dataset info structure is valid - fail fast if corrupted
     assert dataset_info is not None, "Dataset info must not be None"
     assert dataset_info != {}, "Dataset info must not be empty"
@@ -123,35 +123,35 @@ def update_datapoint_from_navigation(
 
     # Extract 3D settings and class labels using centralized configuration
     settings_3d = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
-    
+
     # Get dataset instance for display method and class labels
     dataset_instance = registry.viewer.backend.get_dataset_instance(dataset_name=dataset_name)
     class_labels = dataset_instance.class_labels if hasattr(dataset_instance, 'class_labels') and dataset_instance.class_labels else None
-    
+
     # All datasets must have display_datapoint method from base classes
     assert dataset_instance is not None, f"Dataset instance must not be None for dataset: {dataset_name}"
     assert hasattr(dataset_instance, 'display_datapoint'), f"Dataset {type(dataset_instance).__name__} must have display_datapoint method"
-    
+
     display_func = dataset_instance.display_datapoint
     logger.info(f"Using display method from dataset class: {type(dataset_instance).__name__}")
-    
+
     # Check if camera state is the default state - if so, pass None to allow camera pose calculation
     default_camera_state = {
         'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5},
-        'center': {'x': 0, 'y': 0, 'z': 0}, 
+        'center': {'x': 0, 'y': 0, 'z': 0},
         'up': {'x': 0, 'y': 0, 'z': 1}
     }
-    
+
     # For datasets that have camera poses, pass None to trigger pose calculation
     final_camera_state = camera_state
     if camera_state == default_camera_state:
         # Check if datapoint has camera pose - if so, let dataset calculate camera from pose
-        if ('meta_info' in datapoint and 
-            'camera_pose' in datapoint['meta_info'] and 
+        if ('meta_info' in datapoint and
+            'camera_pose' in datapoint['meta_info'] and
             'camera_intrinsics' in datapoint['meta_info']):
             final_camera_state = None
             logger.info(f"Using None camera_state for {dataset_instance.__class__.__name__} to trigger camera pose calculation")
-    
+
     # Create display using the determined display function
     display = display_func(
         datapoint=datapoint,

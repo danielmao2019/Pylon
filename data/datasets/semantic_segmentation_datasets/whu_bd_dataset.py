@@ -1,9 +1,13 @@
-from typing import Tuple, Dict, Any
-import os
 import glob
+import os
+from typing import Any, Dict, Tuple
+
 import torch
-from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
+
 import utils
+from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import (
+    BaseSemsegDataset,
+)
 
 
 class WHU_BD_Dataset(BaseSemsegDataset):
@@ -20,11 +24,25 @@ class WHU_BD_Dataset(BaseSemsegDataset):
     SHA1SUM = "4057a1dfffd59ecd6d3ff169b8f503644b728592"
 
     def _init_annotations(self) -> None:
-        assert isinstance(self.split, str), f"Expected string split, got {type(self.split)}"
-        image_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, "image", "*.tif")))
-        label_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, "label", "*.tif")))
-        assert all(os.path.basename(x) == os.path.basename(y) for x, y in zip(image_filepaths, label_filepaths))
-        self.annotations = list(map(lambda x: {'image': x[0], 'label': x[1]}, zip(image_filepaths, label_filepaths)))
+        assert isinstance(
+            self.split, str
+        ), f"Expected string split, got {type(self.split)}"
+        image_filepaths = sorted(
+            glob.glob(os.path.join(self.data_root, self.split, "image", "*.tif"))
+        )
+        label_filepaths = sorted(
+            glob.glob(os.path.join(self.data_root, self.split, "label", "*.tif"))
+        )
+        assert all(
+            os.path.basename(x) == os.path.basename(y)
+            for x, y in zip(image_filepaths, label_filepaths)
+        )
+        self.annotations = list(
+            map(
+                lambda x: {'image': x[0], 'label': x[1]},
+                zip(image_filepaths, label_filepaths),
+            )
+        )
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
@@ -32,18 +50,24 @@ class WHU_BD_Dataset(BaseSemsegDataset):
         return super()._get_cache_version_dict()
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         inputs = {
-            'image': utils.io.load_image(
+            'image': utils.io.image.load_image(
                 filepaths=[self.annotations[idx]['image']],
-                dtype=torch.float32, sub=None, div=255.0,
+                dtype=torch.float32,
+                sub=None,
+                div=255.0,
             )
         }
         labels = {
-            'semantic_map': utils.io.load_image(
+            'semantic_map': utils.io.image.load_image(
                 filepaths=[self.annotations[idx]['label']],
-                dtype=torch.int64, sub=None, div=None,
+                dtype=torch.int64,
+                sub=None,
+                div=None,
             ).squeeze(0)
         }
         # Return a copy of the annotation to avoid modifying the original

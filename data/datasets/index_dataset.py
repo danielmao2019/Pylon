@@ -5,12 +5,12 @@ from data.datasets.base_dataset import BaseDataset
 
 class IndexDataset(BaseDataset):
     """Dataset that simply returns the index as its output.
-    
+
     This dataset is used as a wrapper for cached dataloaders where the actual
     dataset content is handled by the collator. The dataset itself only needs
     to provide indices for the collator to use as keys.
     """
-    
+
     SPLIT_OPTIONS: List[str] = ['all']
     DATASET_SIZE: Optional[int] = None
     INPUT_NAMES: List[str] = ['index']
@@ -23,18 +23,18 @@ class IndexDataset(BaseDataset):
         **kwargs
     ) -> None:
         """Initialize IndexDataset.
-        
+
         Args:
             size: Number of indices this dataset should contain
             **kwargs: Additional arguments passed to BaseDataset
         """
         assert isinstance(size, int), f"size must be int, got {type(size)}"
         assert size > 0, f"size must be positive, got {size}"
-        
+
         self._size = size
         # Set dataset size for BaseDataset validation
         self.DATASET_SIZE = size
-        
+
         # Initialize with minimal required parameters for BaseDataset
         super().__init__(
             data_root=None,  # No data_root needed for index dataset
@@ -54,10 +54,10 @@ class IndexDataset(BaseDataset):
 
     def __getitem__(self, idx: int) -> int:
         """Return the index directly.
-        
+
         Args:
             idx: Index to return
-            
+
         Returns:
             The index itself
         """

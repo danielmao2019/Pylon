@@ -111,7 +111,7 @@ def _image_to_numpy(image: torch.Tensor) -> np.ndarray:
     assert image.ndim == 3, f"Expected 3D tensor [C,H,W], got shape {image.shape}"
     assert image.numel() > 0, f"Image tensor cannot be empty"
 
-    img: np.ndarray = image.cpu().numpy()
+    img: np.ndarray = image.detach().cpu().numpy()
 
     # Smart normalization: only normalize if image is not already in [0,1] range
     img_min = img.min()

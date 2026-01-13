@@ -1,9 +1,11 @@
-from typing import Tuple, List, Dict, Any
-import os
 import glob
+import os
+from typing import Any, Dict, List, Tuple
+
 import torch
-from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
+
 import utils
+from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 
 
 class CDDDataset(Base2DCDDataset):
@@ -53,41 +55,67 @@ class CDDDataset(Base2DCDDataset):
 
     def _init_annotations(self) -> None:
         def get_files(name: str) -> List[str]:
-            files = glob.glob(os.path.join(self.data_root, "**", "**", self.split, name, "*.jpg"))
+            files = glob.glob(
+                os.path.join(self.data_root, "**", "**", self.split, name, "*.jpg")
+            )
             files = list(filter(lambda x: "with_shift" not in x, files))
-            files.extend(glob.glob(os.path.join(self.data_root, "**", "with_shift", self.split, name, "*.jpg" if self.split == 'train' else "*.bmp")))
+            files.extend(
+                glob.glob(
+                    os.path.join(
+                        self.data_root,
+                        "**",
+                        "with_shift",
+                        self.split,
+                        name,
+                        "*.jpg" if self.split == 'train' else "*.bmp",
+                    )
+                )
+            )
             return sorted(files)
+
         img_1_filepaths = get_files('A')
         img_2_filepaths = get_files('B')
         change_map_filepaths = get_files('OUT')
         assert len(img_1_filepaths) == len(img_2_filepaths) == len(change_map_filepaths)
         self.annotations = []
-        for img_1_path, img_2_path, change_map_path in zip(img_1_filepaths, img_2_filepaths, change_map_filepaths):
-            assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path]), \
-                f"{img_1_path=}, {img_2_path=}, {change_map_path=}"
-            self.annotations.append({
-                'img_1_path': img_1_path,
-                'img_2_path': img_2_path,
-                'change_map_path': change_map_path,
-            })
+        for img_1_path, img_2_path, change_map_path in zip(
+            img_1_filepaths, img_2_filepaths, change_map_filepaths
+        ):
+            assert all(
+                os.path.basename(x) == os.path.basename(change_map_path)
+                for x in [img_1_path, img_2_path]
+            ), f"{img_1_path=}, {img_2_path=}, {change_map_path=}"
+            self.annotations.append(
+                {
+                    'img_1_path': img_1_path,
+                    'img_2_path': img_2_path,
+                    'change_map_path': change_map_path,
+                }
+            )
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         # CDDDataset has no additional parameters beyond BaseDataset
         return super()._get_cache_version_dict()
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         inputs = {
-            f'img_{i}': utils.io.load_image(
+            f'img_{i}': utils.io.image.load_image(
                 filepath=self.annotations[idx][f'img_{i}_path'],
-                dtype=torch.float32, sub=None, div=255.0,
+                dtype=torch.float32,
+                sub=None,
+                div=255.0,
             )
             for i in [1, 2]
         }
         labels = {
-            'change_map': utils.io.load_image(
+            'change_map': utils.io.image.load_image(
                 filepath=self.annotations[idx]['change_map_path'],
-                dtype=torch.int64, sub=None, div=255.0,
+                dtype=torch.int64,
+                sub=None,
+                div=255.0,
             )
         }
         height, width = labels['change_map'].shape

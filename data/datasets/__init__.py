@@ -50,12 +50,11 @@ from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
 
-
 __all__ = (
     'BaseDataset',
     'BaseSyntheticDataset',
     'Base2DCDDataset',
-    'Base3DCDDataset', 
+    'Base3DCDDataset',
     'BasePCRDataset',
     'BaseSemsegDataset',
     'BaseMultiTaskDataset',

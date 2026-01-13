@@ -1,9 +1,11 @@
-from typing import Tuple, Dict, Any
-import os
 import glob
+import os
+from typing import Any, Dict, Tuple
+
 import torch
-from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
+
 import utils
+from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 
 
 class xView2Dataset(Base2DCDDataset):
@@ -58,36 +60,72 @@ class xView2Dataset(Base2DCDDataset):
         else:
             # For test/hold splits, use the split name directly
             search_dirs = [self.split]
-        
+
         # gather filepaths from all relevant directories
         input_filepaths = []
         label_filepaths = []
         for search_dir in search_dirs:
-            input_filepaths.extend(sorted(glob.glob(os.path.join(self.data_root, search_dir, "images", "*.png"))))
-            label_filepaths.extend(sorted(glob.glob(os.path.join(self.data_root, search_dir, "targets", "*.png"))))
-        
-        img_1_filepaths = list(filter(
-            lambda x: os.path.basename(x).endswith("pre_disaster.png"), input_filepaths,
-        ))
-        img_2_filepaths = list(filter(
-            lambda x: os.path.basename(x).endswith("post_disaster.png"), input_filepaths,
-        ))
-        lbl_1_filepaths = list(filter(
-            lambda x: os.path.basename(x).endswith("pre_disaster_target.png"), label_filepaths,
-        ))
-        lbl_2_filepaths = list(filter(
-            lambda x: os.path.basename(x).endswith("post_disaster_target.png"), label_filepaths,
-        ))
-        assert len(img_1_filepaths) == len(img_2_filepaths) == len(lbl_1_filepaths) == len(lbl_2_filepaths)
+            input_filepaths.extend(
+                sorted(
+                    glob.glob(
+                        os.path.join(self.data_root, search_dir, "images", "*.png")
+                    )
+                )
+            )
+            label_filepaths.extend(
+                sorted(
+                    glob.glob(
+                        os.path.join(self.data_root, search_dir, "targets", "*.png")
+                    )
+                )
+            )
+
+        img_1_filepaths = list(
+            filter(
+                lambda x: os.path.basename(x).endswith("pre_disaster.png"),
+                input_filepaths,
+            )
+        )
+        img_2_filepaths = list(
+            filter(
+                lambda x: os.path.basename(x).endswith("post_disaster.png"),
+                input_filepaths,
+            )
+        )
+        lbl_1_filepaths = list(
+            filter(
+                lambda x: os.path.basename(x).endswith("pre_disaster_target.png"),
+                label_filepaths,
+            )
+        )
+        lbl_2_filepaths = list(
+            filter(
+                lambda x: os.path.basename(x).endswith("post_disaster_target.png"),
+                label_filepaths,
+            )
+        )
+        assert (
+            len(img_1_filepaths)
+            == len(img_2_filepaths)
+            == len(lbl_1_filepaths)
+            == len(lbl_2_filepaths)
+        )
         # define annotations
-        self.annotations = [{
-            'inputs': {
-                'img_1': img_1, 'img_2': img_2,
-            },
-            'labels': {
-                'lbl_1': lbl_1, 'lbl_2': lbl_2,
-            },
-        } for img_1, img_2, lbl_1, lbl_2 in zip(img_1_filepaths, img_2_filepaths, lbl_1_filepaths, lbl_2_filepaths)]
+        self.annotations = [
+            {
+                'inputs': {
+                    'img_1': img_1,
+                    'img_2': img_2,
+                },
+                'labels': {
+                    'lbl_1': lbl_1,
+                    'lbl_2': lbl_2,
+                },
+            }
+            for img_1, img_2, lbl_1, lbl_2 in zip(
+                img_1_filepaths, img_2_filepaths, lbl_1_filepaths, lbl_2_filepaths
+            )
+        ]
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
@@ -96,26 +134,36 @@ class xView2Dataset(Base2DCDDataset):
         return version_dict
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         inputs = {
-            'img_1': utils.io.load_image(
+            'img_1': utils.io.image.load_image(
                 filepath=self.annotations[idx]['inputs']['img_1'],
-                dtype=torch.float32, sub=0, div=255.0,
+                dtype=torch.float32,
+                sub=0,
+                div=255.0,
             ),
-            'img_2': utils.io.load_image(
+            'img_2': utils.io.image.load_image(
                 filepath=self.annotations[idx]['inputs']['img_2'],
-                dtype=torch.float32, sub=0, div=255.0,
+                dtype=torch.float32,
+                sub=0,
+                div=255.0,
             ),
         }
         labels = {
-            'lbl_1': utils.io.load_image(
+            'lbl_1': utils.io.image.load_image(
                 filepath=self.annotations[idx]['labels']['lbl_1'],
-                dtype=torch.int64, sub=None, div=None,
+                dtype=torch.int64,
+                sub=None,
+                div=None,
             ),
-            'lbl_2': utils.io.load_image(
+            'lbl_2': utils.io.image.load_image(
                 filepath=self.annotations[idx]['labels']['lbl_2'],
-                dtype=torch.int64, sub=None, div=None,
+                dtype=torch.int64,
+                sub=None,
+                div=None,
             ),
         }
         meta_info = {

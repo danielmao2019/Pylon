@@ -21,7 +21,7 @@ class BaseDataLoader(torch.utils.data.DataLoader):
         """
         assert last_mode in {'drop', 'keep', 'fill'}, \
             f"last_mode must be one of {'drop', 'keep', 'fill'}. Got {last_mode}."
-        
+
         if last_mode == 'fill':
             sampler = data.samplers.FillLastBatchSampler(dataset, batch_size, shuffle=shuffle)
             for key in ['batch_size', 'shuffle', 'sampler', 'drop_last']:

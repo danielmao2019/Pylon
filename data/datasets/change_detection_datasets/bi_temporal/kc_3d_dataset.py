@@ -1,11 +1,13 @@
-from typing import Tuple, Dict, Any, Optional
 import os
 import pickle
+from typing import Any, Dict, Optional, Tuple
+
 import numpy
 import torch
 import torchvision
-from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
+
 import utils
+from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
 
 
 class KC3DDataset(Base3DCDDataset):
@@ -31,14 +33,24 @@ class KC3DDataset(Base3DCDDataset):
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = None  # Define if exact sizes for splits are known
     INPUT_NAMES = [
-        'img_1', 'img_2', 'depth_1', 'depth_2',
-        'intrinsics1', 'intrinsics2', 'position1', 'position2', 'rotation1', 'rotation2',
+        'img_1',
+        'img_2',
+        'depth_1',
+        'depth_2',
+        'intrinsics1',
+        'intrinsics2',
+        'position1',
+        'position2',
+        'rotation1',
+        'rotation2',
         'registration_strategy',
     ]
     LABEL_NAMES = ['bbox_1', 'bbox_2']
     SHA1SUM = None  # Define if checksum validation is required
 
-    def __init__(self, use_ground_truth_registration: Optional[bool] = True, **kwargs) -> None:
+    def __init__(
+        self, use_ground_truth_registration: Optional[bool] = True, **kwargs
+    ) -> None:
         assert isinstance(use_ground_truth_registration, bool)
         self.use_ground_truth_registration = use_ground_truth_registration
         super(KC3DDataset, self).__init__(**kwargs)
@@ -53,7 +65,7 @@ class KC3DDataset(Base3DCDDataset):
         with open(split_file_path, "rb") as file:
             dataset_splits = pickle.load(file)
         assert self.split in dataset_splits
-        
+
         # Load annotations for the specified split
         self.annotations = dataset_splits[self.split]
         # sanity check
@@ -69,12 +81,16 @@ class KC3DDataset(Base3DCDDataset):
         """
         assert mask_as_tensor.ndim == 2, f"{mask_as_tensor.shape=}"
         mask_as_tensor = mask_as_tensor.unsqueeze(0)
-        assert mask_as_tensor.ndim == 3 and mask_as_tensor.shape[0] == 1, f"{mask_as_tensor.shape=}"
+        assert (
+            mask_as_tensor.ndim == 3 and mask_as_tensor.shape[0] == 1
+        ), f"{mask_as_tensor.shape=}"
         bboxes = torchvision.ops.masks_to_boxes(mask_as_tensor)
         return bboxes
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         """
         Combines inputs, labels, and meta_info for a single datapoint.
@@ -89,28 +105,36 @@ class KC3DDataset(Base3DCDDataset):
         Load input data: images, depth maps, and metadata.
         """
         # Load RGB images
-        img_1 = utils.io.load_image(
+        img_1 = utils.io.image.load_image(
             filepath=os.path.join(self.data_root, self.annotations[idx]['image1']),
-            dtype=torch.float32, sub=None, div=255.0,
+            dtype=torch.float32,
+            sub=None,
+            div=255.0,
         )
         assert img_1.ndim == 3 and img_1.size(0) == 4
         img_1 = img_1[:3, :, :]
-        img_2 = utils.io.load_image(
+        img_2 = utils.io.image.load_image(
             filepath=os.path.join(self.data_root, self.annotations[idx]['image2']),
-            dtype=torch.float32, sub=None, div=255.0,
+            dtype=torch.float32,
+            sub=None,
+            div=255.0,
         )
         assert img_2.ndim == 3 and img_2.size(0) == 4
         img_2 = img_2[:3, :, :]
 
         # Load depth maps
-        depth_1 = utils.io.load_image(
+        depth_1 = utils.io.image.load_image(
             filepaths=[os.path.join(self.data_root, self.annotations[idx]['depth1'])],
-            dtype=torch.float32, sub=None, div=None,
+            dtype=torch.float32,
+            sub=None,
+            div=None,
         )
         depth_1 = depth_1.squeeze(0)
-        depth_2 = utils.io.load_image(
+        depth_2 = utils.io.image.load_image(
             filepaths=[os.path.join(self.data_root, self.annotations[idx]['depth2'])],
-            dtype=torch.float32, sub=None, div=None,
+            dtype=torch.float32,
+            sub=None,
+            div=None,
         )
         depth_2 = depth_2.squeeze(0)
 
@@ -127,7 +151,8 @@ class KC3DDataset(Base3DCDDataset):
         if self.use_ground_truth_registration:
             metadata_file = os.path.join(
                 self.data_root,
-                "_".join(self.annotations[idx]["image1"].split(".")[0].split("_")[:3]) + ".npy",
+                "_".join(self.annotations[idx]["image1"].split(".")[0].split("_")[:3])
+                + ".npy",
             )
             metadata = numpy.load(metadata_file, allow_pickle=True).item()
 
@@ -151,13 +176,17 @@ class KC3DDataset(Base3DCDDataset):
         Load labels: bounding boxes extracted from masks.
         """
         # Load masks
-        mask_1 = utils.io.load_image(
+        mask_1 = utils.io.image.load_image(
             filepath=os.path.join(self.data_root, self.annotations[idx]["mask1"]),
-            dtype=torch.int64, sub=None, div=None,
+            dtype=torch.int64,
+            sub=None,
+            div=None,
         )
-        mask_2 = utils.io.load_image(
+        mask_2 = utils.io.image.load_image(
             filepath=os.path.join(self.data_root, self.annotations[idx]["mask2"]),
-            dtype=torch.int64, sub=None, div=None,
+            dtype=torch.int64,
+            sub=None,
+            div=None,
         )
 
         # Convert masks to bounding boxes
@@ -179,7 +208,9 @@ class KC3DDataset(Base3DCDDataset):
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'use_ground_truth_registration': self.use_ground_truth_registration,
-        })
+        version_dict.update(
+            {
+                'use_ground_truth_registration': self.use_ground_truth_registration,
+            }
+        )
         return version_dict

@@ -40,7 +40,7 @@ class BaseRandomDataset(BaseDataset):
 
     def _init_annotations_all_splits(self) -> None:
         r"""Override to skip annotation initialization for random datasets.
-        
+
         BaseRandomDataset generates data on-the-fly and doesn't use annotations.
         """
         pass
@@ -86,7 +86,7 @@ class BaseRandomDataset(BaseDataset):
         settings_3d: Optional[Dict[str, Any]] = None
     ) -> None:
         """Minimal display_datapoint implementation for random datasets.
-        
+
         Random datasets do not support visualization.
         """
         return None

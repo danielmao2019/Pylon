@@ -15,13 +15,13 @@ def create_dataset_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) ->
     """
     # Import type labels from callback constants to avoid duplication
     from data.viewer.callbacks.dataset import TYPE_LABELS
-    
+
     # Create group dropdown options
     group_options = []
     for dataset_type in sorted(hierarchical_datasets.keys()):
         label = TYPE_LABELS.get(dataset_type, dataset_type.upper())
         group_options.append({'label': f"{label} ({len(hierarchical_datasets[dataset_type])} datasets)", 'value': dataset_type})
-    
+
     return html.Div([
         html.Div([
             html.Label("Select Dataset Group:"),
@@ -33,7 +33,7 @@ def create_dataset_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) ->
                 style={'width': '100%'}
             )
         ], style={'margin-bottom': '15px'}),
-        
+
         html.Div([
             html.Label("Select Dataset:"),
             dcc.Dropdown(
