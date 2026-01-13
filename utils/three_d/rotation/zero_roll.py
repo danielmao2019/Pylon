@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 import torch
 
-_GLOBAL_UP = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float64)
+_GLOBAL_UP = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32)
 
 
 def _find_local_up(extrinsics_list: List[torch.Tensor]) -> torch.Tensor:
@@ -77,10 +77,14 @@ def _find_transform(local_up: torch.Tensor) -> torch.Tensor:
     if torch.abs(dot - 1.0) < eps:
         return transform
     if torch.abs(dot + 1.0) < eps:
-        reference = torch.tensor([1.0, 0.0, 0.0], dtype=local_up.dtype, device=local_up.device)
+        reference = torch.tensor(
+            [1.0, 0.0, 0.0], dtype=local_up.dtype, device=local_up.device
+        )
         axis = torch.cross(local_up, reference)
         if axis.norm() < 1e-6:
-            reference = torch.tensor([0.0, 1.0, 0.0], dtype=local_up.dtype, device=local_up.device)
+            reference = torch.tensor(
+                [0.0, 1.0, 0.0], dtype=local_up.dtype, device=local_up.device
+            )
             axis = torch.cross(local_up, reference)
         axis_norm = axis.norm()
         if axis_norm < eps:
@@ -99,7 +103,9 @@ def _find_transform(local_up: torch.Tensor) -> torch.Tensor:
     return transform
 
 
-def zero_roll(extrinsics_list: List[torch.Tensor]) -> Tuple[List[torch.Tensor], torch.Tensor]:
+def zero_roll(
+    extrinsics_list: List[torch.Tensor],
+) -> Tuple[List[torch.Tensor], torch.Tensor]:
     """Apply a global leveling rotation to remove roll from camera extrinsics."""
     if not extrinsics_list:
         raise ValueError("Cannot zero roll an empty list of extrinsics")
