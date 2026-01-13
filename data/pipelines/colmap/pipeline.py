@@ -1,44 +1,60 @@
 """Pipeline that mirrors the original COLMAP-to-NeRF export script."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from data.pipelines.base_pipeline import BasePipeline
-from data.pipelines.colmap.cleanup_sparse_step import ColmapSparseCleanupStep
 from data.pipelines.colmap.colmap_commands_pipeline import ColmapCommandsPipeline
-from data.pipelines.colmap.point_cloud_extraction_step import (
-    ColmapPointCloudExtractionStep,
-)
-from data.pipelines.colmap.prepare_inputs_step import PrepareColmapInputsStep
+from data.pipelines.colmap.extract_cameras_step import ColmapExtractCamerasStep
+from data.pipelines.colmap.extract_point_cloud_step import ColmapExtractPointCloudStep
 
 
 class ColmapPipeline(BasePipeline):
     """Sequential pipeline that exports NeRF-ready data from a folder of images."""
 
-    STEP_NAME = "colmap_pipeline"
+    PIPELINE_NAME = "colmap_pipeline"
 
-    def __init__(self, input_root: str | Path, output_root: str | Path) -> None:
-        self.source_images_dir = Path(input_root).expanduser().resolve()
-        self.scene_root = Path(output_root).expanduser().resolve()
+    def __init__(
+        self,
+        scene_root: str | Path,
+        sequential_overlap: int | None = None,
+        upright: bool = False,
+        init_from_dji: bool = False,
+        dji_data_root: str | Path | None = None,
+    ) -> None:
+        self.scene_root = Path(scene_root).expanduser().resolve()
+        if init_from_dji:
+            assert (
+                dji_data_root is not None
+            ), "dji_data_root must be provided when init_from_dji is True"
 
-        steps = [
-            PrepareColmapInputsStep(
-                input_root=self.source_images_dir,
-                output_root=self.scene_root / "input",
-            ),
-            ColmapCommandsPipeline(scene_root=self.scene_root),
-            ColmapSparseCleanupStep(
-                input_root=self.scene_root / "sparse",
-                output_root=self.scene_root / "undistorted" / "sparse",
-            ),
-            ColmapPointCloudExtractionStep(
-                input_root=self.scene_root / "undistorted" / "sparse",
-                output_root=self.scene_root,
-            ),
+        step_configs = [
+            {
+                "class": ColmapCommandsPipeline,
+                "args": {
+                    "scene_root": self.scene_root,
+                    "sequential_matching_overlap": sequential_overlap,
+                    "upright": upright,
+                    "init_from_dji": init_from_dji,
+                    "dji_data_root": dji_data_root,
+                },
+            },
+            {
+                "class": ColmapExtractCamerasStep,
+                "args": {
+                    "input_root": self.scene_root / "undistorted" / "sparse",
+                    "output_root": self.scene_root,
+                },
+            },
+            {
+                "class": ColmapExtractPointCloudStep,
+                "args": {
+                    "input_root": self.scene_root / "undistorted" / "sparse",
+                    "output_root": self.scene_root,
+                },
+            },
         ]
         super().__init__(
-            steps=steps,
-            input_root=self.source_images_dir,
+            step_configs=step_configs,
+            input_root=self.scene_root,
             output_root=self.scene_root,
         )

@@ -1,81 +1,149 @@
 """Step that runs COLMAP feature extraction."""
 
-from __future__ import annotations
-
 import logging
+import sqlite3
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict
 
-from project.pipelines.base_step import BaseStep
+from data.pipelines.base_step import BaseStep
 
 
 class ColmapFeatureExtractionStep(BaseStep):
     """Copy from NerfStudio pipeline: COLMAP feature_extractor stage."""
 
     STEP_NAME = "colmap_feature_extraction"
-    OUTPUT_FILES = ["database.db"]
 
-    def __init__(self, input_root: str | Path, output_root: str | Path) -> None:
-        super().__init__(input_root=input_root, output_root=output_root)
-        self.database_path = self.output_root / "database.db"
+    def __init__(
+        self,
+        scene_root: str | Path,
+        colmap_args: Dict[str, str],
+        upright: bool = False,
+    ) -> None:
+        scene_root = Path(scene_root)
+        self.input_images_dir = scene_root / "input"
+        self.distorted_dir = scene_root / "distorted"
+        self.database_path = scene_root / "distorted" / "database.db"
+        self.colmap_args = colmap_args
+        self.upright = upright
+        super().__init__(input_root=scene_root, output_root=scene_root)
 
-    def run(self, force: bool = False) -> None:
-        self.output_root.mkdir(parents=True, exist_ok=True)
+    def _init_input_files(self) -> None:
+        entries = sorted(self.input_images_dir.iterdir())
+        self.input_files = [f"input/{entry.name}" for entry in entries]
+
+    def _init_output_files(self) -> None:
+        self.output_files = ["distorted/database.db"]
+
+    def check_outputs(self) -> bool:
+        outputs_ready = super().check_outputs()
+        if not outputs_ready:
+            return False
+        try:
+            self._validate_database_contents()
+        except Exception as e:
+            logging.debug("Feature extraction validation failed: %s", e)
+            return False
+        else:
+            return True
+
+    def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
+        self.distorted_dir.mkdir(parents=True, exist_ok=True)
         if not force and self.check_outputs():
             logging.info("📥 COLMAP feature extraction already done - SKIPPED")
-            return
-        colmap_params = self._get_colmap_parameters()
+            return {}
+        if self.database_path.exists():
+            self.database_path.unlink()
         logging.info("   🔍 Feature extraction")
-        feat_extraction_cmd = (
-            f"colmap feature_extractor "
-            f"--database_path {self.database_path} "
-            f"--image_path {self.input_root} "
-            f"--ImageReader.single_camera 1 "
-            f"--ImageReader.camera_model OPENCV "
-            f"{colmap_params['feature_use_gpu']} 1"
+        cmd_parts = [
+            "colmap",
+            "feature_extractor",
+            "--database_path",
+            str(self.database_path),
+            "--image_path",
+            str(self.input_images_dir),
+            "--ImageReader.single_camera",
+            "1",
+            "--ImageReader.camera_model",
+            "OPENCV",
+            self.colmap_args["feature_use_gpu"],
+            "1",
+            "--log_to_stderr",
+            "1",
+        ]
+        if self.upright:
+            cmd_parts.extend([self.colmap_args["upright"], "1"])
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            f"COLMAP feature extraction failed with code {result.returncode}. "
+            f"Using {self.colmap_args['version']} with parameter: {self.colmap_args['feature_use_gpu']}. "
+            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
-        ret_code = subprocess.call(feat_extraction_cmd, shell=True)
-        assert ret_code == 0, (
-            f"COLMAP feature extraction failed with code {ret_code}. "
-            f"Using {colmap_params['version']} with parameter: {colmap_params['feature_use_gpu']}"
+        self._validate_database_contents()
+        return {}
+
+    def check_inputs(self) -> None:
+        super().check_inputs()
+        entries = sorted(self.input_images_dir.iterdir())
+        assert all(entry.is_file() for entry in entries), (
+            "COLMAP input directory must only contain files "
+            f"(found non-file entries in {self.input_images_dir})"
+        )
+        assert all(entry.suffix == ".png" for entry in entries), (
+            f"Non-PNG files present in COLMAP input directory: "
+            f"{', '.join(sorted(entry.name for entry in entries if entry.suffix != '.png'))}"
         )
 
-    def _get_colmap_parameters(self) -> Dict[str, str]:
-        try:
-            base_help = subprocess.run(
-                ["colmap", "--help"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                check=True,
+    def _validate_database_contents(self) -> None:
+        input_paths = [self.input_root / rel for rel in self.input_files]
+        assert input_paths, f"Empty input dir or no files: {self.input_images_dir}"
+        assert all(path.is_file() for path in input_paths), (
+            "COLMAP input directory must only contain files "
+            f"(found non-file entries in {self.input_images_dir})"
+        )
+        assert all(path.suffix == ".png" for path in input_paths), (
+            f"Non-PNG files present in COLMAP input directory: "
+            f"{', '.join(sorted(path.name for path in input_paths if path.suffix != '.png'))}"
+        )
+        expected_names = sorted(path.name for path in input_paths)
+        with sqlite3.connect(self.database_path) as connection:
+            cursor = connection.cursor()
+
+            image_rows = cursor.execute("SELECT image_id, name FROM images").fetchall()
+            assert image_rows, f"No images recorded in database {self.database_path}"
+            db_names = [row[1] for row in image_rows]
+            assert sorted(db_names) == expected_names, (
+                "Image names in database do not match COLMAP inputs. "
+                f"expected={len(expected_names)} actual={len(db_names)}"
             )
-        except FileNotFoundError as exc:
-            raise RuntimeError("COLMAP executable not found in PATH") from exc
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError("Timed out while querying COLMAP help output") from exc
-        except subprocess.CalledProcessError as exc:
-            raise RuntimeError("Failed to query COLMAP help output") from exc
+            image_ids = {row[0] for row in image_rows}
 
-        version_match = None
-        for line in base_help.stdout.splitlines():
-            if line.startswith("COLMAP"):
-                version_match = line.split()[1]
-                break
-        if version_match is None:
-            raise RuntimeError("Unable to parse COLMAP version from help output")
+            keypoint_rows = cursor.execute(
+                "SELECT image_id, rows FROM keypoints"
+            ).fetchall()
+            assert (
+                keypoint_rows
+            ), f"No keypoints stored in database {self.database_path}"
+            assert all(
+                row[1] > 0 for row in keypoint_rows
+            ), "Keypoints row count must be positive for all images"
+            keypoint_ids = {row[0] for row in keypoint_rows}
+            assert (
+                keypoint_ids == image_ids
+            ), "Keypoints table image_ids do not match images table"
 
-        version = version_match
-        if version == "3.13.0.dev0":
-            return {
-                "version": version,
-                "feature_use_gpu": "--FeatureExtraction.use_gpu",
-                "matching_use_gpu": "--FeatureMatching.use_gpu",
-                "guided_matching": "--FeatureMatching.guided_matching",
-            }
-        return {
-            "version": version,
-            "feature_use_gpu": "--SiftExtraction.use_gpu",
-            "matching_use_gpu": "--SiftMatching.use_gpu",
-            "guided_matching": "--SiftMatching.guided_matching",
-        }
+            descriptor_rows = cursor.execute(
+                "SELECT image_id FROM descriptors"
+            ).fetchall()
+            assert (
+                descriptor_rows
+            ), f"No descriptors stored in database {self.database_path}"
+            descriptor_ids = {row[0] for row in descriptor_rows}
+            assert (
+                descriptor_ids == image_ids
+            ), "Descriptor image_ids do not match images table"
+
+            camera_count = cursor.execute("SELECT COUNT(*) FROM cameras").fetchone()[0]
+            assert (
+                camera_count == 1
+            ), f"Expected exactly one camera entry, found {camera_count}"
