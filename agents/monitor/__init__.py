@@ -1,6 +1,17 @@
 """Agents monitor module (moved from utils.monitor)."""
-from agents.monitor import process_info, gpu_status, gpu_monitor, cpu_status, cpu_monitor, system_monitor
+
+from agents.monitor.cpu_monitor import CPUMonitor
+from agents.monitor.cpu_status import CPUStatus
+from agents.monitor.gpu_monitor import GPUMonitor
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.process_info import ProcessInfo
+from agents.monitor.system_monitor import SystemMonitor
 
 __all__ = [
-    'process_info', 'gpu_status', 'gpu_monitor', 'cpu_status', 'cpu_monitor', 'system_monitor'
+    "CPUMonitor",
+    "CPUStatus",
+    "GPUMonitor",
+    "GPUStatus",
+    "ProcessInfo",
+    "SystemMonitor",
 ]

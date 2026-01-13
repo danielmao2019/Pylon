@@ -1,7 +1,5 @@
 """Minimal Dash app for monitoring resources across servers."""
 
-from __future__ import annotations
-
 import argparse
 import datetime
 from contextlib import ExitStack
@@ -72,40 +70,108 @@ def build_table_rows(monitors: Dict[str, SystemMonitor]) -> List[Dict[str, str]]
 
         status = monitor.get_system_status()
         cpu = status['cpu']
-        cpu_memory_stats = cpu['memory_stats'] if cpu['memory_stats'] else {'min': None, 'max': None, 'avg': None}
-        cpu_util_stats = cpu['cpu_stats'] if cpu['cpu_stats'] else {'min': None, 'max': None, 'avg': None}
+        cpu_memory_stats = (
+            cpu['memory_stats']
+            if cpu['memory_stats']
+            else {'min': None, 'max': None, 'avg': None}
+        )
+        cpu_util_stats = (
+            cpu['cpu_stats']
+            if cpu['cpu_stats']
+            else {'min': None, 'max': None, 'avg': None}
+        )
         cpu_max_memory = cpu['max_memory']
         rows.append(
             {
                 'Server': server,
                 'Resource': 'CPU',
                 'Connected': 'Yes' if cpu['connected'] else 'No',
-                'Memory Min': f"{cpu_memory_stats['min']:.2f}" if cpu_memory_stats['min'] is not None else 'n/a',
-                'Memory Max': f"{cpu_memory_stats['max']:.2f}" if cpu_memory_stats['max'] is not None else 'n/a',
-                'Memory Avg': f"{cpu_memory_stats['avg']:.2f}" if cpu_memory_stats['avg'] is not None else 'n/a',
-                'Max Memory': f"{cpu_max_memory:.2f}" if cpu_max_memory is not None else 'n/a',
-                'Util Min': f"{cpu_util_stats['min']:.2f}" if cpu_util_stats['min'] is not None else 'n/a',
-                'Util Max': f"{cpu_util_stats['max']:.2f}" if cpu_util_stats['max'] is not None else 'n/a',
-                'Util Avg': f"{cpu_util_stats['avg']:.2f}" if cpu_util_stats['avg'] is not None else 'n/a',
+                'Memory Min': (
+                    f"{cpu_memory_stats['min']:.2f}"
+                    if cpu_memory_stats['min'] is not None
+                    else 'n/a'
+                ),
+                'Memory Max': (
+                    f"{cpu_memory_stats['max']:.2f}"
+                    if cpu_memory_stats['max'] is not None
+                    else 'n/a'
+                ),
+                'Memory Avg': (
+                    f"{cpu_memory_stats['avg']:.2f}"
+                    if cpu_memory_stats['avg'] is not None
+                    else 'n/a'
+                ),
+                'Max Memory': (
+                    f"{cpu_max_memory:.2f}" if cpu_max_memory is not None else 'n/a'
+                ),
+                'Util Min': (
+                    f"{cpu_util_stats['min']:.2f}"
+                    if cpu_util_stats['min'] is not None
+                    else 'n/a'
+                ),
+                'Util Max': (
+                    f"{cpu_util_stats['max']:.2f}"
+                    if cpu_util_stats['max'] is not None
+                    else 'n/a'
+                ),
+                'Util Avg': (
+                    f"{cpu_util_stats['avg']:.2f}"
+                    if cpu_util_stats['avg'] is not None
+                    else 'n/a'
+                ),
             }
         )
 
         for gpu in status['gpus']:
-            gpu_memory_stats = gpu['memory_stats'] if gpu['memory_stats'] else {'min': None, 'max': None, 'avg': None}
-            gpu_util_stats = gpu['util_stats'] if gpu['util_stats'] else {'min': None, 'max': None, 'avg': None}
+            gpu_memory_stats = (
+                gpu['memory_stats']
+                if gpu['memory_stats']
+                else {'min': None, 'max': None, 'avg': None}
+            )
+            gpu_util_stats = (
+                gpu['util_stats']
+                if gpu['util_stats']
+                else {'min': None, 'max': None, 'avg': None}
+            )
             gpu_max_memory = gpu['max_memory']
             rows.append(
                 {
                     'Server': server,
                     'Resource': f"GPU-{gpu['index']}",
                     'Connected': 'Yes' if gpu['connected'] else 'No',
-                    'Memory Min': f"{gpu_memory_stats['min']:.2f}" if gpu_memory_stats['min'] is not None else 'n/a',
-                    'Memory Max': f"{gpu_memory_stats['max']:.2f}" if gpu_memory_stats['max'] is not None else 'n/a',
-                    'Memory Avg': f"{gpu_memory_stats['avg']:.2f}" if gpu_memory_stats['avg'] is not None else 'n/a',
-                    'Max Memory': f"{gpu_max_memory:.2f}" if gpu_max_memory is not None else 'n/a',
-                    'Util Min': f"{gpu_util_stats['min']:.2f}" if gpu_util_stats['min'] is not None else 'n/a',
-                    'Util Max': f"{gpu_util_stats['max']:.2f}" if gpu_util_stats['max'] is not None else 'n/a',
-                    'Util Avg': f"{gpu_util_stats['avg']:.2f}" if gpu_util_stats['avg'] is not None else 'n/a',
+                    'Memory Min': (
+                        f"{gpu_memory_stats['min']:.2f}"
+                        if gpu_memory_stats['min'] is not None
+                        else 'n/a'
+                    ),
+                    'Memory Max': (
+                        f"{gpu_memory_stats['max']:.2f}"
+                        if gpu_memory_stats['max'] is not None
+                        else 'n/a'
+                    ),
+                    'Memory Avg': (
+                        f"{gpu_memory_stats['avg']:.2f}"
+                        if gpu_memory_stats['avg'] is not None
+                        else 'n/a'
+                    ),
+                    'Max Memory': (
+                        f"{gpu_max_memory:.2f}" if gpu_max_memory is not None else 'n/a'
+                    ),
+                    'Util Min': (
+                        f"{gpu_util_stats['min']:.2f}"
+                        if gpu_util_stats['min'] is not None
+                        else 'n/a'
+                    ),
+                    'Util Max': (
+                        f"{gpu_util_stats['max']:.2f}"
+                        if gpu_util_stats['max'] is not None
+                        else 'n/a'
+                    ),
+                    'Util Avg': (
+                        f"{gpu_util_stats['avg']:.2f}"
+                        if gpu_util_stats['avg'] is not None
+                        else 'n/a'
+                    ),
                 }
             )
     return rows
@@ -154,7 +220,9 @@ def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
     app.layout = html.Div(
         [
             html.H2("Agents Monitor Dashboard"),
-            html.Div(meta_text, id='monitor-meta', style={'margin': '8px 0', 'color': '#555'}),
+            html.Div(
+                meta_text, id='monitor-meta', style={'margin': '8px 0', 'color': '#555'}
+            ),
             html.Div(id='last-update', style={'margin': '10px 0'}),
             dash_table.DataTable(
                 id='resource-table',
@@ -174,7 +242,7 @@ def make_app(monitors: Dict[str, SystemMonitor], interval_ms: int) -> dash.Dash:
         Output('last-update', 'children'),
         Input('refresh-interval', 'n_intervals'),
     )
-    def update_table(_n: int):  # type: ignore
+    def update_table(_n: int):
         rows = build_table_rows(monitors)
         style = build_style(rows)
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
