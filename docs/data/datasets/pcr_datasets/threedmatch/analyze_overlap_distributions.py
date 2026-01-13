@@ -38,14 +38,14 @@ def analyze_overlap_distribution(overlaps, title, ax):
     if overlaps is None or len(overlaps) == 0:
         print(f"No overlap data for {title}")
         return None
-    
+
     # Calculate counts
     high_overlap = np.sum((overlaps > 0.3) & (overlaps <= 1.0))
     low_overlap = np.sum((overlaps > 0.1) & (overlaps <= 0.3))
     very_low_overlap = np.sum(overlaps <= 0.1)
-    
+
     total = len(overlaps)
-    
+
     # Print statistics
     print(f"\n{title}:")
     print(f"  Total instances: {total}")
@@ -56,7 +56,7 @@ def analyze_overlap_distribution(overlaps, title, ax):
     print(f"  Max overlap: {overlaps.max():.4f}")
     print(f"  Mean overlap: {overlaps.mean():.4f}")
     print(f"  Median overlap: {np.median(overlaps):.4f}")
-    
+
     # Create histogram
     ax.hist(overlaps, bins=50, edgecolor='black', alpha=0.7)
     ax.axvline(x=0.1, color='red', linestyle='--', label='0.1 threshold')
@@ -66,20 +66,20 @@ def analyze_overlap_distribution(overlaps, title, ax):
     ax.set_title(f'{title}\n(n={total})')
     ax.legend()
     ax.grid(True, alpha=0.3)
-    
+
     # Add text box with statistics
     stats_text = f'> 0.3: {high_overlap} ({high_overlap/total*100:.1f}%)\n'
     stats_text += f'0.1-0.3: {low_overlap} ({low_overlap/total*100:.1f}%)\n'
     stats_text += f'≤ 0.1: {very_low_overlap} ({very_low_overlap/total*100:.1f}%)'
-    ax.text(0.98, 0.97, stats_text, transform=ax.transAxes, 
+    ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
             fontsize=9, verticalalignment='top', horizontalalignment='right',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-    
+
     return {'high': high_overlap, 'low': low_overlap, 'very_low': very_low_overlap, 'total': total}
 
 def main():
     """Main analysis function."""
-    
+
     # Define file paths
     geo_files = {
         'Train': '/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/train.pkl',
@@ -87,56 +87,56 @@ def main():
         '3DMatch Test': '/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/3DMatch.pkl',
         '3DLoMatch Test': '/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/3DLoMatch.pkl',
     }
-    
+
     overlap_files = {
         'Train': '/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/train_info.pkl',
         'Val': '/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/val_info.pkl',
         '3DMatch Test': '/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/3DMatch.pkl',
         '3DLoMatch Test': '/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/3DLoMatch.pkl',
     }
-    
+
     # Create figure with subplots
     fig, axes = plt.subplots(4, 2, figsize=(14, 16))
     fig.suptitle('Overlap Distribution Comparison: GeoTransformer vs OverlapPredator', fontsize=16, fontweight='bold')
-    
+
     print("=" * 80)
     print("GEOTRANSFORMER OVERLAP ANALYSIS")
     print("=" * 80)
-    
+
     # Analyze GeoTransformer
     for idx, (name, filepath) in enumerate(geo_files.items()):
         data = load_pickle_file(filepath)
         if data is not None:
             overlaps = extract_overlaps_geotransformer(data)
             analyze_overlap_distribution(overlaps, f"GeoTransformer - {name}", axes[idx, 0])
-    
+
     print("\n" + "=" * 80)
     print("OVERLAPPREDATOR OVERLAP ANALYSIS")
     print("=" * 80)
-    
+
     # Analyze OverlapPredator
     for idx, (name, filepath) in enumerate(overlap_files.items()):
         data = load_pickle_file(filepath)
         if data is not None:
             overlaps = extract_overlaps_overlappredator(data)
             analyze_overlap_distribution(overlaps, f"OverlapPredator - {name}", axes[idx, 1])
-    
+
     # Adjust layout and save
     plt.tight_layout()
     output_path = '/home/daniel/repos/iVISION-PCR/overlap_distributions.png'
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"\nPlot saved to: {output_path}")
     plt.show()
-    
+
     # Create summary comparison table
     print("\n" + "=" * 80)
     print("SUMMARY COMPARISON TABLE")
     print("=" * 80)
-    
+
     print("\n" + "-" * 80)
     print(f"{'Dataset':<30} {'Total':<10} {'High (>0.3)':<20} {'Low (0.1-0.3)':<20} {'Very Low (≤0.1)':<20}")
     print("-" * 80)
-    
+
     # Re-analyze for summary table
     for name in geo_files.keys():
         # GeoTransformer
@@ -149,7 +149,7 @@ def main():
                 very_low = np.sum(geo_overlaps <= 0.1)
                 total = len(geo_overlaps)
                 print(f"{'GeoTransformer ' + name:<30} {total:<10} {f'{high} ({high/total*100:.1f}%)':<20} {f'{low} ({low/total*100:.1f}%)':<20} {f'{very_low} ({very_low/total*100:.1f}%)':<20}")
-        
+
         # OverlapPredator
         overlap_data = load_pickle_file(overlap_files[name])
         if overlap_data:
@@ -160,7 +160,7 @@ def main():
                 very_low = np.sum(overlap_overlaps <= 0.1)
                 total = len(overlap_overlaps)
                 print(f"{'OverlapPredator ' + name:<30} {total:<10} {f'{high} ({high/total*100:.1f}%)':<20} {f'{low} ({low/total*100:.1f}%)':<20} {f'{very_low} ({very_low/total*100:.1f}%)':<20}")
-    
+
     print("-" * 80)
 
 if __name__ == "__main__":

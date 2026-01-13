@@ -17,12 +17,12 @@ def load_pickle_file(filepath: str):
 
 def print_detailed_info():
     """Print detailed information about the metadata files."""
-    
+
     # Load GeoTransformer files
     print("=" * 80)
     print("GEOTRANSFORMER DETAILED ANALYSIS")
     print("=" * 80)
-    
+
     # Load 3DMatch.pkl from GeoTransformer
     geo_3dmatch = load_pickle_file("/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/3DMatch.pkl")
     if geo_3dmatch and len(geo_3dmatch) > 0:
@@ -40,7 +40,7 @@ def print_detailed_info():
                     print(f"  {key}: '{value[:100]}...' (string)")
                 else:
                     print(f"  {key}: {value} ({type(value).__name__})")
-    
+
     # Load train.pkl from GeoTransformer
     geo_train = load_pickle_file("/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/train.pkl")
     if geo_train and len(geo_train) > 0:
@@ -49,11 +49,11 @@ def print_detailed_info():
         print(f"First entry type: {type(geo_train[0])}")
         if isinstance(geo_train[0], dict):
             print(f"Keys in first entry: {list(geo_train[0].keys())}")
-    
+
     print("\n" + "=" * 80)
     print("OVERLAPPREDATOR DETAILED ANALYSIS")
     print("=" * 80)
-    
+
     # Load 3DMatch.pkl from OverlapPredator
     overlap_3dmatch = load_pickle_file("/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/3DMatch.pkl")
     if overlap_3dmatch:
@@ -75,7 +75,7 @@ def print_detailed_info():
                     print(f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}")
                 else:
                     print(f"  {key}: {type(value).__name__}")
-    
+
     # Load train_info.pkl from OverlapPredator
     overlap_train = load_pickle_file("/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/train_info.pkl")
     if overlap_train:
@@ -90,12 +90,12 @@ def print_detailed_info():
                         print(f"    First item: {value[0][:100] if isinstance(value[0], str) else value[0]}")
                 elif isinstance(value, np.ndarray):
                     print(f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}")
-    
+
     # Compare paths
     print("\n" + "=" * 80)
     print("PATH COMPARISON")
     print("=" * 80)
-    
+
     if geo_3dmatch and overlap_3dmatch:
         # GeoTransformer paths
         if len(geo_3dmatch) > 0 and isinstance(geo_3dmatch[0], dict):
@@ -104,7 +104,7 @@ def print_detailed_info():
             print("\nGeoTransformer sample paths:")
             print(f"  pcd0: {geo_path0}")
             print(f"  pcd1: {geo_path1}")
-        
+
         # OverlapPredator paths
         if isinstance(overlap_3dmatch, dict) and 'src' in overlap_3dmatch:
             src_list = overlap_3dmatch['src']

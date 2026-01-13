@@ -52,7 +52,7 @@ The system recursively traverses the config to:
 
 ```python
 # Detects that SupervisedSingleTaskTrainer needs:
-from runners import SupervisedSingleTaskTrainer
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 # Detects that models.change_detection.HANet needs:
 from models.change_detection import HANet
