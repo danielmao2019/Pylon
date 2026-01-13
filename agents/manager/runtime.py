@@ -1,7 +1,5 @@
 """Runtime parameters supplied to manager-backed jobs."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
