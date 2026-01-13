@@ -7,21 +7,21 @@ from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import Synthetic
 # Create a concrete implementation for testing
 class ConcreteSyntheticTransformPCRDataset(SyntheticTransformPCRDataset):
     """Concrete implementation for testing."""
-    
+
     def _init_annotations(self) -> None:
         """Simple implementation for testing."""
         self.annotations = [
             {
-                't1_pc_filepath': 'dummy1.ply', 
+                't1_pc_filepath': 'dummy1.ply',
                 't2_pc_filepath': 'dummy1.ply'
             },
             {
-                't1_pc_filepath': 'dummy2.ply', 
+                't1_pc_filepath': 'dummy2.ply',
                 't2_pc_filepath': 'dummy2.ply'
             },
         ]
-    
-    
+
+
     def _apply_crop(self, idx: int, pc_data: dict) -> dict:
         """Build and apply crop transform for testing."""
         # Just return the original data for testing
@@ -49,7 +49,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
-        
+
         # Different rotation_mag should have different hash
         dataset2 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
@@ -60,7 +60,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
-        
+
         # Different translation_mag should have different hash
         dataset3 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
@@ -71,7 +71,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
-        
+
         # Different matching_radius should have different hash
         dataset4 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
@@ -82,7 +82,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
-        
+
         # Different dataset_size should have different hash
         dataset5 = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
@@ -93,7 +93,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() != dataset5.get_cache_version_hash()
-        
+
 
 
 def test_all_parameters_affect_version_hash():
@@ -107,7 +107,7 @@ def test_all_parameters_affect_version_hash():
             'matching_radius': 0.05,
             'split': 'train',
         }
-        
+
         # Test each parameter individually
         parameter_variants = [
             ('dataset_size', 200),
@@ -117,14 +117,14 @@ def test_all_parameters_affect_version_hash():
             ('overlap_range', (0.2, 0.8)),  # Different from default
             ('min_points', 256),  # Different from default 512
         ]
-        
+
         dataset1 = ConcreteSyntheticTransformPCRDataset(**base_args)
-        
+
         for param_name, new_value in parameter_variants:
             modified_args = base_args.copy()
             modified_args[param_name] = new_value
             dataset2 = ConcreteSyntheticTransformPCRDataset(**modified_args)
-            
+
             assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
                 f"Parameter {param_name} should affect cache version hash"
 
@@ -133,7 +133,7 @@ def test_comprehensive_no_hash_collisions():
     """Ensure no hash collisions across many different configurations."""
     with tempfile.TemporaryDirectory() as temp_dir:
         datasets = []
-        
+
         # Generate many different dataset configurations
         for dataset_size in [50, 100, 200]:
             for rotation_mag in [30.0, 45.0, 60.0]:
@@ -146,14 +146,14 @@ def test_comprehensive_no_hash_collisions():
                         matching_radius=0.05,
                         split='train'
                     ))
-        
+
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        
+
         # Ensure all hashes are unique (no collisions)
         assert len(hashes) == len(set(hashes)), \
             f"Hash collision detected! Duplicate hashes found in: {hashes}"
-        
+
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
             assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"

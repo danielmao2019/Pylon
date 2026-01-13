@@ -1,8 +1,13 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
-from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
+
+from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import (
+    xView2Dataset,
+)
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -43,8 +48,6 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 @pytest.mark.parametrize('dataset_config', ['train', 'test', 'hold'], indirect=True)
 def test_xview2(dataset_config, patched_xview2_dataset_size, max_samples, get_samples_to_test) -> None:
-    from utils.builders.builder import build_from_config
-    
     with patched_xview2_dataset_size():
         dataset = build_from_config(dataset_config)
         assert isinstance(dataset, torch.utils.data.Dataset)

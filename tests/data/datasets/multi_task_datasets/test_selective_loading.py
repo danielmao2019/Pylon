@@ -18,23 +18,23 @@ def test_selective_label_loading(selected_labels, expected_keys):
             split="train",
             labels=selected_labels
         )
-        
+
         # Check selected_labels attribute
         if selected_labels is None:
             assert dataset.selected_labels == dataset.LABEL_NAMES
         else:
             assert dataset.selected_labels == selected_labels
-        
+
         # Load a datapoint and check only expected labels are present
         datapoint = dataset[0]
-        
+
         assert isinstance(datapoint, dict)
         assert 'labels' in datapoint
-        
+
         labels = datapoint['labels']
         assert isinstance(labels, dict)
         assert set(labels.keys()) == set(expected_keys)
-        
+
         # Verify label values are tensors with correct types
         for key in expected_keys:
             assert isinstance(labels[key], torch.Tensor)
@@ -49,29 +49,29 @@ def test_selective_loading_preserves_values():
             data_root=temp_dir,
             split="train"
         )
-        
+
         # Load only left label
         dataset_left = MultiMNISTDataset(
             data_root=temp_dir,
             split="train",
             labels=["left"]
         )
-        
+
         # Same index should produce same values
         datapoint_full = dataset_full[0]
         datapoint_left = dataset_left[0]
-        
+
         inputs_full = datapoint_full['inputs']
         labels_full = datapoint_full['labels']
         inputs_left = datapoint_left['inputs']
         labels_left = datapoint_left['labels']
-        
+
         # Images should be identical
         assert torch.equal(inputs_full['image'], inputs_left['image'])
-        
+
         # Left label should be identical
         assert torch.equal(labels_full['left'], labels_left['left'])
-        
+
         # Right label should not be present in selective dataset
         assert 'right' not in labels_left
 
@@ -86,24 +86,24 @@ def test_cache_version_discrimination():
             split="train",
             labels=["left"]
         )
-        
+
         dataset2 = MultiMNISTDataset(
             data_root=temp_dir,
             split="train",
             labels=["right"]
         )
-        
+
         dataset3 = MultiMNISTDataset(
             data_root=temp_dir,
             split="train",
             labels=["left", "right"]
         )
-        
+
         # All should have different cache version hashes
         hash1 = dataset1.get_cache_version_hash()
         hash2 = dataset2.get_cache_version_hash()
         hash3 = dataset3.get_cache_version_hash()
-        
+
         assert hash1 != hash2
         assert hash2 != hash3
         assert hash1 != hash3

@@ -32,42 +32,42 @@ def create_dummy_cocostuff_structure(data_root: str) -> None:
     annotations_val_dir = os.path.join(data_root, 'annotations', 'val2017')
     curated_train_dir = os.path.join(data_root, 'curated', 'train2017')
     curated_val_dir = os.path.join(data_root, 'curated', 'val2017')
-    
+
     os.makedirs(images_train_dir, exist_ok=True)
     os.makedirs(images_val_dir, exist_ok=True)
     os.makedirs(annotations_train_dir, exist_ok=True)
     os.makedirs(annotations_val_dir, exist_ok=True)
     os.makedirs(curated_train_dir, exist_ok=True)
     os.makedirs(curated_val_dir, exist_ok=True)
-    
+
     # Create dummy image IDs
     train_ids = ['000000000001', '000000000002', '000000000003']
     val_ids = ['000000000004', '000000000005']
-    
+
     # Create curated file lists
     with open(os.path.join(curated_train_dir, 'Coco164kFull_Stuff_Coarse.txt'), 'w') as f:
         for img_id in train_ids:
             f.write(f"{img_id}\n")
-    
+
     with open(os.path.join(curated_val_dir, 'Coco164kFull_Stuff_Coarse.txt'), 'w') as f:
         for img_id in val_ids:
             f.write(f"{img_id}\n")
-    
+
     # Create dummy images and annotations
     for img_id in train_ids:
         # Create RGB image
         img = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
         Image.fromarray(img).save(os.path.join(images_train_dir, f"{img_id}.jpg"))
-        
+
         # Create segmentation label (values 0-181 for fine labels)
         label = np.random.randint(0, 182, (256, 256), dtype=np.uint8)
         Image.fromarray(label).save(os.path.join(annotations_train_dir, f"{img_id}.png"))
-    
+
     for img_id in val_ids:
         # Create RGB image
         img = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
         Image.fromarray(img).save(os.path.join(images_val_dir, f"{img_id}.jpg"))
-        
+
         # Create segmentation label
         label = np.random.randint(0, 182, (256, 256), dtype=np.uint8)
         Image.fromarray(label).save(os.path.join(annotations_val_dir, f"{img_id}.png"))
@@ -77,7 +77,7 @@ def test_cocostuff164k_dataset_version_discrimination():
     """Test that COCOStuff164KDataset instances with different parameters have different hashes."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_cocostuff_structure(temp_dir)
-        
+
         with patched_dataset_size():
             # Same parameters should have same hash
             dataset1a = COCOStuff164KDataset(
@@ -91,7 +91,7 @@ def test_cocostuff164k_dataset_version_discrimination():
                 semantic_granularity='coarse'
             )
             assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
-            
+
             # Different split should have different hash
             dataset2 = COCOStuff164KDataset(
                 data_root=temp_dir,
@@ -99,10 +99,10 @@ def test_cocostuff164k_dataset_version_discrimination():
                 semantic_granularity='coarse'
             )
             assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
-            
+
             # Note: semantic_granularity doesn't affect cache version hash as it's
             # considered a processing parameter, not a content parameter
-            
+
             # Different data_root should have SAME hash (data_root excluded from versioning)
             with tempfile.TemporaryDirectory() as temp_dir2:
                 create_dummy_cocostuff_structure(temp_dir2)
@@ -118,10 +118,10 @@ def test_split_variants():
     """Test that different splits produce different hashes."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_cocostuff_structure(temp_dir)
-        
+
         with patched_dataset_size():
             split_variants = ['train2017', 'val2017']
-            
+
             datasets = []
             for split in split_variants:
                 dataset = COCOStuff164KDataset(
@@ -130,7 +130,7 @@ def test_split_variants():
                     semantic_granularity='coarse'
                 )
                 datasets.append(dataset)
-            
+
             # All should have different hashes
             hashes = [dataset.get_cache_version_hash() for dataset in datasets]
             assert len(hashes) == len(set(hashes)), \
@@ -141,7 +141,7 @@ def test_semantic_granularity_variants():
     """Test that semantic_granularity parameter works but doesn't affect cache version."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_cocostuff_structure(temp_dir)
-        
+
         with patched_dataset_size():
             # Both granularities should have same cache version hash since it's a processing parameter
             dataset_fine = COCOStuff164KDataset(
@@ -154,10 +154,10 @@ def test_semantic_granularity_variants():
                 split='train2017',
                 semantic_granularity='coarse'
             )
-            
+
             # Should have same hash since semantic_granularity is processing-only
             assert dataset_fine.get_cache_version_hash() == dataset_coarse.get_cache_version_hash()
-            
+
             # But they should have different NUM_CLASSES
             assert dataset_fine.NUM_CLASSES != dataset_coarse.NUM_CLASSES
 
@@ -166,10 +166,10 @@ def test_comprehensive_no_hash_collisions():
     """Ensure no hash collisions across different split configurations."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_cocostuff_structure(temp_dir)
-        
+
         with patched_dataset_size():
             datasets = []
-            
+
             # Generate different dataset configurations
             # Note: data_root is excluded from versioning, so we only vary split
             for split in ['train2017', 'val2017']:
@@ -178,14 +178,14 @@ def test_comprehensive_no_hash_collisions():
                     split=split,
                     semantic_granularity='coarse'  # Keep this constant
                 ))
-            
+
             # Collect all hashes
             hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-            
+
             # Ensure all hashes are unique (no collisions)
             assert len(hashes) == len(set(hashes)), \
                 f"Hash collision detected! Duplicate hashes found in: {hashes}"
-            
+
             # Ensure all hashes are properly formatted
             for hash_val in hashes:
                 assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"

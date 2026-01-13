@@ -18,14 +18,14 @@ def test_mnist_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
-        
+
         # Different split should have different hash
         dataset2 = MNISTDataset(
             data_root=temp_dir,
             split='test'  # Different
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
-        
+
         # Different data_root should have SAME hash (data_root excluded from versioning)
         with tempfile.TemporaryDirectory() as temp_dir2:
             dataset3 = MNISTDataset(
@@ -39,7 +39,7 @@ def test_split_variants():
     """Test that different splits produce different hashes."""
     with tempfile.TemporaryDirectory() as temp_dir:
         split_variants = ['train', 'test']
-        
+
         datasets = []
         for split in split_variants:
             dataset = MNISTDataset(
@@ -47,7 +47,7 @@ def test_split_variants():
                 split=split
             )
             datasets.append(dataset)
-        
+
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
         assert len(hashes) == len(set(hashes)), \
@@ -61,19 +61,19 @@ def test_inherited_parameters_affect_version_hash():
             'data_root': temp_dir,
             'split': 'train',
         }
-        
+
         # Test inherited parameters from BaseDataset
         parameter_variants = [
             ('base_seed', 42),  # Different from default None
         ]
-        
+
         dataset1 = MNISTDataset(**base_args)
-        
+
         for param_name, new_value in parameter_variants:
             modified_args = base_args.copy()
             modified_args[param_name] = new_value
             dataset2 = MNISTDataset(**modified_args)
-            
+
             assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
                 f"Inherited parameter {param_name} should affect cache version hash"
 
@@ -82,7 +82,7 @@ def test_comprehensive_no_hash_collisions():
     """Ensure no hash collisions across many different configurations."""
     with tempfile.TemporaryDirectory() as temp_dir:
         datasets = []
-        
+
         # Generate different dataset configurations
         for split in ['train', 'test']:
             for base_seed_val in [None, 42, 123]:
@@ -91,14 +91,14 @@ def test_comprehensive_no_hash_collisions():
                     split=split,
                     base_seed=base_seed_val
                 ))
-        
+
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        
+
         # Ensure all hashes are unique (no collisions)
         assert len(hashes) == len(set(hashes)), \
             f"Hash collision detected! Duplicate hashes found in: {hashes}"
-        
+
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
             assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"

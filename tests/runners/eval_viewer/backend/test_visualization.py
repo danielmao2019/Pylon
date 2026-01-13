@@ -15,7 +15,7 @@ def test_create_score_map_grid_with_list_input():
     """Test create_score_map_grid with list input."""
     scores = [0.1, 0.2, 0.3, 0.4, 0.5]
     result = create_score_map_grid(scores)
-    
+
     # Should create a 3x3 grid (since sqrt(5) ~ 2.24, ceil = 3)
     assert result.shape == (3, 3)
     assert result.flat[0] == 0.1
@@ -31,7 +31,7 @@ def test_create_score_map_grid_with_numpy_array():
     """Test create_score_map_grid with numpy array input."""
     scores = np.array([1.0, 2.0, 3.0, 4.0])
     result = create_score_map_grid(scores)
-    
+
     # Should create a 2x2 grid (since sqrt(4) = 2)
     assert result.shape == (2, 2)
     assert result[0, 0] == 1.0
@@ -44,12 +44,12 @@ def test_create_score_map_grid_perfect_square():
     """Test create_score_map_grid with perfect square number of elements."""
     scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     result = create_score_map_grid(scores)
-    
+
     # Should create a 3x3 grid (since sqrt(9) = 3)
     assert result.shape == (3, 3)
     # No NaN values for perfect square
     assert not np.any(np.isnan(result))
-    
+
     # Check all values are preserved
     flattened = result.flatten()
     for i, score in enumerate(scores):
@@ -60,7 +60,7 @@ def test_create_score_map_grid_single_element():
     """Test create_score_map_grid with single element."""
     scores = [0.5]
     result = create_score_map_grid(scores)
-    
+
     # Should create a 1x1 grid
     assert result.shape == (1, 1)
     assert result[0, 0] == 0.5
@@ -70,22 +70,22 @@ def test_create_score_map_grid_large_array():
     """Test create_score_map_grid with larger array."""
     scores = list(range(50))  # 50 elements
     result = create_score_map_grid(scores)
-    
+
     # Should create an 8x8 grid (since sqrt(50) ~ 7.07, ceil = 8)
     assert result.shape == (8, 8)
-    
+
     # First 50 elements should match input
     flattened = result.flatten()
     for i in range(50):
         assert flattened[i] == i
-    
+
     # Remaining 14 elements should be NaN
     assert np.sum(np.isnan(flattened)) == 64 - 50
 
 
 @pytest.mark.parametrize("scores,expected_shape", [
     ([1], (1, 1)),
-    ([1, 2], (2, 2)), 
+    ([1, 2], (2, 2)),
     ([1, 2, 3], (2, 2)),
     ([1, 2, 3, 4], (2, 2)),
     ([1, 2, 3, 4, 5], (3, 3)),
@@ -137,21 +137,21 @@ def test_create_score_map_grid_multidimensional_array():
 
 
 # ==========================================
-# Tests for create_overlaid_score_map function  
+# Tests for create_overlaid_score_map function
 # ==========================================
 
 def test_create_overlaid_score_map_basic(sample_score_maps):
     """Test create_overlaid_score_map with basic functionality."""
     result = create_overlaid_score_map(sample_score_maps, percentile=25)
-    
+
     # Should have same shape as input maps
     assert result.shape == sample_score_maps[0].shape
-    
+
     # Should be success rates (between 0 and 1)
     valid_values = result[~np.isnan(result)]
     assert np.all(valid_values >= 0.0)
     assert np.all(valid_values <= 1.0)
-    
+
     # NaN positions in overlaid map: NaN < threshold is False, so treated as success (1.0)
     # This is the actual behavior of the function
     assert result[2, 2] == 1.0  # NaN positions become success (1.0)
@@ -162,10 +162,10 @@ def test_create_overlaid_score_map_different_percentiles(sample_score_maps):
     result_10 = create_overlaid_score_map(sample_score_maps, percentile=10)
     result_50 = create_overlaid_score_map(sample_score_maps, percentile=50)
     result_90 = create_overlaid_score_map(sample_score_maps, percentile=90)
-    
+
     # All should have same shape
     assert result_10.shape == result_50.shape == result_90.shape
-    
+
     # Different percentiles should give different thresholds and results
     # Note: Since this is success rate (1 - failure_rate), we can't make simple comparisons
     # But we can verify they're all valid success rates
@@ -182,16 +182,16 @@ def test_create_overlaid_score_map_single_map():
         [0.3, 0.7, 0.2],
         [0.8, 0.4, np.nan]
     ])
-    
+
     result = create_overlaid_score_map([single_map], percentile=50)
-    
+
     # Should have same shape
     assert result.shape == single_map.shape
-    
+
     # With single map, result should be binary (0 or 1) except for NaN
     valid_values = result[~np.isnan(result)]
     assert np.all(np.isin(valid_values, [0.0, 1.0]))
-    
+
     # NaN positions in overlaid map: NaN < threshold is False, so treated as success (1.0)
     assert result[2, 2] == 1.0  # NaN position becomes success (1.0)
 
@@ -201,9 +201,9 @@ def test_create_overlaid_score_map_all_same_values():
     # Create 3 identical maps
     same_map = np.array([[0.5, 0.5], [0.5, 0.5]])
     same_maps = [same_map.copy() for _ in range(3)]
-    
+
     result = create_overlaid_score_map(same_maps, percentile=50)
-    
+
     # When all values are the same and equal to the percentile threshold,
     # the result depends on whether they're below threshold
     # Since all values are 0.5 and percentile=50, threshold will be 0.5
@@ -218,16 +218,16 @@ def test_create_overlaid_score_map_with_nans():
     map1 = np.array([[0.1, np.nan], [0.3, 0.4]])
     map2 = np.array([[np.nan, 0.2], [0.5, np.nan]])
     map3 = np.array([[0.6, 0.7], [np.nan, 0.8]])
-    
+
     result = create_overlaid_score_map([map1, map2, map3], percentile=50)
-    
+
     # Should have same shape
     assert result.shape == (2, 2)
-    
+
     # All positions should have valid values (NaNs become 1.0 due to NaN < threshold = False)
     # Aggregation treats NaN positions as successes since NaN < threshold evaluates to False
     assert not np.any(np.isnan(result))
-    
+
     # All values should be valid success rates
     assert np.all(result >= 0.0)
     assert np.all(result <= 1.0)
@@ -279,7 +279,7 @@ def test_get_color_for_score_custom_range():
     color_min = get_color_for_score(10.0, 10.0, 20.0)
     color_mid = get_color_for_score(15.0, 10.0, 20.0)
     color_max = get_color_for_score(20.0, 10.0, 20.0)
-    
+
     assert color_min == 'rgb(255, 0, 0)'    # Red
     assert color_mid == 'rgb(255, 255, 0)'  # Yellow
     assert color_max == 'rgb(0, 255, 0)'    # Green
@@ -291,7 +291,7 @@ def test_get_color_for_score_negative_range():
     color_min = get_color_for_score(-1.0, -1.0, 1.0)
     color_mid = get_color_for_score(0.0, -1.0, 1.0)
     color_max = get_color_for_score(1.0, -1.0, 1.0)
-    
+
     assert color_min == 'rgb(255, 0, 0)'    # Red
     assert color_mid == 'rgb(255, 255, 0)'  # Yellow
     assert color_max == 'rgb(0, 255, 0)'    # Green
@@ -307,7 +307,7 @@ def test_get_color_for_score_same_min_max():
 
 @pytest.mark.parametrize("score,min_score,max_score,expected_color", [
     (0.0, 0.0, 1.0, 'rgb(255, 0, 0)'),     # Min -> Red
-    (0.5, 0.0, 1.0, 'rgb(255, 255, 0)'),   # Mid -> Yellow  
+    (0.5, 0.0, 1.0, 'rgb(255, 255, 0)'),   # Mid -> Yellow
     (1.0, 0.0, 1.0, 'rgb(0, 255, 0)'),     # Max -> Green
     (np.nan, 0.0, 1.0, '#808080'),         # NaN -> Gray
 ])
@@ -320,15 +320,15 @@ def test_get_color_for_score_parametrized(score, min_score, max_score, expected_
 def test_get_color_for_score_color_format():
     """Test that get_color_for_score returns valid RGB color format."""
     color = get_color_for_score(0.3, 0.0, 1.0)
-    
+
     # Should match rgb(r, g, b) format
     assert color.startswith('rgb(')
     assert color.endswith(')')
-    
+
     # Extract RGB values
     rgb_part = color[4:-1]  # Remove 'rgb(' and ')'
     r, g, b = map(int, rgb_part.split(', '))
-    
+
     # RGB values should be in valid range [0, 255]
     assert 0 <= r <= 255
     assert 0 <= g <= 255

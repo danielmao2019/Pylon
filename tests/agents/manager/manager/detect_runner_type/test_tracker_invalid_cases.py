@@ -27,4 +27,4 @@ def test_evaluator_detection_invalid_work_dir_type():
     """Invalid command type should error via path handling."""
     m = Manager(commands=[], epochs=1, system_monitors={})
     with pytest.raises(Exception):
-        m._detect_runner_type(123)  # type: ignore[arg-type]
+        m._detect_runner_type(123)

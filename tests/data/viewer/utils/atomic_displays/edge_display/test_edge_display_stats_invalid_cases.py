@@ -18,7 +18,7 @@ def test_get_edge_display_stats_invalid_input_type():
     """Test assertion failure for invalid edge input type."""
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats("not_a_tensor")
-    
+
     assert "Expected torch.Tensor" in str(exc_info.value)
 
 
@@ -29,7 +29,7 @@ def test_get_edge_display_stats_invalid_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats(edges_1d)
     assert "Expected 2D [H,W] or 3D" in str(exc_info.value)
-    
+
     # 4D tensor
     edges_4d = torch.rand(2, 2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
@@ -51,7 +51,7 @@ def test_get_edge_display_stats_empty_tensor():
     empty_edges = torch.empty((0, 0), dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats(empty_edges)
-    
+
     assert "cannot be empty" in str(exc_info.value)
 
 
@@ -62,8 +62,8 @@ def test_get_edge_display_stats_zero_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats(edges_zero_h)
     assert "cannot be empty" in str(exc_info.value)
-    
-    # Zero width  
+
+    # Zero width
     edges_zero_w = torch.empty((32, 0), dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_edge_display_stats(edges_zero_w)

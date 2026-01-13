@@ -1,8 +1,11 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
+
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any], dataset: CDDDataset, idx: int) -> None:
@@ -35,7 +38,7 @@ def validate_labels(labels: Dict[str, Any], class_dist: torch.Tensor, dataset: C
     unique_values = set(torch.unique(change_map).tolist())
     assert unique_values.issubset({0, 1}), \
         f"Unexpected values in change map at index {idx}: {unique_values}"
-    
+
     # Update class distribution - keep tensors on same device for GPU efficiency
     for cls in range(dataset.NUM_CLASSES):
         class_dist[cls] += torch.sum(change_map == cls)
@@ -59,8 +62,6 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: CDDDataset, n
 
 @pytest.mark.parametrize('dataset_config', ['train', 'val', 'test'], indirect=True)
 def test_cdd_dataset(dataset_config, max_samples, get_samples_to_test) -> None:
-    from utils.builders.builder import build_from_config
-    
     dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
     assert len(dataset) > 0, "Dataset should not be empty"

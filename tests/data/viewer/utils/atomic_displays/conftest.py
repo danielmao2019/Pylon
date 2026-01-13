@@ -31,7 +31,7 @@ def depth_tensor():
     return torch.rand(32, 32, dtype=torch.float32) * 10.0 + 0.1  # Range [0.1, 10.1]
 
 
-@pytest.fixture  
+@pytest.fixture
 def normal_tensor():
     """Surface normal tensor of shape [3, H, W] with normalized vectors."""
     normals = torch.randn(3, 32, 32, dtype=torch.float32)
@@ -65,12 +65,12 @@ def instance_surrogate_tensor():
     # Create realistic offset values
     y_offsets = torch.randn(32, 32, dtype=torch.float32) * 5.0
     x_offsets = torch.randn(32, 32, dtype=torch.float32) * 5.0
-    
+
     # Add some ignore regions (set to ignore_value=250)
     ignore_mask = torch.rand(32, 32) < 0.1  # 10% ignore regions
     y_offsets[ignore_mask] = 250
     x_offsets[ignore_mask] = 250
-    
+
     return torch.stack([y_offsets, x_offsets], dim=0)
 
 
@@ -101,7 +101,7 @@ def camera_state():
     """Camera state for LOD testing."""
     return {
         'eye': {'x': 1.0, 'y': 1.0, 'z': 1.0},
-        'center': {'x': 0.0, 'y': 0.0, 'z': 0.0},  
+        'center': {'x': 0.0, 'y': 0.0, 'z': 0.0},
         'up': {'x': 0.0, 'y': 0.0, 'z': 1.0}
     }
 
@@ -130,9 +130,9 @@ def segmentation_dict():
         x_start, x_end = i * 8, (i + 1) * 8
         mask[y_start:y_end, x_start:x_end] = True
         masks.append(mask)
-    
+
     indices = [0, 1, 2]  # Instance indices
-    
+
     return {
         'masks': masks,
         'indices': indices
@@ -166,7 +166,7 @@ def extreme_values_tensor():
     """Tensor with extreme values for robustness testing."""
     tensor = torch.zeros(3, 32, 32, dtype=torch.float32)
     tensor[0] = 1e6   # Very large values
-    tensor[1] = 1e-6  # Very small values  
+    tensor[1] = 1e-6  # Very small values
     tensor[2] = -1e3  # Negative values
     return tensor
 
@@ -224,7 +224,7 @@ def lod_settings():
     }
 
 
-@pytest.fixture  
+@pytest.fixture
 def point_cloud_id():
     """Point cloud ID for discrete LOD testing."""
     return "test_point_cloud_123"
@@ -267,10 +267,10 @@ def batched_grayscale_tensor():
 @pytest.fixture
 def batched_depth_tensor():
     """Batched depth map tensor of shape [1, H, W] with realistic depth values."""
-    return torch.rand(1, 32, 32, dtype=torch.float32) * 10.0 + 0.1  # [1, H, W] 
+    return torch.rand(1, 32, 32, dtype=torch.float32) * 10.0 + 0.1  # [1, H, W]
 
 
-@pytest.fixture  
+@pytest.fixture
 def batched_normal_tensor():
     """Batched surface normal tensor of shape [1, 3, H, W] with normalized vectors."""
     normals = torch.randn(1, 3, 32, 32, dtype=torch.float32)
@@ -298,10 +298,10 @@ def batched_instance_surrogate_tensor():
     # Create realistic offset values
     y_offsets = torch.randn(1, 32, 32, dtype=torch.float32) * 5.0
     x_offsets = torch.randn(1, 32, 32, dtype=torch.float32) * 5.0
-    
+
     # Add some ignore regions (set to ignore_value=250)
     ignore_mask = torch.rand(32, 32) < 0.1  # 10% ignore regions
     y_offsets[0][ignore_mask] = 250
     x_offsets[0][ignore_mask] = 250
-    
+
     return torch.stack([y_offsets[0], x_offsets[0]], dim=0).unsqueeze(0)  # [1, 2, H, W]

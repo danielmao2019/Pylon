@@ -24,7 +24,7 @@ def rgb_image():
     return torch.randint(0, 255, (3, 32, 32), dtype=torch.uint8)
 
 
-@pytest.fixture  
+@pytest.fixture
 def grayscale_image():
     """Fixture providing grayscale image tensor."""
     return torch.randint(0, 255, (1, 32, 32), dtype=torch.uint8)
@@ -61,7 +61,7 @@ def batched_multi_channel_image():
 def test_image_to_numpy_rgb_tensor(rgb_image):
     """Test converting RGB image tensor to numpy."""
     result = _image_to_numpy(rgb_image)
-    
+
     assert isinstance(result, np.ndarray)
     assert result.shape == (32, 32, 3)
     assert result.dtype == np.float64
@@ -70,7 +70,7 @@ def test_image_to_numpy_rgb_tensor(rgb_image):
 def test_image_to_numpy_grayscale_tensor(grayscale_image):
     """Test converting grayscale image tensor to numpy."""
     result = _image_to_numpy(grayscale_image)
-    
+
     assert isinstance(result, np.ndarray)
     assert result.shape == (32, 32)
     assert result.dtype == np.float64
@@ -92,7 +92,7 @@ def test_image_to_numpy_normalization():
     """Test that image values are normalized to [0, 1]."""
     image = torch.tensor([[[100, 200], [50, 255]]], dtype=torch.uint8)
     result = _image_to_numpy(image)
-    
+
     assert result.min() >= 0.0
     assert result.max() <= 1.0
 
@@ -101,7 +101,7 @@ def test_image_to_numpy_uniform_values():
     """Test handling of uniform pixel values (avoid division by zero)."""
     image = torch.full((3, 32, 32), 128, dtype=torch.uint8)
     result = _image_to_numpy(image)
-    
+
     assert isinstance(result, np.ndarray)
     assert np.all(result == 0.0)
 
@@ -113,7 +113,7 @@ def test_image_to_numpy_uniform_values():
 def test_create_image_display_rgb(rgb_image):
     """Test creating display for RGB image."""
     fig = create_image_display(rgb_image, "Test RGB Image")
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test RGB Image"
     assert fig.layout.height == 400
@@ -122,7 +122,7 @@ def test_create_image_display_rgb(rgb_image):
 def test_create_image_display_grayscale(grayscale_image):
     """Test creating display for grayscale image."""
     fig = create_image_display(grayscale_image, "Test Grayscale Image")
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Grayscale Image"
 
@@ -144,12 +144,12 @@ def test_image_display_with_extreme_values():
     large_image = torch.full((3, 32, 32), 1e6, dtype=torch.float32)
     fig = create_image_display(large_image, "Large Values")
     assert isinstance(fig, go.Figure)
-    
-    # Very small values  
+
+    # Very small values
     small_image = torch.full((3, 32, 32), 1e-6, dtype=torch.float32)
     fig = create_image_display(small_image, "Small Values")
     assert isinstance(fig, go.Figure)
-    
+
     # Mixed positive/negative
     mixed_image = torch.randn(3, 32, 32, dtype=torch.float32) * 1000
     fig = create_image_display(mixed_image, "Mixed Values")
@@ -163,7 +163,7 @@ def test_image_display_pipeline(rgb_image):
     numpy_img = _image_to_numpy(rgb_image)
     assert isinstance(numpy_img, np.ndarray)
     assert numpy_img.shape == (32, 32, 3)
-    
+
     # Test display creation
     fig = create_image_display(rgb_image, "Integration Test")
     assert isinstance(fig, go.Figure)
@@ -173,11 +173,11 @@ def test_performance_with_large_images():
     """Test that image processing functions perform reasonably for large images."""
     # Create large image
     large_image = torch.randint(0, 255, (3, 512, 512), dtype=torch.uint8)
-    
+
     # These should complete without error or excessive time
     numpy_img = _image_to_numpy(large_image)
     fig = create_image_display(large_image, "Large Image Test")
-    
+
     # Basic checks
     assert numpy_img.shape == (512, 512, 3)
     assert isinstance(fig, go.Figure)
@@ -190,7 +190,7 @@ def test_performance_with_large_images():
 def test_create_image_display_batched_rgb(batched_rgb_image):
     """Test creating display for batched RGB image (batch size 1)."""
     fig = create_image_display(batched_rgb_image, "Test Batched RGB")
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Batched RGB"
     assert fig.layout.height == 400
@@ -199,7 +199,7 @@ def test_create_image_display_batched_rgb(batched_rgb_image):
 def test_create_image_display_batched_grayscale(batched_grayscale_image):
     """Test creating display for batched grayscale image (batch size 1)."""
     fig = create_image_display(batched_grayscale_image, "Test Batched Grayscale")
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Batched Grayscale"
 
@@ -207,7 +207,7 @@ def test_create_image_display_batched_grayscale(batched_grayscale_image):
 def test_create_image_display_batched_multi_channel(batched_multi_channel_image):
     """Test creating display for batched multi-channel image (batch size 1)."""
     fig = create_image_display(batched_multi_channel_image, "Test Batched Multi-Channel")
-    
+
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Batched Multi-Channel"
 
@@ -221,22 +221,22 @@ def test_batch_to_unbatch_shape_consistency(batch_shape, unbatched_expected_shap
     """Test that batched inputs produce same output shapes as unbatched equivalents."""
     batched_image = torch.randint(0, 255, batch_shape, dtype=torch.uint8)
     unbatched_image = batched_image[0]  # Remove batch dimension
-    
+
     # Both should produce same numpy shape
     batched_result = _image_to_numpy(unbatched_image)  # Function internally handles batching in create_image_display
     unbatched_result = _image_to_numpy(unbatched_image)
-    
+
     assert batched_result.shape == unbatched_result.shape == unbatched_expected_shape
-    
+
     # Both should create valid figures
     batched_fig = create_image_display(batched_image, "Batched")
     unbatched_fig = create_image_display(unbatched_image, "Unbatched")
-    
+
     assert isinstance(batched_fig, go.Figure)
     assert isinstance(unbatched_fig, go.Figure)
 
 
-# ================================================================================  
+# ================================================================================
 # Batch Support Integration Tests
 # ================================================================================
 
@@ -250,5 +250,5 @@ def test_complete_batch_pipeline_rgb(batched_rgb_image):
 def test_complete_batch_pipeline_grayscale(batched_grayscale_image):
     """Test complete batched grayscale display pipeline."""
     fig = create_image_display(batched_grayscale_image, "Batch Grayscale Integration")
-    
+
     assert isinstance(fig, go.Figure)

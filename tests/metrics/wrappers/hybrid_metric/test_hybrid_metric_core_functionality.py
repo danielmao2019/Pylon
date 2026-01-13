@@ -8,7 +8,7 @@ def create_datapoint(outputs, labels, idx=0):
     return {
         'inputs': {},
         'outputs': outputs,
-        'labels': labels, 
+        'labels': labels,
         'meta_info': {'idx': idx}
     }
 
@@ -133,18 +133,18 @@ def test_multiple_metrics_configuration(dummy_metric, another_dummy_metric):
 def test_compute_score_method_directly(metrics_cfg, sample_tensor, sample_target):
     """Test that the hybrid metric call works as expected (no direct _compute_score method)."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
-    
+
     # Call _compute_score directly
     # Call __call__ instead of _compute_score which no longer exists
     datapoint = create_datapoint(sample_tensor, sample_target)
     scores = hybrid_metric(datapoint)
-    
+
     # Verify it returns the expected format
     assert isinstance(scores, dict)
     assert 'metric1' in scores
     assert 'metric2' in scores
     assert len(scores) == 2
-    
+
     # Verify tensor properties
     for score in scores.values():
         assert isinstance(score, torch.Tensor)
@@ -156,17 +156,17 @@ def test_compute_score_method_directly(metrics_cfg, sample_tensor, sample_target
 def test_score_tensor_properties(metrics_cfg, sample_tensor, sample_target):
     """Test that scores have correct tensor properties."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
-    
+
     datapoint = create_datapoint(sample_tensor, sample_target)
     scores = hybrid_metric(datapoint)
-    
+
     for key, score in scores.items():
         # Basic tensor properties
         assert isinstance(score, torch.Tensor)
         assert score.dtype == torch.float32
         assert score.ndim == 0  # scalar
         assert score.requires_grad is False  # Should be detached from computation graph
-        
+
         # Numerical properties
         assert torch.isfinite(score), f"Score {key} is not finite: {score}"
         assert not torch.isnan(score), f"Score {key} is NaN: {score}"
@@ -185,20 +185,20 @@ def test_component_metric_isolation(dummy_metric, another_dummy_metric):
             'args': {'metric_name': 'isolated2'}
         }
     ]
-    
+
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
-    
+
     # Verify each component metric is independent
     assert len(hybrid_metric.metrics) == 2
     assert hybrid_metric.metrics[0] is not hybrid_metric.metrics[1]
-    
+
     # Verify they don't share state
     sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
-    
+
     datapoint = create_datapoint(sample_input, sample_target)
     scores = hybrid_metric(datapoint)
-    
+
     # Each should produce different scores (since they use different computations)
     assert scores['isolated1'] != scores['isolated2']
 
@@ -206,17 +206,17 @@ def test_component_metric_isolation(dummy_metric, another_dummy_metric):
 def test_deterministic_computation(metrics_cfg):
     """Test that computation is deterministic with same inputs."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
-    
+
     # Use fixed seed for deterministic inputs
     torch.manual_seed(42)
     sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
-    
+
     # Compute scores multiple times
     datapoint = create_datapoint(sample_input, sample_target)
     scores1 = hybrid_metric(datapoint)
     scores2 = hybrid_metric(datapoint)
-    
+
     # Should be identical
     for key in scores1.keys():
         assert torch.equal(scores1[key], scores2[key]), f"Non-deterministic computation for {key}"

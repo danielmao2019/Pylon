@@ -11,11 +11,11 @@ def test_kitti_dataset_version_discrimination(kitti_dataset_config):
     # Same parameters should have same hash
     config1a = copy.deepcopy(kitti_dataset_config)
     config1b = copy.deepcopy(kitti_dataset_config)
-    
+
     dataset1a = build_from_config(config1a)
     dataset1b = build_from_config(config1b)
     assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
-    
+
     # Different split should have different hash
     config2 = copy.deepcopy(kitti_dataset_config)
     config2['args']['split'] = 'val'  # Different
@@ -27,14 +27,14 @@ def test_kitti_dataset_version_discrimination(kitti_dataset_config):
 def test_split_variants(kitti_dataset_config):
     """Test that different splits produce different hashes."""
     split_variants = ['train', 'val', 'test']
-    
+
     datasets = []
     for split in split_variants:
         config = copy.deepcopy(kitti_dataset_config)
         config['args']['split'] = split
         dataset = build_from_config(config)
         datasets.append(dataset)
-    
+
     # All should have different hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
     assert len(hashes) == len(set(hashes)), \
@@ -48,14 +48,14 @@ def test_inherited_parameters_affect_version_hash(kitti_dataset_config):
     parameter_variants = [
         ('base_seed', 42),  # Different from default 0
     ]
-    
+
     dataset1 = build_from_config(kitti_dataset_config)
-    
+
     for param_name, new_value in parameter_variants:
         modified_config = copy.deepcopy(kitti_dataset_config)
         modified_config['args'][param_name] = new_value
         dataset2 = build_from_config(modified_config)
-        
+
         assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
             f"Inherited parameter {param_name} should affect cache version hash"
 
@@ -64,7 +64,7 @@ def test_inherited_parameters_affect_version_hash(kitti_dataset_config):
 def test_comprehensive_no_hash_collisions(kitti_dataset_config):
     """Ensure no hash collisions across many different configurations."""
     datasets = []
-    
+
     # Generate different dataset configurations
     for split in ['train', 'val', 'test']:
         for base_seed_val in [None, 42, 123]:
@@ -72,17 +72,17 @@ def test_comprehensive_no_hash_collisions(kitti_dataset_config):
             config['args']['split'] = split
             if base_seed_val is not None:
                 config['args']['base_seed'] = base_seed_val
-            
+
             dataset = build_from_config(config)
             datasets.append(dataset)
-    
+
     # Collect all hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    
+
     # Ensure all hashes are unique (no collisions)
     assert len(hashes) == len(set(hashes)), \
         f"Hash collision detected! Duplicate hashes found in: {hashes}"
-    
+
     # Ensure all hashes are properly formatted
     for hash_val in hashes:
         assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"

@@ -22,7 +22,7 @@ def backend():
 @pytest.fixture
 def mock_dataset():
     """Create a mock dataset for error testing."""
-    
+
     class _MockDataset(BaseDataset):
         SPLIT_OPTIONS = ["test"]
         INPUT_NAMES = ["data"]
@@ -35,12 +35,12 @@ def mock_dataset():
             data = torch.randn(10, dtype=torch.float32)
             label = torch.randint(0, 5, (1,), dtype=torch.int64)
             return {"data": data}, {"label": label}, {"sample_idx": idx}
-        
+
         @staticmethod
         def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
             """Mock display method."""
             return None
-    
+
     return _MockDataset(split="test", device=torch.device("cpu"))
 
 
@@ -54,17 +54,17 @@ def test_get_dataset_instance_invalid_input_types(backend):
     with pytest.raises(AssertionError) as exc_info:
         backend.get_dataset_instance(123)
     assert "dataset_name must be str" in str(exc_info.value)
-    
+
     # Test with None
     with pytest.raises(AssertionError) as exc_info:
         backend.get_dataset_instance(None)
     assert "dataset_name must be str" in str(exc_info.value)
-    
+
     # Test with list
     with pytest.raises(AssertionError) as exc_info:
         backend.get_dataset_instance(["invalid", "list"])
     assert "dataset_name must be str" in str(exc_info.value)
-    
+
     # Test with dict
     with pytest.raises(AssertionError) as exc_info:
         backend.get_dataset_instance({"invalid": "dict"})
@@ -76,7 +76,7 @@ def test_get_dataset_instance_nonexistent_dataset(backend):
     with pytest.raises(ValueError) as exc_info:
         backend.get_dataset_instance("nonexistent/dataset")
     assert "Dataset not loaded: nonexistent/dataset" in str(exc_info.value)
-    
+
     with pytest.raises(ValueError) as exc_info:
         backend.get_dataset_instance("another/missing/dataset")
     assert "Dataset not loaded: another/missing/dataset" in str(exc_info.value)
@@ -87,7 +87,7 @@ def test_get_datapoint_invalid_dataset_name_type(backend):
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint(123, 0, [])
     assert "dataset_name must be str" in str(exc_info.value)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint(None, 0, [])
     assert "dataset_name must be str" in str(exc_info.value)
@@ -98,11 +98,11 @@ def test_get_datapoint_invalid_index_type(backend):
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", "invalid_index", [])
     assert "index must be int" in str(exc_info.value)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", 1.5, [])
     assert "index must be int" in str(exc_info.value)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", None, [])
     assert "index must be int" in str(exc_info.value)
@@ -113,11 +113,11 @@ def test_get_datapoint_invalid_transform_indices_type(backend):
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", 0, "not_a_list")
     assert "transform_indices must be list" in str(exc_info.value)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", 0, None)
     assert "transform_indices must be list" in str(exc_info.value)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", 0, 123)
     assert "transform_indices must be list" in str(exc_info.value)
@@ -129,11 +129,11 @@ def test_get_datapoint_invalid_transform_indices_content(backend):
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", 0, ["not_int", 1])
     assert "All transform indices must be int" in str(exc_info.value)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", 0, [0, 1.5, 2])
     assert "All transform indices must be int" in str(exc_info.value)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         backend.get_datapoint("test/dataset", 0, [0, None, 2])
     assert "All transform indices must be int" in str(exc_info.value)
@@ -152,11 +152,11 @@ def test_get_datapoint_invalid_transform_index(backend, mock_dataset):
     # Store dataset in backend
     dataset_name = "test/MockDataset"
     backend._datasets[dataset_name] = mock_dataset
-    
+
     # Try to use transform index when no transforms are registered
     with pytest.raises(IndexError):
         backend.get_datapoint(dataset_name, 0, [0])
-    
+
     with pytest.raises(IndexError):
         backend.get_datapoint(dataset_name, 0, [1, 2, 3])
 
@@ -176,7 +176,7 @@ def test_load_dataset_invalid_config_path(backend):
         'type': 'test',
         'name': 'invalid'
     }
-    
+
     with pytest.raises((ValueError, FileNotFoundError)) as exc_info:
         backend.load_dataset("test/invalid")
     # Either FileNotFoundError or ValueError with appropriate message
@@ -203,13 +203,13 @@ def test_requires_3d_visualization_invalid_object(backend):
     # These should return False since their type names are not in REQUIRES_3D_CLASSES
     result1 = backend._requires_3d_visualization("not_a_dataset")
     assert result1 is False  # type 'str'
-    
+
     result2 = backend._requires_3d_visualization(123)
     assert result2 is False  # type 'int'
-    
+
     result3 = backend._requires_3d_visualization([])
     assert result3 is False  # type 'list'
-    
+
     result4 = backend._requires_3d_visualization({})
     assert result4 is False  # type 'dict'
 
@@ -226,7 +226,7 @@ def test_get_dataset_type_from_inheritance_invalid_object(backend):
     # These are not instances of dataset classes, should return 'general'
     result1 = backend._get_dataset_type_from_inheritance("not_a_dataset")
     assert result1 == 'general'
-    
+
     result2 = backend._get_dataset_type_from_inheritance(123)
     assert result2 == 'general'
 
@@ -240,18 +240,18 @@ def test_apply_transforms_out_of_bounds_indices(backend):
         'output_names': [('inputs', 'data')]
     }
     backend._register_transform(transform_dict)
-    
+
     # Create test datapoint
     datapoint = {
         'inputs': {'data': torch.tensor([1.0], dtype=torch.float32)},
         'labels': {'label': torch.tensor(1, dtype=torch.int64)},
         'meta_info': {'idx': 0}
     }
-    
+
     # Test with index beyond available transforms
     with pytest.raises(IndexError):
         backend._apply_transforms(datapoint, [1], 0)
-    
+
     with pytest.raises(IndexError):
         backend._apply_transforms(datapoint, [0, 1, 2], 0)
 
@@ -266,7 +266,7 @@ def test_hierarchical_datasets_invalid_config_format(backend):
             'name': 'test'
         }
     }
-    
+
     # Should handle gracefully or raise appropriate error
     with pytest.raises(ValueError):
         backend.get_available_datasets_hierarchical()
@@ -276,14 +276,14 @@ def test_load_dataset_corrupted_config_module(backend):
     """Test load_dataset with config that can't be executed."""
     import tempfile
     import os
-    
+
     # Create a temporary corrupted config file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write("# This is a corrupted config file\n")
         f.write("invalid python syntax here !!!\n")
         f.write("data_cfg = undefined_variable\n")
         corrupted_path = f.name
-    
+
     try:
         # Add config pointing to corrupted file
         backend._configs["test/corrupted"] = {
@@ -291,11 +291,11 @@ def test_load_dataset_corrupted_config_module(backend):
             'type': 'test',
             'name': 'corrupted'
         }
-        
+
         # Should raise an error when trying to load
         with pytest.raises((NameError, SyntaxError, AttributeError)):
             backend.load_dataset("test/corrupted")
-    
+
     finally:
         # Clean up temporary file
         if os.path.exists(corrupted_path):
@@ -306,13 +306,13 @@ def test_load_dataset_config_missing_data_cfg(backend):
     """Test load_dataset with config missing data_cfg attribute."""
     import tempfile
     import os
-    
+
     # Create a config file without data_cfg
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write("# Config without data_cfg\n")
         f.write("some_other_variable = 'test'\n")
         config_path = f.name
-    
+
     try:
         # Add config pointing to file without data_cfg
         backend._configs["test/missing_data_cfg"] = {
@@ -320,11 +320,11 @@ def test_load_dataset_config_missing_data_cfg(backend):
             'type': 'test',
             'name': 'missing_data_cfg'
         }
-        
+
         # Should raise AttributeError when trying to access data_cfg
         with pytest.raises(AttributeError):
             backend.load_dataset("test/missing_data_cfg")
-    
+
     finally:
         # Clean up temporary file
         if os.path.exists(config_path):
@@ -335,13 +335,13 @@ def test_load_dataset_config_invalid_data_cfg_structure(backend):
     """Test load_dataset with config having invalid data_cfg structure."""
     import tempfile
     import os
-    
+
     # Create a config file with invalid data_cfg structure
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write("# Config with invalid data_cfg structure\n")
         f.write("data_cfg = 'not_a_dict'\n")
         config_path = f.name
-    
+
     try:
         # Add config pointing to file with invalid data_cfg
         backend._configs["test/invalid_structure"] = {
@@ -349,11 +349,11 @@ def test_load_dataset_config_invalid_data_cfg_structure(backend):
             'type': 'test',
             'name': 'invalid_structure'
         }
-        
+
         # Should raise error when trying to access train_dataset
         with pytest.raises((TypeError, KeyError)):
             backend.load_dataset("test/invalid_structure")
-    
+
     finally:
         # Clean up temporary file
         if os.path.exists(config_path):
@@ -364,7 +364,7 @@ def test_load_dataset_config_invalid_data_cfg_structure(backend):
 
 def test_empty_dataset_handling(backend):
     """Test backend behavior with empty dataset."""
-    
+
     class _EmptyDataset(BaseDataset):
         SPLIT_OPTIONS = ["test"]
         INPUT_NAMES = ["data"]
@@ -376,19 +376,19 @@ def test_empty_dataset_handling(backend):
         def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
             # This should never be called for empty dataset
             raise IndexError("Dataset is empty")
-        
+
         @staticmethod
         def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
             """Mock display method."""
             return None
-    
+
     empty_dataset = _EmptyDataset(split="test", device=torch.device("cpu"))
     backend._datasets["test/empty"] = empty_dataset
-    
+
     # Getting dataset info should work
     dataset_instance = backend.get_dataset_instance("test/empty")
     assert len(dataset_instance) == 0
-    
+
     # Getting datapoint should raise IndexError
     with pytest.raises(IndexError):
         backend.get_datapoint("test/empty", 0, [])
@@ -404,12 +404,12 @@ def test_very_large_transform_indices_list(backend, mock_dataset):
             'output_names': [('inputs', 'data')]
         }
         backend._register_transform(transform_dict)
-    
+
     backend._datasets["test/mock"] = mock_dataset
-    
+
     # Test with very large list of valid indices
     large_indices_list = list(range(3)) * 1000  # [0,1,2,0,1,2,0,1,2,...]
-    
+
     # Should work but might be slow
     result = backend.get_datapoint("test/mock", 0, large_indices_list)
     assert isinstance(result, dict)
@@ -426,13 +426,13 @@ def test_negative_transform_indices(backend, mock_dataset):
             'output_names': [('inputs', 'data')]
         }
         backend._register_transform(transform_dict)
-    
+
     backend._datasets["test/mock"] = mock_dataset
-    
+
     # Python supports negative indexing
     result = backend.get_datapoint("test/mock", 0, [-1, -2])
     assert isinstance(result, dict)
-    
+
     # But very negative indices should fail
     with pytest.raises(IndexError):
         backend.get_datapoint("test/mock", 0, [-10])
@@ -448,7 +448,7 @@ def test_update_state_with_very_large_values(backend):
         sym_diff_radius=1e10,
         corr_radius=1e10
     )
-    
+
     # Should accept these values (no validation in current implementation)
     assert backend.current_index == 2**31 - 1
     assert backend.point_size == 1e10

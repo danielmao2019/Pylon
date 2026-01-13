@@ -19,7 +19,7 @@ from data.viewer.utils.atomic_displays.instance_surrogate_display import (
 def test_get_instance_surrogate_display_stats_basic(instance_surrogate_tensor):
     """Test basic instance surrogate statistics."""
     stats = get_instance_surrogate_display_stats(instance_surrogate_tensor)
-    
+
     assert isinstance(stats, dict)
     assert 'Shape' in stats
     assert 'Data Type' in stats
@@ -28,7 +28,7 @@ def test_get_instance_surrogate_display_stats_basic(instance_surrogate_tensor):
     assert 'Ignore Pixels' in stats
     assert 'Y Offset Range' in stats
     assert 'X Offset Range' in stats
-    
+
     # Basic validity checks
     assert stats['Valid Pixels'] + stats['Ignore Pixels'] <= stats['Total Pixels']
     assert stats['Valid Pixels'] >= 0
@@ -39,13 +39,13 @@ def test_get_instance_surrogate_display_stats_custom_ignore_value():
     """Test instance surrogate statistics with custom ignore value."""
     # Create surrogate with custom ignore value
     surrogate = torch.randn(2, 32, 32, dtype=torch.float32) * 5.0
-    
+
     # Set some pixels to custom ignore value
     custom_ignore = 999
     surrogate[:, 0:5, 0:5] = custom_ignore
-    
+
     stats = get_instance_surrogate_display_stats(surrogate, ignore_index=custom_ignore)
-    
+
     assert isinstance(stats, dict)
     assert stats['Ignore Pixels'] == 25  # 5x5 region
 
@@ -55,7 +55,7 @@ def test_get_instance_surrogate_display_stats_no_valid_pixels():
     # Create surrogate where all pixels are ignore value
     surrogate = torch.full((2, 16, 16), 250, dtype=torch.float32)
     stats = get_instance_surrogate_display_stats(surrogate)
-    
+
     assert isinstance(stats, dict)
     assert stats['Valid Pixels'] == 0
     assert stats['Ignore Pixels'] == 256  # 16x16
@@ -68,13 +68,13 @@ def test_get_instance_surrogate_display_stats_all_valid_pixels():
     surrogate = torch.zeros(2, 8, 8, dtype=torch.float32)
     surrogate[0] = 2.0  # Y offsets
     surrogate[1] = -1.5  # X offsets
-    
+
     stats = get_instance_surrogate_display_stats(surrogate)
-    
+
     assert isinstance(stats, dict)
     assert stats['Valid Pixels'] == 64  # 8x8
     assert stats['Ignore Pixels'] == 0
-    # Parse ranges like "[2.000, 3.000]" 
+    # Parse ranges like "[2.000, 3.000]"
     y_range = stats['Y Offset Range'][1:-1].split(', ')  # Remove brackets and split on ", "
     x_range = stats['X Offset Range'][1:-1].split(', ')  # Remove brackets and split on ", "
     assert abs(float(y_range[0]) - 2.0) < 1e-5  # Min Y offset
@@ -84,17 +84,17 @@ def test_get_instance_surrogate_display_stats_all_valid_pixels():
 def test_get_instance_surrogate_display_stats_known_values():
     """Test instance surrogate statistics with known offset values."""
     surrogate = torch.zeros(2, 4, 4, dtype=torch.float32)
-    
+
     # Set known Y offsets (first channel)
     surrogate[0, 0, :] = torch.tensor([-2.0, -1.0, 1.0, 2.0])
-    # Set known X offsets (second channel)  
+    # Set known X offsets (second channel)
     surrogate[1, 0, :] = torch.tensor([-3.0, -1.5, 0.5, 3.0])
-    
+
     # Set some ignore regions
     surrogate[:, 1:, :] = 250  # Ignore all but first row
-    
+
     stats = get_instance_surrogate_display_stats(surrogate)
-    
+
     assert isinstance(stats, dict)
     assert stats['Valid Pixels'] == 4  # Only first row
     assert stats['Ignore Pixels'] == 12  # Remaining pixels
@@ -106,7 +106,7 @@ def test_get_instance_surrogate_display_stats_various_sizes(tensor_size):
     h, w = tensor_size
     surrogate = torch.randn(2, h, w, dtype=torch.float32) * 10.0
     stats = get_instance_surrogate_display_stats(surrogate)
-    
+
     assert isinstance(stats, dict)
     assert stats['Total Pixels'] == h * w
 
@@ -120,13 +120,13 @@ def test_get_instance_surrogate_display_stats_different_dtypes():
 
 
 # ================================================================================
-# Batch Support Stats Tests - CRITICAL for eval viewer  
+# Batch Support Stats Tests - CRITICAL for eval viewer
 # ================================================================================
 
 def test_get_instance_surrogate_display_stats_batched(batched_instance_surrogate_tensor):
     """Test instance surrogate statistics calculation for batched data."""
     stats = get_instance_surrogate_display_stats(batched_instance_surrogate_tensor)
-    
+
     assert isinstance(stats, dict)
     assert 'Valid Pixels' in stats
     assert 'Total Pixels' in stats
@@ -135,7 +135,7 @@ def test_get_instance_surrogate_display_stats_batched(batched_instance_surrogate
 def test_batch_size_one_assertion_instance_surrogate_stats():
     """Test that batch size > 1 raises assertion error in get_instance_surrogate_display_stats."""
     invalid_batched_surrogate = torch.randn(3, 2, 32, 32, dtype=torch.float32)
-    
+
     with pytest.raises(AssertionError, match="Expected batch size 1 for analysis"):
         get_instance_surrogate_display_stats(invalid_batched_surrogate)
 

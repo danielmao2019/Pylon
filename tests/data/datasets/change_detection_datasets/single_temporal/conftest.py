@@ -1,9 +1,15 @@
 """Shared fixtures and helper functions for single temporal dataset tests."""
 
 import pytest
-from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
-from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
-from data.datasets import WHU_BD_Dataset, SYSU_CD_Dataset, Bi2SingleTemporal
+
+from data.datasets import Bi2SingleTemporal, SYSU_CD_Dataset, WHU_BD_Dataset
+from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import (
+    I3PEDataset,
+)
+from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import (
+    PPSLDataset,
+)
+from utils.builders.builder import build_from_config
 
 
 @pytest.fixture
@@ -17,11 +23,10 @@ def ppsl_dataset_config(whu_bd_data_root, use_cpu_device, get_device):
             'device': get_device(use_cpu_device)
         }
     }
-    
+
     # Need to build source dataset to get its length for PPSLDataset
-    from utils.builders.builder import build_from_config
     source = build_from_config(source_config)
-    
+
     return {
         'class': PPSLDataset,
         'args': {
@@ -34,8 +39,6 @@ def ppsl_dataset_config(whu_bd_data_root, use_cpu_device, get_device):
 @pytest.fixture
 def i3pe_dataset_config(sysu_cd_data_root, use_cpu_device, get_device):
     """Fixture for creating an I3PEDataset config."""
-    from utils.builders.builder import build_from_config
-    
     # Create source configs and build nested source datasets
     sysu_config = {
         'class': SYSU_CD_Dataset,
@@ -46,7 +49,7 @@ def i3pe_dataset_config(sysu_cd_data_root, use_cpu_device, get_device):
         }
     }
     sysu_dataset = build_from_config(sysu_config)
-    
+
     bi2single_config = {
         'class': Bi2SingleTemporal,
         'args': {
@@ -54,7 +57,7 @@ def i3pe_dataset_config(sysu_cd_data_root, use_cpu_device, get_device):
         }
     }
     source = build_from_config(bi2single_config)
-    
+
     return {
         'class': I3PEDataset,
         'args': {

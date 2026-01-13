@@ -119,25 +119,25 @@ def test_nyu_v2_selective_loading(nyu_v2_base_config, selected_labels, expected_
     import copy
     config = copy.deepcopy(nyu_v2_base_config)
     config['args']['labels'] = selected_labels
-    
+
     dataset = build_from_config(config)
-    
+
     # Check selected_labels attribute
     if selected_labels is None:
         assert dataset.selected_labels == NYUv2Dataset.LABEL_NAMES
         expected_keys = NYUv2Dataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
-    
+
     # Load a datapoint and check only expected labels are present
     datapoint = dataset[0]
-    
+
     assert isinstance(datapoint, dict)
     assert 'labels' in datapoint
-    
+
     labels = datapoint['labels']
     assert isinstance(labels, dict)
     assert set(labels.keys()) == set(expected_keys)
-    
+
     # Validate the labels using existing validation function
     validate_labels(labels, dataset, datapoint['meta_info']['image_resolution'])

@@ -55,19 +55,19 @@ def sample_score_maps():
         [0.4, 0.5, 0.6],
         [0.7, 0.8, np.nan]
     ])
-    
+
     map2 = np.array([
         [0.15, 0.25, 0.35],
         [0.45, 0.55, 0.65],
         [0.75, 0.85, np.nan]
     ])
-    
+
     map3 = np.array([
         [0.05, 0.15, 0.25],
         [0.35, 0.45, 0.55],
         [0.65, 0.75, np.nan]
     ])
-    
+
     return [map1, map2, map3]
 
 
@@ -79,31 +79,31 @@ def trainer_log_structure(temp_log_dir, sample_scores_dict):
     for epoch in range(3):
         epoch_dir = os.path.join(temp_log_dir, f"epoch_{epoch}")
         os.makedirs(epoch_dir, exist_ok=True)
-        
+
         # Create validation_scores.json with slight variations per epoch
         scores = sample_scores_dict.copy()
         # Add slight progression to scores
         factor = 1.0 + epoch * 0.1
         scores['aggregated']['metric1'] *= factor
         scores['aggregated']['metric2'] *= factor
-        
+
         scores_file = os.path.join(epoch_dir, "validation_scores.json")
         with open(scores_file, 'w') as f:
             json.dump(scores, f)
-        
+
         epoch_dirs.append(epoch_dir)
-    
+
     return epoch_dirs
 
 
-@pytest.fixture 
+@pytest.fixture
 def evaluator_log_structure(temp_log_dir, sample_scores_dict):
     """Create a BaseEvaluator log directory structure."""
     # Create evaluation_scores.json directly in log directory
     scores_file = os.path.join(temp_log_dir, "evaluation_scores.json")
     with open(scores_file, 'w') as f:
         json.dump(sample_scores_dict, f)
-    
+
     return temp_log_dir
 
 
@@ -113,7 +113,7 @@ def mock_config_file(temp_log_dir):
     # Create configs structure matching expected path
     config_dir = os.path.join(temp_log_dir, "configs")
     os.makedirs(config_dir, exist_ok=True)
-    
+
     config_content = '''from data.datasets import COCOStuff164KDataset
 import torch
 
@@ -131,9 +131,9 @@ config = {
         "args": {"batch_size": 8}
     }
 }'''
-    
+
     config_file = os.path.join(config_dir, "test_config.py")
     with open(config_file, 'w') as f:
         f.write(config_content)
-    
+
     return config_file

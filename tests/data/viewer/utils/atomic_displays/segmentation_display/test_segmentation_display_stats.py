@@ -19,7 +19,7 @@ from data.viewer.utils.atomic_displays.segmentation_display import (
 def test_get_segmentation_display_stats_tensor_basic(segmentation_tensor):
     """Test getting statistics from basic segmentation tensor."""
     stats = get_segmentation_display_stats(segmentation_tensor)
-    
+
     assert isinstance(stats, dict)
     # Should contain basic segmentation statistics
 
@@ -57,7 +57,7 @@ def test_get_segmentation_display_stats_edge_cases():
     small_seg = torch.randint(0, 3, (2, 2), dtype=torch.int64)
     stats = get_segmentation_display_stats(small_seg)
     assert isinstance(stats, dict)
-    
+
     # Large segmentation with many classes
     large_seg = torch.randint(0, 20, (128, 128), dtype=torch.int64)
     stats = get_segmentation_display_stats(large_seg)
@@ -68,7 +68,7 @@ def test_segmentation_stats_determinism(segmentation_tensor):
     """Test that statistics calculation is deterministic."""
     stats1 = get_segmentation_display_stats(segmentation_tensor)
     stats2 = get_segmentation_display_stats(segmentation_tensor)
-    
+
     # Both should return same type
     assert isinstance(stats1, dict)
     assert isinstance(stats2, dict)
@@ -82,7 +82,7 @@ def test_segmentation_stats_determinism(segmentation_tensor):
 def test_get_segmentation_display_stats_batched_tensor(batched_segmentation_tensor):
     """Test getting statistics from batched segmentation tensor."""
     stats = get_segmentation_display_stats(batched_segmentation_tensor)
-    
+
     assert isinstance(stats, dict)
     # Should contain basic segmentation statistics
 
@@ -90,7 +90,7 @@ def test_get_segmentation_display_stats_batched_tensor(batched_segmentation_tens
 def test_batch_size_one_assertion_segmentation_stats():
     """Test that batch size > 1 raises assertion error in get_segmentation_display_stats."""
     invalid_batched_segmentation = torch.randint(0, 5, (3, 32, 32), dtype=torch.int64)
-    
+
     with pytest.raises(AssertionError, match="Expected batch size 1 for analysis"):
         get_segmentation_display_stats(invalid_batched_segmentation)
 

@@ -24,7 +24,7 @@ def test_data_consistency_validation():
         dataloader_cfg={},
         runner_type='trainer'
     )
-    
+
     info2 = LogDirInfo(
         num_epochs=1,
         metric_names=['metric1', 'metric3'],  # Different metrics
@@ -37,9 +37,9 @@ def test_data_consistency_validation():
         dataloader_cfg={},
         runner_type='evaluator'
     )
-    
+
     log_dir_infos = {'log1': info1, 'log2': info2}
-    
+
     # Should raise assertion error due to inconsistent metrics
     with pytest.raises(AssertionError, match="Inconsistent metric names"):
         _validate_log_dir_consistency(log_dir_infos)
@@ -60,7 +60,7 @@ def test_color_scale_computation_integration():
         dataloader_cfg={},
         runner_type='trainer'
     )
-    
+
     evaluator_info = LogDirInfo(
         num_epochs=1,
         metric_names=['accuracy', 'loss'],
@@ -73,18 +73,18 @@ def test_color_scale_computation_integration():
         dataloader_cfg={},
         runner_type='evaluator'
     )
-    
+
     log_dir_infos = {
         'trainer_run': trainer_info,
         'evaluator_run': evaluator_info
     }
-    
+
     # Test color scale computation
     color_scales = compute_per_metric_color_scales(log_dir_infos)
-    
+
     # Verify shape and values
     assert color_scales.shape == (2, 2)  # 2 metrics, [min, max] for each
-    
+
     # Verify that min <= max for each metric
     for metric_idx in range(2):
         min_score, max_score = color_scales[metric_idx]
@@ -100,9 +100,9 @@ def test_nan_handling_integration():
         [[0.5, 0.7, np.nan], [0.2, np.nan, 0.8], [0.9, 0.1, 0.6]],  # Metric 1
         [[np.nan, 0.3, 0.4], [0.7, 0.8, np.nan], [0.2, 0.9, 0.5]]   # Metric 2
     ])
-    
+
     aggregated_with_nans = np.array([0.6, np.nan])
-    
+
     log_dir_info = LogDirInfo(
         num_epochs=1,
         metric_names=['metric1', 'metric2'],
@@ -115,18 +115,18 @@ def test_nan_handling_integration():
         dataloader_cfg={},
         runner_type='evaluator'
     )
-    
+
     log_dir_infos = {'test_run': log_dir_info}
-    
+
     # Test color scale computation with NaN values
     color_scales = compute_per_metric_color_scales(log_dir_infos)
-    
+
     # Should handle NaN values gracefully
     assert color_scales.shape == (2, 2)
-    
+
     # First metric should have valid range
     assert not np.isnan(color_scales[0]).any()
-    
+
     # Second metric might have default range due to NaN aggregated score
     # but should still have valid min/max values
     assert not np.isnan(color_scales[1]).any()

@@ -95,14 +95,14 @@ def SampleDataset():
             # This dataset has predefined splits, so split=None is not allowed
             if split is None:
                 raise ValueError("SampleDataset has predefined splits - split=None is not allowed. Use SampleDatasetWithoutPredefinedSplits instead.")
-            
+
             super().__init__(data_root=data_root, split=split, split_percentages=split_percentages, **kwargs)
 
         def _init_annotations(self) -> None:
             # BaseDataset split logic:
             # 1. If split_percentages provided: load ALL data, BaseDataset will apply split after
             # 2. If no split_percentages: load only the specific split's data
-            
+
             if hasattr(self, 'split_percentages') and self.split_percentages is not None:
                 # Load ALL data - BaseDataset will apply percentage split after this
                 self.annotations = list(range(100))  # 0-99
@@ -146,13 +146,13 @@ def SampleDatasetWithoutPredefinedSplits():
         SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
         INPUT_NAMES = ['input']
         LABEL_NAMES = ['label']
-        
+
         def __init__(self, data_root=None, split=None, split_percentages=None, **kwargs):
             # Set DATASET_SIZE only when using split_percentages (total size before splitting)
             if split_percentages is not None:
                 self.DATASET_SIZE = 100  # Total size for percentage-based splitting
             # For split=None, don't set DATASET_SIZE (allows loading everything)
-            
+
             super().__init__(data_root=data_root, split=split, split_percentages=split_percentages, **kwargs)
 
         def _init_annotations(self) -> None:
@@ -200,7 +200,7 @@ def random_transforms():
 def cleanup_test_cache_files():
     """Automatically clean up test cache files after each test."""
     yield  # Run the test first
-    
+
     # Clean up any test cache files
     cache_dir = "./data/cache"
     if os.path.exists(cache_dir):
@@ -209,7 +209,7 @@ def cleanup_test_cache_files():
             "*_test.json",
             "temp_*.json"
         ]
-        
+
         for pattern in test_cache_patterns:
             cache_files = glob.glob(os.path.join(cache_dir, pattern))
             for cache_file in cache_files:

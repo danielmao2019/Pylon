@@ -8,7 +8,7 @@ def create_datapoint(y_pred, y_true, idx=0):
     return {
         'inputs': {},  # Empty for these tests
         'outputs': y_pred,
-        'labels': y_true, 
+        'labels': y_true,
         'meta_info': {'idx': idx}
     }
 

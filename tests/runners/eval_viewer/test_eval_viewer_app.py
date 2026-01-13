@@ -7,23 +7,26 @@ then launches the eval viewer app to test the mixed result type functionality.
 Usage:
     python tests/runners/eval_viewer/test_eval_viewer_app.py
 """
-from typing import Dict, Any, List
+import json
 import os
 import sys
-import shutil
-import json
+from pathlib import Path
+from typing import Any, Dict, List
+
+import jsbeautifier
 import numpy as np
 import torch
-import jsbeautifier
 
-# Add project root to path
-project_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-sys.path.append(project_root)
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
 
 from runners.viewers.eval_viewer.app import run_app
 
 
-def create_dummy_metric_scores(num_datapoints: int, epoch: int = 0, max_epochs: int = 5) -> Dict[str, Any]:
+def create_dummy_metric_scores(
+    num_datapoints: int, epoch: int = 0, max_epochs: int = 5
+) -> Dict[str, Any]:
     """Create dummy metric scores in the format expected by the eval viewer.
 
     Args:
@@ -66,18 +69,21 @@ def create_dummy_metric_scores(num_datapoints: int, epoch: int = 0, max_epochs: 
         class_scores.append(scores)
 
     # Store multi-valued metric
-    per_datapoint_scores['metric3'] = [[class_scores[i][dp] for i in range(num_classes)]
-                                       for dp in range(num_datapoints)]
-    aggregated_scores['metric3'] = [float(np.mean([class_scores[i][dp] for dp in range(num_datapoints)]))
-                                   for i in range(num_classes)]
+    per_datapoint_scores['metric3'] = [
+        [class_scores[i][dp] for i in range(num_classes)]
+        for dp in range(num_datapoints)
+    ]
+    aggregated_scores['metric3'] = [
+        float(np.mean([class_scores[i][dp] for dp in range(num_datapoints)]))
+        for i in range(num_classes)
+    ]
 
-    return {
-        'aggregated': aggregated_scores,
-        'per_datapoint': per_datapoint_scores
-    }
+    return {'aggregated': aggregated_scores, 'per_datapoint': per_datapoint_scores}
 
 
-def create_trainer_log_dir(base_dir: str, run_name: str, num_epochs: int = 5, num_datapoints: int = 100) -> str:
+def create_trainer_log_dir(
+    base_dir: str, run_name: str, num_epochs: int = 5, num_datapoints: int = 100
+) -> str:
     """Create a dummy BaseTrainer log directory structure.
 
     Args:
@@ -101,16 +107,18 @@ def create_trainer_log_dir(base_dir: str, run_name: str, num_epochs: int = 5, nu
                 'data_root': './data/datasets/soft_links/COCOStuff164K',
                 'split': 'val2017',
                 'semantic_granularity': 'coarse',
-            }
+            },
         },
         'val_dataloader': {'class': 'DataLoader', 'args': {'batch_size': 8}},
         'metric': {'class': 'TestMetric', 'args': {}},
         'epochs': num_epochs,
-        'seed': 42
+        'seed': 42,
     }
 
     with open(os.path.join(log_dir, "config.json"), 'w') as f:
-        f.write(jsbeautifier.beautify(json.dumps(config), jsbeautifier.default_options()))
+        f.write(
+            jsbeautifier.beautify(json.dumps(config), jsbeautifier.default_options())
+        )
 
     # Create epoch directories with validation scores
     for epoch in range(num_epochs):
@@ -118,7 +126,9 @@ def create_trainer_log_dir(base_dir: str, run_name: str, num_epochs: int = 5, nu
         os.makedirs(epoch_dir, exist_ok=True)
 
         # Create validation_scores.json for this epoch
-        scores = create_dummy_metric_scores(num_datapoints, epoch=epoch, max_epochs=num_epochs)
+        scores = create_dummy_metric_scores(
+            num_datapoints, epoch=epoch, max_epochs=num_epochs
+        )
 
         with open(os.path.join(epoch_dir, "validation_scores.json"), 'w') as f:
             json.dump(scores, f, indent=2)
@@ -127,20 +137,20 @@ def create_trainer_log_dir(base_dir: str, run_name: str, num_epochs: int = 5, nu
         checkpoint = {
             'model_state_dict': {},
             'optimizer_state_dict': {},
-            'scheduler_state_dict': {}
+            'scheduler_state_dict': {},
         }
         torch.save(checkpoint, os.path.join(epoch_dir, "checkpoint.pt"))
 
         # Create training_losses.pt
         training_losses = {
-            'total_loss': [0.5 * (1.1 ** -epoch) for _ in range(10)],  # Decreasing loss
-            'ce_loss': [0.3 * (1.1 ** -epoch) for _ in range(10)]
+            'total_loss': [0.5 * (1.1**-epoch) for _ in range(10)],  # Decreasing loss
+            'ce_loss': [0.3 * (1.1**-epoch) for _ in range(10)],
         }
         torch.save(training_losses, os.path.join(epoch_dir, "training_losses.pt"))
 
         # Create optimizer_buffer.json
         optimizer_buffer = {
-            'learning_rate': [0.001 * (0.9 ** epoch) for _ in range(10)]  # Decreasing LR
+            'learning_rate': [0.001 * (0.9**epoch) for _ in range(10)]  # Decreasing LR
         }
         with open(os.path.join(epoch_dir, "optimizer_buffer.json"), 'w') as f:
             json.dump(optimizer_buffer, f, indent=2)
@@ -148,7 +158,9 @@ def create_trainer_log_dir(base_dir: str, run_name: str, num_epochs: int = 5, nu
     return log_dir
 
 
-def create_evaluator_log_dir(base_dir: str, run_name: str, num_datapoints: int = 100) -> str:
+def create_evaluator_log_dir(
+    base_dir: str, run_name: str, num_datapoints: int = 100
+) -> str:
     """Create a dummy BaseEvaluator log directory structure.
 
     Args:
@@ -171,15 +183,17 @@ def create_evaluator_log_dir(base_dir: str, run_name: str, num_datapoints: int =
                 'data_root': './data/datasets/soft_links/COCOStuff164K',
                 'split': 'val2017',
                 'semantic_granularity': 'coarse',
-            }
+            },
         },
         'eval_dataloader': {'class': 'DataLoader', 'args': {'batch_size': 8}},
         'metric': {'class': 'TestMetric', 'args': {}},
-        'seed': 42
+        'seed': 42,
     }
 
     with open(os.path.join(log_dir, "config.json"), 'w') as f:
-        f.write(jsbeautifier.beautify(json.dumps(config), jsbeautifier.default_options()))
+        f.write(
+            jsbeautifier.beautify(json.dumps(config), jsbeautifier.default_options())
+        )
 
     # Create evaluation_scores.json directly in the log directory
     # For evaluator, use high epoch value to simulate well-trained model
@@ -194,7 +208,15 @@ def create_evaluator_log_dir(base_dir: str, run_name: str, num_datapoints: int =
 def create_config_files():
     """Create config files in the new folder structure."""
     # Create config directory structure
-    config_dir = os.path.join(".", "configs", "tests", "runners", "eval_viewer", "semantic_segmentation", "coco_stuff_164k")
+    config_dir = os.path.join(
+        ".",
+        "configs",
+        "tests",
+        "runners",
+        "eval_viewer",
+        "semantic_segmentation",
+        "coco_stuff_164k",
+    )
     os.makedirs(config_dir, exist_ok=True)
 
     # Config template for BaseTrainer runs
@@ -252,14 +274,12 @@ config = {{
     trainer_configs = [
         ("model1_run_0", "Model1", 5),
         ("model2_run_0", "Model2", 3),
-        ("model3_run_0", "Model3", 4)
+        ("model3_run_0", "Model3", 4),
     ]
 
     for run_name, model_class, epochs in trainer_configs:
         config_content = trainer_config_template.format(
-            run_name=run_name,
-            model_class=model_class,
-            epochs=epochs
+            run_name=run_name, model_class=model_class, epochs=epochs
         )
         config_path = os.path.join(config_dir, f"{run_name}.py")
         with open(config_path, 'w') as f:
@@ -269,13 +289,12 @@ config = {{
     # Create evaluator configs
     evaluator_configs = [
         ("model1_evaluation", "Model1"),
-        ("model2_evaluation", "Model2")
+        ("model2_evaluation", "Model2"),
     ]
 
     for run_name, model_class in evaluator_configs:
         config_content = evaluator_config_template.format(
-            run_name=run_name,
-            model_class=model_class
+            run_name=run_name, model_class=model_class
         )
         config_path = os.path.join(config_dir, f"{run_name}.py")
         with open(config_path, 'w') as f:
@@ -290,28 +309,31 @@ def create_dummy_log_dirs() -> List[str]:
         List of paths to the created log directories
     """
     # Create base logs directory structure in project directory
-    logs_dir = os.path.join(".", "logs", "tests", "runners", "eval_viewer", "semantic_segmentation", "coco_stuff_164k")
+    logs_dir = os.path.join(
+        ".",
+        "logs",
+        "tests",
+        "runners",
+        "eval_viewer",
+        "semantic_segmentation",
+        "coco_stuff_164k",
+    )
     os.makedirs(logs_dir, exist_ok=True)
 
     log_dirs = []
 
     # Create BaseTrainer results (3 different runs with different number of epochs)
-    trainer_runs = [
-        ("model1_run_0", 5),
-        ("model2_run_0", 3),
-        ("model3_run_0", 4)
-    ]
+    trainer_runs = [("model1_run_0", 5), ("model2_run_0", 3), ("model3_run_0", 4)]
 
     for run_name, num_epochs in trainer_runs:
-        log_dir = create_trainer_log_dir(logs_dir, run_name, num_epochs=num_epochs, num_datapoints=100)
+        log_dir = create_trainer_log_dir(
+            logs_dir, run_name, num_epochs=num_epochs, num_datapoints=100
+        )
         log_dirs.append(log_dir)
         print(f"Created BaseTrainer log directory: {log_dir}")
 
     # Create BaseEvaluator results (2 evaluation runs)
-    evaluator_runs = [
-        "model1_evaluation",
-        "model2_evaluation"
-    ]
+    evaluator_runs = ["model1_evaluation", "model2_evaluation"]
 
     for run_name in evaluator_runs:
         log_dir = create_evaluator_log_dir(logs_dir, run_name, num_datapoints=100)
@@ -329,8 +351,15 @@ def main():
     import argparse
 
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Test script for eval viewer app with dummy data")
-    parser.add_argument("--port", type=int, default=8050, help="Port to run the server on (default: 8050)")
+    parser = argparse.ArgumentParser(
+        description="Test script for eval viewer app with dummy data"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8050,
+        help="Port to run the server on (default: 8050)",
+    )
     args = parser.parse_args()
 
     try:
@@ -341,7 +370,9 @@ def main():
         for log_dir in log_dirs:
             print(f"  - {log_dir}")
 
-        print(f"\nStarting eval viewer app with mixed BaseTrainer and BaseEvaluator results...")
+        print(
+            f"\nStarting eval viewer app with mixed BaseTrainer and BaseEvaluator results..."
+        )
         print(f"The app will show:")
         print(f"  - BaseTrainer results: respond to epoch slider changes")
         print(f"  - BaseEvaluator results: static display (ignore epoch slider)")

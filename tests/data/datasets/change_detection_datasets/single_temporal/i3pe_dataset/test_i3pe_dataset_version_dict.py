@@ -10,16 +10,16 @@ from data.datasets.random_datasets.classification_random_dataset import Classifi
 def test_i3pe_dataset_has_version_dict_method():
     """Test that I3PEDataset has _get_cache_version_dict method."""
     assert hasattr(I3PEDataset, '_get_cache_version_dict')
-    
+
     # Check method signature
     import inspect
     method = getattr(I3PEDataset, '_get_cache_version_dict')
     signature = inspect.signature(method)
-    
+
     # Should take only self parameter
     params = list(signature.parameters.keys())
     assert params == ['self']
-    
+
     # Should return Dict[str, Any]
     from typing import Dict, Any
     return_annotation = signature.return_annotation
@@ -28,7 +28,7 @@ def test_i3pe_dataset_has_version_dict_method():
 
 def test_i3pe_dataset_version_dict_functionality():
     """Test that I3PEDataset version dict method works correctly."""
-    
+
     # Create a simple source dataset
     source = ClassificationRandomDataset(
         num_examples=10,
@@ -36,32 +36,32 @@ def test_i3pe_dataset_version_dict_functionality():
         image_res=(64, 64),
         base_seed=42
     )
-    
+
     dataset = I3PEDataset(
         source=source,
         dataset_size=10,
         exchange_ratio=0.75
     )
     version_dict = dataset._get_cache_version_dict()
-    
+
     # Should return a dictionary
     assert isinstance(version_dict, dict)
-    
+
     # Should contain class_name
     assert 'class_name' in version_dict
     assert version_dict['class_name'] == 'I3PEDataset'
-    
+
     # Should contain base synthetic dataset parameters
     assert 'source_class' in version_dict
     assert version_dict['source_class'] == 'ClassificationRandomDataset'
-    
+
     # Should contain I3PEDataset specific parameters
     assert 'exchange_ratio' in version_dict
     assert 'n_segments' in version_dict
     assert 'eps' in version_dict
     assert 'min_samples' in version_dict
     assert 'scale_factors' in version_dict
-    
+
     # Verify values match constructor and class attributes
     assert version_dict['exchange_ratio'] == 0.75
     assert version_dict['n_segments'] == I3PEDataset.n_segments

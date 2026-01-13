@@ -1,8 +1,13 @@
-from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
-from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
+
+from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import (
+    LevirCdDataset,
+)
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -42,8 +47,6 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset, num_samples: 
 
 @pytest.mark.parametrize('dataset_config', ['train', 'test', 'val'], indirect=True)
 def test_levir_cd_dataset(dataset_config, max_samples, get_samples_to_test):
-    from utils.builders.builder import build_from_config
-    
     dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"

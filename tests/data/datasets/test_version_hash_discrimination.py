@@ -98,7 +98,7 @@ DATASET_CONFIGS = {
             {'split': 'test'}
         ]
     },
-    
+
     # =============================================================================
     # Multi-task Datasets (verified working)
     # =============================================================================
@@ -122,7 +122,7 @@ DATASET_CONFIGS = {
             {'split': 'test'}
         ]
     },
-    
+
     # =============================================================================
     # PCR Datasets (verified working)
     # =============================================================================
@@ -166,7 +166,7 @@ DATASET_CONFIGS = {
             'keep_ratio': 0.7
         }
     },
-    
+
     # =============================================================================
     # Semantic Segmentation Datasets (verified working)
     # =============================================================================
@@ -180,7 +180,7 @@ DATASET_CONFIGS = {
             {'split': 'test'}
         ]
     },
-    
+
     # =============================================================================
     # Synthetic Datasets (verified working)
     # =============================================================================
@@ -225,25 +225,25 @@ DATASET_CONFIGS = {
 def create_dataset_instance(dataset_name: str, request, **kwargs):
     """Create a dataset instance using build_from_config with fixtures."""
     config = DATASET_CONFIGS[dataset_name]
-    
+
     # Build args starting with extra_args if present
     args = config.get('extra_args', {}).copy()
-    
+
     # Add data_root from fixture if specified
     if config['fixture'] is not None:
         args['data_root'] = request.getfixturevalue(config['fixture'])
-    
+
     # Add cache_filepath from fixture if specified
     if 'cache_fixture' in config:
         args['cache_filepath'] = request.getfixturevalue(config['cache_fixture'])
-    
+
     # Add default split if not provided in kwargs
     if 'split' not in kwargs and config['splits']:
         args['split'] = config['splits'][0]
-    
+
     # Override with any provided kwargs
     args.update(kwargs)
-    
+
     dataset_config = {
         'class': config['class'],
         'args': args
@@ -287,14 +287,14 @@ def test_same_parameters_same_hash(dataset_name, request):
     """Test that identical parameters produce identical hashes."""
     # Use first parameter variation as baseline
     params = get_parameter_variations(dataset_name)[0]
-    
+
     # Same parameters should produce same hash
     dataset1 = create_dataset_instance(dataset_name, request, **params)
     dataset2 = create_dataset_instance(dataset_name, request, **params)
-    
+
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
-    
+
     assert hash1 == hash2, f"{dataset_name}: Same parameters should produce same hash: {hash1} != {hash2}"
 
 
@@ -303,10 +303,10 @@ def test_hash_format(dataset_name, request):
     """Test that hash is in correct format."""
     # Use first parameter variation
     params = get_parameter_variations(dataset_name)[0]
-    
+
     dataset = create_dataset_instance(dataset_name, request, **params)
     hash_val = dataset.get_cache_version_hash()
-    
+
     validate_hash_format(hash_val)
 
 
@@ -315,14 +315,14 @@ def test_data_root_excluded_from_hash(dataset_name, request):
     """Test that data_root is excluded from hash for cache stability."""
     # Use first parameter variation
     params = get_parameter_variations(dataset_name)[0]
-    
+
     # Same data root should produce same hash (data_root excluded from versioning)
     dataset1 = create_dataset_instance(dataset_name, request, **params)
     dataset2 = create_dataset_instance(dataset_name, request, **params)
-    
+
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
-    
+
     assert hash1 == hash2, f"{dataset_name}: Same data roots should produce same hashes: {hash1} != {hash2}"
 
 
@@ -335,13 +335,13 @@ def test_different_split_different_hash(dataset_name, request):
     """Test that different splits produce different hashes."""
     splits = get_dataset_splits(dataset_name)
     split1, split2 = splits[0], splits[1]
-    
+
     dataset1 = create_dataset_instance(dataset_name, request, split=split1)
     dataset2 = create_dataset_instance(dataset_name, request, split=split2)
-    
+
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
-    
+
     assert hash1 != hash2, f"{dataset_name}: Different splits should produce different hashes: {hash1} == {hash2}"
 
 
@@ -349,16 +349,16 @@ def test_different_split_different_hash(dataset_name, request):
 def test_split_based_hash_collisions(dataset_name, request):
     """Test that all splits produce unique hashes (no collisions)."""
     splits = get_dataset_splits(dataset_name)
-    
+
     hashes = []
     for split in splits:
         dataset = create_dataset_instance(dataset_name, request, split=split)
         hash_val = dataset.get_cache_version_hash()
-        
+
         # Check for collision
         assert hash_val not in hashes, f"{dataset_name}: Hash collision detected for split {split}: hash {hash_val} already exists"
         hashes.append(hash_val)
-    
+
     # Verify we generated the expected number of unique hashes
     expected_count = len(splits)
     assert len(hashes) == expected_count, f"{dataset_name}: Expected {expected_count} unique hashes, got {len(hashes)}"
@@ -372,19 +372,19 @@ def test_split_based_hash_collisions(dataset_name, request):
 def test_parameter_variations_hash_discrimination(dataset_name, request):
     """Test that different parameter combinations produce different hashes when they should."""
     variations = get_parameter_variations(dataset_name)
-    
+
     if len(variations) < 2:
         pytest.skip(f"Dataset {dataset_name} has insufficient parameter variations for discrimination testing")
-    
+
     hashes = []
     for i, params in enumerate(variations):
         dataset = create_dataset_instance(dataset_name, request, **params)
         hash_val = dataset.get_cache_version_hash()
-        
+
         # Check for collision
         assert hash_val not in hashes, f"{dataset_name}: Hash collision detected for variation {i} {params}: hash {hash_val} already exists"
         hashes.append(hash_val)
-    
+
     # Verify we generated the expected number of unique hashes
     expected_count = len(variations)
     assert len(hashes) == expected_count, f"{dataset_name}: Expected {expected_count} unique hashes, got {len(hashes)}"
@@ -394,14 +394,14 @@ def test_parameter_variations_hash_discrimination(dataset_name, request):
 def test_comprehensive_no_hash_collisions(dataset_name, request):
     """Test comprehensive hash collision detection across all meaningful parameter combinations."""
     variations = get_parameter_variations(dataset_name)
-    
+
     # Collect all hashes from all variations
     all_hashes = []
     for params in variations:
         dataset = create_dataset_instance(dataset_name, request, **params)
         hash_val = dataset.get_cache_version_hash()
         all_hashes.append((hash_val, params))
-    
+
     # Check for any collisions
     seen_hashes = {}
     for hash_val, params in all_hashes:
@@ -411,7 +411,7 @@ def test_comprehensive_no_hash_collisions(dataset_name, request):
                        f"1. {seen_hashes[hash_val]}\n"
                        f"2. {params}")
         seen_hashes[hash_val] = params
-    
+
     # Verify we have the expected number of unique hashes
     expected_count = len(variations)
     actual_count = len(seen_hashes)

@@ -1,15 +1,15 @@
 """Test cases for MultiStageTrainer comparing with SupervisedSingleTaskTrainer."""
-from typing import Dict, List, Any
-import os
 import json
+import os
+
 import torch
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
+from data.collators.base_collator import BaseCollator
+from metrics.wrappers.single_task_metric import SingleTaskMetric
+from optimizers.single_task_optimizer import SingleTaskOptimizer
 from runners.trainers.multi_stage_trainer import MultiStageTrainer
 from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
-from criteria.wrappers.single_task_criterion import SingleTaskCriterion
-from metrics.wrappers.single_task_metric import SingleTaskMetric
-import optimizers
 from utils.ops.dict_as_tensor import buffer_allclose
-from data.collators.base_collator import BaseCollator
 
 
 class SimpleMetric(SingleTaskMetric):
@@ -139,7 +139,7 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
             'args': {}
         },
         'optimizer': {
-            'class': optimizers.SingleTaskOptimizer,
+            'class': SingleTaskOptimizer,
             'args': {
                 'optimizer_config': {
                     'class': torch.optim.SGD,

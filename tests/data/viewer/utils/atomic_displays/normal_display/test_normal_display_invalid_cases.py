@@ -21,7 +21,7 @@ def test_create_normal_display_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display("not_a_tensor", "Test")
-    
+
     assert "Expected torch.Tensor" in str(exc_info.value)
 
 
@@ -32,13 +32,13 @@ def test_create_normal_display_invalid_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display(normals_2d, "Test")
     assert "Expected 3D [3,H,W] or 4D [N,3,H,W] tensor" in str(exc_info.value)
-    
+
     # 4D tensor with batch size > 1 (invalid)
     normals_4d = torch.randn(2, 3, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display(normals_4d, "Test")
     assert "Expected batch size 1 for visualization, got 2" in str(exc_info.value)
-    
+
     # 1D tensor
     normals_1d = torch.randn(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
@@ -53,13 +53,13 @@ def test_create_normal_display_invalid_channels():
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display(normals_1ch, "Test")
     assert "Expected 3 channels for normals" in str(exc_info.value)
-    
+
     # 4 channels
     normals_4ch = torch.randn(4, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display(normals_4ch, "Test")
     assert "Expected 3 channels for normals" in str(exc_info.value)
-    
+
     # 2 channels
     normals_2ch = torch.randn(2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
@@ -70,20 +70,20 @@ def test_create_normal_display_invalid_channels():
 def test_create_normal_display_empty_tensor():
     """Test assertion failure for empty tensor."""
     empty_normals = torch.empty((3, 0, 0), dtype=torch.float32)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display(empty_normals, "Test")
-    
+
     assert "Normal tensor cannot be empty" in str(exc_info.value)
 
 
 def test_create_normal_display_invalid_title_type():
     """Test assertion failure for invalid title type."""
     normals = torch.randn(3, 32, 32, dtype=torch.float32)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display(normals, 123)
-    
+
     assert "Expected str title" in str(exc_info.value)
 
 
@@ -94,7 +94,7 @@ def test_create_normal_display_zero_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         create_normal_display(normals_zero_h, "Test")
     assert "Normal tensor cannot be empty" in str(exc_info.value)
-    
+
     # Zero width
     normals_zero_w = torch.empty((3, 32, 0), dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
@@ -110,7 +110,7 @@ def test_get_normal_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
         get_normal_display_stats("not_a_tensor")
-    
+
     assert "Expected torch.Tensor" in str(exc_info.value)
 
 
@@ -121,13 +121,13 @@ def test_get_normal_display_stats_invalid_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         get_normal_display_stats(normals_2d)
     assert "Expected 3D [3,H,W] or 4D [N,3,H,W] tensor" in str(exc_info.value)
-    
+
     # 4D tensor with batch size > 1 (invalid)
     normals_4d = torch.randn(2, 3, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_normal_display_stats(normals_4d)
     assert "Expected batch size 1 for analysis, got 2" in str(exc_info.value)
-    
+
     # 1D tensor
     normals_1d = torch.randn(100, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
@@ -142,13 +142,13 @@ def test_get_normal_display_stats_invalid_channels():
     with pytest.raises(AssertionError) as exc_info:
         get_normal_display_stats(normals_1ch)
     assert "Expected 3 channels" in str(exc_info.value)
-    
+
     # 4 channels
     normals_4ch = torch.randn(4, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
         get_normal_display_stats(normals_4ch)
     assert "Expected 3 channels" in str(exc_info.value)
-    
+
     # 2 channels
     normals_2ch = torch.randn(2, 32, 32, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
@@ -159,10 +159,10 @@ def test_get_normal_display_stats_invalid_channels():
 def test_get_normal_display_stats_empty_tensor():
     """Test assertion failure for empty tensor."""
     empty_normals = torch.empty((3, 0, 0), dtype=torch.float32)
-    
+
     with pytest.raises(AssertionError) as exc_info:
         get_normal_display_stats(empty_normals)
-    
+
     assert "Normal tensor cannot be empty" in str(exc_info.value)
 
 
@@ -173,7 +173,7 @@ def test_get_normal_display_stats_zero_dimensions():
     with pytest.raises(AssertionError) as exc_info:
         get_normal_display_stats(normals_zero_h)
     assert "Normal tensor cannot be empty" in str(exc_info.value)
-    
+
     # Zero width
     normals_zero_w = torch.empty((3, 32, 0), dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
@@ -191,7 +191,7 @@ def test_create_normal_display_with_different_dtypes():
     normals_float64 = torch.randn(3, 32, 32, dtype=torch.float64)
     fig = create_normal_display(normals_float64, "Float64 Test")
     assert isinstance(fig, go.Figure)
-    
+
     # Normal vectors should be float32, not float16
 
 
@@ -202,7 +202,7 @@ def test_get_normal_display_stats_with_different_dtypes():
     stats = get_normal_display_stats(normals_float64)
     assert isinstance(stats, dict)
     assert "torch.float64" in stats["dtype"]
-    
+
     # Normal vectors should be float32, not float16
 
 
@@ -212,7 +212,7 @@ def test_normal_display_with_float32_dtypes():
     normals_f32 = torch.randn(3, 32, 32, dtype=torch.float32)
     fig = create_normal_display(normals_f32, "Float32 Normals")
     assert isinstance(fig, go.Figure)
-    
+
     stats = get_normal_display_stats(normals_f32)
     assert isinstance(stats, dict)
 
@@ -223,15 +223,15 @@ def test_normal_display_with_extreme_tensor_shapes():
     thin_normals = torch.randn(3, 1, 1000, dtype=torch.float32)
     fig = create_normal_display(thin_normals, "Thin Normals")
     assert isinstance(fig, go.Figure)
-    
+
     stats = get_normal_display_stats(thin_normals)
     assert stats["shape"] == [3, 1, 1000]
-    
+
     # Very tall tensor
     tall_normals = torch.randn(3, 1000, 1, dtype=torch.float32)
     fig = create_normal_display(tall_normals, "Tall Normals")
     assert isinstance(fig, go.Figure)
-    
+
     stats = get_normal_display_stats(tall_normals)
     assert stats["shape"] == [3, 1000, 1]
 
@@ -240,10 +240,10 @@ def test_normal_display_with_all_zero_normals():
     """Test normal display with all zero normal vectors."""
     # All zero normals (degenerate case)
     zero_normals = torch.zeros(3, 32, 32, dtype=torch.float32)
-    
+
     fig = create_normal_display(zero_normals, "Zero Normals")
     assert isinstance(fig, go.Figure)
-    
+
     stats = get_normal_display_stats(zero_normals)
     assert isinstance(stats, dict)
     assert stats["mean_magnitude"] == "N/A"  # No valid non-zero normals
@@ -252,17 +252,17 @@ def test_normal_display_with_all_zero_normals():
 def test_normal_display_with_mixed_valid_invalid_normals():
     """Test normal display with mix of valid and invalid values."""
     normals = torch.randn(3, 32, 32, dtype=torch.float32)
-    
+
     # Set some regions to NaN
     normals[:, :10, :10] = float('nan')
-    
+
     # Set some regions to infinity
     normals[:, 10:20, 10:20] = float('inf')
-    
+
     # This should still work
     fig = create_normal_display(normals, "Mixed Valid/Invalid")
     assert isinstance(fig, go.Figure)
-    
+
     stats = get_normal_display_stats(normals)
     assert isinstance(stats, dict)
     assert stats["valid_pixels"] < stats["total_pixels"]

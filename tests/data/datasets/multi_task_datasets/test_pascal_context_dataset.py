@@ -62,25 +62,25 @@ def test_pascal_context_selective_loading(pascal_context_base_config, selected_l
     import copy
     config = copy.deepcopy(pascal_context_base_config)
     config['args']['labels'] = selected_labels
-    
+
     dataset = build_from_config(config)
-    
+
     # Check selected_labels attribute
     if selected_labels is None:
         assert dataset.selected_labels == PASCALContextDataset.LABEL_NAMES
         expected_keys = PASCALContextDataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
-    
+
     # Load a datapoint and check only expected labels are present
     datapoint = dataset[0]
-    
+
     assert isinstance(datapoint, dict)
     assert 'labels' in datapoint
-    
+
     labels = datapoint['labels']
     assert isinstance(labels, dict)
-    
+
     # Handle parts_target which may be None (not all images have human parts)
     if 'parts_target' in expected_keys and labels.get('parts_target') is None:
         # Remove parts_target from expected if it's None in actual data
@@ -88,9 +88,9 @@ def test_pascal_context_selective_loading(pascal_context_base_config, selected_l
         # Also remove parts_inst_mask if it was expected but parts_target is None
         if 'parts_inst_mask' in expected_keys:
             expected_keys = [k for k in expected_keys if k != 'parts_inst_mask']
-    
+
     assert set(labels.keys()) == set(expected_keys)
-    
+
     # Validate that all labels are proper types
     for key, value in labels.items():
         if key in ['parts_target', 'parts_inst_mask'] and value is None:

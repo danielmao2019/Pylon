@@ -10,7 +10,7 @@ def create_datapoint(outputs, labels, idx=0):
     return {
         'inputs': {},
         'outputs': outputs,
-        'labels': labels, 
+        'labels': labels,
         'meta_info': {'idx': idx}
     }
 
@@ -137,7 +137,7 @@ def test_recursive_building_preservation(dummy_metric):
         'class': dummy_metric.__class__,
         'args': {'metric_name': 'shared_1', 'use_buffer': False}
     }
-    
+
     shared_metric_config_2 = {
         'class': dummy_metric.__class__,
         'args': {'metric_name': 'shared_2', 'use_buffer': False}

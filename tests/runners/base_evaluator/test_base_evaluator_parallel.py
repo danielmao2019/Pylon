@@ -1,7 +1,7 @@
 import os
 import time
-import torch
-from runners import BaseEvaluator
+
+from runners.evaluators.base_evaluator import BaseEvaluator
 from utils.ops.dict_as_tensor import buffer_allclose
 
 
@@ -20,12 +20,17 @@ class SequentialEvaluator(BaseEvaluator):
 
         # Process evaluation data sequentially
         for idx, dp in enumerate(self.eval_dataloader):
-            self._eval_step(dp, flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
+            self._eval_step(
+                dp,
+                flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
+            )
 
         # after validation loop
         self._after_eval_loop_()
         # log time
-        self.logger.info(f"Evaluation epoch time: {round(time.time() - start_time, 2)} seconds.")
+        self.logger.info(
+            f"Evaluation epoch time: {round(time.time() - start_time, 2)} seconds."
+        )
 
 
 def test_sequential_vs_parallel_evaluation(test_dir, evaluator_cfg):
@@ -61,5 +66,6 @@ def test_sequential_vs_parallel_evaluation(test_dir, evaluator_cfg):
     sequential_scores = sequential_evaluator.metric.summarize()
     parallel_scores = parallel_evaluator.metric.summarize()
 
-    assert buffer_allclose(sequential_scores, parallel_scores, rtol=1e-6, atol=1e-6), \
-        f"Sequential and parallel evaluation results should be identical: {sequential_scores} vs {parallel_scores}"
+    assert buffer_allclose(
+        sequential_scores, parallel_scores, rtol=1e-6, atol=1e-6
+    ), f"Sequential and parallel evaluation results should be identical: {sequential_scores} vs {parallel_scores}"

@@ -9,16 +9,16 @@ from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import
 def test_bi2single_temporal_has_version_dict_method():
     """Test that Bi2SingleTemporal has _get_cache_version_dict method."""
     assert hasattr(Bi2SingleTemporal, '_get_cache_version_dict')
-    
+
     # Check method signature
     import inspect
     method = getattr(Bi2SingleTemporal, '_get_cache_version_dict')
     signature = inspect.signature(method)
-    
+
     # Should take only self parameter
     params = list(signature.parameters.keys())
     assert params == ['self']
-    
+
     # Should return Dict[str, Any]
     from typing import Dict, Any
     return_annotation = signature.return_annotation
@@ -27,25 +27,25 @@ def test_bi2single_temporal_has_version_dict_method():
 
 def test_bi2single_temporal_version_dict_functionality(levir_cd_data_root):
     """Test that Bi2SingleTemporal version dict method works correctly."""
-    
+
     # Create source dataset using real LEVIR-CD data
     source = LevirCdDataset(data_root=levir_cd_data_root, split='train')
-    
+
     # Create Bi2SingleTemporal dataset
     dataset = Bi2SingleTemporal(source=source)
     version_dict = dataset._get_cache_version_dict()
-    
+
     # Should return a dictionary
     assert isinstance(version_dict, dict)
-    
+
     # Should contain class_name
     assert 'class_name' in version_dict
     assert version_dict['class_name'] == 'Bi2SingleTemporal'
-    
+
     # Should contain base synthetic dataset parameters
     assert 'source_class' in version_dict
     assert version_dict['source_class'] == 'LevirCdDataset'
-    
+
     # Should contain Bi2SingleTemporal specific parameters
     assert 'source_version' in version_dict
     assert isinstance(version_dict['source_version'], str)

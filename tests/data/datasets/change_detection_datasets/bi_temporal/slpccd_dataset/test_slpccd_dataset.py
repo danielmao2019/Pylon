@@ -1,8 +1,13 @@
-from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
-from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
+
+from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import (
+    SLPCCDDataset,
+)
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -33,8 +38,6 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 @pytest.mark.parametrize('dataset_config', ['train', 'val', 'test'], indirect=True)
 def test_load_real_dataset(dataset_config, max_samples, get_samples_to_test) -> None:
-    from utils.builders.builder import build_from_config
-    
     dataset = build_from_config(dataset_config)
     """Test loading the actual SLPCCD dataset."""
     assert isinstance(dataset, torch.utils.data.Dataset)

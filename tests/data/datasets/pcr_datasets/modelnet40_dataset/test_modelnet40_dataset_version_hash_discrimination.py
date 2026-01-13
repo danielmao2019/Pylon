@@ -10,12 +10,12 @@ def create_dummy_modelnet40_structure(data_root: str) -> None:
     """Create a dummy ModelNet40 directory structure for testing."""
     categories = ['airplane', 'chair', 'table']  # Subset for testing
     splits = ['train', 'test']
-    
+
     for category in categories:
         for split in splits:
             category_dir = os.path.join(data_root, category, split)
             os.makedirs(category_dir, exist_ok=True)
-            
+
             # Create a few dummy OFF files
             for i in range(2):
                 off_file = os.path.join(category_dir, f'{category}_{i:04d}.off')
@@ -28,7 +28,7 @@ def test_modelnet40_dataset_version_discrimination():
     """Test that ModelNet40Dataset instances with different parameters have different hashes."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_modelnet40_structure(temp_dir)
-        
+
         # Same parameters should have same hash
         dataset1a = ModelNet40Dataset(
             data_root=temp_dir,
@@ -47,7 +47,7 @@ def test_modelnet40_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
-        
+
         # Different dataset_size should have different hash
         dataset2 = ModelNet40Dataset(
             data_root=temp_dir,
@@ -58,7 +58,7 @@ def test_modelnet40_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
-        
+
         # Different rotation_mag should have different hash
         dataset3 = ModelNet40Dataset(
             data_root=temp_dir,
@@ -69,7 +69,7 @@ def test_modelnet40_dataset_version_discrimination():
             split='train'
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
-        
+
         # Different split should have different hash
         dataset4 = ModelNet40Dataset(
             data_root=temp_dir,
@@ -86,13 +86,13 @@ def test_inherited_parameters_affect_version_hash():
     """Test that parameters inherited from SyntheticTransformPCRDataset affect version hash."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_modelnet40_structure(temp_dir)
-        
+
         base_args = {
             'data_root': temp_dir,
             'dataset_size': 100,
             'split': 'train',
         }
-        
+
         # Test inherited parameters from SyntheticTransformPCRDataset
         parameter_variants = [
             ('rotation_mag', 30.0),  # Different from default 45.0
@@ -102,14 +102,14 @@ def test_inherited_parameters_affect_version_hash():
             ('min_points', 256),  # Different from default 512
             ('max_trials', 500),  # Different from default 1000
         ]
-        
+
         dataset1 = ModelNet40Dataset(**base_args)
-        
+
         for param_name, new_value in parameter_variants:
             modified_args = base_args.copy()
             modified_args[param_name] = new_value
             dataset2 = ModelNet40Dataset(**modified_args)
-            
+
             assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
                 f"Inherited parameter {param_name} should affect cache version hash"
 
@@ -120,7 +120,7 @@ def test_modelnet40_specific_parameters():
         # Create different ModelNet40 structures to test category effects
         categories_set1 = ['airplane', 'chair']
         categories_set2 = ['airplane', 'chair', 'table']  # Additional category
-        
+
         # Structure 1
         for category in categories_set1:
             for split in ['train', 'test']:
@@ -129,7 +129,7 @@ def test_modelnet40_specific_parameters():
                 off_file = os.path.join(category_dir, f'{category}_0001.off')
                 with open(off_file, 'w') as f:
                     f.write('OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n')
-        
+
         # Structure 2 - with additional category
         for category in categories_set2:
             for split in ['train', 'test']:
@@ -138,7 +138,7 @@ def test_modelnet40_specific_parameters():
                 off_file = os.path.join(category_dir, f'{category}_0001.off')
                 with open(off_file, 'w') as f:
                     f.write('OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n')
-        
+
         # Same parameters but different data_root (different available categories)
         dataset1 = ModelNet40Dataset(
             data_root=os.path.join(temp_dir, 'structure1'),
@@ -150,7 +150,7 @@ def test_modelnet40_specific_parameters():
             dataset_size=100,
             split='train'
         )
-        
+
         # Should have different hashes due to different available categories affecting file_pair_annotations
         assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -159,9 +159,9 @@ def test_keep_ratio_variants():
     """Test that different keep_ratio values are properly discriminated."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_modelnet40_structure(temp_dir)
-        
+
         keep_ratio_variants = [0.5, 0.7, 0.8, 0.9]
-        
+
         datasets = []
         for keep_ratio in keep_ratio_variants:
             dataset = ModelNet40Dataset(
@@ -171,7 +171,7 @@ def test_keep_ratio_variants():
                 keep_ratio=keep_ratio
             )
             datasets.append(dataset)
-        
+
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
         assert len(hashes) == len(set(hashes)), \
@@ -182,9 +182,9 @@ def test_comprehensive_no_hash_collisions():
     """Ensure no hash collisions across many different configurations."""
     with tempfile.TemporaryDirectory() as temp_dir:
         create_dummy_modelnet40_structure(temp_dir)
-        
+
         datasets = []
-        
+
         # Generate many different dataset configurations
         for dataset_size in [50, 100, 200]:
             for rotation_mag in [30.0, 45.0, 60.0]:
@@ -197,14 +197,14 @@ def test_comprehensive_no_hash_collisions():
                             translation_mag=translation_mag,
                             split=split
                         ))
-        
+
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        
+
         # Ensure all hashes are unique (no collisions)
         assert len(hashes) == len(set(hashes)), \
             f"Hash collision detected! Duplicate hashes found in: {hashes}"
-        
+
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
             assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"

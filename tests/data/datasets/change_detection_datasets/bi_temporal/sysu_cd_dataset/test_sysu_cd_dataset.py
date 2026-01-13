@@ -1,8 +1,13 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
-from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
+
+from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import (
+    SYSU_CD_Dataset,
+)
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any], dataset: SYSU_CD_Dataset) -> None:
@@ -22,7 +27,7 @@ def validate_labels(labels: Dict[str, Any], class_dist: torch.Tensor, dataset: S
     assert set(labels.keys()) == set(SYSU_CD_Dataset.LABEL_NAMES)
     change_map = labels['change_map']
     assert set(torch.unique(change_map).tolist()).issubset({0, 1}), f"{torch.unique(change_map)=}"
-    
+
     # Update class distribution - keep tensors on same device for GPU efficiency
     for cls in range(dataset.NUM_CLASSES):
         class_dist[cls] += torch.sum(change_map == cls)
@@ -44,8 +49,6 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: SYSU_CD_Datas
 
 @pytest.mark.parametrize('dataset_config', ['train', 'val', 'test'], indirect=True)
 def test_sysu_cd(dataset_config, max_samples, get_samples_to_test) -> None:
-    from utils.builders.builder import build_from_config
-    
     dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"

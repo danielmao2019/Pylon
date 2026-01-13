@@ -7,7 +7,7 @@ from data.datasets.random_datasets.classification_random_dataset import Classifi
 
 def test_classification_random_dataset_version_discrimination():
     """Test that ClassificationRandomDataset instances with different parameters have different hashes."""
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         # Same parameters should have same hash
         dataset1a = ClassificationRandomDataset(
@@ -23,7 +23,7 @@ def test_classification_random_dataset_version_discrimination():
             base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
-        
+
         # Different num_classes should have different hash
         dataset2 = ClassificationRandomDataset(
             num_classes=20,  # Different
@@ -32,7 +32,7 @@ def test_classification_random_dataset_version_discrimination():
             base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
-        
+
         # Different num_examples should have different hash
         dataset3 = ClassificationRandomDataset(
             num_classes=10,
@@ -41,7 +41,7 @@ def test_classification_random_dataset_version_discrimination():
             base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
-        
+
         # Different image_res should have different hash
         dataset4 = ClassificationRandomDataset(
             num_classes=10,
@@ -50,7 +50,7 @@ def test_classification_random_dataset_version_discrimination():
             base_seed=42,
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
-        
+
         # Different base_seed should have different hash
         dataset5 = ClassificationRandomDataset(
             num_classes=10,
@@ -63,7 +63,7 @@ def test_classification_random_dataset_version_discrimination():
 
 def test_all_parameters_affect_version_hash():
     """Test that all content-affecting parameters impact the version hash."""
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         base_args = {
             'num_classes': 10,
@@ -71,7 +71,7 @@ def test_all_parameters_affect_version_hash():
             'image_res': (224, 224),
             'base_seed': 42,
         }
-        
+
         # Test each parameter individually
         parameter_variants = [
             ('num_classes', 5),
@@ -84,21 +84,21 @@ def test_all_parameters_affect_version_hash():
             ('base_seed', 123),
             ('base_seed', None),  # None vs specified
         ]
-        
+
         dataset1 = ClassificationRandomDataset(**base_args)
-        
+
         for param_name, new_value in parameter_variants:
             modified_args = base_args.copy()
             modified_args[param_name] = new_value
             dataset2 = ClassificationRandomDataset(**modified_args)
-            
+
             assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
                 f"Parameter {param_name} should affect cache version hash"
 
 
 def test_none_vs_specified_initial_seed():
     """Test that None vs specified base_seed produces different hashes."""
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         # None vs specified should have different hashes
         dataset1 = ClassificationRandomDataset(
@@ -118,7 +118,7 @@ def test_none_vs_specified_initial_seed():
 
 def test_image_resolution_variants():
     """Test that different image resolutions are properly discriminated."""
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         resolution_variants = [
             (224, 224),
@@ -128,7 +128,7 @@ def test_image_resolution_variants():
             (512, 224),  # Different aspect ratio
             (299, 299),  # Inception size
         ]
-        
+
         datasets = []
         for image_res in resolution_variants:
             dataset = ClassificationRandomDataset(
@@ -138,7 +138,7 @@ def test_image_resolution_variants():
                 base_seed=42,
             )
             datasets.append(dataset)
-        
+
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
         assert len(hashes) == len(set(hashes)), \
@@ -147,10 +147,10 @@ def test_image_resolution_variants():
 
 def test_num_classes_variants():
     """Test that different numbers of classes are properly discriminated."""
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         num_classes_variants = [2, 5, 10, 20, 100, 1000]
-        
+
         datasets = []
         for num_classes in num_classes_variants:
             dataset = ClassificationRandomDataset(
@@ -160,7 +160,7 @@ def test_num_classes_variants():
                 base_seed=42,
             )
             datasets.append(dataset)
-        
+
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
         assert len(hashes) == len(set(hashes)), \
@@ -169,10 +169,10 @@ def test_num_classes_variants():
 
 def test_comprehensive_no_hash_collisions():
     """Ensure no hash collisions across many different configurations."""
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         datasets = []
-        
+
         # Generate many different dataset configurations
         for num_classes in [5, 10, 20]:
             for num_examples in [50, 100, 200]:
@@ -184,14 +184,14 @@ def test_comprehensive_no_hash_collisions():
                             image_res=image_res,
                             base_seed=base_seed_val,
                                                 ))
-        
+
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        
+
         # Ensure all hashes are unique (no collisions)
         assert len(hashes) == len(set(hashes)), \
             f"Hash collision detected! Duplicate hashes found in: {hashes}"
-        
+
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
             assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"

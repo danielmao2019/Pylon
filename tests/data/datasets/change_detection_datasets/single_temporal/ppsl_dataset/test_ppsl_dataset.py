@@ -1,9 +1,16 @@
-from typing import Dict, Any
+"""Test suite for PPSL dataset to verify point cloud change detection modules."""
+
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
-from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
+
 from data.datasets import WHU_BD_Dataset
+from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import (
+    PPSLDataset,
+)
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -31,8 +38,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 
 def test_ppsl_dataset(ppsl_dataset_config, max_samples, get_samples_to_test) -> None:
-    from utils.builders.builder import build_from_config
-    
+
     dataset = build_from_config(ppsl_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
     assert len(dataset) > 0, "Dataset should not be empty"

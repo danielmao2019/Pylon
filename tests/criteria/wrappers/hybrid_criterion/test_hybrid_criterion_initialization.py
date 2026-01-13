@@ -24,21 +24,21 @@ def test_inheritance_verification(dummy_criterion):
     """Test that HybridCriterion properly inherits from SingleTaskCriterion."""
     from criteria.wrappers.single_task_criterion import SingleTaskCriterion
     from criteria.base_criterion import BaseCriterion
-    
+
     criteria_cfg = [
         {
             'class': PyTorchCriterionWrapper,
             'args': {'criterion': dummy_criterion}
         }
     ]
-    
+
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
-    
+
     # Test inheritance chain
     assert isinstance(criterion, SingleTaskCriterion)
     assert isinstance(criterion, BaseCriterion)
     assert isinstance(criterion, torch.nn.Module)
-    
+
     # Test that it has inherited attributes and methods
     assert hasattr(criterion, 'use_buffer')
     assert hasattr(criterion, 'add_to_buffer')
@@ -54,16 +54,16 @@ def test_combine_options_validation(dummy_criterion):
             'args': {'criterion': dummy_criterion}
         }
     ]
-    
+
     # Test valid options
     for valid_option in HybridCriterion.COMBINE_OPTIONS:
         criterion = HybridCriterion(combine=valid_option, criteria_cfg=criteria_cfg)
         assert criterion.combine == valid_option
-    
+
     # Test invalid options
     with pytest.raises(AssertionError):
         HybridCriterion(combine='invalid', criteria_cfg=criteria_cfg)
-    
+
     with pytest.raises(AssertionError):
         HybridCriterion(combine='multiply', criteria_cfg=criteria_cfg)
 
@@ -72,7 +72,7 @@ def test_empty_criteria_config():
     """Test that empty criteria config raises assertion error."""
     with pytest.raises(AssertionError):
         HybridCriterion(combine='sum', criteria_cfg=[])
-    
+
     with pytest.raises(AssertionError):
         HybridCriterion(combine='sum', criteria_cfg=None)
 

@@ -138,23 +138,23 @@ def test_ade_20k_selective_loading(ade20k_data_root, selected_labels, expected_k
         split='training',
         labels=selected_labels
     )
-    
+
     # Check selected_labels attribute
     if selected_labels is None:
         assert dataset.selected_labels == ADE20KDataset.LABEL_NAMES
         expected_keys = ADE20KDataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
-    
+
     # Load a datapoint and check only expected labels are present
     datapoint = dataset[0]
-    
+
     assert isinstance(datapoint, dict)
     assert 'labels' in datapoint
-    
+
     labels = datapoint['labels']
     assert isinstance(labels, dict)
     assert set(labels.keys()) == set(expected_keys)
-    
+
     # Validate the labels using existing validation function
     validate_labels(labels, datapoint['meta_info']['image_resolution'])

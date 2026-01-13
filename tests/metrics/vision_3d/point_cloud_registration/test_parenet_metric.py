@@ -15,9 +15,9 @@ def test_parenet_metric_instantiation():
     metric = build_from_config(metric_cfg)
     assert metric is not None
     assert hasattr(metric, 'DIRECTIONS')
-    
+
     # Check DIRECTIONS is properly set
-    expected_directions = ['rotation_error', 'translation_error', 'inlier_ratio', 
+    expected_directions = ['rotation_error', 'translation_error', 'inlier_ratio',
                           'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
     for direction_key in expected_directions:
         assert direction_key in metric.DIRECTIONS
@@ -27,7 +27,7 @@ def test_parenet_metric_instantiation():
 def test_parenet_metric_directions():
     """Test PARENet metric DIRECTIONS attribute."""
     metric = build_from_config(metric_cfg)
-    
+
     # Test expected direction values
     assert metric.DIRECTIONS['rotation_error'] == -1  # Lower is better
     assert metric.DIRECTIONS['translation_error'] == -1  # Lower is better
@@ -41,7 +41,7 @@ def test_parenet_metric_directions():
 def test_parenet_metric_computation():
     """Test PARENet metric computation with proper datapoint format."""
     metric = build_from_config(metric_cfg)
-    
+
     # Create properly formatted datapoint matching metric expectations
     dummy_datapoint = {
         'outputs': {
@@ -65,16 +65,16 @@ def test_parenet_metric_computation():
             'idx': 0,
         }
     }
-    
+
     # Call metric to compute metrics - this should work without errors
     result = metric(dummy_datapoint)
-    
+
     # Verify metric computation
     assert isinstance(result, dict), "Metric result must be a dictionary"
     assert len(result) > 0, "Metric result should contain computed metrics"
-    
+
     # Check for expected metric keys
-    expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio', 
+    expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio',
                        'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
     for metric_name in expected_metrics:
         assert metric_name in result, f"Missing expected metric: {metric_name}"
@@ -84,7 +84,7 @@ def test_parenet_metric_computation():
 def test_parenet_metric_multiple_calls():
     """Test PARENet metric with multiple calls to verify consistency."""
     metric = build_from_config(metric_cfg)
-    
+
     # Create two different datapoints
     dummy_datapoint1 = {
         'outputs': {
@@ -108,7 +108,7 @@ def test_parenet_metric_multiple_calls():
             'idx': 0,
         }
     }
-    
+
     dummy_datapoint2 = {
         'outputs': {
             'estimated_transform': torch.eye(4) * 1.1,  # Slightly different transform
@@ -131,15 +131,15 @@ def test_parenet_metric_multiple_calls():
             'idx': 1,
         }
     }
-    
+
     # Test multiple metric calls
     result1 = metric(dummy_datapoint1)
     result2 = metric(dummy_datapoint2)
-    
+
     # Verify both results have expected structure
     for result in [result1, result2]:
         assert isinstance(result, dict), "Metric result must be a dictionary"
-        expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio', 
+        expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio',
                            'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
         for metric_name in expected_metrics:
             assert metric_name in result, f"Missing metric: {metric_name}"
@@ -149,7 +149,7 @@ def test_parenet_metric_multiple_calls():
 def test_parenet_metric_batch_dimensions():
     """Test PARENet metric handling of batch dimensions."""
     metric = build_from_config(metric_cfg)
-    
+
     # Test with consistent dimensions matching model output
     dummy_datapoint = {
         'outputs': {
@@ -173,13 +173,13 @@ def test_parenet_metric_batch_dimensions():
             'idx': 0,
         }
     }
-    
+
     # Should handle batch dimensions correctly
     result = metric(dummy_datapoint)
-    
+
     # Verify result structure
     assert isinstance(result, dict), "Metric result must be a dictionary"
-    expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio', 
+    expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio',
                        'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
     for metric_name in expected_metrics:
         assert metric_name in result, f"Missing metric: {metric_name}"
@@ -189,10 +189,10 @@ def test_parenet_metric_batch_dimensions():
 def test_parenet_metric_component_metrics():
     """Test PARENet metric component initialization."""
     metric = build_from_config(metric_cfg)
-    
+
     # Check that component metrics are initialized
     assert hasattr(metric, 'isotropic_error')
     assert hasattr(metric, 'inlier_ratio')
     assert hasattr(metric, 'parenet_evaluator')
-    
+
     print("✓ Component metrics properly initialized")

@@ -1,8 +1,13 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
-from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
+
+from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import (
+    AirChangeDataset,
+)
+from utils.builders.builder import build_from_config
 
 
 def validate_inputs(inputs: Dict[str, Any], dataset: AirChangeDataset) -> None:
@@ -52,8 +57,6 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: AirChangeData
 
 @pytest.mark.parametrize('dataset_config', ['train', 'test'], indirect=True)
 def test_air_change(dataset_config, max_samples, get_samples_to_test) -> None:
-    from utils.builders.builder import build_from_config
-    
     dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset must inherit from torch.utils.data.Dataset"
     assert len(dataset) > 0, "Dataset should not be empty"
