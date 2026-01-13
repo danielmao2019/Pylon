@@ -1,6 +1,8 @@
-from typing import List, Any, Optional, Dict
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
+
 import torch
+
 from utils.input_checks import check_write_file
 from utils.io.json import save_json
 

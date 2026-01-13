@@ -1,5 +1,6 @@
 from typing import Any
-from optimizers import BaseOptimizer
+
+from optimizers.base_optimizer import BaseOptimizer
 from utils.builders import build_from_config
 
 
@@ -10,5 +11,4 @@ class SingleTaskOptimizer(BaseOptimizer):
         self.optimizer = build_from_config(config=optimizer_config)
 
     def backward(self, *args, **kwargs) -> Any:
-        r"""Intentionally left blank. This is not needed as back-propagation is done in SupervisedSingleTaskTrainer._set_gradients_.
-        """
+        r"""Intentionally left blank. This is not needed as back-propagation is done in SupervisedSingleTaskTrainer._set_gradients_."""

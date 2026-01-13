@@ -1,7 +1,9 @@
-from typing import Tuple, List, Dict, Union, Optional
 import time
+from typing import Dict, List, Optional, Tuple, Union
+
 import torch
-from optimizers import BaseOptimizer
+
+from optimizers.base_optimizer import BaseOptimizer
 from utils.builders import build_from_config
 from utils.logging.text_logger import TextLogger
 
@@ -49,10 +51,12 @@ class MTLOptimizer(BaseOptimizer):
         # input checks
         assert type(loss_dict) == dict, f"{type(loss_dict)=}"
         assert all(type(key) == str for key in loss_dict.keys())
-        assert all([
-            type(value) == torch.Tensor and value.ndim == 0 and value.requires_grad
-            for value in loss_dict.values()
-        ])
+        assert all(
+            [
+                type(value) == torch.Tensor and value.ndim == 0 and value.requires_grad
+                for value in loss_dict.values()
+            ]
+        )
         if type(shared_rep) == torch.Tensor:
             shared_rep = (shared_rep,)
         assert type(shared_rep) == tuple
@@ -63,28 +67,41 @@ class MTLOptimizer(BaseOptimizer):
         self.optimizer.zero_grad(set_to_none=True)
         dummy_gradient = torch.zeros_like(shared_rep)
         shared_rep.backward(gradient=dummy_gradient, retain_graph=True)
-        shared_params_mask_v1 = torch.tensor([
-            p.requires_grad and p.grad is not None
-            for group in self.optimizer.param_groups for p in group['params']
-        ], dtype=torch.bool, device=torch.device('cuda'))
+        shared_params_mask_v1 = torch.tensor(
+            [
+                p.requires_grad and p.grad is not None
+                for group in self.optimizer.param_groups
+                for p in group['params']
+            ],
+            dtype=torch.bool,
+            device=torch.device('cuda'),
+        )
         # compute gradients with method 2
         masks: List[torch.Tensor] = []
         for loss in loss_dict.values():
             self.optimizer.zero_grad(set_to_none=True)
             loss.backward(retain_graph=True)
-            masks.append(torch.tensor([
-                p.requires_grad and p.grad is not None
-                for group in self.optimizer.param_groups for p in group['params']
-            ], dtype=torch.bool, device=torch.device('cuda')))
-        shared_params_mask_v2 = torch.prod(torch.stack(masks).type(torch.int64), dim=0).type(torch.bool)
+            masks.append(
+                torch.tensor(
+                    [
+                        p.requires_grad and p.grad is not None
+                        for group in self.optimizer.param_groups
+                        for p in group['params']
+                    ],
+                    dtype=torch.bool,
+                    device=torch.device('cuda'),
+                )
+            )
+        shared_params_mask_v2 = torch.prod(
+            torch.stack(masks).type(torch.int64), dim=0
+        ).type(torch.bool)
         # sanity check
         assert torch.equal(shared_params_mask_v1, shared_params_mask_v2)
         # assign to class attribute
         self.shared_params_mask: torch.Tensor = shared_params_mask_v1
 
     def _get_shared_params_(self):
-        r"""Generator function for the shared parameters.
-        """
+        r"""Generator function for the shared parameters."""
         idx = 0
         for group in self.optimizer.param_groups:
             if len(group['params']) == 1:
@@ -93,7 +110,9 @@ class MTLOptimizer(BaseOptimizer):
                 if self.shared_params_mask[idx]:
                     yield p
                 idx += 1
-        assert idx == len(self.shared_params_mask), f"{idx=}, {len(self.shared_params_mask)=}"
+        assert idx == len(
+            self.shared_params_mask
+        ), f"{idx=}, {len(self.shared_params_mask)=}"
 
     def _init_shared_params_shapes_(self) -> None:
         r"""This method initializes `self.shared_params_shapes`, a list of `torch.Size` for the shapes
@@ -101,7 +120,10 @@ class MTLOptimizer(BaseOptimizer):
         """
         shapes: List[torch.Size] = [p.shape for p in self._get_shared_params_()]
         # sanity check on mask and shapes
-        assert hasattr(self, 'shared_params_mask') and type(self.shared_params_mask) == torch.Tensor
+        assert (
+            hasattr(self, 'shared_params_mask')
+            and type(self.shared_params_mask) == torch.Tensor
+        )
         shared_count = self.shared_params_mask.type(torch.int64).sum()
         assert shared_count == len(shapes), f"{shared_count=}, {len(shapes)=}"
         # assign to class attribute
@@ -111,7 +133,9 @@ class MTLOptimizer(BaseOptimizer):
     # gradient computation methods
     # ====================================================================================================
 
-    def _get_grad_par_(self, loss: torch.Tensor, per_layer: bool) -> Union[torch.Tensor, List[torch.Tensor]]:
+    def _get_grad_par_(
+        self, loss: torch.Tensor, per_layer: bool
+    ) -> Union[torch.Tensor, List[torch.Tensor]]:
         r"""Get gradient of the given (single) loss w.r.t. shared parameters.
 
         Args:
@@ -151,7 +175,10 @@ class MTLOptimizer(BaseOptimizer):
             shared_rep = (shared_rep,)
         # compute gradients
         grad_seq: Tuple[torch.Tensor, ...] = torch.autograd.grad(
-            outputs=[loss], inputs=shared_rep, allow_unused=True, retain_graph=True,
+            outputs=[loss],
+            inputs=shared_rep,
+            allow_unused=True,
+            retain_graph=True,
         )
         assert type(grad_seq) == tuple, f"{type(grad_seq)=}"
         assert len(grad_seq) == len(shared_rep), f"{len(grad_seq)=}, {len(shared_rep)=}"
@@ -159,8 +186,12 @@ class MTLOptimizer(BaseOptimizer):
         for idx in range(len(grad_seq)):
             if grad_seq[idx] is None:
                 grad_seq[idx] = torch.zeros_like(shared_rep[idx])
-            assert type(grad_seq[idx]) == torch.Tensor, f"{idx=}, {type(grad_seq[idx])=}"
-            assert grad_seq[idx].shape == shared_rep[idx].shape, f"{grad_seq[idx].shape=}, {shared_rep[idx].shape=}"
+            assert (
+                type(grad_seq[idx]) == torch.Tensor
+            ), f"{idx=}, {type(grad_seq[idx])=}"
+            assert (
+                grad_seq[idx].shape == shared_rep[idx].shape
+            ), f"{grad_seq[idx].shape=}, {shared_rep[idx].shape=}"
         grad: torch.Tensor = torch.cat([g.flatten() for g in grad_seq], dim=0)
         assert grad.ndim == 1, f"{grad.shape=}"
         return grad
@@ -172,15 +203,16 @@ class MTLOptimizer(BaseOptimizer):
         wrt_rep: Optional[bool] = False,
         per_layer: Optional[bool] = False,
     ) -> Union[Dict[str, torch.Tensor], Dict[str, List[torch.Tensor]]]:
-        r"""This method computes the gradients for all losses.
-        """
+        r"""This method computes the gradients for all losses."""
         # input checks
         assert type(loss_dict) == dict, f"{type(loss_dict)=}"
         assert all(type(key) == str for key in loss_dict.keys())
-        assert all([
-            type(value) == torch.Tensor and value.ndim == 0 and value.requires_grad
-            for value in loss_dict.values()
-        ])
+        assert all(
+            [
+                type(value) == torch.Tensor and value.ndim == 0 and value.requires_grad
+                for value in loss_dict.values()
+            ]
+        )
         assert type(wrt_rep) == bool, f"{type(wrt_rep)=}"
         assert type(per_layer) == bool, f"{type(per_layer)=}"
         if wrt_rep:
