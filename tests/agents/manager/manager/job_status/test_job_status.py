@@ -1,5 +1,5 @@
 """
-Test job_status functionality with enhanced ProgressInfo and ProcessInfo integration.
+Test job_status functionality with enhanced DefaultJobProgressInfo and ProcessInfo integration.
 Focus on realistic testing with minimal mocking for individual function testing.
 
 Following CLAUDE.md testing patterns:

@@ -1,5 +1,5 @@
 """
-Test session_progress functionality with enhanced ProgressInfo.
+Test session_progress functionality with enhanced DefaultJobProgressInfo.
 Focus on realistic testing with minimal mocking.
 
 Following CLAUDE.md testing patterns:
@@ -17,7 +17,7 @@ import torch
 
 from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.default_job import DefaultJobProgressInfo
 
 # ============================================================================
 # TESTS FOR get_session_progress (NO MOCKS - PURE FUNCTIONS)
@@ -63,10 +63,10 @@ def test_get_session_progress_fast_path_normal_run(
         finally:
             os.chdir(cwd)
 
-        # Should return ProgressInfo dataclass
+        # Should return DefaultJobProgressInfo dataclass
         assert isinstance(
-            progress, ProgressInfo
-        ), f"Expected ProgressInfo, got {type(progress)}"
+            progress, DefaultJobProgressInfo
+        ), f"Expected DefaultJobProgressInfo, got {type(progress)}"
         assert progress.completed_epochs == 57
         assert (
             abs(progress.progress_percentage - 57.0) < 0.01
@@ -118,10 +118,10 @@ def test_get_session_progress_fast_path_early_stopped_run(
         finally:
             os.chdir(cwd)
 
-        # Should return ProgressInfo dataclass
+        # Should return DefaultJobProgressInfo dataclass
         assert isinstance(
-            progress, ProgressInfo
-        ), f"Expected ProgressInfo, got {type(progress)}"
+            progress, DefaultJobProgressInfo
+        ), f"Expected DefaultJobProgressInfo, got {type(progress)}"
         assert progress.completed_epochs == 57
         assert progress.progress_percentage == 100.0  # Early stopped shows 100%
         assert progress.early_stopped is True
@@ -252,10 +252,10 @@ def test_get_session_progress_slow_path_normal_runs(
                 )
             )
 
-            # Should return ProgressInfo dataclass
+            # Should return DefaultJobProgressInfo dataclass
             assert isinstance(
-                progress, ProgressInfo
-            ), f"Expected ProgressInfo, got {type(progress)}"
+                progress, DefaultJobProgressInfo
+            ), f"Expected DefaultJobProgressInfo, got {type(progress)}"
             assert progress.completed_epochs == expected_completed
             assert progress.early_stopped == False
             assert progress.early_stopped_at_epoch is None
@@ -351,10 +351,10 @@ def test_get_session_progress_edge_case_empty_work_dir(
                 )
             )
 
-            # Should return ProgressInfo dataclass with 0 completed epochs
+            # Should return DefaultJobProgressInfo dataclass with 0 completed epochs
             assert isinstance(
-                progress, ProgressInfo
-            ), f"Expected ProgressInfo, got {type(progress)}"
+                progress, DefaultJobProgressInfo
+            ), f"Expected DefaultJobProgressInfo, got {type(progress)}"
             assert progress.completed_epochs == 0
             assert progress.early_stopped == False
             assert progress.early_stopped_at_epoch is None

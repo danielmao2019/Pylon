@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 import json
 import os
 
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.base_progress_info import BaseProgressInfo
 from agents.manager.default_job import DefaultJob
 from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
@@ -17,10 +15,10 @@ class EvaluationJob(DefaultJob):
     runner_kind = RunnerKind.EVALUATOR
 
     # ====================================================================================================
-    # 
+    #
     # ====================================================================================================
 
-    def compute_progress(self, runtime: JobRuntimeParams) -> ProgressInfo:
+    def compute_progress(self, runtime: JobRuntimeParams) -> BaseProgressInfo:
         eval_complete = True
         for filename in self.EXPECTED_FILES:
             filepath = os.path.join(self.work_dir, filename)
@@ -35,23 +33,7 @@ class EvaluationJob(DefaultJob):
                 break
 
         progress_percentage = 100.0 if eval_complete else 0.0
-        completed_epochs = 1 if eval_complete else 0
 
-        return ProgressInfo(
-            completed_epochs=completed_epochs,
+        return BaseProgressInfo(
             progress_percentage=progress_percentage,
-            early_stopped=False,
-            early_stopped_at_epoch=None,
-            total_epochs=1,
         )
-
-    # ====================================================================================================
-    # 
-    # ====================================================================================================
-
-    def is_complete(
-        self,
-        progress: ProgressInfo,
-        runtime: JobRuntimeParams,
-    ) -> bool:
-        return progress.completed_epochs >= 1

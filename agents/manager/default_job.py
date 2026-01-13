@@ -1,15 +1,23 @@
-from __future__ import annotations
-
 import glob
 import os
 import time
 from abc import ABC
 from typing import Optional
+from dataclasses import dataclass
 
 from agents.manager.base_job import BaseJob
+from agents.manager.base_progress_info import BaseProgressInfo
 from utils.io.config import load_config
 from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
+
+
+@dataclass
+class DefaultJobProgressInfo(BaseProgressInfo):
+    completed_epochs: int
+    early_stopped: bool = False
+    early_stopped_at_epoch: Optional[int] = None
+    total_epochs: Optional[int] = None
 
 
 class DefaultJob(BaseJob, ABC):
@@ -61,9 +69,9 @@ class DefaultJob(BaseJob, ABC):
         return self.command in runtime.command_processes
 
     def get_log_last_update(self) -> Optional[float]:
-        assert self.LOG_PATTERN, (
-            "Cannot call get_log_last_update on DefaultJob without defining LOG_PATTERN."
-        )
+        assert (
+            self.LOG_PATTERN
+        ), "Cannot call get_log_last_update on DefaultJob without defining LOG_PATTERN."
         if not os.path.isdir(self.work_dir):
             return None
         logs = glob.glob(os.path.join(self.work_dir, self.LOG_PATTERN))
@@ -78,8 +86,8 @@ class DefaultJob(BaseJob, ABC):
         benchmarks_root = os.path.abspath(os.path.join('.', 'configs', 'benchmarks'))
 
         relative_path = os.path.relpath(config_path, benchmarks_root)
-        assert not relative_path.startswith('..') and relative_path != '.', (
-            f"Config {self.config_filepath!r} must live under './configs/benchmarks'"
-        )
+        assert (
+            not relative_path.startswith('..') and relative_path != '.'
+        ), f"Config {self.config_filepath!r} must live under './configs/benchmarks'"
 
         return relative_path

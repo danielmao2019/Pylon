@@ -3,7 +3,7 @@ import tempfile
 
 from agents.manager.default_job import DefaultJob
 from agents.manager.manager import Manager
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.default_job import DefaultJobProgressInfo
 
 
 def test_get_all_job_status_returns_mapping(
@@ -52,7 +52,7 @@ def test_get_all_job_status_returns_mapping(
                 assert key in result
                 assert isinstance(result[key], DefaultJob)
                 assert result[key].config_filepath == config_path
-                assert isinstance(result[key].progress, ProgressInfo)
+                assert isinstance(result[key].progress, DefaultJobProgressInfo)
                 assert hasattr(result[key].progress, 'completed_epochs')
 
         finally:

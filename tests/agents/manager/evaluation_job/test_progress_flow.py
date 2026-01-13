@@ -40,7 +40,6 @@ def test_evaluationjob_incomplete_and_complete():
                     force_progress_recompute=False,
                 )
             )
-            assert p0.completed_epochs == 0
             assert p0.progress_percentage == 0.0
 
             # Complete
@@ -57,7 +56,6 @@ def test_evaluationjob_incomplete_and_complete():
                     force_progress_recompute=False,
                 )
             )
-            assert p1.completed_epochs == 1
             assert p1.progress_percentage == 100.0
         finally:
             os.chdir(cwd)
@@ -93,7 +91,6 @@ def test_evaluationjob_progress_file_validation():
 
             # Missing scores file -> incomplete progress
             progress = job.compute_progress(runtime)
-            assert progress.completed_epochs == 0
             assert progress.progress_percentage == 0.0
 
             scores_path = os.path.join(work_dir, "evaluation_scores.json")
@@ -101,19 +98,18 @@ def test_evaluationjob_progress_file_validation():
             # Empty file still counts as incomplete
             open(scores_path, 'w').close()
             progress = job.compute_progress(runtime)
-            assert progress.completed_epochs == 0
+            assert progress.progress_percentage == 0.0
 
             # Malformed JSON should be treated as incomplete
             with open(scores_path, 'w', encoding='utf-8') as f:
                 f.write('{invalid-json')
             progress = job.compute_progress(runtime)
-            assert progress.completed_epochs == 0
+            assert progress.progress_percentage == 0.0
 
             # Valid JSON marks the evaluation as complete
             with open(scores_path, 'w', encoding='utf-8') as f:
                 json.dump({"aggregated": {}, "per_datapoint": {}}, f)
             progress = job.compute_progress(runtime)
-            assert progress.completed_epochs == 1
             assert progress.progress_percentage == 100.0
         finally:
             os.chdir(cwd)

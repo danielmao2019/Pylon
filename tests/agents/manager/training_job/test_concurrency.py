@@ -14,7 +14,7 @@ from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.manager import Manager
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.default_job import DefaultJobProgressInfo
 from utils.io.json import load_json, save_json
 
 # ============================================================================
@@ -161,7 +161,7 @@ def test_reader_writer_conflict_resolution(create_progress_json):
         try:
             command = f"python main.py --config-filepath {config_path}"
 
-            def compute_progress() -> ProgressInfo:
+            def compute_progress() -> DefaultJobProgressInfo:
                 job = TrainingJob(command)
                 return job.compute_progress(
                     JobRuntimeParams(

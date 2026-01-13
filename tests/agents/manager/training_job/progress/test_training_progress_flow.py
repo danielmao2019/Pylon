@@ -14,7 +14,7 @@ import torch
 
 from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.default_job import DefaultJobProgressInfo
 
 
 def test_trainingjob_fast_path_uses_progress_json(create_progress_json):
@@ -54,7 +54,7 @@ def test_trainingjob_fast_path_uses_progress_json(create_progress_json):
         finally:
             os.chdir(cwd)
 
-    assert isinstance(progress, ProgressInfo)
+    assert isinstance(progress, DefaultJobProgressInfo)
     assert progress.completed_epochs == 12
     assert progress.progress_percentage == 12.0
 
@@ -96,7 +96,7 @@ def test_trainingjob_slow_path_counts_epochs(create_epoch_files):
         finally:
             os.chdir(cwd)
 
-    assert isinstance(progress, ProgressInfo)
+    assert isinstance(progress, DefaultJobProgressInfo)
     assert progress.completed_epochs == 7
     assert abs(progress.progress_percentage - 7.0) < 1e-9
 

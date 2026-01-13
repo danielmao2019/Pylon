@@ -10,7 +10,8 @@ from agents.logger import LogsSnapshot
 from agents.monitor.system_monitor import SystemMonitor
 from agents.manager import Manager
 from agents.manager.base_job import BaseJob
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.base_progress_info import BaseProgressInfo
+from agents.manager.default_job import DefaultJobProgressInfo
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.gpu_status import GPUStatus
 from utils.io.json import serialize_object
@@ -23,7 +24,7 @@ SAMPLE_COMMANDS = [
 ]
 
 
-def _build_dummy_job(command: str, progress: ProgressInfo, process_info: ProcessInfo) -> BaseJob:
+def _build_dummy_job(command: str, progress: BaseProgressInfo, process_info: ProcessInfo) -> BaseJob:
     class _DummyJob(BaseJob):
         def derive_work_dir(self) -> str:
             return './logs/baseline_run'
@@ -101,8 +102,8 @@ def mock_system_monitor():
 
 @pytest.fixture
 def sample_progress_info():
-    """Sample ProgressInfo for testing."""
-    return ProgressInfo(
+    """Sample progress information for testing."""
+    return DefaultJobProgressInfo(
         completed_epochs=15,
         progress_percentage=75.0,
         early_stopped=False,

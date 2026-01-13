@@ -1,5 +1,5 @@
 """
-Integration tests for job_status functionality with enhanced ProgressInfo and ProcessInfo.
+Integration tests for job_status functionality with enhanced DefaultJobProgressInfo and ProcessInfo.
 Focus on realistic testing with minimal mocking for end-to-end scenarios.
 
 Following CLAUDE.md testing patterns:
@@ -14,7 +14,7 @@ import tempfile
 import pytest
 
 from agents.manager.manager import Manager
-from agents.manager.progress_info import ProgressInfo
+from agents.manager.default_job import DefaultJobProgressInfo
 
 # ============================================================================
 # INTEGRATION TESTS (REALISTIC WITH MINIMAL MOCK)
@@ -62,7 +62,7 @@ def test_integration_full_pipeline(setup_realistic_experiment_structure):
                 target_status, epochs_completed = exp_data[1], exp_data[2]
 
                 # Verify enhanced BaseJob fields
-                assert isinstance(job_status.progress, ProgressInfo)
+                assert isinstance(job_status.progress, DefaultJobProgressInfo)
                 assert job_status.progress.completed_epochs == epochs_completed
                 assert isinstance(job_status.progress.early_stopped, bool)
 
