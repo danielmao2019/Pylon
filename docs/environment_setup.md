@@ -132,31 +132,21 @@ conda update -n base -c defaults conda -y
 # Create and activate new environment
 conda create --name Pylon python=3.10 -y
 conda activate Pylon
-
-# Update pip to latest version
-pip install --upgrade pip
 ```
 
 ### 4.2. Basics
 
 ```bash
-# Install PyTorch 2.7.1 with CUDA 12.8
-conda install numpy==1.26.4 -c conda-forge -y
-pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
+# Install the pinned Python dependencies
+pip install --upgrade pip
+pip install -r docs/requirements-torch-cu118.txt
+pip install -r docs/requirements-extras.txt --constraint docs/requirements-torch-cu118.txt
+```
 
-# Install compatible setuptools for CUDA extension compilation
-pip install setuptools==59.5.0
-
-# Install OpenMMLab packages (compatible versions)
+```bash
+# Install OpenMMLab packages (not included in the requirements files)
 pip install -U openmim
-mim install mmengine mmcv==2.1.0 mmdet==3.2.0 mmsegmentation==1.2.2
-
-# Install other dependencies
-conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
-conda install -c conda-forge -y opencv pycocotools rasterio imageio plyfile
-pip install open3d laspy
-conda install -c conda-forge -y matplotlib dash plotly pandas psutil pytest tqdm ftfy regex easydict
-pip install rich paramiko jsbeautifier fvcore triton xxhash
+mim install --no-deps mmengine mmcv==2.1.0 mmdet==3.2.0 mmsegmentation==1.2.2
 ```
 
 ### 4.3. Segmentation related
@@ -168,12 +158,7 @@ pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/seg
 ### 4.4. Point cloud registration related
 
 ```bash
-# Install PyTorch3D from source to ensure CUDA compatibility
-# Note: conda install pytorch3d breaks CUDA PyTorch, so we build from source
-pip install --no-deps "git+https://github.com/facebookresearch/pytorch3d.git@stable"
-
 pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
-pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
 git clone https://github.com/KinglittleQ/torch-batch-svd.git && cd torch-batch-svd && python setup.py install && cd ..
 ```
 

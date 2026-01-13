@@ -1,0 +1,53 @@
+# Torch stack is installed separately via docs/requirements-torch-cu118.txt
+
+# --- Core (keep pinned)
+git+https://github.com/facebookresearch/pytorch3d.git@stable
+ninja==1.13.0
+git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+nerfstudio==1.1.5
+
+# --- ML and vision
+scipy
+scikit-learn
+scikit-image
+scikit-build-core
+timm
+einops
+kornia
+triton
+fvcore
+pycocotools
+opencv-python
+open3d
+nibabel
+plyfile
+laspy
+
+# --- Experiment utilities
+pytest
+tqdm
+tensorboard
+tensorboardX
+wandb
+ftfy
+regex
+easydict
+xxhash
+
+# --- Data and IO
+rasterio
+imageio
+pandas
+psutil
+paramiko
+
+# --- Visualization and apps
+matplotlib
+plotly
+dash
+dash-extensions
+
+# --- Misc tools
+black
+jsbeautifier
+rich
