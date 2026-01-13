@@ -1,15 +1,12 @@
 """Base step abstraction for simple pipelines."""
 
-from __future__ import annotations
-
 import logging
-from abc import ABC, abstractmethod
-from pathlib import Path
 import os
 import subprocess
 import sys
-from typing import ClassVar
-
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, ClassVar, Dict, List
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,21 +19,49 @@ class BaseStep(ABC):
     """Abstract step that defines the common pipeline contract."""
 
     STEP_NAME: ClassVar[str] = "base_step"
-    INPUT_FILES: ClassVar[list[str]] = []
-    OUTPUT_FILES: ClassVar[list[str]] = []
 
     def __init__(self, input_root: str | Path, output_root: str | Path):
         self.input_root = Path(input_root)
         self.output_root = Path(output_root)
+        self.input_files: List[str] | None = None
+        self.output_files: List[str] | None = None
+        self._built = False
 
     @property
     def name(self) -> str:
         return self.STEP_NAME
 
+    def build(self, force: bool = False) -> None:
+        self._init_input_files()
+        assert isinstance(self.input_files, list), (
+            f"input_files must be list for step {self.STEP_NAME}, "
+            f"got {type(self.input_files)}"
+        )
+        assert all(isinstance(entry, str) for entry in self.input_files), (
+            f"input_files entries must be str for step {self.STEP_NAME}, "
+            f"got types={{{', '.join(sorted({type(entry).__name__ for entry in self.input_files}))}}}"
+        )
+        self._init_output_files()
+        assert isinstance(self.output_files, list), (
+            f"output_files must be list for step {self.STEP_NAME}, "
+            f"got {type(self.output_files)}"
+        )
+        assert all(isinstance(entry, str) for entry in self.output_files), (
+            f"output_files entries must be str for step {self.STEP_NAME}, "
+            f"got types={{{', '.join(sorted({type(entry).__name__ for entry in self.output_files}))}}}"
+        )
+        self._built = True
+
     def check_inputs(self) -> None:
+        assert (
+            self._built
+        ), f"Step {self.STEP_NAME} must be built before checking inputs"
+        assert isinstance(
+            self.input_files, list
+        ), "input_files must be initialized during build"
         missing = [
             self.input_root / rel
-            for rel in self.INPUT_FILES
+            for rel in self.input_files
             if not (self.input_root / rel).exists()
         ]
         if missing:
@@ -46,24 +71,28 @@ class BaseStep(ABC):
             )
 
     def check_outputs(self) -> bool:
-        """Report output status using declared ``OUTPUT_FILES`` when available."""
-        assert isinstance(self.OUTPUT_FILES, list), (
-            f"OUTPUT_FILES must be list for step {self.STEP_NAME}, "
-            f"got {type(self.OUTPUT_FILES)}"
-        )
-        assert all(isinstance(entry, str) for entry in self.OUTPUT_FILES), (
-            f"OUTPUT_FILES items must be str for step {self.STEP_NAME}, "
-            f"got types={{{', '.join(sorted({type(entry).__name__ for entry in self.OUTPUT_FILES}))}}}"
-        )
+        """Report output status using declared ``output_files`` when available."""
+        assert (
+            self._built
+        ), f"Step {self.STEP_NAME} must be built before checking outputs"
+        assert isinstance(
+            self.output_files, list
+        ), "output_files must be initialized during build"
         missing = [
             self.output_root / rel
-            for rel in self.OUTPUT_FILES
+            for rel in self.output_files
             if not (self.output_root / rel).exists()
         ]
         return not missing
 
+    def _init_input_files(self) -> None:
+        self.input_files = []
+
+    def _init_output_files(self) -> None:
+        self.output_files = []
+
     @abstractmethod
-    def run(self, force: bool = False) -> None:
+    def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         """Execute the step, optionally forcing a re-run."""
 
     def _run_shell(self, command: str) -> None:
