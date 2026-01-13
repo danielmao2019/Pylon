@@ -1,7 +1,6 @@
-from typing import TypeVar, Callable, Any
 import threading
 from functools import wraps
-
+from typing import Any, Callable, TypeVar
 
 T = TypeVar('T')
 

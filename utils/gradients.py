@@ -1,7 +1,8 @@
 from typing import List
-import torch
-from utils.ops import apply_pairwise
 
+import torch
+
+from utils.ops import apply_pairwise
 
 NUMERICAL_STABILITY = 1.0e-07
 

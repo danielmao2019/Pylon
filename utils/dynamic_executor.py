@@ -1,12 +1,13 @@
-from typing import Optional, Callable, Any, Dict, List
+import logging
+import queue
 import threading
 import time
-import queue
-import psutil
-import torch
-import logging
 from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional
+
+import psutil
+import torch
 
 
 @dataclass
