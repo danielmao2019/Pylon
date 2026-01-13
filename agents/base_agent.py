@@ -1,8 +1,9 @@
-from typing import Tuple, List, Dict, Optional
 from abc import ABC
-from agents.monitor.system_monitor import SystemMonitor
-from agents.monitor.gpu_status import GPUStatus
+from typing import Dict, List, Optional, Tuple
+
 from agents.monitor.cpu_status import CPUStatus
+from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.system_monitor import SystemMonitor
 
 
 class BaseAgent(ABC):

@@ -8,7 +8,7 @@ from agents.monitor.system_monitor import SystemMonitor
 def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str]) -> List[Dict[str, Any]]:
     """Generate table data from the system monitor status."""
     table_data = []
-    
+
     # Add GPU data
     for gpu in system_monitor.gpus:
         # Skip disconnected GPUs
@@ -40,7 +40,7 @@ def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str
                     "Start": proc.start_time,
                     "CMD": proc.cmd,
                 })
-    
+
     # Add CPU data
     for cpu in system_monitor.cpus:
         # Skip disconnected CPUs
@@ -49,7 +49,7 @@ def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str
 
         # Filter for relevant processes (python main.py commands)
         relevant_processes = [p for p in cpu['processes'] if 'python main.py --config-filepath' in p.cmd]
-        
+
         if not relevant_processes:
             table_data.append({
                 "Server": cpu['server'],

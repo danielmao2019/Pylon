@@ -1,15 +1,15 @@
 """
 AGENTS API
 """
+from agents import connector, launcher, logger, manager, monitor, viewer
 from agents.base_agent import BaseAgent
-from agents.launcher import Launcher
-from agents.viewer.app import AgentsViewerApp
-from agents import logger
-
 
 __all__ = (
-    'BaseAgent',
-    'Launcher',
-    'AgentsViewerApp',
+    'connector',
+    'launcher',
     'logger',
+    'manager',
+    'monitor',
+    'viewer',
+    'BaseAgent',
 )
