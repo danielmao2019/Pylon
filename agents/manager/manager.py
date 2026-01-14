@@ -1,6 +1,6 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type
 
 from agents.manager.base_job import BaseJob
 from agents.manager.evaluation_job import EvaluationJob
@@ -22,6 +22,21 @@ _JOB_CLASS_REGISTRY: Dict[RunnerKind, Type[BaseJob]] = {
     RunnerKind.NERFSTUDIO: NerfStudioJob,
 }
 
+_COMMAND_DETECTORS: List[Callable[[str], RunnerKind | None]] = []
+
+
+def _default_command_detectors() -> List[Callable[[str], RunnerKind | None]]:
+    def nerfstudio_detector(command: str) -> RunnerKind | None:
+        stripped = command.strip()
+        if "ns-train" in stripped:
+            return RunnerKind.NERFSTUDIO
+        return None
+
+    return [nerfstudio_detector]
+
+
+_COMMAND_DETECTORS.extend(_default_command_detectors())
+
 
 def register_job_class(runner_kind: RunnerKind, job_cls: Type[BaseJob]) -> None:
     assert isinstance(runner_kind, RunnerKind)
@@ -35,6 +50,19 @@ def register_job_classes(
     assert isinstance(job_classes, dict)
     for runner_kind, job_cls in job_classes.items():
         register_job_class(runner_kind=runner_kind, job_cls=job_cls)
+
+
+def register_runner_detector(detector: Callable[[str], RunnerKind | None]) -> None:
+    assert callable(detector)
+    _COMMAND_DETECTORS.append(detector)
+
+
+def register_runner_detectors(
+    detectors: List[Callable[[str], RunnerKind | None]],
+) -> None:
+    assert isinstance(detectors, list)
+    for detector in detectors:
+        register_runner_detector(detector)
 
 
 def registered_job_classes() -> Dict[RunnerKind, Type[BaseJob]]:
@@ -77,6 +105,18 @@ class Manager:
     @classmethod
     def register_job_classes(cls, job_classes: Dict[RunnerKind, Type[BaseJob]]) -> None:
         register_job_classes(job_classes)
+
+    @classmethod
+    def register_runner_detector(
+        cls, detector: Callable[[str], RunnerKind | None]
+    ) -> None:
+        register_runner_detector(detector)
+
+    @classmethod
+    def register_runner_detectors(
+        cls, detectors: List[Callable[[str], RunnerKind | None]]
+    ) -> None:
+        register_runner_detectors(detectors)
 
     def build_jobs(self) -> Dict[str, BaseJob]:
         """Build BaseJob instances for all configs."""
@@ -139,51 +179,31 @@ class Manager:
             return command_result
 
         config_filepath = self._extract_config_filepath_from_command(command)
+        if config_filepath is not None:
+            config_result = self._detect_from_config(config_filepath)
+            if config_result is not None:
+                return config_result
 
-        config_result = self._detect_from_config(config_filepath)
-        if config_result is not None:
-            return config_result
+            work_dir = self._extract_work_dir_from_config_filepath(config_filepath)
 
-        work_dir = self._extract_work_dir_from_config_filepath(config_filepath)
-
-        artifact_result = self._detect_from_artifacts(work_dir)
-        if artifact_result is not None:
-            return artifact_result
+            artifact_result = self._detect_from_artifacts(work_dir)
+            if artifact_result is not None:
+                return artifact_result
 
         raise ValueError(f"Unable to determine runner type for command: {command!r}.")
 
     @staticmethod
     def _detect_from_command(command: str) -> RunnerKind | None:
-        stripped = command.strip()
-        if 'ns-train' in stripped:
-            return RunnerKind.NERFSTUDIO
-        if stripped.startswith('python gen_ivision_mt_nerfstudio.py'):
-            return RunnerKind.NERFSTUDIO_GENERATION
-        if stripped.startswith(
-            'python project/pipelines/gen_nerfstudio_data/ivision_lidar/main.py'
-        ):
-            return RunnerKind.PIPELINE
-        if stripped.startswith(
-            'python project/pipelines/gen_nerfstudio_data/video/main.py'
-        ):
-            return RunnerKind.PIPELINE
-        if stripped.startswith('python project/pipelines/process_point_clouds/main.py'):
-            return RunnerKind.PIPELINE
-        if stripped.startswith(
-            'python project/pipelines/create_google_scanned_objects/main.py'
-        ):
-            return RunnerKind.GSO_PIPELINE
-        if stripped.startswith('python project/pipelines/benchmark_anytime_gs/main.py'):
-            return RunnerKind.ANYTIME_GS_PIPELINE
-        if stripped.startswith('python project/scripts/gen_change/gen_change.py'):
-            return RunnerKind.CHANGE_MAP
-        if stripped.startswith('python gen_ivision_2dcd.py'):
-            return RunnerKind.IVISION_2DCD
+        for detector in _COMMAND_DETECTORS:
+            result = detector(command)
+            if result is not None:
+                return result
         return None
 
     @staticmethod
-    def _extract_config_filepath_from_command(command: str) -> str:
-        assert "python main.py --config-filepath" in command
+    def _extract_config_filepath_from_command(command: str) -> str | None:
+        if "python main.py --config-filepath" not in command:
+            return None
         tokens = [token for token in command.split() if token]
         idx = tokens.index('--config-filepath')
         return tokens[idx + 1]
