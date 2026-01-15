@@ -10,11 +10,29 @@ from data.structures.three_d.camera.validation import validate_camera_intrinsics
 
 
 class TransformsJSON:
+    _CACHE: Dict[tuple[Path, str, float], "TransformsJSON"] = {}
+
+    def __new__(
+        cls, filepath: str | Path, device: str | torch.device = torch.device("cuda")
+    ) -> "TransformsJSON":
+        path = Path(filepath).resolve()
+        assert path.is_file(), f"transforms.json not found: {path}"
+        assert isinstance(device, (str, torch.device)), f"{type(device)=}"
+        target_device = torch.device(device)
+        cache_key = (path, str(target_device), path.stat().st_mtime)
+        if cache_key in cls._CACHE:
+            return cls._CACHE[cache_key]
+        instance = super().__new__(cls)
+        instance._cache_key = cache_key
+        cls._CACHE[cache_key] = instance
+        return instance
 
     def __init__(
         self, filepath: str | Path, device: str | torch.device = torch.device("cuda")
     ) -> None:
-        path = Path(filepath)
+        if hasattr(self, "_initialized") and self._initialized:
+            return
+        path = Path(filepath).resolve()
         assert path.is_file(), f"transforms.json not found: {path}"
         assert isinstance(device, (str, torch.device)), f"{type(device)=}"
         self.device = torch.device(device)
@@ -52,6 +70,7 @@ class TransformsJSON:
         ) = self._load_split_filenames(data)
         self.cameras = self._load_cameras(data=data, device=self.device)
         self.filenames: List[str] = self._load_filenames(data)
+        self._initialized = True
 
     @staticmethod
     def save(data: "TransformsJSON" | Dict[str, Any], filepath: str | Path) -> None:
