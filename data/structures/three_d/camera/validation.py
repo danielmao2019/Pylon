@@ -8,8 +8,8 @@ def validate_camera_convention(convention: Any) -> str:
     # Input validations
     assert isinstance(convention, str), f"{type(convention)=}"
     assert convention in [
-        "opengl",
         "standard",
+        "opengl",
         "opencv",
         "pytorch3d",
     ], f"Unsupported convention: {convention}"
@@ -21,7 +21,7 @@ def _validate_camera_intrinsics_numpy(obj: Any) -> np.ndarray:
     assert isinstance(obj, np.ndarray), f"{type(obj)=}"
     assert obj.ndim >= 2, f"{obj.ndim=}"
     assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype in (np.float32, np.float64), f"{obj.dtype=}"
+    assert obj.dtype == np.float32, f"{obj.dtype=}"
 
     fx = obj[..., 0, 0]
     fy = obj[..., 1, 1]
@@ -45,7 +45,7 @@ def _validate_camera_intrinsics_torch(obj: Any) -> torch.Tensor:
     assert isinstance(obj, torch.Tensor), f"{type(obj)=}"
     assert obj.ndim >= 2, f"{obj.ndim=}"
     assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype in (torch.float32, torch.float64), f"{obj.dtype=}"
+    assert obj.dtype == torch.float32, f"{obj.dtype=}"
 
     fx = obj[..., 0, 0]
     fy = obj[..., 1, 1]
@@ -83,7 +83,7 @@ def _validate_rotation_matrix_numpy(obj: Any) -> np.ndarray:
     assert isinstance(obj, np.ndarray), f"{type(obj)=}"
     assert obj.ndim >= 2, f"{obj.ndim=}"
     assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype in (np.float32, np.float64), f"{obj.dtype=}"
+    assert obj.dtype == np.float32, f"{obj.dtype=}"
 
     identity = np.eye(3, dtype=obj.dtype)
     should_be_identity = obj @ np.swapaxes(obj, -1, -2)
@@ -113,7 +113,7 @@ def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor:
     assert isinstance(obj, torch.Tensor), f"{type(obj)=}"
     assert obj.ndim >= 2, f"{obj.ndim=}"
     assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype in (torch.float32, torch.float64), f"{obj.dtype=}"
+    assert obj.dtype == torch.float32, f"{obj.dtype=}"
 
     identity = torch.eye(3, dtype=obj.dtype, device=obj.device)
     should_be_identity = obj @ obj.transpose(-1, -2)
@@ -155,7 +155,7 @@ def _validate_camera_extrinsics_numpy(obj: Any) -> np.ndarray:
     assert isinstance(obj, np.ndarray), f"{type(obj)=}"
     assert obj.ndim >= 2, f"{obj.ndim=}"
     assert obj.shape[-2:] == (4, 4), f"{obj.shape=}"
-    assert obj.dtype in (np.float32, np.float64), f"{obj.dtype=}"
+    assert obj.dtype == np.float32, f"{obj.dtype=}"
 
     expected_last_row = np.array([0, 0, 0, 1], dtype=obj.dtype)
     assert np.allclose(
@@ -174,7 +174,7 @@ def _validate_camera_extrinsics_torch(obj: Any) -> torch.Tensor:
     assert isinstance(obj, torch.Tensor), f"{type(obj)=}"
     assert obj.ndim >= 2, f"{obj.ndim=}"
     assert obj.shape[-2:] == (4, 4), f"{obj.shape=}"
-    assert obj.dtype in (torch.float32, torch.float64), f"{obj.dtype=}"
+    assert obj.dtype == torch.float32, f"{obj.dtype=}"
 
     expected_last_row = torch.tensor(
         [0, 0, 0, 1],

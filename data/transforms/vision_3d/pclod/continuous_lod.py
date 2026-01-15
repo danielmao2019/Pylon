@@ -1,4 +1,5 @@
 """Continuous Level of Detail system for point cloud visualization."""
+
 from typing import Any, Dict, Tuple
 import torch
 
@@ -25,7 +26,7 @@ class ContinuousLOD:
         far_distance_factor: float = 6.0,
         near_sampling_rate: float = 0.9,
         far_sampling_rate: float = 0.1,
-        use_spatial_binning: bool = True
+        use_spatial_binning: bool = True,
     ):
         """Initialize continuous LOD system.
 
@@ -49,9 +50,7 @@ class ContinuousLOD:
     # =============================================================================
 
     def subsample(
-        self,
-        point_cloud: PointCloud,
-        camera_state: Dict[str, Any]
+        self, point_cloud: PointCloud, camera_state: Dict[str, Any]
     ) -> PointCloud:
         """Subsample point cloud using continuous LOD approach.
 
@@ -65,7 +64,9 @@ class ContinuousLOD:
         assert isinstance(point_cloud, PointCloud), f"{type(point_cloud)=}"
 
         points = point_cloud.xyz
-        camera_pos = get_camera_position(camera_state, device=points.device, dtype=points.dtype)
+        camera_pos = get_camera_position(
+            camera_state, device=points.device, dtype=points.dtype
+        )
         distances = torch.norm(points - camera_pos, dim=1)
 
         # Calculate relative distance thresholds based on point cloud size
@@ -74,15 +75,21 @@ class ContinuousLOD:
         far_distance = diagonal_size * self.far_distance_factor
 
         if self.use_spatial_binning:
-            selected_indices = self._spatial_binning_pipeline(points, camera_state, distances, near_distance, far_distance)
+            selected_indices = self._spatial_binning_pipeline(
+                points, camera_state, distances, near_distance, far_distance
+            )
         else:
-            selected_indices = self._simple_distance_pipeline(distances, near_distance, far_distance)
+            selected_indices = self._simple_distance_pipeline(
+                distances, near_distance, far_distance
+            )
 
         # Log LOD information
         original_count = point_cloud.num_points
         subsampled_count = len(selected_indices)
-        logger.info(f"Continuous LOD: Points={subsampled_count}/{original_count} ({100*subsampled_count/original_count:.1f}%), "
-                   f"diagonal={diagonal_size:.2f}, near={near_distance:.2f}, far={far_distance:.2f}")
+        logger.info(
+            f"Continuous LOD: Points={subsampled_count}/{original_count} ({100*subsampled_count/original_count:.1f}%), "
+            f"diagonal={diagonal_size:.2f}, near={near_distance:.2f}, far={far_distance:.2f}"
+        )
 
         return Select(selected_indices)(point_cloud)
 
@@ -96,7 +103,7 @@ class ContinuousLOD:
         camera_state: Dict[str, Any],
         distances: torch.Tensor,
         near_distance: float,
-        far_distance: float
+        far_distance: float,
     ) -> torch.Tensor:
         """Complete spatial binning pipeline with distance-based sampling."""
         # Step 1: Transform to camera space and create spatial bins
@@ -104,24 +111,40 @@ class ContinuousLOD:
         bin_indices = self._coords_to_bin_indices(coords_cam)
 
         # Step 2: Apply per-bin distance-based sampling
-        return self._vectorized_bin_sampling(distances, bin_indices, near_distance, far_distance)
+        return self._vectorized_bin_sampling(
+            distances, bin_indices, near_distance, far_distance
+        )
 
-    def _simple_distance_pipeline(self, distances: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
+    def _simple_distance_pipeline(
+        self, distances: torch.Tensor, near_distance: float, far_distance: float
+    ) -> torch.Tensor:
         """Simple distance-based sampling without spatial binning for maximum performance."""
-        return self._vectorized_distance_sampling(distances, near_distance, far_distance)
+        return self._vectorized_distance_sampling(
+            distances, near_distance, far_distance
+        )
 
     # =============================================================================
     # Core Sampling Operations
     # =============================================================================
 
-    def _vectorized_distance_sampling(self, distances: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
+    def _vectorized_distance_sampling(
+        self, distances: torch.Tensor, near_distance: float, far_distance: float
+    ) -> torch.Tensor:
         """Apply vectorized distance-based sampling to all points."""
-        sampling_rates = self._calculate_sampling_rates(distances, near_distance, far_distance)
+        sampling_rates = self._calculate_sampling_rates(
+            distances, near_distance, far_distance
+        )
         random_values = torch.rand(len(distances), device=distances.device)
         selected_mask = random_values < sampling_rates
         return torch.nonzero(selected_mask, as_tuple=True)[0]
 
-    def _vectorized_bin_sampling(self, distances: torch.Tensor, bin_indices: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
+    def _vectorized_bin_sampling(
+        self,
+        distances: torch.Tensor,
+        bin_indices: torch.Tensor,
+        near_distance: float,
+        far_distance: float,
+    ) -> torch.Tensor:
         """Apply truly vectorized per-bin distance-based sampling."""
         device = distances.device
 
@@ -140,7 +163,9 @@ class ContinuousLOD:
         bin_avg_distances = bin_distance_sums / torch.clamp(bin_counts, min=1)
 
         # Reuse existing sampling rate calculation method
-        bin_sampling_rates = self._calculate_sampling_rates(bin_avg_distances, near_distance, far_distance)
+        bin_sampling_rates = self._calculate_sampling_rates(
+            bin_avg_distances, near_distance, far_distance
+        )
 
         # Map sampling rates back to points
         point_sampling_rates = bin_sampling_rates[inverse_indices]
@@ -151,11 +176,15 @@ class ContinuousLOD:
 
         return torch.nonzero(selected_mask, as_tuple=True)[0]
 
-    def _calculate_sampling_rates(self, distances: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
+    def _calculate_sampling_rates(
+        self, distances: torch.Tensor, near_distance: float, far_distance: float
+    ) -> torch.Tensor:
         """Calculate sampling rates for distances using linear interpolation."""
         clamped_distances = torch.clamp(distances, near_distance, far_distance)
         t = (clamped_distances - near_distance) / (far_distance - near_distance)
-        return self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)
+        return self.near_sampling_rate + t * (
+            self.far_sampling_rate - self.near_sampling_rate
+        )
 
     # =============================================================================
     # Utility Methods
@@ -186,14 +215,14 @@ class ContinuousLOD:
     # =============================================================================
 
     def _transform_to_camera_space(
-        self,
-        points: torch.Tensor,
-        camera_state: Dict[str, Any]
+        self, points: torch.Tensor, camera_state: Dict[str, Any]
     ) -> torch.Tensor:
         """Transform points to camera-aligned coordinate system."""
         device, dtype = points.device, points.dtype
         camera_pos = get_camera_position(camera_state, device=device, dtype=dtype)
-        right, up_corrected, forward = self._get_camera_basis(camera_state, device, dtype, camera_pos)
+        right, up_corrected, forward = self._get_camera_basis(
+            camera_state, device, dtype, camera_pos
+        )
 
         # Project points onto camera basis vectors
         points_cam = points - camera_pos.unsqueeze(0)
@@ -208,13 +237,15 @@ class ContinuousLOD:
         camera_state: Dict[str, Any],
         device: torch.device,
         dtype: torch.dtype,
-        camera_pos: torch.Tensor
+        camera_pos: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute orthonormal camera coordinate system basis vectors."""
         center = camera_state.get('center', {'x': 0, 'y': 0, 'z': 0})
         up = camera_state.get('up', {'x': 0, 'y': 0, 'z': 1})
 
-        center_pos = torch.tensor([center['x'], center['y'], center['z']], device=device, dtype=dtype)
+        center_pos = torch.tensor(
+            [center['x'], center['y'], center['z']], device=device, dtype=dtype
+        )
         up_vec = torch.tensor([up['x'], up['y'], up['z']], device=device, dtype=dtype)
 
         # Create orthonormal basis using Gram-Schmidt process
@@ -223,28 +254,30 @@ class ContinuousLOD:
         right = torch.cross(forward, up_vec)
         right = right / torch.norm(right)
         up_corrected = torch.cross(right, forward)
+        up_corrected = up_corrected / torch.norm(up_corrected)
 
         return right, up_corrected, forward
 
     def _coords_to_bin_indices(self, coords_cam: torch.Tensor) -> torch.Tensor:
         """Convert camera-space coordinates to 1D bin indices using efficient GPU operations."""
-        bins_per_dim = max(1, int(round(self.spatial_bins ** (1/3))))
+        bins_per_dim = max(1, int(round(self.spatial_bins ** (1 / 3))))
 
         # Use percentile-based binning for better GPU performance and outlier handling
-        percentiles = torch.quantile(coords_cam, torch.tensor([0.05, 0.95], device=coords_cam.device), dim=0)
+        percentiles = torch.quantile(
+            coords_cam, torch.tensor([0.05, 0.95], device=coords_cam.device), dim=0
+        )
         min_coords, max_coords = percentiles[0], percentiles[1]
         coord_range = torch.clamp(max_coords - min_coords, min=1e-6)
 
         # Map coordinates to bin indices
         normalized_coords = torch.clamp((coords_cam - min_coords) / coord_range, 0, 1)
         bin_coords = torch.clamp(
-            (normalized_coords * bins_per_dim).long(),
-            0, bins_per_dim - 1
+            (normalized_coords * bins_per_dim).long(), 0, bins_per_dim - 1
         )
 
         # Convert 3D bin coordinates to 1D index
         return (
-            bin_coords[:, 0] * bins_per_dim * bins_per_dim +
-            bin_coords[:, 1] * bins_per_dim +
-            bin_coords[:, 2]
+            bin_coords[:, 0] * bins_per_dim * bins_per_dim
+            + bin_coords[:, 1] * bins_per_dim
+            + bin_coords[:, 2]
         )

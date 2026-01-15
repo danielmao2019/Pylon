@@ -120,8 +120,8 @@ def render_rgb_from_pointcloud_o3d(
 
     # Step 7: Do projection - define pos, forward, up, set look_at, and render
     pos = camera.extrinsics[:3, 3]
-    forward = -camera.extrinsics[:3, 2]
-    up = camera.extrinsics[:3, 1]
+    forward = camera.forward
+    up = camera.up
 
     # Position camera in 3D scene and render
     renderer.scene.camera.look_at(

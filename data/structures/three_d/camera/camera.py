@@ -23,22 +23,27 @@ class Camera:
         device: str | torch.device = torch.device('cuda'),
     ) -> None:
         # Input validations
-        validate_camera_intrinsics(intrinsics)
+        assert intrinsics is None or isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
         validate_camera_extrinsics(extrinsics)
         validate_camera_convention(convention)
         assert name is None or isinstance(name, str), f"{type(name)=}"
         assert id is None or isinstance(id, int), f"{type(id)=}"
 
-        target_device = torch.device(device)
-        intrinsics = intrinsics.to(device=target_device)
-        extrinsics = extrinsics.to(device=target_device)
+        # Input normalization
+        if intrinsics is None:
+            intrinsics = torch.eye(3, dtype=torch.float32, device=device)
+        else:
+            intrinsics = intrinsics.to(device=device)
+        validate_camera_intrinsics(intrinsics)
+        extrinsics = extrinsics.to(device=device)
+        device = torch.device(device)
 
         self._intrinsics = intrinsics
         self._extrinsics = extrinsics
         self._convention = convention
         self._name = name
         self._id = id
-        self._device = target_device
+        self._device = device
 
     @property
     def intrinsics(self) -> torch.Tensor:
@@ -89,6 +94,69 @@ class Camera:
         horizontal_fov = 2.0 * math.atan(self.cx / self.fx) * 180.0 / math.pi
         vertical_fov = 2.0 * math.atan(self.cy / self.fy) * 180.0 / math.pi
         return (horizontal_fov, vertical_fov)
+
+    @property
+    def right(self) -> torch.Tensor:
+        if self._convention == "standard":
+            vec = self._extrinsics[:3, 0]
+        elif self._convention == "opengl":
+            vec = self._extrinsics[:3, 0]
+        elif self._convention == "opencv":
+            vec = self._extrinsics[:3, 0]
+        elif self._convention == "pytorch3d":
+            vec = self._extrinsics[:3, 0]
+        else:
+            assert False, f"Unsupported convention: {self._convention}"
+        norm = torch.norm(vec)
+        assert torch.isclose(
+            norm,
+            torch.tensor(1.0, dtype=vec.dtype, device=vec.device),
+            atol=1.0e-05,
+            rtol=0.0,
+        ), f"Right vector must be unit, got norm {float(norm)}"
+        return vec
+
+    @property
+    def forward(self) -> torch.Tensor:
+        if self._convention == "standard":
+            vec = self._extrinsics[:3, 1]
+        elif self._convention == "opengl":
+            vec = -self._extrinsics[:3, 2]
+        elif self._convention == "opencv":
+            vec = self._extrinsics[:3, 2]
+        elif self._convention == "pytorch3d":
+            vec = self._extrinsics[:3, 1]
+        else:
+            assert False, f"Unsupported convention: {self._convention}"
+        norm = torch.norm(vec)
+        assert torch.isclose(
+            norm,
+            torch.tensor(1.0, dtype=vec.dtype, device=vec.device),
+            atol=1.0e-05,
+            rtol=0.0,
+        ), f"Forward vector must be unit, got norm {float(norm)}"
+        return vec
+
+    @property
+    def up(self) -> torch.Tensor:
+        if self._convention == "standard":
+            vec = self._extrinsics[:3, 2]
+        elif self._convention == "opengl":
+            vec = self._extrinsics[:3, 1]
+        elif self._convention == "opencv":
+            vec = -self._extrinsics[:3, 1]
+        elif self._convention == "pytorch3d":
+            vec = self._extrinsics[:3, 2]
+        else:
+            assert False, f"Unsupported convention: {self._convention}"
+        norm = torch.norm(vec)
+        assert torch.isclose(
+            norm,
+            torch.tensor(1.0, dtype=vec.dtype, device=vec.device),
+            atol=1.0e-05,
+            rtol=0.0,
+        ), f"Up vector must be unit, got norm {float(norm)}"
+        return vec
 
     def to(
         self, device: str | torch.device | None = None, convention: str | None = None

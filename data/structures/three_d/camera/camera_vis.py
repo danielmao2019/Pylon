@@ -18,9 +18,10 @@ def camera_vis(
     assert frustum_depth > 0.0
 
     device = camera.device
-    dtype = camera.intrinsics.dtype
+    dtype = torch.float32
 
-    extrinsics_standard = camera.to(device=device, convention='standard').extrinsics
+    camera_standard = camera.to(device=device, convention='standard')
+    extrinsics_standard = camera_standard.extrinsics
     rotation_matrix = extrinsics_standard[:3, :3]
     camera_center = extrinsics_standard[:3, 3]
 
