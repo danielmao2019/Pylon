@@ -118,7 +118,7 @@ class Cameras:
     def __len__(self) -> int:
         return self._intrinsics.shape[0]
 
-    def __getitem__(self, index: int | slice) -> "Camera | Cameras":
+    def __getitem__(self, index: int | slice | list[int]) -> "Camera | Cameras":
         if isinstance(index, slice):
             return Cameras(
                 intrinsics=self._intrinsics[index],
@@ -126,6 +126,22 @@ class Cameras:
                 conventions=self._conventions[index],
                 names=self._names[index],
                 ids=self._ids[index],
+                device=self._device,
+            )
+        if isinstance(index, list):
+            assert index, "Index list must be non-empty"
+            assert all(isinstance(item, int) for item in index), f"{index=}"
+            intrinsics = self._intrinsics[index]
+            extrinsics = self._extrinsics[index]
+            conventions = [self._conventions[item] for item in index]
+            names = [self._names[item] for item in index]
+            ids = [self._ids[item] for item in index]
+            return Cameras(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                conventions=conventions,
+                names=names,
+                ids=ids,
                 device=self._device,
             )
         assert isinstance(index, int), f"{type(index)=}"
