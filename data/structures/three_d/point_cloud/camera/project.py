@@ -1,5 +1,6 @@
 import torch
-from data.structures.three_d.camera.camera import Camera
+
+from data.structures.three_d.camera.validation import validate_camera_intrinsics
 
 
 def project_3d_to_2d(
@@ -24,7 +25,7 @@ def project_3d_to_2d(
     """
     # PointCloud validation happens at construction; assume correct shape here.
     # Validate intrinsics using shared checker; preserves dtype/device constraints
-    Camera._validate_camera_intrinsics(intrinsics)
+    validate_camera_intrinsics(intrinsics)
     assert points.device == intrinsics.device
 
     # Project 3D points to 2D using pinhole camera model

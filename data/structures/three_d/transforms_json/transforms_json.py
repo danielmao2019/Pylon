@@ -5,7 +5,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.validation import validate_camera_intrinsics
 
 
 class TransformsJSON:
@@ -49,7 +50,7 @@ class TransformsJSON:
             self.val_filenames,
             self.test_filenames,
         ) = self._load_split_filenames(data)
-        self.cameras: List[Camera] = self._load_cameras(data=data, device=self.device)
+        self.cameras = self._load_cameras(data=data, device=self.device)
         self.filenames: List[str] = self._load_filenames(data)
 
     @staticmethod
@@ -275,7 +276,7 @@ class TransformsJSON:
             dtype=torch.float32,
             device=torch.device(device),
         )
-        Camera._validate_camera_intrinsics(intrinsics)
+        validate_camera_intrinsics(intrinsics)
         return intrinsics
 
     @staticmethod
@@ -289,30 +290,32 @@ class TransformsJSON:
     @staticmethod
     def _load_cameras(
         data: Dict[str, Any], device: str | torch.device = torch.device("cpu")
-    ) -> List[Camera]:
-        cameras: List[Camera] = []
+    ) -> Cameras:
         frames: List[Any] = data["frames"]
         intrinsics = TransformsJSON._load_intrinsics(data, device=device)
-        for frame in frames:
-            file_path = frame["file_path"]
-            matrix_tensor = torch.tensor(
-                frame["transform_matrix"],
-                dtype=torch.float32,
-                device=device,
-            )
-            Camera._validate_camera_extrinsics(matrix_tensor)
-            camera_id = frame.get("colmap_image_id")
-            cameras.append(
-                Camera(
-                    intrinsics=intrinsics,
-                    extrinsics=matrix_tensor,
-                    convention="opengl",
-                    name=Path(file_path).stem,
-                    id=camera_id,
+        batched_intrinsics = intrinsics.repeat(len(frames), 1, 1)
+        batched_extrinsics = torch.stack(
+            [
+                torch.tensor(
+                    frame["transform_matrix"],
+                    dtype=torch.float32,
                     device=device,
                 )
-            )
-        return cameras
+                for frame in frames
+            ],
+            dim=0,
+        )
+        conventions = ["opengl"] * len(frames)
+        names: List[str | None] = [Path(frame["file_path"]).stem for frame in frames]
+        ids: List[int | None] = [frame.get("colmap_image_id") for frame in frames]
+        return Cameras(
+            intrinsics=batched_intrinsics,
+            extrinsics=batched_extrinsics,
+            conventions=conventions,
+            names=names,
+            ids=ids,
+            device=device,
+        )
 
     @staticmethod
     def _load_filenames(data: Dict[str, Any]) -> List[str]:
@@ -351,7 +354,7 @@ class TransformsJSON:
 
     @staticmethod
     def _save_cameras(
-        cameras: List[Camera], modalities: Optional[List[str]] = None
+        cameras: Cameras, modalities: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         frames: List[Dict[str, Any]] = []
         include_masks = modalities is not None and "masks" in modalities

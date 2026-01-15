@@ -8,7 +8,7 @@ import math
 
 import torch
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.validation import validate_rotation_matrix
 
 
 def euler_to_matrix(angles: torch.Tensor) -> torch.Tensor:
@@ -74,7 +74,7 @@ def matrix_to_euler(
         - 'yzx': [Y rotation, Z rotation, X rotation]
         Y rotation is constrained to [-pi/2, +pi/2] for canonical form
     """
-    Camera._validate_rotation_matrix(R)
+    validate_rotation_matrix(R)
 
     # Validate order parameter
     assert isinstance(order, str), f"order must be a string, got {type(order)}"

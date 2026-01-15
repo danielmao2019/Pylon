@@ -2,7 +2,7 @@ import math
 
 import torch
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.validation import validate_camera_extrinsics
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.ops.materialize_tensor import materialize_tensor
 
@@ -26,9 +26,11 @@ def _world_to_camera_transform(
     # Input validation
     # Validate points as XYZ coordinates
     assert isinstance(points, torch.Tensor), f"{type(points)=}"
-    assert points.shape[0] > 0, f"Expected positive number of points, got {points.shape[0]}"
+    assert (
+        points.shape[0] > 0
+    ), f"Expected positive number of points, got {points.shape[0]}"
     PointCloud.validate_xyz_tensor(xyz=points)
-    Camera._validate_camera_extrinsics(extrinsics)
+    validate_camera_extrinsics(extrinsics)
     # Device compatibility: points and extrinsics must be on same device
     assert (
         points.device == extrinsics.device

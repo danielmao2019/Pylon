@@ -9,7 +9,7 @@ from typing import Tuple
 
 import torch
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.validation import validate_rotation_matrix
 
 
 def rodrigues_canonical(
@@ -86,7 +86,7 @@ def matrix_to_rodrigues(
         - axis: Unit vector of shape (3,)
         - angle: Scalar tensor in radians [0, pi] (always non-negative)
     """
-    Camera._validate_rotation_matrix(R)
+    validate_rotation_matrix(R)
 
     # Extract rotation angle from trace
     trace = torch.trace(R)
