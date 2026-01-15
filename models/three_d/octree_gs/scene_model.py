@@ -25,14 +25,20 @@ class OctreeGSSceneModel(BaseSceneModel):
     @staticmethod
     def parse_scene_path(path: str) -> str:
         assert os.path.isdir(path)
-        expected_files = [
-            "point_cloud/iteration_30000/point_cloud.ply",
-            "cameras.json",
-            "cfg_args",
-        ]
-        assert all(
-            os.path.isfile(os.path.join(path, f)) for f in expected_files
-        ), f"Path does not contain expected 3DGS-original files: {expected_files}"
+        assert os.path.isfile(os.path.join(path, "cameras.json"))
+        assert os.path.isfile(os.path.join(path, "cfg_args"))
+        point_cloud_dir = Path(path) / "point_cloud"
+        assert (
+            point_cloud_dir.is_dir()
+        ), f"OctreeGS requires point_cloud directory under {path}"
+        has_allowed_checkpoint = any(
+            (point_cloud_dir / f"iteration_{iteration}" / "point_cloud.ply").is_file()
+            for iteration in (0, 30000)
+        )
+        assert has_allowed_checkpoint, (
+            "OctreeGS point_cloud directory must include point_cloud.ply under "
+            "iteration_0 or iteration_30000"
+        )
 
         cfg_path = os.path.join(path, "cfg_args")
         with open(cfg_path, 'r', encoding='utf-8') as handle:

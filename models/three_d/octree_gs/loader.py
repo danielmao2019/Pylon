@@ -9,10 +9,43 @@ import torch
 from models.three_d.octree_gs.model import OctreeGS_3DGS
 
 
+def _find_latest_iteration(model_path: Path) -> int:
+    point_cloud_dir = model_path / "point_cloud"
+    assert (
+        point_cloud_dir.is_dir()
+    ), f"OctreeGS point_cloud directory missing: {point_cloud_dir}"
+    iteration_dirs = [
+        child
+        for child in point_cloud_dir.iterdir()
+        if child.is_dir() and child.name.startswith("iteration_")
+    ]
+    assert iteration_dirs, "OctreeGS requires at least one iteration_* directory"
+    candidates = []
+    for iteration_dir in iteration_dirs:
+        parts = iteration_dir.name.split('_')
+        assert (
+            len(parts) == 2
+        ), f"Malformed iteration directory name: {iteration_dir.name}"
+        iteration_value = int(parts[1])
+        ply_path = iteration_dir / "point_cloud.ply"
+        if ply_path.is_file():
+            candidates.append(iteration_value)
+    assert candidates, (
+        "OctreeGS point_cloud directory must include point_cloud.ply under an iteration_* directory"
+    )
+    return max(candidates)
+
+
 @torch.no_grad()
 def load_octree_gs_3dgs(
-    model_dir: Union[str, Path], device: Union[str, torch.device] = 'cuda'
+    model_dir: Union[str, Path],
+    iteration: int | None = None,
+    device: Union[str, torch.device] = 'cuda',
 ) -> OctreeGS_3DGS:
+    # Input validations
+    assert iteration is None or isinstance(iteration, int), f"{type(iteration)=}"
+    assert iteration is None or iteration >= 0, f"{iteration=}"
+
     model_path = Path(model_dir)
     assert model_path.is_dir(), f"OctreeGS model directory does not exist: {model_dir}"
 
@@ -58,11 +91,12 @@ def load_octree_gs_3dgs(
         num_cameras > 0
     ), f"cameras.json at '{cameras_json_path}' must list at least one camera"
 
-    ply_relpath = Path("point_cloud") / "iteration_30000" / "point_cloud.ply"
-    ply_path = model_path / ply_relpath
+    if iteration is None:
+        iteration = _find_latest_iteration(model_path)
+    ply_path = model_path / "point_cloud" / f"iteration_{iteration}" / "point_cloud.ply"
     assert ply_path.is_file(), (
-        "OctreeGS model directory does not contain expected point cloud file: "
-        f"{ply_path}"
+        "OctreeGS model directory does not contain expected point cloud file under "
+        f"iteration_{iteration}"
     )
     checkpoint_path = ply_path.parent
     assert (
