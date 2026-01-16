@@ -4,6 +4,7 @@ import shlex
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from agents.base_agent import BaseAgent
@@ -27,7 +28,8 @@ class Launcher(BaseAgent):
         expected_files: Optional[List[str]] = None,
         epochs: int = 100,
         sleep_time: int = 180,
-        outdated_days: int = 120,
+        outdated_days: int | None = None,
+        outdated_date: datetime | None = None,
         gpu_pool: List[Tuple[str, List[int]]] = [],
         user_names: Dict[str, str] = {},
         timeout: int = 5,
@@ -46,7 +48,8 @@ class Launcher(BaseAgent):
             expected_files (Optional[List[str]]): the expected files under a work dir to check for.
             epochs (int): the number of epochs to run.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
-            outdated_days (int): the number of days to wait to consider a run outdated.
+            outdated_days (int | None): the number of days to wait to consider a run outdated.
+            outdated_date (datetime | None): absolute cutoff; artifacts older than this are outdated.
             gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
             user_names (Dict[str, str]): the user names for the servers.
             timeout (int): the timeout for the GPU monitor.
@@ -69,6 +72,7 @@ class Launcher(BaseAgent):
             epochs=epochs,
             sleep_time=sleep_time,
             outdated_days=outdated_days,
+            outdated_date=outdated_date,
             gpu_pool=gpu_pool,
             user_names=user_names,
             timeout=timeout,
@@ -135,20 +139,12 @@ class Launcher(BaseAgent):
         for server, pid in stuck_cfgs_info.values():
             self.ssh_pool.execute(server, ['kill', '-9', str(pid)])
 
-    def _remove_outdated(self, all_running_status: List[BaseJob]) -> None:
-        outdated_runs = list(
-            filter(lambda x: x.status == 'outdated', all_running_status)
-        )
-        # self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
-        # with ThreadPoolExecutor() as executor:
-        #     list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
-
     def _find_missing_jobs(self, all_jobs: List[BaseJob]) -> List[BaseJob]:
         r"""
         Returns:
             result (List[BaseJob]): the BaseJob instances for missing experiment runs.
         """
-        return [job for job in all_jobs if job.status == 'failed']
+        return [job for job in all_jobs if job.status in {'failed', 'outdated'}]
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
@@ -316,6 +312,7 @@ class Launcher(BaseAgent):
                 system_monitors=self.system_monitors,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
+                outdated_date=self.outdated_date,
                 force_progress_recompute=self.force_progress_recompute,
             )
             all_jobs = list(manager.build_jobs().values())
@@ -325,9 +322,6 @@ class Launcher(BaseAgent):
 
             self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_jobs)
-
-            self.logger.info("Removing outdated jobs...")
-            self._remove_outdated(all_jobs)
 
             self.logger.info("Launching missing jobs...")
             done = self._launch_missing(all_jobs, num_jobs=num_jobs)

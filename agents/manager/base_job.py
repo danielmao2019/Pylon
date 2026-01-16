@@ -1,12 +1,11 @@
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Sequence, Literal
+from typing import Any, Dict, Literal, Optional, Sequence
 
 from agents.manager.base_progress_info import BaseProgressInfo
-from agents.monitor.process_info import ProcessInfo
 from agents.manager.runtime import JobRuntimeParams
-
+from agents.monitor.process_info import ProcessInfo
 
 _JobStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
@@ -81,12 +80,15 @@ class BaseJob(ABC):
         raise NotImplementedError
 
     def is_outdated(self, runtime: JobRuntimeParams) -> bool:
-        if runtime.outdated_days <= 0:
+        if runtime.outdated_days is None and runtime.outdated_date is None:
             return False
 
         artifact_last_update = self.get_artifact_last_update()
         if artifact_last_update is None:
             return False
+
+        if runtime.outdated_date is not None:
+            return artifact_last_update < runtime.outdated_date.timestamp()
 
         stale_after = runtime.outdated_days * 24 * 60 * 60
         return (time.time() - artifact_last_update) > stale_after

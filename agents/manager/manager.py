@@ -1,5 +1,6 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Callable, Dict, List, Optional, Type
 
 from agents.manager.base_job import BaseJob
@@ -78,7 +79,8 @@ class Manager:
         epochs: int,
         system_monitors: Dict[str, SystemMonitor],
         sleep_time: int = 86400,
-        outdated_days: int = 30,
+        outdated_days: int | None = None,
+        outdated_date: datetime | None = None,
         force_progress_recompute: bool = False,
     ) -> None:
         assert isinstance(commands, list)
@@ -87,12 +89,20 @@ class Manager:
         assert all(
             isinstance(monitor, SystemMonitor) for monitor in system_monitors.values()
         )
+        assert outdated_days is None or (
+            isinstance(outdated_days, int) and outdated_days > 0
+        ), f"outdated_days must be positive int or None, got {outdated_days}"
+        assert outdated_date is None or isinstance(outdated_date, datetime)
+        assert not (
+            outdated_days is not None and outdated_date is not None
+        ), "outdated_days and outdated_date cannot both be set"
 
         self.commands = commands
         self.epochs = epochs
         self.system_monitors = system_monitors
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
+        self.outdated_date = outdated_date
         self.force_progress_recompute = force_progress_recompute
         self.job_classes = registered_job_classes()
 
@@ -138,8 +148,9 @@ class Manager:
         runtime = JobRuntimeParams(
             epochs=self.epochs,
             sleep_time=self.sleep_time,
-            outdated_days=self.outdated_days,
             command_processes=command_to_process_info,
+            outdated_days=self.outdated_days,
+            outdated_date=self.outdated_date,
             force_progress_recompute=self.force_progress_recompute,
         )
 

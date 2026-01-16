@@ -1,6 +1,7 @@
 """Runtime parameters supplied to manager-backed jobs."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Mapping, Optional
 
 from agents.monitor.process_info import ProcessInfo
@@ -12,8 +13,9 @@ class JobRuntimeParams:
 
     epochs: int
     sleep_time: int
-    outdated_days: int
     command_processes: Mapping[str, ProcessInfo]
+    outdated_days: int | None = None
+    outdated_date: datetime | None = None
     force_progress_recompute: bool = False
 
     def process_for(self, command: str) -> Optional[ProcessInfo]:
