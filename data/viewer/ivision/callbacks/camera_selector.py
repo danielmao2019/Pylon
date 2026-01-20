@@ -10,6 +10,7 @@ from data.viewer.ivision.callbacks.common import (
 )
 from data.viewer.ivision.callbacks.helpers import triggered_payload
 from data.viewer.ivision.layout import (
+    CAMERA_NONE_VALUE,
     CAMERA_SELECTOR_RADIO_TYPE,
     CAMERA_SELECTOR_ROOT_ID,
 )
@@ -72,6 +73,12 @@ def register_camera_selector_callbacks(
             not isinstance(triggered_id, dict)
             or triggered_id.get("type") != CAMERA_SELECTOR_RADIO_TYPE
         ):
+            raise PreventUpdate
+        selection_guard = triggered_value == viewer._current_camera_selection or (
+            triggered_value == CAMERA_NONE_VALUE
+            and viewer._current_camera_selection is None
+        )
+        if selection_guard:
             raise PreventUpdate
         viewer.set_camera_by_selection(triggered_value)
         model_state = model_state_from_context()

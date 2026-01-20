@@ -63,9 +63,13 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             self.data_root = check_read_dir(path=data_root)
 
         # Validate overwrite_cache
-        assert isinstance(overwrite_cache, bool), f"overwrite_cache must be bool, got {type(overwrite_cache)=}"
+        assert isinstance(
+            overwrite_cache, bool
+        ), f"overwrite_cache must be bool, got {type(overwrite_cache)=}"
         if overwrite_cache:
-            assert use_cpu_cache or use_disk_cache, "When overwrite_cache=True, at least one of use_cpu_cache or use_disk_cache must be True"
+            assert (
+                use_cpu_cache or use_disk_cache
+            ), "When overwrite_cache=True, at least one of use_cpu_cache or use_disk_cache must be True"
         self.overwrite_cache = overwrite_cache
 
         # initialize
@@ -90,51 +94,84 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # initialize annotations at the end because of splits
         self._init_annotations_all_splits()
 
-    def _init_split(self, split: Optional[str], split_percentages: Optional[Tuple[float, ...]]) -> None:
+    def _init_split(
+        self, split: Optional[str], split_percentages: Optional[Tuple[float, ...]]
+    ) -> None:
         if split is None:
             # split=None means load everything (no predefined splits, no percentage splits)
-            assert split_percentages is None, "Cannot use split_percentages when split=None"
-            assert not (hasattr(self, 'DATASET_SIZE') and isinstance(self.DATASET_SIZE, dict)), \
-                "Cannot use dict DATASET_SIZE when split=None (implies predefined splits exist)"
-            assert not (hasattr(self, 'CLASS_DIST') and isinstance(self.CLASS_DIST, dict)), \
-                "Cannot use dict CLASS_DIST when split=None (implies predefined splits exist)"
+            assert (
+                split_percentages is None
+            ), "Cannot use split_percentages when split=None"
+            assert not (
+                hasattr(self, 'DATASET_SIZE') and isinstance(self.DATASET_SIZE, dict)
+            ), "Cannot use dict DATASET_SIZE when split=None (implies predefined splits exist)"
+            assert not (
+                hasattr(self, 'CLASS_DIST') and isinstance(self.CLASS_DIST, dict)
+            ), "Cannot use dict CLASS_DIST when split=None (implies predefined splits exist)"
             self.split = None
             return
 
-        assert isinstance(split, str), f"split must be string or None, got {type(split)=}"
+        assert isinstance(
+            split, str
+        ), f"split must be string or None, got {type(split)=}"
         assert split in self.SPLIT_OPTIONS, f"{split=} not in {self.SPLIT_OPTIONS=}"
 
         self.split = split
 
         if split_percentages is not None:
-            assert isinstance(split_percentages, tuple), f"split_percentages must be tuple, got {type(split_percentages)=}"
-            assert len(split_percentages) == len(self.SPLIT_OPTIONS), f"{split_percentages=}, {self.SPLIT_OPTIONS=}"
-            assert all(isinstance(x, (int, float)) for x in split_percentages), f"All percentages must be numeric, got {split_percentages=}"
-            assert abs(sum(split_percentages) - 1.0) < 0.01, f"Percentages must sum to 1.0, got sum={sum(split_percentages)}"
+            assert isinstance(
+                split_percentages, tuple
+            ), f"split_percentages must be tuple, got {type(split_percentages)=}"
+            assert len(split_percentages) == len(
+                self.SPLIT_OPTIONS
+            ), f"{split_percentages=}, {self.SPLIT_OPTIONS=}"
+            assert all(
+                isinstance(x, (int, float)) for x in split_percentages
+            ), f"All percentages must be numeric, got {split_percentages=}"
+            assert (
+                abs(sum(split_percentages) - 1.0) < 0.01
+            ), f"Percentages must sum to 1.0, got sum={sum(split_percentages)}"
             self.split_percentages = split_percentages
 
         # Normalize DATASET_SIZE to always be int for the selected split
         if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
             if isinstance(self.DATASET_SIZE, dict):
-                assert set(self.DATASET_SIZE.keys()).issubset(set(self.SPLIT_OPTIONS)), \
-                    f"DATASET_SIZE keys {self.DATASET_SIZE.keys()} != SPLIT_OPTIONS {self.SPLIT_OPTIONS}"
-                assert split_percentages is None, "Cannot use split_percentages with dict DATASET_SIZE"
+                assert set(self.DATASET_SIZE.keys()).issubset(
+                    set(self.SPLIT_OPTIONS)
+                ), f"DATASET_SIZE keys {self.DATASET_SIZE.keys()} != SPLIT_OPTIONS {self.SPLIT_OPTIONS}"
+                assert (
+                    split_percentages is None
+                ), "Cannot use split_percentages with dict DATASET_SIZE"
                 self.DATASET_SIZE = self.DATASET_SIZE[self.split]
             elif isinstance(self.DATASET_SIZE, int):
-                assert split_percentages is not None, "int DATASET_SIZE requires split_percentages"
+                assert (
+                    split_percentages is not None
+                ), "int DATASET_SIZE requires split_percentages"
             else:
-                assert False, f"DATASET_SIZE must be dict or int, got {type(self.DATASET_SIZE)=}"
+                assert (
+                    False
+                ), f"DATASET_SIZE must be dict or int, got {type(self.DATASET_SIZE)=}"
 
         if hasattr(self, 'CLASS_DIST') and isinstance(self.CLASS_DIST, dict):
-            assert split_percentages is None, "Cannot use split_percentages with CLASS_DIST"
-            assert set(self.CLASS_DIST.keys()) == set(self.SPLIT_OPTIONS), f"CLASS_DIST keys {self.CLASS_DIST.keys()} != SPLIT_OPTIONS {self.SPLIT_OPTIONS}"
-            assert all(isinstance(x, list) for x in self.CLASS_DIST.values()), f"All CLASS_DIST values must be lists"
+            assert (
+                split_percentages is None
+            ), "Cannot use split_percentages with CLASS_DIST"
+            assert set(self.CLASS_DIST.keys()) == set(
+                self.SPLIT_OPTIONS
+            ), f"CLASS_DIST keys {self.CLASS_DIST.keys()} != SPLIT_OPTIONS {self.SPLIT_OPTIONS}"
+            assert all(
+                isinstance(x, list) for x in self.CLASS_DIST.values()
+            ), f"All CLASS_DIST values must be lists"
             self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_indices(self, indices: Optional[List[int]]) -> None:
-        assert indices is None or isinstance(indices, list), f"indices must be None or list, got {type(indices)=}"
+        assert indices is None or isinstance(
+            indices, list
+        ), f"indices must be None or list, got {type(indices)=}"
         if isinstance(indices, list):
-            assert all(isinstance(x, int) for x in indices), f"All indices must be integers, got {indices=}"
+            assert all(
+                isinstance(x, int) for x in indices
+            ), f"All indices must be integers, got {indices=}"
         self.indices = indices
 
     def _init_annotations_all_splits(self) -> None:
@@ -152,10 +189,17 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             pass
         elif hasattr(self, 'split_percentages') and self.split_percentages is not None:
             # Perform deterministic random split
-            assert isinstance(self.split, str), "split must be string when using split_percentages"
-            assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
+            assert isinstance(
+                self.split, str
+            ), "split must be string when using split_percentages"
+            assert (
+                self.split in self.SPLIT_OPTIONS
+            ), f"{self.split=} not in {self.SPLIT_OPTIONS=}"
 
-            sizes = tuple(int(percent * len(self.annotations)) for percent in self.split_percentages)
+            sizes = tuple(
+                int(percent * len(self.annotations))
+                for percent in self.split_percentages
+            )
             cutoffs = [0] + list(itertools.accumulate(sizes))
 
             # Use deterministic shuffle with base_seed for reproducibility
@@ -164,31 +208,45 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
             # Extract only the requested split's annotations
             split_idx = self.SPLIT_OPTIONS.index(self.split)
-            self.annotations = self.annotations[cutoffs[split_idx]:cutoffs[split_idx+1]]
+            self.annotations = self.annotations[
+                cutoffs[split_idx] : cutoffs[split_idx + 1]
+            ]
         else:
             # Predefined split - annotations already loaded correctly
-            assert isinstance(self.split, str), "split must be string when using predefined splits"
-            assert self.split in self.SPLIT_OPTIONS, f"{self.split=} not in {self.SPLIT_OPTIONS=}"
+            assert isinstance(
+                self.split, str
+            ), "split must be string when using predefined splits"
+            assert (
+                self.split in self.SPLIT_OPTIONS
+            ), f"{self.split=} not in {self.SPLIT_OPTIONS=}"
 
         # Apply indices filtering if provided
         self._filter_annotations_by_indices()
 
     @abstractmethod
     def _init_annotations(self) -> None:
-        raise NotImplementedError("_init_annotations not implemented for abstract base class.")
+        raise NotImplementedError(
+            "_init_annotations not implemented for abstract base class."
+        )
 
     def _check_dataset_size(self) -> None:
         if not hasattr(self, 'DATASET_SIZE') or self.DATASET_SIZE is None:
             return
 
-        assert isinstance(self.DATASET_SIZE, int), f"DATASET_SIZE should be normalized to int in _init_split, got {type(self.DATASET_SIZE)=}"
-        assert len(self.annotations) == self.DATASET_SIZE, f"{len(self.annotations)=}, {self.DATASET_SIZE=}"
+        assert isinstance(
+            self.DATASET_SIZE, int
+        ), f"DATASET_SIZE should be normalized to int in _init_split, got {type(self.DATASET_SIZE)=}"
+        assert (
+            len(self.annotations) == self.DATASET_SIZE
+        ), f"{len(self.annotations)=}, {self.DATASET_SIZE=}"
 
     def _filter_annotations_by_indices(self) -> None:
         if self.indices is None:
             return
         assert type(self.annotations) == list, f"{type(self.annotations)=}"
-        self.annotations = [self.annotations[idx % len(self.annotations)] for idx in self.indices]
+        self.annotations = [
+            self.annotations[idx % len(self.annotations)] for idx in self.indices
+        ]
 
     def _init_transforms(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
         if transforms_cfg is None or transforms_cfg == {}:
@@ -210,7 +268,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     ) -> None:
         assert isinstance(use_cpu_cache, bool), f"{type(use_cpu_cache)=}"
         assert isinstance(use_disk_cache, bool), f"{type(use_disk_cache)=}"
-        assert isinstance(max_cache_memory_percent, float), f"{type(max_cache_memory_percent)=}"
+        assert isinstance(
+            max_cache_memory_percent, float
+        ), f"{type(max_cache_memory_percent)=}"
         assert 0.0 <= max_cache_memory_percent <= 100.0, f"{max_cache_memory_percent=}"
 
         if use_cpu_cache or use_disk_cache:
@@ -281,8 +341,14 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def _get_cache_filepath(self, idx: int) -> str:
         """Return cache filepath for a datapoint."""
-        assert self.cache is not None, "Cache must be initialized before requesting cache filepath"
-        cache_root = self.cache.version_dir if hasattr(self.cache, 'version_dir') else self.cache.cache_dir
+        assert (
+            self.cache is not None
+        ), "Cache must be initialized before requesting cache filepath"
+        cache_root = (
+            self.cache.version_dir
+            if hasattr(self.cache, 'version_dir')
+            else self.cache.cache_dir
+        )
         return os.path.join(cache_root, f"{idx}.pt")
 
     def _init_device(self, device: Union[str, torch.device]) -> None:
@@ -293,18 +359,38 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     def _sanity_check(self) -> None:
         assert hasattr(self, 'SPLIT_OPTIONS') and self.SPLIT_OPTIONS is not None
-        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None and isinstance(self.DATASET_SIZE, dict):
+        if (
+            hasattr(self, 'DATASET_SIZE')
+            and self.DATASET_SIZE is not None
+            and isinstance(self.DATASET_SIZE, dict)
+        ):
             assert set(self.SPLIT_OPTIONS) == set(self.DATASET_SIZE.keys())
         assert self.INPUT_NAMES is not None
         assert self.LABEL_NAMES is not None
-        assert set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set(), \
-            f"{self.INPUT_NAMES=}, {self.LABEL_NAMES=}, {set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
+        assert (
+            set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set()
+        ), f"{self.INPUT_NAMES=}, {self.LABEL_NAMES=}, {set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
         if self.check_sha1sum and hasattr(self, 'SHA1SUM') and self.SHA1SUM is not None:
-            cmd = ' '.join([
-                'find', os.readlink(self.data_root) if os.path.islink(self.data_root) else self.data_root,
-                '-type', 'f', '-execdir', 'sha1sum', '{}', '+', '|',
-                'sort', '|', 'sha1sum',
-            ])
+            cmd = ' '.join(
+                [
+                    'find',
+                    (
+                        os.readlink(self.data_root)
+                        if os.path.islink(self.data_root)
+                        else self.data_root
+                    ),
+                    '-type',
+                    'f',
+                    '-execdir',
+                    'sha1sum',
+                    '{}',
+                    '+',
+                    '|',
+                    'sort',
+                    '|',
+                    'sha1sum',
+                ]
+            )
             result = subprocess.getoutput(cmd)
             sha1sum = result.split(' ')[0]
             assert sha1sum == self.SHA1SUM, f"{sha1sum=}, {self.SHA1SUM=}"
@@ -314,7 +400,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
 
     @abstractmethod
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         r"""This method defines how inputs, labels, and meta info are loaded from disk.
 
@@ -326,11 +414,14 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             labels (Dict[str, torch.Tensor]): the ground truth for the current inputs.
             meta_info (Dict[str, Any]): the meta info for the current data point.
         """
-        raise NotImplementedError("[ERROR] _load_datapoint not implemented for abstract base class.")
+        raise NotImplementedError(
+            "[ERROR] _load_datapoint not implemented for abstract base class."
+        )
 
     def set_base_seed(self, seed: Any) -> None:
         """Set the base seed for the dataset."""
         from utils.determinism.hash_utils import convert_to_seed
+
         self.base_seed = convert_to_seed(seed)
 
     def _load_datapoint_with_cache(self, idx: int) -> Dict[str, Any]:
@@ -356,7 +447,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             inputs, labels, meta_info = self._load_datapoint(idx)
 
             # Ensure 'idx' hasn't been added by concrete class, then add it
-            assert 'idx' not in meta_info, f"Dataset class should not manually add 'idx' to meta_info. Found 'idx' in meta_info: {meta_info.keys()}"
+            assert (
+                'idx' not in meta_info
+            ), f"Dataset class should not manually add 'idx' to meta_info. Found 'idx' in meta_info: {meta_info.keys()}"
             meta_info['idx'] = idx
 
             raw_datapoint = {
@@ -392,7 +485,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> Optional['html.Div']:
         """Create custom display for this dataset's datapoints.
 
@@ -413,4 +506,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             This is an abstract static method that must be implemented by all dataset subclasses.
             Return None if you want to use the default display functions based on dataset type.
         """
-        raise NotImplementedError("display_datapoint not implemented for abstract base class.")
+        raise NotImplementedError(
+            "display_datapoint not implemented for abstract base class."
+        )

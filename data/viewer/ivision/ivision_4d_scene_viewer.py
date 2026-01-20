@@ -1,5 +1,6 @@
 import math
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -7,6 +8,7 @@ import dash
 import torch
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
 from data.viewer.ivision.callbacks import register_viewer_callbacks
 from data.viewer.ivision.context import IVisionViewerContext, set_viewer_context
 from data.viewer.ivision.layout import (
@@ -83,23 +85,40 @@ class iVISION_4D_Scene_Viewer:
         for dataset_name, scene_map in registry.items():
             self.dataset_cache[dataset_name] = {}
             self.method_index[dataset_name] = {}
-            for scene_name, method_map in scene_map.items():
+
+            def _load_scene(
+                scene_name: str, method_map: Dict[str, str]
+            ) -> Tuple[str, iVISION_3D_Scene_Dataset, Dict[str, int]]:
                 method_names = list(method_map.keys())
-                scene_paths = [
-                    registry[dataset_name][scene_name][method]
-                    for method in method_names
-                ]
+                scene_paths = [method_map[method] for method in method_names]
                 dataset_instance = iVISION_3D_Scene_Dataset(
                     scene_paths=scene_paths,
                     data_root=None,
-                    split="train",
                     device=self.device,
                     overwrite_cache=self.overwrite_cache,
                 )
-                self.dataset_cache[dataset_name][scene_name] = dataset_instance
-                self.method_index[dataset_name][scene_name] = {
-                    method: idx for idx, method in enumerate(method_names)
-                }
+                index_map = {method: idx for idx, method in enumerate(method_names)}
+                return scene_name, dataset_instance, index_map
+
+            max_workers = min(
+                len(scene_map),
+                max(
+                    1,
+                    (
+                        self.max_workers
+                        if self.max_workers is not None
+                        else int(os.cpu_count() or 1)
+                    ),
+                ),
+            )
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = []
+                for scene_name, method_map in scene_map.items():
+                    futures.append(executor.submit(_load_scene, scene_name, method_map))
+                for future in futures:
+                    scene_name, dataset_instance, index_map = future.result()
+                    self.dataset_cache[dataset_name][scene_name] = dataset_instance
+                    self.method_index[dataset_name][scene_name] = index_map
         self.current_dataset = None
         self.current_scene = None
         self._datapoint_cache: Dict[str, Dict[str, Dict[str, Dict[str, Any]]]] = {}
@@ -143,7 +162,8 @@ class iVISION_4D_Scene_Viewer:
             for scene_name, dataset_instance in scene_map.items():
                 self._static_model_layouts[dataset_name][scene_name] = {}
                 method_names = self.method_order[dataset_name][scene_name]
-                for method_name in method_names:
+
+                def _build_static(method_name: str) -> Tuple[str, Any]:
                     method_idx = self.method_index[dataset_name][scene_name][
                         method_name
                     ]
@@ -155,9 +175,28 @@ class iVISION_4D_Scene_Viewer:
                         method_name=method_name,
                         debugger_enabled=False,
                     )
-                    self._static_model_layouts[dataset_name][scene_name][
-                        method_name
-                    ] = container
+                    return method_name, container
+
+                max_workers = min(
+                    len(method_names),
+                    max(
+                        1,
+                        (
+                            self.max_workers
+                            if self.max_workers is not None
+                            else int(os.cpu_count() or 1)
+                        ),
+                    ),
+                )
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = []
+                    for method_name in method_names:
+                        futures.append(executor.submit(_build_static, method_name))
+                    for future in futures:
+                        method_name, container = future.result()
+                        self._static_model_layouts[dataset_name][scene_name][
+                            method_name
+                        ] = container
 
     def run(self, host: str = "0.0.0.0", port: int = 8050) -> None:
         self.app.run(debug=False, host=host, port=port)
@@ -206,23 +245,29 @@ class iVISION_4D_Scene_Viewer:
 
     def set_camera(self, camera_selection: Optional[str] = None) -> None:
         reference_annotation = self.get_reference_annotation()
+        assert (
+            "transforms_data" in reference_annotation
+        ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
+        transforms_data = reference_annotation["transforms_data"]
+        assert isinstance(
+            transforms_data, TransformsJSON
+        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
         if camera_selection is None:
-            splits: Dict[str, List[str]] = reference_annotation["camera_splits"]
-            assert splits, "camera_splits must contain at least one entry"
-            split_keys = set(splits.keys())
-            if {"train", "val", "test"}.issubset(split_keys):
+            if transforms_data.train_filenames is not None:
+                assert (
+                    transforms_data.train_filenames
+                ), "train_filenames must be non-empty"
                 default_split = "train"
-            elif "all" in split_keys:
-                default_split = "all"
+                file_path = transforms_data.train_filenames[0]
             else:
-                default_split = next(iter(splits.keys()))
-            candidate_list = splits[default_split]
-            assert (
-                candidate_list
-            ), f"No camera filenames listed for split '{default_split}'"
+                assert (
+                    transforms_data.filenames
+                ), "transforms filenames must be non-empty"
+                default_split = "all"
+                file_path = transforms_data.filenames[0]
             camera_selection = self._build_camera_selection(
                 split_name=default_split,
-                file_path=str(candidate_list[0]),
+                file_path=file_path,
             )
 
         self._current_camera_selection = camera_selection
@@ -231,21 +276,10 @@ class iVISION_4D_Scene_Viewer:
         ), f"Camera selection '{camera_selection}' is missing ':' separator"
         split_key, file_path = camera_selection.split(":", 1)
 
-        assert (
-            split_key in reference_annotation["camera_splits"]
-        ), f"Unknown camera split '{split_key}'"
-        assert (
-            file_path in reference_annotation["camera_splits"][split_key]
-        ), f"Camera '{file_path}' not listed under split '{split_key}'"
-
-        standard_extrinsics = self.get_scene_camera_extrinsics_standard(
-            reference_annotation
-        )
-        assert (
-            camera_selection in standard_extrinsics
-        ), f"Camera selection '{camera_selection}' missing standardized extrinsics"
-
-        c2w_standard = standard_extrinsics[camera_selection]
+        camera_name = Path(file_path).stem
+        assert camera_name, f"Empty camera name parsed from '{file_path}'"
+        camera = transforms_data.cameras[camera_name]
+        c2w_standard = camera.to(device=self.device, convention="standard").extrinsics
         self.position = c2w_standard[:3, 3].clone()
         rotation_matrix = c2w_standard[:3, :3]
         pitch_yaw = matrix_to_pitch_yaw(rotation_matrix)
@@ -326,14 +360,43 @@ class iVISION_4D_Scene_Viewer:
     def set_novel_view_state(self) -> Optional[str]:
         self._current_camera_selection = None
         reference_annotation = self.get_reference_annotation()
-        selection_to_extrinsics = self.get_scene_camera_extrinsics_standard(
-            reference_annotation
-        )
+        assert (
+            "transforms_data" in reference_annotation
+        ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
+        transforms_data = reference_annotation["transforms_data"]
+        assert isinstance(
+            transforms_data, TransformsJSON
+        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+        split_lookup: Dict[str, str] = {}
+        if transforms_data.train_filenames is not None:
+            for file_path in transforms_data.train_filenames:
+                split_lookup[file_path] = "train"
+            for file_path in transforms_data.val_filenames:
+                split_lookup[file_path] = "val"
+            for file_path in transforms_data.test_filenames:
+                if file_path not in split_lookup:
+                    split_lookup[file_path] = "test"
+        else:
+            for file_path in transforms_data.filenames:
+                split_lookup[file_path] = "all"
         current_pose = self.get_camera().extrinsics
-        for selection_key, candidate_pose in selection_to_extrinsics.items():
+        for file_path in transforms_data.filenames:
+            assert (
+                file_path in split_lookup
+            ), f"File '{file_path}' missing split assignment"
+            camera_name = Path(file_path).stem
+            assert camera_name, f"Empty camera name parsed from '{file_path}'"
+            candidate_pose = (
+                transforms_data.cameras[camera_name]
+                .to(device=self.device, convention="standard")
+                .extrinsics
+            )
             if torch.allclose(candidate_pose, current_pose, atol=1e-4, rtol=1e-4):
-                self._current_camera_selection = selection_key
-                return selection_key
+                self._current_camera_selection = self._build_camera_selection(
+                    split_name=split_lookup[file_path],
+                    file_path=file_path,
+                )
+                return self._current_camera_selection
         return None
 
     def get_render_current_scene(
@@ -347,7 +410,14 @@ class iVISION_4D_Scene_Viewer:
             return {}
 
         reference_annotation = self.get_reference_annotation()
-        reference_resolution = reference_annotation["camera_resolution"]
+        assert (
+            "transforms_data" in reference_annotation
+        ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
+        transforms_data = reference_annotation["transforms_data"]
+        assert isinstance(
+            transforms_data, TransformsJSON
+        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+        reference_resolution = transforms_data.resolution
         render_resolution = self.get_render_resolution(reference_resolution)
         display_cameras = (
             self.get_scene_camera_overlays(annotation=reference_annotation)
@@ -363,25 +433,29 @@ class iVISION_4D_Scene_Viewer:
             camera_name = self._current_camera_selection.split(":", 1)[1]
 
         method_names = self.method_order[self.current_dataset][self.current_scene]
-        bodies: Dict[str, Any] = {}
-        for method_name in method_names:
+        dataset_name = self.current_dataset
+        scene_name = self.current_scene
+        assert dataset_name is not None and scene_name is not None
+        render_camera = self.get_camera()
+
+        def _render_single(method_name: str) -> Tuple[str, Any]:
             datapoint = self.get_datapoint(
-                dataset_name=self.current_dataset,
-                scene_name=self.current_scene,
+                dataset_name=dataset_name,
+                scene_name=scene_name,
                 method_name=method_name,
             )
             scene_model = datapoint["inputs"]["model"]
             method_states = (
-                model_state.get(self.current_dataset, {})
-                .get(self.current_scene, {})
+                model_state.get(dataset_name, {})
+                .get(scene_name, {})
                 .get(method_name, {})
             )
             state_for_method = dict(method_states or {})
             state_for_method["method"] = method_name
-            state_for_method["dataset_name"] = self.current_dataset
-            state_for_method["scene_name"] = self.current_scene
+            state_for_method["dataset_name"] = dataset_name
+            state_for_method["scene_name"] = scene_name
             body = scene_model.display_render(
-                camera=self.get_camera(),
+                camera=render_camera,
                 resolution=render_resolution,
                 camera_name=camera_name,
                 display_cameras=display_cameras,
@@ -389,7 +463,29 @@ class iVISION_4D_Scene_Viewer:
                 device=self.device,
                 **state_for_method,
             )
-            bodies[method_name] = body
+            return method_name, body
+
+        max_workers = min(
+            len(method_names),
+            max(
+                1,
+                (
+                    self.max_workers
+                    if self.max_workers is not None
+                    else int(os.cpu_count() or 1)
+                ),
+            ),
+        )
+
+        bodies: Dict[str, Any] = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(_render_single, method_name)
+                for method_name in method_names
+            ]
+            for future in futures:
+                method_name, body = future.result()
+                bodies[method_name] = body
 
         return bodies
 
@@ -434,25 +530,26 @@ class iVISION_4D_Scene_Viewer:
 
     def get_camera(self) -> Camera:
         annotation = self.get_reference_annotation()
-        intrinsics = annotation["camera_intrinsics"].to(
-            device=self.device, dtype=torch.float32
-        )
+        assert (
+            "transforms_data" in annotation
+        ), f"Annotation missing transforms_data key, keys={list(annotation.keys())}"
+        transforms_data = annotation["transforms_data"]
+        assert isinstance(
+            transforms_data, TransformsJSON
+        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+        intrinsics = transforms_data.intrinsics.to(self.device)
         rotation_matrix = pitch_yaw_to_matrix(torch.deg2rad(self.rotation))
         c2w = torch.eye(4, dtype=rotation_matrix.dtype, device=self.device)
         c2w[:3, :3] = rotation_matrix
         c2w[:3, 3] = self.position
         camera_name: Optional[str] = None
         camera_id: Optional[int] = None
-        annotation = self.get_reference_annotation()
         if self._current_camera_selection is not None:
             assert ":" in self._current_camera_selection
             _, file_path = self._current_camera_selection.split(":", 1)
             camera_name = Path(file_path).stem
-            cameras: Dict[str, Camera] = annotation["cameras"]
-            if file_path in cameras:
-                camera_id = cameras[file_path].id
-        else:
-            camera_name = "viewer_pose"
+            camera = transforms_data.cameras[camera_name]
+            camera_id = camera.id
         return Camera(
             intrinsics=intrinsics,
             extrinsics=c2w,
@@ -494,6 +591,13 @@ class iVISION_4D_Scene_Viewer:
         camera = self.get_camera()
         intrinsics = camera.intrinsics.detach().cpu()
         reference_annotation = self.get_reference_annotation()
+        assert (
+            "transforms_data" in reference_annotation
+        ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
+        transforms_data = reference_annotation["transforms_data"]
+        assert isinstance(
+            transforms_data, TransformsJSON
+        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
         fx = float(intrinsics[0, 0])
         fy = float(intrinsics[1, 1])
         cx = float(intrinsics[0, 2])
@@ -505,7 +609,7 @@ class iVISION_4D_Scene_Viewer:
 
         frustum_width = max(0.0, 2.0 * cx)
         frustum_height = max(0.0, 2.0 * cy)
-        frustum_height_px, frustum_width_px = reference_annotation["camera_resolution"]
+        frustum_height_px, frustum_width_px = transforms_data.resolution
 
         fov_x = math.degrees(2.0 * math.atan2(frustum_width, 2.0 * fx))
         fov_y = math.degrees(2.0 * math.atan2(frustum_height, 2.0 * fy))
@@ -523,39 +627,18 @@ class iVISION_4D_Scene_Viewer:
             "yaw": yaw,
         }
 
-    def get_scene_camera_extrinsics_standard(
-        self, annotation: Dict[str, Any]
-    ) -> Dict[str, torch.Tensor]:
-        cameras: Dict[str, Camera] = annotation["cameras"]
-        splits: Dict[str, List[str]] = annotation["camera_splits"]
-
-        selection_to_extrinsics: Dict[str, torch.Tensor] = {}
-        for split_name, file_list in splits.items():
-            assert file_list, f"Split '{split_name}' must list at least one camera"
-            for file_path in file_list:
-                assert (
-                    file_path in cameras
-                ), f"Camera missing for '{file_path}' in split '{split_name}'"
-                c2w_standard = (
-                    cameras[file_path]
-                    .to(device=self.device, convention="standard")
-                    .extrinsics
-                )
-                selection_key = self._build_camera_selection(
-                    split_name=split_name,
-                    file_path=file_path,
-                )
-                selection_to_extrinsics[selection_key] = c2w_standard
-
-        assert selection_to_extrinsics, "No camera extrinsics found for current scene"
-        return selection_to_extrinsics
-
     def get_scene_camera_overlays(
         self, annotation: Dict[str, Any]
     ) -> Optional[List[Camera]]:
-        cameras: Dict[str, Camera] = annotation["cameras"]
+        assert (
+            "transforms_data" in annotation
+        ), f"Annotation missing transforms_data key, keys={list(annotation.keys())}"
+        transforms_data = annotation["transforms_data"]
+        assert isinstance(
+            transforms_data, TransformsJSON
+        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
         display_cameras: List[Camera] = []
-        for file_path, camera in cameras.items():
+        for camera in transforms_data.cameras:
             display_cameras.append(camera.to(device=self.device, convention="standard"))
 
         if not display_cameras:
@@ -567,7 +650,17 @@ class iVISION_4D_Scene_Viewer:
         if self.current_dataset is None or self.current_scene is None:
             return None
         annotation = self.get_reference_annotation()
-        splits: Dict[str, List[str]] = annotation["camera_splits"]
+        assert (
+            "transforms_data" in annotation
+        ), f"Annotation missing transforms_data key, keys={list(annotation.keys())}"
+        transforms_data = annotation["transforms_data"]
+        assert isinstance(
+            transforms_data, TransformsJSON
+        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+        splits = self._build_camera_splits(
+            transforms_data=transforms_data,
+            scene_name=annotation["scene_name"],
+        )
 
         entries: Dict[str, List[Dict[str, Any]]] = {}
         for split_name, file_list in splits.items():
@@ -615,6 +708,28 @@ class iVISION_4D_Scene_Viewer:
         return new_h, new_w
 
     # --- Helper methods ---
+
+    @staticmethod
+    def _build_camera_splits(
+        transforms_data: TransformsJSON, scene_name: str
+    ) -> Dict[str, List[str]]:
+        if transforms_data.train_filenames is not None:
+            assert transforms_data.val_filenames is not None
+            assert transforms_data.test_filenames is not None
+            splits = {
+                "train": transforms_data.train_filenames,
+                "val": transforms_data.val_filenames,
+                "test": transforms_data.test_filenames,
+            }
+        else:
+            splits = {"all": transforms_data.filenames}
+        if "train" in splits:
+            assert splits[
+                "train"
+            ], f"No training frame identified for scene '{scene_name}'"
+        else:
+            assert splits["all"], f"No cameras listed for scene '{scene_name}'"
+        return splits
 
     def _clear_scene_method_cache(self) -> None:
         self._datapoint_cache = {}

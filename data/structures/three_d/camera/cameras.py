@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Iterator, List, Sequence
 
 import torch
@@ -114,11 +115,15 @@ class Cameras:
         self._names = names
         self._ids = ids
         self._device = target_device
+        self._name_to_index = {name: idx for idx, name in enumerate(self._names)}
 
     def __len__(self) -> int:
         return self._intrinsics.shape[0]
 
-    def __getitem__(self, index: int | slice | list[int]) -> "Camera | Cameras":
+    def __getitem__(self, index: int | slice | list[int] | str) -> "Camera | Cameras":
+        if isinstance(index, str):
+            assert index in self._name_to_index, f"Camera name '{index}' not found"
+            return self[self._name_to_index[index]]
         if isinstance(index, slice):
             return Cameras(
                 intrinsics=self._intrinsics[index],

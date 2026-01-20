@@ -23,7 +23,6 @@ class TransformsJSON:
         if cache_key in cls._CACHE:
             return cls._CACHE[cache_key]
         instance = super().__new__(cls)
-        instance._cache_key = cache_key
         cls._CACHE[cache_key] = instance
         return instance
 
@@ -71,6 +70,13 @@ class TransformsJSON:
         self.cameras = self._load_cameras(data=data, device=self.device)
         self.filenames: List[str] = self._load_filenames(data)
         self._initialized = True
+        self._filepath = path
+
+    def __copy__(self) -> "TransformsJSON":
+        return type(self)(self._filepath, device=self.device)
+
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "TransformsJSON":
+        return type(self)(self._filepath, device=self.device)
 
     @staticmethod
     def save(data: "TransformsJSON" | Dict[str, Any], filepath: str | Path) -> None:

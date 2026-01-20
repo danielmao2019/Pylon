@@ -77,6 +77,7 @@ def register_keyboard_callbacks(
             raise PreventUpdate
         key_value = keydown.get("key")
         assert isinstance(key_value, str), "keydown key must be a string"
+        assert isinstance(_n_keydowns, int), "_n_keydowns must be an int"
 
         if viewer.current_dataset is None or viewer.current_scene is None:
             raise PreventUpdate
