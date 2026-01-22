@@ -28,7 +28,10 @@ I hate defensive programming. Defensive programming is good for production code,
    7. Using `*,` in function args.
 What you should do instead is extensive assertions, with error messages revealing why the assertion fail. I said, use assertions, not anything else. If xxx then raise error structure is NOT assertion! With these, even if you made the wrong assumption the first time you code, we are still safe. We simply gain knowledge about the code and fix those assumptions. But if you hide errors and continue the program failing silently at some point or making use of a fallback dummy number of some "default" and don't have the code fail, I am super worried.
 
-### 2.2. Input Validation
+Other rules:
+1. If you use `zip`, then you must use `strict=True`.
+
+### 2.2. How to write input validation
 
 It is not strictly required to do input validation for all functions/methods and for all args, because sometimes this is not really needed. However, when you do, you must follow the following rules:
 1. Input validation must be done at the very beginning of the function/method definition body.
@@ -36,25 +39,27 @@ It is not strictly required to do input validation for all functions/methods and
    1. It must start with a line `# Input validations`
    2. It must end with an empty line, before subsequent code in the definition body.
    3. During input validation, ONLY assert statements can be used. Introducing variables or transforming input args are strictly prohibited.
+   4. During input validation, no `if` conditioning may be used. Each and every statement must be `assert`. You should be using `assert xxx or yyy` to implement `if` conditioning. e.g., for optional args, you should use the structure `assert xxx is None or xxx`, rather than `if xxx is not None: assert xxx`.
 3. The order of input validation must follow exactly the order of the input args, and input validation for each arg should be done one after another, not mixing the lines.
 4. It is not a strict rule to do input validation for all function args.
-5. for optional args, you should use the structure `assert xxx is None or xxx`, rather than `if xxx is not None: assert xxx`.
 
-### 2.3. How to write `__init__.py`
-
-Rules:
-1. `__init__.py` files must only contain three things: multi-line comment block using `"""`, import statements, and definition of `__all__`.
-2. `__init__.py` must never import anything that's not defined under this module.
-3. `__init__.py` is the ONLY place where `__all__` can be defined. i.e., `__all__` must never appear anywhere else.
-4. `__init__.py` must go through `isort` (see below), and the items in `__all__` must match exactly the imported items, and in the exact same ordering.
-
-### 2.4. About user code in this repo
+### 2.3. About user code in this repo
 
 There are a few folders and files that should be considered as user code:
 1. The `configs` folder.
 2. The `project` folder.
 3. The `papers` folder.
 4. Many files under repo root, e.g., the `test_*.py` files.
+
+### 2.4. How to write `__init__.py` files
+
+Rules:
+1. `__init__.py` files must ONLY contain three things: multi-line comment block using `"""`, import statements, and definition of `__all__`.
+2. `__init__.py` must never import anything that's not defined under this module.
+3. For each sibling file to `__init__.py`, you may import what's defined inside the sibling files, depending on the need of API exposure. You must not import the sibling files themselves. For each sibling folder to `__init__.py`, you may import those as submodule, i.e., import the folders. You must never import anything defined inside that folder. Think of the `__init__.py` files definitions as hierarchical. `__init__.py` must work with and ONLY work with it's immediate children.
+4. `__init__.py` is the ONLY place where `__all__` can be defined. i.e., `__all__` must never appear anywhere else.
+5. `__init__.py` must go through `isort` (see below), and the items in `__all__` must match exactly the imported items, and in the exact same ordering defined by `isort`.
+6. User code folders (as defined above) must never contain ANY `__init__.py` files. This is strict.
 
 ### 2.5. How to write import statements
 
@@ -74,31 +79,61 @@ Sometimes, you need to add repo root to `sys.path`, in order to use the packages
    1. Must be conditional (avoid duplicates). Do a `if str(REPO_ROOT) not in sys.path`.
    2. Must use `sys.path.append`, rather than `sys.path.insert`.
 
-### 2.6. Code Tidiness
+### 2.6. How to write dash apps
+
+Rules:
+1. How to define layout:
+   1. Must make a folder called `layout`.
+   2. Layout must separate the definition of components and styles into different folders/files.
+   3. The main API must be exactly `def build_layout(app: Dash) -> None`, where you define `layout` and then assign to the `app` as `app.layout = layout`.
+   4. Organize the layout definition hierarchically. Think of the web components as a tree structure. The layout builders should reflect the design of the parent-children relations of the web components.
+2. How to define callbacks:
+   1. Each callback must contain exactly one `Input`.
+   2. Each callback must be defined in a separate file.
+   3. Callback functions are not exceptions of the type annotation rules or input validation rules, as defined in other sections of this doc.
+   4. Dash callback functions typically need another layer to check for the trigger for mid-to-complex apps. e.g., when there are dynamically created dash components. Be careful with validating if the trigger of the callback is from the actual expected source. If not, then you should use `raise PreventUpdate` to short-circuit the callback. This should be implemented by helper functions of the form `validate_trigger(...) -> None`, called directly by the callbacks. the `validate_trigger` function should have `raise PreventUpdate` statements under various conditions.
+3. Do not do `app.run_server`, because `app.run_server` is just wrong code. You should do `app.run`. Also, you must always use `host=0.0.0.0`, `port=args.port`, and `debug=False` and make a CLI arg automatically on yourself called `--port`, with some default value.
+4. Be careful to the use of multiple callbacks pointing to same `Output` case. Use `allow_duplicate` wisely.
+
+### 2.7. How to write type annotations
+
+Rules:
+1. You should always make type annotations, especially for the function input args and output.
+2. You must never use `object` for type annotation. That's useless.
+3. Use `List` from `typing` instead of `list`, `Tuple` from `typing` instead of `tuple`, and `Dict` from `typing` instead of `dict`.
+4. Never define types or classes and annotate using defined types or classes.
+
+### 2.8. Code Tidiness
+
+1. Constantly clean up unused variables during implementation and unused imports. For unused function/method args, you need to be careful, because those might be intentionally unused. e.g., a base class defines a method prototype to have a certain arg, but some subclasses use it and other subclasses don't use it.
+2. It's good practice to periodically (in batches) run both `black` and `isort` on the files within which you just made changes. Rules:
+   1. Never run `black` or `isort` on the files you haven't touched - those files are unrelated to the current task and hence should not create any changes. Principle: stay within the scope of your task and do not do anything irrelevant.
+   2. Always run `black` with a very short timeout. When timeout occurs, you should ignore timeout issues. `black`'s formatting finishes almost immediately. No need to wait for anything.
+
+### 2.9. Code Structure
 
 1. It is bad to make variable aliasing. i.e., you immediately rename a variable to something else, like xxx = yyy. This is common in case when you are making a long sequence of code patches. When you see this, you should stop creating aliasing and rename all subsequent reference to use the original variable name. Note that it is not always the case that xxx = yyy is making an alias. Some times this is just doing initialization. I'm just warning you about this.
-2. Constantly clean up unused variables during implementation and unused imports. For unused function/method args, you need to be careful, because those might be intentionally unused. e.g., a base class defines a method prototype to have a certain arg, but some subclasses use it and other subclasses don't use it.
-3. It's good practice to run both `black` and `isort` on the files you just made changes within. Rules:
-   1. Never run `black` or `isort` on the files you haven't touched - those files are unrelated to the current task and hence should not create any changes. Principle: stay within the scope of your task and do not do anything irrelevant.
-   2. Always run `black` with a very short timeout.
-4. The ordering of the args when calling a function, and the order of the input validation assert statements in the function definition, must both follow the same order as the function args.
+2. It is bad to make a function, or a method, that only does trivial things, because these functions/methods only adds unnecessary call stack to the program and does not contribute to code modularity, reusability, and such.
+3. Some times there are multiple parts for the code of a function/method and the parts are actually independent. However, you often write code so that the lines for part A is mixed together with lines for part B, making the code hard to understand. You should learn to implement separation of concerns. You either create helper methods, or you make code chunks separated by symbolic comments like `# ---` or `# ===` or whatever.
 
-### 2.7. Code Structure
+### 2.10. Code Readability
 
-1. It is bad to make a function, or a method, that only does trivial things, because these functions/methods only adds unnecessary call stack to the program and does not contribute to code modularity, reusability, and such.
-2. Some times there are multiple parts for the code of a function/method and the parts are actually independent. However, you often write code so that the lines for part A is mixed together with lines for part B, making the code hard to understand. You should learn to implement separation of concerns. You either create helper methods, or you make code chunks separated by symbolic comments like `# ---` or `# ===` or whatever.
+1. If a function call has more than 3 arguments (positional, or keyword), you must call the function with `func(xxx=xxx, yyy=yyy, ...)`. i.e., ALL args should be called as keyword args. The reason is that with functions with many args, it is easy to mess up with the ordering.
+2. The ordering of the args when calling a function, and the order of the input validation assert statements in the function definition, must both follow the same order as the function args.
 
-### 2.8. Code Quality
-
-1. You should always make type annotations, especially for the function input args and output.
-2. If a function call has more than 3 arguments (positional, or keyword), you must call the function with `func(xxx=xxx, yyy=yyy, ...)`. i.e., ALL args should be called as keyword args. The reason is that with functions with many args, it is easy to mess up with the ordering.
-
-### 2.9. First-Principle Rule
+### 2.11. First-Principle Rule
 
 1. During long sequence of code patches, you often make fallbacks/legacy code. You should never have those. We always move forward.
 
-### 2.10. Others
+### 2.12. Others
 
 1. Unless I request explicitly, never create any data classes.
 2. `from __future__ import annotations` should never be used. No new instances of such import shall be created. If any existing instance is spotted, it should be removed immediately regardless or anything else. If the removal creates any problems, the problems should be fixed in alternative ways, which I believe WILL be better than introducing `from __future__ import annotations`.
-3. When I let you create dash app, you should not do `app.run_server`, because `app.run_server` is wrong. You should do `app.run`. Also, you must always use host `0.0.0.0` and `debug=False` and make a CLI arg automatically on yourself called `--port`, with some default value.
+
+## 3. About coding workflow
+
+Rule: never do any `git` commit that is not read-only, e.g., `git add`, `git commit`, `git push`, `git pull`, `git rebase`, `git stash`, etc.
+
+Suggestion: git diff is always your friend. You should review what you did constantly. Use git diff wisely, e.g., `git diff --staged`, `git diff --cached`, `git diff --stat`, etc.
+
+I prove your changes by doing `git add` and `git commit` manually myself. If you notice that some of your changes is gone from `git diff`, you should think if it's a failure of changes applying to the files, or if it's because of my add and commit. You should think of my add and commit as (weak) "approval" of your changes - subject to the additional follow-up prompts I give you to make follow-up code changes. Pay more attention to what's left un-added or un-committed and the follow-up prompts I give. Those are usually strong indications of the remaining work to be done.
