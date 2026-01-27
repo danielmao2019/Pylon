@@ -3,9 +3,10 @@
 import math
 from typing import Any, Dict, List, Optional
 
-from dash import dcc, html
+from dash import Dash, dcc, html
 from dash_extensions import Keyboard
 
+from data.viewer.ivision.context import get_viewer_context
 from data.viewer.ivision.layout.styles import (
     CAMERA_SELECTOR_SCROLLABLE_STYLE,
     KEYBOARD_STYLE,
@@ -25,6 +26,16 @@ CAMERA_SELECTOR_ROOT_ID = "camera-selector-root"
 CAMERA_OVERLAY_TOGGLE_STORE_ID = "camera-overlay-toggle-store"
 CAMERA_OVERLAY_TOGGLE_BUTTON_ID = "camera-overlay-toggle-button"
 MODEL_STORE_CONTAINER_ID = "model-store-container"
+
+
+def build_layout(app: Dash) -> None:
+    # Input validations
+    assert isinstance(app, Dash), f"app must be Dash, got {type(app)}"
+
+    viewer = get_viewer_context().viewer
+    dataset_options = [{"label": name, "value": name} for name in viewer.dataset_order]
+    layout = build_app_layout(dataset_options=dataset_options)
+    app.layout = layout
 
 
 def build_app_layout(dataset_options: List[Dict[str, Any]]) -> html.Div:

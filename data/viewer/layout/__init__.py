@@ -1,22 +1,23 @@
-"""
-DATA.VIEWER.UI API
-"""
+"""Layout exports for the dataset viewer."""
 
-# Import all UI components
-from data.viewer.layout.display.dataset import create_dataset_info_display
-from data.viewer.layout.controls.dataset import create_dataset_selector, create_reload_button
+from data.viewer.layout.app import build_layout
+from data.viewer.layout.controls.dataset import (
+    create_dataset_selector,
+    create_reload_button,
+)
 from data.viewer.layout.controls.navigation import create_navigation_controls
-from data.viewer.layout.controls.transforms import create_transform_checkboxes, create_transforms_section
-from data.viewer.layout.app import create_app_layout
-
+from data.viewer.layout.controls.transforms import (
+    create_transform_checkboxes,
+    create_transforms_section,
+)
+from data.viewer.layout.display.dataset import create_dataset_info_display
 
 __all__ = [
-    'create_dataset_selector',
-    'create_reload_button',
-    'create_navigation_controls',
-    'create_3d_controls',
-    'create_dataset_info_display',
-    'create_transform_checkboxes',
-    'create_transforms_section',
-    'create_app_layout',
+    "build_layout",
+    "create_dataset_selector",
+    "create_reload_button",
+    "create_navigation_controls",
+    "create_dataset_info_display",
+    "create_transform_checkboxes",
+    "create_transforms_section",
 ]

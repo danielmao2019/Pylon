@@ -12,22 +12,25 @@ Data Flow:
 3. create_point_cloud_figure -> torch.Tensor ONLY (enforced by assertions)
 4. Plotly visualization -> numpy conversion (internal, at the very end)
 """
-from typing import Dict, Optional, Union, Any, Tuple
+
 import logging
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objects as go
 import torch
 
-from data.viewer.utils.segmentation import get_color
-from data.transforms.vision_3d.pclod import create_lod_function
-from data.structures.three_d.point_cloud.random_select import RandomSelect
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.random_select import RandomSelect
+from data.transforms.vision_3d.pclod import create_lod_function
+from data.viewer.utils.segmentation import get_color
 
 logger = logging.getLogger(__name__)
 
 
-def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]:
+def build_point_cloud_id(
+    datapoint: Dict[str, Any], component: str
+) -> Tuple[str, int, str]:
     """Build structured point cloud ID from datapoint context.
 
     Args:
@@ -43,15 +46,16 @@ def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str
     assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
     assert isinstance(component, str), f"component must be str, got {type(component)}"
 
-    from data.viewer.callbacks import registry  # Import here to avoid circular imports
+    from data.viewer.context import get_viewer_context
 
     meta_info = datapoint.get('meta_info', {})
     datapoint_idx = meta_info.get('idx', 0)
 
-    # Get dataset name from backend (handles case where app isn't fully initialized)
-    dataset_name = 'unknown'
-    if hasattr(registry, 'viewer') and hasattr(registry.viewer, 'backend'):
-        dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
+    # Get dataset name from backend (requires viewer context to be initialized)
+    dataset_name = get_viewer_context().backend.current_dataset
+    assert isinstance(
+        dataset_name, str
+    ), f"current_dataset must be str, got {type(dataset_name)}"
 
     return (dataset_name, datapoint_idx, component)
 
@@ -89,7 +93,9 @@ def _convert_labels_to_colors_torch(labels: torch.Tensor) -> torch.Tensor:
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
+    assert isinstance(
+        labels, torch.Tensor
+    ), f"labels must be torch.Tensor, got {type(labels)}"
     assert labels.ndim == 1, f"labels must be 1D, got shape {labels.shape}"
 
     device = labels.device
@@ -108,13 +114,15 @@ def _convert_labels_to_colors_torch(labels: torch.Tensor) -> torch.Tensor:
         b = int(color_hex[5:7], 16)
 
         # Apply to matching labels
-        mask = (labels == label)
+        mask = labels == label
         colors[mask, :] = torch.tensor([r, g, b], dtype=torch.uint8, device=device)
 
     return colors
 
 
-def _extract_default_camera_from_figure(fig: go.Figure, points: torch.Tensor) -> Dict[str, Any]:
+def _extract_default_camera_from_figure(
+    fig: go.Figure, points: torch.Tensor
+) -> Dict[str, Any]:
     """Extract Plotly's auto-calculated camera state from a figure.
 
     When camera_state=None, Plotly automatically calculates optimal camera positioning.
@@ -139,11 +147,17 @@ def _extract_default_camera_from_figure(fig: go.Figure, points: torch.Tensor) ->
     # Create camera state in Plotly format
     camera_state = {
         'eye': {'x': float(eye_pos[0]), 'y': float(eye_pos[1]), 'z': float(eye_pos[2])},
-        'center': {'x': float(pc_center[0]), 'y': float(pc_center[1]), 'z': float(pc_center[2])},
-        'up': {'x': 0, 'y': 0, 'z': 1}
+        'center': {
+            'x': float(pc_center[0]),
+            'y': float(pc_center[1]),
+            'z': float(pc_center[2]),
+        },
+        'up': {'x': 0, 'y': 0, 'z': 1},
     }
 
-    logger.info(f"Extracted auto-calculated camera state: eye={camera_state['eye']}, center={camera_state['center']}")
+    logger.info(
+        f"Extracted auto-calculated camera state: eye={camera_state['eye']}, center={camera_state['center']}"
+    )
     return camera_state
 
 
@@ -158,7 +172,7 @@ def _apply_lod_processing(
     point_opacity: float,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]],
     original_count: int,
-    title: str
+    title: str,
 ) -> Tuple[PointCloud, str]:
     """Apply LOD processing to point cloud data.
 
@@ -187,7 +201,9 @@ def _apply_lod_processing(
     if lod_type in ["continuous", "discrete"]:
         if camera_state is None:
             # Create initial figure to let Plotly auto-calculate camera, then extract it
-            logger.info(f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state")
+            logger.info(
+                f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state"
+            )
             temp_fig = _create_point_cloud_figure(
                 pc=pc_dict,
                 color_key=key,
@@ -196,9 +212,11 @@ def _apply_lod_processing(
                 point_size=point_size,
                 point_opacity=point_opacity,
                 axis_ranges=axis_ranges,
-                camera_state=None
+                camera_state=None,
             )
-            effective_camera_state = _extract_default_camera_from_figure(temp_fig, pc_dict.xyz)
+            effective_camera_state = _extract_default_camera_from_figure(
+                temp_fig, pc_dict.xyz
+            )
         else:
             effective_camera_state = camera_state
 
@@ -211,9 +229,7 @@ def _apply_lod_processing(
 
     # Create LOD function using factory
     lod_function = create_lod_function(
-        lod_type=lod_type,
-        lod_config=effective_lod_config,
-        point_cloud_id=normalized_id
+        lod_type=lod_type, lod_config=effective_lod_config, point_cloud_id=normalized_id
     )
 
     # Apply LOD processing
@@ -226,19 +242,31 @@ def _apply_lod_processing(
     updated_title = title
     if lod_type == "density" and len(points_tensor) < original_count:
         density_pct = effective_lod_config.get('density', 100)
-        density_suffix = f" (Density: {density_pct}%: {len(points_tensor):,}/{original_count:,})"
+        density_suffix = (
+            f" (Density: {density_pct}%: {len(points_tensor):,}/{original_count:,})"
+        )
         updated_title = f"{title}{density_suffix}"
-        logger.info(f"Density applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
+        logger.info(
+            f"Density applied successfully: {original_count} -> {len(points_tensor)} points, title updated"
+        )
     elif lod_type in ["continuous", "discrete"] and len(points_tensor) < original_count:
-        lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
+        lod_suffix = (
+            f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
+        )
         updated_title = f"{title}{lod_suffix}"
-        logger.info(f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
+        logger.info(
+            f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated"
+        )
     else:
-        logger.info(f"No LOD/Density title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}")
+        logger.info(
+            f"No LOD/Density title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}"
+        )
 
     # Handle edge case of empty point clouds
     if len(points_tensor) == 0:
-        processed_pc.xyz = torch.tensor([[0, 0, 0]], dtype=torch.float32, device=processed_pc.device)
+        processed_pc.xyz = torch.tensor(
+            [[0, 0, 0]], dtype=torch.float32, device=processed_pc.device
+        )
 
     return processed_pc, updated_title
 
@@ -247,7 +275,7 @@ def _apply_browser_downsampling(
     processed_pc: PointCloud,
     highlight_indices: Optional[torch.Tensor],
     original_count: int,
-    title: str
+    title: str,
 ) -> Tuple[PointCloud, Optional[torch.Tensor], str]:
     """Apply browser downsampling to point cloud data for memory limits.
 
@@ -268,12 +296,16 @@ def _apply_browser_downsampling(
     if len(points_tensor) <= MAX_BROWSER_POINTS:
         return processed_pc, highlight_indices, title
 
-    logger.info(f"Applying browser downsampling: {len(points_tensor)} -> {MAX_BROWSER_POINTS} points")
+    logger.info(
+        f"Applying browser downsampling: {len(points_tensor)} -> {MAX_BROWSER_POINTS} points"
+    )
 
     # Use RandomSelect for browser downsampling with deterministic seeding
     # This maintains index chaining and provides reproducible results
     browser_downsample = RandomSelect(count=MAX_BROWSER_POINTS)
-    downsampled_pc = browser_downsample(processed_pc, seed=42)  # Fixed seed for reproducibility
+    downsampled_pc = browser_downsample(
+        processed_pc, seed=42
+    )  # Fixed seed for reproducibility
 
     # Get final chained indices relative to original point cloud
     # These indices map from final points back to original point cloud
@@ -284,8 +316,12 @@ def _apply_browser_downsampling(
     if highlight_indices is not None and final_indices is not None:
         # Create a reverse mapping from original indices to new positions
         # final_indices contains the original indices that were selected
-        reverse_mapping = torch.full((original_count,), -1, dtype=torch.int64, device=highlight_indices.device)
-        new_positions = torch.arange(len(final_indices), dtype=torch.int64, device=highlight_indices.device)
+        reverse_mapping = torch.full(
+            (original_count,), -1, dtype=torch.int64, device=highlight_indices.device
+        )
+        new_positions = torch.arange(
+            len(final_indices), dtype=torch.int64, device=highlight_indices.device
+        )
         reverse_mapping[final_indices] = new_positions
 
         # Map highlight_indices to new positions
@@ -302,7 +338,9 @@ def _apply_browser_downsampling(
             updated_highlight_indices = filtered_highlight_indices
 
     # Update title to show downsampling
-    updated_title = f"{title} (Browser limit: {MAX_BROWSER_POINTS:,}/{original_count:,})"
+    updated_title = (
+        f"{title} (Browser limit: {MAX_BROWSER_POINTS:,}/{original_count:,})"
+    )
 
     return downsampled_pc, updated_highlight_indices, updated_title
 
@@ -341,7 +379,9 @@ def _create_point_cloud_figure(
 
     # Extract points from PointCloud
     points = pc.xyz
-    assert isinstance(points, torch.Tensor), f"Expected torch.Tensor for points, got {type(points)}"
+    assert isinstance(
+        points, torch.Tensor
+    ), f"Expected torch.Tensor for points, got {type(points)}"
     assert points.ndim == 2, f"Expected 2D tensor [N,3], got shape {points.shape}"
     assert points.shape[1] == 3, f"Expected 3 coordinates, got {points.shape[1]}"
     assert points.numel() > 0, f"Point cloud cannot be empty"
@@ -349,11 +389,17 @@ def _create_point_cloud_figure(
     # CORRECTED LOGIC: Check color_key first, then fall back to 'rgb'
     if color_key is not None:
         # color_key is provided - use pc[color_key]
-        assert hasattr(pc, color_key), f"color_key '{color_key}' must exist on point cloud"
+        assert hasattr(
+            pc, color_key
+        ), f"color_key '{color_key}' must exist on point cloud"
 
         labels = getattr(pc, color_key)
-        assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
-        assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
+        assert isinstance(
+            labels, torch.Tensor
+        ), f"labels must be torch.Tensor, got {type(labels)}"
+        assert (
+            labels.shape[0] == points.shape[0]
+        ), f"labels length {labels.shape[0]} != points length {points.shape[0]}"
 
         # Determine color_type: use provided arg or guess from color_key
         if color_type is None:
@@ -363,10 +409,17 @@ def _create_point_cloud_figure(
             elif color_key == 'density':
                 color_type = 'regression'
             else:
-                raise ValueError(f"Cannot infer color_type from color_key '{color_key}'. Please specify color_type as 'classification' or 'regression'")
+                raise ValueError(
+                    f"Cannot infer color_type from color_key '{color_key}'. Please specify color_type as 'classification' or 'regression'"
+                )
 
-        assert isinstance(color_type, str), f"color_type must be str, got {type(color_type)}"
-        assert color_type in ["classification", "regression"], f"color_type must be 'classification' or 'regression', got {color_type!r}"
+        assert isinstance(
+            color_type, str
+        ), f"color_type must be str, got {type(color_type)}"
+        assert color_type in [
+            "classification",
+            "regression",
+        ], f"color_type must be 'classification' or 'regression', got {color_type!r}"
 
         # Prepare marker dict based on color_type
         if color_type == 'classification':
@@ -385,23 +438,36 @@ def _create_point_cloud_figure(
                 'showscale': True,
                 'colorbar': dict(title=color_key or 'Value'),
                 'cmin': cmin,
-                'cmax': cmax
+                'cmax': cmax,
             }
     else:
         # No color_key provided - use rgb if present, otherwise default color
         assert hasattr(pc, 'rgb'), "'rgb' must exist when color_key is not provided"
         colors = pc.rgb
-        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
-        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
+        assert isinstance(
+            colors, torch.Tensor
+        ), f"colors must be torch.Tensor, got {type(colors)}"
+        assert (
+            colors.shape[0] == points.shape[0]
+        ), f"colors length {colors.shape[0]} != points length {points.shape[0]}"
         colors_np = colors.cpu().numpy()
         marker_color_config = {'color': colors_np}
 
     # Input validation for highlight_indices
     if highlight_indices is not None:
-        assert isinstance(highlight_indices, torch.Tensor), f"highlight_indices must be torch.Tensor, got {type(highlight_indices)}"
-        assert highlight_indices.dtype in [torch.int32, torch.int64], f"highlight_indices must be integer tensor, got {highlight_indices.dtype}"
-        assert torch.all(highlight_indices >= 0), f"highlight_indices must be non-negative, got min: {highlight_indices.min()}"
-        assert torch.all(highlight_indices < len(points)), f"highlight_indices must be < len(points)={len(points)}, got max: {highlight_indices.max()}"
+        assert isinstance(
+            highlight_indices, torch.Tensor
+        ), f"highlight_indices must be torch.Tensor, got {type(highlight_indices)}"
+        assert highlight_indices.dtype in [
+            torch.int32,
+            torch.int64,
+        ], f"highlight_indices must be integer tensor, got {highlight_indices.dtype}"
+        assert torch.all(
+            highlight_indices >= 0
+        ), f"highlight_indices must be non-negative, got min: {highlight_indices.min()}"
+        assert torch.all(
+            highlight_indices < len(points)
+        ), f"highlight_indices must be < len(points)={len(points)}, got max: {highlight_indices.max()}"
 
     # Convert points to numpy for Plotly
     points_np = points.cpu().numpy()
@@ -420,10 +486,14 @@ def _create_point_cloud_figure(
         # Create separate traces for highlighted and non-highlighted points
         if non_highlight_mask.any():  # Add non-highlighted points trace
             # Prepare marker config for non-highlighted points
-            marker_config = dict(size=point_size, opacity=point_opacity * 0.05)  # Decreased opacity
+            marker_config = dict(
+                size=point_size, opacity=point_opacity * 0.05
+            )  # Decreased opacity
 
             # Apply color configuration with masking
-            assert 'color' in marker_color_config, f"marker_color_config must have 'color' key, got keys: {list(marker_color_config.keys())}"
+            assert (
+                'color' in marker_color_config
+            ), f"marker_color_config must have 'color' key, got keys: {list(marker_color_config.keys())}"
             marker_config.update(marker_color_config)
             marker_config['color'] = marker_color_config['color'][non_highlight_mask]
 
@@ -434,7 +504,7 @@ def _create_point_cloud_figure(
                 mode='markers',
                 marker=marker_config,
                 hoverinfo='skip',
-                showlegend=False
+                showlegend=False,
             )
 
             fig.add_trace(go.Scatter3d(**non_highlight_kwargs))
@@ -444,7 +514,9 @@ def _create_point_cloud_figure(
             marker_config = dict(size=point_size, opacity=point_opacity)  # Full opacity
 
             # Apply color configuration with masking
-            assert 'color' in marker_color_config, f"marker_color_config must have 'color' key, got keys: {list(marker_color_config.keys())}"
+            assert (
+                'color' in marker_color_config
+            ), f"marker_color_config must have 'color' key, got keys: {list(marker_color_config.keys())}"
             marker_config.update(marker_color_config)
             marker_config['color'] = marker_color_config['color'][highlight_mask]
             marker_config['showscale'] = False  # Don't show scale twice
@@ -456,7 +528,7 @@ def _create_point_cloud_figure(
                 mode='markers',
                 marker=marker_config,
                 hoverinfo='skip',
-                showlegend=False
+                showlegend=False,
             )
 
             fig.add_trace(go.Scatter3d(**highlight_kwargs))
@@ -472,16 +544,22 @@ def _create_point_cloud_figure(
             mode='markers',
             marker=marker_config,
             hoverinfo='skip',
-            showlegend=False
+            showlegend=False,
         )
 
         fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
 
     # Calculate bounding box - use provided ranges if available, otherwise compute from data
     if axis_ranges:
-        x_range = list(axis_ranges.get('x', [points_np[:, 0].min(), points_np[:, 0].max()]))
-        y_range = list(axis_ranges.get('y', [points_np[:, 1].min(), points_np[:, 1].max()]))
-        z_range = list(axis_ranges.get('z', [points_np[:, 2].min(), points_np[:, 2].max()]))
+        x_range = list(
+            axis_ranges.get('x', [points_np[:, 0].min(), points_np[:, 0].max()])
+        )
+        y_range = list(
+            axis_ranges.get('y', [points_np[:, 1].min(), points_np[:, 1].max()])
+        )
+        z_range = list(
+            axis_ranges.get('z', [points_np[:, 2].min(), points_np[:, 2].max()])
+        )
     else:
         x_range = [points_np[:, 0].min(), points_np[:, 0].max()]
         y_range = [points_np[:, 1].min(), points_np[:, 1].max()]
@@ -495,7 +573,7 @@ def _create_point_cloud_figure(
         aspectmode='data',  # Use data aspect mode for proper point cloud scaling
         xaxis=dict(range=x_range),
         yaxis=dict(range=y_range),
-        zaxis=dict(range=z_range)
+        zaxis=dict(range=z_range),
     )
 
     # Only apply camera if provided (for syncing views)
@@ -520,7 +598,7 @@ def create_point_cloud_display(
     lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> go.Figure:
     """Create point cloud display with LOD optimization.
 
@@ -556,36 +634,64 @@ def create_point_cloud_display(
     # Extract points, colors, and labels from PointCloud
     points = pc.xyz
     colors = getattr(pc, 'rgb', None)
-    labels = getattr(pc, color_key) if color_key is not None and hasattr(pc, color_key) else None
+    labels = (
+        getattr(pc, color_key)
+        if color_key is not None and hasattr(pc, color_key)
+        else None
+    )
 
     # Validate extracted tensors
-    assert isinstance(points, torch.Tensor), f"Expected torch.Tensor for pc.xyz, got {type(points)}"
+    assert isinstance(
+        points, torch.Tensor
+    ), f"Expected torch.Tensor for pc.xyz, got {type(points)}"
 
-    logger.info(f"create_point_cloud_display called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
+    logger.info(
+        f"create_point_cloud_display called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}"
+    )
     assert points.ndim == 2, f"Expected 2D tensor [N,3], got shape {points.shape}"
     assert points.shape[1] == 3, f"Expected 3 coordinates, got {points.shape[1]}"
     assert points.numel() > 0, f"Point cloud cannot be empty"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
-    assert isinstance(point_size, (int, float)), f"Expected numeric point_size, got {type(point_size)}"
-    assert isinstance(point_opacity, (int, float)), f"Expected numeric point_opacity, got {type(point_opacity)}"
-    assert 0.0 <= point_opacity <= 1.0, f"point_opacity must be in [0,1], got {point_opacity}"
+    assert isinstance(
+        point_size, (int, float)
+    ), f"Expected numeric point_size, got {type(point_size)}"
+    assert isinstance(
+        point_opacity, (int, float)
+    ), f"Expected numeric point_opacity, got {type(point_opacity)}"
+    assert (
+        0.0 <= point_opacity <= 1.0
+    ), f"point_opacity must be in [0,1], got {point_opacity}"
 
     if colors is not None:
-        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
-        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
+        assert isinstance(
+            colors, torch.Tensor
+        ), f"colors must be torch.Tensor, got {type(colors)}"
+        assert (
+            colors.shape[0] == points.shape[0]
+        ), f"colors length {colors.shape[0]} != points length {points.shape[0]}"
 
     if labels is not None:
-        assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
-        assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
+        assert isinstance(
+            labels, torch.Tensor
+        ), f"labels must be torch.Tensor, got {type(labels)}"
+        assert (
+            labels.shape[0] == points.shape[0]
+        ), f"labels length {labels.shape[0]} != points length {points.shape[0]}"
 
     if camera_state is not None:
-        assert isinstance(camera_state, dict), f"camera_state must be dict, got {type(camera_state)}"
+        assert isinstance(
+            camera_state, dict
+        ), f"camera_state must be dict, got {type(camera_state)}"
 
     if lod_config is not None:
-        assert isinstance(lod_config, dict), f"lod_config must be dict, got {type(lod_config)}"
+        assert isinstance(
+            lod_config, dict
+        ), f"lod_config must be dict, got {type(lod_config)}"
 
     if axis_ranges is not None:
-        assert isinstance(axis_ranges, dict), f"axis_ranges must be dict, got {type(axis_ranges)}"
+        assert isinstance(
+            axis_ranges, dict
+        ), f"axis_ranges must be dict, got {type(axis_ranges)}"
 
     original_count = len(points)
 
@@ -601,7 +707,7 @@ def create_point_cloud_display(
         point_opacity=point_opacity,
         axis_ranges=axis_ranges,
         original_count=original_count,
-        title=title
+        title=title,
     )
 
     # Apply browser downsampling for memory limits
@@ -609,7 +715,7 @@ def create_point_cloud_display(
         processed_pc=processed_pc,
         highlight_indices=highlight_indices,
         original_count=original_count,
-        title=title
+        title=title,
     )
 
     # Create final figure with LOD-processed data
@@ -621,7 +727,7 @@ def create_point_cloud_display(
         point_size=point_size,
         point_opacity=point_opacity,
         axis_ranges=axis_ranges,
-        camera_state=camera_state
+        camera_state=camera_state,
     )
 
     fig.update_layout(
@@ -637,7 +743,7 @@ def create_point_cloud_display(
 def get_point_cloud_display_stats(
     pc_dict: PointCloud,
     change_map: Optional[torch.Tensor] = None,
-    class_names: Optional[Dict[int, str]] = None
+    class_names: Optional[Dict[int, str]] = None,
 ) -> Dict[str, Any]:
     """Get point cloud statistics for display.
 
@@ -655,17 +761,27 @@ def get_point_cloud_display_stats(
     assert isinstance(pc_dict, PointCloud), f"Expected PointCloud, got {type(pc_dict)}"
 
     points = pc_dict.xyz
-    assert isinstance(points, torch.Tensor), f"Expected torch.Tensor, got {type(points)}"
+    assert isinstance(
+        points, torch.Tensor
+    ), f"Expected torch.Tensor, got {type(points)}"
     assert points.ndim == 2, f"Expected 2D tensor [N,D], got shape {points.shape}"
-    assert points.shape[1] >= 3, f"Expected at least 3 coordinates, got {points.shape[1]}"
+    assert (
+        points.shape[1] >= 3
+    ), f"Expected at least 3 coordinates, got {points.shape[1]}"
     assert points.numel() > 0, f"Point cloud cannot be empty"
 
     if change_map is not None:
-        assert isinstance(change_map, torch.Tensor), f"change_map must be torch.Tensor, got {type(change_map)}"
-        assert change_map.shape[0] == points.shape[0], f"change_map length {change_map.shape[0]} != points length {points.shape[0]}"
+        assert isinstance(
+            change_map, torch.Tensor
+        ), f"change_map must be torch.Tensor, got {type(change_map)}"
+        assert (
+            change_map.shape[0] == points.shape[0]
+        ), f"change_map length {change_map.shape[0]} != points length {points.shape[0]}"
 
     if class_names is not None:
-        assert isinstance(class_names, dict), f"class_names must be dict, got {type(class_names)}"
+        assert isinstance(
+            class_names, dict
+        ), f"class_names must be dict, got {type(class_names)}"
 
     # Convert to numpy for stats computation
     points_np = points.detach().cpu().numpy()
@@ -677,7 +793,11 @@ def get_point_cloud_display_stats(
         'x_range': [float(points_np[:, 0].min()), float(points_np[:, 0].max())],
         'y_range': [float(points_np[:, 1].min()), float(points_np[:, 1].max())],
         'z_range': [float(points_np[:, 2].min()), float(points_np[:, 2].max())],
-        'center': [float(points_np[:, 0].mean()), float(points_np[:, 1].mean()), float(points_np[:, 2].mean())]
+        'center': [
+            float(points_np[:, 0].mean()),
+            float(points_np[:, 1].mean()),
+            float(points_np[:, 2].mean()),
+        ],
     }
 
     # Add class distribution if change_map is provided
@@ -691,10 +811,14 @@ def get_point_cloud_display_stats(
         for cls, count in zip(unique_classes, class_counts):
             percentage = (count / total_points) * 100
             cls_key = cls.item() if hasattr(cls, 'item') else cls
-            class_name = class_names[cls_key] if class_names and cls_key in class_names else f"Class {cls_key}"
+            class_name = (
+                class_names[cls_key]
+                if class_names and cls_key in class_names
+                else f"Class {cls_key}"
+            )
             class_distribution[class_name] = {
                 'count': int(count),
-                'percentage': float(percentage)
+                'percentage': float(percentage),
             }
 
         stats['class_distribution'] = class_distribution

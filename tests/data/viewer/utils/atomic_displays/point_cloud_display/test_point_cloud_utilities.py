@@ -2,6 +2,7 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
@@ -16,6 +17,7 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
 # Fixtures
 # ================================================================================
 
+
 @pytest.fixture
 def point_cloud_3d():
     """Fixture providing 3D point cloud tensor."""
@@ -25,43 +27,32 @@ def point_cloud_3d():
 @pytest.fixture
 def sample_datapoint():
     """Fixture providing sample datapoint for ID building."""
-    return {
-        'meta_info': {'idx': 42},
-        'other_data': 'test'
-    }
+    return {'meta_info': {'idx': 42}, 'other_data': 'test'}
 
 
 @pytest.fixture
-def setup_viewer_registry():
-    """Set up minimal viewer registry for testing."""
-    from data.viewer.callbacks import registry
+def setup_viewer_context():
+    """Set up minimal viewer context for testing."""
+    import data.viewer.context as viewer_context_module
+    from data.viewer.backend import ViewerBackend
+    from data.viewer.context import DatasetViewerContext, set_viewer_context
 
-    class MinimalBackend:
-        def __init__(self):
-            self.current_dataset = 'test_dataset'
+    backend = ViewerBackend()
+    backend.current_dataset = 'test_dataset'
+    context = DatasetViewerContext(backend=backend, available_datasets={})
 
-    class MinimalViewer:
-        def __init__(self):
-            self.backend = MinimalBackend()
-
-    # Store original state
-    original_viewer = getattr(registry, 'viewer', None)
-
-    # Set minimal viewer
-    registry.viewer = MinimalViewer()
+    original_context = viewer_context_module._VIEWER_CONTEXT
+    set_viewer_context(context)
 
     yield
 
-    # Restore original state
-    if original_viewer is not None:
-        registry.viewer = original_viewer
-    elif hasattr(registry, 'viewer'):
-        delattr(registry, 'viewer')
+    viewer_context_module._VIEWER_CONTEXT = original_context
 
 
 # ================================================================================
 # normalize_point_cloud_id Tests
 # ================================================================================
+
 
 def test_normalize_point_cloud_id_string():
     """Test that string IDs pass through unchanged."""
@@ -79,13 +70,16 @@ def test_normalize_point_cloud_id_tuple():
     assert result == "pcr/kitti:42:source"
 
 
-@pytest.mark.parametrize("point_cloud_id,expected", [
-    ("simple_id", "simple_id"),
-    (("pcr/kitti", "42", "source"), "pcr/kitti:42:source"),
-    (("change_detection", "10", "union"), "change_detection:10:union"),
-    (("single",), "single"),
-    (("a", "b", "c", "d"), "a:b:c:d"),
-])
+@pytest.mark.parametrize(
+    "point_cloud_id,expected",
+    [
+        ("simple_id", "simple_id"),
+        (("pcr/kitti", "42", "source"), "pcr/kitti:42:source"),
+        (("change_detection", "10", "union"), "change_detection:10:union"),
+        (("single",), "single"),
+        (("a", "b", "c", "d"), "a:b:c:d"),
+    ],
+)
 def test_normalize_point_cloud_id_various_inputs(point_cloud_id, expected):
     """Test normalize_point_cloud_id with various inputs."""
     result = normalize_point_cloud_id(point_cloud_id)
@@ -95,10 +89,11 @@ def test_normalize_point_cloud_id_various_inputs(point_cloud_id, expected):
 # ================================================================================
 # build_point_cloud_id Tests - Require viewer system setup
 # ================================================================================
-# NOTE: These tests require the full viewer system to be initialized with registry
+# NOTE: These tests require the viewer context to be initialized
 # They should be moved to integration tests or run with proper viewer setup
 
-def test_build_point_cloud_id_basic(sample_datapoint, setup_viewer_registry):
+
+def test_build_point_cloud_id_basic(sample_datapoint, setup_viewer_context):
     """Test basic point cloud ID building."""
     result = build_point_cloud_id(sample_datapoint, "source")
 
@@ -109,7 +104,9 @@ def test_build_point_cloud_id_basic(sample_datapoint, setup_viewer_registry):
     assert result[2] == "source"
 
 
-def test_build_point_cloud_id_different_components(sample_datapoint, setup_viewer_registry):
+def test_build_point_cloud_id_different_components(
+    sample_datapoint, setup_viewer_context
+):
     """Test building IDs with different component names."""
     components = ["source", "target", "union", "intersection"]
 
@@ -118,7 +115,7 @@ def test_build_point_cloud_id_different_components(sample_datapoint, setup_viewe
         assert result[2] == component
 
 
-def test_build_point_cloud_id_missing_meta_info(setup_viewer_registry):
+def test_build_point_cloud_id_missing_meta_info(setup_viewer_context):
     """Test behavior when meta_info is missing (should default to idx=0)."""
     datapoint = {"other_data": "test"}
 
@@ -126,12 +123,12 @@ def test_build_point_cloud_id_missing_meta_info(setup_viewer_registry):
 
     assert isinstance(result, tuple)
     assert len(result) == 3
-    assert isinstance(result[0], str)  # dataset name from registry
+    assert isinstance(result[0], str)  # dataset name from context
     assert result[1] == 0  # default idx when meta_info missing
     assert result[2] == "source"
 
 
-def test_build_point_cloud_id_missing_idx_in_meta_info(setup_viewer_registry):
+def test_build_point_cloud_id_missing_idx_in_meta_info(setup_viewer_context):
     """Test behavior when idx is missing from meta_info (should default to 0)."""
     datapoint = {"meta_info": {"other_field": "value"}}
 
@@ -139,7 +136,7 @@ def test_build_point_cloud_id_missing_idx_in_meta_info(setup_viewer_registry):
 
     assert isinstance(result, tuple)
     assert len(result) == 3
-    assert isinstance(result[0], str)  # dataset name from registry
+    assert isinstance(result[0], str)  # dataset name from context
     assert result[1] == 0  # default idx when not in meta_info
     assert result[2] == "source"
 
@@ -148,13 +145,12 @@ def test_build_point_cloud_id_missing_idx_in_meta_info(setup_viewer_registry):
 # get_point_cloud_display_stats Tests
 # ================================================================================
 
+
 def test_get_point_cloud_display_stats_basic():
     """Test basic point cloud statistics."""
-    points = torch.tensor([
-        [0.0, 0.0, 0.0],
-        [1.0, 1.0, 1.0],
-        [2.0, 2.0, 2.0]
-    ], dtype=torch.float32)
+    points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
 
     pc = PointCloud(xyz=points)
     stats = get_point_cloud_display_stats(pc)
@@ -211,7 +207,8 @@ def test_get_point_cloud_display_stats_invalid_points_shape():
 # Integration Tests for Utility Functions
 # ================================================================================
 
-def test_point_cloud_id_pipeline(sample_datapoint, setup_viewer_registry):
+
+def test_point_cloud_id_pipeline(sample_datapoint, setup_viewer_context):
     """Test complete point cloud ID pipeline."""
     # Build ID
     pc_id = build_point_cloud_id(sample_datapoint, "source")

@@ -1,15 +1,18 @@
+"""Layout exports for the iVISION 4D scene viewer."""
+
 from data.viewer.ivision.layout.components import (
-    build_app_layout,
-    format_camera_info_text,
-    _make_grid_style,
-    _build_camera_selector_layout,
-    _build_camera_overlay_toggle_layout,
-    MODEL_STORE_CONTAINER_ID,
     CAMERA_NONE_VALUE,
+    CAMERA_OVERLAY_TOGGLE_BUTTON_ID,
+    CAMERA_OVERLAY_TOGGLE_STORE_ID,
     CAMERA_SELECTOR_RADIO_TYPE,
     CAMERA_SELECTOR_ROOT_ID,
-    CAMERA_OVERLAY_TOGGLE_STORE_ID,
-    CAMERA_OVERLAY_TOGGLE_BUTTON_ID,
+    MODEL_STORE_CONTAINER_ID,
+    _build_camera_overlay_toggle_layout,
+    _build_camera_selector_layout,
+    _make_grid_style,
+    build_app_layout,
+    build_layout,
+    format_camera_info_text,
 )
 from data.viewer.ivision.layout.styles import (
     CAMERA_SELECTOR_SCROLLABLE_STYLE,
@@ -25,6 +28,7 @@ from data.viewer.ivision.layout.styles import (
 )
 
 __all__ = [
+    "build_layout",
     "build_app_layout",
     "_build_camera_selector_layout",
     "_build_camera_overlay_toggle_layout",

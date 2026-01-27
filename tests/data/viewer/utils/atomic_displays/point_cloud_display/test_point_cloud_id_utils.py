@@ -3,20 +3,41 @@
 Focuses specifically on build_point_cloud_id and normalize_point_cloud_id functions.
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 
 from data.viewer.utils.atomic_displays.point_cloud_display import (
     build_point_cloud_id,
-    normalize_point_cloud_id
+    normalize_point_cloud_id,
 )
+
+
+@pytest.fixture(autouse=True)
+def setup_viewer_context():
+    """Set up viewer context for point cloud ID tests."""
+    import data.viewer.context as viewer_context_module
+    from data.viewer.backend import ViewerBackend
+    from data.viewer.context import DatasetViewerContext, set_viewer_context
+
+    backend = ViewerBackend()
+    backend.current_dataset = "test_dataset"
+    context = DatasetViewerContext(backend=backend, available_datasets={})
+
+    original_context = viewer_context_module._VIEWER_CONTEXT
+    set_viewer_context(context)
+
+    yield
+
+    viewer_context_module._VIEWER_CONTEXT = original_context
 
 
 # ================================================================================
 # build_point_cloud_id Tests
 # ================================================================================
 
+
 def test_build_point_cloud_id_basic():
-    """Test basic point cloud ID generation without initialized registry."""
+    """Test basic point cloud ID generation."""
     datapoint = {"meta_info": {"idx": 42}}
     component = "source"
 
@@ -24,7 +45,7 @@ def test_build_point_cloud_id_basic():
 
     assert isinstance(pc_id, tuple)
     assert len(pc_id) == 3
-    assert pc_id[0] == "unknown"  # Expected when registry.viewer.backend not available
+    assert pc_id[0] == "test_dataset"
     assert pc_id[1] == 42
     assert pc_id[2] == "source"
 
@@ -113,6 +134,7 @@ def test_build_point_cloud_id_different_components():
 # normalize_point_cloud_id Tests
 # ================================================================================
 
+
 def test_normalize_point_cloud_id_basic():
     """Test basic point cloud ID normalization."""
     original_id = "my_point_cloud_123"
@@ -131,7 +153,7 @@ def test_normalize_point_cloud_id_various_inputs():
         "Mixed_Case_ID_456",
         "id-with-dashes",
         "id.with.dots",
-        "id_with_underscores_789"
+        "id_with_underscores_789",
     ]
 
     for original_id in test_ids:
