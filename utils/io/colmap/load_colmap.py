@@ -16,12 +16,8 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-from utils.io.colmap.camera_models import (
-    CAMERA_MODELS,
-    CAMERA_MODEL_NAME_TO_ID,
-    CameraModel,
-)
-from utils.three_d.rotation.quaternion import qvec2rotmat, rotmat2qvec
+from utils.io.colmap.camera_models import CAMERA_MODEL_NAME_TO_ID, CAMERA_MODELS
+from utils.three_d.rotation.quaternion import qvec2rotmat
 
 # COLMAP data structures
 Camera = collections.namedtuple("Camera", ["id", "model", "width", "height", "params"])
@@ -187,6 +183,206 @@ def load_points3D_binary(path_to_model_file: str) -> Dict[int, Point3D]:
             )
 
     return points3D
+
+
+def load_cameras_text(path_to_model_file: str) -> Dict[int, Camera]:
+    """Load cameras from COLMAP text file.
+
+    Args:
+        path_to_model_file: Path to cameras.txt file
+
+    Returns:
+        Dictionary mapping camera ID to Camera object
+    """
+    path = Path(path_to_model_file)
+    assert path.is_file(), f"cameras.txt not found: {path}"
+    cameras: Dict[int, Camera] = {}
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parts = stripped.split()
+        assert len(parts) >= 5, f"Invalid cameras.txt line: {line}"
+        camera_id = int(parts[0])
+        model_name = parts[1]
+        assert (
+            model_name in CAMERA_MODEL_NAME_TO_ID
+        ), f"Unknown camera model name {model_name} in {path}"
+        width = int(parts[2])
+        height = int(parts[3])
+        params = np.array([float(val) for val in parts[4:]], dtype=np.float64)
+        model_id = CAMERA_MODEL_NAME_TO_ID[model_name]
+        expected_params = CAMERA_MODELS[model_id].num_params
+        assert (
+            params.size == expected_params
+        ), f"Camera {camera_id} expected {expected_params} params, got {params.size}"
+        cameras[camera_id] = Camera(
+            id=camera_id,
+            model=model_name,
+            width=width,
+            height=height,
+            params=params,
+        )
+    return cameras
+
+
+def load_images_text(path_to_model_file: str) -> Dict[int, Image]:
+    """Load images from COLMAP text file.
+
+    Args:
+        path_to_model_file: Path to images.txt file
+
+    Returns:
+        Dictionary mapping image ID to Image object
+    """
+    path = Path(path_to_model_file)
+    assert path.is_file(), f"images.txt not found: {path}"
+    images: Dict[int, Image] = {}
+    lines = path.read_text(encoding="utf-8").splitlines()
+    line_idx = 0
+    while line_idx < len(lines):
+        line = lines[line_idx].strip()
+        if not line or line.startswith("#"):
+            line_idx += 1
+            continue
+        parts = line.split()
+        assert len(parts) >= 10, f"Invalid images.txt line: {lines[line_idx]}"
+        image_id = int(parts[0])
+        qvec = np.array(
+            [
+                float(parts[1]),
+                float(parts[2]),
+                float(parts[3]),
+                float(parts[4]),
+            ],
+            dtype=np.float64,
+        )
+        tvec = np.array(
+            [
+                float(parts[5]),
+                float(parts[6]),
+                float(parts[7]),
+            ],
+            dtype=np.float64,
+        )
+        camera_id = int(parts[8])
+        name = " ".join(parts[9:])
+        line_idx += 1
+        assert line_idx < len(
+            lines
+        ), f"Missing points2D line for image {image_id} in {path}"
+        points_line = lines[line_idx].strip()
+        if points_line:
+            point_parts = points_line.split()
+            assert (
+                len(point_parts) % 3 == 0
+            ), f"Invalid points2D line for image {image_id}: {lines[line_idx]}"
+            num_points = len(point_parts) // 3
+            xys = np.empty((num_points, 2), dtype=np.float64)
+            point3d_ids = np.empty((num_points,), dtype=np.int64)
+            for idx in range(num_points):
+                base = idx * 3
+                xys[idx, 0] = float(point_parts[base])
+                xys[idx, 1] = float(point_parts[base + 1])
+                point3d_ids[idx] = int(point_parts[base + 2])
+        else:
+            xys = np.empty((0, 2), dtype=np.float64)
+            point3d_ids = np.empty((0,), dtype=np.int64)
+        images[image_id] = Image(
+            id=image_id,
+            qvec=qvec,
+            tvec=tvec,
+            camera_id=camera_id,
+            name=name,
+            xys=xys,
+            point3D_ids=point3d_ids,
+        )
+        line_idx += 1
+    return images
+
+
+def load_points3D_text(path_to_model_file: str) -> Dict[int, Point3D]:
+    """Load 3D points from COLMAP text file.
+
+    Args:
+        path_to_model_file: Path to points3D.txt file
+
+    Returns:
+        Dictionary mapping point ID to Point3D object
+    """
+    path = Path(path_to_model_file)
+    assert path.is_file(), f"points3D.txt not found: {path}"
+    points3D: Dict[int, Point3D] = {}
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parts = stripped.split()
+        assert len(parts) >= 8, f"Invalid points3D.txt line: {line}"
+        point_id = int(parts[0])
+        xyz = np.array(
+            [
+                float(parts[1]),
+                float(parts[2]),
+                float(parts[3]),
+            ],
+            dtype=np.float64,
+        )
+        rgb = np.array(
+            [
+                int(parts[4]),
+                int(parts[5]),
+                int(parts[6]),
+            ],
+            dtype=np.uint8,
+        )
+        error = float(parts[7])
+        track_parts = parts[8:]
+        assert (
+            len(track_parts) % 2 == 0
+        ), f"Invalid track data for point {point_id}: {line}"
+        track_len = len(track_parts) // 2
+        image_ids = np.empty((track_len,), dtype=np.int32)
+        point2d_idxs = np.empty((track_len,), dtype=np.int32)
+        for idx in range(track_len):
+            base = idx * 2
+            image_ids[idx] = int(track_parts[base])
+            point2d_idxs[idx] = int(track_parts[base + 1])
+        points3D[point_id] = Point3D(
+            id=point_id,
+            xyz=xyz,
+            rgb=rgb,
+            error=error,
+            image_ids=image_ids,
+            point2D_idxs=point2d_idxs,
+        )
+    return points3D
+
+
+def load_model_text(
+    path: str,
+) -> Tuple[Dict[int, Camera], Dict[int, Image], Dict[int, Point3D]]:
+    """Load COLMAP model from text files.
+
+    Args:
+        path: Path to directory containing cameras.txt, images.txt, points3D.txt
+
+    Returns:
+        Tuple of (cameras, images, points3D) dictionaries
+    """
+    path_obj = Path(path)
+    cameras_file = path_obj / "cameras.txt"
+    images_file = path_obj / "images.txt"
+    points3D_file = path_obj / "points3D.txt"
+    assert cameras_file.exists(), f"cameras.txt not found: {cameras_file}"
+    assert images_file.exists(), f"images.txt not found: {images_file}"
+    assert points3D_file.exists(), f"points3D.txt not found: {points3D_file}"
+    cameras = load_cameras_text(str(cameras_file))
+    images = load_images_text(str(images_file))
+    points3D = load_points3D_text(str(points3D_file))
+    return cameras, images, points3D
 
 
 def load_model(

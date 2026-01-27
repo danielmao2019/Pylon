@@ -2,7 +2,6 @@
 
 import math
 import sqlite3
-import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -11,11 +10,12 @@ import pyproj
 import torch
 
 from data.pipelines.base_step import BaseStep
-from utils.io.colmap.load_colmap import CAMERA_MODELS
 from project.datasets.ivision.ivision_dataset_utils import (
     collect_lidar_jpg_paths,
     extract_dji_gps_gimbal_floats,
 )
+from utils.io.colmap.load_colmap import CAMERA_MODELS, Camera, Image, Point3D
+from utils.io.colmap.save_colmap import save_model_binary, save_model_text
 from utils.three_d.rotation.euler import euler_to_matrix
 from utils.three_d.rotation.quaternion import rotmat2qvec
 
@@ -80,14 +80,37 @@ class ColmapInitFromDJIStep(BaseStep):
             png_stems=png_stems, dji_jpg_paths=dji_jpg_paths
         )
         poses = self._compute_poses(png_to_jpg=png_to_jpg)
-        self._write_text_model(
+        colmap_cameras, colmap_images, colmap_points = self._build_colmap_model(
             camera_id=camera_id,
             camera_model=camera_model,
             size=size,
             params=params,
             poses=poses,
         )
-        self._convert_model_to_binary()
+        save_model_text(
+            output_dir=self.text_model_dir,
+            cameras=colmap_cameras,
+            images=colmap_images,
+            points3D=colmap_points,
+        )
+        save_model_binary(
+            output_dir=self.binary_model_dir,
+            cameras=colmap_cameras,
+            images=colmap_images,
+            points3D=colmap_points,
+        )
+        expected_text = [
+            self.text_model_dir / "cameras.txt",
+            self.text_model_dir / "images.txt",
+            self.text_model_dir / "points3D.txt",
+        ]
+        expected_binary = [
+            self.binary_model_dir / "cameras.bin",
+            self.binary_model_dir / "images.bin",
+            self.binary_model_dir / "points3D.bin",
+        ]
+        for path in expected_text + expected_binary:
+            assert path.exists(), f"Missing COLMAP output file: {path}"
         return {}
 
     def _load_camera_from_database(
@@ -177,64 +200,34 @@ class ColmapInitFromDJIStep(BaseStep):
             )
         return poses
 
-    def _write_text_model(
+    def _build_colmap_model(
         self,
         camera_id: int,
         camera_model: str,
         size: Tuple[int, int],
         params: np.ndarray,
         poses: List[Dict[str, Any]],
-    ) -> None:
+    ) -> Tuple[Dict[int, Camera], Dict[int, Image], Dict[int, Point3D]]:
         width, height = size
-        cameras_txt = self.text_model_dir / "cameras.txt"
-        images_txt = self.text_model_dir / "images.txt"
-        points_txt = self.text_model_dir / "points3D.txt"
-        cameras_txt.parent.mkdir(parents=True, exist_ok=True)
-        params_str = " ".join(f"{float(param):.17g}" for param in params)
-        with cameras_txt.open("w", encoding="utf-8") as f:
-            f.write("# Camera list with one line of data per camera:\n")
-            f.write("#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n")
-            f.write(f"{camera_id} {camera_model} {width} {height} {params_str}\n")
-        with images_txt.open("w", encoding="utf-8") as f:
-            f.write("# Image list with two lines of data per image:\n")
-            f.write("#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n")
-            f.write("#   POINTS2D[] as (X, Y, POINT3D_ID)\n")
-            for idx, pose in enumerate(poses, start=1):
-                qvec = pose["qvec"]
-                tvec = pose["tvec"]
-                line = (
-                    f"{idx} "
-                    f"{qvec[0]:.17g} {qvec[1]:.17g} {qvec[2]:.17g} {qvec[3]:.17g} "
-                    f"{tvec[0]:.17g} {tvec[1]:.17g} {tvec[2]:.17g} "
-                    f"{camera_id} {pose['name']}\n"
-                )
-                f.write(line)
-                f.write("\n")
-        with points_txt.open("w", encoding="utf-8") as f:
-            f.write("# 3D point list with one line of data per point:\n")
-            f.write(
-                "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n"
+        colmap_cameras = {
+            camera_id: Camera(
+                id=camera_id,
+                model=camera_model,
+                width=width,
+                height=height,
+                params=params,
             )
-        assert cameras_txt.exists(), f"cameras.txt not written to {cameras_txt}"
-        assert images_txt.exists(), f"images.txt not written to {images_txt}"
-        assert points_txt.exists(), f"points3D.txt not written to {points_txt}"
-
-    def _convert_model_to_binary(self) -> None:
-        cmd = (
-            f"colmap model_converter "
-            f"--input_path {self.text_model_dir} "
-            f"--output_path {self.binary_model_dir} "
-            f"--output_type BIN "
-            f"--log_to_stderr 1"
-        )
-        ret_code = subprocess.call(cmd, shell=True)
-        assert (
-            ret_code == 0
-        ), f"COLMAP model_converter failed with code {ret_code} for input {self.text_model_dir}"
-        expected_files = [
-            self.binary_model_dir / "cameras.bin",
-            self.binary_model_dir / "images.bin",
-            self.binary_model_dir / "points3D.bin",
-        ]
-        for path in expected_files:
-            assert path.exists(), f"Missing binary model file after conversion: {path}"
+        }
+        colmap_images: Dict[int, Image] = {}
+        for idx, pose in enumerate(poses, start=1):
+            colmap_images[idx] = Image(
+                id=idx,
+                qvec=pose["qvec"],
+                tvec=pose["tvec"],
+                camera_id=camera_id,
+                name=pose["name"],
+                xys=np.empty((0, 2), dtype=np.float64),
+                point3D_ids=np.empty((0,), dtype=np.int64),
+            )
+        colmap_points: Dict[int, Point3D] = {}
+        return colmap_cameras, colmap_images, colmap_points
