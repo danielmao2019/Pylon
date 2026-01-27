@@ -10,12 +10,14 @@ import pyproj
 import torch
 
 from data.pipelines.base_step import BaseStep
-from project.datasets.ivision.ivision_dataset_utils import (
-    collect_lidar_jpg_paths,
-    extract_dji_gps_gimbal_floats,
+from data.structures.colmap.colmap import COLMAP_Data
+from data.structures.colmap.load import (
+    CAMERA_MODELS,
+    ColmapCamera,
+    ColmapImage,
+    ColmapPoint3D,
 )
-from utils.io.colmap.load_colmap import CAMERA_MODELS, Camera, Image, Point3D
-from utils.io.colmap.save_colmap import save_model_binary, save_model_text
+from project.data.structures.dji_data import DJI_Data
 from utils.three_d.rotation.euler import euler_to_matrix
 from utils.three_d.rotation.quaternion import rotmat2qvec
 
@@ -31,8 +33,7 @@ class ColmapInitFromDJIStep(BaseStep):
         self.dji_data_root = Path(dji_data_root).expanduser().resolve()
         self.input_images_dir = scene_root / "input"
         self.database_path = scene_root / "distorted" / "database.db"
-        self.text_model_dir = scene_root / "distorted" / "init_model_text"
-        self.binary_model_dir = scene_root / "distorted" / "init_model"
+        self.model_dir = scene_root / "distorted" / "init_model"
         self.proj = pyproj.Transformer.from_crs(4326, 32617, always_xy=True)
         super().__init__(input_root=scene_root, output_root=scene_root)
 
@@ -50,12 +51,12 @@ class ColmapInitFromDJIStep(BaseStep):
 
     def _init_output_files(self) -> None:
         self.output_files = [
-            "distorted/init_model_text/cameras.txt",
-            "distorted/init_model_text/images.txt",
-            "distorted/init_model_text/points3D.txt",
             "distorted/init_model/cameras.bin",
             "distorted/init_model/images.bin",
             "distorted/init_model/points3D.bin",
+            "distorted/init_model/cameras.txt",
+            "distorted/init_model/images.txt",
+            "distorted/init_model/points3D.txt",
         ]
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
@@ -65,8 +66,7 @@ class ColmapInitFromDJIStep(BaseStep):
         ), f"DJI data root not found: {self.dji_data_root}"
         if not force and self.check_outputs():
             return {}
-        self.text_model_dir.mkdir(parents=True, exist_ok=True)
-        self.binary_model_dir.mkdir(parents=True, exist_ok=True)
+        self.model_dir.mkdir(parents=True, exist_ok=True)
         camera_id, camera_model, size, params = self._load_camera_from_database()
         dji_jpg_paths = collect_lidar_jpg_paths(
             scene_root=self.dji_data_root, scene_name=self.dji_data_root.name
@@ -87,30 +87,13 @@ class ColmapInitFromDJIStep(BaseStep):
             params=params,
             poses=poses,
         )
-        save_model_text(
-            output_dir=self.text_model_dir,
+        colmap_data = COLMAP_Data.from_data(
+            model_dir=self.model_dir,
             cameras=colmap_cameras,
             images=colmap_images,
             points3D=colmap_points,
         )
-        save_model_binary(
-            output_dir=self.binary_model_dir,
-            cameras=colmap_cameras,
-            images=colmap_images,
-            points3D=colmap_points,
-        )
-        expected_text = [
-            self.text_model_dir / "cameras.txt",
-            self.text_model_dir / "images.txt",
-            self.text_model_dir / "points3D.txt",
-        ]
-        expected_binary = [
-            self.binary_model_dir / "cameras.bin",
-            self.binary_model_dir / "images.bin",
-            self.binary_model_dir / "points3D.bin",
-        ]
-        for path in expected_text + expected_binary:
-            assert path.exists(), f"Missing COLMAP output file: {path}"
+        colmap_data.save()
         return {}
 
     def _load_camera_from_database(
@@ -207,10 +190,14 @@ class ColmapInitFromDJIStep(BaseStep):
         size: Tuple[int, int],
         params: np.ndarray,
         poses: List[Dict[str, Any]],
-    ) -> Tuple[Dict[int, Camera], Dict[int, Image], Dict[int, Point3D]]:
+    ) -> Tuple[
+        Dict[int, ColmapCamera],
+        Dict[int, ColmapImage],
+        Dict[int, ColmapPoint3D],
+    ]:
         width, height = size
         colmap_cameras = {
-            camera_id: Camera(
+            camera_id: ColmapCamera(
                 id=camera_id,
                 model=camera_model,
                 width=width,
@@ -218,9 +205,9 @@ class ColmapInitFromDJIStep(BaseStep):
                 params=params,
             )
         }
-        colmap_images: Dict[int, Image] = {}
+        colmap_images: Dict[int, ColmapImage] = {}
         for idx, pose in enumerate(poses, start=1):
-            colmap_images[idx] = Image(
+            colmap_images[idx] = ColmapImage(
                 id=idx,
                 qvec=pose["qvec"],
                 tvec=pose["tvec"],
@@ -229,5 +216,5 @@ class ColmapInitFromDJIStep(BaseStep):
                 xys=np.empty((0, 2), dtype=np.float64),
                 point3D_ids=np.empty((0,), dtype=np.int64),
             )
-        colmap_points: Dict[int, Point3D] = {}
+        colmap_points: Dict[int, ColmapPoint3D] = {}
         return colmap_cameras, colmap_images, colmap_points

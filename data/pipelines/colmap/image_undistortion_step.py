@@ -1,13 +1,13 @@
 """Step that runs COLMAP image undistortion."""
 
 import logging
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Dict
 
 from data.pipelines.base_step import BaseStep
-from utils.io.colmap.load_colmap import load_model
+from data.structures.colmap.colmap import COLMAP_Data
 
 
 class ColmapImageUndistortionStep(BaseStep):
@@ -112,7 +112,8 @@ class ColmapImageUndistortionStep(BaseStep):
         assert (
             sparse_model_dir.is_dir()
         ), f"Sparse model directory not found: {sparse_model_dir}"
-        _, images, _ = load_model(str(sparse_model_dir))
+        colmap_data = COLMAP_Data(model_dir=sparse_model_dir)
+        images = colmap_data.images
         assert images, f"No registered images parsed from {sparse_model_dir}"
         image_names = sorted(image.name for image in images.values())
         assert all(name.endswith(".png") for name in image_names), (

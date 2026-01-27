@@ -5,10 +5,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 from data.pipelines.base_step import BaseStep
-from utils.io.colmap.load_colmap import (
-    create_ply_from_colmap,
-    load_model,
-)
+from data.structures.colmap.colmap import COLMAP_Data
+from data.structures.colmap.convert import create_ply_from_colmap
 
 
 class ColmapExtractPointCloudStep(BaseStep):
@@ -19,7 +17,7 @@ class ColmapExtractPointCloudStep(BaseStep):
     def __init__(self, input_root: str | Path, output_root: str | Path) -> None:
         super().__init__(input_root=input_root, output_root=output_root)
         self.model_dir = self.input_root / "0"
-        self.output_path = self.output_root / self.output_files[0]
+        self.output_path = self.output_root / "sparse_pc.ply"
 
     def _init_input_files(self) -> None:
         self.input_files = ["0/points3D.bin"]
@@ -35,7 +33,8 @@ class ColmapExtractPointCloudStep(BaseStep):
             return {}
 
         logging.info("🌐 Extracting COLMAP sparse point cloud")
-        _, _, points3D = load_model(str(self.model_dir))
+        colmap_data = COLMAP_Data(model_dir=self.model_dir)
+        points3D = colmap_data.points3D
         ply_path = create_ply_from_colmap(
             "sparse_pc.ply",
             points3D,

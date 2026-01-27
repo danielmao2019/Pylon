@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from data.pipelines.base_step import BaseStep
-from utils.io.colmap.load_colmap import load_cameras_binary, load_images_binary
+from data.structures.colmap.load import load_cameras_binary, load_images_binary
 
 
 class ColmapBundleAdjustmentStep(BaseStep):

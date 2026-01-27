@@ -8,13 +8,10 @@ import numpy as np
 import torch
 
 from data.pipelines.base_step import BaseStep
+from data.structures.colmap.colmap import COLMAP_Data
+from data.structures.colmap.load import ColmapCamera, ColmapImage
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
-from utils.io.colmap.load_colmap import Camera as ColmapCamera
-from utils.io.colmap.load_colmap import (
-    Image,
-    load_model,
-)
 from utils.io.json import load_json, save_json
 from utils.three_d.rotation.quaternion import qvec2rotmat
 
@@ -61,7 +58,9 @@ class ColmapExtractCamerasStep(BaseStep):
             logging.info("🎥 COLMAP cameras already extracted - SKIPPED")
             return {}
 
-        colmap_cameras, colmap_images, _ = load_model(str(self.model_dir))
+        colmap_data = COLMAP_Data(model_dir=self.model_dir)
+        colmap_cameras = colmap_data.cameras
+        colmap_images = colmap_data.images
         intrinsic_params = self._extract_intrinsics(colmap_cameras)
         cameras = self._extract_cameras(colmap_images, intrinsic_params)
         self._build_transforms_json(intrinsic_params=intrinsic_params, cameras=cameras)
@@ -102,7 +101,7 @@ class ColmapExtractCamerasStep(BaseStep):
         return intrinsic_params
 
     def _extract_cameras(
-        self, images: Dict[int, Image], intrinsic_params: Dict[str, Any]
+        self, images: Dict[int, ColmapImage], intrinsic_params: Dict[str, Any]
     ) -> List[Camera]:
         assert images, "No images available in COLMAP model"
         cameras: List[Camera] = []
