@@ -471,7 +471,7 @@ def _extract_log_dir_infos_parallel(log_dirs: List[str], force_reload: bool) -> 
             results[idx] = future.result()
 
         # Build ordered dictionary
-        for log_dir, result in zip(log_dirs, results):
+        for log_dir, result in zip(log_dirs, results, strict=True):
             log_dir_infos[log_dir] = result
 
     return log_dir_infos

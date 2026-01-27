@@ -208,7 +208,7 @@ def test_multi_stage_vs_single_stage(test_dir):
 
         # Check that all parameters match exactly
         for (single_name, single_param), (multi_name, multi_param) in zip(
-            single_model_state.items(), multi_model_state.items()
+            single_model_state.items(), multi_model_state.items(), strict=True
         ):
             assert single_name == multi_name, f"Parameter names don't match: {single_name} vs {multi_name}. {epoch=}"
             assert torch.allclose(single_param, multi_param), f"Parameters don't match for {single_name}. {epoch=}"
@@ -219,7 +219,7 @@ def test_multi_stage_vs_single_stage(test_dir):
 
         # Check that all optimizer states match exactly
         for (single_name, single_param), (multi_name, multi_param) in zip(
-            single_optim_state.items(), multi_optim_state.items()
+            single_optim_state.items(), multi_optim_state.items(), strict=True
         ):
             assert single_name == multi_name, f"Optimizer state names don't match: {single_name} vs {multi_name}"
             if isinstance(single_param, torch.Tensor):

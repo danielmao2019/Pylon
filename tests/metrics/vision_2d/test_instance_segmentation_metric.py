@@ -66,7 +66,7 @@ def test_instance_segmentation_metric_summarize(y_preds, y_trues):
     metric = InstanceSegmentationMetric(ignore_index=-1)
 
     # Compute scores for each datapoint
-    for idx, (y_pred, y_true) in enumerate(zip(y_preds, y_trues)):
+    for idx, (y_pred, y_true) in enumerate(zip(y_preds, y_trues, strict=True)):
         datapoint = create_datapoint(y_pred, y_true, idx)
         metric(datapoint)
 

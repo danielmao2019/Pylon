@@ -166,7 +166,7 @@ class Manager:
         with ThreadPoolExecutor() as executor:
             results = list(executor.map(_construct, self.commands))
 
-        jobs = dict(zip(self.commands, results))
+        jobs = dict(zip(self.commands, results, strict=True))
         self._jobs = list(jobs.values())
         return jobs
 

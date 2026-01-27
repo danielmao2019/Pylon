@@ -103,7 +103,7 @@ def test_compose_init(transforms, expected_parsed):
     assert len(compose.transforms) == len(expected_parsed), \
         f"Expected {len(expected_parsed)} transforms, got {len(compose.transforms)}"
 
-    for actual, expected in zip(compose.transforms, expected_parsed):
+    for actual, expected in zip(compose.transforms, expected_parsed, strict=True):
         # Check that the function is the same
         assert actual["op"].__code__.co_code == expected["op"].__code__.co_code, \
             "Transform function mismatch"

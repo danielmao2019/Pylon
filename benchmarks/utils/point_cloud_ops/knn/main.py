@@ -25,7 +25,7 @@ def main():
 
     for method in results["methods"]:
         print(f"\n{method}:")
-        for size_label, time in zip(results["size_labels"], results["times"][method]):
+        for size_label, time in zip(results["size_labels"], results["times"][method], strict=True):
             if time != float('inf'):
                 print(f"  {size_label}: {time:.4f}s")
             else:

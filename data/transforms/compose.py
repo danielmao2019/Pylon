@@ -187,7 +187,7 @@ class Compose(BaseTransform):
                 output_names
             ), f"Transform {i} produced {len(op_outputs)} outputs but expected {len(output_names)}"
 
-            for output, key_pair in zip(op_outputs, output_names):
+            for output, key_pair in zip(op_outputs, output_names, strict=True):
                 datapoint[key_pair[0]][key_pair[1]] = output
 
         return datapoint

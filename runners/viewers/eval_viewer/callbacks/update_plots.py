@@ -38,7 +38,7 @@ def create_aggregated_scores_plot(epoch_scores: List[np.ndarray], log_dirs: List
 
     fig = go.Figure()
 
-    for scores, log_dir in zip(epoch_scores, log_dirs):
+    for scores, log_dir in zip(epoch_scores, log_dirs, strict=True):
         fig.add_trace(go.Scatter(
             x=list(range(len(scores))),
             y=scores,

@@ -100,7 +100,7 @@ class ComprehensiveBenchmarkReportGenerator:
                           color=colors['lod'], alpha=0.8)
 
             # Add speedup annotations
-            for i, (bar1, bar2, speedup) in enumerate(zip(bars1, bars2, speedups)):
+            for i, (bar1, bar2, speedup) in enumerate(zip(bars1, bars2, speedups, strict=True)):
                 height = max(bar1.get_height(), bar2.get_height())
                 ax1.annotate(f'{speedup:.1f}x',
                            xy=(i, height + height*0.05),
@@ -125,7 +125,7 @@ class ComprehensiveBenchmarkReportGenerator:
             ax2.grid(True, alpha=0.3)
 
             # Add reduction labels
-            for bar, reduction in zip(bars3, point_reductions):
+            for bar, reduction in zip(bars3, point_reductions, strict=True):
                 height = bar.get_height()
                 ax2.annotate(f'{reduction:.1f}%',
                            xy=(bar.get_x() + bar.get_width()/2, height + height*0.02),
@@ -200,7 +200,7 @@ class ComprehensiveBenchmarkReportGenerator:
                           color=colors['lod'], alpha=0.8)
 
             # Add speedup annotations
-            for i, (bar1, bar2, speedup) in enumerate(zip(bars1, bars2, speedups)):
+            for i, (bar1, bar2, speedup) in enumerate(zip(bars1, bars2, speedups, strict=True)):
                 height = max(bar1.get_height(), bar2.get_height())
                 ax1.annotate(f'{speedup:.1f}x',
                            xy=(i, height + height*0.05),
@@ -225,7 +225,7 @@ class ComprehensiveBenchmarkReportGenerator:
             ax2.grid(True, alpha=0.3)
 
             # Add reduction labels
-            for bar, reduction in zip(bars3, point_reductions):
+            for bar, reduction in zip(bars3, point_reductions, strict=True):
                 height = bar.get_height()
                 ax2.annotate(f'{reduction:.1f}%',
                            xy=(bar.get_x() + bar.get_width()/2, height + height*0.02),

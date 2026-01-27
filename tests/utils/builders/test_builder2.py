@@ -88,7 +88,7 @@ def test_optimizer_parameter_preservation(optimizer_config_factory):
 
     optimizer_params = optimizer.param_groups[0]['params']
     assert len(original_params) == len(optimizer_params)
-    for orig_param, opt_param in zip(original_params, optimizer_params):
+    for orig_param, opt_param in zip(original_params, optimizer_params, strict=True):
         assert id(orig_param) == id(
             opt_param
         ), "Parameters should be the same object (id)"
@@ -100,7 +100,7 @@ def test_optimizer_parameter_preservation(optimizer_config_factory):
     # Test that modifying optimizer parameters affects model parameters
     for param in optimizer_params:
         param.data += 1.0
-    for orig_param, opt_param in zip(original_params, optimizer_params):
+    for orig_param, opt_param in zip(original_params, optimizer_params, strict=True):
         assert torch.allclose(
             orig_param, opt_param
         ), "Parameter modifications should be reflected in both model and optimizer"

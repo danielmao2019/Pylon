@@ -56,7 +56,7 @@ class BenchmarkVisualizer:
         ax1.set_ylim(0, 100)
 
         # Add percentage labels on bars
-        for bar, reduction in zip(bars1, reductions):
+        for bar, reduction in zip(bars1, reductions, strict=True):
             height = bar.get_height()
             ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
                     f'{reduction:.1f}%', ha='center', va='bottom', fontweight='bold')
@@ -80,7 +80,7 @@ class BenchmarkVisualizer:
 
         # Add count labels on bars
         for bars, counts in [(bars2, executed_without), (bars3, executed_with)]:
-            for bar, count in zip(bars, counts):
+            for bar, count in zip(bars, counts, strict=True):
                 height = bar.get_height()
                 ax2.text(bar.get_x() + bar.get_width()/2., height + 0.5,
                         f'{count}', ha='center', va='bottom', fontsize=9)
@@ -122,7 +122,7 @@ class BenchmarkVisualizer:
         ax1.axhline(y=0, color='black', linestyle='-', alpha=0.3)
 
         # Add percentage labels on bars
-        for bar, savings in zip(bars1, time_saved_pct):
+        for bar, savings in zip(bars1, time_saved_pct, strict=True):
             height = bar.get_height()
             label_y = height + 1 if height >= 0 else height - 3
             ax1.text(bar.get_x() + bar.get_width()/2., label_y,
@@ -148,7 +148,7 @@ class BenchmarkVisualizer:
 
         # Add time labels on bars
         for bars, times in [(bars2, time_without), (bars3, time_with)]:
-            for bar, time_val in zip(bars, times):
+            for bar, time_val in zip(bars, times, strict=True):
                 height = bar.get_height()
                 ax2.text(bar.get_x() + bar.get_width()/2., height + 0.1,
                         f'{time_val:.1f}s', ha='center', va='bottom', fontsize=9)
@@ -185,7 +185,7 @@ class BenchmarkVisualizer:
         ax.axhline(y=0, color='black', linestyle='-', alpha=0.5)
 
         # Add score labels on bars
-        for bar, score in zip(bars, scores):
+        for bar, score in zip(bars, scores, strict=True):
             height = bar.get_height()
             label_y = height + 1 if height >= 0 else height - 2
             ax.text(bar.get_x() + bar.get_width()/2., label_y,
@@ -266,7 +266,7 @@ class BenchmarkVisualizer:
             ax.legend()
 
             # Add count labels and reduction percentages
-            for j, (bar1, bar2, reduction) in enumerate(zip(bars1, bars2, data['reduction_pct'])):
+            for j, (bar1, bar2, reduction) in enumerate(zip(bars1, bars2, data['reduction_pct'], strict=True)):
                 # Count labels
                 ax.text(bar1.get_x() + bar1.get_width()/2., bar1.get_height() + 0.5,
                        f'{data["executions_without"][j]}', ha='center', va='bottom', fontsize=9)
@@ -317,7 +317,7 @@ class BenchmarkVisualizer:
         ax1.set_title('Overall Benchmark Results', fontweight='bold', fontsize=14)
         ax1.set_ylabel('Value')
 
-        for bar, value in zip(bars, values):
+        for bar, value in zip(bars, values, strict=True):
             height = bar.get_height()
             label = f'{value:.1f}%' if bar != bars[2] else f'{value:.1f}'
             ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
@@ -334,7 +334,7 @@ class BenchmarkVisualizer:
         ax2.set_ylabel('Reduction (%)')
         ax2.tick_params(axis='x', rotation=45)
 
-        for bar, reduction in zip(bars, reductions):
+        for bar, reduction in zip(bars, reductions, strict=True):
             height = bar.get_height()
             ax2.text(bar.get_x() + bar.get_width()/2., height + 1,
                     f'{reduction:.0f}%', ha='center', va='bottom', fontsize=9)
@@ -351,7 +351,7 @@ class BenchmarkVisualizer:
         ax3.tick_params(axis='x', rotation=45)
         ax3.axhline(y=0, color='black', linestyle='-', alpha=0.3)
 
-        for bar, savings in zip(bars, time_savings):
+        for bar, savings in zip(bars, time_savings, strict=True):
             height = bar.get_height()
             label_y = height + 2 if height >= 0 else height - 4
             ax3.text(bar.get_x() + bar.get_width()/2., label_y,
@@ -368,7 +368,7 @@ class BenchmarkVisualizer:
         ax4.tick_params(axis='x', rotation=45)
         ax4.axhline(y=0, color='black', linestyle='-', alpha=0.5)
 
-        for bar, score in zip(bars, scores):
+        for bar, score in zip(bars, scores, strict=True):
             height = bar.get_height()
             label_y = height + 1 if height >= 0 else height - 2
             ax4.text(bar.get_x() + bar.get_width()/2., label_y,
@@ -399,7 +399,7 @@ class BenchmarkVisualizer:
 
         # Add count labels
         for bars, counts in [(bars1, executed_without), (bars2, executed_with)]:
-            for bar, count in zip(bars, counts):
+            for bar, count in zip(bars, counts, strict=True):
                 height = bar.get_height()
                 ax5.text(bar.get_x() + bar.get_width()/2., height + 1,
                         f'{count}', ha='center', va='bottom', fontsize=9)

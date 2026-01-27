@@ -302,7 +302,7 @@ def main():
     print("\nSummary:")
     for impl_name, times in results.items():
         print(f"{impl_name}:")
-        for i, (size, time) in enumerate(zip(sizes, times)):
+        for i, (size, time) in enumerate(zip(sizes, times, strict=True)):
             if time is None:
                 print(f"  Size {size}: OOM (Out of Memory)")
             else:

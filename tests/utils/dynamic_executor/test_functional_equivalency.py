@@ -53,7 +53,7 @@ def test_basic_equivalency():
     # Results should be identical (order-preserving)
     assert dynamic_results == sequential_results
     assert len(dynamic_results) == len(sequential_results)
-    assert all(a == b for a, b in zip(dynamic_results, sequential_results))
+    assert all(a == b for a, b in zip(dynamic_results, sequential_results, strict=True))
 
 
 def test_complex_computation_equivalency():
@@ -73,7 +73,7 @@ def test_complex_computation_equivalency():
     # Check that inputs and core computations match
     assert len(dynamic_results) == len(sequential_results)
     for i, (seq_result, dynamic_result) in enumerate(
-        zip(sequential_results, dynamic_results)
+        zip(sequential_results, dynamic_results, strict=True)
     ):
         assert seq_result['input'] == dynamic_result['input'] == i
         assert seq_result['squared'] == dynamic_result['squared'] == i * i

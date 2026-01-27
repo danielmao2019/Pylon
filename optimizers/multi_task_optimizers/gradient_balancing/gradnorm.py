@@ -38,7 +38,7 @@ class GradNormOptimizer(GradientBalancingBaseOptimizer):
 
         # compute and populate gradients for task weights
         grad_norms = torch.stack([
-            torch.norm(w_i * g_i) for w_i, g_i in zip(list(self.weights), grads_all_tasks)
+            torch.norm(w_i * g_i) for w_i, g_i in zip(list(self.weights), grads_all_tasks, strict=True)
         ])
         with torch.no_grad():
             loss_ratios = losses_tensor / self.init_losses

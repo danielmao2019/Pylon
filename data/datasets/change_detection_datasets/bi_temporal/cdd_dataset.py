@@ -79,7 +79,7 @@ class CDDDataset(Base2DCDDataset):
         assert len(img_1_filepaths) == len(img_2_filepaths) == len(change_map_filepaths)
         self.annotations = []
         for img_1_path, img_2_path, change_map_path in zip(
-            img_1_filepaths, img_2_filepaths, change_map_filepaths
+            img_1_filepaths, img_2_filepaths, change_map_filepaths, strict=True
         ):
             assert all(
                 os.path.basename(x) == os.path.basename(change_map_path)

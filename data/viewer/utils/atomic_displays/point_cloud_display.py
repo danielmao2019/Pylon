@@ -808,7 +808,7 @@ def get_point_cloud_display_stats(
         total_points = change_map.numel()
 
         class_distribution = {}
-        for cls, count in zip(unique_classes, class_counts):
+        for cls, count in zip(unique_classes, class_counts, strict=True):
             percentage = (count / total_points) * 100
             cls_key = cls.item() if hasattr(cls, 'item') else cls
             class_name = (

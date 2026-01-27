@@ -322,7 +322,7 @@ def test_base_evaluator_single_vs_multi_worker():
                 f"Per-datapoint list lengths differ for {key}: {len(single_list)} vs {len(multi_list)}"
 
             # Compare each element in order - this verifies execution order is preserved
-            for i, (single_val, multi_val) in enumerate(zip(single_list, multi_list)):
+            for i, (single_val, multi_val) in enumerate(zip(single_list, multi_list, strict=True)):
                 if isinstance(single_val, (int, float)) and isinstance(multi_val, (int, float)):
                     assert abs(single_val - multi_val) < 1e-6, \
                         f"Per-datapoint values differ at index {i} for {key}: {single_val} vs {multi_val}"
@@ -379,7 +379,7 @@ def test_base_evaluator_deterministic_results():
                 assert len(ref_list) == len(run_list), \
                     f"Run {run_idx} per_datapoint length differs for {key}"
 
-                for i, (ref_val, run_val) in enumerate(zip(ref_list, run_list)):
+                for i, (ref_val, run_val) in enumerate(zip(ref_list, run_list, strict=True)):
                     if isinstance(ref_val, (int, float)) and isinstance(run_val, (int, float)):
                         assert abs(ref_val - run_val) < 1e-6, \
                             f"Run {run_idx} per_datapoint differs at index {i} for {key}: {ref_val} vs {run_val}"
@@ -436,7 +436,7 @@ def test_base_evaluator_different_worker_counts():
                 assert len(ref_list) == len(worker_list), \
                     f"Worker count {worker_count} per_datapoint length differs for {key}"
 
-                for i, (ref_val, worker_val) in enumerate(zip(ref_list, worker_list)):
+                for i, (ref_val, worker_val) in enumerate(zip(ref_list, worker_list, strict=True)):
                     if isinstance(ref_val, (int, float)) and isinstance(worker_val, (int, float)):
                         assert abs(ref_val - worker_val) < 1e-6, \
                             f"Worker count {worker_count} per_datapoint differs at index {i} for {key}: {ref_val} vs {worker_val}"

@@ -26,6 +26,6 @@ class RGWOptimizer(GradientManipulationBaseOptimizer):
         weights_list: torch.Tensor = torch.nn.Softmax(dim=0)(torch.normal(mean=0, std=1, size=(self.num_tasks,)))
         weights_list: List[float] = weights_list.tolist()
         result = sum([
-            weight * grad for (weight, grad) in zip(weights_list, grads_list)
+            weight * grad for (weight, grad) in zip(weights_list, grads_list, strict=True)
         ])
         return result

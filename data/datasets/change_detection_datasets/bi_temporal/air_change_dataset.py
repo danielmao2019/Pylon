@@ -119,7 +119,7 @@ class AirChangeDataset(Base2DCDDataset):
         self._init_cropping_configs()
         self.annotations = []
         for img_1_path, img_2_path, change_map_path in zip(
-            img_1_filepaths, img_2_filepaths, change_map_filepaths
+            img_1_filepaths, img_2_filepaths, change_map_filepaths, strict=True
         ):
             if self.split == "test":
                 # Testing crops: one crop at the top-left corner

@@ -17,10 +17,10 @@ class UNetDecoder(torch.nn.Module):
         assert type(num_classes) == int, f"{type(num_classes)=}"
 
         self.upconvs = torch.nn.ModuleList(
-            [self._upconv(up_in, out) for up_in, out in zip(upconv_in_features, out_features)]
+            [self._upconv(up_in, out) for up_in, out in zip(upconv_in_features, out_features, strict=True)]
         )
         self.decoders = torch.nn.ModuleList(
-            [unet_block(dec_in, out) for dec_in, out in zip(dec_in_features, out_features)]
+            [unet_block(dec_in, out) for dec_in, out in zip(dec_in_features, out_features, strict=True)]
         )
         self.final_conv = torch.nn.Conv2d(out_features[-1], num_classes, kernel_size=1)
 

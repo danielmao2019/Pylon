@@ -123,7 +123,7 @@ class xView2Dataset(Base2DCDDataset):
                 },
             }
             for img_1, img_2, lbl_1, lbl_2 in zip(
-                img_1_filepaths, img_2_filepaths, lbl_1_filepaths, lbl_2_filepaths
+                img_1_filepaths, img_2_filepaths, lbl_1_filepaths, lbl_2_filepaths, strict=True
             )
         ]
 

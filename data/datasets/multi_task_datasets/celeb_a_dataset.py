@@ -92,7 +92,7 @@ class CelebADataset(BaseMultiTaskDataset):
         image_filepaths = self._init_images_()
         landmark_labels = self._init_landmark_labels_(image_filepaths=image_filepaths)
         attribute_labels = self._init_attribute_labels_(image_filepaths=image_filepaths)
-        self.annotations = list(zip(image_filepaths, landmark_labels, attribute_labels))
+        self.annotations = list(zip(image_filepaths, landmark_labels, attribute_labels, strict=True))
 
     def _init_images_(self) -> List[str]:
         # initialize
@@ -153,7 +153,7 @@ class CelebADataset(BaseMultiTaskDataset):
                 ), f"{fp=}, {line[0]=}, {idx=}"
                 attributes: Dict[str, torch.Tensor] = dict(
                     (name, torch.tensor((1 if val == "1" else 0), dtype=torch.int64))
-                    for name, val in zip(self.LABEL_NAMES[1:], line[1:])
+                    for name, val in zip(self.LABEL_NAMES[1:], line[1:], strict=True)
                 )
                 attribute_labels.append(attributes)
         return attribute_labels

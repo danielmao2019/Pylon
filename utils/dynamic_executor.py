@@ -397,7 +397,7 @@ class DynamicThreadPoolExecutor:
         if not iterables:
             return iter([])
 
-        args_list = list(zip(*iterables))
+        args_list = list(zip(*iterables, strict=True))
         if not args_list:
             return iter([])
 

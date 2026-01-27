@@ -41,7 +41,7 @@ class MultiTaskFacialLandmarkDataset(BaseMultiTaskDataset):
     def _init_annotations(self) -> None:
         image_filepaths = self._init_images_()
         all_labels = self._init_labels_(image_filepaths=image_filepaths)
-        self.annotations = list(zip(image_filepaths, all_labels))
+        self.annotations = list(zip(image_filepaths, all_labels, strict=True))
 
     def _init_images_(self) -> None:
         image_filepaths = []
@@ -68,14 +68,14 @@ class MultiTaskFacialLandmarkDataset(BaseMultiTaskDataset):
                     list(
                         map(
                             float,
-                            [c for coord in zip(line[1:6], line[6:11]) for c in coord],
+                            [c for coord in zip(line[1:6], line[6:11], strict=True) for c in coord],
                         )
                     ),
                     dtype=torch.float32,
                 )
                 attributes = dict(
                     (name, torch.tensor(int(val), dtype=torch.int8))
-                    for name, val in zip(self.LABEL_NAMES[1:], line[11:15])
+                    for name, val in zip(self.LABEL_NAMES[1:], line[11:15], strict=True)
                 )
                 labels: Dict[str, torch.Tensor] = {}
                 labels.update({'landmarks': landmarks})

@@ -143,7 +143,7 @@ def register_class_distribution_callbacks(
         new_button_texts = []
 
         for i, (clicks, text_style, plot_style) in enumerate(
-            zip(n_clicks_list, current_text_styles, current_plot_styles)
+            zip(n_clicks_list, current_text_styles, current_plot_styles, strict=True)
         ):
             if i == button_index:
                 # Switch view for this specific component

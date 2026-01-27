@@ -143,7 +143,7 @@ def test_downsample_multiple_point_clouds(multiple_point_clouds):
     assert len(results) == len(multiple_point_clouds)
 
     # Check each point cloud
-    for original_pc, result_pc in zip(multiple_point_clouds, results):
+    for original_pc, result_pc in zip(multiple_point_clouds, results, strict=True):
         # Check that all fields are present
         assert 'indices' in result_pc.field_names()
 

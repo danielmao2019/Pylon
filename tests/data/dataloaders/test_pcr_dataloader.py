@@ -105,7 +105,7 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
         assert len(outputs_no_cache) == len(outputs_with_cache_1st) == len(outputs_with_cache_2nd), \
             f"Different number of batches: {len(outputs_no_cache)}, {len(outputs_with_cache_1st)}, {len(outputs_with_cache_2nd)}"
 
-        for i, (no_cache, cache_1st, cache_2nd) in enumerate(zip(outputs_no_cache, outputs_with_cache_1st, outputs_with_cache_2nd)):
+        for i, (no_cache, cache_1st, cache_2nd) in enumerate(zip(outputs_no_cache, outputs_with_cache_1st, outputs_with_cache_2nd, strict=True)):
             # Check that all three outputs are identical
             assert buffer_allclose(no_cache, cache_1st), f"Batch {i}: no_cache vs cache_1st not equal"
             assert buffer_allclose(cache_1st, cache_2nd), f"Batch {i}: cache_1st vs cache_2nd not equal"

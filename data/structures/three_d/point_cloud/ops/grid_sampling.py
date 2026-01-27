@@ -101,7 +101,7 @@ def grid_sampling(
     pc_indices = torch.zeros(
         len(points_union), dtype=torch.long, device=points_union.device
     )
-    for i, (start, num_points) in enumerate(zip(start_indices, num_points_per_pc)):
+    for i, (start, num_points) in enumerate(zip(start_indices, num_points_per_pc, strict=True)):
         pc_indices[start : start + num_points] = i
 
     # Pre-compute masks for each point cloud to avoid redundant calculations

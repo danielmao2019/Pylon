@@ -48,7 +48,7 @@ def multi_view_fusion(
         [
             m.shape[-2] == int(camera.intrinsics[1, 2] * 2)
             and m.shape[-1] == int(camera.intrinsics[0, 2] * 2)
-            for m, camera in zip(maps, cameras)
+            for m, camera in zip(maps, cameras, strict=True)
         ]
     ), "Incompatible map and camera intrinsic dimensions."
 
@@ -59,7 +59,7 @@ def multi_view_fusion(
     vote_matrix = torch.zeros(N, C, device=points.device)  # [N, C] vote counts
 
     # Process each view
-    for map_2d, camera in zip(maps, cameras):
+    for map_2d, camera in zip(maps, cameras, strict=True):
         # Extract first batch element: [N, C, H, W] -> [C, H, W]
         map_single = map_2d[0]  # Assuming batch_size=1
         _fuse_single(

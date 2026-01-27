@@ -81,7 +81,7 @@ def test_confusion_matrix_call(y_pred, y_true, num_classes, expected) -> None:
 ])
 def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expected) -> None:
     metric = ConfusionMatrix(num_classes=num_classes)
-    for idx, (y_pred, y_true) in enumerate(zip(y_pred_list, y_true_list)):
+    for idx, (y_pred, y_true) in enumerate(zip(y_pred_list, y_true_list, strict=True)):
         datapoint = create_datapoint(y_pred, y_true, idx)
         metric(datapoint)
     summary = metric.summarize(output_path=None)

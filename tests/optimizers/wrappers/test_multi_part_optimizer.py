@@ -63,7 +63,7 @@ def test_multi_part_optimizer_state_dict_save_load(simple_model, multi_part_opti
         new_pg = new_state_dict[name]['param_groups']
         assert len(orig_pg) == len(new_pg)
 
-        for i, (orig, new) in enumerate(zip(orig_pg, new_pg)):
+        for i, (orig, new) in enumerate(zip(orig_pg, new_pg, strict=True)):
             for key in ['lr', 'momentum']:
                 if key in orig:
                     assert orig[key] == new[key]

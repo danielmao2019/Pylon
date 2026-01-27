@@ -70,7 +70,7 @@ class RANSAC_FPFH(torch.nn.Module):
         ), "All target point clouds must be on the same device as sources"
 
         transformations = []
-        for src_item, tgt_item in zip(src_list, tgt_list):
+        for src_item, tgt_item in zip(src_list, tgt_list, strict=True):
             source_o3d = o3d.geometry.PointCloud()
             source_o3d.points = o3d.utility.Vector3dVector(
                 src_item.xyz.detach().cpu().numpy()

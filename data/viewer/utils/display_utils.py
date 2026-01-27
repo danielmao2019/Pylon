@@ -148,7 +148,7 @@ def create_statistics_display(
     """
     components = []
 
-    for stats, title in zip(stats_data, titles):
+    for stats, title in zip(stats_data, titles, strict=True):
         style = DisplayStyles.STATS_CONTAINER.copy()
         style['width'] = width_style
 

@@ -35,12 +35,12 @@ class WHU_BD_Dataset(BaseSemsegDataset):
         )
         assert all(
             os.path.basename(x) == os.path.basename(y)
-            for x, y in zip(image_filepaths, label_filepaths)
+            for x, y in zip(image_filepaths, label_filepaths, strict=True)
         )
         self.annotations = list(
             map(
                 lambda x: {'image': x[0], 'label': x[1]},
-                zip(image_filepaths, label_filepaths),
+                zip(image_filepaths, label_filepaths, strict=True),
             )
         )
 

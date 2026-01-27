@@ -126,7 +126,7 @@ def test_transform_determinism():
 
     # Compare results
     assert len(first_run_results) == len(second_run_results)
-    for batch1, batch2 in zip(first_run_results, second_run_results):
+    for batch1, batch2 in zip(first_run_results, second_run_results, strict=True):
         assert batch1.keys() == batch2.keys() == {'inputs', 'labels', 'meta_info'}
         assert batch1['inputs'].keys() == batch2['inputs'].keys() == {'image', 'point_cloud'}
         assert batch1['labels'].keys() == batch2['labels'].keys() == {'label'}
@@ -135,7 +135,7 @@ def test_transform_determinism():
         assert isinstance(batch1['inputs']['point_cloud'], list)
         assert isinstance(batch2['inputs']['point_cloud'], list)
         assert len(batch1['inputs']['point_cloud']) == len(batch2['inputs']['point_cloud'])
-        for pc1, pc2 in zip(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud']):
+        for pc1, pc2 in zip(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud'], strict=True):
             assert isinstance(pc1, PointCloud)
             assert isinstance(pc2, PointCloud)
             assert torch.allclose(pc1.xyz, pc2.xyz)

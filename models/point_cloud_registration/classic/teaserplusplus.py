@@ -153,7 +153,7 @@ class TeaserPlusPlus(torch.nn.Module):
 
         # Process each batch
         transformations = []
-        for src_item, tgt_item in zip(src_list, tgt_list):
+        for src_item, tgt_item in zip(src_list, tgt_list, strict=True):
             src_points = src_item.xyz.detach().cpu().numpy()
             tgt_points = tgt_item.xyz.detach().cpu().numpy()
 

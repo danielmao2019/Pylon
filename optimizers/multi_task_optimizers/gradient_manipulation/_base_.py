@@ -89,7 +89,7 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         assert grad.ndim == 1, f"{grad.shape=}"
         # populate gradient
         idx = 0
-        for p, shape in zip(self._get_shared_params_(), self.shared_params_shapes):
+        for p, shape in zip(self._get_shared_params_(), self.shared_params_shapes, strict=True):
             length = int(torch.prod(torch.tensor(shape)))
             assert p.requires_grad
             assert p.grad is None

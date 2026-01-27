@@ -41,7 +41,7 @@ def run_benchmark() -> Dict:
     total_tests = len(sizes) * len(methods) * len(shapes) * 3  # 3 repetitions
     test_count = 0
 
-    for size_idx, (size, size_label) in enumerate(zip(sizes, size_labels)):
+    for size_idx, (size, size_label) in enumerate(zip(sizes, size_labels, strict=True)):
         print(f"\n{'='*60}")
         print(f"Benchmarking size: {size_label} ({size:,} points)")
         print(f"{'='*60}")
@@ -56,7 +56,7 @@ def run_benchmark() -> Dict:
         for method in methods:
             print(f"\nTesting method: {method}")
 
-            for shape_idx, (shape_name, (query, reference)) in enumerate(zip(shapes, point_clouds)):
+            for shape_idx, (shape_name, (query, reference)) in enumerate(zip(shapes, point_clouds, strict=True)):
                 test_count += 3  # 3 repetitions
                 print(f"  Shape {shape_idx+1}/{len(shapes)}: {shape_name} - ", end="", flush=True)
 

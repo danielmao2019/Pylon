@@ -50,7 +50,7 @@ def plot_results(results: Dict):
             )
 
             # Add value labels on bars
-            for bar, time in zip(bars, times):
+            for bar, time in zip(bars, times, strict=True):
                 if time != float('inf') and time > 0:
                     height = bar.get_height()
                     ax.text(

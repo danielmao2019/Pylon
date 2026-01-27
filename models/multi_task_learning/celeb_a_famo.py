@@ -66,7 +66,7 @@ class CelebA_FAMO(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         shared_rep = self.backbone(x)
         y = [self.pred_heads[task](shared_rep) for task in range(40)]
-        output = dict(zip(self.LABEL_NAMES, y))
+        output = dict(zip(self.LABEL_NAMES, y, strict=True))
         output['shared_rep'] = shared_rep
         return output
 

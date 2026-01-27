@@ -50,9 +50,9 @@ def test_dataloader_shuffle_behavior(shuffle):
     batches2 = list(BaseDataLoader(dataset, batch_size=10, shuffle=shuffle))
 
     if shuffle:
-        assert not all(torch.equal(b1, b2) for b1, b2 in zip(batches1, batches2)), "Shuffled batches should not be identical"
+        assert not all(torch.equal(b1, b2) for b1, b2 in zip(batches1, batches2, strict=True)), "Shuffled batches should not be identical"
     else:
-        assert all(torch.equal(b1, b2) for b1, b2 in zip(batches1, batches2)), "Non-shuffled batches should be identical"
+        assert all(torch.equal(b1, b2) for b1, b2 in zip(batches1, batches2, strict=True)), "Non-shuffled batches should be identical"
 
 
 def test_dataloader_with_empty_dataset():

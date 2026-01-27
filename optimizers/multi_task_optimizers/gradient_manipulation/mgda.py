@@ -30,7 +30,7 @@ class MGDAOptimizer(GradientManipulationBaseOptimizer):
         """
         assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
         alpha = self._frank_wolfe_solver_(grads_list)
-        result = sum([alpha_i * g_i for alpha_i, g_i in zip(list(alpha), grads_list)])
+        result = sum([alpha_i * g_i for alpha_i, g_i in zip(list(alpha), grads_list, strict=True)])
         return result
 
     def _frank_wolfe_solver_(self, grads_list: List[torch.Tensor], threshold: float = 1.0e-03) -> torch.Tensor:
@@ -50,7 +50,7 @@ class MGDAOptimizer(GradientManipulationBaseOptimizer):
         for _ in range(self.max_iter):
             t_hat = torch.argmin(torch.matmul(GTG, alpha))
             a = grads_list[t_hat]
-            b = sum([alpha_i * g_i for alpha_i, g_i in zip(list(alpha), grads_list)])
+            b = sum([alpha_i * g_i for alpha_i, g_i in zip(list(alpha), grads_list, strict=True)])
             gamma_hat = MGDAOptimizer._frank_wolfe_solver_line_(a, b)
             alpha *= (1 - gamma_hat)
             alpha[t_hat] += gamma_hat

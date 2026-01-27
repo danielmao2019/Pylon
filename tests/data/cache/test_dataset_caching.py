@@ -34,7 +34,7 @@ def test_basic_cache_functionality(SampleDataset, temp_dir):
     second_access = [dataset[i] for i in range(10)]
 
     # Verify items are identical
-    for first, second in zip(first_access, second_access):
+    for first, second in zip(first_access, second_access, strict=True):
         assert buffer_equal(first, second)
 
 
@@ -89,7 +89,7 @@ def test_cache_memory_isolation(SampleDataset, temp_dir):
     items2 = [dataset2[i] for i in range(5)]
 
     # Verify items are equal but not the same objects
-    for item1, item2 in zip(items1, items2):
+    for item1, item2 in zip(items1, items2, strict=True):
         assert buffer_equal(item1, item2)
         # Skip memory check since our sample dataset uses integers which are immutable
         # In a real dataset with tensors, we would check memory isolation
@@ -149,7 +149,7 @@ def test_cache_with_dataloader(SampleDataset, temp_dir):
 
     # Multiple epochs to verify cache consistency
     for _ in range(3):
-        for batch_cached, batch_uncached in zip(loader_cached, loader_uncached):
+        for batch_cached, batch_uncached in zip(loader_cached, loader_uncached, strict=True):
             assert buffer_equal(batch_cached, batch_uncached)
 
 
@@ -186,8 +186,8 @@ def test_cache_with_different_batch_sizes(SampleDataset, temp_dir):
         results.append(epoch_items)
 
     # Verify all results are identical regardless of batch size
-    for items1, items2 in zip(results[:-1], results[1:]):
-        for item1, item2 in zip(items1, items2):
+    for items1, items2 in zip(results[:-1], results[1:], strict=True):
+        for item1, item2 in zip(items1, items2, strict=True):
             assert buffer_equal(item1, item2)
 
 
@@ -280,5 +280,5 @@ def test_transform_randomness_in_dataloader(SampleDataset, random_transforms, te
         epoch2_data.append(batch['inputs']['input'].clone())
 
     # Compare corresponding batches between epochs
-    for batch1, batch2 in zip(epoch1_data, epoch2_data):
+    for batch1, batch2 in zip(epoch1_data, epoch2_data, strict=True):
         assert not torch.allclose(batch1.float(), batch2.float())

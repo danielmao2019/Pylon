@@ -53,7 +53,7 @@ class NYUv2Dataset(BaseMultiTaskDataset):
     SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
 
     IGNORE_INDEX = 250
-    CLASS_MAP_F = dict(zip(range(41), range(41)))
+    CLASS_MAP_F = dict(zip(range(41), range(41), strict=True))
     CLASS_MAP_C = dict(
         zip(
             range(41),
@@ -99,7 +99,7 @@ class NYUv2Dataset(BaseMultiTaskDataset):
                 7,
                 6,
                 7,
-            ],
+            ], strict=True
         )
     )
     NUM_CLASSES_F = 40 + 1

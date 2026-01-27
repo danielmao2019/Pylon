@@ -271,7 +271,7 @@ def test_modelnet40_category_extraction(modelnet40_data_root):
 
     expected_categories = ['airplane', 'chair', 'table']
 
-    for path, expected in zip(test_paths, expected_categories):
+    for path, expected in zip(test_paths, expected_categories, strict=True):
         # Create a mock instance just for this method call
         dataset = type('MockDataset', (), {'get_category_from_path': ModelNet40Dataset.get_category_from_path})()
         category = dataset.get_category_from_path(path)

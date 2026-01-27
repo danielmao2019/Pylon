@@ -81,7 +81,7 @@ class ICP(torch.nn.Module):
 
         # Process each batch
         transformations = []
-        for src_item, tgt_item in zip(src_list, tgt_list):
+        for src_item, tgt_item in zip(src_list, tgt_list, strict=True):
             # Create Open3D point clouds
             source_o3d = o3d.geometry.PointCloud()
             source_o3d.points = o3d.utility.Vector3dVector(

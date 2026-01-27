@@ -52,7 +52,7 @@ class CAGradOptimizer(GradientManipulationBaseOptimizer):
         # compute final gradient
         avg_grad = sum(grads_list) / len(grads_list)
         weights_list: List[float] = solution.tolist()
-        weighed_grad = sum([weight * grad for (weight, grad) in zip(weights_list, grads_list)])
+        weighed_grad = sum([weight * grad for (weight, grad) in zip(weights_list, grads_list, strict=True)])
         lmbda = sqrt_phi / (weighed_grad.norm() + 1e-8)
         final_grad = avg_grad + lmbda * weighed_grad
         assert final_grad.shape == grads_list[0].shape, f"{final_grad.shape=}, {grads_list[0].shape=}"

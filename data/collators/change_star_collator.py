@@ -42,7 +42,7 @@ class ChangeStarCollator(BaseCollator):
         for _ in range(max_trails):
             proposal = original.copy()
             random.shuffle(proposal)
-            if all(x != y for x, y in zip(original, proposal)):
+            if all(x != y for x, y in zip(original, proposal, strict=True)):
                 return proposal
         raise RuntimeError("Failed to shuffle without collisions after max_trails attempts.")
 

@@ -128,7 +128,7 @@ class Urb3DCDDataset(Base3DCDDataset):
         # Store file paths in annotations
         self.annotations = [
             {'pc_1_filepath': pc1, 'pc_2_filepath': pc2}
-            for pc1, pc2 in zip(pc1_files, pc2_files)
+            for pc1, pc2 in zip(pc1_files, pc2_files, strict=True)
         ]
 
         if len(self.annotations) == 0:
@@ -232,7 +232,7 @@ class Urb3DCDDataset(Base3DCDDataset):
         )
 
         fixed_centers = []
-        for label, count in zip(unique_labels, counts):
+        for label, count in zip(unique_labels, counts, strict=True):
             mask = all_centers['change_map'] == label
             valid_xyz = all_centers['xyz'][mask]
             valid_idx = all_centers['idx'][mask]

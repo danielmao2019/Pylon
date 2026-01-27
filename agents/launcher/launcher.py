@@ -296,7 +296,7 @@ class Launcher(BaseAgent):
                 ["bash", "-lc", tmux_cmd],
             )
 
-        for gpu, job in zip(idle_gpus, missing_jobs):
+        for gpu, job in zip(idle_gpus, missing_jobs, strict=True):
             launch_job(gpu, job)
             time.sleep(3)
         return False

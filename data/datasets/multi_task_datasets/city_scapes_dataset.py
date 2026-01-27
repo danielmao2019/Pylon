@@ -85,7 +85,7 @@ class CityScapesDataset(BaseMultiTaskDataset):
         32,
         33,
     ]
-    CLASS_MAP_F = dict(zip(VALID_CLASSES, range(19)))
+    CLASS_MAP_F = dict(zip(VALID_CLASSES, range(19), strict=True))
     CLASS_MAP_C = {
         7: 0,  # flat
         8: 0,  # flat

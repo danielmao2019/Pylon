@@ -30,7 +30,7 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             assert type(self.config['val_dataloaders']) == list
             assert len(self.config['val_datasets']) == len(self.config['val_dataloaders'])
             self.val_dataloaders = []
-            for val_dataset_cfg, val_dataloader_cfg in zip(self.config['val_datasets'], self.config['val_dataloaders']):
+            for val_dataset_cfg, val_dataloader_cfg in zip(self.config['val_datasets'], self.config['val_dataloaders'], strict=True):
                 val_dataset: torch.utils.data.Dataset = build_from_config(val_dataset_cfg)
                 if 'batch_size' not in val_dataloader_cfg['args']:
                     val_dataloader_cfg['args']['batch_size'] = 1

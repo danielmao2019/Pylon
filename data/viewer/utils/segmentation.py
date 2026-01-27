@@ -98,7 +98,7 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
     seg_np = tensor.cpu().numpy()
     colored_map = np.zeros((*seg_np.shape, 3), dtype=np.uint8)
 
-    for idx, color in zip(indices, colors):
+    for idx, color in zip(indices, colors, strict=True):
         mask = seg_np == idx
         r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
         colored_map[mask] = [r, g, b]

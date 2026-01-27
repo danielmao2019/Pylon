@@ -89,7 +89,7 @@ def _knn_pytorch3d(
             padded_distances = []
             padded_indices = []
 
-            for dist_chunk, idx_chunk in zip(distances_list, indices_list):
+            for dist_chunk, idx_chunk in zip(distances_list, indices_list, strict=True):
                 current_width = dist_chunk.shape[1]
                 if current_width < max_width:
                     # Pad with inf for distances and -1 for indices
