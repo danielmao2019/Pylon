@@ -86,12 +86,13 @@ Rules:
    1. Must make a folder called `layout`.
    2. Layout must separate the definition of components and styles into different folders/files.
    3. The main API must be exactly `def build_layout(app: Dash) -> None`, where you define `layout` and then assign to the `app` as `app.layout = layout`.
-   4. Organize the layout definition hierarchically. Think of the web components as a tree structure. The layout builders should reflect the design of the parent-children relations of the web components.
+   4. Organize the layout definition hierarchically. Think of the web components as a tree structure. The layout builders should reflect the design of the parent-children relations of the web components. Further, the order of the builders should follow the tree depth-first traversal order.
 2. How to define callbacks:
    1. Each callback must contain exactly one `Input`.
    2. Each callback must be defined in a separate file.
    3. Callback functions are not exceptions of the type annotation rules or input validation rules, as defined in other sections of this doc.
    4. Dash callback functions typically need another layer to check for the trigger for mid-to-complex apps. e.g., when there are dynamically created dash components. Be careful with validating if the trigger of the callback is from the actual expected source. If not, then you should use `raise PreventUpdate` to short-circuit the callback. This should be implemented by helper functions of the form `validate_trigger(...) -> None`, called directly by the callbacks. the `validate_trigger` function should have `raise PreventUpdate` statements under various conditions.
+   5. Organize callback definition files into sub-folders, when the list gets long.
 3. Do not do `app.run_server`, because `app.run_server` is just wrong code. You should do `app.run`. Also, you must always use `host=0.0.0.0`, `port=args.port`, and `debug=False` and make a CLI arg automatically on yourself called `--port`, with some default value.
 4. Be careful to the use of multiple callbacks pointing to same `Output` case. Use `allow_duplicate` wisely.
 
