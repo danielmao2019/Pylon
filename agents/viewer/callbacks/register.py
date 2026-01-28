@@ -1,29 +1,30 @@
+"""Register callbacks for the Agents viewer Dash app."""
+
 from typing import Dict, List
 
-from agents.manager import Manager
+import dash
+
 from agents.monitor.system_monitor import SystemMonitor
+from agents.viewer.callbacks.update_table import register_update_table_callback
 
 
-def get_progress(
+def register_callbacks(
+    app: dash.Dash,
     commands: List[str],
+    expected_files: List[str],
     epochs: int,
     sleep_time: int,
     outdated_days: int,
     system_monitors: Dict[str, SystemMonitor],
+    user_names: Dict[str, str],
     force_progress_recompute: bool = False,
-) -> float:
-    """
-    Args:
-        commands: List of runtime command strings
-        epochs: Total number of epochs
-        sleep_time: Time to wait for the status to update
-        outdated_days: Number of days to consider a run outdated
-        system_monitors: System monitors by server
-        force_progress_recompute: If True, bypass cache and recompute progress from scratch
-    """
+) -> None:
     # Input validations
+    assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"
     assert isinstance(commands, list), f"commands must be list, got {type(commands)}"
-    assert len(commands) > 0, f"commands must not be empty, got {len(commands)} entries"
+    assert isinstance(
+        expected_files, list
+    ), f"expected_files must be list, got {type(expected_files)}"
     assert isinstance(epochs, int), f"epochs must be int, got {type(epochs)}"
     assert isinstance(
         sleep_time, int
@@ -39,18 +40,20 @@ def get_progress(
         isinstance(monitor, SystemMonitor) for monitor in system_monitors.values()
     ), "system_monitors must contain SystemMonitor values"
     assert isinstance(
+        user_names, dict
+    ), f"user_names must be dict, got {type(user_names)}"
+    assert isinstance(
         force_progress_recompute, bool
     ), f"force_progress_recompute must be bool, got {type(force_progress_recompute)}"
 
-    manager = Manager(
+    register_update_table_callback(
+        app=app,
         commands=commands,
+        expected_files=expected_files,
         epochs=epochs,
-        system_monitors=system_monitors,
         sleep_time=sleep_time,
         outdated_days=outdated_days,
+        system_monitors=system_monitors,
+        user_names=user_names,
         force_progress_recompute=force_progress_recompute,
     )
-    all_job_status = manager.build_jobs()
-    all_job_progress = [s.progress.progress_percentage for s in all_job_status.values()]
-
-    return round(sum(all_job_progress) / len(all_job_progress), 2)
