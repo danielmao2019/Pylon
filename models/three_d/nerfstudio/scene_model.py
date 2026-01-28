@@ -12,9 +12,6 @@ from models.three_d.nerfstudio import callbacks as nerfstudio_callbacks
 from models.three_d.nerfstudio import states as nerfstudio_states
 from models.three_d.nerfstudio.layout import build_display
 from models.three_d.nerfstudio.render import render_display
-from project.datasets.ivision.ivision_dataset_utils import (
-    is_valid_scene_directory_name,
-)
 from utils.three_d.splatfacto.load_splatfacto import load_splatfacto_model
 
 
@@ -28,7 +25,7 @@ class NerfstudioSceneModel(BaseSceneModel):
         """Resolve a Nerfstudio output path to a concrete training job directory.
 
         Supported inputs (all dirs):
-        - Output dir that contains a single scene dir (scene name)
+        - Output dir that contains a single scene dir (any name)
         - Scene dir (ends with scene name)
         - Method dir (ends with 'splatfacto')
         - Job dir (ends with timestamp 'YYYY-MM-DD_HHMMSS')
@@ -68,9 +65,6 @@ class NerfstudioSceneModel(BaseSceneModel):
             )
 
         def is_valid_scene_dir(scene_dir: str) -> bool:
-            base = os.path.basename(scene_dir)
-            if not is_valid_scene_directory_name(base):
-                return False
             return os.path.isdir(os.path.join(scene_dir, "splatfacto"))
 
         def is_valid_output_dir(output_dir: str) -> bool:
@@ -82,8 +76,6 @@ class NerfstudioSceneModel(BaseSceneModel):
             if len(subdirs) != 1:
                 return False
             scene_subdir = subdirs[0]
-            if not is_valid_scene_directory_name(scene_subdir):
-                return False
             # Ensure the subdir name is a prefix of the output dir basename
             base = os.path.basename(os.path.normpath(output_dir))
             return base.startswith(scene_subdir)
