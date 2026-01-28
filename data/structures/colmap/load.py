@@ -2,7 +2,7 @@ import collections
 import struct
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -259,34 +259,23 @@ def _load_colmap_cameras_txt(path_to_model_file: str | Path) -> Dict[int, Any]:
 
     path = Path(path_to_model_file)
     assert path.is_file(), f"cameras.txt not found: {path}"
-    cameras: Dict[int, Any] = {}
     lines = path.read_text(encoding="utf-8").splitlines()
+    content_lines: List[str] = []
     for line in lines:
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        parts = stripped.split()
-        assert len(parts) >= 5, f"Invalid cameras.txt line: {line}"
-        camera_id = int(parts[0])
-        model_name = parts[1]
-        assert (
-            model_name in CAMERA_MODEL_NAME_TO_ID
-        ), f"Unknown camera model name {model_name} in {path}"
-        width = int(parts[2])
-        height = int(parts[3])
-        params = np.array([float(val) for val in parts[4:]], dtype=np.float64)
-        model_id = CAMERA_MODEL_NAME_TO_ID[model_name]
-        expected_params = CAMERA_MODELS[model_id].num_params
-        assert (
-            params.size == expected_params
-        ), f"Camera {camera_id} expected {expected_params} params, got {params.size}"
-        cameras[camera_id] = ColmapCamera(
-            id=camera_id,
-            model=model_name,
-            width=width,
-            height=height,
-            params=params,
-        )
+        content_lines.append(stripped)
+    assert content_lines, f"No camera entries found in {path}"
+    cameras: Dict[int, Any] = {}
+    max_workers = min(32, len(content_lines))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = executor.map(_parse_colmap_camera_line, content_lines)
+        for camera_id, camera in results:
+            assert (
+                camera_id not in cameras
+            ), f"Duplicate camera id {camera_id} in {path}"
+            cameras[camera_id] = camera
     return cameras
 
 
@@ -296,67 +285,28 @@ def _load_colmap_images_txt(path_to_model_file: str | Path) -> Dict[int, Any]:
 
     path = Path(path_to_model_file)
     assert path.is_file(), f"images.txt not found: {path}"
-    images: Dict[int, Any] = {}
     lines = path.read_text(encoding="utf-8").splitlines()
     line_idx = 0
+    blocks: List[Tuple[str, str]] = []
     while line_idx < len(lines):
         line = lines[line_idx].strip()
         if not line or line.startswith("#"):
             line_idx += 1
             continue
-        parts = line.split()
-        assert len(parts) >= 10, f"Invalid images.txt line: {lines[line_idx]}"
-        image_id = int(parts[0])
-        qvec = np.array(
-            [
-                float(parts[1]),
-                float(parts[2]),
-                float(parts[3]),
-                float(parts[4]),
-            ],
-            dtype=np.float64,
-        )
-        tvec = np.array(
-            [
-                float(parts[5]),
-                float(parts[6]),
-                float(parts[7]),
-            ],
-            dtype=np.float64,
-        )
-        camera_id = int(parts[8])
-        name = " ".join(parts[9:])
+        header_line = line
         line_idx += 1
-        assert line_idx < len(
-            lines
-        ), f"Missing points2D line for image {image_id} in {path}"
+        assert line_idx < len(lines), f"Missing points2D line for image in {path}"
         points_line = lines[line_idx].strip()
-        if points_line:
-            point_parts = points_line.split()
-            assert (
-                len(point_parts) % 3 == 0
-            ), f"Invalid points2D line for image {image_id}: {lines[line_idx]}"
-            num_points = len(point_parts) // 3
-            xys = np.empty((num_points, 2), dtype=np.float64)
-            point3d_ids = np.empty((num_points,), dtype=np.int64)
-            for idx in range(num_points):
-                base = idx * 3
-                xys[idx, 0] = float(point_parts[base])
-                xys[idx, 1] = float(point_parts[base + 1])
-                point3d_ids[idx] = int(point_parts[base + 2])
-        else:
-            xys = np.empty((0, 2), dtype=np.float64)
-            point3d_ids = np.empty((0,), dtype=np.int64)
-        images[image_id] = ColmapImage(
-            id=image_id,
-            qvec=qvec,
-            tvec=tvec,
-            camera_id=camera_id,
-            name=name,
-            xys=xys,
-            point3D_ids=point3d_ids,
-        )
+        blocks.append((header_line, points_line))
         line_idx += 1
+    assert blocks, f"No image entries found in {path}"
+    images: Dict[int, Any] = {}
+    max_workers = min(32, len(blocks))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = executor.map(_parse_colmap_image_block, blocks)
+        for image_id, image in results:
+            assert image_id not in images, f"Duplicate image id {image_id} in {path}"
+            images[image_id] = image
     return images
 
 
@@ -366,49 +316,156 @@ def _load_colmap_points_txt(path_to_model_file: str | Path) -> Dict[int, Any]:
 
     path = Path(path_to_model_file)
     assert path.is_file(), f"points3D.txt not found: {path}"
-    points3D: Dict[int, Any] = {}
     lines = path.read_text(encoding="utf-8").splitlines()
+    content_lines: List[str] = []
     for line in lines:
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        parts = stripped.split()
-        assert len(parts) >= 8, f"Invalid points3D.txt line: {line}"
-        point_id = int(parts[0])
-        xyz = np.array(
-            [
-                float(parts[1]),
-                float(parts[2]),
-                float(parts[3]),
-            ],
-            dtype=np.float64,
-        )
-        rgb = np.array(
-            [
-                int(parts[4]),
-                int(parts[5]),
-                int(parts[6]),
-            ],
-            dtype=np.uint8,
-        )
-        error = float(parts[7])
-        track_parts = parts[8:]
+        content_lines.append(stripped)
+    assert content_lines, f"No points3D entries found in {path}"
+    points3D: Dict[int, Any] = {}
+    max_workers = min(32, len(content_lines))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = executor.map(_parse_colmap_point_line, content_lines)
+        for point_id, point in results:
+            assert point_id not in points3D, f"Duplicate point id {point_id} in {path}"
+            points3D[point_id] = point
+    return points3D
+
+
+def _parse_colmap_camera_line(line: str) -> Tuple[int, ColmapCamera]:
+    # Input validations
+    assert isinstance(line, str), f"{type(line)=}"
+
+    parts = line.split()
+    assert len(parts) >= 5, f"Invalid cameras.txt line: {line}"
+    camera_id = int(parts[0])
+    model_name = parts[1]
+    assert (
+        model_name in CAMERA_MODEL_NAME_TO_ID
+    ), f"Unknown camera model name {model_name}"
+    width = int(parts[2])
+    height = int(parts[3])
+    params = np.array([float(val) for val in parts[4:]], dtype=np.float64)
+    model_id = CAMERA_MODEL_NAME_TO_ID[model_name]
+    expected_params = CAMERA_MODELS[model_id].num_params
+    assert (
+        params.size == expected_params
+    ), f"Camera {camera_id} expected {expected_params} params, got {params.size}"
+    return (
+        camera_id,
+        ColmapCamera(
+            id=camera_id,
+            model=model_name,
+            width=width,
+            height=height,
+            params=params,
+        ),
+    )
+
+
+def _parse_colmap_image_block(block: Tuple[str, str]) -> Tuple[int, ColmapImage]:
+    # Input validations
+    assert isinstance(block, tuple), f"{type(block)=}"
+    assert len(block) == 2, f"{len(block)=}"
+    assert isinstance(block[0], str), f"{type(block[0])=}"
+    assert isinstance(block[1], str), f"{type(block[1])=}"
+
+    header_line, points_line = block
+    parts = header_line.split()
+    assert len(parts) >= 10, f"Invalid images.txt line: {header_line}"
+    image_id = int(parts[0])
+    qvec = np.array(
+        [
+            float(parts[1]),
+            float(parts[2]),
+            float(parts[3]),
+            float(parts[4]),
+        ],
+        dtype=np.float64,
+    )
+    tvec = np.array(
+        [
+            float(parts[5]),
+            float(parts[6]),
+            float(parts[7]),
+        ],
+        dtype=np.float64,
+    )
+    camera_id = int(parts[8])
+    name = " ".join(parts[9:])
+    if points_line:
+        point_parts = points_line.split()
         assert (
-            len(track_parts) % 2 == 0
-        ), f"Invalid track data for point {point_id}: {line}"
-        track_len = len(track_parts) // 2
-        image_ids = np.empty((track_len,), dtype=np.int32)
-        point2d_idxs = np.empty((track_len,), dtype=np.int32)
-        for idx in range(track_len):
-            base = idx * 2
-            image_ids[idx] = int(track_parts[base])
-            point2d_idxs[idx] = int(track_parts[base + 1])
-        points3D[point_id] = ColmapPoint3D(
+            len(point_parts) % 3 == 0
+        ), f"Invalid points2D line for image {image_id}: {points_line}"
+        num_points = len(point_parts) // 3
+        xys = np.empty((num_points, 2), dtype=np.float64)
+        point3d_ids = np.empty((num_points,), dtype=np.int64)
+        for idx in range(num_points):
+            base = idx * 3
+            xys[idx, 0] = float(point_parts[base])
+            xys[idx, 1] = float(point_parts[base + 1])
+            point3d_ids[idx] = int(point_parts[base + 2])
+    else:
+        xys = np.empty((0, 2), dtype=np.float64)
+        point3d_ids = np.empty((0,), dtype=np.int64)
+    return (
+        image_id,
+        ColmapImage(
+            id=image_id,
+            qvec=qvec,
+            tvec=tvec,
+            camera_id=camera_id,
+            name=name,
+            xys=xys,
+            point3D_ids=point3d_ids,
+        ),
+    )
+
+
+def _parse_colmap_point_line(line: str) -> Tuple[int, ColmapPoint3D]:
+    # Input validations
+    assert isinstance(line, str), f"{type(line)=}"
+
+    parts = line.split()
+    assert len(parts) >= 8, f"Invalid points3D.txt line: {line}"
+    point_id = int(parts[0])
+    xyz = np.array(
+        [
+            float(parts[1]),
+            float(parts[2]),
+            float(parts[3]),
+        ],
+        dtype=np.float64,
+    )
+    rgb = np.array(
+        [
+            int(parts[4]),
+            int(parts[5]),
+            int(parts[6]),
+        ],
+        dtype=np.uint8,
+    )
+    error = float(parts[7])
+    track_parts = parts[8:]
+    assert len(track_parts) % 2 == 0, f"Invalid track data for point {point_id}: {line}"
+    track_len = len(track_parts) // 2
+    image_ids = np.empty((track_len,), dtype=np.int32)
+    point2d_idxs = np.empty((track_len,), dtype=np.int32)
+    for idx in range(track_len):
+        base = idx * 2
+        image_ids[idx] = int(track_parts[base])
+        point2d_idxs[idx] = int(track_parts[base + 1])
+    return (
+        point_id,
+        ColmapPoint3D(
             id=point_id,
             xyz=xyz,
             rgb=rgb,
             error=error,
             image_ids=image_ids,
             point2D_idxs=point2d_idxs,
-        )
-    return points3D
+        ),
+    )

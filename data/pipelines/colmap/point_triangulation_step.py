@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from data.pipelines.base_step import BaseStep
-from data.structures.colmap.load import load_cameras_binary, load_images_binary
+from data.structures.colmap.load import (
+    _load_colmap_cameras_bin,
+    _load_colmap_images_bin,
+)
 
 
 class ColmapPointTriangulationStep(BaseStep):
@@ -82,8 +85,8 @@ class ColmapPointTriangulationStep(BaseStep):
     def _validate_registered_images(self) -> None:
         cameras_path = self.output_model_dir / "cameras.bin"
         images_path = self.output_model_dir / "images.bin"
-        cameras = load_cameras_binary(str(cameras_path))
-        images = load_images_binary(str(images_path))
+        cameras = _load_colmap_cameras_bin(path_to_model_file=str(cameras_path))
+        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
         assert cameras, f"No cameras parsed from {cameras_path}"
         assert (
             len(cameras) == 1

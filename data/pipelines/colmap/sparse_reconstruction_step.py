@@ -7,9 +7,9 @@ from typing import Any, Dict, List
 
 from data.pipelines.base_step import BaseStep
 from data.structures.colmap.load import (
-    load_cameras_binary,
-    load_images_binary,
-    load_points3D_binary,
+    _load_colmap_cameras_bin,
+    _load_colmap_images_bin,
+    _load_colmap_points_bin,
 )
 
 
@@ -86,7 +86,7 @@ class ColmapSparseReconstructionStep(BaseStep):
     def _registered_image_names(self) -> List[str]:
         images_path = self.sparse_output_dir / "0" / "images.bin"
         assert images_path.exists(), f"COLMAP images.bin not found: {images_path}"
-        images = load_images_binary(str(images_path))
+        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
         assert images, f"No registered images found in {images_path}"
         return sorted(image.name for image in images.values())
 
@@ -122,9 +122,9 @@ class ColmapSparseReconstructionStep(BaseStep):
         assert images_path.exists(), f"images.bin not found: {images_path}"
         assert points_path.exists(), f"points3D.bin not found: {points_path}"
 
-        cameras = load_cameras_binary(str(cameras_path))
-        images = load_images_binary(str(images_path))
-        points3d = load_points3D_binary(str(points_path))
+        cameras = _load_colmap_cameras_bin(path_to_model_file=str(cameras_path))
+        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
+        points3d = _load_colmap_points_bin(path_to_model_file=str(points_path))
 
         assert cameras, f"No cameras parsed from {cameras_path}"
         assert (

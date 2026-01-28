@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Any, Dict
 
 from data.pipelines.base_step import BaseStep
-from data.structures.colmap.load import load_cameras_binary, load_images_binary
+from data.structures.colmap.load import (
+    _load_colmap_cameras_bin,
+    _load_colmap_images_bin,
+)
 
 
 class ColmapBundleAdjustmentStep(BaseStep):
@@ -74,8 +77,12 @@ class ColmapBundleAdjustmentStep(BaseStep):
         return {}
 
     def _validate_model(self) -> None:
-        cameras = load_cameras_binary(str(self.model_dir / "cameras.bin"))
-        images = load_images_binary(str(self.model_dir / "images.bin"))
+        cameras = _load_colmap_cameras_bin(
+            path_to_model_file=str(self.model_dir / "cameras.bin")
+        )
+        images = _load_colmap_images_bin(
+            path_to_model_file=str(self.model_dir / "images.bin")
+        )
         assert cameras, f"No cameras parsed from {self.model_dir / 'cameras.bin'}"
         assert (
             len(cameras) == 1

@@ -1,5 +1,6 @@
 import os
-from typing import Any, Dict
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -35,17 +36,19 @@ def create_ply_from_colmap(
             f.write("end_header\n")
         return out_path
 
-    points = np.array([p.xyz for p in colmap_points.values()], dtype=np.float32)
-    colors = np.array([p.rgb for p in colmap_points.values()], dtype=np.uint8)
-    errors = np.array([p.error for p in colmap_points.values()], dtype=np.float32)
+    point_ids = sorted(colmap_points)
+    points = np.array([colmap_points[idx].xyz for idx in point_ids], dtype=np.float32)
+    colors = np.array([colmap_points[idx].rgb for idx in point_ids], dtype=np.uint8)
+    errors = np.array([colmap_points[idx].error for idx in point_ids], dtype=np.float32)
     track_lengths = np.array(
-        [len(p.image_ids) for p in colmap_points.values()], dtype=np.uint8
+        [len(colmap_points[idx].image_ids) for idx in point_ids], dtype=np.uint8
     )
 
     valid_mask = np.logical_and(
         errors < pixel_error_filter, track_lengths >= point_track_filter
     )
     num_valid_points = int(valid_mask.sum())
+    valid_indices = np.flatnonzero(valid_mask)
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("ply\n")
@@ -59,11 +62,19 @@ def create_ply_from_colmap(
         f.write("property uint8 blue\n")
         f.write("end_header\n")
 
-        for coord, color, is_valid in zip(points, colors, valid_mask, strict=True):
-            if not is_valid:
-                continue
+        def _format_point(idx: int) -> str:
+            # Input validations
+            assert isinstance(idx, (int, np.integer)), f"{type(idx)=}"
+
+            coord = points[idx]
+            color = colors[idx]
             x, y, z = coord
             r, g, b = color
-            f.write(f"{x:.8f} {y:.8f} {z:.8f} {int(r)} {int(g)} {int(b)}\n")
+            return f"{x:.8f} {y:.8f} {z:.8f} {int(r)} {int(g)} {int(b)}\n"
+
+        max_workers = min(32, len(valid_indices)) if len(valid_indices) > 0 else 1
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            lines: List[str] = list(executor.map(_format_point, valid_indices))
+        f.writelines(lines)
 
     return out_path
