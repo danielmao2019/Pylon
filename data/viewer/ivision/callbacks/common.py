@@ -20,6 +20,8 @@ def compute_outputs(
     model_state_entries: List[Any],
     show_cameras: bool,
 ) -> Tuple[List[Any], Any, str]:
+    # Input validations
+    assert viewer is not None, "viewer must not be None"
     assert isinstance(model_state_entries, list), f"{type(model_state_entries)=}"
     assert isinstance(show_cameras, bool), f"{type(show_cameras)=}"
 
@@ -55,6 +57,9 @@ def compute_outputs(
 def build_static_grid(
     viewer: "iVISION_4D_Scene_Viewer",
 ) -> Tuple[List[Any], Dict[str, Any]]:
+    # Input validations
+    assert viewer is not None, "viewer must not be None"
+
     if viewer.current_dataset is None or viewer.current_scene is None:
         return [], _make_grid_style(method_count=0)
 

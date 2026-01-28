@@ -19,6 +19,9 @@ def register_scene_selection_callbacks(
     app: dash.Dash, viewer: "iVISION_4D_Scene_Viewer"
 ) -> None:
     """Handle scene dropdown selection (main view update)."""
+    # Input validations
+    assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"
+    assert viewer is not None, "viewer must not be None"
 
     @app.callback(
         Output("image-grid", "children", allow_duplicate=True),
@@ -61,6 +64,7 @@ def register_scene_selection_callbacks(
         str,
         str,
     ]:
+        # Input validations
         assert scene_value is None or isinstance(
             scene_value, str
         ), "scene_value must be str or None"

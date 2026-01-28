@@ -23,6 +23,9 @@ def register_camera_selector_callbacks(
     app: dash.Dash, viewer: "iVISION_4D_Scene_Viewer"
 ) -> None:
     """Handle camera selector changes."""
+    # Input validations
+    assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"
+    assert viewer is not None, "viewer must not be None"
 
     @app.callback(
         Output(
@@ -65,9 +68,11 @@ def register_camera_selector_callbacks(
         show_cameras_state: bool,
         _store_state_values: Any,
     ) -> Tuple[List[Any], Any, str, Any]:
+        # Input validations
         assert isinstance(
             show_cameras_state, bool
         ), "overlay toggle store data must be a boolean"
+
         triggered_id, triggered_value = triggered_payload()
         if (
             not isinstance(triggered_id, dict)

@@ -1,23 +1,40 @@
 """Dash layout builder for iVISION 4D Scene Viewer."""
 
-import math
 from typing import Any, Dict, List, Optional
 
 from dash import Dash, dcc, html
 from dash_extensions import Keyboard
 
-from data.viewer.ivision.context import get_viewer_context
 from data.viewer.ivision.layout.styles import (
+    CAMERA_INFO_CONTAINER_STYLE,
+    CAMERA_INFO_HEADER_STYLE,
+    CAMERA_INFO_TEXT_STYLE,
+    CAMERA_OVERLAY_CONTAINER_STYLE,
+    CAMERA_SELECTOR_CONTAINER_STYLE,
+    CAMERA_SELECTOR_HEADER_STYLE,
+    CAMERA_SELECTOR_INPUT_STYLE,
+    CAMERA_SELECTOR_LABEL_STYLE,
     CAMERA_SELECTOR_SCROLLABLE_STYLE,
+    CAMERA_SELECTOR_SPLIT_CONTAINER_STYLE,
+    CAMERA_SELECTOR_SPLIT_TITLE_STYLE,
+    CONTROL_HEADER_STYLE,
+    KEYBOARD_SHORTCUTS_HEADER_STYLE,
+    KEYBOARD_SHORTCUTS_LIST_STYLE,
     KEYBOARD_STYLE,
+    LABEL_BOLD_STYLE,
     LAYOUT_WRAPPER_STYLE,
     MAIN_PANEL_STYLE,
+    MODEL_STORE_CONTAINER_STYLE,
     PAGE_STYLE,
+    PRIMARY_BUTTON_STYLE,
+    RECORD_STATUS_STYLE,
     SIDE_PANEL_STYLE,
     SLIDER_BLOCK_STYLE,
     SLIDER_COMPONENT_STYLE,
+    SLIDER_LABEL_STYLE,
     SLIDER_ROW_STYLE,
     SLIDER_VALUE_STYLE,
+    _make_grid_style,
 )
 
 CAMERA_NONE_VALUE = "__none__"
@@ -28,12 +45,16 @@ CAMERA_OVERLAY_TOGGLE_BUTTON_ID = "camera-overlay-toggle-button"
 MODEL_STORE_CONTAINER_ID = "model-store-container"
 
 
-def build_layout(app: Dash) -> None:
+def build_layout(app: Dash, dataset_options: List[Dict[str, Any]]) -> None:
     # Input validations
     assert isinstance(app, Dash), f"app must be Dash, got {type(app)}"
+    assert isinstance(
+        dataset_options, list
+    ), f"dataset_options must be list, got {type(dataset_options)}"
+    assert all(
+        isinstance(option, dict) for option in dataset_options
+    ), "dataset_options entries must be dicts"
 
-    viewer = get_viewer_context().viewer
-    dataset_options = [{"label": name, "value": name} for name in viewer.dataset_order]
     layout = build_app_layout(dataset_options=dataset_options)
     app.layout = layout
 
@@ -53,49 +74,13 @@ def build_app_layout(dataset_options: List[Dict[str, Any]]) -> html.Div:
     model_store_container = html.Div(
         [],
         id=MODEL_STORE_CONTAINER_ID,
-        style={"display": "none"},
+        style=MODEL_STORE_CONTAINER_STYLE,
     )
     layout_wrapper = html.Div(
         [side_panel, main_panel],
         style={**LAYOUT_WRAPPER_STYLE},
     )
     return html.Div([layout_wrapper, model_store_container], style={**PAGE_STYLE})
-
-
-def format_camera_info_text(info: Optional[Dict[str, Any]]) -> str:
-    if not info:
-        return ""
-
-    frustum_width_px, frustum_height_px = info["frustum_resolution"]
-    position = info["position"]
-    lines = [
-        "Intrinsics:",
-        f"  FOVx: {info['fov_x']:.2f}°  FOVy: {info['fov_y']:.2f}°",
-        f"  Frustum resolution: {frustum_width_px} x {frustum_height_px}",
-        "",
-        "Extrinsics:",
-        f"  Position: [{position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f}]",
-        f"  Pitch: {info['pitch']:.1f}°  Yaw: {info['yaw']:.1f}°",
-    ]
-    return "\n".join(lines)
-
-
-def _make_grid_style(method_count: int) -> Dict[str, Any]:
-    cols = (
-        max(1, int(math.ceil(math.sqrt(max(1, method_count)))))
-        if method_count > 0
-        else 1
-    )
-    return {
-        "display": "grid",
-        "gridTemplateColumns": f"repeat({cols}, minmax(0, 1fr))",
-        "gap": "20px",
-        "width": "100%",
-        "height": "100%",
-        "padding": "20px",
-        "boxSizing": "border-box",
-        "overflowY": "auto",
-    }
 
 
 # ---------------------------
@@ -145,7 +130,7 @@ def _build_dataset_dropdown_layout(
 ) -> html.Div:
     return html.Div(
         [
-            html.Label("Dataset", style={"fontWeight": "bold"}),
+            html.Label("Dataset", style=LABEL_BOLD_STYLE),
             dcc.Dropdown(
                 id="dataset-dropdown",
                 options=dataset_options,
@@ -162,7 +147,7 @@ def _build_scene_dropdown_layout(
 ) -> html.Div:
     return html.Div(
         [
-            html.Label("Scene", style={"fontWeight": "bold"}),
+            html.Label("Scene", style=LABEL_BOLD_STYLE),
             dcc.Dropdown(
                 id="scene-dropdown",
                 options=initial_scene_options,
@@ -177,7 +162,7 @@ def _build_scene_dropdown_layout(
 def _build_controls_layout() -> html.Div:
     return html.Div(
         [
-            html.H4("Controls", style={"margin-bottom": "12px"}),
+            html.H4("Controls", style=CONTROL_HEADER_STYLE),
             _build_translation_slider_layout(),
             _build_rotation_slider_layout(),
             _build_record_controls_layout(),
@@ -189,7 +174,7 @@ def _build_translation_slider_layout() -> html.Div:
     slider_props = _make_slider_props()
     return html.Div(
         [
-            html.Label("Translation Step:", style={"font-weight": "bold"}),
+            html.Label("Translation Step:", style=SLIDER_LABEL_STYLE),
             html.Div(
                 [
                     html.Div(
@@ -216,7 +201,7 @@ def _build_rotation_slider_layout() -> html.Div:
     slider_props = _make_slider_props()
     return html.Div(
         [
-            html.Label("Rotation Step:", style={"font-weight": "bold"}),
+            html.Label("Rotation Step:", style=SLIDER_LABEL_STYLE),
             html.Div(
                 [
                     html.Div(
@@ -246,21 +231,12 @@ def _build_record_controls_layout() -> html.Div:
                 "Record Camera Extrinsics",
                 id="record-button",
                 n_clicks=0,
-                style={
-                    "width": "100%",
-                    "padding": "10px",
-                    "fontSize": "14px",
-                    "margin-bottom": "10px",
-                },
+                style=PRIMARY_BUTTON_STYLE,
             ),
             html.Div(
                 id="record-status",
                 children="No cameras recorded yet",
-                style={
-                    "text-align": "center",
-                    "color": "#666",
-                    "fontSize": "12px",
-                },
+                style=RECORD_STATUS_STYLE,
             ),
         ],
         style=SLIDER_BLOCK_STYLE,
@@ -273,19 +249,14 @@ def _build_camera_info_layout(
     text = format_camera_info_text(initial_camera_info)
     return html.Div(
         [
-            html.H5("Camera Info:", style={"margin-bottom": "10px"}),
+            html.H5("Camera Info:", style=CAMERA_INFO_HEADER_STYLE),
             html.Div(
                 id="camera-info-display",
                 children=text,
-                style={
-                    "fontSize": "11px",
-                    "fontFamily": "monospace",
-                    "lineHeight": "1.4",
-                    "whiteSpace": "pre-wrap",
-                },
+                style=CAMERA_INFO_TEXT_STYLE,
             ),
         ],
-        style={"margin-bottom": "30px"},
+        style=CAMERA_INFO_CONTAINER_STYLE,
     )
 
 
@@ -316,15 +287,10 @@ def _build_camera_overlay_toggle_layout() -> html.Div:
                 button_label,
                 id=CAMERA_OVERLAY_TOGGLE_BUTTON_ID,
                 n_clicks=0,
-                style={
-                    "width": "100%",
-                    "padding": "10px",
-                    "fontSize": "14px",
-                    "margin-bottom": "10px",
-                },
+                style=PRIMARY_BUTTON_STYLE,
             ),
         ],
-        style={"margin-bottom": "20px"},
+        style=CAMERA_OVERLAY_CONTAINER_STYLE,
     )
 
 
@@ -345,17 +311,12 @@ def _build_camera_selector_layout(
     else:
         ordered_keys = keys
     components: List[Any] = [
-        html.H5("Camera Selection:", style={"margin-bottom": "10px"}),
+        html.H5("Camera Selection:", style=CAMERA_SELECTOR_HEADER_STYLE),
     ]
 
     common_radio_kwargs = {
-        "inputStyle": {"marginRight": "8px"},
-        "labelStyle": {
-            "display": "block",
-            "marginBottom": "6px",
-            "fontSize": "12px",
-            "cursor": "pointer",
-        },
+        "inputStyle": CAMERA_SELECTOR_INPUT_STYLE,
+        "labelStyle": CAMERA_SELECTOR_LABEL_STYLE,
     }
 
     for split_key in ordered_keys:
@@ -391,15 +352,15 @@ def _build_camera_selector_layout(
                 [
                     html.H6(
                         split_key.title(),
-                        style={"margin": "12px 0 6px 0"},
+                        style=CAMERA_SELECTOR_SPLIT_TITLE_STYLE,
                     ),
                     html.Div(radio, style=CAMERA_SELECTOR_SCROLLABLE_STYLE),
                 ],
-                style={"marginBottom": "20px"},
+                style=CAMERA_SELECTOR_SPLIT_CONTAINER_STYLE,
             )
         )
 
-    return html.Div(components, style={"margin-bottom": "30px"})
+    return html.Div(components, style=CAMERA_SELECTOR_CONTAINER_STYLE)
 
 
 def _build_keyboard_shortcuts_layout() -> html.Div:
@@ -407,7 +368,7 @@ def _build_keyboard_shortcuts_layout() -> html.Div:
         [
             html.H5(
                 "Keyboard Shortcuts:",
-                style={"margin-bottom": "10px"},
+                style=KEYBOARD_SHORTCUTS_HEADER_STYLE,
             ),
             html.Ul(
                 [
@@ -417,10 +378,7 @@ def _build_keyboard_shortcuts_layout() -> html.Div:
                     html.Li("Space/Shift - Move up/down"),
                     html.Li("Arrow keys - Rotate camera"),
                 ],
-                style={
-                    "fontSize": "12px",
-                    "lineHeight": "1.8",
-                },
+                style=KEYBOARD_SHORTCUTS_LIST_STYLE,
             ),
         ]
     )
@@ -483,6 +441,24 @@ def _build_keyboard_overlay_layout() -> Keyboard:
 # ---------------------------
 # Shared helpers
 # ---------------------------
+
+
+def format_camera_info_text(info: Optional[Dict[str, Any]]) -> str:
+    if not info:
+        return ""
+
+    frustum_width_px, frustum_height_px = info["frustum_resolution"]
+    position = info["position"]
+    lines = [
+        "Intrinsics:",
+        f"  FOVx: {info['fov_x']:.2f}°  FOVy: {info['fov_y']:.2f}°",
+        f"  Frustum resolution: {frustum_width_px} x {frustum_height_px}",
+        "",
+        "Extrinsics:",
+        f"  Position: [{position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f}]",
+        f"  Pitch: {info['pitch']:.1f}°  Yaw: {info['yaw']:.1f}°",
+    ]
+    return "\n".join(lines)
 
 
 def _make_slider_props() -> Dict[str, Any]:

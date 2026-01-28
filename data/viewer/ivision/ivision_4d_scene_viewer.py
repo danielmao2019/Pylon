@@ -10,7 +10,6 @@ import torch
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
 from data.viewer.ivision.callbacks import register_viewer_callbacks
-from data.viewer.ivision.context import IVisionViewerContext, set_viewer_context
 from data.viewer.ivision.layout import (
     CAMERA_NONE_VALUE,
     MODEL_STORE_CONTAINER_ID,
@@ -52,8 +51,10 @@ class iVISION_4D_Scene_Viewer:
         self._init_camera_state()
         self.app = dash.Dash(__name__, suppress_callback_exceptions=True)
         self._init_all_datasets(registry=self.registry)
-        set_viewer_context(IVisionViewerContext(viewer=self))
-        build_layout(app=self.app)
+        dataset_options = [
+            {"label": name, "value": name} for name in self.dataset_order
+        ]
+        build_layout(app=self.app, dataset_options=dataset_options)
         self._setup_states()
         self._build_model_init_layouts()
         self._register_callbacks()

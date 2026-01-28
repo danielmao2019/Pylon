@@ -18,6 +18,9 @@ def register_keyboard_callbacks(
     app: dash.Dash, viewer: "iVISION_4D_Scene_Viewer"
 ) -> None:
     """Handle keyboard navigation and movement."""
+    # Input validations
+    assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"
+    assert viewer is not None, "viewer must not be None"
 
     @app.callback(
         Output(
@@ -57,6 +60,7 @@ def register_keyboard_callbacks(
         show_cameras_state: bool,
         _store_state_values: Any,
     ) -> Tuple[List[Any], Any, str]:
+        # Input validations
         assert _n_keydowns is None or isinstance(
             _n_keydowns, int
         ), "_n_keydowns must be int or None"

@@ -22,6 +22,11 @@ def triggered_payload() -> Tuple[Any, Any]:
 def parse_model_state(
     store_state_entries: List[Any],
 ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    # Input validations
+    assert isinstance(
+        store_state_entries, list
+    ), f"store_state_entries must be list, got {type(store_state_entries)}"
+
     model_state: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for state_entry in store_state_entries:
         if isinstance(state_entry, list):

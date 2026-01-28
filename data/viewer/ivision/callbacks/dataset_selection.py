@@ -16,6 +16,9 @@ def register_dataset_selection_callbacks(
     app: dash.Dash, viewer: "iVISION_4D_Scene_Viewer"
 ) -> None:
     """Handle dataset dropdown selection (options + main view update)."""
+    # Input validations
+    assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"
+    assert viewer is not None, "viewer must not be None"
 
     @app.callback(
         Output("scene-dropdown", "options"),
@@ -54,6 +57,7 @@ def register_dataset_selection_callbacks(
         str,
         str,
     ]:
+        # Input validations
         assert dataset_value is None or isinstance(
             dataset_value, str
         ), "dataset_value must be str or None"
