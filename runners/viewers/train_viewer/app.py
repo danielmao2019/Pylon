@@ -1,45 +1,37 @@
-from typing import List
-import dash
+import argparse
 
-from runners.viewers.train_viewer.layout.main_layout import create_layout
-from runners.viewers.train_viewer.callbacks.load_losses import register_callbacks
+from dash import Dash
+
+from runners.viewers.train_viewer.callbacks.register import register_callbacks
+from runners.viewers.train_viewer.layout.components import build_layout
 
 
-def create_app() -> dash.Dash:
-    """Create the Dash application for training losses viewer.
-
-    Returns:
-        app: Dash application instance
-    """
-    # Create app
-    app = dash.Dash(__name__)
-
-    # Create layout
-    app.layout = create_layout()
-
-    # Register callbacks
-    register_callbacks(app)
-
+def create_app() -> Dash:
+    app = Dash(__name__)
+    build_layout(app=app)
+    register_callbacks(app=app)
     return app
 
 
-def run_app(port: int = 8050) -> None:
-    """Run the Dash application.
-
-    Args:
-        port: Port to run the server on
-    """
+def run_app(port: int) -> None:
+    # Input validations
     assert isinstance(port, int), f"port must be int, got {type(port)}"
     assert 1024 <= port <= 65535, f"port must be between 1024 and 65535, got {port}"
 
     app = create_app()
-    app.run(debug=False, port=port)
+    app.run(debug=False, host="0.0.0.0", port=port)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Launch the training losses viewer")
+    parser.add_argument("--port", type=int, default=8050, help="Port number")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    run_app(port=args.port)
 
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Launch the training losses viewer")
-    parser.add_argument("--port", type=int, default=8050, help="Port number")
-    args = parser.parse_args()
-
-    run_app(port=args.port)
+    main()
