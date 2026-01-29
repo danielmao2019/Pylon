@@ -43,15 +43,19 @@ It is not strictly required to do input validation for all functions/methods and
 3. The order of input validation must follow exactly the order of the input args, and input validation for each arg should be done one after another, not mixing the lines.
 4. It is not a strict rule to do input validation for all function args.
 
-### 2.3. About user code in this repo
+### 2.3. Input Normalization
 
-There are a few folders and files that should be considered as user code:
-1. The `configs` folder.
-2. The `project` folder.
-3. The `papers` folder.
-4. Many files under repo root, e.g., the `test_*.py` files.
+Input normalization refers to the process, which must be done after all input validations are done, that normalizes different input formats. e.g., a run model function may take a single image, or a list of images, or a single tensor for stacked images; a path may be passed in as `str` type of `pathlib.Path` type; a set of weights may be passed in as a list/tuple of floats, a `numpy.ndarray` instance, a `torch.Tensor` instance, with sum equal to 1, or not equal to 1. Input normalization is, similar to input validation, not strictly needed when the inputs are simple enough, but definitely needs some attention when the inputs are complex.
 
-### 2.4. How to write `__init__.py` files
+Rules:
+1. Similar to input validation, input normalization must be a dedicated code section, meaning that
+   1. This code section should be the ONLY place that is responsible for input normalization. No other places can do input normalization.
+   2. It must start with a line `# Input normalizations`.
+   3. It must end with an empty line, before any subsequent code in the definition.
+2. Similar to input validation, input normalization code must be grouped by variables. Do not leave var1 half-normalized and then work on var2 and then go back to var1 to complete the var1 normalization.
+3. Similar to input validation, input normalization code ordering must follow the order of args.
+
+### 2.4. How to write `__init__.py`
 
 Rules:
 1. `__init__.py` files must ONLY contain three things: multi-line comment block using `"""`, import statements, and definition of `__all__`.
@@ -61,13 +65,22 @@ Rules:
 5. `__init__.py` must go through `isort` (see below), and the items in `__all__` must match exactly the imported items, and in the exact same ordering defined by `isort`.
 6. User code folders (as defined above) must never contain ANY `__init__.py` files. This is strict.
 
-### 2.5. How to write import statements
+### 2.5. About user code in this repo
+
+There are a few folders and files that should be considered as user code:
+1. The `configs` folder.
+2. The `project` folder.
+3. The `papers` folder.
+4. Many files under repo root, e.g., the `test_*.py` files.
+
+### 2.6. How to write import statements
 
 Rules:
-1. For user code, items must be imported from modules. The API of the modules are defined by `__init__.py` files.
-2. For source code, items must be imported from the exact file, never import from module.
-3. Throughout, imports must ALWAYS be absolute imports. I do not expect any single relative import statement.
-4. Must run `isort`, but never run `isort` repo-wide. Run `isort` on the files you are working on, ONLY.
+1. All imports must be at top of file, except for those intentional lazy imports, which is rare. Any intentional lazy import must be explicitly documented.
+2. For user code, items must be imported from modules. The API of the modules are defined by `__init__.py` files.
+3. For source code, items must be imported from the exact file, never import from module.
+4. Throughout, imports must ALWAYS be absolute imports. I do not expect any single relative import statement.
+5. Must run `isort`, but never run `isort` repo-wide. Run `isort` on the files you are working on, ONLY.
 
 Sometimes, you need to add repo root to `sys.path`, in order to use the packages. When doing so, here are the rules:
 1. Must define a variable called `REPO_ROOT`.
