@@ -2,11 +2,6 @@
 UTILS API
 """
 
-import importlib.util
-import sys
-import types
-from pathlib import Path
-
 from utils import (
     automation,
     builders,
@@ -21,8 +16,9 @@ from utils import (
     object_detection,
     ops,
     semantic_segmentation,
-    timeout,
+    three_d,
 )
+from utils.timeout import with_timeout
 
 __all__ = (
     'dynamic_executor',
@@ -36,7 +32,8 @@ __all__ = (
     'models',
     'ops',
     'gradients',
-    'timeout',
     'object_detection',
     'semantic_segmentation',
+    'three_d',
+    'with_timeout',
 )
