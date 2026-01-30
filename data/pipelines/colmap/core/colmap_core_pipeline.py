@@ -156,15 +156,15 @@ class ColmapCorePipeline(BasePipeline):
             ]
         common_suffix = [
             {
+                "class": ColmapImageUndistortionStep,
+                "args": {"scene_root": self.scene_root},
+            },
+            {
                 "class": ColmapModelTextExportStep,
                 "args": {
                     "scene_root": self.scene_root,
                     "model_relpath": "distorted/sparse/0",
                 },
-            },
-            {
-                "class": ColmapImageUndistortionStep,
-                "args": {"scene_root": self.scene_root},
             },
             {
                 "class": ColmapModelTextExportStep,
