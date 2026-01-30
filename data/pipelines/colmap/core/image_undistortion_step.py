@@ -93,15 +93,23 @@ class ColmapImageUndistortionStep(BaseStep):
             logging.info("📐 COLMAP undistortion already done - SKIPPED")
             return {}
         logging.info("   📐 Image undistortion")
-        undistort_cmd = (
-            f"colmap image_undistorter "
-            f"--image_path {self.input_images_dir} "
-            f"--input_path {self.distorted_sparse_dir / '0'} "
-            f"--output_path {self.output_root} "
-            f"--output_type COLMAP"
+        cmd_parts = [
+            "colmap",
+            "image_undistorter",
+            "--image_path",
+            str(self.input_images_dir),
+            "--input_path",
+            str(self.distorted_sparse_dir / "0"),
+            "--output_path",
+            str(self.output_root),
+            "--output_type",
+            "COLMAP",
+        ]
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            "COLMAP image undistortion failed with code "
+            f"{result.returncode}. STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
-        ret_code = subprocess.call(undistort_cmd, shell=True)
-        assert ret_code == 0, f"COLMAP image undistortion failed with code {ret_code}"
         self._move_sparse_model()
         self._assert_sparse_model_matches_images()
         self._clean_other_files()
@@ -134,12 +142,18 @@ class ColmapImageUndistortionStep(BaseStep):
 
     def _move_sparse_model(self) -> None:
         destination_dir = self.undistorted_sparse_dir / "0"
-        source_model_dir = self.temp_sparse_dir / "0"
-        if not source_model_dir.is_dir():
-            assert (
-                self.temp_sparse_dir.is_dir()
-            ), f"Sparse model directory not found: {self.temp_sparse_dir}"
-            source_model_dir = self.temp_sparse_dir
+        source_model_dir = self.temp_sparse_dir
+        assert (
+            source_model_dir.is_dir()
+        ), f"Sparse model directory not found: {source_model_dir}"
+        expected_files = ["cameras.bin", "images.bin", "points3D.bin"]
+        missing_files = [
+            name for name in expected_files if not (source_model_dir / name).exists()
+        ]
+        assert not missing_files, (
+            "Sparse model directory missing expected files: "
+            f"{', '.join(missing_files)}"
+        )
         if destination_dir.exists():
             shutil.rmtree(destination_dir)
         destination_dir.parent.mkdir(parents=True, exist_ok=True)

@@ -91,9 +91,12 @@ class ColmapFeatureMatchingStep(BaseStep):
                 "exhaustive_matcher",
                 "--database_path",
                 str(self.database_path),
-                f"{self.colmap_args['matching_use_gpu']} 1",
-                f"{self.colmap_args['guided_matching']} 1",
-                "--log_to_stderr 1",
+                self.colmap_args["matching_use_gpu"],
+                "1",
+                self.colmap_args["guided_matching"],
+                "1",
+                "--log_to_stderr",
+                "1",
             ]
         else:
             cmd_parts = [
@@ -101,18 +104,20 @@ class ColmapFeatureMatchingStep(BaseStep):
                 "sequential_matcher",
                 "--database_path",
                 str(self.database_path),
-                f"{self.colmap_args['matching_use_gpu']} 1",
-                f"{self.colmap_args['guided_matching']} 1",
-                "--log_to_stderr 1",
+                self.colmap_args["matching_use_gpu"],
+                "1",
+                self.colmap_args["guided_matching"],
+                "1",
+                "--log_to_stderr",
+                "1",
             ]
             for key in self.matcher_cfg:
                 if key == "matcher_type":
                     continue
-                cmd_parts.append(f"--SequentialMatching.{key} {self.matcher_cfg[key]}")
-        feat_matching_cmd = " ".join(cmd_parts)
-        result = subprocess.run(
-            feat_matching_cmd, shell=True, capture_output=True, text=True
-        )
+                cmd_parts.extend(
+                    [f"--SequentialMatching.{key}", str(self.matcher_cfg[key])]
+                )
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
         assert result.returncode == 0, (
             f"COLMAP feature matching failed with code {result.returncode}. "
             f"Using {self.colmap_args['version']} with parameters: "
