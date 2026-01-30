@@ -64,6 +64,10 @@ class ColmapFeatureMatchingStep(BaseStep):
     def _init_output_files(self) -> None:
         self.output_files = ["distorted/database.db"]
 
+    def build(self, force: bool = False) -> None:
+        super().build(force=force)
+        self.run(kwargs={}, force=force)
+
     def check_outputs(self) -> bool:
         """Return True only when the COLMAP database contains match entries."""
         if not super().check_outputs():

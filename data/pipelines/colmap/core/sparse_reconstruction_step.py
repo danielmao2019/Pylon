@@ -18,12 +18,24 @@ class ColmapSparseReconstructionStep(BaseStep):
 
     STEP_NAME = "colmap_sparse_reconstruction"
 
-    def __init__(self, scene_root: str | Path) -> None:
+    def __init__(self, scene_root: str | Path, strict: bool = True) -> None:
+        # Input validations
+        assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
+        assert isinstance(strict, bool), f"{type(strict)=}"
+
+        # Input normalizations
         scene_root = Path(scene_root)
+
         self.input_images_dir = scene_root / "input"
         self.distorted_dir = scene_root / "distorted"
         self.sparse_output_dir = scene_root / "distorted" / "sparse"
+        self.strict = strict
         super().__init__(input_root=scene_root, output_root=scene_root)
+
+    def _init_input_files(self) -> None:
+        image_names = self._input_image_names()
+        self.input_files = [f"input/{name}" for name in image_names]
+        self.input_files.append("distorted/database.db")
 
     def _init_output_files(self) -> None:
         self.output_files = [
@@ -32,10 +44,9 @@ class ColmapSparseReconstructionStep(BaseStep):
             "distorted/sparse/0/points3D.bin",
         ]
 
-    def _init_input_files(self) -> None:
-        image_names = self._input_image_names()
-        self.input_files = [f"input/{name}" for name in image_names]
-        self.input_files.append("distorted/database.db")
+    def build(self, force: bool = False) -> None:
+        super().build(force=force)
+        self.run(kwargs={}, force=force)
 
     def check_outputs(self) -> bool:
         outputs_ready = super().check_outputs()
@@ -112,10 +123,22 @@ class ColmapSparseReconstructionStep(BaseStep):
         assert images, f"No registered images parsed from {images_path}"
         expected_names = set(self._input_image_names())
         registered_names = {img.name for img in images.values()}
-        assert registered_names == expected_names, (
-            f"Registered image names in images.bin do not match input images. "
-            f"expected={len(expected_names)} actual={len(registered_names)}"
+        assert registered_names, (
+            f"No registered images found in {images_path} "
+            f"(expected={len(expected_names)})"
         )
+        if self.strict:
+            assert registered_names == expected_names, (
+                "Registered images must match all inputs. "
+                f"expected={len(expected_names)} actual={len(registered_names)}"
+            )
+        else:
+            assert registered_names.issubset(expected_names), (
+                "Registered image names contain entries not in inputs. "
+                f"expected={len(expected_names)} actual={len(registered_names)}"
+            )
+            ratio = len(registered_names) / float(len(expected_names))
+            assert ratio > 0.1, f"Registered image ratio too low: {ratio:.4f}"
         assert points3d, f"No points parsed from {points_path}"
         # image_ids = {img.id for img in images.values()}
         # for point in points3d.values():

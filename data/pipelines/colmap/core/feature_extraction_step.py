@@ -37,6 +37,10 @@ class ColmapFeatureExtractionStep(BaseStep):
     def _init_output_files(self) -> None:
         self.output_files = ["distorted/database.db"]
 
+    def build(self, force: bool = False) -> None:
+        super().build(force=force)
+        self.run(kwargs={}, force=force)
+
     def check_inputs(self) -> None:
         super().check_inputs()
         entries = sorted(self.input_images_dir.iterdir())

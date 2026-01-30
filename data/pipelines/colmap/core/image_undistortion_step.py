@@ -4,10 +4,10 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from data.pipelines.base_step import BaseStep
-from data.structures.colmap.colmap import COLMAP_Data
+from data.structures.colmap.load import _load_colmap_images_bin
 
 
 class ColmapImageUndistortionStep(BaseStep):
@@ -43,7 +43,10 @@ class ColmapImageUndistortionStep(BaseStep):
         self.input_files = filenames
 
     def _init_output_files(self) -> None:
-        self.output_files = [f"images/{name}" for name in self.image_names]
+        registered_names = self._get_registered_image_names(
+            sparse_root=self.distorted_sparse_dir
+        )
+        self.output_files = [f"images/{name}" for name in registered_names]
         self.output_files.extend(
             [
                 "undistorted/sparse/0/cameras.bin",
@@ -58,7 +61,6 @@ class ColmapImageUndistortionStep(BaseStep):
             return False
         try:
             self._assert_outputs_clean()
-            self._assert_sparse_model_matches_images()
             return True
         except Exception as e:
             logging.debug("Image undistortion output validation failed: %s", e)
@@ -66,22 +68,13 @@ class ColmapImageUndistortionStep(BaseStep):
 
     def _assert_outputs_clean(self) -> None:
         target_dir = self.output_root / "images"
-        assert (
-            target_dir.is_dir()
-        ), f"Undistorted images directory not found: {target_dir}"
-        children = list(target_dir.iterdir())
-        assert all(entry.is_file() for entry in children), (
-            f"Non-file entries present in {target_dir}: "
-            f"{', '.join(sorted(entry.name for entry in children if not entry.is_file()))}"
+        expected_names = self._get_registered_image_names(
+            sparse_root=self.undistorted_sparse_dir
         )
-        assert all(entry.suffix == ".png" for entry in children), (
-            f"Non-PNG files present in {target_dir}: "
-            f"{', '.join(sorted(entry.name for entry in children if entry.suffix != '.png'))}"
-        )
-        disk_names = sorted(entry.name for entry in children)
-        assert disk_names == sorted(self.image_names), (
-            "Undistorted images on disk do not match inputs. "
-            f"expected={len(self.image_names)} actual={len(disk_names)}"
+        disk_names = self._get_disk_image_names(images_dir=target_dir)
+        assert expected_names == disk_names, (
+            "Undistorted images on disk do not match registered images. "
+            f"expected={len(expected_names)} actual={len(disk_names)}"
         )
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
@@ -111,49 +104,14 @@ class ColmapImageUndistortionStep(BaseStep):
             f"{result.returncode}. STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
         self._move_sparse_model()
-        self._assert_sparse_model_matches_images()
         self._clean_other_files()
+        self._assert_outputs_clean()
         return {}
-
-    def _assert_sparse_model_matches_images(self) -> None:
-        sparse_model_dir = self.undistorted_sparse_dir / "0"
-        assert (
-            sparse_model_dir.is_dir()
-        ), f"Sparse model directory not found: {sparse_model_dir}"
-        colmap_data = COLMAP_Data(model_dir=sparse_model_dir)
-        images = colmap_data.images
-        assert images, f"No registered images parsed from {sparse_model_dir}"
-        image_names = sorted(image.name for image in images.values())
-        assert all(name.endswith(".png") for name in image_names), (
-            "Sparse model contains non-PNG image names: "
-            f"{', '.join(sorted(name for name in image_names if not name.endswith('.png')))}"
-        )
-        disk_entries = sorted(self.output_images_dir.iterdir())
-        assert disk_entries, f"No undistorted images found in {self.output_images_dir}"
-        disk_names = sorted(
-            entry.name
-            for entry in disk_entries
-            if entry.is_file() and entry.suffix == ".png"
-        )
-        assert image_names == disk_names, (
-            "Sparse model image names do not match undistorted images on disk. "
-            f"sparse_count={len(image_names)} disk_count={len(disk_names)}"
-        )
 
     def _move_sparse_model(self) -> None:
         destination_dir = self.undistorted_sparse_dir / "0"
         source_model_dir = self.temp_sparse_dir
-        assert (
-            source_model_dir.is_dir()
-        ), f"Sparse model directory not found: {source_model_dir}"
-        expected_files = ["cameras.bin", "images.bin", "points3D.bin"]
-        missing_files = [
-            name for name in expected_files if not (source_model_dir / name).exists()
-        ]
-        assert not missing_files, (
-            "Sparse model directory missing expected files: "
-            f"{', '.join(missing_files)}"
-        )
+        self._validate_sparse_model_dir(model_dir=source_model_dir)
         if destination_dir.exists():
             shutil.rmtree(destination_dir)
         destination_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -163,22 +121,49 @@ class ColmapImageUndistortionStep(BaseStep):
 
     def _clean_other_files(self) -> None:
         target_dir = self.output_root / "images"
-        assert (
-            target_dir.is_dir()
-        ), f"Undistorted images directory not found: {target_dir}"
-        children = list(target_dir.iterdir())
-        assert all(entry.is_file() for entry in children), (
-            f"Non-file entries present in {target_dir}: "
-            f"{', '.join(sorted(entry.name for entry in children if not entry.is_file()))}"
+        expected_names = set(
+            self._get_registered_image_names(sparse_root=self.undistorted_sparse_dir)
         )
-        source_entries = sorted(self.input_images_dir.iterdir())
-        expected_names = {entry.name for entry in source_entries}
-        for entry in children:
-            if entry.name in expected_names:
-                continue
-            entry.unlink()
-        remaining = {entry.name for entry in target_dir.iterdir()}
-        assert remaining == expected_names, (
-            f"Unexpected files remain in {target_dir}: "
-            f"{', '.join(sorted(remaining - expected_names))}"
+        for entry in target_dir.iterdir():
+            if entry.is_file() and entry.name not in expected_names:
+                entry.unlink()
+
+    def _get_disk_image_names(self, images_dir: Path) -> List[str]:
+        assert (
+            images_dir.is_dir()
+        ), f"Undistorted images directory not found: {images_dir}"
+        disk_entries = sorted(images_dir.iterdir())
+        assert disk_entries, f"No undistorted images found in {images_dir}"
+        assert all(entry.is_file() for entry in disk_entries), (
+            f"Non-file entries present in {images_dir}: "
+            f"{', '.join(sorted(entry.name for entry in disk_entries if not entry.is_file()))}"
+        )
+        assert all(entry.suffix == ".png" for entry in disk_entries), (
+            f"Non-PNG files present in {images_dir}: "
+            f"{', '.join(sorted(entry.name for entry in disk_entries if entry.suffix != '.png'))}"
+        )
+        return sorted(entry.name for entry in disk_entries)
+
+    def _get_registered_image_names(self, sparse_root: Path) -> List[str]:
+        sparse_model_dir = sparse_root / "0"
+        self._validate_sparse_model_dir(model_dir=sparse_model_dir)
+        images_bin = sparse_model_dir / "images.bin"
+        images = _load_colmap_images_bin(path_to_model_file=str(images_bin))
+        assert images, f"No registered images parsed from {images_bin}"
+        image_names = sorted(image.name for image in images.values())
+        assert all(name.endswith(".png") for name in image_names), (
+            "Sparse model contains non-PNG image names: "
+            f"{', '.join(sorted(name for name in image_names if not name.endswith('.png')))}"
+        )
+        return image_names
+
+    def _validate_sparse_model_dir(self, model_dir: Path) -> None:
+        assert model_dir.is_dir(), f"Sparse model directory not found: {model_dir}"
+        expected_files = ["cameras.bin", "images.bin", "points3D.bin"]
+        missing_files = [
+            name for name in expected_files if not (model_dir / name).exists()
+        ]
+        assert not missing_files, (
+            "Sparse model directory missing expected files: "
+            f"{', '.join(missing_files)}"
         )

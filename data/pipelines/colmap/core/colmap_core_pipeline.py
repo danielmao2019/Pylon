@@ -17,9 +17,6 @@ from data.pipelines.colmap.core.image_undistortion_step import (
 from data.pipelines.colmap.core.init.bundle_adjustment_step import (
     ColmapBundleAdjustmentStep,
 )
-from data.pipelines.colmap.core.init.init_from_dji_step import (
-    ColmapInitFromDJIStep,
-)
 from data.pipelines.colmap.core.init.point_triangulation_step import (
     ColmapPointTriangulationStep,
 )
@@ -44,6 +41,7 @@ class ColmapCorePipeline(BasePipeline):
         init_from_dji: bool = False,
         dji_data_root: str | Path | None = None,
         mask_input_root: str | Path | None = None,
+        strict: bool = True,
     ) -> None:
         self.scene_root = Path(scene_root).expanduser().resolve()
         self.colmap_args = self._get_colmap_args()
@@ -53,6 +51,7 @@ class ColmapCorePipeline(BasePipeline):
             init_from_dji=init_from_dji,
             dji_data_root=dji_data_root,
             mask_input_root=mask_input_root,
+            strict=strict,
         )
         super().__init__(
             step_configs=step_configs,
@@ -102,6 +101,7 @@ class ColmapCorePipeline(BasePipeline):
         init_from_dji: bool,
         dji_data_root: str | Path | None,
         mask_input_root: str | Path | None,
+        strict: bool,
     ) -> List[Dict[str, Any]]:
         common_prefix = [
             {
@@ -126,13 +126,21 @@ class ColmapCorePipeline(BasePipeline):
             reconstruction_steps = [
                 {
                     "class": ColmapSparseReconstructionStep,
-                    "args": {"scene_root": self.scene_root},
+                    "args": {
+                        "scene_root": self.scene_root,
+                        "strict": strict,
+                    },
                 },
             ]
         else:
             assert (
                 dji_data_root is not None
             ), "dji_data_root must be provided when init_from_dji is True"
+            # Lazy import to avoid DJI-only dependencies unless explicitly requested.
+            from data.pipelines.colmap.core.init.init_from_dji_step import (
+                ColmapInitFromDJIStep,
+            )
+
             reconstruction_steps = [
                 {
                     "class": ColmapInitFromDJIStep,
