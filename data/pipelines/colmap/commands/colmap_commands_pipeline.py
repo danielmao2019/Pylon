@@ -118,7 +118,7 @@ class ColmapCommandsPipeline(BasePipeline):
             },
         ]
         if not init_from_dji:
-            return common_prefix + [
+            reconstruction_steps = [
                 {
                     "class": ColmapSparseReconstructionStep,
                     "args": {"scene_root": self.scene_root},
@@ -128,27 +128,29 @@ class ColmapCommandsPipeline(BasePipeline):
                     "args": {"scene_root": self.scene_root},
                 },
             ]
-        assert (
-            dji_data_root is not None
-        ), "dji_data_root must be provided when init_from_dji is True"
-        return common_prefix + [
-            {
-                "class": ColmapInitFromDJIStep,
-                "args": {
-                    "scene_root": self.scene_root,
-                    "dji_data_root": dji_data_root,
+        else:
+            assert (
+                dji_data_root is not None
+            ), "dji_data_root must be provided when init_from_dji is True"
+            reconstruction_steps = [
+                {
+                    "class": ColmapInitFromDJIStep,
+                    "args": {
+                        "scene_root": self.scene_root,
+                        "dji_data_root": dji_data_root,
+                    },
                 },
-            },
-            {
-                "class": ColmapPointTriangulationStep,
-                "args": {"scene_root": self.scene_root},
-            },
-            {
-                "class": ColmapBundleAdjustmentStep,
-                "args": {"scene_root": self.scene_root},
-            },
-            {
-                "class": ColmapImageUndistortionStep,
-                "args": {"scene_root": self.scene_root},
-            },
-        ]
+                {
+                    "class": ColmapPointTriangulationStep,
+                    "args": {"scene_root": self.scene_root},
+                },
+                {
+                    "class": ColmapBundleAdjustmentStep,
+                    "args": {"scene_root": self.scene_root},
+                },
+                {
+                    "class": ColmapImageUndistortionStep,
+                    "args": {"scene_root": self.scene_root},
+                },
+            ]
+        return common_prefix + reconstruction_steps
