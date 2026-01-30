@@ -28,10 +28,10 @@ from data.pipelines.colmap.core.sparse_reconstruction_step import (
 )
 
 
-class ColmapCommandsPipeline(BasePipeline):
+class ColmapCorePipeline(BasePipeline):
     """Encapsulates the COLMAP feature/matcher/mapper/undistortion sequence."""
 
-    PIPELINE_NAME = "colmap_commands_pipeline"
+    PIPELINE_NAME = "colmap_core_pipeline"
 
     def __init__(
         self,

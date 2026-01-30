@@ -3,9 +3,7 @@
 from pathlib import Path
 
 from data.pipelines.base_pipeline import BasePipeline
-from data.pipelines.colmap.core.colmap_commands_pipeline import (
-    ColmapCommandsPipeline,
-)
+from data.pipelines.colmap.core.colmap_core_pipeline import ColmapCorePipeline
 from data.pipelines.colmap.extract_cameras_step import ColmapExtractCamerasStep
 from data.pipelines.colmap.extract_point_cloud_step import ColmapExtractPointCloudStep
 
@@ -31,7 +29,7 @@ class ColmapPipeline(BasePipeline):
 
         step_configs = [
             {
-                "class": ColmapCommandsPipeline,
+                "class": ColmapCorePipeline,
                 "args": {
                     "scene_root": self.scene_root,
                     "sequential_matching_overlap": sequential_overlap,
