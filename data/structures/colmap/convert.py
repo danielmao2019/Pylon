@@ -31,8 +31,8 @@ def _extract_intrinsics_from_colmap(
         len(colmap_cameras) == 1
     ), f"Expected exactly one camera, got {len(colmap_cameras)}"
     assert (
-        next(iter(colmap_cameras.values())).model == "PINHOLE"
-    ), f"Expected COLMAP camera model PINHOLE, got {next(iter(colmap_cameras.values())).model}"
+        next(iter(colmap_cameras.values())).model == "OPENCV"
+    ), f"Expected COLMAP camera model OPENCV, got {next(iter(colmap_cameras.values())).model}"
     assert isinstance(
         next(iter(colmap_cameras.values())).width, (int, np.integer)
     ), f"{type(next(iter(colmap_cameras.values())).width)=}"
@@ -50,6 +50,11 @@ def _extract_intrinsics_from_colmap(
 
     camera = next(iter(colmap_cameras.values()))
     params = camera.params
+    assert len(params) == 8, f"Expected 8 params for OPENCV, got {len(params)}"
+    assert float(params[4]) == 0.0, f"k1 must be 0, got {params[4]}"
+    assert float(params[5]) == 0.0, f"k2 must be 0, got {params[5]}"
+    assert float(params[6]) == 0.0, f"p1 must be 0, got {params[6]}"
+    assert float(params[7]) == 0.0, f"p2 must be 0, got {params[7]}"
     width = camera.width
     height = camera.height
     intrinsic_params: Dict[str, Any] = {
@@ -107,6 +112,31 @@ def _extract_cameras_from_colmap(
     return cameras
 
 
+def _determine_modalities(cameras: List[Camera], output_dir: Path) -> List[str]:
+    # Input validations
+    assert isinstance(cameras, list), f"{type(cameras)=}"
+    assert cameras, "cameras must be non-empty"
+    assert isinstance(output_dir, Path), f"{type(output_dir)=}"
+
+    modalities = ["images"]
+
+    depths_dir = output_dir / "depths"
+    if depths_dir.is_dir():
+        camera_names = [camera.name for camera in cameras]
+        depth_names = {path.stem for path in depths_dir.glob("*.png")}
+        if set(camera_names).issubset(depth_names):
+            modalities.append("depths")
+
+    masks_dir = output_dir / "masks"
+    if masks_dir.is_dir():
+        camera_names = [camera.name for camera in cameras]
+        mask_names = {path.stem for path in masks_dir.glob("*.png")}
+        if set(camera_names).issubset(mask_names):
+            modalities.append("masks")
+
+    return modalities
+
+
 def create_transforms_json_from_colmap(
     filename: str,
     colmap_cameras: Dict[int, ColmapCamera],
@@ -129,8 +159,10 @@ def create_transforms_json_from_colmap(
         colmap_images=colmap_images,
         intrinsic_params=intrinsic_params,
     )
+    modalities = _determine_modalities(cameras=cameras, output_dir=Path(output_dir))
+
     payload: Dict[str, Any] = {
-        "modalities": [],
+        "modalities": modalities,
         "intrinsic_params": {
             "fl_x": intrinsic_params["fl_x"],
             "fl_y": intrinsic_params["fl_y"],
