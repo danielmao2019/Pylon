@@ -105,7 +105,9 @@ class ColmapFeatureMatchingStep(BaseStep):
                 f"{self.colmap_args['guided_matching']} 1",
                 "--log_to_stderr 1",
             ]
-            for key in [key for key in self.matcher_cfg if key != "matcher_type"]:
+            for key in self.matcher_cfg:
+                if key == "matcher_type":
+                    continue
                 cmd_parts.append(f"--SequentialMatching.{key} {self.matcher_cfg[key]}")
         feat_matching_cmd = " ".join(cmd_parts)
         result = subprocess.run(
