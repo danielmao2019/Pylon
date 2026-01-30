@@ -55,16 +55,16 @@ class ColmapExtractCamerasStep(BaseStep):
             return {}
 
         colmap_data = COLMAP_Data(model_dir=self.model_dir)
-        colmap_cameras = colmap_data.cameras
-        colmap_images = colmap_data.images
         create_transforms_json_from_colmap(
             filename="transforms.json",
-            colmap_cameras=colmap_cameras,
-            colmap_images=colmap_images,
+            colmap_cameras=colmap_data.cameras,
+            colmap_images=colmap_data.images,
             output_dir=str(self.output_root),
             ply_file_path="sparse_pc.ply",
         )
-        logging.info("   ✓ Wrote transforms.json with %d frames", len(colmap_images))
+        logging.info(
+            "   ✓ Wrote transforms.json with %d frames", len(colmap_data.images)
+        )
         return {}
 
     def _validate_disk_images(self) -> set[str]:
