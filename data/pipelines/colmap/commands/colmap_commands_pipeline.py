@@ -123,10 +123,6 @@ class ColmapCommandsPipeline(BasePipeline):
                     "class": ColmapSparseReconstructionStep,
                     "args": {"scene_root": self.scene_root},
                 },
-                {
-                    "class": ColmapImageUndistortionStep,
-                    "args": {"scene_root": self.scene_root},
-                },
             ]
         else:
             assert (
@@ -148,9 +144,11 @@ class ColmapCommandsPipeline(BasePipeline):
                     "class": ColmapBundleAdjustmentStep,
                     "args": {"scene_root": self.scene_root},
                 },
-                {
-                    "class": ColmapImageUndistortionStep,
-                    "args": {"scene_root": self.scene_root},
-                },
             ]
-        return common_prefix + reconstruction_steps
+        common_suffix = [
+            {
+                "class": ColmapImageUndistortionStep,
+                "args": {"scene_root": self.scene_root},
+            },
+        ]
+        return common_prefix + reconstruction_steps + common_suffix
