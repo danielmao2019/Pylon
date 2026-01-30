@@ -1,10 +1,10 @@
 """Step that runs COLMAP feature matching."""
 
 import logging
-import subprocess
 import sqlite3
+import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from data.pipelines.base_step import BaseStep
 
@@ -20,17 +20,38 @@ class ColmapFeatureMatchingStep(BaseStep):
         self,
         scene_root: str | Path,
         colmap_args: Dict[str, str],
-        sequential_overlap: int | None = None,
+        matcher_cfg: Optional[Dict[str, Any]] = None,
     ) -> None:
+        # Input validations
+        assert matcher_cfg is None or isinstance(
+            matcher_cfg, dict
+        ), f"{type(matcher_cfg)=}"
+        assert (
+            matcher_cfg is None or "matcher_type" in matcher_cfg
+        ), "matcher_cfg must include matcher_type"
+        assert matcher_cfg is None or matcher_cfg["matcher_type"] in {
+            "exhaustive_matcher",
+            "sequential_matcher",
+        }, f"Invalid matcher_type {matcher_cfg['matcher_type']}"
+        assert matcher_cfg is None or (
+            (
+                matcher_cfg["matcher_type"] == "exhaustive_matcher"
+                and matcher_cfg.keys() == {"matcher_type"}
+            )
+            or (
+                matcher_cfg["matcher_type"] == "sequential_matcher"
+                and matcher_cfg.keys()
+                <= {"matcher_type", "overlap", "quadratic_overlap"}
+            )
+        ), f"Invalid matcher_cfg keys: {matcher_cfg.keys()}"
+
         scene_root = Path(scene_root)
         super().__init__(input_root=scene_root, output_root=scene_root)
         self.input_images_dir = scene_root / "input"
         self.distorted_dir = scene_root / "distorted"
         self.database_path = scene_root / "distorted" / "database.db"
         self.colmap_args = colmap_args
-        if sequential_overlap is not None:
-            assert sequential_overlap > 0, "sequential_overlap must be positive"
-        self.sequential_overlap = sequential_overlap
+        self.matcher_cfg = matcher_cfg
 
     def _init_input_files(self) -> None:
         self.input_files = ["distorted/database.db"]
@@ -56,24 +77,35 @@ class ColmapFeatureMatchingStep(BaseStep):
             logging.info("🔗 COLMAP feature matching already done - SKIPPED")
             return {}
         logging.info("   🔗 Feature matching")
-        if self.sequential_overlap is None:
-            feat_matching_cmd = (
-                f"colmap exhaustive_matcher "
-                f"--database_path {self.database_path} "
-                f"{self.colmap_args['matching_use_gpu']} 1 "
-                f"{self.colmap_args['guided_matching']} 1 "
-                "--log_to_stderr 1"
-            )
+        if (
+            self.matcher_cfg is None
+            or self.matcher_cfg["matcher_type"] == "exhaustive_matcher"
+        ):
+            cmd_parts = [
+                "colmap",
+                "exhaustive_matcher",
+                "--database_path",
+                str(self.database_path),
+                f"{self.colmap_args['matching_use_gpu']} 1",
+                f"{self.colmap_args['guided_matching']} 1",
+                "--log_to_stderr 1",
+            ]
         else:
-            feat_matching_cmd = (
-                f"colmap sequential_matcher "
-                f"--database_path {self.database_path} "
-                f"{self.colmap_args['matching_use_gpu']} 1 "
-                f"{self.colmap_args['guided_matching']} 1 "
-                f"--SequentialMatching.overlap {self.sequential_overlap} "
-                "--SequentialMatching.quadratic_overlap 0 "
-                "--log_to_stderr 1"
-            )
+            cmd_parts = [
+                "colmap",
+                "sequential_matcher",
+                "--database_path",
+                str(self.database_path),
+                f"{self.colmap_args['matching_use_gpu']} 1",
+                f"{self.colmap_args['guided_matching']} 1",
+                "--log_to_stderr 1",
+            ]
+            for key in ["overlap", "quadratic_overlap"]:
+                if key in self.matcher_cfg:
+                    cmd_parts.append(
+                        f"--SequentialMatching.{key} {self.matcher_cfg[key]}"
+                    )
+        feat_matching_cmd = " ".join(cmd_parts)
         result = subprocess.run(
             feat_matching_cmd, shell=True, capture_output=True, text=True
         )
