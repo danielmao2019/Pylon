@@ -2,18 +2,14 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-import numpy as np
 import torch
 
 from data.pipelines.base_step import BaseStep
 from data.structures.colmap.colmap import COLMAP_Data
-from data.structures.colmap.load import ColmapCamera, ColmapImage
-from data.structures.three_d.camera.camera import Camera
+from data.structures.colmap.convert import create_transforms_json_from_colmap
 from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
-from utils.io.json import load_json, save_json
-from utils.three_d.rotation.quaternion import qvec2rotmat
 
 
 class ColmapExtractCamerasStep(BaseStep):
@@ -61,96 +57,15 @@ class ColmapExtractCamerasStep(BaseStep):
         colmap_data = COLMAP_Data(model_dir=self.model_dir)
         colmap_cameras = colmap_data.cameras
         colmap_images = colmap_data.images
-        intrinsic_params = self._extract_intrinsics(colmap_cameras)
-        cameras = self._extract_cameras(colmap_images, intrinsic_params)
-        self._build_transforms_json(intrinsic_params=intrinsic_params, cameras=cameras)
-        logging.info("   ✓ Wrote transforms.json with %d frames", len(cameras))
-        return {}
-
-    def _extract_intrinsics(self, cameras: Dict[int, ColmapCamera]) -> Dict[str, Any]:
-        assert cameras, "No cameras found in COLMAP model"
-        assert len(cameras) == 1, f"Expected exactly one camera, got {len(cameras)}"
-        camera = next(iter(cameras.values()))
-        params = camera.params
-        model = camera.model
-        assert model == "PINHOLE", f"Expected COLMAP camera model PINHOLE, got {model}"
-        width = camera.width
-        height = camera.height
-        assert isinstance(
-            width, (int, np.integer)
-        ), f"Expected integer camera width, got {type(width)}"
-        assert isinstance(
-            height, (int, np.integer)
-        ), f"Expected integer camera height, got {type(height)}"
-        assert (
-            width > 0 and height > 0
-        ), f"Camera dimensions must be positive, got width={width} height={height}"
-        intrinsic_params: Dict[str, Any] = {
-            "w": int(width),
-            "h": int(height),
-            "fl_x": float(params[0]),
-            "fl_y": float(params[1]),
-            "cx": float(params[2]),
-            "cy": float(params[3]),
-            "k1": 0.0,
-            "k2": 0.0,
-            "p1": 0.0,
-            "p2": 0.0,
-            "camera_model": "OPENCV",
-        }
-        return intrinsic_params
-
-    def _extract_cameras(
-        self, images: Dict[int, ColmapImage], intrinsic_params: Dict[str, Any]
-    ) -> List[Camera]:
-        assert images, "No images available in COLMAP model"
-        cameras: List[Camera] = []
-        intrinsics = torch.tensor(
-            [
-                [intrinsic_params["fl_x"], 0.0, intrinsic_params["cx"]],
-                [0.0, intrinsic_params["fl_y"], intrinsic_params["cy"]],
-                [0.0, 0.0, 1.0],
-            ],
-            dtype=torch.float32,
+        create_transforms_json_from_colmap(
+            filename="transforms.json",
+            colmap_cameras=colmap_cameras,
+            colmap_images=colmap_images,
+            output_dir=str(self.output_root),
+            ply_file_path="sparse_pc.ply",
         )
-        for image_id, image in sorted(images.items()):
-            rotation = qvec2rotmat(image.qvec)
-            translation = image.tvec.reshape(3, 1)
-            world_to_camera = np.concatenate([rotation, translation], axis=1)
-            world_to_camera = np.concatenate(
-                [world_to_camera, np.array([[0.0, 0.0, 0.0, 1.0]])], axis=0
-            )
-            camera_to_world = np.linalg.inv(world_to_camera)
-            extrinsics_opencv = torch.from_numpy(camera_to_world).to(torch.float32)
-            camera = Camera(
-                intrinsics=intrinsics,
-                extrinsics=extrinsics_opencv,
-                convention="opencv",
-                name=Path(image.name).stem,
-                id=image_id,
-                device=extrinsics_opencv.device,
-            ).to(convention="opengl")
-            cameras.append(camera)
-        return cameras
-
-    @property
-    def _default_applied_transform(self) -> List[List[float]]:
-        m = np.eye(4)[:3, :]
-        m = m[np.array([0, 2, 1]), :]
-        m[2, :] *= -1
-        return m.tolist()
-
-    def _build_transforms_json(
-        self,
-        intrinsic_params: Dict[str, Any],
-        cameras: List[Camera],
-    ) -> None:
-        assert cameras, "No cameras provided to build transforms.json"
-        payload: Dict[str, Any] = dict(intrinsic_params)
-        payload["ply_file_path"] = "sparse_pc.ply"
-        payload["applied_transform"] = self._default_applied_transform
-        payload["cameras"] = cameras
-        TransformsJSON.save(payload, self.transforms_path)
+        logging.info("   ✓ Wrote transforms.json with %d frames", len(colmap_images))
+        return {}
 
     def _validate_disk_images(self) -> set[str]:
         images_dir = self.output_root / "images"
