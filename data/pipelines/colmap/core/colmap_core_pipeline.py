@@ -23,8 +23,8 @@ from data.pipelines.colmap.core.init.init_from_dji_step import (
 from data.pipelines.colmap.core.init.point_triangulation_step import (
     ColmapPointTriangulationStep,
 )
-from data.pipelines.colmap.core.model_text_export_step import (
-    ColmapModelTextExportStep,
+from data.pipelines.colmap.core.model_txt_export_step import (
+    ColmapModelTxtExportStep,
 )
 from data.pipelines.colmap.core.sparse_reconstruction_step import (
     ColmapSparseReconstructionStep,
@@ -156,14 +156,14 @@ class ColmapCorePipeline(BasePipeline):
                 "args": {"scene_root": self.scene_root},
             },
             {
-                "class": ColmapModelTextExportStep,
+                "class": ColmapModelTxtExportStep,
                 "args": {
                     "scene_root": self.scene_root,
                     "model_relpath": "distorted/sparse/0",
                 },
             },
             {
-                "class": ColmapModelTextExportStep,
+                "class": ColmapModelTxtExportStep,
                 "args": {
                     "scene_root": self.scene_root,
                     "model_relpath": "undistorted/sparse/0",

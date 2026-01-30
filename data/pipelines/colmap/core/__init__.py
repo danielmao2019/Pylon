@@ -11,8 +11,8 @@ from data.pipelines.colmap.core.feature_matching_step import (
 from data.pipelines.colmap.core.image_undistortion_step import (
     ColmapImageUndistortionStep,
 )
-from data.pipelines.colmap.core.model_text_export_step import (
-    ColmapModelTextExportStep,
+from data.pipelines.colmap.core.model_txt_export_step import (
+    ColmapModelTxtExportStep,
 )
 from data.pipelines.colmap.core.sparse_reconstruction_step import (
     ColmapSparseReconstructionStep,
@@ -24,6 +24,6 @@ __all__ = (
     "ColmapFeatureExtractionStep",
     "ColmapFeatureMatchingStep",
     "ColmapImageUndistortionStep",
-    "ColmapModelTextExportStep",
+    "ColmapModelTxtExportStep",
     "ColmapSparseReconstructionStep",
 )

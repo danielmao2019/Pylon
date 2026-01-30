@@ -44,6 +44,11 @@ class ColmapFeatureMatchingStep(BaseStep):
                 <= {"matcher_type", "overlap", "quadratic_overlap"}
             )
         ), f"Invalid matcher_cfg keys: {matcher_cfg.keys()}"
+        assert matcher_cfg is None or (
+            matcher_cfg["matcher_type"] != "sequential_matcher"
+            or "overlap" not in matcher_cfg
+            or matcher_cfg["overlap"] > 0
+        ), "matcher_cfg overlap must be positive"
 
         scene_root = Path(scene_root)
         super().__init__(input_root=scene_root, output_root=scene_root)
@@ -100,11 +105,8 @@ class ColmapFeatureMatchingStep(BaseStep):
                 f"{self.colmap_args['guided_matching']} 1",
                 "--log_to_stderr 1",
             ]
-            for key in ["overlap", "quadratic_overlap"]:
-                if key in self.matcher_cfg:
-                    cmd_parts.append(
-                        f"--SequentialMatching.{key} {self.matcher_cfg[key]}"
-                    )
+            for key in [key for key in self.matcher_cfg if key != "matcher_type"]:
+                cmd_parts.append(f"--SequentialMatching.{key} {self.matcher_cfg[key]}")
         feat_matching_cmd = " ".join(cmd_parts)
         result = subprocess.run(
             feat_matching_cmd, shell=True, capture_output=True, text=True

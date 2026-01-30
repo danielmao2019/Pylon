@@ -1,4 +1,4 @@
-"""Step that writes COLMAP text models from binary outputs."""
+"""Step that writes COLMAP txt models from binary outputs."""
 
 import logging
 import subprocess
@@ -8,10 +8,10 @@ from typing import Any, Dict
 from data.pipelines.base_step import BaseStep
 
 
-class ColmapModelTextExportStep(BaseStep):
-    """Export COLMAP cameras/images/points as text files from binary models."""
+class ColmapModelTxtExportStep(BaseStep):
+    """Export COLMAP cameras/images/points as txt files from binary models."""
 
-    STEP_NAME = "colmap_model_text_export"
+    STEP_NAME = "colmap_model_txt_export"
 
     def __init__(self, scene_root: str | Path, model_relpath: str | Path) -> None:
         scene_root = Path(scene_root)
@@ -38,9 +38,9 @@ class ColmapModelTextExportStep(BaseStep):
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
         if not force and self.check_outputs():
-            logging.info("📄 COLMAP text model already exported - SKIPPED")
+            logging.info("📄 COLMAP txt model already exported - SKIPPED")
             return {}
-        logging.info("   📄 Exporting COLMAP text model: %s", self.model_dir)
+        logging.info("   📄 Exporting COLMAP txt model: %s", self.model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         cmd_parts = [
             "colmap",
