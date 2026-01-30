@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
+from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.validation import validate_camera_intrinsics
 
@@ -379,7 +380,7 @@ class TransformsJSON:
 
     @staticmethod
     def _save_cameras(
-        cameras: Cameras, modalities: Optional[List[str]] = None
+        cameras: Cameras | List[Camera], modalities: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         frames: List[Dict[str, Any]] = []
         include_masks = modalities is not None and "masks" in modalities
