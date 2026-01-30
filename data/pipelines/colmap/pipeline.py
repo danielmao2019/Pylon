@@ -20,6 +20,7 @@ class ColmapPipeline(BasePipeline):
         upright: bool = False,
         init_from_dji: bool = False,
         dji_data_root: str | Path | None = None,
+        mask_input_root: str | Path | None = None,
     ) -> None:
         self.scene_root = Path(scene_root).expanduser().resolve()
         if init_from_dji:
@@ -36,6 +37,7 @@ class ColmapPipeline(BasePipeline):
                     "upright": upright,
                     "init_from_dji": init_from_dji,
                     "dji_data_root": dji_data_root,
+                    "mask_input_root": mask_input_root,
                 },
             },
             {

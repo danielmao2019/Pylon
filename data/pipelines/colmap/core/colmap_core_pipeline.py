@@ -2,7 +2,7 @@
 
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict, List
 
 from data.pipelines.base_pipeline import BasePipeline
 from data.pipelines.colmap.core.feature_extraction_step import (
@@ -23,6 +23,9 @@ from data.pipelines.colmap.core.init.init_from_dji_step import (
 from data.pipelines.colmap.core.init.point_triangulation_step import (
     ColmapPointTriangulationStep,
 )
+from data.pipelines.colmap.core.model_text_export_step import (
+    ColmapModelTextExportStep,
+)
 from data.pipelines.colmap.core.sparse_reconstruction_step import (
     ColmapSparseReconstructionStep,
 )
@@ -40,6 +43,7 @@ class ColmapCorePipeline(BasePipeline):
         upright: bool = False,
         init_from_dji: bool = False,
         dji_data_root: str | Path | None = None,
+        mask_input_root: str | Path | None = None,
     ) -> None:
         self.scene_root = Path(scene_root).expanduser().resolve()
         if sequential_matching_overlap is not None:
@@ -52,6 +56,7 @@ class ColmapCorePipeline(BasePipeline):
             upright=upright,
             init_from_dji=init_from_dji,
             dji_data_root=dji_data_root,
+            mask_input_root=mask_input_root,
         )
         super().__init__(
             step_configs=step_configs,
@@ -83,6 +88,7 @@ class ColmapCorePipeline(BasePipeline):
                 "matching_use_gpu": "--FeatureMatching.use_gpu",
                 "guided_matching": "--FeatureMatching.guided_matching",
                 "upright": "--SiftExtraction.upright",
+                "mask_path": "--ImageReader.mask_path",
             }
         return {
             "version": version,
@@ -90,6 +96,7 @@ class ColmapCorePipeline(BasePipeline):
             "matching_use_gpu": "--SiftMatching.use_gpu",
             "guided_matching": "--SiftMatching.guided_matching",
             "upright": "--SiftExtraction.upright",
+            "mask_path": "--ImageReader.mask_path",
         }
 
     def _build_steps(
@@ -98,7 +105,8 @@ class ColmapCorePipeline(BasePipeline):
         upright: bool,
         init_from_dji: bool,
         dji_data_root: str | Path | None,
-    ) -> list[dict[str, object]]:
+        mask_input_root: str | Path | None,
+    ) -> List[Dict[str, Any]]:
         common_prefix = [
             {
                 "class": ColmapFeatureExtractionStep,
@@ -106,6 +114,7 @@ class ColmapCorePipeline(BasePipeline):
                     "scene_root": self.scene_root,
                     "colmap_args": self.colmap_args,
                     "upright": upright,
+                    "mask_input_root": mask_input_root,
                 },
             },
             {
@@ -147,8 +156,22 @@ class ColmapCorePipeline(BasePipeline):
             ]
         common_suffix = [
             {
+                "class": ColmapModelTextExportStep,
+                "args": {
+                    "scene_root": self.scene_root,
+                    "model_relpath": "distorted/sparse/0",
+                },
+            },
+            {
                 "class": ColmapImageUndistortionStep,
                 "args": {"scene_root": self.scene_root},
+            },
+            {
+                "class": ColmapModelTextExportStep,
+                "args": {
+                    "scene_root": self.scene_root,
+                    "model_relpath": "undistorted/sparse/0",
+                },
             },
         ]
         return common_prefix + reconstruction_steps + common_suffix

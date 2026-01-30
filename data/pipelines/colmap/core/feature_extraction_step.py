@@ -19,6 +19,7 @@ class ColmapFeatureExtractionStep(BaseStep):
         scene_root: str | Path,
         colmap_args: Dict[str, str],
         upright: bool = False,
+        mask_input_root: str | Path | None = None,
     ) -> None:
         scene_root = Path(scene_root)
         self.input_images_dir = scene_root / "input"
@@ -26,6 +27,7 @@ class ColmapFeatureExtractionStep(BaseStep):
         self.database_path = scene_root / "distorted" / "database.db"
         self.colmap_args = colmap_args
         self.upright = upright
+        self.mask_input_root = mask_input_root
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
@@ -83,6 +85,8 @@ class ColmapFeatureExtractionStep(BaseStep):
             "--log_to_stderr",
             "1",
         ]
+        if self.mask_input_root is not None:
+            cmd_parts.extend([self.colmap_args["mask_path"], str(self.mask_input_root)])
         if self.upright:
             cmd_parts.extend([self.colmap_args["upright"], "1"])
         result = subprocess.run(cmd_parts, capture_output=True, text=True)
