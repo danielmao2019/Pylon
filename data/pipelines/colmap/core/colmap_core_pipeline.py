@@ -2,7 +2,7 @@
 
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from data.pipelines.base_pipeline import BasePipeline
 from data.pipelines.colmap.core.feature_extraction_step import (
@@ -39,20 +39,16 @@ class ColmapCorePipeline(BasePipeline):
     def __init__(
         self,
         scene_root: str | Path,
-        sequential_matching_overlap: int | None = None,
+        matcher_cfg: Optional[Dict[str, Any]] = None,
         upright: bool = False,
         init_from_dji: bool = False,
         dji_data_root: str | Path | None = None,
         mask_input_root: str | Path | None = None,
     ) -> None:
         self.scene_root = Path(scene_root).expanduser().resolve()
-        if sequential_matching_overlap is not None:
-            assert (
-                sequential_matching_overlap > 0
-            ), "sequential_matching_overlap must be positive"
         self.colmap_args = self._get_colmap_args()
         step_configs = self._build_steps(
-            sequential_matching_overlap=sequential_matching_overlap,
+            matcher_cfg=matcher_cfg,
             upright=upright,
             init_from_dji=init_from_dji,
             dji_data_root=dji_data_root,
@@ -101,7 +97,7 @@ class ColmapCorePipeline(BasePipeline):
 
     def _build_steps(
         self,
-        sequential_matching_overlap: int | None,
+        matcher_cfg: Optional[Dict[str, Any]],
         upright: bool,
         init_from_dji: bool,
         dji_data_root: str | Path | None,
@@ -122,7 +118,7 @@ class ColmapCorePipeline(BasePipeline):
                 "args": {
                     "scene_root": self.scene_root,
                     "colmap_args": self.colmap_args,
-                    "sequential_overlap": sequential_matching_overlap,
+                    "matcher_cfg": matcher_cfg,
                 },
             },
         ]
