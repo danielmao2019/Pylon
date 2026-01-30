@@ -5,25 +5,25 @@ from pathlib import Path
 from typing import Dict
 
 from data.pipelines.base_pipeline import BasePipeline
-from data.pipelines.colmap.commands.feature_extraction_step import (
+from data.pipelines.colmap.core.feature_extraction_step import (
     ColmapFeatureExtractionStep,
 )
-from data.pipelines.colmap.commands.feature_matching_step import (
+from data.pipelines.colmap.core.feature_matching_step import (
     ColmapFeatureMatchingStep,
 )
-from data.pipelines.colmap.commands.image_undistortion_step import (
+from data.pipelines.colmap.core.image_undistortion_step import (
     ColmapImageUndistortionStep,
 )
-from data.pipelines.colmap.commands.init.bundle_adjustment_step import (
+from data.pipelines.colmap.core.init.bundle_adjustment_step import (
     ColmapBundleAdjustmentStep,
 )
-from data.pipelines.colmap.commands.init.init_from_dji_step import (
+from data.pipelines.colmap.core.init.init_from_dji_step import (
     ColmapInitFromDJIStep,
 )
-from data.pipelines.colmap.commands.init.point_triangulation_step import (
+from data.pipelines.colmap.core.init.point_triangulation_step import (
     ColmapPointTriangulationStep,
 )
-from data.pipelines.colmap.commands.sparse_reconstruction_step import (
+from data.pipelines.colmap.core.sparse_reconstruction_step import (
     ColmapSparseReconstructionStep,
 )
 
