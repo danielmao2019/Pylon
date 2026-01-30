@@ -3,7 +3,9 @@
 from pathlib import Path
 
 from data.pipelines.base_pipeline import BasePipeline
-from data.pipelines.colmap.colmap_commands_pipeline import ColmapCommandsPipeline
+from data.pipelines.colmap.commands.colmap_commands_pipeline import (
+    ColmapCommandsPipeline,
+)
 from data.pipelines.colmap.extract_cameras_step import ColmapExtractCamerasStep
 from data.pipelines.colmap.extract_point_cloud_step import ColmapExtractPointCloudStep
 
