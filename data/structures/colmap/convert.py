@@ -1,8 +1,154 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any, Dict, List
 
 import numpy as np
+import torch
+
+from data.structures.colmap.load import ColmapCamera, ColmapImage
+from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
+from utils.three_d.rotation.quaternion import qvec2rotmat
+
+DEFAULT_APPLIED_TRANSFORM = np.array(
+    [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, -1.0, 0.0, 0.0],
+    ],
+    dtype=np.float32,
+)
+
+
+def _extract_intrinsics_from_colmap(
+    colmap_cameras: Dict[int, ColmapCamera],
+) -> Dict[str, Any]:
+    # Input validations
+    assert isinstance(colmap_cameras, dict), f"{type(colmap_cameras)=}"
+    assert colmap_cameras, "No cameras found in COLMAP model"
+    assert (
+        len(colmap_cameras) == 1
+    ), f"Expected exactly one camera, got {len(colmap_cameras)}"
+    assert (
+        next(iter(colmap_cameras.values())).model == "PINHOLE"
+    ), f"Expected COLMAP camera model PINHOLE, got {next(iter(colmap_cameras.values())).model}"
+    assert isinstance(
+        next(iter(colmap_cameras.values())).width, (int, np.integer)
+    ), f"{type(next(iter(colmap_cameras.values())).width)=}"
+    assert isinstance(
+        next(iter(colmap_cameras.values())).height, (int, np.integer)
+    ), f"{type(next(iter(colmap_cameras.values())).height)=}"
+    assert (
+        next(iter(colmap_cameras.values())).width > 0
+        and next(iter(colmap_cameras.values())).height > 0
+    ), (
+        "Camera dimensions must be positive, "
+        f"got width={next(iter(colmap_cameras.values())).width} "
+        f"height={next(iter(colmap_cameras.values())).height}"
+    )
+
+    camera = next(iter(colmap_cameras.values()))
+    params = camera.params
+    width = camera.width
+    height = camera.height
+    intrinsic_params: Dict[str, Any] = {
+        "w": int(width),
+        "h": int(height),
+        "fl_x": float(params[0]),
+        "fl_y": float(params[1]),
+        "cx": float(params[2]),
+        "cy": float(params[3]),
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0,
+        "camera_model": "OPENCV",
+    }
+    return intrinsic_params
+
+
+def _extract_cameras_from_colmap(
+    colmap_images: Dict[int, ColmapImage],
+    intrinsic_params: Dict[str, Any],
+) -> List[Camera]:
+    # Input validations
+    assert isinstance(colmap_images, dict), f"{type(colmap_images)=}"
+    assert isinstance(intrinsic_params, dict), f"{type(intrinsic_params)=}"
+    assert colmap_images, "No images available in COLMAP model"
+
+    cameras: List[Camera] = []
+    intrinsics = torch.tensor(
+        [
+            [intrinsic_params["fl_x"], 0.0, intrinsic_params["cx"]],
+            [0.0, intrinsic_params["fl_y"], intrinsic_params["cy"]],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+    )
+    for image_id, image in sorted(colmap_images.items()):
+        rotation = qvec2rotmat(image.qvec)
+        translation = image.tvec.reshape(3, 1)
+        world_to_camera = np.concatenate([rotation, translation], axis=1)
+        world_to_camera = np.concatenate(
+            [world_to_camera, np.array([[0.0, 0.0, 0.0, 1.0]])], axis=0
+        )
+        camera_to_world = np.linalg.inv(world_to_camera)
+        extrinsics_opencv = torch.from_numpy(camera_to_world).to(torch.float32)
+        camera = Camera(
+            intrinsics=intrinsics,
+            extrinsics=extrinsics_opencv,
+            convention="opencv",
+            name=Path(image.name).stem,
+            id=image_id,
+            device=extrinsics_opencv.device,
+        ).to(convention="opengl")
+        cameras.append(camera)
+    return cameras
+
+
+def create_transforms_json_from_colmap(
+    filename: str,
+    colmap_cameras: Dict[int, ColmapCamera],
+    colmap_images: Dict[int, ColmapImage],
+    output_dir: str,
+    ply_file_path: str = "sparse_pc.ply",
+) -> str:
+    # Input validations
+    assert isinstance(filename, str), f"{type(filename)=}"
+    assert isinstance(colmap_cameras, dict), f"{type(colmap_cameras)=}"
+    assert isinstance(colmap_images, dict), f"{type(colmap_images)=}"
+    assert isinstance(output_dir, str), f"{type(output_dir)=}"
+    assert isinstance(ply_file_path, str), f"{type(ply_file_path)=}"
+
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, filename)
+
+    intrinsic_params = _extract_intrinsics_from_colmap(colmap_cameras=colmap_cameras)
+    cameras = _extract_cameras_from_colmap(
+        colmap_images=colmap_images,
+        intrinsic_params=intrinsic_params,
+    )
+    payload: Dict[str, Any] = {
+        "modalities": [],
+        "intrinsic_params": {
+            "fl_x": intrinsic_params["fl_x"],
+            "fl_y": intrinsic_params["fl_y"],
+            "cx": intrinsic_params["cx"],
+            "cy": intrinsic_params["cy"],
+            "k1": intrinsic_params["k1"],
+            "k2": intrinsic_params["k2"],
+            "p1": intrinsic_params["p1"],
+            "p2": intrinsic_params["p2"],
+        },
+        "resolution": (intrinsic_params["h"], intrinsic_params["w"]),
+        "camera_model": intrinsic_params["camera_model"],
+        "applied_transform": DEFAULT_APPLIED_TRANSFORM,
+        "ply_file_path": ply_file_path,
+        "cameras": cameras,
+    }
+    TransformsJSON.save(payload, output_path)
+    return output_path
 
 
 def create_ply_from_colmap(
