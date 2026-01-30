@@ -1,6 +1,7 @@
 """Pipeline that mirrors the original COLMAP-to-NeRF export script."""
 
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 from data.pipelines.base_pipeline import BasePipeline
 from data.pipelines.colmap.core.colmap_core_pipeline import ColmapCorePipeline
@@ -16,10 +17,11 @@ class ColmapPipeline(BasePipeline):
     def __init__(
         self,
         scene_root: str | Path,
-        sequential_overlap: int | None = None,
+        matcher_cfg: Optional[Dict[str, Any]] = None,
         upright: bool = False,
         init_from_dji: bool = False,
         dji_data_root: str | Path | None = None,
+        mask_input_root: str | Path | None = None,
     ) -> None:
         self.scene_root = Path(scene_root).expanduser().resolve()
         if init_from_dji:
@@ -32,10 +34,11 @@ class ColmapPipeline(BasePipeline):
                 "class": ColmapCorePipeline,
                 "args": {
                     "scene_root": self.scene_root,
-                    "sequential_matching_overlap": sequential_overlap,
+                    "matcher_cfg": matcher_cfg,
                     "upright": upright,
                     "init_from_dji": init_from_dji,
                     "dji_data_root": dji_data_root,
+                    "mask_input_root": mask_input_root,
                 },
             },
             {

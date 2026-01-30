@@ -36,6 +36,15 @@ class PrepareColmapInputsVideo(BaseStep):
         output_root: Path,
         sample_every_n: int = 10,
     ) -> None:
+        # Input validations
+        assert isinstance(video_filepath, Path), f"{type(video_filepath)=}"
+        assert test_video_filepaths is None or isinstance(
+            test_video_filepaths, (list, tuple)
+        ), f"{type(test_video_filepaths)=}"
+        assert isinstance(output_root, Path), f"{type(output_root)=}"
+        assert isinstance(sample_every_n, int), f"{type(sample_every_n)=}"
+        assert sample_every_n > 0, f"{sample_every_n=}"
+
         all_videos: List[Path] = [video_filepath]
         if test_video_filepaths:
             all_videos.extend(list(test_video_filepaths))
@@ -43,7 +52,7 @@ class PrepareColmapInputsVideo(BaseStep):
         self.test_video_filepaths = (
             list(test_video_filepaths) if test_video_filepaths else []
         )
-        self.sample_every_n = int(sample_every_n)
+        self.sample_every_n = sample_every_n
 
         input_root = _common_parent(all_videos)
         super().__init__(input_root=input_root, output_root=output_root)

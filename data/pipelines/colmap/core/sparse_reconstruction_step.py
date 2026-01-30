@@ -42,7 +42,6 @@ class ColmapSparseReconstructionStep(BaseStep):
         if not outputs_ready:
             return False
         try:
-            self._validate_registered_images()
             self._validate_sparse_files()
         except Exception as e:
             logging.debug("Sparse reconstruction validation failed: %s", e)
@@ -57,20 +56,31 @@ class ColmapSparseReconstructionStep(BaseStep):
             return {}
         logging.info("   🏗️ Sparse reconstruction")
         distorted_db_path = self.distorted_dir / "database.db"
-        mapper_cmd = (
-            f"colmap mapper "
-            f"--database_path {distorted_db_path} "
-            f"--image_path {self.input_images_dir} "
-            f"--output_path {self.sparse_output_dir} "
-            f"--Mapper.multiple_models 0 "
-            f"--Mapper.ba_global_function_tolerance=0.000001 "
-            f"--Mapper.tri_ignore_two_view_tracks 0 "
-            f"--Mapper.tri_min_angle 1 "
-            "--log_to_stderr 1"
+        cmd_parts = [
+            "colmap",
+            "mapper",
+            "--database_path",
+            str(distorted_db_path),
+            "--image_path",
+            str(self.input_images_dir),
+            "--output_path",
+            str(self.sparse_output_dir),
+            "--Mapper.multiple_models",
+            "0",
+            "--Mapper.ba_global_function_tolerance",
+            "0.000001",
+            "--Mapper.tri_ignore_two_view_tracks",
+            "0",
+            "--Mapper.tri_min_angle",
+            "1",
+            "--log_to_stderr",
+            "1",
+        ]
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            f"COLMAP mapper failed with code {result.returncode}. "
+            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
-        ret_code = subprocess.call(mapper_cmd, shell=True)
-        assert ret_code == 0, f"COLMAP mapper failed with code {ret_code}"
-        self._validate_registered_images()
         self._validate_sparse_files()
         return {}
 
@@ -82,37 +92,6 @@ class ColmapSparseReconstructionStep(BaseStep):
             f"(found non-file entries in {self.input_images_dir})"
         )
         return [entry.name for entry in entries]
-
-    def _registered_image_names(self) -> List[str]:
-        images_path = self.sparse_output_dir / "0" / "images.bin"
-        assert images_path.exists(), f"COLMAP images.bin not found: {images_path}"
-        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
-        assert images, f"No registered images found in {images_path}"
-        return sorted(image.name for image in images.values())
-
-    def _validate_registered_images(self) -> None:
-        input_names = self._input_image_names()
-        registered_names = self._registered_image_names()
-        expected_count = len(input_names)
-        registered_count = len(registered_names)
-        missing_names = sorted(set(input_names) - set(registered_names))
-        unexpected_names = sorted(set(registered_names) - set(input_names))
-        missing_str = ", ".join(missing_names) if missing_names else "none"
-        unexpected_str = ", ".join(unexpected_names) if unexpected_names else "none"
-        assert registered_count == expected_count, (
-            "COLMAP mapper registered "
-            f"{registered_count} images, expected {expected_count}. "
-            f"Missing registrations for: {missing_str}; "
-            f"Unexpected registrations: {unexpected_str}"
-        )
-        assert not missing_names, (
-            "COLMAP mapper output is missing registrations for images: "
-            f"{missing_str}"
-        )
-        assert not unexpected_names, (
-            "COLMAP mapper output contains unexpected registered image names "
-            f"not present in inputs: {unexpected_str}"
-        )
 
     def _validate_sparse_files(self) -> None:
         cameras_path = self.sparse_output_dir / "0" / "cameras.bin"
@@ -138,7 +117,7 @@ class ColmapSparseReconstructionStep(BaseStep):
             f"expected={len(expected_names)} actual={len(registered_names)}"
         )
         assert points3d, f"No points parsed from {points_path}"
-        image_ids = {img.id for img in images.values()}
+        # image_ids = {img.id for img in images.values()}
         # for point in points3d.values():
         #     assert len(point.image_ids) == len(
         #         point.point2D_idxs
