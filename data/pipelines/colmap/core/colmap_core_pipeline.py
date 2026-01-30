@@ -5,27 +5,33 @@ from pathlib import Path
 from typing import Dict
 
 from data.pipelines.base_pipeline import BasePipeline
-from data.pipelines.colmap.feature_extraction_step import ColmapFeatureExtractionStep
-from data.pipelines.colmap.feature_matching_step import ColmapFeatureMatchingStep
-from data.pipelines.colmap.image_undistortion_step import (
+from data.pipelines.colmap.core.feature_extraction_step import (
+    ColmapFeatureExtractionStep,
+)
+from data.pipelines.colmap.core.feature_matching_step import (
+    ColmapFeatureMatchingStep,
+)
+from data.pipelines.colmap.core.image_undistortion_step import (
     ColmapImageUndistortionStep,
 )
-from data.pipelines.colmap.sparse_reconstruction_step import (
-    ColmapSparseReconstructionStep,
-)
-from data.pipelines.colmap.init_from_dji_step import ColmapInitFromDJIStep
-from data.pipelines.colmap.point_triangulation_step import (
-    ColmapPointTriangulationStep,
-)
-from data.pipelines.colmap.bundle_adjustment_step import (
+from data.pipelines.colmap.core.init.bundle_adjustment_step import (
     ColmapBundleAdjustmentStep,
 )
+from data.pipelines.colmap.core.init.init_from_dji_step import (
+    ColmapInitFromDJIStep,
+)
+from data.pipelines.colmap.core.init.point_triangulation_step import (
+    ColmapPointTriangulationStep,
+)
+from data.pipelines.colmap.core.sparse_reconstruction_step import (
+    ColmapSparseReconstructionStep,
+)
 
 
-class ColmapCommandsPipeline(BasePipeline):
+class ColmapCorePipeline(BasePipeline):
     """Encapsulates the COLMAP feature/matcher/mapper/undistortion sequence."""
 
-    PIPELINE_NAME = "colmap_commands_pipeline"
+    PIPELINE_NAME = "colmap_core_pipeline"
 
     def __init__(
         self,
@@ -112,37 +118,37 @@ class ColmapCommandsPipeline(BasePipeline):
             },
         ]
         if not init_from_dji:
-            return common_prefix + [
+            reconstruction_steps = [
                 {
                     "class": ColmapSparseReconstructionStep,
                     "args": {"scene_root": self.scene_root},
                 },
+            ]
+        else:
+            assert (
+                dji_data_root is not None
+            ), "dji_data_root must be provided when init_from_dji is True"
+            reconstruction_steps = [
                 {
-                    "class": ColmapImageUndistortionStep,
+                    "class": ColmapInitFromDJIStep,
+                    "args": {
+                        "scene_root": self.scene_root,
+                        "dji_data_root": dji_data_root,
+                    },
+                },
+                {
+                    "class": ColmapPointTriangulationStep,
+                    "args": {"scene_root": self.scene_root},
+                },
+                {
+                    "class": ColmapBundleAdjustmentStep,
                     "args": {"scene_root": self.scene_root},
                 },
             ]
-        assert (
-            dji_data_root is not None
-        ), "dji_data_root must be provided when init_from_dji is True"
-        return common_prefix + [
-            {
-                "class": ColmapInitFromDJIStep,
-                "args": {
-                    "scene_root": self.scene_root,
-                    "dji_data_root": dji_data_root,
-                },
-            },
-            {
-                "class": ColmapPointTriangulationStep,
-                "args": {"scene_root": self.scene_root},
-            },
-            {
-                "class": ColmapBundleAdjustmentStep,
-                "args": {"scene_root": self.scene_root},
-            },
+        common_suffix = [
             {
                 "class": ColmapImageUndistortionStep,
                 "args": {"scene_root": self.scene_root},
             },
         ]
+        return common_prefix + reconstruction_steps + common_suffix

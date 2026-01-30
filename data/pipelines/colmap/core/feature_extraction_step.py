@@ -35,6 +35,18 @@ class ColmapFeatureExtractionStep(BaseStep):
     def _init_output_files(self) -> None:
         self.output_files = ["distorted/database.db"]
 
+    def check_inputs(self) -> None:
+        super().check_inputs()
+        entries = sorted(self.input_images_dir.iterdir())
+        assert all(entry.is_file() for entry in entries), (
+            "COLMAP input directory must only contain files "
+            f"(found non-file entries in {self.input_images_dir})"
+        )
+        assert all(entry.suffix == ".png" for entry in entries), (
+            f"Non-PNG files present in COLMAP input directory: "
+            f"{', '.join(sorted(entry.name for entry in entries if entry.suffix != '.png'))}"
+        )
+
     def check_outputs(self) -> bool:
         outputs_ready = super().check_outputs()
         if not outputs_ready:
@@ -81,18 +93,6 @@ class ColmapFeatureExtractionStep(BaseStep):
         )
         self._validate_database_contents()
         return {}
-
-    def check_inputs(self) -> None:
-        super().check_inputs()
-        entries = sorted(self.input_images_dir.iterdir())
-        assert all(entry.is_file() for entry in entries), (
-            "COLMAP input directory must only contain files "
-            f"(found non-file entries in {self.input_images_dir})"
-        )
-        assert all(entry.suffix == ".png" for entry in entries), (
-            f"Non-PNG files present in COLMAP input directory: "
-            f"{', '.join(sorted(entry.name for entry in entries if entry.suffix != '.png'))}"
-        )
 
     def _validate_database_contents(self) -> None:
         input_paths = [self.input_root / rel for rel in self.input_files]
