@@ -4,13 +4,14 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 
+from data.structures.three_d.camera.validation import validate_rotation_matrix
 from utils.three_d.rotation.quaternion import qvec2rotmat, rotmat2qvec
 
 
 def transform_colmap(
     cameras: Dict[int, Any],
     images: Dict[int, Any],
-    points3D: Dict[int, Any],
+    points: Dict[int, Any],
     scale: float,
     rotation: np.ndarray,
     translation: np.ndarray,
@@ -18,14 +19,14 @@ def transform_colmap(
     # Input validations
     assert isinstance(cameras, dict), f"{type(cameras)=}"
     assert isinstance(images, dict), f"{type(images)=}"
-    assert isinstance(points3D, dict), f"{type(points3D)=}"
+    assert isinstance(points, dict), f"{type(points)=}"
     assert isinstance(scale, (int, float)), f"{type(scale)=}"
     assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
-    assert rotation.shape == (3, 3), f"{rotation.shape=}"
-    assert rotation.dtype == np.float32, f"{rotation.dtype=}"
     assert isinstance(translation, np.ndarray), f"{type(translation)=}"
     assert translation.shape == (3,), f"{translation.shape=}"
     assert translation.dtype == np.float32, f"{translation.dtype=}"
+
+    validate_rotation_matrix(rotation)
 
     aligned_images = transform_colmap_cameras(
         images=images,
@@ -34,7 +35,7 @@ def transform_colmap(
         translation=translation,
     )
     aligned_points = transform_colmap_points(
-        points=points3D,
+        points=points,
         scale=scale,
         rotation=rotation,
         translation=translation,
@@ -52,11 +53,11 @@ def transform_colmap_cameras(
     assert isinstance(images, dict), f"{type(images)=}"
     assert isinstance(scale, (int, float)), f"{type(scale)=}"
     assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
-    assert rotation.shape == (3, 3), f"{rotation.shape=}"
-    assert rotation.dtype == np.float32, f"{rotation.dtype=}"
     assert isinstance(translation, np.ndarray), f"{type(translation)=}"
     assert translation.shape == (3,), f"{translation.shape=}"
     assert translation.dtype == np.float32, f"{translation.dtype=}"
+
+    validate_rotation_matrix(rotation)
 
     aligned_images: Dict[int, Any] = {}
     image_ids = sorted(images)
@@ -87,11 +88,11 @@ def transform_colmap_points(
     assert isinstance(points, dict), f"{type(points)=}"
     assert isinstance(scale, (int, float)), f"{type(scale)=}"
     assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
-    assert rotation.shape == (3, 3), f"{rotation.shape=}"
-    assert rotation.dtype == np.float32, f"{rotation.dtype=}"
     assert isinstance(translation, np.ndarray), f"{type(translation)=}"
     assert translation.shape == (3,), f"{translation.shape=}"
     assert translation.dtype == np.float32, f"{translation.dtype=}"
+
+    validate_rotation_matrix(rotation)
 
     aligned_points: Dict[int, Any] = {}
     point_ids = sorted(points)
@@ -124,11 +125,11 @@ def _transform_colmap_camera_entry(
     assert isinstance(images, dict), f"{type(images)=}"
     assert isinstance(scale, (int, float)), f"{type(scale)=}"
     assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
-    assert rotation.shape == (3, 3), f"{rotation.shape=}"
-    assert rotation.dtype == np.float32, f"{rotation.dtype=}"
     assert isinstance(translation, np.ndarray), f"{type(translation)=}"
     assert translation.shape == (3,), f"{translation.shape=}"
     assert translation.dtype == np.float32, f"{translation.dtype=}"
+
+    validate_rotation_matrix(rotation)
 
     image = images[image_id]
     assert image.id == image_id, f"{image_id=} {image.id=}"
@@ -172,11 +173,11 @@ def _transform_colmap_point_entry(
     assert isinstance(points, dict), f"{type(points)=}"
     assert isinstance(scale, (int, float)), f"{type(scale)=}"
     assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
-    assert rotation.shape == (3, 3), f"{rotation.shape=}"
-    assert rotation.dtype == np.float32, f"{rotation.dtype=}"
     assert isinstance(translation, np.ndarray), f"{type(translation)=}"
     assert translation.shape == (3,), f"{translation.shape=}"
     assert translation.dtype == np.float32, f"{translation.dtype=}"
+
+    validate_rotation_matrix(rotation)
 
     point = points[point_id]
     assert point.id == point_id, f"{point_id=} {point.id=}"

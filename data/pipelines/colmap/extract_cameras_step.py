@@ -33,7 +33,7 @@ class ColmapExtractCamerasStep(BaseStep):
         if not outputs_ready:
             return False
         try:
-            transforms = TransformsJSON(
+            transforms = TransformsJSON.load(
                 filepath=self.transforms_path, device=torch.device("cpu")
             )
             frame_names = [Path(name).name for name in transforms.filenames]
