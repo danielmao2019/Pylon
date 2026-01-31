@@ -130,15 +130,16 @@ class ColmapFeatureExtractionStep(BaseStep):
             f"{', '.join(sorted(path.name for path in input_paths if path.suffix != '.png'))}"
         )
         expected_names = sorted(path.name for path in input_paths)
+
         with sqlite3.connect(self.database_path) as connection:
             cursor = connection.cursor()
 
             image_rows = cursor.execute("SELECT image_id, name FROM images").fetchall()
             assert image_rows, f"No images recorded in database {self.database_path}"
-            db_names = [row[1] for row in image_rows]
-            assert sorted(db_names) == expected_names, (
+            image_names = [row[1] for row in image_rows]
+            assert sorted(image_names) == expected_names, (
                 "Image names in database do not match COLMAP inputs. "
-                f"expected={len(expected_names)} actual={len(db_names)}"
+                f"expected={len(expected_names)} actual={len(image_names)}"
             )
             image_ids = {row[0] for row in image_rows}
 
