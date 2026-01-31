@@ -1,8 +1,8 @@
 """
-DATA.STRUCTURES.THREE_D.TRANSFORMS_JSON API
+DATA.STRUCTURES.THREE_D.NERFSTUDIO API
 """
 
-from data.structures.three_d.transforms_json.load import (
+from data.structures.three_d.nerfstudio.load import (
     load_applied_transform,
     load_camera_model,
     load_cameras,
@@ -13,7 +13,7 @@ from data.structures.three_d.transforms_json.load import (
     load_resolution,
     load_split_filenames,
 )
-from data.structures.three_d.transforms_json.save import (
+from data.structures.three_d.nerfstudio.save import (
     save_applied_transform,
     save_camera_model,
     save_cameras,
@@ -22,8 +22,8 @@ from data.structures.three_d.transforms_json.save import (
     save_resolution,
     save_split_filenames,
 )
-from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
-from data.structures.three_d.transforms_json.validate import (
+from data.structures.three_d.nerfstudio.nerfstudio import NerfStudio
+from data.structures.three_d.nerfstudio.validate import (
     validate_applied_transform,
     validate_applied_transform_data,
     validate_camera_model,
@@ -45,7 +45,7 @@ from data.structures.three_d.transforms_json.validate import (
 )
 
 __all__ = (
-    "TransformsJSON",
+    "NerfStudio",
     "load_applied_transform",
     "load_camera_model",
     "load_cameras",

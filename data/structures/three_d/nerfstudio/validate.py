@@ -19,18 +19,18 @@ def validate_device(device: torch.device) -> None:
 
 def validate_intrinsic_params(data: Dict[str, Any]) -> None:
     # Input validations
-    assert "fl_x" in data, "transforms.json missing fl_x"
-    assert "fl_y" in data, "transforms.json missing fl_y"
-    assert "cx" in data, "transforms.json missing cx"
-    assert "cy" in data, "transforms.json missing cy"
+    assert "fl_x" in data, "nerfstudio.json missing fl_x"
+    assert "fl_y" in data, "nerfstudio.json missing fl_y"
+    assert "cx" in data, "nerfstudio.json missing cx"
+    assert "cy" in data, "nerfstudio.json missing cy"
     assert isinstance(data["fl_x"], float), f"{type(data['fl_x'])=}"
     assert isinstance(data["fl_y"], float), f"{type(data['fl_y'])=}"
     assert isinstance(data["cx"], float), f"{type(data['cx'])=}"
     assert isinstance(data["cy"], float), f"{type(data['cy'])=}"
-    assert "k1" in data, "transforms.json missing k1"
-    assert "k2" in data, "transforms.json missing k2"
-    assert "p1" in data, "transforms.json missing p1"
-    assert "p2" in data, "transforms.json missing p2"
+    assert "k1" in data, "nerfstudio.json missing k1"
+    assert "k2" in data, "nerfstudio.json missing k2"
+    assert "p1" in data, "nerfstudio.json missing p1"
+    assert "p2" in data, "nerfstudio.json missing p2"
     assert isinstance(data["k1"], float), f"{type(data['k1'])=}"
     assert isinstance(data["k2"], float), f"{type(data['k2'])=}"
     assert isinstance(data["p1"], float), f"{type(data['p1'])=}"
@@ -51,13 +51,13 @@ def validate_intrinsics_data(data: Dict[str, Any]) -> None:
 
 def validate_resolution_data(data: Dict[str, Any]) -> None:
     # Input validations
-    assert "w" in data and "h" in data, "transforms.json must include w and h"
+    assert "w" in data and "h" in data, "nerfstudio.json must include w and h"
     assert isinstance(data["w"], int), f"{type(data['w'])=}"
     assert isinstance(data["h"], int), f"{type(data['h'])=}"
     assert (
         data["w"] > 0 and data["h"] > 0
     ), f"w/h must be positive, got {data['w']}, {data['h']}"
-    assert "cx" in data and "cy" in data, "transforms.json must include cx and cy"
+    assert "cx" in data and "cy" in data, "nerfstudio.json must include cx and cy"
     assert isinstance(data["cx"], float), f"{type(data['cx'])=}"
     assert isinstance(data["cy"], float), f"{type(data['cy'])=}"
     assert (
@@ -98,7 +98,7 @@ def validate_resolution(
 
 def validate_camera_model_data(data: Dict[str, Any]) -> None:
     # Input validations
-    assert "camera_model" in data, "transforms.json missing camera_model"
+    assert "camera_model" in data, "nerfstudio.json missing camera_model"
     assert (
         data["camera_model"] == "OPENCV"
     ), f"Unsupported camera_model: {data['camera_model']}"
@@ -119,7 +119,7 @@ def validate_intrinsics(intrinsics: torch.Tensor) -> None:
 
 def validate_applied_transform_data(data: Dict[str, Any]) -> None:
     # Input validations
-    assert "applied_transform" in data, "transforms.json missing applied_transform"
+    assert "applied_transform" in data, "nerfstudio.json missing applied_transform"
     assert np.asarray(data["applied_transform"], dtype=np.float32).shape == (3, 4)
 
 
@@ -131,7 +131,7 @@ def validate_applied_transform(applied_transform: np.ndarray) -> None:
 
 def validate_ply_file_path_data(data: Dict[str, Any]) -> None:
     # Input validations
-    assert "ply_file_path" in data, "transforms.json missing ply_file_path"
+    assert "ply_file_path" in data, "nerfstudio.json missing ply_file_path"
     assert isinstance(data["ply_file_path"], str), f"{type(data['ply_file_path'])=}"
 
 
@@ -142,7 +142,7 @@ def validate_ply_file_path(ply_file_path: str) -> None:
 
 def validate_frames_data(data: Dict[str, Any]) -> None:
     # Input validations
-    assert "frames" in data, "transforms.json missing frames"
+    assert "frames" in data, "nerfstudio.json missing frames"
     assert isinstance(data["frames"], list), "frames must be a list"
     assert data["frames"], "frames must be non-empty"
     assert all("file_path" in frame for frame in data["frames"])

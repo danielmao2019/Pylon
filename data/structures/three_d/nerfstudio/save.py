@@ -34,7 +34,7 @@ def save_cameras(
     frames: List[Dict[str, Any]] = []
     include_masks = modalities is not None and "masks" in modalities
     for camera in cameras:
-        assert camera.name is not None, "Camera name required to save transforms.json"
+        assert camera.name is not None, "Camera name required to save nerfstudio.json"
         frame_entry: Dict[str, Any] = {
             "file_path": f"images/{camera.name}.png",
             "transform_matrix": camera.extrinsics.detach().cpu().tolist(),
