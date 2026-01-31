@@ -74,7 +74,7 @@ class ColmapFeatureExtractionStep(BaseStep):
         if not outputs_ready:
             return False
         try:
-            self._validate_database_contents()
+            self._validate_database()
         except Exception as e:
             logging.debug("Feature extraction validation failed: %s", e)
             return False
@@ -115,10 +115,26 @@ class ColmapFeatureExtractionStep(BaseStep):
             f"Using {self.colmap_args['version']} with parameter: {self.colmap_args['feature_use_gpu']}. "
             f"STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
-        self._validate_database_contents()
+        self._validate_database()
         return {}
 
-    def _validate_database_contents(self) -> None:
+    def _validate_database(self) -> None:
+        with sqlite3.connect(self.database_path) as connection:
+            cursor = connection.cursor()
+            image_ids = self._validate_images_table(cursor=cursor)
+            self._validate_keypoints_table(cursor=cursor, image_ids=image_ids)
+            self._validate_descriptors_table(cursor=cursor, image_ids=image_ids)
+            self._validate_cameras_table(cursor=cursor)
+
+    def _validate_images_table(self, cursor: sqlite3.Cursor) -> set[int]:
+        # Input validations
+        assert isinstance(cursor, sqlite3.Cursor), f"{type(cursor)=}"
+        assert isinstance(self.input_files, list), f"{type(self.input_files)=}"
+
+        image_rows = cursor.execute("SELECT image_id, name FROM images").fetchall()
+        assert image_rows, f"No images recorded in database {self.database_path}"
+        image_names = [row[1] for row in image_rows]
+
         input_paths = [self.input_root / rel for rel in self.input_files]
         assert input_paths, f"Empty input dir or no files: {self.input_images_dir}"
         assert all(path.is_file() for path in input_paths), (
@@ -131,44 +147,54 @@ class ColmapFeatureExtractionStep(BaseStep):
         )
         expected_names = sorted(path.name for path in input_paths)
 
-        with sqlite3.connect(self.database_path) as connection:
-            cursor = connection.cursor()
+        assert sorted(image_names) == expected_names, (
+            "Image names in database do not match COLMAP inputs. "
+            f"expected={len(expected_names)} actual={len(image_names)}"
+        )
+        return {row[0] for row in image_rows}
 
-            image_rows = cursor.execute("SELECT image_id, name FROM images").fetchall()
-            assert image_rows, f"No images recorded in database {self.database_path}"
-            image_names = [row[1] for row in image_rows]
-            assert sorted(image_names) == expected_names, (
-                "Image names in database do not match COLMAP inputs. "
-                f"expected={len(expected_names)} actual={len(image_names)}"
-            )
-            image_ids = {row[0] for row in image_rows}
+    def _validate_keypoints_table(
+        self, cursor: sqlite3.Cursor, image_ids: set[int]
+    ) -> None:
+        # Input validations
+        assert isinstance(cursor, sqlite3.Cursor), f"{type(cursor)=}"
+        assert isinstance(image_ids, set), f"{type(image_ids)=}"
+        assert image_ids, "image_ids must be non-empty"
 
-            keypoint_rows = cursor.execute(
-                "SELECT image_id, rows FROM keypoints"
-            ).fetchall()
-            assert (
-                keypoint_rows
-            ), f"No keypoints stored in database {self.database_path}"
-            assert all(
-                row[1] > 0 for row in keypoint_rows
-            ), "Keypoints row count must be positive for all images"
-            keypoint_ids = {row[0] for row in keypoint_rows}
-            assert (
-                keypoint_ids == image_ids
-            ), "Keypoints table image_ids do not match images table"
+        keypoint_rows = cursor.execute(
+            "SELECT image_id, rows FROM keypoints"
+        ).fetchall()
+        assert keypoint_rows, f"No keypoints stored in database {self.database_path}"
+        assert all(
+            row[1] > 0 for row in keypoint_rows
+        ), "Keypoints row count must be positive for all images"
+        keypoint_ids = {row[0] for row in keypoint_rows}
+        assert (
+            keypoint_ids == image_ids
+        ), "Keypoints table image_ids do not match images table"
 
-            descriptor_rows = cursor.execute(
-                "SELECT image_id FROM descriptors"
-            ).fetchall()
-            assert (
-                descriptor_rows
-            ), f"No descriptors stored in database {self.database_path}"
-            descriptor_ids = {row[0] for row in descriptor_rows}
-            assert (
-                descriptor_ids == image_ids
-            ), "Descriptor image_ids do not match images table"
+    def _validate_descriptors_table(
+        self, cursor: sqlite3.Cursor, image_ids: set[int]
+    ) -> None:
+        # Input validations
+        assert isinstance(cursor, sqlite3.Cursor), f"{type(cursor)=}"
+        assert isinstance(image_ids, set), f"{type(image_ids)=}"
+        assert image_ids, "image_ids must be non-empty"
 
-            camera_count = cursor.execute("SELECT COUNT(*) FROM cameras").fetchone()[0]
-            assert (
-                camera_count == 1
-            ), f"Expected exactly one camera entry, found {camera_count}"
+        descriptor_rows = cursor.execute("SELECT image_id FROM descriptors").fetchall()
+        assert (
+            descriptor_rows
+        ), f"No descriptors stored in database {self.database_path}"
+        descriptor_ids = {row[0] for row in descriptor_rows}
+        assert (
+            descriptor_ids == image_ids
+        ), "Descriptor image_ids do not match images table"
+
+    def _validate_cameras_table(self, cursor: sqlite3.Cursor) -> None:
+        # Input validations
+        assert isinstance(cursor, sqlite3.Cursor), f"{type(cursor)=}"
+
+        camera_count = cursor.execute("SELECT COUNT(*) FROM cameras").fetchone()[0]
+        assert (
+            camera_count == 1
+        ), f"Expected exactly one camera entry, found {camera_count}"

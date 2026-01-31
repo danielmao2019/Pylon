@@ -142,46 +142,42 @@ class ColmapFeatureMatchingStep(BaseStep):
     def _validate_images_table(self, cursor: sqlite3.Cursor) -> Set[int]:
         image_rows = cursor.execute("SELECT image_id, name FROM images").fetchall()
         assert image_rows, f"No images recorded in database {self.database_path}"
-        db_names = [row[1] for row in image_rows]
+        image_names = [row[1] for row in image_rows]
 
-        entries = sorted(self.input_images_dir.iterdir())
-        assert entries, f"Empty input dir or no files: {self.input_images_dir}"
-        assert all(entry.is_file() for entry in entries), (
+        input_paths = sorted(self.input_images_dir.iterdir())
+        assert input_paths, f"Empty input dir or no files: {self.input_images_dir}"
+        assert all(entry.is_file() for entry in input_paths), (
             "COLMAP input directory must only contain files "
             f"(found non-file entries in {self.input_images_dir})"
         )
-        assert all(entry.suffix == ".png" for entry in entries), (
+        assert all(entry.suffix == ".png" for entry in input_paths), (
             f"Non-PNG files present in COLMAP input directory: "
-            f"{', '.join(sorted(entry.name for entry in entries if entry.suffix != '.png'))}"
+            f"{', '.join(sorted(entry.name for entry in input_paths if entry.suffix != '.png'))}"
         )
-        expected_names = [entry.name for entry in entries]
+        expected_names = [entry.name for entry in input_paths]
 
-        assert sorted(db_names) == expected_names, (
+        assert sorted(image_names) == expected_names, (
             "Image names in database do not match COLMAP inputs. "
-            f"expected={len(expected_names)} actual={len(db_names)}"
+            f"expected={len(expected_names)} actual={len(image_names)}"
         )
         return {row[0] for row in image_rows}
 
     def _validate_matches_table(self, cursor: sqlite3.Cursor) -> None:
-        matches_count = cursor.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
-        assert matches_count > 0, f"No matches stored in database {self.database_path}"
-
         match_rows = cursor.execute(
             "SELECT pair_id, rows, data FROM matches"
         ).fetchall()
         assert match_rows, f"No matches stored in database {self.database_path}"
-        zero_row_matches = [row for row in match_rows if row[1] == 0]
-        empty_blob_matches = [
-            row for row in match_rows if row[2] is None or len(row[2]) == 0
+        invalid_rows = [
+            row
+            for row in match_rows
+            if row[1] == 0 or row[2] is None or len(row[2]) == 0
         ]
-        invalid_pair_ids = {row[0] for row in zero_row_matches}
-        invalid_pair_ids.update(row[0] for row in empty_blob_matches)
-        valid_match_ratio = (len(match_rows) - len(invalid_pair_ids)) / len(match_rows)
+        valid_match_ratio = (len(match_rows) - len(invalid_rows)) / len(match_rows)
         assert valid_match_ratio > 0.10, (
             "matches table contains too many invalid entries. "
-            f"total_rows={len(match_rows)} invalid_pairs={len(invalid_pair_ids)} "
+            f"total_rows={len(match_rows)} invalid_pairs={len(invalid_rows)} "
             f"valid_ratio={valid_match_ratio:.4f} threshold=0.10 "
-            f"sample_pair_ids={sorted(invalid_pair_ids)[:3]}"
+            f"sample_pair_ids={sorted(row[0] for row in invalid_rows)[:3]}"
         )
 
     def _validate_two_view_geometries_table(self, cursor: sqlite3.Cursor) -> List[int]:
@@ -191,22 +187,19 @@ class ColmapFeatureMatchingStep(BaseStep):
         assert (
             geometry_rows
         ), f"No two_view_geometries rows in database {self.database_path}"
-        zero_row_geometries = [row for row in geometry_rows if row[1] == 0]
-        empty_blob_geometries = [
-            row for row in geometry_rows if row[2] is None or len(row[2]) == 0
+        invalid_rows = [
+            row
+            for row in geometry_rows
+            if row[1] == 0 or row[2] is None or len(row[2]) == 0 or row[3] == 0
         ]
-        zero_config_geometries = [row for row in geometry_rows if row[3] == 0]
-        invalid_geometry_pair_ids = {row[0] for row in zero_row_geometries}
-        invalid_geometry_pair_ids.update(row[0] for row in empty_blob_geometries)
-        invalid_geometry_pair_ids.update(row[0] for row in zero_config_geometries)
-        valid_geometry_ratio = (
-            len(geometry_rows) - len(invalid_geometry_pair_ids)
-        ) / len(geometry_rows)
+        valid_geometry_ratio = (len(geometry_rows) - len(invalid_rows)) / len(
+            geometry_rows
+        )
         assert valid_geometry_ratio > 0.10, (
             "two_view_geometries contains too many invalid entries. "
-            f"total_rows={len(geometry_rows)} invalid_pairs={len(invalid_geometry_pair_ids)} "
+            f"total_rows={len(geometry_rows)} invalid_pairs={len(invalid_rows)} "
             f"valid_ratio={valid_geometry_ratio:.4f} threshold=0.10 "
-            f"sample_pair_ids={sorted(invalid_geometry_pair_ids)[:3]}"
+            f"sample_pair_ids={sorted(row[0] for row in invalid_rows)[:3]}"
         )
         pair_ids = [row[0] for row in geometry_rows]
         assert all(pid > 0 for pid in pair_ids), "pair_id values must be positive"
