@@ -13,6 +13,7 @@ import torch
 from PIL import Image
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud import save_point_cloud
 from data.structures.three_d.point_cloud.ops.rendering.common import (
     prepare_points_for_rendering,
@@ -22,7 +23,6 @@ from data.structures.three_d.point_cloud.ops.rendering.render_rgb import (
 )
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
-from data.structures.three_d.nerfstudio.nerfstudio import NerfStudio
 from utils.three_d.splatfacto.load_splatfacto import load_splatfacto_model
 from utils.three_d.splatfacto.render import render_rgb_from_splatfacto
 
@@ -142,8 +142,8 @@ def _create_ply(pc: PointCloud, output_root: str) -> None:
 
 def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
     root = Path(output_root)
-    assert cameras, "At least one camera required to write nerfstudio.json"
-    nerfstudio_path = root / "nerfstudio.json"
+    assert cameras, "At least one camera required to write transforms.json"
+    nerfstudio_path = root / "transforms.json"
     nerfstudio_path.parent.mkdir(parents=True, exist_ok=True)
 
     payload: Dict[str, Any] = {
@@ -176,7 +176,7 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
         "val_filenames": None,
         "test_filenames": None,
     }
-    NerfStudio.save(payload, nerfstudio_path)
+    NerfStudio_Data.save(payload, nerfstudio_path)
 
 
 def _run_ns_train_splatfacto(

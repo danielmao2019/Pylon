@@ -72,7 +72,9 @@ class BaseMeshesSceneModel(BaseSceneModel):
         assert isinstance(resolution, tuple), f"{type(resolution)=}"
         assert len(resolution) == 2, f"{len(resolution)=}"
         assert all(isinstance(dim, int) for dim in resolution), f"{resolution=}"
-        assert camera_name is None or isinstance(camera_name, str), f"{type(camera_name)=}"
+        assert camera_name is None or isinstance(
+            camera_name, str
+        ), f"{type(camera_name)=}"
         assert display_cameras is None or isinstance(
             display_cameras, list
         ), f"{type(display_cameras)=}"
