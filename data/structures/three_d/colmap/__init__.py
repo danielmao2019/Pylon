@@ -2,7 +2,7 @@
 DATA.STRUCTURES.THREE_D.COLMAP API
 """
 
-from data.structures.three_d.colmap.colmap import COLMAP_Data
+from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 from data.structures.three_d.colmap.convert import (
     create_nerfstudio_from_colmap,
     create_ply_from_colmap,

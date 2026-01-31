@@ -8,7 +8,7 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
-from data.structures.three_d.nerfstudio.nerfstudio import NerfStudio
+from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from utils.three_d.rotation.quaternion import qvec2rotmat
 
 DEFAULT_APPLIED_TRANSFORM = np.array(
@@ -205,7 +205,7 @@ def create_nerfstudio_from_colmap(
         "ply_file_path": ply_file_path,
         "cameras": cameras,
     }
-    NerfStudio.save(payload, output_path)
+    NerfStudio_Data.save(payload, output_path)
     return output_path
 
 
