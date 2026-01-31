@@ -48,10 +48,10 @@ from data.structures.three_d.nerfstudio.validate import (
 )
 
 
-class NerfStudio:
-    _CACHE: Dict[Tuple[Path, str, float], "NerfStudio"] = {}
+class NerfStudio_Data:
+    _CACHE: Dict[Tuple[Path, str, float], "NerfStudio_Data"] = {}
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "NerfStudio":
+    def __new__(cls, *args: Any, **kwargs: Any) -> "NerfStudio_Data":
         if "filepath" in kwargs or (args and isinstance(args[0], (str, Path))):
             filepath = kwargs["filepath"] if "filepath" in kwargs else args[0]
             device = (
@@ -60,7 +60,7 @@ class NerfStudio:
                 else (args[1] if len(args) > 1 else torch.device("cuda"))
             )
             path = Path(filepath).resolve()
-            assert path.is_file(), f"nerfstudio.json not found: {path}"
+            assert path.is_file(), f"transforms.json not found: {path}"
             assert isinstance(device, (str, torch.device)), f"{type(device)=}"
             target_device = torch.device(device)
             cache_key = (path, str(target_device), path.stat().st_mtime)
@@ -119,28 +119,28 @@ class NerfStudio:
         self.val_filenames = val_filenames
         self.test_filenames = test_filenames
 
-    def __copy__(self) -> "NerfStudio":
+    def __copy__(self) -> "NerfStudio_Data":
         assert hasattr(
             self, "_filepath"
-        ), "NerfStudio._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         assert (
             self._filepath is not None
-        ), "NerfStudio._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         return type(self).load(filepath=self._filepath, device=self.device)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "NerfStudio":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "NerfStudio_Data":
         assert hasattr(
             self, "_filepath"
-        ), "NerfStudio._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         assert (
             self._filepath is not None
-        ), "NerfStudio._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         return type(self).load(filepath=self._filepath, device=self.device)
 
     @classmethod
     def load(
         cls, filepath: str | Path, device: str | torch.device = torch.device("cuda")
-    ) -> "NerfStudio":
+    ) -> "NerfStudio_Data":
         # Input validations
         assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
         assert isinstance(device, (str, torch.device)), f"{type(device)=}"
@@ -149,7 +149,7 @@ class NerfStudio:
         path = Path(filepath).resolve()
         target_device = torch.device(device)
 
-        assert path.is_file(), f"nerfstudio.json not found: {path}"
+        assert path.is_file(), f"transforms.json not found: {path}"
         instance = cls.__new__(cls, filepath=path, device=target_device)
         if hasattr(instance, "_initialized") and instance._initialized:
             return instance
@@ -196,15 +196,15 @@ class NerfStudio:
         return instance
 
     @staticmethod
-    def save(data: "NerfStudio" | Dict[str, Any], filepath: str | Path) -> None:
+    def save(data: "NerfStudio_Data" | Dict[str, Any], filepath: str | Path) -> None:
         # Input validations
-        assert isinstance(data, (NerfStudio, dict)), f"{type(data)=}"
+        assert isinstance(data, (NerfStudio_Data, dict)), f"{type(data)=}"
         assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
 
         # Input normalizations
         path = Path(filepath)
 
-        if isinstance(data, NerfStudio):
+        if isinstance(data, NerfStudio_Data):
             modalities = data.data.get("modalities", [])
             intrinsic_params = data.intrinsic_params
             resolution = data.resolution

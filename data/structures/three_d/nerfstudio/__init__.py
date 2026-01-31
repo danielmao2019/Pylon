@@ -13,6 +13,7 @@ from data.structures.three_d.nerfstudio.load import (
     load_resolution,
     load_split_filenames,
 )
+from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.nerfstudio.save import (
     save_applied_transform,
     save_camera_model,
@@ -22,7 +23,6 @@ from data.structures.three_d.nerfstudio.save import (
     save_resolution,
     save_split_filenames,
 )
-from data.structures.three_d.nerfstudio.nerfstudio import NerfStudio
 from data.structures.three_d.nerfstudio.validate import (
     validate_applied_transform,
     validate_applied_transform_data,
@@ -45,7 +45,7 @@ from data.structures.three_d.nerfstudio.validate import (
 )
 
 __all__ = (
-    "NerfStudio",
+    "NerfStudio_Data",
     "load_applied_transform",
     "load_camera_model",
     "load_cameras",
