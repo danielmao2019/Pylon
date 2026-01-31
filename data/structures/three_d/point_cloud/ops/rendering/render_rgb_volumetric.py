@@ -22,7 +22,7 @@ from data.structures.three_d.point_cloud.ops.rendering.render_rgb import (
 )
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
-from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
+from data.structures.three_d.nerfstudio.nerfstudio import NerfStudio
 from utils.three_d.splatfacto.load_splatfacto import load_splatfacto_model
 from utils.three_d.splatfacto.render import render_rgb_from_splatfacto
 
@@ -140,11 +140,11 @@ def _create_ply(pc: PointCloud, output_root: str) -> None:
     save_point_cloud(pc, str(ply_path))
 
 
-def _create_transforms_json(cameras: List[Camera], output_root: Path) -> None:
+def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
     root = Path(output_root)
-    assert cameras, "At least one camera required to write transforms.json"
-    transforms_path = root / "transforms.json"
-    transforms_path.parent.mkdir(parents=True, exist_ok=True)
+    assert cameras, "At least one camera required to write nerfstudio.json"
+    nerfstudio_path = root / "nerfstudio.json"
+    nerfstudio_path.parent.mkdir(parents=True, exist_ok=True)
 
     payload: Dict[str, Any] = {
         "intrinsic_params": {
@@ -176,7 +176,7 @@ def _create_transforms_json(cameras: List[Camera], output_root: Path) -> None:
         "val_filenames": None,
         "test_filenames": None,
     }
-    TransformsJSON.save(payload, transforms_path)
+    NerfStudio.save(payload, nerfstudio_path)
 
 
 def _run_ns_train_splatfacto(
@@ -340,7 +340,7 @@ def render_rgb_from_point_cloud_volumetric(
             downscale_factor=downscale_factor,
         )
         _create_ply(pc=pc, output_root=tempdir)
-        _create_transforms_json(
+        _create_nerfstudio(
             intrinsics=intrinsics,
             train_extrinsics=train_extrinsics,
             eval_extrinsics=extrinsics,

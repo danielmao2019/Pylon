@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from data.pipelines.base_step import BaseStep
-from data.structures.colmap.load import (
+from data.structures.three_d.colmap.load import (
     _load_colmap_cameras_bin,
     _load_colmap_images_bin,
     _load_colmap_points_bin,

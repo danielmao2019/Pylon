@@ -6,9 +6,9 @@ from typing import Any, Dict, List
 import numpy as np
 import torch
 
-from data.structures.colmap.load import ColmapCamera, ColmapImage
 from data.structures.three_d.camera.camera import Camera
-from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
+from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
+from data.structures.three_d.nerfstudio.nerfstudio import NerfStudio
 from utils.three_d.rotation.quaternion import qvec2rotmat
 
 DEFAULT_APPLIED_TRANSFORM = np.array(
@@ -163,7 +163,7 @@ def _determine_modalities(cameras: List[Camera], output_dir: Path) -> List[str]:
     return modalities
 
 
-def create_transforms_json_from_colmap(
+def create_nerfstudio_from_colmap(
     filename: str,
     colmap_cameras: Dict[int, ColmapCamera],
     colmap_images: Dict[int, ColmapImage],
@@ -205,7 +205,7 @@ def create_transforms_json_from_colmap(
         "ply_file_path": ply_file_path,
         "cameras": cameras,
     }
-    TransformsJSON.save(payload, output_path)
+    NerfStudio.save(payload, output_path)
     return output_path
 
 

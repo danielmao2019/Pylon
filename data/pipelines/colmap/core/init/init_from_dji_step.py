@@ -10,8 +10,8 @@ import pyproj
 import torch
 
 from data.pipelines.base_step import BaseStep
-from data.structures.colmap.colmap import COLMAP_Data
-from data.structures.colmap.load import (
+from data.structures.three_d.colmap.colmap import COLMAP_Data
+from data.structures.three_d.colmap.load import (
     CAMERA_MODELS,
     ColmapCamera,
     ColmapImage,

@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 from data.pipelines.base_step import BaseStep
-from data.structures.colmap.colmap import COLMAP_Data
-from data.structures.colmap.convert import create_ply_from_colmap
+from data.structures.three_d.colmap.colmap import COLMAP_Data
+from data.structures.three_d.colmap.convert import create_ply_from_colmap
 
 
 class ColmapExtractPointCloudStep(BaseStep):

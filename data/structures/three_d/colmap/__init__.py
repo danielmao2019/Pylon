@@ -1,13 +1,13 @@
 """
-DATA.STRUCTURES.COLMAP API
+DATA.STRUCTURES.THREE_D.COLMAP API
 """
 
-from data.structures.colmap.colmap import COLMAP_Data
-from data.structures.colmap.convert import (
+from data.structures.three_d.colmap.colmap import COLMAP_Data
+from data.structures.three_d.colmap.convert import (
+    create_nerfstudio_from_colmap,
     create_ply_from_colmap,
-    create_transforms_json_from_colmap,
 )
-from data.structures.colmap.load import (
+from data.structures.three_d.colmap.load import (
     CAMERA_MODELS,
     ColmapCamera,
     ColmapImage,
@@ -17,8 +17,8 @@ from data.structures.colmap.load import (
     _load_colmap_points_bin,
     load_colmap_data,
 )
-from data.structures.colmap.save import save_colmap_data
-from data.structures.colmap.transform import (
+from data.structures.three_d.colmap.save import save_colmap_data
+from data.structures.three_d.colmap.transform import (
     transform_colmap,
     transform_colmap_cameras,
     transform_colmap_points,
@@ -26,8 +26,8 @@ from data.structures.colmap.transform import (
 
 __all__ = (
     "COLMAP_Data",
+    "create_nerfstudio_from_colmap",
     "create_ply_from_colmap",
-    "create_transforms_json_from_colmap",
     "CAMERA_MODELS",
     "ColmapCamera",
     "ColmapImage",
