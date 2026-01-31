@@ -19,14 +19,30 @@ class ColmapFeatureExtractionStep(BaseStep):
         scene_root: str | Path,
         colmap_args: Dict[str, str],
         upright: bool = False,
+        camera_mode: str = "OPENCV",
         mask_input_root: str | Path | None = None,
     ) -> None:
+        # Input validations
+        assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
+        assert isinstance(colmap_args, dict), f"{type(colmap_args)=}"
+        assert isinstance(upright, bool), f"{type(upright)=}"
+        assert isinstance(camera_mode, str), f"{type(camera_mode)=}"
+        assert camera_mode in {
+            "SIMPLE_PINHOLE",
+            "PINHOLE",
+            "OPENCV",
+        }, f"{camera_mode=}"
+        assert mask_input_root is None or isinstance(
+            mask_input_root, (str, Path)
+        ), f"{type(mask_input_root)=}"
+
         scene_root = Path(scene_root)
         self.input_images_dir = scene_root / "input"
         self.distorted_dir = scene_root / "distorted"
         self.database_path = scene_root / "distorted" / "database.db"
         self.colmap_args = colmap_args
         self.upright = upright
+        self.camera_mode = camera_mode
         self.mask_input_root = mask_input_root
         super().__init__(input_root=scene_root, output_root=scene_root)
 
@@ -83,7 +99,7 @@ class ColmapFeatureExtractionStep(BaseStep):
             "--ImageReader.single_camera",
             "1",
             "--ImageReader.camera_model",
-            "OPENCV",
+            self.camera_mode,
             self.colmap_args["feature_use_gpu"],
             "1",
             "--log_to_stderr",

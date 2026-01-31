@@ -38,16 +38,44 @@ class ColmapCorePipeline(BasePipeline):
         scene_root: str | Path,
         matcher_cfg: Optional[Dict[str, Any]] = None,
         upright: bool = False,
+        camera_mode: str = "OPENCV",
         init_from_dji: bool = False,
         dji_data_root: str | Path | None = None,
         mask_input_root: str | Path | None = None,
         strict: bool = True,
     ) -> None:
+        # Input validations
+        assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
+        assert matcher_cfg is None or isinstance(
+            matcher_cfg, dict
+        ), f"{type(matcher_cfg)=}"
+        assert isinstance(upright, bool), f"{type(upright)=}"
+        assert isinstance(camera_mode, str), f"{type(camera_mode)=}"
+        assert camera_mode in {
+            "SIMPLE_PINHOLE",
+            "PINHOLE",
+            "OPENCV",
+        }, f"{camera_mode=}"
+        assert isinstance(init_from_dji, bool), f"{type(init_from_dji)=}"
+        assert (
+            not init_from_dji
+        ) or dji_data_root is not None, (
+            "dji_data_root must be provided when init_from_dji is True"
+        )
+        assert dji_data_root is None or isinstance(
+            dji_data_root, (str, Path)
+        ), f"{type(dji_data_root)=}"
+        assert mask_input_root is None or isinstance(
+            mask_input_root, (str, Path)
+        ), f"{type(mask_input_root)=}"
+        assert isinstance(strict, bool), f"{type(strict)=}"
+
         self.scene_root = Path(scene_root).expanduser().resolve()
         self.colmap_args = self._get_colmap_args()
         step_configs = self._build_steps(
             matcher_cfg=matcher_cfg,
             upright=upright,
+            camera_mode=camera_mode,
             init_from_dji=init_from_dji,
             dji_data_root=dji_data_root,
             mask_input_root=mask_input_root,
@@ -98,6 +126,7 @@ class ColmapCorePipeline(BasePipeline):
         self,
         matcher_cfg: Optional[Dict[str, Any]],
         upright: bool,
+        camera_mode: str,
         init_from_dji: bool,
         dji_data_root: str | Path | None,
         mask_input_root: str | Path | None,
@@ -110,6 +139,7 @@ class ColmapCorePipeline(BasePipeline):
                     "scene_root": self.scene_root,
                     "colmap_args": self.colmap_args,
                     "upright": upright,
+                    "camera_mode": camera_mode,
                     "mask_input_root": mask_input_root,
                 },
             },

@@ -30,9 +30,14 @@ def _extract_intrinsics_from_colmap(
     assert (
         len(colmap_cameras) == 1
     ), f"Expected exactly one camera, got {len(colmap_cameras)}"
-    assert (
-        next(iter(colmap_cameras.values())).model == "OPENCV"
-    ), f"Expected COLMAP camera model OPENCV, got {next(iter(colmap_cameras.values())).model}"
+    assert next(iter(colmap_cameras.values())).model in {
+        "SIMPLE_PINHOLE",
+        "PINHOLE",
+        "OPENCV",
+    }, (
+        "Expected COLMAP camera model SIMPLE_PINHOLE, PINHOLE, or OPENCV, "
+        f"got {next(iter(colmap_cameras.values())).model}"
+    )
     assert isinstance(
         next(iter(colmap_cameras.values())).width, (int, np.integer)
     ), f"{type(next(iter(colmap_cameras.values())).width)=}"
@@ -50,20 +55,41 @@ def _extract_intrinsics_from_colmap(
 
     camera = next(iter(colmap_cameras.values()))
     params = camera.params
-    assert len(params) == 8, f"Expected 8 params for OPENCV, got {len(params)}"
-    assert float(params[4]) == 0.0, f"k1 must be 0, got {params[4]}"
-    assert float(params[5]) == 0.0, f"k2 must be 0, got {params[5]}"
-    assert float(params[6]) == 0.0, f"p1 must be 0, got {params[6]}"
-    assert float(params[7]) == 0.0, f"p2 must be 0, got {params[7]}"
+    if camera.model == "SIMPLE_PINHOLE":
+        assert (
+            len(params) == 3
+        ), f"Expected 3 params for SIMPLE_PINHOLE, got {len(params)}"
+        fl_x = float(params[0])
+        fl_y = float(params[0])
+        cx = float(params[1])
+        cy = float(params[2])
+    elif camera.model == "PINHOLE":
+        assert len(params) == 4, f"Expected 4 params for PINHOLE, got {len(params)}"
+        fl_x = float(params[0])
+        fl_y = float(params[1])
+        cx = float(params[2])
+        cy = float(params[3])
+    elif camera.model == "OPENCV":
+        assert len(params) == 8, f"Expected 8 params for OPENCV, got {len(params)}"
+        assert float(params[4]) == 0.0, f"k1 must be 0, got {params[4]}"
+        assert float(params[5]) == 0.0, f"k2 must be 0, got {params[5]}"
+        assert float(params[6]) == 0.0, f"p1 must be 0, got {params[6]}"
+        assert float(params[7]) == 0.0, f"p2 must be 0, got {params[7]}"
+        fl_x = float(params[0])
+        fl_y = float(params[1])
+        cx = float(params[2])
+        cy = float(params[3])
+    else:
+        assert False, f"Unsupported COLMAP camera model {camera.model}"
     width = camera.width
     height = camera.height
     intrinsic_params: Dict[str, Any] = {
         "w": int(width),
         "h": int(height),
-        "fl_x": float(params[0]),
-        "fl_y": float(params[1]),
-        "cx": float(params[2]),
-        "cy": float(params[3]),
+        "fl_x": fl_x,
+        "fl_y": fl_y,
+        "cx": cx,
+        "cy": cy,
         "k1": 0.0,
         "k2": 0.0,
         "p1": 0.0,
