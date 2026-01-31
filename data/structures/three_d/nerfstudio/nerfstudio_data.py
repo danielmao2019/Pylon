@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
-from data.structures.three_d.transforms_json.load import (
+from data.structures.three_d.nerfstudio.load import (
     load_applied_transform,
     load_camera_model,
     load_cameras,
@@ -17,7 +17,7 @@ from data.structures.three_d.transforms_json.load import (
     load_resolution,
     load_split_filenames,
 )
-from data.structures.three_d.transforms_json.save import (
+from data.structures.three_d.nerfstudio.save import (
     save_applied_transform,
     save_camera_model,
     save_cameras,
@@ -26,7 +26,7 @@ from data.structures.three_d.transforms_json.save import (
     save_resolution,
     save_split_filenames,
 )
-from data.structures.three_d.transforms_json.validate import (
+from data.structures.three_d.nerfstudio.validate import (
     validate_applied_transform,
     validate_applied_transform_data,
     validate_camera_model,
@@ -48,10 +48,10 @@ from data.structures.three_d.transforms_json.validate import (
 )
 
 
-class TransformsJSON:
-    _CACHE: Dict[Tuple[Path, str, float], "TransformsJSON"] = {}
+class NerfStudio_Data:
+    _CACHE: Dict[Tuple[Path, str, float], "NerfStudio_Data"] = {}
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "TransformsJSON":
+    def __new__(cls, *args: Any, **kwargs: Any) -> "NerfStudio_Data":
         if "filepath" in kwargs or (args and isinstance(args[0], (str, Path))):
             filepath = kwargs["filepath"] if "filepath" in kwargs else args[0]
             device = (
@@ -119,28 +119,28 @@ class TransformsJSON:
         self.val_filenames = val_filenames
         self.test_filenames = test_filenames
 
-    def __copy__(self) -> "TransformsJSON":
+    def __copy__(self) -> "NerfStudio_Data":
         assert hasattr(
             self, "_filepath"
-        ), "TransformsJSON._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         assert (
             self._filepath is not None
-        ), "TransformsJSON._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         return type(self).load(filepath=self._filepath, device=self.device)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "TransformsJSON":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "NerfStudio_Data":
         assert hasattr(
             self, "_filepath"
-        ), "TransformsJSON._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         assert (
             self._filepath is not None
-        ), "TransformsJSON._filepath is required for copy"
+        ), "NerfStudio_Data._filepath is required for copy"
         return type(self).load(filepath=self._filepath, device=self.device)
 
     @classmethod
     def load(
         cls, filepath: str | Path, device: str | torch.device = torch.device("cuda")
-    ) -> "TransformsJSON":
+    ) -> "NerfStudio_Data":
         # Input validations
         assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
         assert isinstance(device, (str, torch.device)), f"{type(device)=}"
@@ -196,15 +196,15 @@ class TransformsJSON:
         return instance
 
     @staticmethod
-    def save(data: "TransformsJSON" | Dict[str, Any], filepath: str | Path) -> None:
+    def save(data: "NerfStudio_Data" | Dict[str, Any], filepath: str | Path) -> None:
         # Input validations
-        assert isinstance(data, (TransformsJSON, dict)), f"{type(data)=}"
+        assert isinstance(data, (NerfStudio_Data, dict)), f"{type(data)=}"
         assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
 
         # Input normalizations
         path = Path(filepath)
 
-        if isinstance(data, TransformsJSON):
+        if isinstance(data, NerfStudio_Data):
             modalities = data.data.get("modalities", [])
             intrinsic_params = data.intrinsic_params
             resolution = data.resolution

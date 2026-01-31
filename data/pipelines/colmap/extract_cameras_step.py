@@ -7,13 +7,13 @@ from typing import Any, Dict
 import torch
 
 from data.pipelines.base_step import BaseStep
-from data.structures.colmap.colmap import COLMAP_Data
-from data.structures.colmap.convert import create_transforms_json_from_colmap
-from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
+from data.structures.three_d.colmap.colmap_data import COLMAP_Data
+from data.structures.three_d.colmap.convert import create_nerfstudio_from_colmap
+from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 
 
 class ColmapExtractCamerasStep(BaseStep):
-    """Export complete NeRF Studio transforms.json from COLMAP outputs."""
+    """Export complete NerfStudio_Data JSON from COLMAP outputs."""
 
     STEP_NAME = "colmap_extract_cameras"
 
@@ -33,17 +33,17 @@ class ColmapExtractCamerasStep(BaseStep):
         if not outputs_ready:
             return False
         try:
-            transforms = TransformsJSON.load(
+            nerfstudio = NerfStudio_Data.load(
                 filepath=self.transforms_path, device=torch.device("cpu")
             )
-            frame_names = [Path(name).name for name in transforms.filenames]
+            frame_names = [Path(name).name for name in nerfstudio.filenames]
             disk_names = self._validate_disk_images()
             assert set(frame_names) == disk_names, (
                 "Frame file_paths do not match undistorted images on disk. "
                 f"frames={len(frame_names)} disk={len(disk_names)}"
             )
         except Exception as e:
-            logging.debug("COLMAP transforms validation failed: %s", e)
+            logging.debug("COLMAP NerfStudio_Data validation failed: %s", e)
             return False
         return True
 
@@ -55,7 +55,7 @@ class ColmapExtractCamerasStep(BaseStep):
             return {}
 
         colmap_data = COLMAP_Data(model_dir=self.model_dir)
-        create_transforms_json_from_colmap(
+        create_nerfstudio_from_colmap(
             filename="transforms.json",
             colmap_cameras=colmap_data.cameras,
             colmap_images=colmap_data.images,

@@ -6,9 +6,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import dash
 import torch
+from project.datasets.ivision.ivision_3d_scene_dataset import (
+    iVISION_3D_Scene_Dataset,
+)
 
 from data.structures.three_d.camera.camera import Camera
-from data.structures.three_d.transforms_json.transforms_json import TransformsJSON
+from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.viewer.ivision.callbacks import register_viewer_callbacks
 from data.viewer.ivision.layout import (
     CAMERA_NONE_VALUE,
@@ -16,9 +19,6 @@ from data.viewer.ivision.layout import (
     build_layout,
 )
 from models.three_d.base import BaseSceneModel
-from project.datasets.ivision.ivision_3d_scene_dataset import (
-    iVISION_3D_Scene_Dataset,
-)
 from utils.three_d.rotation.pitch_yaw import matrix_to_pitch_yaw, pitch_yaw_to_matrix
 
 
@@ -251,8 +251,8 @@ class iVISION_4D_Scene_Viewer:
         ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
         transforms_data = reference_annotation["transforms_data"]
         assert isinstance(
-            transforms_data, TransformsJSON
-        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+            transforms_data, NerfStudio_Data
+        ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         if camera_selection is None:
             if transforms_data.train_filenames is not None:
                 assert (
@@ -366,8 +366,8 @@ class iVISION_4D_Scene_Viewer:
         ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
         transforms_data = reference_annotation["transforms_data"]
         assert isinstance(
-            transforms_data, TransformsJSON
-        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+            transforms_data, NerfStudio_Data
+        ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         split_lookup: Dict[str, str] = {}
         if transforms_data.train_filenames is not None:
             for file_path in transforms_data.train_filenames:
@@ -416,8 +416,8 @@ class iVISION_4D_Scene_Viewer:
         ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
         transforms_data = reference_annotation["transforms_data"]
         assert isinstance(
-            transforms_data, TransformsJSON
-        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+            transforms_data, NerfStudio_Data
+        ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         reference_resolution = transforms_data.resolution
         render_resolution = self.get_render_resolution(reference_resolution)
         display_cameras = (
@@ -536,8 +536,8 @@ class iVISION_4D_Scene_Viewer:
         ), f"Annotation missing transforms_data key, keys={list(annotation.keys())}"
         transforms_data = annotation["transforms_data"]
         assert isinstance(
-            transforms_data, TransformsJSON
-        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+            transforms_data, NerfStudio_Data
+        ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         intrinsics = transforms_data.intrinsics.to(self.device)
         rotation_matrix = pitch_yaw_to_matrix(torch.deg2rad(self.rotation))
         c2w = torch.eye(4, dtype=rotation_matrix.dtype, device=self.device)
@@ -597,8 +597,8 @@ class iVISION_4D_Scene_Viewer:
         ), f"Annotation missing transforms_data key, keys={list(reference_annotation.keys())}"
         transforms_data = reference_annotation["transforms_data"]
         assert isinstance(
-            transforms_data, TransformsJSON
-        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+            transforms_data, NerfStudio_Data
+        ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         fx = float(intrinsics[0, 0])
         fy = float(intrinsics[1, 1])
         cx = float(intrinsics[0, 2])
@@ -636,8 +636,8 @@ class iVISION_4D_Scene_Viewer:
         ), f"Annotation missing transforms_data key, keys={list(annotation.keys())}"
         transforms_data = annotation["transforms_data"]
         assert isinstance(
-            transforms_data, TransformsJSON
-        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+            transforms_data, NerfStudio_Data
+        ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         display_cameras: List[Camera] = []
         for camera in transforms_data.cameras:
             display_cameras.append(camera.to(device=self.device, convention="standard"))
@@ -656,8 +656,8 @@ class iVISION_4D_Scene_Viewer:
         ), f"Annotation missing transforms_data key, keys={list(annotation.keys())}"
         transforms_data = annotation["transforms_data"]
         assert isinstance(
-            transforms_data, TransformsJSON
-        ), f"transforms_data must be TransformsJSON, got {type(transforms_data)}"
+            transforms_data, NerfStudio_Data
+        ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         splits = self._build_camera_splits(
             transforms_data=transforms_data,
             scene_name=annotation["scene_name"],
@@ -712,7 +712,7 @@ class iVISION_4D_Scene_Viewer:
 
     @staticmethod
     def _build_camera_splits(
-        transforms_data: TransformsJSON, scene_name: str
+        transforms_data: NerfStudio_Data, scene_name: str
     ) -> Dict[str, List[str]]:
         if transforms_data.train_filenames is not None:
             assert transforms_data.val_filenames is not None

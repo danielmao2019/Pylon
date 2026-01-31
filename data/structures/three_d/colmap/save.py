@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
-from data.structures.colmap.load import CAMERA_MODEL_NAME_TO_ID, CAMERA_MODELS
+from data.structures.three_d.colmap.load import CAMERA_MODEL_NAME_TO_ID, CAMERA_MODELS
 
 
 def save_colmap_data(

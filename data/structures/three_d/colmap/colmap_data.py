@@ -3,9 +3,9 @@ from typing import Any, Dict
 
 import numpy as np
 
-from data.structures.colmap.load import load_colmap_data
-from data.structures.colmap.save import save_colmap_data
-from data.structures.colmap.transform import (
+from data.structures.three_d.colmap.load import load_colmap_data
+from data.structures.three_d.colmap.save import save_colmap_data
+from data.structures.three_d.colmap.transform import (
     transform_colmap_cameras,
     transform_colmap_points,
 )
