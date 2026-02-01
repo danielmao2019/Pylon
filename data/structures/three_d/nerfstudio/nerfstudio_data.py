@@ -20,6 +20,7 @@ from data.structures.three_d.nerfstudio.validate import (
     validate_intrinsic_params,
     validate_intrinsics,
     validate_intrinsics_data,
+    validate_modalities,
     validate_ply_file_path,
     validate_resolution,
     validate_split_filenames,
@@ -60,6 +61,7 @@ class NerfStudio_Data:
         applied_transform: np.ndarray,
         ply_file_path: str,
         cameras: Cameras,
+        modalities: List[str],
         filenames: List[str],
         train_filenames: List[str] | None = None,
         val_filenames: List[str] | None = None,
@@ -76,6 +78,7 @@ class NerfStudio_Data:
         validate_applied_transform(applied_transform)
         validate_ply_file_path(ply_file_path)
         validate_cameras(cameras)
+        validate_modalities(modalities)
         validate_filenames(filenames)
         validate_split_filenames(
             train=train_filenames,
@@ -93,6 +96,7 @@ class NerfStudio_Data:
         self.applied_transform = applied_transform
         self.ply_file_path = ply_file_path
         self.cameras = cameras
+        self.modalities = modalities
         self.filenames = filenames
         self.train_filenames = train_filenames
         self.val_filenames = val_filenames
@@ -141,6 +145,7 @@ class NerfStudio_Data:
             applied_transform,
             ply_file_path,
             cameras,
+            modalities,
             filenames,
             train_filenames,
             val_filenames,
@@ -157,6 +162,7 @@ class NerfStudio_Data:
             applied_transform=applied_transform,
             ply_file_path=ply_file_path,
             cameras=cameras,
+            modalities=modalities,
             filenames=filenames,
             train_filenames=train_filenames,
             val_filenames=val_filenames,
@@ -178,7 +184,9 @@ class NerfStudio_Data:
         convention: str | None = None,
     ) -> "NerfStudio_Data":
         # Input validations
-        assert device is None or isinstance(device, (str, torch.device)), f"{type(device)=}"
+        assert device is None or isinstance(
+            device, (str, torch.device)
+        ), f"{type(device)=}"
         assert convention is None or isinstance(convention, str), f"{type(convention)=}"
 
         # Input normalizations

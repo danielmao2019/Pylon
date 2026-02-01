@@ -8,6 +8,7 @@ import torch
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.validation import validate_camera_intrinsics
 from data.structures.three_d.nerfstudio.validate import (
+    MODALITY_SPECS,
     validate_applied_transform_data,
     validate_camera_model_data,
     validate_data,
@@ -95,9 +96,16 @@ def load_cameras(
     )
 
 
+def load_modalities(data: Dict[str, Any]) -> List[str]:
+    frames: List[Any] = data["frames"]
+    return [
+        modality for modality, spec in MODALITY_SPECS.items() if spec[0] in frames[0]
+    ]
+
+
 def load_filenames(data: Dict[str, Any]) -> List[str]:
     frames: List[Any] = data["frames"]
-    return [frame["file_path"] for frame in frames]
+    return [Path(frame["file_path"]).stem for frame in frames]
 
 
 def load_split_filenames(
@@ -105,7 +113,11 @@ def load_split_filenames(
 ) -> Tuple[List[str] | None, List[str] | None, List[str] | None]:
     if "train_filenames" not in data:
         return None, None, None
-    return data["train_filenames"], data["val_filenames"], data["test_filenames"]
+    return (
+        [Path(item).stem for item in data["train_filenames"]],
+        [Path(item).stem for item in data["val_filenames"]],
+        [Path(item).stem for item in data["test_filenames"]],
+    )
 
 
 def load_nerfstudio_data(
@@ -120,6 +132,7 @@ def load_nerfstudio_data(
     np.ndarray,
     str,
     Cameras,
+    List[str],
     List[str],
     List[str] | None,
     List[str] | None,
@@ -155,6 +168,7 @@ def load_nerfstudio_data(
     ply_file_path = load_ply_file_path(data)
     train_filenames, val_filenames, test_filenames = load_split_filenames(data)
     cameras = load_cameras(data=data, device=target_device)
+    modalities = load_modalities(data)
     filenames = load_filenames(data)
 
     return (
@@ -166,6 +180,7 @@ def load_nerfstudio_data(
         applied_transform,
         ply_file_path,
         cameras,
+        modalities,
         filenames,
         train_filenames,
         val_filenames,
