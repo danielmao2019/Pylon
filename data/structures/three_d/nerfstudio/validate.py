@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -5,6 +6,13 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.validation import validate_camera_intrinsics
+
+MODALITY_SPECS = {
+    "image": ("file_path", "images"),
+    "depth": ("depth_path", "depths"),
+    "normal": ("normal_path", "normals"),
+    "mask": ("mask_path", "masks"),
+}
 
 
 def validate_data(data: Dict[str, Any]) -> None:
@@ -15,6 +23,16 @@ def validate_data(data: Dict[str, Any]) -> None:
 def validate_device(device: torch.device) -> None:
     # Input validations
     assert isinstance(device, torch.device), f"{type(device)=}"
+
+
+def validate_modalities(modalities: List[str]) -> None:
+    # Input validations
+    assert isinstance(modalities, list), f"{type(modalities)=}"
+    assert modalities, "modalities must be non-empty"
+    assert all(isinstance(item, str) for item in modalities), f"{modalities=}"
+    assert all(item in MODALITY_SPECS for item in modalities), f"{modalities=}"
+    assert len(set(modalities)) == len(modalities), f"{modalities=}"
+    assert "image" in modalities, f"{modalities=}"
 
 
 def validate_intrinsic_params(data: Dict[str, Any]) -> None:
