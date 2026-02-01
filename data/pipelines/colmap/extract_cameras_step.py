@@ -90,7 +90,6 @@ class ColmapExtractCamerasStep(BaseStep):
         assert self.output_root.is_dir(), f"{self.output_root=}"
 
         disk_modalities: List[str] = []
-        disk_filenames: List[str] = []
         filenames_by_modality: Dict[str, List[str]] = {}
 
         for modality, spec in MODALITY_SPECS.items():
