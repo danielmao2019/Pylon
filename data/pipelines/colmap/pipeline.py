@@ -4,9 +4,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from data.pipelines.base_pipeline import BasePipeline
+from data.pipelines.colmap.convert_colmap_to_nerfstudio_step import (
+    ColmapConvertToNerfstudioStep,
+)
 from data.pipelines.colmap.core.colmap_core_pipeline import ColmapCorePipeline
-from data.pipelines.colmap.extract_cameras_step import ColmapExtractCamerasStep
-from data.pipelines.colmap.extract_point_cloud_step import ColmapExtractPointCloudStep
 
 
 class ColmapPipeline(BasePipeline):
@@ -65,14 +66,7 @@ class ColmapPipeline(BasePipeline):
                 },
             },
             {
-                "class": ColmapExtractCamerasStep,
-                "args": {
-                    "input_root": self.scene_root / "undistorted" / "sparse",
-                    "output_root": self.scene_root,
-                },
-            },
-            {
-                "class": ColmapExtractPointCloudStep,
+                "class": ColmapConvertToNerfstudioStep,
                 "args": {
                     "input_root": self.scene_root / "undistorted" / "sparse",
                     "output_root": self.scene_root,

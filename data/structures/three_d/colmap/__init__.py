@@ -4,7 +4,7 @@ DATA.STRUCTURES.THREE_D.COLMAP API
 
 from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 from data.structures.three_d.colmap.convert import (
-    create_nerfstudio_from_colmap,
+    convert_colmap_to_nerfstudio,
     create_ply_from_colmap,
 )
 from data.structures.three_d.colmap.load import (
@@ -32,7 +32,7 @@ from data.structures.three_d.colmap.validate import (
 
 __all__ = (
     "COLMAP_Data",
-    "create_nerfstudio_from_colmap",
+    "convert_colmap_to_nerfstudio",
     "create_ply_from_colmap",
     "CAMERA_MODELS",
     "ColmapCamera",

@@ -1,7 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -177,22 +177,35 @@ def _determine_modalities(cameras: Cameras, output_dir: Path) -> List[str]:
     return modalities
 
 
-def create_nerfstudio_from_colmap(
+def convert_colmap_to_nerfstudio(
     filename: str,
     colmap_cameras: Dict[int, ColmapCamera],
     colmap_images: Dict[int, ColmapImage],
+    colmap_points: Dict[int, Any],
     output_dir: str,
-    ply_file_path: str = "sparse_pc.ply",
-) -> str:
+    ply_filename: str = "sparse_pc.ply",
+    pixel_error_filter: float = 1.0,
+    point_track_filter: int = 5,
+) -> Tuple[str, str]:
     # Input validations
     assert isinstance(filename, str), f"{type(filename)=}"
     assert isinstance(colmap_cameras, dict), f"{type(colmap_cameras)=}"
     assert isinstance(colmap_images, dict), f"{type(colmap_images)=}"
+    assert isinstance(colmap_points, dict), f"{type(colmap_points)=}"
     assert isinstance(output_dir, str), f"{type(output_dir)=}"
-    assert isinstance(ply_file_path, str), f"{type(ply_file_path)=}"
+    assert isinstance(ply_filename, str), f"{type(ply_filename)=}"
+    assert isinstance(pixel_error_filter, float), f"{type(pixel_error_filter)=}"
+    assert isinstance(point_track_filter, int), f"{type(point_track_filter)=}"
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, filename)
+    ply_path = create_ply_from_colmap(
+        filename=ply_filename,
+        colmap_points=colmap_points,
+        output_dir=output_dir,
+        pixel_error_filter=pixel_error_filter,
+        point_track_filter=point_track_filter,
+    )
 
     intrinsic_params = _extract_intrinsics_from_colmap(colmap_cameras=colmap_cameras)
     cameras = _extract_cameras_from_colmap(
@@ -224,7 +237,7 @@ def create_nerfstudio_from_colmap(
         camera_model=camera_model,
         intrinsics=intrinsics,
         applied_transform=applied_transform,
-        ply_file_path=ply_file_path,
+        ply_file_path=ply_filename,
         cameras=cameras,
         modalities=modalities,
         filenames=cameras.names,
@@ -233,7 +246,7 @@ def create_nerfstudio_from_colmap(
         test_filenames=None,
     )
     nerfstudio_data.save(output_path=output_path)
-    return output_path
+    return output_path, ply_path
 
 
 def create_ply_from_colmap(

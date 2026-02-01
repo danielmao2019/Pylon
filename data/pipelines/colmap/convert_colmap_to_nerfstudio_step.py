@@ -1,4 +1,4 @@
-"""Step to extract COLMAP camera intrinsics and extrinsics."""
+"""Step to convert COLMAP outputs into NerfStudio data."""
 
 import logging
 from pathlib import Path
@@ -8,15 +8,15 @@ import torch
 
 from data.pipelines.base_step import BaseStep
 from data.structures.three_d.colmap.colmap_data import COLMAP_Data
-from data.structures.three_d.colmap.convert import create_nerfstudio_from_colmap
+from data.structures.three_d.colmap.convert import convert_colmap_to_nerfstudio
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS
 
 
-class ColmapExtractCamerasStep(BaseStep):
-    """Export complete NerfStudio_Data JSON from COLMAP outputs."""
+class ColmapConvertToNerfstudioStep(BaseStep):
+    """Export NerfStudio JSON and sparse point cloud from COLMAP outputs."""
 
-    STEP_NAME = "colmap_extract_cameras"
+    STEP_NAME = "colmap_convert_to_nerfstudio"
 
     def __init__(self, input_root: str | Path, output_root: str | Path) -> None:
         super().__init__(input_root=input_root, output_root=output_root)
@@ -24,10 +24,10 @@ class ColmapExtractCamerasStep(BaseStep):
         self.transforms_path = self.output_root / "transforms.json"
 
     def _init_input_files(self) -> None:
-        self.input_files = ["0/cameras.bin", "0/images.bin"]
+        self.input_files = ["0/cameras.bin", "0/images.bin", "0/points3D.bin"]
 
     def _init_output_files(self) -> None:
-        self.output_files = ["transforms.json"]
+        self.output_files = ["transforms.json", "sparse_pc.ply"]
 
     def check_outputs(self) -> bool:
         outputs_ready = super().check_outputs()
@@ -53,16 +53,18 @@ class ColmapExtractCamerasStep(BaseStep):
 
         self.output_root.mkdir(parents=True, exist_ok=True)
         colmap_data = COLMAP_Data.load(model_dir=self.model_dir)
-        create_nerfstudio_from_colmap(
+        transforms_path, ply_path = convert_colmap_to_nerfstudio(
             filename="transforms.json",
             colmap_cameras=colmap_data.cameras,
             colmap_images=colmap_data.images,
+            colmap_points=colmap_data.points3D,
             output_dir=str(self.output_root),
-            ply_file_path="sparse_pc.ply",
+            ply_filename="sparse_pc.ply",
         )
         logging.info(
-            "   ✓ Wrote transforms.json with %d frames", len(colmap_data.images)
+            "   ✓ Wrote %s with %d frames", transforms_path, len(colmap_data.images)
         )
+        logging.info("   ✓ Wrote COLMAP sparse point cloud: %s", ply_path)
         return {}
 
     def _validate_conversion(self, modalities: List[str], filenames: List[str]) -> None:
