@@ -149,26 +149,30 @@ def _determine_modalities(cameras: Cameras, output_dir: Path) -> List[str]:
     assert isinstance(cameras, Cameras), f"{type(cameras)=}"
     assert len(cameras) > 0, "cameras must be non-empty"
     assert isinstance(output_dir, Path), f"{type(output_dir)=}"
-    assert all(
-        name is not None for name in cameras.names
-    ), f"{list(cameras.names)=}"
+    assert all(name is not None for name in cameras.names), f"{list(cameras.names)=}"
 
     # Input normalizations
     camera_names = list(cameras.names)
 
-    modalities = ["images"]
+    modalities = ["image"]
 
     depths_dir = output_dir / "depths"
     if depths_dir.is_dir():
         depth_names = {path.stem for path in depths_dir.glob("*.png")}
         if set(camera_names).issubset(depth_names):
-            modalities.append("depths")
+            modalities.append("depth")
+
+    normals_dir = output_dir / "normals"
+    if normals_dir.is_dir():
+        normal_names = {path.stem for path in normals_dir.glob("*.png")}
+        if set(camera_names).issubset(normal_names):
+            modalities.append("normal")
 
     masks_dir = output_dir / "masks"
     if masks_dir.is_dir():
         mask_names = {path.stem for path in masks_dir.glob("*.png")}
         if set(camera_names).issubset(mask_names):
-            modalities.append("masks")
+            modalities.append("mask")
 
     return modalities
 
@@ -197,8 +201,6 @@ def create_nerfstudio_from_colmap(
     )
     modalities = _determine_modalities(cameras=cameras, output_dir=Path(output_dir))
 
-    camera_names = list(cameras.names)
-
     nerfstudio_intrinsic_params = {
         "fl_x": intrinsic_params["fl_x"],
         "fl_y": intrinsic_params["fl_y"],
@@ -213,11 +215,7 @@ def create_nerfstudio_from_colmap(
     camera_model = intrinsic_params["camera_model"]
     intrinsics = cameras[0].intrinsics
     applied_transform = DEFAULT_APPLIED_TRANSFORM
-    filenames = [f"images/{name}.png" for name in camera_names]
-
-    payload: Dict[str, Any] = {
-        "modalities": modalities,
-    }
+    payload: Dict[str, Any] = {}
     nerfstudio_data = NerfStudio_Data(
         data=payload,
         device=cameras[0].device,
@@ -228,7 +226,8 @@ def create_nerfstudio_from_colmap(
         applied_transform=applied_transform,
         ply_file_path=ply_file_path,
         cameras=cameras,
-        filenames=filenames,
+        modalities=modalities,
+        filenames=cameras.names,
         train_filenames=None,
         val_filenames=None,
         test_filenames=None,
