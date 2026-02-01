@@ -1,9 +1,13 @@
-from models.three_d.meshes.callbacks import register_callbacks
-from models.three_d.meshes.layout import build_display
-from models.three_d.meshes.states import setup_states
+"""
+MODELS.THREE_D.MESHES API
+"""
 
-__all__ = [
-    "register_callbacks",
-    "setup_states",
-    "build_display",
-]
+from models.three_d.meshes import render
+from models.three_d.meshes.loader import load_meshes
+from models.three_d.meshes.scene_model import BaseMeshesSceneModel
+
+__all__ = (
+    "render",
+    "load_meshes",
+    "BaseMeshesSceneModel",
+)

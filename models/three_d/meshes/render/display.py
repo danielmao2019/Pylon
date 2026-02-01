@@ -4,7 +4,7 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from models.three_d.base import BaseSceneModel
-from utils.three_d.meshes.render import (
+from models.three_d.meshes.render.core import (
     render_rgb_from_mesh as render_rgb_from_mesh_func,
 )
 

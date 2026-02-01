@@ -16,7 +16,6 @@ from utils import (
     object_detection,
     ops,
     semantic_segmentation,
-    three_d,
 )
 from utils.timeout import with_timeout
 
@@ -34,6 +33,5 @@ __all__ = (
     'gradients',
     'object_detection',
     'semantic_segmentation',
-    'three_d',
     'with_timeout',
 )

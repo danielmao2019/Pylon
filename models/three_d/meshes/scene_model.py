@@ -8,11 +8,11 @@ from pytorch3d.structures import Meshes
 
 from data.structures.three_d.camera.camera import Camera
 from models.three_d.base import BaseSceneModel
-from models.three_d.meshes import callbacks as meshes_callbacks
-from models.three_d.meshes import states as meshes_states
-from models.three_d.meshes.layout import build_display
-from models.three_d.meshes.render import render_display
-from utils.io.mesh import load_meshes
+from models.three_d.meshes.callbacks.register import register_callbacks
+from models.three_d.meshes.layout.components import build_display
+from models.three_d.meshes.loader import load_meshes
+from models.three_d.meshes.render.display import render_display
+from models.three_d.meshes.states import setup_states
 
 
 class BaseMeshesSceneModel(BaseSceneModel):
@@ -47,7 +47,7 @@ class BaseMeshesSceneModel(BaseSceneModel):
     def register_callbacks(
         dataset: Any, app: dash.Dash, viewer: Any, **kwargs: Any
     ) -> None:
-        meshes_callbacks.register_callbacks(
+        register_callbacks(
             dataset=dataset,
             app=app,
             viewer=viewer,
@@ -55,7 +55,7 @@ class BaseMeshesSceneModel(BaseSceneModel):
 
     @staticmethod
     def setup_states(app: dash.Dash, **kwargs: Any) -> None:
-        meshes_states.setup_states(app=app)
+        setup_states(app=app)
 
     def display_render(
         self,
