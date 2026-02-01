@@ -6,7 +6,7 @@ import torch
 from nerfstudio.pipelines.base_pipeline import Pipeline
 from nerfstudio.utils.eval_utils import eval_setup
 
-from utils.three_d.splatfacto.transform import apply_transform_to_splatfacto
+from models.three_d.splatfacto.transform import apply_transform_to_splatfacto
 
 
 def load_splatfacto_model(model_dir: str, device: torch.device = None) -> Pipeline:

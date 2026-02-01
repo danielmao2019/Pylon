@@ -4,7 +4,7 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from models.three_d.base import BaseSceneModel
-from utils.three_d.splatfacto.render import render_rgb_from_splatfacto
+from models.three_d.splatfacto.render import render_rgb_from_splatfacto
 
 
 def render_display(

@@ -6,7 +6,10 @@ from typing import Optional
 import torch
 from nerfstudio.pipelines.base_pipeline import Pipeline
 
-from utils.three_d.rotation.quaternion import quat_to_rotmat, rotmat_to_quat
+from data.structures.three_d.camera.rotation.quaternion import (
+    quat_to_rotmat,
+    rotmat_to_quat,
+)
 
 
 def apply_transform_to_splatfacto(

@@ -12,7 +12,7 @@ from models.three_d.nerfstudio import callbacks as nerfstudio_callbacks
 from models.three_d.nerfstudio import states as nerfstudio_states
 from models.three_d.nerfstudio.layout import build_display
 from models.three_d.nerfstudio.render import render_display
-from utils.three_d.splatfacto.load_splatfacto import load_splatfacto_model
+from models.three_d.splatfacto.load_splatfacto import load_splatfacto_model
 
 
 class NerfstudioSceneModel(BaseSceneModel):

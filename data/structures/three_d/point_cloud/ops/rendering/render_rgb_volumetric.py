@@ -24,8 +24,8 @@ from data.structures.three_d.point_cloud.ops.rendering.render_rgb import (
 )
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
-from utils.three_d.splatfacto.load_splatfacto import load_splatfacto_model
-from utils.three_d.splatfacto.render import render_rgb_from_splatfacto
+from models.three_d.splatfacto.load_splatfacto import load_splatfacto_model
+from models.three_d.splatfacto.render import render_rgb_from_splatfacto
 
 
 def gen_auxiliary_cameras(
