@@ -2,6 +2,7 @@
 DATA.STRUCTURES.THREE_D.NERFSTUDIO API
 """
 
+from data.structures.three_d.nerfstudio.convert import convert_nerfstudio_to_colmap
 from data.structures.three_d.nerfstudio.load import (
     load_applied_transform,
     load_camera_model,
@@ -54,7 +55,7 @@ from data.structures.three_d.nerfstudio.validate import (
 )
 
 __all__ = (
-    "NerfStudio_Data",
+    "convert_nerfstudio_to_colmap",
     "load_applied_transform",
     "load_camera_model",
     "load_cameras",
@@ -66,6 +67,7 @@ __all__ = (
     "load_ply_file_path",
     "load_resolution",
     "load_split_filenames",
+    "NerfStudio_Data",
     "save_applied_transform",
     "save_camera_model",
     "save_cameras",
