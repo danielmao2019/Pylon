@@ -218,9 +218,13 @@ def rotmat2qvec(R: np.ndarray) -> np.ndarray:
 
     K = K + K.T - np.diag(np.diag(K))
     eigvals, eigvecs = np.linalg.eigh(K)
-    qvec = eigvecs[:, np.argmax(eigvals)]
+    qvec_xyzw = eigvecs[:, np.argmax(eigvals)]
 
-    if qvec[3] < 0:
-        qvec *= -1
+    if qvec_xyzw[3] < 0:
+        qvec_xyzw *= -1
 
-    return qvec
+    # Eigen solver returns [x, y, z, w]; reorder to COLMAP [w, x, y, z].
+    return np.array(
+        [qvec_xyzw[3], qvec_xyzw[0], qvec_xyzw[1], qvec_xyzw[2]],
+        dtype=qvec_xyzw.dtype,
+    )
