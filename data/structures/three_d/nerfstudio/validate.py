@@ -153,11 +153,17 @@ def validate_applied_transform(applied_transform: np.ndarray) -> None:
     assert applied_transform.shape == (3, 4), f"{applied_transform.shape=}"
 
 
-def validate_ply_file_path_data(data: Dict[str, Any]) -> None:
+def validate_ply_file_path_data(data: Dict[str, Any], root_dir: Path) -> None:
     # Input validations
     assert isinstance(data, dict), f"{type(data)=}"
+    assert isinstance(root_dir, Path), f"{type(root_dir)=}"
+    assert root_dir.is_dir(), f"{root_dir=}"
     assert "ply_file_path" in data, "transforms.json missing ply_file_path"
     assert isinstance(data["ply_file_path"], str), f"{type(data['ply_file_path'])=}"
+    assert (root_dir / data["ply_file_path"]).is_file(), (
+        "transforms.json ply_file_path not found: "
+        f"{root_dir / data['ply_file_path']}"
+    )
 
 
 def validate_ply_file_path(ply_file_path: str) -> None:
@@ -165,9 +171,11 @@ def validate_ply_file_path(ply_file_path: str) -> None:
     assert isinstance(ply_file_path, str), f"{type(ply_file_path)=}"
 
 
-def validate_frames_data(data: Dict[str, Any]) -> None:
+def validate_frames_data(data: Dict[str, Any], root_dir: Path) -> None:
     # Input validations
     assert isinstance(data, dict), f"{type(data)=}"
+    assert isinstance(root_dir, Path), f"{type(root_dir)=}"
+    assert root_dir.is_dir(), f"{root_dir=}"
     assert "frames" in data, "transforms.json missing frames"
     assert isinstance(data["frames"], list), "frames must be a list"
     assert data["frames"], "frames must be non-empty"
@@ -205,6 +213,11 @@ def validate_frames_data(data: Dict[str, Any]) -> None:
         )
         for frame in data["frames"]
     )
+    assert all(
+        (key not in frame) or (root_dir / frame[key]).is_file()
+        for frame in data["frames"]
+        for key in MODALITY_KEYS
+    ), f"Missing modality files under {root_dir}"
     assert all(
         set(frame.keys()) & set(MODALITY_KEYS)
         == set(data["frames"][0].keys()) & set(MODALITY_KEYS)
@@ -284,25 +297,21 @@ def validate_split_filenames(
         train is not None and val is not None and test is not None
     ), "train/val/test filenames must all be provided together or all omitted"
     assert train is None or isinstance(train, list), f"{type(train)=}"
-    assert val is None or isinstance(val, list), f"{type(val)=}"
-    assert test is None or isinstance(test, list), f"{type(test)=}"
-    assert isinstance(filenames, list), f"{type(filenames)=}"
-    assert filenames, "filenames must be non-empty"
     assert train is None or train, "train_filenames must be non-empty"
-    assert val is None or val, "val_filenames must be non-empty"
-    assert test is None or test, "test_filenames must be non-empty"
     assert train is None or all(isinstance(item, str) for item in train), f"{train=}"
-    assert val is None or all(isinstance(item, str) for item in val), f"{val=}"
-    assert test is None or all(isinstance(item, str) for item in test), f"{test=}"
-    assert all(isinstance(item, str) for item in filenames), f"{filenames=}"
     assert train is None or all(Path(item).name == item for item in train), f"{train=}"
-    assert val is None or all(Path(item).name == item for item in val), f"{val=}"
-    assert test is None or all(Path(item).name == item for item in test), f"{test=}"
     assert train is None or all(Path(item).suffix == "" for item in train), f"{train=}"
+    assert val is None or isinstance(val, list), f"{type(val)=}"
+    assert val is None or val, "val_filenames must be non-empty"
+    assert val is None or all(isinstance(item, str) for item in val), f"{val=}"
+    assert val is None or all(Path(item).name == item for item in val), f"{val=}"
     assert val is None or all(Path(item).suffix == "" for item in val), f"{val=}"
+    assert test is None or isinstance(test, list), f"{type(test)=}"
+    assert test is None or test, "test_filenames must be non-empty"
+    assert test is None or all(isinstance(item, str) for item in test), f"{test=}"
+    assert test is None or all(Path(item).name == item for item in test), f"{test=}"
     assert test is None or all(Path(item).suffix == "" for item in test), f"{test=}"
-    assert all(Path(item).name == item for item in filenames), f"{filenames=}"
-    assert all(Path(item).suffix == "" for item in filenames), f"{filenames=}"
+    validate_filenames(filenames)
     assert train is None or set(filenames) == set(train) | set(val) | set(
         test
     ), "train/val/test filenames must match frames file_path entries"
