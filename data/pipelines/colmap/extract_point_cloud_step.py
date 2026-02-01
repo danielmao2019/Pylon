@@ -27,9 +27,7 @@ class ColmapExtractPointCloudStep(BaseStep):
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
-        outputs_ready = self.check_outputs()
-        if outputs_ready and not force:
-            logging.info("🌐 COLMAP sparse point cloud already extracted - SKIPPED")
+        if self.check_outputs() and not force:
             return {}
 
         logging.info("🌐 Extracting COLMAP sparse point cloud")

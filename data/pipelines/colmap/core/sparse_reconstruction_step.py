@@ -61,11 +61,12 @@ class ColmapSparseReconstructionStep(BaseStep):
             return True
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
-        self.sparse_output_dir.mkdir(parents=True, exist_ok=True)
-        if not force and self.check_outputs():
-            logging.info("🏗️ COLMAP sparse reconstruction already done - SKIPPED")
+        self.check_inputs()
+        if self.check_outputs() and not force:
             return {}
+
         logging.info("   🏗️ Sparse reconstruction")
+        self.sparse_output_dir.mkdir(parents=True, exist_ok=True)
         distorted_db_path = self.distorted_dir / "database.db"
         cmd_parts = [
             "colmap",

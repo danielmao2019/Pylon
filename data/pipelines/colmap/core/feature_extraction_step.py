@@ -82,10 +82,11 @@ class ColmapFeatureExtractionStep(BaseStep):
             return True
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
-        self.distorted_dir.mkdir(parents=True, exist_ok=True)
-        if not force and self.check_outputs():
-            logging.info("📥 COLMAP feature extraction already done - SKIPPED")
+        self.check_inputs()
+        if self.check_outputs() and not force:
             return {}
+
+        self.distorted_dir.mkdir(parents=True, exist_ok=True)
         if self.database_path.exists():
             self.database_path.unlink()
         logging.info("   🔍 Feature extraction")

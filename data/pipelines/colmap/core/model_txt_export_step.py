@@ -37,9 +37,9 @@ class ColmapModelTxtExportStep(BaseStep):
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
-        if not force and self.check_outputs():
-            logging.info("📄 COLMAP txt model already exported - SKIPPED")
+        if self.check_outputs() and not force:
             return {}
+
         logging.info("   📄 Exporting COLMAP txt model: %s", self.model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         cmd_parts = [

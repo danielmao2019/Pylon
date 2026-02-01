@@ -81,11 +81,12 @@ class ColmapFeatureMatchingStep(BaseStep):
             return True
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
-        self.distorted_dir.mkdir(parents=True, exist_ok=True)
-        if not force and self.check_outputs():
-            logging.info("🔗 COLMAP feature matching already done - SKIPPED")
+        self.check_inputs()
+        if self.check_outputs() and not force:
             return {}
+
         logging.info("   🔗 Feature matching")
+        self.distorted_dir.mkdir(parents=True, exist_ok=True)
         if (
             self.matcher_cfg is None
             or self.matcher_cfg["matcher_type"] == "exhaustive_matcher"

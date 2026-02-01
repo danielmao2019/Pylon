@@ -79,13 +79,13 @@ class ColmapImageUndistortionStep(BaseStep):
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
+        if self.check_outputs() and not force:
+            return {}
+
+        logging.info("   📐 Image undistortion")
         self.output_root.mkdir(parents=True, exist_ok=True)
         self.output_images_dir.mkdir(parents=True, exist_ok=True)
         self.undistorted_sparse_dir.mkdir(parents=True, exist_ok=True)
-        if not force and self.check_outputs():
-            logging.info("📐 COLMAP undistortion already done - SKIPPED")
-            return {}
-        logging.info("   📐 Image undistortion")
         cmd_parts = [
             "colmap",
             "image_undistorter",

@@ -48,11 +48,10 @@ class ColmapExtractCamerasStep(BaseStep):
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
-        self.output_root.mkdir(parents=True, exist_ok=True)
-        if not force and self.check_outputs():
-            logging.info("🎥 COLMAP cameras already extracted - SKIPPED")
+        if self.check_outputs() and not force:
             return {}
 
+        self.output_root.mkdir(parents=True, exist_ok=True)
         colmap_data = COLMAP_Data.load(model_dir=self.model_dir)
         create_nerfstudio_from_colmap(
             filename="transforms.json",
