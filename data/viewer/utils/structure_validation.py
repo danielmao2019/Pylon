@@ -3,7 +3,7 @@
 This module provides validation functions to check if datapoint structures match
 the expected format for each dataset group before calling predefined display functions.
 """
-from typing import Dict, Any
+from typing import Any, Dict
 import torch
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
@@ -17,8 +17,8 @@ def _validate_basic_datapoint_structure(datapoint: Dict[str, Any]) -> None:
     Raises:
         AssertionError: If validation fails
     """
-    # Check top-level structure
-    assert isinstance(datapoint, dict), f"Datapoint must be a dictionary, got {type(datapoint)}"
+    # Input validations
+    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
 
     # Check required top-level keys
     required_keys = {'inputs', 'labels', 'meta_info'}
@@ -50,6 +50,9 @@ def validate_semseg_structure(datapoint: Dict[str, Any]) -> None:
     Raises:
         AssertionError: If validation fails
     """
+    # Input validations
+    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+
     # Basic structure validation
     _validate_basic_datapoint_structure(datapoint)
 
@@ -92,6 +95,9 @@ def validate_2dcd_structure(datapoint: Dict[str, Any]) -> None:
     Raises:
         AssertionError: If validation fails
     """
+    # Input validations
+    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+
     # Basic structure validation
     _validate_basic_datapoint_structure(datapoint)
 
@@ -134,12 +140,15 @@ def validate_3dcd_structure(datapoint: Dict[str, Any]) -> None:
     Raises:
         AssertionError: If validation fails
     """
+    # Input validations
+    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+
     # Basic structure validation
     _validate_basic_datapoint_structure(datapoint)
 
     # Validate inputs - check for required point cloud fields
     inputs = datapoint['inputs']
-    pc_positions: dict[str, torch.Tensor] = {}
+    pc_positions: Dict[str, torch.Tensor] = {}
     for pc_key in ['pc_1', 'pc_2']:
         assert pc_key in inputs, f"inputs must have '{pc_key}' key, got keys: {list(inputs.keys())}"
 
@@ -178,6 +187,9 @@ def validate_pcr_structure(datapoint: Dict[str, Any]) -> None:
     Raises:
         AssertionError: If validation fails
     """
+    # Input validations
+    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+
     # Basic structure validation
     _validate_basic_datapoint_structure(datapoint)
 
@@ -198,7 +210,7 @@ def validate_pcr_structure(datapoint: Dict[str, Any]) -> None:
         assert lengths.numel() > 0, f"inputs['{length_key}'] must not be empty tensor"
     else:
         # Single format validation - check for required point cloud fields
-        pc_positions: dict[str, torch.Tensor] = {}
+        pc_positions: Dict[str, torch.Tensor] = {}
         for pc_key in ['src_pc', 'tgt_pc']:
             assert pc_key in inputs, f"inputs must have '{pc_key}' key, got keys: {list(inputs.keys())}"
 
@@ -238,6 +250,10 @@ def validate_structure_for_type(dataset_type: str, datapoint: Dict[str, Any]) ->
         ValueError: If dataset_type is not supported
         AssertionError: If validation fails
     """
+    # Input validations
+    assert isinstance(dataset_type, str), f"{type(dataset_type)=}"
+    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+
     validators = {
         'semseg': validate_semseg_structure,
         '2dcd': validate_2dcd_structure,

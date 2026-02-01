@@ -91,28 +91,20 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
     """
     # Input validations
     assert isinstance(seg, (torch.Tensor, dict)), f"{type(seg)=}"
-    assert not isinstance(seg, torch.Tensor) or seg.ndim in [2, 3], f"{seg.shape=}"
-    assert not isinstance(seg, torch.Tensor) or seg.numel() > 0, f"{seg.shape=}"
-    assert (
-        not isinstance(seg, torch.Tensor) or seg.ndim != 3 or seg.shape[0] == 1
+    assert not isinstance(seg, torch.Tensor) or (
+        seg.ndim in [2, 3] and seg.numel() > 0 and (seg.ndim != 3 or seg.shape[0] == 1)
     ), f"{seg.shape=}"
-    assert not isinstance(seg, dict) or "masks" in seg, f"{seg.keys()=}"
-    assert not isinstance(seg, dict) or "indices" in seg, f"{seg.keys()=}"
-    assert not isinstance(seg, dict) or isinstance(
-        seg["masks"], list
-    ), f"{type(seg['masks'])=}"
-    assert not isinstance(seg, dict) or isinstance(
-        seg["indices"], list
-    ), f"{type(seg['indices'])=}"
-    assert not isinstance(seg, dict) or len(seg["masks"]) > 0
-    assert not isinstance(seg, dict) or len(seg["masks"]) == len(seg["indices"])
-    assert not isinstance(seg, dict) or all(
-        isinstance(mask, torch.Tensor) for mask in seg["masks"]
-    )
-    assert not isinstance(seg, dict) or all(mask.ndim == 2 for mask in seg["masks"])
-    assert not isinstance(seg, dict) or all(
-        isinstance(idx, (int, np.integer)) for idx in seg["indices"]
-    )
+    assert not isinstance(seg, dict) or (
+        "masks" in seg
+        and "indices" in seg
+        and isinstance(seg["masks"], list)
+        and isinstance(seg["indices"], list)
+        and len(seg["masks"]) > 0
+        and len(seg["masks"]) == len(seg["indices"])
+        and all(isinstance(mask, torch.Tensor) for mask in seg["masks"])
+        and all(mask.ndim == 2 for mask in seg["masks"])
+        and all(isinstance(idx, (int, np.integer)) for idx in seg["indices"])
+    ), f"{seg=}"
 
     # Input normalizations
     if isinstance(seg, torch.Tensor) and seg.ndim == 3:
@@ -199,28 +191,20 @@ def get_segmentation_stats(seg: Union[torch.Tensor, Dict[str, Any]]) -> Dict[str
     """
     # Input validations
     assert isinstance(seg, (torch.Tensor, dict)), f"{type(seg)=}"
-    assert not isinstance(seg, torch.Tensor) or seg.ndim in [2, 3], f"{seg.shape=}"
-    assert not isinstance(seg, torch.Tensor) or seg.numel() > 0, f"{seg.shape=}"
-    assert (
-        not isinstance(seg, torch.Tensor) or seg.ndim != 3 or seg.shape[0] == 1
+    assert not isinstance(seg, torch.Tensor) or (
+        seg.ndim in [2, 3] and seg.numel() > 0 and (seg.ndim != 3 or seg.shape[0] == 1)
     ), f"{seg.shape=}"
-    assert not isinstance(seg, dict) or "masks" in seg, f"{seg.keys()=}"
-    assert not isinstance(seg, dict) or "indices" in seg, f"{seg.keys()=}"
-    assert not isinstance(seg, dict) or isinstance(
-        seg["masks"], list
-    ), f"{type(seg['masks'])=}"
-    assert not isinstance(seg, dict) or isinstance(
-        seg["indices"], list
-    ), f"{type(seg['indices'])=}"
-    assert not isinstance(seg, dict) or len(seg["masks"]) > 0
-    assert not isinstance(seg, dict) or len(seg["masks"]) == len(seg["indices"])
-    assert not isinstance(seg, dict) or all(
-        isinstance(mask, torch.Tensor) for mask in seg["masks"]
-    )
-    assert not isinstance(seg, dict) or all(mask.ndim == 2 for mask in seg["masks"])
-    assert not isinstance(seg, dict) or all(
-        isinstance(idx, (int, np.integer)) for idx in seg["indices"]
-    )
+    assert not isinstance(seg, dict) or (
+        "masks" in seg
+        and "indices" in seg
+        and isinstance(seg["masks"], list)
+        and isinstance(seg["indices"], list)
+        and len(seg["masks"]) > 0
+        and len(seg["masks"]) == len(seg["indices"])
+        and all(isinstance(mask, torch.Tensor) for mask in seg["masks"])
+        and all(mask.ndim == 2 for mask in seg["masks"])
+        and all(isinstance(idx, (int, np.integer)) for idx in seg["indices"])
+    ), f"{seg=}"
 
     # Input normalizations
     if isinstance(seg, torch.Tensor) and seg.ndim == 3:

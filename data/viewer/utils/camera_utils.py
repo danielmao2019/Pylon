@@ -1,14 +1,16 @@
 """Camera state management utilities for the viewer."""
-from typing import Dict, List, Any, Callable
-import dash
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Dict, List
+
+import dash
 
 
 def update_figures_parallel(
     figures: List[Dict[str, Any]],
-    update_func: Callable[[int, Dict[str, Any]], Dict[str, Any]],
+    update_func: Callable[[int, Dict[str, Any]], Any],
     max_workers: int = 4
-) -> List[Dict[str, Any]]:
+) -> List[Any]:
     """Update multiple figures in parallel using a given update function.
 
     Args:
@@ -19,6 +21,13 @@ def update_figures_parallel(
     Returns:
         List of updated figures
     """
+    # Input validations
+    assert isinstance(figures, list), f"{type(figures)=}"
+    assert all(isinstance(figure, dict) for figure in figures), f"{figures=}"
+    assert callable(update_func), f"{type(update_func)=}"
+    assert isinstance(max_workers, int), f"{type(max_workers)=}"
+    assert max_workers > 0, f"{max_workers=}"
+
     updated_figures = [None] * len(figures)
 
     # Use parallel processing for multiple figures
@@ -51,19 +60,28 @@ def update_figure_camera(triggered_index: int, new_camera: Dict[str, Any]) -> Ca
     Returns:
         Function that updates a figure's camera state
     """
+    # Input validations
+    assert isinstance(triggered_index, int), f"{type(triggered_index)=}"
+    assert triggered_index >= 0, f"{triggered_index=}"
+    assert isinstance(new_camera, dict), f"{type(new_camera)=}"
+
     def update_func(i: int, figure: Dict[str, Any]) -> Dict[str, Any]:
-        if i == triggered_index or not figure:
-            # Don't update the triggering graph or empty figures
+        # Input validations
+        assert isinstance(i, int), f"{type(i)=}"
+        assert isinstance(figure, dict), f"{type(figure)=}"
+        assert "layout" in figure, f"{figure.keys()=}"
+        assert "scene" in figure["layout"], f"{figure['layout'].keys()=}"
+
+        if i == triggered_index:
+            # Don't update the triggering graph
             return dash.no_update
-        else:
-            # Create updated figure with new camera state
-            updated_figure = figure.copy()
-            if 'layout' not in updated_figure:
-                updated_figure['layout'] = {}
-            if 'scene' not in updated_figure['layout']:
-                updated_figure['layout']['scene'] = {}
-            updated_figure['layout']['scene']['camera'] = new_camera
-            return updated_figure
+
+        # Create updated figure with new camera state
+        updated_figure = figure.copy()
+        updated_figure["layout"] = updated_figure["layout"].copy()
+        updated_figure["layout"]["scene"] = updated_figure["layout"]["scene"].copy()
+        updated_figure["layout"]["scene"]["camera"] = new_camera
+        return updated_figure
 
     return update_func
 
@@ -75,18 +93,19 @@ def reset_figure_camera() -> Callable[[int, Dict[str, Any]], Dict[str, Any]]:
         Function that resets a figure's camera state by removing manual camera
     """
     def reset_func(i: int, figure: Dict[str, Any]) -> Dict[str, Any]:
-        if not figure:
-            return dash.no_update
+        # Input validations
+        assert isinstance(i, int), f"{type(i)=}"
+        assert isinstance(figure, dict), f"{type(figure)=}"
+        assert "layout" in figure, f"{figure.keys()=}"
+        assert "scene" in figure["layout"], f"{figure['layout'].keys()=}"
 
         updated_figure = figure.copy()
-        if 'layout' not in updated_figure:
-            updated_figure['layout'] = {}
-        if 'scene' not in updated_figure['layout']:
-            updated_figure['layout']['scene'] = {}
+        updated_figure["layout"] = updated_figure["layout"].copy()
+        updated_figure["layout"]["scene"] = updated_figure["layout"]["scene"].copy()
 
         # Remove manual camera to let Plotly auto-calculate
-        if 'camera' in updated_figure['layout']['scene']:
-            del updated_figure['layout']['scene']['camera']
+        if "camera" in updated_figure["layout"]["scene"]:
+            del updated_figure["layout"]["scene"]["camera"]
 
         return updated_figure
 

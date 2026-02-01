@@ -30,23 +30,19 @@ def create_depth_display(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # CRITICAL: Input validation with fail-fast assertions
-    assert isinstance(depth, torch.Tensor), f"Expected torch.Tensor, got {type(depth)}"
-    assert depth.ndim in [
-        2,
-        3,
-    ], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
-    assert depth.numel() > 0, f"Depth tensor cannot be empty"
-    assert isinstance(title, str), f"Expected str title, got {type(title)}"
-    assert isinstance(
-        colorscale, str
-    ), f"Expected str colorscale, got {type(colorscale)}"
+    # Input validations
+    assert isinstance(depth, torch.Tensor), f"{type(depth)=}"
+    assert depth.ndim in [2, 3], f"{depth.shape=}"
+    assert depth.numel() > 0, f"{depth.shape=}"
+    assert isinstance(title, str), f"{type(title)=}"
+    assert isinstance(colorscale, str), f"{type(colorscale)=}"
+    assert ignore_value is None or isinstance(
+        ignore_value, (int, float)
+    ), f"{type(ignore_value)=}"
+    assert depth.ndim != 3 or depth.shape[0] == 1, f"{depth.shape=}"
 
-    # Handle batched input - extract single sample for visualization
+    # Input normalizations
     if depth.ndim == 3:
-        assert (
-            depth.shape[0] == 1
-        ), f"Expected batch size 1 for visualization, got {depth.shape[0]}"
         depth = depth[0]  # [N, H, W] -> [H, W]
 
     # Convert to numpy for visualization
@@ -111,7 +107,7 @@ def create_depth_display(
         else:
             # No ignore values present, use standard visualization
             fig = px.imshow(
-                depth_np,
+                img=depth_np,
                 color_continuous_scale=colorscale,
                 title=title,
                 labels={'color': 'Depth'},
@@ -119,7 +115,7 @@ def create_depth_display(
     else:
         # No ignore value specified, use standard visualization
         fig = px.imshow(
-            depth_np,
+            img=depth_np,
             color_continuous_scale=colorscale,
             title=title,
             labels={'color': 'Depth'},
@@ -154,19 +150,17 @@ def get_depth_display_stats(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # Input validation
-    assert isinstance(depth, torch.Tensor), f"Expected torch.Tensor, got {type(depth)}"
-    assert depth.ndim in [
-        2,
-        3,
-    ], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
-    assert depth.numel() > 0, f"Depth tensor cannot be empty"
+    # Input validations
+    assert isinstance(depth, torch.Tensor), f"{type(depth)=}"
+    assert depth.ndim in [2, 3], f"{depth.shape=}"
+    assert depth.numel() > 0, f"{depth.shape=}"
+    assert ignore_value is None or isinstance(
+        ignore_value, (int, float)
+    ), f"{type(ignore_value)=}"
+    assert depth.ndim != 3 or depth.shape[0] == 1, f"{depth.shape=}"
 
-    # Handle batched input - extract single sample for analysis
+    # Input normalizations
     if depth.ndim == 3:
-        assert (
-            depth.shape[0] == 1
-        ), f"Expected batch size 1 for analysis, got {depth.shape[0]}"
         depth = depth[0]  # [N, H, W] -> [H, W]
 
     # Calculate statistics

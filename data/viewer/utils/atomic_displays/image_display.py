@@ -31,42 +31,28 @@ def create_image_display(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # CRITICAL: Input validation with fail-fast assertions
-    assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
-    assert image.ndim in [
-        3,
-        4,
-    ], f"Expected 3D [C,H,W] or 4D [N,C,H,W] tensor, got shape {image.shape}"
-    assert image.numel() > 0, f"Image tensor cannot be empty"
-    assert isinstance(title, str), f"Expected str title, got {type(title)}"
-    assert isinstance(
-        colorscale, str
-    ), f"Expected str colorscale, got {type(colorscale)}"
+    # Input validations
+    assert isinstance(image, torch.Tensor), f"{type(image)=}"
+    assert image.ndim in [3, 4], f"{image.shape=}"
+    assert image.numel() > 0, f"{image.shape=}"
+    assert isinstance(title, str), f"{type(title)=}"
+    assert isinstance(colorscale, str), f"{type(colorscale)=}"
+    assert resolution is None or isinstance(resolution, tuple), f"{type(resolution)=}"
+    assert resolution is None or len(resolution) == 2, f"{resolution=}"
+    assert resolution is None or all(isinstance(x, int) for x in resolution), (
+        f"{resolution=}"
+    )
+    assert resolution is None or all(x > 0 for x in resolution), f"{resolution=}"
+    assert image.ndim != 4 or image.shape[0] == 1, f"{image.shape=}"
+    assert (image.ndim == 3 and image.shape[0] >= 1) or (
+        image.ndim == 4 and image.shape[1] >= 1
+    ), f"{image.shape=}"
 
-    # Validate resolution if provided
-    if resolution is not None:
-        assert isinstance(
-            resolution, tuple
-        ), f"Expected tuple for resolution, got {type(resolution)}"
-        assert (
-            len(resolution) == 2
-        ), f"Expected resolution as (height, width), got {len(resolution)} elements"
-        assert all(
-            isinstance(x, int) for x in resolution
-        ), f"Resolution values must be integers, got {resolution}"
-        assert all(
-            x > 0 for x in resolution
-        ), f"Resolution values must be positive, got {resolution}"
+    # Input normalizations
 
     # Handle batched input - extract single sample for visualization
     if image.ndim == 4:
-        assert (
-            image.shape[0] == 1
-        ), f"Expected batch size 1 for visualization, got {image.shape[0]}"
         image = image[0]  # [N, C, H, W] -> [C, H, W]
-
-    # Validate unbatched tensor shape (allow multi-channel, will be handled by image_to_numpy)
-    assert image.shape[0] >= 1, f"Expected at least 1 channel, got {image.shape[0]}"
 
     # Convert image to numpy for visualization
     img: np.ndarray = _image_to_numpy(image)
@@ -107,9 +93,11 @@ def _image_to_numpy(image: torch.Tensor) -> np.ndarray:
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
-    assert image.ndim == 3, f"Expected 3D tensor [C,H,W], got shape {image.shape}"
-    assert image.numel() > 0, f"Image tensor cannot be empty"
+    # Input validations
+    assert isinstance(image, torch.Tensor), f"{type(image)=}"
+    assert image.ndim == 3, f"{image.shape=}"
+    assert image.numel() > 0, f"{image.shape=}"
+    assert image.shape[0] != 2, f"{image.shape=}"
 
     img: np.ndarray = image.detach().cpu().numpy()
 
@@ -134,8 +122,9 @@ def _image_to_numpy(image: torch.Tensor) -> np.ndarray:
         if img.shape[0] == 1:  # Single channel grayscale -> (H, W)
             return img.squeeze(0)  # Remove channel dimension
         elif img.shape[0] == 2:  # 2-channel images not supported
-            raise ValueError(
-                f"2-channel images are not supported. Got shape {img.shape}. Use 1 channel (grayscale) or 3+ channels (RGB/multi-channel)."
+            assert False, (
+                "2-channel images are not supported. "
+                f"Use 1 channel or 3+ channels. {img.shape=}"
             )
         elif img.shape[0] == 3:  # RGB image -> (H, W, C)
             return np.transpose(img, (1, 2, 0))
@@ -143,7 +132,7 @@ def _image_to_numpy(image: torch.Tensor) -> np.ndarray:
             img = img[random.sample(range(img.shape[0]), 3), :, :]
             return np.transpose(img, (1, 2, 0))
     else:
-        raise ValueError(f"Unsupported tensor shape for image conversion: {img.shape}")
+        assert False, f"Unsupported tensor shape for image conversion: {img.shape}"
 
 
 def get_image_display_stats(image: torch.Tensor) -> Dict[str, Any]:
@@ -158,18 +147,14 @@ def get_image_display_stats(image: torch.Tensor) -> Dict[str, Any]:
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # Input validation
-    assert isinstance(image, torch.Tensor), f"Expected torch.Tensor, got {type(image)}"
-    assert image.ndim in [
-        3,
-        4,
-    ], f"Expected 3D [C,H,W] or 4D [N,C,H,W] tensor, got shape {image.shape}"
+    # Input validations
+    assert isinstance(image, torch.Tensor), f"{type(image)=}"
+    assert image.ndim in [3, 4], f"{image.shape=}"
+    assert image.numel() > 0, f"{image.shape=}"
+    assert image.ndim != 4 or image.shape[0] == 1, f"{image.shape=}"
 
-    # Handle batched input - extract single sample for analysis
+    # Input normalizations
     if image.ndim == 4:
-        assert (
-            image.shape[0] == 1
-        ), f"Expected batch size 1 for analysis, got {image.shape[0]}"
         image = image[0]  # [N, C, H, W] -> [C, H, W]
 
     # Basic stats

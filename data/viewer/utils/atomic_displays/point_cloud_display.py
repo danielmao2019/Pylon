@@ -162,7 +162,7 @@ def _extract_default_camera_from_figure(
 
 
 def _apply_lod_processing(
-    pc_dict: PointCloud,
+    point_cloud: PointCloud,
     key: Optional[str],
     lod_type: str,
     lod_config: Optional[Dict[str, Any]],
@@ -177,7 +177,7 @@ def _apply_lod_processing(
     """Apply LOD processing to point cloud data.
 
     Args:
-        pc_dict: PointCloud with optional additional fields
+        point_cloud: PointCloud with optional additional fields
         key: Optional key name for labels
         lod_type: Type of LOD ("none", "density", "continuous", or "discrete")
         lod_config: LOD configuration dictionary
@@ -190,9 +190,9 @@ def _apply_lod_processing(
         title: Current title to update with LOD info
 
     Returns:
-        Tuple of (processed_pc_dict, updated_title)
+        Tuple of (processed_point_cloud, updated_title)
     """
-    assert isinstance(pc_dict, PointCloud), f"{type(pc_dict)=}"
+    assert isinstance(point_cloud, PointCloud), f"{type(point_cloud)=}"
 
     # Prepare LOD configuration
     effective_lod_config = lod_config or {}
@@ -205,7 +205,7 @@ def _apply_lod_processing(
                 f"Advanced LOD requested with auto-camera - creating initial figure to extract camera state"
             )
             temp_fig = _create_point_cloud_figure(
-                pc=pc_dict,
+                pc=point_cloud,
                 color_key=key,
                 color_type=None,  # No color_type needed for temp figure
                 highlight_indices=None,
@@ -215,7 +215,7 @@ def _apply_lod_processing(
                 camera_state=None,
             )
             effective_camera_state = _extract_default_camera_from_figure(
-                temp_fig, pc_dict.xyz
+                temp_fig, point_cloud.xyz
             )
         else:
             effective_camera_state = camera_state
@@ -233,7 +233,7 @@ def _apply_lod_processing(
     )
 
     # Apply LOD processing
-    processed_pc = lod_function(pc_dict)
+    processed_pc = lod_function(point_cloud)
 
     # Extract processed data
     points_tensor = processed_pc.xyz
@@ -280,13 +280,13 @@ def _apply_browser_downsampling(
     """Apply browser downsampling to point cloud data for memory limits.
 
     Args:
-        processed_pc: Point cloud dictionary after LOD processing
+        processed_pc: Point cloud after LOD processing
         highlight_indices: Optional tensor of indices to highlight
         original_count: Original point count before any processing
         title: Current title to update with downsampling info
 
     Returns:
-        Tuple of (downsampled_pc_dict, updated_highlight_indices, updated_title)
+        Tuple of (downsampled_point_cloud, updated_highlight_indices, updated_title)
     """
     # 🔍 CRITICAL FIX: Downsample for browser memory limits
     # Browser cannot handle 1.6M points - causes "Array buffer allocation failed"
@@ -362,7 +362,7 @@ def _create_point_cloud_figure(
             - 'xyz': Point cloud positions tensor of shape [N, 3] (required)
             - 'rgb': Optional color tensor of shape [N, 3] or [N, C]
             - Other fields including the label field specified by 'key'
-        key: Optional key name to extract labels from pc dictionary (e.g., 'classification', 'labels')
+        key: Optional key name to extract labels from point cloud (e.g., 'classification', 'labels')
         highlight_indices: Optional tensor of indices to highlight
         point_size: Size of the points in visualization
         point_opacity: Opacity of the points in visualization
@@ -697,7 +697,7 @@ def create_point_cloud_display(
 
     # Apply LOD processing
     processed_pc, title = _apply_lod_processing(
-        pc_dict=pc,
+        point_cloud=pc,
         key=color_key,
         lod_type=lod_type,
         lod_config=lod_config,
@@ -739,14 +739,14 @@ def create_point_cloud_display(
 
 
 def get_point_cloud_display_stats(
-    pc_dict: PointCloud,
+    point_cloud: PointCloud,
     change_map: Optional[torch.Tensor] = None,
     class_names: Optional[Dict[int, str]] = None,
 ) -> Dict[str, Any]:
     """Get point cloud statistics for display.
 
     Args:
-        pc_dict: PointCloud with optional additional fields
+        point_cloud: PointCloud with optional additional fields
         change_map: Optional tensor with change classes for each point
         class_names: Optional dictionary mapping class IDs to class names
 
@@ -756,9 +756,11 @@ def get_point_cloud_display_stats(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    assert isinstance(pc_dict, PointCloud), f"Expected PointCloud, got {type(pc_dict)}"
+    assert isinstance(
+        point_cloud, PointCloud
+    ), f"Expected PointCloud, got {type(point_cloud)}"
 
-    points = pc_dict.xyz
+    points = point_cloud.xyz
     assert isinstance(
         points, torch.Tensor
     ), f"Expected torch.Tensor, got {type(points)}"
@@ -785,7 +787,7 @@ def get_point_cloud_display_stats(
     points_np = points.detach().cpu().numpy()
 
     stats = {
-        'available_fields': list(pc_dict.field_names()),
+        'available_fields': list(point_cloud.field_names()),
         'total_points': len(points_np),
         'dimensions': points_np.shape[1],
         'x_range': [float(points_np[:, 0].min()), float(points_np[:, 0].max())],

@@ -4,6 +4,7 @@ import functools
 import threading
 import time
 from typing import Any, Callable
+
 from dash.exceptions import PreventUpdate
 
 
@@ -22,6 +23,9 @@ def debounce(func: Callable[..., Any]) -> Callable[..., Any]:
     Returns:
         Debounced version of the function
     """
+    # Input validations
+    assert callable(func), f"{type(func)=}"
+
     # Store timer reference and state for this specific function
     timer_lock = threading.Lock()
     current_timer = None

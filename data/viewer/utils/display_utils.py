@@ -1,8 +1,11 @@
 """Common display utilities for the viewer."""
-from typing import Dict, List, Union, Any, Optional, Callable
+
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dash import html, dcc
+from typing import Any, Callable, Dict, List, Optional
+
+from dash import dcc, html
+
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.debug import display_debug_outputs
 
@@ -54,6 +57,11 @@ class ParallelFigureCreator:
             max_workers: Maximum number of worker threads
             enable_timing: Whether to enable performance timing
         """
+        # Input validations
+        assert isinstance(max_workers, int), f"{type(max_workers)=}"
+        assert max_workers > 0, f"{max_workers=}"
+        assert isinstance(enable_timing, bool), f"{type(enable_timing)=}"
+
         self.max_workers = max_workers
         self.enable_timing = enable_timing
 
@@ -71,6 +79,13 @@ class ParallelFigureCreator:
         Returns:
             List of created figures in the same order as input tasks
         """
+        # Input validations
+        assert isinstance(figure_tasks, list), f"{type(figure_tasks)=}"
+        assert all(callable(task_func) for task_func in figure_tasks), (
+            f"{figure_tasks=}"
+        )
+        assert isinstance(context_name, str), f"{type(context_name)=}"
+
         if self.enable_timing:
             start_time = time.time()
 
@@ -104,6 +119,9 @@ def create_metadata_display(meta_info: Dict[str, Any]) -> List[html.Div]:
     Returns:
         List of HTML components for metadata display
     """
+    # Input validations
+    assert isinstance(meta_info, dict), f"{type(meta_info)=}"
+
     if not meta_info:
         return []
 
@@ -125,6 +143,11 @@ def create_debug_display(debug_outputs: Optional[Dict[str, Any]]) -> List[html.D
     Returns:
         List of HTML components for debug display
     """
+    # Input validations
+    assert debug_outputs is None or isinstance(debug_outputs, dict), (
+        f"{type(debug_outputs)=}"
+    )
+
     if not debug_outputs:
         return []
 
@@ -146,6 +169,14 @@ def create_statistics_display(
     Returns:
         List of HTML components for statistics display
     """
+    # Input validations
+    assert isinstance(stats_data, list), f"{type(stats_data)=}"
+    assert all(isinstance(stats, dict) for stats in stats_data), f"{stats_data=}"
+    assert isinstance(titles, list), f"{type(titles)=}"
+    assert all(isinstance(title, str) for title in titles), f"{titles=}"
+    assert isinstance(width_style, str), f"{type(width_style)=}"
+    assert len(stats_data) == len(titles), f"{len(stats_data)=}, {len(titles)=}"
+
     components = []
 
     for stats, title in zip(stats_data, titles, strict=True):
@@ -189,6 +220,12 @@ def create_figure_grid(
     Returns:
         List of HTML components for figure grid
     """
+    # Input validations
+    assert isinstance(figures, list), f"{type(figures)=}"
+    assert isinstance(width_style, str), f"{type(width_style)=}"
+    assert isinstance(height_style, str), f"{type(height_style)=}"
+    assert isinstance(graph_id_prefix, str), f"{type(graph_id_prefix)=}"
+
     grid_items = []
 
     for i, fig in enumerate(figures):
@@ -251,6 +288,14 @@ def create_standard_datapoint_layout(
     Returns:
         Complete HTML layout
     """
+    # Input validations
+    assert isinstance(figure_components, list), f"{type(figure_components)=}"
+    assert isinstance(stats_components, list), f"{type(stats_components)=}"
+    assert isinstance(meta_info, dict), f"{type(meta_info)=}"
+    assert debug_outputs is None or isinstance(debug_outputs, dict), (
+        f"{type(debug_outputs)=}"
+    )
+
     # Create metadata display
     meta_display = create_metadata_display(meta_info)
 
@@ -288,12 +333,19 @@ class PerformanceTimer:
             context_name: Name for timing context
             enabled: Whether timing is enabled
         """
+        # Input validations
+        assert isinstance(context_name, str), f"{type(context_name)=}"
+        assert isinstance(enabled, bool), f"{type(enabled)=}"
+
         self.context_name = context_name
         self.enabled = enabled
         self.start_time = None
 
     def start(self):
         """Start timing."""
+        # Input validations
+        assert isinstance(self.enabled, bool), f"{type(self.enabled)=}"
+
         if self.enabled:
             self.start_time = time.time()
             print(f"[{self.context_name}] Starting at {self.start_time:.4f}")
@@ -304,12 +356,18 @@ class PerformanceTimer:
         Args:
             checkpoint_name: Name of the checkpoint
         """
+        # Input validations
+        assert isinstance(checkpoint_name, str), f"{type(checkpoint_name)=}"
+
         if self.enabled and self.start_time is not None:
             elapsed = time.time() - self.start_time
             print(f"[{self.context_name}] {checkpoint_name} took {elapsed:.4f}s")
 
     def finish(self):
         """Finish timing and print total elapsed time."""
+        # Input validations
+        assert isinstance(self.enabled, bool), f"{type(self.enabled)=}"
+
         if self.enabled and self.start_time is not None:
             total_elapsed = time.time() - self.start_time
             print(f"[{self.context_name}] Total time: {total_elapsed:.4f}s")

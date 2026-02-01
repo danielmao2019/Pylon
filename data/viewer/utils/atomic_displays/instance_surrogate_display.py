@@ -4,17 +4,22 @@ This module handles visualization of instance segmentation in surrogate represen
 where each pixel contains x, y coordinate offsets to the instance centroid.
 This format is commonly used in instance segmentation research.
 """
-from typing import Dict, Any
-import torch
+
+from typing import Any, Dict
+
 import plotly.graph_objects as go
-from data.viewer.utils.atomic_displays.segmentation_display import create_segmentation_display
+import torch
+
+from data.viewer.utils.atomic_displays.segmentation_display import (
+    create_segmentation_display,
+)
 
 
 def create_instance_surrogate_display(
     instance_surrogate: torch.Tensor,
     title: str,
     ignore_value: int = 250,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> go.Figure:
     """Create instance segmentation display from coordinate surrogate representation.
 
@@ -23,7 +28,8 @@ def create_instance_surrogate_display(
     This representation is used in many instance segmentation papers and datasets.
 
     Args:
-        instance_surrogate: Tensor of shape [2, H, W] or [N, 2, H, W] (batched) with coordinate offsets
+        instance_surrogate: Tensor of shape [2, H, W] or [N, 2, H, W] (batched) with
+            coordinate offsets
             - Channel 0: Y-offset to instance centroid
             - Channel 1: X-offset to instance centroid
         title: Title for the display
@@ -36,20 +42,32 @@ def create_instance_surrogate_display(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # CRITICAL: Input validation with fail-fast assertions
-    assert isinstance(instance_surrogate, torch.Tensor), f"Expected torch.Tensor, got {type(instance_surrogate)}"
-    assert instance_surrogate.ndim in [3, 4], f"Expected 3D [2,H,W] or 4D [N,2,H,W] tensor, got shape {instance_surrogate.shape}"
+    # Input validations
+    assert isinstance(
+        instance_surrogate, torch.Tensor
+    ), f"Expected torch.Tensor, got {type(instance_surrogate)}"
+    assert instance_surrogate.ndim in [3, 4], (
+        "Expected 3D [2,H,W] or 4D [N,2,H,W] tensor, "
+        f"got shape {instance_surrogate.shape}"
+    )
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
-    assert isinstance(ignore_value, int), f"Expected int ignore_value, got {type(ignore_value)}"
-    assert instance_surrogate.numel() > 0, f"Instance surrogate tensor cannot be empty"
+    assert isinstance(
+        ignore_value, int
+    ), f"Expected int ignore_value, got {type(ignore_value)}"
+    assert instance_surrogate.numel() > 0, "Instance surrogate tensor cannot be empty"
+    assert instance_surrogate.ndim != 3 or instance_surrogate.shape[0] == 2, (
+        "Expected 2 channels [2, H, W], " f"got {instance_surrogate.shape[0]} channels"
+    )
+    assert instance_surrogate.ndim != 4 or (
+        instance_surrogate.shape[0] == 1 and instance_surrogate.shape[1] == 2
+    ), (
+        "Expected batch size 1 and 2 channels for visualization, "
+        f"got {instance_surrogate.shape}"
+    )
 
-    # Handle batched input - extract single sample for visualization
+    # Input normalizations
     if instance_surrogate.ndim == 4:
-        assert instance_surrogate.shape[0] == 1, f"Expected batch size 1 for visualization, got {instance_surrogate.shape[0]}"
         instance_surrogate = instance_surrogate[0]  # [N, 2, H, W] -> [2, H, W]
-
-    # Validate unbatched tensor shape
-    assert instance_surrogate.shape[0] == 2, f"Expected 2 channels [2, H, W], got {instance_surrogate.shape[0]} channels"
 
     # Extract Y and X offset channels
     y_offset = instance_surrogate[0]  # [H, W]
@@ -59,24 +77,25 @@ def create_instance_surrogate_display(
     instance_viz = _convert_surrogate_to_instance_mask(
         y_offset=y_offset,
         x_offset=x_offset,
-        ignore_index=ignore_value
+        ignore_index=ignore_value,
     )
 
     # Create the segmentation display with the converted format
     return create_segmentation_display(
         segmentation=instance_viz,
-        title=title
+        title=title,
     )
 
 
 def get_instance_surrogate_display_stats(
     instance_surrogate: torch.Tensor,
-    ignore_index: int = 250
+    ignore_index: int = 250,
 ) -> Dict[str, Any]:
     """Get statistics for instance surrogate representation.
 
     Args:
-        instance_surrogate: Tensor of shape [2, H, W] or [N, 2, H, W] (batched) with coordinate offsets
+        instance_surrogate: Tensor of shape [2, H, W] or [N, 2, H, W] (batched) with
+            coordinate offsets
         ignore_index: Value used to mark ignored/void regions (default: 250)
 
     Returns:
@@ -85,19 +104,31 @@ def get_instance_surrogate_display_stats(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # Input validation
-    assert isinstance(instance_surrogate, torch.Tensor), f"Expected torch.Tensor, got {type(instance_surrogate)}"
-    assert instance_surrogate.ndim in [3, 4], f"Expected 3D [2,H,W] or 4D [N,2,H,W] tensor, got shape {instance_surrogate.shape}"
-    assert instance_surrogate.numel() > 0, f"Instance surrogate tensor cannot be empty"
-    assert isinstance(ignore_index, int), f"Expected int ignore_index, got {type(ignore_index)}"
+    # Input validations
+    assert isinstance(
+        instance_surrogate, torch.Tensor
+    ), f"Expected torch.Tensor, got {type(instance_surrogate)}"
+    assert instance_surrogate.ndim in [3, 4], (
+        "Expected 3D [2,H,W] or 4D [N,2,H,W] tensor, "
+        f"got shape {instance_surrogate.shape}"
+    )
+    assert instance_surrogate.numel() > 0, "Instance surrogate tensor cannot be empty"
+    assert isinstance(
+        ignore_index, int
+    ), f"Expected int ignore_index, got {type(ignore_index)}"
+    assert instance_surrogate.ndim != 3 or instance_surrogate.shape[0] == 2, (
+        "Expected 2 channels [2, H, W], " f"got {instance_surrogate.shape[0]} channels"
+    )
+    assert instance_surrogate.ndim != 4 or (
+        instance_surrogate.shape[0] == 1 and instance_surrogate.shape[1] == 2
+    ), (
+        "Expected batch size 1 and 2 channels for analysis, "
+        f"got {instance_surrogate.shape}"
+    )
 
-    # Handle batched input - extract single sample for analysis
+    # Input normalizations
     if instance_surrogate.ndim == 4:
-        assert instance_surrogate.shape[0] == 1, f"Expected batch size 1 for analysis, got {instance_surrogate.shape[0]}"
         instance_surrogate = instance_surrogate[0]  # [N, 2, H, W] -> [2, H, W]
-
-    # Validate unbatched tensor shape
-    assert instance_surrogate.shape[0] == 2, f"Expected 2 channels [2, H, W], got {instance_surrogate.shape[0]} channels"
 
     # Extract Y and X offset channels
     y_offset = instance_surrogate[0]  # [H, W]
@@ -120,7 +151,9 @@ def get_instance_surrogate_display_stats(
         "Total Pixels": total_pixels,
         "Valid Pixels": valid_pixels,
         "Ignore Pixels": ignore_pixels,
-        "Valid Ratio": f"{valid_pixels / total_pixels:.3f}" if total_pixels > 0 else "0.000",
+        "Valid Ratio": (
+            f"{valid_pixels / total_pixels:.3f}" if total_pixels > 0 else "0.000"
+        ),
         "Data Type": str(instance_surrogate.dtype),
     }
 
@@ -132,29 +165,37 @@ def get_instance_surrogate_display_stats(
         # Offset magnitude statistics
         magnitude = torch.sqrt(valid_y**2 + valid_x**2)
 
-        stats.update({
-            "Y Offset Range": f"[{valid_y.min().item():.3f}, {valid_y.max().item():.3f}]",
-            "X Offset Range": f"[{valid_x.min().item():.3f}, {valid_x.max().item():.3f}]",
-            "Y Offset Mean": f"{valid_y.mean().item():.3f}",
-            "X Offset Mean": f"{valid_x.mean().item():.3f}",
-            "Y Offset Std": f"{valid_y.std().item():.3f}",
-            "X Offset Std": f"{valid_x.std().item():.3f}",
-            "Magnitude Mean": f"{magnitude.mean().item():.3f}",
-            "Magnitude Std": f"{magnitude.std().item():.3f}",
-            "Max Magnitude": f"{magnitude.max().item():.3f}",
-        })
+        stats.update(
+            {
+                "Y Offset Range": (
+                    f"[{valid_y.min().item():.3f}, {valid_y.max().item():.3f}]"
+                ),
+                "X Offset Range": (
+                    f"[{valid_x.min().item():.3f}, {valid_x.max().item():.3f}]"
+                ),
+                "Y Offset Mean": f"{valid_y.mean().item():.3f}",
+                "X Offset Mean": f"{valid_x.mean().item():.3f}",
+                "Y Offset Std": f"{valid_y.std().item():.3f}",
+                "X Offset Std": f"{valid_x.std().item():.3f}",
+                "Magnitude Mean": f"{magnitude.mean().item():.3f}",
+                "Magnitude Std": f"{magnitude.std().item():.3f}",
+                "Max Magnitude": f"{magnitude.max().item():.3f}",
+            }
+        )
     else:
-        stats.update({
-            "Y Offset Range": "N/A (no valid pixels)",
-            "X Offset Range": "N/A (no valid pixels)",
-            "Y Offset Mean": "N/A",
-            "X Offset Mean": "N/A",
-            "Y Offset Std": "N/A",
-            "X Offset Std": "N/A",
-            "Magnitude Mean": "N/A",
-            "Magnitude Std": "N/A",
-            "Max Magnitude": "N/A",
-        })
+        stats.update(
+            {
+                "Y Offset Range": "N/A (no valid pixels)",
+                "X Offset Range": "N/A (no valid pixels)",
+                "Y Offset Mean": "N/A",
+                "X Offset Mean": "N/A",
+                "Y Offset Std": "N/A",
+                "X Offset Std": "N/A",
+                "Magnitude Mean": "N/A",
+                "Magnitude Std": "N/A",
+                "Max Magnitude": "N/A",
+            }
+        )
 
     return stats
 
@@ -162,7 +203,7 @@ def get_instance_surrogate_display_stats(
 def _convert_surrogate_to_instance_mask(
     y_offset: torch.Tensor,
     x_offset: torch.Tensor,
-    ignore_index: int
+    ignore_index: int,
 ) -> torch.Tensor:
     """Convert coordinate surrogate representation to pseudo-instance mask.
 
@@ -178,6 +219,15 @@ def _convert_surrogate_to_instance_mask(
     Returns:
         Single-channel pseudo-instance mask of shape [H, W] with int64 dtype
     """
+    # Input validations
+    assert isinstance(y_offset, torch.Tensor), f"{type(y_offset)=}"
+    assert isinstance(x_offset, torch.Tensor), f"{type(x_offset)=}"
+    assert isinstance(ignore_index, int), f"{type(ignore_index)=}"
+    assert y_offset.ndim == 2, f"{y_offset.shape=}"
+    assert x_offset.ndim == 2, f"{x_offset.shape=}"
+    assert y_offset.shape == x_offset.shape, f"{y_offset.shape=} {x_offset.shape=}"
+    assert y_offset.numel() > 0, f"{y_offset.shape=}"
+
     # Compute magnitude of offset vectors
     magnitude = torch.sqrt(y_offset**2 + x_offset**2)  # [H, W]
 
@@ -197,10 +247,16 @@ def _convert_surrogate_to_instance_mask(
         if valid_magnitude.numel() > 0:
             # Use percentiles to create discrete levels (20 levels for good granularity)
             try:
-                percentiles = torch.quantile(valid_magnitude, torch.linspace(0, 1, 20, device=valid_magnitude.device))
+                percentiles = torch.quantile(
+                    valid_magnitude,
+                    torch.linspace(0, 1, 20, device=valid_magnitude.device),
+                )
             except RuntimeError:
                 # Fallback if quantile fails (e.g., all values are the same)
-                percentiles = torch.tensor([valid_magnitude.min(), valid_magnitude.max()], device=valid_magnitude.device)
+                percentiles = torch.tensor(
+                    [valid_magnitude.min(), valid_magnitude.max()],
+                    device=valid_magnitude.device,
+                )
 
             # Map each magnitude to its percentile bin
             for i in range(len(percentiles) - 1):
@@ -208,7 +264,11 @@ def _convert_surrogate_to_instance_mask(
                     # Include the maximum value in the last bin
                     mask = (magnitude >= percentiles[i]) & valid_mask
                 else:
-                    mask = (magnitude >= percentiles[i]) & (magnitude < percentiles[i + 1]) & valid_mask
+                    mask = (
+                        (magnitude >= percentiles[i])
+                        & (magnitude < percentiles[i + 1])
+                        & valid_mask
+                    )
                 instance_viz[mask] = i + 1
 
     # Set ignore regions to ignore_index

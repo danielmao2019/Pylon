@@ -1,5 +1,5 @@
 """Centralized configuration for viewer settings."""
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 
 class ViewerSettings:
@@ -40,40 +40,71 @@ class ViewerSettings:
         Returns:
             Validated 3D settings with defaults applied
         """
+        # Input validations
+        assert settings_3d is None or isinstance(settings_3d, dict), (
+            f"{type(settings_3d)=}"
+        )
+        assert settings_3d is None or all(
+            isinstance(key, str) for key in settings_3d
+        ), f"{settings_3d=}"
+        assert settings_3d is None or not (
+            set(settings_3d.keys()) - set(cls.DEFAULT_3D_SETTINGS.keys())
+        ), f"{settings_3d=}"
+
+        # Input normalizations
         if settings_3d is None:
             settings_3d = {}
 
-        # Apply defaults for missing values
-        result = {}
-        for key, default_value in cls.DEFAULT_3D_SETTINGS.items():
-            result[key] = settings_3d.get(key, default_value)
-
+        result = cls.DEFAULT_3D_SETTINGS.copy()
+        result.update(settings_3d)
         return result
 
     @classmethod
     def validate_3d_settings(
-        cls,
-        settings: Dict[str, Union[str, int, float, bool]]
+        cls, settings: Dict[str, Union[str, int, float, bool]]
     ) -> Dict[str, Union[str, int, float, bool]]:
-        """Validate and clamp 3D settings to acceptable ranges.
+        """Validate 3D settings to acceptable ranges.
 
         Args:
             settings: Raw settings dictionary
 
         Returns:
-            Validated and clamped settings
+            Validated settings
         """
-        validated = settings.copy()
+        # Input validations
+        assert isinstance(settings, dict), f"{type(settings)=}"
+        assert all(isinstance(key, str) for key in settings), f"{settings=}"
+        assert not (set(cls.DEFAULT_3D_SETTINGS.keys()) - set(settings.keys())), (
+            f"{settings=}"
+        )
+        assert isinstance(settings["point_size"], (int, float)), (
+            f"{type(settings['point_size'])=}"
+        )
+        assert isinstance(settings["point_opacity"], (int, float)), (
+            f"{type(settings['point_opacity'])=}"
+        )
+        assert isinstance(settings["sym_diff_radius"], (int, float)), (
+            f"{type(settings['sym_diff_radius'])=}"
+        )
+        assert isinstance(settings["density_percentage"], int), (
+            f"{type(settings['density_percentage'])=}"
+        )
+        assert isinstance(settings["lod_type"], str), f"{type(settings['lod_type'])=}"
+        assert 0.1 <= settings["point_size"] <= 20.0, f"{settings['point_size']=}"
+        assert 0.0 <= settings["point_opacity"] <= 1.0, (
+            f"{settings['point_opacity']=}"
+        )
+        assert 0.0 <= settings["sym_diff_radius"] <= 2.0, (
+            f"{settings['sym_diff_radius']=}"
+        )
+        assert 10 <= settings["density_percentage"] <= 100, (
+            f"{settings['density_percentage']=}"
+        )
+        assert settings["density_percentage"] % 10 == 0, (
+            f"{settings['density_percentage']=}"
+        )
+        assert settings["lod_type"] in {
+            opt["value"] for opt in cls.LOD_TYPE_OPTIONS
+        }, f"{settings['lod_type']=}"
 
-        # Clamp numeric values to acceptable ranges
-        validated['point_size'] = max(0.1, min(20.0, float(validated.get('point_size', 2.0))))
-        validated['point_opacity'] = max(0.0, min(1.0, float(validated.get('point_opacity', 0.8))))
-        validated['sym_diff_radius'] = max(0.0, min(2.0, float(validated.get('sym_diff_radius', 0.05))))
-        validated['density_percentage'] = max(10, min(100, (int(validated.get('density_percentage', 100)) // 10) * 10))
-
-        # Validate LOD type
-        valid_lod_types = {opt['value'] for opt in cls.LOD_TYPE_OPTIONS}
-        if validated.get('lod_type') not in valid_lod_types:
-            validated['lod_type'] = cls.DEFAULT_3D_SETTINGS['lod_type']
-
-        return validated
+        return settings

@@ -1,14 +1,15 @@
 """Normal display utilities for surface normal visualization."""
-from typing import Dict, Any
-import torch
+
+from typing import Any, Dict
+
 import plotly.graph_objects as go
+import torch
+
 from data.viewer.utils.atomic_displays.image_display import create_image_display
 
 
 def create_normal_display(
-    normals: torch.Tensor,
-    title: str,
-    **kwargs: Any
+    normals: torch.Tensor, title: str, **kwargs: Any
 ) -> go.Figure:
     """Create surface normal display with proper visualization.
 
@@ -27,19 +28,18 @@ def create_normal_display(
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # CRITICAL: Input validation with fail-fast assertions
-    assert isinstance(normals, torch.Tensor), f"Expected torch.Tensor, got {type(normals)}"
-    assert normals.ndim in [3, 4], f"Expected 3D [3,H,W] or 4D [N,3,H,W] tensor, got shape {normals.shape}"
-    assert normals.numel() > 0, f"Normal tensor cannot be empty"
-    assert isinstance(title, str), f"Expected str title, got {type(title)}"
+    # Input validations
+    assert isinstance(normals, torch.Tensor), f"{type(normals)=}"
+    assert normals.ndim in [3, 4], f"{normals.shape=}"
+    assert normals.numel() > 0, f"{normals.shape=}"
+    assert isinstance(title, str), f"{type(title)=}"
+    assert (normals.ndim == 3 and normals.shape[0] == 3) or (
+        normals.ndim == 4 and normals.shape[0] == 1 and normals.shape[1] == 3
+    ), f"{normals.shape=}"
 
-    # Handle batched input - extract single sample for visualization
+    # Input normalizations
     if normals.ndim == 4:
-        assert normals.shape[0] == 1, f"Expected batch size 1 for visualization, got {normals.shape[0]}"
         normals = normals[0]  # [N, 3, H, W] -> [3, H, W]
-
-    # Validate unbatched tensor shape
-    assert normals.shape[0] == 3, f"Expected 3 channels for normals, got {normals.shape[0]}"
 
     # Convert normals to RGB visualization
     # Normals are typically in range [-1, 1], we map to [0, 1] for RGB
@@ -47,11 +47,7 @@ def create_normal_display(
     normals_normalized = torch.clamp(normals_normalized, 0.0, 1.0)
 
     # Use existing image display utility
-    fig = create_image_display(
-        image=normals_normalized,
-        title=title,
-        **kwargs
-    )
+    fig = create_image_display(image=normals_normalized, title=title, **kwargs)
 
     return fig
 
@@ -68,18 +64,17 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
     Raises:
         AssertionError: If inputs don't meet requirements
     """
-    # Input validation
-    assert isinstance(normals, torch.Tensor), f"Expected torch.Tensor, got {type(normals)}"
-    assert normals.ndim in [3, 4], f"Expected 3D [3,H,W] or 4D [N,3,H,W] tensor, got shape {normals.shape}"
-    assert normals.numel() > 0, f"Normal tensor cannot be empty"
+    # Input validations
+    assert isinstance(normals, torch.Tensor), f"{type(normals)=}"
+    assert normals.ndim in [3, 4], f"{normals.shape=}"
+    assert normals.numel() > 0, f"{normals.shape=}"
+    assert (normals.ndim == 3 and normals.shape[0] == 3) or (
+        normals.ndim == 4 and normals.shape[0] == 1 and normals.shape[1] == 3
+    ), f"{normals.shape=}"
 
-    # Handle batched input - extract single sample for analysis
+    # Input normalizations
     if normals.ndim == 4:
-        assert normals.shape[0] == 1, f"Expected batch size 1 for analysis, got {normals.shape[0]}"
         normals = normals[0]  # [N, 3, H, W] -> [3, H, W]
-
-    # Validate unbatched tensor shape
-    assert normals.shape[0] == 3, f"Expected 3 channels, got {normals.shape[0]}"
 
     # Calculate statistics
     total_pixels = normals.shape[1] * normals.shape[2]
@@ -97,10 +92,10 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
     valid_pixels = valid_mask.sum().item()
 
     # Calculate percentages
-    nan_pct = (nan_pixels / total_pixels) * 100 if total_pixels > 0 else 0
-    inf_pct = (inf_pixels / total_pixels) * 100 if total_pixels > 0 else 0
-    ignore_pct = (ignore_pixels / total_pixels) * 100 if total_pixels > 0 else 0
-    valid_pct = (valid_pixels / total_pixels) * 100 if total_pixels > 0 else 0
+    nan_pct = (nan_pixels / total_pixels) * 100
+    inf_pct = (inf_pixels / total_pixels) * 100
+    ignore_pct = (ignore_pixels / total_pixels) * 100
+    valid_pct = (valid_pixels / total_pixels) * 100
 
     valid_normals = normals[:, valid_mask]
 
@@ -116,7 +111,7 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
             'x_range': 'N/A',
             'y_range': 'N/A',
             'z_range': 'N/A',
-            'mean_magnitude': 'N/A'
+            'mean_magnitude': 'N/A',
         }
 
     return {
@@ -131,5 +126,5 @@ def get_normal_display_stats(normals: torch.Tensor) -> Dict[str, Any]:
         'y_range': f"[{float(valid_normals[1].min()):.3f}, {float(valid_normals[1].max()):.3f}]",
         'z_range': f"[{float(valid_normals[2].min()):.3f}, {float(valid_normals[2].max()):.3f}]",
         'mean_magnitude': float(torch.norm(valid_normals, dim=0).mean()),
-        'std_magnitude': float(torch.norm(valid_normals, dim=0).std())
+        'std_magnitude': float(torch.norm(valid_normals, dim=0).std()),
     }
