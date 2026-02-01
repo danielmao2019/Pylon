@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS
 
 
 def save_intrinsic_params(params: Dict[str, float | int]) -> Dict[str, Any]:
@@ -31,20 +32,22 @@ def save_ply_file_path(ply_file_path: str) -> Dict[str, Any]:
 
 
 def save_cameras(
-    cameras: Cameras | List[Camera], modalities: Optional[List[str]] = None
+    cameras: Cameras | List[Camera],
+    filenames: List[str],
+    modalities: List[str],
 ) -> Dict[str, Any]:
     frames: List[Dict[str, Any]] = []
-    include_masks = modalities is not None and "masks" in modalities
-    for camera in cameras:
+    for camera, filename in zip(cameras, filenames, strict=True):
         assert camera.name is not None, "Camera name required to save transforms.json"
+        assert camera.name == filename, f"{camera.name=} {filename=}"
         frame_entry: Dict[str, Any] = {
-            "file_path": f"images/{camera.name}.png",
             "transform_matrix": camera.extrinsics.detach().cpu().tolist(),
         }
         if camera.id is not None:
             frame_entry["colmap_image_id"] = camera.id
-        if include_masks:
-            frame_entry["mask_path"] = f"masks/{camera.name}.png"
+        for modality in modalities:
+            modality_key, modality_folder = MODALITY_SPECS[modality]
+            frame_entry[modality_key] = f"{modality_folder}/{filename}.png"
         frames.append(frame_entry)
     frames.sort(key=lambda entry: entry["file_path"])
     return {"frames": frames}
@@ -58,9 +61,9 @@ def save_split_filenames(
     if train is None:
         return {}
     return {
-        "train_filenames": train,
-        "val_filenames": val,
-        "test_filenames": test,
+        "train_filenames": [f"images/{name}.png" for name in train],
+        "val_filenames": [f"images/{name}.png" for name in val],
+        "test_filenames": [f"images/{name}.png" for name in test],
     }
 
 
@@ -78,15 +81,14 @@ def save_nerfstudio_data(
 
     # Input normalizations
     path = Path(filepath)
-    modalities = None
-    if "modalities" in data.data:
-        modalities = data.data["modalities"]
     intrinsic_params = data.intrinsic_params
     resolution = data.resolution
     camera_model = data.camera_model
     applied_transform = data.applied_transform
     ply_file_path = data.ply_file_path
     cameras = data.cameras
+    modalities = data.modalities
+    filenames = data.filenames
     train_filenames = data.train_filenames
     val_filenames = data.val_filenames
     test_filenames = data.test_filenames
@@ -97,7 +99,13 @@ def save_nerfstudio_data(
     payload.update(save_camera_model(camera_model))
     payload.update(save_applied_transform(applied_transform))
     payload.update(save_ply_file_path(ply_file_path))
-    payload.update(save_cameras(cameras, modalities=modalities))
+    payload.update(
+        save_cameras(
+            cameras=cameras,
+            filenames=filenames,
+            modalities=modalities,
+        )
+    )
     payload.update(
         save_split_filenames(
             train=train_filenames,

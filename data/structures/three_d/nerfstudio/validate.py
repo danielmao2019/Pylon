@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -5,6 +6,14 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.validation import validate_camera_intrinsics
+
+MODALITY_SPECS = {
+    "image": ("file_path", "images"),
+    "depth": ("depth_path", "depths"),
+    "normal": ("normal_path", "normals"),
+    "mask": ("mask_path", "masks"),
+}
+MODALITY_KEYS = tuple(spec[0] for spec in MODALITY_SPECS.values())
 
 
 def validate_data(data: Dict[str, Any]) -> None:
@@ -15,6 +24,16 @@ def validate_data(data: Dict[str, Any]) -> None:
 def validate_device(device: torch.device) -> None:
     # Input validations
     assert isinstance(device, torch.device), f"{type(device)=}"
+
+
+def validate_modalities(modalities: List[str]) -> None:
+    # Input validations
+    assert isinstance(modalities, list), f"{type(modalities)=}"
+    assert modalities, "modalities must be non-empty"
+    assert all(isinstance(item, str) for item in modalities), f"{modalities=}"
+    assert all(item in MODALITY_SPECS for item in modalities), f"{modalities=}"
+    assert len(set(modalities)) == len(modalities), f"{modalities=}"
+    assert "image" in modalities, f"{modalities=}"
 
 
 def validate_intrinsic_params(data: Dict[str, Any]) -> None:
@@ -134,11 +153,17 @@ def validate_applied_transform(applied_transform: np.ndarray) -> None:
     assert applied_transform.shape == (3, 4), f"{applied_transform.shape=}"
 
 
-def validate_ply_file_path_data(data: Dict[str, Any]) -> None:
+def validate_ply_file_path_data(data: Dict[str, Any], root_dir: Path) -> None:
     # Input validations
     assert isinstance(data, dict), f"{type(data)=}"
+    assert isinstance(root_dir, Path), f"{type(root_dir)=}"
+    assert root_dir.is_dir(), f"{root_dir=}"
     assert "ply_file_path" in data, "transforms.json missing ply_file_path"
     assert isinstance(data["ply_file_path"], str), f"{type(data['ply_file_path'])=}"
+    assert (root_dir / data["ply_file_path"]).is_file(), (
+        "transforms.json ply_file_path not found: "
+        f"{root_dir / data['ply_file_path']}"
+    )
 
 
 def validate_ply_file_path(ply_file_path: str) -> None:
@@ -146,9 +171,11 @@ def validate_ply_file_path(ply_file_path: str) -> None:
     assert isinstance(ply_file_path, str), f"{type(ply_file_path)=}"
 
 
-def validate_frames_data(data: Dict[str, Any]) -> None:
+def validate_frames_data(data: Dict[str, Any], root_dir: Path) -> None:
     # Input validations
     assert isinstance(data, dict), f"{type(data)=}"
+    assert isinstance(root_dir, Path), f"{type(root_dir)=}"
+    assert root_dir.is_dir(), f"{root_dir=}"
     assert "frames" in data, "transforms.json missing frames"
     assert isinstance(data["frames"], list), "frames must be a list"
     assert data["frames"], "frames must be non-empty"
@@ -160,6 +187,24 @@ def validate_frames_data(data: Dict[str, Any]) -> None:
         for frame in data["frames"]
     )
     assert all(
+        ("depth_path" not in frame)
+        or (
+            isinstance(frame["depth_path"], str)
+            and frame["depth_path"].startswith("depths/")
+            and frame["depth_path"].endswith(".png")
+        )
+        for frame in data["frames"]
+    )
+    assert all(
+        ("normal_path" not in frame)
+        or (
+            isinstance(frame["normal_path"], str)
+            and frame["normal_path"].startswith("normals/")
+            and frame["normal_path"].endswith(".png")
+        )
+        for frame in data["frames"]
+    )
+    assert all(
         ("mask_path" not in frame)
         or (
             isinstance(frame["mask_path"], str)
@@ -168,6 +213,21 @@ def validate_frames_data(data: Dict[str, Any]) -> None:
         )
         for frame in data["frames"]
     )
+    assert all(
+        (key not in frame) or (root_dir / frame[key]).is_file()
+        for frame in data["frames"]
+        for key in MODALITY_KEYS
+    ), f"Missing modality files under {root_dir}"
+    assert all(
+        set(frame.keys()) & set(MODALITY_KEYS)
+        == set(data["frames"][0].keys()) & set(MODALITY_KEYS)
+        for frame in data["frames"]
+    ), "frames must have consistent modalities"
+    assert all(
+        (key not in frame) or (Path(frame[key]).stem == Path(frame["file_path"]).stem)
+        for frame in data["frames"]
+        for key in MODALITY_KEYS
+    ), "modality filenames must match file_path stems"
     assert all("transform_matrix" in frame for frame in data["frames"])
     assert all(
         ("colmap_image_id" not in frame) or isinstance(frame["colmap_image_id"], int)
@@ -222,30 +282,36 @@ def validate_filenames(filenames: List[str]) -> None:
     assert isinstance(filenames, list), f"{type(filenames)=}"
     assert filenames, "filenames must be non-empty"
     assert all(isinstance(item, str) for item in filenames), f"{filenames=}"
+    assert all(Path(item).name == item for item in filenames), f"{filenames=}"
+    assert all(Path(item).suffix == "" for item in filenames), f"{filenames=}"
 
 
 def validate_split_filenames(
-    train: Optional[List[str]],
-    val: Optional[List[str]],
-    test: Optional[List[str]],
+    train_filenames: Optional[List[str]],
+    val_filenames: Optional[List[str]],
+    test_filenames: Optional[List[str]],
     filenames: List[str],
 ) -> None:
     # Input validations
-    assert (train is None and val is None and test is None) or (
-        train is not None and val is not None and test is not None
+    assert (
+        train_filenames is None and val_filenames is None and test_filenames is None
+    ) or (
+        train_filenames is not None
+        and val_filenames is not None
+        and test_filenames is not None
     ), "train/val/test filenames must all be provided together or all omitted"
-    assert train is None or isinstance(train, list), f"{type(train)=}"
-    assert val is None or isinstance(val, list), f"{type(val)=}"
-    assert test is None or isinstance(test, list), f"{type(test)=}"
-    assert isinstance(filenames, list), f"{type(filenames)=}"
-    assert filenames, "filenames must be non-empty"
-    assert train is None or train, "train_filenames must be non-empty"
-    assert val is None or val, "val_filenames must be non-empty"
-    assert test is None or test, "test_filenames must be non-empty"
-    assert train is None or all(isinstance(item, str) for item in train), f"{train=}"
-    assert val is None or all(isinstance(item, str) for item in val), f"{val=}"
-    assert test is None or all(isinstance(item, str) for item in test), f"{test=}"
-    assert all(isinstance(item, str) for item in filenames), f"{filenames=}"
-    assert train is None or set(filenames) == set(train) | set(val) | set(
-        test
+    assert (
+        train_filenames is None or validate_filenames(train_filenames) is None
+    ), f"{train_filenames=}"
+    assert (
+        val_filenames is None or validate_filenames(val_filenames) is None
+    ), f"{val_filenames=}"
+    assert (
+        test_filenames is None or validate_filenames(test_filenames) is None
+    ), f"{test_filenames=}"
+    validate_filenames(filenames)
+    assert train_filenames is None or set(filenames) == set(train_filenames) | set(
+        val_filenames
+    ) | set(
+        test_filenames
     ), "train/val/test filenames must match frames file_path entries"

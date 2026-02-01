@@ -182,7 +182,7 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
         ids=[camera.id for camera in cameras],
         device=cameras[0].device,
     )
-    filenames = [f"images/{name}.png" for name in camera_names]
+    modalities = ["image"]
     payload: Dict[str, Any] = {}
     nerfstudio_data = NerfStudio_Data(
         data=payload,
@@ -194,7 +194,8 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
         applied_transform=applied_transform,
         ply_file_path="point_cloud.ply",
         cameras=nerfstudio_cameras,
-        filenames=filenames,
+        modalities=modalities,
+        filenames=camera_names,
         train_filenames=None,
         val_filenames=None,
         test_filenames=None,
