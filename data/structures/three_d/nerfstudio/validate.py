@@ -211,8 +211,7 @@ def validate_frames_data(data: Dict[str, Any]) -> None:
         for frame in data["frames"]
     ), "frames must have consistent modalities"
     assert all(
-        (key not in frame)
-        or (Path(frame[key]).stem == Path(frame["file_path"]).stem)
+        (key not in frame) or (Path(frame[key]).stem == Path(frame["file_path"]).stem)
         for frame in data["frames"]
         for key in MODALITY_KEYS
     ), "modality filenames must match file_path stems"
