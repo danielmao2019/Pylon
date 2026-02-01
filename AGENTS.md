@@ -34,26 +34,30 @@ Other rules:
 ### 2.2. How to write input validation
 
 It is not strictly required to do input validation for all functions/methods and for all args, because sometimes this is not really needed. However, when you do, you must follow the following rules:
-1. Input validation must be done at the very beginning of the function/method definition body.
-2. Input validation must be a dedicated area, meaning the followings:
-   1. It must start with a line `# Input validations`
-   2. It must end with an empty line, before subsequent code in the definition body.
-   3. During input validation, ONLY assert statements can be used. Introducing variables or transforming input args are strictly prohibited.
+1. Location: Input validation must be done at the very beginning of the function/method definition body.
+2. Encapsulation: Input validation must be a dedicated area, meaning the followings:
+   1. This code section must be the ONLY place that is responsible for input validation. No other places should do input validation, unless it is for a special purpose that's only needed in subsequent logics.
+   2. It must start with a line `# Input validations`
+   3. It must end with an empty line, before subsequent code in the definition body.
+3. Structure:
+   1. The lines for each arg should be grouped and put one after another, not mixing the lines.
+   2. The order of input validation must follow exactly the order of the input args.
+   3. During input validation, ONLY assert statements or dedicated validation module (for complex data structures like camera, COLMAP data, NerfStudio data, etc.) can be used. Introducing variables or transforming input args are strictly prohibited.
    4. During input validation, no `if` conditioning may be used. Each and every statement must be `assert`. You should be using `assert xxx or yyy` to implement `if` conditioning. e.g., for optional args, you should use the structure `assert xxx is None or xxx`, rather than `if xxx is not None: assert xxx`.
-3. The order of input validation must follow exactly the order of the input args, and input validation for each arg should be done one after another, not mixing the lines.
 4. It is not a strict rule to do input validation for all function args.
 
-### 2.3. Input Normalization
+### 2.3. How to write input normalization
 
 Input normalization refers to the process, which must be done after all input validations are done, that normalizes different input formats. e.g., a run model function may take a single image, or a list of images, or a single tensor for stacked images; a path may be passed in as `str` type of `pathlib.Path` type; a set of weights may be passed in as a list/tuple of floats, a `numpy.ndarray` instance, a `torch.Tensor` instance, with sum equal to 1, or not equal to 1. Input normalization is, similar to input validation, not strictly needed when the inputs are simple enough, but definitely needs some attention when the inputs are complex.
 
 Rules:
-1. Similar to input validation, input normalization must be a dedicated code section, meaning that
-   1. This code section should be the ONLY place that is responsible for input normalization. No other places can do input normalization.
+1. Encapsulation: Similar to input validation, input normalization must be a dedicated code section, meaning that
+   1. This code section should be the ONLY place that is responsible for input normalization. No other places can do input normalization, unless it is for a special purpose that is only needed in subsequent logics.
    2. It must start with a line `# Input normalizations`.
    3. It must end with an empty line, before any subsequent code in the definition.
-2. Similar to input validation, input normalization code must be grouped by variables. Do not leave var1 half-normalized and then work on var2 and then go back to var1 to complete the var1 normalization.
-3. Similar to input validation, input normalization code ordering must follow the order of args.
+2. Structure:
+   1. Similar to input validation, input normalization code must be grouped by variables. Do not leave var1 half-normalized and then work on var2 and then go back to var1 to complete the var1 normalization.
+   2. Similar to input validation, input normalization code ordering must follow the order of args.
 
 ### 2.4. How to write `__init__.py`
 
