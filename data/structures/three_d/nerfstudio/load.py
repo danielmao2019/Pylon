@@ -156,8 +156,8 @@ def load_nerfstudio_data(
     validate_camera_model_data(data)
     validate_intrinsics_data(data)
     validate_applied_transform_data(data)
-    validate_ply_file_path_data(data)
-    validate_frames_data(data)
+    validate_ply_file_path_data(data=data, root_dir=path.parent)
+    validate_frames_data(data=data, root_dir=path.parent)
     validate_split_filenames_data(data)
 
     intrinsic_params = load_intrinsic_params(data)
