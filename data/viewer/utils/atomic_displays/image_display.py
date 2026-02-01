@@ -1,11 +1,12 @@
 """Image display utilities for RGB/grayscale image visualization."""
 
-from typing import Dict, Any, Optional, Tuple
 import random
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
-import torch
 import plotly.express as px
 import plotly.graph_objects as go
+import torch
 
 
 def create_image_display(
@@ -77,7 +78,6 @@ def create_image_display(
         'title_x': 0.5,
         'coloraxis_showscale': True,
         'showlegend': False,
-        'height': 400,  # Default height
         'xaxis': dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
         'yaxis': dict(autorange='reversed'),  # Standard image convention
     }

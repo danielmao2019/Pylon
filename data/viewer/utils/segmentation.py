@@ -1,9 +1,14 @@
 """Utility functions for semantic segmentation visualization."""
-from typing import Dict, Union, Any, List
+
+from typing import Any, Dict, List, Tuple, Union
+
 import numpy as np
-import torch
-import plotly.express as px
 import plotly.graph_objects as go
+import torch
+from dash import dcc, html
+
+from data.viewer.callbacks.class_distribution import get_next_component_index
+from utils.determinism.hash_utils import deterministic_hash
 
 
 def get_color(idx: Any) -> str:
@@ -15,9 +20,18 @@ def get_color(idx: Any) -> str:
     Returns:
         Hex color code
     """
+    # Input validations
+    assert idx is not None
+    assert isinstance(idx, (int, np.integer)) or hasattr(
+        idx, "__hash__"
+    ), f"{type(idx)=}"
+    assert (
+        isinstance(idx, (int, np.integer)) or idx.__hash__ is not None
+    ), f"{type(idx)=}"
+
+    # Input normalizations
     # Convert non-integer indices to integers using hash
-    if not isinstance(idx, int):
-        from utils.determinism.hash_utils import deterministic_hash
+    if not isinstance(idx, (int, np.integer)):
         idx = deterministic_hash(idx)
 
     # Use golden ratio to get well-distributed hues
@@ -37,25 +51,26 @@ def get_color(idx: Any) -> str:
     if s == 0:
         r = g = b = l
     else:
+
         def hue_to_rgb(p, q, t):
             if t < 0:
                 t += 1
             if t > 1:
                 t -= 1
-            if t < 1/6:
+            if t < 1 / 6:
                 return p + (q - p) * 6 * t
-            if t < 1/2:
+            if t < 1 / 2:
                 return q
-            if t < 2/3:
-                return p + (q - p) * (2/3 - t) * 6
+            if t < 2 / 3:
+                return p + (q - p) * (2 / 3 - t) * 6
             return p
 
         q = l * (1 + s) if l < 0.5 else l + s - l * s
         p = 2 * l - q
 
-        r = hue_to_rgb(p, q, h + 1/3)
+        r = hue_to_rgb(p, q, h + 1 / 3)
         g = hue_to_rgb(p, q, h)
-        b = hue_to_rgb(p, q, h - 1/3)
+        b = hue_to_rgb(p, q, h - 1 / 3)
 
     # Convert to hex
     return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
@@ -74,6 +89,35 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
     Returns:
         Numpy array of shape (H, W, 3) with RGB colors
     """
+    # Input validations
+    assert isinstance(seg, (torch.Tensor, dict)), f"{type(seg)=}"
+    assert not isinstance(seg, torch.Tensor) or seg.ndim in [2, 3], f"{seg.shape=}"
+    assert not isinstance(seg, torch.Tensor) or seg.numel() > 0, f"{seg.shape=}"
+    assert (
+        not isinstance(seg, torch.Tensor) or seg.ndim != 3 or seg.shape[0] == 1
+    ), f"{seg.shape=}"
+    assert not isinstance(seg, dict) or "masks" in seg, f"{seg.keys()=}"
+    assert not isinstance(seg, dict) or "indices" in seg, f"{seg.keys()=}"
+    assert not isinstance(seg, dict) or isinstance(
+        seg["masks"], list
+    ), f"{type(seg['masks'])=}"
+    assert not isinstance(seg, dict) or isinstance(
+        seg["indices"], list
+    ), f"{type(seg['indices'])=}"
+    assert not isinstance(seg, dict) or len(seg["masks"]) > 0
+    assert not isinstance(seg, dict) or len(seg["masks"]) == len(seg["indices"])
+    assert not isinstance(seg, dict) or all(
+        isinstance(mask, torch.Tensor) for mask in seg["masks"]
+    )
+    assert not isinstance(seg, dict) or all(mask.ndim == 2 for mask in seg["masks"])
+    assert not isinstance(seg, dict) or all(
+        isinstance(idx, (int, np.integer)) for idx in seg["indices"]
+    )
+
+    # Input normalizations
+    if isinstance(seg, torch.Tensor) and seg.ndim == 3:
+        seg = seg.squeeze(0)
+
     if isinstance(seg, dict):
         # Handle dict format with masks and indices
         masks = seg["masks"]
@@ -86,8 +130,6 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
         tensor = torch.argmax(stacked_masks, dim=0)
     else:
         # Handle tensor format
-        if seg.dim() == 3:
-            seg = seg.squeeze(0)
         tensor = seg
         indices = torch.unique(tensor).tolist()
 
@@ -116,6 +158,10 @@ def create_segmentation_figure(
         seg: Segmentation representation (see tensor_to_semseg for supported formats)
         title: Figure title
     """
+    # Input validations
+    assert isinstance(seg, (torch.Tensor, dict)), f"{type(seg)=}"
+    assert isinstance(title, str), f"{type(title)=}"
+
     # Convert segmentation map to RGB
     colored_map = segmentation_to_numpy(seg)
 
@@ -124,21 +170,19 @@ def create_segmentation_figure(
 
     fig.update_layout(
         title=dict(text=title, x=0.5, xanchor='center'),
-        margin=dict(l=20, r=20, t=40, b=20),
-        height=400,
         xaxis=dict(
             scaleanchor="y",
             scaleratio=1,  # Lock aspect ratio
             showticklabels=False,
             showgrid=False,
-            zeroline=False
+            zeroline=False,
         ),
         yaxis=dict(
             autorange='reversed',  # Standard image convention
             showticklabels=False,
             showgrid=False,
-            zeroline=False
-        )
+            zeroline=False,
+        ),
     )
 
     # Ensure no colorbar/colorscale is shown
@@ -147,14 +191,41 @@ def create_segmentation_figure(
     return fig
 
 
-def get_segmentation_stats(
-    seg: Union[torch.Tensor, Dict[str, Any]]
-) -> Dict[str, Any]:
+def get_segmentation_stats(seg: Union[torch.Tensor, Dict[str, Any]]) -> Dict[str, Any]:
     """Get statistical information about a segmentation map.
 
     Args:
         seg: Segmentation representation (see tensor_to_semseg for supported formats)
     """
+    # Input validations
+    assert isinstance(seg, (torch.Tensor, dict)), f"{type(seg)=}"
+    assert not isinstance(seg, torch.Tensor) or seg.ndim in [2, 3], f"{seg.shape=}"
+    assert not isinstance(seg, torch.Tensor) or seg.numel() > 0, f"{seg.shape=}"
+    assert (
+        not isinstance(seg, torch.Tensor) or seg.ndim != 3 or seg.shape[0] == 1
+    ), f"{seg.shape=}"
+    assert not isinstance(seg, dict) or "masks" in seg, f"{seg.keys()=}"
+    assert not isinstance(seg, dict) or "indices" in seg, f"{seg.keys()=}"
+    assert not isinstance(seg, dict) or isinstance(
+        seg["masks"], list
+    ), f"{type(seg['masks'])=}"
+    assert not isinstance(seg, dict) or isinstance(
+        seg["indices"], list
+    ), f"{type(seg['indices'])=}"
+    assert not isinstance(seg, dict) or len(seg["masks"]) > 0
+    assert not isinstance(seg, dict) or len(seg["masks"]) == len(seg["indices"])
+    assert not isinstance(seg, dict) or all(
+        isinstance(mask, torch.Tensor) for mask in seg["masks"]
+    )
+    assert not isinstance(seg, dict) or all(mask.ndim == 2 for mask in seg["masks"])
+    assert not isinstance(seg, dict) or all(
+        isinstance(idx, (int, np.integer)) for idx in seg["indices"]
+    )
+
+    # Input normalizations
+    if isinstance(seg, torch.Tensor) and seg.ndim == 3:
+        seg = seg.squeeze(0)
+
     if isinstance(seg, dict):
         # Handle dict format with masks and indices
         masks = seg["masks"]
@@ -166,15 +237,13 @@ def get_segmentation_stats(
         seg_np = torch.argmax(stacked_masks, dim=0).cpu().numpy()
     else:
         # Handle tensor format
-        if seg.dim() == 3:
-            seg = seg.squeeze(0)
         seg_np = seg.cpu().numpy()
         indices = torch.unique(seg).tolist()
 
     stats = {
         "Shape": f"{seg_np.shape}",
         "Number of Classes": len(indices),
-        "Class Distribution": _format_class_distribution(seg_np, indices)
+        "Class Distribution": _format_class_distribution(seg_np, indices),
     }
 
     return stats
@@ -190,8 +259,12 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
     Returns:
         Dash HTML Div component with colors matching segmentation visualization and toggle bar plot
     """
-    from dash import html, dcc
-    from data.viewer.callbacks.class_distribution import get_next_component_index
+    # Input validations
+    assert isinstance(seg_np, np.ndarray), f"{type(seg_np)=}"
+    assert seg_np.ndim == 2, f"{seg_np.shape=}"
+    assert isinstance(indices, list), f"{type(indices)=}"
+    assert len(indices) > 0
+    assert all(isinstance(idx, (int, np.integer)) for idx in indices)
 
     # Generate unique IDs for this distribution component using pattern-matching
     component_index = get_next_component_index()
@@ -199,7 +272,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
     bar_plot_id = {'type': 'class-dist-plot', 'index': component_index}
 
     # Calculate class statistics
-    class_info = []
+    class_info: List[Tuple[int, int, float]] = []
     total_pixels = seg_np.size
 
     for idx in indices:
@@ -222,48 +295,34 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
         pixel_count = f"({pixels:,} px)"
 
         # Create Dash HTML list item with color indicator and styled text
-        list_item = html.Li([
-            # Color indicator square
-            html.Span(
-                style={
-                    'display': 'inline-block',
-                    'width': '12px',
-                    'height': '12px',
-                    'background-color': color,
-                    'border-radius': '2px',
-                    'margin-right': '8px',
-                    'vertical-align': 'middle'
-                }
-            ),
-            # Class name in matching color
-            html.Span(
-                class_name,
-                style={
-                    'color': color,
-                    'font-weight': 'bold'
-                }
-            ),
-            # Percentage
-            html.Span(
-                percentage_str,
-                style={
-                    'margin-left': '10px',
-                    'color': '#333'
-                }
-            ),
-            # Pixel count
-            html.Span(
-                pixel_count,
-                style={
-                    'margin-left': '8px',
-                    'color': '#666',
-                    'font-size': '0.9em'
-                }
-            )
-        ], style={
-            'margin': '4px 0',
-            'padding': '2px 0'
-        })
+        list_item = html.Li(
+            [
+                # Color indicator square
+                html.Span(
+                    style={
+                        'display': 'inline-block',
+                        'width': '12px',
+                        'height': '12px',
+                        'background-color': color,
+                        'border-radius': '2px',
+                        'margin-right': '8px',
+                        'vertical-align': 'middle',
+                    }
+                ),
+                # Class name in matching color
+                html.Span(class_name, style={'color': color, 'font-weight': 'bold'}),
+                # Percentage
+                html.Span(
+                    percentage_str, style={'margin-left': '10px', 'color': '#333'}
+                ),
+                # Pixel count
+                html.Span(
+                    pixel_count,
+                    style={'margin-left': '8px', 'color': '#666', 'font-size': '0.9em'},
+                ),
+            ],
+            style={'margin': '4px 0', 'padding': '2px 0'},
+        )
 
         list_items.append(list_item)
 
@@ -271,68 +330,81 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
     bar_plot_fig = _create_class_distribution_bar_plot(class_info)
 
     # Create complete Dash HTML component with header, toggle button, list, and plot
-    return html.Div([
-        # Header with toggle button
-        html.Div([
-            html.Span(
-                f"Distribution across {len(indices)} classes:",
+    return html.Div(
+        [
+            # Header with toggle button
+            html.Div(
+                [
+                    html.Span(
+                        f"Distribution across {len(indices)} classes:",
+                        style={
+                            'font-weight': 'bold',
+                            'color': '#333',
+                            'margin-right': '10px',
+                        },
+                    ),
+                    html.Button(
+                        "📊 Chart View",
+                        id=toggle_button_id,
+                        n_clicks=0,
+                        style={
+                            'font-size': '10px',
+                            'padding': '2px 6px',
+                            'border': '1px solid #ccc',
+                            'border-radius': '3px',
+                            'background-color': '#f8f9fa',
+                            'cursor': 'pointer',
+                            'color': '#333',
+                        },
+                    ),
+                ],
                 style={
-                    'font-weight': 'bold',
-                    'color': '#333',
-                    'margin-right': '10px'
-                }
+                    'margin-bottom': '8px',
+                    'display': 'flex',
+                    'align-items': 'center',
+                },
             ),
-            html.Button(
-                "📊 Chart View",
-                id=toggle_button_id,
-                n_clicks=0,
-                style={
-                    'font-size': '10px',
-                    'padding': '2px 6px',
-                    'border': '1px solid #ccc',
-                    'border-radius': '3px',
-                    'background-color': '#f8f9fa',
-                    'cursor': 'pointer',
-                    'color': '#333'
-                }
-            )
-        ], style={
-            'margin-bottom': '8px',
-            'display': 'flex',
-            'align-items': 'center'
-        }),
-
-        # Container for switching between text and plot views
-        html.Div([
-            # Text view (initially shown)
-            html.Div([
-                html.Ul(
-                    list_items,
-                    style={
-                        'list-style': 'none',
-                        'padding-left': '0',
-                        'margin': '0'
-                    }
-                )
-            ], id={'type': 'class-dist-text', 'index': component_index}, style={'display': 'block'}),
-
-            # Plot view (initially hidden)
-            html.Div([
-                dcc.Graph(
-                    figure=bar_plot_fig,
-                    style={'height': '200px'},
-                    config={'displayModeBar': False}
-                )
-            ], id=bar_plot_id, style={'display': 'none'})
-        ], style={'margin-bottom': '8px'})
-
-    ], style={
-        'font-family': 'monospace',
-        'font-size': '12px'
-    })
+            # Container for switching between text and plot views
+            html.Div(
+                [
+                    # Text view (initially shown)
+                    html.Div(
+                        [
+                            html.Ul(
+                                list_items,
+                                style={
+                                    'list-style': 'none',
+                                    'padding-left': '0',
+                                    'margin': '0',
+                                },
+                            )
+                        ],
+                        id={'type': 'class-dist-text', 'index': component_index},
+                        style={'display': 'block'},
+                    ),
+                    # Plot view (initially hidden)
+                    html.Div(
+                        [
+                            dcc.Graph(
+                                figure=bar_plot_fig,
+                                style={'height': '200px'},
+                                config={'displayModeBar': False},
+                            )
+                        ],
+                        id=bar_plot_id,
+                        style={'display': 'none'},
+                    ),
+                ],
+                style={'margin-bottom': '8px'},
+            ),
+        ],
+        style={'font-family': 'monospace', 'font-size': '12px'},
+    )
 
 
-def _create_class_distribution_bar_plot(class_info: List[tuple]) -> go.Figure:
+def _create_class_distribution_bar_plot(
+    class_info: List[Tuple[int, int, float]],
+) -> go.Figure:
     """Create a colorful bar plot for class distribution.
 
     Args:
@@ -341,28 +413,36 @@ def _create_class_distribution_bar_plot(class_info: List[tuple]) -> go.Figure:
     Returns:
         Plotly bar plot figure with colors matching segmentation visualization
     """
+    # Input validations
+    assert isinstance(class_info, list), f"{type(class_info)=}"
+    assert len(class_info) > 0
+    assert all(isinstance(info, tuple) for info in class_info)
+    assert all(len(info) == 3 for info in class_info)
+    assert all(isinstance(info[0], (int, np.integer)) for info in class_info)
+    assert all(isinstance(info[1], (int, np.integer)) for info in class_info)
+    assert all(isinstance(info[2], (float, int, np.floating)) for info in class_info)
+
     # Extract data for plotting
     class_indices = [str(info[0]) for info in class_info]
     percentages = [info[2] for info in class_info]
     colors = [get_color(info[0]) for info in class_info]
 
     # Create bar plot
-    fig = go.Figure(data=[
-        go.Bar(
-            x=class_indices,
-            y=percentages,
-            marker=dict(
-                color=colors,
-                line=dict(color='rgba(0,0,0,0.3)', width=1)
-            ),
-            text=[f"{p:.1f}%" for p in percentages],
-            textposition='outside',
-            textfont=dict(size=10, color='#333'),
-            hovertemplate='<b>Class %{x}</b><br>' +
-                         'Percentage: %{y:.2f}%<br>' +
-                         '<extra></extra>'
-        )
-    ])
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=class_indices,
+                y=percentages,
+                marker=dict(color=colors, line=dict(color='rgba(0,0,0,0.3)', width=1)),
+                text=[f"{p:.1f}%" for p in percentages],
+                textposition='outside',
+                textfont=dict(size=10, color='#333'),
+                hovertemplate='<b>Class %{x}</b><br>'
+                + 'Percentage: %{y:.2f}%<br>'
+                + '<extra></extra>',
+            )
+        ]
+    )
 
     # Update layout for better appearance
     fig.update_layout(
@@ -370,25 +450,23 @@ def _create_class_distribution_bar_plot(class_info: List[tuple]) -> go.Figure:
             text="Class Distribution",
             font=dict(size=12, color='#333'),
             x=0.5,
-            xanchor='center'
+            xanchor='center',
         ),
         xaxis=dict(
             title=dict(text="Class ID", font=dict(size=10, color='#333')),
             tickfont=dict(size=9, color='#666'),
-            showgrid=False
+            showgrid=False,
         ),
         yaxis=dict(
             title=dict(text="Percentage (%)", font=dict(size=10, color='#333')),
             tickfont=dict(size=9, color='#666'),
             showgrid=True,
             gridcolor='rgba(0,0,0,0.1)',
-            gridwidth=1
+            gridwidth=1,
         ),
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=40, r=20, t=40, b=40),
-        height=200,
-        showlegend=False
+        showlegend=False,
     )
 
     return fig

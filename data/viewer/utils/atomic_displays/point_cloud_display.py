@@ -733,8 +733,6 @@ def create_point_cloud_display(
     fig.update_layout(
         title=title,
         uirevision='camera',  # This ensures camera views stay in sync
-        margin=dict(l=0, r=40, b=0, t=40),
-        height=500,
     )
 
     return fig

@@ -1,9 +1,11 @@
 """Depth display utilities for depth map visualization."""
-from typing import Dict, Any, Optional
-import torch
+
+from typing import Any, Dict, Optional
+
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import torch
 
 
 def create_depth_display(
@@ -11,7 +13,7 @@ def create_depth_display(
     title: str,
     colorscale: str = 'Viridis',
     ignore_value: Optional[float] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> go.Figure:
     """Create depth map display with proper visualization.
 
@@ -30,14 +32,21 @@ def create_depth_display(
     """
     # CRITICAL: Input validation with fail-fast assertions
     assert isinstance(depth, torch.Tensor), f"Expected torch.Tensor, got {type(depth)}"
-    assert depth.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
+    assert depth.ndim in [
+        2,
+        3,
+    ], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
     assert depth.numel() > 0, f"Depth tensor cannot be empty"
     assert isinstance(title, str), f"Expected str title, got {type(title)}"
-    assert isinstance(colorscale, str), f"Expected str colorscale, got {type(colorscale)}"
+    assert isinstance(
+        colorscale, str
+    ), f"Expected str colorscale, got {type(colorscale)}"
 
     # Handle batched input - extract single sample for visualization
     if depth.ndim == 3:
-        assert depth.shape[0] == 1, f"Expected batch size 1 for visualization, got {depth.shape[0]}"
+        assert (
+            depth.shape[0] == 1
+        ), f"Expected batch size 1 for visualization, got {depth.shape[0]}"
         depth = depth[0]  # [N, H, W] -> [H, W]
 
     # Convert to numpy for visualization
@@ -58,35 +67,46 @@ def create_depth_display(
                 valid_depth = depth_np.copy()
                 valid_depth[ignore_mask] = np.nan  # Hide ignore values for this trace
 
-                fig.add_trace(go.Heatmap(
-                    z=valid_depth,
-                    colorscale=colorscale,
-                    name='Valid Depth',
-                    showscale=True,
-                    colorbar=dict(title="Depth (m)", x=1.0)
-                ))
+                fig.add_trace(
+                    go.Heatmap(
+                        z=valid_depth,
+                        colorscale=colorscale,
+                        name='Valid Depth',
+                        showscale=True,
+                        colorbar=dict(title="Depth (m)", x=1.0),
+                    )
+                )
 
             # Add ignore values with subtle gray color
             if np.any(ignore_mask):
                 ignore_depth = np.full_like(depth_np, np.nan)
-                ignore_depth[ignore_mask] = 0  # Use 0 as placeholder for consistent coloring
+                ignore_depth[ignore_mask] = (
+                    0  # Use 0 as placeholder for consistent coloring
+                )
 
-                fig.add_trace(go.Heatmap(
-                    z=ignore_depth,
-                    colorscale=[[0, 'lightgray'], [1, 'lightgray']],  # Subtle gray for ignore values
-                    name='Ignore Values',
-                    showscale=False,  # Don't show colorbar for ignore values
-                    opacity=0.7  # Slightly transparent
-                ))
+                fig.add_trace(
+                    go.Heatmap(
+                        z=ignore_depth,
+                        colorscale=[
+                            [0, 'lightgray'],
+                            [1, 'lightgray'],
+                        ],  # Subtle gray for ignore values
+                        name='Ignore Values',
+                        showscale=False,  # Don't show colorbar for ignore values
+                        opacity=0.7,  # Slightly transparent
+                    )
+                )
 
             # Update layout to match image display behavior
             fig.update_layout(
                 title=title,
                 title_x=0.5,
-                margin=dict(l=20, r=20, t=40, b=20),
-                height=400,
-                xaxis=dict(showticklabels=True, scaleanchor="y", scaleratio=1),  # Lock aspect ratio
-                yaxis=dict(showticklabels=True, autorange='reversed')  # Enable tick labels and flip y-axis
+                xaxis=dict(
+                    showticklabels=True, scaleanchor="y", scaleratio=1
+                ),  # Lock aspect ratio
+                yaxis=dict(
+                    showticklabels=True, autorange='reversed'
+                ),  # Enable tick labels and flip y-axis
             )
         else:
             # No ignore values present, use standard visualization
@@ -94,7 +114,7 @@ def create_depth_display(
                 depth_np,
                 color_continuous_scale=colorscale,
                 title=title,
-                labels={'color': 'Depth'}
+                labels={'color': 'Depth'},
             )
     else:
         # No ignore value specified, use standard visualization
@@ -102,28 +122,25 @@ def create_depth_display(
             depth_np,
             color_continuous_scale=colorscale,
             title=title,
-            labels={'color': 'Depth'}
+            labels={'color': 'Depth'},
         )
 
     # Ensure layout is properly set for standard visualizations
     if ignore_value is None or not np.any(np.abs(depth_np - ignore_value) < 1e-5):
         fig.update_layout(
             title_x=0.5,
-            margin=dict(l=20, r=20, t=40, b=20),
-            height=400,
             coloraxis_colorbar=dict(title="Depth"),
             coloraxis_showscale=True,
             showlegend=False,
             xaxis=dict(scaleanchor="y", scaleratio=1),  # Lock aspect ratio
-            yaxis=dict(autorange='reversed')  # Standard image convention
+            yaxis=dict(autorange='reversed'),  # Standard image convention
         )
 
     return fig
 
 
 def get_depth_display_stats(
-    depth: torch.Tensor,
-    ignore_value: Optional[float] = None
+    depth: torch.Tensor, ignore_value: Optional[float] = None
 ) -> Dict[str, Any]:
     """Get depth statistics for display.
 
@@ -139,12 +156,17 @@ def get_depth_display_stats(
     """
     # Input validation
     assert isinstance(depth, torch.Tensor), f"Expected torch.Tensor, got {type(depth)}"
-    assert depth.ndim in [2, 3], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
+    assert depth.ndim in [
+        2,
+        3,
+    ], f"Expected 2D [H,W] or 3D [N,H,W] tensor, got shape {depth.shape}"
     assert depth.numel() > 0, f"Depth tensor cannot be empty"
 
     # Handle batched input - extract single sample for analysis
     if depth.ndim == 3:
-        assert depth.shape[0] == 1, f"Expected batch size 1 for analysis, got {depth.shape[0]}"
+        assert (
+            depth.shape[0] == 1
+        ), f"Expected batch size 1 for analysis, got {depth.shape[0]}"
         depth = depth[0]  # [N, H, W] -> [H, W]
 
     # Calculate statistics
@@ -170,7 +192,7 @@ def get_depth_display_stats(
             'min_depth': 'N/A',
             'max_depth': 'N/A',
             'mean_depth': 'N/A',
-            'std_depth': 'N/A'
+            'std_depth': 'N/A',
         }
 
     return {
@@ -181,5 +203,5 @@ def get_depth_display_stats(
         'min_depth': float(valid_depth.min()),
         'max_depth': float(valid_depth.max()),
         'mean_depth': float(valid_depth.mean()),
-        'std_depth': float(valid_depth.std())
+        'std_depth': float(valid_depth.std()),
     }
