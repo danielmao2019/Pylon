@@ -54,7 +54,7 @@ class ColmapExtractCamerasStep(BaseStep):
             logging.info("🎥 COLMAP cameras already extracted - SKIPPED")
             return {}
 
-        colmap_data = COLMAP_Data(model_dir=self.model_dir)
+        colmap_data = COLMAP_Data.load(model_dir=self.model_dir)
         create_nerfstudio_from_colmap(
             filename="transforms.json",
             colmap_cameras=colmap_data.cameras,

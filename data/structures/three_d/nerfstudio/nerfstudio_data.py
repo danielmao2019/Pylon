@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -7,44 +6,23 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.nerfstudio.load import (
-    load_applied_transform,
-    load_camera_model,
-    load_cameras,
-    load_filenames,
-    load_intrinsic_params,
-    load_intrinsics,
-    load_ply_file_path,
-    load_resolution,
-    load_split_filenames,
+    load_nerfstudio_data,
 )
-from data.structures.three_d.nerfstudio.save import (
-    save_applied_transform,
-    save_camera_model,
-    save_cameras,
-    save_intrinsic_params,
-    save_ply_file_path,
-    save_resolution,
-    save_split_filenames,
-)
+from data.structures.three_d.nerfstudio.save import save_nerfstudio_data
+from data.structures.three_d.nerfstudio.transform import transform_nerfstudio
 from data.structures.three_d.nerfstudio.validate import (
     validate_applied_transform,
-    validate_applied_transform_data,
     validate_camera_model,
-    validate_camera_model_data,
     validate_cameras,
     validate_data,
     validate_device,
     validate_filenames,
-    validate_frames_data,
     validate_intrinsic_params,
     validate_intrinsics,
     validate_intrinsics_data,
     validate_ply_file_path,
-    validate_ply_file_path_data,
     validate_resolution,
-    validate_resolution_data,
     validate_split_filenames,
-    validate_split_filenames_data,
 )
 
 
@@ -83,10 +61,11 @@ class NerfStudio_Data:
         ply_file_path: str,
         cameras: Cameras,
         filenames: List[str],
-        train_filenames: List[str] | None,
-        val_filenames: List[str] | None,
-        test_filenames: List[str] | None,
+        train_filenames: List[str] | None = None,
+        val_filenames: List[str] | None = None,
+        test_filenames: List[str] | None = None,
     ) -> None:
+        # Input validations
         validate_data(data)
         validate_device(device)
         validate_intrinsic_params(intrinsic_params)
@@ -153,28 +132,20 @@ class NerfStudio_Data:
         instance = cls.__new__(cls, filepath=path, device=target_device)
         if hasattr(instance, "_initialized") and instance._initialized:
             return instance
-        with path.open("r", encoding="utf-8") as handle:
-            data: Dict[str, Any] = json.load(handle)
-
-        validate_data(data)
-        validate_intrinsic_params(data)
-        validate_resolution_data(data)
-        validate_camera_model_data(data)
-        validate_intrinsics_data(data)
-        validate_applied_transform_data(data)
-        validate_ply_file_path_data(data)
-        validate_frames_data(data)
-        validate_split_filenames_data(data)
-
-        intrinsic_params = load_intrinsic_params(data)
-        resolution = load_resolution(data)
-        camera_model = load_camera_model(data)
-        intrinsics = load_intrinsics(data=data, device=target_device)
-        applied_transform = load_applied_transform(data)
-        ply_file_path = load_ply_file_path(data)
-        train_filenames, val_filenames, test_filenames = load_split_filenames(data)
-        cameras = load_cameras(data=data, device=target_device)
-        filenames = load_filenames(data)
+        (
+            data,
+            intrinsic_params,
+            resolution,
+            camera_model,
+            intrinsics,
+            applied_transform,
+            ply_file_path,
+            cameras,
+            filenames,
+            train_filenames,
+            val_filenames,
+            test_filenames,
+        ) = load_nerfstudio_data(filepath=path, device=target_device)
 
         instance.__init__(
             data=data,
@@ -195,70 +166,50 @@ class NerfStudio_Data:
         instance._filepath = path
         return instance
 
-    @staticmethod
-    def save(data: "NerfStudio_Data" | Dict[str, Any], filepath: str | Path) -> None:
+    def save(self, output_path: str | Path) -> None:
         # Input validations
-        assert isinstance(data, (NerfStudio_Data, dict)), f"{type(data)=}"
-        assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
+        assert isinstance(output_path, (str, Path)), f"{type(output_path)=}"
+
+        save_nerfstudio_data(data=self, filepath=output_path)
+
+    def to(
+        self,
+        device: str | torch.device | None = None,
+        convention: str | None = None,
+    ) -> "NerfStudio_Data":
+        # Input validations
+        assert device is None or isinstance(device, (str, torch.device)), f"{type(device)=}"
+        assert convention is None or isinstance(convention, str), f"{type(convention)=}"
 
         # Input normalizations
-        path = Path(filepath)
+        target_device = self.device if device is None else torch.device(device)
 
-        if isinstance(data, NerfStudio_Data):
-            modalities = data.data.get("modalities", [])
-            intrinsic_params = data.intrinsic_params
-            resolution = data.resolution
-            camera_model = data.camera_model
-            applied_transform = data.applied_transform
-            ply_file_path = data.ply_file_path
-            cameras = data.cameras
-            train_filenames = data.train_filenames
-            val_filenames = data.val_filenames
-            test_filenames = data.test_filenames
-        else:
-            assert "modalities" in data, f"{data.keys()=}"
-            modalities = data["modalities"]
-            assert isinstance(modalities, list), f"{type(modalities)=}"
-            assert all(isinstance(item, str) for item in modalities), f"{modalities=}"
-            assert "intrinsic_params" in data, f"{data.keys()=}"
-            intrinsic_params = data["intrinsic_params"]
-            assert isinstance(intrinsic_params, dict), f"{type(intrinsic_params)=}"
-            assert "resolution" in data, f"{data.keys()=}"
-            resolution = data["resolution"]
-            assert isinstance(resolution, tuple), f"{type(resolution)=}"
-            assert "camera_model" in data, f"{data.keys()=}"
-            camera_model = data["camera_model"]
-            assert isinstance(camera_model, str), f"{type(camera_model)=}"
-            assert "applied_transform" in data, f"{data.keys()=}"
-            applied_transform = data["applied_transform"]
-            assert isinstance(
-                applied_transform, np.ndarray
-            ), f"{type(applied_transform)=}"
-            assert "ply_file_path" in data, f"{data.keys()=}"
-            ply_file_path = data["ply_file_path"]
-            assert isinstance(ply_file_path, str), f"{type(ply_file_path)=}"
-            assert "cameras" in data, f"{data.keys()=}"
-            cameras = data["cameras"]
-            assert isinstance(cameras, list), f"{type(cameras)=}"
-            train_filenames = data.get("train_filenames")
-            val_filenames = data.get("val_filenames")
-            test_filenames = data.get("test_filenames")
-
-        payload: Dict[str, Any] = {}
-        payload.update(save_intrinsic_params(intrinsic_params))
-        payload.update(save_resolution(resolution))
-        payload.update(save_camera_model(camera_model))
-        payload.update(save_applied_transform(applied_transform))
-        payload.update(save_ply_file_path(ply_file_path))
-        payload.update(save_cameras(cameras, modalities=modalities))
-        payload.update(
-            save_split_filenames(
-                train=train_filenames,
-                val=val_filenames,
-                test=test_filenames,
-            )
+        self.cameras = self.cameras.to(
+            device=target_device,
+            convention=convention,
         )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2)
-            handle.write("\n")
+        self.device = target_device
+        return self
+
+    def transform(
+        self,
+        scale: float,
+        rotation: np.ndarray,
+        translation: np.ndarray,
+    ) -> None:
+        # Input validations
+        assert isinstance(scale, (int, float)), f"{type(scale)=}"
+        assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
+        assert rotation.shape == (3, 3), f"{rotation.shape=}"
+        assert rotation.dtype == np.float32, f"{rotation.dtype=}"
+        assert isinstance(translation, np.ndarray), f"{type(translation)=}"
+        assert translation.shape == (3,), f"{translation.shape=}"
+        assert translation.dtype == np.float32, f"{translation.dtype=}"
+
+        transformed_cameras = transform_nerfstudio(
+            cameras=self.cameras,
+            scale=scale,
+            rotation=rotation,
+            translation=translation,
+        )
+        self.cameras = transformed_cameras

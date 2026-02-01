@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 import numpy as np
 import torch
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from utils.three_d.rotation.quaternion import qvec2rotmat
@@ -102,13 +102,15 @@ def _extract_intrinsics_from_colmap(
 def _extract_cameras_from_colmap(
     colmap_images: Dict[int, ColmapImage],
     intrinsic_params: Dict[str, Any],
-) -> List[Camera]:
+) -> Cameras:
     # Input validations
     assert isinstance(colmap_images, dict), f"{type(colmap_images)=}"
     assert isinstance(intrinsic_params, dict), f"{type(intrinsic_params)=}"
     assert colmap_images, "No images available in COLMAP model"
 
-    cameras: List[Camera] = []
+    extrinsics_list: List[torch.Tensor] = []
+    camera_names: List[str] = []
+    camera_ids: List[int] = []
     intrinsics = torch.tensor(
         [
             [intrinsic_params["fl_x"], 0.0, intrinsic_params["cx"]],
@@ -117,6 +119,7 @@ def _extract_cameras_from_colmap(
         ],
         dtype=torch.float32,
     )
+    intrinsics_list = [intrinsics for _ in colmap_images]
     for image_id, image in sorted(colmap_images.items()):
         rotation = qvec2rotmat(image.qvec)
         translation = image.tvec.reshape(3, 1)
@@ -126,36 +129,43 @@ def _extract_cameras_from_colmap(
         )
         camera_to_world = np.linalg.inv(world_to_camera)
         extrinsics_opencv = torch.from_numpy(camera_to_world).to(torch.float32)
-        camera = Camera(
-            intrinsics=intrinsics,
-            extrinsics=extrinsics_opencv,
-            convention="opencv",
-            name=Path(image.name).stem,
-            id=image_id,
-            device=extrinsics_opencv.device,
-        ).to(convention="opengl")
-        cameras.append(camera)
-    return cameras
+        extrinsics_list.append(extrinsics_opencv)
+        camera_names.append(Path(image.name).stem)
+        camera_ids.append(image_id)
+    assert extrinsics_list, "No cameras extracted from COLMAP images"
+    cameras = Cameras(
+        intrinsics=intrinsics_list,
+        extrinsics=extrinsics_list,
+        conventions=["opencv" for _ in extrinsics_list],
+        names=camera_names,
+        ids=camera_ids,
+        device=extrinsics_list[0].device,
+    )
+    return cameras.to(convention="opengl")
 
 
-def _determine_modalities(cameras: List[Camera], output_dir: Path) -> List[str]:
+def _determine_modalities(cameras: Cameras, output_dir: Path) -> List[str]:
     # Input validations
-    assert isinstance(cameras, list), f"{type(cameras)=}"
-    assert cameras, "cameras must be non-empty"
+    assert isinstance(cameras, Cameras), f"{type(cameras)=}"
+    assert len(cameras) > 0, "cameras must be non-empty"
     assert isinstance(output_dir, Path), f"{type(output_dir)=}"
+    assert all(
+        name is not None for name in cameras.names
+    ), f"{list(cameras.names)=}"
+
+    # Input normalizations
+    camera_names = list(cameras.names)
 
     modalities = ["images"]
 
     depths_dir = output_dir / "depths"
     if depths_dir.is_dir():
-        camera_names = [camera.name for camera in cameras]
         depth_names = {path.stem for path in depths_dir.glob("*.png")}
         if set(camera_names).issubset(depth_names):
             modalities.append("depths")
 
     masks_dir = output_dir / "masks"
     if masks_dir.is_dir():
-        camera_names = [camera.name for camera in cameras]
         mask_names = {path.stem for path in masks_dir.glob("*.png")}
         if set(camera_names).issubset(mask_names):
             modalities.append("masks")
@@ -187,25 +197,43 @@ def create_nerfstudio_from_colmap(
     )
     modalities = _determine_modalities(cameras=cameras, output_dir=Path(output_dir))
 
+    camera_names = list(cameras.names)
+
+    nerfstudio_intrinsic_params = {
+        "fl_x": intrinsic_params["fl_x"],
+        "fl_y": intrinsic_params["fl_y"],
+        "cx": intrinsic_params["cx"],
+        "cy": intrinsic_params["cy"],
+        "k1": intrinsic_params["k1"],
+        "k2": intrinsic_params["k2"],
+        "p1": intrinsic_params["p1"],
+        "p2": intrinsic_params["p2"],
+    }
+    resolution = (intrinsic_params["h"], intrinsic_params["w"])
+    camera_model = intrinsic_params["camera_model"]
+    intrinsics = cameras[0].intrinsics
+    applied_transform = DEFAULT_APPLIED_TRANSFORM
+    filenames = [f"images/{name}.png" for name in camera_names]
+
     payload: Dict[str, Any] = {
         "modalities": modalities,
-        "intrinsic_params": {
-            "fl_x": intrinsic_params["fl_x"],
-            "fl_y": intrinsic_params["fl_y"],
-            "cx": intrinsic_params["cx"],
-            "cy": intrinsic_params["cy"],
-            "k1": intrinsic_params["k1"],
-            "k2": intrinsic_params["k2"],
-            "p1": intrinsic_params["p1"],
-            "p2": intrinsic_params["p2"],
-        },
-        "resolution": (intrinsic_params["h"], intrinsic_params["w"]),
-        "camera_model": intrinsic_params["camera_model"],
-        "applied_transform": DEFAULT_APPLIED_TRANSFORM,
-        "ply_file_path": ply_file_path,
-        "cameras": cameras,
     }
-    NerfStudio_Data.save(payload, output_path)
+    nerfstudio_data = NerfStudio_Data(
+        data=payload,
+        device=cameras[0].device,
+        intrinsic_params=nerfstudio_intrinsic_params,
+        resolution=resolution,
+        camera_model=camera_model,
+        intrinsics=intrinsics,
+        applied_transform=applied_transform,
+        ply_file_path=ply_file_path,
+        cameras=cameras,
+        filenames=filenames,
+        train_filenames=None,
+        val_filenames=None,
+        test_filenames=None,
+    )
+    nerfstudio_data.save(output_path=output_path)
     return output_path
 
 

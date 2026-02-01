@@ -6,13 +6,14 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
 from PIL import Image
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud import save_point_cloud
 from data.structures.three_d.point_cloud.ops.rendering.common import (
@@ -146,37 +147,59 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
     nerfstudio_path = root / "transforms.json"
     nerfstudio_path.parent.mkdir(parents=True, exist_ok=True)
 
-    payload: Dict[str, Any] = {
-        "intrinsic_params": {
-            "fl_x": float(cameras[0].fx),
-            "fl_y": float(cameras[0].fy),
-            "cx": float(cameras[0].cx),
-            "cy": float(cameras[0].cy),
-            "k1": 0.0,
-            "k2": 0.0,
-            "p1": 0.0,
-            "p2": 0.0,
-        },
-        "resolution": (
-            int(round(float(cameras[0].cy * 2.0))),
-            int(round(float(cameras[0].cx * 2.0))),
-        ),
-        "camera_model": "OPENCV",
-        "applied_transform": np.array(
-            [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, -1.0, 0.0, 0.0],
-            ],
-            dtype=np.float32,
-        ),
-        "ply_file_path": "point_cloud.ply",
-        "cameras": cameras,
-        "train_filenames": None,
-        "val_filenames": None,
-        "test_filenames": None,
+    camera_names = [camera.name for camera in cameras]
+    assert all(name is not None for name in camera_names), f"{camera_names=}"
+
+    intrinsic_params = {
+        "fl_x": float(cameras[0].fx),
+        "fl_y": float(cameras[0].fy),
+        "cx": float(cameras[0].cx),
+        "cy": float(cameras[0].cy),
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0,
     }
-    NerfStudio_Data.save(payload, nerfstudio_path)
+    resolution = (
+        int(round(float(cameras[0].cy * 2.0))),
+        int(round(float(cameras[0].cx * 2.0))),
+    )
+    camera_model = "OPENCV"
+    intrinsics = cameras[0].intrinsics
+    applied_transform = np.array(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, -1.0, 0.0, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    nerfstudio_cameras = Cameras(
+        intrinsics=[camera.intrinsics for camera in cameras],
+        extrinsics=[camera.extrinsics for camera in cameras],
+        conventions=[camera.convention for camera in cameras],
+        names=camera_names,
+        ids=[camera.id for camera in cameras],
+        device=cameras[0].device,
+    )
+    filenames = [f"images/{name}.png" for name in camera_names]
+    payload: Dict[str, Any] = {}
+    nerfstudio_data = NerfStudio_Data(
+        data=payload,
+        device=cameras[0].device,
+        intrinsic_params=intrinsic_params,
+        resolution=resolution,
+        camera_model=camera_model,
+        intrinsics=intrinsics,
+        applied_transform=applied_transform,
+        ply_file_path="point_cloud.ply",
+        cameras=nerfstudio_cameras,
+        filenames=filenames,
+        train_filenames=None,
+        val_filenames=None,
+        test_filenames=None,
+    )
+    nerfstudio_data.save(output_path=nerfstudio_path)
 
 
 def _run_ns_train_splatfacto(

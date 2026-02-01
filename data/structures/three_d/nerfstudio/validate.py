@@ -19,6 +19,7 @@ def validate_device(device: torch.device) -> None:
 
 def validate_intrinsic_params(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert "fl_x" in data, "transforms.json missing fl_x"
     assert "fl_y" in data, "transforms.json missing fl_y"
     assert "cx" in data, "transforms.json missing cx"
@@ -43,6 +44,7 @@ def validate_intrinsic_params(data: Dict[str, Any]) -> None:
 
 def validate_intrinsics_data(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert float(data["fl_x"]) > 0.0, "fl_x must be positive"
     assert float(data["fl_y"]) > 0.0, "fl_y must be positive"
     assert float(data["cx"]) >= 0.0, "cx must be non-negative"
@@ -51,6 +53,7 @@ def validate_intrinsics_data(data: Dict[str, Any]) -> None:
 
 def validate_resolution_data(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert "w" in data and "h" in data, "transforms.json must include w and h"
     assert isinstance(data["w"], int), f"{type(data['w'])=}"
     assert isinstance(data["h"], int), f"{type(data['h'])=}"
@@ -98,6 +101,7 @@ def validate_resolution(
 
 def validate_camera_model_data(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert "camera_model" in data, "transforms.json missing camera_model"
     assert (
         data["camera_model"] == "OPENCV"
@@ -119,6 +123,7 @@ def validate_intrinsics(intrinsics: torch.Tensor) -> None:
 
 def validate_applied_transform_data(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert "applied_transform" in data, "transforms.json missing applied_transform"
     assert np.asarray(data["applied_transform"], dtype=np.float32).shape == (3, 4)
 
@@ -131,6 +136,7 @@ def validate_applied_transform(applied_transform: np.ndarray) -> None:
 
 def validate_ply_file_path_data(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert "ply_file_path" in data, "transforms.json missing ply_file_path"
     assert isinstance(data["ply_file_path"], str), f"{type(data['ply_file_path'])=}"
 
@@ -142,6 +148,7 @@ def validate_ply_file_path(ply_file_path: str) -> None:
 
 def validate_frames_data(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert "frames" in data, "transforms.json missing frames"
     assert isinstance(data["frames"], list), "frames must be a list"
     assert data["frames"], "frames must be non-empty"
@@ -170,6 +177,7 @@ def validate_frames_data(data: Dict[str, Any]) -> None:
 
 def validate_split_filenames_data(data: Dict[str, Any]) -> None:
     # Input validations
+    assert isinstance(data, dict), f"{type(data)=}"
     assert (
         "train_filenames" in data
         and "val_filenames" in data

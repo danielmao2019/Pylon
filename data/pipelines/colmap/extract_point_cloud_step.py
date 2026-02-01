@@ -33,7 +33,7 @@ class ColmapExtractPointCloudStep(BaseStep):
             return {}
 
         logging.info("🌐 Extracting COLMAP sparse point cloud")
-        colmap_data = COLMAP_Data(model_dir=self.model_dir)
+        colmap_data = COLMAP_Data.load(model_dir=self.model_dir)
         points3D = colmap_data.points3D
         ply_path = create_ply_from_colmap(
             filename="sparse_pc.ply",

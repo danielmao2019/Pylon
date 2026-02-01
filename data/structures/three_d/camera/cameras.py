@@ -163,6 +163,42 @@ class Cameras:
         for idx in range(len(self)):
             yield self[idx]
 
+    def to(
+        self,
+        device: str | torch.device | None = None,
+        convention: str | None = None,
+    ) -> "Cameras":
+        # Input validations
+        assert device is None or isinstance(device, (str, torch.device)), f"{type(device)=}"
+        assert convention is None or isinstance(convention, str), f"{type(convention)=}"
+
+        # Input normalizations
+        target_device = self._device if device is None else torch.device(device)
+
+        intrinsics_list: List[torch.Tensor] = []
+        extrinsics_list: List[torch.Tensor] = []
+        conventions: List[str] = []
+        names: List[str | None] = []
+        ids: List[int | None] = []
+        for idx in range(len(self)):
+            camera = self[idx].to(
+                device=target_device,
+                convention=convention,
+            )
+            intrinsics_list.append(camera.intrinsics)
+            extrinsics_list.append(camera.extrinsics)
+            conventions.append(camera.convention)
+            names.append(camera.name)
+            ids.append(camera.id)
+        return Cameras(
+            intrinsics=intrinsics_list,
+            extrinsics=extrinsics_list,
+            conventions=conventions,
+            names=names,
+            ids=ids,
+            device=target_device,
+        )
+
     @property
     def intrinsics(self) -> torch.Tensor:
         return self._intrinsics

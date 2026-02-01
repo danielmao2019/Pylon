@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -6,6 +7,17 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.validation import validate_camera_intrinsics
+from data.structures.three_d.nerfstudio.validate import (
+    validate_applied_transform_data,
+    validate_camera_model_data,
+    validate_data,
+    validate_frames_data,
+    validate_intrinsic_params,
+    validate_intrinsics_data,
+    validate_ply_file_path_data,
+    validate_resolution_data,
+    validate_split_filenames_data,
+)
 
 
 def load_intrinsic_params(data: Dict[str, Any]) -> Dict[str, float | int]:
@@ -94,3 +106,68 @@ def load_split_filenames(
     if "train_filenames" not in data:
         return None, None, None
     return data["train_filenames"], data["val_filenames"], data["test_filenames"]
+
+
+def load_nerfstudio_data(
+    filepath: str | Path,
+    device: str | torch.device = torch.device("cuda"),
+) -> Tuple[
+    Dict[str, Any],
+    Dict[str, float | int],
+    Tuple[int, int],
+    str,
+    torch.Tensor,
+    np.ndarray,
+    str,
+    Cameras,
+    List[str],
+    List[str] | None,
+    List[str] | None,
+    List[str] | None,
+]:
+    # Input validations
+    assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
+    assert isinstance(device, (str, torch.device)), f"{type(device)=}"
+
+    # Input normalizations
+    path = Path(filepath).resolve()
+    target_device = torch.device(device)
+
+    assert path.is_file(), f"transforms.json not found: {path}"
+    with path.open("r", encoding="utf-8") as handle:
+        data: Dict[str, Any] = json.load(handle)
+
+    validate_data(data)
+    validate_intrinsic_params(data)
+    validate_resolution_data(data)
+    validate_camera_model_data(data)
+    validate_intrinsics_data(data)
+    validate_applied_transform_data(data)
+    validate_ply_file_path_data(data)
+    validate_frames_data(data)
+    validate_split_filenames_data(data)
+
+    intrinsic_params = load_intrinsic_params(data)
+    resolution = load_resolution(data)
+    camera_model = load_camera_model(data)
+    intrinsics = load_intrinsics(data=data, device=target_device)
+    applied_transform = load_applied_transform(data)
+    ply_file_path = load_ply_file_path(data)
+    train_filenames, val_filenames, test_filenames = load_split_filenames(data)
+    cameras = load_cameras(data=data, device=target_device)
+    filenames = load_filenames(data)
+
+    return (
+        data,
+        intrinsic_params,
+        resolution,
+        camera_model,
+        intrinsics,
+        applied_transform,
+        ply_file_path,
+        cameras,
+        filenames,
+        train_filenames,
+        val_filenames,
+        test_filenames,
+    )

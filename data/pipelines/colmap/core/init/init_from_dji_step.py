@@ -87,13 +87,12 @@ class ColmapInitFromDJIStep(BaseStep):
             params=params,
             poses=poses,
         )
-        colmap_data = COLMAP_Data.from_data(
-            model_dir=self.model_dir,
+        colmap_data = COLMAP_Data(
             cameras=colmap_cameras,
             images=colmap_images,
             points3D=colmap_points,
         )
-        colmap_data.save()
+        colmap_data.save(output_dir=self.model_dir)
         return {}
 
     def _load_camera_from_database(

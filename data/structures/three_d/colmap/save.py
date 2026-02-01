@@ -12,28 +12,27 @@ from data.structures.three_d.colmap.load import CAMERA_MODEL_NAME_TO_ID, CAMERA_
 
 
 def save_colmap_data(
-    output_dir: str | Path,
-    cameras: Dict[int, Any],
-    images: Dict[int, Any],
-    points3D: Dict[int, Any],
+    data: "COLMAP_Data",
+    output_path: str | Path,
 ) -> None:
     # Input validations
-    assert isinstance(output_dir, (str, Path)), f"{type(output_dir)=}"
-    assert isinstance(cameras, dict), f"{type(cameras)=}"
-    assert isinstance(images, dict), f"{type(images)=}"
-    assert isinstance(points3D, dict), f"{type(points3D)=}"
+    assert data.__class__.__name__ == "COLMAP_Data", f"{type(data)=}"
+    assert (
+        data.__class__.__module__ == "data.structures.three_d.colmap.colmap_data"
+    ), f"{type(data)=}"
+    assert isinstance(output_path, (str, Path)), f"{type(output_path)=}"
 
     _save_colmap_data_bin(
-        output_dir=output_dir,
-        cameras=cameras,
-        images=images,
-        points3D=points3D,
+        output_dir=output_path,
+        cameras=data.cameras,
+        images=data.images,
+        points3D=data.points3D,
     )
     _save_colmap_data_txt(
-        output_dir=output_dir,
-        cameras=cameras,
-        images=images,
-        points3D=points3D,
+        output_dir=output_path,
+        cameras=data.cameras,
+        images=data.images,
+        points3D=data.points3D,
     )
 
 
