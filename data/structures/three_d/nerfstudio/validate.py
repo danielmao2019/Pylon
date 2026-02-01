@@ -13,6 +13,7 @@ MODALITY_SPECS = {
     "normal": ("normal_path", "normals"),
     "mask": ("mask_path", "masks"),
 }
+MODALITY_KEYS = tuple(spec[0] for spec in MODALITY_SPECS.values())
 
 
 def validate_data(data: Dict[str, Any]) -> None:
@@ -178,6 +179,24 @@ def validate_frames_data(data: Dict[str, Any]) -> None:
         for frame in data["frames"]
     )
     assert all(
+        ("depth_path" not in frame)
+        or (
+            isinstance(frame["depth_path"], str)
+            and frame["depth_path"].startswith("depths/")
+            and frame["depth_path"].endswith(".png")
+        )
+        for frame in data["frames"]
+    )
+    assert all(
+        ("normal_path" not in frame)
+        or (
+            isinstance(frame["normal_path"], str)
+            and frame["normal_path"].startswith("normals/")
+            and frame["normal_path"].endswith(".png")
+        )
+        for frame in data["frames"]
+    )
+    assert all(
         ("mask_path" not in frame)
         or (
             isinstance(frame["mask_path"], str)
@@ -186,6 +205,17 @@ def validate_frames_data(data: Dict[str, Any]) -> None:
         )
         for frame in data["frames"]
     )
+    assert all(
+        set(frame.keys()) & set(MODALITY_KEYS)
+        == set(data["frames"][0].keys()) & set(MODALITY_KEYS)
+        for frame in data["frames"]
+    ), "frames must have consistent modalities"
+    assert all(
+        (key not in frame)
+        or (Path(frame[key]).stem == Path(frame["file_path"]).stem)
+        for frame in data["frames"]
+        for key in MODALITY_KEYS
+    ), "modality filenames must match file_path stems"
     assert all("transform_matrix" in frame for frame in data["frames"])
     assert all(
         ("colmap_image_id" not in frame) or isinstance(frame["colmap_image_id"], int)
@@ -240,6 +270,8 @@ def validate_filenames(filenames: List[str]) -> None:
     assert isinstance(filenames, list), f"{type(filenames)=}"
     assert filenames, "filenames must be non-empty"
     assert all(isinstance(item, str) for item in filenames), f"{filenames=}"
+    assert all(Path(item).name == item for item in filenames), f"{filenames=}"
+    assert all(Path(item).suffix == "" for item in filenames), f"{filenames=}"
 
 
 def validate_split_filenames(
@@ -264,6 +296,14 @@ def validate_split_filenames(
     assert val is None or all(isinstance(item, str) for item in val), f"{val=}"
     assert test is None or all(isinstance(item, str) for item in test), f"{test=}"
     assert all(isinstance(item, str) for item in filenames), f"{filenames=}"
+    assert train is None or all(Path(item).name == item for item in train), f"{train=}"
+    assert val is None or all(Path(item).name == item for item in val), f"{val=}"
+    assert test is None or all(Path(item).name == item for item in test), f"{test=}"
+    assert train is None or all(Path(item).suffix == "" for item in train), f"{train=}"
+    assert val is None or all(Path(item).suffix == "" for item in val), f"{val=}"
+    assert test is None or all(Path(item).suffix == "" for item in test), f"{test=}"
+    assert all(Path(item).name == item for item in filenames), f"{filenames=}"
+    assert all(Path(item).suffix == "" for item in filenames), f"{filenames=}"
     assert train is None or set(filenames) == set(train) | set(val) | set(
         test
     ), "train/val/test filenames must match frames file_path entries"
