@@ -6,11 +6,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import dash
 import torch
-from project.datasets.ivision.ivision_3d_scene_dataset import (
-    iVISION_3D_Scene_Dataset,
-)
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.rotation.pitch_yaw import (
+    matrix_to_pitch_yaw,
+    pitch_yaw_to_matrix,
+)
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.viewer.ivision.callbacks import register_viewer_callbacks
 from data.viewer.ivision.layout import (
@@ -19,7 +20,9 @@ from data.viewer.ivision.layout import (
     build_layout,
 )
 from models.three_d.base import BaseSceneModel
-from utils.three_d.rotation.pitch_yaw import matrix_to_pitch_yaw, pitch_yaw_to_matrix
+from project.datasets.ivision.ivision_3d_scene_dataset import (
+    iVISION_3D_Scene_Dataset,
+)
 
 
 class iVISION_4D_Scene_Viewer:

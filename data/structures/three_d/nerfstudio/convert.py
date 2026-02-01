@@ -6,6 +6,7 @@ from typing import Dict
 import numpy as np
 import torch
 
+from data.structures.three_d.camera.rotation.quaternion import rotmat2qvec
 from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 from data.structures.three_d.colmap.load import (
     ColmapCamera,
@@ -15,7 +16,6 @@ from data.structures.three_d.colmap.load import (
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from utils.three_d.rotation.quaternion import rotmat2qvec
 
 
 def convert_nerfstudio_to_colmap(

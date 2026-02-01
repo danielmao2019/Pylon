@@ -1,10 +1,12 @@
-from typing import Tuple, Optional, Any
+from typing import Any, Optional, Tuple
+
 import numpy as np
 import torch
-from data.transforms.base_transform import BaseTransform
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
+from data.structures.three_d.camera.rotation.rodrigues import rodrigues_to_matrix
 from data.structures.three_d.point_cloud.ops import apply_transform
-from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.transforms.base_transform import BaseTransform
 
 
 class RandomRigidTransform(BaseTransform):

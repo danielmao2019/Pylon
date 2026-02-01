@@ -1,9 +1,11 @@
-import torch
 import math
-from utils.three_d.rotation.euler import (
+
+import torch
+
+from data.structures.three_d.camera.rotation.euler import (
+    euler_canonical,
     euler_to_matrix,
     matrix_to_euler,
-    euler_canonical,
 )
 
 

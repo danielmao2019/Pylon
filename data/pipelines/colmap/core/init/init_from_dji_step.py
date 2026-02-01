@@ -8,9 +8,10 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import pyproj
 import torch
-from project.data.structures.dji_data import DJI_Data
 
 from data.pipelines.base_step import BaseStep
+from data.structures.three_d.camera.rotation.euler import euler_to_matrix
+from data.structures.three_d.camera.rotation.quaternion import rotmat2qvec
 from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 from data.structures.three_d.colmap.load import (
     CAMERA_MODELS,
@@ -18,8 +19,7 @@ from data.structures.three_d.colmap.load import (
     ColmapImage,
     ColmapPoint3D,
 )
-from utils.three_d.rotation.euler import euler_to_matrix
-from utils.three_d.rotation.quaternion import rotmat2qvec
+from project.data.structures.dji_data import DJI_Data
 
 
 class ColmapInitFromDJIStep(BaseStep):

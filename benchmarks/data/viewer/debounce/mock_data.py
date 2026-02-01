@@ -1,9 +1,11 @@
 """Generate synthetic point cloud registration data for benchmarking."""
 
+from typing import Any, Dict, List
+
 import numpy as np
 import torch
-from typing import Dict, List, Any
-from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
+
+from data.structures.three_d.camera.rotation.rodrigues import rodrigues_to_matrix
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 

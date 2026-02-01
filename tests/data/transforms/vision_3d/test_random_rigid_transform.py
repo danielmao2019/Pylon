@@ -1,10 +1,11 @@
+import numpy as np
 import pytest
 import torch
-import numpy as np
+
+from data.structures.three_d.camera.rotation.rodrigues import rodrigues_to_matrix
+from data.structures.three_d.point_cloud.ops import apply_transform
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
-from data.structures.three_d.point_cloud.ops import apply_transform
-from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

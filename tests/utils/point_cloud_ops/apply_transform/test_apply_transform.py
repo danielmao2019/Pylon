@@ -1,10 +1,11 @@
 """Tests for point cloud operations."""
 
 import numpy as np
-import torch
 import pytest
+import torch
+
+from data.structures.three_d.camera.rotation.rodrigues import rodrigues_to_matrix
 from data.structures.three_d.point_cloud.ops import apply_transform
-from utils.three_d.rotation.rodrigues import rodrigues_to_matrix
 
 
 @pytest.fixture

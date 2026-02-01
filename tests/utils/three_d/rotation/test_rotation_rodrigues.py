@@ -1,9 +1,11 @@
-import torch
 import math
-from utils.three_d.rotation.rodrigues import (
-    rodrigues_to_matrix,
+
+import torch
+
+from data.structures.three_d.camera.rotation.rodrigues import (
     matrix_to_rodrigues,
     rodrigues_canonical,
+    rodrigues_to_matrix,
 )
 
 
