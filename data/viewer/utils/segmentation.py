@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
+import plotly.express as px
 import plotly.graph_objects as go
 import torch
 from dash import dcc, html
@@ -157,28 +158,22 @@ def create_segmentation_figure(
     # Convert segmentation map to RGB
     colored_map = segmentation_to_numpy(seg)
 
-    # Create figure - explicitly disable color scale for RGB images
-    fig = go.Figure(data=go.Image(z=colored_map))
+    fig = px.imshow(colored_map, title=title)
 
     fig.update_layout(
-        title=dict(text=title, x=0.5, xanchor='center'),
+        title_x=0.5,
+        coloraxis_showscale=False,
+        showlegend=False,
         xaxis=dict(
             scaleanchor="y",
             scaleratio=1,  # Lock aspect ratio
-            showticklabels=False,
-            showgrid=False,
-            zeroline=False,
+            showticklabels=True,
         ),
         yaxis=dict(
             autorange='reversed',  # Standard image convention
-            showticklabels=False,
-            showgrid=False,
-            zeroline=False,
+            showticklabels=True,
         ),
     )
-
-    # Ensure no colorbar/colorscale is shown
-    fig.update_traces(hovertemplate=None, hoverinfo='skip')
 
     return fig
 
