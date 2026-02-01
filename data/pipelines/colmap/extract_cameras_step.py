@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 import torch
 
@@ -10,6 +10,7 @@ from data.pipelines.base_step import BaseStep
 from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 from data.structures.three_d.colmap.convert import create_nerfstudio_from_colmap
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
+from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS
 
 
 class ColmapExtractCamerasStep(BaseStep):
@@ -36,11 +37,9 @@ class ColmapExtractCamerasStep(BaseStep):
             nerfstudio = NerfStudio_Data.load(
                 filepath=self.transforms_path, device=torch.device("cpu")
             )
-            frame_names = [Path(name).name for name in nerfstudio.filenames]
-            disk_names = self._validate_disk_images()
-            assert set(frame_names) == disk_names, (
-                "Frame file_paths do not match undistorted images on disk. "
-                f"frames={len(frame_names)} disk={len(disk_names)}"
+            self._validate_conversion(
+                modalities=nerfstudio.modalities,
+                filenames=nerfstudio.filenames,
             )
         except Exception as e:
             logging.debug("COLMAP NerfStudio_Data validation failed: %s", e)
@@ -67,21 +66,61 @@ class ColmapExtractCamerasStep(BaseStep):
         )
         return {}
 
-    def _validate_disk_images(self) -> set[str]:
-        images_dir = self.output_root / "images"
-        assert (
-            images_dir.is_dir()
-        ), f"Undistorted images directory not found: {images_dir}"
-        disk_images = sorted(
-            entry.name for entry in images_dir.iterdir() if entry.is_file()
+    def _validate_conversion(self, modalities: List[str], filenames: List[str]) -> None:
+        # Input validations
+        assert isinstance(modalities, list), f"{type(modalities)=}"
+        assert modalities, "modalities must be non-empty"
+        assert all(isinstance(item, str) for item in modalities), f"{modalities=}"
+        assert isinstance(filenames, list), f"{type(filenames)=}"
+        assert filenames, "filenames must be non-empty"
+        assert all(isinstance(item, str) for item in filenames), f"{filenames=}"
+
+        disk_modalities, disk_filenames = self._get_disk_modalities_filenames()
+        assert set(disk_modalities) == set(modalities), (
+            "Modalities on disk do not match transforms.json: "
+            f"disk={disk_modalities} expected={modalities}"
         )
-        assert disk_images, f"No images found in {images_dir}"
-        disk_names = set(disk_images)
-        assert len(disk_names) == len(disk_images), (
-            "Duplicate image filenames present on disk: "
-            f"{', '.join(sorted(name for name in disk_images if disk_images.count(name) > 1))}"
+        assert set(disk_filenames) == set(filenames), (
+            "Filenames on disk do not match transforms.json: "
+            f"disk={len(disk_filenames)} expected={len(filenames)}"
         )
-        assert all(
-            name.endswith(".png") for name in disk_names
-        ), f"Non-PNG images present in {images_dir}"
-        return disk_names
+
+    def _get_disk_modalities_filenames(self) -> Tuple[List[str], List[str]]:
+        # Input validations
+        assert self.output_root.is_dir(), f"{self.output_root=}"
+
+        disk_modalities: List[str] = []
+        disk_filenames: List[str] = []
+        filenames_by_modality: Dict[str, List[str]] = {}
+
+        for modality, spec in MODALITY_SPECS.items():
+            modality_folder = spec[1]
+            modality_dir = self.output_root / modality_folder
+            if not modality_dir.is_dir():
+                continue
+            disk_modalities.append(modality)
+            modality_files = sorted(
+                entry.name for entry in modality_dir.glob("*.png") if entry.is_file()
+            )
+            assert modality_files, f"No images found in {modality_dir}"
+            unique_files = set(modality_files)
+            assert len(unique_files) == len(modality_files), (
+                "Duplicate image filenames present on disk: "
+                f"{', '.join(sorted(name for name in modality_files if modality_files.count(name) > 1))}"
+            )
+            filenames_by_modality[modality] = [
+                Path(name).stem for name in modality_files
+            ]
+
+        assert disk_modalities, "No modality folders found on disk"
+        assert "image" in disk_modalities, "Image modality folder must exist"
+        image_filenames = set(filenames_by_modality["image"])
+        assert image_filenames, "No filenames found for image modality"
+        for modality in disk_modalities:
+            assert set(filenames_by_modality[modality]) == image_filenames, (
+                "Modality subfolders must contain identical filenames: "
+                f"image vs {modality}"
+            )
+
+        disk_filenames = sorted(image_filenames)
+        return disk_modalities, disk_filenames

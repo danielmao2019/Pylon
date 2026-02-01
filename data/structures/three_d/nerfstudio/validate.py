@@ -287,31 +287,31 @@ def validate_filenames(filenames: List[str]) -> None:
 
 
 def validate_split_filenames(
-    train: Optional[List[str]],
-    val: Optional[List[str]],
-    test: Optional[List[str]],
+    train_filenames: Optional[List[str]],
+    val_filenames: Optional[List[str]],
+    test_filenames: Optional[List[str]],
     filenames: List[str],
 ) -> None:
     # Input validations
-    assert (train is None and val is None and test is None) or (
-        train is not None and val is not None and test is not None
+    assert (
+        train_filenames is None and val_filenames is None and test_filenames is None
+    ) or (
+        train_filenames is not None
+        and val_filenames is not None
+        and test_filenames is not None
     ), "train/val/test filenames must all be provided together or all omitted"
-    assert train is None or isinstance(train, list), f"{type(train)=}"
-    assert train is None or train, "train_filenames must be non-empty"
-    assert train is None or all(isinstance(item, str) for item in train), f"{train=}"
-    assert train is None or all(Path(item).name == item for item in train), f"{train=}"
-    assert train is None or all(Path(item).suffix == "" for item in train), f"{train=}"
-    assert val is None or isinstance(val, list), f"{type(val)=}"
-    assert val is None or val, "val_filenames must be non-empty"
-    assert val is None or all(isinstance(item, str) for item in val), f"{val=}"
-    assert val is None or all(Path(item).name == item for item in val), f"{val=}"
-    assert val is None or all(Path(item).suffix == "" for item in val), f"{val=}"
-    assert test is None or isinstance(test, list), f"{type(test)=}"
-    assert test is None or test, "test_filenames must be non-empty"
-    assert test is None or all(isinstance(item, str) for item in test), f"{test=}"
-    assert test is None or all(Path(item).name == item for item in test), f"{test=}"
-    assert test is None or all(Path(item).suffix == "" for item in test), f"{test=}"
+    assert (
+        train_filenames is None or validate_filenames(train_filenames) is None
+    ), f"{train_filenames=}"
+    assert (
+        val_filenames is None or validate_filenames(val_filenames) is None
+    ), f"{val_filenames=}"
+    assert (
+        test_filenames is None or validate_filenames(test_filenames) is None
+    ), f"{test_filenames=}"
     validate_filenames(filenames)
-    assert train is None or set(filenames) == set(train) | set(val) | set(
-        test
+    assert train_filenames is None or set(filenames) == set(train_filenames) | set(
+        val_filenames
+    ) | set(
+        test_filenames
     ), "train/val/test filenames must match frames file_path entries"

@@ -81,9 +81,9 @@ class NerfStudio_Data:
         validate_modalities(modalities)
         validate_filenames(filenames)
         validate_split_filenames(
-            train=train_filenames,
-            val=val_filenames,
-            test=test_filenames,
+            train_filenames=train_filenames,
+            val_filenames=val_filenames,
+            test_filenames=test_filenames,
             filenames=filenames,
         )
 
