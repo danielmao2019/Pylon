@@ -1,13 +1,14 @@
-from pathlib import Path
 from typing import Iterator, List, Sequence
 
+import numpy as np
 import torch
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.camera import Camera, _stabilize_rotation_matrix
 from data.structures.three_d.camera.validation import (
     validate_camera_convention,
     validate_camera_extrinsics,
     validate_camera_intrinsics,
+    validate_rotation_matrix,
 )
 
 
@@ -169,7 +170,9 @@ class Cameras:
         convention: str | None = None,
     ) -> "Cameras":
         # Input validations
-        assert device is None or isinstance(device, (str, torch.device)), f"{type(device)=}"
+        assert device is None or isinstance(
+            device, (str, torch.device)
+        ), f"{type(device)=}"
         assert convention is None or isinstance(convention, str), f"{type(convention)=}"
 
         # Input normalizations
@@ -197,6 +200,67 @@ class Cameras:
             names=names,
             ids=ids,
             device=target_device,
+        )
+
+    def transform(
+        self,
+        scale: float,
+        rotation: np.ndarray,
+        translation: np.ndarray,
+    ) -> "Cameras":
+        # Input validations
+        assert isinstance(scale, (int, float)), f"{type(scale)=}"
+        assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
+        assert rotation.shape == (3, 3), f"{rotation.shape=}"
+        assert rotation.dtype == np.float32, f"{rotation.dtype=}"
+        assert isinstance(translation, np.ndarray), f"{type(translation)=}"
+        assert translation.shape == (3,), f"{translation.shape=}"
+        assert translation.dtype == np.float32, f"{translation.dtype=}"
+        validate_rotation_matrix(rotation)
+
+        # Input normalizations
+        rotation_tensor = torch.from_numpy(rotation).to(
+            device=self._device,
+            dtype=self._extrinsics.dtype,
+        )
+        translation_tensor = torch.from_numpy(translation).to(
+            device=self._device,
+            dtype=self._extrinsics.dtype,
+        )
+
+        extrinsics = self._extrinsics
+        rotation_c2w = extrinsics[:, :3, :3]
+        translation_c2w = extrinsics[:, :3, 3]
+        rotation_c2w_new = rotation_tensor @ rotation_c2w
+        translation_c2w_new = scale * (translation_c2w @ rotation_tensor.T) + (
+            translation_tensor
+        )
+
+        batch_size = extrinsics.shape[0]
+        updated_extrinsics = (
+            torch.eye(
+                4,
+                dtype=extrinsics.dtype,
+                device=extrinsics.device,
+            )
+            .unsqueeze(0)
+            .repeat(batch_size, 1, 1)
+        )
+        updated_extrinsics[:, :3, :3] = rotation_c2w_new
+        updated_extrinsics[:, :3, 3] = translation_c2w_new
+
+        for idx in range(batch_size):
+            updated_extrinsics[idx, :3, :3] = _stabilize_rotation_matrix(
+                updated_extrinsics[idx, :3, :3]
+            )
+
+        return Cameras(
+            intrinsics=self._intrinsics,
+            extrinsics=updated_extrinsics,
+            conventions=list(self._conventions),
+            names=list(self._names),
+            ids=list(self._ids),
+            device=self._device,
         )
 
     @property

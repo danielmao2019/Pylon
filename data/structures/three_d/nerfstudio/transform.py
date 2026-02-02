@@ -27,13 +27,12 @@ def transform_nerfstudio(
 
     validate_rotation_matrix(rotation)
 
-    transformed_cameras = transform_nerfstudio_cameras(
+    return transform_nerfstudio_cameras(
         cameras=cameras,
         scale=scale,
         rotation=rotation,
         translation=translation,
     )
-    return transformed_cameras
 
 
 def transform_nerfstudio_cameras(
@@ -52,46 +51,11 @@ def transform_nerfstudio_cameras(
     assert translation.shape == (3,), f"{translation.shape=}"
     assert translation.dtype == np.float32, f"{translation.dtype=}"
 
-    # Input normalizations
-    rotation_tensor = torch.from_numpy(rotation).to(
-        device=cameras.device,
-        dtype=cameras.extrinsics.dtype,
-    )
-    translation_tensor = torch.from_numpy(translation).to(
-        device=cameras.device,
-        dtype=cameras.extrinsics.dtype,
-    )
-
     validate_rotation_matrix(rotation)
-
-    extrinsics = cameras.extrinsics
-    rotation_c2w = extrinsics[:, :3, :3]
-    translation_c2w = extrinsics[:, :3, 3]
-    rotation_c2w_new = rotation_tensor @ rotation_c2w
-    translation_c2w_new = scale * (translation_c2w @ rotation_tensor.T) + (
-        translation_tensor
-    )
-
-    batch_size = extrinsics.shape[0]
-    updated_extrinsics = (
-        torch.eye(
-            4,
-            dtype=extrinsics.dtype,
-            device=extrinsics.device,
-        )
-        .unsqueeze(0)
-        .repeat(batch_size, 1, 1)
-    )
-    updated_extrinsics[:, :3, :3] = rotation_c2w_new
-    updated_extrinsics[:, :3, 3] = translation_c2w_new
-
-    return Cameras(
-        intrinsics=cameras.intrinsics,
-        extrinsics=updated_extrinsics,
-        conventions=list(cameras.conventions),
-        names=list(cameras.names),
-        ids=list(cameras.ids),
-        device=cameras.device,
+    return cameras.transform(
+        scale=scale,
+        rotation=rotation,
+        translation=translation,
     )
 
 

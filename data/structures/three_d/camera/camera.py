@@ -1,6 +1,7 @@
 import math
 from typing import Any, Dict, Optional, Tuple, Union
 
+import numpy as np
 import torch
 
 from data.structures.three_d.camera.conventions import _transform_convention
@@ -8,7 +9,42 @@ from data.structures.three_d.camera.validation import (
     validate_camera_convention,
     validate_camera_extrinsics,
     validate_camera_intrinsics,
+    validate_rotation_matrix,
 )
+
+_ORTHOGONALITY_ATOL = 1.0e-06
+_ORTHOGONALITY_REPAIR_ATOL = 1.0e-05
+
+
+def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
+    # Input validations
+    assert isinstance(rotation, torch.Tensor), f"{type(rotation)=}"
+    assert rotation.shape == (3, 3), f"{rotation.shape=}"
+    assert rotation.dtype == torch.float32, f"{rotation.dtype=}"
+
+    identity = torch.eye(3, dtype=rotation.dtype, device=rotation.device)
+    should_be_identity = rotation @ rotation.transpose(-1, -2)
+    max_diff = torch.max(torch.abs(should_be_identity - identity))
+    max_diff_value = float(max_diff)
+    det_value = float(torch.linalg.det(rotation))
+    det_diff = abs(det_value - 1.0)
+    if max_diff_value <= _ORTHOGONALITY_ATOL and det_diff <= _ORTHOGONALITY_ATOL:
+        return rotation
+    max_error = max(max_diff_value, det_diff)
+    assert (
+        max_error <= _ORTHOGONALITY_REPAIR_ATOL
+    ), "Rotation matrix must be orthogonal. Max diff between RR^T and I: {:.6g}".format(
+        max_diff_value
+    )
+
+    u, _, v_h = torch.linalg.svd(rotation)
+    rotation_fixed = u @ v_h
+    det = torch.linalg.det(rotation_fixed)
+    if float(det) < 0.0:
+        u[:, -1] = -u[:, -1]
+        rotation_fixed = u @ v_h
+    validate_rotation_matrix(rotation_fixed)
+    return rotation_fixed
 
 
 class Camera:
@@ -23,7 +59,9 @@ class Camera:
         device: str | torch.device = torch.device('cuda'),
     ) -> None:
         # Input validations
-        assert intrinsics is None or isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+        assert intrinsics is None or isinstance(
+            intrinsics, torch.Tensor
+        ), f"{type(intrinsics)=}"
         validate_camera_extrinsics(extrinsics)
         validate_camera_convention(convention)
         assert name is None or isinstance(name, str), f"{type(name)=}"
@@ -202,6 +240,60 @@ class Camera:
         return Camera(
             intrinsics=scaled_intrinsics,
             extrinsics=self._extrinsics,
+            convention=self._convention,
+            name=self._name,
+            id=self._id,
+            device=self._device,
+        )
+
+    def transform(
+        self,
+        scale: float,
+        rotation: np.ndarray,
+        translation: np.ndarray,
+    ) -> "Camera":
+        # Input validations
+        assert isinstance(scale, (int, float)), f"{type(scale)=}"
+        assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
+        assert rotation.shape == (3, 3), f"{rotation.shape=}"
+        assert rotation.dtype == np.float32, f"{rotation.dtype=}"
+        assert isinstance(translation, np.ndarray), f"{type(translation)=}"
+        assert translation.shape == (3,), f"{translation.shape=}"
+        assert translation.dtype == np.float32, f"{translation.dtype=}"
+        validate_rotation_matrix(rotation)
+
+        # Input normalizations
+        rotation_tensor = torch.from_numpy(rotation).to(
+            device=self._device,
+            dtype=self._extrinsics.dtype,
+        )
+        translation_tensor = torch.from_numpy(translation).to(
+            device=self._device,
+            dtype=self._extrinsics.dtype,
+        )
+
+        extrinsics = self._extrinsics
+        rotation_c2w = extrinsics[:3, :3]
+        translation_c2w = extrinsics[:3, 3]
+        rotation_c2w_new = rotation_tensor @ rotation_c2w
+        translation_c2w_new = scale * (translation_c2w @ rotation_tensor.T) + (
+            translation_tensor
+        )
+
+        updated_extrinsics = torch.eye(
+            4,
+            dtype=extrinsics.dtype,
+            device=extrinsics.device,
+        )
+        updated_extrinsics[:3, :3] = rotation_c2w_new
+        updated_extrinsics[:3, 3] = translation_c2w_new
+        updated_extrinsics[:3, :3] = _stabilize_rotation_matrix(
+            updated_extrinsics[:3, :3]
+        )
+
+        return Camera(
+            intrinsics=self._intrinsics,
+            extrinsics=updated_extrinsics,
             convention=self._convention,
             name=self._name,
             id=self._id,
