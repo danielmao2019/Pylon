@@ -18,17 +18,28 @@ class ColmapSparseReconstructionStep(BaseStep):
 
     STEP_NAME = "colmap_sparse_reconstruction"
 
-    def __init__(self, scene_root: str | Path, strict: bool = True) -> None:
+    def __init__(
+        self,
+        scene_root: str | Path,
+        init_model_dir: str | Path | None = None,
+        strict: bool = True,
+    ) -> None:
         # Input validations
         assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
         assert isinstance(strict, bool), f"{type(strict)=}"
+        assert init_model_dir is None or isinstance(
+            init_model_dir, (str, Path)
+        ), f"{type(init_model_dir)=}"
 
         # Input normalizations
         scene_root = Path(scene_root)
+        if init_model_dir is not None:
+            init_model_dir = Path(init_model_dir)
 
         self.input_images_dir = scene_root / "input"
         self.distorted_dir = scene_root / "distorted"
         self.sparse_output_dir = scene_root / "distorted" / "sparse"
+        self.init_model_dir = init_model_dir
         self.strict = strict
         super().__init__(input_root=scene_root, output_root=scene_root)
 
@@ -36,6 +47,15 @@ class ColmapSparseReconstructionStep(BaseStep):
         image_names = self._input_image_names()
         self.input_files = [f"input/{name}" for name in image_names]
         self.input_files.append("distorted/database.db")
+        if self.init_model_dir is not None:
+            init_rel = self.init_model_dir.relative_to(self.input_root)
+            self.input_files.extend(
+                [
+                    str(init_rel / "cameras.bin"),
+                    str(init_rel / "images.bin"),
+                    str(init_rel / "points3D.bin"),
+                ]
+            )
 
     def _init_output_files(self) -> None:
         self.output_files = [
@@ -65,8 +85,20 @@ class ColmapSparseReconstructionStep(BaseStep):
         if self.check_outputs() and not force:
             return {}
 
-        logging.info("   🏗️ Sparse reconstruction")
         self.sparse_output_dir.mkdir(parents=True, exist_ok=True)
+
+        logging.info("   🏗️ Sparse reconstruction")
+        cmd_parts = self._build_colmap_command()
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            f"COLMAP mapper failed with code {result.returncode}. "
+            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
+        )
+
+        self._validate_sparse_files()
+        return {}
+
+    def _build_colmap_command(self) -> List[str]:
         distorted_db_path = self.distorted_dir / "database.db"
         cmd_parts = [
             "colmap",
@@ -81,20 +113,14 @@ class ColmapSparseReconstructionStep(BaseStep):
             "0",
             "--Mapper.ba_global_function_tolerance",
             "0.000001",
-            "--Mapper.tri_ignore_two_view_tracks",
-            "0",
             "--Mapper.tri_min_angle",
             "1",
             "--log_to_stderr",
             "1",
         ]
-        result = subprocess.run(cmd_parts, capture_output=True, text=True)
-        assert result.returncode == 0, (
-            f"COLMAP mapper failed with code {result.returncode}. "
-            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
-        )
-        self._validate_sparse_files()
-        return {}
+        if self.init_model_dir is not None:
+            cmd_parts.extend(["--input_path", str(self.init_model_dir)])
+        return cmd_parts
 
     def _input_image_names(self) -> List[str]:
         entries = sorted(self.input_images_dir.iterdir())

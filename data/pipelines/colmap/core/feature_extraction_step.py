@@ -4,7 +4,7 @@ import logging
 import sqlite3
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from data.pipelines.base_step import BaseStep
 
@@ -89,7 +89,20 @@ class ColmapFeatureExtractionStep(BaseStep):
         self.distorted_dir.mkdir(parents=True, exist_ok=True)
         if self.database_path.exists():
             self.database_path.unlink()
+
         logging.info("   🔍 Feature extraction")
+        cmd_parts = self._build_colmap_command()
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            f"COLMAP feature extraction failed with code {result.returncode}. "
+            f"Using {self.colmap_args['version']} with parameter: {self.colmap_args['feature_use_gpu']}. "
+            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
+        )
+
+        self._validate_database()
+        return {}
+
+    def _build_colmap_command(self) -> List[str]:
         cmd_parts = [
             "colmap",
             "feature_extractor",
@@ -110,14 +123,7 @@ class ColmapFeatureExtractionStep(BaseStep):
             cmd_parts.extend([self.colmap_args["mask_path"], str(self.mask_input_root)])
         if self.upright:
             cmd_parts.extend([self.colmap_args["upright"], "1"])
-        result = subprocess.run(cmd_parts, capture_output=True, text=True)
-        assert result.returncode == 0, (
-            f"COLMAP feature extraction failed with code {result.returncode}. "
-            f"Using {self.colmap_args['version']} with parameter: {self.colmap_args['feature_use_gpu']}. "
-            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
-        )
-        self._validate_database()
-        return {}
+        return cmd_parts
 
     def _validate_database(self) -> None:
         with sqlite3.connect(self.database_path) as connection:

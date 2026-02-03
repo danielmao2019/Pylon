@@ -25,68 +25,81 @@ class ColmapImageUndistortionStep(BaseStep):
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
-        entries = sorted(self.input_images_dir.iterdir())
-        assert entries, f"Empty input dir or no files: {self.input_images_dir}"
-        assert all(entry.is_file() for entry in entries), (
-            "COLMAP input directory must only contain files "
-            f"(found non-file entries in {self.input_images_dir})"
+        self.image_names = self._get_registered_image_names(
+            sparse_root=self.distorted_sparse_dir
         )
-        self.image_names = [entry.name for entry in entries]
-        filenames = [f"input/{name}" for name in self.image_names]
-        filenames.extend(
+        relpaths = [f"input/{name}" for name in self.image_names]
+        relpaths.extend(
             [
                 "distorted/sparse/0/cameras.bin",
                 "distorted/sparse/0/images.bin",
                 "distorted/sparse/0/points3D.bin",
             ]
         )
-        self.input_files = filenames
+        self.input_files = relpaths
 
     def _init_output_files(self) -> None:
-        registered_names = self._get_registered_image_names(
-            sparse_root=self.distorted_sparse_dir
-        )
-        self.output_files = [f"images/{name}" for name in registered_names]
-        self.output_files.extend(
+        relpaths = [f"images/{name}" for name in self.image_names]
+        relpaths.extend(
             [
                 "undistorted/sparse/0/cameras.bin",
                 "undistorted/sparse/0/images.bin",
                 "undistorted/sparse/0/points3D.bin",
             ]
         )
+        self.output_files = relpaths
 
     def check_outputs(self) -> bool:
         outputs_ready = super().check_outputs()
         if not outputs_ready:
             return False
         try:
-            self._assert_outputs_clean()
+            self._validate_outputs_clean()
             return True
         except Exception as e:
             logging.debug("Image undistortion output validation failed: %s", e)
             return False
 
-    def _assert_outputs_clean(self) -> None:
+    def _validate_outputs_clean(self) -> None:
         target_dir = self.output_root / "images"
         expected_names = self._get_registered_image_names(
             sparse_root=self.undistorted_sparse_dir
         )
+        assert expected_names, "No registered images found for undistorted sparse model"
         disk_names = self._get_disk_image_names(images_dir=target_dir)
         assert expected_names == disk_names, (
             "Undistorted images on disk do not match registered images. "
             f"expected={len(expected_names)} actual={len(disk_names)}"
         )
 
+    def build(self, force: bool = False) -> None:
+        super().build(force=force)
+        self.run(kwargs={}, force=force)
+
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
         if self.check_outputs() and not force:
             return {}
 
-        logging.info("   📐 Image undistortion")
         self.output_root.mkdir(parents=True, exist_ok=True)
         self.output_images_dir.mkdir(parents=True, exist_ok=True)
         self.undistorted_sparse_dir.mkdir(parents=True, exist_ok=True)
-        cmd_parts = [
+
+        logging.info("   📐 Image undistortion")
+        cmd_parts = self._build_colmap_command()
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            "COLMAP image undistortion failed with code "
+            f"{result.returncode}. STDOUT: {result.stdout} STDERR: {result.stderr}"
+        )
+        self._move_sparse_model()
+        self._clean_other_files()
+
+        self._validate_outputs_clean()
+        return {}
+
+    def _build_colmap_command(self) -> List[str]:
+        return [
             "colmap",
             "image_undistorter",
             "--image_path",
@@ -98,15 +111,6 @@ class ColmapImageUndistortionStep(BaseStep):
             "--output_type",
             "COLMAP",
         ]
-        result = subprocess.run(cmd_parts, capture_output=True, text=True)
-        assert result.returncode == 0, (
-            "COLMAP image undistortion failed with code "
-            f"{result.returncode}. STDOUT: {result.stdout} STDERR: {result.stderr}"
-        )
-        self._move_sparse_model()
-        self._clean_other_files()
-        self._assert_outputs_clean()
-        return {}
 
     def _move_sparse_model(self) -> None:
         destination_dir = self.undistorted_sparse_dir / "0"
@@ -124,6 +128,7 @@ class ColmapImageUndistortionStep(BaseStep):
         expected_names = set(
             self._get_registered_image_names(sparse_root=self.undistorted_sparse_dir)
         )
+        assert expected_names, "No registered images found for undistorted sparse model"
         for entry in target_dir.iterdir():
             if entry.is_file() and entry.name not in expected_names:
                 entry.unlink()
@@ -146,15 +151,15 @@ class ColmapImageUndistortionStep(BaseStep):
 
     def _get_registered_image_names(self, sparse_root: Path) -> List[str]:
         sparse_model_dir = sparse_root / "0"
-        self._validate_sparse_model_dir(model_dir=sparse_model_dir)
+        if not sparse_model_dir.is_dir():
+            return []
         images_bin = sparse_model_dir / "images.bin"
+        if not images_bin.is_file():
+            return []
         images = _load_colmap_images_bin(path_to_model_file=str(images_bin))
-        assert images, f"No registered images parsed from {images_bin}"
+        if not images:
+            return []
         image_names = sorted(image.name for image in images.values())
-        assert all(name.endswith(".png") for name in image_names), (
-            "Sparse model contains non-PNG image names: "
-            f"{', '.join(sorted(name for name in image_names if not name.endswith('.png')))}"
-        )
         return image_names
 
     def _validate_sparse_model_dir(self, model_dir: Path) -> None:

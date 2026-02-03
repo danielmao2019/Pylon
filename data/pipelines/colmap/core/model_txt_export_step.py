@@ -3,7 +3,7 @@
 import logging
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from data.pipelines.base_step import BaseStep
 
@@ -40,9 +40,20 @@ class ColmapModelTxtExportStep(BaseStep):
         if self.check_outputs() and not force:
             return {}
 
-        logging.info("   📄 Exporting COLMAP txt model: %s", self.model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
-        cmd_parts = [
+
+        logging.info("   📄 Exporting COLMAP txt model: %s", self.model_dir)
+        cmd_parts = self._build_colmap_command()
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            "COLMAP model_converter failed with code "
+            f"{result.returncode} for model {self.model_dir}. "
+            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
+        )
+        return {}
+
+    def _build_colmap_command(self) -> List[str]:
+        return [
             "colmap",
             "model_converter",
             "--input_path",
@@ -54,10 +65,3 @@ class ColmapModelTxtExportStep(BaseStep):
             "--log_to_stderr",
             "1",
         ]
-        result = subprocess.run(cmd_parts, capture_output=True, text=True)
-        assert result.returncode == 0, (
-            "COLMAP model_converter failed with code "
-            f"{result.returncode} for model {self.model_dir}. "
-            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
-        )
-        return {}

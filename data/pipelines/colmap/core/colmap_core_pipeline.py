@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from data.pipelines.base_pipeline import BasePipeline
+from data.pipelines.base_step import BaseStep
 from data.pipelines.colmap.core.feature_extraction_step import (
     ColmapFeatureExtractionStep,
 )
@@ -13,12 +14,6 @@ from data.pipelines.colmap.core.feature_matching_step import (
 )
 from data.pipelines.colmap.core.image_undistortion_step import (
     ColmapImageUndistortionStep,
-)
-from data.pipelines.colmap.core.init.bundle_adjustment_step import (
-    ColmapBundleAdjustmentStep,
-)
-from data.pipelines.colmap.core.init.point_triangulation_step import (
-    ColmapPointTriangulationStep,
 )
 from data.pipelines.colmap.core.model_txt_export_step import (
     ColmapModelTxtExportStep,
@@ -39,8 +34,7 @@ class ColmapCorePipeline(BasePipeline):
         matcher_cfg: Optional[Dict[str, Any]] = None,
         upright: bool = False,
         camera_mode: str = "OPENCV",
-        init_from_dji: bool = False,
-        dji_data_root: str | Path | None = None,
+        init_step: Dict[str, Any] | None = None,
         mask_input_root: str | Path | None = None,
         strict: bool = True,
     ) -> None:
@@ -56,15 +50,20 @@ class ColmapCorePipeline(BasePipeline):
             "PINHOLE",
             "OPENCV",
         }, f"{camera_mode=}"
-        assert isinstance(init_from_dji, bool), f"{type(init_from_dji)=}"
+        assert init_step is None or isinstance(
+            init_step, (BasePipeline, BaseStep, dict)
+        ), f"{type(init_step)=}"
         assert (
-            not init_from_dji
-        ) or dji_data_root is not None, (
-            "dji_data_root must be provided when init_from_dji is True"
-        )
-        assert dji_data_root is None or isinstance(
-            dji_data_root, (str, Path)
-        ), f"{type(dji_data_root)=}"
+            init_step is None or not isinstance(init_step, dict) or "class" in init_step
+        ), "init_step must include class"
+        assert (
+            init_step is None or not isinstance(init_step, dict) or "args" in init_step
+        ), "init_step must include args"
+        assert (
+            init_step is None
+            or not isinstance(init_step, dict)
+            or isinstance(init_step["args"], dict)
+        ), f"{type(init_step['args'])=}"
         assert mask_input_root is None or isinstance(
             mask_input_root, (str, Path)
         ), f"{type(mask_input_root)=}"
@@ -76,8 +75,7 @@ class ColmapCorePipeline(BasePipeline):
             matcher_cfg=matcher_cfg,
             upright=upright,
             camera_mode=camera_mode,
-            init_from_dji=init_from_dji,
-            dji_data_root=dji_data_root,
+            init_step=init_step,
             mask_input_root=mask_input_root,
             strict=strict,
         )
@@ -127,8 +125,7 @@ class ColmapCorePipeline(BasePipeline):
         matcher_cfg: Optional[Dict[str, Any]],
         upright: bool,
         camera_mode: str,
-        init_from_dji: bool,
-        dji_data_root: str | Path | None,
+        init_step: Dict[str, Any] | None,
         mask_input_root: str | Path | None,
         strict: bool,
     ) -> List[Dict[str, Any]]:
@@ -152,7 +149,7 @@ class ColmapCorePipeline(BasePipeline):
                 },
             },
         ]
-        if not init_from_dji:
+        if init_step is None:
             reconstruction_steps = [
                 {
                     "class": ColmapSparseReconstructionStep,
@@ -163,29 +160,15 @@ class ColmapCorePipeline(BasePipeline):
                 },
             ]
         else:
-            assert (
-                dji_data_root is not None
-            ), "dji_data_root must be provided when init_from_dji is True"
-            # Lazy import to avoid DJI-only dependencies unless explicitly requested.
-            from data.pipelines.colmap.core.init.init_from_dji_step import (
-                ColmapInitFromDJIStep,
-            )
-
             reconstruction_steps = [
+                init_step,
                 {
-                    "class": ColmapInitFromDJIStep,
+                    "class": ColmapSparseReconstructionStep,
                     "args": {
                         "scene_root": self.scene_root,
-                        "dji_data_root": dji_data_root,
+                        "init_model_dir": self.scene_root / "distorted" / "init_model",
+                        "strict": strict,
                     },
-                },
-                {
-                    "class": ColmapPointTriangulationStep,
-                    "args": {"scene_root": self.scene_root},
-                },
-                {
-                    "class": ColmapBundleAdjustmentStep,
-                    "args": {"scene_root": self.scene_root},
                 },
             ]
         common_suffix = [

@@ -9,6 +9,7 @@ from data.pipelines.base_step import BaseStep
 from data.structures.three_d.colmap.load import (
     _load_colmap_cameras_bin,
     _load_colmap_images_bin,
+    _load_colmap_points_bin,
 )
 
 
@@ -51,49 +52,83 @@ class ColmapPointTriangulationStep(BaseStep):
             "distorted/sparse/0/points3D.bin",
         ]
 
+    def build(self, force: bool = False) -> None:
+        super().build(force=force)
+        self.run(kwargs={}, force=force)
+
     def check_outputs(self) -> bool:
         outputs_ready = super().check_outputs()
         if not outputs_ready:
             return False
         try:
-            self._validate_registered_images()
+            self._validate_outputs()
             return True
         except Exception as e:
             logging.debug("Point triangulation validation failed: %s", e)
             return False
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
-        self.output_model_dir.mkdir(parents=True, exist_ok=True)
-        if not force and self.check_outputs():
-            logging.info("   🛰️ COLMAP point triangulation already done - SKIPPED")
+        self.check_inputs()
+        if self.check_outputs() and not force:
             return {}
-        cmd = (
-            f"colmap point_triangulator "
-            f"--database_path {self.database_path} "
-            f"--image_path {self.input_images_dir} "
-            f"--input_path {self.init_model_dir} "
-            f"--output_path {self.output_model_dir} "
-            f"--clear_points 1 "
-            f"--refine_intrinsics 0 "
-            f"--log_to_stderr 1"
+
+        self.output_model_dir.mkdir(parents=True, exist_ok=True)
+
+        cmd_parts = self._build_colmap_command()
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        ret_code = result.returncode
+        assert ret_code == 0, (
+            f"COLMAP point_triangulator failed with code {ret_code}. "
+            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
-        ret_code = subprocess.call(cmd, shell=True)
-        assert ret_code == 0, f"COLMAP point_triangulator failed with code {ret_code}"
-        self._validate_registered_images()
+
+        self._validate_outputs()
         return {}
 
-    def _validate_registered_images(self) -> None:
+    def _build_colmap_command(self) -> List[str]:
+        return [
+            "colmap",
+            "point_triangulator",
+            "--database_path",
+            str(self.database_path),
+            "--image_path",
+            str(self.input_images_dir),
+            "--input_path",
+            str(self.init_model_dir),
+            "--output_path",
+            str(self.output_model_dir),
+            "--clear_points",
+            "1",
+            "--refine_intrinsics",
+            "0",
+            "--log_to_stderr",
+            "1",
+        ]
+
+    def _validate_outputs(self) -> None:
+        self._validate_colmap_cameras()
+        self._validate_colmap_images()
+        self._validate_colmap_points()
+
+    def _validate_colmap_cameras(self) -> None:
         cameras_path = self.output_model_dir / "cameras.bin"
-        images_path = self.output_model_dir / "images.bin"
         cameras = _load_colmap_cameras_bin(path_to_model_file=str(cameras_path))
-        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
         assert cameras, f"No cameras parsed from {cameras_path}"
         assert (
             len(cameras) == 1
         ), f"Expected exactly one camera in {cameras_path}, found {len(cameras)}"
+
+    def _validate_colmap_images(self) -> None:
+        images_path = self.output_model_dir / "images.bin"
+        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
         assert images, f"No registered images parsed from {images_path}"
         registered_names = sorted(image.name for image in images.values())
         assert registered_names == sorted(self.image_names), (
             "Triangulated model image names do not match input PNGs. "
             f"expected={len(self.image_names)} actual={len(registered_names)}"
         )
+
+    def _validate_colmap_points(self) -> None:
+        points_path = self.output_model_dir / "points3D.bin"
+        points3d = _load_colmap_points_bin(path_to_model_file=str(points_path))
+        assert points3d, f"No points parsed from {points_path}"

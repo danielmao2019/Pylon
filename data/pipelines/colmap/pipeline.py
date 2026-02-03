@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from data.pipelines.base_pipeline import BasePipeline
+from data.pipelines.base_step import BaseStep
 from data.pipelines.colmap.convert_colmap_to_nerfstudio_step import (
     ColmapConvertToNerfstudioStep,
 )
@@ -21,8 +22,7 @@ class ColmapPipeline(BasePipeline):
         matcher_cfg: Optional[Dict[str, Any]] = None,
         upright: bool = False,
         camera_mode: str = "OPENCV",
-        init_from_dji: bool = False,
-        dji_data_root: str | Path | None = None,
+        init_step: Dict[str, Any] | None = None,
         mask_input_root: str | Path | None = None,
     ) -> None:
         # Input validations
@@ -37,15 +37,20 @@ class ColmapPipeline(BasePipeline):
             "PINHOLE",
             "OPENCV",
         }, f"{camera_mode=}"
-        assert isinstance(init_from_dji, bool), f"{type(init_from_dji)=}"
+        assert init_step is None or isinstance(
+            init_step, (BasePipeline, BaseStep, dict)
+        ), f"{type(init_step)=}"
         assert (
-            not init_from_dji
-        ) or dji_data_root is not None, (
-            "dji_data_root must be provided when init_from_dji is True"
-        )
-        assert dji_data_root is None or isinstance(
-            dji_data_root, (str, Path)
-        ), f"{type(dji_data_root)=}"
+            init_step is None or not isinstance(init_step, dict) or "class" in init_step
+        ), "init_step must include class"
+        assert (
+            init_step is None or not isinstance(init_step, dict) or "args" in init_step
+        ), "init_step must include args"
+        assert (
+            init_step is None
+            or not isinstance(init_step, dict)
+            or isinstance(init_step["args"], dict)
+        ), f"{type(init_step['args'])=}"
         assert mask_input_root is None or isinstance(
             mask_input_root, (str, Path)
         ), f"{type(mask_input_root)=}"
@@ -60,8 +65,7 @@ class ColmapPipeline(BasePipeline):
                     "matcher_cfg": matcher_cfg,
                     "upright": upright,
                     "camera_mode": camera_mode,
-                    "init_from_dji": init_from_dji,
-                    "dji_data_root": dji_data_root,
+                    "init_step": init_step,
                     "mask_input_root": mask_input_root,
                 },
             },

@@ -3,7 +3,7 @@
 import logging
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from data.pipelines.base_step import BaseStep
 from data.structures.three_d.colmap.load import (
@@ -36,6 +36,10 @@ class ColmapBundleAdjustmentStep(BaseStep):
             "distorted/sparse/0/points3D.bin",
         ]
 
+    def build(self, force: bool = False) -> None:
+        super().build(force=force)
+        self.run(kwargs={}, force=force)
+
     def check_outputs(self) -> bool:
         outputs_ready = super().check_outputs()
         if not outputs_ready:
@@ -48,10 +52,23 @@ class ColmapBundleAdjustmentStep(BaseStep):
             return False
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
-        if not force and self.check_outputs():
-            logging.info("   📏 COLMAP bundle adjustment already done - SKIPPED")
+        self.check_inputs()
+        if self.check_outputs() and not force:
             return {}
-        cmd_parts = [
+
+        cmd_parts = self._build_colmap_command()
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        ret_code = result.returncode
+        assert ret_code == 0, (
+            f"COLMAP bundle_adjuster failed with code {ret_code} "
+            f"for model {self.model_dir}"
+        )
+
+        self._validate_model()
+        return {}
+
+    def _build_colmap_command(self) -> List[str]:
+        return [
             "colmap",
             "bundle_adjuster",
             "--input_path",
@@ -67,14 +84,6 @@ class ColmapBundleAdjustmentStep(BaseStep):
             "--log_to_stderr",
             "1",
         ]
-        result = subprocess.run(cmd_parts, capture_output=True, text=True)
-        ret_code = result.returncode
-        assert ret_code == 0, (
-            f"COLMAP bundle_adjuster failed with code {ret_code} "
-            f"for model {self.model_dir}"
-        )
-        self._validate_model()
-        return {}
 
     def _validate_model(self) -> None:
         cameras = _load_colmap_cameras_bin(

@@ -85,8 +85,22 @@ class ColmapFeatureMatchingStep(BaseStep):
         if self.check_outputs() and not force:
             return {}
 
-        logging.info("   🔗 Feature matching")
         self.distorted_dir.mkdir(parents=True, exist_ok=True)
+
+        logging.info("   🔗 Feature matching")
+        cmd_parts = self._build_colmap_command()
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        assert result.returncode == 0, (
+            f"COLMAP feature matching failed with code {result.returncode}. "
+            f"Using {self.colmap_args['version']} with parameters: "
+            f"{self.colmap_args['matching_use_gpu']}, {self.colmap_args['guided_matching']}. "
+            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
+        )
+
+        self._validate_database()
+        return {}
+
+    def _build_colmap_command(self) -> List[str]:
         if (
             self.matcher_cfg is None
             or self.matcher_cfg["matcher_type"] == "exhaustive_matcher"
@@ -122,15 +136,7 @@ class ColmapFeatureMatchingStep(BaseStep):
                 cmd_parts.extend(
                     [f"--SequentialMatching.{key}", str(self.matcher_cfg[key])]
                 )
-        result = subprocess.run(cmd_parts, capture_output=True, text=True)
-        assert result.returncode == 0, (
-            f"COLMAP feature matching failed with code {result.returncode}. "
-            f"Using {self.colmap_args['version']} with parameters: "
-            f"{self.colmap_args['matching_use_gpu']}, {self.colmap_args['guided_matching']}. "
-            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
-        )
-        self._validate_database()
-        return {}
+        return cmd_parts
 
     def _validate_database(self) -> None:
         with sqlite3.connect(self.database_path) as connection:
