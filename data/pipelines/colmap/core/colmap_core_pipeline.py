@@ -15,6 +15,12 @@ from data.pipelines.colmap.core.feature_matching_step import (
 from data.pipelines.colmap.core.image_undistortion_step import (
     ColmapImageUndistortionStep,
 )
+from data.pipelines.colmap.core.init.bundle_adjustment_step import (
+    ColmapBundleAdjustmentStep,
+)
+from data.pipelines.colmap.core.init.point_triangulation_step import (
+    ColmapPointTriangulationStep,
+)
 from data.pipelines.colmap.core.model_txt_export_step import (
     ColmapModelTxtExportStep,
 )
@@ -31,53 +37,77 @@ class ColmapCorePipeline(BasePipeline):
     def __init__(
         self,
         scene_root: str | Path,
+        extractor_cfg: Dict[str, Any],
         matcher_cfg: Optional[Dict[str, Any]] = None,
-        upright: bool = False,
-        camera_mode: str = "OPENCV",
-        init_step: Dict[str, Any] | None = None,
-        mask_input_root: str | Path | None = None,
-        strict: bool = True,
+        reconstruction_cfg: Dict[str, Any] | None = None,
     ) -> None:
         # Input validations
         assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
-        assert matcher_cfg is None or isinstance(
-            matcher_cfg, dict
-        ), f"{type(matcher_cfg)=}"
-        assert isinstance(upright, bool), f"{type(upright)=}"
-        assert isinstance(camera_mode, str), f"{type(camera_mode)=}"
-        assert camera_mode in {
+        assert isinstance(extractor_cfg, dict), f"{type(extractor_cfg)=}"
+        assert extractor_cfg.keys() <= {
+            "upright",
+            "camera_mode",
+            "mask_input_root",
+        }, "Invalid extractor_cfg keys"
+        assert "upright" in extractor_cfg, "extractor_cfg missing upright"
+        assert "camera_mode" in extractor_cfg, "extractor_cfg missing camera_mode"
+        assert (
+            "mask_input_root" in extractor_cfg
+        ), "extractor_cfg missing mask_input_root"
+        assert isinstance(
+            extractor_cfg["upright"], bool
+        ), f"{type(extractor_cfg['upright'])=}"
+        assert isinstance(
+            extractor_cfg["camera_mode"], str
+        ), f"{type(extractor_cfg['camera_mode'])=}"
+        assert extractor_cfg["camera_mode"] in {
             "SIMPLE_PINHOLE",
             "PINHOLE",
             "OPENCV",
-        }, f"{camera_mode=}"
-        assert init_step is None or isinstance(
-            init_step, (BasePipeline, BaseStep, dict)
-        ), f"{type(init_step)=}"
+        }, f"{extractor_cfg['camera_mode']=}"
+        assert extractor_cfg["mask_input_root"] is None or isinstance(
+            extractor_cfg["mask_input_root"], (str, Path)
+        ), f"{type(extractor_cfg['mask_input_root'])=}"
+        assert matcher_cfg is None or isinstance(
+            matcher_cfg, dict
+        ), f"{type(matcher_cfg)=}"
+        assert reconstruction_cfg is not None and isinstance(
+            reconstruction_cfg, dict
+        ), f"{type(reconstruction_cfg)=}"
+        assert reconstruction_cfg.keys() <= {
+            "init_step",
+            "strict",
+        }, "Invalid reconstruction_cfg keys"
+        assert "init_step" in reconstruction_cfg, "reconstruction_cfg missing init_step"
+        assert "strict" in reconstruction_cfg, "reconstruction_cfg missing strict"
+        assert isinstance(
+            reconstruction_cfg["strict"], bool
+        ), f"{type(reconstruction_cfg['strict'])=}"
+        assert reconstruction_cfg["init_step"] is None or isinstance(
+            reconstruction_cfg["init_step"], (BasePipeline, BaseStep, dict)
+        ), f"{type(reconstruction_cfg['init_step'])=}"
         assert (
-            init_step is None or not isinstance(init_step, dict) or "class" in init_step
+            reconstruction_cfg["init_step"] is None
+            or not isinstance(reconstruction_cfg["init_step"], dict)
+            or "class" in reconstruction_cfg["init_step"]
         ), "init_step must include class"
         assert (
-            init_step is None or not isinstance(init_step, dict) or "args" in init_step
+            reconstruction_cfg["init_step"] is None
+            or not isinstance(reconstruction_cfg["init_step"], dict)
+            or "args" in reconstruction_cfg["init_step"]
         ), "init_step must include args"
         assert (
-            init_step is None
-            or not isinstance(init_step, dict)
-            or isinstance(init_step["args"], dict)
-        ), f"{type(init_step['args'])=}"
-        assert mask_input_root is None or isinstance(
-            mask_input_root, (str, Path)
-        ), f"{type(mask_input_root)=}"
-        assert isinstance(strict, bool), f"{type(strict)=}"
+            reconstruction_cfg["init_step"] is None
+            or not isinstance(reconstruction_cfg["init_step"], dict)
+            or isinstance(reconstruction_cfg["init_step"]["args"], dict)
+        ), f"{type(reconstruction_cfg['init_step']['args'])=}"
 
         self.scene_root = Path(scene_root).expanduser().resolve()
         self.colmap_args = self._get_colmap_args()
         step_configs = self._build_steps(
+            extractor_cfg=extractor_cfg,
             matcher_cfg=matcher_cfg,
-            upright=upright,
-            camera_mode=camera_mode,
-            init_step=init_step,
-            mask_input_root=mask_input_root,
-            strict=strict,
+            reconstruction_cfg=reconstruction_cfg,
         )
         super().__init__(
             step_configs=step_configs,
@@ -122,24 +152,19 @@ class ColmapCorePipeline(BasePipeline):
 
     def _build_steps(
         self,
+        extractor_cfg: Dict[str, Any],
         matcher_cfg: Optional[Dict[str, Any]],
-        upright: bool,
-        camera_mode: str,
-        init_step: Dict[str, Any] | None,
-        mask_input_root: str | Path | None,
-        strict: bool,
+        reconstruction_cfg: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
+        init_step = reconstruction_cfg["init_step"]
+        strict = reconstruction_cfg["strict"]
         common_prefix = [
             {
                 "class": ColmapFeatureExtractionStep,
                 "args": {
                     "scene_root": self.scene_root,
                     "colmap_args": self.colmap_args,
-                    "extractor_cfg": {
-                        "upright": upright,
-                        "camera_mode": camera_mode,
-                        "mask_input_root": mask_input_root,
-                    },
+                    "extractor_cfg": extractor_cfg,
                 },
             },
             {
@@ -165,10 +190,22 @@ class ColmapCorePipeline(BasePipeline):
             reconstruction_steps = [
                 init_step,
                 {
+                    "class": ColmapPointTriangulationStep,
+                    "args": {
+                        "scene_root": self.scene_root,
+                    },
+                },
+                {
+                    "class": ColmapBundleAdjustmentStep,
+                    "args": {
+                        "scene_root": self.scene_root,
+                    },
+                },
+                {
                     "class": ColmapSparseReconstructionStep,
                     "args": {
                         "scene_root": self.scene_root,
-                        "init_model_dir": self.scene_root / "distorted" / "init_model",
+                        "use_init_model": True,
                         "strict": strict,
                     },
                 },
@@ -182,14 +219,14 @@ class ColmapCorePipeline(BasePipeline):
                 "class": ColmapModelTxtExportStep,
                 "args": {
                     "scene_root": self.scene_root,
-                    "model_relpath": "distorted/sparse/0",
+                    "model_relpath": "distorted/sparse",
                 },
             },
             {
                 "class": ColmapModelTxtExportStep,
                 "args": {
                     "scene_root": self.scene_root,
-                    "model_relpath": "undistorted/sparse/0",
+                    "model_relpath": "undistorted/sparse",
                 },
             },
         ]

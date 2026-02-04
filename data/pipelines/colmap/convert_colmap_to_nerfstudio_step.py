@@ -20,7 +20,6 @@ class ColmapConvertToNerfstudioStep(BaseStep):
 
     def __init__(self, input_root: str | Path, output_root: str | Path) -> None:
         super().__init__(input_root=input_root, output_root=output_root)
-        self.model_dir = self.input_root / "0"
         self.transforms_path = self.output_root / "transforms.json"
 
     def _init_input_files(self) -> None:
@@ -52,7 +51,8 @@ class ColmapConvertToNerfstudioStep(BaseStep):
             return {}
 
         self.output_root.mkdir(parents=True, exist_ok=True)
-        colmap_data = COLMAP_Data.load(model_dir=self.model_dir)
+        model_dir = self.input_root / "0"
+        colmap_data = COLMAP_Data.load(model_dir=model_dir)
         transforms_path, ply_path = convert_colmap_to_nerfstudio(
             filename="transforms.json",
             colmap_cameras=colmap_data.cameras,

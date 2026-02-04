@@ -99,7 +99,7 @@ class PrepareColmapInputsVideo(BaseStep):
             prefix=f"{self.video_filepath.stem}_frame_",
             sample_every_n=self.sample_every_n,
         )
-        for idx, v in enumerate(self.test_video_filepaths):
+        for v in self.test_video_filepaths:
             counts += self._extract_frames(
                 output_dir=self.output_root / "input",
                 video=v,

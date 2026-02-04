@@ -20,7 +20,7 @@ class ColmapModelTxtExportStep(BaseStep):
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
-        rel_root = self.model_relpath.as_posix()
+        rel_root = (self.model_relpath / "0").as_posix()
         self.input_files = [
             f"{rel_root}/cameras.bin",
             f"{rel_root}/images.bin",
@@ -28,7 +28,7 @@ class ColmapModelTxtExportStep(BaseStep):
         ]
 
     def _init_output_files(self) -> None:
-        rel_root = self.model_relpath.as_posix()
+        rel_root = (self.model_relpath / "0").as_posix()
         self.output_files = [
             f"{rel_root}/cameras.txt",
             f"{rel_root}/images.txt",
@@ -40,26 +40,28 @@ class ColmapModelTxtExportStep(BaseStep):
         if not force and self.check_outputs():
             return {}
 
-        self.model_dir.mkdir(parents=True, exist_ok=True)
+        model_dir = self.model_dir / "0"
+        model_dir.mkdir(parents=True, exist_ok=True)
 
-        logging.info("   📄 Exporting COLMAP txt model: %s", self.model_dir)
+        logging.info("   📄 Exporting COLMAP txt model: %s", model_dir)
         cmd_parts = self._build_colmap_command()
         result = subprocess.run(cmd_parts, capture_output=True, text=True)
         assert result.returncode == 0, (
             "COLMAP model_converter failed with code "
-            f"{result.returncode} for model {self.model_dir}. "
+            f"{result.returncode} for model {model_dir}. "
             f"STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
         return {}
 
     def _build_colmap_command(self) -> List[str]:
+        model_dir = self.model_dir / "0"
         return [
             "colmap",
             "model_converter",
             "--input_path",
-            str(self.model_dir),
+            str(model_dir),
             "--output_path",
-            str(self.model_dir),
+            str(model_dir),
             "--output_type",
             "TXT",
             "--log_to_stderr",

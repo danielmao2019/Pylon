@@ -27,7 +27,7 @@ class BaseColmapInitStep(BaseStep):
         self.scene_root = scene_root
         self.input_images_dir = scene_root / "input"
         self.database_path = scene_root / "distorted" / "database.db"
-        self.model_dir = scene_root / "distorted" / "init_model"
+        self.model_dir = scene_root / "colmap_init"
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
@@ -40,12 +40,12 @@ class BaseColmapInitStep(BaseStep):
 
     def _init_output_files(self) -> None:
         self.output_files = [
-            "distorted/init_model/cameras.bin",
-            "distorted/init_model/images.bin",
-            "distorted/init_model/points3D.bin",
-            "distorted/init_model/cameras.txt",
-            "distorted/init_model/images.txt",
-            "distorted/init_model/points3D.txt",
+            "colmap_init/cameras.bin",
+            "colmap_init/images.bin",
+            "colmap_init/points3D.bin",
+            "colmap_init/cameras.txt",
+            "colmap_init/images.txt",
+            "colmap_init/points3D.txt",
         ]
 
     def build(self, force: bool = False) -> None:
@@ -57,7 +57,7 @@ class BaseColmapInitStep(BaseStep):
         if not force and self.check_outputs():
             return {}
         self.model_dir.mkdir(parents=True, exist_ok=True)
-        camera_id, camera_model, size, params = self._load_camera_from_database()
+        camera_id, camera_model, size, params = self._load_cameras_from_database()
         poses = self._define_poses()
         colmap_cameras, colmap_images, colmap_points = self._build_colmap_model(
             camera_id=camera_id,
@@ -76,9 +76,28 @@ class BaseColmapInitStep(BaseStep):
 
     @abstractmethod
     def _define_poses(self) -> List[Dict[str, Any]]:
-        """Return pose dicts with keys: name, qvec, tvec."""
+        """Return pose dicts with keys: name, qvec, tvec, image_id."""
+        raise NotImplementedError("Subclasses must implement _define_poses()")
 
-    def _load_camera_from_database(
+    def _load_image_ids_from_database(self) -> Dict[str, int]:
+        # Input validations
+        assert (
+            self.database_path.is_file()
+        ), f"COLMAP database missing at {self.database_path}"
+
+        connection = sqlite3.connect(self.database_path)
+        cursor = connection.cursor()
+        rows = cursor.execute("SELECT image_id, name FROM images").fetchall()
+        connection.close()
+        assert rows, f"No images found in database {self.database_path}"
+
+        image_id_by_name = {row[1]: int(row[0]) for row in rows}
+        assert len(image_id_by_name) == len(rows), (
+            "Duplicate image names found in database " f"{self.database_path}"
+        )
+        return image_id_by_name
+
+    def _load_cameras_from_database(
         self,
     ) -> Tuple[int, str, Tuple[int, int], np.ndarray]:
         connection = sqlite3.connect(self.database_path)
@@ -119,6 +138,18 @@ class BaseColmapInitStep(BaseStep):
         params: np.ndarray,
         poses: List[Dict[str, Any]],
     ) -> Tuple[Dict[int, Any], Dict[int, Any], Dict[int, Any]]:
+        # Input validations
+        assert isinstance(poses, list), f"{type(poses)=}"
+        assert poses, "poses must be non-empty"
+        assert all(isinstance(pose, dict) for pose in poses), f"{poses=}"
+        assert all("name" in pose for pose in poses), "pose missing name"
+        assert all("qvec" in pose for pose in poses), "pose missing qvec"
+        assert all("tvec" in pose for pose in poses), "pose missing tvec"
+        assert all("image_id" in pose for pose in poses), "pose missing image_id"
+        assert all(
+            isinstance(pose["image_id"], (int, np.integer)) for pose in poses
+        ), f"{[pose['image_id'] for pose in poses]=}"
+
         width, height = size
         colmap_cameras = {
             camera_id: ColmapCamera(
@@ -129,9 +160,13 @@ class BaseColmapInitStep(BaseStep):
                 params=params,
             )
         }
+        image_ids = [int(pose["image_id"]) for pose in poses]
+        assert len(set(image_ids)) == len(
+            image_ids
+        ), "Duplicate image_id values in pose list"
         colmap_images: Dict[int, ColmapImage] = {
-            idx: ColmapImage(
-                id=idx,
+            int(pose["image_id"]): ColmapImage(
+                id=int(pose["image_id"]),
                 qvec=pose["qvec"],
                 tvec=pose["tvec"],
                 camera_id=camera_id,
@@ -139,7 +174,7 @@ class BaseColmapInitStep(BaseStep):
                 xys=np.empty((0, 2), dtype=np.float64),
                 point3D_ids=np.empty((0,), dtype=np.int64),
             )
-            for idx, pose in enumerate(poses, start=1)
+            for pose in poses
         }
         colmap_points: Dict[int, ColmapPoint3D] = {}
         return colmap_cameras, colmap_images, colmap_points

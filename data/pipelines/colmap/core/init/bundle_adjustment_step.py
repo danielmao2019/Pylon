@@ -1,6 +1,5 @@
 """Step that runs COLMAP bundle_adjuster on the initialized model."""
 
-import logging
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
@@ -18,22 +17,32 @@ class ColmapBundleAdjustmentStep(BaseStep):
     STEP_NAME = "colmap_bundle_adjustment"
 
     def __init__(self, scene_root: str | Path) -> None:
+        # Input validations
+        assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
+
+        # Input normalizations
         scene_root = Path(scene_root)
-        self.model_dir = scene_root / "distorted" / "sparse" / "0"
+
+        self.scene_root = scene_root
+        self.model_dir: Path | None = None
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
+        seed_count = self._seed_count()
+        self.model_dir = self.scene_root / f"seed{seed_count}_triangulated"
         self.input_files = [
-            "distorted/sparse/0/cameras.bin",
-            "distorted/sparse/0/images.bin",
-            "distorted/sparse/0/points3D.bin",
+            f"seed{seed_count}_triangulated/cameras.bin",
+            f"seed{seed_count}_triangulated/images.bin",
+            f"seed{seed_count}_triangulated/points3D.bin",
         ]
 
     def _init_output_files(self) -> None:
+        seed_count = self._seed_count()
+        self.model_dir = self.scene_root / f"seed{seed_count}_triangulated"
         self.output_files = [
-            "distorted/sparse/0/cameras.bin",
-            "distorted/sparse/0/images.bin",
-            "distorted/sparse/0/points3D.bin",
+            f"seed{seed_count}_triangulated/cameras.bin",
+            f"seed{seed_count}_triangulated/images.bin",
+            f"seed{seed_count}_triangulated/points3D.bin",
         ]
 
     def build(self, force: bool = False) -> None:
@@ -48,7 +57,6 @@ class ColmapBundleAdjustmentStep(BaseStep):
             self._validate_model()
             return True
         except Exception as e:
-            logging.debug("Bundle adjustment validation failed: %s", e)
             return False
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
@@ -68,6 +76,7 @@ class ColmapBundleAdjustmentStep(BaseStep):
         return {}
 
     def _build_colmap_command(self) -> List[str]:
+        assert self.model_dir is not None, "model_dir unset"
         return [
             "colmap",
             "bundle_adjuster",
@@ -78,14 +87,15 @@ class ColmapBundleAdjustmentStep(BaseStep):
             "--BundleAdjustment.refine_principal_point",
             "0",
             "--BundleAdjustment.refine_focal_length",
-            "1",
+            "0",
             "--BundleAdjustment.refine_extra_params",
-            "1",
+            "0",
             "--log_to_stderr",
             "1",
         ]
 
     def _validate_model(self) -> None:
+        assert self.model_dir is not None, "model_dir unset"
         cameras = _load_colmap_cameras_bin(
             path_to_model_file=str(self.model_dir / "cameras.bin")
         )
@@ -99,3 +109,10 @@ class ColmapBundleAdjustmentStep(BaseStep):
         assert (
             images
         ), f"No registered images parsed from {self.model_dir / 'images.bin'}"
+
+    def _seed_count(self) -> int:
+        init_images_path = self.scene_root / "colmap_init" / "images.bin"
+        images = _load_colmap_images_bin(path_to_model_file=str(init_images_path))
+        seed_count = len(images)
+        assert seed_count > 0, f"No images parsed from {init_images_path}"
+        return seed_count

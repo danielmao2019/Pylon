@@ -21,25 +21,21 @@ class ColmapSparseReconstructionStep(BaseStep):
     def __init__(
         self,
         scene_root: str | Path,
-        init_model_dir: str | Path | None = None,
+        use_init_model: bool = False,
         strict: bool = True,
     ) -> None:
         # Input validations
         assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
+        assert isinstance(use_init_model, bool), f"{type(use_init_model)=}"
         assert isinstance(strict, bool), f"{type(strict)=}"
-        assert init_model_dir is None or isinstance(
-            init_model_dir, (str, Path)
-        ), f"{type(init_model_dir)=}"
 
-        # Input normalizations
         scene_root = Path(scene_root)
-        if init_model_dir is not None:
-            init_model_dir = Path(init_model_dir)
-
+        self.scene_root = scene_root
         self.input_images_dir = scene_root / "input"
         self.distorted_dir = scene_root / "distorted"
         self.sparse_output_dir = scene_root / "distorted" / "sparse"
-        self.init_model_dir = init_model_dir
+        self.init_model_dir: Path | None = None
+        self.use_init_model = use_init_model
         self.strict = strict
         super().__init__(input_root=scene_root, output_root=scene_root)
 
@@ -47,13 +43,14 @@ class ColmapSparseReconstructionStep(BaseStep):
         image_names = self._input_image_names()
         self.input_files = [f"input/{name}" for name in image_names]
         self.input_files.append("distorted/database.db")
-        if self.init_model_dir is not None:
-            init_rel = self.init_model_dir.relative_to(self.input_root)
+        if self.use_init_model:
+            seed_count = self._seed_count()
+            self.init_model_dir = self.scene_root / f"seed{seed_count}_triangulated"
             self.input_files.extend(
                 [
-                    str(init_rel / "cameras.bin"),
-                    str(init_rel / "images.bin"),
-                    str(init_rel / "points3D.bin"),
+                    f"seed{seed_count}_triangulated/cameras.bin",
+                    f"seed{seed_count}_triangulated/images.bin",
+                    f"seed{seed_count}_triangulated/points3D.bin",
                 ]
             )
 
@@ -76,15 +73,13 @@ class ColmapSparseReconstructionStep(BaseStep):
             return False
         try:
             self._validate_sparse_files()
-        except Exception as e:
-            logging.debug("Sparse reconstruction validation failed: %s", e)
-            return False
-        else:
             return True
+        except Exception:
+            return False
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
-        if self.check_outputs() and not force:
+        if not force and self.check_outputs():
             return {}
 
         self.sparse_output_dir.mkdir(parents=True, exist_ok=True)
@@ -115,12 +110,19 @@ class ColmapSparseReconstructionStep(BaseStep):
             "0",
             "--Mapper.ba_global_function_tolerance",
             "0.000001",
+            "--Mapper.ba_refine_focal_length",
+            "1",
+            "--Mapper.ba_refine_extra_params",
+            "1",
+            "--Mapper.ba_refine_principal_point",
+            "0",
             "--Mapper.tri_min_angle",
             "1",
             "--log_to_stderr",
             "1",
         ]
-        if self.init_model_dir is not None:
+        if self.use_init_model:
+            assert self.init_model_dir is not None, "init_model_dir unset"
             cmd_parts.extend(["--input_path", str(self.init_model_dir)])
         return cmd_parts
 
@@ -134,9 +136,10 @@ class ColmapSparseReconstructionStep(BaseStep):
         return [entry.name for entry in entries]
 
     def _validate_sparse_files(self) -> None:
-        cameras_path = self.sparse_output_dir / "0" / "cameras.bin"
-        images_path = self.sparse_output_dir / "0" / "images.bin"
-        points_path = self.sparse_output_dir / "0" / "points3D.bin"
+        sparse_model_dir = self.sparse_output_dir / "0"
+        cameras_path = sparse_model_dir / "cameras.bin"
+        images_path = sparse_model_dir / "images.bin"
+        points_path = sparse_model_dir / "points3D.bin"
         assert cameras_path.exists(), f"cameras.bin not found: {cameras_path}"
         assert images_path.exists(), f"images.bin not found: {images_path}"
         assert points_path.exists(), f"points3D.bin not found: {points_path}"
@@ -149,12 +152,19 @@ class ColmapSparseReconstructionStep(BaseStep):
         assert (
             len(cameras) == 1
         ), f"Expected exactly one camera in {cameras_path}, found {len(cameras)}"
+        camera = next(iter(cameras.values()))
+        assert camera.model == "OPENCV", f"{camera.model=}"
         assert images, f"No registered images parsed from {images_path}"
         expected_names = set(self._input_image_names())
         registered_names = {img.name for img in images.values()}
         assert registered_names, (
             f"No registered images found in {images_path} "
             f"(expected={len(expected_names)})"
+        )
+        logging.info(
+            "Mapper registered images: %s / %s",
+            len(registered_names),
+            len(expected_names),
         )
         if self.strict:
             assert registered_names == expected_names, (
@@ -177,3 +187,10 @@ class ColmapSparseReconstructionStep(BaseStep):
         #     assert set(point.image_ids).issubset(
         #         image_ids
         #     ), "points3D.bin references image ids not present in images.bin"
+
+    def _seed_count(self) -> int:
+        init_images_path = self.scene_root / "colmap_init" / "images.bin"
+        images = _load_colmap_images_bin(path_to_model_file=str(init_images_path))
+        seed_count = len(images)
+        assert seed_count > 0, f"No images parsed from {init_images_path}"
+        return seed_count
