@@ -135,9 +135,11 @@ class ColmapCorePipeline(BasePipeline):
                 "args": {
                     "scene_root": self.scene_root,
                     "colmap_args": self.colmap_args,
-                    "upright": upright,
-                    "camera_mode": camera_mode,
-                    "mask_input_root": mask_input_root,
+                    "extractor_cfg": {
+                        "upright": upright,
+                        "camera_mode": camera_mode,
+                        "mask_input_root": mask_input_root,
+                    },
                 },
             },
             {

@@ -4,7 +4,7 @@ import logging
 import sqlite3
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from data.pipelines.base_step import BaseStep
 
@@ -18,32 +18,49 @@ class ColmapFeatureExtractionStep(BaseStep):
         self,
         scene_root: str | Path,
         colmap_args: Dict[str, str],
-        upright: bool = False,
-        camera_mode: str = "OPENCV",
-        mask_input_root: str | Path | None = None,
+        extractor_cfg: Optional[Dict[str, Any]] = None,
     ) -> None:
         # Input validations
         assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
         assert isinstance(colmap_args, dict), f"{type(colmap_args)=}"
-        assert isinstance(upright, bool), f"{type(upright)=}"
-        assert isinstance(camera_mode, str), f"{type(camera_mode)=}"
-        assert camera_mode in {
-            "SIMPLE_PINHOLE",
-            "PINHOLE",
-            "OPENCV",
-        }, f"{camera_mode=}"
-        assert mask_input_root is None or isinstance(
-            mask_input_root, (str, Path)
-        ), f"{type(mask_input_root)=}"
+        assert extractor_cfg is None or isinstance(
+            extractor_cfg, dict
+        ), f"{type(extractor_cfg)=}"
+        assert extractor_cfg is None or extractor_cfg.keys() <= {
+            "upright",
+            "camera_mode",
+            "mask_input_root",
+        }, f"Invalid extractor_cfg keys: {extractor_cfg.keys()}"
+        assert extractor_cfg is None or (
+            "upright" not in extractor_cfg or isinstance(extractor_cfg["upright"], bool)
+        ), f"{type(extractor_cfg['upright'])=}"
+        assert extractor_cfg is None or (
+            "camera_mode" not in extractor_cfg
+            or isinstance(extractor_cfg["camera_mode"], str)
+        ), f"{type(extractor_cfg['camera_mode'])=}"
+        assert extractor_cfg is None or (
+            "camera_mode" not in extractor_cfg
+            or extractor_cfg["camera_mode"]
+            in {
+                "SIMPLE_PINHOLE",
+                "PINHOLE",
+                "OPENCV",
+            }
+        ), f"{extractor_cfg['camera_mode']=}"
+        assert extractor_cfg is None or (
+            "mask_input_root" not in extractor_cfg
+            or extractor_cfg["mask_input_root"] is None
+            or isinstance(extractor_cfg["mask_input_root"], (str, Path))
+        ), f"{type(extractor_cfg['mask_input_root'])=}"
 
+        # Input normalizations
         scene_root = Path(scene_root)
+
         self.input_images_dir = scene_root / "input"
         self.distorted_dir = scene_root / "distorted"
         self.database_path = scene_root / "distorted" / "database.db"
         self.colmap_args = colmap_args
-        self.upright = upright
-        self.camera_mode = camera_mode
-        self.mask_input_root = mask_input_root
+        self.extractor_cfg = extractor_cfg
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
@@ -112,17 +129,26 @@ class ColmapFeatureExtractionStep(BaseStep):
             str(self.input_images_dir),
             "--ImageReader.single_camera",
             "1",
-            "--ImageReader.camera_model",
-            self.camera_mode,
             self.colmap_args["feature_use_gpu"],
             "1",
             "--log_to_stderr",
             "1",
         ]
-        if self.mask_input_root is not None:
-            cmd_parts.extend([self.colmap_args["mask_path"], str(self.mask_input_root)])
-        if self.upright:
-            cmd_parts.extend([self.colmap_args["upright"], "1"])
+        if self.extractor_cfg is not None and "camera_mode" in self.extractor_cfg:
+            cmd_parts.extend(
+                ["--ImageReader.camera_model", self.extractor_cfg["camera_mode"]]
+            )
+        if self.extractor_cfg is not None and "mask_input_root" in self.extractor_cfg:
+            mask_input_root = self.extractor_cfg["mask_input_root"]
+            if mask_input_root is not None:
+                cmd_parts.extend([self.colmap_args["mask_path"], str(mask_input_root)])
+        if self.extractor_cfg is not None and "upright" in self.extractor_cfg:
+            cmd_parts.extend(
+                [
+                    self.colmap_args["upright"],
+                    "1" if self.extractor_cfg["upright"] else "0",
+                ]
+            )
         return cmd_parts
 
     def _validate_database(self) -> None:
