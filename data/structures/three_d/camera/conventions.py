@@ -7,6 +7,8 @@ and transform them to standardized coordinate systems used in point cloud render
 from typing import TYPE_CHECKING
 
 import torch
+
+from data.structures.three_d.camera.validation import validate_camera_convention
 from utils.ops.materialize_tensor import materialize_tensor
 
 if TYPE_CHECKING:
@@ -33,19 +35,14 @@ def _transform_convention(
         Transformed 4x4 camera pose in target convention
 
     Raises:
-        ValueError: If unknown coordinate convention is specified
+        AssertionError: If unknown coordinate convention is specified
     """
-    from data.structures.three_d.camera.camera import Camera
+    # Input validations
+    validate_camera_convention(camera.convention)
+    validate_camera_convention(target_convention)
 
-    assert isinstance(camera, Camera), f"{type(camera)=}"
     extrinsics = camera.extrinsics
     source_convention = camera.convention
-    assert target_convention in {
-        "standard",
-        "opengl",
-        "opencv",
-        "pytorch3d",
-    }, f"Unknown target_convention: {target_convention}"
 
     if source_convention == target_convention:
         return extrinsics
@@ -76,7 +73,7 @@ def _transform_convention(
     elif source_convention == "pytorch3d" and target_convention == "opencv":
         transform = _pytorch3d_to_opencv()
     else:
-        raise ValueError(
+        assert False, (
             f"Unsupported transformation: {source_convention} -> {target_convention}. "
             f"Supported: 'opengl' <-> 'standard', 'opengl' <-> 'opencv', "
             f"'opencv' <-> 'standard', 'pytorch3d' <-> 'opengl', 'pytorch3d' <-> 'standard', "
