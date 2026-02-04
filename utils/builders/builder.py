@@ -1,8 +1,9 @@
-from typing import Any
+import tempfile
 from copy import deepcopy
+from typing import Any
+
 import easydict as edict
 import torch
-import tempfile
 
 
 def semideepcopy(obj: Any) -> Any:
