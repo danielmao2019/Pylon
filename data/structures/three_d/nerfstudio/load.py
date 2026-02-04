@@ -114,9 +114,9 @@ def load_split_filenames(
     if "train_filenames" not in data:
         return None, None, None
     return (
-        [Path(item).stem for item in data["train_filenames"]],
-        [Path(item).stem for item in data["val_filenames"]],
-        [Path(item).stem for item in data["test_filenames"]],
+        data["train_filenames"],
+        data["val_filenames"],
+        data["test_filenames"],
     )
 
 

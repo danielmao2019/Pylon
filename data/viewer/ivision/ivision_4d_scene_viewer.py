@@ -372,24 +372,40 @@ class iVISION_4D_Scene_Viewer:
             transforms_data, NerfStudio_Data
         ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         split_lookup: Dict[str, str] = {}
+        path_lookup: Dict[str, str] = {}
         if transforms_data.train_filenames is not None:
+            assert transforms_data.val_filenames is not None
+            assert transforms_data.test_filenames is not None
             for file_path in transforms_data.train_filenames:
-                split_lookup[file_path] = "train"
+                camera_name = Path(file_path).stem
+                assert (
+                    camera_name not in split_lookup
+                ), f"Duplicate camera split entry: {camera_name}"
+                split_lookup[camera_name] = "train"
+                path_lookup[camera_name] = file_path
             for file_path in transforms_data.val_filenames:
-                split_lookup[file_path] = "val"
+                camera_name = Path(file_path).stem
+                assert (
+                    camera_name not in split_lookup
+                ), f"Duplicate camera split entry: {camera_name}"
+                split_lookup[camera_name] = "val"
+                path_lookup[camera_name] = file_path
             for file_path in transforms_data.test_filenames:
-                if file_path not in split_lookup:
-                    split_lookup[file_path] = "test"
+                camera_name = Path(file_path).stem
+                assert (
+                    camera_name not in split_lookup
+                ), f"Duplicate camera split entry: {camera_name}"
+                split_lookup[camera_name] = "test"
+                path_lookup[camera_name] = file_path
         else:
             for file_path in transforms_data.filenames:
                 split_lookup[file_path] = "all"
+                path_lookup[file_path] = file_path
         current_pose = self.get_camera().extrinsics
-        for file_path in transforms_data.filenames:
+        for camera_name in transforms_data.filenames:
             assert (
-                file_path in split_lookup
-            ), f"File '{file_path}' missing split assignment"
-            camera_name = Path(file_path).stem
-            assert camera_name, f"Empty camera name parsed from '{file_path}'"
+                camera_name in split_lookup
+            ), f"File '{camera_name}' missing split assignment"
             candidate_pose = (
                 transforms_data.cameras[camera_name]
                 .to(device=self.device, convention="standard")
@@ -397,8 +413,8 @@ class iVISION_4D_Scene_Viewer:
             )
             if torch.allclose(candidate_pose, current_pose, atol=1e-4, rtol=1e-4):
                 self._current_camera_selection = self._build_camera_selection(
-                    split_name=split_lookup[file_path],
-                    file_path=file_path,
+                    split_name=split_lookup[camera_name],
+                    file_path=path_lookup[camera_name],
                 )
                 return self._current_camera_selection
         return None
@@ -434,7 +450,8 @@ class iVISION_4D_Scene_Viewer:
             assert (
                 ":" in self._current_camera_selection
             ), f"Camera selection '{self._current_camera_selection}' is missing ':' separator"
-            camera_name = self._current_camera_selection.split(":", 1)[1]
+            _, file_path = self._current_camera_selection.split(":", 1)
+            camera_name = Path(file_path).stem
 
         method_names = self.method_order[self.current_dataset][self.current_scene]
         dataset_name = self.current_dataset

@@ -61,9 +61,9 @@ def save_split_filenames(
     if train is None:
         return {}
     return {
-        "train_filenames": [f"images/{name}.png" for name in train],
-        "val_filenames": [f"images/{name}.png" for name in val],
-        "test_filenames": [f"images/{name}.png" for name in test],
+        "train_filenames": train,
+        "val_filenames": val,
+        "test_filenames": test,
     }
 
 

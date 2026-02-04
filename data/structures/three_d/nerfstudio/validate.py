@@ -250,12 +250,33 @@ def validate_split_filenames_data(data: Dict[str, Any]) -> None:
     assert "train_filenames" not in data or isinstance(
         data["train_filenames"], list
     ), f"{type(data['train_filenames'])=}"
+    assert "train_filenames" not in data or all(
+        isinstance(item, str) for item in data["train_filenames"]
+    ), f"{data['train_filenames']=}"
+    assert "train_filenames" not in data or all(
+        item.startswith("images/") and item.endswith(".png")
+        for item in data["train_filenames"]
+    ), f"{data['train_filenames']=}"
     assert "val_filenames" not in data or isinstance(
         data["val_filenames"], list
     ), f"{type(data['val_filenames'])=}"
+    assert "val_filenames" not in data or all(
+        isinstance(item, str) for item in data["val_filenames"]
+    ), f"{data['val_filenames']=}"
+    assert "val_filenames" not in data or all(
+        item.startswith("images/") and item.endswith(".png")
+        for item in data["val_filenames"]
+    ), f"{data['val_filenames']=}"
     assert "test_filenames" not in data or isinstance(
         data["test_filenames"], list
     ), f"{type(data['test_filenames'])=}"
+    assert "test_filenames" not in data or all(
+        isinstance(item, str) for item in data["test_filenames"]
+    ), f"{data['test_filenames']=}"
+    assert "test_filenames" not in data or all(
+        item.startswith("images/") and item.endswith(".png")
+        for item in data["test_filenames"]
+    ), f"{data['test_filenames']=}"
     assert (
         "train_filenames" not in data or data["train_filenames"]
     ), "train_filenames must be non-empty"
@@ -300,18 +321,32 @@ def validate_split_filenames(
         and val_filenames is not None
         and test_filenames is not None
     ), "train/val/test filenames must all be provided together or all omitted"
-    assert (
-        train_filenames is None or validate_filenames(train_filenames) is None
+    assert train_filenames is None or all(
+        isinstance(item, str) for item in train_filenames
     ), f"{train_filenames=}"
-    assert (
-        val_filenames is None or validate_filenames(val_filenames) is None
+    assert val_filenames is None or all(
+        isinstance(item, str) for item in val_filenames
     ), f"{val_filenames=}"
-    assert (
-        test_filenames is None or validate_filenames(test_filenames) is None
+    assert test_filenames is None or all(
+        isinstance(item, str) for item in test_filenames
     ), f"{test_filenames=}"
+    assert train_filenames is None or all(
+        item.startswith("images/") and item.endswith(".png") for item in train_filenames
+    ), f"{train_filenames=}"
+    assert val_filenames is None or all(
+        item.startswith("images/") and item.endswith(".png") for item in val_filenames
+    ), f"{val_filenames=}"
+    assert test_filenames is None or all(
+        item.startswith("images/") and item.endswith(".png") for item in test_filenames
+    ), f"{test_filenames=}"
+    assert (
+        train_filenames is None or train_filenames
+    ), "train_filenames must be non-empty"
+    assert val_filenames is None or val_filenames, "val_filenames must be non-empty"
+    assert test_filenames is None or test_filenames, "test_filenames must be non-empty"
     validate_filenames(filenames)
-    assert train_filenames is None or set(filenames) == set(train_filenames) | set(
-        val_filenames
-    ) | set(
-        test_filenames
-    ), "train/val/test filenames must match frames file_path entries"
+    assert train_filenames is None or set(filenames) == {
+        Path(item).stem for item in train_filenames
+    } | {Path(item).stem for item in val_filenames} | {
+        Path(item).stem for item in test_filenames
+    }, "train/val/test filenames must match frames file_path entries"
