@@ -37,7 +37,7 @@ class ColmapModelTxtExportStep(BaseStep):
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
-        if self.check_outputs() and not force:
+        if not force and self.check_outputs():
             return {}
 
         self.model_dir.mkdir(parents=True, exist_ok=True)

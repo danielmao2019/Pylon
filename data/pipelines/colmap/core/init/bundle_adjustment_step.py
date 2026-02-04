@@ -53,7 +53,7 @@ class ColmapBundleAdjustmentStep(BaseStep):
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
-        if self.check_outputs() and not force:
+        if not force and self.check_outputs():
             return {}
 
         cmd_parts = self._build_colmap_command()
