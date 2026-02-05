@@ -96,14 +96,14 @@ class PrepareColmapInputsVideo(BaseStep):
         counts += self._extract_frames(
             output_dir=self.output_root / "input",
             video=self.video_filepath,
-            prefix="train_frame_",
+            prefix=f"{self.video_filepath.stem}_frame_",
             sample_every_n=self.sample_every_n,
         )
         for idx, v in enumerate(self.test_video_filepaths):
             counts += self._extract_frames(
                 output_dir=self.output_root / "input",
                 video=v,
-                prefix=f"test_{idx}_frame_",
+                prefix=f"{v.stem}_frame_",
                 sample_every_n=self.sample_every_n,
             )
         assert counts > 0, "No frames were extracted from provided videos"
@@ -117,6 +117,8 @@ class PrepareColmapInputsVideo(BaseStep):
         cmd = [
             "ffmpeg",
             "-y",
+            "-start_number",
+            "0",
             "-i",
             str(video),
             "-vf",
