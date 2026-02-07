@@ -273,27 +273,23 @@ class Camera:
         )
 
         extrinsics = self._extrinsics
-        rotation_c2w = extrinsics[:3, :3]
-        translation_c2w = extrinsics[:3, 3]
-        rotation_c2w_new = rotation_tensor @ rotation_c2w
-        translation_c2w_new = scale * (translation_c2w @ rotation_tensor.T) + (
-            translation_tensor
-        )
+        R_c2w = extrinsics[:3, :3]
+        t_c2w = extrinsics[:3, 3]
+        R_c2w_new = rotation_tensor @ R_c2w
+        t_c2w_new = scale * (rotation_tensor @ t_c2w) + translation_tensor
 
-        updated_extrinsics = torch.eye(
+        extrinsics_new = torch.eye(
             4,
             dtype=extrinsics.dtype,
             device=extrinsics.device,
         )
-        updated_extrinsics[:3, :3] = rotation_c2w_new
-        updated_extrinsics[:3, 3] = translation_c2w_new
-        updated_extrinsics[:3, :3] = _stabilize_rotation_matrix(
-            updated_extrinsics[:3, :3]
-        )
+        extrinsics_new[:3, :3] = R_c2w_new
+        extrinsics_new[:3, 3] = t_c2w_new
+        extrinsics_new[:3, :3] = _stabilize_rotation_matrix(extrinsics_new[:3, :3])
 
         return Camera(
             intrinsics=self._intrinsics,
-            extrinsics=updated_extrinsics,
+            extrinsics=extrinsics_new,
             convention=self._convention,
             name=self._name,
             id=self._id,
