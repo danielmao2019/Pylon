@@ -58,6 +58,8 @@ class PrepareColmapInputsVideo(BaseStep):
         super().__init__(input_root=input_root, output_root=output_root)
 
     def build(self, force: bool = False) -> None:
+        if self._built:
+            return
         super().build(force=force)
         self.run({}, force=False)
 

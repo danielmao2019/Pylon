@@ -32,6 +32,8 @@ class BaseStep(ABC):
         return self.STEP_NAME
 
     def build(self, force: bool = False) -> None:
+        if self._built:
+            return
         self._init_input_files()
         assert isinstance(self.input_files, list), (
             f"input_files must be list for step {self.STEP_NAME}, "

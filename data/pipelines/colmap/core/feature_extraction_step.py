@@ -71,6 +71,8 @@ class ColmapFeatureExtractionStep(BaseStep):
         self.output_files = ["distorted/database.db"]
 
     def build(self, force: bool = False) -> None:
+        if self._built:
+            return
         super().build(force=force)
         self.run(kwargs={}, force=force)
 

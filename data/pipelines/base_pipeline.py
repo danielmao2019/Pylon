@@ -31,6 +31,8 @@ class BasePipeline:
         return self.PIPELINE_NAME
 
     def build(self, force: bool = False) -> None:
+        if self._built:
+            return
         if self._steps is None:
             self._steps = [build_from_config(config) for config in self._step_configs]
         for step in self._steps:
