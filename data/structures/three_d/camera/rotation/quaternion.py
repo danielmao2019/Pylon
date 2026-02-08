@@ -199,32 +199,21 @@ def rotmat2qvec(R: np.ndarray) -> np.ndarray:
     """
     assert isinstance(R, np.ndarray), f"R must be np.ndarray, got {type(R)}"
     assert R.shape == (3, 3), f"R must have shape (3,3), got {R.shape}"
+    Rxx, Ryx, Rzx, Rxy, Ryy, Rzy, Rxz, Ryz, Rzz = R.flat
     K = (
         np.array(
             [
-                [R[0, 0] - R[1, 1] - R[2, 2], 0, 0, 0],
-                [R[1, 0] + R[0, 1], R[1, 1] - R[0, 0] - R[2, 2], 0, 0],
-                [R[2, 0] + R[0, 2], R[2, 1] + R[1, 2], R[2, 2] - R[0, 0] - R[1, 1], 0],
-                [
-                    R[1, 2] - R[2, 1],
-                    R[2, 0] - R[0, 2],
-                    R[0, 1] - R[1, 0],
-                    R[0, 0] + R[1, 1] + R[2, 2],
-                ],
-            ]
+                [Rxx - Ryy - Rzz, 0.0, 0.0, 0.0],
+                [Ryx + Rxy, Ryy - Rxx - Rzz, 0.0, 0.0],
+                [Rzx + Rxz, Rzy + Ryz, Rzz - Rxx - Ryy, 0.0],
+                [Ryz - Rzy, Rzx - Rxz, Rxy - Ryx, Rxx + Ryy + Rzz],
+            ],
+            dtype=R.dtype,
         )
         / 3.0
     )
-
-    K = K + K.T - np.diag(np.diag(K))
     eigvals, eigvecs = np.linalg.eigh(K)
-    qvec_xyzw = eigvecs[:, np.argmax(eigvals)]
-
-    if qvec_xyzw[3] < 0:
-        qvec_xyzw *= -1
-
-    # Eigen solver returns [x, y, z, w]; reorder to COLMAP [w, x, y, z].
-    return np.array(
-        [qvec_xyzw[3], qvec_xyzw[0], qvec_xyzw[1], qvec_xyzw[2]],
-        dtype=qvec_xyzw.dtype,
-    )
+    qvec = eigvecs[[3, 0, 1, 2], np.argmax(eigvals)]
+    if qvec[0] < 0:
+        qvec *= -1
+    return qvec
