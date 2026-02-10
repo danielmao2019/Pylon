@@ -31,9 +31,9 @@ class ColmapImageUndistortionStep(BaseStep):
         relpaths = [f"input/{name}" for name in self.image_names]
         relpaths.extend(
             [
-                "distorted/sparse/0/cameras.bin",
-                "distorted/sparse/0/images.bin",
-                "distorted/sparse/0/points3D.bin",
+                "distorted/sparse/cameras.bin",
+                "distorted/sparse/images.bin",
+                "distorted/sparse/points3D.bin",
             ]
         )
         self.input_files = relpaths
@@ -42,9 +42,9 @@ class ColmapImageUndistortionStep(BaseStep):
         relpaths = [f"images/{name}" for name in self.image_names]
         relpaths.extend(
             [
-                "undistorted/sparse/0/cameras.bin",
-                "undistorted/sparse/0/images.bin",
-                "undistorted/sparse/0/points3D.bin",
+                "undistorted/sparse/cameras.bin",
+                "undistorted/sparse/images.bin",
+                "undistorted/sparse/points3D.bin",
             ]
         )
         self.output_files = relpaths
@@ -93,8 +93,6 @@ class ColmapImageUndistortionStep(BaseStep):
             f"{result.returncode}. STDOUT: {result.stdout} STDERR: {result.stderr}"
         )
         self._move_sparse_model()
-        self._clean_other_files()
-
         self._validate_outputs_clean()
         return {}
 
@@ -105,7 +103,7 @@ class ColmapImageUndistortionStep(BaseStep):
             "--image_path",
             str(self.input_images_dir),
             "--input_path",
-            str(self.distorted_sparse_dir / "0"),
+            str(self.distorted_sparse_dir),
             "--output_path",
             str(self.output_root),
             "--output_type",
@@ -113,25 +111,16 @@ class ColmapImageUndistortionStep(BaseStep):
         ]
 
     def _move_sparse_model(self) -> None:
-        destination_dir = self.undistorted_sparse_dir / "0"
         source_model_dir = self.temp_sparse_dir
-        self._validate_sparse_model_dir(model_dir=source_model_dir)
+        destination_dir = self.undistorted_sparse_dir
+        assert source_model_dir.is_dir(), (
+            "Expected sparse output directory from image_undistorter: "
+            f"{source_model_dir}"
+        )
         if destination_dir.exists():
             shutil.rmtree(destination_dir)
         destination_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source_model_dir, destination_dir)
-        if self.temp_sparse_dir.exists():
-            shutil.rmtree(self.temp_sparse_dir)
-
-    def _clean_other_files(self) -> None:
-        target_dir = self.output_root / "images"
-        expected_names = set(
-            self._get_registered_image_names(sparse_root=self.undistorted_sparse_dir)
-        )
-        assert expected_names, "No registered images found for undistorted sparse model"
-        for entry in target_dir.iterdir():
-            if entry.is_file() and entry.name not in expected_names:
-                entry.unlink()
+        shutil.move(str(source_model_dir), str(destination_dir))
 
     def _get_disk_image_names(self, images_dir: Path) -> List[str]:
         assert (
@@ -150,10 +139,9 @@ class ColmapImageUndistortionStep(BaseStep):
         return sorted(entry.name for entry in disk_entries)
 
     def _get_registered_image_names(self, sparse_root: Path) -> List[str]:
-        sparse_model_dir = sparse_root / "0"
-        if not sparse_model_dir.is_dir():
+        if not sparse_root.is_dir():
             return []
-        images_bin = sparse_model_dir / "images.bin"
+        images_bin = sparse_root / "images.bin"
         if not images_bin.is_file():
             return []
         images = _load_colmap_images_bin(path_to_model_file=str(images_bin))
@@ -161,14 +149,3 @@ class ColmapImageUndistortionStep(BaseStep):
             return []
         image_names = sorted(image.name for image in images.values())
         return image_names
-
-    def _validate_sparse_model_dir(self, model_dir: Path) -> None:
-        assert model_dir.is_dir(), f"Sparse model directory not found: {model_dir}"
-        expected_files = ["cameras.bin", "images.bin", "points3D.bin"]
-        missing_files = [
-            name for name in expected_files if not (model_dir / name).exists()
-        ]
-        assert not missing_files, (
-            "Sparse model directory missing expected files: "
-            f"{', '.join(missing_files)}"
-        )

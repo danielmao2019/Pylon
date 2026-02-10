@@ -95,6 +95,7 @@ class ColmapPointTriangulationStep(BaseStep):
         if not force and self.check_outputs():
             return {}
 
+        logging.info("   🧭 Init: point triangulation")
         assert self.triangulated_model_dir is not None, "triangulated_model_dir unset"
         self.triangulated_model_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,6 +1,7 @@
 """Step that runs COLMAP sparse reconstruction."""
 
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
@@ -40,8 +41,8 @@ class ColmapSparseReconstructionStep(BaseStep):
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
-        image_names = self._input_image_names()
-        self.input_files = [f"input/{name}" for name in image_names]
+        image_entries = sorted(self.input_images_dir.glob("*.png"))
+        self.input_files = [f"input/{entry.name}" for entry in image_entries]
         self.input_files.append("distorted/database.db")
         if self.use_init_model:
             seed_count = self._seed_count()
@@ -56,9 +57,9 @@ class ColmapSparseReconstructionStep(BaseStep):
 
     def _init_output_files(self) -> None:
         self.output_files = [
-            "distorted/sparse/0/cameras.bin",
-            "distorted/sparse/0/images.bin",
-            "distorted/sparse/0/points3D.bin",
+            "distorted/sparse/cameras.bin",
+            "distorted/sparse/images.bin",
+            "distorted/sparse/points3D.bin",
         ]
 
     def build(self, force: bool = False) -> None:
@@ -77,14 +78,75 @@ class ColmapSparseReconstructionStep(BaseStep):
         except Exception:
             return False
 
+    def _validate_sparse_files(self) -> None:
+        sparse_model_dir = self.sparse_output_dir
+        logging.info(
+            "VALIDATE_MAPPER_OUTPUT layout=flat model_dir=%s files_present=%s",
+            sparse_model_dir,
+            1,
+        )
+
+        cameras_path = sparse_model_dir / "cameras.bin"
+        images_path = sparse_model_dir / "images.bin"
+        points_path = sparse_model_dir / "points3D.bin"
+        cameras = _load_colmap_cameras_bin(path_to_model_file=str(cameras_path))
+        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
+        points3d = _load_colmap_points_bin(path_to_model_file=str(points_path))
+
+        assert cameras, f"No cameras parsed from {cameras_path}"
+        assert (
+            len(cameras) == 1
+        ), f"Expected exactly one camera in {cameras_path}, found {len(cameras)}"
+        camera = next(iter(cameras.values()))
+        assert camera.model == "OPENCV", f"{camera.model=}"
+        assert images, f"No registered images parsed from {images_path}"
+        entries = sorted(self.input_images_dir.iterdir())
+        assert entries, f"Empty input dir or no files: {self.input_images_dir}"
+        assert all(entry.is_file() for entry in entries), (
+            "COLMAP input directory must only contain files "
+            f"(found non-file entries in {self.input_images_dir})"
+        )
+        expected_names = {entry.name for entry in entries}
+        registered_names = {img.name for img in images.values()}
+        assert registered_names, (
+            f"No registered images found in {images_path} "
+            f"(expected={len(expected_names)})"
+        )
+        logging.info(
+            "Mapper registered images: %s / %s",
+            len(registered_names),
+            len(expected_names),
+        )
+        if self.strict:
+            assert registered_names == expected_names, (
+                "Registered images must match all inputs. "
+                f"expected={len(expected_names)} actual={len(registered_names)}"
+            )
+        else:
+            assert registered_names.issubset(expected_names), (
+                "Registered image names contain entries not in inputs. "
+                f"expected={len(expected_names)} actual={len(registered_names)}"
+            )
+            ratio = len(registered_names) / float(len(expected_names))
+            assert ratio > 0.1, f"Registered image ratio too low: {ratio:.4f}"
+        assert points3d, f"No points parsed from {points_path}"
+        # image_ids = {img.id for img in images.values()}
+        # for point in points3d.values():
+        #     assert len(point.image_ids) == len(
+        #         point.point2D_idxs
+        #     ), "points3D.bin contains mismatched image_ids and point2D_idxs lengths"
+        #     assert set(point.image_ids).issubset(
+        #         image_ids
+        #     ), "points3D.bin references image ids not present in images.bin"
+
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
         if not force and self.check_outputs():
             return {}
 
-        self.sparse_output_dir.mkdir(parents=True, exist_ok=True)
-
         logging.info("   🏗️ Sparse reconstruction")
+        self._clean_sparse_output_dir()
+        self._log_pre_mapper_output_state()
         cmd_parts = self._build_colmap_command()
         result = subprocess.run(cmd_parts)
         assert result.returncode == 0, (
@@ -126,67 +188,34 @@ class ColmapSparseReconstructionStep(BaseStep):
             cmd_parts.extend(["--input_path", str(self.init_model_dir)])
         return cmd_parts
 
-    def _input_image_names(self) -> List[str]:
-        entries = sorted(self.input_images_dir.iterdir())
-        assert entries, f"Empty input dir or no files: {self.input_images_dir}"
-        assert all(entry.is_file() for entry in entries), (
-            "COLMAP input directory must only contain files "
-            f"(found non-file entries in {self.input_images_dir})"
-        )
-        return [entry.name for entry in entries]
-
-    def _validate_sparse_files(self) -> None:
-        sparse_model_dir = self.sparse_output_dir / "0"
-        cameras_path = sparse_model_dir / "cameras.bin"
-        images_path = sparse_model_dir / "images.bin"
-        points_path = sparse_model_dir / "points3D.bin"
-        assert cameras_path.exists(), f"cameras.bin not found: {cameras_path}"
-        assert images_path.exists(), f"images.bin not found: {images_path}"
-        assert points_path.exists(), f"points3D.bin not found: {points_path}"
-
-        cameras = _load_colmap_cameras_bin(path_to_model_file=str(cameras_path))
-        images = _load_colmap_images_bin(path_to_model_file=str(images_path))
-        points3d = _load_colmap_points_bin(path_to_model_file=str(points_path))
-
-        assert cameras, f"No cameras parsed from {cameras_path}"
-        assert (
-            len(cameras) == 1
-        ), f"Expected exactly one camera in {cameras_path}, found {len(cameras)}"
-        camera = next(iter(cameras.values()))
-        assert camera.model == "OPENCV", f"{camera.model=}"
-        assert images, f"No registered images parsed from {images_path}"
-        expected_names = set(self._input_image_names())
-        registered_names = {img.name for img in images.values()}
-        assert registered_names, (
-            f"No registered images found in {images_path} "
-            f"(expected={len(expected_names)})"
-        )
+    def _clean_sparse_output_dir(self) -> None:
+        output_path = self.sparse_output_dir
+        if output_path.exists():
+            entries = sorted(output_path.iterdir(), key=lambda entry: entry.name)
+            logging.info(
+                "CLEAN_MAPPER_OUTPUT path=%s action=deleting_existing entries=%s",
+                output_path,
+                [entry.name for entry in entries],
+            )
+            shutil.rmtree(output_path)
+        output_path.mkdir(parents=True, exist_ok=True)
         logging.info(
-            "Mapper registered images: %s / %s",
-            len(registered_names),
-            len(expected_names),
+            "CLEAN_MAPPER_OUTPUT path=%s action=created_empty",
+            output_path,
         )
-        if self.strict:
-            assert registered_names == expected_names, (
-                "Registered images must match all inputs. "
-                f"expected={len(expected_names)} actual={len(registered_names)}"
-            )
-        else:
-            assert registered_names.issubset(expected_names), (
-                "Registered image names contain entries not in inputs. "
-                f"expected={len(expected_names)} actual={len(registered_names)}"
-            )
-            ratio = len(registered_names) / float(len(expected_names))
-            assert ratio > 0.1, f"Registered image ratio too low: {ratio:.4f}"
-        assert points3d, f"No points parsed from {points_path}"
-        # image_ids = {img.id for img in images.values()}
-        # for point in points3d.values():
-        #     assert len(point.image_ids) == len(
-        #         point.point2D_idxs
-        #     ), "points3D.bin contains mismatched image_ids and point2D_idxs lengths"
-        #     assert set(point.image_ids).issubset(
-        #         image_ids
-        #     ), "points3D.bin references image ids not present in images.bin"
+
+    def _log_pre_mapper_output_state(self) -> None:
+        output_path = self.sparse_output_dir
+        exists = output_path.exists()
+        children = []
+        if exists:
+            children = [entry.name for entry in sorted(output_path.iterdir())]
+        logging.info(
+            "PRE_MAPPER_OUTPUT_STATE path=%s exists=%s children=%s",
+            output_path,
+            int(exists),
+            children,
+        )
 
     def _seed_count(self) -> int:
         init_images_path = self.scene_root / "colmap_init" / "images.bin"

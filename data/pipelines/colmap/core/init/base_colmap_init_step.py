@@ -1,5 +1,6 @@
 """Base step for initializing a COLMAP model from external pose priors."""
 
+import logging
 import sqlite3
 from abc import abstractmethod
 from pathlib import Path
@@ -56,6 +57,8 @@ class BaseColmapInitStep(BaseStep):
         self.check_inputs()
         if not force and self.check_outputs():
             return {}
+
+        logging.info("   🧭 Init: seed model (%s)", self.STEP_NAME)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         camera_id, camera_model, size, params = self._load_cameras_from_database()
         poses = self._define_poses()

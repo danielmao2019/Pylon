@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import numpy as np
@@ -12,32 +13,30 @@ from data.structures.three_d.point_cloud.ops.apply_transform import apply_transf
 
 
 class BaseNormalizeCoordsStep(BaseStep, ABC):
+
     def check_outputs(self) -> bool:
         if not super().check_outputs():
             return False
         try:
+            self._validate_sparse_model_dir(
+                sparse_root=self.output_root / "undistorted" / "sparse"
+            )
             self._validate_coords()
             return True
         except Exception as e:
             logging.debug("Coords normalization validation failed: %s", e)
             return False
 
-    def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
-        self.check_inputs()
-        if not force and self.check_outputs():
-            return {}
-        scale, rotation, translation = self._compute_transform()
-        self._transform_colmap(
-            scale=scale,
-            rotation=rotation,
-            translation=translation,
-        )
-        self._transform_nerfstudio(
-            scale=scale,
-            rotation=rotation,
-            translation=translation,
-        )
-        return {}
+    def _validate_sparse_model_dir(self, sparse_root: Path) -> None:
+        # Input validations
+        assert isinstance(sparse_root, Path), f"{type(sparse_root)=}"
+
+        cameras_path = sparse_root / "cameras.bin"
+        images_path = sparse_root / "images.bin"
+        points_path = sparse_root / "points3D.bin"
+        assert cameras_path.exists(), f"cameras.bin not found: {cameras_path}"
+        assert images_path.exists(), f"images.bin not found: {images_path}"
+        assert points_path.exists(), f"points3D.bin not found: {points_path}"
 
     def _validate_coords(self) -> None:
         scale, rotation, translation = self._compute_transform()
@@ -60,21 +59,37 @@ class BaseNormalizeCoordsStep(BaseStep, ABC):
             translation_norm <= diagonal * 1.0e-03
         ), f"Translation too large: {translation_norm}"
 
+    def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
+        self.check_inputs()
+        if not force and self.check_outputs():
+            return {}
+        scale, rotation, translation = self._compute_transform()
+        self._transform_colmap(
+            scale=scale,
+            rotation=rotation,
+            translation=translation,
+        )
+        self._transform_nerfstudio(
+            scale=scale,
+            rotation=rotation,
+            translation=translation,
+        )
+        return {}
+
     def _transform_colmap(
         self,
         scale: float,
         rotation: np.ndarray,
         translation: np.ndarray,
     ) -> None:
-        model_dir = self.output_root / "undistorted" / "sparse" / "0"
-        assert model_dir.is_dir(), f"COLMAP model dir not found: {model_dir}"
-        colmap_data = COLMAP_Data.load(model_dir=model_dir)
+        sparse_root = self.output_root / "undistorted" / "sparse"
+        colmap_data = COLMAP_Data.load(model_dir=sparse_root)
         colmap_data.transform(
             scale=scale,
             rotation=rotation,
             translation=translation,
         )
-        colmap_data.save(output_dir=model_dir)
+        colmap_data.save(output_dir=sparse_root)
 
     def _transform_nerfstudio(
         self,

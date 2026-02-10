@@ -1,5 +1,6 @@
 """Step that runs COLMAP bundle_adjuster on the initialized model."""
 
+import logging
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
@@ -64,6 +65,7 @@ class ColmapBundleAdjustmentStep(BaseStep):
         if not force and self.check_outputs():
             return {}
 
+        logging.info("   🧭 Init: bundle adjustment")
         cmd_parts = self._build_colmap_command()
         result = subprocess.run(cmd_parts, capture_output=True, text=True)
         ret_code = result.returncode

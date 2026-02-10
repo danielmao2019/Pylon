@@ -23,7 +23,7 @@ class ColmapConvertToNerfstudioStep(BaseStep):
         self.transforms_path = self.output_root / "transforms.json"
 
     def _init_input_files(self) -> None:
-        self.input_files = ["0/cameras.bin", "0/images.bin", "0/points3D.bin"]
+        self.input_files = ["cameras.bin", "images.bin", "points3D.bin"]
 
     def _init_output_files(self) -> None:
         self.output_files = ["transforms.json", "sparse_pc.ply"]
@@ -40,32 +40,10 @@ class ColmapConvertToNerfstudioStep(BaseStep):
                 modalities=nerfstudio.modalities,
                 filenames=nerfstudio.filenames,
             )
+            return True
         except Exception as e:
-            logging.debug("COLMAP NerfStudio_Data validation failed: %s", e)
+            logging.debug("Nerfstudio conversion validation failed: %s", e)
             return False
-        return True
-
-    def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
-        self.check_inputs()
-        if not force and self.check_outputs():
-            return {}
-
-        self.output_root.mkdir(parents=True, exist_ok=True)
-        model_dir = self.input_root / "0"
-        colmap_data = COLMAP_Data.load(model_dir=model_dir)
-        transforms_path, ply_path = convert_colmap_to_nerfstudio(
-            filename="transforms.json",
-            colmap_cameras=colmap_data.cameras,
-            colmap_images=colmap_data.images,
-            colmap_points=colmap_data.points3D,
-            output_dir=str(self.output_root),
-            ply_filename="sparse_pc.ply",
-        )
-        logging.info(
-            "   ✓ Wrote %s with %d frames", transforms_path, len(colmap_data.images)
-        )
-        logging.info("   ✓ Wrote COLMAP sparse point cloud: %s", ply_path)
-        return {}
 
     def _validate_conversion(self, modalities: List[str], filenames: List[str]) -> None:
         # Input validations
@@ -85,6 +63,27 @@ class ColmapConvertToNerfstudioStep(BaseStep):
             "Filenames on disk do not match transforms.json: "
             f"disk={len(disk_filenames)} expected={len(filenames)}"
         )
+
+    def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
+        self.check_inputs()
+        if not force and self.check_outputs():
+            return {}
+
+        self.output_root.mkdir(parents=True, exist_ok=True)
+        colmap_data = COLMAP_Data.load(model_dir=self.input_root)
+        transforms_path, ply_path = convert_colmap_to_nerfstudio(
+            filename="transforms.json",
+            colmap_cameras=colmap_data.cameras,
+            colmap_images=colmap_data.images,
+            colmap_points=colmap_data.points3D,
+            output_dir=str(self.output_root),
+            ply_filename="sparse_pc.ply",
+        )
+        logging.info(
+            "   ✓ Wrote %s with %d frames", transforms_path, len(colmap_data.images)
+        )
+        logging.info("   ✓ Wrote COLMAP sparse point cloud: %s", ply_path)
+        return {}
 
     def _get_disk_modalities_filenames(self) -> Tuple[List[str], List[str]]:
         # Input validations
