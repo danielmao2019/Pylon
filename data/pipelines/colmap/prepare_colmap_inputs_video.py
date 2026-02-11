@@ -117,14 +117,14 @@ class PrepareColmapInputsVideo(BaseStep):
         cmd = [
             "ffmpeg",
             "-y",
-            "-start_number",
-            "0",
             "-i",
             str(video),
             "-vf",
             f"select=not(mod(n\\,{sample_every_n}))",
             "-vsync",
             "vfr",
+            "-start_number",
+            "0",
             pattern,
         ]
         logging.info("   ▶ %s", " ".join(cmd))

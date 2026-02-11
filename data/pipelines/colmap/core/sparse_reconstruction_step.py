@@ -91,10 +91,10 @@ class ColmapSparseReconstructionStep(BaseStep):
 
         logging.info("   🏗️ Sparse reconstruction")
         cmd_parts = self._build_colmap_command()
-        result = subprocess.run(cmd_parts, capture_output=True, text=True)
+        result = subprocess.run(cmd_parts)
         assert result.returncode == 0, (
             f"COLMAP mapper failed with code {result.returncode}. "
-            f"STDOUT: {result.stdout} STDERR: {result.stderr}"
+            f"Command: {' '.join(cmd_parts)}"
         )
 
         self._validate_sparse_files()
