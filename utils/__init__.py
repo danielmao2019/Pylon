@@ -8,6 +8,7 @@ from utils import (
     conversions,
     determinism,
     dynamic_executor,
+    graphs,
     gradients,
     input_checks,
     io,
@@ -20,18 +21,19 @@ from utils import (
 from utils.timeout import with_timeout
 
 __all__ = (
-    'dynamic_executor',
     'automation',
     'builders',
     'conversions',
     'determinism',
+    'dynamic_executor',
+    'graphs',
+    'gradients',
     'input_checks',
     'io',
     'logging',
     'models',
-    'ops',
-    'gradients',
     'object_detection',
+    'ops',
     'semantic_segmentation',
     'with_timeout',
 )
