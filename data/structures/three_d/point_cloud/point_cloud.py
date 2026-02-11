@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional, Tuple, Union
 
 import torch
 
@@ -7,8 +7,8 @@ class PointCloud:
 
     def __init__(
         self,
-        xyz: torch.Tensor | None = None,
-        data: Dict[str, torch.Tensor] | None = None,
+        xyz: Optional[torch.Tensor] = None,
+        data: Optional[Dict[str, torch.Tensor]] = None,
     ) -> None:
         assert xyz is None or isinstance(xyz, torch.Tensor), f"{type(xyz)=}"
         assert data is None or isinstance(
@@ -107,7 +107,7 @@ class PointCloud:
     def __len__(self) -> int:
         return self._length
 
-    def field_names(self) -> tuple[str, ...]:
+    def field_names(self) -> Tuple[str, ...]:
         return ('xyz',) + tuple(self._fields.keys())
 
     def __getattr__(self, name: str) -> torch.Tensor:

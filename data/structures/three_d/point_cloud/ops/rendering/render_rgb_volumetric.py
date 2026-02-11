@@ -15,8 +15,8 @@ from PIL import Image
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
-from data.structures.three_d.point_cloud import save_point_cloud
-from data.structures.three_d.point_cloud.ops.rendering.common import (
+from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
+from data.structures.three_d.point_cloud.ops.rendering.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
 from data.structures.three_d.point_cloud.ops.rendering.render_rgb import (

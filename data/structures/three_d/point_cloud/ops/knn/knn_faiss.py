@@ -1,24 +1,28 @@
-from typing import Tuple, Optional
-import torch
+from typing import Any, Optional, Tuple, Union
+
 import numpy as np
+import torch
 
 
-def _to_numpy_f32(data):
+def _to_numpy_f32(data: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
     """Convert tensor or numpy array to contiguous float32 numpy array."""
+    # Input validations
+    assert isinstance(data, (torch.Tensor, np.ndarray)), f"{type(data)=}"
+
     if isinstance(data, torch.Tensor):
         if data.dtype != torch.float32:
             data = data.float()
         if not data.is_contiguous():
             data = data.contiguous()
         return data.detach().cpu().numpy()
-    elif isinstance(data, np.ndarray):
+    if isinstance(data, np.ndarray):
         if data.dtype != np.float32:
             data = data.astype(np.float32)
         if not data.flags['C_CONTIGUOUS']:
             data = np.ascontiguousarray(data)
         return data
-    else:
-        raise TypeError(f"Expected torch.Tensor or numpy.ndarray, got {type(data)}")
+
+    assert False, f"Unhandled data type: {type(data)}"
 
 
 def _knn_faiss(
@@ -75,7 +79,12 @@ def _knn_faiss(
 
 
 def _knn_faiss_with_k(
-    query_np, reference_np, k: int, d: int, ngpus: int, faiss
+    query_np: np.ndarray,
+    reference_np: np.ndarray,
+    k: int,
+    d: int,
+    ngpus: int,
+    faiss: Any,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """FAISS backend for k-NN search - multi-GPU acceleration."""
     assert k > 0, f"k must be positive, got {k}"
@@ -124,7 +133,11 @@ def _knn_faiss_with_k(
 
 
 def _knn_faiss_with_r(
-    query_np, reference_np, radius: float, d: int, faiss
+    query_np: np.ndarray,
+    reference_np: np.ndarray,
+    radius: float,
+    d: int,
+    faiss: Any,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """FAISS backend for range search - CPU-based."""
     assert isinstance(

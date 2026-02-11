@@ -1,15 +1,18 @@
-from __future__ import annotations
-from typing import List, Dict, Union, TYPE_CHECKING
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Optional, Tuple
+
 import torch
-from data.structures.three_d.point_cloud.ops.sampling.grid_sampling_3d_v2 import GridSampling3D
 
-if TYPE_CHECKING:
-    from data.structures.three_d.point_cloud.point_cloud import PointCloud
-    from data.structures.three_d.point_cloud.select import Select
+from data.structures.three_d.point_cloud.ops.sampling.grid_sampling_3d_v2 import (
+    GridSampling3D,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.select import Select
 
 
-def process_cluster(args):
+def process_cluster(
+    args: Tuple[int, torch.Tensor, List[PointCloud], List[int], List[torch.Tensor]],
+) -> Tuple[int, List[Optional[PointCloud]]]:
     """
     Process a single cluster for all point clouds.
 
@@ -19,12 +22,14 @@ def process_cluster(args):
     Returns:
         Tuple of (cluster_id, results) where results is a list of voxelized point clouds
     """
-    from data.structures.three_d.point_cloud.select import Select
+    # Input validations
+    assert isinstance(args, tuple), f"{type(args)=}"
+    assert len(args) == 5, f"{len(args)=}"
 
     cluster_id, cluster_mask, pcs, start_indices, pc_masks = args
 
     # Process each point cloud for this cluster
-    results = []
+    results: List[Optional[PointCloud]] = []
     for pc_idx in range(len(pcs)):
         # Get points in this cluster from this point cloud using pre-computed mask
         pc_cluster_mask = cluster_mask & pc_masks[pc_idx]
@@ -51,8 +56,8 @@ def process_cluster(args):
 def grid_sampling(
     pcs: List[PointCloud],
     voxel_size: float,
-    num_workers: int = None,  # None will use all available CPU cores
-) -> List[List[Union[PointCloud, None]]]:
+    num_workers: Optional[int] = None,
+) -> List[List[Optional[PointCloud]]]:
     """
     Grid sampling of point clouds.
 
@@ -69,8 +74,6 @@ def grid_sampling(
         - indices: Original indices of the points
         - Other fields from the original point cloud, selected by indices
     """
-    from data.structures.three_d.point_cloud.point_cloud import PointCloud
-
     # Get the number of points in each point cloud
     num_points_per_pc = [pc.xyz.shape[0] for pc in pcs]
 
@@ -89,7 +92,7 @@ def grid_sampling(
 
     sampled_data = sampler(PointCloud(xyz=points_union))
 
-    cluster_indices = getattr(sampled_data, 'point_indices')
+    cluster_indices = sampled_data.point_indices
 
     # Get unique cluster IDs
     unique_clusters = torch.unique(cluster_indices)
@@ -101,7 +104,9 @@ def grid_sampling(
     pc_indices = torch.zeros(
         len(points_union), dtype=torch.long, device=points_union.device
     )
-    for i, (start, num_points) in enumerate(zip(start_indices, num_points_per_pc, strict=True)):
+    for i, (start, num_points) in enumerate(
+        zip(start_indices, num_points_per_pc, strict=True)
+    ):
         pc_indices[start : start + num_points] = i
 
     # Pre-compute masks for each point cloud to avoid redundant calculations
@@ -111,7 +116,13 @@ def grid_sampling(
 
     # Prepare arguments for parallel processing
     process_args = [
-        (cluster_id.item(), cluster_indices == cluster_id, pcs, start_indices, pc_masks)
+        (
+            cluster_id.item(),
+            cluster_indices == cluster_id,
+            pcs,
+            start_indices,
+            pc_masks,
+        )
         for cluster_id in unique_clusters
     ]
 
@@ -130,7 +141,7 @@ def grid_sampling(
             cluster_results[cluster_id] = cluster_result
 
     # Reconstruct the result in the original order
-    for i, cluster_id in enumerate(unique_clusters):
+    for cluster_id in unique_clusters:
         cluster_id = cluster_id.item()
         for pc_idx in range(len(pcs)):
             result[pc_idx].append(cluster_results[cluster_id][pc_idx])

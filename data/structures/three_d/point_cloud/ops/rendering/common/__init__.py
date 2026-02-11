@@ -1,7 +1,5 @@
-"""Common utilities for point cloud rendering.
-
-This package exposes helpers used by multiple renderers.
-All imports are absolute to avoid ambiguity when used as a library.
+"""
+DATA.STRUCTURES.THREE_D.POINT_CLOUD.OPS.RENDERING.COMMON API
 """
 
 from data.structures.three_d.point_cloud.ops.rendering.common.apply_point_size_postprocessing import (
@@ -17,9 +15,9 @@ from data.structures.three_d.point_cloud.ops.rendering.common.validate_rendering
     validate_rendering_inputs,
 )
 
-__all__ = [
-    "apply_point_size_postprocessing",
-    "create_circular_kernel_offsets",
-    "prepare_points_for_rendering",
-    "validate_rendering_inputs",
-]
+__all__ = (
+    'apply_point_size_postprocessing',
+    'create_circular_kernel_offsets',
+    'prepare_points_for_rendering',
+    'validate_rendering_inputs',
+)

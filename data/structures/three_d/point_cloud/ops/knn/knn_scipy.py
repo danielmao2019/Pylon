@@ -1,6 +1,8 @@
-from typing import Tuple, Optional
-import torch
+from typing import Optional, Tuple
+
 import numpy as np
+import torch
+from scipy.spatial import cKDTree
 
 
 def _knn_scipy(
@@ -10,18 +12,24 @@ def _knn_scipy(
     radius: Optional[float] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """SciPy backend using cKDTree - good for CPU, supports radius search."""
-    from scipy.spatial import cKDTree
-
+    # Input validations
     assert isinstance(query_points, torch.Tensor), "query_points must be torch.Tensor"
+    assert query_points.ndim == 2, f"{query_points.shape=}"
+    assert query_points.shape[1] == 3, f"query_points must have 3 coordinates"
     assert isinstance(
         reference_points, torch.Tensor
     ), "reference_points must be torch.Tensor"
+    assert reference_points.ndim == 2, f"{reference_points.shape=}"
+    assert reference_points.shape[1] == 3, f"reference_points must have 3 coordinates"
+    assert k is None or isinstance(k, int), f"{type(k)=}"
+    assert k is None or k > 0, f"k must be positive if provided, got {k}"
+    assert radius is None or isinstance(radius, (int, float)), f"{type(radius)=}"
+    assert (
+        radius is None or radius > 0
+    ), f"radius must be positive if provided, got {radius}"
     assert (k is None) != (
         radius is None
     ), "Exactly one of k or radius must be specified"
-    assert k is None or k > 0, f"k must be positive if provided, got {k}"
-    assert query_points.shape[1] == 3, f"query_points must have 3 coordinates"
-    assert reference_points.shape[1] == 3, f"reference_points must have 3 coordinates"
 
     # Convert to numpy
     query_np = query_points.detach().cpu().numpy()
@@ -43,16 +51,28 @@ def _knn_scipy(
         return _knn_scipy_with_r(
             query_np=query_np, reference_np=reference_np, tree=tree, radius=radius
         )
-    else:
-        return _knn_scipy_with_k(
-            query_np=query_np, reference_np=reference_np, tree=tree, k=k
-        )
+
+    assert isinstance(k, int), f"{type(k)=}"
+    return _knn_scipy_with_k(
+        query_np=query_np, reference_np=reference_np, tree=tree, k=k
+    )
 
 
 def _knn_scipy_with_r(
-    query_np: np.ndarray, reference_np: np.ndarray, tree, radius: float
+    query_np: np.ndarray,
+    reference_np: np.ndarray,
+    tree: cKDTree,
+    radius: float,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Radius search using cKDTree."""
+    # Input validations
+    assert isinstance(query_np, np.ndarray), f"{type(query_np)=}"
+    assert query_np.ndim == 2, f"{query_np.shape=}"
+    assert query_np.shape[1] == 3, f"{query_np.shape=}"
+    assert isinstance(reference_np, np.ndarray), f"{type(reference_np)=}"
+    assert reference_np.ndim == 2, f"{reference_np.shape=}"
+    assert reference_np.shape[1] == 3, f"{reference_np.shape=}"
+    assert isinstance(tree, cKDTree), f"{type(tree)=}"
     assert isinstance(
         radius, (int, float)
     ), f"radius must be numeric, got {type(radius)}"
@@ -146,10 +166,23 @@ def _knn_scipy_with_r(
 
 
 def _knn_scipy_with_k(
-    query_np: np.ndarray, reference_np: np.ndarray, tree, k: int
+    query_np: np.ndarray,
+    reference_np: np.ndarray,
+    tree: cKDTree,
+    k: int,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Standard k-NN search using cKDTree."""
-    assert k is not None
+    # Input validations
+    assert isinstance(query_np, np.ndarray), f"{type(query_np)=}"
+    assert query_np.ndim == 2, f"{query_np.shape=}"
+    assert query_np.shape[1] == 3, f"{query_np.shape=}"
+    assert isinstance(reference_np, np.ndarray), f"{type(reference_np)=}"
+    assert reference_np.ndim == 2, f"{reference_np.shape=}"
+    assert reference_np.shape[1] == 3, f"{reference_np.shape=}"
+    assert isinstance(tree, cKDTree), f"{type(tree)=}"
+    assert isinstance(k, int), f"{type(k)=}"
+    assert k > 0, f"{k=}"
+
     k_actual = min(k, len(reference_np))
     distances, indices = tree.query(query_np, k=k_actual)
 

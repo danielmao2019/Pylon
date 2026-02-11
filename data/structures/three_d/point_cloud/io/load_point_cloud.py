@@ -1,16 +1,20 @@
-from typing import Optional, Dict, Union
 import os
+from typing import Dict, Optional, Union
+
+import laspy
 import numpy as np
+import open3d as o3d
 import torch
 from plyfile import PlyData
-import laspy
-import open3d as o3d
 from torch.utils import dlpack as torch_dlpack
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def _load_from_ply(
-    filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None
+    filepath: str,
+    nameInPly: Optional[str] = None,
+    name_feat: Optional[str] = None,
 ) -> Dict[str, np.ndarray]:
     """Read XYZ and all available fields from PLY file.
 
@@ -184,8 +188,9 @@ def _load_from_pcd(filepath: str) -> Dict[str, torch.Tensor]:
 
     tensor_pcd = o3d.t.io.read_point_cloud(filepath)
 
-    if 'positions' not in tensor_pcd.point:
-        raise ValueError(f"PCD file does not contain positions: {filepath}")
+    assert (
+        'positions' in tensor_pcd.point
+    ), f"PCD file does not contain positions: {filepath}"
 
     # Return Open3D tensors converted to torch.Tensor directly, as-is
     pos_t: torch.Tensor = torch_dlpack.from_dlpack(
@@ -243,8 +248,7 @@ def _load_from_off(
     """
     with open(filepath, 'r') as f:
         header = f.readline().strip()
-        if header != 'OFF':
-            raise ValueError(f"Invalid OFF file format: {filepath}")
+        assert header == 'OFF', f"Invalid OFF file format: {filepath}"
 
         n_vertices, _, _ = map(int, f.readline().strip().split())
 
@@ -259,7 +263,7 @@ def _load_from_off(
 
 
 def load_point_cloud(
-    filepath,
+    filepath: str,
     nameInPly: Optional[str] = None,
     name_feat: Optional[str] = None,
     device: Union[str, torch.device] = 'cuda',
@@ -282,8 +286,7 @@ def load_point_cloud(
     filepath = os.path.normpath(filepath).replace('\\', '/')
 
     # Check file existence once at the beginning
-    if not os.path.isfile(filepath):
-        raise FileNotFoundError(f"Point cloud file not found: {filepath}")
+    assert os.path.isfile(filepath), f"Point cloud file not found: {filepath}"
 
     file_ext = os.path.splitext(filepath)[1].lower()
 
@@ -304,7 +307,14 @@ def load_point_cloud(
         raise ValueError(f"Unsupported file format: {file_ext}")
 
     # Convert any numpy arrays to torch tensors and transfer to device
-    def numpy_to_torch_on_device(key, x):
+    def numpy_to_torch_on_device(
+        key: str,
+        x: Union[np.ndarray, torch.Tensor],
+    ) -> torch.Tensor:
+        # Input validations
+        assert isinstance(key, str), f"{type(key)=}"
+        assert isinstance(x, (np.ndarray, torch.Tensor)), f"{type(x)=}"
+
         if isinstance(x, np.ndarray):
             # Handle uint16 which is not supported by PyTorch - use minimal size increase
             if x.dtype == np.uint16:

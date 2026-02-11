@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 import torch
 
@@ -70,7 +71,7 @@ def world_to_camera_transform(
     extrinsics: torch.Tensor,
     inplace: bool = False,
     max_divide: int = 0,
-    num_divide: int | None = None,
+    num_divide: Optional[int] = None,
 ) -> torch.Tensor:
     """Divide-and-conquer wrapper for world-to-camera transform to avoid CUDA OOM.
 

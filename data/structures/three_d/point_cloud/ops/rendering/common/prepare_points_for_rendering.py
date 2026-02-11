@@ -140,7 +140,7 @@ def _prepare_points_for_rendering_batched(
         [torch.Tensor, torch.Tensor, int, int],
         None,
     ] = _frustum_cull,
-):
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """Batch `_prepare_points_for_rendering`, then merge and depth-sort.
 
     Returns (points_2d, indices) after a global back-to-front sort by depth.

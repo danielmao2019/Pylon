@@ -5,9 +5,13 @@ from typing import Tuple, Union
 import torch
 
 from data.structures.three_d.camera.camera import Camera
-from data.structures.three_d.point_cloud.ops.rendering.common import (
+from data.structures.three_d.point_cloud.ops.rendering.common.apply_point_size_postprocessing import (
     apply_point_size_postprocessing,
+)
+from data.structures.three_d.point_cloud.ops.rendering.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
+)
+from data.structures.three_d.point_cloud.ops.rendering.common.validate_rendering_inputs import (
     validate_rendering_inputs,
 )
 from data.structures.three_d.point_cloud.ops.rendering.render_depth import (
