@@ -230,7 +230,7 @@ def validate_frames_data(data: Dict[str, Any], root_dir: Path) -> None:
     ), "modality filenames must match file_path stems"
     assert all("transform_matrix" in frame for frame in data["frames"])
     assert all(
-        ("colmap_image_id" not in frame) or isinstance(frame["colmap_image_id"], int)
+        ("colmap_im_id" not in frame) or isinstance(frame["colmap_im_id"], int)
         for frame in data["frames"]
     )
 

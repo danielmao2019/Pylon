@@ -44,7 +44,7 @@ def save_cameras(
             "transform_matrix": camera.extrinsics.detach().cpu().tolist(),
         }
         if camera.id is not None:
-            frame_entry["colmap_image_id"] = camera.id
+            frame_entry["colmap_im_id"] = camera.id
         for modality in modalities:
             modality_key, modality_folder = MODALITY_SPECS[modality]
             frame_entry[modality_key] = f"{modality_folder}/{filename}.png"
