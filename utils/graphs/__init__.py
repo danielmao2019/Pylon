@@ -14,7 +14,10 @@ from utils.graphs.connectivity import (
     count_non_subset_nodes_with_min_subset_neighbors,
 )
 from utils.graphs.k_core import compute_k_core_nodes
-from utils.graphs.subgraph import collect_induced_edge_weights
+from utils.graphs.subgraph import (
+    build_induced_edge_subset,
+    collect_induced_edge_weights,
+)
 
 __all__ = (
     "build_undirected_weighted_adjacency",
@@ -25,5 +28,6 @@ __all__ = (
     "compute_subset_connectivity_log1p",
     "count_non_subset_nodes_with_min_subset_neighbors",
     "compute_k_core_nodes",
+    "build_induced_edge_subset",
     "collect_induced_edge_weights",
 )
