@@ -182,20 +182,20 @@ def build_neighbor_data(
             dim=0,
         )
     )
-    directed_rest_edges = (
+    directed_reference_edge_vectors = (
         base_vertices[directed_sources] - base_vertices[directed_targets]
     )
-    neighbor_rest_edges = list(
+    neighbor_reference_edge_vectors = list(
         torch.tensor_split(
-            directed_rest_edges,
+            directed_reference_edge_vectors,
             indices_or_sections=split_indices,
             dim=0,
         )
     )
     assert len(neighbors) == num_vertices
     assert len(neighbor_weights) == num_vertices
-    assert len(neighbor_rest_edges) == num_vertices
-    return neighbors, neighbor_weights, neighbor_rest_edges
+    assert len(neighbor_reference_edge_vectors) == num_vertices
+    return neighbors, neighbor_weights, neighbor_reference_edge_vectors
 
 
 def build_adjacency(

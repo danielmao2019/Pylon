@@ -12,19 +12,21 @@ DEFAULT_EARLY_STOP_PATIENCE = 5
 
 def estimate_rotations(
     vertices: torch.Tensor,
-    edges: torch.Tensor,
+    edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
-    rest_edges: torch.Tensor,
+    reference_edge_vectors: torch.Tensor,
 ) -> torch.Tensor:
     num_vertices = vertices.shape[0]
-    edge_vec = vertices[edges[:, 0]] - vertices[edges[:, 1]]
-    outer = edge_vec.unsqueeze(2) * rest_edges.unsqueeze(1)
+    edge_vec = (
+        vertices[edge_vertex_indices[:, 0]] - vertices[edge_vertex_indices[:, 1]]
+    )
+    outer = edge_vec.unsqueeze(2) * reference_edge_vectors.unsqueeze(1)
     weighted_outer = weights[:, None, None] * outer
     cov = torch.zeros(
         (num_vertices, 3, 3), device=vertices.device, dtype=vertices.dtype
     )
-    cov.index_add_(0, edges[:, 0], weighted_outer)
-    cov.index_add_(0, edges[:, 1], weighted_outer)
+    cov.index_add_(0, edge_vertex_indices[:, 0], weighted_outer)
+    cov.index_add_(0, edge_vertex_indices[:, 1], weighted_outer)
     u, _, v = torch.linalg.svd(cov)
     det = torch.linalg.det(u @ v)
     signs = torch.ones((num_vertices, 3), device=vertices.device, dtype=vertices.dtype)
@@ -36,45 +38,47 @@ def estimate_rotations(
 
 def apply_arap_operator(
     vertices: torch.Tensor,
-    edges: torch.Tensor,
+    edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
     constraint_mask: torch.Tensor,
     lambda_c: float,
 ) -> torch.Tensor:
-    vi = vertices[edges[:, 0]]
-    vj = vertices[edges[:, 1]]
+    vi = vertices[edge_vertex_indices[:, 0]]
+    vj = vertices[edge_vertex_indices[:, 1]]
     weighted = weights[:, None] * (vi - vj)
     result = torch.zeros_like(vertices)
-    result.index_add_(0, edges[:, 0], weighted)
-    result.index_add_(0, edges[:, 1], -weighted)
+    result.index_add_(0, edge_vertex_indices[:, 0], weighted)
+    result.index_add_(0, edge_vertex_indices[:, 1], -weighted)
     result = result + lambda_c * constraint_mask[:, None] * vertices
     return result
 
 
 def build_arap_rhs(
     rotations: torch.Tensor,
-    rest_edges: torch.Tensor,
-    edges: torch.Tensor,
+    reference_edge_vectors: torch.Tensor,
+    edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
     constraint_mask: torch.Tensor,
     targets: torch.Tensor,
     lambda_c: float,
 ) -> torch.Tensor:
-    rot_avg = 0.5 * (rotations[edges[:, 0]] + rotations[edges[:, 1]])
-    term = torch.bmm(rot_avg, rest_edges.unsqueeze(-1)).squeeze(-1)
+    rot_avg = 0.5 * (
+        rotations[edge_vertex_indices[:, 0]] + rotations[edge_vertex_indices[:, 1]]
+    )
+    term = torch.bmm(rot_avg, reference_edge_vectors.unsqueeze(-1)).squeeze(-1)
     weighted_term = weights[:, None] * term
     rhs = torch.zeros_like(targets)
-    rhs.index_add_(0, edges[:, 0], weighted_term)
-    rhs.index_add_(0, edges[:, 1], -weighted_term)
+    rhs.index_add_(0, edge_vertex_indices[:, 0], weighted_term)
+    rhs.index_add_(0, edge_vertex_indices[:, 1], -weighted_term)
     rhs = rhs + lambda_c * constraint_mask[:, None] * targets
     return rhs
 
 
 def compute_arap_energy(
     vertices: torch.Tensor,
-    edges: torch.Tensor,
+    edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
-    rest_edges: torch.Tensor,
+    reference_edge_vectors: torch.Tensor,
     rotations: torch.Tensor,
     constraint_mask: torch.Tensor,
     targets: torch.Tensor,
@@ -83,18 +87,18 @@ def compute_arap_energy(
     """Compute ARAP energy (edge + constraint terms)."""
     # Input validations
     assert isinstance(vertices, torch.Tensor)
-    assert isinstance(edges, torch.Tensor)
+    assert isinstance(edge_vertex_indices, torch.Tensor)
     assert isinstance(weights, torch.Tensor)
-    assert isinstance(rest_edges, torch.Tensor)
+    assert isinstance(reference_edge_vectors, torch.Tensor)
     assert isinstance(rotations, torch.Tensor)
     assert isinstance(constraint_mask, torch.Tensor)
     assert isinstance(targets, torch.Tensor)
     assert isinstance(lambda_c, float)
-    assert edges.ndim == 2
-    assert edges.shape[1] == 2
+    assert edge_vertex_indices.ndim == 2
+    assert edge_vertex_indices.shape[1] == 2
     assert weights.ndim == 1
-    assert rest_edges.ndim == 2
-    assert rest_edges.shape[1] == 3
+    assert reference_edge_vectors.ndim == 2
+    assert reference_edge_vectors.shape[1] == 3
     assert rotations.ndim == 3
     assert rotations.shape[1] == 3
     assert rotations.shape[2] == 3
@@ -102,9 +106,13 @@ def compute_arap_energy(
     assert targets.ndim == 2
     assert targets.shape[1] == 3
 
-    edge_vec = vertices[edges[:, 0]] - vertices[edges[:, 1]]
-    rot_avg = 0.5 * (rotations[edges[:, 0]] + rotations[edges[:, 1]])
-    rotated = torch.bmm(rot_avg, rest_edges.unsqueeze(-1)).squeeze(-1)
+    edge_vec = (
+        vertices[edge_vertex_indices[:, 0]] - vertices[edge_vertex_indices[:, 1]]
+    )
+    rot_avg = 0.5 * (
+        rotations[edge_vertex_indices[:, 0]] + rotations[edge_vertex_indices[:, 1]]
+    )
+    rotated = torch.bmm(rot_avg, reference_edge_vectors.unsqueeze(-1)).squeeze(-1)
     residual = edge_vec - rotated
     edge_energy = weights * torch.sum(residual * residual, dim=1)
     constraint_residual = vertices - targets
@@ -150,9 +158,9 @@ def conjugate_gradient(
 
 def run_arap(
     vertices: torch.Tensor,
-    edges: torch.Tensor,
+    edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
-    rest_edges: torch.Tensor,
+    reference_edge_vectors: torch.Tensor,
     constraint_mask: torch.Tensor,
     targets: torch.Tensor,
     lambda_c: float,
@@ -164,16 +172,16 @@ def run_arap(
     assert isinstance(vertices, torch.Tensor)
     assert vertices.ndim == 2
     assert vertices.shape[1] == 3
-    assert isinstance(edges, torch.Tensor)
-    assert edges.ndim == 2
-    assert edges.shape[1] == 2
+    assert isinstance(edge_vertex_indices, torch.Tensor)
+    assert edge_vertex_indices.ndim == 2
+    assert edge_vertex_indices.shape[1] == 2
     assert isinstance(weights, torch.Tensor)
     assert weights.ndim == 1
-    assert edges.shape[0] == weights.shape[0]
-    assert isinstance(rest_edges, torch.Tensor)
-    assert rest_edges.ndim == 2
-    assert rest_edges.shape[1] == 3
-    assert edges.shape[0] == rest_edges.shape[0]
+    assert edge_vertex_indices.shape[0] == weights.shape[0]
+    assert isinstance(reference_edge_vectors, torch.Tensor)
+    assert reference_edge_vectors.ndim == 2
+    assert reference_edge_vectors.shape[1] == 3
+    assert edge_vertex_indices.shape[0] == reference_edge_vectors.shape[0]
     assert isinstance(constraint_mask, torch.Tensor)
     assert constraint_mask.ndim == 1
     assert isinstance(targets, torch.Tensor)
@@ -204,14 +212,14 @@ def run_arap(
     for iter_idx in range(max_iters):
         rotations = estimate_rotations(
             vertices=vertices,
-            edges=edges,
+            edge_vertex_indices=edge_vertex_indices,
             weights=weights,
-            rest_edges=rest_edges,
+            reference_edge_vectors=reference_edge_vectors,
         )
         rhs = build_arap_rhs(
             rotations=rotations,
-            rest_edges=rest_edges,
-            edges=edges,
+            reference_edge_vectors=reference_edge_vectors,
+            edge_vertex_indices=edge_vertex_indices,
             weights=weights,
             constraint_mask=constraint_mask,
             targets=targets,
@@ -220,7 +228,7 @@ def run_arap(
         vertices = conjugate_gradient(
             apply_fn=lambda x: apply_arap_operator(
                 vertices=x,
-                edges=edges,
+                edge_vertex_indices=edge_vertex_indices,
                 weights=weights,
                 constraint_mask=constraint_mask,
                 lambda_c=lambda_c,
@@ -235,9 +243,9 @@ def run_arap(
         if early_stop_patience is not None:
             energy = compute_arap_energy(
                 vertices=vertices,
-                edges=edges,
+                edge_vertex_indices=edge_vertex_indices,
                 weights=weights,
-                rest_edges=rest_edges,
+                reference_edge_vectors=reference_edge_vectors,
                 rotations=rotations,
                 constraint_mask=constraint_mask,
                 targets=targets,
