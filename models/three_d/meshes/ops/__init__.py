@@ -7,7 +7,6 @@ from models.three_d.meshes.ops.arap import (
     apply_arap_operator,
     build_arap_rhs,
     compute_arap_energy,
-    conjugate_gradient,
     estimate_rotations,
     run_arap,
 )
@@ -20,6 +19,13 @@ from models.three_d.meshes.ops.laplacian import (
     geodesic_distances,
     laplacian_apply,
 )
+from models.three_d.meshes.ops.linear_system import (
+    build_constraint_diagonal_sparse_matrix,
+    build_weighted_laplacian_sparse_matrix,
+    factorize_laplacian_system,
+    factorize_sparse_system_matrix,
+    solve_factorized_sparse_system,
+)
 from models.three_d.meshes.ops.normals import compute_vertex_normals
 from models.three_d.meshes.ops.topology import build_topology_edges_from_faces
 
@@ -28,9 +34,13 @@ __all__ = (
     "apply_arap_operator",
     "build_arap_rhs",
     "compute_arap_energy",
-    "conjugate_gradient",
     "estimate_rotations",
     "run_arap",
+    "build_constraint_diagonal_sparse_matrix",
+    "build_weighted_laplacian_sparse_matrix",
+    "factorize_laplacian_system",
+    "factorize_sparse_system_matrix",
+    "solve_factorized_sparse_system",
     "build_adjacency",
     "build_cotangent_laplacian",
     "build_neighbor_data",
