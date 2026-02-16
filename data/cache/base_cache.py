@@ -20,7 +20,7 @@ class BaseCache(ABC):
 
         Args:
             cache_filepath: Absolute filepath used as cache key
-            device: Device to load tensors to (e.g., 'cuda:0', 'cpu')
+            device: Device to load tensors to (e.g., 'cuda', 'cpu')
 
         Returns:
             Cached datapoint or None if not found
