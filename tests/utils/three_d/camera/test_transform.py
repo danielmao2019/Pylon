@@ -63,7 +63,7 @@ def test_world_to_camera_inplace_behavior(points, extrinsics, expected):
 @pytest.mark.parametrize("num_divide", [1, 2, 3])
 def test_world_to_camera_num_divide_equivalence(num_divide):
     assert torch.cuda.is_available(), "CUDA is required for this test"
-    device = torch.device('cuda:0')
+    device = torch.device('cuda')
     # Large point cloud to make batching meaningful but keep runtime manageable
     N = 1_000_000
     points = torch.randn((N, 3), dtype=torch.float32, device=device)

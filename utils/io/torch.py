@@ -11,7 +11,7 @@ def load_torch(filepath: str, map_location: Optional[str] = None) -> Any:
 
     Args:
         filepath: Path to .pt file to load
-        map_location: Device to map tensors to (e.g., 'cpu', 'cuda', 'cuda:0')
+        map_location: Device to map tensors to (e.g., 'cpu', 'cuda')
 
     Returns:
         Loaded PyTorch object

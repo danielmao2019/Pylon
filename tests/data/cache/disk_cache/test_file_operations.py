@@ -249,7 +249,7 @@ def test_file_loading_with_different_map_locations(temp_cache_dir, sample_datapo
 
     # Test with string device specification
     if torch.cuda.is_available():
-        result_cuda = cache.get(cache_filepath=cache_file, device='cuda:0')
+        result_cuda = cache.get(cache_filepath=cache_file, device='cuda')
         assert result_cuda is not None
         assert result_cuda['inputs']['image'].device.type == 'cuda'
 
