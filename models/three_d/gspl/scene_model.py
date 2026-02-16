@@ -22,6 +22,11 @@ class GSPLSceneModel(BaseSceneModel):
         assert isinstance(model, GSPLModel), f"Expected GSPLModel, got {type(model)}"
         return model
 
+    def extract_positions(self) -> torch.Tensor:
+        gspl_model = self.model
+        assert isinstance(gspl_model, GSPLModel), f"{type(gspl_model)=}"
+        return gspl_model.get_xyz
+
     @staticmethod
     def parse_scene_path(path: str) -> str:
         resolved_path = os.path.abspath(path)

@@ -9,13 +9,18 @@ from models.three_d.base import BaseSceneModel
 from models.three_d.original_3dgs import callbacks as original_3dgs_callbacks
 from models.three_d.original_3dgs import states as original_3dgs_states
 from models.three_d.original_3dgs.layout import build_display
-from models.three_d.original_3dgs.loader import load_3dgs_model_original
+from models.three_d.original_3dgs.loader import GaussianModel, load_3dgs_model_original
 from models.three_d.original_3dgs.render.display import render_display
 
 
 class Original3DGSSceneModel(BaseSceneModel):
     def _load_model(self) -> Any:
         return load_3dgs_model_original(self.resolved_path, device=self.device)
+
+    def extract_positions(self) -> torch.Tensor:
+        gaussian_model = self.model
+        assert isinstance(gaussian_model, GaussianModel), f"{type(gaussian_model)=}"
+        return gaussian_model.get_xyz
 
     @staticmethod
     def parse_scene_path(path: str) -> str:

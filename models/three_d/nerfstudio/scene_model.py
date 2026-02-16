@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Tuple
 
 import dash
 import torch
+from nerfstudio.pipelines.base_pipeline import Pipeline
 
 from data.structures.three_d.camera.camera import Camera
 from models.three_d.base import BaseSceneModel
@@ -19,6 +20,11 @@ class NerfstudioSceneModel(BaseSceneModel):
 
     def _load_model(self) -> Any:
         return load_splatfacto_model(self.resolved_path, device=self.device)
+
+    def extract_positions(self) -> torch.Tensor:
+        pipeline = self.model
+        assert isinstance(pipeline, Pipeline), f"{type(pipeline)=}"
+        return pipeline.model.model.means
 
     @staticmethod
     def parse_scene_path(path: str) -> str:

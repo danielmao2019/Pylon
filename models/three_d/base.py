@@ -102,6 +102,10 @@ class BaseSceneModel(ABC):
     def _load_model(self) -> Any:
         """Load the underlying scene representation for this modality."""
 
+    @abstractmethod
+    def extract_positions(self) -> torch.Tensor:
+        """Return scene positions as an [N, 3] tensor."""
+
     def _ensure_model_loaded(self) -> None:
         if self._model is not None:
             return

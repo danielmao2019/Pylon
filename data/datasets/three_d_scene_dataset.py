@@ -4,46 +4,15 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 import dash
 import torch
-from nerfstudio.pipelines.base_pipeline import Pipeline
-from pytorch3d.structures import Meshes
 
 from data.datasets.base_dataset import BaseDataset
+from data.datasets.three_d_scene_registry import (
+    register_scene_model,
+    register_scene_models,
+    registered_scene_models,
+)
 from data.structures.three_d.nerfstudio import NerfStudio_Data
-from data.structures.three_d.point_cloud import PointCloud
-from models.three_d.anytime_gs import AnytimeGSSceneModel
 from models.three_d.base import BaseSceneModel
-from models.three_d.cheng2025clod import Cheng2025CLODSceneModel
-from models.three_d.gso_meshes import GSOMeshesSceneModel
-from models.three_d.gspl import GSPLSceneModel
-from models.three_d.gspl.model import GSPLModel
-from models.three_d.ivision_meshes import iVISIONMeshesSceneModel
-from models.three_d.lapis_gs import LapisGSSceneModel
-from models.three_d.letsgo import LetsGoSceneModel
-from models.three_d.meshes import BaseMeshesSceneModel
-from models.three_d.milef2025learning import Milef2025LearningSceneModel
-from models.three_d.nerfstudio import NerfstudioSceneModel
-from models.three_d.octree_gs import OctreeGSSceneModel
-from models.three_d.octree_gs.loader import OctreeGS_3DGS
-from models.three_d.original_3dgs import Original3DGSSceneModel
-from models.three_d.original_3dgs.loader import GaussianModel as GaussianModel3D
-from models.three_d.point_cloud import PointCloudSceneModel
-from models.three_d.visibility_ordered_gs import VisibilityOrderedGSSceneModel
-
-SCENE_MODEL_CLASSES: List[Type[BaseSceneModel]] = [
-    NerfstudioSceneModel,
-    OctreeGSSceneModel,
-    LapisGSSceneModel,
-    AnytimeGSSceneModel,
-    Milef2025LearningSceneModel,
-    Cheng2025CLODSceneModel,
-    VisibilityOrderedGSSceneModel,
-    Original3DGSSceneModel,
-    LetsGoSceneModel,
-    GSPLSceneModel,
-    iVISIONMeshesSceneModel,
-    GSOMeshesSceneModel,
-    PointCloudSceneModel,
-]
 
 
 class ThreeD_Scene_Dataset(BaseDataset):
@@ -86,19 +55,37 @@ class ThreeD_Scene_Dataset(BaseDataset):
             self.scene_paths.append(resolved_path)
             raw_scene_types.append(scene_type)
 
-        # Base dataset expects canonical scene names to locate DJI_Processed, etc.
-        if any(cls is OctreeGSSceneModel for cls in raw_scene_types):
-            kwargs['use_disk_cache'] = False
-
         super().__init__(device=self.device, **kwargs)
+
+    @classmethod
+    def register_scene_model_class(
+        cls,
+        scene_model_cls: Type[BaseSceneModel],
+    ) -> None:
+        register_scene_model(scene_model_cls=scene_model_cls)
+
+    @classmethod
+    def register_scene_model_classes(
+        cls,
+        scene_model_classes: List[Type[BaseSceneModel]],
+    ) -> None:
+        register_scene_models(scene_model_classes=scene_model_classes)
 
     @staticmethod
     def parse_scene_path(path: str) -> Tuple[str, Type[BaseSceneModel]]:
         """Resolve an input `path` to a concrete scene path and determine model class."""
         normalized_path = os.path.abspath(path)
+        scene_model_classes = registered_scene_models()
+        assert scene_model_classes, (
+            "No scene model classes are registered. "
+            "Call register_scene_model(...) or register_scene_models(...) before "
+            "constructing ThreeD_Scene_Dataset. "
+            "Project-scoped scene models can be registered via "
+            "register_scene_models(scene_model_classes=project.models.three_d.registry.DEFAULT_SCENE_MODELS)."
+        )
         successes: List[Tuple[str, Type[BaseSceneModel]]] = []
         failure_messages: List[str] = []
-        for model_cls in SCENE_MODEL_CLASSES:
+        for model_cls in scene_model_classes:
             try:
                 resolved_path = model_cls.parse_scene_path(normalized_path)
             except Exception as exc:
@@ -166,76 +153,7 @@ class ThreeD_Scene_Dataset(BaseDataset):
     @staticmethod
     def _extract_positions(scene_model: BaseSceneModel) -> torch.Tensor:
         """Retrieve position tensor for different scene representations."""
-        model_cls = type(scene_model)
-
-        if isinstance(scene_model, PointCloudSceneModel):
-            data = scene_model.model
-            assert isinstance(
-                data, PointCloud
-            ), "Expected PointCloud for point_cloud scene data"
-            points = data.xyz
-        elif isinstance(scene_model, BaseMeshesSceneModel):
-            data = scene_model.model
-            assert isinstance(
-                data, Meshes
-            ), "Expected PyTorch3D Meshes for mesh scene data"
-            verts_list = data.verts_list()
-            assert verts_list, "Mesh scene data contains no vertices"
-            points = torch.cat(verts_list, dim=0)
-        elif isinstance(scene_model, NerfstudioSceneModel):
-            assert isinstance(
-                scene_model.model, Pipeline
-            ), "Expected nerfstudio Pipeline for 3dgs scene data"
-            points = scene_model.model.model.means
-        elif isinstance(scene_model, Original3DGSSceneModel):
-            data = scene_model.model
-            assert isinstance(
-                data, GaussianModel3D
-            ), "Expected GaussianModel for 3dgs_original scene data"
-            points = data.get_xyz
-        elif isinstance(scene_model, OctreeGSSceneModel):
-            data = scene_model.model
-            assert isinstance(data, OctreeGS_3DGS)
-            points = data.get_anchor
-        elif isinstance(scene_model, LapisGSSceneModel):
-            data = scene_model.model
-            assert isinstance(
-                data, GaussianModel3D
-            ), "Expected GaussianModel for lapis_gs scene data"
-            points = data.get_xyz
-        elif isinstance(scene_model, LetsGoSceneModel):
-            data = scene_model.model
-            assert hasattr(data, 'gaussians'), "LetsGo model missing gaussians list"
-            points = torch.cat([gaussian.get_xyz for gaussian in data.gaussians], dim=0)
-        elif isinstance(scene_model, GSPLSceneModel):
-            data = scene_model.model
-            assert isinstance(data, GSPLModel), "Expected GSPLModel for gspl scene data"
-            points = data.get_xyz
-        elif isinstance(scene_model, Milef2025LearningSceneModel):
-            data = scene_model.model
-            assert isinstance(
-                data, GaussianModel3D
-            ), "Expected GaussianModel for Milef2025Learning scene data"
-            points = data.get_xyz
-        elif isinstance(scene_model, Cheng2025CLODSceneModel):
-            data = scene_model.model
-            assert hasattr(data, 'get_xyz'), "Cheng2025CLOD model missing get_xyz"
-            points = data.get_xyz
-        elif isinstance(scene_model, AnytimeGSSceneModel):
-            data = scene_model.model
-            assert isinstance(
-                data, GaussianModel3D
-            ), "Expected GaussianModel for AnytimeGS scene data"
-            points = data.get_xyz
-        elif isinstance(scene_model, VisibilityOrderedGSSceneModel):
-            data = scene_model.model
-            assert isinstance(
-                data, GaussianModel3D
-            ), "Expected GaussianModel for visibility-ordered scene data"
-            points = data.get_xyz
-        else:
-            scene_type_label = getattr(model_cls, '__name__', str(model_cls))
-            raise ValueError(f"Unsupported scene type '{scene_type_label}'")
+        points = scene_model.extract_positions()
 
         assert isinstance(
             points, torch.Tensor

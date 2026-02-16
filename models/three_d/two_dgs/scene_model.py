@@ -10,6 +10,7 @@ from models.three_d.two_dgs import callbacks as two_dgs_callbacks
 from models.three_d.two_dgs import states as two_dgs_states
 from models.three_d.two_dgs.layout import build_display
 from models.three_d.two_dgs.loader import load_2dgs_model
+from models.three_d.two_dgs.model import GaussianModel
 from models.three_d.two_dgs.render.display import render_display
 
 
@@ -17,6 +18,11 @@ class TwoDGSSceneModel(BaseSceneModel):
 
     def _load_model(self) -> Any:
         return load_2dgs_model(self.resolved_path)
+
+    def extract_positions(self) -> torch.Tensor:
+        gaussian_model = self.model
+        assert isinstance(gaussian_model, GaussianModel), f"{type(gaussian_model)=}"
+        return gaussian_model.get_xyz
 
     @staticmethod
     def parse_scene_path(path: str) -> str:

@@ -23,6 +23,13 @@ class BaseMeshesSceneModel(BaseSceneModel):
         merged_mesh = load_meshes(mesh_dir, device=self.device)
         return merged_mesh
 
+    def extract_positions(self) -> torch.Tensor:
+        mesh = self.model
+        assert isinstance(mesh, Meshes), f"{type(mesh)=}"
+        verts_list = mesh.verts_list()
+        assert verts_list, "Mesh scene data contains no vertices"
+        return torch.cat(verts_list, dim=0)
+
     @staticmethod
     @abstractmethod
     def parse_scene_path(path: str) -> str:

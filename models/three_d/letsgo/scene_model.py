@@ -41,6 +41,15 @@ class LetsGoSceneModel(BaseSceneModel):
         model.load_ply(str(iteration_dir))
         return model
 
+    def extract_positions(self) -> torch.Tensor:
+        letsgo_model = self.model
+        assert isinstance(letsgo_model, LetsGoModel), f"{type(letsgo_model)=}"
+        gaussian_positions = [
+            gaussian_model.get_xyz for gaussian_model in letsgo_model.gaussians
+        ]
+        assert gaussian_positions, "LetsGo model must contain gaussian levels"
+        return torch.cat(gaussian_positions, dim=0)
+
     @staticmethod
     def parse_scene_path(path: str) -> str:
         resolved_path = os.path.abspath(path)

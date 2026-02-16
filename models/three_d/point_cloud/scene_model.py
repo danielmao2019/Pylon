@@ -1,11 +1,11 @@
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import dash
 import torch
 
 from data.structures.three_d.camera.camera import Camera
-from data.structures.three_d.point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud import PointCloud, load_point_cloud
 from models.three_d.base import BaseSceneModel
 from models.three_d.point_cloud import callbacks as point_cloud_callbacks
 from models.three_d.point_cloud import states as point_cloud_states
@@ -15,8 +15,13 @@ from models.three_d.point_cloud.render import render_display
 
 class PointCloudSceneModel(BaseSceneModel):
 
-    def _load_model(self) -> Dict[str, Any]:
+    def _load_model(self) -> PointCloud:
         return load_point_cloud(self.resolved_path, device=self.device)
+
+    def extract_positions(self) -> torch.Tensor:
+        point_cloud = self.model
+        assert isinstance(point_cloud, PointCloud), f"{type(point_cloud)=}"
+        return point_cloud.xyz
 
     @staticmethod
     def parse_scene_path(path: str) -> str:

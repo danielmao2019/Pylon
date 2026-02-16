@@ -13,7 +13,7 @@ from models.three_d.octree_gs import callbacks as octree_gs_callbacks
 from models.three_d.octree_gs import states as octree_gs_states
 from models.three_d.octree_gs import styles
 from models.three_d.octree_gs.layout import build_display
-from models.three_d.octree_gs.loader import load_octree_gs_3dgs
+from models.three_d.octree_gs.loader import OctreeGS_3DGS, load_octree_gs_3dgs
 from models.three_d.octree_gs.render.display import render_display
 
 
@@ -21,6 +21,11 @@ class OctreeGSSceneModel(BaseSceneModel):
 
     def _load_model(self) -> Any:
         return load_octree_gs_3dgs(self.resolved_path, device=self.device)
+
+    def extract_positions(self) -> torch.Tensor:
+        octree_model = self.model
+        assert isinstance(octree_model, OctreeGS_3DGS), f"{type(octree_model)=}"
+        return octree_model.get_anchor
 
     @staticmethod
     def parse_scene_path(path: str) -> str:

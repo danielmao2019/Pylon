@@ -13,6 +13,7 @@ from models.three_d.lapis_gs import states as lapis_gs_states
 from models.three_d.lapis_gs import styles
 from models.three_d.lapis_gs.layout import build_display
 from models.three_d.lapis_gs.loader import load_lapis_gs
+from models.three_d.original_3dgs.loader import GaussianModel
 from models.three_d.lapis_gs.render.display import render_display
 
 
@@ -20,6 +21,11 @@ class LapisGSSceneModel(BaseSceneModel):
 
     def _load_model(self) -> Any:
         return load_lapis_gs(self.resolved_path, device=self.device)
+
+    def extract_positions(self) -> torch.Tensor:
+        gaussian_model = self.model
+        assert isinstance(gaussian_model, GaussianModel), f"{type(gaussian_model)=}"
+        return gaussian_model.get_xyz
 
     @staticmethod
     def parse_scene_path(path: str) -> str:
