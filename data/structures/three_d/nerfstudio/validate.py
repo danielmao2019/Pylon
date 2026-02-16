@@ -8,10 +8,10 @@ from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.validation import validate_camera_intrinsics
 
 MODALITY_SPECS = {
-    "image": ("file_path", "images"),
-    "depth": ("depth_path", "depths"),
-    "normal": ("normal_path", "normals"),
-    "mask": ("mask_path", "masks"),
+    "image": ("file_path", "images", ".png"),
+    "depth": ("depth_path", "depths", ".npy"),
+    "normal": ("normal_path", "normals", ".png"),
+    "mask": ("mask_path", "masks", ".png"),
 }
 MODALITY_KEYS = tuple(spec[0] for spec in MODALITY_SPECS.values())
 
@@ -187,32 +187,17 @@ def validate_frames_data(data: Dict[str, Any], root_dir: Path) -> None:
         for frame in data["frames"]
     )
     assert all(
-        ("depth_path" not in frame)
-        or (
-            isinstance(frame["depth_path"], str)
-            and frame["depth_path"].startswith("depths/")
-            and frame["depth_path"].endswith(".png")
+        all(
+            (spec[0] not in frame)
+            or (
+                isinstance(frame[spec[0]], str)
+                and frame[spec[0]].startswith(f"{spec[1]}/")
+                and frame[spec[0]].endswith(spec[2])
+            )
+            for spec in MODALITY_SPECS.values()
         )
         for frame in data["frames"]
-    )
-    assert all(
-        ("normal_path" not in frame)
-        or (
-            isinstance(frame["normal_path"], str)
-            and frame["normal_path"].startswith("normals/")
-            and frame["normal_path"].endswith(".png")
-        )
-        for frame in data["frames"]
-    )
-    assert all(
-        ("mask_path" not in frame)
-        or (
-            isinstance(frame["mask_path"], str)
-            and frame["mask_path"].startswith("masks/")
-            and frame["mask_path"].endswith(".png")
-        )
-        for frame in data["frames"]
-    )
+    ), f"{data['frames']=}"
     assert all(
         (key not in frame) or (root_dir / frame[key]).is_file()
         for frame in data["frames"]

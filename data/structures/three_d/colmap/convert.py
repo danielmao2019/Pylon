@@ -158,7 +158,7 @@ def _determine_modalities(cameras: Cameras, output_dir: Path) -> List[str]:
 
     depths_dir = output_dir / "depths"
     if depths_dir.is_dir():
-        depth_names = {path.stem for path in depths_dir.glob("*.png")}
+        depth_names = {path.stem for path in depths_dir.glob("*.npy")}
         if set(camera_names).issubset(depth_names):
             modalities.append("depth")
 

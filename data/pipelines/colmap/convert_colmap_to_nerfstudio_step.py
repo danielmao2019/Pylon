@@ -94,14 +94,20 @@ class ColmapConvertToNerfstudioStep(BaseStep):
 
         for modality, spec in MODALITY_SPECS.items():
             modality_folder = spec[1]
+            modality_extension = spec[2]
             modality_dir = self.output_root / modality_folder
             if not modality_dir.is_dir():
                 continue
             disk_modalities.append(modality)
             modality_files = sorted(
-                entry.name for entry in modality_dir.glob("*.png") if entry.is_file()
+                entry.name
+                for entry in modality_dir.glob(f"*{modality_extension}")
+                if entry.is_file()
             )
-            assert modality_files, f"No images found in {modality_dir}"
+            assert modality_files, (
+                f"No modality files found in {modality_dir} "
+                f"with extension {modality_extension}"
+            )
             unique_files = set(modality_files)
             assert len(unique_files) == len(modality_files), (
                 "Duplicate image filenames present on disk: "

@@ -46,8 +46,10 @@ def save_cameras(
         if camera.id is not None:
             frame_entry["colmap_im_id"] = camera.id
         for modality in modalities:
-            modality_key, modality_folder = MODALITY_SPECS[modality]
-            frame_entry[modality_key] = f"{modality_folder}/{filename}.png"
+            modality_key, modality_folder, modality_extension = MODALITY_SPECS[modality]
+            frame_entry[modality_key] = (
+                f"{modality_folder}/{filename}{modality_extension}"
+            )
         frames.append(frame_entry)
     frames.sort(key=lambda entry: entry["file_path"])
     return {"frames": frames}
