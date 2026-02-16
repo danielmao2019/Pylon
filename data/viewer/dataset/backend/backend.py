@@ -29,7 +29,6 @@ DATASET_GROUPS = {
         'multi_mnist', 'celeb_a', 'multi_task_facial_landmark',
         'nyu_v2_c', 'nyu_v2_f', 'city_scapes_c', 'city_scapes_f', 'pascal_context',
         'ade_20k',
-        'ivision_mt',
     ],
     'ivision': ['ivision_image'],
     'general': ['BaseRandomDataset'],  # General-purpose datasets for testing
@@ -47,7 +46,6 @@ REQUIRES_3D_CLASSES = [
     'BufferDataset',
     'URB3DCDDataset',
     'SLPCCDDataset',
-    'iVISION_MT_Dataset',
     'iVISION_PCR_DATASET',
     'iVISION_3DCD_Dataset',
     'iVISION_2DCD_Dataset',
