@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import torch
 from dash import dcc, html
 
-from data.viewer.callbacks.class_distribution import get_next_component_index
+from data.viewer.dataset.callbacks.class_distribution import get_next_component_index
 from utils.determinism.hash_utils import deterministic_hash
 
 

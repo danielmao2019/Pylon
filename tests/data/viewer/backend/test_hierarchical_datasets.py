@@ -8,7 +8,7 @@ from typing import Dict, Any
 
 import pytest
 
-from data.viewer.backend.backend import ViewerBackend, DATASET_GROUPS
+from data.viewer.dataset.backend.backend import ViewerBackend, DATASET_GROUPS
 
 
 @pytest.fixture

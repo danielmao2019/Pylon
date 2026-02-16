@@ -8,7 +8,7 @@ import pickle
 import joblib
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from data.viewer.backend.backend import DatasetType, DATASET_GROUPS
+from data.viewer.dataset.backend.backend import DatasetType, DATASET_GROUPS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 

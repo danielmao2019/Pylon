@@ -42,9 +42,9 @@ def setup_context_for_point_cloud_utils():
     This is ONLY needed because point cloud utilities read backend.current_dataset
     when generating point cloud IDs.
     """
-    import data.viewer.context as viewer_context_module
-    from data.viewer.backend import ViewerBackend
-    from data.viewer.context import DatasetViewerContext, set_viewer_context
+    import data.viewer.dataset.context as viewer_context_module
+    from data.viewer.dataset.backend import ViewerBackend
+    from data.viewer.dataset.context import DatasetViewerContext, set_viewer_context
 
     backend = ViewerBackend()
     backend.current_dataset = 'test_dataset'

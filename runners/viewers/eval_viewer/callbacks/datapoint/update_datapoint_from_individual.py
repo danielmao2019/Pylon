@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import dash
 from dash import Dash, Input, Output, State, html
 
-from data.viewer.backend.backend import DatasetType
+from data.viewer.dataset.backend.backend import DatasetType
 from runners.viewers.eval_viewer.backend.initialization import LogDirInfo
 from runners.viewers.eval_viewer.callbacks.datapoint_helpers import (
     build_datapoint_display,

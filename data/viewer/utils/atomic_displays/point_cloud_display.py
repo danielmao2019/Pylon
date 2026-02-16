@@ -23,6 +23,7 @@ import torch
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.random_select import RandomSelect
 from data.transforms.vision_3d.pclod import create_lod_function
+from data.viewer.dataset.context import get_viewer_context
 from data.viewer.utils.segmentation import get_color
 
 logger = logging.getLogger(__name__)
@@ -45,11 +46,12 @@ def build_point_cloud_id(
     """
     assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
     assert isinstance(component, str), f"component must be str, got {type(component)}"
-
-    from data.viewer.context import get_viewer_context
-
-    meta_info = datapoint.get('meta_info', {})
-    datapoint_idx = meta_info.get('idx', 0)
+    assert 'meta_info' in datapoint, f"Missing 'meta_info' in datapoint keys={list(datapoint.keys())}"
+    meta_info = datapoint['meta_info']
+    assert isinstance(meta_info, dict), f"meta_info must be dict, got {type(meta_info)}"
+    assert 'idx' in meta_info, f"Missing 'idx' in meta_info keys={list(meta_info.keys())}"
+    datapoint_idx = meta_info['idx']
+    assert isinstance(datapoint_idx, int), f"datapoint idx must be int, got {type(datapoint_idx)}"
 
     # Get dataset name from backend (requires viewer context to be initialized)
     dataset_name = get_viewer_context().backend.current_dataset

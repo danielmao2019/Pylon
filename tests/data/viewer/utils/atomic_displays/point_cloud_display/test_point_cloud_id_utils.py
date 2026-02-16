@@ -15,9 +15,9 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
 @pytest.fixture(autouse=True)
 def setup_viewer_context():
     """Set up viewer context for point cloud ID tests."""
-    import data.viewer.context as viewer_context_module
-    from data.viewer.backend import ViewerBackend
-    from data.viewer.context import DatasetViewerContext, set_viewer_context
+    import data.viewer.dataset.context as viewer_context_module
+    from data.viewer.dataset.backend import ViewerBackend
+    from data.viewer.dataset.context import DatasetViewerContext, set_viewer_context
 
     backend = ViewerBackend()
     backend.current_dataset = "test_dataset"

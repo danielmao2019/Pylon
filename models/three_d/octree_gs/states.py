@@ -3,7 +3,7 @@ from typing import Any, Type
 import dash
 from dash import dcc
 
-from data.viewer.ivision.layout import MODEL_STORE_CONTAINER_ID
+from data.viewer.three_d_scene.layout import MODEL_STORE_CONTAINER_ID
 
 
 def _get_model_store_container(app: dash.Dash) -> Any:

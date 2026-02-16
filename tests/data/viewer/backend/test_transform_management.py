@@ -15,7 +15,7 @@ from data.transforms.base_transform import BaseTransform
 from data.transforms.compose import Compose
 from data.transforms.random_noise import RandomNoise
 from data.transforms.identity import Identity
-from data.viewer.backend.backend import ViewerBackend
+from data.viewer.dataset.backend.backend import ViewerBackend
 
 
 @pytest.fixture

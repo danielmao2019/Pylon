@@ -13,7 +13,7 @@ import torch
 from data.datasets.base_dataset import BaseDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.datasets.semantic_segmentation_datasets.coco_stuff_164k_dataset import COCOStuff164KDataset
-from data.viewer.backend.backend import ViewerBackend, REQUIRES_3D_CLASSES
+from data.viewer.dataset.backend.backend import ViewerBackend, REQUIRES_3D_CLASSES
 
 
 @pytest.fixture
@@ -172,7 +172,7 @@ def test_requires_3d_classes_individual_entries(class_name):
 
 def test_3d_detection_consistency_with_dataset_groups():
     """Test that 3D detection is consistent with dataset categorization."""
-    from data.viewer.backend.backend import DATASET_GROUPS
+    from data.viewer.dataset.backend.backend import DATASET_GROUPS
 
     # 3D dataset groups
     groups_3d = ['3dcd', 'pcr']

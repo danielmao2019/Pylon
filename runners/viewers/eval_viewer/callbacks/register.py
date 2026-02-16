@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import numpy as np
 from dash import Dash
 
-from data.viewer.backend.backend import DatasetType
+from data.viewer.dataset.backend.backend import DatasetType
 from runners.viewers.eval_viewer.backend.initialization import LogDirInfo
 from runners.viewers.eval_viewer.callbacks.aggregated.update_aggregated_scores_plot import (
     register_aggregated_scores_plot_callback,

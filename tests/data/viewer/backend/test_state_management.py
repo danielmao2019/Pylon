@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 import pytest
 
-from data.viewer.backend.backend import ViewerBackend
+from data.viewer.dataset.backend.backend import ViewerBackend
 
 
 @pytest.fixture

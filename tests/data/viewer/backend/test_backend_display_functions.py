@@ -23,7 +23,7 @@ from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import (
 from data.datasets.semantic_segmentation_datasets.coco_stuff_164k_dataset import (
     COCOStuff164KDataset,
 )
-from data.viewer.backend.backend import ViewerBackend
+from data.viewer.dataset.backend.backend import ViewerBackend
 
 
 @pytest.fixture

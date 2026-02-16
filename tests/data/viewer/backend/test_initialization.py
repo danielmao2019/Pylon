@@ -10,7 +10,7 @@ from typing import Dict, Any
 
 import pytest
 
-from data.viewer.backend.backend import ViewerBackend, DATASET_GROUPS, REQUIRES_3D_CLASSES
+from data.viewer.dataset.backend.backend import ViewerBackend, DATASET_GROUPS, REQUIRES_3D_CLASSES
 from data.viewer.utils.settings_config import ViewerSettings
 
 
@@ -20,7 +20,7 @@ def test_viewer_backend_initialization():
 
     # Test logger setup
     assert isinstance(backend.logger, logging.Logger)
-    assert backend.logger.name == "data.viewer.backend.backend"
+    assert backend.logger.name == "data.viewer.dataset.backend.backend"
 
     # Test dataset storage initialization
     assert isinstance(backend._datasets, dict)

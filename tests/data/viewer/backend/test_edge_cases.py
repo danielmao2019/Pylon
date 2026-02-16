@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from data.datasets.base_dataset import BaseDataset
-from data.viewer.backend.backend import ViewerBackend
+from data.viewer.dataset.backend.backend import ViewerBackend
 
 
 @pytest.fixture

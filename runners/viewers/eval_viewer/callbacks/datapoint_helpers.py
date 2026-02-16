@@ -6,7 +6,7 @@ import dash
 from dash import html
 from dash.exceptions import PreventUpdate
 
-from data.viewer.backend.backend import DatasetType
+from data.viewer.dataset.backend.backend import DatasetType
 from runners.viewers.eval_viewer.backend.initialization import (
     LogDirInfo,
     load_debug_outputs,
