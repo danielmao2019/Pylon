@@ -27,6 +27,7 @@ class TwoDGSSceneModel(BaseSceneModel):
     @staticmethod
     def parse_scene_path(path: str) -> str:
         assert os.path.isdir(path)
+        resolved_path = os.path.abspath(path)
         expected_files = [
             "point_cloud/iteration_30000/point_cloud.ply",
             "cameras.json",
@@ -34,9 +35,32 @@ class TwoDGSSceneModel(BaseSceneModel):
             "input.ply",
         ]
         assert all(
-            os.path.isfile(os.path.join(path, f)) for f in expected_files
+            os.path.isfile(os.path.join(resolved_path, f)) for f in expected_files
         ), f"Path does not contain expected 2DGS files: {expected_files}"
-        return os.path.abspath(path)
+
+        cfg = BaseSceneModel._load_cfg_args(scene_path=resolved_path)
+        expected_fields = {
+            'data_device',
+            'eval',
+            'images',
+            'model_path',
+            'render_items',
+            'resolution',
+            'sh_degree',
+            'source_path',
+            'white_background',
+        }
+        actual_fields = set(vars(cfg).keys())
+        assert (
+            actual_fields == expected_fields
+        ), f"Unexpected cfg_args fields for 2DGS: {actual_fields}"
+        assert isinstance(cfg.render_items, list), "cfg.render_items must be list"
+        assert cfg.render_items, "cfg.render_items must be non-empty"
+        assert all(
+            isinstance(item, str) for item in cfg.render_items
+        ), "cfg.render_items must contain strings"
+
+        return resolved_path
 
     @staticmethod
     def extract_scene_name(resolved_path: str) -> str:
@@ -82,7 +106,9 @@ class TwoDGSSceneModel(BaseSceneModel):
         assert isinstance(resolution, tuple), f"{type(resolution)=}"
         assert len(resolution) == 2, f"{len(resolution)=}"
         assert all(isinstance(dim, int) for dim in resolution), f"{resolution=}"
-        assert camera_name is None or isinstance(camera_name, str), f"{type(camera_name)=}"
+        assert camera_name is None or isinstance(
+            camera_name, str
+        ), f"{type(camera_name)=}"
         assert display_cameras is None or isinstance(
             display_cameras, list
         ), f"{type(display_cameras)=}"
