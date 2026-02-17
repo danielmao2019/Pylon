@@ -86,8 +86,7 @@ def load_cameras(
     conventions = ["opengl"] * len(frames)
     names: List[str | None] = [Path(frame["file_path"]).stem for frame in frames]
     ids: List[int | None] = [
-        frame["colmap_im_id"] if "colmap_im_id" in frame else None
-        for frame in frames
+        frame["colmap_im_id"] if "colmap_im_id" in frame else None for frame in frames
     ]
     return Cameras(
         intrinsics=batched_intrinsics,
