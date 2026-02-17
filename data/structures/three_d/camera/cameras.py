@@ -288,6 +288,12 @@ class Cameras:
         return self._device
 
     @property
+    def center(self) -> torch.Tensor:
+        centers = self._extrinsics[:, :3, 3]
+        assert centers.shape == (len(self), 3), f"{centers.shape=}"
+        return centers
+
+    @property
     def right(self) -> torch.Tensor:
         vecs = self._extrinsics[:, :3, 0]
         norms = torch.linalg.norm(vecs, dim=1)

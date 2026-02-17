@@ -134,6 +134,12 @@ class Camera:
         return (horizontal_fov, vertical_fov)
 
     @property
+    def center(self) -> torch.Tensor:
+        center = self._extrinsics[:3, 3]
+        assert center.shape == (3,), f"{center.shape=}"
+        return center
+
+    @property
     def right(self) -> torch.Tensor:
         if self._convention == "standard":
             vec = self._extrinsics[:3, 0]
