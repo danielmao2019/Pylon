@@ -3,7 +3,8 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from data.structures.three_d.camera.camera import Camera, camera_vis
+from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.camera_vis import camera_vis
 
 
 def add_camera_to_fig(
