@@ -18,90 +18,66 @@ def camera_vis(
     assert frustum_depth > 0.0
 
     device = camera.device
-    dtype = torch.float32
-
-    camera_standard = camera.to(device=device, convention='standard')
-    extrinsics_standard = camera_standard.extrinsics
-    rotation_matrix = extrinsics_standard[:3, :3]
-    camera_center = extrinsics_standard[:3, 3]
-
-    axis_colors = {
-        'x': torch.tensor([1.0, 0.0, 0.0], device=device, dtype=dtype),
-        'y': torch.tensor([0.0, 1.0, 0.0], device=device, dtype=dtype),
-        'z': torch.tensor([0.0, 0.0, 1.0], device=device, dtype=dtype),
-    }
+    dtype = camera.center.dtype
     if frustum_color is None:
         frustum_color = torch.tensor([1.0, 0.84, 0.0], device=device, dtype=dtype)
 
-    right_axis = rotation_matrix[:, 0] * axis_length
-    forward_axis = rotation_matrix[:, 1] * axis_length
-    up_axis = rotation_matrix[:, 2] * axis_length
-
     axes = [
         {
-            'start': camera_center,
-            'end': camera_center + right_axis,
-            'color': axis_colors['x'],
+            'start': camera.center,
+            'end': camera.center + camera.right * axis_length,
+            'color': torch.tensor([1.0, 0.0, 0.0], device=device, dtype=dtype),
         },
         {
-            'start': camera_center,
-            'end': camera_center + forward_axis,
-            'color': axis_colors['y'],
+            'start': camera.center,
+            'end': camera.center + camera.forward * axis_length,
+            'color': torch.tensor([0.0, 1.0, 0.0], device=device, dtype=dtype),
         },
         {
-            'start': camera_center,
-            'end': camera_center + up_axis,
-            'color': axis_colors['z'],
+            'start': camera.center,
+            'end': camera.center + camera.up * axis_length,
+            'color': torch.tensor([0.0, 0.0, 1.0], device=device, dtype=dtype),
         },
     ]
 
-    frustum_points_cam = (
-        torch.tensor(
-            [
-                [-0.5, 1.0, -0.5],
-                [0.5, 1.0, -0.5],
-                [0.5, 1.0, 0.5],
-                [-0.5, 1.0, 0.5],
-            ],
-            device=device,
-            dtype=dtype,
-        )
-        * frustum_depth
-    )
-
-    frustum_points_cam_homo = torch.cat(
-        [
-            frustum_points_cam,
-            torch.ones(frustum_points_cam.shape[0], 1, device=device, dtype=dtype),
-        ],
-        dim=1,
-    )
-    frustum_points_world = (extrinsics_standard @ frustum_points_cam_homo.t()).t()[
-        :, :3
+    frustum_half_size = frustum_depth * 0.5
+    frustum_center = camera.center + camera.forward * frustum_depth
+    frustum_points_world = [
+        frustum_center
+        - camera.right * frustum_half_size
+        + camera.up * frustum_half_size,
+        frustum_center
+        + camera.right * frustum_half_size
+        + camera.up * frustum_half_size,
+        frustum_center
+        + camera.right * frustum_half_size
+        - camera.up * frustum_half_size,
+        frustum_center
+        - camera.right * frustum_half_size
+        - camera.up * frustum_half_size,
     ]
 
     frustum_lines: List[Dict[str, Any]] = []
-    origin = camera_center
     for point in frustum_points_world:
         frustum_lines.append(
             {
-                'start': origin,
+                'start': camera.center,
                 'end': point,
                 'color': frustum_color,
             }
         )
 
-    for idx in range(4):
+    for idx in range(len(frustum_points_world)):
         frustum_lines.append(
             {
                 'start': frustum_points_world[idx],
-                'end': frustum_points_world[(idx + 1) % 4],
+                'end': frustum_points_world[(idx + 1) % len(frustum_points_world)],
                 'color': frustum_color,
             }
         )
 
     return {
-        'center': camera_center,
+        'center': camera.center,
         'axes': axes,
         'frustum_lines': frustum_lines,
         'center_color': torch.tensor([0.0, 0.0, 0.0], device=device, dtype=dtype),
