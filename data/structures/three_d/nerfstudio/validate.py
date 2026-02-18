@@ -281,15 +281,11 @@ def validate_split_filenames_data(data: Dict[str, Any]) -> None:
 def validate_cameras(cameras: Cameras) -> None:
     # Input validations
     assert isinstance(cameras, Cameras), f"{type(cameras)=}"
-
-
-def validate_filenames(filenames: List[str]) -> None:
-    # Input validations
-    assert isinstance(filenames, list), f"{type(filenames)=}"
-    assert filenames, "filenames must be non-empty"
-    assert all(isinstance(item, str) for item in filenames), f"{filenames=}"
-    assert all(Path(item).name == item for item in filenames), f"{filenames=}"
-    assert all(Path(item).suffix == "" for item in filenames), f"{filenames=}"
+    assert len(cameras.names) > 0, "cameras.names must be non-empty"
+    assert all(name is not None for name in cameras.names), "Camera names must exist"
+    assert all(isinstance(name, str) for name in cameras.names), f"{cameras.names=}"
+    assert all(Path(name).name == name for name in cameras.names), f"{cameras.names=}"
+    assert all(Path(name).suffix == "" for name in cameras.names), f"{cameras.names=}"
 
 
 def validate_split_filenames(
@@ -329,7 +325,8 @@ def validate_split_filenames(
     ), "train_filenames must be non-empty"
     assert val_filenames is None or val_filenames, "val_filenames must be non-empty"
     assert test_filenames is None or test_filenames, "test_filenames must be non-empty"
-    validate_filenames(filenames)
+    assert isinstance(filenames, list), f"{type(filenames)=}"
+    assert filenames, "filenames must be non-empty"
     assert train_filenames is None or set(filenames) == {
         Path(item).stem for item in train_filenames
     } | {Path(item).stem for item in val_filenames} | {

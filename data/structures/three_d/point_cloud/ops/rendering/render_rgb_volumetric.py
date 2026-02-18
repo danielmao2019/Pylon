@@ -195,7 +195,6 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
         ply_file_path="point_cloud.ply",
         cameras=nerfstudio_cameras,
         modalities=modalities,
-        filenames=camera_names,
         train_filenames=None,
         val_filenames=None,
         test_filenames=None,

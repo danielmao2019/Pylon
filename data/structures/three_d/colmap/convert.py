@@ -240,7 +240,6 @@ def convert_colmap_to_nerfstudio(
         ply_file_path=ply_filename,
         cameras=cameras,
         modalities=modalities,
-        filenames=cameras.names,
         train_filenames=None,
         val_filenames=None,
         test_filenames=None,

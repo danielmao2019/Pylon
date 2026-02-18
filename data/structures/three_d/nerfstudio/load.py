@@ -135,7 +135,6 @@ def load_nerfstudio_data(
     str,
     Cameras,
     List[str],
-    List[str],
     List[str] | None,
     List[str] | None,
     List[str] | None,
@@ -171,7 +170,6 @@ def load_nerfstudio_data(
     train_filenames, val_filenames, test_filenames = load_split_filenames(data)
     cameras = load_cameras(data=data, device=target_device)
     modalities = load_modalities(data)
-    filenames = load_filenames(data)
 
     return (
         data,
@@ -183,7 +181,6 @@ def load_nerfstudio_data(
         ply_file_path,
         cameras,
         modalities,
-        filenames,
         train_filenames,
         val_filenames,
         test_filenames,

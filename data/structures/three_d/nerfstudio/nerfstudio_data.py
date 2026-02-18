@@ -16,7 +16,6 @@ from data.structures.three_d.nerfstudio.validate import (
     validate_cameras,
     validate_data,
     validate_device,
-    validate_filenames,
     validate_intrinsic_params,
     validate_intrinsics,
     validate_intrinsics_data,
@@ -62,7 +61,6 @@ class NerfStudio_Data:
         ply_file_path: str,
         cameras: Cameras,
         modalities: List[str],
-        filenames: List[str],
         train_filenames: List[str] | None = None,
         val_filenames: List[str] | None = None,
         test_filenames: List[str] | None = None,
@@ -79,12 +77,11 @@ class NerfStudio_Data:
         validate_ply_file_path(ply_file_path)
         validate_cameras(cameras)
         validate_modalities(modalities)
-        validate_filenames(filenames)
         validate_split_filenames(
             train_filenames=train_filenames,
             val_filenames=val_filenames,
             test_filenames=test_filenames,
-            filenames=filenames,
+            filenames=list(cameras.names),
         )
 
         self.data = data
@@ -97,7 +94,6 @@ class NerfStudio_Data:
         self.ply_file_path = ply_file_path
         self.cameras = cameras
         self.modalities = modalities
-        self.filenames = filenames
         self.train_filenames = train_filenames
         self.val_filenames = val_filenames
         self.test_filenames = test_filenames
@@ -146,7 +142,6 @@ class NerfStudio_Data:
             ply_file_path,
             cameras,
             modalities,
-            filenames,
             train_filenames,
             val_filenames,
             test_filenames,
@@ -163,7 +158,6 @@ class NerfStudio_Data:
             ply_file_path=ply_file_path,
             cameras=cameras,
             modalities=modalities,
-            filenames=filenames,
             train_filenames=train_filenames,
             val_filenames=val_filenames,
             test_filenames=test_filenames,
@@ -221,3 +215,7 @@ class NerfStudio_Data:
             translation=translation,
         )
         self.cameras = transformed_cameras
+
+    @property
+    def filenames(self) -> List[str]:
+        return list(self.cameras.names)
