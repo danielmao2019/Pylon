@@ -1,11 +1,15 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 from data.pipelines.base_step import BaseStep
+from data.pipelines.colmap.coords.umeyama import compute_umeyama_alignment
+from data.pipelines.colmap.coords.validate import (
+    validate_camera_center_alignment,
+)
 from data.structures.three_d.colmap import COLMAP_Data
 from data.structures.three_d.nerfstudio import NerfStudio_Data
 from data.structures.three_d.point_cloud import load_point_cloud, save_point_cloud
@@ -39,25 +43,37 @@ class BaseNormalizeCoordsStep(BaseStep, ABC):
         assert points_path.exists(), f"points3D.bin not found: {points_path}"
 
     def _validate_coords(self) -> None:
-        scale, rotation, translation = self._compute_transform()
-        identity = np.eye(3, dtype=np.float32)
-        rotation_diff = float(np.max(np.abs(rotation - identity)))
-        scale_diff = abs(scale - 1.0)
-        bounds = self._get_alignment_bounds()
-        assert set(bounds.keys()) == {
-            "min",
-            "max",
-        }, f"Alignment bounds must contain min/max, got keys {sorted(bounds.keys())}"
-        diagonal = float(np.linalg.norm(bounds["max"] - bounds["min"]))
-        assert diagonal > 0, "Alignment bounds diagonal must be positive"
-        translation_norm = float(np.linalg.norm(translation))
+        source_camera_names, source_camera_centers = self._get_source_camera_centers()
+        target_camera_names, target_camera_centers = self._get_target_camera_centers()
+        validate_camera_center_alignment(
+            source_camera_names=source_camera_names,
+            source_camera_centers=source_camera_centers,
+            target_camera_names=target_camera_names,
+            target_camera_centers=target_camera_centers,
+        )
+
+    def _compute_transform(self) -> Tuple[float, np.ndarray, np.ndarray]:
+        source_camera_names, source_camera_centers = self._get_source_camera_centers()
+        target_camera_names, target_camera_centers = self._get_target_camera_centers()
         assert (
-            rotation_diff <= 1.0e-03
-        ), f"Rotation too far from identity: {rotation_diff}"
-        assert scale_diff <= 1.0e-03, f"Scale too far from 1.0: {scale_diff}"
+            source_camera_names == target_camera_names
+        ), "Source/target camera-name order mismatch for Umeyama alignment"
         assert (
-            translation_norm <= diagonal * 1.0e-03
-        ), f"Translation too large: {translation_norm}"
+            source_camera_centers.dtype == np.float32
+        ), f"{source_camera_centers.dtype=}"
+        assert (
+            target_camera_centers.dtype == np.float32
+        ), f"{target_camera_centers.dtype=}"
+        scale, rotation, translation = compute_umeyama_alignment(
+            source_points=source_camera_centers.T,
+            target_points=target_camera_centers.T,
+        )
+        assert isinstance(scale, float), f"{type(scale)=}"
+        assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
+        assert isinstance(translation, np.ndarray), f"{type(translation)=}"
+        assert rotation.dtype == np.float32, f"{rotation.dtype=}"
+        assert translation.dtype == np.float32, f"{translation.dtype=}"
+        return scale, rotation, translation
 
     def run(self, kwargs: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
         self.check_inputs()
@@ -132,22 +148,13 @@ class BaseNormalizeCoordsStep(BaseStep, ABC):
         )
 
     @abstractmethod
-    def _compute_transform(self) -> Tuple[float, np.ndarray, np.ndarray]:
+    def _get_source_camera_centers(
+        self,
+    ) -> Tuple[List[str], np.ndarray]:
         raise NotImplementedError
 
     @abstractmethod
-    def _get_alignment_bounds(self) -> Dict[str, np.ndarray]:
+    def _get_target_camera_centers(
+        self,
+    ) -> Tuple[List[str], np.ndarray]:
         raise NotImplementedError
-
-    @staticmethod
-    def _bounds(points: np.ndarray) -> Dict[str, np.ndarray]:
-        # Input validations
-        assert isinstance(points, np.ndarray), f"{type(points)=}"
-        assert (
-            points.ndim == 2 and points.shape[1] == 3
-        ), f"Expected (N,3) points array, got shape {points.shape}"
-        assert points.size > 0, "No points provided for bounds computation"
-
-        mins = points.min(axis=0)
-        maxs = points.max(axis=0)
-        return {"min": mins, "max": maxs}
