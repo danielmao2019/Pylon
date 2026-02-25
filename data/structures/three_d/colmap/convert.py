@@ -227,7 +227,6 @@ def convert_colmap_to_nerfstudio(
     resolution = (intrinsic_params["h"], intrinsic_params["w"])
     camera_model = intrinsic_params["camera_model"]
     intrinsics = cameras[0].intrinsics
-    applied_transform = DEFAULT_APPLIED_TRANSFORM
     payload: Dict[str, Any] = {}
     nerfstudio_data = NerfStudio_Data(
         data=payload,
@@ -236,7 +235,7 @@ def convert_colmap_to_nerfstudio(
         resolution=resolution,
         camera_model=camera_model,
         intrinsics=intrinsics,
-        applied_transform=applied_transform,
+        applied_transform=DEFAULT_APPLIED_TRANSFORM,
         ply_file_path=ply_filename,
         cameras=cameras,
         modalities=modalities,
