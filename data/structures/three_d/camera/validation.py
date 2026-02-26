@@ -16,6 +16,16 @@ def validate_camera_convention(convention: Any) -> str:
     return convention
 
 
+def validate_camera_intrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
+    if isinstance(obj, np.ndarray):
+        return _validate_camera_intrinsics_numpy(obj)
+    if isinstance(obj, torch.Tensor):
+        return _validate_camera_intrinsics_torch(obj)
+    raise TypeError(
+        f"Camera intrinsics must be a numpy array or a torch tensor, got {type(obj)}"
+    )
+
+
 def _validate_camera_intrinsics_numpy(obj: Any) -> np.ndarray:
     # Input validations
     assert isinstance(obj, np.ndarray), f"{type(obj)=}"
@@ -68,13 +78,13 @@ def _validate_camera_intrinsics_torch(obj: Any) -> torch.Tensor:
     return obj
 
 
-def validate_camera_intrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
+def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor]:
     if isinstance(obj, np.ndarray):
-        return _validate_camera_intrinsics_numpy(obj)
+        return _validate_rotation_matrix_numpy(obj)
     if isinstance(obj, torch.Tensor):
-        return _validate_camera_intrinsics_torch(obj)
+        return _validate_rotation_matrix_torch(obj)
     raise TypeError(
-        f"Camera intrinsics must be a numpy array or a torch tensor, got {type(obj)}"
+        f"Rotation matrix must be a numpy array or a torch tensor, got {type(obj)}"
     )
 
 
@@ -140,13 +150,13 @@ def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor:
     return obj
 
 
-def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor]:
+def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
     if isinstance(obj, np.ndarray):
-        return _validate_rotation_matrix_numpy(obj)
+        return _validate_camera_extrinsics_numpy(obj)
     if isinstance(obj, torch.Tensor):
-        return _validate_rotation_matrix_torch(obj)
+        return _validate_camera_extrinsics_torch(obj)
     raise TypeError(
-        f"Rotation matrix must be a numpy array or a torch tensor, got {type(obj)}"
+        f"Camera extrinsics must be a numpy array or a torch tensor, got {type(obj)}"
     )
 
 
@@ -190,13 +200,3 @@ def _validate_camera_extrinsics_torch(obj: Any) -> torch.Tensor:
     rotation = obj[..., :3, :3]
     _validate_rotation_matrix_torch(rotation)
     return obj
-
-
-def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
-    if isinstance(obj, np.ndarray):
-        return _validate_camera_extrinsics_numpy(obj)
-    if isinstance(obj, torch.Tensor):
-        return _validate_camera_extrinsics_torch(obj)
-    raise TypeError(
-        f"Camera extrinsics must be a numpy array or a torch tensor, got {type(obj)}"
-    )
