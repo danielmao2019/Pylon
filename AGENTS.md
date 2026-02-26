@@ -73,8 +73,9 @@ Rules:
    3. Callback functions are not exceptions of the type annotation rules or input validation rules, as defined in other sections of this doc.
    4. Dash callback functions typically need another layer to check for the trigger for mid-to-complex apps. e.g., when there are dynamically created dash components. Be careful with validating if the trigger of the callback is from the actual expected source. If not, then you should use `raise PreventUpdate` to short-circuit the callback. This should be implemented by helper functions of the form `validate_trigger(...) -> None`, called directly by the callbacks. the `validate_trigger` function should have `raise PreventUpdate` statements under various conditions.
    5. Organize callback definition files into sub-folders, when the list gets long.
-3. Do not do `app.run_server`, because `app.run_server` is just wrong code. You should do `app.run`. Also, you must always use `host=0.0.0.0`, `port=args.port`, and `debug=False` and make a CLI arg automatically on yourself called `--port`, with some default value.
-4. Be careful to the use of multiple callbacks pointing to same `Output` case. Use `allow_duplicate` wisely.
+3. When you make image display, you must never use image encoding.
+4. Do not do `app.run_server`, because `app.run_server` is just wrong code. You should do `app.run`. Also, you must always use `host=0.0.0.0`, `port=args.port`, and `debug=False` and make a CLI arg automatically on yourself called `--port`, with some default value.
+5. Be careful to the use of multiple callbacks pointing to same `Output` case. Use `allow_duplicate` wisely.
 
 ### 2.5. How to write steps and pipelines
 
@@ -129,20 +130,24 @@ Sometimes, you need to add repo root to `sys.path`, in order to use the packages
    1. Must be conditional (avoid duplicates). Do a `if str(REPO_ROOT) not in sys.path`.
    2. Must use `sys.path.append`, rather than `sys.path.insert`.
 
-### 2.10. Code Readability
+### 2.10. How to write configs
+
+Configs refer to the `./configs` folder. This folder has a mixture of the following files: a) generator files; b) template files; and c) actual config files. All actual config files have a header (python comment) saying that you should not manually modify this file, and that's exactly what I need to emphasize here. You should only modify the templates or generator files if needed, and then run the generator files to update the corresponding configs.
+
+### 2.11. Code Readability
 
 1. Constantly clean up unused variables during implementation and unused imports. For unused function/method args, you need to be careful, because those might be intentionally unused. e.g., a base class defines a method prototype to have a certain arg, but some subclasses use it and other subclasses don't use it.
 2. It's good practice to periodically (in batches) run both `black` and `isort` on the files within which you just made changes. Rules:
    1. Never run `black` or `isort` on the files you haven't touched - those files are unrelated to the current task and hence should not create any changes. Principle: stay within the scope of your task and do not do anything irrelevant.
-   2. Always run `black` with a very short timeout. When timeout occurs, you should ignore timeout issues. `black`'s formatting finishes almost immediately. No need to wait for anything.
+   2. Never use ANY flags when running `black` or `isort`, especially line length limits.
 3. If a function call has more than 3 arguments (positional, or keyword), you must call the function with `func(xxx=xxx, yyy=yyy, ...)`. i.e., ALL args should be called as keyword args. The reason is that with functions with many args, it is easy to mess up with the ordering.
 4. The ordering of the args when calling a function, and the order of the input validation assert statements in the function definition, must both follow the same order as the function args.
 
-### 2.11. Code Structure
+### 2.12. Code Structure
 
 You are great at making things correct, but not always great at making things human-friendly. This section is dedicated to help you to make your code human-friendly.
 
-#### 2.11.1. A Note on Hierarchies
+#### 2.12.1. A Note on Hierarchies
 
 1. when you talk to a person, you may say something like "meat and fruit", but you less often say things like "meat and apple". because "meat" and "fruit" are on the same hierarchy level, but "apple" is a subclass of "fruit" and hence not on the same hierarchy level as "meat".
 2. when you do hierarchical searching in a database of academic papers, you often do three passes - you first filter by title, and then after that, you filter by abstract among the results of filter by title, then you start going into the paper main body, for only the ones you filtered out the abstract. i.e., you first make sure that you stay withing the hierarchy level of paper title, once you are done, you go down one hierarchy level to be more fine-grained and read the abstracts and continue to further filter.
@@ -153,23 +158,23 @@ the list goes on. real human process information in hierarchies. to make your co
 1. a functionality that is specific to some hierarchy may not be implemented in a module that is designed to implement more generic functionalities. a generic functionality module may not implement anything that's specific to just one project.
 2. a main function may call helper functions, and helper functions may call helper-to-helper functions. but if a main function calls helper-to-helper functions directly, that's a break of the hierarchy structure, even though the code may still be correct, but it's confusing and is considered as bad code quality.
 
-#### 2.11.2. Other Structural Rules
+#### 2.12.2. Other Structural Rules
 
 3. It is bad to make variable aliasing. i.e., you immediately rename a variable to something else, like xxx = yyy. This is common in case when you are making a long sequence of code patches. When you see this, you should stop creating aliasing and rename all subsequent reference to use the original variable name. Note that it is not always the case that xxx = yyy is making an alias. Some times this is just doing initialization. I'm just warning you about this.
 4. It is bad to make a function, or a method, that only does trivial things, because these functions/methods only adds unnecessary call stack to the program and does not contribute to code modularity, reusability, and such.
 5. Some times there are multiple parts for the code of a function/method and the parts are actually independent. However, you often write code so that the lines for part A is mixed together with lines for part B, making the code hard to understand. You should learn to implement separation of concerns. You either create helper methods, or you make code chunks separated by symbolic comments like `# ---` or `# ===` or whatever.
 
-### 2.12. First-Principle Rule
+### 2.13. First-Principle Rule
 
 1. During long sequence of code patches, you often make fallbacks/legacy code. You should never have those. We always move forward.
 
-### 2.13. Others
+### 2.14. Others
 
 1. Unless I request explicitly, never create any data classes.
 
 ## 3. About coding workflow
 
-Rule: never do any `git` commit that is not read-only, e.g., `git add`, `git commit`, `git push`, `git pull`, `git rebase`, `git stash`, etc.
+Rule: never do any `git` commit that is not read-only, e.g., `git add`, `git commit`, `git push`, `git pull`, `git rebase`, `git stash`, etc., unless the user tells you to do so explicitly.
 
 Suggestion: git diff is always your friend. You should review what you did constantly. Use git diff wisely, e.g., `git diff --staged`, `git diff --cached`, `git diff --stat`, etc.
 
