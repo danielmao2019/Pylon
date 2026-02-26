@@ -1,16 +1,19 @@
-from typing import Tuple, List, Dict, Union, Any, Optional
-from abc import ABC, abstractmethod
 import itertools
-import subprocess
+import json
 import os
 import random
-import json
-import xxhash
+import subprocess
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import torch
+import xxhash
+
 from data.cache import CombinedDatasetCache
 from data.transforms.compose import Compose
-from utils.input_checks import check_read_dir
 from utils.builders import build_from_config
+from utils.input_checks import check_read_dir
 from utils.ops import apply_tensor_op
 
 
@@ -25,6 +28,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     def __init__(
         self,
         data_root: Optional[str] = None,
+        data_source: str = "local",
+        aws_s3_data_root: Optional[str] = None,
         split: Optional[str] = None,
         split_percentages: Optional[Tuple[float, ...]] = None,
         indices: Optional[List[int]] = None,
@@ -42,6 +47,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         """
         Args:
             data_root (str, optional): path to the dataset root directory
+            data_source (str): where raw data is read from. Supports "local" and "AWS_S3"
+            aws_s3_data_root (str, optional): source root in S3 URI format when data_source is "AWS_S3"
             split (str, optional): which split to initialize ('train', 'val', 'test', etc.). None means load everything.
             split_percentages (tuple, optional): percentages for random split when predefined splits don't exist
             indices (list, optional): subset of indices to use from the split
@@ -58,18 +65,41 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
 
-        # input checks
-        if data_root is not None:
-            self.data_root = check_read_dir(path=data_root)
-
-        # Validate overwrite_cache
+        # Input validations
+        assert data_root is None or isinstance(data_root, str), f"{type(data_root)=}"
+        assert isinstance(data_source, str), f"{type(data_source)=}"
+        assert data_source in {"local", "AWS_S3"}, f"{data_source=}"
+        assert aws_s3_data_root is None or isinstance(
+            aws_s3_data_root, str
+        ), f"{type(aws_s3_data_root)=}"
+        assert data_source == "local" or (
+            aws_s3_data_root is not None and aws_s3_data_root != ""
+        ), f"{data_source=}, {aws_s3_data_root=}"
         assert isinstance(
             overwrite_cache, bool
         ), f"overwrite_cache must be bool, got {type(overwrite_cache)=}"
-        if overwrite_cache:
+        assert (not overwrite_cache) or (
+            use_cpu_cache or use_disk_cache
+        ), "When overwrite_cache=True, at least one of use_cpu_cache or use_disk_cache must be True"
+
+        # Input normalizations
+        normalized_data_root = data_root
+        if data_source == "local":
+            if data_root is not None:
+                normalized_data_root = check_read_dir(path=data_root)
+        if data_source == "AWS_S3":
             assert (
-                use_cpu_cache or use_disk_cache
-            ), "When overwrite_cache=True, at least one of use_cpu_cache or use_disk_cache must be True"
+                data_root is not None
+            ), "data_root is required when data_source is AWS_S3"
+            cache_root = Path(data_root).expanduser().resolve()
+            cache_root.mkdir(parents=True, exist_ok=True)
+            normalized_data_root = str(cache_root)
+        normalized_aws_s3_data_root = aws_s3_data_root
+
+        # Class attributes
+        self.data_root = normalized_data_root
+        self.data_source = data_source
+        self.aws_s3_data_root = normalized_aws_s3_data_root
         self.overwrite_cache = overwrite_cache
 
         # initialize

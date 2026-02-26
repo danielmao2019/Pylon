@@ -3,6 +3,7 @@ __pycache__
 .claude
 logs
 data/datasets/soft_links
+data/storages/aws_s3/config.local.json
 agents/snapshots
 agents/summaries
 
