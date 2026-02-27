@@ -3,14 +3,15 @@
 This module combines dataset management, transform management, and state management
 into a single simplified backend.
 """
-from typing import Dict, Any, List, Optional, Literal
-import os
-import logging
-import importlib.util
-from data.transforms.compose import Compose
-from utils.builders import build_from_config
-from data.viewer.utils.settings_config import ViewerSettings
 
+import importlib.util
+import logging
+import os
+from typing import Any, Dict, List, Literal, Optional
+
+from data.transforms.compose import Compose
+from data.viewer.utils.settings_config import ViewerSettings
+from utils.builders import build_from_config
 
 # Dataset type definition for backward compatibility with eval viewer
 DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'ivision', 'general']
@@ -18,16 +19,36 @@ DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'ivision', 'genera
 # Dataset groupings by type for UI organization
 DATASET_GROUPS = {
     'semseg': ['coco_stuff_164k', 'whu_bd'],
-    '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'ivision_2dcd_original', 'ivision_2dcd_synthetic'],
+    '2dcd': [
+        'air_change',
+        'cdd',
+        'levir_cd',
+        'oscd',
+        'sysu_cd',
+        'ivision_2dcd_original',
+        'ivision_2dcd_synthetic',
+    ],
     '3dcd': ['urb3dcd', 'slpccd', 'ivision_3dcd'],
     'pcr': [
-        'kitti', 'threedmatch', 'threedlomatch', 'modelnet40', 'lidar_camera_pose_pcr',
+        'kitti',
+        'threedmatch',
+        'threedlomatch',
+        'modelnet40',
+        'lidar_camera_pose_pcr',
         'buffer',
-        'ivision_pcr', 'geotransformer_ivision_pcr', 'overlappredator_ivision_pcr',
+        'ivision_pcr',
+        'geotransformer_ivision_pcr',
+        'overlappredator_ivision_pcr',
     ],
     'mtl': [
-        'multi_mnist', 'celeb_a', 'multi_task_facial_landmark',
-        'nyu_v2_c', 'nyu_v2_f', 'city_scapes_c', 'city_scapes_f', 'pascal_context',
+        'multi_mnist',
+        'celeb_a',
+        'multi_task_facial_landmark',
+        'nyu_v2_c',
+        'nyu_v2_f',
+        'city_scapes_c',
+        'city_scapes_f',
+        'pascal_context',
         'ade_20k',
     ],
     'ivision': ['ivision_image'],
@@ -50,7 +71,6 @@ REQUIRES_3D_CLASSES = [
     'iVISION_3DCD_Dataset',
     'iVISION_2DCD_Dataset',
 ]
-
 
 
 class ViewerBackend:
@@ -83,13 +103,25 @@ class ViewerBackend:
 
     def _init_dataset_configs(self) -> None:
         """Initialize dataset configurations from config directories."""
-        repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
+        repo_root = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "../../..")
+        )
         config_dirs = {
-            'semseg': os.path.join(repo_root, 'configs/common/datasets/semantic_segmentation/train'),
-            '2dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
-            '3dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
-            'pcr': os.path.join(repo_root, 'configs/common/datasets/point_cloud_registration/train'),
-            'mtl': os.path.join(repo_root, 'configs/common/datasets/multi_task_learning/train'),
+            'semseg': os.path.join(
+                repo_root, 'configs/common/datasets/semantic_segmentation/train'
+            ),
+            '2dcd': os.path.join(
+                repo_root, 'configs/common/datasets/change_detection/train'
+            ),
+            '3dcd': os.path.join(
+                repo_root, 'configs/common/datasets/change_detection/train'
+            ),
+            'pcr': os.path.join(
+                repo_root, 'configs/common/datasets/point_cloud_registration/train'
+            ),
+            'mtl': os.path.join(
+                repo_root, 'configs/common/datasets/multi_task_learning/train'
+            ),
             'ivision': os.path.join(repo_root, 'configs/common/datasets/ivision'),
         }
 
@@ -106,7 +138,7 @@ class ViewerBackend:
                     self._configs[config_name] = {
                         'path': config_file,
                         'type': dataset_type,
-                        'name': dataset
+                        'name': dataset,
                     }
 
     def get_available_datasets_hierarchical(self) -> Dict[str, Dict[str, str]]:
@@ -153,14 +185,20 @@ class ViewerBackend:
                 dataset_cfg = config_module.train_dataset_cfg
             # Fall back to old format (data_cfg['train_dataset'])
             elif hasattr(config_module, 'data_cfg'):
-                self.logger.warning(f"DEPRECATED: {config_info['path']} uses old config format. Please migrate to new format with train_dataset_cfg, val_dataset_cfg, test_dataset_cfg")
+                self.logger.warning(
+                    f"DEPRECATED: {config_info['path']} uses old config format. Please migrate to new format with train_dataset_cfg, val_dataset_cfg, test_dataset_cfg"
+                )
                 data_cfg = config_module.data_cfg
                 dataset_cfg = data_cfg['train_dataset']
             else:
-                raise ValueError(f"Config file {config_info['path']} has neither 'train_dataset_cfg' (new format) nor 'data_cfg' (old format)")
+                raise ValueError(
+                    f"Config file {config_info['path']} has neither 'train_dataset_cfg' (new format) nor 'data_cfg' (old format)"
+                )
 
             if dataset_cfg is None:
-                raise ValueError(f"Could not load dataset configuration from {config_info['path']}")
+                raise ValueError(
+                    f"Could not load dataset configuration from {config_info['path']}"
+                )
 
             # Build the dataset
             dataset = build_from_config(dataset_cfg)
@@ -186,7 +224,7 @@ class ViewerBackend:
             'length': len(dataset),
             'class_labels': getattr(dataset, 'class_labels', {}),
             'transforms': self.get_available_transforms(),
-            'requires_3d_visualization': self._requires_3d_visualization(dataset)
+            'requires_3d_visualization': self._requires_3d_visualization(dataset),
         }
 
     def _get_dataset_type(self, dataset_name: str) -> str:
@@ -205,7 +243,9 @@ class ViewerBackend:
         dataset = self._datasets[dataset_name]
         return self._get_dataset_type_from_inheritance(dataset)
 
-    def get_datapoint(self, dataset_name: str, index: int, transform_indices: List[int]) -> Dict[str, Dict[str, Any]]:
+    def get_datapoint(
+        self, dataset_name: str, index: int, transform_indices: List[int]
+    ) -> Dict[str, Dict[str, Any]]:
         """Get a datapoint with transforms applied.
 
         Args:
@@ -217,10 +257,16 @@ class ViewerBackend:
             Datapoint dictionary with 'inputs', 'labels', and 'meta_info'
         """
         # Input validation
-        assert isinstance(dataset_name, str), f"dataset_name must be str, got {type(dataset_name)}"
+        assert isinstance(
+            dataset_name, str
+        ), f"dataset_name must be str, got {type(dataset_name)}"
         assert isinstance(index, int), f"index must be int, got {type(index)}"
-        assert isinstance(transform_indices, list), f"transform_indices must be list, got {type(transform_indices)}"
-        assert all(isinstance(idx, int) for idx in transform_indices), f"All transform indices must be int, got {transform_indices}"
+        assert isinstance(
+            transform_indices, list
+        ), f"transform_indices must be list, got {type(transform_indices)}"
+        assert all(
+            isinstance(idx, int) for idx in transform_indices
+        ), f"All transform indices must be int, got {transform_indices}"
 
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
@@ -247,7 +293,9 @@ class ViewerBackend:
         Raises:
             ValueError: If dataset is not loaded
         """
-        assert isinstance(dataset_name, str), f"dataset_name must be str, got {type(dataset_name)}"
+        assert isinstance(
+            dataset_name, str
+        ), f"dataset_name must be str, got {type(dataset_name)}"
 
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
@@ -281,10 +329,15 @@ class ViewerBackend:
                     transform_string = transform_name
             elif isinstance(transform_op, dict) and 'class' in transform_op:
                 transform_class = transform_op['class']
-                transform_name = transform_class.__name__ if hasattr(transform_class, '__name__') else str(transform_class)
+                transform_name = (
+                    transform_class.__name__
+                    if hasattr(transform_class, '__name__')
+                    else str(transform_class)
+                )
 
                 # Format the dict config as a string
                 from data.transforms.base_transform import BaseTransform
+
                 args = transform_op.get('args', {})
                 formatted_params = BaseTransform.format_params(args)
 
@@ -294,19 +347,28 @@ class ViewerBackend:
                     transform_string = transform_name
             else:
                 # This should never happen with normalized transforms
-                assert False, f"Should not reach here. Unexpected transform_op type: {type(transform_op)}"
+                assert (
+                    False
+                ), f"Should not reach here. Unexpected transform_op type: {type(transform_op)}"
 
-            transforms.append({
-                'index': i,
-                'name': transform_name,
-                'string': transform_string,
-                'input_names': transform['input_names'],
-                'output_names': transform['output_names']
-            })
+            transforms.append(
+                {
+                    'index': i,
+                    'name': transform_name,
+                    'string': transform_string,
+                    'input_names': transform['input_names'],
+                    'output_names': transform['output_names'],
+                }
+            )
 
         return transforms
 
-    def _apply_transforms(self, datapoint: Dict[str, Dict[str, Any]], transform_indices: List[int], datapoint_index: int) -> Dict[str, Dict[str, Any]]:
+    def _apply_transforms(
+        self,
+        datapoint: Dict[str, Dict[str, Any]],
+        transform_indices: List[int],
+        datapoint_index: int,
+    ) -> Dict[str, Dict[str, Any]]:
         """Apply selected transforms to a datapoint with deterministic seeding.
 
         Args:
@@ -356,7 +418,7 @@ class ViewerBackend:
             'point_size': self.point_size,
             'point_opacity': self.point_opacity,
             'sym_diff_radius': self.sym_diff_radius,
-            'lod_type': self.lod_type
+            'lod_type': self.lod_type,
         }
 
     def _requires_3d_visualization(self, dataset: Any) -> bool:
@@ -381,11 +443,19 @@ class ViewerBackend:
             Dataset type string
         """
         # Import the base display classes to check inheritance
-        from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
-        from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
+        from data.datasets.change_detection_datasets.base_2dcd_dataset import (
+            Base2DCDDataset,
+        )
+        from data.datasets.change_detection_datasets.base_3dcd_dataset import (
+            Base3DCDDataset,
+        )
+        from data.datasets.multi_task_datasets.base_multi_task_dataset import (
+            BaseMultiTaskDataset,
+        )
         from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
-        from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import BaseSemsegDataset
-        from data.datasets.multi_task_datasets.base_multi_task_dataset import BaseMultiTaskDataset
+        from data.datasets.semantic_segmentation_datasets.base_semseg_dataset import (
+            BaseSemsegDataset,
+        )
 
         # Check inheritance hierarchy to determine type
         if isinstance(dataset, BaseMultiTaskDataset):
