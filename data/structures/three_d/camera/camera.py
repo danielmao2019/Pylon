@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 import torch
 
-from data.structures.three_d.camera.conventions import _transform_convention
+from data.structures.three_d.camera.conventions import transform_convention
 from data.structures.three_d.camera.validation import (
     validate_camera_convention,
     validate_camera_extrinsics,
@@ -217,7 +217,7 @@ class Camera:
             return self
 
         extrinsics = (
-            _transform_convention(
+            transform_convention(
                 camera=self,
                 target_convention=target_convention,
             )

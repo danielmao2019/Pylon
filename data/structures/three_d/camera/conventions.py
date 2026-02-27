@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from data.structures.three_d.camera.camera import Camera
 
 
-def _transform_convention(
+def transform_convention(
     camera: "Camera",
     target_convention: str = "standard",
 ) -> torch.Tensor:
