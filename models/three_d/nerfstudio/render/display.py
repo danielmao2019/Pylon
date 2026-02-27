@@ -4,7 +4,7 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from models.three_d.base import BaseSceneModel
-from models.three_d.splatfacto.render import render_rgb_from_splatfacto
+from models.three_d.nerfstudio.splatfacto.render import render_rgb_from_splatfacto
 
 
 def render_display(
@@ -27,7 +27,7 @@ def render_display(
         assert all(isinstance(cam, Camera) for cam in display_cameras)
 
     resolved_device = device if device is not None else scene_model.device
-    camera = camera.to(resolved_device)
+    camera = camera.to(device=resolved_device)
 
     image: Optional[torch.Tensor] = None
     if camera_name is not None:

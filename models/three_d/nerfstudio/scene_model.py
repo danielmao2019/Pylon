@@ -1,6 +1,6 @@
 import datetime as _dt
 import os
-import re
+from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
 import dash
@@ -11,20 +11,26 @@ from data.structures.three_d.camera.camera import Camera
 from models.three_d.base import BaseSceneModel
 from models.three_d.nerfstudio import callbacks as nerfstudio_callbacks
 from models.three_d.nerfstudio import states as nerfstudio_states
+from models.three_d.nerfstudio.config_utils import read_data_dir_from_config_path
 from models.three_d.nerfstudio.layout import build_display
 from models.three_d.nerfstudio.render import render_display
-from models.three_d.splatfacto.load_splatfacto import load_splatfacto_model
 
 
 class NerfstudioSceneModel(BaseSceneModel):
 
     def _load_model(self) -> Any:
+        # Intentional lazy import to avoid package import cycle:
+        # nerfstudio.__init__ -> scene_model -> splatfacto -> nerfstudio.config_utils.
+        from models.three_d.nerfstudio.splatfacto.load_splatfacto import (
+            load_splatfacto_model,
+        )
+
         return load_splatfacto_model(self.resolved_path, device=self.device)
 
     def extract_positions(self) -> torch.Tensor:
         pipeline = self.model
         assert isinstance(pipeline, Pipeline), f"{type(pipeline)=}"
-        return pipeline.model.model.means
+        return pipeline.model.means
 
     @staticmethod
     def parse_scene_path(path: str) -> str:
@@ -34,11 +40,11 @@ class NerfstudioSceneModel(BaseSceneModel):
         - Output dir that contains a single scene dir (any name)
         - Scene dir (ends with scene name)
         - Method dir (ends with 'splatfacto')
-        - Job dir (ends with timestamp 'YYYY-MM-DD_HHMMSS')
+        - Job dir (must use default Nerfstudio timestamp format `%Y-%m-%d_%H%M%S`)
 
         Behavior:
         - Always descend into 'splatfacto' and pick the latest completed job dir
-          (by timestamp) that contains required files.
+          (by parsed timestamp) that contains required files.
         - If starting from an output dir, first extract the single scene dir name.
 
         Returns the absolute path to the resolved job directory.
@@ -47,28 +53,49 @@ class NerfstudioSceneModel(BaseSceneModel):
         path = os.path.normpath(path)
 
         # Helper validators (defined in reverse order per request)
-        def is_valid_job_dir(job_dir: str) -> bool:
-            base = os.path.basename(job_dir)
+        def parse_default_job_timestamp(job_dir_name: str) -> Optional[_dt.datetime]:
+            assert isinstance(job_dir_name, str), f"{type(job_dir_name)=}"
             try:
-                _dt.datetime.strptime(base, "%Y-%m-%d_%H%M%S")
-            except Exception:
+                return _dt.datetime.strptime(job_dir_name, "%Y-%m-%d_%H%M%S")
+            except ValueError:
+                return None
+
+        def is_valid_job_dir(job_dir: str) -> bool:
+            if not os.path.isdir(job_dir):
+                return False
+            ckpt_dir = os.path.join(job_dir, "nerfstudio_models")
+            if not os.path.isdir(ckpt_dir):
+                return False
+            checkpoint_files = [
+                entry
+                for entry in os.listdir(ckpt_dir)
+                if entry.startswith("step-") and entry.endswith(".ckpt")
+            ]
+            if len(checkpoint_files) == 0:
                 return False
             required = [
-                os.path.join(job_dir, "nerfstudio_models", "step-000029999.ckpt"),
                 os.path.join(job_dir, "config.yml"),
                 os.path.join(job_dir, "dataparser_transforms.json"),
             ]
             return all(os.path.isfile(f) for f in required)
 
         def is_valid_method_dir(method_dir: str) -> bool:
+            if not os.path.isdir(method_dir):
+                return False
             if os.path.basename(method_dir) != "splatfacto":
                 return False
-            return any(
-                (lambda p: os.path.isdir(p) and is_valid_job_dir(p))(
-                    os.path.join(method_dir, entry)
-                )
-                for entry in os.listdir(method_dir)
-            )
+            child_names = os.listdir(method_dir)
+            if len(child_names) == 0:
+                return False
+            child_paths = [
+                os.path.join(method_dir, child_name) for child_name in child_names
+            ]
+            if not all(os.path.isdir(child_path) for child_path in child_paths):
+                return False
+            valid_job_dirs = [
+                child_path for child_path in child_paths if is_valid_job_dir(child_path)
+            ]
+            return len(valid_job_dirs) > 0
 
         def is_valid_scene_dir(scene_dir: str) -> bool:
             return os.path.isdir(os.path.join(scene_dir, "splatfacto"))
@@ -103,22 +130,31 @@ class NerfstudioSceneModel(BaseSceneModel):
 
         # Case C: method dir -> choose latest valid job
         if is_valid_method_dir(current):
-            job_dirs = [
-                d
+            valid_job_dirs = [
+                os.path.join(current, d)
                 for d in os.listdir(current)
                 if os.path.isdir(os.path.join(current, d))
                 and is_valid_job_dir(os.path.join(current, d))
             ]
-            # Sort descending by timestamp name
-            job_dirs.sort(reverse=True)
-            found = False
-            for d in job_dirs:
-                candidate = os.path.join(current, d)
-                if is_valid_job_dir(candidate):
-                    current = candidate
-                    found = True
-                    break
-            assert found, f"Expected at least one valid job dir in '{current}'"
+            assert (
+                len(valid_job_dirs) > 0
+            ), f"Expected at least one valid job dir in '{current}'"
+            if len(valid_job_dirs) == 1:
+                current = valid_job_dirs[0]
+            else:
+                all_timestamp_named = all(
+                    parse_default_job_timestamp(os.path.basename(job_dir)) is not None
+                    for job_dir in valid_job_dirs
+                )
+                assert all_timestamp_named, (
+                    f"do not know which job to pick in '{current}': "
+                    "multiple valid job dirs and not all are timestamp-named"
+                )
+                valid_job_dirs.sort(
+                    key=lambda d: parse_default_job_timestamp(os.path.basename(d)),
+                    reverse=True,
+                )
+                current = valid_job_dirs[0]
 
         # Case D: after resolution, we must be at a valid job dir
         assert is_valid_job_dir(
@@ -138,30 +174,8 @@ class NerfstudioSceneModel(BaseSceneModel):
     def infer_data_dir(resolved_path: str) -> Optional[str]:
         config_path = os.path.join(resolved_path, "config.yml")
         assert os.path.isfile(config_path), f"config.yml not found: {config_path}"
-
-        with open(config_path, 'r', encoding='utf-8') as handle:
-            config_text = handle.read()
-
-        data_pattern = (
-            r'data:\s+&\w+\s+!!python/object/apply:pathlib\.PosixPath\s*\n'
-            r'((?:\s*-\s+.+\n)+)'
-        )
-        match = re.search(data_pattern, config_text)
-        assert match, f"Could not locate data path in config: {config_path}"
-
-        components_text = match.group(1)
-        components: List[str] = []
-        for line in components_text.strip().split('\n'):
-            comp_match = re.match(r'\s*-\s+(.+)', line.strip())
-            if comp_match:
-                components.append(comp_match.group(1))
-
-        assert components, f"No path components found in config: {config_path}"
-
-        data_path = os.path.join(*components)
-        data_path = os.path.normpath(data_path)
-
-        return data_path
+        data_dir_path = read_data_dir_from_config_path(config_path=Path(config_path))
+        return os.path.normpath(str(data_dir_path))
 
     @staticmethod
     def register_callbacks(

@@ -15,8 +15,8 @@ def render_rgb_from_splatfacto(
 ) -> torch.Tensor:
     """Render a single RGB image from a Splatfacto pipeline.
 
-    Converts camera coordinates from the specified convention to OpenGL coordinates
-    and renders the scene from the specified camera pose using the provided NerfStudio pipeline.
+    Converts camera coordinates to OpenGL c2w convention (the pose convention expected
+    by NerfStudio `Cameras`) and renders the scene from the specified camera pose.
 
     Args:
         model: NerfStudio pipeline containing the trained Splatfacto model.
@@ -45,11 +45,7 @@ def render_rgb_from_splatfacto(
         target_resolution = resolution
         render_height, render_width = target_resolution
 
-    camera_prepared = camera.to(device=device, convention="opengl").scale_intrinsics(
-        resolution=target_resolution
-    )
-
-    extrinsics = camera_prepared.extrinsics
+    camera_prepared = camera.scale_intrinsics(resolution=target_resolution)
 
     # Create camera object with intrinsic and extrinsic parameters
     ns_camera = Cameras(
@@ -57,7 +53,7 @@ def render_rgb_from_splatfacto(
         fy=camera_prepared.fy,  # Focal length in Y direction
         cx=camera_prepared.cx,  # Principal point X
         cy=camera_prepared.cy,  # Principal point Y
-        camera_to_worlds=extrinsics.unsqueeze(0),
+        camera_to_worlds=camera_prepared.extrinsics.unsqueeze(0),
         camera_type=CameraType.PERSPECTIVE,
         width=render_width,
         height=render_height,

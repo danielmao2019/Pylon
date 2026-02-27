@@ -20,7 +20,7 @@ def apply_transform_to_splatfacto(
 ) -> None:
     """Apply scale, translation, and rotation transformations to a Splatfacto model.
 
-    Transformations are applied in order: scale, translation, rotation.
+    Transformations are applied in order: scale, rotation, translation.
     This modifies the pipeline's model in-place.
 
     Args:
@@ -37,22 +37,11 @@ def apply_transform_to_splatfacto(
         # Apply scale first
         if scale is not None:
             assert isinstance(scale, float), f"scale must be float, got {type(scale)}"
+            assert scale > 0.0, f"{scale=}"
             pipeline.model.means[:] *= scale
             pipeline.model.scales[:] += math.log(scale)
-            pipeline.model.opacities[:] *= 1.0 / (scale**3)
 
-        # Apply translation second
-        if translation is not None:
-            assert isinstance(
-                translation, torch.Tensor
-            ), f"translation must be torch.Tensor, got {type(translation)}"
-            assert (
-                translation.numel() == 3
-            ), f"translation must have 3 elements, got {translation.numel()}"
-            translation = translation.view(1, 3)
-            pipeline.model.means[:] += translation
-
-        # Apply rotation last
+        # Apply rotation second
         if rotation is not None:
             assert isinstance(
                 rotation, torch.Tensor
@@ -66,3 +55,13 @@ def apply_transform_to_splatfacto(
             current_rotmats = quat_to_rotmat(pipeline.model.quats)
             new_rotmats = rotation.unsqueeze(0) @ current_rotmats
             pipeline.model.quats[:] = rotmat_to_quat(new_rotmats)
+
+        # Apply translation last
+        if translation is not None:
+            assert isinstance(
+                translation, torch.Tensor
+            ), f"translation must be torch.Tensor, got {type(translation)}"
+            assert (
+                translation.numel() == 3
+            ), f"translation must have 3 elements, got {translation.numel()}"
+            pipeline.model.means[:] += translation.view(1, 3)
