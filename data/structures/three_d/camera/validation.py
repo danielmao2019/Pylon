@@ -3,6 +3,8 @@ from typing import Any, Union
 import numpy as np
 import torch
 
+from utils.ops.materialize_tensor import materialize_tensor
+
 
 def validate_camera_convention(convention: Any) -> str:
     # Input validations
@@ -124,6 +126,9 @@ def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor:
     assert obj.ndim >= 2, f"{obj.ndim=}"
     assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
     assert obj.dtype == torch.float32, f"{obj.dtype=}"
+
+    # Input normalizations
+    obj = materialize_tensor(obj)
 
     identity = torch.eye(3, dtype=obj.dtype, device=obj.device)
     should_be_identity = obj @ obj.transpose(-1, -2)

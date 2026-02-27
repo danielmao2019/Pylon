@@ -1,28 +1,61 @@
-"""Tensor materialization utilities to avoid lazy wrapper issues."""
+from typing import Callable, Dict
 
 import torch
-from typing import Any
 
 
-def materialize_tensor(tensor: torch.Tensor) -> torch.Tensor:
-    """Materialize a tensor to avoid lazy wrapper issues.
+def materialize_tensor(
+    tensor: torch.Tensor,
+    method: str = "cpu_numpy",
+) -> torch.Tensor:
+    """Materialize a tensor using a selected backend method."""
+    assert isinstance(
+        tensor, torch.Tensor
+    ), f"Input must be torch.Tensor, got {type(tensor)}"
+    assert isinstance(method, str), f"{type(method)=}"
 
-    This function ensures that a tensor is fully materialized in memory,
-    which can be important when dealing with certain tensor operations
-    that may involve lazy evaluation or wrapped tensors.
+    method_to_fn: Dict[str, Callable[[torch.Tensor], torch.Tensor]] = {
+        "clone_detach": _materialize_tensor_clone_detach,
+        "cpu_numpy": _materialize_tensor_cpu_numpy,
+    }
+    assert method in method_to_fn, (
+        f"Unsupported materialize method: {method}. "
+        f"Supported methods: {list(method_to_fn.keys())}"
+    )
 
-    Args:
-        tensor: Input tensor that may be lazily evaluated or wrapped
+    materialized_tensor = method_to_fn[method](tensor=tensor)
+    assert isinstance(
+        materialized_tensor, torch.Tensor
+    ), f"{type(materialized_tensor)=}"
+    assert (
+        materialized_tensor.shape == tensor.shape
+    ), f"{materialized_tensor.shape=}, {tensor.shape=}"
+    assert (
+        materialized_tensor.dtype == tensor.dtype
+    ), f"{materialized_tensor.dtype=}, {tensor.dtype=}"
+    assert (
+        materialized_tensor.device == tensor.device
+    ), f"{materialized_tensor.device=}, {tensor.device=}"
+    return materialized_tensor
 
-    Returns:
-        Materialized tensor with the same data but guaranteed to be
-        fully evaluated and accessible
-    """
+
+def _materialize_tensor_clone_detach(tensor: torch.Tensor) -> torch.Tensor:
+    # Input validations
+    assert isinstance(
+        tensor, torch.Tensor
+    ), f"Input must be torch.Tensor, got {type(tensor)}"
+    return tensor.clone().detach()
+
+
+def _materialize_tensor_cpu_numpy(tensor: torch.Tensor) -> torch.Tensor:
+    # Input validations
     assert isinstance(
         tensor, torch.Tensor
     ), f"Input must be torch.Tensor, got {type(tensor)}"
 
-    # Simple approach: clone and detach to ensure materialization
-    # This creates a new tensor with the same data but removes any
-    # lazy evaluation wrappers or computation graph dependencies
-    return tensor.clone().detach()
+    detached_tensor = tensor.detach()
+    tensor_numpy = detached_tensor.cpu().numpy()
+    return torch.tensor(
+        tensor_numpy,
+        dtype=tensor.dtype,
+        device=tensor.device,
+    )
