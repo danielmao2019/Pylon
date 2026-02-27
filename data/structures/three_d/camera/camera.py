@@ -205,9 +205,16 @@ class Camera:
     def to(
         self, device: str | torch.device | None = None, convention: str | None = None
     ) -> "Camera":
+        # Input validations
+        assert device is None or isinstance(device, (str, torch.device)), f"{device=}"
+        assert convention is None or isinstance(convention, str), f"{convention=}"
+
+        # Input normalizations
         target_device = torch.device(device) if device is not None else self._device
         target_convention = convention if convention is not None else self._convention
         validate_camera_convention(target_convention)
+        if target_device == self._device and target_convention == self._convention:
+            return self
 
         extrinsics = (
             _transform_convention(

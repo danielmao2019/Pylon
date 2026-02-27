@@ -177,6 +177,32 @@ class Cameras:
 
         # Input normalizations
         target_device = self._device if device is None else torch.device(device)
+        target_convention = convention
+        if target_convention is not None:
+            validate_camera_convention(target_convention)
+
+        if target_convention is None and target_device == self._device:
+            return self
+
+        if (
+            target_convention is not None
+            and target_device == self._device
+            and all(
+                source_convention == target_convention
+                for source_convention in self._conventions
+            )
+        ):
+            return self
+
+        if target_convention is None:
+            return Cameras(
+                intrinsics=self._intrinsics.to(device=target_device),
+                extrinsics=self._extrinsics.to(device=target_device),
+                conventions=list(self._conventions),
+                names=list(self._names),
+                ids=list(self._ids),
+                device=target_device,
+            )
 
         intrinsics_list: List[torch.Tensor] = []
         extrinsics_list: List[torch.Tensor] = []
@@ -186,7 +212,7 @@ class Cameras:
         for idx in range(len(self)):
             camera = self[idx].to(
                 device=target_device,
-                convention=convention,
+                convention=target_convention,
             )
             intrinsics_list.append(camera.intrinsics)
             extrinsics_list.append(camera.extrinsics)
