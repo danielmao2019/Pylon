@@ -98,7 +98,11 @@ class ColmapSparseReconstructionStep(BaseStep):
             len(cameras) == 1
         ), f"Expected exactly one camera in {cameras_path}, found {len(cameras)}"
         camera = next(iter(cameras.values()))
-        assert camera.model == "OPENCV", f"{camera.model=}"
+        assert camera.model in {
+            "OPENCV",
+            "PINHOLE",
+            "SIMPLE_PINHOLE",
+        }, f"{camera.model=}"
         assert images, f"No registered images parsed from {images_path}"
         entries = sorted(self.input_images_dir.iterdir())
         assert entries, f"Empty input dir or no files: {self.input_images_dir}"
