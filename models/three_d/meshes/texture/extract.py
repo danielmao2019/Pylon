@@ -20,6 +20,10 @@ def extract_texture_from_images(
     cameras: Cameras,
     representation: str = "vertex_color",
     weights: str = "visible",
+    normals_weight_power: float = 1.0,
+    normals_weight_threshold: float = 0.0,
+    multi_view_robustness: str = "none",
+    robustness_tau: float = 0.2,
     vertex_uv: Optional[torch.Tensor] = None,
     texture_size: int = 1024,
     default_color: float = 0.7,
@@ -34,6 +38,11 @@ def extract_texture_from_images(
         cameras: Per-view cameras in OpenCV convention.
         representation: Output texture representation, "vertex_color" or "uv_texture_map".
         weights: Per-view fusion weighting mode, "visible" or "normals".
+        normals_weight_power: Exponent on normals weights when weights == "normals".
+        normals_weight_threshold: Threshold on normals weights when weights == "normals".
+            Values below this threshold are suppressed to zero before frame-wise fusion.
+        multi_view_robustness: Multi-view robustness mode, "none" or "residual_gaussian".
+        robustness_tau: Scale factor for residual-gaussian robustness.
         vertex_uv: Per-vertex UV coordinates [V, 2], required for UV extraction.
         texture_size: UV texture resolution for UV extraction.
         default_color: Fallback color for texels/vertices without any valid observation.
@@ -60,6 +69,20 @@ def extract_texture_from_images(
     assert representation in ("vertex_color", "uv_texture_map"), f"{representation=}"
     assert isinstance(weights, str), f"{type(weights)=}"
     assert weights in ("visible", "normals"), f"{weights=}"
+    assert isinstance(normals_weight_power, float), f"{type(normals_weight_power)=}"
+    assert normals_weight_power > 0.0, f"{normals_weight_power=}"
+    assert isinstance(
+        normals_weight_threshold, float
+    ), f"{type(normals_weight_threshold)=}"
+    assert normals_weight_threshold >= 0.0, f"{normals_weight_threshold=}"
+    assert normals_weight_threshold <= 1.0, f"{normals_weight_threshold=}"
+    assert isinstance(multi_view_robustness, str), f"{type(multi_view_robustness)=}"
+    assert multi_view_robustness in (
+        "none",
+        "residual_gaussian",
+    ), f"{multi_view_robustness=}"
+    assert isinstance(robustness_tau, float), f"{type(robustness_tau)=}"
+    assert robustness_tau > 0.0, f"{robustness_tau=}"
     assert vertex_uv is None or isinstance(
         vertex_uv, torch.Tensor
     ), f"{type(vertex_uv)=}"
@@ -120,6 +143,10 @@ def extract_texture_from_images(
             images_nchw=images_nchw,
             cameras=cameras,
             weights=weights,
+            normals_weight_power=normals_weight_power,
+            normals_weight_threshold=normals_weight_threshold,
+            multi_view_robustness=multi_view_robustness,
+            robustness_tau=robustness_tau,
             default_color=default_color,
         )
         if not return_valid_mask:
@@ -135,6 +162,10 @@ def extract_texture_from_images(
         images_nchw=images_nchw,
         cameras=cameras,
         weights=weights,
+        normals_weight_power=normals_weight_power,
+        normals_weight_threshold=normals_weight_threshold,
+        multi_view_robustness=multi_view_robustness,
+        robustness_tau=robustness_tau,
         vertex_uv=vertex_uv,
         texture_size=texture_size,
         default_color=default_color,
@@ -150,6 +181,10 @@ def _extract_vertex_color_from_images(
     images_nchw: torch.Tensor,
     cameras: Cameras,
     weights: str,
+    normals_weight_power: float,
+    normals_weight_threshold: float,
+    multi_view_robustness: str,
+    robustness_tau: float,
     default_color: float,
 ) -> Dict[str, torch.Tensor]:
     """Fuse per-view projected vertex colors into one vertex-color tensor.
@@ -160,6 +195,10 @@ def _extract_vertex_color_from_images(
         images_nchw: Input RGB images [N, 3, H, W].
         cameras: Per-view cameras.
         weights: Fusion weighting mode, "visible" or "normals".
+        normals_weight_power: Exponent on normals weights when weights == "normals".
+        normals_weight_threshold: Threshold on normals weights when weights == "normals".
+        multi_view_robustness: Multi-view robustness mode, "none" or "residual_gaussian".
+        robustness_tau: Scale factor for residual-gaussian robustness.
         default_color: Fallback color for vertices without valid observations.
 
     Returns:
@@ -174,6 +213,20 @@ def _extract_vertex_color_from_images(
     assert isinstance(cameras, Cameras), f"{type(cameras)=}"
     assert isinstance(weights, str), f"{type(weights)=}"
     assert weights in ("visible", "normals"), f"{weights=}"
+    assert isinstance(normals_weight_power, float), f"{type(normals_weight_power)=}"
+    assert normals_weight_power > 0.0, f"{normals_weight_power=}"
+    assert isinstance(
+        normals_weight_threshold, float
+    ), f"{type(normals_weight_threshold)=}"
+    assert normals_weight_threshold >= 0.0, f"{normals_weight_threshold=}"
+    assert normals_weight_threshold <= 1.0, f"{normals_weight_threshold=}"
+    assert isinstance(multi_view_robustness, str), f"{type(multi_view_robustness)=}"
+    assert multi_view_robustness in (
+        "none",
+        "residual_gaussian",
+    ), f"{multi_view_robustness=}"
+    assert isinstance(robustness_tau, float), f"{type(robustness_tau)=}"
+    assert robustness_tau > 0.0, f"{robustness_tau=}"
     assert isinstance(default_color, float), f"{type(default_color)=}"
     assert vertices.ndim == 2, f"{vertices.shape=}"
     assert vertices.shape[1] == 3, f"{vertices.shape=}"
@@ -187,20 +240,78 @@ def _extract_vertex_color_from_images(
     weight_denominator = torch.zeros(
         (vertex_count, 1), device=device, dtype=torch.float32
     )
+    if multi_view_robustness == "none":
+        for view_idx in range(images_nchw.shape[0]):
+            extracted_single_image = _extract_vertex_color_from_single_image(
+                vertices=vertices,
+                faces=faces,
+                image=images_nchw[view_idx],
+                camera=cameras[view_idx : view_idx + 1],
+                weights=weights,
+                normals_weight_power=normals_weight_power,
+                normals_weight_threshold=normals_weight_threshold,
+                default_color=default_color,
+            )
+            texture = extracted_single_image["texture"]
+            weight = extracted_single_image["weight"]
+            color_numerator = color_numerator + texture * weight
+            weight_denominator = weight_denominator + weight
+    else:
+        provisional_numerator = torch.zeros_like(color_numerator)
+        provisional_denominator = torch.zeros_like(weight_denominator)
+        for view_idx in range(images_nchw.shape[0]):
+            extracted_single_image = _extract_vertex_color_from_single_image(
+                vertices=vertices,
+                faces=faces,
+                image=images_nchw[view_idx],
+                camera=cameras[view_idx : view_idx + 1],
+                weights=weights,
+                normals_weight_power=normals_weight_power,
+                normals_weight_threshold=normals_weight_threshold,
+                default_color=default_color,
+            )
+            provisional_texture = extracted_single_image["texture"]
+            provisional_weight = extracted_single_image["weight"]
+            provisional_numerator = (
+                provisional_numerator + provisional_texture * provisional_weight
+            )
+            provisional_denominator = provisional_denominator + provisional_weight
 
-    for view_idx in range(images_nchw.shape[0]):
-        extracted_single_image = _extract_vertex_color_from_single_image(
-            vertices=vertices,
-            faces=faces,
-            image=images_nchw[view_idx],
-            camera=cameras[view_idx : view_idx + 1],
-            weights=weights,
-            default_color=default_color,
+        provisional_vertex_color = torch.full(
+            (vertex_count, 3),
+            fill_value=default_color,
+            device=device,
+            dtype=torch.float32,
         )
-        texture = extracted_single_image["texture"]
-        weight = extracted_single_image["weight"]
-        color_numerator = color_numerator + texture * weight
-        weight_denominator = weight_denominator + weight
+        provisional_has_weight = provisional_denominator > 0.0
+        provisional_vertex_color = torch.where(
+            provisional_has_weight.expand_as(provisional_vertex_color),
+            provisional_numerator / (provisional_denominator + 1e-6),
+            provisional_vertex_color,
+        )
+
+        for view_idx in range(images_nchw.shape[0]):
+            extracted_single_image = _extract_vertex_color_from_single_image(
+                vertices=vertices,
+                faces=faces,
+                image=images_nchw[view_idx],
+                camera=cameras[view_idx : view_idx + 1],
+                weights=weights,
+                normals_weight_power=normals_weight_power,
+                normals_weight_threshold=normals_weight_threshold,
+                default_color=default_color,
+            )
+            texture = extracted_single_image["texture"]
+            weight = extracted_single_image["weight"]
+            residual = torch.linalg.norm(
+                texture - provisional_vertex_color,
+                dim=1,
+                keepdim=True,
+            )
+            robust_gate = torch.exp(-torch.square(residual / robustness_tau))
+            robust_weight = weight * robust_gate
+            color_numerator = color_numerator + texture * robust_weight
+            weight_denominator = weight_denominator + robust_weight
 
     vertex_color = torch.full(
         (vertex_count, 3),
@@ -227,6 +338,8 @@ def _extract_vertex_color_from_single_image(
     camera: Cameras,
     weights: str,
     default_color: float,
+    normals_weight_power: float = 1.0,
+    normals_weight_threshold: float = 0.0,
 ) -> Dict[str, torch.Tensor]:
     """Extract one-view vertex colors and corresponding per-vertex weights.
 
@@ -237,6 +350,8 @@ def _extract_vertex_color_from_single_image(
         camera: One camera instance.
         weights: Weighting mode, "visible" or "normals".
         default_color: Fallback color for invalid projections.
+        normals_weight_power: Exponent on normals weights when weights == "normals".
+        normals_weight_threshold: Threshold on normals weights when weights == "normals".
 
     Returns:
         Dict with:
@@ -251,6 +366,13 @@ def _extract_vertex_color_from_single_image(
     assert isinstance(weights, str), f"{type(weights)=}"
     assert weights in ("visible", "normals"), f"{weights=}"
     assert isinstance(default_color, float), f"{type(default_color)=}"
+    assert isinstance(normals_weight_power, float), f"{type(normals_weight_power)=}"
+    assert normals_weight_power > 0.0, f"{normals_weight_power=}"
+    assert isinstance(
+        normals_weight_threshold, float
+    ), f"{type(normals_weight_threshold)=}"
+    assert normals_weight_threshold >= 0.0, f"{normals_weight_threshold=}"
+    assert normals_weight_threshold <= 1.0, f"{normals_weight_threshold=}"
     assert vertices.ndim == 2, f"{vertices.shape=}"
     assert vertices.shape[1] == 3, f"{vertices.shape=}"
     assert image.ndim == 3, f"{image.shape=}"
@@ -270,6 +392,8 @@ def _extract_vertex_color_from_single_image(
             vertices=vertices,
             faces=faces.to(device=vertices.device, dtype=torch.long),
             camera=camera,
+            normals_weight_power=normals_weight_power,
+            normals_weight_threshold=normals_weight_threshold,
         )
         vertex_weight = visibility_mask * normals_weight
     else:
@@ -343,6 +467,8 @@ def _compute_v_normals_weights(
     vertices: torch.Tensor,
     faces: torch.Tensor,
     camera: Cameras,
+    normals_weight_power: float = 1.0,
+    normals_weight_threshold: float = 0.0,
 ) -> torch.Tensor:
     """Compute one-view per-vertex normal-alignment weights.
 
@@ -350,6 +476,8 @@ def _compute_v_normals_weights(
         vertices: Mesh vertices [V, 3].
         faces: Mesh faces [F, 3].
         camera: One camera instance.
+        normals_weight_power: Exponent on cosine normal-view alignment.
+        normals_weight_threshold: Threshold on cosine normal-view alignment.
 
     Returns:
         Per-vertex weights [V], computed as max(dot(n, view_dir), 0).
@@ -358,6 +486,13 @@ def _compute_v_normals_weights(
     assert isinstance(vertices, torch.Tensor), f"{type(vertices)=}"
     assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
     assert isinstance(camera, Cameras), f"{type(camera)=}"
+    assert isinstance(normals_weight_power, float), f"{type(normals_weight_power)=}"
+    assert normals_weight_power > 0.0, f"{normals_weight_power=}"
+    assert isinstance(
+        normals_weight_threshold, float
+    ), f"{type(normals_weight_threshold)=}"
+    assert normals_weight_threshold >= 0.0, f"{normals_weight_threshold=}"
+    assert normals_weight_threshold <= 1.0, f"{normals_weight_threshold=}"
     assert vertices.ndim == 2, f"{vertices.shape=}"
     assert vertices.shape[1] == 3, f"{vertices.shape=}"
     assert faces.ndim == 2, f"{faces.shape=}"
@@ -381,6 +516,14 @@ def _compute_v_normals_weights(
 
     view_direction = F.normalize(-vertices_camera, p=2, dim=1)
     alignment = (normals_camera * view_direction).sum(dim=1).clamp(0.0, 1.0)
+    assert torch.all(alignment >= 0.0), f"{float(alignment.min())=}"
+    assert torch.all(alignment <= 1.0), f"{float(alignment.max())=}"
+    alignment = torch.where(
+        alignment >= normals_weight_threshold,
+        alignment,
+        torch.zeros_like(alignment),
+    )
+    alignment = alignment.pow(normals_weight_power)
     return alignment
 
 
@@ -443,6 +586,10 @@ def _extract_uv_texture_map_from_images(
     images_nchw: torch.Tensor,
     cameras: Cameras,
     weights: str,
+    normals_weight_power: float,
+    normals_weight_threshold: float,
+    multi_view_robustness: str,
+    robustness_tau: float,
     vertex_uv: torch.Tensor,
     texture_size: int,
     default_color: float,
@@ -455,6 +602,10 @@ def _extract_uv_texture_map_from_images(
         images_nchw: Input RGB images [N, 3, H, W].
         cameras: Per-view cameras.
         weights: Fusion weighting mode, "visible" or "normals".
+        normals_weight_power: Exponent on normals weights when weights == "normals".
+        normals_weight_threshold: Threshold on normals weights when weights == "normals".
+        multi_view_robustness: Multi-view robustness mode, "none" or "residual_gaussian".
+        robustness_tau: Scale factor for residual-gaussian robustness.
         vertex_uv: Per-vertex UV coordinates [V, 2].
         texture_size: UV texture resolution.
         default_color: Fallback color for UV pixels without valid observations.
@@ -471,6 +622,20 @@ def _extract_uv_texture_map_from_images(
     assert isinstance(cameras, Cameras), f"{type(cameras)=}"
     assert isinstance(weights, str), f"{type(weights)=}"
     assert weights in ("visible", "normals"), f"{weights=}"
+    assert isinstance(normals_weight_power, float), f"{type(normals_weight_power)=}"
+    assert normals_weight_power > 0.0, f"{normals_weight_power=}"
+    assert isinstance(
+        normals_weight_threshold, float
+    ), f"{type(normals_weight_threshold)=}"
+    assert normals_weight_threshold >= 0.0, f"{normals_weight_threshold=}"
+    assert normals_weight_threshold <= 1.0, f"{normals_weight_threshold=}"
+    assert isinstance(multi_view_robustness, str), f"{type(multi_view_robustness)=}"
+    assert multi_view_robustness in (
+        "none",
+        "residual_gaussian",
+    ), f"{multi_view_robustness=}"
+    assert isinstance(robustness_tau, float), f"{type(robustness_tau)=}"
+    assert robustness_tau > 0.0, f"{robustness_tau=}"
     assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
     assert isinstance(texture_size, int), f"{type(texture_size)=}"
     assert texture_size > 0, f"{texture_size=}"
@@ -504,19 +669,81 @@ def _extract_uv_texture_map_from_images(
         (1, texture_size, texture_size, 1), device=device, dtype=torch.float32
     )
 
-    for view_idx in range(images_nchw.shape[0]):
-        extracted_single_image = _extract_uv_texture_map_from_single_image(
-            vertices=vertices,
-            faces=faces_long,
-            image=images_nchw[view_idx],
-            camera=cameras[view_idx : view_idx + 1],
-            weights=weights,
-            uv_rasterization_data=uv_rasterization_data,
+    if multi_view_robustness == "none":
+        for view_idx in range(images_nchw.shape[0]):
+            extracted_single_image = _extract_uv_texture_map_from_single_image(
+                vertices=vertices,
+                faces=faces_long,
+                image=images_nchw[view_idx],
+                camera=cameras[view_idx : view_idx + 1],
+                weights=weights,
+                normals_weight_power=normals_weight_power,
+                normals_weight_threshold=normals_weight_threshold,
+                uv_rasterization_data=uv_rasterization_data,
+            )
+            texture = extracted_single_image["texture"]
+            weight = extracted_single_image["weight"]
+            uv_numerator = uv_numerator + texture * weight
+            uv_denominator = uv_denominator + weight
+    else:
+        provisional_uv_numerator = torch.zeros_like(uv_numerator)
+        provisional_uv_denominator = torch.zeros_like(uv_denominator)
+        for view_idx in range(images_nchw.shape[0]):
+            extracted_single_image = _extract_uv_texture_map_from_single_image(
+                vertices=vertices,
+                faces=faces_long,
+                image=images_nchw[view_idx],
+                camera=cameras[view_idx : view_idx + 1],
+                weights=weights,
+                normals_weight_power=normals_weight_power,
+                normals_weight_threshold=normals_weight_threshold,
+                uv_rasterization_data=uv_rasterization_data,
+            )
+            provisional_uv_texture = extracted_single_image["texture"]
+            provisional_uv_weight = extracted_single_image["weight"]
+            provisional_uv_numerator = (
+                provisional_uv_numerator
+                + provisional_uv_texture * provisional_uv_weight
+            )
+            provisional_uv_denominator = (
+                provisional_uv_denominator + provisional_uv_weight
+            )
+
+        provisional_uv_texture_map = torch.full(
+            (1, texture_size, texture_size, 3),
+            fill_value=default_color,
+            device=device,
+            dtype=torch.float32,
         )
-        texture = extracted_single_image["texture"]
-        weight = extracted_single_image["weight"]
-        uv_numerator = uv_numerator + texture * weight
-        uv_denominator = uv_denominator + weight
+        provisional_uv_has_weight = provisional_uv_denominator > 0.0
+        provisional_uv_texture_map = torch.where(
+            provisional_uv_has_weight.expand_as(provisional_uv_texture_map),
+            provisional_uv_numerator / (provisional_uv_denominator + 1e-6),
+            provisional_uv_texture_map,
+        )
+
+        for view_idx in range(images_nchw.shape[0]):
+            extracted_single_image = _extract_uv_texture_map_from_single_image(
+                vertices=vertices,
+                faces=faces_long,
+                image=images_nchw[view_idx],
+                camera=cameras[view_idx : view_idx + 1],
+                weights=weights,
+                normals_weight_power=normals_weight_power,
+                normals_weight_threshold=normals_weight_threshold,
+                uv_rasterization_data=uv_rasterization_data,
+            )
+            texture = extracted_single_image["texture"]
+            weight = extracted_single_image["weight"]
+            residual = torch.linalg.norm(
+                texture - provisional_uv_texture_map,
+                dim=3,
+                keepdim=True,
+            )
+            robust_gate = torch.exp(-torch.square(residual / robustness_tau))
+            robust_weight = weight * robust_gate
+            uv_numerator = uv_numerator + texture * robust_weight
+            uv_denominator = uv_denominator + robust_weight
 
     uv_texture_map = torch.full(
         (1, texture_size, texture_size, 3),
@@ -543,6 +770,8 @@ def _extract_uv_texture_map_from_single_image(
     camera: Cameras,
     weights: str,
     uv_rasterization_data: Dict[str, torch.Tensor],
+    normals_weight_power: float = 1.0,
+    normals_weight_threshold: float = 0.0,
 ) -> Dict[str, torch.Tensor]:
     """Extract one-view UV texture observation and UV weight map.
 
@@ -553,6 +782,8 @@ def _extract_uv_texture_map_from_single_image(
         camera: One camera instance.
         weights: Weighting mode, "visible" or "normals".
         uv_rasterization_data: Precomputed UV rasterization tensors.
+        normals_weight_power: Exponent on normals weights when weights == "normals".
+        normals_weight_threshold: Threshold on normals weights when weights == "normals".
 
     Returns:
         Dict with:
@@ -567,6 +798,13 @@ def _extract_uv_texture_map_from_single_image(
     assert isinstance(weights, str), f"{type(weights)=}"
     assert weights in ("visible", "normals"), f"{weights=}"
     assert isinstance(uv_rasterization_data, dict), f"{type(uv_rasterization_data)=}"
+    assert isinstance(normals_weight_power, float), f"{type(normals_weight_power)=}"
+    assert normals_weight_power > 0.0, f"{normals_weight_power=}"
+    assert isinstance(
+        normals_weight_threshold, float
+    ), f"{type(normals_weight_threshold)=}"
+    assert normals_weight_threshold >= 0.0, f"{normals_weight_threshold=}"
+    assert normals_weight_threshold <= 1.0, f"{normals_weight_threshold=}"
     assert vertices.ndim == 2, f"{vertices.shape=}"
     assert vertices.shape[1] == 3, f"{vertices.shape=}"
     assert faces.ndim == 2, f"{faces.shape=}"
@@ -589,6 +827,8 @@ def _extract_uv_texture_map_from_single_image(
             vertices=vertices,
             faces=faces,
             camera=camera,
+            normals_weight_power=normals_weight_power,
+            normals_weight_threshold=normals_weight_threshold,
         )
         uv_normals_weight = _rasterize_face_weights_to_uv(
             face_weight=face_normals_weight,
@@ -743,6 +983,8 @@ def _compute_f_normals_weights(
     vertices: torch.Tensor,
     faces: torch.Tensor,
     camera: Cameras,
+    normals_weight_power: float = 1.0,
+    normals_weight_threshold: float = 0.0,
 ) -> torch.Tensor:
     """Compute one-view per-face normal-alignment weights.
 
@@ -750,6 +992,8 @@ def _compute_f_normals_weights(
         vertices: Mesh vertices [V, 3].
         faces: Mesh faces [F, 3].
         camera: One camera instance.
+        normals_weight_power: Exponent on cosine normal-view alignment.
+        normals_weight_threshold: Threshold on cosine normal-view alignment.
 
     Returns:
         Per-face weights [F], computed as max(dot(n, view_dir), 0).
@@ -758,6 +1002,13 @@ def _compute_f_normals_weights(
     assert isinstance(vertices, torch.Tensor), f"{type(vertices)=}"
     assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
     assert isinstance(camera, Cameras), f"{type(camera)=}"
+    assert isinstance(normals_weight_power, float), f"{type(normals_weight_power)=}"
+    assert normals_weight_power > 0.0, f"{normals_weight_power=}"
+    assert isinstance(
+        normals_weight_threshold, float
+    ), f"{type(normals_weight_threshold)=}"
+    assert normals_weight_threshold >= 0.0, f"{normals_weight_threshold=}"
+    assert normals_weight_threshold <= 1.0, f"{normals_weight_threshold=}"
     assert vertices.ndim == 2, f"{vertices.shape=}"
     assert vertices.shape[1] == 3, f"{vertices.shape=}"
     assert faces.ndim == 2, f"{faces.shape=}"
@@ -787,6 +1038,14 @@ def _compute_f_normals_weights(
     face_centers_camera = (v0_camera + v1_camera + v2_camera) / 3.0
     face_view_direction = F.normalize(-face_centers_camera, p=2, dim=1)
     alignment = (face_normals_camera * face_view_direction).sum(dim=1).clamp(0.0, 1.0)
+    assert torch.all(alignment >= 0.0), f"{float(alignment.min())=}"
+    assert torch.all(alignment <= 1.0), f"{float(alignment.max())=}"
+    alignment = torch.where(
+        alignment >= normals_weight_threshold,
+        alignment,
+        torch.zeros_like(alignment),
+    )
+    alignment = alignment.pow(normals_weight_power)
     return alignment
 
 
