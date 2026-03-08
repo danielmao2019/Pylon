@@ -81,11 +81,24 @@ class ColmapImageUndistortionStep(BaseStep):
         if not force and self.check_outputs():
             return {}
 
+        logging.info("   📐 Image undistortion")
+
+        if self.temp_sparse_dir.exists():
+            assert self.temp_sparse_dir.is_dir(), f"{self.temp_sparse_dir=}"
+            shutil.rmtree(self.temp_sparse_dir)
+        if self.output_images_dir.exists():
+            assert self.output_images_dir.is_dir(), f"{self.output_images_dir=}"
+            shutil.rmtree(self.output_images_dir)
+        if self.undistorted_sparse_dir.exists():
+            assert (
+                self.undistorted_sparse_dir.is_dir()
+            ), f"{self.undistorted_sparse_dir=}"
+            shutil.rmtree(self.undistorted_sparse_dir)
+
         self.output_root.mkdir(parents=True, exist_ok=True)
         self.output_images_dir.mkdir(parents=True, exist_ok=True)
         self.undistorted_sparse_dir.mkdir(parents=True, exist_ok=True)
 
-        logging.info("   📐 Image undistortion")
         cmd_parts = self._build_colmap_command()
         result = subprocess.run(cmd_parts, capture_output=True, text=True)
         assert result.returncode == 0, (
