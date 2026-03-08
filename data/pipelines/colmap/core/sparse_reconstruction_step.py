@@ -4,7 +4,7 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 
 from data.pipelines.base_step import BaseStep
 from data.structures.three_d.colmap.load import (
@@ -30,9 +30,12 @@ class ColmapSparseReconstructionStep(BaseStep):
         assert isinstance(use_init_model, bool), f"{type(use_init_model)=}"
         assert isinstance(strict, bool), f"{type(strict)=}"
 
+        # Input normalizations
         scene_root = Path(scene_root)
+
         self.scene_root = scene_root
-        self.input_images_dir = scene_root / "input"
+        self.input_dir = scene_root / "input"
+        self.masks_dir = scene_root / "masks"
         self.distorted_dir = scene_root / "distorted"
         self.sparse_output_dir = scene_root / "distorted" / "sparse"
         self.init_model_dir: Path | None = None
@@ -41,7 +44,7 @@ class ColmapSparseReconstructionStep(BaseStep):
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
-        image_entries = sorted(self.input_images_dir.glob("*.png"))
+        image_entries = sorted(self.input_dir.glob("*.png"))
         self.input_files = [f"input/{entry.name}" for entry in image_entries]
         self.input_files.append("distorted/database.db")
         if self.use_init_model:
@@ -80,10 +83,13 @@ class ColmapSparseReconstructionStep(BaseStep):
 
     def _validate_sparse_files(self) -> None:
         sparse_model_dir = self.sparse_output_dir
+        files_present = 0
+        if sparse_model_dir.exists():
+            files_present = len(list(sparse_model_dir.iterdir()))
         logging.info(
             "VALIDATE_MAPPER_OUTPUT layout=flat model_dir=%s files_present=%s",
             sparse_model_dir,
-            1,
+            files_present,
         )
 
         cameras_path = sparse_model_dir / "cameras.bin"
@@ -104,13 +110,7 @@ class ColmapSparseReconstructionStep(BaseStep):
             "SIMPLE_PINHOLE",
         }, f"{camera.model=}"
         assert images, f"No registered images parsed from {images_path}"
-        entries = sorted(self.input_images_dir.iterdir())
-        assert entries, f"Empty input dir or no files: {self.input_images_dir}"
-        assert all(entry.is_file() for entry in entries), (
-            "COLMAP input directory must only contain files "
-            f"(found non-file entries in {self.input_images_dir})"
-        )
-        expected_names = {entry.name for entry in entries}
+        expected_names = self._build_expected_image_names()
         registered_names = {img.name for img in images.values()}
         assert registered_names, (
             f"No registered images found in {images_path} "
@@ -169,7 +169,7 @@ class ColmapSparseReconstructionStep(BaseStep):
             "--database_path",
             str(distorted_db_path),
             "--image_path",
-            str(self.input_images_dir),
+            str(self.input_dir),
             "--output_path",
             str(self.sparse_output_dir),
             "--Mapper.multiple_models",
@@ -227,3 +227,36 @@ class ColmapSparseReconstructionStep(BaseStep):
         seed_count = len(images)
         assert seed_count > 0, f"No images parsed from {init_images_path}"
         return seed_count
+
+    def _build_expected_image_names(self) -> Set[str]:
+        entries = sorted(self.input_dir.iterdir())
+        assert entries, f"Empty input dir or no files: {self.input_dir}"
+        assert all(entry.is_file() for entry in entries), (
+            "COLMAP input directory must only contain files "
+            f"(found non-file entries in {self.input_dir})"
+        )
+        assert all(entry.suffix == ".png" for entry in entries), (
+            f"Non-PNG files present in COLMAP input directory: "
+            f"{', '.join(sorted(entry.name for entry in entries if entry.suffix != '.png'))}"
+        )
+        input_names = {entry.name for entry in entries}
+
+        assert self.masks_dir.is_dir(), f"{self.masks_dir=}"
+        mask_entries = sorted(self.masks_dir.iterdir())
+        assert mask_entries, f"{self.masks_dir=}"
+        assert all(entry.is_file() for entry in mask_entries), (
+            "COLMAP mask directory must only contain files "
+            f"(found non-file entries in {self.masks_dir})"
+        )
+        assert all(entry.suffix == ".png" for entry in mask_entries), (
+            f"Non-PNG files present in COLMAP mask directory: "
+            f"{', '.join(sorted(entry.name for entry in mask_entries if entry.suffix != '.png'))}"
+        )
+        mask_names = {entry.name for entry in mask_entries}
+
+        expected_names = input_names & mask_names
+        assert expected_names, (
+            "No usable COLMAP frames after input-mask intersection. "
+            f"num_inputs={len(input_names)} num_masks={len(mask_names)}"
+        )
+        return expected_names

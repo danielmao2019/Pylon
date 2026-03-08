@@ -23,6 +23,8 @@ class ColmapFeatureMatchingStep(BaseStep):
         matcher_cfg: Optional[Dict[str, Any]] = None,
     ) -> None:
         # Input validations
+        assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
+        assert isinstance(colmap_args, dict), f"{type(colmap_args)=}"
         assert matcher_cfg is None or isinstance(
             matcher_cfg, dict
         ), f"{type(matcher_cfg)=}"
@@ -50,9 +52,12 @@ class ColmapFeatureMatchingStep(BaseStep):
             or matcher_cfg["overlap"] > 0
         ), "matcher_cfg overlap must be positive"
 
+        # Input normalizations
         scene_root = Path(scene_root)
+
         super().__init__(input_root=scene_root, output_root=scene_root)
-        self.input_images_dir = scene_root / "input"
+        self.input_dir = scene_root / "input"
+        self.masks_dir = scene_root / "masks"
         self.distorted_dir = scene_root / "distorted"
         self.database_path = scene_root / "distorted" / "database.db"
         self.colmap_args = colmap_args
@@ -153,23 +158,46 @@ class ColmapFeatureMatchingStep(BaseStep):
         assert image_rows, f"No images recorded in database {self.database_path}"
         image_names = [row[1] for row in image_rows]
 
-        input_paths = sorted(self.input_images_dir.iterdir())
-        assert input_paths, f"Empty input dir or no files: {self.input_images_dir}"
-        assert all(entry.is_file() for entry in input_paths), (
-            "COLMAP input directory must only contain files "
-            f"(found non-file entries in {self.input_images_dir})"
-        )
-        assert all(entry.suffix == ".png" for entry in input_paths), (
-            f"Non-PNG files present in COLMAP input directory: "
-            f"{', '.join(sorted(entry.name for entry in input_paths if entry.suffix != '.png'))}"
-        )
-        expected_names = [entry.name for entry in input_paths]
+        expected_names = self._build_expected_image_names()
 
         assert sorted(image_names) == expected_names, (
             "Image names in database do not match COLMAP inputs. "
             f"expected={len(expected_names)} actual={len(image_names)}"
         )
         return {row[0] for row in image_rows}
+
+    def _build_expected_image_names(self) -> List[str]:
+        input_paths = sorted(self.input_dir.iterdir())
+        assert input_paths, f"Empty input dir or no files: {self.input_dir}"
+        assert all(entry.is_file() for entry in input_paths), (
+            "COLMAP input directory must only contain files "
+            f"(found non-file entries in {self.input_dir})"
+        )
+        assert all(entry.suffix == ".png" for entry in input_paths), (
+            f"Non-PNG files present in COLMAP input directory: "
+            f"{', '.join(sorted(entry.name for entry in input_paths if entry.suffix != '.png'))}"
+        )
+        input_names = sorted(path.name for path in input_paths)
+
+        assert self.masks_dir.is_dir(), f"{self.masks_dir=}"
+        mask_paths = sorted(self.masks_dir.iterdir())
+        assert mask_paths, f"{self.masks_dir=}"
+        assert all(path.is_file() for path in mask_paths), (
+            "COLMAP mask directory must only contain files "
+            f"(found non-file entries in {self.masks_dir})"
+        )
+        assert all(path.suffix == ".png" for path in mask_paths), (
+            f"Non-PNG files present in COLMAP mask directory: "
+            f"{', '.join(sorted(path.name for path in mask_paths if path.suffix != '.png'))}"
+        )
+        mask_names = {path.name for path in mask_paths}
+
+        expected_names = sorted(name for name in input_names if name in mask_names)
+        assert expected_names, (
+            "No usable COLMAP frames after input-mask intersection. "
+            f"num_inputs={len(input_names)} num_masks={len(mask_names)}"
+        )
+        return expected_names
 
     def _validate_matches_table(self, cursor: sqlite3.Cursor) -> None:
         match_rows = cursor.execute(

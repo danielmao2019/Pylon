@@ -21,42 +21,73 @@ class ColmapFeatureExtractionStep(BaseStep):
         extractor_cfg: Optional[Dict[str, Any]] = None,
     ) -> None:
         # Input validations
-        assert isinstance(scene_root, (str, Path)), f"{type(scene_root)=}"
-        assert isinstance(colmap_args, dict), f"{type(colmap_args)=}"
-        assert extractor_cfg is None or isinstance(
-            extractor_cfg, dict
-        ), f"{type(extractor_cfg)=}"
+        assert isinstance(scene_root, (str, Path)), (
+            "scene_root must be str or Path. " f"{type(scene_root)=} {scene_root=}"
+        )
+        assert isinstance(colmap_args, dict), (
+            "colmap_args must be a dict. " f"{type(colmap_args)=}"
+        )
+        assert extractor_cfg is None or isinstance(extractor_cfg, dict), (
+            "extractor_cfg must be None or dict. " f"{type(extractor_cfg)=}"
+        )
         assert extractor_cfg is None or extractor_cfg.keys() <= {
             "upright",
             "camera_mode",
             "mask_input_root",
-        }, f"Invalid extractor_cfg keys: {extractor_cfg.keys()}"
-        assert extractor_cfg is None or (
-            "upright" not in extractor_cfg or isinstance(extractor_cfg["upright"], bool)
-        ), f"{type(extractor_cfg['upright'])=}"
-        assert extractor_cfg is None or (
-            "camera_mode" not in extractor_cfg
-            or isinstance(extractor_cfg["camera_mode"], str)
-        ), f"{type(extractor_cfg['camera_mode'])=}"
-        assert extractor_cfg is None or (
-            "camera_mode" not in extractor_cfg
-            or extractor_cfg["camera_mode"]
-            in {
-                "SIMPLE_PINHOLE",
-                "PINHOLE",
-                "OPENCV",
-            }
-        ), f"{extractor_cfg['camera_mode']=}"
-        assert extractor_cfg is None or (
-            "mask_input_root" not in extractor_cfg
+        }, (
+            "extractor_cfg contains unsupported keys. "
+            f"keys={sorted(extractor_cfg.keys())}"
+        )
+        assert (
+            extractor_cfg is None
+            or "mask_input_root" not in extractor_cfg
             or extractor_cfg["mask_input_root"] is None
             or isinstance(extractor_cfg["mask_input_root"], (str, Path))
-        ), f"{type(extractor_cfg['mask_input_root'])=}"
+        ), (
+            "extractor_cfg['mask_input_root'] must be None, str, or Path. "
+            f"value={extractor_cfg['mask_input_root']} "
+            f"type={type(extractor_cfg['mask_input_root'])}"
+        )
+        assert (
+            extractor_cfg is None
+            or "upright" not in extractor_cfg
+            or isinstance(extractor_cfg["upright"], bool)
+        ), (
+            "extractor_cfg['upright'] must be a bool when provided. "
+            f"value={extractor_cfg['upright']} type={type(extractor_cfg['upright'])}"
+        )
+        assert (
+            extractor_cfg is None
+            or "camera_mode" not in extractor_cfg
+            or (
+                isinstance(extractor_cfg["camera_mode"], str)
+                and extractor_cfg["camera_mode"]
+                in {"SIMPLE_PINHOLE", "PINHOLE", "OPENCV"}
+            )
+        ), (
+            "extractor_cfg['camera_mode'] must be a str in "
+            "{'SIMPLE_PINHOLE', 'PINHOLE', 'OPENCV'} when provided. "
+            f"value={extractor_cfg['camera_mode']} type={type(extractor_cfg['camera_mode'])}"
+        )
+        assert (
+            extractor_cfg is None
+            or "mask_input_root" not in extractor_cfg
+            or "mask_path" in colmap_args
+        ), (
+            "colmap_args must include 'mask_path' when mask_input_root is configured. "
+            f"colmap_arg_keys={sorted(colmap_args.keys())}"
+        )
 
         # Input normalizations
         scene_root = Path(scene_root)
 
-        self.input_images_dir = scene_root / "input"
+        mask_input_root = None
+        if extractor_cfg is not None and "mask_input_root" in extractor_cfg:
+            if extractor_cfg["mask_input_root"] is not None:
+                mask_input_root = Path(extractor_cfg["mask_input_root"])
+
+        self.input_dir = scene_root / "input"
+        self.masks_dir = mask_input_root
         self.distorted_dir = scene_root / "distorted"
         self.database_path = scene_root / "distorted" / "database.db"
         self.colmap_args = colmap_args
@@ -64,7 +95,7 @@ class ColmapFeatureExtractionStep(BaseStep):
         super().__init__(input_root=scene_root, output_root=scene_root)
 
     def _init_input_files(self) -> None:
-        entries = sorted(self.input_images_dir.iterdir())
+        entries = sorted(self.input_dir.iterdir())
         self.input_files = [f"input/{entry.name}" for entry in entries]
 
     def _init_output_files(self) -> None:
@@ -78,15 +109,7 @@ class ColmapFeatureExtractionStep(BaseStep):
 
     def check_inputs(self) -> None:
         super().check_inputs()
-        entries = sorted(self.input_images_dir.iterdir())
-        assert all(entry.is_file() for entry in entries), (
-            "COLMAP input directory must only contain files "
-            f"(found non-file entries in {self.input_images_dir})"
-        )
-        assert all(entry.suffix == ".png" for entry in entries), (
-            f"Non-PNG files present in COLMAP input directory: "
-            f"{', '.join(sorted(entry.name for entry in entries if entry.suffix != '.png'))}"
-        )
+        _ = self._build_expected_image_names()
 
     def check_outputs(self) -> bool:
         outputs_ready = super().check_outputs()
@@ -128,7 +151,7 @@ class ColmapFeatureExtractionStep(BaseStep):
             "--database_path",
             str(self.database_path),
             "--image_path",
-            str(self.input_images_dir),
+            str(self.input_dir),
             "--ImageReader.single_camera",
             "1",
             self.colmap_args["feature_use_gpu"],
@@ -140,10 +163,17 @@ class ColmapFeatureExtractionStep(BaseStep):
             cmd_parts.extend(
                 ["--ImageReader.camera_model", self.extractor_cfg["camera_mode"]]
             )
-        if self.extractor_cfg is not None and "mask_input_root" in self.extractor_cfg:
-            mask_input_root = self.extractor_cfg["mask_input_root"]
-            if mask_input_root is not None:
-                cmd_parts.extend([self.colmap_args["mask_path"], str(mask_input_root)])
+        if (
+            self.extractor_cfg is not None
+            and "mask_input_root" in self.extractor_cfg
+            and self.extractor_cfg["mask_input_root"] is not None
+        ):
+            cmd_parts.extend(
+                [
+                    self.colmap_args["mask_path"],
+                    str(self.extractor_cfg["mask_input_root"]),
+                ]
+            )
         if self.extractor_cfg is not None and "upright" in self.extractor_cfg:
             cmd_parts.extend(
                 [
@@ -170,17 +200,7 @@ class ColmapFeatureExtractionStep(BaseStep):
         assert image_rows, f"No images recorded in database {self.database_path}"
         image_names = [row[1] for row in image_rows]
 
-        input_paths = [self.input_root / rel for rel in self.input_files]
-        assert input_paths, f"Empty input dir or no files: {self.input_images_dir}"
-        assert all(path.is_file() for path in input_paths), (
-            "COLMAP input directory must only contain files "
-            f"(found non-file entries in {self.input_images_dir})"
-        )
-        assert all(path.suffix == ".png" for path in input_paths), (
-            f"Non-PNG files present in COLMAP input directory: "
-            f"{', '.join(sorted(path.name for path in input_paths if path.suffix != '.png'))}"
-        )
-        expected_names = sorted(path.name for path in input_paths)
+        expected_names = self._build_expected_image_names()
 
         assert sorted(image_names) == expected_names, (
             "Image names in database do not match COLMAP inputs. "
@@ -233,3 +253,39 @@ class ColmapFeatureExtractionStep(BaseStep):
         assert (
             camera_count == 1
         ), f"Expected exactly one camera entry, found {camera_count}"
+
+    def _build_expected_image_names(self) -> List[str]:
+        input_paths = sorted(self.input_dir.iterdir())
+        assert input_paths, f"Empty input dir or no files: {self.input_dir}"
+        assert all(path.is_file() for path in input_paths), (
+            "COLMAP input directory must only contain files "
+            f"(found non-file entries in {self.input_dir})"
+        )
+        assert all(path.suffix == ".png" for path in input_paths), (
+            f"Non-PNG files present in COLMAP input directory: "
+            f"{', '.join(sorted(path.name for path in input_paths if path.suffix != '.png'))}"
+        )
+        input_names = sorted(path.name for path in input_paths)
+
+        if self.masks_dir is None:
+            return input_names
+
+        assert self.masks_dir.is_dir(), f"{self.masks_dir=}"
+        mask_paths = sorted(self.masks_dir.iterdir())
+        assert mask_paths, f"{self.masks_dir=}"
+        assert all(path.is_file() for path in mask_paths), (
+            "COLMAP mask directory must only contain files "
+            f"(found non-file entries in {self.masks_dir})"
+        )
+        assert all(path.suffix == ".png" for path in mask_paths), (
+            f"Non-PNG files present in COLMAP mask directory: "
+            f"{', '.join(sorted(path.name for path in mask_paths if path.suffix != '.png'))}"
+        )
+        mask_names = {path.name for path in mask_paths}
+
+        expected_names = sorted(name for name in input_names if name in mask_names)
+        assert expected_names, (
+            "No usable COLMAP frames after input-mask intersection. "
+            f"num_inputs={len(input_names)} num_masks={len(mask_names)}"
+        )
+        return expected_names
