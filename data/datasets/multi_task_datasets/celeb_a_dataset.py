@@ -92,7 +92,9 @@ class CelebADataset(BaseMultiTaskDataset):
         image_filepaths = self._init_images_()
         landmark_labels = self._init_landmark_labels_(image_filepaths=image_filepaths)
         attribute_labels = self._init_attribute_labels_(image_filepaths=image_filepaths)
-        self.annotations = list(zip(image_filepaths, landmark_labels, attribute_labels, strict=True))
+        self.annotations = list(
+            zip(image_filepaths, landmark_labels, attribute_labels, strict=True)
+        )
 
     def _init_images_(self) -> List[str]:
         # initialize

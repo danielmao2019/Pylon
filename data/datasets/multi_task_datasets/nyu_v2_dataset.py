@@ -99,7 +99,8 @@ class NYUv2Dataset(BaseMultiTaskDataset):
                 7,
                 6,
                 7,
-            ], strict=True
+            ],
+            strict=True,
         )
     )
     NUM_CLASSES_F = 40 + 1

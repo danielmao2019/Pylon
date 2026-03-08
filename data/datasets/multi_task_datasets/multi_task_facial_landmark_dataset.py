@@ -68,7 +68,11 @@ class MultiTaskFacialLandmarkDataset(BaseMultiTaskDataset):
                     list(
                         map(
                             float,
-                            [c for coord in zip(line[1:6], line[6:11], strict=True) for c in coord],
+                            [
+                                c
+                                for coord in zip(line[1:6], line[6:11], strict=True)
+                                for c in coord
+                            ],
                         )
                     ),
                     dtype=torch.float32,

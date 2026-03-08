@@ -1,5 +1,6 @@
 from abc import ABC
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from data.datasets.base_dataset import BaseDataset
 
 
@@ -18,8 +19,7 @@ class BaseMultiTaskDataset(BaseDataset, ABC):
     def __init__(
         self,
         labels: Optional[List[str]] = None,
-        *args,
-        **kwargs
+        **kwargs: Any,
     ) -> None:
         """Initialize multi-task dataset with optional selective label loading.
 
@@ -28,26 +28,26 @@ class BaseMultiTaskDataset(BaseDataset, ABC):
                    LABEL_NAMES. If None, all labels will be loaded.
             *args, **kwargs: Arguments passed to BaseDataset
         """
-        # Basic validation before super().__init__()
-        if labels is not None:
-            assert isinstance(labels, list), f"labels must be list, got {type(labels)}"
-            assert all(isinstance(label, str) for label in labels), "All labels must be strings"
-            assert len(labels) > 0, "labels list must not be empty"
+        # Input validations
+        assert labels is None or isinstance(labels, list), f"{type(labels)=}"
+        assert labels is None or all(
+            isinstance(label, str) for label in labels
+        ), f"{labels=}"
+        assert isinstance(kwargs, dict), f"{type(kwargs)=}"
+        assert hasattr(self, "LABEL_NAMES"), f"{self.__class__.__name__=}"
+        assert isinstance(self.LABEL_NAMES, list), f"{type(self.LABEL_NAMES)=}"
+        assert len(self.LABEL_NAMES) > 0, f"{self.LABEL_NAMES=}"
+        assert all(
+            isinstance(label_name, str) for label_name in self.LABEL_NAMES
+        ), f"{self.LABEL_NAMES=}"
+        assert labels is None or set(labels).issubset(
+            set(self.LABEL_NAMES)
+        ), f"{labels=} {self.LABEL_NAMES=}"
 
-        # Set selected_labels BEFORE super().__init__() so it's available during cache initialization
-        # We need to validate against LABEL_NAMES, but LABEL_NAMES should be available as a class attribute
-        if labels is not None:
-            label_set = set(labels)
-            available_set = set(self.LABEL_NAMES)
-            assert label_set.issubset(available_set), (
-                f"labels {label_set - available_set} not in LABEL_NAMES {available_set}"
-            )
+        # Class attributes
+        self.selected_labels = self.LABEL_NAMES if labels is None else labels
 
-            self.selected_labels = labels
-        else:
-            self.selected_labels = self.LABEL_NAMES.copy()
-
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
@@ -55,6 +55,6 @@ class BaseMultiTaskDataset(BaseDataset, ABC):
 
         # Include selected labels in cache versioning since we now load different
         # data from disk based on selected labels
-        version_dict['selected_labels'] = sorted(self.selected_labels)
+        version_dict["selected_labels"] = sorted(self.selected_labels)
 
         return version_dict
