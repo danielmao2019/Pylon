@@ -148,7 +148,9 @@ class Camera:
         elif self._convention == "opencv":
             vec = self._extrinsics[:3, 0]
         elif self._convention == "pytorch3d":
-            vec = self._extrinsics[:3, 0]
+            vec = -self._extrinsics[:3, 0]
+        elif self._convention == "arkit":
+            vec = -self._extrinsics[:3, 1]
         else:
             assert False, f"Unsupported convention: {self._convention}"
         norm = torch.norm(vec)
@@ -169,7 +171,9 @@ class Camera:
         elif self._convention == "opencv":
             vec = self._extrinsics[:3, 2]
         elif self._convention == "pytorch3d":
-            vec = self._extrinsics[:3, 1]
+            vec = self._extrinsics[:3, 2]
+        elif self._convention == "arkit":
+            vec = self._extrinsics[:3, 2]
         else:
             assert False, f"Unsupported convention: {self._convention}"
         norm = torch.norm(vec)
@@ -190,7 +194,9 @@ class Camera:
         elif self._convention == "opencv":
             vec = -self._extrinsics[:3, 1]
         elif self._convention == "pytorch3d":
-            vec = self._extrinsics[:3, 2]
+            vec = self._extrinsics[:3, 1]
+        elif self._convention == "arkit":
+            vec = -self._extrinsics[:3, 0]
         else:
             assert False, f"Unsupported convention: {self._convention}"
         norm = torch.norm(vec)

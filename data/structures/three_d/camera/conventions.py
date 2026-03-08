@@ -26,10 +26,11 @@ def transform_convention(
     - "opengl": X=right, Y=up, Z=backward (camera looks down -Z axis)
     - "opencv": X=right, Y=down, Z=forward (camera looks down +Z axis)
     - "pytorch3d": X=left, Y=up, Z=forward (right-handed; camera looks down +Z axis)
+    - "arkit": X=down, Y=left, Z=forward
 
     Args:
         camera: Camera containing extrinsics/convention
-        target_convention: Target coordinate convention ("opengl", "standard", "opencv", "pytorch3d")
+        target_convention: Target coordinate convention ("standard", "opengl", "opencv", "pytorch3d", "arkit")
 
     Returns:
         Transformed 4x4 camera pose in target convention
@@ -41,51 +42,56 @@ def transform_convention(
     validate_camera_convention(camera.convention)
     validate_camera_convention(target_convention)
 
-    extrinsics = camera.extrinsics
     source_convention = camera.convention
+    extrinsics = camera.extrinsics
 
     if source_convention == target_convention:
         return extrinsics
 
-    # Get appropriate transformation matrix
-    if source_convention == "opengl" and target_convention == "standard":
-        transform = _opengl_to_standard()
-    elif source_convention == "standard" and target_convention == "opengl":
-        transform = _standard_to_opengl()
-    elif source_convention == "opengl" and target_convention == "opencv":
-        transform = _opengl_to_opencv()
-    elif source_convention == "opencv" and target_convention == "opengl":
-        transform = _opencv_to_opengl()
-    elif source_convention == "opencv" and target_convention == "standard":
-        transform = _opencv_to_standard()
-    elif source_convention == "standard" and target_convention == "opencv":
-        transform = _standard_to_opencv()
-    elif source_convention == "opengl" and target_convention == "pytorch3d":
-        transform = _opengl_to_pytorch3d()
-    elif source_convention == "pytorch3d" and target_convention == "opengl":
-        transform = _pytorch3d_to_opengl()
-    elif source_convention == "standard" and target_convention == "pytorch3d":
-        transform = _standard_to_pytorch3d()
-    elif source_convention == "pytorch3d" and target_convention == "standard":
-        transform = _pytorch3d_to_standard()
-    elif source_convention == "opencv" and target_convention == "pytorch3d":
-        transform = _opencv_to_pytorch3d()
-    elif source_convention == "pytorch3d" and target_convention == "opencv":
-        transform = _pytorch3d_to_opencv()
+    source_to_standard = torch.eye(4, dtype=torch.float32)
+    if source_convention == "opengl":
+        source_to_standard = _opengl_to_standard()
+    elif source_convention == "opencv":
+        source_to_standard = _opencv_to_standard()
+    elif source_convention == "pytorch3d":
+        source_to_standard = _pytorch3d_to_standard()
+    elif source_convention == "arkit":
+        source_to_standard = _arkit_to_standard()
     else:
-        assert False, (
-            f"Unsupported transformation: {source_convention} -> {target_convention}. "
-            f"Supported: 'opengl' <-> 'standard', 'opengl' <-> 'opencv', "
-            f"'opencv' <-> 'standard', 'pytorch3d' <-> 'opengl', 'pytorch3d' <-> 'standard', "
-            f"'pytorch3d' <-> 'opencv'"
+        assert (
+            source_convention == "standard"
+        ), f"Unsupported convention: {source_convention}"
+
+    standard_to_target = torch.eye(4, dtype=torch.float32)
+    if target_convention == "opengl":
+        standard_to_target = _standard_to_opengl()
+    elif target_convention == "opencv":
+        standard_to_target = _standard_to_opencv()
+    elif target_convention == "pytorch3d":
+        standard_to_target = _standard_to_pytorch3d()
+    elif target_convention == "arkit":
+        standard_to_target = _standard_to_arkit()
+    else:
+        assert (
+            target_convention == "standard"
+        ), f"Unsupported convention: {target_convention}"
+
+    # Compose conversion strictly through standard:
+    # source -> standard -> target.
+    source_to_target = standard_to_target @ source_to_standard
+
+    # Move transform to same device and dtype as camera pose.
+    if (
+        extrinsics.device != source_to_target.device
+        or extrinsics.dtype != source_to_target.dtype
+    ):
+        source_to_target = source_to_target.to(
+            device=extrinsics.device,
+            dtype=extrinsics.dtype,
         )
 
-    # Move transform to same device and dtype as camera pose
-    if extrinsics.device != transform.device or extrinsics.dtype != transform.dtype:
-        transform = transform.to(device=extrinsics.device, dtype=extrinsics.dtype)
-
     camera_extrinsics_transformed = extrinsics @ torch.inverse(
-        materialize_tensor(transform)
+        materialize_tensor(source_to_target)
     )
 
     return camera_extrinsics_transformed
@@ -105,18 +111,18 @@ def _opengl_to_standard() -> torch.Tensor:
     - Z: up
 
     Mapping summary:
-    - OpenGL right (+X) → Standard right (+X)
-    - OpenGL up (+Y) → Standard up (+Z)
-    - OpenGL forward (-Z) → Standard forward (+Y)
+    - OpenGL right (+X) -> Standard right (+X)
+    - OpenGL up (+Y) -> Standard up (+Z)
+    - OpenGL forward (-Z) -> Standard forward (+Y)
 
     Returns:
         4x4 transformation matrix
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],  # Keep X: OpenGL right → Standard right
-            [0, 0, -1, 0],  # -Z→Y: OpenGL forward → Standard forward
-            [0, 1, 0, 0],  # Y→Z: OpenGL up → Standard up
+            [1, 0, 0, 0],  # Keep X: OpenGL right -> Standard right
+            [0, 0, -1, 0],  # -Z->Y: OpenGL forward -> Standard forward
+            [0, 1, 0, 0],  # Y->Z: OpenGL up -> Standard up
             [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
@@ -137,82 +143,18 @@ def _standard_to_opengl() -> torch.Tensor:
     - Z: backward (camera looks down -Z axis)
 
     Mapping summary:
-    - Standard right (+X) → OpenGL right (+X)
-    - Standard forward (+Y) → OpenGL forward (-Z)
-    - Standard up (+Z) → OpenGL up (+Y)
+    - Standard right (+X) -> OpenGL right (+X)
+    - Standard forward (+Y) -> OpenGL forward (-Z)
+    - Standard up (+Z) -> OpenGL up (+Y)
 
     Returns:
         4x4 transformation matrix
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],  # Keep X: Standard right → OpenGL right
-            [0, 0, 1, 0],  # Z→Y: Standard up → OpenGL up
-            [0, -1, 0, 0],  # Y→-Z: Standard forward → OpenGL forward
-            [0, 0, 0, 1],  # Homogeneous
-        ],
-        dtype=torch.float32,
-    )
-
-
-def _opengl_to_opencv() -> torch.Tensor:
-    """Get transformation matrix from OpenGL to OpenCV coordinate system.
-
-    OpenGL convention:
-    - X: right
-    - Y: up
-    - Z: backward (camera looks down -Z axis)
-
-    OpenCV convention:
-    - X: right
-    - Y: down
-    - Z: forward (camera looks down +Z axis)
-
-    Mapping summary:
-    - OpenGL right (+X) → OpenCV right (+X)
-    - OpenGL up (+Y) → OpenCV down (+Y)
-    - OpenGL forward (-Z) → OpenCV forward (+Z)
-
-    Returns:
-        4x4 transformation matrix
-    """
-    return torch.tensor(
-        [
-            [1, 0, 0, 0],  # Keep X: OpenGL right → OpenCV right
-            [0, -1, 0, 0],  # Negate Y: OpenGL up → OpenCV down
-            [0, 0, -1, 0],  # Negate Z: OpenGL forward → OpenCV forward
-            [0, 0, 0, 1],  # Homogeneous
-        ],
-        dtype=torch.float32,
-    )
-
-
-def _opencv_to_opengl() -> torch.Tensor:
-    """Get transformation matrix from OpenCV to OpenGL coordinate system.
-
-    OpenCV convention:
-    - X: right
-    - Y: down
-    - Z: forward (camera looks down +Z axis)
-
-    OpenGL convention:
-    - X: right
-    - Y: up
-    - Z: backward (camera looks down -Z axis)
-
-    Mapping summary:
-    - OpenCV right (+X) → OpenGL right (+X)
-    - OpenCV down (+Y) → OpenGL up (+Y)
-    - OpenCV forward (+Z) → OpenGL forward (-Z)
-
-    Returns:
-        4x4 transformation matrix
-    """
-    return torch.tensor(
-        [
-            [1, 0, 0, 0],  # Keep X: OpenCV right → OpenGL right
-            [0, -1, 0, 0],  # Negate Y: OpenCV down → OpenGL up
-            [0, 0, -1, 0],  # Negate Z: OpenCV forward → OpenGL forward
+            [1, 0, 0, 0],  # Keep X: Standard right -> OpenGL right
+            [0, 0, 1, 0],  # Z->Y: Standard up -> OpenGL up
+            [0, -1, 0, 0],  # Y->-Z: Standard forward -> OpenGL forward
             [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
@@ -233,18 +175,18 @@ def _opencv_to_standard() -> torch.Tensor:
     - Z: up
 
     Mapping summary:
-    - OpenCV right (+X) → Standard right (+X)
-    - OpenCV forward (+Z) → Standard forward (+Y)
-    - OpenCV down (+Y) → Standard down (-Z)
+    - OpenCV right (+X) -> Standard right (+X)
+    - OpenCV forward (+Z) -> Standard forward (+Y)
+    - OpenCV down (+Y) -> Standard down (-Z)
 
     Returns:
         4x4 transformation matrix
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],  # Keep X: OpenCV right → Standard right
-            [0, 0, 1, 0],  # Z→Y: OpenCV forward → Standard forward
-            [0, -1, 0, 0],  # -Y→Z: OpenCV down → Standard down
+            [1, 0, 0, 0],  # Keep X: OpenCV right -> Standard right
+            [0, 0, 1, 0],  # Z->Y: OpenCV forward -> Standard forward
+            [0, -1, 0, 0],  # -Y->Z: OpenCV down -> Standard down
             [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
@@ -265,59 +207,54 @@ def _standard_to_opencv() -> torch.Tensor:
     - Z: forward (camera looks down +Z axis)
 
     Mapping summary:
-    - Standard right (+X) → OpenCV right (+X)
-    - Standard forward (+Y) → OpenCV forward (+Z)
-    - Standard up (+Z) → OpenCV down (+Y)
+    - Standard right (+X) -> OpenCV right (+X)
+    - Standard forward (+Y) -> OpenCV forward (+Z)
+    - Standard up (+Z) -> OpenCV down (+Y)
 
     Returns:
         4x4 transformation matrix
     """
     return torch.tensor(
         [
-            [1, 0, 0, 0],  # Keep X: Standard right → OpenCV right
-            [0, 0, -1, 0],  # Z→Y: Standard up → OpenCV down
-            [0, 1, 0, 0],  # Y→Z: Standard forward → OpenCV forward
+            [1, 0, 0, 0],  # Keep X: Standard right -> OpenCV right
+            [0, 0, -1, 0],  # Z->Y: Standard up -> OpenCV down
+            [0, 1, 0, 0],  # Y->Z: Standard forward -> OpenCV forward
             [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
 
 
-def _opengl_to_pytorch3d() -> torch.Tensor:
-    """Get transformation matrix from OpenGL to PyTorch3D coordinate system.
-
-    OpenGL convention:
-    - X: right
-    - Y: up
-    - Z: backward (camera looks down -Z axis)
+def _pytorch3d_to_standard() -> torch.Tensor:
+    """Get transformation matrix from PyTorch3D to standard coordinate system.
 
     PyTorch3D convention (right-handed):
     - X: left (+X points left)
     - Y: up (+Y points up)
     - Z: forward (+Z points from us to scene, out from image plane)
 
+    Standard convention:
+    - X: right
+    - Y: forward
+    - Z: up
+
     Mapping summary:
-    - OpenGL right (+X) → PyTorch3D right (-X)
-    - OpenGL up (+Y) → PyTorch3D up (+Y)
-    - OpenGL forward (-Z) → PyTorch3D forward (+Z)
+    - PyTorch3D left (+X) -> Standard left (-X)
+    - PyTorch3D up (+Y) -> Standard up (+Z)
+    - PyTorch3D forward (+Z) -> Standard forward (+Y)
 
     Returns:
         4x4 transformation matrix
     """
     return torch.tensor(
         [
-            [-1, 0, 0, 0],  # Negate X: OpenGL right → PyTorch3D left
-            [0, 1, 0, 0],  # Keep Y: OpenGL up → PyTorch3D up
-            [0, 0, -1, 0],  # Negate Z: OpenGL backward → PyTorch3D forward
+            [-1, 0, 0, 0],  # Negate X: PyTorch3D left -> Standard right
+            [0, 0, 1, 0],  # Z->Y: PyTorch3D forward -> Standard forward
+            [0, 1, 0, 0],  # Y->Z: PyTorch3D up -> Standard up
             [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
-
-
-def _pytorch3d_to_opengl() -> torch.Tensor:
-    """Get transformation matrix from PyTorch3D to OpenGL coordinate system."""
-    return _opengl_to_pytorch3d()
 
 
 def _standard_to_pytorch3d() -> torch.Tensor:
@@ -334,61 +271,83 @@ def _standard_to_pytorch3d() -> torch.Tensor:
     - Z: forward (+Z points from us to scene, out from image plane)
 
     Mapping summary:
-    - Standard right (+X) → PyTorch3D right (-X)
-    - Standard forward (+Y) → PyTorch3D forward (+Z)
-    - Standard up (+Z) → PyTorch3D up (+Y)
+    - Standard right (+X) -> PyTorch3D right (-X)
+    - Standard forward (+Y) -> PyTorch3D forward (+Z)
+    - Standard up (+Z) -> PyTorch3D up (+Y)
 
     Returns:
         4x4 transformation matrix
     """
     return torch.tensor(
         [
-            [-1, 0, 0, 0],  # Negate X: Standard right → PyTorch3D left
-            [0, 0, 1, 0],  # Z→Y: Standard up → PyTorch3D up
-            [0, 1, 0, 0],  # Y→Z: Standard forward → PyTorch3D forward
+            [-1, 0, 0, 0],  # Negate X: Standard right -> PyTorch3D left
+            [0, 0, 1, 0],  # Z->Y: Standard up -> PyTorch3D up
+            [0, 1, 0, 0],  # Y->Z: Standard forward -> PyTorch3D forward
             [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
 
 
-def _pytorch3d_to_standard() -> torch.Tensor:
-    """Get transformation matrix from PyTorch3D to standard coordinate system."""
-    return _standard_to_pytorch3d()
+def _arkit_to_standard() -> torch.Tensor:
+    """Get transformation matrix from ARKit to standard coordinate system.
 
-
-def _opencv_to_pytorch3d() -> torch.Tensor:
-    """Get transformation matrix from OpenCV to PyTorch3D coordinate system.
-
-    OpenCV convention:
-    - X: right
-    - Y: down
+    ARKit convention:
+    - X: down
+    - Y: left
     - Z: forward
 
-    PyTorch3D convention (right-handed):
-    - X: left (+X points left)
-    - Y: up (+Y points up)
-    - Z: forward (+Z points from us to scene, out from image plane)
+    Standard convention:
+    - X: right
+    - Y: forward
+    - Z: up
 
     Mapping summary:
-    - OpenCV right (+X) → PyTorch3D right (-X)
-    - OpenCV down (+Y) → PyTorch3D down (-Y)
-    - OpenCV forward (+Z) → PyTorch3D forward (+Z)
+    - ARKit down (+X) -> Standard down (-Z)
+    - ARKit left (+Y) -> Standard left (-X)
+    - ARKit forward (+Z) -> Standard forward (+Y)
 
     Returns:
         4x4 transformation matrix
     """
     return torch.tensor(
         [
-            [-1, 0, 0, 0],  # Negate X: OpenCV right → PyTorch3D left
-            [0, -1, 0, 0],  # Negate Y: OpenCV down → PyTorch3D up
-            [0, 0, 1, 0],  # Keep Z: OpenCV forward → PyTorch3D forward
+            [0, -1, 0, 0],  # -Y->X: ARKit left -> Standard left
+            [0, 0, 1, 0],  # Z->Y: ARKit forward -> Standard forward
+            [-1, 0, 0, 0],  # -X->Z: ARKit down -> Standard down
             [0, 0, 0, 1],  # Homogeneous
         ],
         dtype=torch.float32,
     )
 
 
-def _pytorch3d_to_opencv() -> torch.Tensor:
-    """Get transformation matrix from PyTorch3D to OpenCV coordinate system."""
-    return _opencv_to_pytorch3d()
+def _standard_to_arkit() -> torch.Tensor:
+    """Get transformation matrix from standard to ARKit coordinate system.
+
+    Standard convention:
+    - X: right
+    - Y: forward
+    - Z: up
+
+    ARKit convention:
+    - X: down
+    - Y: left
+    - Z: forward
+
+    Mapping summary:
+    - Standard right (+X) -> ARKit right (-Y)
+    - Standard forward (+Y) -> ARKit forward (+Z)
+    - Standard up (+Z) -> ARKit up (-X)
+
+    Returns:
+        4x4 transformation matrix
+    """
+    return torch.tensor(
+        [
+            [0, 0, -1, 0],  # -Z->X: Standard up -> ARKit up
+            [-1, 0, 0, 0],  # -X->Y: Standard right -> ARKit right
+            [0, 1, 0, 0],  # Y->Z: Standard forward -> ARKit forward
+            [0, 0, 0, 1],  # Homogeneous
+        ],
+        dtype=torch.float32,
+    )

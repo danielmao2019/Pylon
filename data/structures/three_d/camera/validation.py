@@ -14,6 +14,7 @@ def validate_camera_convention(convention: Any) -> str:
         "opengl",
         "opencv",
         "pytorch3d",
+        "arkit",
     ], f"Unsupported convention: {convention}"
     return convention
 

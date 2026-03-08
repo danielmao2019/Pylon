@@ -321,7 +321,20 @@ class Cameras:
 
     @property
     def right(self) -> torch.Tensor:
-        vecs = self._extrinsics[:, :3, 0]
+        vecs = torch.empty_like(self._extrinsics[:, :3, 0])
+        for idx, convention in enumerate(self._conventions):
+            if convention == "standard":
+                vecs[idx] = self._extrinsics[idx, :3, 0]
+            elif convention == "opengl":
+                vecs[idx] = self._extrinsics[idx, :3, 0]
+            elif convention == "opencv":
+                vecs[idx] = self._extrinsics[idx, :3, 0]
+            elif convention == "pytorch3d":
+                vecs[idx] = -self._extrinsics[idx, :3, 0]
+            elif convention == "arkit":
+                vecs[idx] = -self._extrinsics[idx, :3, 1]
+            else:
+                assert False, f"Unsupported convention: {convention}"
         norms = torch.linalg.norm(vecs, dim=1)
         assert torch.allclose(
             norms,
@@ -342,7 +355,9 @@ class Cameras:
             elif convention == "opencv":
                 vecs[idx] = self._extrinsics[idx, :3, 2]
             elif convention == "pytorch3d":
-                vecs[idx] = self._extrinsics[idx, :3, 1]
+                vecs[idx] = self._extrinsics[idx, :3, 2]
+            elif convention == "arkit":
+                vecs[idx] = self._extrinsics[idx, :3, 2]
             else:
                 assert False, f"Unsupported convention: {convention}"
         norms = torch.linalg.norm(vecs, dim=1)
@@ -365,7 +380,9 @@ class Cameras:
             elif convention == "opencv":
                 vecs[idx] = -self._extrinsics[idx, :3, 1]
             elif convention == "pytorch3d":
-                vecs[idx] = self._extrinsics[idx, :3, 2]
+                vecs[idx] = self._extrinsics[idx, :3, 1]
+            elif convention == "arkit":
+                vecs[idx] = -self._extrinsics[idx, :3, 0]
             else:
                 assert False, f"Unsupported convention: {convention}"
         norms = torch.linalg.norm(vecs, dim=1)
