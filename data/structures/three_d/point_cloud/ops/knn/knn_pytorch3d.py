@@ -1,8 +1,8 @@
-from typing import Tuple, Optional
-import torch
-from pytorch3d.ops import knn_points
 import logging
 import time
+from typing import Optional, Tuple
+
+import torch
 
 # Configure logging to show timestamp
 logging.basicConfig(
@@ -150,8 +150,19 @@ def _knn_pytorch3d_with_k(
 
     # Compute k-NN
     original_device = query_points.device
+
+    # Intentional lazy import for optional dependency `pytorch3d`.
+    # This module must still import on environments where pytorch3d is not installed.
+    from pytorch3d.ops import knn_points
+
+    compute_device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
     result = knn_points(
-        query_batch.cuda(), reference_batch.cuda(), K=k_actual, return_nn=False
+        query_batch.to(device=compute_device),
+        reference_batch.to(device=compute_device),
+        K=k_actual,
+        return_nn=False,
     )
 
     assert hasattr(result, 'dists'), "Result must have dists attribute"
@@ -218,8 +229,19 @@ def _knn_pytorch3d_with_r(
 
     # Do k-NN search with all points
     original_device = query_points.device
+
+    # Intentional lazy import for optional dependency `pytorch3d`.
+    # This module must still import on environments where pytorch3d is not installed.
+    from pytorch3d.ops import knn_points
+
+    compute_device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
     result = knn_points(
-        query_batch.cuda(), reference_batch.cuda(), K=k_actual, return_nn=False
+        query_batch.to(device=compute_device),
+        reference_batch.to(device=compute_device),
+        K=k_actual,
+        return_nn=False,
     )
 
     assert hasattr(result, 'dists'), "Result must have dists attribute"

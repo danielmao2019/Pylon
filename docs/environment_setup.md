@@ -5,15 +5,15 @@
 - [1. Overview](#1-overview)
 - [2. System Requirements](#2-system-requirements)
 - [3. System Environment Setup](#3-system-environment-setup)
-  - [3.1. G++ and GCC](#31-g-and-gcc)
-  - [3.2. CUDA Toolkit 12.8](#32-cuda-toolkit-128)
-  - [3.3. COLMAP with GPU Support](#33-colmap-with-gpu-support)
+  - [3.1. Linux (NVIDIA/CUDA) setup](#31-linux-nvidiacuda-setup)
+  - [3.2. macOS (Apple Silicon/MPS) setup](#32-macos-apple-siliconmps-setup)
+  - [3.3. COLMAP with GPU Support (Linux only)](#33-colmap-with-gpu-support-linux-only)
 - [4. Conda Environment Setup](#4-conda-environment-setup)
   - [4.1. Create conda environment](#41-create-conda-environment)
   - [4.2. Basics](#42-basics)
   - [4.3. Segmentation related](#43-segmentation-related)
   - [4.4. Point cloud registration related](#44-point-cloud-registration-related)
-  - [4.5. Point Cloud Registration CUDA Extensions](#45-point-cloud-registration-cuda-extensions)
+  - [4.5. Point Cloud Registration CUDA Extensions (Linux/NVIDIA only)](#45-point-cloud-registration-cuda-extensions-linuxnvidia-only)
 
 ## 1. Overview
 
@@ -22,11 +22,14 @@ This document outlines the setup process for the Pylon development environment. 
 ## 2. System Requirements
 
 - Python 3.10
-- CUDA 12.8 compatible GPU (for PyTorch GPU acceleration)
+- Linux path: CUDA 11.8 compatible GPU (for PyTorch GPU acceleration)
+- macOS path: Apple Silicon GPU via PyTorch MPS backend (no CUDA)
 
 ## 3. System Environment Setup
 
-### 3.1. G++ and GCC
+### 3.1. Linux (NVIDIA/CUDA) setup
+
+#### 3.1.1. G++ and GCC
 
 ```bash
 sudo apt -y install gcc-9 g++-9
@@ -38,20 +41,30 @@ sudo update-alternatives --config gcc
 sudo update-alternatives --config g++
 ```
 
-### 3.2. CUDA Toolkit 12.8
+#### 3.1.2. CUDA Toolkit 11.8
 
 ```bash
-wget https://developer.download.nvidia.com/compute/cuda/12.8.1/local_installers/cuda_12.8.1_570.124.06_linux.run
-sudo sh cuda_12.8.1_570.124.06_linux.run
+wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
+sudo sh cuda_11.8.0_520.61.05_linux.run
 ```
 
 Add the following to `~/.bashrc`.
 ```bash
-export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
-export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
 
-### 3.3. COLMAP with GPU Support
+### 3.2. macOS (Apple Silicon/MPS) setup
+
+Install Xcode Command Line Tools first:
+
+```bash
+xcode-select --install
+```
+
+PyTorch on macOS uses the MPS backend (Metal); do not install CUDA toolkit on macOS.
+
+### 3.3. COLMAP with GPU Support (Linux only)
 
 COLMAP is required for Structure-from-Motion in the NeRF Studio data generation pipeline. The system package doesn't have CUDA support, so we need to compile from source.
 
@@ -136,6 +149,8 @@ conda activate Pylon
 
 ### 4.2. Basics
 
+Linux (NVIDIA/CUDA):
+
 ```bash
 # Install the pinned Python dependencies
 pip install --upgrade pip
@@ -143,11 +158,29 @@ pip install -r docs/requirements-torch-cu118.txt
 pip install -r docs/requirements-extras.txt --constraint docs/requirements-torch-cu118.txt
 ```
 
+macOS (Apple Silicon/MPS):
+
+```bash
+# Install the pinned Python dependencies
+pip install --upgrade pip
+pip install -r docs/requirements-torch-macos.txt
+pip install -r docs/requirements-extras-macos.txt --constraint docs/requirements-torch-macos.txt
+```
+
+If you also need Nerfstudio on macOS, install it separately after Xcode Command Line Tools are fully set up:
+
+```bash
+xcode-select --install
+pip install nerfstudio==1.1.5
+```
+
 ```bash
 # Install OpenMMLab packages (not included in the requirements files)
 pip install -U openmim
 mim install --no-deps mmengine mmcv==2.1.0 mmdet==3.2.0 mmsegmentation==1.2.2
 ```
+
+On macOS, OpenMMLab wheel availability is limited and may require source builds. Skip this block unless explicitly needed for your task.
 
 ### 4.3. Segmentation related
 
@@ -162,7 +195,9 @@ pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.
 git clone https://github.com/KinglittleQ/torch-batch-svd.git && cd torch-batch-svd && python setup.py install && cd ..
 ```
 
-### 4.5. Point Cloud Registration CUDA Extensions
+On macOS, skip `KNN_CUDA` because CUDA is unavailable.
+
+### 4.5. Point Cloud Registration CUDA Extensions (Linux/NVIDIA only)
 
 Compile the required CUDA extensions for point cloud registration models:
 
