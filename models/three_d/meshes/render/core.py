@@ -16,6 +16,8 @@ from pytorch3d.renderer.cameras import PerspectiveCameras
 from pytorch3d.structures import Meshes
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.mesh.convert import mesh_to_pytorch3d
+from data.structures.three_d.mesh.mesh import Mesh
 
 
 def _prepare_cameras(
@@ -111,7 +113,7 @@ def _build_shader(
 
 @torch.no_grad()
 def render_rgb_from_mesh(
-    meshes: Meshes,
+    mesh: Mesh,
     camera: Camera,
     resolution: Tuple[int, int],
     background: Tuple[int, int, int] = (0, 0, 0),
@@ -120,7 +122,7 @@ def render_rgb_from_mesh(
     """Render an RGB image from a triangle mesh using PyTorch3D.
 
     Args:
-        mesh_data: Meshes object produced by `load_meshes`.
+        mesh: Repo `Mesh` object to render.
         camera: Camera containing intrinsics/extrinsics/convention.
         resolution: Target image size (height, width).
         background: Background RGB color as integer tuple in [0, 255].
@@ -133,16 +135,17 @@ def render_rgb_from_mesh(
             Tuple of (RGB image tensor, valid mask tensor of shape [H, W]).
     """
     assert isinstance(resolution, tuple) and len(resolution) == 2
-    assert isinstance(meshes, Meshes)
+    assert isinstance(mesh, Mesh), f"{type(mesh)=}"
     assert isinstance(camera, Camera), f"{type(camera)=}"
 
     assert torch.cuda.is_available(), "CUDA device required for mesh rendering"
     device = torch.device('cuda')
-
-    assert meshes.device.type == device.type, (
-        "Meshes must be already on cuda to avoid cloning overhead, "
-        f"got {meshes.device}."
+    meshes = mesh_to_pytorch3d(
+        mesh=mesh,
+        device=device,
+        dtype=torch.float32,
     )
+    assert isinstance(meshes, Meshes), f"{type(meshes)=}"
 
     cameras = _prepare_cameras(
         camera=camera,

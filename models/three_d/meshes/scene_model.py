@@ -4,13 +4,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import dash
 import torch
-from pytorch3d.structures import Meshes
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.base import BaseSceneModel
 from models.three_d.meshes.callbacks.register import register_callbacks
 from models.three_d.meshes.layout.components import build_display
-from models.three_d.meshes.loader import load_meshes
 from models.three_d.meshes.render.display import render_display
 from models.three_d.meshes.states import setup_states
 
@@ -18,17 +17,27 @@ from models.three_d.meshes.states import setup_states
 class BaseMeshesSceneModel(BaseSceneModel):
     """Base mesh scene model with shared loading/rendering logic for OBJ-style meshes."""
 
-    def _load_model(self) -> Meshes:
+    def _load_model(self) -> Mesh:
+        """Load one mesh scene as one repo `Mesh` instance.
+
+        Args:
+            None.
+
+        Returns:
+            Repo mesh data for downstream rendering.
+        """
         mesh_dir = Path(self.resolved_path)
-        merged_mesh = load_meshes(mesh_dir, device=self.device)
-        return merged_mesh
+        mesh = Mesh.load(path=mesh_dir)
+        assert mesh.vertex_color is not None or mesh.uv_texture_map is not None, (
+            "Expected mesh scene loading to produce a textured repo `Mesh`. "
+            f"{mesh.vertex_color is not None=} {mesh.uv_texture_map is not None=}"
+        )
+        return mesh
 
     def extract_positions(self) -> torch.Tensor:
         mesh = self.model
-        assert isinstance(mesh, Meshes), f"{type(mesh)=}"
-        verts_list = mesh.verts_list()
-        assert verts_list, "Mesh scene data contains no vertices"
-        return torch.cat(verts_list, dim=0)
+        assert isinstance(mesh, Mesh), f"{type(mesh)=}"
+        return mesh.vertices
 
     @staticmethod
     @abstractmethod
@@ -104,21 +113,20 @@ class BaseMeshesSceneModel(BaseSceneModel):
         return build_display(render_outputs)
 
     def to(self, device: torch.device) -> "BaseMeshesSceneModel":
-        assert isinstance(device, torch.device)
+        """Move the loaded repo mesh to a target device.
+
+        Args:
+            device: Target device for the stored repo mesh.
+
+        Returns:
+            This scene model on the target device.
+        """
+
+        assert isinstance(device, torch.device), f"{type(device)=}"
         self._ensure_model_loaded()
-        assert isinstance(self._model, Meshes)
+        assert isinstance(self._model, Mesh), f"{type(self._model)=}"
 
-        verts_target = [verts.to(device=device) for verts in self._model.verts_list()]
-        faces_target = [faces.to(device=device) for faces in self._model.faces_list()]
-        target_mesh = Meshes(verts=verts_target, faces=faces_target)
-        for tensor_attr in self._model._INTERNAL_TENSORS:
-            tensor_value = getattr(self._model, tensor_attr)
-            if torch.is_tensor(tensor_value):
-                setattr(target_mesh, tensor_attr, tensor_value.to(device=device))
-        if self._model.textures is not None:
-            target_mesh.textures = self._model.textures.to(device=device)
-
-        self._model = target_mesh
+        self._model = self._model.to(device=device)
         self.device = device
         return self
 

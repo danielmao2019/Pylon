@@ -37,7 +37,7 @@ def render_display(
 
     if image is None:
         image = render_rgb_from_mesh_func(
-            meshes=scene_model.model,
+            mesh=scene_model.model,
             camera=camera,
             resolution=resolution,
         )
