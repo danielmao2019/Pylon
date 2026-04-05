@@ -98,9 +98,9 @@ class BasePipeline:
 
         self.build(force=False)
         target_output_path = self._resolve_requested_output_path(name=name)
-        assert target_output_path is not None, (
-            f"Requested file must be declared in step.output_files, got {name=}"
-        )
+        assert (
+            target_output_path is not None
+        ), f"Requested file must be declared in step.output_files, got {name=}"
         if target_output_path.exists():
             return {}
 
@@ -115,9 +115,9 @@ class BasePipeline:
         if target_output_path.exists():
             return {}
 
-        assert target_output_path.exists(), (
-            f"Request target not produced: {target_output_path}"
-        )
+        assert (
+            target_output_path.exists()
+        ), f"Request target not produced: {target_output_path}"
         return {}
 
     def _resolve_requested_output_path(self, name: str) -> Optional[Path]:
@@ -149,9 +149,9 @@ class BasePipeline:
         ), f"{active_requests=}"
 
         target_output_path = self._resolve_requested_output_path(name=name)
-        assert target_output_path is not None, (
-            f"Requested file must be declared in step.output_files, got {name=}"
-        )
+        assert (
+            target_output_path is not None
+        ), f"Requested file must be declared in step.output_files, got {name=}"
         if target_output_path.exists():
             return step_state
 
@@ -160,15 +160,17 @@ class BasePipeline:
             f"{active_requests + [name]}"
         )
         target_component_idx = self._find_component_index_for_output(name=name)
-        assert target_component_idx is not None, (
-            f"Requested file must be declared in step.output_files, got {name=}"
-        )
+        assert (
+            target_component_idx is not None
+        ), f"Requested file must be declared in step.output_files, got {name=}"
         target_component = self.steps[target_component_idx]
         required_input_files = self._collect_request_input_files(name=name)
 
         active_requests.append(name)
         for required_input_file in required_input_files:
-            producer_idx = self._find_component_index_for_output(name=required_input_file)
+            producer_idx = self._find_component_index_for_output(
+                name=required_input_file
+            )
             if producer_idx is None:
                 continue
             assert producer_idx != target_component_idx, (
@@ -190,7 +192,9 @@ class BasePipeline:
         assert target_output_path.exists(), f"Failed to produce requested file: {name=}"
         return step_state
 
-    def _component_contains_output(self, component: "PipelineComponent", name: str) -> bool:
+    def _component_contains_output(
+        self, component: "PipelineComponent", name: str
+    ) -> bool:
         # Input validations
         assert isinstance(name, str), f"{type(name)=}"
         assert len(name) > 0, "name must be a non-empty string"
@@ -247,9 +251,9 @@ class BasePipeline:
             for step_idx, component in enumerate(self.steps)
             if self._component_contains_output(component=component, name=name)
         ]
-        assert len(matching_indices) <= 1, (
-            f"Ambiguous requested file; produced by multiple steps: {name=}"
-        )
+        assert (
+            len(matching_indices) <= 1
+        ), f"Ambiguous requested file; produced by multiple steps: {name=}"
         if len(matching_indices) == 0:
             return None
         return matching_indices[0]
@@ -260,17 +264,17 @@ class BasePipeline:
         assert len(name) > 0, "name must be a non-empty string"
 
         target_component_idx = self._find_component_index_for_output(name=name)
-        assert target_component_idx is not None, (
-            f"Requested file must be declared in step.output_files, got {name=}"
-        )
+        assert (
+            target_component_idx is not None
+        ), f"Requested file must be declared in step.output_files, got {name=}"
         target_component = self.steps[target_component_idx]
         if isinstance(target_component, BasePipeline):
             return target_component._collect_request_input_files(name=name)
 
         target_component.build(force=False)
-        assert isinstance(target_component.input_files, list), (
-            f"input_files must be initialized for step {target_component.name}"
-        )
+        assert isinstance(
+            target_component.input_files, list
+        ), f"input_files must be initialized for step {target_component.name}"
         assert all(
             isinstance(input_file, str) for input_file in target_component.input_files
         ), f"{target_component.input_files=}"
