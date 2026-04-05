@@ -14,7 +14,6 @@ from data.viewer.dataset.callbacks.backend_sync_navigation import (
     register_backend_sync_navigation_callbacks,
 )
 from data.viewer.dataset.callbacks.camera_reset import register_camera_reset_callbacks
-from data.viewer.dataset.callbacks.camera_sync import register_camera_sync_callbacks
 from data.viewer.dataset.callbacks.class_distribution import (
     register_class_distribution_callbacks,
 )
@@ -22,7 +21,9 @@ from data.viewer.dataset.callbacks.dataset_group_reload import (
     register_dataset_group_reload_callbacks,
 )
 from data.viewer.dataset.callbacks.dataset_load import register_dataset_load_callbacks
-from data.viewer.dataset.callbacks.dataset_options import register_dataset_options_callbacks
+from data.viewer.dataset.callbacks.dataset_options import (
+    register_dataset_options_callbacks,
+)
 from data.viewer.dataset.callbacks.navigation_current_index import (
     register_navigation_current_index_callbacks,
 )
@@ -35,8 +36,12 @@ from data.viewer.dataset.callbacks.navigation_datapoint_from_navigation import (
 from data.viewer.dataset.callbacks.navigation_datapoint_from_settings import (
     register_navigation_datapoint_from_settings_callbacks,
 )
-from data.viewer.dataset.callbacks.navigation_next import register_navigation_next_callbacks
-from data.viewer.dataset.callbacks.navigation_prev import register_navigation_prev_callbacks
+from data.viewer.dataset.callbacks.navigation_next import (
+    register_navigation_next_callbacks,
+)
+from data.viewer.dataset.callbacks.navigation_prev import (
+    register_navigation_prev_callbacks,
+)
 from data.viewer.dataset.callbacks.three_d_settings_density import (
     register_three_d_settings_density_callbacks,
 )
@@ -100,6 +105,5 @@ def register_viewer_callbacks(app: dash.Dash, viewer: "DatasetViewer") -> None:
     register_navigation_datapoint_from_navigation_callbacks(app=app, viewer=viewer)
     register_navigation_datapoint_from_settings_callbacks(app=app, viewer=viewer)
     register_navigation_datapoint_from_camera_callbacks(app=app, viewer=viewer)
-    register_camera_sync_callbacks(app=app, viewer=viewer)
     register_camera_reset_callbacks(app=app, viewer=viewer)
     register_class_distribution_callbacks(app=app, viewer=viewer)

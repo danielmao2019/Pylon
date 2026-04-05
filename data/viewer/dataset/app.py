@@ -7,6 +7,7 @@ from dash import Dash
 from data.viewer.dataset.callbacks import register_viewer_callbacks
 from data.viewer.dataset.context import DatasetViewerContext, set_viewer_context
 from data.viewer.dataset.layout import build_layout
+from data.viewer.utils.camera_sync import register_plotly_camera_sync
 
 
 def create_app(viewer: Any) -> Dash:
@@ -27,6 +28,11 @@ def create_app(viewer: Any) -> Dash:
         title="Dataset Viewer",
         suppress_callback_exceptions=True,
         prevent_initial_callbacks="initial_duplicate",
+    )
+    register_plotly_camera_sync(
+        app=app,
+        graph_id_type="point-cloud-graph",
+        camera_store_id="camera-state",
     )
     build_layout(app=app)
     register_viewer_callbacks(app=app, viewer=viewer)
