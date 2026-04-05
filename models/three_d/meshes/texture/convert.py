@@ -2,29 +2,127 @@
 Texture representation conversion utilities for generic triangle meshes.
 """
 
+from functools import lru_cache
+from pathlib import Path
 from typing import Tuple
 
+import numpy as np
 import nvdiffrast.torch as dr
 import torch
 
+REPO_ROOT = Path(__file__).resolve().parents[4]
+CANONICAL_BFM_VERTEX_UV_PATH = (
+    REPO_ROOT
+    / "project"
+    / "submodules"
+    / "HRN"
+    / "assets"
+    / "3dmm_assets"
+    / "template_mesh"
+    / "bfm_uvs2.npy"
+)
 
-def build_cylindrical_vertex_uv(
+
+@lru_cache(maxsize=1)
+def _load_canonical_bfm_vertex_uv_cpu() -> torch.Tensor:
+    """Load the topology-compatible canonical BFM UV table on CPU.
+
+    Args:
+        None.
+
+    Returns:
+        Canonical BFM UV tensor with shape `[V, 2]` on CPU.
+    """
+
+    assert CANONICAL_BFM_VERTEX_UV_PATH.exists(), (
+        "Expected the canonical BFM UV asset to exist. "
+        f"{CANONICAL_BFM_VERTEX_UV_PATH=}"
+    )
+    canonical_bfm_vertex_uv = np.load(CANONICAL_BFM_VERTEX_UV_PATH)
+    assert isinstance(canonical_bfm_vertex_uv, np.ndarray), (
+        "Expected the canonical BFM UV asset to load as a `numpy.ndarray`. "
+        f"{type(canonical_bfm_vertex_uv)=}"
+    )
+    assert canonical_bfm_vertex_uv.ndim == 2, (
+        "Expected the canonical BFM UV asset to have shape `[V, 2]`. "
+        f"{canonical_bfm_vertex_uv.shape=}"
+    )
+    assert canonical_bfm_vertex_uv.shape[1] == 2, (
+        "Expected the canonical BFM UV asset to have shape `[V, 2]`. "
+        f"{canonical_bfm_vertex_uv.shape=}"
+    )
+    assert canonical_bfm_vertex_uv.dtype in (np.float32, np.float64), (
+        "Expected the canonical BFM UV asset dtype to be float32 or float64. "
+        f"{canonical_bfm_vertex_uv.dtype=}"
+    )
+    canonical_bfm_vertex_uv = torch.from_numpy(canonical_bfm_vertex_uv)
+    assert isinstance(canonical_bfm_vertex_uv, torch.Tensor), (
+        "Expected the canonical BFM UV asset to convert to a `torch.Tensor`. "
+        f"{type(canonical_bfm_vertex_uv)=}"
+    )
+    assert canonical_bfm_vertex_uv.dtype in (torch.float32, torch.float64), (
+        "Expected the canonical BFM UV tensor dtype to be float32 or float64 "
+        "before normalization. "
+        f"{canonical_bfm_vertex_uv.dtype=}"
+    )
+    canonical_bfm_vertex_uv = canonical_bfm_vertex_uv.to(dtype=torch.float32)
+    assert torch.all(canonical_bfm_vertex_uv >= 0.0), (
+        "Expected canonical BFM UV coordinates to stay within `[0, 1]`. "
+        f"{float(canonical_bfm_vertex_uv.min())=}"
+    )
+    assert torch.all(canonical_bfm_vertex_uv <= 1.0), (
+        "Expected canonical BFM UV coordinates to stay within `[0, 1]`. "
+        f"{float(canonical_bfm_vertex_uv.max())=}"
+    )
+    return canonical_bfm_vertex_uv.contiguous()
+
+
+def build_canonical_bfm_vertex_uv(
     mean_shape: torch.Tensor,
 ) -> torch.Tensor:
-    # Input validations
-    assert isinstance(mean_shape, torch.Tensor), f"{type(mean_shape)=}"
-    assert mean_shape.ndim in (1, 2), f"{mean_shape.shape=}"
-    assert mean_shape.numel() % 3 == 0, f"{mean_shape.shape=}"
+    """Build the canonical BFM UV layout for one BFM-topology mesh.
 
-    xyz = mean_shape.reshape(-1, 3)
-    x = xyz[:, 0]
-    y = xyz[:, 1]
-    z = xyz[:, 2]
-    u = torch.atan2(x, z) / (2.0 * torch.pi) + 0.5
-    y_min = torch.min(y)
-    y_max = torch.max(y)
-    v = 1.0 - (y - y_min) / (y_max - y_min + 1e-6)
-    return torch.stack([u.clamp(0.0, 1.0), v.clamp(0.0, 1.0)], dim=1)
+    Args:
+        mean_shape: Flattened or `[V, 3]` BFM-shape tensor used for topology/device
+            validation.
+
+    Returns:
+        Canonical BFM UV tensor with shape `[V, 2]`.
+    """
+
+    def _validate_inputs() -> None:
+        """Validate canonical-BFM UV build inputs.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
+
+        assert isinstance(mean_shape, torch.Tensor), (
+            "Expected `mean_shape` to be a `torch.Tensor`. " f"{type(mean_shape)=}"
+        )
+        assert mean_shape.ndim in (1, 2), (
+            "Expected `mean_shape` to be flat or `[V, 3]`. " f"{mean_shape.shape=}"
+        )
+        assert mean_shape.numel() % 3 == 0, (
+            "Expected `mean_shape` to contain xyz triplets. " f"{mean_shape.shape=}"
+        )
+
+    _validate_inputs()
+
+    vertex_count = int(mean_shape.reshape(-1, 3).shape[0])
+    canonical_bfm_vertex_uv = _load_canonical_bfm_vertex_uv_cpu()
+    assert canonical_bfm_vertex_uv.shape == (vertex_count, 2), (
+        "Expected the canonical BFM UV table to match the requested vertex "
+        "count. "
+        f"{canonical_bfm_vertex_uv.shape=} {vertex_count=}"
+    )
+    return canonical_bfm_vertex_uv.to(
+        device=mean_shape.device,
+        dtype=torch.float32,
+    ).contiguous()
 
 
 def _vertex_uv_to_clip(
