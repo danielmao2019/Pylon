@@ -17,36 +17,38 @@ Usage:
     )
 """
 
+from data.viewer.utils.atomic_displays.depth_display import (
+    create_depth_display,
+    get_depth_display_stats,
+)
+from data.viewer.utils.atomic_displays.edge_display import (
+    create_edge_display,
+    get_edge_display_stats,
+)
+
 # Import all atomic display functions for easy access
 from data.viewer.utils.atomic_displays.image_display import (
     create_image_display,
     get_image_display_stats,
 )
-from data.viewer.utils.atomic_displays.depth_display import (
-    create_depth_display,
-    get_depth_display_stats
+from data.viewer.utils.atomic_displays.instance_surrogate_display import (
+    create_instance_surrogate_display,
+    get_instance_surrogate_display_stats,
 )
+from data.viewer.utils.atomic_displays.mesh_display import create_mesh_display
 from data.viewer.utils.atomic_displays.normal_display import (
     create_normal_display,
-    get_normal_display_stats
+    get_normal_display_stats,
 )
-from data.viewer.utils.atomic_displays.edge_display import (
-    create_edge_display,
-    get_edge_display_stats
+from data.viewer.utils.atomic_displays.point_cloud_display import (
+    build_point_cloud_id,
+    create_point_cloud_display,
+    get_point_cloud_display_stats,
+    normalize_point_cloud_id,
 )
 from data.viewer.utils.atomic_displays.segmentation_display import (
     create_segmentation_display,
-    get_segmentation_display_stats
-)
-from data.viewer.utils.atomic_displays.point_cloud_display import (
-    create_point_cloud_display,
-    get_point_cloud_display_stats,
-    build_point_cloud_id,
-    normalize_point_cloud_id
-)
-from data.viewer.utils.atomic_displays.instance_surrogate_display import (
-    create_instance_surrogate_display,
-    get_instance_surrogate_display_stats
+    get_segmentation_display_stats,
 )
 
 __all__ = [
@@ -58,6 +60,7 @@ __all__ = [
     'create_segmentation_display',
     'create_point_cloud_display',
     'create_instance_surrogate_display',
+    'create_mesh_display',
     # Stats functions
     'get_image_display_stats',
     'get_depth_display_stats',
@@ -68,5 +71,5 @@ __all__ = [
     'get_instance_surrogate_display_stats',
     # Utility functions
     'build_point_cloud_id',
-    'normalize_point_cloud_id'
+    'normalize_point_cloud_id',
 ]
