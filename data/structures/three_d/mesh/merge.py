@@ -73,10 +73,6 @@ def _merge_vertex_color_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
             "Expected vertex-color merge to receive `vertex_color`. "
             f"{mesh.vertex_color is not None=}"
         )
-        assert mesh.uv_texture_map is None, (
-            "Expected vertex-color merge to receive no `uv_texture_map`. "
-            f"{mesh.uv_texture_map is None=}"
-        )
         assert mesh.vertex_uv is None, (
             "Expected vertex-color merge to receive no `vertex_uv`. "
             f"{mesh.vertex_uv is None=}"
@@ -123,21 +119,9 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     vertex_offset = 0
     uv_offset = 0
     for block_index, mesh in enumerate(normalized_mesh_blocks):
-        assert mesh.vertex_color is None, (
-            "Expected UV-textured merge to receive no `vertex_color`. "
-            f"{mesh.vertex_color is not None=}"
-        )
         assert mesh.uv_texture_map is not None, (
             "Expected UV-textured merge to receive `uv_texture_map`. "
             f"{mesh.uv_texture_map is not None=}"
-        )
-        assert mesh.vertex_uv is not None, (
-            "Expected UV-textured merge to receive `vertex_uv`. "
-            f"{mesh.vertex_uv is not None=}"
-        )
-        assert mesh.face_uvs is not None, (
-            "Expected UV-textured merge to receive `face_uvs`. "
-            f"{mesh.face_uvs is not None=}"
         )
         assert mesh.convention == "obj", (
             "Expected UV-textured merge to operate on OBJ-convention UVs. "
@@ -208,14 +192,6 @@ def _merge_geometry_only_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
         assert mesh.vertex_uv is None, (
             "Expected geometry-only merge to receive no `vertex_uv`. "
             f"{mesh.vertex_uv is None=}"
-        )
-        assert mesh.face_uvs is None, (
-            "Expected geometry-only merge to receive no `face_uvs`. "
-            f"{mesh.face_uvs is None=}"
-        )
-        assert mesh.convention is None, (
-            "Expected geometry-only merge to receive no UV convention. "
-            f"{mesh.convention=}"
         )
         vertices_list.append(mesh.vertices)
         faces_list.append(mesh.faces + vertex_offset)

@@ -489,9 +489,9 @@ def _expand_obj_uv_mesh_for_trimesh(
     assert isinstance(mesh, Mesh), (
         "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
     )
-    assert mesh.vertex_uv is not None and mesh.face_uvs is not None, (
+    assert mesh.vertex_uv is not None, (
         "Expected UV mesh expansion to receive UV topology. "
-        f"{mesh.vertex_uv is not None=} {mesh.face_uvs is not None=}"
+        f"{mesh.vertex_uv is not None=}"
     )
     assert mesh.convention == "obj", (
         "Expected trimesh UV expansion to receive OBJ-convention UVs. "

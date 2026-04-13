@@ -36,10 +36,6 @@ def save_mesh(mesh: "Mesh", output_path: Union[str, Path]) -> None:
     _validate_inputs()
 
     if mesh.vertex_color is not None:
-        assert mesh.uv_texture_map is None, (
-            "Expected mesh saving to choose exactly one texture representation. "
-            f"{mesh.vertex_color is not None=} {mesh.uv_texture_map is not None=}"
-        )
         _save_mesh_vertex_color(mesh=mesh, output_path=output_path)
         return
 
@@ -79,14 +75,6 @@ def _save_mesh_geometry_only(mesh: "Mesh", output_path: Union[str, Path]) -> Non
         assert mesh.vertex_uv is None, (
             "Expected geometry-only mesh saving to receive no `vertex_uv`. "
             f"{mesh.vertex_uv is None=}"
-        )
-        assert mesh.face_uvs is None, (
-            "Expected geometry-only mesh saving to receive no `face_uvs`. "
-            f"{mesh.face_uvs is None=}"
-        )
-        assert mesh.convention is None, (
-            "Expected geometry-only mesh saving to receive no UV convention. "
-            f"{mesh.convention=}"
         )
         assert isinstance(output_path, (str, Path)), (
             "Expected `output_path` to be a `str` or `Path`. " f"{type(output_path)=}"
@@ -272,9 +260,9 @@ def _save_mesh_uv_texture_map(mesh: "Mesh", output_path: Union[str, Path]) -> No
             "Expected UV-textured mesh saving input to be a `Mesh` instance. "
             f"{type(mesh)=}"
         )
-        assert mesh.vertex_uv is not None and mesh.face_uvs is not None, (
-            "Expected UV-textured mesh saving to receive UV topology. "
-            f"{mesh.vertex_uv is not None=} {mesh.face_uvs is not None=}"
+        assert mesh.uv_texture_map is not None, (
+            "Expected UV-textured mesh saving to receive `uv_texture_map`. "
+            f"{mesh.uv_texture_map is not None=}"
         )
         validate_mesh_uv_convention(convention=mesh.convention)
         assert isinstance(output_path, (str, Path)), (
