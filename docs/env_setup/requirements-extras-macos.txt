@@ -1,4 +1,4 @@
-# Torch stack is installed separately via docs/requirements-torch-macos.txt
+# Torch stack is installed separately via docs/env_setup/requirements-torch-macos.txt
 
 # --- Core (macOS-compatible subset)
 ninja==1.13.0

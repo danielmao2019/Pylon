@@ -1,4 +1,4 @@
-# Torch stack is installed separately via docs/requirements-torch-cu118.txt
+# Torch stack is installed separately via docs/env_setup/requirements-torch-cu118.txt
 
 # --- Core (keep pinned)
 git+https://github.com/facebookresearch/pytorch3d.git@stable
@@ -12,7 +12,7 @@ scipy
 scikit-learn
 scikit-image
 scikit-build-core
-timm
+timm>=1.0
 einops
 kornia
 triton
@@ -47,6 +47,11 @@ matplotlib
 plotly
 dash
 dash-extensions
+
+# --- Additional pip-installable packages
+openmim
+https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
+segmentation-models-pytorch@git+https://github.com/ragavsachdeva/segmentation_models.pytorch.git@2cde92e776b0a074d5e2f4f6a50c68754f948015
 
 # --- Misc tools
 black

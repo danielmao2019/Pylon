@@ -429,7 +429,7 @@ Missing Dependencies Found:
 - timm==0.9.2 (ImportError in models/model_name/layers/backbone.py line 8)
 - segmentation_models_pytorch==0.3.2 (ImportError in models/model_name/utils/encoder.py line 12)
 
-These packages are not listed in docs/environment_setup.md
+These packages are not listed in docs/env_setup/environment_setup.md
 ```
 
 **When to ask for guidance**:

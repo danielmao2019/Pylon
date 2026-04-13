@@ -19,6 +19,21 @@
 
 This document outlines the setup process for the Pylon development environment. The environment is built using Conda for package management and includes dependencies for machine learning, computer vision, and related tools.
 
+### Automated scripts
+
+Two scripts automate the full setup described in sections 3 and 4:
+
+```bash
+# 1. System-level provisioning (packages, gcc-9, NVIDIA driver, CUDA 11.8, Miniconda).
+#    Reboot after this step to activate the NVIDIA driver.
+bash docs/env_setup/setup_system.sh
+
+# 2. Pylon conda environment (pip packages, OpenMMLab, C++ extensions).
+PYLON_REPO_DIR=$(pwd) bash docs/env_setup/setup_pylon_env.sh
+```
+
+The sections below describe each step in detail for reference.
+
 ## 2. System Requirements
 
 - Python 3.10
@@ -154,8 +169,8 @@ Linux (NVIDIA/CUDA):
 ```bash
 # Install the pinned Python dependencies
 pip install --upgrade pip
-pip install -r docs/requirements-torch-cu118.txt
-pip install -r docs/requirements-extras.txt --constraint docs/requirements-torch-cu118.txt
+pip install -r docs/env_setup/requirements-torch-cu118.txt
+pip install -r docs/env_setup/requirements-extras.txt --constraint docs/env_setup/requirements-torch-cu118.txt
 ```
 
 macOS (Apple Silicon/MPS):
@@ -163,8 +178,8 @@ macOS (Apple Silicon/MPS):
 ```bash
 # Install the pinned Python dependencies
 pip install --upgrade pip
-pip install -r docs/requirements-torch-macos.txt
-pip install -r docs/requirements-extras-macos.txt --constraint docs/requirements-torch-macos.txt
+pip install -r docs/env_setup/requirements-torch-macos.txt
+pip install -r docs/env_setup/requirements-extras-macos.txt --constraint docs/env_setup/requirements-torch-macos.txt
 ```
 
 If you also need Nerfstudio on macOS, install it separately after Xcode Command Line Tools are fully set up:
@@ -176,8 +191,9 @@ pip install nerfstudio==1.1.5
 
 ```bash
 # Install OpenMMLab packages (not included in the requirements files)
-pip install -U openmim
-mim install --no-deps mmengine mmcv==2.1.0 mmdet==3.2.0 mmsegmentation==1.2.2
+pip install "setuptools<76"
+mim install --no-deps mmengine mmdet==3.2.0 mmsegmentation==1.2.2
+pip install --no-build-isolation mmcv==2.1.0
 ```
 
 On macOS, OpenMMLab wheel availability is limited and may require source builds. Skip this block unless explicitly needed for your task.
