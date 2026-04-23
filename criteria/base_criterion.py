@@ -14,13 +14,17 @@ class BaseCriterion(torch.nn.Module, ABC):
         if self.use_buffer:
             self._buffer_lock = threading.Lock()
             self._buffer_queue = queue.Queue()
-            self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
+            self._buffer_thread = threading.Thread(
+                target=self._buffer_worker, daemon=True
+            )
             self._buffer_thread.start()
         self.reset_buffer()
 
     def reset_buffer(self) -> None:
         if self.use_buffer:
-            assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
+            assert (
+                self._buffer_queue.empty()
+            ), "Buffer queue is not empty when resetting buffer"
             with self._buffer_lock:
                 self.buffer: List[Any] = []
         else:
@@ -55,8 +59,12 @@ class BaseCriterion(torch.nn.Module, ABC):
 
     @abstractmethod
     def __call__(self, y_pred: Any, y_true: Any) -> Any:
-        raise NotImplementedError("Abstract method BaseCriterion.__call__ not implemented.")
+        raise NotImplementedError(
+            "Abstract method BaseCriterion.__call__ not implemented."
+        )
 
     @abstractmethod
     def summarize(self, output_path: Optional[str] = None) -> Any:
-        raise NotImplementedError("Abstract method BaseCriterion.summarize not implemented.")
+        raise NotImplementedError(
+            "Abstract method BaseCriterion.summarize not implemented."
+        )
