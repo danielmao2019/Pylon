@@ -12,7 +12,7 @@ export DEBIAN_FRONTEND=noninteractive
 echo "=== [1/6] System packages ==="
 sudo DEBIAN_FRONTEND=noninteractive apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
-sudo DEBIAN_FRONTEND=noninteractive apt-get -y install build-essential git curl wget unzip tmux python3-venv
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y install build-essential git curl wget unzip tmux python3-venv ffmpeg
 
 echo "=== [2/6] gcc-9 / g++-9 ==="
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y install gcc-9 g++-9
