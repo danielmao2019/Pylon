@@ -16,9 +16,11 @@ const cameraPersistenceStorageKey = "mesh-display-camera:" + __VIEWER_ID_JSON__;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf5f7fb);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1000.0);
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enablePan = true;
-controls.enableDamping = false;
+const controls = new THREE.TrackballControls(camera, renderer.domElement);
+controls.noPan = false;
+controls.noRotate = false;
+controls.noZoom = false;
+controls.staticMoving = true;
 
 const geometry = new THREE.BufferGeometry();
 geometry.setAttribute(
@@ -151,6 +153,7 @@ function resize() {
   renderer.setSize(width, height, false);
   camera.aspect = width / Math.max(height, 1);
   camera.updateProjectionMatrix();
+  controls.handleResize();
 }
 
 function render() {
