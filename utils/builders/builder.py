@@ -4,19 +4,28 @@ from typing import Any
 
 import easydict as edict
 import torch
+from torch.utils.data import Dataset
 
 
 def semideepcopy(obj: Any) -> Any:
-    """A version of deepcopy that preserves PyTorch parameters.
+    """A version of deepcopy that preserves shared runtime objects.
 
     Args:
-        obj: The object to copy
+        obj: The object to copy.
 
     Returns:
-        A deep copy of the object, but with PyTorch parameters preserved as references
+        A deep copy of the object, but with shared runtime objects preserved as
+        references.
     """
     if isinstance(
-        obj, (torch.nn.Parameter, edict.EasyDict, tempfile.TemporaryDirectory)
+        obj,
+        (
+            torch.nn.Module,
+            torch.nn.Parameter,
+            Dataset,
+            edict.EasyDict,
+            tempfile.TemporaryDirectory,
+        ),
     ):
         return obj
     elif isinstance(obj, dict):
