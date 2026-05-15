@@ -930,7 +930,7 @@ def build_threejs_viewer_html(
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{title}</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>{extra_script_tags_block}
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/TrackballControls.js"></script>{extra_script_tags_block}
     <style>
       html, body {{
         margin: 0;
