@@ -8,7 +8,7 @@ scipy
 scikit-learn
 scikit-image
 scikit-build-core
-timm
+timm==0.6.7
 einops
 kornia
 fvcore
@@ -36,6 +36,8 @@ imageio
 pandas
 psutil
 paramiko
+boto3
+google-cloud-firestore==2.26.0
 
 # --- Visualization and apps
 matplotlib
