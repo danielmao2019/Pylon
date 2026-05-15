@@ -14,6 +14,10 @@ agents/summaries
 dist/
 build/
 
+# TypeScript / Node app artifacts (bundler- and framework-agnostic)
+node_modules/
+*.tsbuildinfo
+
 # Data
 *.ply
 
