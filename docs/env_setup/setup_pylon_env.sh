@@ -16,13 +16,17 @@ assert_var PYLON_REPO_DIR
 export PATH="/usr/local/cuda-11.8/bin${PATH:+:${PATH}}"
 export LD_LIBRARY_PATH="/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
+set +u
 eval "$("$HOME/miniconda3/bin/conda" shell.bash hook)"
+set -u
 
 echo "=== [1/5] Create Pylon conda env ==="
 if ! conda env list | grep -q "^Pylon "; then
     conda create --name Pylon python=3.10 -y
 fi
+set +u
 conda activate Pylon
+set -u
 pip install --upgrade pip
 
 echo "=== [2/5] Pip requirements ==="
@@ -30,15 +34,24 @@ pip install -r "$PYLON_REPO_DIR/docs/env_setup/requirements-torch-cu118.txt"
 # pytorch3d needs --no-build-isolation (setup.py imports torch at top level)
 pip install --no-build-isolation \
     'git+https://github.com/facebookresearch/pytorch3d.git@stable'
-# Install remaining extras (skip git+ packages already handled or needing post-reboot GPU)
+# nvdiffrast needs torch and CUDA headers from the active environment.
+pip install --no-build-isolation \
+    'git+https://github.com/NVlabs/nvdiffrast.git'
+# Install remaining extras (skip git+ packages handled explicitly or needing custom CUDA)
 grep -v '^git+\|^#\|^$' "$PYLON_REPO_DIR/docs/env_setup/requirements-extras.txt" | \
     pip install -r /dev/stdin \
     --constraint "$PYLON_REPO_DIR/docs/env_setup/requirements-torch-cu118.txt"
 
 echo "=== [3/5] OpenMMLab packages ==="
 pip install "setuptools<76"
-mim install --no-deps mmengine mmdet==3.2.0 mmsegmentation==1.2.2
-pip install --no-build-isolation mmcv==2.1.0
+mim install \
+    mmengine \
+    mmdet==3.2.0 \
+    mmsegmentation==1.2.2 \
+    --constraint "$PYLON_REPO_DIR/docs/env_setup/requirements-torch-cu118.txt"
+mim install \
+    mmcv==2.1.0 \
+    --constraint "$PYLON_REPO_DIR/docs/env_setup/requirements-torch-cu118.txt"
 
 echo "=== [4/5] Source-only packages ==="
 cd /tmp
@@ -82,7 +95,9 @@ echo "Building: parenet pointops"
 cd "$PYLON_REPO_DIR/models/point_cloud_registration/parenet/pareconv/extensions/pointops"
 python setup.py install
 
+set +u
 conda deactivate
+set -u
 
 echo ""
 echo "Pylon environment setup complete."
