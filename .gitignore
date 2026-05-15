@@ -2,6 +2,7 @@ __pycache__
 .vscode
 .claude
 logs
+outputs
 data/datasets/soft_links
 data/storages/aws_s3/config.local.json
 agents/snapshots
