@@ -32,7 +32,7 @@ bash docs/env_setup/setup_system.sh
 PYLON_REPO_DIR=$(pwd) bash docs/env_setup/setup_pylon_env.sh
 ```
 
-The sections below describe each step in detail for reference.
+For Linux, treat those scripts as the canonical command source. This guide intentionally avoids repeating commands that already live in the scripts. When you need to inspect or change the actual command sequence, edit the scripts or the requirements files they call instead of copying shell snippets into this document.
 
 ## 2. System Requirements
 
@@ -44,30 +44,18 @@ The sections below describe each step in detail for reference.
 
 ### 3.1. Linux (NVIDIA/CUDA) setup
 
-#### 3.1.1. G++ and GCC
+Use `bash docs/env_setup/setup_system.sh`.
 
-```bash
-sudo apt -y install gcc-9 g++-9
-sudo update-alternatives --remove-all gcc
-sudo update-alternatives --remove-all g++
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 9
-sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 9
-sudo update-alternatives --config gcc
-sudo update-alternatives --config g++
-```
+That script is the source of truth for Linux system provisioning. It covers:
 
-#### 3.1.2. CUDA Toolkit 11.8
+1. system packages;
+2. `gcc-9` / `g++-9` installation and selection;
+3. NVIDIA driver installation;
+4. CUDA 11.8 toolkit installation;
+5. CUDA path export setup in `~/.bashrc`;
+6. Miniconda installation and `conda init`.
 
-```bash
-wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
-sudo sh cuda_11.8.0_520.61.05_linux.run
-```
-
-Add the following to `~/.bashrc`.
-```bash
-export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}
-export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-```
+If you need to change any Linux system-level command, update [setup_system.sh](setup_system.sh) rather than duplicating the command here.
 
 ### 3.2. macOS (Apple Silicon/MPS) setup
 
@@ -152,26 +140,32 @@ colmap --help | head -5
 
 ### 4.1. Create conda environment
 
-First, ensure you have the latest version of Conda and create a new environment:
-```bash
-# Update Conda to latest version
-conda update -n base -c defaults conda -y
+Linux: this is covered by `PYLON_REPO_DIR=$(pwd) bash docs/env_setup/setup_pylon_env.sh`.
 
-# Create and activate new environment
-conda create --name Pylon python=3.10 -y
-conda activate Pylon
-```
+That script is the source of truth for the Linux `Pylon` env lifecycle. It covers:
+
+1. `conda` shell hook activation;
+2. environment creation;
+3. activation of `Pylon`;
+4. pip bootstrap;
+5. Python package installation;
+6. OpenMMLab installation;
+7. source-only package installation;
+8. point-cloud-registration extension builds.
+
+If you need to change any Linux conda-environment command, update [setup_pylon_env.sh](setup_pylon_env.sh) or the requirements files it consumes rather than duplicating the command here.
+
+macOS: create and activate the environment manually before following section 4.2.
 
 ### 4.2. Basics
 
 Linux (NVIDIA/CUDA):
 
-```bash
-# Install the pinned Python dependencies
-pip install --upgrade pip
-pip install -r docs/env_setup/requirements-torch-cu118.txt
-pip install -r docs/env_setup/requirements-extras.txt --constraint docs/env_setup/requirements-torch-cu118.txt
-```
+Covered by [setup_pylon_env.sh](setup_pylon_env.sh). The Linux package sources of truth are:
+
+1. [requirements-torch-cu118.txt](requirements-torch-cu118.txt) for the pinned PyTorch stack;
+2. [requirements-extras.txt](requirements-extras.txt) for the pinned extra Python dependencies;
+3. [setup_pylon_env.sh](setup_pylon_env.sh) for the install order, including the separate `pytorch3d` install with `--no-build-isolation`.
 
 macOS (Apple Silicon/MPS):
 
@@ -200,42 +194,29 @@ On macOS, OpenMMLab wheel availability is limited and may require source builds.
 
 ### 4.3. Segmentation related
 
-```bash
-pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/segmentation_models.pytorch.git@2cde92e776b0a074d5e2f4f6a50c68754f948015
-```
+Linux: covered by [requirements-extras.txt](requirements-extras.txt) and installed by [setup_pylon_env.sh](setup_pylon_env.sh).
+
+macOS: install the equivalent dependency set from [requirements-extras-macos.txt](requirements-extras-macos.txt).
 
 ### 4.4. Point cloud registration related
 
-```bash
-pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
-git clone https://github.com/KinglittleQ/torch-batch-svd.git && cd torch-batch-svd && python setup.py install && cd ..
-```
+Linux:
+
+1. `KNN_CUDA` is declared in [requirements-extras.txt](requirements-extras.txt).
+2. `torch-batch-svd` is installed by [setup_pylon_env.sh](setup_pylon_env.sh) in the source-only packages phase.
 
 On macOS, skip `KNN_CUDA` because CUDA is unavailable.
 
 ### 4.5. Point Cloud Registration CUDA Extensions (Linux/NVIDIA only)
 
-Compile the required CUDA extensions for point cloud registration models:
+Covered by [setup_pylon_env.sh](setup_pylon_env.sh). That script builds:
 
-```bash
-# GeoTransformer extensions
-cd data/collators/geotransformer && python setup.py install && cd ../../..
+1. GeoTransformer extensions;
+2. OverlapPredator collator extensions;
+3. D3Feat collator extensions;
+4. Buffer collator extensions;
+5. Buffer `pointnet2_ops`;
+6. PARENet CPU extensions;
+7. PARENet CUDA `pointops`.
 
-# Buffer/OverlapPredator extensions  
-cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
-
-# D3Feat extensions
-cd data/collators/d3feat/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
-
-# OverlapPredator extensions
-cd data/collators/overlappredator/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
-
-# PointNet2 operations for Buffer (avoids JIT compilation hanging)
-cd models/point_cloud_registration/buffer/pointnet2_ops && python setup.py build_ext --inplace && cd ../../../..
-
-# 1. PARENet CPU extensions (grid_subsampling, radius_neighbors)
-cd models/point_cloud_registration/parenet && python setup.py build_ext --inplace && cd ../../..
-
-# 2. PARENet CUDA extensions (pointops)
-cd models/point_cloud_registration/parenet/pareconv/extensions/pointops && python setup.py install && cd ../../../../../..
-```
+If you need to change the build commands or the extension list, update [setup_pylon_env.sh](setup_pylon_env.sh) rather than duplicating the shell commands here.
