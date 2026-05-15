@@ -1,11 +1,13 @@
-from typing import Dict, Optional
-from functools import partial
 import math
+from functools import partial
+from typing import Dict, Optional
+
 import torch
-from timm.layers import DropPath, to_2tuple, trunc_normal_
-from models.change_detection.bifa.modules.segformer_head import SegFormerHead
-from models.change_detection.bifa.modules.my_transformer import *
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+
 from models.change_detection.bifa.bifa_help.ImplicitFunction import fpn_ifa
+from models.change_detection.bifa.modules.my_transformer import *
+from models.change_detection.bifa.modules.segformer_head import SegFormerHead
 
 
 class flowmlp(nn.Module):

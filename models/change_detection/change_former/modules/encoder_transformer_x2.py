@@ -1,8 +1,12 @@
 import math
+
 import torch
-from timm.layers import trunc_normal_
-from models.change_detection.change_former.modules.overlap_patch_embed import OverlapPatchEmbed
+from timm.models.layers import trunc_normal_
+
 from models.change_detection.change_former.modules.block import Block
+from models.change_detection.change_former.modules.overlap_patch_embed import (
+    OverlapPatchEmbed,
+)
 
 
 class EncoderTransformer_x2(torch.nn.Module):

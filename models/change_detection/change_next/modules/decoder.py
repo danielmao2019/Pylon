@@ -1,10 +1,11 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from timm.layers import trunc_normal_
 from mmcv.cnn import ConvModule
-from mmseg.models.utils import resize, SelfAttentionBlock
+from mmseg.models.utils import SelfAttentionBlock, resize
+from timm.models.layers import trunc_normal_
 
 
 class Class_Token_Seg3(nn.Module):

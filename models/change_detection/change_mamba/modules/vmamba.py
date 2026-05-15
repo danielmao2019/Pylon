@@ -1,20 +1,25 @@
-import math
 import copy
+import math
+from collections import OrderedDict
 from functools import partial
 from typing import Any
-from collections import OrderedDict
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 from einops import repeat
-from timm.layers import DropPath, trunc_normal_
 from fvcore.nn import flop_count, parameter_count
+from timm.models.layers import DropPath, trunc_normal_
+
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
 
 # triton cross scan, 2x speed than pytorch implementation =========================
-from models.change_detection.change_mamba.modules.csm_triton import CrossScanTriton, CrossMergeTriton, CrossScanTriton1b1
+from models.change_detection.change_mamba.modules.csm_triton import (
+    CrossMergeTriton,
+    CrossScanTriton,
+    CrossScanTriton1b1,
+)
 
 
 # pytorch cross scan =============

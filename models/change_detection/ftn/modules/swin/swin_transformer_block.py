@@ -1,7 +1,10 @@
 import torch
-from timm.layers import DropPath, to_2tuple
+from timm.models.layers import DropPath, to_2tuple
+
+from models.change_detection.ftn.modules.attention.window_attention import (
+    WindowAttention,
+)
 from models.change_detection.ftn.modules.mlp import Mlp
-from models.change_detection.ftn.modules.attention.window_attention import WindowAttention
 from models.change_detection.ftn.utils import window_partition, window_reverse
 
 

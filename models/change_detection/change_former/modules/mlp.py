@@ -1,6 +1,8 @@
 import math
+
 import torch
-from timm.layers import trunc_normal_
+from timm.models.layers import trunc_normal_
+
 from models.change_detection.change_former.modules.dwconv import DWConv
 
 

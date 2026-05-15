@@ -1,8 +1,9 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from timm.layers import to_2tuple, DropPath
+from timm.models.layers import DropPath, to_2tuple
 
 
 class Mlp(nn.Module):
