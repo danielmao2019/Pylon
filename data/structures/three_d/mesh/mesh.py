@@ -172,8 +172,8 @@ class Mesh:
                 uint8 `[0, 255]` or float32 `[0, 1]` values.
 
         Returns:
-            Vertex colors in contiguous float32 `[V, 3]` layout with values
-            clamped to `[0, 1]`.
+            Vertex colors in contiguous float32 `[V, 3]` layout with values in
+            `[0, 1]`.
         """
         validate_vertex_color(obj=vertex_color)
 
@@ -181,13 +181,8 @@ class Mesh:
             vertex_color = vertex_color[0]
         vertex_color = vertex_color.contiguous()
         if vertex_color.dtype == torch.uint8:
-            return (
-                vertex_color.to(dtype=torch.float32)
-                .div(255.0)
-                .clamp(0.0, 1.0)
-                .contiguous()
-            )
-        return vertex_color.to(dtype=torch.float32).clamp(0.0, 1.0).contiguous()
+            return vertex_color.to(dtype=torch.float32).div(255.0).contiguous()
+        return vertex_color.contiguous()
 
     @staticmethod
     def normalize_uv_texture_map(
@@ -200,7 +195,7 @@ class Mesh:
                 uint8 `[0, 255]` or float32 `[0, 1]` values.
 
         Returns:
-            UV texture map in contiguous float32 HWC layout with values clamped to
+            UV texture map in contiguous float32 HWC layout with values in
             `[0, 1]`.
         """
         validate_uv_texture_map(obj=uv_texture_map)
@@ -211,13 +206,8 @@ class Mesh:
             uv_texture_map = uv_texture_map.permute(1, 2, 0)
         uv_texture_map = uv_texture_map.contiguous()
         if uv_texture_map.dtype == torch.uint8:
-            return (
-                uv_texture_map.to(dtype=torch.float32)
-                .div(255.0)
-                .clamp(0.0, 1.0)
-                .contiguous()
-            )
-        return uv_texture_map.to(dtype=torch.float32).clamp(0.0, 1.0).contiguous()
+            return uv_texture_map.to(dtype=torch.float32).div(255.0).contiguous()
+        return uv_texture_map.contiguous()
 
     @classmethod
     def load(cls, path: Union[str, Path]) -> "Mesh":

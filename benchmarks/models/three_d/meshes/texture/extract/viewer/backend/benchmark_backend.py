@@ -895,9 +895,13 @@ def _build_cuda_extraction_inputs(
     )
     camera_cuda = scene_context["camera"].to(device=device, convention="opencv")
     uv_rasterization_data = _build_uv_rasterization_data(
-        vertices=exploded_vertices_cuda,
-        vertex_uv=exploded_vertex_uv_cuda,
-        faces=exploded_faces_cuda,
+        mesh=Mesh(
+            vertices=exploded_vertices_cuda,
+            faces=exploded_faces_cuda,
+            vertex_uv=exploded_vertex_uv_cuda,
+            face_uvs=exploded_faces_cuda,
+            convention="obj",
+        ),
         texture_size=scene_context["texture_size"],
     )
     return {

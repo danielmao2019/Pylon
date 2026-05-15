@@ -477,9 +477,13 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         device=device,
     )
     uv_rasterization_data = _build_uv_rasterization_data(
-        vertices=vertices,
-        vertex_uv=vertex_uv,
-        faces=faces,
+        mesh=Mesh(
+            vertices=vertices,
+            faces=faces,
+            vertex_uv=vertex_uv,
+            face_uvs=faces,
+            convention="obj",
+        ),
         texture_size=64,
     )
 
@@ -548,7 +552,7 @@ def test_extract_texture_from_images_reuses_single_mesh_across_views(
     images = torch.stack(
         [
             torch.zeros((3, 2, 2), dtype=torch.float32),
-            torch.ones((3, 2, 2), dtype=torch.float32),
+            torch.full((3, 2, 2), fill_value=0.6, dtype=torch.float32),
         ],
         dim=0,
     )
@@ -573,7 +577,7 @@ def test_extract_texture_from_images_reuses_single_mesh_across_views(
     )
 
     expected_vertex_color = torch.tensor(
-        [[0.60, 0.60, 0.60], [0.70, 0.70, 0.70]],
+        [[0.40, 0.40, 0.40], [0.50, 0.50, 0.50]],
         dtype=torch.float32,
     )
     assert torch.allclose(
@@ -771,6 +775,74 @@ def test_fuse_uv_texture_observations_returns_image_row_order() -> None:
     ), f"{fused_outputs['valid_mask']=} {expected_valid_mask=}"
 
 
+def test_fuse_uv_texture_observations_rejects_out_of_range_default_color() -> None:
+    """UV fusion should fail instead of clamping invalid fallback colors.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    observations = [
+        {
+            "texture": torch.tensor(
+                [[[[0.10, 0.20, 0.30]]]],
+                dtype=torch.float32,
+            ),
+            "weight": torch.tensor(
+                [[[[1.0]]]],
+                dtype=torch.float32,
+            ),
+        }
+    ]
+
+    with pytest.raises(
+        AssertionError,
+        match="Expected float32 RGB values to be at most 1",
+    ):
+        extract_module._fuse_uv_texture_observations(
+            observations=observations,
+            weights_cfg={"weights": "visible"},
+            default_color=1.2,
+        )
+
+
+def test_fuse_vertex_color_observations_rejects_negative_weights() -> None:
+    """Vertex-color fusion should fail instead of repairing invalid weights.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    observations = [
+        {
+            "texture": torch.tensor(
+                [[0.10, 0.20, 0.30], [0.40, 0.50, 0.60]],
+                dtype=torch.float32,
+            ),
+            "weight": torch.tensor(
+                [[1.0], [-0.1]],
+                dtype=torch.float32,
+            ),
+        }
+    ]
+
+    with pytest.raises(
+        AssertionError,
+        match="Expected vertex-color weights to be non-negative before fusion",
+    ):
+        extract_module._fuse_vertex_color_observations(
+            observations=observations,
+            weights_cfg={"weights": "visible"},
+            default_color=0.7,
+        )
+
+
 def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -789,7 +861,8 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
         camera: Cameras,
         weights_cfg: Dict[str, Any],
         uv_rasterization_data: Dict[str, torch.Tensor],
-        polygon_rast_method: str,
+        polygon_rast_method: str | None = None,
+        texel_visibility_method: str | None = None,
     ) -> Dict[str, torch.Tensor]:
         assert isinstance(mesh, Mesh), f"{type(mesh)=}"
         assert isinstance(image, torch.Tensor), f"{type(image)=}"
@@ -798,7 +871,12 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
         assert isinstance(
             uv_rasterization_data, dict
         ), f"{type(uv_rasterization_data)=}"
-        assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
+        assert isinstance(polygon_rast_method, str) or isinstance(
+            texel_visibility_method, str
+        ), (
+            "Expected one visibility-method keyword to be provided. "
+            f"{type(polygon_rast_method)=} {type(texel_visibility_method)=}"
+        )
         return {
             "texture": torch.tensor(
                 [
@@ -906,17 +984,11 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
     """
 
     def _fake_build_uv_rasterization_data(
-        vertices: torch.Tensor,
-        vertex_uv: torch.Tensor,
-        faces: torch.Tensor,
+        mesh: Mesh,
         texture_size: int,
-        face_uvs: torch.Tensor,
     ) -> Dict[str, torch.Tensor]:
-        assert isinstance(vertices, torch.Tensor), f"{type(vertices)=}"
-        assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-        assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
+        assert isinstance(mesh, Mesh), f"{type(mesh)=}"
         assert isinstance(texture_size, int), f"{type(texture_size)=}"
-        assert isinstance(face_uvs, torch.Tensor), f"{type(face_uvs)=}"
         return {"uv_mask": torch.ones((1, 2, 1, 1), dtype=torch.float32)}
 
     def _fake_extract_uv_texture_map_from_single_image(
@@ -925,7 +997,8 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         camera: Cameras,
         weights_cfg: Dict[str, Any],
         uv_rasterization_data: Dict[str, torch.Tensor],
-        polygon_rast_method: str,
+        polygon_rast_method: str | None = None,
+        texel_visibility_method: str | None = None,
     ) -> Dict[str, torch.Tensor]:
         assert isinstance(mesh, Mesh), f"{type(mesh)=}"
         assert isinstance(image, torch.Tensor), f"{type(image)=}"
@@ -934,7 +1007,12 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         assert isinstance(
             uv_rasterization_data, dict
         ), f"{type(uv_rasterization_data)=}"
-        assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
+        assert isinstance(polygon_rast_method, str) or isinstance(
+            texel_visibility_method, str
+        ), (
+            "Expected one visibility-method keyword to be provided. "
+            f"{type(polygon_rast_method)=} {type(texel_visibility_method)=}"
+        )
         return {
             "texture": torch.tensor(
                 [
@@ -1008,8 +1086,8 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
     expected_texture = torch.tensor(
         [
             [
-                [[0.70, 0.70, 0.70]],
                 [[0.10, 0.20, 0.30]],
+                [[0.70, 0.70, 0.70]],
             ]
         ],
         dtype=torch.float32,
@@ -1018,3 +1096,40 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         extracted_texture,
         expected_texture,
     ), f"{extracted_texture=} {expected_texture=}"
+
+
+def test_extract_texture_from_images_rejects_out_of_range_float_images() -> None:
+    """Public texture extraction should reject noncanonical float RGB images.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    mesh = Mesh(
+        vertices=torch.tensor(
+            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            dtype=torch.float32,
+        ),
+        faces=torch.tensor([[0, 1, 2]], dtype=torch.long),
+    )
+    images = torch.full((1, 3, 2, 2), fill_value=1.2, dtype=torch.float32)
+    cameras = Cameras(
+        intrinsics=[torch.eye(3, dtype=torch.float32)],
+        extrinsics=[torch.eye(4, dtype=torch.float32)],
+        conventions=["opencv"],
+        device="cpu",
+    )
+
+    with pytest.raises(
+        AssertionError,
+        match="Expected float32 RGB values to be at most 1",
+    ):
+        extract_texture_from_images(
+            mesh=mesh,
+            images=images,
+            cameras=cameras,
+            weights_cfg={"weights": "visible"},
+        )

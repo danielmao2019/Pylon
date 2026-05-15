@@ -10,6 +10,9 @@ import numpy as np
 import nvdiffrast.torch as dr
 import torch
 
+from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.validate import validate_uv_texture_map
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 CANONICAL_BFM_VERTEX_UV_PATH = (
     REPO_ROOT
@@ -91,15 +94,6 @@ def build_canonical_bfm_vertex_uv(
     """
 
     def _validate_inputs() -> None:
-        """Validate canonical-BFM UV build inputs.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(mean_shape, torch.Tensor), (
             "Expected `mean_shape` to be a `torch.Tensor`. " f"{type(mean_shape)=}"
         )
@@ -128,10 +122,14 @@ def build_canonical_bfm_vertex_uv(
 def _vertex_uv_to_clip(
     vertex_uv: torch.Tensor,
 ) -> torch.Tensor:
-    # Input validations
-    assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-    assert vertex_uv.ndim == 2, f"{vertex_uv.shape=}"
-    assert vertex_uv.shape[1] == 2, f"{vertex_uv.shape=}"
+    """Convert UV coordinates to rasterization clip-space coordinates.
+
+    Args:
+        vertex_uv: UV-coordinate tensor with shape ``[V, 2]``.
+
+    Returns:
+        Homogeneous clip-space positions with shape ``[1, V, 4]``.
+    """
 
     x = vertex_uv[:, 0] * 2.0 - 1.0
     y = 1.0 - vertex_uv[:, 1] * 2.0
@@ -141,42 +139,85 @@ def _vertex_uv_to_clip(
 
 
 def rasterize_vertex_features_to_uv_map(
-    vertex_uv: torch.Tensor,
-    tri: torch.Tensor,
+    mesh: Mesh,
     vertex_feature: torch.Tensor,
     texture_size: int,
-    device: torch.device,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    # Input validations
-    assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-    assert isinstance(tri, torch.Tensor), f"{type(tri)=}"
-    assert isinstance(vertex_feature, torch.Tensor), f"{type(vertex_feature)=}"
-    assert isinstance(texture_size, int), f"{type(texture_size)=}"
-    assert texture_size > 0, f"{texture_size=}"
-    assert isinstance(device, torch.device), f"{type(device)=}"
-    assert vertex_uv.ndim == 2, f"{vertex_uv.shape=}"
-    assert vertex_uv.shape[1] == 2, f"{vertex_uv.shape=}"
-    assert tri.ndim == 2, f"{tri.shape=}"
-    assert tri.shape[1] == 3, f"{tri.shape=}"
-    assert vertex_feature.ndim in (2, 3), f"{vertex_feature.shape=}"
+    """Rasterize per-vertex features onto the mesh UV map.
 
-    # Input normalizations
-    if vertex_feature.ndim == 2:
-        vertex_feature = vertex_feature.unsqueeze(0)
-    assert vertex_feature.ndim == 3, f"{vertex_feature.shape=}"
-    assert vertex_feature.shape[0] == 1, f"{vertex_feature.shape=}"
-    assert (
-        vertex_feature.shape[1] == vertex_uv.shape[0]
-    ), f"{vertex_feature.shape=} {vertex_uv.shape=}"
+    Args:
+        mesh: Mesh providing ``vertex_uv``, ``faces``, and ``device``.
+        vertex_feature: Per-vertex feature tensor with shape ``[V, C]`` or
+            ``[1, V, C]``.
+        texture_size: Output square texture resolution.
 
-    uv_clip = _vertex_uv_to_clip(vertex_uv=vertex_uv).to(
-        device=device,
+    Returns:
+        Tuple of rasterized feature map ``[1, texture_size, texture_size, C]`` and
+        valid texel mask ``[1, texture_size, texture_size, 1]``.
+    """
+
+    def _validate_inputs() -> None:
+        assert isinstance(mesh, Mesh), (
+            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+        )
+        assert mesh.vertex_uv is not None, (
+            "Expected `mesh` to carry UV coordinates. " f"{mesh.vertex_uv=}"
+        )
+        assert isinstance(vertex_feature, torch.Tensor), (
+            "Expected `vertex_feature` to be a tensor. " f"{type(vertex_feature)=}"
+        )
+        assert isinstance(texture_size, int), (
+            "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
+        )
+        assert texture_size > 0, (
+            "Expected `texture_size` to be positive. " f"{texture_size=}"
+        )
+        assert vertex_feature.ndim in (2, 3), (
+            "Expected `vertex_feature` to have shape `[V, C]` or `[1, V, C]`. "
+            f"{vertex_feature.shape=}"
+        )
+        vertex_count = mesh.vertex_uv.shape[0]
+        if vertex_feature.ndim == 2:
+            assert vertex_feature.shape[0] == vertex_count, (
+                "Expected `vertex_feature` to align with `mesh.vertex_uv`. "
+                f"{vertex_feature.shape=} {mesh.vertex_uv.shape=}"
+            )
+        else:
+            assert vertex_feature.shape[0] == 1, (
+                "Expected batched `vertex_feature` to contain one mesh. "
+                f"{vertex_feature.shape=}"
+            )
+            assert vertex_feature.shape[1] == vertex_count, (
+                "Expected `vertex_feature` to align with `mesh.vertex_uv`. "
+                f"{vertex_feature.shape=} {mesh.vertex_uv.shape=}"
+            )
+
+    _validate_inputs()
+
+    def _normalize_inputs() -> torch.Tensor:
+        """Normalize per-vertex features to a one-item batch.
+
+        Args:
+            None.
+
+        Returns:
+            Per-vertex feature tensor with shape ``[1, V, C]``.
+        """
+
+        if vertex_feature.ndim == 2:
+            return vertex_feature.unsqueeze(0)
+        return vertex_feature
+
+    vertex_feature = _normalize_inputs()
+
+    uv_clip = _vertex_uv_to_clip(vertex_uv=mesh.vertex_uv).to(
+        device=mesh.device,
         dtype=torch.float32,
     )
-    tri_i32 = tri.to(device=device, dtype=torch.int32).contiguous()
-    feat = vertex_feature.to(device=device, dtype=torch.float32).contiguous()
+    tri_i32 = mesh.faces.to(device=mesh.device, dtype=torch.int32).contiguous()
+    feat = vertex_feature.to(device=mesh.device, dtype=torch.float32).contiguous()
 
-    uv_ctx = dr.RasterizeCudaContext(device=device)
+    uv_ctx = dr.RasterizeCudaContext(device=mesh.device)
     rast_out, _ = dr.rasterize(
         glctx=uv_ctx,
         pos=uv_clip.contiguous(),
@@ -190,46 +231,62 @@ def rasterize_vertex_features_to_uv_map(
 
 
 def bake_vertex_colors_to_uv_texture_map(
-    vertex_uv: torch.Tensor,
-    tri: torch.Tensor,
-    vertex_color: torch.Tensor,
+    mesh: Mesh,
     texture_size: int,
-    device: torch.device,
 ) -> torch.Tensor:
-    # Input validations
-    assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-    assert isinstance(tri, torch.Tensor), f"{type(tri)=}"
-    assert isinstance(vertex_color, torch.Tensor), f"{type(vertex_color)=}"
-    assert isinstance(texture_size, int), f"{type(texture_size)=}"
-    assert texture_size > 0, f"{texture_size=}"
-    assert isinstance(device, torch.device), f"{type(device)=}"
-    assert vertex_uv.ndim == 2, f"{vertex_uv.shape=}"
-    assert vertex_uv.shape[1] == 2, f"{vertex_uv.shape=}"
-    assert tri.ndim == 2, f"{tri.shape=}"
-    assert tri.shape[1] == 3, f"{tri.shape=}"
-    assert vertex_color.ndim in (2, 3), f"{vertex_color.shape=}"
-    assert vertex_color.shape[-1] == 3, f"{vertex_color.shape=}"
+    """Bake per-vertex colors onto a UV texture map via rasterization.
 
-    # Input normalizations
-    if vertex_color.ndim == 2:
-        vertex_color = vertex_color.unsqueeze(0)
-    assert vertex_color.ndim == 3, f"{vertex_color.shape=}"
-    assert vertex_color.shape[0] == 1, f"{vertex_color.shape=}"
-    assert (
-        vertex_color.shape[1] == vertex_uv.shape[0]
-    ), f"{vertex_color.shape=} {vertex_uv.shape=}"
+    Args:
+        mesh: Mesh providing ``vertex_color``, ``vertex_uv``, ``faces``,
+            ``convention``, and ``device``.  The UV convention is converted
+            internally; callers do not need to pre-convert.
+        texture_size: Output square texture resolution.
+
+    Returns:
+        UV texture map ``[1, texture_size, texture_size, 3]`` in ``[0, 1]``.
+    """
+
+    def _validate_inputs() -> None:
+        assert isinstance(mesh, Mesh), (
+            "Expected `mesh` to be a `Mesh`. " f"{type(mesh)=}"
+        )
+        assert mesh.vertex_color is not None, (
+            "Expected `mesh` to carry vertex colors. " f"{mesh.vertex_color=}"
+        )
+        assert mesh.uv_texture_map is None, (
+            "Expected `mesh` to not already carry a UV texture map. "
+            f"{mesh.uv_texture_map is None=}"
+        )
+        assert mesh.vertex_uv is not None, (
+            "Expected `mesh` to carry UV coordinates. " f"{mesh.vertex_uv=}"
+        )
+        assert mesh.vertex_color.shape[0] == mesh.vertex_uv.shape[0], (
+            "Expected `mesh.vertex_color` to align with `mesh.vertex_uv` because "
+            "this function uses `faces` as the shared index buffer. "
+            f"{mesh.vertex_color.shape=} {mesh.vertex_uv.shape=}"
+        )
+        assert isinstance(texture_size, int), (
+            "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
+        )
+        assert texture_size > 0, (
+            "Expected `texture_size` to be positive. " f"{texture_size=}"
+        )
+
+    _validate_inputs()
+
+    def _normalize_inputs() -> Mesh:
+        return mesh.to(convention="obj")
+
+    mesh = _normalize_inputs()
+
+    vertex_color = mesh.vertex_color.unsqueeze(0)
 
     texel_color, mask = rasterize_vertex_features_to_uv_map(
-        vertex_uv=vertex_uv,
-        tri=tri,
+        mesh=mesh,
         vertex_feature=vertex_color,
         texture_size=texture_size,
-        device=device,
     )
-    mean_color = (
-        vertex_color.to(device=device, dtype=torch.float32)
-        .mean(dim=1, keepdim=True)
-        .unsqueeze(1)
-    )
+    mean_color = vertex_color.mean(dim=1, keepdim=True).unsqueeze(1)
     uv_texture_map = texel_color * mask + mean_color * (1.0 - mask)
-    return uv_texture_map.clamp(0.0, 1.0).contiguous()
+    validate_uv_texture_map(obj=uv_texture_map)
+    return uv_texture_map.contiguous()

@@ -113,22 +113,20 @@ def validate_vertex_color(obj: Any) -> None:
         f"{obj.shape=}"
     )
     assert obj.shape[0] > 0, (
-        "Expected `vertex_color` to contain at least one vertex. " f"{obj.shape=}"
+        "Expected `vertex_color` to contain at least one RGB row. " f"{obj.shape=}"
     )
 
-    try:
+    if obj.dtype == torch.uint8:
         _validate_vertex_color_uint8(obj=obj)
         return
-    except AssertionError as uint8_error:
-        try:
-            _validate_vertex_color_float32(obj=obj)
-            return
-        except AssertionError as float32_error:
-            raise AssertionError(
-                "Expected `vertex_color` to be either uint8 `[0, 255]` or "
-                "float32 `[0, 1]`. "
-                f"{obj.dtype=} {uint8_error=} {float32_error=}"
-            ) from float32_error
+    if obj.dtype == torch.float32:
+        _validate_vertex_color_float32(obj=obj)
+        return
+    raise AssertionError(
+        "Expected `vertex_color` to be either uint8 `[0, 255]` or "
+        "float32 `[0, 1]`. "
+        f"{obj.dtype=}"
+    )
 
 
 def validate_uv_texture_map(obj: Any) -> None:
@@ -159,7 +157,8 @@ def validate_uv_texture_map(obj: Any) -> None:
             "Expected rank-4 `uv_texture_map` to have batch size 1. " f"{obj.shape=}"
         )
         assert obj.shape[1] == 3 or obj.shape[3] == 3, (
-            "Expected rank-4 `uv_texture_map` to be NCHW or NHWC with 3 channels. "
+            "Expected rank-4 `uv_texture_map` to be NCHW or NHWC with 3 "
+            "channels. "
             f"{obj.shape=}"
         )
         texture_height = int(obj.shape[2] if obj.shape[1] == 3 else obj.shape[1])
@@ -169,19 +168,17 @@ def validate_uv_texture_map(obj: Any) -> None:
         f"{obj.shape=}"
     )
 
-    try:
+    if obj.dtype == torch.uint8:
         _validate_uv_texture_map_uint8(obj=obj)
         return
-    except AssertionError as uint8_error:
-        try:
-            _validate_uv_texture_map_float32(obj=obj)
-            return
-        except AssertionError as float32_error:
-            raise AssertionError(
-                "Expected `uv_texture_map` to be either uint8 `[0, 255]` or "
-                "float32 `[0, 1]`. "
-                f"{obj.dtype=} {uint8_error=} {float32_error=}"
-            ) from float32_error
+    if obj.dtype == torch.float32:
+        _validate_uv_texture_map_float32(obj=obj)
+        return
+    raise AssertionError(
+        "Expected `uv_texture_map` to be either uint8 `[0, 255]` or "
+        "float32 `[0, 1]`. "
+        f"{obj.dtype=}"
+    )
 
 
 def _validate_vertex_color_uint8(obj: Any) -> None:
@@ -215,17 +212,10 @@ def _validate_vertex_color_float32(obj: Any) -> None:
         f"{obj.dtype=}"
     )
     assert torch.isfinite(obj).all(), (
-        "Expected float32 `vertex_color` to contain only finite values. "
+        "Expected float32 `vertex_color` to contain only finite RGB values. "
         f"{obj.shape=} {obj.dtype=}"
     )
-    assert float(obj.min().item()) >= 0.0, (
-        "Expected float32 `vertex_color` values to be at least 0. "
-        f"{float(obj.min().item())=}"
-    )
-    assert float(obj.max().item()) <= 1.0, (
-        "Expected float32 `vertex_color` values to be at most 1. "
-        f"{float(obj.max().item())=}"
-    )
+    _assert_rgb_range(obj=obj)
 
 
 def _validate_uv_texture_map_uint8(obj: Any) -> None:
@@ -259,16 +249,29 @@ def _validate_uv_texture_map_float32(obj: Any) -> None:
         f"{obj.dtype=}"
     )
     assert torch.isfinite(obj).all(), (
-        "Expected float32 `uv_texture_map` to contain only finite values. "
+        "Expected float32 `uv_texture_map` to contain only finite RGB values. "
         f"{obj.shape=} {obj.dtype=}"
     )
-    assert float(obj.min().item()) >= 0.0, (
-        "Expected float32 `uv_texture_map` values to be at least 0. "
-        f"{float(obj.min().item())=}"
+    _assert_rgb_range(obj=obj)
+
+
+def _assert_rgb_range(obj: torch.Tensor) -> None:
+    """Assert one float32 RGB tensor stays within `[0, 1]`.
+
+    Args:
+        obj: Float32 RGB tensor.
+
+    Returns:
+        None.
+    """
+
+    min_value = float(obj.min().item())
+    max_value = float(obj.max().item())
+    assert min_value >= 0.0, (
+        "Expected float32 RGB values to be at least 0. " f"{min_value=}"
     )
-    assert float(obj.max().item()) <= 1.0, (
-        "Expected float32 `uv_texture_map` values to be at most 1. "
-        f"{float(obj.max().item())=}"
+    assert max_value <= 1.0, (
+        "Expected float32 RGB values to be at most 1. " f"{max_value=}"
     )
 
 

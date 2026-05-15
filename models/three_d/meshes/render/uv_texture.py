@@ -1,63 +1,85 @@
-"""
-UV texture rendering helpers for generic triangle meshes.
-"""
+"""UV texture rendering helpers for generic triangle meshes."""
 
 from typing import Any, Tuple
 
 import nvdiffrast.torch as dr
 import torch
 
+from data.structures.three_d.mesh.mesh import Mesh
+
 
 def render_uv_texture_aligned(
     renderer: Any,
-    face_vertex: torch.Tensor,
-    tri: torch.Tensor,
-    vertex_uv: torch.Tensor,
-    uv_texture_map: torch.Tensor,
+    mesh: Mesh,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    # Input validations
-    assert renderer is not None
-    assert hasattr(renderer, "ndc_proj"), f"{type(renderer)=}"
-    assert hasattr(renderer, "rasterize_size"), f"{type(renderer)=}"
-    assert hasattr(renderer, "ctx"), f"{type(renderer)=}"
-    assert hasattr(renderer, "use_opengl"), f"{type(renderer)=}"
-    assert isinstance(face_vertex, torch.Tensor), f"{type(face_vertex)=}"
-    assert isinstance(tri, torch.Tensor), f"{type(tri)=}"
-    assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-    assert isinstance(uv_texture_map, torch.Tensor), f"{type(uv_texture_map)=}"
-    assert face_vertex.ndim == 3, f"{face_vertex.shape=}"
-    assert face_vertex.shape[2] == 3, f"{face_vertex.shape=}"
-    batch_size = int(face_vertex.shape[0])
-    assert batch_size > 0, f"{face_vertex.shape=}"
-    assert tri.ndim == 2, f"{tri.shape=}"
-    assert tri.shape[1] == 3, f"{tri.shape=}"
-    assert vertex_uv.ndim == 2, f"{vertex_uv.shape=}"
-    assert vertex_uv.shape[1] == 2, f"{vertex_uv.shape=}"
-    assert uv_texture_map.ndim == 4, f"{uv_texture_map.shape=}"
-    assert (
-        uv_texture_map.shape[0] == 1 or uv_texture_map.shape[0] == batch_size
-    ), f"{uv_texture_map.shape=} {batch_size=}"
-    assert uv_texture_map.shape[3] == 3, f"{uv_texture_map.shape=}"
-    assert (
-        face_vertex.shape[1] == vertex_uv.shape[0]
-    ), f"{face_vertex.shape=} {vertex_uv.shape=}"
+    """Render a UV-textured mesh in the renderer's aligned image space.
 
-    device = face_vertex.device
+    The mesh carries its own UV convention, ``uv_texture_map``, and
+    camera-space ``vertices``.  This function converts to the convention
+    required by ``dr.texture`` internally; callers do not need to
+    pre-convert.
+
+    Args:
+        renderer: Deep3DMM renderer exposing ``ndc_proj``, ``rasterize_size``,
+            ``ctx``, and ``use_opengl``.
+        mesh: Mesh providing camera-space ``vertices`` ``[V, 3]``,
+            ``vertex_uv``, ``faces``, ``convention``, and
+            ``uv_texture_map`` (HWC float32 ``[H, W, 3]``).
+
+    Returns:
+        Tuple of (mask ``[1, 1, H, W]``, rendered RGB ``[1, 3, H, W]``).
+    """
+
+    def _validate_inputs() -> None:
+        assert renderer is not None, "Expected `renderer` to be provided."
+        assert hasattr(renderer, "ndc_proj"), (
+            "Expected `renderer` to expose `ndc_proj`. " f"{type(renderer)=}"
+        )
+        assert hasattr(renderer, "rasterize_size"), (
+            "Expected `renderer` to expose `rasterize_size`. " f"{type(renderer)=}"
+        )
+        assert hasattr(renderer, "ctx"), (
+            "Expected `renderer` to expose `ctx`. " f"{type(renderer)=}"
+        )
+        assert hasattr(renderer, "use_opengl"), (
+            "Expected `renderer` to expose `use_opengl`. " f"{type(renderer)=}"
+        )
+        assert isinstance(mesh, Mesh), (
+            "Expected `mesh` to be a `Mesh`. " f"{type(mesh)=}"
+        )
+        assert mesh.uv_texture_map is not None, (
+            "Expected `mesh` to carry a UV texture map. " f"{mesh.uv_texture_map=}"
+        )
+        assert mesh.vertices.shape[0] == mesh.vertex_uv.shape[0], (
+            "Expected `mesh.vertex_uv` to align with `mesh.vertices` because this "
+            "function uses `faces` (not `face_uvs`) as the shared index buffer for "
+            "both rasterization and UV interpolation. "
+            f"{mesh.vertices.shape=} {mesh.vertex_uv.shape=}"
+        )
+
+    _validate_inputs()
+
+    def _normalize_inputs() -> Mesh:
+        return mesh.to(convention="top_left")
+
+    mesh = _normalize_inputs()
+
+    device = mesh.vertices.device
     ndc_proj = renderer.ndc_proj.to(device)
     vertex = torch.cat(
         [
-            face_vertex,
+            mesh.vertices.unsqueeze(0),
             torch.ones(
-                (batch_size, face_vertex.shape[1], 1),
+                (1, mesh.vertices.shape[0], 1),
                 device=device,
-                dtype=face_vertex.dtype,
+                dtype=mesh.vertices.dtype,
             ),
         ],
         dim=-1,
     )
     vertex[..., 1] = -vertex[..., 1]
     vertex_ndc = vertex @ ndc_proj.t()
-    tri_i32 = tri.to(device=device, dtype=torch.int32).contiguous()
+    tri_i32 = mesh.faces.to(device=device, dtype=torch.int32).contiguous()
 
     if renderer.ctx is None:
         if renderer.use_opengl:
@@ -74,20 +96,15 @@ def render_uv_texture_aligned(
     )
     mask = (rast_out[..., 3] > 0).float().unsqueeze(1)
     uv_feat = (
-        vertex_uv.unsqueeze(0)
-        .expand(batch_size, -1, -1)
+        mesh.vertex_uv.unsqueeze(0).to(device=device, dtype=torch.float32).contiguous()
+    )
+    uv_interp_internal, _ = dr.interpolate(uv_feat, rast_out, tri_i32)
+    uv_lookup = uv_interp_internal.clamp(0.0, 1.0).contiguous()
+    uv_tex = (
+        mesh.uv_texture_map.unsqueeze(0)
         .to(device=device, dtype=torch.float32)
         .contiguous()
     )
-    uv_interp_internal, _ = dr.interpolate(uv_feat, rast_out, tri_i32)
-    uv_interp_internal = uv_interp_internal.clamp(0.0, 1.0).contiguous()
-    uv_lookup = uv_interp_internal.clone()
-    uv_lookup[..., 1] = 1.0 - uv_lookup[..., 1]
-    uv_lookup = uv_lookup.clamp(0.0, 1.0).contiguous()
-    uv_tex = uv_texture_map
-    if uv_tex.shape[0] == 1:
-        uv_tex = uv_tex.expand(batch_size, -1, -1, -1)
-    uv_tex = uv_tex.to(device=device, dtype=torch.float32).contiguous()
     image = dr.texture(uv_tex, uv_lookup, filter_mode="linear")
     image = image.permute(0, 3, 1, 2).contiguous()
     image = image * mask

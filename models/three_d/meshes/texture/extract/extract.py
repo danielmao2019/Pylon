@@ -8,9 +8,12 @@ import torch.nn.functional as F
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.validate import (
+    validate_uv_texture_map,
+    validate_vertex_color,
+)
 from models.three_d.meshes.texture.extract.camera_geometry import (
     _project_vertices_to_image,
-    _vertices_world_to_camera,
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
     _compute_f_normals_weights,
@@ -73,37 +76,55 @@ def extract_texture_from_images(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
         assert isinstance(mesh, Mesh) or (
             isinstance(mesh, list)
             and mesh != []
             and all(isinstance(item, Mesh) for item in mesh)
-        ), f"{type(mesh)=}"
-        assert isinstance(images, torch.Tensor) or isinstance(
-            images, list
-        ), f"{type(images)=}"
-        assert isinstance(cameras, Cameras), f"{type(cameras)=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(texture_size, int), f"{type(texture_size)=}"
-        assert texture_size > 0, f"{texture_size=}"
-        assert isinstance(default_color, float), f"{type(default_color)=}"
-        assert isinstance(return_valid_mask, bool), f"{type(return_valid_mask)=}"
-        assert isinstance(
-            texel_visibility_method, str
-        ), f"{type(texel_visibility_method)=}"
-        assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
-        assert not isinstance(images, torch.Tensor) or images.ndim == 4
-        assert not isinstance(images, list) or len(images) > 0
+        ), (
+            "Expected `mesh` to be a `Mesh` or a non-empty list of `Mesh` instances. "
+            f"{type(mesh)=}"
+        )
+        assert isinstance(images, torch.Tensor) or isinstance(images, list), (
+            "Expected `images` to be a tensor or a list of tensors. " f"{type(images)=}"
+        )
+        assert isinstance(cameras, Cameras), (
+            "Expected `cameras` to be a `Cameras` instance. " f"{type(cameras)=}"
+        )
+        assert isinstance(weights_cfg, dict), (
+            "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
+        )
+        assert isinstance(texture_size, int), (
+            "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
+        )
+        assert texture_size > 0, (
+            "Expected `texture_size` to be positive. " f"{texture_size=}"
+        )
+        assert isinstance(default_color, float), (
+            "Expected `default_color` to be a `float`. " f"{type(default_color)=}"
+        )
+        assert isinstance(return_valid_mask, bool), (
+            "Expected `return_valid_mask` to be a `bool`. "
+            f"{type(return_valid_mask)=}"
+        )
+        assert isinstance(texel_visibility_method, str), (
+            "Expected `texel_visibility_method` to be a `str`. "
+            f"{type(texel_visibility_method)=}"
+        )
+        assert isinstance(polygon_rast_method, str), (
+            "Expected `polygon_rast_method` to be a `str`. "
+            f"{type(polygon_rast_method)=}"
+        )
+        assert not isinstance(images, torch.Tensor) or images.ndim == 4, (
+            "Expected tensor `images` to have shape `[N, C, H, W]`. " f"{images.shape=}"
+        )
+        assert not isinstance(images, list) or len(images) > 0, (
+            "Expected list `images` to be non-empty. " f"{len(images)=}"
+        )
         assert not isinstance(images, list) or all(
             isinstance(image, torch.Tensor) for image in images
+        ), (
+            "Expected every item in list `images` to be a tensor. "
+            f"{[type(image) for image in images]=}"
         )
         assert texel_visibility_method in ("v1", "v2"), (
             "Expected `texel_visibility_method` to be one of the supported texel "
@@ -115,84 +136,89 @@ def extract_texture_from_images(
             "rasterization methods. "
             f"{polygon_rast_method=}."
         )
-        image_count = len(images) if isinstance(images, list) else int(images.shape[0])
-        assert len(cameras) == image_count, f"{len(cameras)=} {image_count=}"
-        if isinstance(mesh, list):
-            assert len(mesh) == image_count, (
-                "Expected one mesh per view when a mesh list is provided. "
-                f"{len(mesh)=} {image_count=}"
+        if isinstance(images, list):
+            assert len(cameras) == len(images), (
+                "Expected one camera per input image. "
+                f"{len(cameras)=} {len(images)=}"
             )
-            reference_mesh = mesh[0]
+        else:
+            assert len(cameras) == int(images.shape[0]), (
+                "Expected one camera per input image. "
+                f"{len(cameras)=} {images.shape[0]=}"
+            )
+        if isinstance(mesh, list):
+            if isinstance(images, list):
+                assert len(mesh) == len(images), (
+                    "Expected one mesh per view when a mesh list is provided. "
+                    f"{len(mesh)=} {len(images)=}"
+                )
+            else:
+                assert len(mesh) == int(images.shape[0]), (
+                    "Expected one mesh per view when a mesh list is provided. "
+                    f"{len(mesh)=} {images.shape[0]=}"
+                )
             for view_mesh in mesh[1:]:
-                assert reference_mesh.faces.shape == view_mesh.faces.shape, (
+                assert mesh[0].faces.shape == view_mesh.faces.shape, (
                     "Expected all per-view meshes to share one topology. "
-                    f"{reference_mesh.faces.shape=} {view_mesh.faces.shape=}"
+                    f"{mesh[0].faces.shape=} {view_mesh.faces.shape=}"
                 )
                 assert torch.equal(
-                    reference_mesh.faces.detach().cpu(),
+                    mesh[0].faces.detach().cpu(),
                     view_mesh.faces.detach().cpu(),
                 ), (
                     "Expected all per-view meshes to share identical faces. "
-                    f"{reference_mesh.faces.shape=} {view_mesh.faces.shape=}"
+                    f"{mesh[0].faces.shape=} {view_mesh.faces.shape=}"
                 )
-                assert reference_mesh.vertices.shape == view_mesh.vertices.shape, (
+                assert mesh[0].vertices.shape == view_mesh.vertices.shape, (
                     "Expected all per-view meshes to share one vertex layout. "
-                    f"{reference_mesh.vertices.shape=} {view_mesh.vertices.shape=}"
+                    f"{mesh[0].vertices.shape=} {view_mesh.vertices.shape=}"
                 )
-                assert (reference_mesh.vertex_uv is None) == (
-                    view_mesh.vertex_uv is None
-                ), (
+                assert (mesh[0].vertex_uv is None) == (view_mesh.vertex_uv is None), (
                     "Expected all per-view meshes to agree on whether UV coordinates "
                     "are provided. "
-                    f"{reference_mesh.vertex_uv is None=} {view_mesh.vertex_uv is None=}"
+                    f"{mesh[0].vertex_uv is None=} {view_mesh.vertex_uv is None=}"
                 )
-                if reference_mesh.vertex_uv is not None:
+                if mesh[0].vertex_uv is not None:
                     assert view_mesh.vertex_uv is not None, (
                         "Expected every per-view mesh to provide UV coordinates when "
                         f"the reference mesh does. {view_mesh.vertex_uv=}"
                     )
-                    assert (
-                        reference_mesh.vertex_uv.shape == view_mesh.vertex_uv.shape
-                    ), (
+                    assert mesh[0].vertex_uv.shape == view_mesh.vertex_uv.shape, (
                         "Expected all per-view meshes to share one UV layout. "
-                        f"{reference_mesh.vertex_uv.shape=} {view_mesh.vertex_uv.shape=}"
+                        f"{mesh[0].vertex_uv.shape=} {view_mesh.vertex_uv.shape=}"
                     )
-                    assert reference_mesh.convention == view_mesh.convention, (
+                    assert mesh[0].convention == view_mesh.convention, (
                         "Expected all per-view meshes to share one UV convention. "
-                        f"{reference_mesh.convention=} {view_mesh.convention=}"
+                        f"{mesh[0].convention=} {view_mesh.convention=}"
                     )
                     assert torch.equal(
-                        reference_mesh.vertex_uv.detach().cpu(),
+                        mesh[0].vertex_uv.detach().cpu(),
                         view_mesh.vertex_uv.detach().cpu(),
                     ), (
                         "Expected all per-view meshes to share identical UV coordinates. "
-                        f"{reference_mesh.vertex_uv.shape=} {view_mesh.vertex_uv.shape=}"
+                        f"{mesh[0].vertex_uv.shape=} {view_mesh.vertex_uv.shape=}"
                     )
-                    assert (reference_mesh.face_uvs is None) == (
-                        view_mesh.face_uvs is None
-                    ), (
+                    assert (mesh[0].face_uvs is None) == (view_mesh.face_uvs is None), (
                         "Expected all per-view meshes to agree on whether `face_uvs` "
                         "is provided. "
-                        f"{reference_mesh.face_uvs is None=} {view_mesh.face_uvs is None=}"
+                        f"{mesh[0].face_uvs is None=} {view_mesh.face_uvs is None=}"
                     )
-                    if reference_mesh.face_uvs is not None:
+                    if mesh[0].face_uvs is not None:
                         assert view_mesh.face_uvs is not None, (
                             "Expected every per-view mesh to provide `face_uvs` when "
                             f"the reference mesh does. {view_mesh.face_uvs=}"
                         )
-                        assert (
-                            reference_mesh.face_uvs.shape == view_mesh.face_uvs.shape
-                        ), (
+                        assert mesh[0].face_uvs.shape == view_mesh.face_uvs.shape, (
                             "Expected all per-view meshes to share one UV-face layout. "
-                            f"{reference_mesh.face_uvs.shape=} {view_mesh.face_uvs.shape=}"
+                            f"{mesh[0].face_uvs.shape=} {view_mesh.face_uvs.shape=}"
                         )
                         assert torch.equal(
-                            reference_mesh.face_uvs.detach().cpu(),
+                            mesh[0].face_uvs.detach().cpu(),
                             view_mesh.face_uvs.detach().cpu(),
                         ), (
                             "Expected all per-view meshes to share identical UV-face "
                             "indices. "
-                            f"{reference_mesh.face_uvs.shape=} {view_mesh.face_uvs.shape=}"
+                            f"{mesh[0].face_uvs.shape=} {view_mesh.face_uvs.shape=}"
                         )
         validate_weights_cfg(
             weights_cfg=weights_cfg,
@@ -237,7 +263,10 @@ def extract_texture_from_images(
     if image_stack.shape[1] == 3:
         images_nchw = image_stack
     else:
-        assert image_stack.shape[3] == 3, f"{image_stack.shape=}"
+        assert image_stack.shape[3] == 3, (
+            "Expected channel-last `image_stack` to have three RGB channels. "
+            f"{image_stack.shape=}"
+        )
         images_nchw = image_stack.permute(0, 3, 1, 2).contiguous()
 
     if images_nchw.dtype == torch.uint8:
@@ -301,24 +330,34 @@ def _extract_vertex_color_from_images(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(meshes, list), f"{type(meshes)=}"
-        assert meshes != [], f"{meshes=}"
-        assert all(isinstance(mesh, Mesh) for mesh in meshes), f"{meshes=}"
-        assert isinstance(images_nchw, torch.Tensor), f"{type(images_nchw)=}"
-        assert isinstance(cameras, Cameras), f"{type(cameras)=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(default_color, float), f"{type(default_color)=}"
-        assert images_nchw.ndim == 4, f"{images_nchw.shape=}"
-        assert images_nchw.shape[1] == 3, f"{images_nchw.shape=}"
+        assert isinstance(meshes, list), (
+            "Expected `meshes` to be a list. " f"{type(meshes)=}"
+        )
+        assert meshes != [], "Expected `meshes` to be non-empty. " f"{meshes=}"
+        assert all(isinstance(mesh, Mesh) for mesh in meshes), (
+            "Expected every item in `meshes` to be a `Mesh`. "
+            f"{[type(mesh) for mesh in meshes]=}"
+        )
+        assert isinstance(images_nchw, torch.Tensor), (
+            "Expected `images_nchw` to be a tensor. " f"{type(images_nchw)=}"
+        )
+        assert isinstance(cameras, Cameras), (
+            "Expected `cameras` to be a `Cameras` instance. " f"{type(cameras)=}"
+        )
+        assert isinstance(weights_cfg, dict), (
+            "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
+        )
+        assert isinstance(default_color, float), (
+            "Expected `default_color` to be a `float`. " f"{type(default_color)=}"
+        )
+        assert images_nchw.ndim == 4, (
+            "Expected `images_nchw` to have shape `[N, 3, H, W]`. "
+            f"{images_nchw.shape=}"
+        )
+        assert images_nchw.shape[1] == 3, (
+            "Expected `images_nchw` to contain three RGB channels. "
+            f"{images_nchw.shape=}"
+        )
         assert (
             len(meshes) == images_nchw.shape[0] == len(cameras)
         ), f"{len(meshes)=} {images_nchw.shape=} {len(cameras)=}"
@@ -381,39 +420,60 @@ def _fuse_vertex_color_observations(
     """
 
     def _validate_inputs() -> None:
-        """Validate vertex-observation fusion inputs.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
-        assert isinstance(observations, list), f"{type(observations)=}"
-        assert observations != [], f"{observations=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(default_color, float), f"{type(default_color)=}"
+        assert isinstance(observations, list), (
+            "Expected `observations` to be a list. " f"{type(observations)=}"
+        )
+        assert observations != [], (
+            "Expected `observations` to be non-empty. " f"{observations=}"
+        )
+        assert isinstance(weights_cfg, dict), (
+            "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
+        )
+        assert isinstance(default_color, float), (
+            "Expected `default_color` to be a `float`. " f"{type(default_color)=}"
+        )
         for observation in observations:
-            assert isinstance(observation, dict), f"{type(observation)=}"
+            assert isinstance(observation, dict), (
+                "Expected each `observation` to be a dictionary. "
+                f"{type(observation)=}"
+            )
             assert set(observation.keys()) == {"texture", "weight"}, (
                 "Expected one vertex-color observation to contain `texture` and "
                 f"`weight`. {observation.keys()=}"
             )
-            assert isinstance(
-                observation["texture"], torch.Tensor
-            ), f"{type(observation['texture'])=}"
-            assert isinstance(
-                observation["weight"], torch.Tensor
-            ), f"{type(observation['weight'])=}"
-            assert observation["texture"].ndim == 2, f"{observation['texture'].shape=}"
-            assert (
-                observation["texture"].shape[1] == 3
-            ), f"{observation['texture'].shape=}"
-            assert observation["weight"].ndim == 2, f"{observation['weight'].shape=}"
-            assert (
-                observation["weight"].shape[1] == 1
-            ), f"{observation['weight'].shape=}"
+            assert isinstance(observation["texture"], torch.Tensor), (
+                "Expected vertex-color observations to store tensor `texture` "
+                "values. "
+                f"{type(observation['texture'])=}"
+            )
+            validate_vertex_color(obj=observation["texture"])
+            assert isinstance(observation["weight"], torch.Tensor), (
+                "Expected vertex-color observations to store tensor `weight` "
+                "values. "
+                f"{type(observation['weight'])=}"
+            )
+            assert observation["weight"].ndim == 2, (
+                "Expected vertex-color weights to have shape `[V, 1]`. "
+                f"{observation['weight'].shape=}"
+            )
+            assert observation["weight"].shape[1] == 1, (
+                "Expected vertex-color weights to have one scalar weight per "
+                "vertex. "
+                f"{observation['weight'].shape=}"
+            )
+            assert observation["weight"].dtype == torch.float32, (
+                "Expected vertex-color weights to already be float32 before "
+                "fusion. "
+                f"{observation['weight'].dtype=}"
+            )
+            assert torch.isfinite(observation["weight"]).all(), (
+                "Expected vertex-color weights to contain only finite values. "
+                f"{observation['weight'].shape=}"
+            )
+            assert float(observation["weight"].min().item()) >= 0.0, (
+                "Expected vertex-color weights to be non-negative before fusion. "
+                f"{float(observation['weight'].min().item())=}"
+            )
             assert (
                 observation["texture"].shape[0] == observation["weight"].shape[0]
             ), f"{observation['texture'].shape=} {observation['weight'].shape=}"
@@ -449,22 +509,16 @@ def _fuse_vertex_color_observations(
 
     if multi_view_robustness == "none":
         for observation in observations:
-            texture = observation["texture"].to(device=device, dtype=torch.float32)
-            weight = observation["weight"].to(device=device, dtype=torch.float32)
+            texture = observation["texture"].to(device=device)
+            weight = observation["weight"].to(device=device)
             color_numerator = color_numerator + texture * weight
             weight_denominator = weight_denominator + weight
     else:
         provisional_numerator = torch.zeros_like(color_numerator)
         provisional_denominator = torch.zeros_like(weight_denominator)
         for observation in observations:
-            provisional_texture = observation["texture"].to(
-                device=device,
-                dtype=torch.float32,
-            )
-            provisional_weight = observation["weight"].to(
-                device=device,
-                dtype=torch.float32,
-            )
+            provisional_texture = observation["texture"].to(device=device)
+            provisional_weight = observation["weight"].to(device=device)
             provisional_numerator = (
                 provisional_numerator + provisional_texture * provisional_weight
             )
@@ -476,6 +530,7 @@ def _fuse_vertex_color_observations(
             device=device,
             dtype=torch.float32,
         )
+        validate_vertex_color(obj=provisional_vertex_color)
         provisional_has_weight = provisional_denominator > 0.0
         provisional_vertex_color = torch.where(
             provisional_has_weight.expand_as(provisional_vertex_color),
@@ -484,8 +539,8 @@ def _fuse_vertex_color_observations(
         )
 
         for observation in observations:
-            texture = observation["texture"].to(device=device, dtype=torch.float32)
-            weight = observation["weight"].to(device=device, dtype=torch.float32)
+            texture = observation["texture"].to(device=device)
+            weight = observation["weight"].to(device=device)
             residual = torch.linalg.norm(
                 texture - provisional_vertex_color,
                 dim=1,
@@ -502,14 +557,16 @@ def _fuse_vertex_color_observations(
         device=device,
         dtype=torch.float32,
     )
+    validate_vertex_color(obj=vertex_color)
     has_weight = weight_denominator > 0.0
     vertex_color = torch.where(
         has_weight.expand_as(vertex_color),
         color_numerator / (weight_denominator + 1e-6),
         vertex_color,
     )
+    validate_vertex_color(obj=vertex_color)
     return {
-        "texture": vertex_color.clamp(0.0, 1.0).contiguous(),
+        "texture": vertex_color.contiguous(),
         "valid_mask": has_weight.to(dtype=torch.float32).contiguous(),
     }
 
@@ -537,23 +594,31 @@ def _extract_vertex_color_from_single_image(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(mesh, Mesh), f"{type(mesh)=}"
-        assert isinstance(image, torch.Tensor), f"{type(image)=}"
-        assert isinstance(camera, Cameras), f"{type(camera)=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(default_color, float), f"{type(default_color)=}"
-        assert image.ndim == 3, f"{image.shape=}"
-        assert image.shape[0] == 3, f"{image.shape=}"
-        assert len(camera) == 1, f"{len(camera)=}"
+        assert isinstance(mesh, Mesh), (
+            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+        )
+        assert isinstance(image, torch.Tensor), (
+            "Expected `image` to be a tensor. " f"{type(image)=}"
+        )
+        assert isinstance(camera, Cameras), (
+            "Expected `camera` to be a `Cameras` instance. " f"{type(camera)=}"
+        )
+        assert isinstance(weights_cfg, dict), (
+            "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
+        )
+        assert isinstance(default_color, float), (
+            "Expected `default_color` to be a `float`. " f"{type(default_color)=}"
+        )
+        assert image.ndim == 3, (
+            "Expected `image` to have shape `[3, H, W]`. " f"{image.shape=}"
+        )
+        assert image.shape[0] == 3, (
+            "Expected `image` to contain three RGB channels. " f"{image.shape=}"
+        )
+        validate_uv_texture_map(obj=image)
+        assert len(camera) == 1, (
+            "Expected `camera` to contain exactly one view. " f"{len(camera)=}"
+        )
         validate_weights_cfg(
             weights_cfg=weights_cfg,
         )
@@ -624,26 +689,6 @@ def _project_v_colors(
         Vertex RGB colors with shape [V, 3].
     """
 
-    def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(mesh, Mesh), f"{type(mesh)=}"
-        assert isinstance(image, torch.Tensor), f"{type(image)=}"
-        assert isinstance(camera, Cameras), f"{type(camera)=}"
-        assert isinstance(default_color, float), f"{type(default_color)=}"
-        assert image.ndim == 3, f"{image.shape=}"
-        assert image.shape[0] == 3, f"{image.shape=}"
-        assert len(camera) == 1, f"{len(camera)=}"
-
-    _validate_inputs()
-
     xy, _depth, _vertices_camera, projection_valid = _project_vertices_to_image(
         vertices=mesh.vertices,
         camera=camera,
@@ -698,34 +743,55 @@ def _extract_uv_texture_map_from_images(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(meshes, list), f"{type(meshes)=}"
-        assert meshes != [], f"{meshes=}"
-        assert all(isinstance(mesh, Mesh) for mesh in meshes), f"{meshes=}"
-        assert isinstance(images_nchw, torch.Tensor), f"{type(images_nchw)=}"
-        assert isinstance(cameras, Cameras), f"{type(cameras)=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(texture_size, int), f"{type(texture_size)=}"
-        assert texture_size > 0, f"{texture_size=}"
-        assert isinstance(default_color, float), f"{type(default_color)=}"
-        assert isinstance(
-            texel_visibility_method, str
-        ), f"{type(texel_visibility_method)=}"
-        assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
-        assert images_nchw.ndim == 4, f"{images_nchw.shape=}"
-        assert images_nchw.shape[1] == 3, f"{images_nchw.shape=}"
+        assert isinstance(meshes, list), (
+            "Expected `meshes` to be a list. " f"{type(meshes)=}"
+        )
+        assert meshes != [], "Expected `meshes` to be non-empty. " f"{meshes=}"
+        assert all(isinstance(mesh, Mesh) for mesh in meshes), (
+            "Expected every item in `meshes` to be a `Mesh`. "
+            f"{[type(mesh) for mesh in meshes]=}"
+        )
+        assert isinstance(images_nchw, torch.Tensor), (
+            "Expected `images_nchw` to be a tensor. " f"{type(images_nchw)=}"
+        )
+        assert isinstance(cameras, Cameras), (
+            "Expected `cameras` to be a `Cameras` instance. " f"{type(cameras)=}"
+        )
+        assert isinstance(weights_cfg, dict), (
+            "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
+        )
+        assert isinstance(texture_size, int), (
+            "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
+        )
+        assert texture_size > 0, (
+            "Expected `texture_size` to be positive. " f"{texture_size=}"
+        )
+        assert isinstance(default_color, float), (
+            "Expected `default_color` to be a `float`. " f"{type(default_color)=}"
+        )
+        assert isinstance(texel_visibility_method, str), (
+            "Expected `texel_visibility_method` to be a `str`. "
+            f"{type(texel_visibility_method)=}"
+        )
+        assert isinstance(polygon_rast_method, str), (
+            "Expected `polygon_rast_method` to be a `str`. "
+            f"{type(polygon_rast_method)=}"
+        )
+        assert images_nchw.ndim == 4, (
+            "Expected `images_nchw` to have shape `[N, 3, H, W]`. "
+            f"{images_nchw.shape=}"
+        )
+        assert images_nchw.shape[1] == 3, (
+            "Expected `images_nchw` to contain three RGB channels. "
+            f"{images_nchw.shape=}"
+        )
         assert (
             len(meshes) == len(cameras) == images_nchw.shape[0]
         ), f"{len(meshes)=} {len(cameras)=} {images_nchw.shape=}"
-        assert meshes[0].vertex_uv is not None, f"{meshes[0].vertex_uv=}"
+        assert meshes[0].vertex_uv is not None, (
+            "Expected the reference mesh to provide UV coordinates for UV extraction. "
+            f"{meshes[0].vertex_uv=}"
+        )
         assert texel_visibility_method in ("v1", "v2"), (
             "Expected `texel_visibility_method` to be one of the supported texel "
             "visibility methods. "
@@ -761,11 +827,8 @@ def _extract_uv_texture_map_from_images(
 
     reference_mesh = meshes[0]
     uv_rasterization_data = _build_uv_rasterization_data(
-        vertices=reference_mesh.vertices,
-        vertex_uv=reference_mesh.vertex_uv,
-        faces=reference_mesh.faces,
+        mesh=reference_mesh,
         texture_size=texture_size,
-        face_uvs=reference_mesh.face_uvs,
     )
     observations: List[Dict[str, torch.Tensor]] = []
     for view_idx in range(images_nchw.shape[0]):
@@ -806,45 +869,60 @@ def _fuse_uv_texture_observations(
     """
 
     def _validate_inputs() -> None:
-        """Validate UV-observation fusion inputs.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
-        assert isinstance(observations, list), f"{type(observations)=}"
-        assert observations != [], f"{observations=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(default_color, float), f"{type(default_color)=}"
+        assert isinstance(observations, list), (
+            "Expected `observations` to be a list. " f"{type(observations)=}"
+        )
+        assert observations != [], (
+            "Expected `observations` to be non-empty. " f"{observations=}"
+        )
+        assert isinstance(weights_cfg, dict), (
+            "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
+        )
+        assert isinstance(default_color, float), (
+            "Expected `default_color` to be a `float`. " f"{type(default_color)=}"
+        )
         for observation in observations:
-            assert isinstance(observation, dict), f"{type(observation)=}"
+            assert isinstance(observation, dict), (
+                "Expected each `observation` to be a dictionary. "
+                f"{type(observation)=}"
+            )
             assert set(observation.keys()) == {"texture", "weight"}, (
                 "Expected one UV observation to contain `texture` and `weight`. "
                 f"{observation.keys()=}"
             )
-            assert isinstance(
-                observation["texture"], torch.Tensor
-            ), f"{type(observation['texture'])=}"
-            assert isinstance(
-                observation["weight"], torch.Tensor
-            ), f"{type(observation['weight'])=}"
-            assert observation["texture"].ndim == 4, f"{observation['texture'].shape=}"
-            assert (
-                observation["texture"].shape[0] == 1
-            ), f"{observation['texture'].shape=}"
-            assert (
-                observation["texture"].shape[3] == 3
-            ), f"{observation['texture'].shape=}"
-            assert observation["weight"].ndim == 4, f"{observation['weight'].shape=}"
-            assert (
-                observation["weight"].shape[0] == 1
-            ), f"{observation['weight'].shape=}"
-            assert (
-                observation["weight"].shape[3] == 1
-            ), f"{observation['weight'].shape=}"
+            assert isinstance(observation["texture"], torch.Tensor), (
+                "Expected UV observations to store tensor `texture` values. "
+                f"{type(observation['texture'])=}"
+            )
+            validate_uv_texture_map(obj=observation["texture"])
+            assert isinstance(observation["weight"], torch.Tensor), (
+                "Expected UV observations to store tensor `weight` values. "
+                f"{type(observation['weight'])=}"
+            )
+            assert observation["weight"].ndim == 4, (
+                "Expected UV weights to have shape `[1, H, W, 1]`. "
+                f"{observation['weight'].shape=}"
+            )
+            assert observation["weight"].shape[0] == 1, (
+                "Expected UV weights to keep batch size 1. "
+                f"{observation['weight'].shape=}"
+            )
+            assert observation["weight"].shape[3] == 1, (
+                "Expected UV weights to store one scalar weight per texel. "
+                f"{observation['weight'].shape=}"
+            )
+            assert observation["weight"].dtype == torch.float32, (
+                "Expected UV weights to already be float32 before fusion. "
+                f"{observation['weight'].dtype=}"
+            )
+            assert torch.isfinite(observation["weight"]).all(), (
+                "Expected UV weights to contain only finite values. "
+                f"{observation['weight'].shape=}"
+            )
+            assert float(observation["weight"].min().item()) >= 0.0, (
+                "Expected UV weights to be non-negative before fusion. "
+                f"{float(observation['weight'].min().item())=}"
+            )
             assert (
                 observation["texture"].shape[1] == observation["weight"].shape[1]
             ), f"{observation['texture'].shape=} {observation['weight'].shape=}"
@@ -890,22 +968,16 @@ def _fuse_uv_texture_observations(
 
     if multi_view_robustness == "none":
         for observation in observations:
-            texture = observation["texture"].to(device=device, dtype=torch.float32)
-            weight = observation["weight"].to(device=device, dtype=torch.float32)
+            texture = observation["texture"].to(device=device)
+            weight = observation["weight"].to(device=device)
             uv_numerator = uv_numerator + texture * weight
             uv_denominator = uv_denominator + weight
     else:
         provisional_uv_numerator = torch.zeros_like(uv_numerator)
         provisional_uv_denominator = torch.zeros_like(uv_denominator)
         for observation in observations:
-            provisional_uv_texture = observation["texture"].to(
-                device=device,
-                dtype=torch.float32,
-            )
-            provisional_uv_weight = observation["weight"].to(
-                device=device,
-                dtype=torch.float32,
-            )
+            provisional_uv_texture = observation["texture"].to(device=device)
+            provisional_uv_weight = observation["weight"].to(device=device)
             provisional_uv_numerator = (
                 provisional_uv_numerator
                 + provisional_uv_texture * provisional_uv_weight
@@ -920,6 +992,7 @@ def _fuse_uv_texture_observations(
             device=device,
             dtype=torch.float32,
         )
+        validate_uv_texture_map(obj=provisional_uv_texture_map)
         provisional_uv_has_weight = provisional_uv_denominator > 0.0
         provisional_uv_texture_map = torch.where(
             provisional_uv_has_weight.expand_as(provisional_uv_texture_map),
@@ -928,8 +1001,8 @@ def _fuse_uv_texture_observations(
         )
 
         for observation in observations:
-            texture = observation["texture"].to(device=device, dtype=torch.float32)
-            weight = observation["weight"].to(device=device, dtype=torch.float32)
+            texture = observation["texture"].to(device=device)
+            weight = observation["weight"].to(device=device)
             residual = torch.linalg.norm(
                 texture - provisional_uv_texture_map,
                 dim=3,
@@ -946,14 +1019,16 @@ def _fuse_uv_texture_observations(
         device=device,
         dtype=torch.float32,
     )
+    validate_uv_texture_map(obj=uv_texture_map)
     has_weight = uv_denominator > 0.0
     uv_texture_map = torch.where(
         has_weight.expand_as(uv_texture_map),
         uv_numerator / (uv_denominator + 1e-6),
         uv_texture_map,
     )
+    validate_uv_texture_map(obj=uv_texture_map)
     return {
-        "texture": uv_texture_map.clamp(0.0, 1.0).contiguous(),
+        "texture": uv_texture_map.contiguous(),
         "valid_mask": has_weight.to(dtype=torch.float32).contiguous(),
     }
 
@@ -984,28 +1059,40 @@ def _extract_uv_texture_map_from_single_image(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        assert isinstance(mesh, Mesh), f"{type(mesh)=}"
-        assert isinstance(image, torch.Tensor), f"{type(image)=}"
-        assert isinstance(camera, Cameras), f"{type(camera)=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
-        assert isinstance(
-            texel_visibility_method, str
-        ), f"{type(texel_visibility_method)=}"
-        assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
-        assert image.ndim == 3, f"{image.shape=}"
-        assert image.shape[0] == 3, f"{image.shape=}"
-        assert len(camera) == 1, f"{len(camera)=}"
+        assert isinstance(mesh, Mesh), (
+            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+        )
+        assert isinstance(image, torch.Tensor), (
+            "Expected `image` to be a tensor. " f"{type(image)=}"
+        )
+        assert isinstance(camera, Cameras), (
+            "Expected `camera` to be a `Cameras` instance. " f"{type(camera)=}"
+        )
+        assert isinstance(weights_cfg, dict), (
+            "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
+        )
+        assert isinstance(uv_rasterization_data, dict), (
+            "Expected `uv_rasterization_data` to be a dictionary. "
+            f"{type(uv_rasterization_data)=}"
+        )
+        assert isinstance(texel_visibility_method, str), (
+            "Expected `texel_visibility_method` to be a `str`. "
+            f"{type(texel_visibility_method)=}"
+        )
+        assert isinstance(polygon_rast_method, str), (
+            "Expected `polygon_rast_method` to be a `str`. "
+            f"{type(polygon_rast_method)=}"
+        )
+        assert image.ndim == 3, (
+            "Expected `image` to have shape `[3, H, W]`. " f"{image.shape=}"
+        )
+        assert image.shape[0] == 3, (
+            "Expected `image` to contain three RGB channels. " f"{image.shape=}"
+        )
+        validate_uv_texture_map(obj=image)
+        assert len(camera) == 1, (
+            "Expected `camera` to contain exactly one view. " f"{len(camera)=}"
+        )
         assert texel_visibility_method in ("v1", "v2"), (
             "Expected `texel_visibility_method` to be one of the supported texel "
             "visibility methods. "
@@ -1084,14 +1171,8 @@ def _extract_uv_texture_map_from_single_image(
         uv_rasterization_data=uv_rasterization_data,
     )
     return {
-        "texture": torch.flip(
-            uv_texture.to(dtype=torch.float32).clamp(0.0, 1.0),
-            dims=[1],
-        ).contiguous(),
-        "weight": torch.flip(
-            uv_weight.to(dtype=torch.float32),
-            dims=[1],
-        ).contiguous(),
+        "texture": torch.flip(uv_texture, dims=[1]).contiguous(),
+        "weight": torch.flip(uv_weight.to(dtype=torch.float32), dims=[1]).contiguous(),
     }
 
 
@@ -1114,29 +1195,22 @@ def _project_f_colors(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(mesh, Mesh), f"{type(mesh)=}"
-        assert isinstance(image, torch.Tensor), f"{type(image)=}"
-        assert isinstance(camera, Cameras), f"{type(camera)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
-        assert "tri_i32" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
-        assert "rast_out" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
-        assert (
-            "raster_vertex_indices" in uv_rasterization_data
-        ), f"{uv_rasterization_data.keys()=}"
-        assert image.ndim == 3, f"{image.shape=}"
-        assert image.shape[0] == 3, f"{image.shape=}"
-        assert len(camera) == 1, f"{len(camera)=}"
+        assert isinstance(uv_rasterization_data, dict), (
+            "Expected `uv_rasterization_data` to be a dictionary. "
+            f"{type(uv_rasterization_data)=}"
+        )
+        assert "tri_i32" in uv_rasterization_data, (
+            "Expected `uv_rasterization_data` to contain `tri_i32`. "
+            f"{uv_rasterization_data.keys()=}"
+        )
+        assert "rast_out" in uv_rasterization_data, (
+            "Expected `uv_rasterization_data` to contain `rast_out`. "
+            f"{uv_rasterization_data.keys()=}"
+        )
+        assert "raster_vertex_indices" in uv_rasterization_data, (
+            "Expected `uv_rasterization_data` to contain `raster_vertex_indices`. "
+            f"{uv_rasterization_data.keys()=}"
+        )
 
     _validate_inputs()
 
@@ -1155,28 +1229,28 @@ def _project_f_colors(
         """
 
         def _validate_inputs() -> None:
-            """Validate input arguments.
-
-            Args:
-                None.
-
-            Returns:
-                None.
-            """
-            assert isinstance(
-                projected_vertex_xy, torch.Tensor
-            ), f"{type(projected_vertex_xy)=}"
-            assert projected_vertex_xy.ndim == 2, f"{projected_vertex_xy.shape=}"
-            assert projected_vertex_xy.shape[1] == 2, f"{projected_vertex_xy.shape=}"
+            assert isinstance(projected_vertex_xy, torch.Tensor), (
+                "Expected `projected_vertex_xy` to be a tensor. "
+                f"{type(projected_vertex_xy)=}"
+            )
+            assert projected_vertex_xy.ndim == 2, (
+                "Expected `projected_vertex_xy` to have shape `[V, 2]`. "
+                f"{projected_vertex_xy.shape=}"
+            )
+            assert projected_vertex_xy.shape[1] == 2, (
+                "Expected `projected_vertex_xy` to have shape `[V, 2]`. "
+                f"{projected_vertex_xy.shape=}"
+            )
 
         _validate_inputs()
 
         tri_i32 = uv_rasterization_data["tri_i32"]
         rast_out = uv_rasterization_data["rast_out"]
         raster_vertex_indices = uv_rasterization_data["raster_vertex_indices"]
-        assert isinstance(
-            raster_vertex_indices, torch.Tensor
-        ), f"{type(raster_vertex_indices)=}"
+        assert isinstance(raster_vertex_indices, torch.Tensor), (
+            "Expected `raster_vertex_indices` to be a tensor. "
+            f"{type(raster_vertex_indices)=}"
+        )
         raster_xy = projected_vertex_xy[raster_vertex_indices]
         interpolated_uv_xy, _ = dr.interpolate(
             attr=raster_xy.unsqueeze(0).contiguous(),
@@ -1200,20 +1274,22 @@ def _project_f_colors(
         """
 
         def _validate_inputs() -> None:
-            """Validate input arguments.
-
-            Args:
-                None.
-
-            Returns:
-                None.
-            """
-            assert isinstance(
-                interpolated_uv_xy, torch.Tensor
-            ), f"{type(interpolated_uv_xy)=}"
-            assert interpolated_uv_xy.ndim == 4, f"{interpolated_uv_xy.shape=}"
-            assert interpolated_uv_xy.shape[0] == 1, f"{interpolated_uv_xy.shape=}"
-            assert interpolated_uv_xy.shape[3] == 2, f"{interpolated_uv_xy.shape=}"
+            assert isinstance(interpolated_uv_xy, torch.Tensor), (
+                "Expected `interpolated_uv_xy` to be a tensor. "
+                f"{type(interpolated_uv_xy)=}"
+            )
+            assert interpolated_uv_xy.ndim == 4, (
+                "Expected `interpolated_uv_xy` to have shape `[1, T, T, 2]`. "
+                f"{interpolated_uv_xy.shape=}"
+            )
+            assert interpolated_uv_xy.shape[0] == 1, (
+                "Expected `interpolated_uv_xy` to keep batch size 1. "
+                f"{interpolated_uv_xy.shape=}"
+            )
+            assert interpolated_uv_xy.shape[3] == 2, (
+                "Expected `interpolated_uv_xy` to store 2D image coordinates. "
+                f"{interpolated_uv_xy.shape=}"
+            )
 
         _validate_inputs()
 
@@ -1243,10 +1319,12 @@ def _project_f_colors(
         projected_vertex_xy=xy,
         uv_rasterization_data=uv_rasterization_data,
     )
-    return _sample_uv_texel_colors_from_source_image(
+    uv_texture = _sample_uv_texel_colors_from_source_image(
         interpolated_uv_xy=interpolated_uv_xy,
         image=image,
     )
+    validate_uv_texture_map(obj=uv_texture)
+    return uv_texture.contiguous()
 
 
 # -----------------------------------------------------------------------------
@@ -1255,20 +1333,14 @@ def _project_f_colors(
 
 
 def _build_uv_rasterization_data(
-    vertices: torch.Tensor,
-    vertex_uv: torch.Tensor,
-    faces: torch.Tensor,
+    mesh: Mesh,
     texture_size: int,
-    face_uvs: Optional[torch.Tensor] = None,
 ) -> Dict[str, torch.Tensor]:
     """Build reusable UV rasterization tensors for UV-space operations.
 
     Args:
-        vertices: Mesh vertices [V, 3].
-        vertex_uv: Per-vertex UV coordinates [V, 2].
-        faces: Mesh faces [F, 3].
+        mesh: Mesh with vertex_uv and faces (and optionally face_uvs).
         texture_size: UV texture resolution.
-        face_uvs: Optional face-to-UV indices [F, 3]. When omitted, reuse `faces`.
 
     Returns:
         Dict containing:
@@ -1288,37 +1360,25 @@ def _build_uv_rasterization_data(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(vertices, torch.Tensor), f"{type(vertices)=}"
-        assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-        assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
-        assert face_uvs is None or isinstance(
-            face_uvs, torch.Tensor
-        ), f"{type(face_uvs)=}"
-        assert isinstance(texture_size, int), f"{type(texture_size)=}"
-        assert texture_size > 0, f"{texture_size=}"
-        assert vertices.ndim == 2, f"{vertices.shape=}"
-        assert vertices.shape[1] == 3, f"{vertices.shape=}"
-        assert vertex_uv.ndim == 2, f"{vertex_uv.shape=}"
-        assert vertex_uv.shape[1] == 2, f"{vertex_uv.shape=}"
-        assert (
-            vertex_uv.shape[0] == vertices.shape[0]
-        ), f"{vertex_uv.shape=} {vertices.shape=}"
-        assert faces.ndim == 2, f"{faces.shape=}"
-        assert faces.shape[1] == 3, f"{faces.shape=}"
-        assert (
-            face_uvs is None or face_uvs.shape == faces.shape
-        ), f"{face_uvs.shape=} {faces.shape=}"
+        assert isinstance(mesh, Mesh), (
+            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+        )
+        assert isinstance(texture_size, int), (
+            "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
+        )
+        assert texture_size > 0, (
+            "Expected `texture_size` to be positive. " f"{texture_size=}"
+        )
+        assert mesh.vertex_uv is not None, (
+            "Expected mesh to have vertex_uv for UV rasterization. "
+            f"{mesh.vertex_uv is None=}"
+        )
 
     _validate_inputs()
+
+    vertex_uv = mesh.vertex_uv
+    faces = mesh.faces
+    face_uvs = mesh.face_uvs
 
     uv_rasterization_mesh = _build_uv_rasterization_mesh(
         vertex_uv=vertex_uv,
@@ -1377,27 +1437,31 @@ def _build_uv_rasterization_mesh(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-        assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
-        assert face_uvs is None or isinstance(
-            face_uvs, torch.Tensor
-        ), f"{type(face_uvs)=}"
-        assert vertex_uv.ndim == 2, f"{vertex_uv.shape=}"
-        assert vertex_uv.shape[1] == 2, f"{vertex_uv.shape=}"
-        assert faces.ndim == 2, f"{faces.shape=}"
-        assert faces.shape[1] == 3, f"{faces.shape=}"
-        assert (
-            face_uvs is None or face_uvs.shape == faces.shape
-        ), f"{face_uvs.shape=} {faces.shape=}"
+        assert isinstance(vertex_uv, torch.Tensor), (
+            "Expected `vertex_uv` to be a tensor. " f"{type(vertex_uv)=}"
+        )
+        assert isinstance(faces, torch.Tensor), (
+            "Expected `faces` to be a tensor. " f"{type(faces)=}"
+        )
+        assert face_uvs is None or isinstance(face_uvs, torch.Tensor), (
+            "Expected `face_uvs` to be `None` or a tensor. " f"{type(face_uvs)=}"
+        )
+        assert vertex_uv.ndim == 2, (
+            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        )
+        assert vertex_uv.shape[1] == 2, (
+            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        )
+        assert faces.ndim == 2, (
+            "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"
+        )
+        assert faces.shape[1] == 3, (
+            "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"
+        )
+        assert face_uvs is None or face_uvs.shape == faces.shape, (
+            "Expected `face_uvs` to align with `faces` when provided. "
+            f"{face_uvs.shape=} {faces.shape=}"
+        )
 
     _validate_inputs()
 
@@ -1431,24 +1495,29 @@ def _build_uv_rasterization_mesh(
         """
 
         def _validate_inputs() -> None:
-            """Validate input arguments.
-
-            Args:
-                None.
-
-            Returns:
-                None.
-            """
-            # Input validations
-            assert isinstance(face_indices, torch.Tensor), f"{type(face_indices)=}"
-            assert isinstance(face_uv, torch.Tensor), f"{type(face_uv)=}"
-            assert face_indices.ndim == 1, f"{face_indices.shape=}"
-            assert face_uv.ndim == 3, f"{face_uv.shape=}"
-            assert (
-                face_uv.shape[0] == face_indices.shape[0]
-            ), f"{face_uv.shape=} {face_indices.shape=}"
-            assert face_uv.shape[1] == 3, f"{face_uv.shape=}"
-            assert face_uv.shape[2] == 2, f"{face_uv.shape=}"
+            assert isinstance(face_indices, torch.Tensor), (
+                "Expected `face_indices` to be a tensor. " f"{type(face_indices)=}"
+            )
+            assert isinstance(face_uv, torch.Tensor), (
+                "Expected `face_uv` to be a tensor. " f"{type(face_uv)=}"
+            )
+            assert face_indices.ndim == 1, (
+                "Expected `face_indices` to have shape `[K]`. " f"{face_indices.shape=}"
+            )
+            assert face_uv.ndim == 3, (
+                "Expected `face_uv` to have shape `[K, 3, 2]`. " f"{face_uv.shape=}"
+            )
+            assert face_uv.shape[0] == face_indices.shape[0], (
+                "Expected `face_uv` to align with `face_indices`. "
+                f"{face_uv.shape=} {face_indices.shape=}"
+            )
+            assert face_uv.shape[1] == 3, (
+                "Expected `face_uv` to provide three UV vertices per face. "
+                f"{face_uv.shape=}"
+            )
+            assert face_uv.shape[2] == 2, (
+                "Expected `face_uv` to store 2D UV coordinates. " f"{face_uv.shape=}"
+            )
 
         _validate_inputs()
 
@@ -1531,15 +1600,6 @@ def _build_camera_uv_interpolation_data(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
         assert isinstance(vertex_uv, torch.Tensor), (
             "Expected `vertex_uv` to be a tensor. " f"Got {type(vertex_uv)=}."
         )
@@ -1615,18 +1675,15 @@ def _vertex_uv_to_clip(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(vertex_uv, torch.Tensor), f"{type(vertex_uv)=}"
-        assert vertex_uv.ndim == 2, f"{vertex_uv.shape=}"
-        assert vertex_uv.shape[1] == 2, f"{vertex_uv.shape=}"
+        assert isinstance(vertex_uv, torch.Tensor), (
+            "Expected `vertex_uv` to be a tensor. " f"{type(vertex_uv)=}"
+        )
+        assert vertex_uv.ndim == 2, (
+            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        )
+        assert vertex_uv.shape[1] == 2, (
+            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        )
 
     _validate_inputs()
 
@@ -1652,36 +1709,44 @@ def _rasterize_face_weights_to_uv(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-        # Input validations
-        assert isinstance(face_weight, torch.Tensor), f"{type(face_weight)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
-        assert "rast_out" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
-        assert "uv_mask" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
-        assert (
-            "raster_face_indices" in uv_rasterization_data
-        ), f"{uv_rasterization_data.keys()=}"
-        assert face_weight.ndim == 1, f"{face_weight.shape=}"
+        assert isinstance(face_weight, torch.Tensor), (
+            "Expected `face_weight` to be a tensor. " f"{type(face_weight)=}"
+        )
+        assert isinstance(uv_rasterization_data, dict), (
+            "Expected `uv_rasterization_data` to be a dictionary. "
+            f"{type(uv_rasterization_data)=}"
+        )
+        assert "rast_out" in uv_rasterization_data, (
+            "Expected `uv_rasterization_data` to contain `rast_out`. "
+            f"{uv_rasterization_data.keys()=}"
+        )
+        assert "uv_mask" in uv_rasterization_data, (
+            "Expected `uv_rasterization_data` to contain `uv_mask`. "
+            f"{uv_rasterization_data.keys()=}"
+        )
+        assert "raster_face_indices" in uv_rasterization_data, (
+            "Expected `uv_rasterization_data` to contain `raster_face_indices`. "
+            f"{uv_rasterization_data.keys()=}"
+        )
+        assert face_weight.ndim == 1, (
+            "Expected `face_weight` to have shape `[F]`. " f"{face_weight.shape=}"
+        )
 
     _validate_inputs()
 
     rast_out = uv_rasterization_data["rast_out"]
     uv_mask = uv_rasterization_data["uv_mask"]
     raster_face_indices = uv_rasterization_data["raster_face_indices"]
-    assert isinstance(rast_out, torch.Tensor), f"{type(rast_out)=}"
-    assert isinstance(uv_mask, torch.Tensor), f"{type(uv_mask)=}"
-    assert isinstance(
-        raster_face_indices, torch.Tensor
-    ), f"{type(raster_face_indices)=}"
+    assert isinstance(rast_out, torch.Tensor), (
+        "Expected `rast_out` to be a tensor. " f"{type(rast_out)=}"
+    )
+    assert isinstance(uv_mask, torch.Tensor), (
+        "Expected `uv_mask` to be a tensor. " f"{type(uv_mask)=}"
+    )
+    assert isinstance(raster_face_indices, torch.Tensor), (
+        "Expected `raster_face_indices` to be a tensor. "
+        f"{type(raster_face_indices)=}"
+    )
 
     uv_raster_triangle_indices = rast_out[..., 3].to(dtype=torch.long) - 1
     uv_visible = uv_raster_triangle_indices >= 0
