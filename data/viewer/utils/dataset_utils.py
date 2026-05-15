@@ -10,7 +10,7 @@ from data.structures.three_d.camera.camera import Camera
 
 def _normalize_for_display(value: Any) -> Any:
     if isinstance(value, Camera):
-        return value.to_serialized()
+        return value.serialize()
     if isinstance(value, torch.Tensor):
         return f"Tensor(shape={list(value.shape)}, dtype={value.dtype})"
     if isinstance(value, dict):

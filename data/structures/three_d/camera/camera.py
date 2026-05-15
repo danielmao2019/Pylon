@@ -1,10 +1,18 @@
 import math
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
 
 from data.structures.three_d.camera.conventions import transform_convention
+from data.structures.three_d.camera.io import (
+    deserialize_camera,
+    load_camera,
+    save_camera,
+    serialize_camera,
+)
+from data.structures.three_d.camera.scaling import scale_intrinsics
 from data.structures.three_d.camera.validation import (
     validate_camera_convention,
     validate_camera_extrinsics,
@@ -17,10 +25,18 @@ _ORTHOGONALITY_REPAIR_ATOL = 1.0e-05
 
 
 def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
-    # Input validations
-    assert isinstance(rotation, torch.Tensor), f"{type(rotation)=}"
-    assert rotation.shape == (3, 3), f"{rotation.shape=}"
-    assert rotation.dtype == torch.float32, f"{rotation.dtype=}"
+    def _validate_inputs() -> None:
+        assert isinstance(rotation, torch.Tensor), (
+            "Expected rotation matrix to be a torch.Tensor. " f"{type(rotation)=}"
+        )
+        assert rotation.shape == (3, 3), (
+            "Expected rotation matrix shape to be 3x3. " f"{rotation.shape=}"
+        )
+        assert rotation.dtype == torch.float32, (
+            "Expected rotation matrix dtype to be float32. " f"{rotation.dtype=}"
+        )
+
+    _validate_inputs()
 
     identity = torch.eye(3, dtype=rotation.dtype, device=rotation.device)
     should_be_identity = rotation @ rotation.transpose(-1, -2)
@@ -31,10 +47,9 @@ def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
     if max_diff_value <= _ORTHOGONALITY_ATOL and det_diff <= _ORTHOGONALITY_ATOL:
         return rotation
     max_error = max(max_diff_value, det_diff)
-    assert (
-        max_error <= _ORTHOGONALITY_REPAIR_ATOL
-    ), "Rotation matrix must be orthogonal. Max diff between RR^T and I: {:.6g}".format(
-        max_diff_value
+    assert max_error <= _ORTHOGONALITY_REPAIR_ATOL, (
+        "Expected near-orthogonal rotation matrix before stabilization. "
+        f"{max_diff_value=} {det_diff=} {_ORTHOGONALITY_REPAIR_ATOL=}"
     )
 
     u, _, v_h = torch.linalg.svd(rotation)
@@ -51,30 +66,60 @@ class Camera:
 
     def __init__(
         self,
-        intrinsics: torch.Tensor,
+        intrinsics: Optional[torch.Tensor],
         extrinsics: torch.Tensor,
         convention: str,
-        name: str | None = None,
-        id: int | None = None,
-        device: str | torch.device = torch.device('cuda'),
+        name: Optional[str] = None,
+        id: Optional[int] = None,
+        device: Union[str, torch.device] = torch.device("cuda"),
     ) -> None:
-        # Input validations
-        assert intrinsics is None or isinstance(
-            intrinsics, torch.Tensor
-        ), f"{type(intrinsics)=}"
-        validate_camera_extrinsics(extrinsics)
-        validate_camera_convention(convention)
-        assert name is None or isinstance(name, str), f"{type(name)=}"
-        assert id is None or isinstance(id, int), f"{type(id)=}"
+        def _validate_inputs() -> None:
+            assert intrinsics is None or isinstance(intrinsics, torch.Tensor), (
+                "Expected Camera intrinsics to be None or a torch.Tensor. "
+                f"{type(intrinsics)=}"
+            )
+            if intrinsics is not None:
+                validate_camera_intrinsics(intrinsics)
 
-        # Input normalization
-        if intrinsics is None:
-            intrinsics = torch.eye(3, dtype=torch.float32, device=device)
-        else:
-            intrinsics = intrinsics.to(device=device)
-        validate_camera_intrinsics(intrinsics)
-        extrinsics = extrinsics.to(device=device)
-        device = torch.device(device)
+            validate_camera_extrinsics(extrinsics)
+
+            validate_camera_convention(convention)
+
+            assert name is None or isinstance(name, str), (
+                "Expected Camera name to be None or a string. " f"{type(name)=}"
+            )
+
+            assert id is None or isinstance(id, int), (
+                "Expected Camera id to be None or an integer. " f"{type(id)=}"
+            )
+
+            assert isinstance(device, (str, torch.device)), (
+                "Expected Camera device to be a string or torch.device. "
+                f"{type(device)=}"
+            )
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            intrinsics: Optional[torch.Tensor],
+            extrinsics: torch.Tensor,
+            device: Union[str, torch.device],
+        ) -> Tuple[torch.Tensor, torch.Tensor, torch.device]:
+            device = torch.device(device)
+            if intrinsics is None:
+                intrinsics = torch.eye(3, dtype=torch.float32, device=device)
+            else:
+                intrinsics = intrinsics.to(device=device)
+            extrinsics = extrinsics.to(device=device)
+            validate_camera_intrinsics(intrinsics)
+            validate_camera_extrinsics(extrinsics)
+            return intrinsics, extrinsics, device
+
+        intrinsics, extrinsics, device = _normalize_inputs(
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
+            device=device,
+        )
 
         self._intrinsics = intrinsics
         self._extrinsics = extrinsics
@@ -96,11 +141,11 @@ class Camera:
         return self._convention
 
     @property
-    def name(self) -> str | None:
+    def name(self) -> Optional[str]:
         return self._name
 
     @property
-    def id(self) -> int | None:
+    def id(self) -> Optional[int]:
         return self._id
 
     @property
@@ -209,35 +254,65 @@ class Camera:
         return vec
 
     def to(
-        self, device: str | torch.device | None = None, convention: str | None = None
+        self,
+        device: Optional[Union[str, torch.device]] = None,
+        convention: Optional[str] = None,
     ) -> "Camera":
-        # Input validations
-        assert device is None or isinstance(device, (str, torch.device)), f"{device=}"
-        assert convention is None or isinstance(convention, str), f"{convention=}"
+        def _validate_inputs() -> None:
+            assert device is None or isinstance(device, (str, torch.device)), (
+                "Expected target device to be None, a string, or torch.device. "
+                f"{device=}"
+            )
 
-        # Input normalizations
-        target_device = torch.device(device) if device is not None else self._device
-        target_convention = convention if convention is not None else self._convention
-        validate_camera_convention(target_convention)
-        if target_device == self._device and target_convention == self._convention:
+            assert convention is None or isinstance(convention, str), (
+                "Expected target Camera convention to be None or a string. "
+                f"{convention=}"
+            )
+            if convention is not None:
+                validate_camera_convention(convention)
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            device: Optional[Union[str, torch.device]],
+            convention: Optional[str],
+        ) -> Tuple[torch.device, str]:
+            device = torch.device(device) if device is not None else self._device
+            convention = convention if convention is not None else self._convention
+            assert isinstance(device, torch.device), (
+                "Expected normalized target device to be torch.device. "
+                f"{type(device)=}"
+            )
+            assert isinstance(convention, str), (
+                "Expected normalized target convention to be a string. "
+                f"{type(convention)=}"
+            )
+            return device, convention
+
+        device, convention = _normalize_inputs(
+            device=device,
+            convention=convention,
+        )
+
+        if device == self._device and convention == self._convention:
             return self
 
         extrinsics = (
             transform_convention(
                 camera=self,
-                target_convention=target_convention,
+                target_convention=convention,
             )
-            if target_convention != self._convention
+            if convention != self._convention
             else self._extrinsics
         )
 
         return Camera(
-            intrinsics=self._intrinsics.to(device=target_device),
-            extrinsics=extrinsics.to(device=target_device),
-            convention=target_convention,
+            intrinsics=self._intrinsics.to(device=device),
+            extrinsics=extrinsics.to(device=device),
+            convention=convention,
             name=self._name,
             id=self._id,
-            device=target_device,
+            device=device,
         )
 
     def scale_intrinsics(
@@ -247,8 +322,6 @@ class Camera:
             Union[Union[int, float], Tuple[Union[int, float], Union[int, float]]]
         ] = None,
     ) -> "Camera":
-        from data.structures.three_d.camera.scaling import scale_intrinsics
-
         scaled_intrinsics = scale_intrinsics(
             intrinsics=self._intrinsics,
             resolution=resolution,
@@ -271,31 +344,69 @@ class Camera:
         rotation: np.ndarray,
         translation: np.ndarray,
     ) -> "Camera":
-        # Input validations
-        assert isinstance(scale, (int, float)), f"{type(scale)=}"
-        assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
-        assert rotation.shape == (3, 3), f"{rotation.shape=}"
-        assert rotation.dtype == np.float32, f"{rotation.dtype=}"
-        assert isinstance(translation, np.ndarray), f"{type(translation)=}"
-        assert translation.shape == (3,), f"{translation.shape=}"
-        assert translation.dtype == np.float32, f"{translation.dtype=}"
-        validate_rotation_matrix(rotation)
+        def _validate_inputs() -> None:
+            assert isinstance(scale, (int, float)), (
+                "Expected transform scale to be a number. " f"{type(scale)=}"
+            )
 
-        # Input normalizations
-        rotation_tensor = torch.from_numpy(rotation).to(
-            device=self._device,
-            dtype=self._extrinsics.dtype,
-        )
-        translation_tensor = torch.from_numpy(translation).to(
-            device=self._device,
-            dtype=self._extrinsics.dtype,
+            assert isinstance(rotation, np.ndarray), (
+                "Expected transform rotation to be a numpy array. " f"{type(rotation)=}"
+            )
+            assert rotation.shape == (3, 3), (
+                "Expected transform rotation shape to be 3x3. " f"{rotation.shape=}"
+            )
+            assert rotation.dtype == np.float32, (
+                "Expected transform rotation dtype to be float32. " f"{rotation.dtype=}"
+            )
+            validate_rotation_matrix(rotation)
+
+            assert isinstance(translation, np.ndarray), (
+                "Expected transform translation to be a numpy array. "
+                f"{type(translation)=}"
+            )
+            assert translation.shape == (3,), (
+                "Expected transform translation shape to be length 3. "
+                f"{translation.shape=}"
+            )
+            assert translation.dtype == np.float32, (
+                "Expected transform translation dtype to be float32. "
+                f"{translation.dtype=}"
+            )
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            rotation: np.ndarray,
+            translation: np.ndarray,
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
+            rotation = torch.from_numpy(rotation).to(
+                device=self._device,
+                dtype=self._extrinsics.dtype,
+            )
+            translation = torch.from_numpy(translation).to(
+                device=self._device,
+                dtype=self._extrinsics.dtype,
+            )
+            assert isinstance(rotation, torch.Tensor), (
+                "Expected normalized transform rotation to be a torch.Tensor. "
+                f"{type(rotation)=}"
+            )
+            assert isinstance(translation, torch.Tensor), (
+                "Expected normalized transform translation to be a torch.Tensor. "
+                f"{type(translation)=}"
+            )
+            return rotation, translation
+
+        rotation, translation = _normalize_inputs(
+            rotation=rotation,
+            translation=translation,
         )
 
         extrinsics = self._extrinsics
         R_c2w = extrinsics[:3, :3]
         t_c2w = extrinsics[:3, 3]
-        R_c2w_new = rotation_tensor @ R_c2w
-        t_c2w_new = scale * (rotation_tensor @ t_c2w) + translation_tensor
+        R_c2w_new = rotation @ R_c2w
+        t_c2w_new = scale * (rotation @ t_c2w) + translation
 
         extrinsics_new = torch.eye(
             4,
@@ -315,51 +426,64 @@ class Camera:
             device=self._device,
         )
 
+    def serialize(self, format: str = "json") -> Dict[str, Any]:
+        """Serialize this Camera into a generic payload.
+
+        Args:
+            format: Serialization format, either `json` or `npz`.
+
+        Returns:
+            Camera payload for the requested format.
+        """
+        return serialize_camera(camera=self, format=format)
+
     @classmethod
-    def from_serialized(
-        cls, payload: Dict[str, Any], device: str | torch.device | None = None
+    def deserialize(
+        cls,
+        payload: Dict[str, Any],
+        device: Optional[Union[str, torch.device]] = None,
+        format: str = "json",
     ) -> "Camera":
-        # Input validations
-        assert isinstance(payload, dict), f"{type(payload)=}"
-        assert "intrinsics" in payload, f"{payload.keys()=}"
-        assert "extrinsics" in payload, f"{payload.keys()=}"
-        assert "convention" in payload, f"{payload.keys()=}"
-        assert "name" in payload, f"{payload.keys()=}"
-        assert "id" in payload, f"{payload.keys()=}"
-        assert device is None or isinstance(device, (str, torch.device)), f"{device=}"
+        """Deserialize one Camera from a generic payload.
 
-        target_device = torch.device(device) if device is not None else None
-        intrinsics = torch.tensor(
-            payload["intrinsics"],
-            dtype=torch.float32,
-            device=target_device,
-        )
-        extrinsics = torch.tensor(
-            payload["extrinsics"],
-            dtype=torch.float32,
-            device=target_device,
-        )
-        convention = payload["convention"]
-        name = payload["name"]
-        camera_id = payload["id"]
+        Args:
+            payload: Camera payload for the specified format.
+            device: Target device for the deserialized Camera.
+            format: Serialization format, either `json` or `npz`.
 
-        return cls(
-            intrinsics=intrinsics,
-            extrinsics=extrinsics,
-            convention=convention,
-            name=name,
-            id=camera_id,
-            device=target_device if target_device is not None else intrinsics.device,
+        Returns:
+            Camera object represented by the payload.
+        """
+        return deserialize_camera(
+            payload=payload,
+            device=device,
+            format=format,
         )
 
-    def to_serialized(self) -> Dict[str, Any]:
-        # Input validations
-        assert isinstance(self, Camera), f"{type(self)=}"
+    def save(self, camera_path: Path) -> None:
+        """Save this Camera to a `.npz` or `.json` file.
 
-        return {
-            "intrinsics": self._intrinsics.detach().cpu().tolist(),
-            "extrinsics": self._extrinsics.detach().cpu().tolist(),
-            "convention": self._convention,
-            "name": self._name,
-            "id": self._id,
-        }
+        Args:
+            camera_path: Output `.npz` or `.json` filepath.
+
+        Returns:
+            None.
+        """
+        save_camera(camera=self, camera_path=camera_path)
+
+    @classmethod
+    def load(
+        cls,
+        camera_path: Path,
+        device: Optional[Union[str, torch.device]] = None,
+    ) -> "Camera":
+        """Load one Camera from a `.npz` or `.json` file.
+
+        Args:
+            camera_path: Input `.npz` or `.json` filepath.
+            device: Target device for the loaded Camera.
+
+        Returns:
+            Camera object loaded from disk.
+        """
+        return load_camera(camera_path=camera_path, device=device)
