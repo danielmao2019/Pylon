@@ -19,6 +19,9 @@ from models.three_d.meshes.texture.extract.normal_weights import (
 from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
     compute_f_visibility_mask,
 )
+from models.three_d.meshes.texture.extract.visibility.texel_visibility_v2 import (
+    compute_f_visibility_mask_v2,
+)
 from models.three_d.meshes.texture.extract.visibility.vertex_visibility import (
     compute_v_visibility_mask,
 )
@@ -36,6 +39,7 @@ def extract_texture_from_images(
     texture_size: int = 1024,
     default_color: float = 0.7,
     return_valid_mask: bool = False,
+    texel_visibility_method: str = "v1",
     polygon_rast_method: str = "v2",
 ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
     """Extract texture from multi-view RGB images.
@@ -51,6 +55,7 @@ def extract_texture_from_images(
         texture_size: UV texture resolution when `mesh` carries UV coordinates.
         default_color: Fallback color for texels/vertices without any valid observation.
         return_valid_mask: Whether to also return a binary valid-observation mask.
+        texel_visibility_method: Texel visibility algorithm for UV extraction.
         polygon_rast_method: Step-2 polygon rasterization method for UV extraction.
 
     Returns:
@@ -91,11 +96,19 @@ def extract_texture_from_images(
         assert texture_size > 0, f"{texture_size=}"
         assert isinstance(default_color, float), f"{type(default_color)=}"
         assert isinstance(return_valid_mask, bool), f"{type(return_valid_mask)=}"
+        assert isinstance(
+            texel_visibility_method, str
+        ), f"{type(texel_visibility_method)=}"
         assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
         assert not isinstance(images, torch.Tensor) or images.ndim == 4
         assert not isinstance(images, list) or len(images) > 0
         assert not isinstance(images, list) or all(
             isinstance(image, torch.Tensor) for image in images
+        )
+        assert texel_visibility_method in ("v1", "v2"), (
+            "Expected `texel_visibility_method` to be one of the supported texel "
+            "visibility methods. "
+            f"{texel_visibility_method=}."
         )
         assert polygon_rast_method in ("v1", "v2"), (
             "Expected `polygon_rast_method` to be one of the supported polygon "
@@ -257,6 +270,7 @@ def extract_texture_from_images(
             weights_cfg=weights_cfg,
             texture_size=texture_size,
             default_color=default_color,
+            texel_visibility_method=texel_visibility_method,
             polygon_rast_method=polygon_rast_method,
         )
         if not return_valid_mask:
@@ -662,7 +676,8 @@ def _extract_uv_texture_map_from_images(
     weights_cfg: Dict[str, Any],
     texture_size: int,
     default_color: float,
-    polygon_rast_method: str,
+    texel_visibility_method: str,
+    polygon_rast_method: str = "v2",
 ) -> Dict[str, torch.Tensor]:
     """Fuse per-view UV observations into one UV texture map.
 
@@ -673,6 +688,7 @@ def _extract_uv_texture_map_from_images(
         weights_cfg: Per-view fusion weighting configuration dictionary.
         texture_size: UV texture resolution.
         default_color: Fallback color for UV pixels without valid observations.
+        texel_visibility_method: Texel visibility algorithm, `"v1"` or `"v2"`.
         polygon_rast_method: Step-2 polygon rasterization method.
 
     Returns:
@@ -700,6 +716,9 @@ def _extract_uv_texture_map_from_images(
         assert isinstance(texture_size, int), f"{type(texture_size)=}"
         assert texture_size > 0, f"{texture_size=}"
         assert isinstance(default_color, float), f"{type(default_color)=}"
+        assert isinstance(
+            texel_visibility_method, str
+        ), f"{type(texel_visibility_method)=}"
         assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
         assert images_nchw.ndim == 4, f"{images_nchw.shape=}"
         assert images_nchw.shape[1] == 3, f"{images_nchw.shape=}"
@@ -707,6 +726,11 @@ def _extract_uv_texture_map_from_images(
             len(meshes) == len(cameras) == images_nchw.shape[0]
         ), f"{len(meshes)=} {len(cameras)=} {images_nchw.shape=}"
         assert meshes[0].vertex_uv is not None, f"{meshes[0].vertex_uv=}"
+        assert texel_visibility_method in ("v1", "v2"), (
+            "Expected `texel_visibility_method` to be one of the supported texel "
+            "visibility methods. "
+            f"{texel_visibility_method=}."
+        )
         assert polygon_rast_method in ("v1", "v2"), (
             "Expected `polygon_rast_method` to be one of the supported polygon "
             "rasterization methods. "
@@ -752,6 +776,7 @@ def _extract_uv_texture_map_from_images(
                 camera=cameras[view_idx : view_idx + 1],
                 weights_cfg=weights_cfg,
                 uv_rasterization_data=uv_rasterization_data,
+                texel_visibility_method=texel_visibility_method,
                 polygon_rast_method=polygon_rast_method,
             )
         )
@@ -939,7 +964,8 @@ def _extract_uv_texture_map_from_single_image(
     camera: Cameras,
     weights_cfg: Dict[str, Any],
     uv_rasterization_data: Dict[str, torch.Tensor],
-    polygon_rast_method: str,
+    texel_visibility_method: str = "v1",
+    polygon_rast_method: str = "v2",
 ) -> Dict[str, torch.Tensor]:
     """Extract one-view UV texture observation and UV weight map.
 
@@ -949,6 +975,7 @@ def _extract_uv_texture_map_from_single_image(
         camera: One camera instance.
         weights_cfg: One-view weighting configuration dictionary.
         uv_rasterization_data: Precomputed UV rasterization tensors.
+        texel_visibility_method: Texel visibility algorithm, `"v1"` or `"v2"`.
         polygon_rast_method: Step-2 polygon rasterization method.
 
     Returns:
@@ -972,10 +999,18 @@ def _extract_uv_texture_map_from_single_image(
         assert isinstance(
             uv_rasterization_data, dict
         ), f"{type(uv_rasterization_data)=}"
+        assert isinstance(
+            texel_visibility_method, str
+        ), f"{type(texel_visibility_method)=}"
         assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
         assert image.ndim == 3, f"{image.shape=}"
         assert image.shape[0] == 3, f"{image.shape=}"
         assert len(camera) == 1, f"{len(camera)=}"
+        assert texel_visibility_method in ("v1", "v2"), (
+            "Expected `texel_visibility_method` to be one of the supported texel "
+            "visibility methods. "
+            f"{texel_visibility_method=}."
+        )
         assert polygon_rast_method in ("v1", "v2"), (
             "Expected `polygon_rast_method` to be one of the supported polygon "
             "rasterization methods. "
@@ -1005,15 +1040,29 @@ def _extract_uv_texture_map_from_single_image(
     weights_cfg = _normalize_inputs()
     weights = weights_cfg["weights"]
 
-    uv_visibility_mask = compute_f_visibility_mask(
-        vertices=mesh.vertices,
-        faces=mesh.faces,
-        camera=camera,
-        image_height=int(image.shape[1]),
-        image_width=int(image.shape[2]),
-        uv_rasterization_data=uv_rasterization_data,
-        polygon_rast_method=polygon_rast_method,
-    )
+    if texel_visibility_method == "v1":
+        uv_visibility_mask = compute_f_visibility_mask(
+            vertices=mesh.vertices,
+            faces=mesh.faces,
+            camera=camera,
+            image_height=int(image.shape[1]),
+            image_width=int(image.shape[2]),
+            uv_rasterization_data=uv_rasterization_data,
+            polygon_rast_method=polygon_rast_method,
+        )
+    else:
+        assert texel_visibility_method == "v2", (
+            "Expected `texel_visibility_method` to be `v1` or `v2`. "
+            f"{texel_visibility_method=}"
+        )
+        uv_visibility_mask = compute_f_visibility_mask_v2(
+            vertices=mesh.vertices,
+            faces=mesh.faces,
+            camera=camera,
+            image_height=int(image.shape[1]),
+            image_width=int(image.shape[2]),
+            uv_rasterization_data=uv_rasterization_data,
+        )
     if weights == "normals":
         face_normals_weight = _compute_f_normals_weights(
             mesh=mesh,
