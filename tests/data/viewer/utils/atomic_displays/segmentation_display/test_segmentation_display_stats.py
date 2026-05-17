@@ -2,19 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict, List
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any, List
 
-from data.viewer.utils.atomic_displays.segmentation_display import (
-    get_segmentation_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.segmentation_display import (
+    get_segmentation_display_stats,
 )
-
 
 # ================================================================================
 # get_segmentation_display_stats Tests - Valid Cases
 # ================================================================================
+
 
 def test_get_segmentation_display_stats_tensor_basic(segmentation_tensor):
     """Test getting statistics from basic segmentation tensor."""
@@ -79,6 +81,7 @@ def test_segmentation_stats_determinism(segmentation_tensor):
 # Batch Support Stats Tests - CRITICAL for eval viewer
 # ================================================================================
 
+
 def test_get_segmentation_display_stats_batched_tensor(batched_segmentation_tensor):
     """Test getting statistics from batched segmentation tensor."""
     stats = get_segmentation_display_stats(batched_segmentation_tensor)
@@ -98,6 +101,7 @@ def test_batch_size_one_assertion_segmentation_stats():
 # ================================================================================
 # Integration Tests
 # ================================================================================
+
 
 def test_complete_batch_segmentation_stats_pipeline(batched_segmentation_tensor):
     """Test complete batched segmentation statistics pipeline."""

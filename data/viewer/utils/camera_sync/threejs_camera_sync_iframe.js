@@ -69,6 +69,13 @@ function cameraStatesMatch(leftCameraState, rightCameraState) {
 // === Viewer camera readers and writers ===
 
 function readCurrentCameraState() {
+  const cameraTarget =
+    controls !== null &&
+    typeof controls === "object" &&
+    controls.target !== undefined &&
+    isCameraVector(controls.target)
+      ? controls.target
+      : buildCameraLookDirectionCenter();
   return {
     eye: {
       x: camera.position.x,
@@ -76,9 +83,9 @@ function readCurrentCameraState() {
       z: camera.position.z,
     },
     center: {
-      x: controls.target.x,
-      y: controls.target.y,
-      z: controls.target.z,
+      x: cameraTarget.x,
+      y: cameraTarget.y,
+      z: cameraTarget.z,
     },
     up: {
       x: camera.up.x,
@@ -86,6 +93,16 @@ function readCurrentCameraState() {
       z: camera.up.z,
     },
     fovyRadians: camera.fov * Math.PI / 180.0,
+  };
+}
+
+function buildCameraLookDirectionCenter() {
+  const cameraDirection = new THREE.Vector3();
+  camera.getWorldDirection(cameraDirection);
+  return {
+    x: camera.position.x + cameraDirection.x,
+    y: camera.position.y + cameraDirection.y,
+    z: camera.position.z + cameraDirection.z,
   };
 }
 
@@ -99,21 +116,24 @@ function applyCameraState(cameraState) {
     cameraState.eye.y,
     cameraState.eye.z,
   );
-  camera.up.set(
-    cameraState.up.x,
-    cameraState.up.y,
-    cameraState.up.z,
-  );
-  controls.target.set(
-    cameraState.center.x,
-    cameraState.center.y,
-    cameraState.center.z,
-  );
+  camera.up.set(cameraState.up.x, cameraState.up.y, cameraState.up.z);
+  camera.lookAt(cameraState.center.x, cameraState.center.y, cameraState.center.z);
+  if (
+    controls !== null &&
+    typeof controls === "object" &&
+    controls.target !== undefined &&
+    typeof controls.target.set === "function"
+  ) {
+    controls.target.set(
+      cameraState.center.x,
+      cameraState.center.y,
+      cameraState.center.z,
+    );
+  }
   if (Number.isFinite(cameraState.fovyRadians)) {
     camera.fov = cameraState.fovyRadians * 180.0 / Math.PI;
     camera.updateProjectionMatrix();
   }
-  camera.lookAt(controls.target);
   controls.update();
   lastAppliedExternalCamera = cloneCameraState(readCurrentCameraState());
   window.requestAnimationFrame(() => {

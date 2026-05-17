@@ -3,17 +3,19 @@
 Focuses specifically on the get_point_cloud_display_stats function.
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.atomic_displays.point_cloud_display import (
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
     get_point_cloud_display_stats,
 )
 
 # ================================================================================
 # get_point_cloud_display_stats Tests
 # ================================================================================
+
 
 def test_get_point_cloud_display_stats_basic(point_cloud_3d):
     """Test basic point cloud statistics calculation."""
@@ -39,10 +41,10 @@ def test_get_point_cloud_display_stats_known_values():
     points = torch.zeros(100, 3, dtype=torch.float32)
 
     # Set specific coordinate ranges
-    points[:25, 0] = 1.0    # X coordinates: 25 points at x=1
+    points[:25, 0] = 1.0  # X coordinates: 25 points at x=1
     points[25:50, 0] = 2.0  # X coordinates: 25 points at x=2
     points[50:75, 1] = 3.0  # Y coordinates: 25 points at y=3
-    points[75:, 2] = 4.0    # Z coordinates: 25 points at z=4
+    points[75:, 2] = 4.0  # Z coordinates: 25 points at z=4
 
     pc = PointCloud(xyz=points)
     stats = get_point_cloud_display_stats(pc)

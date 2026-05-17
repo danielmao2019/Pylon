@@ -6,7 +6,7 @@ CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 
 import pytest
 
-from data.viewer.utils.atomic_displays.point_cloud_display import (
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
     build_point_cloud_id,
     normalize_point_cloud_id,
 )

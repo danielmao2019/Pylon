@@ -1,10 +1,11 @@
 """Camera visualization primitives."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import torch
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.cameras import Cameras
 
 
 def camera_vis(
@@ -82,3 +83,44 @@ def camera_vis(
         'frustum_lines': frustum_lines,
         'center_color': torch.tensor([0.0, 0.0, 0.0], device=device, dtype=dtype),
     }
+
+
+def cameras_vis(
+    cameras: Cameras,
+    frustum_scale: float,
+    frustum_color: Optional[torch.Tensor] = None,
+) -> List[Dict[str, Any]]:
+    """Build camera visualization primitives for a camera collection.
+
+    Args:
+        cameras: Camera collection to visualize.
+        frustum_scale: Frustum depth in world units.
+        frustum_color: Optional RGB tensor for frustum line color.
+
+    Returns:
+        Camera visualization primitive dictionaries.
+    """
+    assert isinstance(cameras, Cameras), (
+        "Cameras must be a Cameras collection. cameras=%r" % cameras
+    )
+    assert isinstance(frustum_scale, float), (
+        "Frustum scale must be a float. frustum_scale=%r" % frustum_scale
+    )
+    assert frustum_scale > 0.0, (
+        "Frustum scale must be positive. frustum_scale=%r" % frustum_scale
+    )
+    assert frustum_color is None or isinstance(frustum_color, torch.Tensor), (
+        "Frustum color must be None or a tensor. frustum_color=%r" % frustum_color
+    )
+
+    camera_visualizations: List[Dict[str, Any]] = []
+    for camera in cameras:
+        camera_visualizations.append(
+            camera_vis(
+                camera=camera,
+                axis_length=frustum_scale * 0.6,
+                frustum_depth=frustum_scale,
+                frustum_color=frustum_color,
+            )
+        )
+    return camera_visualizations

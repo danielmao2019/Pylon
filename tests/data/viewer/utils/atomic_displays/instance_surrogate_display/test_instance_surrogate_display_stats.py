@@ -2,19 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-from data.viewer.utils.atomic_displays.instance_surrogate_display import (
-    get_instance_surrogate_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.instance_surrogate_image_display import (
+    get_instance_surrogate_display_stats,
 )
-
 
 # ================================================================================
 # get_instance_surrogate_display_stats Tests - Valid Cases
 # ================================================================================
+
 
 def test_get_instance_surrogate_display_stats_basic(instance_surrogate_tensor):
     """Test basic instance surrogate statistics."""
@@ -75,8 +77,12 @@ def test_get_instance_surrogate_display_stats_all_valid_pixels():
     assert stats['Valid Pixels'] == 64  # 8x8
     assert stats['Ignore Pixels'] == 0
     # Parse ranges like "[2.000, 3.000]"
-    y_range = stats['Y Offset Range'][1:-1].split(', ')  # Remove brackets and split on ", "
-    x_range = stats['X Offset Range'][1:-1].split(', ')  # Remove brackets and split on ", "
+    y_range = stats['Y Offset Range'][1:-1].split(
+        ', '
+    )  # Remove brackets and split on ", "
+    x_range = stats['X Offset Range'][1:-1].split(
+        ', '
+    )  # Remove brackets and split on ", "
     assert abs(float(y_range[0]) - 2.0) < 1e-5  # Min Y offset
     assert abs(float(x_range[0]) - (-1.5)) < 1e-5  # Min X offset
 
@@ -123,7 +129,10 @@ def test_get_instance_surrogate_display_stats_different_dtypes():
 # Batch Support Stats Tests - CRITICAL for eval viewer
 # ================================================================================
 
-def test_get_instance_surrogate_display_stats_batched(batched_instance_surrogate_tensor):
+
+def test_get_instance_surrogate_display_stats_batched(
+    batched_instance_surrogate_tensor,
+):
     """Test instance surrogate statistics calculation for batched data."""
     stats = get_instance_surrogate_display_stats(batched_instance_surrogate_tensor)
 
@@ -144,7 +153,10 @@ def test_batch_size_one_assertion_instance_surrogate_stats():
 # Integration Tests
 # ================================================================================
 
-def test_complete_batch_instance_surrogate_stats_pipeline(batched_instance_surrogate_tensor):
+
+def test_complete_batch_instance_surrogate_stats_pipeline(
+    batched_instance_surrogate_tensor,
+):
     """Test complete batched instance surrogate statistics pipeline."""
     stats = get_instance_surrogate_display_stats(batched_instance_surrogate_tensor)
     assert isinstance(stats, dict)

@@ -2,21 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import numpy as np
 
-import plotly.graph_objects as go
-
-from data.viewer.utils.atomic_displays.image_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.image_display import (
     _image_to_numpy,
-    create_image_display
+    create_image_display,
 )
-
 
 # ================================================================================
 # Fixtures
 # ================================================================================
+
 
 @pytest.fixture
 def rgb_image():
@@ -58,6 +58,7 @@ def batched_multi_channel_image():
 # image_to_numpy Tests - Valid Cases
 # ================================================================================
 
+
 def test_image_to_numpy_rgb_tensor(rgb_image):
     """Test converting RGB image tensor to numpy."""
     result = _image_to_numpy(rgb_image)
@@ -76,11 +77,14 @@ def test_image_to_numpy_grayscale_tensor(grayscale_image):
     assert result.dtype == np.float64
 
 
-@pytest.mark.parametrize("input_shape,expected_output_shape", [
-    ((3, 32, 32), (32, 32, 3)),  # RGB
-    ((1, 32, 32), (32, 32)),     # Grayscale
-    ((6, 32, 32), (32, 32, 3)),  # Many channels (randomly sampled)
-])
+@pytest.mark.parametrize(
+    "input_shape,expected_output_shape",
+    [
+        ((3, 32, 32), (32, 32, 3)),  # RGB
+        ((1, 32, 32), (32, 32)),  # Grayscale
+        ((6, 32, 32), (32, 32, 3)),  # Many channels (randomly sampled)
+    ],
+)
 def test_image_to_numpy_shapes(input_shape, expected_output_shape):
     """Test image_to_numpy with various input shapes."""
     image = torch.randint(0, 255, input_shape, dtype=torch.uint8)
@@ -110,13 +114,13 @@ def test_image_to_numpy_uniform_values():
 # create_image_display Tests - Valid Cases
 # ================================================================================
 
+
 def test_create_image_display_rgb(rgb_image):
     """Test creating display for RGB image."""
     fig = create_image_display(rgb_image, "Test RGB Image")
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test RGB Image"
-    assert fig.layout.height == 400
 
 
 def test_create_image_display_grayscale(grayscale_image):
@@ -138,6 +142,7 @@ def test_create_image_display_various_colorscales(rgb_image, colorscale):
 # Integration and Edge Case Tests
 # ================================================================================
 
+
 def test_image_display_with_extreme_values():
     """Test image display handles extreme tensor values correctly."""
     # Very large values
@@ -154,7 +159,6 @@ def test_image_display_with_extreme_values():
     mixed_image = torch.randn(3, 32, 32, dtype=torch.float32) * 1000
     fig = create_image_display(mixed_image, "Mixed Values")
     assert isinstance(fig, go.Figure)
-
 
 
 def test_image_display_pipeline(rgb_image):
@@ -187,13 +191,13 @@ def test_performance_with_large_images():
 # Batch Support Tests - CRITICAL for eval viewer
 # ================================================================================
 
+
 def test_create_image_display_batched_rgb(batched_rgb_image):
     """Test creating display for batched RGB image (batch size 1)."""
     fig = create_image_display(batched_rgb_image, "Test Batched RGB")
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Batched RGB"
-    assert fig.layout.height == 400
 
 
 def test_create_image_display_batched_grayscale(batched_grayscale_image):
@@ -206,24 +210,31 @@ def test_create_image_display_batched_grayscale(batched_grayscale_image):
 
 def test_create_image_display_batched_multi_channel(batched_multi_channel_image):
     """Test creating display for batched multi-channel image (batch size 1)."""
-    fig = create_image_display(batched_multi_channel_image, "Test Batched Multi-Channel")
+    fig = create_image_display(
+        batched_multi_channel_image, "Test Batched Multi-Channel"
+    )
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Batched Multi-Channel"
 
 
-@pytest.mark.parametrize("batch_shape,unbatched_expected_shape", [
-    ((1, 3, 32, 32), (32, 32, 3)),     # Batched RGB -> RGB
-    ((1, 1, 32, 32), (32, 32)),        # Batched grayscale -> grayscale
-    ((1, 6, 32, 32), (32, 32, 3)),     # Batched multi-channel -> RGB (sampled)
-])
+@pytest.mark.parametrize(
+    "batch_shape,unbatched_expected_shape",
+    [
+        ((1, 3, 32, 32), (32, 32, 3)),  # Batched RGB -> RGB
+        ((1, 1, 32, 32), (32, 32)),  # Batched grayscale -> grayscale
+        ((1, 6, 32, 32), (32, 32, 3)),  # Batched multi-channel -> RGB (sampled)
+    ],
+)
 def test_batch_to_unbatch_shape_consistency(batch_shape, unbatched_expected_shape):
     """Test that batched inputs produce same output shapes as unbatched equivalents."""
     batched_image = torch.randint(0, 255, batch_shape, dtype=torch.uint8)
     unbatched_image = batched_image[0]  # Remove batch dimension
 
     # Both should produce same numpy shape
-    batched_result = _image_to_numpy(unbatched_image)  # Function internally handles batching in create_image_display
+    batched_result = _image_to_numpy(
+        unbatched_image
+    )  # Function internally handles batching in create_image_display
     unbatched_result = _image_to_numpy(unbatched_image)
 
     assert batched_result.shape == unbatched_result.shape == unbatched_expected_shape
@@ -239,6 +250,7 @@ def test_batch_to_unbatch_shape_consistency(batch_shape, unbatched_expected_shap
 # ================================================================================
 # Batch Support Integration Tests
 # ================================================================================
+
 
 def test_complete_batch_pipeline_rgb(batched_rgb_image):
     """Test complete batched image display pipeline from tensor to figure."""

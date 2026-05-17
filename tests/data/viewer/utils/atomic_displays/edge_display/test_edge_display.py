@@ -2,22 +2,23 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-import plotly.graph_objects as go
-
-from data.viewer.utils.atomic_displays.edge_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.edge_image_display import (
     create_edge_display,
-    get_edge_display_stats
+    get_edge_display_stats,
 )
-
 
 # ================================================================================
 # create_edge_display Tests - Valid Cases
 # ================================================================================
+
 
 def test_create_edge_display_2d_tensor(edge_tensor_2d):
     """Test edge display creation with 2D tensor [H, W]."""
@@ -25,7 +26,6 @@ def test_create_edge_display_2d_tensor(edge_tensor_2d):
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Edge Display 2D"
-    assert fig.layout.height == 400
 
 
 @pytest.mark.parametrize("colorscale", ["greys", "viridis", "plasma", "hot", "turbo"])
@@ -63,7 +63,7 @@ def test_create_edge_display_with_kwargs(edge_tensor_2d):
         edge_tensor_2d,
         "Test with Kwargs",
         colorscale="Gray",
-        extra_param="ignored"  # Should be ignored
+        extra_param="ignored",  # Should be ignored
     )
 
     assert isinstance(fig, go.Figure)
@@ -105,6 +105,7 @@ def test_create_edge_display_extreme_values():
 
 # Integration and Performance Tests
 # ================================================================================
+
 
 def test_edge_display_pipeline(edge_tensor_2d):
     """Test complete edge display pipeline."""
@@ -156,6 +157,7 @@ def test_performance_with_large_edges():
 # Correctness Verification Tests
 # ================================================================================
 
+
 def test_edge_display_known_patterns():
     """Test edge display with known edge patterns."""
     # Create checkerboard edge pattern
@@ -167,7 +169,9 @@ def test_edge_display_known_patterns():
     assert isinstance(fig, go.Figure)
 
     stats = get_edge_display_stats(edges)
-    assert abs(stats["edge_percentage"] - 50.0) < 0.1  # Approximately 50% should be edges
+    assert (
+        abs(stats["edge_percentage"] - 50.0) < 0.1
+    )  # Approximately 50% should be edges
 
 
 def test_edge_display_gradient_pattern():

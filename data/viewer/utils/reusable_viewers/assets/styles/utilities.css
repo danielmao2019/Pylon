@@ -1,0 +1,7 @@
+.is-hidden {
+  display: none;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}

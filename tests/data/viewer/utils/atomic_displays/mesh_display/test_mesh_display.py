@@ -7,7 +7,7 @@ import pytest
 import torch
 from dash import html
 
-import data.viewer.utils.atomic_displays.mesh_display as mesh_display_module
+import data.viewer.utils.atomic_displays.mesh.dash.core_mesh_display as mesh_display_module
 from data.structures.three_d.mesh import (
     Mesh,
     MeshTextureUVTextureMap,
@@ -275,7 +275,10 @@ def test_create_mesh_display_uv_texture_mesh() -> None:
     assert "three.min.js" in display.srcDoc, f"{display.srcDoc[:160]=}"
     assert "const viewerConfig =" in display.srcDoc, f"{display.srcDoc[:240]=}"
     assert "MeshBasicMaterial" in display.srcDoc, f"{display.srcDoc[:240]=}"
-    assert "controls.enablePan = true;" in display.srcDoc, f"{display.srcDoc[:240]=}"
+    assert (
+        "createTrackballMeshCameraControls" in display.srcDoc
+    ), f"{display.srcDoc[:240]=}"
+    assert 'pointerState.mode === "pan"' in display.srcDoc, f"{display.srcDoc[:480]=}"
     assert "texture.flipY = true;" in display.srcDoc, f"{display.srcDoc[:240]=}"
     assert "[0.0, 0.0, 1.0, 0.0, 0.0, 1.0]" in display.srcDoc, (
         "Expected the viewer payload to contain OBJ-style UV values after "
@@ -371,7 +374,6 @@ def test_build_threejs_viewer_html_includes_extra_script_urls() -> None:
 
     assert "<title>Shared Viewer</title>" in html_text, f"{html_text[:240]=}"
     assert "three.min.js" in html_text, f"{html_text[:240]=}"
-    assert "OrbitControls.js" in html_text, f"{html_text[:240]=}"
     assert "https://example.com/OBJLoader.js" in html_text, f"{html_text[:240]=}"
     assert "console.log('viewer');" in html_text, f"{html_text[:240]=}"
 

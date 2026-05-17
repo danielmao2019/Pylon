@@ -1,5 +1,6 @@
 """Utility functions for semantic segmentation visualization."""
 
+from collections.abc import Hashable
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -104,7 +105,7 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
         and len(seg["masks"]) == len(seg["indices"])
         and all(isinstance(mask, torch.Tensor) for mask in seg["masks"])
         and all(mask.ndim == 2 for mask in seg["masks"])
-        and all(isinstance(idx, (int, np.integer)) for idx in seg["indices"])
+        and all(isinstance(idx, Hashable) for idx in seg["indices"])
     ), f"{seg=}"
 
     # Input normalizations
@@ -116,17 +117,19 @@ def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarra
         masks = seg["masks"]
         indices = seg["indices"]
 
-        # Stack masks and take argmax (convert bool to float for argmax)
-        stacked_masks = torch.stack(masks)
-        if stacked_masks.dtype == torch.bool:
-            stacked_masks = stacked_masks.float()
-        tensor = torch.argmax(stacked_masks, dim=0)
+        first_mask = masks[0]
+        colored_map = np.zeros((*first_mask.shape, 3), dtype=np.uint8)
+        for mask, idx in zip(masks, indices, strict=True):
+            color = get_color(idx)
+            r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+            colored_map[mask.cpu().numpy().astype(bool)] = [r, g, b]
+        return colored_map
     else:
         # Handle tensor format
         tensor = seg
         indices = torch.unique(tensor).tolist()
 
-    # Generate colors for each index
+    # Generate colors for each tensor class index
     colors = [get_color(idx) for idx in indices]
 
     # Create colored segmentation map
@@ -198,7 +201,7 @@ def get_segmentation_stats(seg: Union[torch.Tensor, Dict[str, Any]]) -> Dict[str
         and len(seg["masks"]) == len(seg["indices"])
         and all(isinstance(mask, torch.Tensor) for mask in seg["masks"])
         and all(mask.ndim == 2 for mask in seg["masks"])
-        and all(isinstance(idx, (int, np.integer)) for idx in seg["indices"])
+        and all(isinstance(idx, Hashable) for idx in seg["indices"])
     ), f"{seg=}"
 
     # Input normalizations
@@ -209,11 +212,9 @@ def get_segmentation_stats(seg: Union[torch.Tensor, Dict[str, Any]]) -> Dict[str
         # Handle dict format with masks and indices
         masks = seg["masks"]
         indices = seg["indices"]
-        # Stack masks and take argmax (convert bool to float for argmax)
-        stacked_masks = torch.stack(masks)
-        if stacked_masks.dtype == torch.bool:
-            stacked_masks = stacked_masks.float()
-        seg_np = torch.argmax(stacked_masks, dim=0).cpu().numpy()
+        seg_np = np.full(masks[0].shape, None, dtype=object)
+        for mask, idx in zip(masks, indices, strict=True):
+            seg_np[mask.cpu().numpy().astype(bool)] = idx
     else:
         # Handle tensor format
         seg_np = seg.cpu().numpy()
@@ -228,7 +229,9 @@ def get_segmentation_stats(seg: Union[torch.Tensor, Dict[str, Any]]) -> Dict[str
     return stats
 
 
-def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.Div':
+def _format_class_distribution(
+    seg_np: np.ndarray, indices: List[Hashable]
+) -> 'html.Div':
     """Format class distribution as colorful Dash HTML components with bullet points and toggle bar plot.
 
     Args:
@@ -243,7 +246,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
     assert seg_np.ndim == 2, f"{seg_np.shape=}"
     assert isinstance(indices, list), f"{type(indices)=}"
     assert len(indices) > 0
-    assert all(isinstance(idx, (int, np.integer)) for idx in indices)
+    assert all(isinstance(idx, Hashable) for idx in indices)
 
     # Generate unique IDs for this distribution component using pattern-matching
     component_index = get_next_component_index()
@@ -251,7 +254,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
     bar_plot_id = {'type': 'class-dist-plot', 'index': component_index}
 
     # Calculate class statistics
-    class_info: List[Tuple[int, int, float]] = []
+    class_info: List[Tuple[Hashable, int, float]] = []
     total_pixels = seg_np.size
 
     for idx in indices:
@@ -260,7 +263,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
         class_info.append((idx, class_pixels, class_percentage))
 
     # Sort by class index for consistent ordering
-    class_info.sort(key=lambda x: x[0])
+    class_info.sort(key=lambda x: str(x[0]))
 
     # Create Dash HTML list items with colors matching segmentation visualization
     list_items = []
@@ -382,7 +385,7 @@ def _format_class_distribution(seg_np: np.ndarray, indices: List[int]) -> 'html.
 
 
 def _create_class_distribution_bar_plot(
-    class_info: List[Tuple[int, int, float]],
+    class_info: List[Tuple[Hashable, int, float]],
 ) -> go.Figure:
     """Create a colorful bar plot for class distribution.
 
@@ -397,7 +400,7 @@ def _create_class_distribution_bar_plot(
     assert len(class_info) > 0
     assert all(isinstance(info, tuple) for info in class_info)
     assert all(len(info) == 3 for info in class_info)
-    assert all(isinstance(info[0], (int, np.integer)) for info in class_info)
+    assert all(isinstance(info[0], Hashable) for info in class_info)
     assert all(isinstance(info[1], (int, np.integer)) for info in class_info)
     assert all(isinstance(info[2], (float, int, np.floating)) for info in class_info)
 

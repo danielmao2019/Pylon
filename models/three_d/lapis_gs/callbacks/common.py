@@ -5,7 +5,7 @@ from dash import callback_context
 from dash.exceptions import PreventUpdate
 
 from data.structures.three_d.camera.camera import Camera
-from data.viewer.utils.atomic_displays.image_display import create_image_display
+from data.viewer.utils.atomic_displays.pixels.dash.image_display import create_image_display
 from models.three_d.lapis_gs import styles
 from models.three_d.lapis_gs.render import (
     render_density_from_lapis_gs,

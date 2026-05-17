@@ -13,36 +13,38 @@ import pytest
 def test_atomic_displays_module_imports():
     """Test that all atomic display modules can be imported successfully."""
     # Test individual module imports
-    from data.viewer.utils.atomic_displays.depth_display import (
+    from data.viewer.utils.atomic_displays.mesh.dash.core_mesh_display import (
+        create_mesh_display,
+    )
+    from data.viewer.utils.atomic_displays.pixels.dash.depth_image_display import (
         create_depth_display,
         get_depth_display_stats,
     )
-    from data.viewer.utils.atomic_displays.edge_display import (
+    from data.viewer.utils.atomic_displays.pixels.dash.edge_image_display import (
         create_edge_display,
         get_edge_display_stats,
     )
-    from data.viewer.utils.atomic_displays.image_display import (
-        create_image_display,
-        get_image_display_stats,
-    )
-    from data.viewer.utils.atomic_displays.instance_surrogate_display import (
+    from data.viewer.utils.atomic_displays.pixels.dash.instance_surrogate_image_display import (
         create_instance_surrogate_display,
         get_instance_surrogate_display_stats,
     )
-    from data.viewer.utils.atomic_displays.mesh_display import create_mesh_display
-    from data.viewer.utils.atomic_displays.normal_display import (
+    from data.viewer.utils.atomic_displays.pixels.dash.normal_image_display import (
         create_normal_display,
         get_normal_display_stats,
     )
-    from data.viewer.utils.atomic_displays.point_cloud_display import (
+    from data.viewer.utils.atomic_displays.pixels.dash.image_display import (
+        create_image_display,
+        get_image_display_stats,
+    )
+    from data.viewer.utils.atomic_displays.pixels.dash.segmentation_display import (
+        create_segmentation_display,
+        get_segmentation_display_stats,
+    )
+    from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
         build_point_cloud_id,
         create_point_cloud_display,
         get_point_cloud_display_stats,
         normalize_point_cloud_id,
-    )
-    from data.viewer.utils.atomic_displays.segmentation_display import (
-        create_segmentation_display,
-        get_segmentation_display_stats,
     )
 
     # Verify all functions are callable
@@ -320,14 +322,14 @@ def test_atomic_displays_import_error_handling():
 def test_individual_module_import_error_handling():
     """Test that individual module imports handle errors gracefully."""
     modules_to_test = [
-        'data.viewer.utils.atomic_displays.image_display',
-        'data.viewer.utils.atomic_displays.depth_display',
-        'data.viewer.utils.atomic_displays.normal_display',
-        'data.viewer.utils.atomic_displays.mesh_display',
-        'data.viewer.utils.atomic_displays.edge_display',
-        'data.viewer.utils.atomic_displays.segmentation_display',
-        'data.viewer.utils.atomic_displays.point_cloud_display',
-        'data.viewer.utils.atomic_displays.instance_surrogate_display',
+        'data.viewer.utils.atomic_displays.pixels.dash.image_display',
+        'data.viewer.utils.atomic_displays.pixels.dash.depth_image_display',
+        'data.viewer.utils.atomic_displays.pixels.dash.normal_image_display',
+        'data.viewer.utils.atomic_displays.mesh.dash.core_mesh_display',
+        'data.viewer.utils.atomic_displays.pixels.dash.edge_image_display',
+        'data.viewer.utils.atomic_displays.pixels.dash.segmentation_display',
+        'data.viewer.utils.atomic_displays.points.dash.core_points_display',
+        'data.viewer.utils.atomic_displays.pixels.dash.instance_surrogate_image_display',
     ]
 
     for module_name in modules_to_test:
@@ -366,14 +368,23 @@ def test_atomic_displays_module_docstring():
 def test_individual_module_docstrings():
     """Test that individual modules have appropriate documentation."""
     modules_and_imports = [
-        ('data.viewer.utils.atomic_displays.image_display', 'image'),
-        ('data.viewer.utils.atomic_displays.depth_display', 'depth'),
-        ('data.viewer.utils.atomic_displays.normal_display', 'normal'),
-        ('data.viewer.utils.atomic_displays.mesh_display', 'mesh'),
-        ('data.viewer.utils.atomic_displays.edge_display', 'edge'),
-        ('data.viewer.utils.atomic_displays.segmentation_display', 'segmentation'),
-        ('data.viewer.utils.atomic_displays.point_cloud_display', 'point cloud'),
-        ('data.viewer.utils.atomic_displays.instance_surrogate_display', 'instance'),
+        ('data.viewer.utils.atomic_displays.pixels.dash.image_display', 'image'),
+        ('data.viewer.utils.atomic_displays.pixels.dash.depth_image_display', 'depth'),
+        ('data.viewer.utils.atomic_displays.pixels.dash.normal_image_display', 'normal'),
+        ('data.viewer.utils.atomic_displays.mesh.dash.core_mesh_display', 'mesh'),
+        ('data.viewer.utils.atomic_displays.pixels.dash.edge_image_display', 'edge'),
+        (
+            'data.viewer.utils.atomic_displays.pixels.dash.segmentation_display',
+            'segmentation',
+        ),
+        (
+            'data.viewer.utils.atomic_displays.points.dash.core_points_display',
+            'point cloud',
+        ),
+        (
+            'data.viewer.utils.atomic_displays.pixels.dash.instance_surrogate_image_display',
+            'instance',
+        ),
     ]
 
     for module_name, expected_term in modules_and_imports:

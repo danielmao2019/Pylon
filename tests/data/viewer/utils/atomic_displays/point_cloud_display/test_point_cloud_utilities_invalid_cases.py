@@ -2,11 +2,12 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.atomic_displays.point_cloud_display import (
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
     apply_lod_to_point_cloud,
     build_point_cloud_id,
     get_point_cloud_display_stats,
@@ -16,6 +17,7 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
 # ================================================================================
 # get_point_cloud_display_stats Tests - Invalid Cases
 # ================================================================================
+
 
 def test_get_point_cloud_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""
@@ -68,12 +70,13 @@ def test_get_point_cloud_display_stats_empty_tensor():
     with pytest.raises(AssertionError) as exc_info:
         PointCloud(xyz=empty_pc)
 
-    assert "must have positive length" in str(exc_info.value)
+    assert "at least one point" in str(exc_info.value)
 
 
 # ================================================================================
 # build_point_cloud_id Tests - Invalid Cases
 # ================================================================================
+
 
 def test_build_point_cloud_id_invalid_datapoint_type():
     """Test assertion failure for invalid datapoint type."""
@@ -95,12 +98,12 @@ def test_build_point_cloud_id_invalid_component_type():
 # apply_lod_to_point_cloud Tests - Invalid Cases
 # ================================================================================
 
+
 def test_apply_lod_to_point_cloud_invalid_point_cloud_type():
     """Test assertion failure for invalid point cloud type."""
     with pytest.raises(AssertionError) as exc_info:
         apply_lod_to_point_cloud(
-            points="not_a_tensor",
-            camera_state={"eye": {"x": 1, "y": 1, "z": 1}}
+            points="not_a_tensor", camera_state={"eye": {"x": 1, "y": 1, "z": 1}}
         )
 
     assert "points must be torch.Tensor" in str(exc_info.value)
@@ -114,7 +117,7 @@ def test_apply_lod_to_point_cloud_invalid_camera_state_type():
         apply_lod_to_point_cloud(
             points=pc,
             camera_state="not_a_dict",
-            lod_type="continuous"  # This will trigger camera_state validation
+            lod_type="continuous",  # This will trigger camera_state validation
         )
 
     assert "'str' object has no attribute 'get'" in str(exc_info.value)
@@ -127,19 +130,13 @@ def test_apply_lod_to_point_cloud_invalid_point_cloud_dimensions():
     camera_state = {"eye": {"x": 1, "y": 1, "z": 1}}
 
     with pytest.raises(AssertionError) as exc_info:
-        apply_lod_to_point_cloud(
-            points=pc_1d,
-            camera_state=camera_state
-        )
+        apply_lod_to_point_cloud(points=pc_1d, camera_state=camera_state)
     assert "points must be (N, 3)" in str(exc_info.value)
 
     # 3D tensor
     pc_3d = torch.randn(1, 100, 3, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        apply_lod_to_point_cloud(
-            points=pc_3d,
-            camera_state=camera_state
-        )
+        apply_lod_to_point_cloud(points=pc_3d, camera_state=camera_state)
     assert "points must be (N, 3)" in str(exc_info.value)
 
 
@@ -150,19 +147,13 @@ def test_apply_lod_to_point_cloud_invalid_point_cloud_channels():
     # 2 channels
     pc_2ch = torch.randn(100, 2, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        apply_lod_to_point_cloud(
-            points=pc_2ch,
-            camera_state=camera_state
-        )
+        apply_lod_to_point_cloud(points=pc_2ch, camera_state=camera_state)
     assert "points must be (N, 3)" in str(exc_info.value)
 
     # 4 channels
     pc_4ch = torch.randn(100, 4, dtype=torch.float32)
     with pytest.raises(AssertionError) as exc_info:
-        apply_lod_to_point_cloud(
-            points=pc_4ch,
-            camera_state=camera_state
-        )
+        apply_lod_to_point_cloud(points=pc_4ch, camera_state=camera_state)
     assert "points must be (N, 3)" in str(exc_info.value)
 
 
@@ -173,13 +164,10 @@ def test_apply_lod_to_point_cloud_empty_point_cloud():
 
     with pytest.raises(RuntimeError) as exc_info:
         apply_lod_to_point_cloud(
-            points=empty_pc,
-            camera_state=camera_state,
-            lod_type="continuous"
+            points=empty_pc, camera_state=camera_state, lod_type="continuous"
         )
 
     assert "quantile() input tensor must be non-empty" in str(exc_info.value)
-
 
 
 def test_apply_lod_to_point_cloud_invalid_camera_eye_type():
@@ -189,9 +177,7 @@ def test_apply_lod_to_point_cloud_invalid_camera_eye_type():
 
     with pytest.raises(TypeError) as exc_info:
         apply_lod_to_point_cloud(
-            points=pc,
-            camera_state=camera_state,
-            lod_type="continuous"
+            points=pc, camera_state=camera_state, lod_type="continuous"
         )
 
     assert "string indices must be integers" in str(exc_info.value)
@@ -205,9 +191,7 @@ def test_apply_lod_to_point_cloud_missing_camera_eye_coordinates():
     camera_state = {"eye": {"y": 1, "z": 1}}
     with pytest.raises(KeyError) as exc_info:
         apply_lod_to_point_cloud(
-            points=pc,
-            camera_state=camera_state,
-            lod_type="continuous"
+            points=pc, camera_state=camera_state, lod_type="continuous"
         )
     assert "'x'" in str(exc_info.value)
 
@@ -215,9 +199,7 @@ def test_apply_lod_to_point_cloud_missing_camera_eye_coordinates():
     camera_state = {"eye": {"x": 1, "z": 1}}
     with pytest.raises(KeyError) as exc_info:
         apply_lod_to_point_cloud(
-            points=pc,
-            camera_state=camera_state,
-            lod_type="continuous"
+            points=pc, camera_state=camera_state, lod_type="continuous"
         )
     assert "'y'" in str(exc_info.value)
 
@@ -225,9 +207,7 @@ def test_apply_lod_to_point_cloud_missing_camera_eye_coordinates():
     camera_state = {"eye": {"x": 1, "y": 1}}
     with pytest.raises(KeyError) as exc_info:
         apply_lod_to_point_cloud(
-            points=pc,
-            camera_state=camera_state,
-            lod_type="continuous"
+            points=pc, camera_state=camera_state, lod_type="continuous"
         )
     assert "'z'" in str(exc_info.value)
 
@@ -241,10 +221,12 @@ def test_apply_lod_to_point_cloud_invalid_density_percentage_type():
             points=pc,
             lod_type="none",
             density_percentage="not_int",
-            point_cloud_id="test"
+            point_cloud_id="test",
         )
 
-    assert "'>=' not supported between instances of 'str' and 'int'" in str(exc_info.value)
+    assert "'>=' not supported between instances of 'str' and 'int'" in str(
+        exc_info.value
+    )
 
 
 def test_apply_lod_to_point_cloud_invalid_density_percentage_value():
@@ -254,10 +236,7 @@ def test_apply_lod_to_point_cloud_invalid_density_percentage_value():
     # Negative density_percentage
     with pytest.raises(AssertionError) as exc_info:
         apply_lod_to_point_cloud(
-            points=pc,
-            lod_type="none",
-            density_percentage=-10,
-            point_cloud_id="test"
+            points=pc, lod_type="none", density_percentage=-10, point_cloud_id="test"
         )
 
     assert "density_percentage must be 1-100" in str(exc_info.value)
@@ -265,10 +244,7 @@ def test_apply_lod_to_point_cloud_invalid_density_percentage_value():
     # Zero density_percentage
     with pytest.raises(AssertionError) as exc_info:
         apply_lod_to_point_cloud(
-            points=pc,
-            lod_type="none",
-            density_percentage=0,
-            point_cloud_id="test"
+            points=pc, lod_type="none", density_percentage=0, point_cloud_id="test"
         )
 
     assert "density_percentage must be 1-100" in str(exc_info.value)
@@ -277,6 +253,7 @@ def test_apply_lod_to_point_cloud_invalid_density_percentage_value():
 # ================================================================================
 # normalize_point_cloud_id Tests - Invalid Cases
 # ================================================================================
+
 
 def test_normalize_point_cloud_id_proper_usage():
     """Test normalize function with proper string and tuple inputs."""
@@ -300,7 +277,8 @@ def test_normalize_point_cloud_id_empty_string():
 # Edge Cases and Boundary Testing
 # ================================================================================
 
-def test_point_cloud_utilities_with_different_dtypes():
+
+def test_point_cloud_utilities_with_different_dtypes(setup_viewer_context):
     """Test that point cloud utilities work with various dtypes (should work)."""
     # Float64
     pc_f64 = torch.randn(100, 3, dtype=torch.float64)
@@ -319,7 +297,8 @@ def test_point_cloud_utilities_with_different_dtypes():
     with pytest.raises(AssertionError):
         PointCloud(xyz=pc_int)
 
-def test_point_cloud_utilities_extreme_shapes():
+
+def test_point_cloud_utilities_extreme_shapes(setup_viewer_context):
     """Test utilities with extreme but valid point cloud shapes."""
     # Single point
     single_point = torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.float32)
@@ -356,20 +335,14 @@ def test_apply_lod_to_point_cloud_edge_cases():
     # High density percentage (should keep most points)
     camera_state = {"eye": {"x": 1, "y": 1, "z": 1}}
     lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
-        points=pc,
-        lod_type="none",
-        density_percentage=90,
-        point_cloud_id="test_high"
+        points=pc, lod_type="none", density_percentage=90, point_cloud_id="test_high"
     )
     assert isinstance(lod_points, torch.Tensor)
     assert lod_points.shape[0] <= 100  # Should not exceed original size
 
     # Low density percentage (minimum valid value)
     lod_points_min, lod_colors_min, lod_labels_min = apply_lod_to_point_cloud(
-        points=pc,
-        lod_type="none",
-        density_percentage=1,
-        point_cloud_id="test_low"
+        points=pc, lod_type="none", density_percentage=1, point_cloud_id="test_low"
     )
     assert isinstance(lod_points_min, torch.Tensor)
     assert lod_points_min.shape[0] <= pc.shape[0]
@@ -407,7 +380,6 @@ def test_point_cloud_utilities_with_extreme_values():
     assert stats_large['total_points'] == 100
     assert stats_large['dimensions'] == 3
 
-
     # Very small coordinates
     small_coords = torch.full((100, 3), 1e-6, dtype=torch.float32)
 
@@ -416,7 +388,6 @@ def test_point_cloud_utilities_with_extreme_values():
     assert isinstance(stats_small, dict)
     assert stats_small['total_points'] == 100
     assert stats_small['dimensions'] == 3
-
 
     # Mixed extreme values
     mixed_coords = torch.randn(100, 3, dtype=torch.float32) * 1e6

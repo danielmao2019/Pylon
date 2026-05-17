@@ -2,38 +2,41 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-import plotly.graph_objects as go
-
-from data.viewer.utils.atomic_displays.instance_surrogate_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.instance_surrogate_image_display import (
+    _convert_surrogate_to_instance_mask,
     create_instance_surrogate_display,
     get_instance_surrogate_display_stats,
-    _convert_surrogate_to_instance_mask
 )
-
 
 # ================================================================================
 # create_instance_surrogate_display Tests - Valid Cases
 # ================================================================================
 
+
 def test_create_instance_surrogate_display_basic(instance_surrogate_tensor):
     """Test basic instance surrogate display creation."""
-    fig = create_instance_surrogate_display(instance_surrogate_tensor, "Test Instance Surrogate")
+    fig = create_instance_surrogate_display(
+        instance_surrogate_tensor, "Test Instance Surrogate"
+    )
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Instance Surrogate"
 
 
-def test_create_instance_surrogate_display_custom_ignore_value(instance_surrogate_tensor):
+def test_create_instance_surrogate_display_custom_ignore_value(
+    instance_surrogate_tensor,
+):
     """Test instance surrogate display with custom ignore value."""
     fig = create_instance_surrogate_display(
-        instance_surrogate_tensor,
-        "Custom Ignore Value",
-        ignore_value=100
+        instance_surrogate_tensor, "Custom Ignore Value", ignore_value=100
     )
 
     assert isinstance(fig, go.Figure)
@@ -46,7 +49,7 @@ def test_create_instance_surrogate_display_with_kwargs(instance_surrogate_tensor
         instance_surrogate_tensor,
         "Test with Kwargs",
         ignore_value=250,
-        extra_param="ignored"  # Should be ignored
+        extra_param="ignored",  # Should be ignored
     )
 
     assert isinstance(fig, go.Figure)
@@ -60,8 +63,8 @@ def test_create_instance_surrogate_display_realistic_offsets():
 
     # Create several instance regions with realistic offsets
     # Instance 1: Top-left region pointing to center
-    instance_surrogate[0, 10:20, 10:20] = 5.0   # Y offset to center
-    instance_surrogate[1, 10:20, 10:20] = 5.0   # X offset to center
+    instance_surrogate[0, 10:20, 10:20] = 5.0  # Y offset to center
+    instance_surrogate[1, 10:20, 10:20] = 5.0  # X offset to center
 
     # Instance 2: Bottom-right region pointing to center
     instance_surrogate[0, 40:50, 40:50] = -5.0  # Y offset to center
@@ -125,6 +128,7 @@ def test_create_instance_surrogate_display_all_ignore_regions():
 # Integration and Performance Tests
 # ================================================================================
 
+
 def test_instance_surrogate_display_pipeline(instance_surrogate_tensor):
     """Test complete instance surrogate display pipeline."""
     # Test display creation
@@ -142,8 +146,12 @@ def test_instance_surrogate_display_pipeline(instance_surrogate_tensor):
 def test_instance_surrogate_display_determinism(instance_surrogate_tensor):
     """Test that instance surrogate display operations are deterministic."""
     # Display creation should be deterministic
-    fig1 = create_instance_surrogate_display(instance_surrogate_tensor, "Determinism Test")
-    fig2 = create_instance_surrogate_display(instance_surrogate_tensor, "Determinism Test")
+    fig1 = create_instance_surrogate_display(
+        instance_surrogate_tensor, "Determinism Test"
+    )
+    fig2 = create_instance_surrogate_display(
+        instance_surrogate_tensor, "Determinism Test"
+    )
 
     assert isinstance(fig1, go.Figure)
     assert isinstance(fig2, go.Figure)
@@ -167,7 +175,9 @@ def test_performance_with_large_instance_surrogate():
     large_instance_surrogate[1, ignore_mask] = 250
 
     # These should complete without error
-    fig = create_instance_surrogate_display(large_instance_surrogate, "Large Instance Test")
+    fig = create_instance_surrogate_display(
+        large_instance_surrogate, "Large Instance Test"
+    )
     stats = get_instance_surrogate_display_stats(large_instance_surrogate)
 
     # Basic checks
@@ -180,6 +190,7 @@ def test_performance_with_large_instance_surrogate():
 # ================================================================================
 # Correctness Verification Tests
 # ================================================================================
+
 
 def test_instance_surrogate_display_known_pattern():
     """Test instance surrogate display with known offset pattern."""
@@ -227,7 +238,9 @@ def test_instance_surrogate_mask_conversion_correctness():
     # Convert to instance mask
     y_offset = instance_surrogate[0]
     x_offset = instance_surrogate[1]
-    instance_mask = _convert_surrogate_to_instance_mask(y_offset, x_offset, ignore_index=250)
+    instance_mask = _convert_surrogate_to_instance_mask(
+        y_offset, x_offset, ignore_index=250
+    )
 
     # Check that conversion produces valid instance mask
     assert isinstance(instance_mask, torch.Tensor)

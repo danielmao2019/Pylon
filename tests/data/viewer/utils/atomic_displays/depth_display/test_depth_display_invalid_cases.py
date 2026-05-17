@@ -2,19 +2,20 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+import plotly.graph_objects as go
 import pytest
 import torch
-import plotly.graph_objects as go
 
-from data.viewer.utils.atomic_displays.depth_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.depth_image_display import (
     create_depth_display,
-    get_depth_display_stats
+    get_depth_display_stats,
 )
-
 
 # ================================================================================
 # create_depth_display Tests - Invalid Cases
 # ================================================================================
+
 
 def test_create_depth_display_invalid_input_type():
     """Test assertion failure for invalid input type."""
@@ -94,6 +95,7 @@ def test_create_depth_display_invalid_colorscale_type():
 # get_depth_display_stats Tests - Invalid Cases
 # ================================================================================
 
+
 def test_get_depth_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
@@ -156,6 +158,7 @@ def test_get_depth_display_stats_zero_dimensions():
 # ================================================================================
 # Edge Cases and Boundary Testing
 # ================================================================================
+
 
 def test_create_depth_display_with_different_dtypes():
     """Test depth display with various tensor dtypes (should work)."""
@@ -234,8 +237,8 @@ def test_depth_display_with_mixed_valid_invalid_values():
     depth = torch.rand(32, 32, dtype=torch.float32) * 10.0 + 0.1
 
     # Set some regions to invalid values
-    depth[:10, :10] = 0.0         # Zero depths (invalid)
-    depth[10:20, 10:20] = -1.0    # Negative depths (invalid)
+    depth[:10, :10] = 0.0  # Zero depths (invalid)
+    depth[10:20, 10:20] = -1.0  # Negative depths (invalid)
     depth[20:30, 20:30] = float('nan')  # NaN depths (invalid)
 
     # This should still work
@@ -287,7 +290,9 @@ def test_depth_display_boundary_values():
 
     stats = get_depth_display_stats(tiny_depth)
     assert stats["valid_pixels"] == 32 * 32  # Should be valid (positive)
-    assert abs(stats["min_depth"] - 1e-10) < 1e-15  # Use approximate comparison for float precision
+    assert (
+        abs(stats["min_depth"] - 1e-10) < 1e-15
+    )  # Use approximate comparison for float precision
 
     # Just at zero boundary
     zero_boundary = torch.zeros(32, 32, dtype=torch.float32)

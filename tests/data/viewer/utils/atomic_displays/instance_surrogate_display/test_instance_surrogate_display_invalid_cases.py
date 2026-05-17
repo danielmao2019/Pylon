@@ -2,20 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+import plotly.graph_objects as go
 import pytest
 import torch
-import plotly.graph_objects as go
 
-from data.viewer.utils.atomic_displays.instance_surrogate_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.instance_surrogate_image_display import (
+    _convert_surrogate_to_instance_mask,
     create_instance_surrogate_display,
     get_instance_surrogate_display_stats,
-    _convert_surrogate_to_instance_mask
 )
-
 
 # ================================================================================
 # create_instance_surrogate_display Tests - Invalid Cases
 # ================================================================================
+
 
 def test_create_instance_surrogate_display_invalid_input_type():
     """Test assertion failure for invalid input type."""
@@ -107,7 +108,9 @@ def test_create_instance_surrogate_display_invalid_ignore_value_type():
     instance_surrogate = torch.randn(2, 32, 32, dtype=torch.float32)
 
     with pytest.raises(AssertionError) as exc_info:
-        create_instance_surrogate_display(instance_surrogate, "Test", ignore_value="not_int")
+        create_instance_surrogate_display(
+            instance_surrogate, "Test", ignore_value="not_int"
+        )
 
     assert "Expected int ignore_value" in str(exc_info.value)
 
@@ -115,6 +118,7 @@ def test_create_instance_surrogate_display_invalid_ignore_value_type():
 # ================================================================================
 # get_instance_surrogate_display_stats Tests - Invalid Cases
 # ================================================================================
+
 
 def test_get_instance_surrogate_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""
@@ -179,6 +183,7 @@ def test_get_instance_surrogate_display_stats_invalid_ignore_index_type():
 # ================================================================================
 # Edge Cases and Boundary Testing
 # ================================================================================
+
 
 def test_create_instance_surrogate_display_with_different_dtypes():
     """Test instance surrogate display with various tensor dtypes (should work)."""
@@ -289,7 +294,9 @@ def test_instance_surrogate_display_boundary_ignore_values():
     instance_surrogate[:, 10:20, 10:20] = 10.0  # Set region to value 10
 
     # Use ignore_value=10 (same as some data)
-    fig = create_instance_surrogate_display(instance_surrogate, "Boundary Ignore", ignore_value=10)
+    fig = create_instance_surrogate_display(
+        instance_surrogate, "Boundary Ignore", ignore_value=10
+    )
     assert isinstance(fig, go.Figure)
 
     stats = get_instance_surrogate_display_stats(instance_surrogate, ignore_index=10)
@@ -332,7 +339,9 @@ def test_instance_surrogate_display_negative_ignore_values():
     # Use negative ignore value
     instance_surrogate[:, :10, :10] = -100
 
-    fig = create_instance_surrogate_display(instance_surrogate, "Negative Ignore", ignore_value=-100)
+    fig = create_instance_surrogate_display(
+        instance_surrogate, "Negative Ignore", ignore_value=-100
+    )
     assert isinstance(fig, go.Figure)
 
     stats = get_instance_surrogate_display_stats(instance_surrogate, ignore_index=-100)

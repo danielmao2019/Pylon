@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.atomic_displays.point_cloud_display import (
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
     build_point_cloud_id,
     get_point_cloud_display_stats,
     normalize_point_cloud_id,
@@ -116,29 +116,19 @@ def test_build_point_cloud_id_different_components(
 
 
 def test_build_point_cloud_id_missing_meta_info(setup_viewer_context):
-    """Test behavior when meta_info is missing (should default to idx=0)."""
+    """Test hard failure when meta_info is missing."""
     datapoint = {"other_data": "test"}
 
-    result = build_point_cloud_id(datapoint, "source")
-
-    assert isinstance(result, tuple)
-    assert len(result) == 3
-    assert isinstance(result[0], str)  # dataset name from context
-    assert result[1] == 0  # default idx when meta_info missing
-    assert result[2] == "source"
+    with pytest.raises(AssertionError, match="Missing 'meta_info'"):
+        build_point_cloud_id(datapoint, "source")
 
 
 def test_build_point_cloud_id_missing_idx_in_meta_info(setup_viewer_context):
-    """Test behavior when idx is missing from meta_info (should default to 0)."""
+    """Test hard failure when idx is missing from meta_info."""
     datapoint = {"meta_info": {"other_field": "value"}}
 
-    result = build_point_cloud_id(datapoint, "source")
-
-    assert isinstance(result, tuple)
-    assert len(result) == 3
-    assert isinstance(result[0], str)  # dataset name from context
-    assert result[1] == 0  # default idx when not in meta_info
-    assert result[2] == "source"
+    with pytest.raises(AssertionError, match="Missing 'idx'"):
+        build_point_cloud_id(datapoint, "source")
 
 
 # ================================================================================

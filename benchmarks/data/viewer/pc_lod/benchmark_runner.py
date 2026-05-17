@@ -13,7 +13,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import create_point_cloud_display
 
 from .data_types import PointCloudSample, CameraPose, BenchmarkStats
 

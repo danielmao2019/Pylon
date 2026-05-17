@@ -2,19 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-from data.viewer.utils.atomic_displays.normal_display import (
-    get_normal_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.normal_image_display import (
+    get_normal_display_stats,
 )
-
 
 # ================================================================================
 # get_normal_display_stats Tests - Valid Cases
 # ================================================================================
+
 
 def test_get_normal_display_stats_basic(normal_tensor):
     """Test basic normal statistics with realistic normal vectors."""
@@ -74,7 +76,7 @@ def test_get_normal_display_stats_with_invalid_normals():
     """Test normal statistics with some invalid (inf, nan) normals."""
     normals = torch.randn(3, 16, 16, dtype=torch.float32)
     # Normalize to create valid unit normals
-    magnitude = torch.sqrt((normals ** 2).sum(dim=0, keepdim=True))
+    magnitude = torch.sqrt((normals**2).sum(dim=0, keepdim=True))
     magnitude = torch.clamp(magnitude, min=1e-8)
     normals = normals / magnitude
 
@@ -107,7 +109,7 @@ def test_get_normal_display_stats_various_sizes(tensor_size):
     h, w = tensor_size
     normals = torch.randn(3, h, w, dtype=torch.float32)
     # Normalize to unit vectors
-    magnitude = torch.sqrt((normals ** 2).sum(dim=0, keepdim=True))
+    magnitude = torch.sqrt((normals**2).sum(dim=0, keepdim=True))
     magnitude = torch.clamp(magnitude, min=1e-8)
     normals = normals / magnitude
 
@@ -132,6 +134,7 @@ def test_get_normal_display_stats_single_pixel():
 # Batch Support Stats Tests - CRITICAL for eval viewer
 # ================================================================================
 
+
 def test_get_normal_display_stats_batched(batched_normal_tensor):
     """Test normal statistics calculation for batched normal maps."""
     stats = get_normal_display_stats(batched_normal_tensor)
@@ -152,6 +155,7 @@ def test_batch_size_one_assertion_normal_stats():
 # ================================================================================
 # Integration Tests
 # ================================================================================
+
 
 def test_complete_batch_normal_stats_pipeline(batched_normal_tensor):
     """Test complete batched normal statistics pipeline."""

@@ -1,0 +1,1 @@
+"""Triangle-mesh display modality."""

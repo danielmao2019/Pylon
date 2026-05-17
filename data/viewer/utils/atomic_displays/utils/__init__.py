@@ -1,0 +1,1 @@
+"""Shared atomic-display utilities."""

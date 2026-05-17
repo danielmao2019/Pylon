@@ -2,19 +2,19 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
-
-from data.viewer.utils.atomic_displays.image_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.image_display import (
     _image_to_numpy,
-    create_image_display
+    create_image_display,
 )
-
 
 # ================================================================================
 # image_to_numpy Tests - Invalid Cases
 # ================================================================================
+
 
 def test_image_to_numpy_invalid_input_type():
     """Test assertion failure for invalid input type."""
@@ -48,6 +48,7 @@ def test_image_to_numpy_invalid_shape():
 # create_image_display Tests - Invalid Cases
 # ================================================================================
 
+
 def test_create_image_display_invalid_tensor_type():
     """Test assertion failure for invalid tensor input."""
     with pytest.raises(AssertionError) as exc_info:
@@ -67,10 +68,10 @@ def test_create_image_display_invalid_dimensions():
 
 
 def test_create_image_display_invalid_channels():
-    """Test ValueError for 2-channel images (not supported)."""
+    """Test assertion failure for 2-channel images."""
     image = torch.randint(0, 255, (2, 32, 32), dtype=torch.uint8)
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(AssertionError) as exc_info:
         create_image_display(image, "Test")
 
     assert "2-channel images are not supported" in str(exc_info.value)
@@ -115,16 +116,16 @@ def test_batch_size_one_assertion_create_display():
 
 
 def test_invalid_2channel_image_error():
-    """Test that 2-channel images raise ValueError as they are not supported."""
+    """Test that 2-channel images fail fast."""
     two_channel_image = torch.randint(0, 255, (2, 32, 32), dtype=torch.uint8)
 
-    with pytest.raises(ValueError, match="2-channel images are not supported"):
+    with pytest.raises(AssertionError, match="2-channel images are not supported"):
         _image_to_numpy(two_channel_image)
 
 
 def test_batched_invalid_2channel_image_error():
-    """Test that batched 2-channel images raise ValueError."""
+    """Test that batched 2-channel images fail fast."""
     batched_two_channel_image = torch.randint(0, 255, (1, 2, 32, 32), dtype=torch.uint8)
 
-    with pytest.raises(ValueError, match="2-channel images are not supported"):
+    with pytest.raises(AssertionError, match="2-channel images are not supported"):
         create_image_display(batched_two_channel_image, "Should Fail")

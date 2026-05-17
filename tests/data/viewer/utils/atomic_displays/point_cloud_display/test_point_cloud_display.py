@@ -2,6 +2,7 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
@@ -11,13 +12,14 @@ import torch
 from dash import html
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.atomic_displays.point_cloud_display import (
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
     create_point_cloud_display,
 )
 
 # ================================================================================
 # Fixtures
 # ================================================================================
+
 
 @pytest.fixture
 def point_cloud_3d():
@@ -41,17 +43,19 @@ def point_cloud_labels():
 # create_point_cloud_display Tests - Valid Cases
 # ================================================================================
 
+
 def test_create_point_cloud_display_basic(point_cloud_3d):
     """Test basic point cloud display creation."""
     pc = PointCloud(
-        xyz=point_cloud_3d, data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)}
+        xyz=point_cloud_3d,
+        data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)},
     )
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,
         highlight_indices=None,
         title="Test Point Cloud",
-        lod_type="none"
+        lod_type="none",
     )
 
     assert isinstance(fig, go.Figure)
@@ -66,7 +70,7 @@ def test_create_point_cloud_display_with_colors(point_cloud_3d, point_cloud_colo
         color_key=None,
         highlight_indices=None,
         title="Colored Point Cloud",
-        lod_type="none"
+        lod_type="none",
     )
 
     assert isinstance(fig, go.Figure)
@@ -75,15 +79,13 @@ def test_create_point_cloud_display_with_colors(point_cloud_3d, point_cloud_colo
 
 def test_create_point_cloud_display_with_labels(point_cloud_3d, point_cloud_labels):
     """Test point cloud display with labels."""
-    pc = PointCloud(
-        xyz=point_cloud_3d, data={'classification': point_cloud_labels}
-    )
+    pc = PointCloud(xyz=point_cloud_3d, data={'classification': point_cloud_labels})
     fig = create_point_cloud_display(
         pc=pc,
         color_key='classification',  # Use 'classification' as the label key
         highlight_indices=None,
         title="Labeled Point Cloud",
-        lod_type="none"
+        lod_type="none",
     )
 
     assert isinstance(fig, go.Figure)
@@ -97,7 +99,11 @@ def test_create_point_cloud_display_with_lod():
         xyz=points,
         data={'rgb': torch.randint(0, 255, (1000, 3), dtype=torch.uint8)},
     )
-    camera_state = {'eye': {'x': 1, 'y': 1, 'z': 1}, 'center': {'x': 0, 'y': 0, 'z': 0}, 'up': {'x': 0, 'y': 0, 'z': 1}}
+    camera_state = {
+        'eye': {'x': 1, 'y': 1, 'z': 1},
+        'center': {'x': 0, 'y': 0, 'z': 0},
+        'up': {'x': 0, 'y': 0, 'z': 1},
+    }
 
     # Test continuous LOD (needs camera_state)
     fig_continuous = create_point_cloud_display(
@@ -106,7 +112,7 @@ def test_create_point_cloud_display_with_lod():
         highlight_indices=None,
         title="Continuous LOD",
         lod_type="continuous",
-        camera_state=camera_state
+        camera_state=camera_state,
     )
     assert isinstance(fig_continuous, go.Figure)
 
@@ -118,17 +124,13 @@ def test_create_point_cloud_display_with_lod():
         title="Discrete LOD",
         lod_type="discrete",
         point_cloud_id="test_id",
-        camera_state=camera_state
+        camera_state=camera_state,
     )
     assert isinstance(fig_discrete, go.Figure)
 
     # Test none LOD
     fig_none = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="No LOD",
-        lod_type="none"
+        pc=pc, color_key=None, highlight_indices=None, title="No LOD", lod_type="none"
     )
     assert isinstance(fig_none, go.Figure)
 
@@ -137,18 +139,20 @@ def test_create_point_cloud_display_with_lod():
 # Integration and Edge Case Tests
 # ================================================================================
 
+
 def test_point_cloud_display_pipeline(point_cloud_3d):
     """Test complete point cloud display pipeline."""
     # Create display
     pc = PointCloud(
-        xyz=point_cloud_3d, data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)}
+        xyz=point_cloud_3d,
+        data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)},
     )
     fig = create_point_cloud_display(
         pc=pc,
         color_key=None,
         highlight_indices=None,
         title="Pipeline Test",
-        lod_type="none"
+        lod_type="none",
     )
     assert isinstance(fig, go.Figure)
 
@@ -168,7 +172,7 @@ def test_large_point_cloud_performance():
         color_key=None,
         highlight_indices=None,
         title="Large PC Test",
-        lod_type="none"
+        lod_type="none",
     )
 
     # Basic checks
@@ -181,11 +185,7 @@ def test_edge_case_point_clouds():
     tiny_pc = torch.full((100, 3), 1e-6, dtype=torch.float32)
     pc = PointCloud(xyz=tiny_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
     fig = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Tiny PC",
-        lod_type="none"
+        pc=pc, color_key=None, highlight_indices=None, title="Tiny PC", lod_type="none"
     )
     assert isinstance(fig, go.Figure)
 
@@ -193,22 +193,16 @@ def test_edge_case_point_clouds():
     huge_pc = torch.full((100, 3), 1e6, dtype=torch.float32)
     pc = PointCloud(xyz=huge_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
     fig = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Huge PC",
-        lod_type="none"
+        pc=pc, color_key=None, highlight_indices=None, title="Huge PC", lod_type="none"
     )
     assert isinstance(fig, go.Figure)
 
     # Mixed positive/negative
     mixed_pc = torch.randn(100, 3, dtype=torch.float32) * 1000
-    pc = PointCloud(xyz=mixed_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
+    pc = PointCloud(
+        xyz=mixed_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)}
+    )
     fig = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Mixed PC",
-        lod_type="none"
+        pc=pc, color_key=None, highlight_indices=None, title="Mixed PC", lod_type="none"
     )
     assert isinstance(fig, go.Figure)
