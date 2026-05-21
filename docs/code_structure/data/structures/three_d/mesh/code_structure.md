@@ -213,7 +213,7 @@ data/structures/three_d/mesh/load.py
 ├── def _load_mesh_vertex_color(path: Union[str, Path]) -> "Mesh"
 │   ├── # Loads a vertex-colored OBJ (parses v-with-RGB / f lines) into a MeshTextureVertexColor-textured mesh.
 │   └── calls _resolve_input_path
-├── def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Dict[str, Any]
+├── def _load_mesh_uv_texture_map(path: Union[str, Path]) -> "Mesh"
 │   ├── # Loads a UV-textured OBJ via PyTorch3D into a MeshTextureUVTextureMap-textured mesh on the geometry domain (convention "obj").
 │   ├── calls _resolve_input_path
 │   ├── calls load_obj                                        # verts, faces, aux (verts_uvs, textures_idx, texture_images)
