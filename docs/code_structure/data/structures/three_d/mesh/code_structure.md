@@ -1,30 +1,8 @@
 # Mesh Data Structure Code Structure
 
-Code-structure skeleton for `data/structures/three_d/mesh/` — the data-layer
-triangle-mesh package. For the folder layout see `folder_structure.md`; for the
-test layout see `tests_structure.md`.
+Code-structure skeleton for `data/structures/three_d/mesh/`.
 
-## 1. Type overview
-
-```text
-class Mesh        # the package's single public data structure: one triangle mesh
-```
-
-`Mesh` has no subclasses. One mesh carries geometry (`vertices`, `faces`) plus at
-most one texture representation:
-
-- `vertex_color` — per-vertex RGB, aligned 1:1 with `vertices`.
-- `uv_texture_map` + `vertex_uv` + `face_uvs` — a UV atlas image plus a
-  UV-coordinate table (`vertex_uv`) indexed by `face_uvs`.
-
-A mesh carrying neither is geometry-only. The two texture representations are
-mutually exclusive. A UV-textured mesh has two index domains: the geometry
-domain of size `V` (`vertices`, indexed by `faces`) and the UV domain of size
-`U` (`vertex_uv`, indexed by `face_uvs`); `V` and `U` are independent.
-
-## 2. Code structure trees
-
-### Mesh class
+## Mesh class
 
 ```text
 data/structures/three_d/mesh/mesh.py
@@ -58,7 +36,7 @@ data/structures/three_d/mesh/mesh.py
         └── calls transform_vertex_uv_convention        # when the convention changes
 ```
 
-### Attribute validation
+## Attribute validation
 
 ```text
 data/structures/three_d/mesh/validate.py
@@ -90,10 +68,10 @@ data/structures/three_d/mesh/validate.py
     ├── calls validate_vertex_color           # when vertex_color is set
     ├── calls validate_vertex_uv / validate_face_uvs / validate_mesh_uv_convention   # when UV topology is set
     ├── calls validate_uv_texture_map         # when uv_texture_map is set
-    └── # invariants: faces index vertices; vertex_color rows == V; vertex_uv/face_uvs both-or-neither; face_uvs shape == faces shape; face_uvs index vertex_uv; vertex_color and uv_texture_map mutually exclusive
+    └── # invariants: faces index vertices; vertex_color rows == V; vertex_uv/face_uvs both-or-neither; face_uvs shape == faces shape; face_uvs index vertex_uv; vertex_color and uv_texture_map mutually exclusive; vertices/faces are the canonical geometry domain (U >= V)
 ```
 
-### UV-origin convention
+## UV-origin convention
 
 ```text
 data/structures/three_d/mesh/conventions.py
@@ -104,7 +82,7 @@ data/structures/three_d/mesh/conventions.py
     └── # identity when conventions match; otherwise flips the V axis (v -> 1 - v).
 ```
 
-### Loading
+## Loading
 
 ```text
 data/structures/three_d/mesh/load.py
@@ -127,7 +105,7 @@ data/structures/three_d/mesh/load.py
 │   └── calls _resolve_input_path
 ├── def _load_mesh_vertex_color(path) -> Dict                 # parses v-with-RGB / f lines; >1 -> /255
 │   └── calls _resolve_input_path
-├── def _load_mesh_uv_texture_map(path) -> Dict               # PyTorch3D load_obj; convention "obj"
+├── def _load_mesh_uv_texture_map(path) -> Dict               # PyTorch3D load_obj keeps the decoupled geometry/UV domains; convention "obj"
 │   ├── calls _resolve_input_path
 │   ├── calls load_obj                                        # verts, faces, aux (verts_uvs, textures_idx, texture_images)
 │   └── calls pack_texture_images                             # multi-material -> single atlas
@@ -137,7 +115,7 @@ data/structures/three_d/mesh/load.py
 └── def _inspect_obj_file(obj_path) -> Dict[str, bool]        # has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib
 ```
 
-### Saving
+## Saving
 
 ```text
 data/structures/three_d/mesh/save.py
@@ -163,7 +141,7 @@ data/structures/three_d/mesh/save.py
 └── def _normalize_uv_texture_map_for_png(uv_texture_map) -> np.ndarray # -> uint8 HWC
 ```
 
-### Merging and texture-atlas packing
+## Merging and texture-atlas packing
 
 ```text
 data/structures/three_d/mesh/merge.py
@@ -186,7 +164,7 @@ data/structures/three_d/mesh/merge.py
     └── # Rescales/offsets each material's UVs into its packed atlas region.
 ```
 
-### Framework interop conversions
+## Framework interop conversions
 
 ```text
 data/structures/three_d/mesh/convert.py
@@ -199,8 +177,9 @@ data/structures/three_d/mesh/convert.py
 ├── def mesh_to_open3d(mesh) -> o3d.geometry.TriangleMesh     # geometry + optional vertex colors (UV not supported)
 │   └── calls _mesh_vertex_color_to_float_rgb
 ├── def mesh_from_trimesh(mesh, convention=None) -> Mesh
-│   ├── # trimesh.Trimesh -> Mesh; reads visual.uv (per-vertex, 1:1) or visual.vertex_colors.
-│   ├── calls _normalize_trimesh_texture_image               # UV branch; face_uvs = faces.clone()
+│   ├── # trimesh.Trimesh -> Mesh; the UV branch welds per-corner duplicate vertices into the geometry domain.
+│   ├── calls _weld_per_corner_uv_mesh                       # UV branch
+│   ├── calls _normalize_trimesh_texture_image               # UV branch
 │   └── calls _normalize_trimesh_vertex_colors               # vertex-color branch
 ├── def mesh_to_trimesh(mesh) -> trimesh.Trimesh
 │   ├── # Mesh -> trimesh.Trimesh; UV meshes expanded to per-corner topology.
@@ -212,11 +191,13 @@ data/structures/three_d/mesh/convert.py
 ├── def _mesh_vertex_color_to_float_rgb(vertex_color) -> np.ndarray    # -> float32 RGB [0,1]
 ├── def _mesh_vertex_color_to_rgba(vertex_color) -> np.ndarray         # -> uint8 RGBA
 ├── def _mesh_uv_texture_map_to_uint8(uv_texture_map) -> np.ndarray    # -> uint8 HWC RGB
-└── def _expand_obj_uv_mesh_for_trimesh(mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-    └── # Expands an "obj"-convention UV mesh to per-corner topology (one vertex per v/vt pair) for trimesh.
+├── def _expand_obj_uv_mesh_for_trimesh(mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
+│   └── # Expands an "obj"-convention UV mesh to per-corner topology (one vertex per v/vt pair) for trimesh.
+└── def _weld_per_corner_uv_mesh(vertices, faces, vertex_uv) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    └── # Welds coincident per-corner duplicate vertices (exact-position equality) into the geometry domain; returns (vertices, faces, vertex_uv, face_uvs).
 ```
 
-### Package API surface
+## Package API surface
 
 ```text
 data/structures/three_d/mesh/__init__.py
