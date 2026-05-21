@@ -23,13 +23,4 @@ mesh/
     └── validate_uv_texture_map.py         # uv-texture-map representation validation
 ```
 
-`./tests/data/structures/three_d/mesh/`
-
-```text
-mesh/
-├── test_convert.py                        # framework round-trips + the trimesh seam weld/expand round-trip
-└── texture/
-    ├── test_conventions.py                # transform_vertex_uv_convention coverage
-    ├── test_mesh_texture_vertex_color.py   # MeshTextureVertexColor coverage
-    └── test_mesh_texture_uv_texture_map.py # MeshTextureUVTextureMap coverage
-```
+The test-folder layout is owned by `tests_structure.md`.
