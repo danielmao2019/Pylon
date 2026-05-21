@@ -46,21 +46,120 @@ data/structures/three_d/mesh/validate.py
     ├── calls validate_vertices
     ├── calls validate_faces
     ├── calls _validate_device_compatible
-    ├── calls validate_vertex_color           # when vertex_color is set
-    ├── calls validate_vertex_uv / validate_face_uvs / validate_mesh_uv_convention   # when UV topology is set
-    ├── calls validate_uv_texture_map         # when uv_texture_map is set
-    └── # invariants: faces index vertices; vertex_color rows == V; vertex_uv/face_uvs both-or-neither; face_uvs shape == faces shape; face_uvs index vertex_uv; vertex_color and uv_texture_map mutually exclusive; vertices/faces are the canonical geometry domain (U >= V)
+    └── # linkage: faces index vertices; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.face_uvs rows == F
 ```
 
-## UV-origin convention
+## Texture: abstract base
 
 ```text
-data/structures/three_d/mesh/conventions.py
+data/structures/three_d/mesh/texture/mesh_texture.py
+├── import abc
+└── class MeshTexture(abc.ABC)
+    ├── # Abstract base for a mesh's texture; concrete subclasses own the representation-specific tensors and validation.
+    ├── @property @abc.abstractmethod def device(self) -> torch.device
+    └── @abc.abstractmethod def to(self, device=None, convention=None) -> MeshTexture
+        └── # Returns this texture on a target device and/or UV-origin convention.
+```
+
+## Texture: vertex-color representation
+
+```text
+data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py
+├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
+├── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
+└── class MeshTextureVertexColor(MeshTexture)
+    ├── # Per-vertex RGB texture: vertex_color [V,3], aligned 1:1 with the mesh's vertices.
+    ├── def __init__(self, vertex_color)
+    │   ├── # Validates and normalizes vertex_color, then stores it.
+    │   ├── calls validate_vertex_color
+    │   ├── calls MeshTextureVertexColor.normalize_vertex_color
+    │   └── impls self.vertex_color = normalized vertex_color   # float32 [V,3] in [0,1]
+    ├── @staticmethod def normalize_vertex_color(vertex_color) -> torch.Tensor
+    │   └── # Normalizes vertex color to contiguous float32 [V,3] in [0,1] (drops a leading batch axis; uint8 -> /255).
+    ├── @property def device(self) -> torch.device
+    │   └── # Returns self.vertex_color.device.
+    └── def to(self, device=None, convention=None) -> MeshTextureVertexColor
+        ├── # Returns this texture moved to a target device; asserts convention is None (vertex color carries no UV convention).
+        └── return MeshTextureVertexColor
+```
+
+## Texture: uv-texture-map representation
+
+```text
+data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
+├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
+├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
+├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_face_uvs, validate_mesh_uv_convention, validate_uv_texture_map, validate_vertex_uv
+└── class MeshTextureUVTextureMap(MeshTexture)
+    ├── # UV-atlas texture: uv_texture_map [H,W,3] + vertex_uv [U,2] + face_uvs [F,3] + UV-origin convention.
+    ├── def __init__(self, uv_texture_map, vertex_uv, face_uvs, convention)
+    │   ├── # Validates the UV representation, normalizes the texture map, then stores the attributes.
+    │   ├── calls validate_uv_texture_map
+    │   ├── calls validate_vertex_uv
+    │   ├── calls validate_face_uvs
+    │   ├── calls validate_mesh_uv_convention
+    │   ├── # asserts face_uvs indices < vertex_uv rows (U)
+    │   ├── calls MeshTextureUVTextureMap.normalize_uv_texture_map
+    │   ├── impls self.uv_texture_map = normalized uv_texture_map   # float32 HWC in [0,1]
+    │   ├── impls self.vertex_uv = vertex_uv, contiguous
+    │   ├── impls self.face_uvs = face_uvs, int64 + contiguous
+    │   └── impls self.convention = convention
+    ├── @staticmethod def normalize_uv_texture_map(uv_texture_map) -> torch.Tensor
+    │   └── # Normalizes UV texture map to contiguous float32 HWC in [0,1] (drops a leading batch axis; CHW -> HWC; uint8 -> /255).
+    ├── @property def device(self) -> torch.device
+    │   └── # Returns self.uv_texture_map.device.
+    └── def to(self, device=None, convention=None) -> MeshTextureUVTextureMap
+        ├── # Returns this texture on a target device and/or UV-origin convention.
+        ├── calls transform_vertex_uv_convention        # when the convention changes
+        └── return MeshTextureUVTextureMap
+```
+
+## Texture: UV-origin convention
+
+```text
+data/structures/three_d/mesh/texture/conventions.py
+├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_mesh_uv_convention, validate_vertex_uv
 └── def transform_vertex_uv_convention(vertex_uv, source_convention, target_convention) -> torch.Tensor
     ├── # Transforms a UV table between origin conventions ("obj" = v from bottom; "top_left" = v from top).
     ├── calls validate_vertex_uv
     ├── calls validate_mesh_uv_convention                     # source and target
     └── # identity when conventions match; otherwise flips the V axis (v -> 1 - v).
+```
+
+## Texture: vertex-color validation
+
+```text
+data/structures/three_d/mesh/texture/validate_vertex_color.py
+├── def validate_vertex_color(obj) -> None                    # [V,3] or [1,V,3]; uint8 [0,255] or float32 [0,1]
+│   ├── calls _validate_vertex_color_uint8                    # uint8 branch
+│   └── calls _validate_vertex_color_float32                  # float32 branch
+├── def _validate_vertex_color_uint8(obj) -> None
+└── def _validate_vertex_color_float32(obj) -> None
+    └── # asserts the RGB values are finite and within [0,1]
+```
+
+## Texture: uv-texture-map validation
+
+```text
+data/structures/three_d/mesh/texture/validate_uv_texture_map.py
+├── def validate_uv_texture_map(obj) -> None                  # HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32
+│   ├── calls _validate_uv_texture_map_uint8                  # uint8 branch
+│   └── calls _validate_uv_texture_map_float32                # float32 branch
+├── def validate_vertex_uv(obj) -> None                       # float [U,2], U>0, finite, values in [0,1]
+├── def validate_face_uvs(obj) -> None                        # integer [F,3], F>0, indices >= 0
+├── def validate_mesh_uv_convention(convention) -> str        # asserts convention in {"obj", "top_left"}; returns it
+├── def _validate_uv_texture_map_uint8(obj) -> None
+└── def _validate_uv_texture_map_float32(obj) -> None
+    └── # asserts the texture-map values are finite and within [0,1]
+```
+
+## Texture: package API surface
+
+```text
+data/structures/three_d/mesh/texture/__init__.py
+└── re-exports: MeshTexture, MeshTextureVertexColor, MeshTextureUVTextureMap, transform_vertex_uv_convention,
+    validate_vertex_color, validate_uv_texture_map, validate_vertex_uv, validate_face_uvs,
+    validate_mesh_uv_convention
 ```
 
 ## Loading
@@ -69,7 +168,9 @@ data/structures/three_d/mesh/conventions.py
 data/structures/three_d/mesh/load.py
 ├── from pytorch3d.io import load_obj
 ├── from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
-├── def load_mesh(path) -> Dict                               # returns Mesh.__init__ kwargs
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
+├── def load_mesh(path) -> Dict                               # returns Mesh.__init__ kwargs {vertices, faces, texture}
 │   ├── # Loads one OBJ file or every OBJ under a mesh-root directory, then merges.
 │   ├── calls _resolve_input_paths
 │   ├── calls _load_mesh_attributes_from_obj_path             # per OBJ block
@@ -78,15 +179,15 @@ data/structures/three_d/mesh/load.py
 ├── def _load_mesh_attributes_from_obj_path(obj_path) -> Dict
 │   ├── # Dispatches one OBJ to the texture-representation-specific loader.
 │   ├── calls _inspect_obj_file
-│   ├── calls _load_mesh_uv_texture_map                       # has vt + uv faces
-│   ├── calls _load_mesh_vertex_color                         # has v-line RGB
-│   └── calls _load_mesh_geometry_only                        # otherwise
-├── def _mesh_to_init_kwargs(mesh) -> Dict                    # Mesh -> detached/cpu/contiguous kwargs
-├── def _load_mesh_geometry_only(path) -> Dict                # parses v / f lines
+│   ├── calls _load_mesh_uv_texture_map                       # has vt + uv faces -> MeshTextureUVTextureMap
+│   ├── calls _load_mesh_vertex_color                         # has v-line RGB -> MeshTextureVertexColor
+│   └── calls _load_mesh_geometry_only                        # otherwise -> texture None
+├── def _mesh_to_init_kwargs(mesh) -> Dict                    # Mesh -> detached/cpu/contiguous {vertices, faces, texture}
+├── def _load_mesh_geometry_only(path) -> Dict                # parses v / f lines; texture None
 │   └── calls _resolve_input_path
-├── def _load_mesh_vertex_color(path) -> Dict                 # parses v-with-RGB / f lines; >1 -> /255
+├── def _load_mesh_vertex_color(path) -> Dict                 # parses v-with-RGB / f lines; builds MeshTextureVertexColor
 │   └── calls _resolve_input_path
-├── def _load_mesh_uv_texture_map(path) -> Dict               # PyTorch3D load_obj keeps the decoupled geometry/UV domains; convention "obj"
+├── def _load_mesh_uv_texture_map(path) -> Dict               # PyTorch3D load_obj (decoupled geometry/UV domains); builds MeshTextureUVTextureMap, convention "obj"
 │   ├── calls _resolve_input_path
 │   ├── calls load_obj                                        # verts, faces, aux (verts_uvs, textures_idx, texture_images)
 │   └── calls pack_texture_images                             # multi-material -> single atlas
