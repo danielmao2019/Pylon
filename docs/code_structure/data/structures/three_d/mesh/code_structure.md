@@ -6,8 +6,6 @@ Code-structure skeleton for `data/structures/three_d/mesh/`.
 
 ```text
 data/structures/three_d/mesh/mesh.py
-├── from data.structures.three_d.mesh.load import load_mesh
-├── from data.structures.three_d.mesh.save import save_mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.validate import validate_mesh_attributes
 └── class Mesh
@@ -25,10 +23,12 @@ data/structures/three_d/mesh/mesh.py
     │   └── impls self.device = self.vertices.device
     ├── @classmethod def load(cls, path: Union[str, Path]) -> "Mesh"
     │   ├── # Loads one mesh from an OBJ file or a mesh-root directory.
+    │   ├── from data.structures.three_d.mesh.load import load_mesh   # deferred: load.py imports mesh.py, so mesh.py must not import load.py at module level
     │   ├── calls load_mesh
     │   └── return                                  # the Mesh returned by load_mesh
     ├── def save(self, path: Union[str, Path]) -> None
     │   ├── # Saves this mesh to an OBJ/PLY file or a directory.
+    │   ├── from data.structures.three_d.mesh.save import save_mesh   # deferred: save.py imports mesh.py, so mesh.py must not import save.py at module level
     │   └── calls save_mesh
     └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "Mesh"
         ├── # Returns this mesh on a target device and/or UV-origin convention (self when both already match).
@@ -191,6 +191,7 @@ data/structures/three_d/mesh/texture/__init__.py
 data/structures/three_d/mesh/load.py
 ├── from pytorch3d.io import load_obj
 ├── from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
+├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def load_mesh(path: Union[str, Path]) -> "Mesh"
@@ -231,6 +232,7 @@ data/structures/three_d/mesh/load.py
 
 ```text
 data/structures/three_d/mesh/save.py
+├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
@@ -277,6 +279,7 @@ data/structures/three_d/mesh/save.py
 
 ```text
 data/structures/three_d/mesh/merge.py
+├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def merge_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh"
@@ -310,6 +313,7 @@ data/structures/three_d/mesh/merge.py
 
 ```text
 data/structures/three_d/mesh/convert.py
+├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> "Mesh"
