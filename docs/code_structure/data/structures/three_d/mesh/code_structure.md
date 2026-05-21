@@ -202,10 +202,10 @@ data/structures/three_d/mesh/load.py
 ```text
 data/structures/three_d/mesh/save.py
 ├── def save_mesh(mesh, output_path) -> None
-│   ├── # Dispatches one mesh to the texture-representation-specific writer.
-│   ├── calls _save_mesh_vertex_color                         # when vertex_color is set
-│   ├── calls _save_mesh_uv_texture_map                       # when uv_texture_map is set
-│   └── calls _save_mesh_geometry_only                        # otherwise
+│   ├── # Dispatches on the mesh's texture type (isinstance) to the matching writer.
+│   ├── calls _save_mesh_vertex_color                         # MeshTextureVertexColor
+│   ├── calls _save_mesh_uv_texture_map                       # MeshTextureUVTextureMap
+│   └── calls _save_mesh_geometry_only                        # texture None
 ├── def _save_mesh_geometry_only(mesh, output_path) -> None   # OBJ or PLY
 │   └── calls _resolve_output_non_uv_mesh_path
 ├── def _save_mesh_vertex_color(mesh, output_path) -> None    # OBJ (v x y z r g b) or PLY
