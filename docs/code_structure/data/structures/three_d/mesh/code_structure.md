@@ -114,11 +114,8 @@ data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
 
 ```text
 data/structures/three_d/mesh/texture/conventions.py
-├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_mesh_uv_convention, validate_vertex_uv
 └── def transform_vertex_uv_convention(vertex_uv, source_convention, target_convention) -> torch.Tensor
     ├── # Transforms a UV table between origin conventions ("obj" = v from bottom; "top_left" = v from top).
-    ├── calls validate_vertex_uv
-    ├── calls validate_mesh_uv_convention                     # source and target
     └── # identity when conventions match; otherwise flips the V axis (v -> 1 - v).
 ```
 
@@ -138,19 +135,19 @@ data/structures/three_d/mesh/texture/validate_vertex_color.py
 
 ```text
 data/structures/three_d/mesh/texture/validate_uv_texture_map.py
-├── from data.structures.three_d.mesh.texture.conventions import validate_mesh_uv_convention
 ├── def validate_uv_texture_map(uv_texture_map, vertex_uv, face_uvs, convention) -> None
 │   ├── # The module's single public API: validates the whole uv-texture-map representation.
 │   ├── calls _validate_uv_texture_map_image
 │   ├── calls _validate_vertex_uv
 │   ├── calls _validate_face_uvs
-│   ├── calls validate_mesh_uv_convention
+│   ├── calls _validate_mesh_uv_convention
 │   └── # cross-field: asserts face_uvs indices reference valid vertex_uv rows (in [0, U))
 ├── def _validate_uv_texture_map_image(obj) -> None            # texture image tensor: HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32
 │   ├── calls _validate_uv_texture_map_image_uint8            # uint8 branch
 │   └── calls _validate_uv_texture_map_image_float32          # float32 branch
 ├── def _validate_vertex_uv(obj) -> None                      # float [U,2], U>0, finite, values in [0,1]
 ├── def _validate_face_uvs(obj) -> None                       # integer [F,3], F>0, indices >= 0
+├── def _validate_mesh_uv_convention(convention) -> str       # asserts convention in {"obj", "top_left"}; returns it
 ├── def _validate_uv_texture_map_image_uint8(obj) -> None
 └── def _validate_uv_texture_map_image_float32(obj) -> None
     └── # asserts the texture-map values are finite and within [0,1]
@@ -161,7 +158,7 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 ```text
 data/structures/three_d/mesh/texture/__init__.py
 └── re-exports: MeshTexture, MeshTextureVertexColor, MeshTextureUVTextureMap, transform_vertex_uv_convention,
-    validate_mesh_uv_convention, validate_vertex_color, validate_uv_texture_map
+    validate_vertex_color, validate_uv_texture_map
 ```
 
 ## Loading
@@ -326,5 +323,5 @@ data/structures/three_d/mesh/__init__.py
     MeshTexture, MeshTextureVertexColor, MeshTextureUVTextureMap, transform_vertex_uv_convention,
     mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh,
     validate_vertices, validate_faces, validate_vertex_color, validate_uv_texture_map,
-    validate_mesh_attributes, validate_mesh_uv_convention
+    validate_mesh_attributes
 ```
