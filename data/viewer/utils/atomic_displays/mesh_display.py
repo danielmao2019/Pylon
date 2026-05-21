@@ -14,6 +14,12 @@ from dash import html
 from PIL import Image
 
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
+from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
+    MeshTextureVertexColor,
+)
 from data.viewer.utils.camera_sync.threejs import build_threejs_camera_sync_script
 
 MODULE_DIR = Path(__file__).resolve().parent
@@ -113,23 +119,16 @@ def create_mesh_display(
         _normalize_inputs()
     )
 
-    if mesh.vertex_color is not None:
+    if isinstance(mesh.texture, MeshTextureVertexColor):
         return _create_vertex_color_mesh_display(
             mesh=mesh,
             title=normalized_title,
         )
 
-    assert mesh.uv_texture_map is not None, (
-        "Expected `mesh` to contain either `vertex_color` or `uv_texture_map`. "
-        f"{mesh.vertex_color is not None=} {mesh.uv_texture_map is not None=}"
-    )
-    assert mesh.vertex_uv is not None, (
-        "Expected UV-texture meshes to provide `vertex_uv`. "
-        f"{mesh.vertex_uv is not None=}"
-    )
-    assert mesh.face_uvs is not None, (
-        "Expected UV-texture meshes to provide `face_uvs`. "
-        f"{mesh.face_uvs is not None=}"
+    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+        "Expected `mesh` to carry a `MeshTextureVertexColor` or "
+        "`MeshTextureUVTextureMap` texture. "
+        f"{type(mesh.texture)=}"
     )
     return _create_uv_texture_mesh_display(
         mesh=mesh,
@@ -146,7 +145,7 @@ def _create_vertex_color_mesh_display(
     """Create one Plotly mesh figure from per-vertex colors.
 
     Args:
-        mesh: Mesh with `vertex_color`.
+        mesh: Mesh carrying a `MeshTextureVertexColor` texture.
         title: Figure title.
 
     Returns:
@@ -158,9 +157,10 @@ def _create_vertex_color_mesh_display(
             "Expected `_create_vertex_color_mesh_display` to receive a `Mesh`. "
             f"{type(mesh)=}"
         )
-        assert mesh.vertex_color is not None, (
-            "Expected `_create_vertex_color_mesh_display` to receive vertex colors. "
-            f"{mesh.vertex_color is not None=}"
+        assert isinstance(mesh.texture, MeshTextureVertexColor), (
+            "Expected `_create_vertex_color_mesh_display` to receive a "
+            "`MeshTextureVertexColor` texture. "
+            f"{type(mesh.texture)=}"
         )
 
         assert isinstance(title, str), (
@@ -176,7 +176,7 @@ def _create_vertex_color_mesh_display(
         normalized_vertices = mesh.vertices.detach().cpu().numpy()
         normalized_faces = mesh.faces.detach().cpu().numpy()
         normalized_vertex_colors = _normalize_rgb_tensor_to_uint8(
-            rgb_values=mesh.vertex_color
+            rgb_values=mesh.texture.vertex_color
         )
         normalized_mesh_view_bounds = build_mesh_view_bounds(
             vertices=mesh.vertices,
@@ -234,7 +234,7 @@ def _create_uv_texture_mesh_display(
     """Create one Three.js iframe from a UV texture map.
 
     Args:
-        mesh: Mesh with `uv_texture_map`, `vertex_uv`, and `face_uvs`.
+        mesh: Mesh carrying a `MeshTextureUVTextureMap` texture.
         title: Display title.
         component_id: Dash component id for the iframe.
         camera_sync_group: Optional browser-side camera-sync group id.
@@ -248,17 +248,10 @@ def _create_uv_texture_mesh_display(
             "Expected `_create_uv_texture_mesh_display` to receive a `Mesh`. "
             f"{type(mesh)=}"
         )
-        assert mesh.uv_texture_map is not None, (
-            "Expected `_create_uv_texture_mesh_display` to receive `uv_texture_map`. "
-            f"{mesh.uv_texture_map is not None=}"
-        )
-        assert mesh.vertex_uv is not None, (
-            "Expected `_create_uv_texture_mesh_display` to receive `vertex_uv`. "
-            f"{mesh.vertex_uv is not None=}"
-        )
-        assert mesh.face_uvs is not None, (
-            "Expected `_create_uv_texture_mesh_display` to receive `face_uvs`. "
-            f"{mesh.face_uvs is not None=}"
+        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+            "Expected `_create_uv_texture_mesh_display` to receive a "
+            "`MeshTextureUVTextureMap` texture. "
+            f"{type(mesh.texture)=}"
         )
 
         assert isinstance(title, str), (
@@ -282,10 +275,15 @@ def _create_uv_texture_mesh_display(
 
     def _normalize_inputs() -> Tuple[List[float], List[float], str, Dict[str, object]]:
         display_mesh = mesh.to(convention="obj")
+        assert isinstance(display_mesh.texture, MeshTextureUVTextureMap), (
+            "Expected the convention-normalized mesh to keep a "
+            "`MeshTextureUVTextureMap` texture. "
+            f"{type(display_mesh.texture)=}"
+        )
         normalized_vertices = display_mesh.vertices.detach().cpu().numpy()
         normalized_faces = display_mesh.faces.detach().cpu().numpy()
-        normalized_vertex_uv = display_mesh.vertex_uv.detach().cpu().numpy()
-        normalized_face_uvs = display_mesh.face_uvs.detach().cpu().numpy()
+        normalized_vertex_uv = display_mesh.texture.vertex_uv.detach().cpu().numpy()
+        normalized_face_uvs = display_mesh.texture.face_uvs.detach().cpu().numpy()
         normalized_mesh_view_bounds = build_mesh_view_bounds(
             vertices=display_mesh.vertices,
         )
@@ -298,7 +296,7 @@ def _create_uv_texture_mesh_display(
             )
         )
         normalized_texture_map = _normalize_texture_map_to_uint8(
-            texture_map=display_mesh.uv_texture_map,
+            texture_map=display_mesh.texture.uv_texture_map,
         )
         normalized_texture_data_url = _build_texture_data_url(
             texture_map=normalized_texture_map,

@@ -15,6 +15,9 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -615,15 +618,9 @@ def _build_scene_context(
         "Expected `point_cloud` to be a `PointCloud`. " f"{type(point_cloud)=}."
     )
     mesh = Mesh.load(path=raw_scene_root / "meshes" / "model.obj")
-    assert mesh.texture_mode == "uv_texture_map", (
+    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
         "Expected the benchmark mesh to be UV textured. "
-        f"{mesh.texture_mode=} {raw_scene_root=}"
-    )
-    assert mesh.vertex_uv is not None, (
-        "Expected the benchmark mesh to contain UV coordinates. " f"{mesh.vertex_uv=}"
-    )
-    assert mesh.face_uvs is not None, (
-        "Expected the benchmark mesh to contain UV-face indices. " f"{mesh.face_uvs=}"
+        f"{type(mesh.texture)=} {raw_scene_root=}"
     )
     normalized_mesh_vertices = _normalize_gso_mesh_vertices_to_processed_frame(
         mesh_vertices=mesh.vertices.to(dtype=torch.float32),
@@ -649,8 +646,8 @@ def _build_scene_context(
     exploded_geometry = _build_exploded_uv_geometry(
         mesh_vertices=normalized_mesh_vertices,
         mesh_faces=mesh.faces.to(dtype=torch.long),
-        mesh_vertex_uv=mesh.vertex_uv.to(dtype=torch.float32),
-        mesh_face_uvs=mesh.face_uvs.to(dtype=torch.long),
+        mesh_vertex_uv=mesh.texture.vertex_uv.to(dtype=torch.float32),
+        mesh_face_uvs=mesh.texture.face_uvs.to(dtype=torch.long),
     )
     return {
         "scene_name": scene_name,
@@ -898,9 +895,14 @@ def _build_cuda_extraction_inputs(
         mesh=Mesh(
             vertices=exploded_vertices_cuda,
             faces=exploded_faces_cuda,
-            vertex_uv=exploded_vertex_uv_cuda,
-            face_uvs=exploded_faces_cuda,
-            convention="obj",
+            texture=MeshTextureUVTextureMap(
+                uv_texture_map=torch.zeros(
+                    (1, 1, 3), dtype=torch.float32, device=device
+                ),
+                vertex_uv=exploded_vertex_uv_cuda,
+                face_uvs=exploded_faces_cuda,
+                convention="obj",
+            ),
         ),
         texture_size=scene_context["texture_size"],
     )

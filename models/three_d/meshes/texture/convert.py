@@ -11,7 +11,12 @@ import nvdiffrast.torch as dr
 import torch
 
 from data.structures.three_d.mesh.mesh import Mesh
-from data.structures.three_d.mesh.validate import validate_uv_texture_map
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
+from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
+    MeshTextureVertexColor,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 CANONICAL_BFM_VERTEX_UV_PATH = (
@@ -146,7 +151,8 @@ def rasterize_vertex_features_to_uv_map(
     """Rasterize per-vertex features onto the mesh UV map.
 
     Args:
-        mesh: Mesh providing ``vertex_uv``, ``faces``, and ``device``.
+        mesh: Mesh providing ``faces``, ``device``, and a
+            ``MeshTextureUVTextureMap`` texture supplying ``vertex_uv``.
         vertex_feature: Per-vertex feature tensor with shape ``[V, C]`` or
             ``[1, V, C]``.
         texture_size: Output square texture resolution.
@@ -160,8 +166,9 @@ def rasterize_vertex_features_to_uv_map(
         assert isinstance(mesh, Mesh), (
             "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
         )
-        assert mesh.vertex_uv is not None, (
-            "Expected `mesh` to carry UV coordinates. " f"{mesh.vertex_uv=}"
+        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+            "Expected `mesh` to carry a `MeshTextureUVTextureMap` texture. "
+            f"{type(mesh.texture)=}"
         )
         assert isinstance(vertex_feature, torch.Tensor), (
             "Expected `vertex_feature` to be a tensor. " f"{type(vertex_feature)=}"
@@ -176,11 +183,11 @@ def rasterize_vertex_features_to_uv_map(
             "Expected `vertex_feature` to have shape `[V, C]` or `[1, V, C]`. "
             f"{vertex_feature.shape=}"
         )
-        vertex_count = mesh.vertex_uv.shape[0]
+        vertex_count = mesh.texture.vertex_uv.shape[0]
         if vertex_feature.ndim == 2:
             assert vertex_feature.shape[0] == vertex_count, (
-                "Expected `vertex_feature` to align with `mesh.vertex_uv`. "
-                f"{vertex_feature.shape=} {mesh.vertex_uv.shape=}"
+                "Expected `vertex_feature` to align with `mesh.texture.vertex_uv`. "
+                f"{vertex_feature.shape=} {mesh.texture.vertex_uv.shape=}"
             )
         else:
             assert vertex_feature.shape[0] == 1, (
@@ -188,11 +195,15 @@ def rasterize_vertex_features_to_uv_map(
                 f"{vertex_feature.shape=}"
             )
             assert vertex_feature.shape[1] == vertex_count, (
-                "Expected `vertex_feature` to align with `mesh.vertex_uv`. "
-                f"{vertex_feature.shape=} {mesh.vertex_uv.shape=}"
+                "Expected `vertex_feature` to align with `mesh.texture.vertex_uv`. "
+                f"{vertex_feature.shape=} {mesh.texture.vertex_uv.shape=}"
             )
 
     _validate_inputs()
+    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+        "Expected `mesh.texture` to be a `MeshTextureUVTextureMap`. "
+        f"{type(mesh.texture)=}"
+    )
 
     def _normalize_inputs() -> torch.Tensor:
         """Normalize per-vertex features to a one-item batch.
@@ -210,7 +221,7 @@ def rasterize_vertex_features_to_uv_map(
 
     vertex_feature = _normalize_inputs()
 
-    uv_clip = _vertex_uv_to_clip(vertex_uv=mesh.vertex_uv).to(
+    uv_clip = _vertex_uv_to_clip(vertex_uv=mesh.texture.vertex_uv).to(
         device=mesh.device,
         dtype=torch.float32,
     )
@@ -231,39 +242,54 @@ def rasterize_vertex_features_to_uv_map(
 
 
 def bake_vertex_colors_to_uv_texture_map(
-    mesh: Mesh,
+    vertex_colored_mesh: Mesh,
+    uv_layout: MeshTextureUVTextureMap,
     texture_size: int,
-) -> torch.Tensor:
+) -> MeshTextureUVTextureMap:
     """Bake per-vertex colors onto a UV texture map via rasterization.
 
+    The vertex colors and the UV layout are two separate ``MeshTexture``
+    objects over the same ``vertices`` / ``faces``: one mesh carries the
+    vertex-color texture, and ``uv_layout`` carries the UV coordinates and
+    UV-face indices. The ``uv_layout`` UV convention is converted internally;
+    callers do not need to pre-convert.
+
     Args:
-        mesh: Mesh providing ``vertex_color``, ``vertex_uv``, ``faces``,
-            ``convention``, and ``device``.  The UV convention is converted
-            internally; callers do not need to pre-convert.
+        vertex_colored_mesh: Mesh carrying a ``MeshTextureVertexColor`` texture
+            and providing ``faces`` and ``device``.
+        uv_layout: UV layout texture over the same ``vertices`` / ``faces``,
+            supplying ``vertex_uv``, ``face_uvs``, and ``convention``. Its
+            ``uv_texture_map`` image is ignored; only the UV layout is used.
         texture_size: Output square texture resolution.
 
     Returns:
-        UV texture map ``[1, texture_size, texture_size, 3]`` in ``[0, 1]``.
+        Baked ``MeshTextureUVTextureMap`` whose ``uv_texture_map`` holds the
+        rasterized per-vertex colors in HWC float32 ``[0, 1]`` and whose
+        ``vertex_uv`` / ``face_uvs`` / ``convention`` match ``uv_layout``.
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(mesh, Mesh), (
-            "Expected `mesh` to be a `Mesh`. " f"{type(mesh)=}"
+        assert isinstance(vertex_colored_mesh, Mesh), (
+            "Expected `vertex_colored_mesh` to be a `Mesh`. "
+            f"{type(vertex_colored_mesh)=}"
         )
-        assert mesh.vertex_color is not None, (
-            "Expected `mesh` to carry vertex colors. " f"{mesh.vertex_color=}"
+        assert isinstance(vertex_colored_mesh.texture, MeshTextureVertexColor), (
+            "Expected `vertex_colored_mesh` to carry a `MeshTextureVertexColor` "
+            "texture. "
+            f"{type(vertex_colored_mesh.texture)=}"
         )
-        assert mesh.uv_texture_map is None, (
-            "Expected `mesh` to not already carry a UV texture map. "
-            f"{mesh.uv_texture_map is None=}"
+        assert isinstance(uv_layout, MeshTextureUVTextureMap), (
+            "Expected `uv_layout` to be a `MeshTextureUVTextureMap`. "
+            f"{type(uv_layout)=}"
         )
-        assert mesh.vertex_uv is not None, (
-            "Expected `mesh` to carry UV coordinates. " f"{mesh.vertex_uv=}"
-        )
-        assert mesh.vertex_color.shape[0] == mesh.vertex_uv.shape[0], (
-            "Expected `mesh.vertex_color` to align with `mesh.vertex_uv` because "
-            "this function uses `faces` as the shared index buffer. "
-            f"{mesh.vertex_color.shape=} {mesh.vertex_uv.shape=}"
+        assert (
+            vertex_colored_mesh.texture.vertex_color.shape[0]
+            == uv_layout.vertex_uv.shape[0]
+        ), (
+            "Expected the vertex colors to align with `uv_layout.vertex_uv` "
+            "because this function uses `faces` as the shared index buffer. "
+            f"{vertex_colored_mesh.texture.vertex_color.shape=} "
+            f"{uv_layout.vertex_uv.shape=}"
         )
         assert isinstance(texture_size, int), (
             "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
@@ -274,19 +300,48 @@ def bake_vertex_colors_to_uv_texture_map(
 
     _validate_inputs()
 
-    def _normalize_inputs() -> Mesh:
-        return mesh.to(convention="obj")
+    def _normalize_inputs() -> Tuple[torch.Tensor, MeshTextureUVTextureMap]:
+        """Move the vertex colors and UV layout onto a shared device/convention.
 
-    mesh = _normalize_inputs()
+        Args:
+            None.
 
-    vertex_color = mesh.vertex_color.unsqueeze(0)
+        Returns:
+            Tuple of the device-aligned vertex-color tensor `[V, 3]` and the
+            UV layout texture in the `obj` UV convention.
+        """
 
+        device = vertex_colored_mesh.device
+        assert isinstance(vertex_colored_mesh.texture, MeshTextureVertexColor), (
+            "Expected `vertex_colored_mesh.texture` to be a "
+            "`MeshTextureVertexColor`. "
+            f"{type(vertex_colored_mesh.texture)=}"
+        )
+        normalized_vertex_color = vertex_colored_mesh.texture.vertex_color.to(
+            device=device
+        )
+        normalized_uv_layout = uv_layout.to(device=device, convention="obj")
+        return normalized_vertex_color, normalized_uv_layout
+
+    normalized_vertex_color, normalized_uv_layout = _normalize_inputs()
+
+    vertex_feature = normalized_vertex_color.unsqueeze(0)
+
+    rasterization_mesh = Mesh(
+        vertices=vertex_colored_mesh.vertices,
+        faces=vertex_colored_mesh.faces,
+        texture=normalized_uv_layout,
+    )
     texel_color, mask = rasterize_vertex_features_to_uv_map(
-        mesh=mesh,
-        vertex_feature=vertex_color,
+        mesh=rasterization_mesh,
+        vertex_feature=vertex_feature,
         texture_size=texture_size,
     )
-    mean_color = vertex_color.mean(dim=1, keepdim=True).unsqueeze(1)
+    mean_color = vertex_feature.mean(dim=1, keepdim=True).unsqueeze(1)
     uv_texture_map = texel_color * mask + mean_color * (1.0 - mask)
-    validate_uv_texture_map(obj=uv_texture_map)
-    return uv_texture_map.contiguous()
+    return MeshTextureUVTextureMap(
+        uv_texture_map=uv_texture_map.contiguous(),
+        vertex_uv=normalized_uv_layout.vertex_uv,
+        face_uvs=normalized_uv_layout.face_uvs,
+        convention=normalized_uv_layout.convention,
+    )

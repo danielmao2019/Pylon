@@ -8,6 +8,9 @@ import torch
 import models.three_d.meshes.texture.extract.extract as extract_module
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
 from models.three_d.meshes.texture.extract import (
     _build_camera_uv_interpolation_data,
     _build_uv_rasterization_data,
@@ -480,9 +483,14 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         mesh=Mesh(
             vertices=vertices,
             faces=faces,
-            vertex_uv=vertex_uv,
-            face_uvs=faces,
-            convention="obj",
+            texture=MeshTextureUVTextureMap(
+                uv_texture_map=torch.zeros(
+                    (1, 1, 3), dtype=torch.float32, device=device
+                ),
+                vertex_uv=vertex_uv,
+                face_uvs=faces,
+                convention="obj",
+            ),
         ),
         texture_size=64,
     )
@@ -914,16 +922,19 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.long),
-        vertex_uv=torch.tensor(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [0.0, 1.0],
-            ],
-            dtype=torch.float32,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=torch.zeros((1, 1, 3), dtype=torch.float32),
+            vertex_uv=torch.tensor(
+                [
+                    [0.0, 0.0],
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                ],
+                dtype=torch.float32,
+            ),
+            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
+            convention="obj",
         ),
-        face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
-        convention="obj",
     )
     image = torch.zeros((3, 2, 2), dtype=torch.float32)
     camera = Cameras(
@@ -1055,16 +1066,19 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.long),
-        vertex_uv=torch.tensor(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [0.0, 1.0],
-            ],
-            dtype=torch.float32,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=torch.zeros((1, 1, 3), dtype=torch.float32),
+            vertex_uv=torch.tensor(
+                [
+                    [0.0, 0.0],
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                ],
+                dtype=torch.float32,
+            ),
+            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
+            convention="obj",
         ),
-        face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
-        convention="obj",
     )
     images = torch.zeros((1, 3, 2, 2), dtype=torch.float32)
     cameras = Cameras(

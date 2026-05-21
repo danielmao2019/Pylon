@@ -8,7 +8,11 @@ import torch
 from dash import html
 
 import data.viewer.utils.atomic_displays.mesh_display as mesh_display_module
-from data.structures.three_d.mesh import Mesh
+from data.structures.three_d.mesh import (
+    Mesh,
+    MeshTextureUVTextureMap,
+    MeshTextureVertexColor,
+)
 from data.viewer.utils.atomic_displays import create_mesh_display
 
 
@@ -28,19 +32,21 @@ def _build_uv_test_mesh() -> Mesh:
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        uv_texture_map=torch.tensor(
-            [
-                [[255, 0, 0], [255, 0, 0]],
-                [[0, 0, 255], [0, 0, 255]],
-            ],
-            dtype=torch.uint8,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=torch.tensor(
+                [
+                    [[255, 0, 0], [255, 0, 0]],
+                    [[0, 0, 255], [0, 0, 255]],
+                ],
+                dtype=torch.uint8,
+            ),
+            vertex_uv=torch.tensor(
+                [[0.0, 1.0], [1.0, 1.0], [0.0, 0.0]],
+                dtype=torch.float32,
+            ),
+            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            convention="top_left",
         ),
-        vertex_uv=torch.tensor(
-            [[0.0, 1.0], [1.0, 1.0], [0.0, 0.0]],
-            dtype=torch.float32,
-        ),
-        face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        convention="top_left",
     )
 
 
@@ -60,9 +66,11 @@ def test_create_mesh_display_vertex_color_mesh() -> None:
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        vertex_color=torch.tensor(
-            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-            dtype=torch.float32,
+        texture=MeshTextureVertexColor(
+            vertex_color=torch.tensor(
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                dtype=torch.float32,
+            ),
         ),
     )
 
@@ -171,14 +179,20 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        vertex_color=torch.tensor(
-            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-            dtype=torch.float32,
+        texture=MeshTextureVertexColor(
+            vertex_color=torch.tensor(
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                dtype=torch.float32,
+            ),
         ),
+    )
+    assert isinstance(vertex_color_mesh.texture, MeshTextureVertexColor), (
+        "Expected the vertex-color test mesh to carry a `MeshTextureVertexColor`. "
+        f"{type(vertex_color_mesh.texture)=}"
     )
     vertex_color_vertices_before = vertex_color_mesh.vertices.clone()
     vertex_color_faces_before = vertex_color_mesh.faces.clone()
-    vertex_color_values_before = vertex_color_mesh.vertex_color.clone()
+    vertex_color_values_before = vertex_color_mesh.texture.vertex_color.clone()
 
     create_mesh_display(
         mesh=vertex_color_mesh,
@@ -193,17 +207,23 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
         "Expected vertex-color mesh display creation to preserve input faces. "
         f"{vertex_color_mesh.faces=} {vertex_color_faces_before=}"
     )
-    assert torch.equal(vertex_color_mesh.vertex_color, vertex_color_values_before), (
+    assert torch.equal(
+        vertex_color_mesh.texture.vertex_color, vertex_color_values_before
+    ), (
         "Expected vertex-color mesh display creation to preserve input colors. "
-        f"{vertex_color_mesh.vertex_color=} {vertex_color_values_before=}"
+        f"{vertex_color_mesh.texture.vertex_color=} {vertex_color_values_before=}"
     )
 
     uv_mesh = _build_uv_test_mesh()
+    assert isinstance(uv_mesh.texture, MeshTextureUVTextureMap), (
+        "Expected the UV test mesh to carry a `MeshTextureUVTextureMap`. "
+        f"{type(uv_mesh.texture)=}"
+    )
     uv_vertices_before = uv_mesh.vertices.clone()
     uv_faces_before = uv_mesh.faces.clone()
-    uv_texture_before = uv_mesh.uv_texture_map.clone()
-    uv_vertex_uv_before = uv_mesh.vertex_uv.clone()
-    uv_face_uvs_before = uv_mesh.face_uvs.clone()
+    uv_texture_before = uv_mesh.texture.uv_texture_map.clone()
+    uv_vertex_uv_before = uv_mesh.texture.vertex_uv.clone()
+    uv_face_uvs_before = uv_mesh.texture.face_uvs.clone()
 
     create_mesh_display(
         mesh=uv_mesh,
@@ -219,17 +239,17 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
         "Expected UV mesh display creation to preserve input faces. "
         f"{uv_mesh.faces=} {uv_faces_before=}"
     )
-    assert torch.equal(uv_mesh.uv_texture_map, uv_texture_before), (
+    assert torch.equal(uv_mesh.texture.uv_texture_map, uv_texture_before), (
         "Expected UV mesh display creation to preserve input texture values. "
-        f"{uv_mesh.uv_texture_map=} {uv_texture_before=}"
+        f"{uv_mesh.texture.uv_texture_map=} {uv_texture_before=}"
     )
-    assert torch.equal(uv_mesh.vertex_uv, uv_vertex_uv_before), (
+    assert torch.equal(uv_mesh.texture.vertex_uv, uv_vertex_uv_before), (
         "Expected UV mesh display creation to preserve input UV coordinates. "
-        f"{uv_mesh.vertex_uv=} {uv_vertex_uv_before=}"
+        f"{uv_mesh.texture.vertex_uv=} {uv_vertex_uv_before=}"
     )
-    assert torch.equal(uv_mesh.face_uvs, uv_face_uvs_before), (
+    assert torch.equal(uv_mesh.texture.face_uvs, uv_face_uvs_before), (
         "Expected UV mesh display creation to preserve input face UV indices. "
-        f"{uv_mesh.face_uvs=} {uv_face_uvs_before=}"
+        f"{uv_mesh.texture.face_uvs=} {uv_face_uvs_before=}"
     )
 
 

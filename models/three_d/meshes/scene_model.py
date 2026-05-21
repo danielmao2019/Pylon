@@ -7,6 +7,12 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
+from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
+    MeshTextureVertexColor,
+)
 from models.three_d.base import BaseSceneModel
 from models.three_d.meshes.callbacks.register import register_callbacks
 from models.three_d.meshes.layout.components import build_display
@@ -28,9 +34,11 @@ class BaseMeshesSceneModel(BaseSceneModel):
         """
         mesh_dir = Path(self.resolved_path)
         mesh = Mesh.load(path=mesh_dir)
-        assert mesh.vertex_color is not None or mesh.uv_texture_map is not None, (
+        assert isinstance(
+            mesh.texture, (MeshTextureVertexColor, MeshTextureUVTextureMap)
+        ), (
             "Expected mesh scene loading to produce a textured repo `Mesh`. "
-            f"{mesh.vertex_color is not None=} {mesh.uv_texture_map is not None=}"
+            f"{type(mesh.texture)=}"
         )
         return mesh
 
