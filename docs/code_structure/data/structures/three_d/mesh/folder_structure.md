@@ -6,20 +6,28 @@
 
 ```text
 mesh/
-├── __init__.py        # package API surface (re-exports Mesh + free functions)
-├── mesh.py            # the Mesh class: geometry + optional texture attributes
-├── validate.py        # per-attribute and whole-mesh attribute validators
-├── conventions.py     # UV-origin convention transform (obj <-> top_left)
+├── __init__.py        # package API surface (re-exports Mesh + MeshTexture types + free functions)
+├── mesh.py            # the Mesh class: geometry + optional MeshTexture
+├── validate.py        # geometry validators + texture<->geometry linkage validation
 ├── load.py            # OBJ file / mesh-root directory -> Mesh constructor kwargs
 ├── save.py            # Mesh -> OBJ / PLY / MTL / PNG assets on disk
 ├── merge.py           # merge multiple mesh blocks; texture-atlas packing
-└── convert.py         # interop conversions: PyTorch3D / Open3D / trimesh
+├── convert.py         # interop conversions: PyTorch3D / Open3D / trimesh
+└── texture/           # the mesh-texture subpackage
+    ├── __init__.py                       # texture API surface
+    ├── mesh_texture.py                   # MeshTexture ABC + shared assert_rgb_range
+    ├── mesh_texture_vertex_color.py       # MeshTextureVertexColor (per-vertex RGB)
+    ├── mesh_texture_uv_texture_map.py     # MeshTextureUVTextureMap (UV atlas)
+    ├── conventions.py                     # UV-origin convention transform (obj <-> top_left)
+    ├── validate_vertex_color.py           # vertex-color representation validation
+    └── validate_uv_texture_map.py         # uv-texture-map representation validation
 ```
 
 `./tests/data/structures/three_d/mesh/`
 
 ```text
 mesh/
-├── test_conventions.py   # transform_vertex_uv_convention coverage
-└── test_convert.py       # PyTorch3D / Open3D / trimesh round-trip coverage
+├── test_convert.py            # PyTorch3D / Open3D / trimesh round-trip coverage
+└── texture/
+    └── test_conventions.py    # transform_vertex_uv_convention coverage
 ```
