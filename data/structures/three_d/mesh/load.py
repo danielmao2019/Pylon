@@ -1,53 +1,50 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import Dict, List, Union
 
 import torch
 from pytorch3d.io import load_obj
 
 from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
+from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
+from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
+    MeshTextureVertexColor,
+)
 
-if TYPE_CHECKING:
-    from data.structures.three_d.mesh.mesh import Mesh
 
-
-def load_mesh(path: Union[str, Path]) -> Dict[str, Union[torch.Tensor, str, None]]:
-    """Load one mesh from a supported file or directory path.
+def load_mesh(path: Union[str, Path]) -> "Mesh":
+    """Load one OBJ file, or every OBJ under a mesh-root directory, as one Mesh.
 
     Args:
         path: Mesh file path or supported mesh-root directory path.
 
     Returns:
-        Normalized keyword arguments for `Mesh.__init__`.
+        One merged `Mesh`.
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(path, (str, Path)), (
-            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-        )
-
-    _validate_inputs()
-
-    from data.structures.three_d.mesh.mesh import Mesh
+    assert isinstance(path, (str, Path)), (
+        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
+    )
 
     obj_paths = _resolve_input_paths(path=path)
     mesh_blocks = [
-        Mesh(**_load_mesh_attributes_from_obj_path(obj_path=obj_path))
-        for obj_path in obj_paths
+        _load_mesh_block_from_obj_path(obj_path=obj_path) for obj_path in obj_paths
     ]
-    merged_mesh = merge_meshes(mesh_blocks=mesh_blocks)
-    return _mesh_to_init_kwargs(mesh=merged_mesh)
+    return merge_meshes(mesh_blocks=mesh_blocks)
 
 
-def _load_mesh_attributes_from_obj_path(
-    obj_path: Path,
-) -> Dict[str, Union[torch.Tensor, str, None]]:
-    """Load one OBJ file into mesh constructor kwargs.
+def _load_mesh_block_from_obj_path(obj_path: Path) -> "Mesh":
+    """Load one OBJ as a single mesh block.
+
+    Dispatches to the texture-representation-specific loader.
 
     Args:
         obj_path: Concrete OBJ filepath.
 
     Returns:
-        Normalized keyword arguments for `Mesh.__init__`.
+        One `Mesh` block.
     """
 
     obj_features = _inspect_obj_file(obj_path=obj_path)
@@ -58,64 +55,21 @@ def _load_mesh_attributes_from_obj_path(
     return _load_mesh_geometry_only(path=obj_path)
 
 
-def _mesh_to_init_kwargs(mesh: "Mesh") -> Dict[str, Union[torch.Tensor, str, None]]:
-    """Convert one repo mesh into `Mesh.__init__` keyword arguments.
-
-    Args:
-        mesh: Repo mesh instance.
-
-    Returns:
-        Normalized keyword arguments for `Mesh.__init__`.
-    """
-
-    return {
-        "vertices": mesh.vertices.detach().cpu().contiguous(),
-        "faces": mesh.faces.detach().cpu().contiguous(),
-        "vertex_color": (
-            None
-            if mesh.vertex_color is None
-            else mesh.vertex_color.detach().cpu().contiguous()
-        ),
-        "uv_texture_map": (
-            None
-            if mesh.uv_texture_map is None
-            else mesh.uv_texture_map.detach().cpu().contiguous()
-        ),
-        "vertex_uv": (
-            None
-            if mesh.vertex_uv is None
-            else mesh.vertex_uv.detach().cpu().contiguous()
-        ),
-        "face_uvs": (
-            None if mesh.face_uvs is None else mesh.face_uvs.detach().cpu().contiguous()
-        ),
-        "convention": mesh.convention,
-    }
-
-
-def _load_mesh_geometry_only(
-    path: Union[str, Path],
-) -> Dict[str, Union[torch.Tensor, str, None]]:
+def _load_mesh_geometry_only(path: Union[str, Path]) -> "Mesh":
     """Load one geometry-only OBJ mesh.
 
     Args:
         path: Geometry-only OBJ filepath or directory path that resolves to one.
 
     Returns:
-        Normalized keyword arguments for one geometry-only mesh.
+        One geometry-only `Mesh` (texture `None`).
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(path, (str, Path)), (
-            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-        )
+    assert isinstance(path, (str, Path)), (
+        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
+    )
 
-    _validate_inputs()
-
-    def _normalize_inputs() -> Path:
-        return _resolve_input_path(path=path)
-
-    obj_path = _normalize_inputs()
+    obj_path = _resolve_input_path(path=path)
 
     vertex_rows: List[List[float]] = []
     face_rows: List[List[int]] = []
@@ -160,40 +114,28 @@ def _load_mesh_geometry_only(
         "Expected geometry-only OBJ loading to find at least one face. " f"{obj_path=}"
     )
 
-    return {
-        "vertices": torch.tensor(vertex_rows, dtype=torch.float32).contiguous(),
-        "faces": torch.tensor(face_rows, dtype=torch.int64).contiguous(),
-        "vertex_color": None,
-        "uv_texture_map": None,
-        "vertex_uv": None,
-        "face_uvs": None,
-        "convention": None,
-    }
+    return Mesh(
+        vertices=torch.tensor(vertex_rows, dtype=torch.float32).contiguous(),
+        faces=torch.tensor(face_rows, dtype=torch.int64).contiguous(),
+        texture=None,
+    )
 
 
-def _load_mesh_vertex_color(
-    path: Union[str, Path],
-) -> Dict[str, Union[torch.Tensor, str, None]]:
+def _load_mesh_vertex_color(path: Union[str, Path]) -> "Mesh":
     """Load one vertex-colored OBJ mesh.
 
     Args:
         path: Vertex-colored OBJ filepath or directory path that resolves to one.
 
     Returns:
-        Normalized keyword arguments for one vertex-colored mesh.
+        One `Mesh` carrying a `MeshTextureVertexColor`.
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(path, (str, Path)), (
-            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-        )
+    assert isinstance(path, (str, Path)), (
+        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
+    )
 
-    _validate_inputs()
-
-    def _normalize_inputs() -> Path:
-        return _resolve_input_path(path=path)
-
-    obj_path = _normalize_inputs()
+    obj_path = _resolve_input_path(path=path)
 
     vertex_rows: List[List[float]] = []
     color_rows: List[List[float]] = []
@@ -255,40 +197,31 @@ def _load_mesh_vertex_color(
     vertex_color = torch.tensor(color_rows, dtype=torch.float32)
     if float(vertex_color.max().item()) > 1.0:
         vertex_color = vertex_color / 255.0
-    return {
-        "vertices": vertices.contiguous(),
-        "faces": faces.contiguous(),
-        "vertex_color": vertex_color.contiguous(),
-        "uv_texture_map": None,
-        "vertex_uv": None,
-        "face_uvs": None,
-        "convention": None,
-    }
+    return Mesh(
+        vertices=vertices.contiguous(),
+        faces=faces.contiguous(),
+        texture=MeshTextureVertexColor(vertex_color=vertex_color.contiguous()),
+    )
 
 
-def _load_mesh_uv_texture_map(
-    path: Union[str, Path],
-) -> Dict[str, Union[torch.Tensor, str, None]]:
+def _load_mesh_uv_texture_map(path: Union[str, Path]) -> "Mesh":
     """Load one UV-textured OBJ mesh.
+
+    Loads via PyTorch3D, which already yields the decoupled geometry/UV domains,
+    so no welding is needed. The UV-origin convention is `"obj"`.
 
     Args:
         path: UV-textured OBJ filepath or directory path that resolves to one.
 
     Returns:
-        Normalized keyword arguments for one UV-textured mesh.
+        One `Mesh` carrying a `MeshTextureUVTextureMap` on the geometry domain.
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(path, (str, Path)), (
-            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-        )
+    assert isinstance(path, (str, Path)), (
+        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
+    )
 
-    _validate_inputs()
-
-    def _normalize_inputs() -> Path:
-        return _resolve_input_path(path=path)
-
-    obj_path = _normalize_inputs()
+    obj_path = _resolve_input_path(path=path)
 
     vertices, faces, aux = load_obj(
         obj_path,
@@ -329,19 +262,20 @@ def _load_mesh_uv_texture_map(
             materials_idx=faces.materials_idx.to(dtype=torch.int64).contiguous(),
         )
 
-    return {
-        "vertices": mesh_vertices,
-        "faces": mesh_faces,
-        "vertex_color": None,
-        "uv_texture_map": uv_texture_map.detach().cpu().contiguous(),
-        "vertex_uv": vertex_uv.detach().cpu().contiguous(),
-        "face_uvs": face_uvs.detach().cpu().contiguous(),
-        "convention": "obj",
-    }
+    return Mesh(
+        vertices=mesh_vertices,
+        faces=mesh_faces,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=uv_texture_map.detach().cpu().contiguous(),
+            vertex_uv=vertex_uv.detach().cpu().contiguous(),
+            face_uvs=face_uvs.detach().cpu().contiguous(),
+            convention="obj",
+        ),
+    )
 
 
 def _resolve_input_path(path: Union[str, Path]) -> Path:
-    """Resolve one user mesh path to a concrete OBJ file path.
+    """Resolve one user mesh path to exactly one OBJ file.
 
     Args:
         path: Mesh file path or supported mesh-root directory path.
@@ -365,7 +299,8 @@ def _resolve_input_paths(path: Union[str, Path]) -> List[Path]:
         path: Mesh file path or supported mesh-root directory path.
 
     Returns:
-        Concrete OBJ file paths.
+        Concrete OBJ file paths (one OBJ file, or every OBJ at the top level or
+        one level below a directory).
     """
 
     assert isinstance(path, (str, Path)), (
@@ -411,7 +346,8 @@ def _inspect_obj_file(obj_path: Path) -> Dict[str, bool]:
         obj_path: Concrete OBJ filepath.
 
     Returns:
-        Dictionary describing the detected OBJ features.
+        Dictionary with `has_vertex_colors` / `has_uv_coords` / `has_uv_faces` /
+        `has_mtllib` flags.
     """
 
     assert isinstance(

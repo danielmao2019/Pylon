@@ -1,6 +1,6 @@
 """Class-conversion helpers for repo mesh objects."""
 
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import open3d as o3d
@@ -10,70 +10,90 @@ from PIL import Image
 from pytorch3d.renderer import TexturesUV, TexturesVertex
 from pytorch3d.structures import Meshes
 
-from data.structures.three_d.mesh.validate import validate_mesh_uv_convention
+from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
+from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
+    MeshTextureVertexColor,
+)
 
-if TYPE_CHECKING:
-    from data.structures.three_d.mesh.mesh import Mesh
 
-
-def mesh_to_pytorch3d(
-    mesh: "Mesh",
-    device: Union[str, torch.device, None] = None,
-    dtype: torch.dtype = torch.float32,
-) -> Meshes:
-    """Convert one repo mesh into one PyTorch3D mesh.
+def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> "Mesh":
+    """Convert one legacy Open3D triangle mesh into one Mesh.
 
     Args:
-        mesh: Repo mesh instance.
-        device: Optional target device for the PyTorch3D tensors.
-        dtype: Target floating-point dtype for vertex and texture tensors.
+        mesh: Legacy Open3D triangle mesh.
 
     Returns:
-        A single PyTorch3D `Meshes` instance.
+        Repo `Mesh` with geometry and an optional `MeshTextureVertexColor`
+        (Open3D UV textures are not supported).
     """
 
-    def _validate_inputs() -> None:
-        from data.structures.three_d.mesh.mesh import Mesh
-
-        assert isinstance(mesh, Mesh), (
-            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
-        )
-        assert device is None or isinstance(device, (str, torch.device)), (
-            "Expected `device` to be `None`, a `str`, or a `torch.device`. "
-            f"{type(device)=}"
-        )
-        assert isinstance(dtype, torch.dtype), (
-            "Expected `dtype` to be a `torch.dtype`. " f"{type(dtype)=}"
-        )
-
-    _validate_inputs()
-
-    target_device = mesh.device if device is None else torch.device(device)
-    target_mesh = (
-        mesh.to(device=target_device, convention="obj")
-        if mesh.uv_texture_map is not None
-        else mesh.to(device=target_device)
+    assert isinstance(mesh, o3d.geometry.TriangleMesh), (
+        "Expected `mesh` to be an Open3D `TriangleMesh`. " f"{type(mesh)=}"
     )
-    verts = target_mesh.vertices.to(dtype=dtype).contiguous()
-    faces = target_mesh.faces.to(dtype=torch.int64).contiguous()
+    assert not getattr(mesh, "has_triangle_uvs", lambda: False)(), (
+        "Open3D UV-mesh conversion is not implemented in `mesh_from_open3d(...)`. "
+        f"{mesh.has_triangle_uvs()=}"
+    )
+    assert not getattr(mesh, "has_textures", lambda: False)(), (
+        "Open3D texture conversion is not implemented in `mesh_from_open3d(...)`. "
+        f"{mesh.has_textures()=}"
+    )
 
-    textures = None
-    if target_mesh.vertex_color is not None:
-        textures = TexturesVertex(
-            verts_features=[target_mesh.vertex_color.to(dtype=dtype).contiguous()]
+    texture: Optional[MeshTextureVertexColor] = None
+    if mesh.has_vertex_colors():
+        texture = MeshTextureVertexColor(
+            vertex_color=torch.as_tensor(
+                np.asarray(mesh.vertex_colors),
+                dtype=torch.float32,
+            )
         )
-    elif target_mesh.uv_texture_map is not None:
-        textures = TexturesUV(
-            maps=[target_mesh.uv_texture_map.to(dtype=dtype).contiguous()],
-            faces_uvs=[target_mesh.face_uvs.to(dtype=torch.int64).contiguous()],
-            verts_uvs=[target_mesh.vertex_uv.to(dtype=dtype).contiguous()],
-        )
+    return Mesh(
+        vertices=torch.as_tensor(np.asarray(mesh.vertices), dtype=torch.float32),
+        faces=torch.as_tensor(np.asarray(mesh.triangles), dtype=torch.int64),
+        texture=texture,
+    )
 
-    return Meshes(verts=[verts], faces=[faces], textures=textures)
+
+def mesh_to_open3d(mesh: "Mesh") -> o3d.geometry.TriangleMesh:
+    """Convert one Mesh into one legacy Open3D triangle mesh.
+
+    Args:
+        mesh: Repo `Mesh` instance.
+
+    Returns:
+        Legacy Open3D triangle mesh with geometry and optional vertex colors
+        (UV textures are not supported).
+    """
+
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+    )
+    assert not isinstance(mesh.texture, MeshTextureUVTextureMap), (
+        "Open3D export for UV-textured repo meshes is not implemented in "
+        "`mesh_to_open3d(...)`. "
+        f"{type(mesh.texture)=}"
+    )
+
+    open3d_mesh = o3d.geometry.TriangleMesh()
+    open3d_mesh.vertices = o3d.utility.Vector3dVector(
+        mesh.vertices.detach().cpu().numpy()
+    )
+    open3d_mesh.triangles = o3d.utility.Vector3iVector(
+        mesh.faces.detach().cpu().numpy()
+    )
+    if isinstance(mesh.texture, MeshTextureVertexColor):
+        color_np = _vertex_color_to_float_rgb(vertex_color=mesh.texture.vertex_color)
+        open3d_mesh.vertex_colors = o3d.utility.Vector3dVector(
+            color_np.astype(np.float64)
+        )
+    return open3d_mesh
 
 
 def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> "Mesh":
-    """Convert one PyTorch3D mesh into one repo mesh.
+    """Convert one PyTorch3D Meshes into one Mesh.
 
     Args:
         mesh: Single-mesh PyTorch3D `Meshes` container.
@@ -83,191 +103,170 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> "Mesh":
         Repo `Mesh` carrying the same geometry and supported textures.
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(mesh, Meshes), (
-            "Expected `mesh` to be a PyTorch3D `Meshes` instance. " f"{type(mesh)=}"
-        )
-        assert len(mesh) == 1, (
-            "Expected `mesh_from_pytorch3d(...)` to receive exactly one mesh. "
-            f"{len(mesh)=}"
-        )
-        assert isinstance(convention, str), (
-            "Expected `convention` to be a string. " f"{type(convention)=}"
-        )
-
-    _validate_inputs()
-
-    from data.structures.three_d.mesh.mesh import Mesh
+    assert isinstance(mesh, Meshes), (
+        "Expected `mesh` to be a PyTorch3D `Meshes` instance. " f"{type(mesh)=}"
+    )
+    assert len(mesh) == 1, (
+        "Expected `mesh_from_pytorch3d(...)` to receive exactly one mesh. "
+        f"{len(mesh)=}"
+    )
+    assert isinstance(convention, str), (
+        "Expected `convention` to be a string. " f"{type(convention)=}"
+    )
 
     vertices = mesh.verts_list()[0].to(dtype=torch.float32).contiguous()
     faces = mesh.faces_list()[0].to(dtype=torch.int64).contiguous()
     textures = mesh.textures
     if textures is None:
-        return Mesh(vertices=vertices, faces=faces)
+        return Mesh(vertices=vertices, faces=faces, texture=None)
 
     if isinstance(textures, TexturesVertex):
         vertex_color = textures.verts_features_list()[0].to(dtype=torch.float32)
         return Mesh(
             vertices=vertices,
             faces=faces,
-            vertex_color=vertex_color.contiguous(),
+            texture=MeshTextureVertexColor(vertex_color=vertex_color.contiguous()),
         )
 
     assert isinstance(textures, TexturesUV), (
         "Expected PyTorch3D mesh textures to be `None`, `TexturesVertex`, or "
         f"`TexturesUV`. {type(textures)=}"
     )
-    validate_mesh_uv_convention(convention=convention)
     return Mesh(
         vertices=vertices,
         faces=faces,
-        uv_texture_map=textures.maps_padded()[0].to(dtype=torch.float32).contiguous(),
-        vertex_uv=textures.verts_uvs_list()[0].to(dtype=torch.float32).contiguous(),
-        face_uvs=textures.faces_uvs_list()[0].to(dtype=torch.int64).contiguous(),
-        convention=convention,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=textures.maps_padded()[0]
+            .to(dtype=torch.float32)
+            .contiguous(),
+            vertex_uv=textures.verts_uvs_list()[0].to(dtype=torch.float32).contiguous(),
+            face_uvs=textures.faces_uvs_list()[0].to(dtype=torch.int64).contiguous(),
+            convention=convention,
+        ),
     )
 
 
-def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> "Mesh":
-    """Convert one legacy Open3D triangle mesh into one repo mesh.
-
-    Args:
-        mesh: Legacy Open3D triangle mesh.
-
-    Returns:
-        Repo `Mesh` with geometry and optional vertex colors.
-    """
-
-    def _validate_inputs() -> None:
-        assert isinstance(mesh, o3d.geometry.TriangleMesh), (
-            "Expected `mesh` to be an Open3D `TriangleMesh`. " f"{type(mesh)=}"
-        )
-        assert not getattr(mesh, "has_triangle_uvs", lambda: False)(), (
-            "Open3D UV-mesh conversion is not implemented in `mesh_from_open3d(...)`. "
-            f"{mesh.has_triangle_uvs()=}"
-        )
-        assert not getattr(mesh, "has_textures", lambda: False)(), (
-            "Open3D texture conversion is not implemented in `mesh_from_open3d(...)`. "
-            f"{mesh.has_textures()=}"
-        )
-
-    _validate_inputs()
-
-    from data.structures.three_d.mesh.mesh import Mesh
-
-    vertex_color = None
-    if mesh.has_vertex_colors():
-        vertex_color = torch.as_tensor(
-            np.asarray(mesh.vertex_colors),
-            dtype=torch.float32,
-        )
-    return Mesh(
-        vertices=torch.as_tensor(np.asarray(mesh.vertices), dtype=torch.float32),
-        faces=torch.as_tensor(np.asarray(mesh.triangles), dtype=torch.int64),
-        vertex_color=vertex_color,
-    )
-
-
-def mesh_to_open3d(mesh: "Mesh") -> o3d.geometry.TriangleMesh:
-    """Convert one repo mesh into one legacy Open3D triangle mesh.
+def mesh_to_pytorch3d(
+    mesh: "Mesh",
+    device: Union[str, torch.device, None] = None,
+    dtype: torch.dtype = torch.float32,
+) -> Meshes:
+    """Convert one Mesh into one PyTorch3D Meshes.
 
     Args:
         mesh: Repo `Mesh` instance.
+        device: Optional target device for the PyTorch3D tensors.
+        dtype: Target floating-point dtype for vertex and texture tensors.
 
     Returns:
-        Legacy Open3D triangle mesh with geometry and optional vertex colors.
+        A single PyTorch3D `Meshes` instance.
     """
 
-    def _validate_inputs() -> None:
-        from data.structures.three_d.mesh.mesh import Mesh
-
-        assert isinstance(mesh, Mesh), (
-            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
-        )
-        assert mesh.uv_texture_map is None, (
-            "Open3D export for UV-textured repo meshes is not implemented in "
-            "`mesh_to_open3d(...)`. "
-            f"{mesh.uv_texture_map is None=}"
-        )
-
-    _validate_inputs()
-
-    open3d_mesh = o3d.geometry.TriangleMesh()
-    open3d_mesh.vertices = o3d.utility.Vector3dVector(
-        mesh.vertices.detach().cpu().numpy()
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
     )
-    open3d_mesh.triangles = o3d.utility.Vector3iVector(
-        mesh.faces.detach().cpu().numpy()
+    assert device is None or isinstance(device, (str, torch.device)), (
+        "Expected `device` to be `None`, a `str`, or a `torch.device`. "
+        f"{type(device)=}"
     )
-    if mesh.vertex_color is not None:
-        color_np = _mesh_vertex_color_to_float_rgb(vertex_color=mesh.vertex_color)
-        open3d_mesh.vertex_colors = o3d.utility.Vector3dVector(
-            color_np.astype(np.float64)
+    assert isinstance(dtype, torch.dtype), (
+        "Expected `dtype` to be a `torch.dtype`. " f"{type(dtype)=}"
+    )
+
+    target_device = mesh.device if device is None else torch.device(device)
+    target_mesh = (
+        mesh.to(device=target_device, convention="obj")
+        if isinstance(mesh.texture, MeshTextureUVTextureMap)
+        else mesh.to(device=target_device)
+    )
+    verts = target_mesh.vertices.to(dtype=dtype).contiguous()
+    faces = target_mesh.faces.to(dtype=torch.int64).contiguous()
+
+    textures = None
+    if isinstance(target_mesh.texture, MeshTextureVertexColor):
+        textures = TexturesVertex(
+            verts_features=[
+                target_mesh.texture.vertex_color.to(dtype=dtype).contiguous()
+            ]
         )
-    return open3d_mesh
+    elif isinstance(target_mesh.texture, MeshTextureUVTextureMap):
+        textures = TexturesUV(
+            maps=[target_mesh.texture.uv_texture_map.to(dtype=dtype).contiguous()],
+            faces_uvs=[target_mesh.texture.face_uvs.to(dtype=torch.int64).contiguous()],
+            verts_uvs=[target_mesh.texture.vertex_uv.to(dtype=dtype).contiguous()],
+        )
+
+    return Meshes(verts=[verts], faces=[faces], textures=textures)
 
 
 def mesh_from_trimesh(
     mesh: trimesh.Trimesh, convention: Optional[str] = None
 ) -> "Mesh":
-    """Convert one trimesh mesh into one repo mesh.
+    """Convert one trimesh.Trimesh into one Mesh.
+
+    When the trimesh carries UV data, it is welded from trimesh's per-corner
+    topology onto the canonical geometry domain.
 
     Args:
         mesh: Source `trimesh.Trimesh` instance.
-        convention: Required UV-origin convention when the trimesh carries UV data.
+        convention: Required UV-origin convention when the trimesh carries UV
+            data.
 
     Returns:
         Repo `Mesh` with geometry and supported texture attributes.
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(mesh, trimesh.Trimesh), (
-            "Expected `mesh` to be a `trimesh.Trimesh`. " f"{type(mesh)=}"
-        )
-        assert convention is None or isinstance(convention, str), (
-            "Expected `convention` to be `None` or a string. " f"{type(convention)=}"
-        )
+    assert isinstance(mesh, trimesh.Trimesh), (
+        "Expected `mesh` to be a `trimesh.Trimesh`. " f"{type(mesh)=}"
+    )
+    assert convention is None or isinstance(convention, str), (
+        "Expected `convention` to be `None` or a string. " f"{type(convention)=}"
+    )
 
-    _validate_inputs()
-
-    from data.structures.three_d.mesh.mesh import Mesh
-
-    vertices = torch.as_tensor(np.asarray(mesh.vertices), dtype=torch.float32)
-    faces = torch.as_tensor(np.asarray(mesh.faces), dtype=torch.int64)
     texture_uv = getattr(mesh.visual, "uv", None)
     if texture_uv is not None:
         assert convention is not None, (
             "Expected textured trimesh conversion to receive an explicit UV "
             f"`convention`. {convention=}"
         )
-        validate_mesh_uv_convention(convention=convention)
-        texture_image = _normalize_trimesh_texture_image(
+        vertices, faces, vertex_uv, face_uvs = _uv_mesh_from_trimesh(
+            vertices=np.asarray(mesh.vertices),
+            faces=np.asarray(mesh.faces),
+            vertex_uv=np.asarray(texture_uv),
+        )
+        texture_image = _texture_image_from_trimesh(
             image=getattr(getattr(mesh.visual, "material", None), "image", None)
         )
         return Mesh(
             vertices=vertices,
             faces=faces,
-            uv_texture_map=torch.as_tensor(texture_image),
-            vertex_uv=torch.as_tensor(np.asarray(texture_uv), dtype=torch.float32),
-            face_uvs=faces.clone(),
-            convention=convention,
+            texture=MeshTextureUVTextureMap(
+                uv_texture_map=torch.as_tensor(texture_image),
+                vertex_uv=vertex_uv,
+                face_uvs=face_uvs,
+                convention=convention,
+            ),
         )
 
-    vertex_color = None
+    vertices = torch.as_tensor(np.asarray(mesh.vertices), dtype=torch.float32)
+    faces = torch.as_tensor(np.asarray(mesh.faces), dtype=torch.int64)
+    texture: Optional[MeshTextureVertexColor] = None
     trimesh_vertex_colors = getattr(mesh.visual, "vertex_colors", None)
     if trimesh_vertex_colors is not None and len(trimesh_vertex_colors) == len(
         mesh.vertices
     ):
-        vertex_color = torch.as_tensor(
-            _normalize_trimesh_vertex_colors(
-                vertex_colors=np.asarray(trimesh_vertex_colors)
-            ),
+        texture = MeshTextureVertexColor(
+            vertex_color=torch.as_tensor(
+                _vertex_color_from_trimesh(
+                    vertex_colors=np.asarray(trimesh_vertex_colors)
+                ),
+            )
         )
-    return Mesh(vertices=vertices, faces=faces, vertex_color=vertex_color)
+    return Mesh(vertices=vertices, faces=faces, texture=texture)
 
 
 def mesh_to_trimesh(mesh: "Mesh") -> trimesh.Trimesh:
-    """Convert one repo mesh into one trimesh mesh.
+    """Convert one Mesh into one trimesh.Trimesh.
 
     Args:
         mesh: Repo `Mesh` instance.
@@ -276,24 +275,23 @@ def mesh_to_trimesh(mesh: "Mesh") -> trimesh.Trimesh:
         `trimesh.Trimesh` with geometry and supported texture attributes.
     """
 
-    def _validate_inputs() -> None:
-        from data.structures.three_d.mesh.mesh import Mesh
-
-        assert isinstance(mesh, Mesh), (
-            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
-        )
-
-    _validate_inputs()
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+    )
 
     vertices_np = mesh.vertices.detach().cpu().numpy()
     faces_np = mesh.faces.detach().cpu().numpy()
-    if mesh.uv_texture_map is not None:
+    if isinstance(mesh.texture, MeshTextureUVTextureMap):
         obj_mesh = mesh.to(convention="obj")
-        expanded_vertices_np, expanded_faces_np, expanded_uv_np = (
-            _expand_obj_uv_mesh_for_trimesh(mesh=obj_mesh)
+        expanded_vertices_np, expanded_faces_np, expanded_uv_np = _uv_mesh_to_trimesh(
+            mesh=obj_mesh
         )
-        texture_image = _mesh_uv_texture_map_to_uint8(
-            uv_texture_map=obj_mesh.uv_texture_map
+        assert isinstance(obj_mesh.texture, MeshTextureUVTextureMap), (
+            "Expected the OBJ-convention mesh to keep a UV-texture-map texture. "
+            f"{type(obj_mesh.texture)=}"
+        )
+        texture_image = _texture_image_to_trimesh(
+            uv_texture_map=obj_mesh.texture.uv_texture_map
         )
         visual = trimesh.visual.texture.TextureVisuals(
             uv=expanded_uv_np,
@@ -306,24 +304,116 @@ def mesh_to_trimesh(mesh: "Mesh") -> trimesh.Trimesh:
             process=False,
         )
 
-    if mesh.vertex_color is not None:
+    if isinstance(mesh.texture, MeshTextureVertexColor):
         return trimesh.Trimesh(
             vertices=vertices_np,
             faces=faces_np,
-            vertex_colors=_mesh_vertex_color_to_rgba(vertex_color=mesh.vertex_color),
+            vertex_colors=_vertex_color_to_trimesh(
+                vertex_color=mesh.texture.vertex_color
+            ),
             process=False,
         )
     return trimesh.Trimesh(vertices=vertices_np, faces=faces_np, process=False)
 
 
-def _normalize_trimesh_texture_image(image: object) -> np.ndarray:
-    """Normalize one trimesh texture image to HWC RGB form.
+def _vertex_color_to_float_rgb(vertex_color: torch.Tensor) -> np.ndarray:
+    """Convert one repo vertex-color tensor to a float32 RGB [0,1] array.
+
+    Shared by `mesh_to_open3d` and `_vertex_color_to_trimesh`.
+
+    Args:
+        vertex_color: Repo vertex-color tensor in uint8 or float32 form.
+
+    Returns:
+        Float32 RGB array in `[0, 1]`.
+    """
+
+    assert isinstance(vertex_color, torch.Tensor), (
+        "Expected `vertex_color` to be a `torch.Tensor`. " f"{type(vertex_color)=}"
+    )
+    vertex_color_cpu = vertex_color.detach().cpu()
+    if vertex_color_cpu.dtype == torch.uint8:
+        return vertex_color_cpu.to(dtype=torch.float32).div(255.0).numpy()
+    assert vertex_color_cpu.dtype == torch.float32, (
+        "Expected repo vertex colors to use uint8 or float32 dtype. "
+        f"{vertex_color_cpu.dtype=}"
+    )
+    return vertex_color_cpu.numpy()
+
+
+def _uv_mesh_from_trimesh(
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    vertex_uv: np.ndarray,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Weld trimesh's per-corner duplicate vertices into the geometry domain.
+
+    Trimesh's `force="mesh"` OBJ loader duplicates seam vertices, producing one
+    vertex per `v/vt` pair. This inverts that expansion: coincident positions
+    (exact-position equality) are welded back to the canonical geometry domain,
+    and the seam is re-expressed as `vertex_uv` / `face_uvs`. It is the inverse
+    of `_uv_mesh_to_trimesh`.
+
+    Args:
+        vertices: Per-corner-expanded vertex positions `[N, 3]`.
+        faces: Faces indexing the per-corner-expanded vertices `[F, 3]`.
+        vertex_uv: Per-corner UV coordinates `[N, 2]`, aligned 1:1 with
+            `vertices`.
+
+    Returns:
+        Tuple of welded geometry vertices `[V, 3]` (float32), geometry faces
+        `[F, 3]` (int64) indexing the welded vertices, the UV table `[U, 2]`
+        (float32), and `face_uvs` `[F, 3]` (int64) indexing the UV table.
+    """
+
+    assert isinstance(vertices, np.ndarray), (
+        "Expected `vertices` to be a numpy array. " f"{type(vertices)=}"
+    )
+    assert isinstance(faces, np.ndarray), (
+        "Expected `faces` to be a numpy array. " f"{type(faces)=}"
+    )
+    assert isinstance(vertex_uv, np.ndarray), (
+        "Expected `vertex_uv` to be a numpy array. " f"{type(vertex_uv)=}"
+    )
+    assert vertices.ndim == 2 and vertices.shape[1] == 3, (
+        "Expected `vertices` to be `[N, 3]`. " f"{vertices.shape=}"
+    )
+    assert faces.ndim == 2 and faces.shape[1] == 3, (
+        "Expected `faces` to be `[F, 3]`. " f"{faces.shape=}"
+    )
+    assert vertex_uv.ndim == 2 and vertex_uv.shape[1] == 2, (
+        "Expected `vertex_uv` to be `[N, 2]`. " f"{vertex_uv.shape=}"
+    )
+    assert vertex_uv.shape[0] == vertices.shape[0], (
+        "Expected per-corner trimesh UV to align 1:1 with vertices before "
+        "welding. "
+        f"{vertex_uv.shape=} {vertices.shape=}"
+    )
+
+    unique_positions, inverse_indices = np.unique(vertices, axis=0, return_inverse=True)
+    inverse_indices = inverse_indices.reshape(-1)
+    welded_faces = inverse_indices[faces.reshape(-1)].reshape(faces.shape)
+
+    geometry_vertices = torch.as_tensor(unique_positions, dtype=torch.float32)
+    geometry_faces = torch.as_tensor(welded_faces, dtype=torch.int64)
+    uv_table = torch.as_tensor(vertex_uv, dtype=torch.float32)
+    face_uvs = torch.as_tensor(faces, dtype=torch.int64)
+    return (
+        geometry_vertices.contiguous(),
+        geometry_faces.contiguous(),
+        uv_table.contiguous(),
+        face_uvs.contiguous(),
+    )
+
+
+def _texture_image_from_trimesh(image: object) -> np.ndarray:
+    """Convert one trimesh material image to a uint8 HWC RGB array.
 
     Args:
         image: Texture image object from trimesh material storage.
 
     Returns:
-        Uint8 HWC RGB texture image.
+        Uint8 HWC RGB texture image (uniform alpha dropped).
     """
 
     assert image is not None, (
@@ -361,14 +451,15 @@ def _normalize_trimesh_texture_image(image: object) -> np.ndarray:
     return image_np.astype(np.uint8, copy=False)
 
 
-def _normalize_trimesh_vertex_colors(vertex_colors: np.ndarray) -> np.ndarray:
-    """Normalize trimesh vertex colors to repo RGB form.
+def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray:
+    """Convert trimesh vertex colors to a repo RGB array.
 
     Args:
         vertex_colors: Trimesh vertex-color array.
 
     Returns:
-        Float32 or uint8 RGB array accepted by repo `Mesh`.
+        Float32 or uint8 RGB array accepted by repo `Mesh` (opaque alpha
+        dropped).
     """
 
     assert isinstance(vertex_colors, np.ndarray), (
@@ -407,50 +498,48 @@ def _normalize_trimesh_vertex_colors(vertex_colors: np.ndarray) -> np.ndarray:
     return vertex_colors.astype(np.uint8, copy=False)
 
 
-def _mesh_vertex_color_to_float_rgb(vertex_color: torch.Tensor) -> np.ndarray:
-    """Normalize one repo vertex-color tensor to float RGB values.
+def _uv_mesh_to_trimesh(
+    mesh: "Mesh",
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Expand one "obj"-convention UV mesh to trimesh's per-corner topology.
+
+    It is the inverse of `_uv_mesh_from_trimesh`.
 
     Args:
-        vertex_color: Repo vertex-color tensor.
+        mesh: Repo UV mesh already normalized to `"obj"` convention.
 
     Returns:
-        Float32 RGB array in `[0, 1]`.
+        Tuple of expanded vertices `[3F, 3]`, expanded faces `[F, 3]`, and
+        per-corner UV coordinates `[3F, 2]`.
     """
 
-    assert isinstance(vertex_color, torch.Tensor), (
-        "Expected `vertex_color` to be a `torch.Tensor`. " f"{type(vertex_color)=}"
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
     )
-    vertex_color_cpu = vertex_color.detach().cpu()
-    if vertex_color_cpu.dtype == torch.uint8:
-        return vertex_color_cpu.to(dtype=torch.float32).div(255.0).numpy()
-    assert vertex_color_cpu.dtype == torch.float32, (
-        "Expected repo vertex colors to use uint8 or float32 dtype. "
-        f"{vertex_color_cpu.dtype=}"
+    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+        "Expected UV mesh expansion to receive a `MeshTextureUVTextureMap`. "
+        f"{type(mesh.texture)=}"
     )
-    return vertex_color_cpu.numpy()
+    assert mesh.texture.convention == "obj", (
+        "Expected trimesh UV expansion to receive OBJ-convention UVs. "
+        f"{mesh.texture.convention=}"
+    )
+
+    face_vertices = mesh.faces.detach().cpu()
+    face_uvs = mesh.texture.face_uvs.detach().cpu()
+    expanded_vertices = mesh.vertices.detach().cpu()[face_vertices.reshape(-1)].numpy()
+    expanded_uv = mesh.texture.vertex_uv.detach().cpu()[face_uvs.reshape(-1)].numpy()
+    expanded_faces = np.arange(expanded_vertices.shape[0], dtype=np.int64).reshape(
+        -1, 3
+    )
+    return expanded_vertices, expanded_faces, expanded_uv
 
 
-def _mesh_vertex_color_to_rgba(vertex_color: torch.Tensor) -> np.ndarray:
-    """Normalize one repo vertex-color tensor to RGBA uint8 values for trimesh.
+def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray:
+    """Convert one repo uv_texture_map tensor to a uint8 HWC RGB array.
 
     Args:
-        vertex_color: Repo vertex-color tensor.
-
-    Returns:
-        Uint8 RGBA color array.
-    """
-
-    rgb_float = _mesh_vertex_color_to_float_rgb(vertex_color=vertex_color)
-    rgb_uint8 = np.rint(np.clip(rgb_float, 0.0, 1.0) * 255.0).astype(np.uint8)
-    alpha = np.full((rgb_uint8.shape[0], 1), fill_value=255, dtype=np.uint8)
-    return np.concatenate([rgb_uint8, alpha], axis=1)
-
-
-def _mesh_uv_texture_map_to_uint8(uv_texture_map: torch.Tensor) -> np.ndarray:
-    """Normalize one repo UV texture map to uint8 HWC form.
-
-    Args:
-        uv_texture_map: Repo UV texture map tensor.
+        uv_texture_map: Repo UV texture map tensor in HWC layout.
 
     Returns:
         Uint8 HWC RGB texture image.
@@ -472,37 +561,17 @@ def _mesh_uv_texture_map_to_uint8(uv_texture_map: torch.Tensor) -> np.ndarray:
     return texture_cpu.mul(255.0).round().to(dtype=torch.uint8).numpy()
 
 
-def _expand_obj_uv_mesh_for_trimesh(
-    mesh: "Mesh",
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Expand one OBJ-convention repo UV mesh to per-corner UV topology for trimesh.
+def _vertex_color_to_trimesh(vertex_color: torch.Tensor) -> np.ndarray:
+    """Convert one repo vertex_color tensor to a uint8 RGBA array for trimesh.
 
     Args:
-        mesh: Repo UV mesh already normalized to `"obj"` convention.
+        vertex_color: Repo vertex-color tensor.
 
     Returns:
-        Tuple of expanded vertices, faces, and per-vertex UV coordinates.
+        Uint8 RGBA color array.
     """
 
-    from data.structures.three_d.mesh.mesh import Mesh
-
-    assert isinstance(mesh, Mesh), (
-        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
-    )
-    assert mesh.vertex_uv is not None, (
-        "Expected UV mesh expansion to receive UV topology. "
-        f"{mesh.vertex_uv is not None=}"
-    )
-    assert mesh.convention == "obj", (
-        "Expected trimesh UV expansion to receive OBJ-convention UVs. "
-        f"{mesh.convention=}"
-    )
-
-    face_vertices = mesh.faces.detach().cpu()
-    face_uvs = mesh.face_uvs.detach().cpu()
-    expanded_vertices = mesh.vertices.detach().cpu()[face_vertices.reshape(-1)].numpy()
-    expanded_uv = mesh.vertex_uv.detach().cpu()[face_uvs.reshape(-1)].numpy()
-    expanded_faces = np.arange(expanded_vertices.shape[0], dtype=np.int64).reshape(
-        -1, 3
-    )
-    return expanded_vertices, expanded_faces, expanded_uv
+    rgb_float = _vertex_color_to_float_rgb(vertex_color=vertex_color)
+    rgb_uint8 = np.rint(np.clip(rgb_float, 0.0, 1.0) * 255.0).astype(np.uint8)
+    alpha = np.full((rgb_uint8.shape[0], 1), fill_value=255, dtype=np.uint8)
+    return np.concatenate([rgb_uint8, alpha], axis=1)

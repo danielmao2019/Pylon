@@ -1,4 +1,4 @@
-"""Regression tests for the mesh convert-module boundary."""
+"""Unit tests for the mesh convert-module framework interop boundary."""
 
 import sys
 import types
@@ -8,10 +8,21 @@ import numpy as np
 import open3d as o3d
 import torch
 import trimesh
+from PIL import Image
 from torch.testing import assert_close
 
 
 def _install_namespace_package(package_name: str, package_path: Path) -> None:
+    """Install one namespace package so the data tree imports without setup.
+
+    Args:
+        package_name: Dotted package name to register.
+        package_path: Filesystem directory backing the package.
+
+    Returns:
+        None.
+    """
+
     if package_name in sys.modules:
         return
 
@@ -33,11 +44,58 @@ _install_namespace_package(
 
 from data.structures.three_d.mesh import (
     Mesh,
+    MeshTextureUVTextureMap,
+    MeshTextureVertexColor,
     mesh_from_open3d,
     mesh_from_pytorch3d,
     mesh_from_trimesh,
+    mesh_to_open3d,
     mesh_to_pytorch3d,
+    mesh_to_trimesh,
 )
+
+
+def _write_seamed_uv_obj(directory: Path) -> Path:
+    """Write one seamed UV-textured OBJ with a sibling MTL and texture PNG.
+
+    The OBJ is a unit square (4 distinct positions, 2 triangles) whose shared
+    diagonal vertices carry different UVs per triangle, so the asset has a UV
+    seam: 4 geometry vertices but 6 UV coordinates.
+
+    Args:
+        directory: Directory in which to write the OBJ / MTL / PNG.
+
+    Returns:
+        Path to the written OBJ file.
+    """
+
+    obj_path = directory / "seam.obj"
+    mtl_path = directory / "seam.mtl"
+    texture_path = directory / "seam_texture.png"
+
+    obj_path.write_text(
+        "mtllib seam.mtl\n"
+        "usemtl material0\n"
+        "v 0.0 0.0 0.0\n"
+        "v 1.0 0.0 0.0\n"
+        "v 1.0 1.0 0.0\n"
+        "v 0.0 1.0 0.0\n"
+        "vt 0.0 0.0\n"
+        "vt 1.0 0.0\n"
+        "vt 1.0 1.0\n"
+        "vt 0.0 1.0\n"
+        "vt 0.0 0.5\n"
+        "vt 1.0 0.5\n"
+        "f 1/1 2/2 3/3\n"
+        "f 1/5 3/6 4/4\n",
+        encoding="utf-8",
+    )
+    mtl_path.write_text(
+        "newmtl material0\nmap_Kd seam_texture.png\n",
+        encoding="utf-8",
+    )
+    Image.fromarray(np.full((4, 4, 3), 128, dtype=np.uint8)).save(str(texture_path))
+    return obj_path
 
 
 def _build_vertex_color_mesh() -> Mesh:
@@ -56,15 +114,221 @@ def _build_vertex_color_mesh() -> Mesh:
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        vertex_color=torch.tensor(
-            [[1.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.0]],
-            dtype=torch.float32,
+        texture=MeshTextureVertexColor(
+            vertex_color=torch.tensor(
+                [[1.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.0]],
+                dtype=torch.float32,
+            )
         ),
     )
 
 
-def test_mesh_round_trip_through_pytorch3d_preserves_vertex_colors() -> None:
-    """Round-trip one vertex-colored mesh through PyTorch3D.
+def _build_uv_textured_mesh() -> Mesh:
+    """Build one UV-textured mesh on the geometry domain.
+
+    Args:
+        None.
+
+    Returns:
+        One CPU-owned UV-textured repo mesh.
+    """
+
+    return Mesh(
+        vertices=torch.tensor(
+            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            dtype=torch.float32,
+        ),
+        faces=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=torch.tensor(
+                [
+                    [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                    [[0.0, 0.0, 1.0], [1.0, 1.0, 0.0]],
+                ],
+                dtype=torch.float32,
+            ),
+            vertex_uv=torch.tensor(
+                [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                dtype=torch.float32,
+            ),
+            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            convention="obj",
+        ),
+    )
+
+
+def test_mesh_from_trimesh_welds_seam_to_geometry_domain(tmp_path: Path) -> None:
+    """Weld a per-corner-expanded seamed UV mesh onto the geometry domain.
+
+    A seamed UV mesh that trimesh loads in per-corner-expanded form (V == U)
+    must come through `mesh_from_trimesh` on the canonical geometry domain
+    (V <= U, distinct positions), with the seam carried only by vertex_uv /
+    face_uvs. Enforces the seam contract (task.md design.2).
+
+    Args:
+        tmp_path: Pytest-provided temporary directory.
+
+    Returns:
+        None.
+    """
+
+    obj_path = _write_seamed_uv_obj(directory=tmp_path)
+    source_mesh = trimesh.load(str(obj_path), force="mesh", process=False)
+    assert source_mesh.visual.uv is not None, f"{source_mesh.visual.uv=}"
+    assert len(source_mesh.vertices) == 6, f"{len(source_mesh.vertices)=}"
+
+    mesh = mesh_from_trimesh(mesh=source_mesh, convention="obj")
+    assert isinstance(mesh, Mesh), f"{type(mesh)=}"
+    assert isinstance(mesh.texture, MeshTextureUVTextureMap), f"{type(mesh.texture)=}"
+
+    vertex_count = int(mesh.vertices.shape[0])
+    uv_count = int(mesh.texture.vertex_uv.shape[0])
+    assert vertex_count == 4, f"{vertex_count=}"
+    assert uv_count == 6, f"{uv_count=}"
+    assert vertex_count <= uv_count, f"{vertex_count=} {uv_count=}"
+
+    unique_positions = torch.unique(mesh.vertices, dim=0)
+    assert (
+        unique_positions.shape[0] == vertex_count
+    ), f"{unique_positions.shape=} {vertex_count=}"
+    assert (
+        mesh.texture.face_uvs.shape == mesh.faces.shape
+    ), f"{mesh.texture.face_uvs.shape=} {mesh.faces.shape=}"
+
+
+def test_vertex_count_is_loader_independent(tmp_path: Path) -> None:
+    """Make len(mesh.vertices) identical across PyTorch3D and trimesh loaders.
+
+    For one OBJ asset, `len(mesh.vertices)` must be identical whether the mesh
+    is loaded via `Mesh.load` (PyTorch3D) or via `mesh_from_trimesh`, since both
+    land on the canonical geometry domain.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory.
+
+    Returns:
+        None.
+    """
+
+    obj_path = _write_seamed_uv_obj(directory=tmp_path)
+
+    pytorch3d_loaded_mesh = Mesh.load(path=obj_path)
+    trimesh_loaded_mesh = mesh_from_trimesh(
+        mesh=trimesh.load(str(obj_path), force="mesh", process=False),
+        convention="obj",
+    )
+
+    assert int(pytorch3d_loaded_mesh.vertices.shape[0]) == int(
+        trimesh_loaded_mesh.vertices.shape[0]
+    ), (
+        f"{pytorch3d_loaded_mesh.vertices.shape=} "
+        f"{trimesh_loaded_mesh.vertices.shape=}"
+    )
+    assert (
+        int(pytorch3d_loaded_mesh.vertices.shape[0]) == 4
+    ), f"{pytorch3d_loaded_mesh.vertices.shape=}"
+
+
+def test_trimesh_uv_round_trip_preserves_geometry() -> None:
+    """Round-trip one UV-textured mesh through trimesh.
+
+    `mesh_to_trimesh` then `mesh_from_trimesh` must preserve geometry, UV, and
+    texture (expand then weld is identity on the geometry domain).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    mesh = _build_uv_textured_mesh()
+
+    trimesh_mesh = mesh_to_trimesh(mesh=mesh)
+    round_tripped_mesh = mesh_from_trimesh(mesh=trimesh_mesh, convention="obj")
+
+    assert isinstance(
+        round_tripped_mesh.texture, MeshTextureUVTextureMap
+    ), f"{type(round_tripped_mesh.texture)=}"
+    assert int(round_tripped_mesh.vertices.shape[0]) == int(
+        mesh.vertices.shape[0]
+    ), f"{round_tripped_mesh.vertices.shape=} {mesh.vertices.shape=}"
+
+    sorted_original = mesh.vertices[
+        torch.argsort(mesh.vertices[:, 0] * 1.0e06 + mesh.vertices[:, 1])
+    ]
+    sorted_round_trip = round_tripped_mesh.vertices[
+        torch.argsort(
+            round_tripped_mesh.vertices[:, 0] * 1.0e06
+            + round_tripped_mesh.vertices[:, 1]
+        )
+    ]
+    assert_close(sorted_round_trip, sorted_original)
+    assert_close(
+        round_tripped_mesh.texture.uv_texture_map,
+        mesh.texture.uv_texture_map,
+    )
+
+    original_uv_by_face = mesh.texture.vertex_uv[mesh.texture.face_uvs.reshape(-1)]
+    round_trip_uv_by_face = round_tripped_mesh.texture.vertex_uv[
+        round_tripped_mesh.texture.face_uvs.reshape(-1)
+    ]
+    assert_close(round_trip_uv_by_face, original_uv_by_face)
+
+
+def test_pytorch3d_round_trip_preserves_texture() -> None:
+    """Round-trip vertex-colored and UV-textured meshes through PyTorch3D.
+
+    `mesh_to_pytorch3d` then `mesh_from_pytorch3d` must preserve geometry and
+    texture for both vertex-colored and UV-textured meshes.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    vertex_color_mesh = _build_vertex_color_mesh()
+    pytorch3d_vc = mesh_to_pytorch3d(mesh=vertex_color_mesh, device=torch.device("cpu"))
+    round_tripped_vc = mesh_from_pytorch3d(mesh=pytorch3d_vc, convention="obj")
+    assert isinstance(
+        round_tripped_vc.texture, MeshTextureVertexColor
+    ), f"{type(round_tripped_vc.texture)=}"
+    assert_close(round_tripped_vc.vertices, vertex_color_mesh.vertices)
+    assert torch.equal(
+        round_tripped_vc.faces, vertex_color_mesh.faces
+    ), f"{round_tripped_vc.faces=} {vertex_color_mesh.faces=}"
+    assert_close(
+        round_tripped_vc.texture.vertex_color,
+        vertex_color_mesh.texture.vertex_color,
+    )
+
+    uv_mesh = _build_uv_textured_mesh()
+    pytorch3d_uv = mesh_to_pytorch3d(mesh=uv_mesh, device=torch.device("cpu"))
+    round_tripped_uv = mesh_from_pytorch3d(mesh=pytorch3d_uv, convention="obj")
+    assert isinstance(
+        round_tripped_uv.texture, MeshTextureUVTextureMap
+    ), f"{type(round_tripped_uv.texture)=}"
+    assert_close(round_tripped_uv.vertices, uv_mesh.vertices)
+    assert torch.equal(
+        round_tripped_uv.faces, uv_mesh.faces
+    ), f"{round_tripped_uv.faces=} {uv_mesh.faces=}"
+    assert_close(
+        round_tripped_uv.texture.uv_texture_map,
+        uv_mesh.texture.uv_texture_map,
+    )
+    assert_close(round_tripped_uv.texture.vertex_uv, uv_mesh.texture.vertex_uv)
+    assert torch.equal(
+        round_tripped_uv.texture.face_uvs, uv_mesh.texture.face_uvs
+    ), f"{round_tripped_uv.texture.face_uvs=} {uv_mesh.texture.face_uvs=}"
+
+
+def test_open3d_round_trip_preserves_vertex_color() -> None:
+    """Round-trip one vertex-colored mesh through Open3D.
+
+    `mesh_to_open3d` then `mesh_from_open3d` must preserve geometry and vertex
+    colors (the Open3D path carries no UV texture).
 
     Args:
         None.
@@ -75,112 +339,17 @@ def test_mesh_round_trip_through_pytorch3d_preserves_vertex_colors() -> None:
 
     mesh = _build_vertex_color_mesh()
 
-    pytorch3d_mesh = mesh_to_pytorch3d(mesh=mesh, device=torch.device("cpu"))
-    assert len(pytorch3d_mesh) == 1, f"{len(pytorch3d_mesh)=}"
+    open3d_mesh = mesh_to_open3d(mesh=mesh)
+    round_tripped_mesh = mesh_from_open3d(mesh=open3d_mesh)
 
-    round_tripped_mesh = mesh_from_pytorch3d(
-        mesh=pytorch3d_mesh,
-        convention="obj",
-    )
-    assert isinstance(round_tripped_mesh, Mesh), f"{type(round_tripped_mesh)=}"
+    assert isinstance(
+        round_tripped_mesh.texture, MeshTextureVertexColor
+    ), f"{type(round_tripped_mesh.texture)=}"
     assert_close(round_tripped_mesh.vertices, mesh.vertices)
     assert torch.equal(
         round_tripped_mesh.faces, mesh.faces
     ), f"{round_tripped_mesh.faces=} {mesh.faces=}"
-    assert_close(round_tripped_mesh.vertex_color, mesh.vertex_color)
-    assert round_tripped_mesh.vertex_uv is None, f"{round_tripped_mesh.vertex_uv=}"
-    assert round_tripped_mesh.face_uvs is None, f"{round_tripped_mesh.face_uvs=}"
-
-
-def test_mesh_from_open3d_preserves_vertex_colors() -> None:
-    """Convert one colored legacy Open3D mesh into the repo mesh type.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
-
-    legacy_mesh = o3d.geometry.TriangleMesh()
-    legacy_mesh.vertices = o3d.utility.Vector3dVector(
-        np.array(
-            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-            dtype=np.float64,
-        )
-    )
-    legacy_mesh.triangles = o3d.utility.Vector3iVector(
-        np.array([[0, 1, 2]], dtype=np.int32)
-    )
-    legacy_mesh.vertex_colors = o3d.utility.Vector3dVector(
-        np.array(
-            [[1.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.0]],
-            dtype=np.float64,
-        )
-    )
-
-    converted_mesh = mesh_from_open3d(mesh=legacy_mesh)
-    assert isinstance(converted_mesh, Mesh), f"{type(converted_mesh)=}"
     assert_close(
-        converted_mesh.vertices,
-        torch.tensor(
-            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-            dtype=torch.float32,
-        ),
-    )
-    assert torch.equal(
-        converted_mesh.faces,
-        torch.tensor([[0, 1, 2]], dtype=torch.int64),
-    ), f"{converted_mesh.faces=}"
-    assert_close(
-        converted_mesh.vertex_color,
-        torch.tensor(
-            [[1.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.0]],
-            dtype=torch.float32,
-        ),
-    )
-
-
-def test_mesh_from_trimesh_preserves_opaque_rgba_vertex_colors() -> None:
-    """Convert one opaque RGBA trimesh into the repo mesh type.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
-
-    source_mesh = trimesh.Trimesh(
-        vertices=np.array(
-            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-            dtype=np.float32,
-        ),
-        faces=np.array([[0, 1, 2]], dtype=np.int64),
-        vertex_colors=np.array(
-            [[255, 0, 0, 255], [0, 128, 0, 255], [0, 0, 255, 255]],
-            dtype=np.uint8,
-        ),
-        process=False,
-    )
-
-    converted_mesh = mesh_from_trimesh(mesh=source_mesh)
-    assert isinstance(converted_mesh, Mesh), f"{type(converted_mesh)=}"
-    assert_close(
-        converted_mesh.vertices,
-        torch.tensor(
-            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-            dtype=torch.float32,
-        ),
-    )
-    assert torch.equal(
-        converted_mesh.faces,
-        torch.tensor([[0, 1, 2]], dtype=torch.int64),
-    ), f"{converted_mesh.faces=}"
-    assert_close(
-        converted_mesh.vertex_color,
-        torch.tensor(
-            [[1.0, 0.0, 0.0], [0.0, 128.0 / 255.0, 0.0], [0.0, 0.0, 1.0]],
-            dtype=torch.float32,
-        ),
+        round_tripped_mesh.texture.vertex_color,
+        mesh.texture.vertex_color,
     )

@@ -1,43 +1,47 @@
 """Mesh merge helpers owned by the data-layer mesh package."""
 
-from typing import TYPE_CHECKING, Dict, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 import torch
 
-if TYPE_CHECKING:
-    from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
+from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
+    MeshTextureVertexColor,
+)
 
 
 def merge_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
-    """Merge one or more repo mesh blocks into one repo mesh.
+    """Merge one or more mesh blocks into one Mesh.
 
     Args:
-        mesh_blocks: Repo mesh blocks discovered under one mesh root.
+        mesh_blocks: Mesh blocks discovered under one mesh root.
 
     Returns:
-        One merged repo mesh.
+        One merged `Mesh`.
     """
 
-    from data.structures.three_d.mesh.mesh import Mesh
-
-    def _validate_inputs() -> None:
-        assert isinstance(mesh_blocks, (list, tuple)), (
-            "Expected `mesh_blocks` to be a list or tuple. " f"{type(mesh_blocks)=}"
-        )
-        assert mesh_blocks, (
-            "Expected at least one mesh block to merge. " f"{len(mesh_blocks)=}"
-        )
-        assert all(isinstance(mesh, Mesh) for mesh in mesh_blocks), (
-            "Expected every mesh block to be a `Mesh` instance. " f"{mesh_blocks=}"
-        )
-
-    _validate_inputs()
+    assert isinstance(mesh_blocks, (list, tuple)), (
+        "Expected `mesh_blocks` to be a list or tuple. " f"{type(mesh_blocks)=}"
+    )
+    assert mesh_blocks, (
+        "Expected at least one mesh block to merge. " f"{len(mesh_blocks)=}"
+    )
+    assert all(isinstance(mesh, Mesh) for mesh in mesh_blocks), (
+        "Expected every mesh block to be a `Mesh` instance. " f"{mesh_blocks=}"
+    )
 
     if len(mesh_blocks) == 1:
         return mesh_blocks[0]
 
-    has_uv_texture_map = any(mesh.uv_texture_map is not None for mesh in mesh_blocks)
-    has_vertex_color = any(mesh.vertex_color is not None for mesh in mesh_blocks)
+    has_uv_texture_map = any(
+        isinstance(mesh.texture, MeshTextureUVTextureMap) for mesh in mesh_blocks
+    )
+    has_vertex_color = any(
+        isinstance(mesh.texture, MeshTextureVertexColor) for mesh in mesh_blocks
+    )
 
     if has_uv_texture_map:
         assert not has_vertex_color, (
@@ -56,44 +60,31 @@ def _merge_vertex_color_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     """Merge multiple vertex-colored meshes into one mesh.
 
     Args:
-        mesh_blocks: Vertex-colored repo mesh blocks.
+        mesh_blocks: Vertex-colored mesh blocks.
 
     Returns:
-        One merged vertex-colored mesh.
+        One merged vertex-colored `Mesh`.
     """
-
-    from data.structures.three_d.mesh.mesh import Mesh
 
     vertices_list: List[torch.Tensor] = []
     faces_list: List[torch.Tensor] = []
     colors_list: List[torch.Tensor] = []
     vertex_offset = 0
     for mesh in mesh_blocks:
-        assert mesh.vertex_color is not None, (
-            "Expected vertex-color merge to receive `vertex_color`. "
-            f"{mesh.vertex_color is not None=}"
-        )
-        assert mesh.vertex_uv is None, (
-            "Expected vertex-color merge to receive no `vertex_uv`. "
-            f"{mesh.vertex_uv is None=}"
-        )
-        assert mesh.face_uvs is None, (
-            "Expected vertex-color merge to receive no `face_uvs`. "
-            f"{mesh.face_uvs is None=}"
-        )
-        assert mesh.convention is None, (
-            "Expected vertex-color merge to receive no UV convention. "
-            f"{mesh.convention=}"
+        assert isinstance(mesh.texture, MeshTextureVertexColor), (
+            "Expected vertex-color merge to receive `MeshTextureVertexColor` "
+            "blocks. "
+            f"{type(mesh.texture)=}"
         )
         vertices_list.append(mesh.vertices)
         faces_list.append(mesh.faces + vertex_offset)
-        colors_list.append(mesh.vertex_color)
+        colors_list.append(mesh.texture.vertex_color)
         vertex_offset += int(mesh.vertices.shape[0])
 
     return Mesh(
         vertices=torch.cat(vertices_list, dim=0),
         faces=torch.cat(faces_list, dim=0),
-        vertex_color=torch.cat(colors_list, dim=0),
+        texture=MeshTextureVertexColor(vertex_color=torch.cat(colors_list, dim=0)),
     )
 
 
@@ -101,13 +92,11 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     """Merge multiple UV-textured meshes into one packed textured mesh.
 
     Args:
-        mesh_blocks: UV-textured repo mesh blocks.
+        mesh_blocks: UV-textured mesh blocks.
 
     Returns:
-        One merged UV-textured mesh.
+        One merged UV-textured `Mesh`.
     """
-
-    from data.structures.three_d.mesh.mesh import Mesh
 
     normalized_mesh_blocks = [mesh.to(convention="obj") for mesh in mesh_blocks]
     vertices_list: List[torch.Tensor] = []
@@ -119,19 +108,20 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     vertex_offset = 0
     uv_offset = 0
     for block_index, mesh in enumerate(normalized_mesh_blocks):
-        assert mesh.uv_texture_map is not None, (
-            "Expected UV-textured merge to receive `uv_texture_map`. "
-            f"{mesh.uv_texture_map is not None=}"
+        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+            "Expected UV-textured merge to receive `MeshTextureUVTextureMap` "
+            "blocks. "
+            f"{type(mesh.texture)=}"
         )
-        assert mesh.convention == "obj", (
+        assert mesh.texture.convention == "obj", (
             "Expected UV-textured merge to operate on OBJ-convention UVs. "
-            f"{mesh.convention=}"
+            f"{mesh.texture.convention=}"
         )
         vertices_list.append(mesh.vertices)
         faces_list.append(mesh.faces + vertex_offset)
-        vertex_uv_list.append(mesh.vertex_uv)
-        face_uv_list.append(mesh.face_uvs + uv_offset)
-        texture_maps.append(mesh.uv_texture_map)
+        vertex_uv_list.append(mesh.texture.vertex_uv)
+        face_uv_list.append(mesh.texture.face_uvs + uv_offset)
+        texture_maps.append(mesh.texture.uv_texture_map)
         face_materials_list.append(
             torch.full(
                 (mesh.faces.shape[0],),
@@ -141,7 +131,7 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
             )
         )
         vertex_offset += int(mesh.vertices.shape[0])
-        uv_offset += int(mesh.vertex_uv.shape[0])
+        uv_offset += int(mesh.texture.vertex_uv.shape[0])
 
     merged_vertices = torch.cat(vertices_list, dim=0)
     merged_faces = torch.cat(faces_list, dim=0)
@@ -158,10 +148,12 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     return Mesh(
         vertices=merged_vertices,
         faces=merged_faces,
-        uv_texture_map=packed_texture_map,
-        vertex_uv=merged_vertex_uv,
-        face_uvs=merged_face_uvs,
-        convention="obj",
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=packed_texture_map,
+            vertex_uv=merged_vertex_uv,
+            face_uvs=merged_face_uvs,
+            convention="obj",
+        ),
     )
 
 
@@ -169,29 +161,19 @@ def _merge_geometry_only_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     """Merge multiple geometry-only meshes into one mesh.
 
     Args:
-        mesh_blocks: Geometry-only repo mesh blocks.
+        mesh_blocks: Geometry-only mesh blocks.
 
     Returns:
-        One merged geometry-only mesh.
+        One merged geometry-only `Mesh`.
     """
-
-    from data.structures.three_d.mesh.mesh import Mesh
 
     vertices_list: List[torch.Tensor] = []
     faces_list: List[torch.Tensor] = []
     vertex_offset = 0
     for mesh in mesh_blocks:
-        assert mesh.vertex_color is None, (
-            "Expected geometry-only merge to receive no `vertex_color`. "
-            f"{mesh.vertex_color is None=}"
-        )
-        assert mesh.uv_texture_map is None, (
-            "Expected geometry-only merge to receive no `uv_texture_map`. "
-            f"{mesh.uv_texture_map is None=}"
-        )
-        assert mesh.vertex_uv is None, (
-            "Expected geometry-only merge to receive no `vertex_uv`. "
-            f"{mesh.vertex_uv is None=}"
+        assert mesh.texture is None, (
+            "Expected geometry-only merge to receive no texture. "
+            f"{type(mesh.texture)=}"
         )
         vertices_list.append(mesh.vertices)
         faces_list.append(mesh.faces + vertex_offset)
@@ -200,6 +182,7 @@ def _merge_geometry_only_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     return Mesh(
         vertices=torch.cat(vertices_list, dim=0),
         faces=torch.cat(faces_list, dim=0),
+        texture=None,
     )
 
 
@@ -218,7 +201,8 @@ def pack_texture_images(
         materials_idx: Per-face material ids `[F]`.
 
     Returns:
-        Packed texture map, remapped UV coordinates, and remapped UV-face indices.
+        Packed texture map, remapped UV coordinates, and remapped UV-face
+        indices.
     """
 
     material_names = list(texture_images.keys())
@@ -241,7 +225,7 @@ def _pack_texture_maps(
     faces_uvs: torch.Tensor,
     materials_idx: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Pack one or more texture maps into one atlas plus remapped UVs.
+    """Stack texture maps into one atlas and rebuild the per-corner UV table.
 
     Args:
         texture_maps: Texture map tensors in HWC layout.
@@ -250,28 +234,26 @@ def _pack_texture_maps(
         materials_idx: Per-face material ids `[F]`.
 
     Returns:
-        Packed texture map, remapped UV coordinates, and remapped UV-face indices.
+        Packed texture map, remapped UV coordinates, and remapped UV-face
+        indices.
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(texture_maps, (list, tuple)), (
-            "Expected `texture_maps` to be a list or tuple. " f"{type(texture_maps)=}"
-        )
-        assert len(texture_maps) > 0, (
-            "Expected `texture_maps` to contain at least one texture. "
-            f"{len(texture_maps)=}"
-        )
-        assert isinstance(verts_uvs, torch.Tensor), (
-            "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
-        )
-        assert isinstance(faces_uvs, torch.Tensor), (
-            "Expected `faces_uvs` to be a tensor. " f"{type(faces_uvs)=}"
-        )
-        assert isinstance(materials_idx, torch.Tensor), (
-            "Expected `materials_idx` to be a tensor. " f"{type(materials_idx)=}"
-        )
-
-    _validate_inputs()
+    assert isinstance(texture_maps, (list, tuple)), (
+        "Expected `texture_maps` to be a list or tuple. " f"{type(texture_maps)=}"
+    )
+    assert len(texture_maps) > 0, (
+        "Expected `texture_maps` to contain at least one texture. "
+        f"{len(texture_maps)=}"
+    )
+    assert isinstance(verts_uvs, torch.Tensor), (
+        "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
+    )
+    assert isinstance(faces_uvs, torch.Tensor), (
+        "Expected `faces_uvs` to be a tensor. " f"{type(faces_uvs)=}"
+    )
+    assert isinstance(materials_idx, torch.Tensor), (
+        "Expected `materials_idx` to be a tensor. " f"{type(materials_idx)=}"
+    )
 
     target_device = verts_uvs.device
     target_dtype = texture_maps[0].dtype
@@ -350,13 +332,13 @@ def _remap_uvs(
     atlas_width: int,
     materials_idx: torch.Tensor,
 ) -> torch.Tensor:
-    """Adjust UVs to point into packed texture regions.
+    """Rescale and offset each material's UVs into its packed atlas region.
 
     Args:
         verts_uvs: UV coordinates to be remapped.
         faces_uvs: Face-to-UV indices.
-        map_offsets: Tensor of shape `(K, 3)` with `(y_offset, height, width)` per
-            packed region.
+        map_offsets: Tensor of shape `(K, 3)` with `(y_offset, height, width)`
+            per packed region.
         atlas_height: Height of the packed texture.
         atlas_width: Width of the packed texture.
         materials_idx: Per-face material or block index `(F,)`.
@@ -365,35 +347,32 @@ def _remap_uvs(
         Remapped UV coordinates aligned to the packed texture.
     """
 
-    def _validate_inputs() -> None:
-        assert isinstance(verts_uvs, torch.Tensor), (
-            "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
-        )
-        assert isinstance(faces_uvs, torch.Tensor), (
-            "Expected `faces_uvs` to be a tensor. " f"{type(faces_uvs)=}"
-        )
-        assert isinstance(map_offsets, torch.Tensor), (
-            "Expected `map_offsets` to be a tensor. " f"{type(map_offsets)=}"
-        )
-        assert isinstance(atlas_height, int), (
-            "Expected `atlas_height` to be an `int`. " f"{type(atlas_height)=}"
-        )
-        assert isinstance(atlas_width, int), (
-            "Expected `atlas_width` to be an `int`. " f"{type(atlas_width)=}"
-        )
-        assert isinstance(materials_idx, torch.Tensor), (
-            "Expected `materials_idx` to be a tensor. " f"{type(materials_idx)=}"
-        )
-        assert map_offsets.shape[0] > 0, (
-            "Expected `map_offsets` to contain at least one packed region. "
-            f"{map_offsets.shape=}"
-        )
-        assert materials_idx.shape[0] == faces_uvs.shape[0], (
-            "Expected one material id per face. "
-            f"{materials_idx.shape=} {faces_uvs.shape=}"
-        )
-
-    _validate_inputs()
+    assert isinstance(verts_uvs, torch.Tensor), (
+        "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
+    )
+    assert isinstance(faces_uvs, torch.Tensor), (
+        "Expected `faces_uvs` to be a tensor. " f"{type(faces_uvs)=}"
+    )
+    assert isinstance(map_offsets, torch.Tensor), (
+        "Expected `map_offsets` to be a tensor. " f"{type(map_offsets)=}"
+    )
+    assert isinstance(atlas_height, int), (
+        "Expected `atlas_height` to be an `int`. " f"{type(atlas_height)=}"
+    )
+    assert isinstance(atlas_width, int), (
+        "Expected `atlas_width` to be an `int`. " f"{type(atlas_width)=}"
+    )
+    assert isinstance(materials_idx, torch.Tensor), (
+        "Expected `materials_idx` to be a tensor. " f"{type(materials_idx)=}"
+    )
+    assert map_offsets.shape[0] > 0, (
+        "Expected `map_offsets` to contain at least one packed region. "
+        f"{map_offsets.shape=}"
+    )
+    assert materials_idx.shape[0] == faces_uvs.shape[0], (
+        "Expected one material id per face. "
+        f"{materials_idx.shape=} {faces_uvs.shape=}"
+    )
 
     flat_uv_indices = faces_uvs.reshape(-1)
     flat_uv_coords = verts_uvs.index_select(dim=0, index=flat_uv_indices).clone()
