@@ -89,16 +89,12 @@ data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py
 data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
 ├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
-├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_face_uvs, validate_mesh_uv_convention, validate_uv_texture_map, validate_vertex_uv
+├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map
 └── class MeshTextureUVTextureMap(MeshTexture)
     ├── # UV-atlas texture: uv_texture_map [H,W,3] + vertex_uv [U,2] + face_uvs [F,3] + UV-origin convention.
     ├── def __init__(self, uv_texture_map, vertex_uv, face_uvs, convention)
     │   ├── # Validates the UV representation, normalizes the texture map, then stores the attributes.
-    │   ├── calls validate_uv_texture_map
-    │   ├── calls validate_vertex_uv
-    │   ├── calls validate_face_uvs
-    │   ├── calls validate_mesh_uv_convention
-    │   ├── # asserts face_uvs indices < vertex_uv rows (U)
+    │   ├── calls validate_uv_texture_map                  # representation-level validator (all fields + cross-field invariant)
     │   ├── calls MeshTextureUVTextureMap.normalize_uv_texture_map
     │   ├── impls self.uv_texture_map = normalized uv_texture_map   # float32 HWC in [0,1]
     │   ├── impls self.vertex_uv = vertex_uv, contiguous
@@ -142,14 +138,21 @@ data/structures/three_d/mesh/texture/validate_vertex_color.py
 
 ```text
 data/structures/three_d/mesh/texture/validate_uv_texture_map.py
-├── def validate_uv_texture_map(obj) -> None                  # HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32
-│   ├── calls _validate_uv_texture_map_uint8                  # uint8 branch
-│   └── calls _validate_uv_texture_map_float32                # float32 branch
-├── def validate_vertex_uv(obj) -> None                       # float [U,2], U>0, finite, values in [0,1]
-├── def validate_face_uvs(obj) -> None                        # integer [F,3], F>0, indices >= 0
-├── def validate_mesh_uv_convention(convention) -> str        # asserts convention in {"obj", "top_left"}; returns it
-├── def _validate_uv_texture_map_uint8(obj) -> None
-└── def _validate_uv_texture_map_float32(obj) -> None
+├── from data.structures.three_d.mesh.texture.conventions import validate_mesh_uv_convention
+├── def validate_uv_texture_map(uv_texture_map, vertex_uv, face_uvs, convention) -> None
+│   ├── # The module's single public API: validates the whole uv-texture-map representation.
+│   ├── calls _validate_uv_texture_map_image
+│   ├── calls _validate_vertex_uv
+│   ├── calls _validate_face_uvs
+│   ├── calls validate_mesh_uv_convention
+│   └── # cross-field: asserts face_uvs indices reference valid vertex_uv rows (in [0, U))
+├── def _validate_uv_texture_map_image(obj) -> None            # texture image tensor: HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32
+│   ├── calls _validate_uv_texture_map_image_uint8            # uint8 branch
+│   └── calls _validate_uv_texture_map_image_float32          # float32 branch
+├── def _validate_vertex_uv(obj) -> None                      # float [U,2], U>0, finite, values in [0,1]
+├── def _validate_face_uvs(obj) -> None                       # integer [F,3], F>0, indices >= 0
+├── def _validate_uv_texture_map_image_uint8(obj) -> None
+└── def _validate_uv_texture_map_image_float32(obj) -> None
     └── # asserts the texture-map values are finite and within [0,1]
 ```
 
@@ -158,8 +161,7 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 ```text
 data/structures/three_d/mesh/texture/__init__.py
 └── re-exports: MeshTexture, MeshTextureVertexColor, MeshTextureUVTextureMap, transform_vertex_uv_convention,
-    validate_vertex_color, validate_uv_texture_map, validate_vertex_uv, validate_face_uvs,
-    validate_mesh_uv_convention
+    validate_mesh_uv_convention, validate_vertex_color, validate_uv_texture_map
 ```
 
 ## Loading
@@ -324,5 +326,5 @@ data/structures/three_d/mesh/__init__.py
     MeshTexture, MeshTextureVertexColor, MeshTextureUVTextureMap, transform_vertex_uv_convention,
     mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh,
     validate_vertices, validate_faces, validate_vertex_color, validate_uv_texture_map,
-    validate_vertex_uv, validate_face_uvs, validate_mesh_attributes, validate_mesh_uv_convention
+    validate_mesh_attributes, validate_mesh_uv_convention
 ```
