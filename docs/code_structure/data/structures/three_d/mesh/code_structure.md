@@ -6,25 +6,19 @@ Code-structure skeleton for `data/structures/three_d/mesh/`.
 
 ```text
 data/structures/three_d/mesh/mesh.py
-├── from data.structures.three_d.mesh.conventions import transform_vertex_uv_convention
 ├── from data.structures.three_d.mesh.load import load_mesh
 ├── from data.structures.three_d.mesh.save import save_mesh
-├── from data.structures.three_d.mesh.validate import validate_mesh_attributes, validate_mesh_uv_convention, validate_uv_texture_map, validate_vertex_color
-├── def _resolve_texture_mode(vertex_uv) -> str
-│   └── # Returns "uv_texture_map" when vertex_uv is present, otherwise "vertex_color".
+├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
+├── from data.structures.three_d.mesh.validate import validate_mesh_attributes
 └── class Mesh
-    ├── # One triangle mesh with optional vertex-color or UV-texture attributes.
-    ├── def __init__(self, vertices, faces, vertex_color=None, uv_texture_map=None, vertex_uv=None, face_uvs=None, convention=None)
-    │   ├── # Validates, normalizes, and stores one mesh attribute set.
+    ├── # One triangle mesh: geometry (vertices, faces) plus an optional MeshTexture.
+    ├── def __init__(self, vertices, faces, texture=None)
+    │   ├── # Validates geometry + the texture<->geometry linkage, then stores the attributes.
     │   ├── calls validate_mesh_attributes
-    │   ├── calls Mesh.normalize_vertex_color           # when vertex_color is set
-    │   ├── calls Mesh.normalize_uv_texture_map         # when uv_texture_map is set
-    │   ├── calls _resolve_texture_mode
-    │   └── # stores: vertices, faces, vertex_color, uv_texture_map, vertex_uv, face_uvs, convention, device, texture_mode
-    ├── @staticmethod def normalize_vertex_color(vertex_color) -> torch.Tensor
-    │   └── # Normalizes vertex color to contiguous float32 [V,3] in [0,1] (drops a leading batch axis; uint8 -> /255).
-    ├── @staticmethod def normalize_uv_texture_map(uv_texture_map) -> torch.Tensor
-    │   └── # Normalizes UV texture map to contiguous float32 HWC in [0,1] (drops a leading batch axis; CHW -> HWC; uint8 -> /255).
+    │   ├── impls self.vertices = vertices, contiguous
+    │   ├── impls self.faces = faces, int64 + contiguous
+    │   ├── impls self.texture = texture                # Optional[MeshTexture]
+    │   └── impls self.device = self.vertices.device
     ├── @classmethod def load(cls, path) -> Mesh
     │   ├── # Loads one mesh from an OBJ file or a mesh-root directory.
     │   └── calls load_mesh
@@ -32,36 +26,23 @@ data/structures/three_d/mesh/mesh.py
     │   ├── # Saves this mesh to an OBJ/PLY file or a directory.
     │   └── calls save_mesh
     └── def to(self, device=None, convention=None) -> Mesh
-        ├── # Returns this mesh moved to a target device and/or UV-origin convention (self when both already match).
-        └── calls transform_vertex_uv_convention        # when the convention changes
+        ├── # Returns this mesh on a target device and/or UV-origin convention; self when both already match.
+        ├── calls MeshTexture.to                       # when texture is not None; delegates device + convention
+        └── return Mesh                                # new Mesh wrapping the moved geometry + texture
 ```
 
-## Attribute validation
+## Geometry and linkage validation
 
 ```text
 data/structures/three_d/mesh/validate.py
-├── def validate_mesh_uv_convention(convention) -> str        # asserts convention in {"obj", "top_left"}; returns it
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def validate_vertices(obj) -> None                        # float [V,3], V>0, finite
 ├── def validate_faces(obj) -> None                           # integer [F,3], F>0, indices >= 0
-├── def validate_vertex_color(obj) -> None                    # [V,3] or [1,V,3]; uint8 [0,255] or float32 [0,1]
-│   ├── calls _validate_vertex_color_uint8                    # uint8 branch
-│   └── calls _validate_vertex_color_float32                  # float32 branch
-├── def validate_uv_texture_map(obj) -> None                  # HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32
-│   ├── calls _validate_uv_texture_map_uint8                  # uint8 branch
-│   └── calls _validate_uv_texture_map_float32                # float32 branch
-├── def _validate_vertex_color_uint8(obj) -> None
-├── def _validate_vertex_color_float32(obj) -> None
-│   └── calls _assert_rgb_range
-├── def _validate_uv_texture_map_uint8(obj) -> None
-├── def _validate_uv_texture_map_float32(obj) -> None
-│   └── calls _assert_rgb_range
-├── def _assert_rgb_range(obj) -> None                        # asserts float32 RGB within [0,1]
-├── def validate_vertex_uv(obj) -> None                       # float [U,2], U>0, finite, values in [0,1]
-├── def validate_face_uvs(obj) -> None                        # integer [F,3], F>0, indices >= 0
-├── def _validate_device_compatible(vertices, faces, vertex_color=None, uv_texture_map=None, vertex_uv=None, face_uvs=None) -> None
-│   └── # Asserts every provided tensor lives on the vertices' device.
-└── def validate_mesh_attributes(vertices, faces, vertex_color=None, uv_texture_map=None, vertex_uv=None, face_uvs=None, convention=None) -> None
-    ├── # Whole-mesh validator: per-attribute checks plus cross-attribute invariants.
+├── def _validate_device_compatible(vertices, faces, texture) -> None
+│   └── # Asserts the texture's tensors live on the vertices' device.
+└── def validate_mesh_attributes(vertices, faces, texture=None) -> None
+    ├── # Validates geometry plus the texture<->geometry linkage (the texture self-validates its own internal shapes).
     ├── calls validate_vertices
     ├── calls validate_faces
     ├── calls _validate_device_compatible
