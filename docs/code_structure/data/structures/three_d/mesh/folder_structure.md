@@ -15,7 +15,7 @@ mesh/
 ├── convert.py         # interop conversions: PyTorch3D / Open3D / trimesh
 └── texture/           # the mesh-texture subpackage
     ├── __init__.py                       # texture API surface
-    ├── mesh_texture.py                   # MeshTexture ABC + shared assert_rgb_range
+    ├── mesh_texture.py                   # MeshTexture ABC
     ├── mesh_texture_vertex_color.py       # MeshTextureVertexColor (per-vertex RGB)
     ├── mesh_texture_uv_texture_map.py     # MeshTextureUVTextureMap (UV atlas)
     ├── conventions.py                     # UV-origin convention transform (obj <-> top_left)
@@ -27,7 +27,9 @@ mesh/
 
 ```text
 mesh/
-├── test_convert.py            # PyTorch3D / Open3D / trimesh round-trip coverage
+├── test_convert.py                        # framework round-trips + the trimesh seam weld/expand round-trip
 └── texture/
-    └── test_conventions.py    # transform_vertex_uv_convention coverage
+    ├── test_conventions.py                # transform_vertex_uv_convention coverage
+    ├── test_mesh_texture_vertex_color.py   # MeshTextureVertexColor coverage
+    └── test_mesh_texture_uv_texture_map.py # MeshTextureUVTextureMap coverage
 ```
