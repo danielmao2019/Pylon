@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Tuple, Union
 
 import torch
 
@@ -55,17 +55,30 @@ class MeshTextureUVTextureMap(MeshTexture):
             None.
         """
 
-        validate_uv_texture_map(
-            uv_texture_map=uv_texture_map,
-            vertex_uv=vertex_uv,
-            face_uvs=face_uvs,
-            convention=convention,
-        )
-        self.uv_texture_map = MeshTextureUVTextureMap.normalize_uv_texture_map(
-            uv_texture_map=uv_texture_map
-        )
-        self.vertex_uv = vertex_uv.contiguous()
-        self.face_uvs = face_uvs.to(dtype=torch.int64).contiguous()
+        def _validate_inputs() -> None:
+            validate_uv_texture_map(
+                uv_texture_map=uv_texture_map,
+                vertex_uv=vertex_uv,
+                face_uvs=face_uvs,
+                convention=convention,
+            )
+
+        _validate_inputs()
+
+        def _normalize_inputs() -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+            return (
+                MeshTextureUVTextureMap.normalize_uv_texture_map(
+                    uv_texture_map=uv_texture_map
+                ),
+                vertex_uv.contiguous(),
+                face_uvs.to(dtype=torch.int64).contiguous(),
+            )
+
+        uv_texture_map, vertex_uv, face_uvs = _normalize_inputs()
+
+        self.uv_texture_map = uv_texture_map
+        self.vertex_uv = vertex_uv
+        self.face_uvs = face_uvs
         self.convention = convention
 
     @staticmethod
@@ -85,7 +98,6 @@ class MeshTextureUVTextureMap(MeshTexture):
             uv_texture_map = uv_texture_map[0]
         if uv_texture_map.shape[0] == 3:
             uv_texture_map = uv_texture_map.permute(1, 2, 0)
-        uv_texture_map = uv_texture_map.contiguous()
         if uv_texture_map.dtype == torch.uint8:
             return uv_texture_map.to(dtype=torch.float32).div(255.0).contiguous()
         return uv_texture_map.contiguous()
@@ -106,7 +118,7 @@ class MeshTextureUVTextureMap(MeshTexture):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Union[str, None] = None,
+        convention: Optional[str] = None,
     ) -> "MeshTextureUVTextureMap":
         """Return this texture on a target device and/or UV-origin convention.
 
@@ -119,13 +131,17 @@ class MeshTextureUVTextureMap(MeshTexture):
             otherwise a new `MeshTextureUVTextureMap` on the requested target.
         """
 
-        assert device is None or isinstance(device, (str, torch.device)), (
-            "Expected `device` to be `None`, a `str`, or a `torch.device`. "
-            f"{type(device)=}"
-        )
-        assert convention is None or isinstance(convention, str), (
-            "Expected `convention` to be `None` or a string. " f"{type(convention)=}"
-        )
+        def _validate_inputs() -> None:
+            assert device is None or isinstance(device, (str, torch.device)), (
+                "Expected `device` to be `None`, a `str`, or a `torch.device`. "
+                f"{type(device)=}"
+            )
+            assert convention is None or isinstance(convention, str), (
+                "Expected `convention` to be `None` or a string. "
+                f"{type(convention)=}"
+            )
+
+        _validate_inputs()
 
         target_device = self.device if device is None else torch.device(device)
         target_convention = self.convention if convention is None else convention

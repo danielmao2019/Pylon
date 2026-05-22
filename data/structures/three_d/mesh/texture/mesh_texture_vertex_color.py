@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 import torch
 
@@ -34,10 +34,19 @@ class MeshTextureVertexColor(MeshTexture):
             None.
         """
 
-        validate_vertex_color(obj=vertex_color)
-        self.vertex_color = MeshTextureVertexColor.normalize_vertex_color(
-            vertex_color=vertex_color
-        )
+        def _validate_inputs() -> None:
+            validate_vertex_color(obj=vertex_color)
+
+        _validate_inputs()
+
+        def _normalize_inputs() -> torch.Tensor:
+            return MeshTextureVertexColor.normalize_vertex_color(
+                vertex_color=vertex_color
+            )
+
+        vertex_color = _normalize_inputs()
+
+        self.vertex_color = vertex_color
 
     @staticmethod
     def normalize_vertex_color(vertex_color: torch.Tensor) -> torch.Tensor:
@@ -54,7 +63,6 @@ class MeshTextureVertexColor(MeshTexture):
 
         if vertex_color.ndim == 3:
             vertex_color = vertex_color[0]
-        vertex_color = vertex_color.contiguous()
         if vertex_color.dtype == torch.uint8:
             return vertex_color.to(dtype=torch.float32).div(255.0).contiguous()
         return vertex_color.contiguous()
@@ -75,7 +83,7 @@ class MeshTextureVertexColor(MeshTexture):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Union[str, None] = None,
+        convention: Optional[str] = None,
     ) -> "MeshTextureVertexColor":
         """Return this texture on a target device.
 
@@ -88,15 +96,18 @@ class MeshTextureVertexColor(MeshTexture):
             `MeshTextureVertexColor` on the requested device.
         """
 
-        assert device is None or isinstance(device, (str, torch.device)), (
-            "Expected `device` to be `None`, a `str`, or a `torch.device`. "
-            f"{type(device)=}"
-        )
-        assert convention is None, (
-            "Expected `convention` to be `None` for a vertex-color texture; "
-            "vertex color carries no UV-origin convention. "
-            f"{convention=}"
-        )
+        def _validate_inputs() -> None:
+            assert device is None or isinstance(device, (str, torch.device)), (
+                "Expected `device` to be `None`, a `str`, or a `torch.device`. "
+                f"{type(device)=}"
+            )
+            assert convention is None, (
+                "Expected `convention` to be `None` for a vertex-color texture; "
+                "vertex color carries no UV-origin convention. "
+                f"{convention=}"
+            )
+
+        _validate_inputs()
 
         target_device = self.device if device is None else torch.device(device)
         if self.device == target_device:
