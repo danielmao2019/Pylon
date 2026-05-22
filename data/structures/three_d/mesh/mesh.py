@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import torch
 
@@ -46,9 +46,21 @@ class Mesh:
             None.
         """
 
-        validate_mesh_attributes(vertices=vertices, faces=faces, texture=texture)
-        self.vertices = vertices.contiguous()
-        self.faces = faces.to(dtype=torch.int64).contiguous()
+        def _validate_inputs() -> None:
+            validate_mesh_attributes(vertices=vertices, faces=faces, texture=texture)
+
+        _validate_inputs()
+
+        def _normalize_inputs() -> Tuple[torch.Tensor, torch.Tensor]:
+            return (
+                vertices.contiguous(),
+                faces.to(dtype=torch.int64).contiguous(),
+            )
+
+        vertices, faces = _normalize_inputs()
+
+        self.vertices = vertices
+        self.faces = faces
         self.texture = texture
         self.device = self.vertices.device
 
@@ -63,10 +75,6 @@ class Mesh:
             Loaded mesh instance.
         """
 
-        assert isinstance(path, (str, Path)), (
-            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-        )
-
         from data.structures.three_d.mesh.load import load_mesh
 
         return load_mesh(path=path)
@@ -80,10 +88,6 @@ class Mesh:
         Returns:
             None.
         """
-
-        assert isinstance(path, (str, Path)), (
-            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-        )
 
         from data.structures.three_d.mesh.save import save_mesh
 
@@ -105,19 +109,23 @@ class Mesh:
             new mesh on the requested target.
         """
 
-        assert device is None or isinstance(device, (str, torch.device)), (
-            "Expected `device` to be `None`, a `str`, or a `torch.device`. "
-            f"{type(device)=}"
-        )
-        assert convention is None or isinstance(convention, str), (
-            "Expected `convention` to be `None` or a string. " f"{type(convention)=}"
-        )
-        if convention is not None:
-            assert self.texture is not None, (
-                "Expected only textured meshes to support explicit UV-convention "
-                "conversion. "
-                f"{self.texture=} {convention=}"
+        def _validate_inputs() -> None:
+            assert device is None or isinstance(device, (str, torch.device)), (
+                "Expected `device` to be `None`, a `str`, or a `torch.device`. "
+                f"{type(device)=}"
             )
+            assert convention is None or isinstance(convention, str), (
+                "Expected `convention` to be `None` or a string. "
+                f"{type(convention)=}"
+            )
+            if convention is not None:
+                assert self.texture is not None, (
+                    "Expected only textured meshes to support explicit "
+                    "UV-convention conversion. "
+                    f"{self.texture=} {convention=}"
+                )
+
+        _validate_inputs()
 
         target_device = self.device if device is None else torch.device(device)
         if self.device == target_device and convention is None:
@@ -130,9 +138,8 @@ class Mesh:
                 texture=None,
             )
 
-        target_texture = self.texture.to(device=target_device, convention=convention)
         return Mesh(
             vertices=self.vertices.to(device=target_device),
             faces=self.faces.to(device=target_device),
-            texture=target_texture,
+            texture=self.texture.to(device=target_device, convention=convention),
         )
