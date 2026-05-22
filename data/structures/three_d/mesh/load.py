@@ -24,9 +24,12 @@ def load_mesh(path: Union[str, Path]) -> Mesh:
         One merged `Mesh`.
     """
 
-    assert isinstance(path, (str, Path)), (
-        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-    )
+    def _validate_inputs() -> None:
+        assert isinstance(path, (str, Path)), (
+            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
+        )
+
+    _validate_inputs()
 
     obj_paths = _resolve_input_paths(path=path)
     mesh_blocks = [
@@ -47,6 +50,13 @@ def _load_mesh_block_from_obj_path(obj_path: Path) -> Mesh:
         One `Mesh` block.
     """
 
+    def _validate_inputs() -> None:
+        assert isinstance(obj_path, Path), (
+            "Expected `obj_path` to be a `Path`. " f"{type(obj_path)=}"
+        )
+
+    _validate_inputs()
+
     obj_features = _inspect_obj_file(obj_path=obj_path)
     if obj_features["has_uv_coords"] and obj_features["has_uv_faces"]:
         return _load_mesh_uv_texture_map(path=obj_path)
@@ -64,10 +74,6 @@ def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh:
     Returns:
         One geometry-only `Mesh` (texture `None`).
     """
-
-    assert isinstance(path, (str, Path)), (
-        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-    )
 
     obj_path = _resolve_input_path(path=path)
 
@@ -95,7 +101,8 @@ def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh:
             if line.startswith("f "):
                 face_parts = line.split()[1:]
                 assert len(face_parts) == 3, (
-                    "Expected geometry-only OBJ loading to receive triangular faces. "
+                    "Expected geometry-only OBJ loading to receive triangular "
+                    "faces. "
                     f"{obj_path=} {line=}"
                 )
                 face_rows.append(
@@ -125,15 +132,12 @@ def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh:
     """Load one vertex-colored OBJ mesh.
 
     Args:
-        path: Vertex-colored OBJ filepath or directory path that resolves to one.
+        path: Vertex-colored OBJ filepath or directory path that resolves to
+            one.
 
     Returns:
         One `Mesh` carrying a `MeshTextureVertexColor`.
     """
-
-    assert isinstance(path, (str, Path)), (
-        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-    )
 
     obj_path = _resolve_input_path(path=path)
 
@@ -169,7 +173,8 @@ def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh:
             if line.startswith("f "):
                 face_parts = line.split()[1:]
                 assert len(face_parts) == 3, (
-                    "Expected vertex-colored OBJ loading to receive triangular faces. "
+                    "Expected vertex-colored OBJ loading to receive triangular "
+                    "faces. "
                     f"{obj_path=} {line=}"
                 )
                 face_rows.append(
@@ -192,14 +197,12 @@ def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh:
         f"{obj_path=} {len(color_rows)=} {len(vertex_rows)=}"
     )
 
-    vertices = torch.tensor(vertex_rows, dtype=torch.float32)
-    faces = torch.tensor(face_rows, dtype=torch.int64)
     vertex_color = torch.tensor(color_rows, dtype=torch.float32)
     if float(vertex_color.max().item()) > 1.0:
         vertex_color = vertex_color / 255.0
     return Mesh(
-        vertices=vertices.contiguous(),
-        faces=faces.contiguous(),
+        vertices=torch.tensor(vertex_rows, dtype=torch.float32).contiguous(),
+        faces=torch.tensor(face_rows, dtype=torch.int64).contiguous(),
         texture=MeshTextureVertexColor(vertex_color=vertex_color.contiguous()),
     )
 
@@ -207,8 +210,8 @@ def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh:
 def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
     """Load one UV-textured OBJ mesh.
 
-    Loads via PyTorch3D, which already yields the decoupled geometry/UV domains,
-    so no welding is needed. The UV-origin convention is `"obj"`.
+    Loads via PyTorch3D, which already yields the decoupled geometry/UV
+    domains, so no welding is needed. The UV-origin convention is `"obj"`.
 
     Args:
         path: UV-textured OBJ filepath or directory path that resolves to one.
@@ -217,10 +220,6 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
         One `Mesh` carrying a `MeshTextureUVTextureMap` on the geometry domain.
     """
 
-    assert isinstance(path, (str, Path)), (
-        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-    )
-
     obj_path = _resolve_input_path(path=path)
 
     vertices, faces, aux = load_obj(
@@ -228,7 +227,6 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
         load_textures=True,
         device=torch.device("cpu"),
     )
-
     assert aux.verts_uvs is not None, (
         "Expected UV-textured OBJ loading to provide `verts_uvs`. " f"{obj_path=}"
     )
@@ -236,15 +234,13 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
         "Expected UV-textured OBJ loading to provide `textures_idx`. " f"{obj_path=}"
     )
     assert aux.texture_images, (
-        "Expected UV-textured OBJ loading to provide at least one texture image via "
-        "standard OBJ/MTL relative-path resolution. "
+        "Expected UV-textured OBJ loading to provide at least one texture "
+        "image via standard OBJ/MTL relative-path resolution. "
         f"{obj_path=}"
     )
-    mesh_vertices = vertices.to(dtype=torch.float32).contiguous()
-    mesh_faces = faces.verts_idx.to(dtype=torch.int64).contiguous()
+
     vertex_uv = aux.verts_uvs.to(dtype=torch.float32).contiguous()
     face_uvs = faces.textures_idx.to(dtype=torch.int64).contiguous()
-
     if len(aux.texture_images) == 1:
         only_texture_name = list(aux.texture_images.keys())[0]
         uv_texture_map = aux.texture_images[only_texture_name][..., :3].to(
@@ -263,8 +259,8 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
         )
 
     return Mesh(
-        vertices=mesh_vertices,
-        faces=mesh_faces,
+        vertices=vertices.to(dtype=torch.float32).contiguous(),
+        faces=faces.verts_idx.to(dtype=torch.int64).contiguous(),
         texture=MeshTextureUVTextureMap(
             uv_texture_map=uv_texture_map.detach().cpu().contiguous(),
             vertex_uv=vertex_uv.detach().cpu().contiguous(),
@@ -286,7 +282,7 @@ def _resolve_input_path(path: Union[str, Path]) -> Path:
 
     candidate_obj_paths = _resolve_input_paths(path=path)
     assert len(candidate_obj_paths) == 1, (
-        "Expected mesh loading path to resolve to exactly one OBJ file. "
+        "Expected the mesh loading path to resolve to exactly one OBJ file. "
         f"{path=} {candidate_obj_paths=}"
     )
     return candidate_obj_paths[0]
@@ -303,15 +299,17 @@ def _resolve_input_paths(path: Union[str, Path]) -> List[Path]:
         one level below a directory).
     """
 
-    assert isinstance(path, (str, Path)), (
-        "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
-    )
+    def _validate_inputs() -> None:
+        assert isinstance(path, (str, Path)), (
+            "Expected `path` to be a `str` or `Path`. " f"{type(path)=}"
+        )
+        assert Path(path).exists(), (
+            "Expected `path` to exist before mesh loading. " f"{Path(path)=}"
+        )
+
+    _validate_inputs()
 
     candidate_path = Path(path)
-    assert candidate_path.exists(), (
-        "Expected `path` to exist before mesh loading. " f"{candidate_path=}"
-    )
-
     if candidate_path.is_file():
         assert candidate_path.suffix.lower() == ".obj", (
             "Expected mesh file loading to receive an `.obj` path. "
@@ -320,18 +318,18 @@ def _resolve_input_paths(path: Union[str, Path]) -> List[Path]:
         return [candidate_path]
 
     assert candidate_path.is_dir(), (
-        "Expected mesh loading path to be either a file or a directory. "
+        "Expected the mesh loading path to be either a file or a directory. "
         f"{candidate_path=}"
     )
 
     top_level_obj_paths = sorted(candidate_path.glob("*.obj"))
     nested_obj_paths = sorted(candidate_path.glob("*/*.obj"))
-    candidate_obj_paths = top_level_obj_paths + nested_obj_paths
     assert not (top_level_obj_paths and nested_obj_paths), (
         "Expected mesh directory loading to contain OBJ files either at the top "
         "level or one level below, not both. "
         f"{candidate_path=} {top_level_obj_paths=} {nested_obj_paths=}"
     )
+    candidate_obj_paths = top_level_obj_paths + nested_obj_paths
     assert candidate_obj_paths, (
         "Expected mesh directory loading to find at least one OBJ file. "
         f"{candidate_path=}"
@@ -350,10 +348,15 @@ def _inspect_obj_file(obj_path: Path) -> Dict[str, bool]:
         `has_mtllib` flags.
     """
 
-    assert isinstance(
-        obj_path, Path
-    ), f"Expected `obj_path` to be a `Path`. {type(obj_path)=}"
-    assert obj_path.is_file(), f"Expected `obj_path` to exist as a file. {obj_path=}"
+    def _validate_inputs() -> None:
+        assert isinstance(obj_path, Path), (
+            "Expected `obj_path` to be a `Path`. " f"{type(obj_path)=}"
+        )
+        assert obj_path.is_file(), (
+            "Expected `obj_path` to exist as a file. " f"{obj_path=}"
+        )
+
+    _validate_inputs()
 
     has_vertex_colors = False
     has_uv_coords = False
@@ -371,8 +374,7 @@ def _inspect_obj_file(obj_path: Path) -> Dict[str, bool]:
                 has_uv_coords = True
                 continue
             if line.startswith("v "):
-                vertex_parts = line.split()
-                if len(vertex_parts) >= 7:
+                if len(line.split()) >= 7:
                     has_vertex_colors = True
                 continue
             if line.startswith("f "):
