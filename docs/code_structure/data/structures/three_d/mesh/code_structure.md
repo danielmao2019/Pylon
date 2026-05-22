@@ -181,9 +181,12 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 
 ```text
 data/structures/three_d/mesh/texture/__init__.py
-└── re-exports: MeshTexture, MeshTextureVertexColor, MeshTextureUVTextureMap, transform_vertex_uv_convention,
-    validate_vertex_color, validate_uv_texture_map, validate_uv_texture_map_image,
-    validate_vertex_uv, validate_face_uvs, validate_mesh_uv_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
+├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
+├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_vertex_uv, validate_face_uvs, validate_mesh_uv_convention
+└── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ```
 
 ## Loading
@@ -377,8 +380,11 @@ data/structures/three_d/mesh/convert.py
 
 ```text
 data/structures/three_d/mesh/__init__.py
-├── exposes the texture/ subpackage as the `texture` submodule  # NOT texture's contents — per init-py, __init__.py works only with its immediate children
-└── re-exports (from sibling files only): Mesh, load_mesh, save_mesh, merge_meshes,
-    mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh,
-    validate_vertices, validate_faces, validate_mesh_attributes
+├── from data.structures.three_d.mesh import texture
+├── from data.structures.three_d.mesh.convert import mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh
+├── from data.structures.three_d.mesh.load import load_mesh
+├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.merge import merge_meshes
+├── from data.structures.three_d.mesh.save import save_mesh
+└── from data.structures.three_d.mesh.validate import validate_faces, validate_mesh_attributes, validate_vertices
 ```
