@@ -66,10 +66,6 @@ def render_uv_texture_aligned(
         return mesh.to(convention="top_left")
 
     mesh = _normalize_inputs()
-    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
-        "Expected the convention-normalized mesh to keep a UV-texture-map texture. "
-        f"{type(mesh.texture)=}"
-    )
 
     device = mesh.vertices.device
     ndc_proj = renderer.ndc_proj.to(device)
