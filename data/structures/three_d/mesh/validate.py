@@ -12,15 +12,6 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 
 
 def validate_vertices(obj: Any) -> None:
-    """Validate one mesh vertex tensor.
-
-    Args:
-        obj: Candidate vertex tensor with shape `[V, 3]`.
-
-    Returns:
-        None.
-    """
-
     assert isinstance(obj, torch.Tensor), (
         "Expected `vertices` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -42,15 +33,6 @@ def validate_vertices(obj: Any) -> None:
 
 
 def validate_faces(obj: Any) -> None:
-    """Validate one mesh face tensor.
-
-    Args:
-        obj: Candidate face tensor with shape `[F, 3]`.
-
-    Returns:
-        None.
-    """
-
     assert isinstance(obj, torch.Tensor), (
         "Expected `faces` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -78,25 +60,14 @@ def _validate_device_compatible(
     faces: torch.Tensor,
     texture: Optional[MeshTexture],
 ) -> None:
-    """Validate that the geometry and texture tensors live on one device.
-
-    Args:
-        vertices: Mesh vertex tensor `[V, 3]`.
-        faces: Mesh face tensor `[F, 3]`.
-        texture: Optional mesh texture whose tensors must share the vertices'
-            device.
-
-    Returns:
-        None.
-    """
-
     assert faces.device == vertices.device, (
         "Expected `faces` to live on the same device as `vertices`. "
         f"{faces.device=} {vertices.device=}"
     )
     if texture is not None:
         assert texture.device == vertices.device, (
-            "Expected the mesh texture to live on the same device as `vertices`. "
+            "Expected the mesh texture to live on the same device as "
+            "`vertices`. "
             f"{texture.device=} {vertices.device=}"
         )
 
@@ -106,22 +77,6 @@ def validate_mesh_attributes(
     faces: torch.Tensor,
     texture: Optional[MeshTexture] = None,
 ) -> None:
-    """Validate the geometry and the texture<->geometry linkage for one mesh.
-
-    The texture self-validates its own internal shapes in its constructor; this
-    function validates the geometry and the linkage between texture and
-    geometry.
-
-    Args:
-        vertices: Mesh vertex tensor `[V, 3]`.
-        faces: Mesh face tensor `[F, 3]`.
-        texture: Optional mesh texture (`MeshTextureVertexColor` or
-            `MeshTextureUVTextureMap`).
-
-    Returns:
-        None.
-    """
-
     validate_vertices(obj=vertices)
     validate_faces(obj=faces)
     _validate_device_compatible(vertices=vertices, faces=faces, texture=texture)
@@ -137,21 +92,18 @@ def validate_mesh_attributes(
         "Expected `texture` to be `None` or a `MeshTexture` instance. "
         f"{type(texture)=}"
     )
-
     if isinstance(texture, MeshTextureVertexColor):
         assert int(texture.vertex_color.shape[0]) == int(vertices.shape[0]), (
             "Expected `vertex_color` to align one RGB value per vertex. "
             f"{texture.vertex_color.shape=} {vertices.shape=}"
         )
         return
-
     if isinstance(texture, MeshTextureUVTextureMap):
         assert texture.face_uvs.shape == faces.shape, (
             "Expected `face_uvs` to align one UV triangle per mesh face. "
             f"{texture.face_uvs.shape=} {faces.shape=}"
         )
         return
-
     raise AssertionError(
         "Expected `texture` to be a `MeshTextureVertexColor` or "
         "`MeshTextureUVTextureMap`. "

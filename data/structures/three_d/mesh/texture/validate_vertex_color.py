@@ -4,16 +4,6 @@ import torch
 
 
 def validate_vertex_color(obj: Any) -> None:
-    """Validate one per-vertex RGB tensor.
-
-    Args:
-        obj: Candidate vertex-color tensor with shape `[V, 3]` or `[1, V, 3]` and
-            uint8 `[0, 255]` or float32 `[0, 1]` values.
-
-    Returns:
-        None.
-    """
-
     assert isinstance(obj, torch.Tensor), (
         "Expected `vertex_color` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -47,15 +37,6 @@ def validate_vertex_color(obj: Any) -> None:
 
 
 def _validate_vertex_color_uint8(obj: Any) -> None:
-    """Validate one uint8 vertex-color tensor.
-
-    Args:
-        obj: Candidate vertex-color tensor.
-
-    Returns:
-        None.
-    """
-
     assert obj.dtype == torch.uint8, (
         "Expected `vertex_color` uint8 validation to receive uint8 values. "
         f"{obj.dtype=}"
@@ -63,17 +44,9 @@ def _validate_vertex_color_uint8(obj: Any) -> None:
 
 
 def _validate_vertex_color_float32(obj: Any) -> None:
-    """Validate one float32 vertex-color tensor.
-
-    Args:
-        obj: Candidate vertex-color tensor.
-
-    Returns:
-        None.
-    """
-
     assert obj.dtype == torch.float32, (
-        "Expected `vertex_color` float32 validation to receive float32 values. "
+        "Expected `vertex_color` float32 validation to receive float32 "
+        "values. "
         f"{obj.dtype=}"
     )
     assert torch.isfinite(obj).all(), (

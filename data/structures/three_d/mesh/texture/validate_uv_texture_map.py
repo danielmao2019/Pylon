@@ -9,43 +9,19 @@ def validate_uv_texture_map(
     face_uvs: torch.Tensor,
     convention: str,
 ) -> None:
-    """Validate the whole uv-texture-map representation.
-
-    The module's single public API. Validates every field plus the cross-field
-    invariant that `face_uvs` indices reference valid `vertex_uv` rows.
-
-    Args:
-        uv_texture_map: Candidate UV texture map in HWC, CHW, NHWC, or NCHW
-            layout with uint8 `[0, 255]` or float32 `[0, 1]` values.
-        vertex_uv: Candidate UV-coordinate table `[U, 2]`.
-        face_uvs: Candidate face-to-UV index tensor `[F, 3]`.
-        convention: Candidate UV-origin convention string.
-
-    Returns:
-        None.
-    """
-
     _validate_uv_texture_map_image(obj=uv_texture_map)
     _validate_vertex_uv(obj=vertex_uv)
     _validate_face_uvs(obj=face_uvs)
     _validate_mesh_uv_convention(convention=convention)
 
     assert int(face_uvs.max().item()) < int(vertex_uv.shape[0]), (
-        "Expected `face_uvs` indices to reference existing `vertex_uv` rows only. "
+        "Expected `face_uvs` indices to reference existing `vertex_uv` rows "
+        "only. "
         f"{int(face_uvs.max().item())=} {int(vertex_uv.shape[0])=}"
     )
 
 
 def _validate_uv_texture_map_image(obj: Any) -> None:
-    """Validate one UV texture image tensor.
-
-    Args:
-        obj: Candidate UV texture map in HWC, CHW, NHWC, or NCHW layout.
-
-    Returns:
-        None.
-    """
-
     assert isinstance(obj, torch.Tensor), (
         "Expected `uv_texture_map` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -54,7 +30,8 @@ def _validate_uv_texture_map_image(obj: Any) -> None:
     )
     if obj.ndim == 3:
         assert obj.shape[0] == 3 or obj.shape[2] == 3, (
-            "Expected rank-3 `uv_texture_map` to be CHW or HWC with 3 channels. "
+            "Expected rank-3 `uv_texture_map` to be CHW or HWC with 3 "
+            "channels. "
             f"{obj.shape=}"
         )
         texture_height = int(obj.shape[1] if obj.shape[0] == 3 else obj.shape[0])
@@ -89,15 +66,6 @@ def _validate_uv_texture_map_image(obj: Any) -> None:
 
 
 def _validate_vertex_uv(obj: Any) -> None:
-    """Validate one UV-coordinate table.
-
-    Args:
-        obj: Candidate UV-coordinate tensor with shape `[U, 2]`.
-
-    Returns:
-        None.
-    """
-
     assert isinstance(obj, torch.Tensor), (
         "Expected `vertex_uv` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -125,15 +93,6 @@ def _validate_vertex_uv(obj: Any) -> None:
 
 
 def _validate_face_uvs(obj: Any) -> None:
-    """Validate one face-to-UV index tensor.
-
-    Args:
-        obj: Candidate UV-face tensor with shape `[F, 3]`.
-
-    Returns:
-        None.
-    """
-
     assert isinstance(obj, torch.Tensor), (
         "Expected `face_uvs` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -156,38 +115,16 @@ def _validate_face_uvs(obj: Any) -> None:
     )
 
 
-def _validate_mesh_uv_convention(convention: Any) -> str:
-    """Validate and return one mesh UV-origin convention.
-
-    Args:
-        convention: Candidate UV-origin convention string.
-
-    Returns:
-        Validated convention string.
-    """
-
+def _validate_mesh_uv_convention(convention: Any) -> None:
     assert isinstance(convention, str), (
         "Expected `convention` to be a string. " f"{type(convention)=}"
     )
-    assert convention in [
-        "obj",
-        "top_left",
-    ], (
+    assert convention in ("obj", "top_left"), (
         "Unsupported mesh UV convention. " f"{convention=}"
     )
-    return convention
 
 
 def _validate_uv_texture_map_image_uint8(obj: Any) -> None:
-    """Validate one uint8 UV texture image tensor.
-
-    Args:
-        obj: Candidate UV texture tensor.
-
-    Returns:
-        None.
-    """
-
     assert obj.dtype == torch.uint8, (
         "Expected `uv_texture_map` uint8 validation to receive uint8 values. "
         f"{obj.dtype=}"
@@ -195,17 +132,9 @@ def _validate_uv_texture_map_image_uint8(obj: Any) -> None:
 
 
 def _validate_uv_texture_map_image_float32(obj: Any) -> None:
-    """Validate one float32 UV texture image tensor.
-
-    Args:
-        obj: Candidate UV texture tensor.
-
-    Returns:
-        None.
-    """
-
     assert obj.dtype == torch.float32, (
-        "Expected `uv_texture_map` float32 validation to receive float32 values. "
+        "Expected `uv_texture_map` float32 validation to receive float32 "
+        "values. "
         f"{obj.dtype=}"
     )
     assert torch.isfinite(obj).all(), (

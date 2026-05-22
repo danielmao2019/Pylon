@@ -1,5 +1,5 @@
 import abc
-from typing import Union
+from typing import Optional, Union
 
 import torch
 
@@ -34,7 +34,7 @@ class MeshTexture(abc.ABC):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Union[str, None] = None,
+        convention: Optional[str] = None,
     ) -> "MeshTexture":
         """Return this texture on a target device and/or UV-origin convention.
 
