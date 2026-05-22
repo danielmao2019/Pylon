@@ -1439,23 +1439,19 @@ def _build_uv_rasterization_data(
         assert isinstance(mesh, Mesh), (
             "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
         )
+        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+            "Expected `mesh` to carry a `MeshTextureUVTextureMap` texture for "
+            "UV rasterization. "
+            f"{type(mesh.texture)=}"
+        )
         assert isinstance(texture_size, int), (
             "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
         )
         assert texture_size > 0, (
             "Expected `texture_size` to be positive. " f"{texture_size=}"
         )
-        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
-            "Expected `mesh` to carry a `MeshTextureUVTextureMap` texture for "
-            "UV rasterization. "
-            f"{type(mesh.texture)=}"
-        )
 
     _validate_inputs()
-    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
-        "Expected `mesh.texture` to be a `MeshTextureUVTextureMap`. "
-        f"{type(mesh.texture)=}"
-    )
 
     vertex_uv = mesh.texture.vertex_uv
     faces = mesh.faces
