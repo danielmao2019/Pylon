@@ -155,21 +155,21 @@ data/structures/three_d/mesh/texture/validate_vertex_color.py
 ```text
 data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 ├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, vertex_uv: torch.Tensor, face_uvs: torch.Tensor, convention: str) -> None
-│   ├── # The module's single public API: validates the whole uv-texture-map representation (every field plus the cross-field invariant).
-│   ├── calls _validate_uv_texture_map_image
-│   ├── calls _validate_vertex_uv
-│   ├── calls _validate_face_uvs
-│   ├── calls _validate_mesh_uv_convention
+│   ├── # Validates the whole uv-texture-map representation — every field plus the cross-field invariant; the per-field validators it calls are public too.
+│   ├── calls validate_uv_texture_map_image
+│   ├── calls validate_vertex_uv
+│   ├── calls validate_face_uvs
+│   ├── calls validate_mesh_uv_convention
 │   └── # cross-field: asserts face_uvs indices reference valid vertex_uv rows (in [0, U))
-├── def _validate_uv_texture_map_image(obj: Any) -> None
+├── def validate_uv_texture_map_image(obj: Any) -> None
 │   ├── # Validates a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
-│   ├── calls _validate_uv_texture_map_image_uint8            # uint8 branch
-│   └── calls _validate_uv_texture_map_image_float32          # float32 branch
-├── def _validate_vertex_uv(obj: Any) -> None
+│   ├── calls _validate_uv_texture_map_image_uint8             # uint8 branch
+│   └── calls _validate_uv_texture_map_image_float32           # float32 branch
+├── def validate_vertex_uv(obj: Any) -> None
 │   └── # Validates a UV-coordinate table (float [U,2], finite, values in [0,1]).
-├── def _validate_face_uvs(obj: Any) -> None
+├── def validate_face_uvs(obj: Any) -> None
 │   └── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
-├── def _validate_mesh_uv_convention(convention: Any) -> str
+├── def validate_mesh_uv_convention(convention: Any) -> str
 │   └── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
 ├── def _validate_uv_texture_map_image_uint8(obj: Any) -> None
 │   └── # Validates a uint8 UV texture image tensor.
@@ -182,7 +182,8 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 ```text
 data/structures/three_d/mesh/texture/__init__.py
 └── re-exports: MeshTexture, MeshTextureVertexColor, MeshTextureUVTextureMap, transform_vertex_uv_convention,
-    validate_vertex_color, validate_uv_texture_map
+    validate_vertex_color, validate_uv_texture_map, validate_uv_texture_map_image,
+    validate_vertex_uv, validate_face_uvs, validate_mesh_uv_convention
 ```
 
 ## Loading
