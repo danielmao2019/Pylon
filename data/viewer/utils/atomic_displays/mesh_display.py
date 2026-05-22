@@ -67,6 +67,13 @@ def create_mesh_display(
         assert isinstance(mesh, Mesh), (
             "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
         )
+        assert isinstance(
+            mesh.texture, (MeshTextureVertexColor, MeshTextureUVTextureMap)
+        ), (
+            "Expected `mesh` to carry a `MeshTextureVertexColor` or "
+            "`MeshTextureUVTextureMap` texture. "
+            f"{type(mesh.texture)=}"
+        )
 
         assert isinstance(title, str), (
             "Expected `title` to be a string. " f"{type(title)=}"
@@ -125,11 +132,6 @@ def create_mesh_display(
             title=normalized_title,
         )
 
-    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
-        "Expected `mesh` to carry a `MeshTextureVertexColor` or "
-        "`MeshTextureUVTextureMap` texture. "
-        f"{type(mesh.texture)=}"
-    )
     return _create_uv_texture_mesh_display(
         mesh=mesh,
         title=normalized_title,
@@ -275,11 +277,6 @@ def _create_uv_texture_mesh_display(
 
     def _normalize_inputs() -> Tuple[List[float], List[float], str, Dict[str, object]]:
         display_mesh = mesh.to(convention="obj")
-        assert isinstance(display_mesh.texture, MeshTextureUVTextureMap), (
-            "Expected the convention-normalized mesh to keep a "
-            "`MeshTextureUVTextureMap` texture. "
-            f"{type(display_mesh.texture)=}"
-        )
         normalized_vertices = display_mesh.vertices.detach().cpu().numpy()
         normalized_faces = display_mesh.faces.detach().cpu().numpy()
         normalized_vertex_uv = display_mesh.texture.vertex_uv.detach().cpu().numpy()

@@ -200,10 +200,6 @@ def rasterize_vertex_features_to_uv_map(
             )
 
     _validate_inputs()
-    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
-        "Expected `mesh.texture` to be a `MeshTextureUVTextureMap`. "
-        f"{type(mesh.texture)=}"
-    )
 
     def _normalize_inputs() -> torch.Tensor:
         """Normalize per-vertex features to a one-item batch.
@@ -300,37 +296,20 @@ def bake_vertex_colors_to_uv_texture_map(
 
     _validate_inputs()
 
-    def _normalize_inputs() -> Tuple[torch.Tensor, MeshTextureUVTextureMap]:
-        """Move the vertex colors and UV layout onto a shared device/convention.
-
-        Args:
-            None.
-
-        Returns:
-            Tuple of the device-aligned vertex-color tensor `[V, 3]` and the
-            UV layout texture in the `obj` UV convention.
-        """
-
+    def _normalize_inputs() -> MeshTextureUVTextureMap:
         device = vertex_colored_mesh.device
-        assert isinstance(vertex_colored_mesh.texture, MeshTextureVertexColor), (
-            "Expected `vertex_colored_mesh.texture` to be a "
-            "`MeshTextureVertexColor`. "
-            f"{type(vertex_colored_mesh.texture)=}"
-        )
-        normalized_vertex_color = vertex_colored_mesh.texture.vertex_color.to(
-            device=device
-        )
-        normalized_uv_layout = uv_layout.to(device=device, convention="obj")
-        return normalized_vertex_color, normalized_uv_layout
+        return uv_layout.to(device=device, convention="obj")
 
-    normalized_vertex_color, normalized_uv_layout = _normalize_inputs()
+    uv_layout = _normalize_inputs()
 
-    vertex_feature = normalized_vertex_color.unsqueeze(0)
+    vertex_feature = vertex_colored_mesh.texture.vertex_color.to(
+        device=vertex_colored_mesh.device
+    ).unsqueeze(0)
 
     rasterization_mesh = Mesh(
         vertices=vertex_colored_mesh.vertices,
         faces=vertex_colored_mesh.faces,
-        texture=normalized_uv_layout,
+        texture=uv_layout,
     )
     texel_color, mask = rasterize_vertex_features_to_uv_map(
         mesh=rasterization_mesh,
@@ -341,7 +320,7 @@ def bake_vertex_colors_to_uv_texture_map(
     uv_texture_map = texel_color * mask + mean_color * (1.0 - mask)
     return MeshTextureUVTextureMap(
         uv_texture_map=uv_texture_map.contiguous(),
-        vertex_uv=normalized_uv_layout.vertex_uv,
-        face_uvs=normalized_uv_layout.face_uvs,
-        convention=normalized_uv_layout.convention,
+        vertex_uv=uv_layout.vertex_uv,
+        face_uvs=uv_layout.face_uvs,
+        convention=uv_layout.convention,
     )

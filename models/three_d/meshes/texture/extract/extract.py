@@ -37,19 +37,6 @@ from models.three_d.meshes.texture.extract.weights_cfg import (
 
 
 def _validate_rgb_image(obj: Any) -> None:
-    """Validate one RGB image tensor.
-
-    Validates a raw camera RGB image or a computed UV texel map: a rank-3
-    CHW/HWC or rank-4 NCHW/NHWC tensor with three channels, uint8 `[0, 255]`
-    or float32 `[0, 1]` values.
-
-    Args:
-        obj: Candidate RGB image tensor in CHW, HWC, NCHW, or NHWC layout.
-
-    Returns:
-        None.
-    """
-
     assert isinstance(obj, torch.Tensor), (
         "Expected the RGB image to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -245,16 +232,6 @@ def extract_texture_from_images(
                     f"{reference_is_uv=} {view_is_uv=}"
                 )
                 if reference_is_uv:
-                    assert isinstance(mesh[0].texture, MeshTextureUVTextureMap), (
-                        "Expected the reference mesh to carry a "
-                        "`MeshTextureUVTextureMap` texture. "
-                        f"{type(mesh[0].texture)=}"
-                    )
-                    assert isinstance(view_mesh.texture, MeshTextureUVTextureMap), (
-                        "Expected every per-view mesh to carry a "
-                        "`MeshTextureUVTextureMap` texture when the reference mesh "
-                        f"does. {type(view_mesh.texture)=}"
-                    )
                     assert (
                         mesh[0].texture.vertex_uv.shape
                         == view_mesh.texture.vertex_uv.shape
