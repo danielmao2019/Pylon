@@ -198,12 +198,12 @@ data/structures/three_d/mesh/load.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def load_mesh(path: Union[str, Path]) -> "Mesh"
+├── def load_mesh(path: Union[str, Path]) -> Mesh
 │   ├── # Loads one OBJ file, or every OBJ under a mesh-root directory, into one merged Mesh.
 │   ├── calls _resolve_input_paths
 │   ├── calls _load_mesh_block_from_obj_path                  # per OBJ block
 │   └── calls merge_meshes
-├── def _load_mesh_block_from_obj_path(obj_path: Path) -> "Mesh"
+├── def _load_mesh_block_from_obj_path(obj_path: Path) -> Mesh
 │   ├── # Loads one OBJ as a single mesh block, dispatched to the texture-representation-specific loader.
 │   ├── calls _inspect_obj_file
 │   ├── if has_uv_coords and has_uv_faces
@@ -212,13 +212,13 @@ data/structures/three_d/mesh/load.py
 │   │   └── calls _load_mesh_vertex_color
 │   └── else
 │       └── calls _load_mesh_geometry_only
-├── def _load_mesh_geometry_only(path: Union[str, Path]) -> "Mesh"
+├── def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh
 │   ├── # Loads a geometry-only OBJ (parses v / f lines; texture None).
 │   └── calls _resolve_input_path
-├── def _load_mesh_vertex_color(path: Union[str, Path]) -> "Mesh"
+├── def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh
 │   ├── # Loads a vertex-colored OBJ (parses v-with-RGB / f lines) into a MeshTextureVertexColor-textured mesh.
 │   └── calls _resolve_input_path
-├── def _load_mesh_uv_texture_map(path: Union[str, Path]) -> "Mesh"
+├── def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh
 │   ├── # Loads a UV-textured OBJ via PyTorch3D into a MeshTextureUVTextureMap-textured mesh on the geometry domain (convention "obj").
 │   ├── calls _resolve_input_path
 │   ├── calls load_obj                                        # verts, faces, aux (verts_uvs, textures_idx, texture_images)
@@ -240,7 +240,7 @@ data/structures/three_d/mesh/save.py
 ├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def save_mesh(mesh: "Mesh", output_path: Union[str, Path]) -> None
+├── def save_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
 │   ├── # Dispatches on the mesh's texture type to the matching writer.
 │   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
 │   │   └── calls _save_mesh_vertex_color
@@ -248,21 +248,21 @@ data/structures/three_d/mesh/save.py
 │   │   └── calls _save_mesh_uv_texture_map
 │   └── else
 │       └── calls _save_mesh_geometry_only                    # texture is None
-├── def _save_mesh_geometry_only(mesh: "Mesh", output_path: Union[str, Path]) -> None
+├── def _save_mesh_geometry_only(mesh: Mesh, output_path: Union[str, Path]) -> None
 │   ├── # Writes a geometry-only mesh as OBJ or PLY.
 │   ├── calls _resolve_output_non_uv_mesh_path
 │   ├── if the resolved path is an .obj
 │   │   └── # writes the OBJ (v / f lines)
 │   └── else  # .ply
 │       └── # writes the PLY
-├── def _save_mesh_vertex_color(mesh: "Mesh", output_path: Union[str, Path]) -> None
+├── def _save_mesh_vertex_color(mesh: Mesh, output_path: Union[str, Path]) -> None
 │   ├── # Writes a vertex-colored mesh as OBJ (v x y z r g b) or PLY.
 │   ├── calls _resolve_output_non_uv_mesh_path
 │   ├── if the resolved path is an .obj
 │   │   └── calls _normalize_vertex_color_for_obj
 │   └── else  # .ply
 │       └── calls _normalize_vertex_color_for_ply
-├── def _save_mesh_uv_texture_map(mesh: "Mesh", output_path: Union[str, Path]) -> None
+├── def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None
 │   ├── # Writes a UV-textured mesh as an OBJ plus a sibling MTL and texture PNG.
 │   ├── calls _resolve_output_obj_path
 │   ├── calls _normalize_uv_texture_map_for_png
@@ -286,7 +286,7 @@ data/structures/three_d/mesh/merge.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def merge_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh"
+├── def merge_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   ├── # Merges one or more mesh blocks into one Mesh.
 │   ├── if len(mesh_blocks) == 1
 │   │   └── return mesh_blocks[0]                             # single block: pass-through
@@ -296,12 +296,12 @@ data/structures/three_d/mesh/merge.py
 │   │   └── calls _merge_vertex_color_meshes
 │   └── else
 │       └── calls _merge_geometry_only_meshes
-├── def _merge_vertex_color_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh"
+├── def _merge_vertex_color_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   └── # Merges vertex-colored mesh blocks, concatenating geometry and vertex colors with vertex offsets.
-├── def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh"
+├── def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   ├── # Merges UV-textured mesh blocks, concatenating geometry and UV and packing per-block textures into one atlas.
 │   └── calls _pack_texture_maps
-├── def _merge_geometry_only_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh"
+├── def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   └── # Merges geometry-only mesh blocks, concatenating geometry with vertex offsets.
 ├── def pack_texture_images(texture_images: Dict[str, torch.Tensor], verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, materials_idx: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Packs a material-name -> image mapping into one atlas plus remapped UVs.
@@ -320,12 +320,12 @@ data/structures/three_d/mesh/convert.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> "Mesh"
+├── def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> Mesh
 │   └── # Converts an Open3D triangle mesh into a Mesh (geometry plus optional MeshTextureVertexColor; UV not supported).
-├── def mesh_to_open3d(mesh: "Mesh") -> o3d.geometry.TriangleMesh
+├── def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh
 │   ├── # Converts a Mesh into an Open3D triangle mesh (geometry plus optional vertex colors; UV not supported).
 │   └── calls _vertex_color_to_float_rgb
-├── def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> "Mesh"
+├── def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh
 │   ├── # Converts a PyTorch3D Meshes into a Mesh.
 │   ├── if mesh.textures is None
 │   │   └── # builds a geometry-only Mesh
@@ -333,7 +333,7 @@ data/structures/three_d/mesh/convert.py
 │   │   └── # builds Mesh with a MeshTextureVertexColor
 │   └── else  # TexturesUV
 │       └── # builds Mesh with a MeshTextureUVTextureMap
-├── def mesh_to_pytorch3d(mesh: "Mesh", device: Union[str, torch.device, None] = None, dtype: torch.dtype = torch.float32) -> Meshes
+├── def mesh_to_pytorch3d(mesh: Mesh, device: Union[str, torch.device, None] = None, dtype: torch.dtype = torch.float32) -> Meshes
 │   ├── # Converts a Mesh into a PyTorch3D Meshes.
 │   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
 │   │   └── # builds Meshes with a TexturesVertex
@@ -341,7 +341,7 @@ data/structures/three_d/mesh/convert.py
 │   │   └── # builds Meshes with a TexturesUV (UV forced to "obj" convention)
 │   └── else
 │       └── # builds a geometry-only Meshes
-├── def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -> "Mesh"
+├── def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -> Mesh
 │   ├── # Converts a trimesh.Trimesh into a Mesh.
 │   ├── if mesh.visual carries uv
 │   │   ├── calls _uv_mesh_from_trimesh                      # welds per-corner duplicate vertices into the geometry domain
@@ -350,7 +350,7 @@ data/structures/three_d/mesh/convert.py
 │   └── else
 │       ├── calls _vertex_color_from_trimesh
 │       └── # builds Mesh with a MeshTextureVertexColor
-├── def mesh_to_trimesh(mesh: "Mesh") -> trimesh.Trimesh
+├── def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh
 │   ├── # Converts a Mesh into a trimesh.Trimesh.
 │   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
 │   │   ├── calls _uv_mesh_to_trimesh                        # expands to per-corner topology
@@ -367,7 +367,7 @@ data/structures/three_d/mesh/convert.py
 │   └── # Converts a trimesh material image to a uint8 HWC RGB array (drops uniform alpha).
 ├── def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray
 │   └── # Converts trimesh vertex colors to a repo RGB array (drops opaque alpha).
-├── def _uv_mesh_to_trimesh(mesh: "Mesh") -> Tuple[np.ndarray, np.ndarray, np.ndarray]
+├── def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
 │   └── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (vertices, faces, uv).
 ├── def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray
 │   └── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.
