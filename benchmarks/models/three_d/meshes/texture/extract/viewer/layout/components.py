@@ -23,6 +23,9 @@ from benchmarks.models.three_d.meshes.texture.extract.viewer.layout.styles impor
     TAB_STYLE,
 )
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
 from data.viewer.utils.atomic_displays.image_display import create_image_display
 from data.viewer.utils.atomic_displays.mesh_display import create_mesh_display
 
@@ -457,10 +460,12 @@ def _build_method_mesh_card(
     mesh = Mesh(
         vertices=scene_payload["mesh_vertices"],
         faces=scene_payload["mesh_faces"],
-        uv_texture_map=method_payload["uv_texture_map"],
-        vertex_uv=scene_payload["mesh_vertex_uv"],
-        face_uvs=scene_payload["mesh_face_uvs"],
-        convention="obj",
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=method_payload["uv_texture_map"],
+            vertex_uv=scene_payload["mesh_vertex_uv"],
+            face_uvs=scene_payload["mesh_face_uvs"],
+            convention="obj",
+        ),
     )
     mesh_component = create_mesh_display(
         mesh=mesh,

@@ -6,6 +6,9 @@ import nvdiffrast.torch as dr
 import torch
 
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
 
 
 def render_uv_texture_aligned(
@@ -14,17 +17,17 @@ def render_uv_texture_aligned(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Render a UV-textured mesh in the renderer's aligned image space.
 
-    The mesh carries its own UV convention, ``uv_texture_map``, and
-    camera-space ``vertices``.  This function converts to the convention
-    required by ``dr.texture`` internally; callers do not need to
-    pre-convert.
+    The mesh carries a ``MeshTextureUVTextureMap`` texture holding its UV
+    convention, ``uv_texture_map``, and UV coordinates, plus camera-space
+    ``vertices``. This function converts to the convention required by
+    ``dr.texture`` internally; callers do not need to pre-convert.
 
     Args:
         renderer: Deep3DMM renderer exposing ``ndc_proj``, ``rasterize_size``,
             ``ctx``, and ``use_opengl``.
-        mesh: Mesh providing camera-space ``vertices`` ``[V, 3]``,
-            ``vertex_uv``, ``faces``, ``convention``, and
-            ``uv_texture_map`` (HWC float32 ``[H, W, 3]``).
+        mesh: Mesh providing camera-space ``vertices`` ``[V, 3]``, ``faces``,
+            and a ``MeshTextureUVTextureMap`` texture supplying ``vertex_uv``,
+            ``convention``, and ``uv_texture_map`` (HWC float32 ``[H, W, 3]``).
 
     Returns:
         Tuple of (mask ``[1, 1, H, W]``, rendered RGB ``[1, 3, H, W]``).
@@ -47,14 +50,14 @@ def render_uv_texture_aligned(
         assert isinstance(mesh, Mesh), (
             "Expected `mesh` to be a `Mesh`. " f"{type(mesh)=}"
         )
-        assert mesh.uv_texture_map is not None, (
-            "Expected `mesh` to carry a UV texture map. " f"{mesh.uv_texture_map=}"
+        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+            "Expected `mesh` to carry a UV texture map. " f"{type(mesh.texture)=}"
         )
-        assert mesh.vertices.shape[0] == mesh.vertex_uv.shape[0], (
-            "Expected `mesh.vertex_uv` to align with `mesh.vertices` because this "
-            "function uses `faces` (not `face_uvs`) as the shared index buffer for "
-            "both rasterization and UV interpolation. "
-            f"{mesh.vertices.shape=} {mesh.vertex_uv.shape=}"
+        assert mesh.vertices.shape[0] == mesh.texture.vertex_uv.shape[0], (
+            "Expected `mesh.texture.vertex_uv` to align with `mesh.vertices` because "
+            "this function uses `faces` (not `face_uvs`) as the shared index buffer "
+            "for both rasterization and UV interpolation. "
+            f"{mesh.vertices.shape=} {mesh.texture.vertex_uv.shape=}"
         )
 
     _validate_inputs()
@@ -96,12 +99,14 @@ def render_uv_texture_aligned(
     )
     mask = (rast_out[..., 3] > 0).float().unsqueeze(1)
     uv_feat = (
-        mesh.vertex_uv.unsqueeze(0).to(device=device, dtype=torch.float32).contiguous()
+        mesh.texture.vertex_uv.unsqueeze(0)
+        .to(device=device, dtype=torch.float32)
+        .contiguous()
     )
     uv_interp_internal, _ = dr.interpolate(uv_feat, rast_out, tri_i32)
     uv_lookup = uv_interp_internal.clamp(0.0, 1.0).contiguous()
     uv_tex = (
-        mesh.uv_texture_map.unsqueeze(0)
+        mesh.texture.uv_texture_map.unsqueeze(0)
         .to(device=device, dtype=torch.float32)
         .contiguous()
     )

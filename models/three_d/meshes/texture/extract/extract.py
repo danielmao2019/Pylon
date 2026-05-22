@@ -8,8 +8,10 @@ import torch.nn.functional as F
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
-from data.structures.three_d.mesh.validate import (
-    validate_uv_texture_map,
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
+from data.structures.three_d.mesh.texture.validate_vertex_color import (
     validate_vertex_color,
 )
 from models.three_d.meshes.texture.extract.camera_geometry import (
@@ -32,6 +34,55 @@ from models.three_d.meshes.texture.extract.weights_cfg import (
     normalize_weights_cfg,
     validate_weights_cfg,
 )
+
+
+def _validate_rgb_image(obj: Any) -> None:
+    assert isinstance(obj, torch.Tensor), (
+        "Expected the RGB image to be a `torch.Tensor`. " f"{type(obj)=}"
+    )
+    assert obj.ndim in (3, 4), (
+        "Expected the RGB image to be rank 3 or 4. " f"{obj.shape=}"
+    )
+    if obj.ndim == 3:
+        assert obj.shape[0] == 3 or obj.shape[2] == 3, (
+            "Expected a rank-3 RGB image to be CHW or HWC with three channels. "
+            f"{obj.shape=}"
+        )
+        image_height = int(obj.shape[1] if obj.shape[0] == 3 else obj.shape[0])
+        image_width = int(obj.shape[2] if obj.shape[0] == 3 else obj.shape[1])
+    else:
+        assert obj.shape[0] == 1, (
+            "Expected a rank-4 RGB image to have batch size 1. " f"{obj.shape=}"
+        )
+        assert obj.shape[1] == 3 or obj.shape[3] == 3, (
+            "Expected a rank-4 RGB image to be NCHW or NHWC with three channels. "
+            f"{obj.shape=}"
+        )
+        image_height = int(obj.shape[2] if obj.shape[1] == 3 else obj.shape[1])
+        image_width = int(obj.shape[3] if obj.shape[1] == 3 else obj.shape[2])
+    assert image_height > 0 and image_width > 0, (
+        "Expected the RGB image to have positive spatial resolution. " f"{obj.shape=}"
+    )
+
+    if obj.dtype == torch.uint8:
+        return
+    assert obj.dtype == torch.float32, (
+        "Expected the RGB image to be either uint8 `[0, 255]` or float32 "
+        "`[0, 1]`. "
+        f"{obj.dtype=}"
+    )
+    assert torch.isfinite(obj).all(), (
+        "Expected float32 RGB values to contain only finite values. "
+        f"{obj.shape=} {obj.dtype=}"
+    )
+    min_value = float(obj.min().item())
+    max_value = float(obj.max().item())
+    assert min_value >= 0.0, (
+        "Expected float32 RGB values to be at least 0. " f"{min_value=}"
+    )
+    assert max_value <= 1.0, (
+        "Expected float32 RGB values to be at most 1. " f"{max_value=}"
+    )
 
 
 def extract_texture_from_images(
@@ -173,53 +224,53 @@ def extract_texture_from_images(
                     "Expected all per-view meshes to share one vertex layout. "
                     f"{mesh[0].vertices.shape=} {view_mesh.vertices.shape=}"
                 )
-                assert (mesh[0].vertex_uv is None) == (view_mesh.vertex_uv is None), (
-                    "Expected all per-view meshes to agree on whether UV coordinates "
-                    "are provided. "
-                    f"{mesh[0].vertex_uv is None=} {view_mesh.vertex_uv is None=}"
+                reference_is_uv = isinstance(mesh[0].texture, MeshTextureUVTextureMap)
+                view_is_uv = isinstance(view_mesh.texture, MeshTextureUVTextureMap)
+                assert reference_is_uv == view_is_uv, (
+                    "Expected all per-view meshes to agree on whether they carry a "
+                    "UV-texture-map texture. "
+                    f"{reference_is_uv=} {view_is_uv=}"
                 )
-                if mesh[0].vertex_uv is not None:
-                    assert view_mesh.vertex_uv is not None, (
-                        "Expected every per-view mesh to provide UV coordinates when "
-                        f"the reference mesh does. {view_mesh.vertex_uv=}"
-                    )
-                    assert mesh[0].vertex_uv.shape == view_mesh.vertex_uv.shape, (
+                if reference_is_uv:
+                    assert (
+                        mesh[0].texture.vertex_uv.shape
+                        == view_mesh.texture.vertex_uv.shape
+                    ), (
                         "Expected all per-view meshes to share one UV layout. "
-                        f"{mesh[0].vertex_uv.shape=} {view_mesh.vertex_uv.shape=}"
+                        f"{mesh[0].texture.vertex_uv.shape=} "
+                        f"{view_mesh.texture.vertex_uv.shape=}"
                     )
-                    assert mesh[0].convention == view_mesh.convention, (
+                    assert mesh[0].texture.convention == view_mesh.texture.convention, (
                         "Expected all per-view meshes to share one UV convention. "
-                        f"{mesh[0].convention=} {view_mesh.convention=}"
+                        f"{mesh[0].texture.convention=} "
+                        f"{view_mesh.texture.convention=}"
                     )
                     assert torch.equal(
-                        mesh[0].vertex_uv.detach().cpu(),
-                        view_mesh.vertex_uv.detach().cpu(),
+                        mesh[0].texture.vertex_uv.detach().cpu(),
+                        view_mesh.texture.vertex_uv.detach().cpu(),
                     ), (
-                        "Expected all per-view meshes to share identical UV coordinates. "
-                        f"{mesh[0].vertex_uv.shape=} {view_mesh.vertex_uv.shape=}"
+                        "Expected all per-view meshes to share identical UV "
+                        "coordinates. "
+                        f"{mesh[0].texture.vertex_uv.shape=} "
+                        f"{view_mesh.texture.vertex_uv.shape=}"
                     )
-                    assert (mesh[0].face_uvs is None) == (view_mesh.face_uvs is None), (
-                        "Expected all per-view meshes to agree on whether `face_uvs` "
-                        "is provided. "
-                        f"{mesh[0].face_uvs is None=} {view_mesh.face_uvs is None=}"
+                    assert (
+                        mesh[0].texture.face_uvs.shape
+                        == view_mesh.texture.face_uvs.shape
+                    ), (
+                        "Expected all per-view meshes to share one UV-face layout. "
+                        f"{mesh[0].texture.face_uvs.shape=} "
+                        f"{view_mesh.texture.face_uvs.shape=}"
                     )
-                    if mesh[0].face_uvs is not None:
-                        assert view_mesh.face_uvs is not None, (
-                            "Expected every per-view mesh to provide `face_uvs` when "
-                            f"the reference mesh does. {view_mesh.face_uvs=}"
-                        )
-                        assert mesh[0].face_uvs.shape == view_mesh.face_uvs.shape, (
-                            "Expected all per-view meshes to share one UV-face layout. "
-                            f"{mesh[0].face_uvs.shape=} {view_mesh.face_uvs.shape=}"
-                        )
-                        assert torch.equal(
-                            mesh[0].face_uvs.detach().cpu(),
-                            view_mesh.face_uvs.detach().cpu(),
-                        ), (
-                            "Expected all per-view meshes to share identical UV-face "
-                            "indices. "
-                            f"{mesh[0].face_uvs.shape=} {view_mesh.face_uvs.shape=}"
-                        )
+                    assert torch.equal(
+                        mesh[0].texture.face_uvs.detach().cpu(),
+                        view_mesh.texture.face_uvs.detach().cpu(),
+                    ), (
+                        "Expected all per-view meshes to share identical UV-face "
+                        "indices. "
+                        f"{mesh[0].texture.face_uvs.shape=} "
+                        f"{view_mesh.texture.face_uvs.shape=}"
+                    )
         validate_weights_cfg(
             weights_cfg=weights_cfg,
         )
@@ -258,7 +309,7 @@ def extract_texture_from_images(
         )
 
     image_stack, meshes, weights_cfg = _normalize_inputs(weights_cfg=weights_cfg)
-    representation = meshes[0].texture_mode
+    extract_uv_texture_map = isinstance(meshes[0].texture, MeshTextureUVTextureMap)
 
     if image_stack.shape[1] == 3:
         images_nchw = image_stack
@@ -279,7 +330,7 @@ def extract_texture_from_images(
     images_nchw = images_nchw.to(device=device)
     cameras = cameras.to(device=device, convention="opencv")
 
-    if representation == "vertex_color":
+    if not extract_uv_texture_map:
         extracted_vertex_color = _extract_vertex_color_from_images(
             meshes=meshes,
             images_nchw=images_nchw,
@@ -290,21 +341,21 @@ def extract_texture_from_images(
         if not return_valid_mask:
             return extracted_vertex_color["texture"]
         return extracted_vertex_color
-    if representation == "uv_texture_map":
-        meshes = [view_mesh.to(device=device, convention="obj") for view_mesh in meshes]
-        extracted_uv_texture_map = _extract_uv_texture_map_from_images(
-            meshes=meshes,
-            images_nchw=images_nchw,
-            cameras=cameras,
-            weights_cfg=weights_cfg,
-            texture_size=texture_size,
-            default_color=default_color,
-            texel_visibility_method=texel_visibility_method,
-            polygon_rast_method=polygon_rast_method,
-        )
-        if not return_valid_mask:
-            return extracted_uv_texture_map["texture"]
-        return extracted_uv_texture_map
+
+    meshes = [view_mesh.to(device=device, convention="obj") for view_mesh in meshes]
+    extracted_uv_texture_map = _extract_uv_texture_map_from_images(
+        meshes=meshes,
+        images_nchw=images_nchw,
+        cameras=cameras,
+        weights_cfg=weights_cfg,
+        texture_size=texture_size,
+        default_color=default_color,
+        texel_visibility_method=texel_visibility_method,
+        polygon_rast_method=polygon_rast_method,
+    )
+    if not return_valid_mask:
+        return extracted_uv_texture_map["texture"]
+    return extracted_uv_texture_map
 
 
 def _extract_vertex_color_from_images(
@@ -615,7 +666,7 @@ def _extract_vertex_color_from_single_image(
         assert image.shape[0] == 3, (
             "Expected `image` to contain three RGB channels. " f"{image.shape=}"
         )
-        validate_uv_texture_map(obj=image)
+        _validate_rgb_image(obj=image)
         assert len(camera) == 1, (
             "Expected `camera` to contain exactly one view. " f"{len(camera)=}"
         )
@@ -788,9 +839,10 @@ def _extract_uv_texture_map_from_images(
         assert (
             len(meshes) == len(cameras) == images_nchw.shape[0]
         ), f"{len(meshes)=} {len(cameras)=} {images_nchw.shape=}"
-        assert meshes[0].vertex_uv is not None, (
-            "Expected the reference mesh to provide UV coordinates for UV extraction. "
-            f"{meshes[0].vertex_uv=}"
+        assert isinstance(meshes[0].texture, MeshTextureUVTextureMap), (
+            "Expected the reference mesh to carry a `MeshTextureUVTextureMap` "
+            "texture for UV extraction. "
+            f"{type(meshes[0].texture)=}"
         )
         assert texel_visibility_method in ("v1", "v2"), (
             "Expected `texel_visibility_method` to be one of the supported texel "
@@ -894,7 +946,7 @@ def _fuse_uv_texture_observations(
                 "Expected UV observations to store tensor `texture` values. "
                 f"{type(observation['texture'])=}"
             )
-            validate_uv_texture_map(obj=observation["texture"])
+            _validate_rgb_image(obj=observation["texture"])
             assert isinstance(observation["weight"], torch.Tensor), (
                 "Expected UV observations to store tensor `weight` values. "
                 f"{type(observation['weight'])=}"
@@ -992,7 +1044,7 @@ def _fuse_uv_texture_observations(
             device=device,
             dtype=torch.float32,
         )
-        validate_uv_texture_map(obj=provisional_uv_texture_map)
+        _validate_rgb_image(obj=provisional_uv_texture_map)
         provisional_uv_has_weight = provisional_uv_denominator > 0.0
         provisional_uv_texture_map = torch.where(
             provisional_uv_has_weight.expand_as(provisional_uv_texture_map),
@@ -1019,14 +1071,14 @@ def _fuse_uv_texture_observations(
         device=device,
         dtype=torch.float32,
     )
-    validate_uv_texture_map(obj=uv_texture_map)
+    _validate_rgb_image(obj=uv_texture_map)
     has_weight = uv_denominator > 0.0
     uv_texture_map = torch.where(
         has_weight.expand_as(uv_texture_map),
         uv_numerator / (uv_denominator + 1e-6),
         uv_texture_map,
     )
-    validate_uv_texture_map(obj=uv_texture_map)
+    _validate_rgb_image(obj=uv_texture_map)
     return {
         "texture": uv_texture_map.contiguous(),
         "valid_mask": has_weight.to(dtype=torch.float32).contiguous(),
@@ -1089,7 +1141,7 @@ def _extract_uv_texture_map_from_single_image(
         assert image.shape[0] == 3, (
             "Expected `image` to contain three RGB channels. " f"{image.shape=}"
         )
-        validate_uv_texture_map(obj=image)
+        _validate_rgb_image(obj=image)
         assert len(camera) == 1, (
             "Expected `camera` to contain exactly one view. " f"{len(camera)=}"
         )
@@ -1323,7 +1375,7 @@ def _project_f_colors(
         interpolated_uv_xy=interpolated_uv_xy,
         image=image,
     )
-    validate_uv_texture_map(obj=uv_texture)
+    _validate_rgb_image(obj=uv_texture)
     return uv_texture.contiguous()
 
 
@@ -1339,7 +1391,8 @@ def _build_uv_rasterization_data(
     """Build reusable UV rasterization tensors for UV-space operations.
 
     Args:
-        mesh: Mesh with vertex_uv and faces (and optionally face_uvs).
+        mesh: Mesh carrying a `MeshTextureUVTextureMap` texture (supplying
+            `vertex_uv` and `face_uvs`) and `faces`.
         texture_size: UV texture resolution.
 
     Returns:
@@ -1363,22 +1416,23 @@ def _build_uv_rasterization_data(
         assert isinstance(mesh, Mesh), (
             "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
         )
+        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+            "Expected `mesh` to carry a `MeshTextureUVTextureMap` texture for "
+            "UV rasterization. "
+            f"{type(mesh.texture)=}"
+        )
         assert isinstance(texture_size, int), (
             "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
         )
         assert texture_size > 0, (
             "Expected `texture_size` to be positive. " f"{texture_size=}"
         )
-        assert mesh.vertex_uv is not None, (
-            "Expected mesh to have vertex_uv for UV rasterization. "
-            f"{mesh.vertex_uv is None=}"
-        )
 
     _validate_inputs()
 
-    vertex_uv = mesh.vertex_uv
+    vertex_uv = mesh.texture.vertex_uv
     faces = mesh.faces
-    face_uvs = mesh.face_uvs
+    face_uvs = mesh.texture.face_uvs
 
     uv_rasterization_mesh = _build_uv_rasterization_mesh(
         vertex_uv=vertex_uv,

@@ -6,6 +6,9 @@ import torch
 from torch.testing import assert_close
 
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
+    MeshTextureUVTextureMap,
+)
 from models.three_d.meshes.scene_model import BaseMeshesSceneModel
 
 
@@ -82,16 +85,18 @@ def test_base_meshes_scene_model_loads_through_data_mesh_boundary(
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        uv_texture_map=torch.tensor(
-            [[[1.0, 0.0, 0.0]]],
-            dtype=torch.float32,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=torch.tensor(
+                [[[1.0, 0.0, 0.0]]],
+                dtype=torch.float32,
+            ),
+            vertex_uv=torch.tensor(
+                [[0.10, 0.20], [0.30, 0.40], [0.50, 0.60]],
+                dtype=torch.float32,
+            ),
+            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            convention="obj",
         ),
-        vertex_uv=torch.tensor(
-            [[0.10, 0.20], [0.30, 0.40], [0.50, 0.60]],
-            dtype=torch.float32,
-        ),
-        face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        convention="obj",
     )
     textured_mesh.save(path=mesh_root / "mesh.obj")
 
@@ -109,11 +114,21 @@ def test_base_meshes_scene_model_loads_through_data_mesh_boundary(
     assert torch.equal(
         loaded_mesh.faces, expected_mesh.faces
     ), f"{loaded_mesh.faces=} {expected_mesh.faces=}"
-    assert_close(loaded_mesh.uv_texture_map, expected_mesh.uv_texture_map)
-    assert_close(loaded_mesh.vertex_uv, expected_mesh.vertex_uv)
+    assert isinstance(loaded_mesh.texture, MeshTextureUVTextureMap), (
+        "Expected the loaded mesh to carry a UV-texture-map texture. "
+        f"{type(loaded_mesh.texture)=}"
+    )
+    assert isinstance(expected_mesh.texture, MeshTextureUVTextureMap), (
+        "Expected the reference mesh to carry a UV-texture-map texture. "
+        f"{type(expected_mesh.texture)=}"
+    )
+    assert_close(
+        loaded_mesh.texture.uv_texture_map, expected_mesh.texture.uv_texture_map
+    )
+    assert_close(loaded_mesh.texture.vertex_uv, expected_mesh.texture.vertex_uv)
     assert torch.equal(
-        loaded_mesh.face_uvs, expected_mesh.face_uvs
-    ), f"{loaded_mesh.face_uvs=} {expected_mesh.face_uvs=}"
+        loaded_mesh.texture.face_uvs, expected_mesh.texture.face_uvs
+    ), f"{loaded_mesh.texture.face_uvs=} {expected_mesh.texture.face_uvs=}"
 
 
 def test_base_meshes_scene_model_to_moves_repo_mesh(
@@ -136,16 +151,18 @@ def test_base_meshes_scene_model_to_moves_repo_mesh(
             dtype=torch.float32,
         ),
         faces=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        uv_texture_map=torch.tensor(
-            [[[1.0, 0.0, 0.0]]],
-            dtype=torch.float32,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=torch.tensor(
+                [[[1.0, 0.0, 0.0]]],
+                dtype=torch.float32,
+            ),
+            vertex_uv=torch.tensor(
+                [[0.10, 0.20], [0.30, 0.40], [0.50, 0.60]],
+                dtype=torch.float32,
+            ),
+            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            convention="obj",
         ),
-        vertex_uv=torch.tensor(
-            [[0.10, 0.20], [0.30, 0.40], [0.50, 0.60]],
-            dtype=torch.float32,
-        ),
-        face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        convention="obj",
     ).save(path=mesh_root / "mesh.obj")
 
     scene_model = _DummyMeshesSceneModel(
