@@ -18,7 +18,7 @@
     - 1.1.2. Compute inter-polygon occlusion and remove the hidden regions.
       Helper function: _compute_visible_screen_space_polygon_regions_with_occlusion(...)
       - 1.1.2.1. Compute affine inverse-depth coefficients for the projected faces.
-        Local function: _compute_face_inverse_depth_coefficients(...)
+        Local function: _compute_projected_face_inverse_depth_coefficients(...)
       - 1.1.2.2. Resolve the exact visible face-pixel polygons from the clipped overlaps.
         Local function: _build_exact_visible_face_pixel_polygons(...)
       - 1.1.2.3. Pack the exact visible polygons into the downstream tensor format.
@@ -56,7 +56,6 @@ from typing import Dict, Tuple
 
 import torch
 
-import models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry as _geom
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.texture.extract.camera_geometry import (
@@ -64,6 +63,18 @@ from models.three_d.meshes.texture.extract.camera_geometry import (
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
     _compute_f_normals_weights,
+)
+from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import (
+    _build_uv_polygon_texel_intersections,
+    _build_uv_triangle_texel_intersections_v2,
+    _build_visible_face_pixel_polygons,
+    _camera_vertices_to_pixel,
+    _clip_convex_polygons_to_pixel_squares,
+    _compute_convex_polygon_areas,
+    _compute_face_inverse_depth_coefficients,
+    _duplicate_wrapped_uv_polygons,
+    _project_screen_polygons_to_face_uv,
+    _triangulate_convex_uv_polygons,
 )
 
 # -----------------------------------------------------------------------------
@@ -253,7 +264,7 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
 
     _validate_inputs()
 
-    vertex_pixels = _geom._camera_vertices_to_pixel(
+    vertex_pixels = _camera_vertices_to_pixel(
         vertices_camera=vertices_camera,
         intrinsics=intrinsics,
     )
@@ -594,7 +605,7 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
             device=face_screen_vertices.device,
             dtype=torch.long,
         )
-        return _geom._clip_convex_polygons_to_pixel_squares(
+        return _clip_convex_polygons_to_pixel_squares(
             polygon_vertices=polygon_vertices,
             polygon_vertex_counts=polygon_vertex_counts,
             pixel_x=pixel_x.to(dtype=torch.float32),
@@ -620,7 +631,7 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
         Returns:
             Packed valid polygons, counts, pixel indices, and face indices.
         """
-        clipped_polygon_area = _geom._compute_convex_polygon_areas(
+        clipped_polygon_area = _compute_convex_polygon_areas(
             polygon_vertices=clipped_polygon_vertices,
             polygon_vertex_counts=clipped_polygon_vertex_counts,
         )
@@ -779,7 +790,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
 
     _validate_inputs()
 
-    def _compute_face_inverse_depth_coefficients() -> torch.Tensor:
+    def _compute_projected_face_inverse_depth_coefficients() -> torch.Tensor:
         """Compute affine inverse-depth coefficients for the projected faces.
 
         Args:
@@ -788,7 +799,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         Returns:
             Inverse-depth coefficients [F, 3].
         """
-        return _geom._compute_face_inverse_depth_coefficients(
+        return _compute_face_inverse_depth_coefficients(
             face_screen_vertices=face_screen_vertices,
             face_vertex_depth=face_vertex_depth,
         )
@@ -804,7 +815,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         Returns:
             Visible polygon vertices, counts, and local face indices.
         """
-        return _geom._build_visible_face_pixel_polygons(
+        return _build_visible_face_pixel_polygons(
             clipped_polygon_vertices=clipped_polygon_vertices,
             clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
             clipped_pixel_indices=clipped_pixel_indices,
@@ -852,7 +863,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
             ),
         )
 
-    face_inverse_depth_coefficients = _compute_face_inverse_depth_coefficients()
+    face_inverse_depth_coefficients = _compute_projected_face_inverse_depth_coefficients()
     (
         visible_polygon_vertices,
         visible_polygon_vertex_counts,
@@ -980,7 +991,7 @@ def _map_visible_screen_space_polygon_regions_to_uv(
         Returns:
             Visible UV polygons [N, Vmax, 2].
         """
-        return _geom._project_screen_polygons_to_face_uv(
+        return _project_screen_polygons_to_face_uv(
             polygon_vertices=visible_screen_polygon_vertices,
             face_screen_vertices=polygon_face_screen_vertices,
             face_vertex_depth=polygon_face_vertex_depth,
@@ -1150,7 +1161,7 @@ def _compute_uv_polygon_texel_contributions_v1(
                 wrapped UV polygons [Nw, Vmax, 2],
                 wrapped UV polygon vertex counts [Nw].
         """
-        return _geom._duplicate_wrapped_uv_polygons(
+        return _duplicate_wrapped_uv_polygons(
             uv_polygon_vertices=uv_polygon_vertices,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
         )
@@ -1159,7 +1170,7 @@ def _compute_uv_polygon_texel_contributions_v1(
         wrapped_uv_polygon_vertices,
         wrapped_uv_polygon_vertex_counts,
     ) = _duplicate_wrap_crossing_polygons()
-    return _geom._build_uv_polygon_texel_intersections(
+    return _build_uv_polygon_texel_intersections(
         uv_polygon_vertices=wrapped_uv_polygon_vertices,
         uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
         texture_size=texture_size,
@@ -1231,7 +1242,7 @@ def _compute_uv_polygon_texel_contributions_v2(
                 wrapped UV polygons [Nw, Vmax, 2],
                 wrapped UV polygon vertex counts [Nw].
         """
-        return _geom._duplicate_wrapped_uv_polygons(
+        return _duplicate_wrapped_uv_polygons(
             uv_polygon_vertices=uv_polygon_vertices,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
         )
@@ -1250,7 +1261,7 @@ def _compute_uv_polygon_texel_contributions_v2(
             Wrapped UV triangle soup [K, 3, 2].
         """
 
-        def _validate_wrapped_inputs() -> None:
+        def _validate_inputs() -> None:
             """Validate input arguments.
 
             Args:
@@ -1283,9 +1294,9 @@ def _compute_uv_polygon_texel_contributions_v2(
                 f"{wrapped_uv_polygon_vertices.shape=}."
             )
 
-        _validate_wrapped_inputs()
+        _validate_inputs()
 
-        return _geom._triangulate_convex_uv_polygons(
+        return _triangulate_convex_uv_polygons(
             polygon_vertices=wrapped_uv_polygon_vertices,
             polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
         )
@@ -1298,7 +1309,7 @@ def _compute_uv_polygon_texel_contributions_v2(
         wrapped_uv_polygon_vertices=wrapped_uv_polygon_vertices,
         wrapped_uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
     )
-    return _geom._build_uv_triangle_texel_intersections_v2(
+    return _build_uv_triangle_texel_intersections_v2(
         uv_triangles=wrapped_uv_triangles,
         texture_size=texture_size,
     )

@@ -1833,7 +1833,14 @@ def _pack_face_pixel_polygons_by_pixel(
     clipped_pixel_indices: torch.Tensor,
     clipped_face_indices: torch.Tensor,
     face_inverse_depth_coefficients: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+]:
     """Pack variable-count face-pixel polygons into pixel-major padded tensors.
 
     Args:
@@ -4052,7 +4059,7 @@ def _build_uv_triangle_texel_intersections_v2(
                 texel-square interior thresholds [K, 3].
         """
 
-        def _validate_triangle_vertices() -> None:
+        def _validate_inputs() -> None:
             """Validate input arguments.
 
             Args:
@@ -4074,7 +4081,7 @@ def _build_uv_triangle_texel_intersections_v2(
                 f"triangle_vertices.shape={triangle_vertices.shape!r}."
             )
 
-        _validate_triangle_vertices()
+        _validate_inputs()
 
         next_triangle_vertices = triangle_vertices[:, [1, 2, 0], :]
         edge_a = triangle_vertices[:, :, 1] - next_triangle_vertices[:, :, 1]

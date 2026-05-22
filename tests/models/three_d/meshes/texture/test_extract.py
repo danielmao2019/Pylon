@@ -20,8 +20,10 @@ from models.three_d.meshes.texture.extract import (
 )
 from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
     _compute_visible_uv_texels_from_uv_polygon_regions,
-    _geom,
     _map_visible_screen_space_polygon_regions_to_uv,
+)
+from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import (
+    _triangulate_convex_uv_polygons,
 )
 
 
@@ -372,7 +374,7 @@ def test_break_visible_uv_polygon_regions_into_triangles_triangulates_quad_fan()
     )
     uv_polygon_vertex_counts = torch.tensor([4], dtype=torch.long)
 
-    uv_triangles = _geom._triangulate_convex_uv_polygons(
+    uv_triangles = _triangulate_convex_uv_polygons(
         polygon_vertices=uv_polygon_vertices,
         polygon_vertex_counts=uv_polygon_vertex_counts,
     )
