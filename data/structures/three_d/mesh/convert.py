@@ -19,7 +19,7 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 )
 
 
-def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> "Mesh":
+def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> Mesh:
     """Convert one legacy Open3D triangle mesh into one Mesh.
 
     Args:
@@ -57,7 +57,7 @@ def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> "Mesh":
     )
 
 
-def mesh_to_open3d(mesh: "Mesh") -> o3d.geometry.TriangleMesh:
+def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh:
     """Convert one Mesh into one legacy Open3D triangle mesh.
 
     Args:
@@ -92,7 +92,7 @@ def mesh_to_open3d(mesh: "Mesh") -> o3d.geometry.TriangleMesh:
     return open3d_mesh
 
 
-def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> "Mesh":
+def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
     """Convert one PyTorch3D Meshes into one Mesh.
 
     Args:
@@ -147,7 +147,7 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> "Mesh":
 
 
 def mesh_to_pytorch3d(
-    mesh: "Mesh",
+    mesh: Mesh,
     device: Union[str, torch.device, None] = None,
     dtype: torch.dtype = torch.float32,
 ) -> Meshes:
@@ -201,7 +201,7 @@ def mesh_to_pytorch3d(
 
 def mesh_from_trimesh(
     mesh: trimesh.Trimesh, convention: Optional[str] = None
-) -> "Mesh":
+) -> Mesh:
     """Convert one trimesh.Trimesh into one Mesh.
 
     When the trimesh carries UV data, it is welded from trimesh's per-corner
@@ -265,7 +265,7 @@ def mesh_from_trimesh(
     return Mesh(vertices=vertices, faces=faces, texture=texture)
 
 
-def mesh_to_trimesh(mesh: "Mesh") -> trimesh.Trimesh:
+def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
     """Convert one Mesh into one trimesh.Trimesh.
 
     Args:
@@ -499,7 +499,7 @@ def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray:
 
 
 def _uv_mesh_to_trimesh(
-    mesh: "Mesh",
+    mesh: Mesh,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Expand one "obj"-convention UV mesh to trimesh's per-corner topology.
 

@@ -14,7 +14,7 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 )
 
 
-def load_mesh(path: Union[str, Path]) -> "Mesh":
+def load_mesh(path: Union[str, Path]) -> Mesh:
     """Load one OBJ file, or every OBJ under a mesh-root directory, as one Mesh.
 
     Args:
@@ -35,7 +35,7 @@ def load_mesh(path: Union[str, Path]) -> "Mesh":
     return merge_meshes(mesh_blocks=mesh_blocks)
 
 
-def _load_mesh_block_from_obj_path(obj_path: Path) -> "Mesh":
+def _load_mesh_block_from_obj_path(obj_path: Path) -> Mesh:
     """Load one OBJ as a single mesh block.
 
     Dispatches to the texture-representation-specific loader.
@@ -55,7 +55,7 @@ def _load_mesh_block_from_obj_path(obj_path: Path) -> "Mesh":
     return _load_mesh_geometry_only(path=obj_path)
 
 
-def _load_mesh_geometry_only(path: Union[str, Path]) -> "Mesh":
+def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh:
     """Load one geometry-only OBJ mesh.
 
     Args:
@@ -121,7 +121,7 @@ def _load_mesh_geometry_only(path: Union[str, Path]) -> "Mesh":
     )
 
 
-def _load_mesh_vertex_color(path: Union[str, Path]) -> "Mesh":
+def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh:
     """Load one vertex-colored OBJ mesh.
 
     Args:
@@ -204,7 +204,7 @@ def _load_mesh_vertex_color(path: Union[str, Path]) -> "Mesh":
     )
 
 
-def _load_mesh_uv_texture_map(path: Union[str, Path]) -> "Mesh":
+def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
     """Load one UV-textured OBJ mesh.
 
     Loads via PyTorch3D, which already yields the decoupled geometry/UV domains,

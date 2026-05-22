@@ -17,7 +17,7 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 )
 
 
-def save_mesh(mesh: "Mesh", output_path: Union[str, Path]) -> None:
+def save_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None:
     """Save one mesh to disk, dispatching on its texture type.
 
     Args:
@@ -46,7 +46,7 @@ def save_mesh(mesh: "Mesh", output_path: Union[str, Path]) -> None:
     _save_mesh_geometry_only(mesh=mesh, output_path=output_path)
 
 
-def _save_mesh_geometry_only(mesh: "Mesh", output_path: Union[str, Path]) -> None:
+def _save_mesh_geometry_only(mesh: Mesh, output_path: Union[str, Path]) -> None:
     """Save one geometry-only mesh as OBJ or PLY.
 
     Args:
@@ -127,7 +127,7 @@ def _save_mesh_geometry_only(mesh: "Mesh", output_path: Union[str, Path]) -> Non
             )
 
 
-def _save_mesh_vertex_color(mesh: "Mesh", output_path: Union[str, Path]) -> None:
+def _save_mesh_vertex_color(mesh: Mesh, output_path: Union[str, Path]) -> None:
     """Save one vertex-colored mesh as OBJ or PLY.
 
     Args:
@@ -223,7 +223,7 @@ def _save_mesh_vertex_color(mesh: "Mesh", output_path: Union[str, Path]) -> None
             )
 
 
-def _save_mesh_uv_texture_map(mesh: "Mesh", output_path: Union[str, Path]) -> None:
+def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None:
     """Save one UV-textured mesh as an OBJ plus a sibling MTL and texture PNG.
 
     Args:

@@ -13,7 +13,7 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 )
 
 
-def merge_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
+def merge_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
     """Merge one or more mesh blocks into one Mesh.
 
     Args:
@@ -56,7 +56,7 @@ def merge_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     return _merge_geometry_only_meshes(mesh_blocks=mesh_blocks)
 
 
-def _merge_vertex_color_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
+def _merge_vertex_color_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
     """Merge multiple vertex-colored meshes into one mesh.
 
     Args:
@@ -88,7 +88,7 @@ def _merge_vertex_color_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     )
 
 
-def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
+def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
     """Merge multiple UV-textured meshes into one packed textured mesh.
 
     Args:
@@ -157,7 +157,7 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
     )
 
 
-def _merge_geometry_only_meshes(mesh_blocks: Sequence["Mesh"]) -> "Mesh":
+def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
     """Merge multiple geometry-only meshes into one mesh.
 
     Args:
