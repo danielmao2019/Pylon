@@ -177,8 +177,8 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 │   └── assert 0, "should not reach here"
 ├── def _validate_uv_texture_map_image_uint8(obj: Any) -> None
 │   └── # Validates a uint8 UV texture image tensor.
-└── def _validate_uv_texture_map_image_float32(obj: Any) -> None
-    └── # Validates a float32 UV texture image tensor (finite, values within [0,1]).
+├── def _validate_uv_texture_map_image_float32(obj: Any) -> None
+│   └── # Validates a float32 UV texture image tensor (finite, values within [0,1]).
 ├── def validate_verts_uvs(obj: Any) -> None
 │   └── # Validates a UV-coordinate table (float [U,2], finite, non-negative; values may exceed 1 — see the seam contract on MeshTextureUVTextureMap).
 ├── def validate_faces_uvs(obj: Any) -> None
