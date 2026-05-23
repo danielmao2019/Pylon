@@ -27,20 +27,17 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
 
 def _build_texel_face_map_stub(
     texture_size: int,
-    face_count: int = 1,
 ) -> Dict[str, torch.Tensor]:
     """Build a uniform fully-occupied texel_face_map for face 0 on CPU.
 
     Args:
         texture_size: Side length T.
-        face_count: Number of mesh faces (unused except for sanity).
 
     Returns:
         Dict matching the `build_texel_face_map` contract; every texel is
         assigned to face 0 with centroid barycentrics.
     """
 
-    assert face_count >= 1, f"{face_count=}"
     texel_face_index = torch.zeros(
         (texture_size, texture_size), dtype=torch.int64
     )
