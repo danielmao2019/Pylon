@@ -185,14 +185,14 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 │   └── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
 ├── def validate_mesh_uv_convention(convention: Any) -> str
 │   └── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
-├── def _validate_verts_uvs_faces_uvs_cross_field(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> None
-│   ├── # Validates the cross-field invariants between verts_uvs and faces_uvs.
-│   ├── def _validate_faces_uvs_index_range() -> None [local]
-│   │   └── # Asserts that every faces_uvs entry references a valid verts_uvs row: max(faces_uvs) < verts_uvs.shape[0].
-│   ├── calls _validate_faces_uvs_index_range()
-│   ├── def _validate_seam_safe_uv_layout() -> None [local]
-│   │   └── # Asserts the seam-safe per-face-span invariant: for every face f, u_max - u_min over verts_uvs[faces_uvs[f]] is <= 0.5.
-│   └── calls _validate_seam_safe_uv_layout()
+└── def _validate_verts_uvs_faces_uvs_cross_field(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> None
+    ├── # Validates the cross-field invariants between verts_uvs and faces_uvs.
+    ├── def _validate_faces_uvs_index_range() -> None [local]
+    │   └── # Asserts that every faces_uvs entry references a valid verts_uvs row: max(faces_uvs) < verts_uvs.shape[0].
+    ├── calls _validate_faces_uvs_index_range()
+    ├── def _validate_seam_safe_uv_layout() -> None [local]
+    │   └── # Asserts the seam-safe per-face-span invariant: for every face f, u_max - u_min over verts_uvs[faces_uvs[f]] is <= 0.5.
+    └── calls _validate_seam_safe_uv_layout()
 ```
 
 ## Texture: package API surface
