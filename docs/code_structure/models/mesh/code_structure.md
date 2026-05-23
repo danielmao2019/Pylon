@@ -348,14 +348,14 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
 ├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from projected texel centers.
 │   ├── calls _map_valid_texels_to_continuous_uv_coords(valid_texel_mask=valid_texel_mask)
-│   ├── calls _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords=continuous_uv_coords, valid_texel_indices=valid_texel_indices, texel_face_map=texel_face_map)
+│   ├── calls _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords=continuous_uv_coords, valid_texel_indices=valid_texel_indices, face_verts_uvs=face_verts_uvs, texel_face_map=texel_face_map)
 │   ├── calls _filter_texels_by_face_facing(valid_texel_indices=valid_texel_indices, texel_face_indices=texel_face_indices, barycentric_coords=barycentric_coords, verts=verts, faces=faces, camera=camera)
 │   ├── calls _map_barycentric_coords_to_3d_world_coords(barycentric_coords=barycentric_coords, texel_face_indices=texel_face_indices, verts=verts, faces=faces)
 │   ├── calls _compute_mesh_diagonal(verts=verts)
 │   └── calls _compute_texel_visibility_mask_from_world_coords(world_coords=world_coords, valid_texel_indices=valid_texel_indices, valid_texel_mask=valid_texel_mask, mesh_diagonal=mesh_diagonal, camera=camera, image_height=image_height, image_width=image_width)
 ├── def _map_valid_texels_to_continuous_uv_coords(valid_texel_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   └── # Map valid texel centers to continuous UV coordinates.
-├── def _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords: torch.Tensor, valid_texel_indices: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]
+├── def _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords: torch.Tensor, valid_texel_indices: torch.Tensor, face_verts_uvs: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Map continuous UV coordinates to owning-face barycentric coordinates.
 │   ├── calls _wrap_continuous_uv_coords_for_faces(continuous_uv_coords=continuous_uv_coords, face_verts_uvs=face_verts_uvs)
 │   └── calls _compute_barycentric_coords_in_uv_faces(continuous_uv_coords=wrapped_continuous_uv_coords, face_verts_uvs=face_verts_uvs)
