@@ -133,7 +133,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 ├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights
 ├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import _build_uv_polygon_texel_intersections, _build_uv_triangle_texel_intersections_v2, _build_visible_face_pixel_polygons, _camera_verts_to_pixel, _clip_convex_polygons_to_pixel_squares, _compute_convex_polygon_areas, _compute_face_inverse_depth_coefficients, _duplicate_wrapped_uv_polygons, _project_screen_polygons_to_face_uv, _triangulate_convex_uv_polygons
 ├── def compute_f_visibility_mask(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor], polygon_rast_method: str='v2') -> torch.Tensor
-│   ├── # Compute one-view UV-pixel visibility mask from exact camera-pixel footprints. face_verts_uvs is mesh.texture.verts_uvs[mesh.texture.faces_uvs] in seam-safe canonical form; texel_face_map carries texel_face_index / texel_face_barycentric / texel_occupancy_mask.
+│   ├── # Compute one-view UV-pixel visibility mask from exact camera-pixel footprints.
 │   ├── calls _verts_world_to_camera(verts=verts, camera=camera)
 │   ├── calls _compute_f_normals_weights(mesh=Mesh(verts=verts, faces=faces), camera=camera, weights_cfg={'weights': 'normals'})
 │   ├── calls _compute_visible_uv_polygon_regions_from_camera_pixels(verts_camera=verts_camera, faces=faces, intrinsics=camera[0].intrinsics, image_height=image_height, image_width=image_width, face_front_facing_mask=face_front_facing_mask, camera_face_verts_uvs=face_verts_uvs)
@@ -346,7 +346,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
 ├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights
 ├── FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER
 ├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
-│   ├── # Compute one-view UV-pixel visibility mask from projected texel centers. face_verts_uvs is mesh.texture.verts_uvs[mesh.texture.faces_uvs] in seam-safe canonical form; texel_face_map carries texel_face_index / texel_face_barycentric / texel_occupancy_mask.
+│   ├── # Compute one-view UV-pixel visibility mask from projected texel centers.
 │   ├── calls _map_valid_texels_to_continuous_uv_coords(valid_texel_mask=valid_texel_mask)
 │   ├── calls _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords=continuous_uv_coords, valid_texel_indices=valid_texel_indices, texel_face_map=texel_face_map)
 │   ├── calls _filter_texels_by_face_facing(valid_texel_indices=valid_texel_indices, texel_face_indices=texel_face_indices, barycentric_coords=barycentric_coords, verts=verts, faces=faces, camera=camera)
