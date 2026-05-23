@@ -6,6 +6,9 @@ from pytorch3d.io import load_obj
 
 from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.canonicalize import (
+    shift_seam_crossing_faces_to_seam_safe,
+)
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
@@ -258,13 +261,18 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
             materials_idx=faces.materials_idx.to(dtype=torch.int64).contiguous(),
         )
 
+    canonical_verts_uvs, canonical_faces_uvs = shift_seam_crossing_faces_to_seam_safe(
+        verts_uvs=verts_uvs,
+        faces_uvs=faces_uvs,
+    )
+
     return Mesh(
         verts=verts.to(dtype=torch.float32).contiguous(),
         faces=faces.verts_idx.to(dtype=torch.int64).contiguous(),
         texture=MeshTextureUVTextureMap(
             uv_texture_map=uv_texture_map.detach().cpu().contiguous(),
-            verts_uvs=verts_uvs.detach().cpu().contiguous(),
-            faces_uvs=faces_uvs.detach().cpu().contiguous(),
+            verts_uvs=canonical_verts_uvs.detach().cpu().contiguous(),
+            faces_uvs=canonical_faces_uvs.detach().cpu().contiguous(),
             convention="obj",
         ),
     )

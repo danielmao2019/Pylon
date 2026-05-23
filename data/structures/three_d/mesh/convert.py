@@ -11,6 +11,10 @@ from pytorch3d.renderer import TexturesUV, TexturesVertex
 from pytorch3d.structures import Meshes
 
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.canonicalize import (
+    collapse_seam_shifted_uv_rows,
+    shift_seam_crossing_faces_to_seam_safe,
+)
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
@@ -157,6 +161,12 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
         "Expected PyTorch3D mesh textures to be `None`, `TexturesVertex`, or "
         f"`TexturesUV`. {type(textures)=}"
     )
+    raw_verts_uvs = textures.verts_uvs_list()[0].to(dtype=torch.float32).contiguous()
+    raw_faces_uvs = textures.faces_uvs_list()[0].to(dtype=torch.int64).contiguous()
+    canonical_verts_uvs, canonical_faces_uvs = shift_seam_crossing_faces_to_seam_safe(
+        verts_uvs=raw_verts_uvs,
+        faces_uvs=raw_faces_uvs,
+    )
     return Mesh(
         verts=verts,
         faces=faces,
@@ -164,8 +174,8 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
             uv_texture_map=textures.maps_padded()[0]
             .to(dtype=torch.float32)
             .contiguous(),
-            verts_uvs=textures.verts_uvs_list()[0].to(dtype=torch.float32).contiguous(),
-            faces_uvs=textures.faces_uvs_list()[0].to(dtype=torch.int64).contiguous(),
+            verts_uvs=canonical_verts_uvs.contiguous(),
+            faces_uvs=canonical_faces_uvs.contiguous(),
             convention=convention,
         ),
     )
@@ -218,10 +228,18 @@ def mesh_to_pytorch3d(
             ]
         )
     elif isinstance(target_mesh.texture, MeshTextureUVTextureMap):
+        obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
+            verts_uvs=target_mesh.texture.verts_uvs.detach().cpu(),
+            faces_uvs=target_mesh.texture.faces_uvs.detach().cpu(),
+        )
         textures = TexturesUV(
             maps=[target_mesh.texture.uv_texture_map.to(dtype=dtype).contiguous()],
-            faces_uvs=[target_mesh.texture.faces_uvs.to(dtype=torch.int64).contiguous()],
-            verts_uvs=[target_mesh.texture.verts_uvs.to(dtype=dtype).contiguous()],
+            faces_uvs=[
+                obj_faces_uvs.to(device=target_device, dtype=torch.int64).contiguous()
+            ],
+            verts_uvs=[
+                obj_verts_uvs.to(device=target_device, dtype=dtype).contiguous()
+            ],
         )
 
     return Meshes(verts=[verts], faces=[faces], textures=textures)
@@ -265,14 +283,18 @@ def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -
             faces=np.asarray(mesh.faces),
             verts_uvs=np.asarray(mesh.visual.uv),
         )
+        canonical_verts_uvs, canonical_faces_uvs = shift_seam_crossing_faces_to_seam_safe(
+            verts_uvs=verts_uvs,
+            faces_uvs=faces_uvs,
+        )
         texture_image = _texture_image_from_trimesh(image=mesh.visual.material.image)
         return Mesh(
             verts=verts,
             faces=faces,
             texture=MeshTextureUVTextureMap(
                 uv_texture_map=torch.as_tensor(texture_image),
-                verts_uvs=verts_uvs,
-                faces_uvs=faces_uvs,
+                verts_uvs=canonical_verts_uvs,
+                faces_uvs=canonical_faces_uvs,
                 convention=convention,
             ),
         )
@@ -547,9 +569,12 @@ def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
     _validate_inputs()
 
     face_verts = mesh.faces.detach().cpu()
-    faces_uvs = mesh.texture.faces_uvs.detach().cpu()
+    obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
+        verts_uvs=mesh.texture.verts_uvs.detach().cpu(),
+        faces_uvs=mesh.texture.faces_uvs.detach().cpu(),
+    )
     expanded_verts = mesh.verts.detach().cpu()[face_verts.reshape(-1)].numpy()
-    expanded_uv = mesh.texture.verts_uvs.detach().cpu()[faces_uvs.reshape(-1)].numpy()
+    expanded_uv = obj_verts_uvs[obj_faces_uvs.reshape(-1)].numpy()
     expanded_faces = np.arange(expanded_verts.shape[0], dtype=np.int64).reshape(
         -1, 3
     )
