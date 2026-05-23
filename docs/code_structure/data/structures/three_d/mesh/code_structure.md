@@ -188,10 +188,12 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 └── def _validate_verts_uvs_faces_uvs_cross_field(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> None
     ├── # Validates the cross-field invariants between verts_uvs and faces_uvs.
     ├── def _validate_faces_uvs_index_range() -> None [local]
-    │   └── # Asserts that every faces_uvs entry references a valid verts_uvs row: max(faces_uvs) < verts_uvs.shape[0].
+    │   ├── # Asserts that every faces_uvs entry references a valid verts_uvs row.
+    │   └── impls assert max(faces_uvs) < verts_uvs.shape[0]
     ├── calls _validate_faces_uvs_index_range()
     ├── def _validate_seam_safe_uv_layout() -> None [local]
-    │   └── # Asserts the seam-safe per-face-span invariant: for every face f, u_max - u_min over verts_uvs[faces_uvs[f]] is <= 0.5.
+    │   ├── # Asserts the seam-safe per-face-span invariant.
+    │   └── impls assert per-face (u_max - u_min over verts_uvs[faces_uvs[f]]) <= 0.5
     └── calls _validate_seam_safe_uv_layout()
 ```
 
@@ -215,9 +217,16 @@ data/structures/three_d/mesh/texture/texel_face_map.py
 ├── def _verts_uvs_to_clip(verts_uvs: torch.Tensor) -> torch.Tensor
 │   └── # Converts UV coordinates to clip-space positions [1, V, 4] for the UV rasterizer (u, v -> 2u - 1, 2v - 1, 0, 1).
 ├── def _compute_texel_face_index(rast_out: torch.Tensor, raster_face_indices: torch.Tensor) -> torch.Tensor
-│   └── # Maps the rasterizer's per-texel soup-triangle index back to the original mesh-face index, with -1 at unoccupied texels.
+│   ├── # Maps the rasterizer's per-texel soup-triangle index back to the original mesh-face index.
+│   ├── impls soup_triangle_index = rast_out[..., 3].long() - 1   # nvdiffrast is 1-indexed; -1 marks unoccupied texels
+│   ├── impls texel_face_index = raster_face_indices[soup_triangle_index]
+│   ├── impls preserve -1 sentinel where soup_triangle_index < 0
+│   └── return                                              # [T, T] int64 mesh-face index map (-1 sentinel for unoccupied texels)
 └── def _compute_texel_face_barycentric(rast_out: torch.Tensor) -> torch.Tensor
-    └── # Extracts per-texel face-local barycentric weights (summing to 1 on occupied texels) from the rasterizer output.
+    ├── # Extracts per-texel face-local barycentric weights from the rasterizer output.
+    ├── impls (u_bary, v_bary) = rast_out[..., 0], rast_out[..., 1]
+    ├── impls (w0, w1, w2) = (1 - u_bary - v_bary, u_bary, v_bary)
+    └── return                                              # [T, T, 3] barycentric weights (w0, w1, w2 summing to 1 on occupied texels)
 ```
 
 ## Texture: package API surface
@@ -269,7 +278,10 @@ data/structures/three_d/mesh/load.py
 │   ├── calls pack_texture_images                             # multi-material -> single atlas
 │   └── calls _shift_seam_crossing_faces_to_seam_safe         # raw OBJ verts_uvs -> seam-safe canonical
 ├── def _shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   ├── # Shifts faces whose verts_uvs[faces_uvs[f]] u-span exceeds 0.5 into the seam-safe canonical chart (small-u corners by +1), duplicating any source vt row shared between a seam-crossing and a non-seam face.
+│   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart.
+│   ├── impls detect seam-crossing faces via per-face u-span over verts_uvs[faces_uvs[f]] > 0.5
+│   ├── impls shift small-u corners of each seam-crossing face by +1
+│   ├── impls fork a source vt row into two when one row is shared by a seam-crossing face and a non-seam face (the seam-crossing copy receives +1, the non-seam copy stays)
 │   └── return                                              # (verts_uvs_canonical, faces_uvs_canonical) with U' >= U
 ├── def _resolve_input_path(path: Union[str, Path]) -> Path
 │   ├── # Resolves a mesh path to exactly one OBJ file.
@@ -317,7 +329,10 @@ data/structures/three_d/mesh/save.py
 │   ├── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
 │   └── calls _collapse_seam_shifted_uv_rows                  # seam-safe canonical -> OBJ vt structure
 ├── def _collapse_seam_shifted_uv_rows(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   ├── # Collapses seam-shifted UV rows back to the OBJ vt structure by detecting (u, v) / (u - 1, v) sibling pairs and emitting one vt entry referenced by both face-corner indices.
+│   ├── # Collapses seam-shifted UV rows back to the OBJ vt structure.
+│   ├── impls detect canonical sibling pairs at (u, v) and (u - 1, v) within verts_uvs
+│   ├── impls emit one OBJ vt entry per pair and repoint both face-corner indices in faces_uvs to that entry
+│   ├── impls wrap u mod 1 for any canonical row without a sibling
 │   └── return                                              # (obj_vt_table, obj_faces_uvs) with U_obj <= U_canonical
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
 │   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
