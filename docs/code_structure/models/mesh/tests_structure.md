@@ -17,8 +17,11 @@ tests/models/three_d/meshes/texture/
 
 ```text
 tests/models/three_d/meshes/texture/test_extract.py
+├── def _build_texel_face_map_stub(texture_size: int, face_count: int=1) -> Dict[str, torch.Tensor]
+│   └── # Build a uniform fully-occupied texel_face_map assigning every texel to face 0 with centroid barycentrics.
 ├── def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None
-│   └── # compute_f_visibility_mask keeps UV visibility masks in `[1, T, T, 1]` layout.
+│   ├── # compute_f_visibility_mask keeps UV visibility masks in `[1, T, T, 1]` layout.
+│   └── calls _build_texel_face_map_stub
 ├── def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None
 │   └── # compute_f_visibility_mask marks visible texels using exact camera-pixel footprints on a one-pixel image.
 ├── def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face() -> None
@@ -53,8 +56,11 @@ tests/models/three_d/meshes/texture/test_extract.py
 tests/models/three_d/meshes/texture/test_texel_visibility_v2.py
 ├── def _build_one_camera() -> Cameras
 │   └── # Build one identity OpenCV CPU camera for the focused v2 visibility tests.
+├── def _build_texel_face_map_with_three_texels(face_index: int, occupied_positions: tuple) -> Dict[str, torch.Tensor]
+│   └── # Build a [2, 2] texel_face_map assigning the given (row, col) positions to the given face with centroid barycentrics.
 ├── def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face() -> None
-│   └── # compute_f_visibility_mask_v2 keeps the texel-center pipeline consistent on one identity face.
+│   ├── # compute_f_visibility_mask_v2 keeps the texel-center pipeline consistent on one identity face.
+│   └── calls _build_texel_face_map_with_three_texels
 ├── def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None
 │   └── # compute_f_visibility_mask_v2 drops texels whose owning face is back-facing in the view.
 ├── def test_select_visible_depth_clusters_per_camera_pixel_stops_at_first_large_gap() -> None
