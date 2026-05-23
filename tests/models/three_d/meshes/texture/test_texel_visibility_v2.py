@@ -31,6 +31,34 @@ def _build_one_camera() -> Cameras:
     )
 
 
+def _build_texel_face_map_with_three_texels(
+    face_index: int,
+    occupied_positions: tuple,
+) -> Dict[str, torch.Tensor]:
+    """Build one [2, 2] texel_face_map where the given (row, col) positions own the given face.
+
+    Args:
+        face_index: Mesh-face index to assign on every occupied texel.
+        occupied_positions: Iterable of `(row, col)` texel coordinates.
+
+    Returns:
+        Dict with `texel_face_index` `[2, 2]` int64 (`-1` at unoccupied
+        texels) and `texel_face_barycentric` `[2, 2, 3]` float32.
+    """
+
+    texel_face_index = torch.full((2, 2), fill_value=-1, dtype=torch.int64)
+    texel_face_barycentric = torch.zeros((2, 2, 3), dtype=torch.float32)
+    for row, col in occupied_positions:
+        texel_face_index[row, col] = int(face_index)
+        texel_face_barycentric[row, col] = torch.tensor(
+            [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], dtype=torch.float32
+        )
+    return {
+        "texel_face_index": texel_face_index,
+        "texel_face_barycentric": texel_face_barycentric,
+    }
+
+
 def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face() -> (
     None
 ):
@@ -52,8 +80,22 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
         dtype=torch.float32,
     )
     faces = torch.tensor([[0, 2, 1]], dtype=torch.long)
+    face_verts_uvs = torch.tensor(
+        [
+            [
+                [0.0, 0.0],
+                [0.0, 1.0],
+                [1.0, 0.0],
+            ],
+        ],
+        dtype=torch.float32,
+    )
     cameras = _build_one_camera()
-    uv_mask = torch.tensor(
+    texel_face_map = _build_texel_face_map_with_three_texels(
+        face_index=0,
+        occupied_positions=((0, 0), (0, 1), (1, 0)),
+    )
+    expected_uv_mask = torch.tensor(
         [
             [
                 [[1.0], [1.0]],
@@ -62,38 +104,22 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
         ],
         dtype=torch.float32,
     )
-    rast_out = torch.zeros((1, 2, 2, 4), dtype=torch.float32)
-    rast_out[0, 0, 0, 3] = 1.0
-    rast_out[0, 0, 1, 3] = 1.0
-    rast_out[0, 1, 0, 3] = 1.0
-    uv_rasterization_data: Dict[str, torch.Tensor] = {
-        "uv_mask": uv_mask,
-        "rast_out": rast_out,
-        "raster_face_indices": torch.tensor([0], dtype=torch.long),
-        "camera_attr_verts_uvs": torch.tensor(
-            [
-                [0.0, 0.0],
-                [0.0, 1.0],
-                [1.0, 0.0],
-            ],
-            dtype=torch.float32,
-        ),
-    }
 
     visibility_mask = compute_f_visibility_mask_v2(
         verts=verts,
         faces=faces,
+        face_verts_uvs=face_verts_uvs,
         camera=cameras,
         image_height=2,
         image_width=2,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
 
     assert visibility_mask.shape == (1, 2, 2, 1), f"{visibility_mask.shape=}"
-    assert torch.equal(visibility_mask, uv_mask), (
+    assert torch.equal(visibility_mask, expected_uv_mask), (
         "Expected the three occupied texels to stay visible under the identity "
         "UV-to-world mapping with one texel per camera pixel. "
-        f"{visibility_mask=} {uv_mask=}"
+        f"{visibility_mask=} {expected_uv_mask=}"
     )
 
 
@@ -116,44 +142,36 @@ def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
         dtype=torch.float32,
     )
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
-    cameras = _build_one_camera()
-    uv_mask = torch.tensor(
+    face_verts_uvs = torch.tensor(
         [
-            [
-                [[1.0], [1.0]],
-                [[1.0], [0.0]],
-            ]
-        ],
-        dtype=torch.float32,
-    )
-    rast_out = torch.zeros((1, 2, 2, 4), dtype=torch.float32)
-    rast_out[0, 0, 0, 3] = 1.0
-    rast_out[0, 0, 1, 3] = 1.0
-    rast_out[0, 1, 0, 3] = 1.0
-    uv_rasterization_data: Dict[str, torch.Tensor] = {
-        "uv_mask": uv_mask,
-        "rast_out": rast_out,
-        "raster_face_indices": torch.tensor([0], dtype=torch.long),
-        "camera_attr_verts_uvs": torch.tensor(
             [
                 [0.0, 0.0],
                 [1.0, 0.0],
                 [0.0, 1.0],
             ],
-            dtype=torch.float32,
-        ),
-    }
+        ],
+        dtype=torch.float32,
+    )
+    cameras = _build_one_camera()
+    texel_face_map = _build_texel_face_map_with_three_texels(
+        face_index=0,
+        occupied_positions=((0, 0), (0, 1), (1, 0)),
+    )
+    expected_visibility_mask = torch.zeros(
+        (1, 2, 2, 1),
+        dtype=torch.float32,
+    )
 
     visibility_mask = compute_f_visibility_mask_v2(
         verts=verts,
         faces=faces,
+        face_verts_uvs=face_verts_uvs,
         camera=cameras,
         image_height=2,
         image_width=2,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
 
-    expected_visibility_mask = torch.zeros_like(uv_mask)
     assert torch.equal(visibility_mask, expected_visibility_mask), (
         "Expected texels owned by a back-facing face to be removed before the "
         "camera-space visibility projection in v2. "

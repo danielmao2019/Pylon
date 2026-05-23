@@ -9,13 +9,12 @@ from models.three_d.meshes.texture.extract.camera_geometry import (
     _verts_world_to_camera,
 )
 from models.three_d.meshes.texture.extract.extract import (
-    _build_camera_uv_interpolation_data,
-    _build_uv_rasterization_data,
-    _build_uv_rasterization_mesh,
-    _compute_f_normals_weights,
     _extract_uv_texture_map_from_single_image,
     _extract_vertex_color_from_single_image,
     extract_texture_from_images,
+)
+from models.three_d.meshes.texture.extract.normal_weights import (
+    _compute_f_normals_weights,
 )
 from models.three_d.meshes.texture.extract.visibility import (
     compute_f_visibility_mask,
@@ -24,9 +23,6 @@ from models.three_d.meshes.texture.extract.visibility import (
 )
 
 __all__ = (
-    "_build_camera_uv_interpolation_data",
-    "_build_uv_rasterization_data",
-    "_build_uv_rasterization_mesh",
     "_camera_verts_to_clip",
     "_compute_f_normals_weights",
     "_extract_uv_texture_map_from_single_image",

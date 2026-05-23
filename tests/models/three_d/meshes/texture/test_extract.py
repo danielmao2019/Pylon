@@ -1,4 +1,4 @@
-"""Tests for seam-safe UV rasterization helpers."""
+"""Tests for the UV-texture extraction pipeline."""
 
 from typing import Any, Dict
 
@@ -11,10 +11,8 @@ from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
+from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 from models.three_d.meshes.texture.extract import (
-    _build_camera_uv_interpolation_data,
-    _build_uv_rasterization_data,
-    _build_uv_rasterization_mesh,
     compute_f_visibility_mask,
     extract_texture_from_images,
 )
@@ -27,171 +25,34 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
 )
 
 
-def test_build_uv_rasterization_mesh_duplicates_seam_crossing_face() -> None:
-    """Split a cylindrical seam face into two UV triangles."""
-
-    verts_uvs = torch.tensor(
-        [
-            [0.99, 0.20],
-            [0.01, 0.25],
-            [0.02, 0.80],
-        ],
-        dtype=torch.float32,
-    )
-    faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
-
-    uv_rasterization_mesh = _build_uv_rasterization_mesh(
-        verts_uvs=verts_uvs,
-        faces=faces,
-    )
-
-    assert torch.equal(
-        uv_rasterization_mesh["tri_i32"],
-        torch.tensor([[0, 1, 2], [3, 4, 5]], dtype=torch.int32),
-    ), f"{uv_rasterization_mesh['tri_i32']=}"
-    assert torch.equal(
-        uv_rasterization_mesh["raster_vertex_indices"],
-        torch.tensor([0, 1, 2, 0, 1, 2], dtype=torch.long),
-    ), f"{uv_rasterization_mesh['raster_vertex_indices']=}"
-    assert torch.equal(
-        uv_rasterization_mesh["raster_face_indices"],
-        torch.tensor([0, 0], dtype=torch.long),
-    ), f"{uv_rasterization_mesh['raster_face_indices']=}"
-    assert torch.allclose(
-        uv_rasterization_mesh["raster_verts_uvs"][:3],
-        torch.tensor(
-            [
-                [0.99, 0.20],
-                [1.01, 0.25],
-                [1.02, 0.80],
-            ],
-            dtype=torch.float32,
-        ),
-    ), f"{uv_rasterization_mesh['raster_verts_uvs']=}"
-    assert torch.allclose(
-        uv_rasterization_mesh["raster_verts_uvs"][3:],
-        torch.tensor(
-            [
-                [-0.01, 0.20],
-                [0.01, 0.25],
-                [0.02, 0.80],
-            ],
-            dtype=torch.float32,
-        ),
-    ), f"{uv_rasterization_mesh['raster_verts_uvs']=}"
-
-
-def test_build_uv_rasterization_mesh_keeps_non_seam_face_single() -> None:
-    """Leave a non-seam face as one UV triangle."""
-
-    verts_uvs = torch.tensor(
-        [
-            [0.20, 0.10],
-            [0.30, 0.15],
-            [0.25, 0.90],
-        ],
-        dtype=torch.float32,
-    )
-    faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
-
-    uv_rasterization_mesh = _build_uv_rasterization_mesh(
-        verts_uvs=verts_uvs,
-        faces=faces,
-    )
-
-    assert torch.equal(
-        uv_rasterization_mesh["tri_i32"],
-        torch.tensor([[0, 1, 2]], dtype=torch.int32),
-    ), f"{uv_rasterization_mesh['tri_i32']=}"
-    assert torch.equal(
-        uv_rasterization_mesh["raster_vertex_indices"],
-        torch.tensor([0, 1, 2], dtype=torch.long),
-    ), f"{uv_rasterization_mesh['raster_vertex_indices']=}"
-    assert torch.equal(
-        uv_rasterization_mesh["raster_face_indices"],
-        torch.tensor([0], dtype=torch.long),
-    ), f"{uv_rasterization_mesh['raster_face_indices']=}"
-    assert torch.allclose(
-        uv_rasterization_mesh["raster_verts_uvs"],
-        verts_uvs,
-    ), f"{uv_rasterization_mesh['raster_verts_uvs']=} {verts_uvs=}"
-
-
-def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None:
-    """Shift one seam face into one continuous UV chart for camera interpolation.
+def _build_texel_face_map_stub(
+    texture_size: int,
+    face_count: int = 1,
+) -> Dict[str, torch.Tensor]:
+    """Build a uniform fully-occupied texel_face_map for face 0 on CPU.
 
     Args:
-        None.
+        texture_size: Side length T.
+        face_count: Number of mesh faces (unused except for sanity).
 
     Returns:
-        None.
+        Dict matching the `build_texel_face_map` contract; every texel is
+        assigned to face 0 with centroid barycentrics.
     """
 
-    verts_uvs = torch.tensor(
-        [
-            [0.99, 0.20],
-            [0.01, 0.25],
-            [0.02, 0.80],
-        ],
+    assert face_count >= 1, f"{face_count=}"
+    texel_face_index = torch.zeros(
+        (texture_size, texture_size), dtype=torch.int64
+    )
+    texel_face_barycentric = torch.full(
+        (texture_size, texture_size, 3),
+        fill_value=1.0 / 3.0,
         dtype=torch.float32,
     )
-    faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
-
-    camera_uv_interpolation_data = _build_camera_uv_interpolation_data(
-        verts_uvs=verts_uvs,
-        faces=faces,
-    )
-
-    assert torch.equal(
-        camera_uv_interpolation_data["camera_attr_tri_i32"],
-        torch.tensor([[0, 1, 2]], dtype=torch.int32),
-    ), f"{camera_uv_interpolation_data['camera_attr_tri_i32']=}"
-    assert torch.allclose(
-        camera_uv_interpolation_data["camera_attr_verts_uvs"],
-        torch.tensor(
-            [
-                [0.99, 0.20],
-                [1.01, 0.25],
-                [1.02, 0.80],
-            ],
-            dtype=torch.float32,
-        ),
-    ), f"{camera_uv_interpolation_data['camera_attr_verts_uvs']=}"
-
-
-def test_verts_uvs_to_clip_uses_rasterizer_buffer_v_mapping() -> None:
-    """Map small-`v` UV coordinates to negative clip-space `y`.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
-
-    verts_uvs = torch.tensor(
-        [
-            [0.25, 0.00],
-            [0.75, 1.00],
-        ],
-        dtype=torch.float32,
-    )
-
-    uv_clip = extract_module._verts_uvs_to_clip(verts_uvs=verts_uvs)
-
-    assert uv_clip.shape == (1, 2, 4), f"{uv_clip.shape=}"
-    assert torch.allclose(
-        uv_clip[0, :, :2],
-        torch.tensor(
-            [
-                [-0.50, -1.00],
-                [0.50, 1.00],
-            ],
-            dtype=torch.float32,
-        ),
-        atol=1.0e-6,
-        rtol=0.0,
-    ), f"{uv_clip=}"
+    return {
+        "texel_face_index": texel_face_index,
+        "texel_face_barycentric": texel_face_barycentric,
+    }
 
 
 def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
@@ -213,32 +74,32 @@ def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
         dtype=torch.float32,
     )
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
+    face_verts_uvs = torch.tensor(
+        [
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0],
+            ],
+        ],
+        dtype=torch.float32,
+    )
     cameras = Cameras(
         intrinsics=[torch.eye(3, dtype=torch.float32)],
         extrinsics=[torch.eye(4, dtype=torch.float32)],
         conventions=["opencv"],
         device="cpu",
     )
-    uv_rasterization_data = {
-        "uv_mask": torch.ones((1, 2, 2, 1), dtype=torch.float32),
-        "camera_attr_verts_uvs": torch.tensor(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [0.0, 1.0],
-            ],
-            dtype=torch.float32,
-        ),
-        "camera_attr_tri_i32": torch.tensor([[0, 1, 2]], dtype=torch.int32),
-    }
+    texel_face_map = _build_texel_face_map_stub(texture_size=2)
 
     visibility_mask = compute_f_visibility_mask(
         verts=verts,
         faces=faces,
+        face_verts_uvs=face_verts_uvs,
         camera=cameras,
         image_height=2,
         image_width=2,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
 
     assert visibility_mask.shape == (1, 2, 2, 1), f"{visibility_mask.shape=}"
@@ -256,36 +117,35 @@ def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
         dtype=torch.float32,
     )
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
+    face_verts_uvs = torch.tensor(
+        [
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0],
+            ],
+        ],
+        dtype=torch.float32,
+    )
     cameras = Cameras(
         intrinsics=[torch.eye(3, dtype=torch.float32)],
         extrinsics=[torch.eye(4, dtype=torch.float32)],
         conventions=["opencv"],
         device="cpu",
     )
-    uv_rasterization_data = {
-        "uv_mask": torch.ones((1, 2, 2, 1), dtype=torch.float32),
-        "camera_attr_verts_uvs": torch.tensor(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [0.0, 1.0],
-            ],
-            dtype=torch.float32,
-        ),
-        "camera_attr_tri_i32": torch.tensor([[0, 1, 2]], dtype=torch.int32),
-    }
+    texel_face_map = _build_texel_face_map_stub(texture_size=2)
 
     visibility_mask = compute_f_visibility_mask(
         verts=verts,
         faces=faces,
+        face_verts_uvs=face_verts_uvs,
         camera=cameras,
         image_height=1,
         image_width=1,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
 
     assert visibility_mask.shape == (1, 2, 2, 1), f"{visibility_mask.shape=}"
-    assert torch.any(visibility_mask > 0.0), f"{visibility_mask=}"
     assert torch.any(visibility_mask > 0.0), f"{visibility_mask=}"
 
 
@@ -470,7 +330,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         [
             [0.20, 0.05],
             [0.50, 0.25],
-            [0.80, 0.05],
+            [0.40, 0.45],
         ],
         device=device,
         dtype=torch.float32,
@@ -481,35 +341,33 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         conventions=["opencv"],
         device=device,
     )
-    uv_rasterization_data = _build_uv_rasterization_data(
-        mesh=Mesh(
-            verts=verts,
-            faces=faces,
-            texture=MeshTextureUVTextureMap(
-                uv_texture_map=torch.zeros(
-                    (1, 1, 3), dtype=torch.float32, device=device
-                ),
-                verts_uvs=verts_uvs,
-                faces_uvs=faces,
-                convention="obj",
+    mesh = Mesh(
+        verts=verts,
+        faces=faces,
+        texture=MeshTextureUVTextureMap(
+            uv_texture_map=torch.zeros(
+                (1, 1, 3), dtype=torch.float32, device=device
             ),
+            verts_uvs=verts_uvs,
+            faces_uvs=faces,
+            convention="obj",
         ),
-        texture_size=64,
     )
+    texel_face_map = build_texel_face_map(mesh=mesh, texture_size=64)
+    face_verts_uvs = verts_uvs[faces].contiguous()
 
     visibility_mask = compute_f_visibility_mask(
         verts=verts,
         faces=faces,
+        face_verts_uvs=face_verts_uvs,
         camera=cameras,
         image_height=8,
         image_width=8,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
+    occupied_texel_count = float((texel_face_map["texel_face_index"] >= 0).sum().item())
     coverage_fraction = float(
-        (
-            visibility_mask.sum()
-            / torch.clamp(uv_rasterization_data["uv_mask"].sum(), min=1.0)
-        ).item()
+        (visibility_mask.sum() / max(occupied_texel_count, 1.0)).item()
     )
 
     assert coverage_fraction > 0.9, f"{coverage_fraction=}"
@@ -870,7 +728,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
         image: torch.Tensor,
         camera: Cameras,
         weights_cfg: Dict[str, Any],
-        uv_rasterization_data: Dict[str, torch.Tensor],
+        texel_face_map: Dict[str, torch.Tensor],
         polygon_rast_method: str | None = None,
         texel_visibility_method: str | None = None,
     ) -> Dict[str, torch.Tensor]:
@@ -878,9 +736,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
         assert isinstance(image, torch.Tensor), f"{type(image)=}"
         assert isinstance(camera, Cameras), f"{type(camera)=}"
         assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
+        assert isinstance(texel_face_map, dict), f"{type(texel_face_map)=}"
         assert isinstance(polygon_rast_method, str) or isinstance(
             texel_visibility_method, str
         ), (
@@ -929,8 +785,8 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
             verts_uvs=torch.tensor(
                 [
                     [0.0, 0.0],
-                    [1.0, 0.0],
-                    [0.0, 1.0],
+                    [0.5, 0.0],
+                    [0.0, 0.5],
                 ],
                 dtype=torch.float32,
             ),
@@ -945,14 +801,14 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
         conventions=["opencv"],
         device="cpu",
     )
-    uv_rasterization_data = {"uv_mask": torch.ones((1, 2, 1, 1), dtype=torch.float32)}
+    texel_face_map = _build_texel_face_map_stub(texture_size=2)
 
     extracted_uv_texture_map = extract_module._extract_uv_texture_map_from_single_image(
         mesh=mesh,
         image=image,
         camera=camera,
         weights_cfg={"weights": "visible"},
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
         polygon_rast_method="v2",
     )
 
@@ -996,20 +852,20 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         None.
     """
 
-    def _fake_build_uv_rasterization_data(
+    def _fake_build_texel_face_map(
         mesh: Mesh,
         texture_size: int,
     ) -> Dict[str, torch.Tensor]:
         assert isinstance(mesh, Mesh), f"{type(mesh)=}"
         assert isinstance(texture_size, int), f"{type(texture_size)=}"
-        return {"uv_mask": torch.ones((1, 2, 1, 1), dtype=torch.float32)}
+        return _build_texel_face_map_stub(texture_size=texture_size)
 
     def _fake_extract_uv_texture_map_from_single_image(
         mesh: Mesh,
         image: torch.Tensor,
         camera: Cameras,
         weights_cfg: Dict[str, Any],
-        uv_rasterization_data: Dict[str, torch.Tensor],
+        texel_face_map: Dict[str, torch.Tensor],
         polygon_rast_method: str | None = None,
         texel_visibility_method: str | None = None,
     ) -> Dict[str, torch.Tensor]:
@@ -1017,9 +873,7 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         assert isinstance(image, torch.Tensor), f"{type(image)=}"
         assert isinstance(camera, Cameras), f"{type(camera)=}"
         assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
+        assert isinstance(texel_face_map, dict), f"{type(texel_face_map)=}"
         assert isinstance(polygon_rast_method, str) or isinstance(
             texel_visibility_method, str
         ), (
@@ -1049,8 +903,8 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
 
     monkeypatch.setattr(
         extract_module,
-        "_build_uv_rasterization_data",
-        _fake_build_uv_rasterization_data,
+        "build_texel_face_map",
+        _fake_build_texel_face_map,
     )
     monkeypatch.setattr(
         extract_module,
@@ -1073,8 +927,8 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
             verts_uvs=torch.tensor(
                 [
                     [0.0, 0.0],
-                    [1.0, 0.0],
-                    [0.0, 1.0],
+                    [0.5, 0.0],
+                    [0.0, 0.5],
                 ],
                 dtype=torch.float32,
             ),

@@ -24,20 +24,25 @@ FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER = 3.0
 def compute_f_visibility_mask_v2(
     verts: torch.Tensor,
     faces: torch.Tensor,
+    face_verts_uvs: torch.Tensor,
     camera: Cameras,
     image_height: int,
     image_width: int,
-    uv_rasterization_data: Dict[str, torch.Tensor],
+    texel_face_map: Dict[str, torch.Tensor],
 ) -> torch.Tensor:
     """Compute one-view UV-pixel visibility mask from projected texel centers.
 
     Args:
         verts: Mesh verts `[V, 3]`.
         faces: Mesh faces `[F, 3]`.
+        face_verts_uvs: Seam-safe per-face UV triangles `[F, 3, 2]`.
         camera: One camera instance.
         image_height: Image height in pixels.
         image_width: Image width in pixels.
-        uv_rasterization_data: Precomputed UV rasterization tensors.
+        texel_face_map: Texel -> mesh-face correspondence dict from
+            `build_texel_face_map` with keys `"texel_face_index"` `[T, T]`
+            int64 (`-1` at unoccupied texels) and `"texel_face_barycentric"`
+            `[T, T, 3]` float32.
 
     Returns:
         Float tensor `[1, T, T, 1]` with values in `{0, 1}`.
@@ -54,52 +59,62 @@ def compute_f_visibility_mask_v2(
         """
         assert isinstance(verts, torch.Tensor), f"{type(verts)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
+        assert isinstance(face_verts_uvs, torch.Tensor), f"{type(face_verts_uvs)=}"
         assert isinstance(camera, Cameras), f"{type(camera)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
+        assert isinstance(texel_face_map, dict), f"{type(texel_face_map)=}"
         assert verts.ndim == 2, f"{verts.shape=}"
         assert verts.shape[1] == 3, f"{verts.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
         assert faces.dtype == torch.long, f"{faces.dtype=}"
+        assert face_verts_uvs.ndim == 3, f"{face_verts_uvs.shape=}"
+        assert face_verts_uvs.shape == (faces.shape[0], 3, 2), (
+            "Expected `face_verts_uvs` to align with `faces` as `[F, 3, 2]`. "
+            f"{face_verts_uvs.shape=} {faces.shape=}"
+        )
+        assert face_verts_uvs.dtype == torch.float32, f"{face_verts_uvs.dtype=}"
         assert len(camera) == 1, f"{len(camera)=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
-        assert "uv_mask" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
-        assert "rast_out" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
-        assert (
-            "raster_face_indices" in uv_rasterization_data
-        ), f"{uv_rasterization_data.keys()=}"
-        assert (
-            "camera_attr_verts_uvs" in uv_rasterization_data
-        ), f"{uv_rasterization_data.keys()=}"
+        assert "texel_face_index" in texel_face_map, f"{texel_face_map.keys()=}"
         assert isinstance(
-            uv_rasterization_data["uv_mask"], torch.Tensor
-        ), f"{type(uv_rasterization_data['uv_mask'])=}"
+            texel_face_map["texel_face_index"], torch.Tensor
+        ), f"{type(texel_face_map['texel_face_index'])=}"
         assert (
-            uv_rasterization_data["uv_mask"].dtype == torch.float32
-        ), f"{uv_rasterization_data['uv_mask'].dtype=}"
+            texel_face_map["texel_face_index"].dtype == torch.int64
+        ), f"{texel_face_map['texel_face_index'].dtype=}"
         assert (
-            uv_rasterization_data["uv_mask"].shape[0] == 1
-        ), f"{uv_rasterization_data['uv_mask'].shape=}"
+            texel_face_map["texel_face_index"].ndim == 2
+        ), f"{texel_face_map['texel_face_index'].shape=}"
         assert (
-            uv_rasterization_data["uv_mask"].shape[3] == 1
-        ), f"{uv_rasterization_data['uv_mask'].shape=}"
+            texel_face_map["texel_face_index"].shape[0]
+            == texel_face_map["texel_face_index"].shape[1]
+        ), f"{texel_face_map['texel_face_index'].shape=}"
         assert verts.device == faces.device, (
             "Expected `verts` and `faces` to share a device. "
-            f"{verts.device=} {faces.device=}."
+            f"{verts.device=} {faces.device=}"
         )
-        assert verts.device == uv_rasterization_data["uv_mask"].device, (
-            "Expected `verts` and `uv_rasterization_data['uv_mask']` to share a "
-            f"device. {verts.device=} {uv_rasterization_data['uv_mask'].device=}."
+        assert verts.device == face_verts_uvs.device, (
+            "Expected `verts` and `face_verts_uvs` to share a device. "
+            f"{verts.device=} {face_verts_uvs.device=}"
+        )
+        assert verts.device == texel_face_map["texel_face_index"].device, (
+            "Expected `verts` and `texel_face_map['texel_face_index']` to share "
+            f"a device. {verts.device=} {texel_face_map['texel_face_index'].device=}"
         )
 
     _validate_inputs()
 
-    valid_texel_mask = uv_rasterization_data["uv_mask"]
+    texel_face_index = texel_face_map["texel_face_index"]
+    valid_texel_mask = (
+        (texel_face_index >= 0)
+        .to(dtype=torch.float32)
+        .unsqueeze(0)
+        .unsqueeze(-1)
+        .contiguous()
+    )
 
     (
         valid_texel_indices,
@@ -113,7 +128,8 @@ def compute_f_visibility_mask_v2(
     ) = _map_continuous_uv_coords_to_barycentric_coords(
         continuous_uv_coords=continuous_uv_coords,
         valid_texel_indices=valid_texel_indices,
-        uv_rasterization_data=uv_rasterization_data,
+        face_verts_uvs=face_verts_uvs,
+        texel_face_map=texel_face_map,
     )
     (
         valid_texel_indices,
@@ -203,14 +219,18 @@ def _map_valid_texels_to_continuous_uv_coords(
 def _map_continuous_uv_coords_to_barycentric_coords(
     continuous_uv_coords: torch.Tensor,
     valid_texel_indices: torch.Tensor,
-    uv_rasterization_data: Dict[str, torch.Tensor],
+    face_verts_uvs: torch.Tensor,
+    texel_face_map: Dict[str, torch.Tensor],
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Map continuous UV coordinates to owning-face barycentric coordinates.
 
     Args:
         continuous_uv_coords: Continuous UV texel-center coordinates `[N, 2]`.
         valid_texel_indices: Valid texel indices `[N, 2]` in `(y, x)` order.
-        uv_rasterization_data: Precomputed UV rasterization tensors.
+        face_verts_uvs: Seam-safe per-face UV triangles `[F, 3, 2]`.
+        texel_face_map: Texel -> mesh-face correspondence dict from
+            `build_texel_face_map` with key `"texel_face_index"` `[T, T]`
+            int64 (`-1` at unoccupied texels).
 
     Returns:
         Tuple of:
@@ -233,9 +253,8 @@ def _map_continuous_uv_coords_to_barycentric_coords(
         assert isinstance(
             valid_texel_indices, torch.Tensor
         ), f"{type(valid_texel_indices)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
+        assert isinstance(face_verts_uvs, torch.Tensor), f"{type(face_verts_uvs)=}"
+        assert isinstance(texel_face_map, dict), f"{type(texel_face_map)=}"
         assert continuous_uv_coords.ndim == 2, f"{continuous_uv_coords.shape=}"
         assert continuous_uv_coords.shape[1] == 2, f"{continuous_uv_coords.shape=}"
         assert (
@@ -247,70 +266,34 @@ def _map_continuous_uv_coords_to_barycentric_coords(
         assert (
             continuous_uv_coords.shape[0] == valid_texel_indices.shape[0]
         ), f"{continuous_uv_coords.shape=} {valid_texel_indices.shape=}"
-        assert "rast_out" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
-        assert (
-            "raster_face_indices" in uv_rasterization_data
-        ), f"{uv_rasterization_data.keys()=}"
-        assert (
-            "camera_attr_verts_uvs" in uv_rasterization_data
-        ), f"{uv_rasterization_data.keys()=}"
+        assert face_verts_uvs.ndim == 3, f"{face_verts_uvs.shape=}"
+        assert face_verts_uvs.shape[1] == 3, f"{face_verts_uvs.shape=}"
+        assert face_verts_uvs.shape[2] == 2, f"{face_verts_uvs.shape=}"
+        assert face_verts_uvs.dtype == torch.float32, f"{face_verts_uvs.dtype=}"
+        assert "texel_face_index" in texel_face_map, f"{texel_face_map.keys()=}"
         assert isinstance(
-            uv_rasterization_data["rast_out"], torch.Tensor
-        ), f"{type(uv_rasterization_data['rast_out'])=}"
-        assert isinstance(
-            uv_rasterization_data["raster_face_indices"], torch.Tensor
-        ), f"{type(uv_rasterization_data['raster_face_indices'])=}"
-        assert isinstance(
-            uv_rasterization_data["camera_attr_verts_uvs"], torch.Tensor
-        ), f"{type(uv_rasterization_data['camera_attr_verts_uvs'])=}"
+            texel_face_map["texel_face_index"], torch.Tensor
+        ), f"{type(texel_face_map['texel_face_index'])=}"
         assert (
-            uv_rasterization_data["rast_out"].dtype == torch.float32
-        ), f"{uv_rasterization_data['rast_out'].dtype=}"
+            texel_face_map["texel_face_index"].dtype == torch.int64
+        ), f"{texel_face_map['texel_face_index'].dtype=}"
         assert (
-            uv_rasterization_data["raster_face_indices"].dtype == torch.long
-        ), f"{uv_rasterization_data['raster_face_indices'].dtype=}"
+            texel_face_map["texel_face_index"].ndim == 2
+        ), f"{texel_face_map['texel_face_index'].shape=}"
         assert (
-            uv_rasterization_data["camera_attr_verts_uvs"].dtype == torch.float32
-        ), f"{uv_rasterization_data['camera_attr_verts_uvs'].dtype=}"
-        assert (
-            uv_rasterization_data["rast_out"].shape[0] == 1
-        ), f"{uv_rasterization_data['rast_out'].shape=}"
-        assert (
-            uv_rasterization_data["rast_out"].shape[3] == 4
-        ), f"{uv_rasterization_data['rast_out'].shape=}"
-        assert (
-            uv_rasterization_data["camera_attr_verts_uvs"].ndim == 2
-        ), f"{uv_rasterization_data['camera_attr_verts_uvs'].shape=}"
-        assert (
-            uv_rasterization_data["camera_attr_verts_uvs"].shape[1] == 2
-        ), f"{uv_rasterization_data['camera_attr_verts_uvs'].shape=}"
-        assert (
-            uv_rasterization_data["camera_attr_verts_uvs"].shape[0] % 3 == 0
-        ), f"{uv_rasterization_data['camera_attr_verts_uvs'].shape=}"
-        assert (
-            continuous_uv_coords.device == uv_rasterization_data["rast_out"].device
+            continuous_uv_coords.device == face_verts_uvs.device
         ), (
-            "Expected `continuous_uv_coords` and `uv_rasterization_data['rast_out']` "
-            f"to share a device. {continuous_uv_coords.device=} "
-            f"{uv_rasterization_data['rast_out'].device=}."
+            "Expected `continuous_uv_coords` and `face_verts_uvs` to share a "
+            f"device. {continuous_uv_coords.device=} {face_verts_uvs.device=}"
         )
         assert (
             continuous_uv_coords.device
-            == uv_rasterization_data["raster_face_indices"].device
+            == texel_face_map["texel_face_index"].device
         ), (
             "Expected `continuous_uv_coords` and "
-            "`uv_rasterization_data['raster_face_indices']` to share a device. "
+            "`texel_face_map['texel_face_index']` to share a device. "
             f"{continuous_uv_coords.device=} "
-            f"{uv_rasterization_data['raster_face_indices'].device=}."
-        )
-        assert (
-            continuous_uv_coords.device
-            == uv_rasterization_data["camera_attr_verts_uvs"].device
-        ), (
-            "Expected `continuous_uv_coords` and "
-            "`uv_rasterization_data['camera_attr_verts_uvs']` to share a device. "
-            f"{continuous_uv_coords.device=} "
-            f"{uv_rasterization_data['camera_attr_verts_uvs'].device=}."
+            f"{texel_face_map['texel_face_index'].device=}"
         )
 
     _validate_inputs()
@@ -323,33 +306,23 @@ def _map_continuous_uv_coords_to_barycentric_coords(
             ),
         )
 
-    rast_out = uv_rasterization_data["rast_out"]
-    raster_face_indices = uv_rasterization_data["raster_face_indices"]
-    camera_attr_verts_uvs = uv_rasterization_data["camera_attr_verts_uvs"]
-
-    uv_triangle_indices_float = rast_out[
-        0,
+    texel_face_index = texel_face_map["texel_face_index"]
+    texel_face_indices = texel_face_index[
         valid_texel_indices[:, 0],
         valid_texel_indices[:, 1],
-        3,
     ]
-    assert (
-        uv_triangle_indices_float.dtype == torch.float32
-    ), f"{uv_triangle_indices_float.dtype=}"
-    uv_triangle_indices = uv_triangle_indices_float.to(dtype=torch.long) - 1
-    assert torch.all(uv_triangle_indices >= 0), (
-        "Expected all valid texels to map to an owning UV triangle. "
-        f"{uv_triangle_indices.min()=}"
+    assert torch.all(texel_face_indices >= 0), (
+        "Expected all valid texels to map to a mesh face. "
+        f"{int(texel_face_indices.min().item())=}"
     )
-    texel_face_indices = raster_face_indices[uv_triangle_indices]
-    face_verts_uvs = camera_attr_verts_uvs.reshape(-1, 3, 2)[texel_face_indices]
+    per_texel_face_verts_uvs = face_verts_uvs[texel_face_indices]
     wrapped_continuous_uv_coords = _wrap_continuous_uv_coords_for_faces(
         continuous_uv_coords=continuous_uv_coords,
-        face_verts_uvs=face_verts_uvs,
+        face_verts_uvs=per_texel_face_verts_uvs,
     )
     barycentric_coords = _compute_barycentric_coords_in_uv_faces(
         continuous_uv_coords=wrapped_continuous_uv_coords,
-        face_verts_uvs=face_verts_uvs,
+        face_verts_uvs=per_texel_face_verts_uvs,
     )
     return texel_face_indices.contiguous(), barycentric_coords
 
