@@ -175,29 +175,29 @@ def _create_vertex_color_mesh_display(
     def _normalize_inputs() -> (
         Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, object]]
     ):
-        normalized_vertices = mesh.vertices.detach().cpu().numpy()
+        normalized_verts = mesh.verts.detach().cpu().numpy()
         normalized_faces = mesh.faces.detach().cpu().numpy()
         normalized_vertex_colors = _normalize_rgb_tensor_to_uint8(
             rgb_values=mesh.texture.vertex_color
         )
         normalized_mesh_view_bounds = build_mesh_view_bounds(
-            vertices=mesh.vertices,
+            verts=mesh.verts,
         )
         return (
-            normalized_vertices,
+            normalized_verts,
             normalized_faces,
             normalized_vertex_colors,
             normalized_mesh_view_bounds,
         )
 
-    vertices_np, faces_np, vertex_colors, mesh_view_bounds = _normalize_inputs()
+    verts_np, faces_np, vertex_colors, mesh_view_bounds = _normalize_inputs()
 
     figure = go.Figure(
         data=[
             go.Mesh3d(
-                x=vertices_np[:, 0],
-                y=vertices_np[:, 1],
-                z=vertices_np[:, 2],
+                x=verts_np[:, 0],
+                y=verts_np[:, 1],
+                z=verts_np[:, 2],
                 i=faces_np[:, 0],
                 j=faces_np[:, 1],
                 k=faces_np[:, 2],
@@ -277,19 +277,19 @@ def _create_uv_texture_mesh_display(
 
     def _normalize_inputs() -> Tuple[List[float], List[float], str, Dict[str, object]]:
         display_mesh = mesh.to(convention="obj")
-        normalized_vertices = display_mesh.vertices.detach().cpu().numpy()
+        normalized_verts = display_mesh.verts.detach().cpu().numpy()
         normalized_faces = display_mesh.faces.detach().cpu().numpy()
-        normalized_vertex_uv = display_mesh.texture.vertex_uv.detach().cpu().numpy()
-        normalized_face_uvs = display_mesh.texture.face_uvs.detach().cpu().numpy()
+        normalized_verts_uvs = display_mesh.texture.verts_uvs.detach().cpu().numpy()
+        normalized_faces_uvs = display_mesh.texture.faces_uvs.detach().cpu().numpy()
         normalized_mesh_view_bounds = build_mesh_view_bounds(
-            vertices=display_mesh.vertices,
+            verts=display_mesh.verts,
         )
         normalized_triangle_positions, normalized_triangle_uvs = (
             _build_textured_triangle_buffers(
-                vertices=normalized_vertices,
+                verts=normalized_verts,
                 faces=normalized_faces,
-                vertex_uv=normalized_vertex_uv,
-                face_uvs=normalized_face_uvs,
+                verts_uvs=normalized_verts_uvs,
+                faces_uvs=normalized_faces_uvs,
             )
         )
         normalized_texture_map = _normalize_texture_map_to_uint8(
@@ -387,12 +387,12 @@ def _normalize_component_id(
 
 
 def build_mesh_view_bounds(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
 ) -> Dict[str, object]:
-    """Build one renderer framing summary from raw mesh vertices.
+    """Build one renderer framing summary from raw mesh verts.
 
     Args:
-        vertices: Mesh vertex tensor with shape `[V, 3]`.
+        verts: Mesh vertex tensor with shape `[V, 3]`.
 
     Returns:
         Dict containing the raw bounds center, renderer camera-coordinate scale,
@@ -400,18 +400,18 @@ def build_mesh_view_bounds(
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(vertices, torch.Tensor), (
-            "Expected `vertices` to be a tensor. " f"{type(vertices)=}"
+        assert isinstance(verts, torch.Tensor), (
+            "Expected `verts` to be a tensor. " f"{type(verts)=}"
         )
-        assert vertices.ndim == 2 and vertices.shape[1] == 3, (
-            "Expected `vertices` shape `[V, 3]`. " f"{vertices.shape=}"
+        assert verts.ndim == 2 and verts.shape[1] == 3, (
+            "Expected `verts` shape `[V, 3]`. " f"{verts.shape=}"
         )
 
     _validate_inputs()
 
     def _normalize_inputs() -> Dict[str, object]:
-        min_corner = vertices.min(dim=0, keepdim=True).values
-        max_corner = vertices.max(dim=0, keepdim=True).values
+        min_corner = verts.min(dim=0, keepdim=True).values
+        max_corner = verts.max(dim=0, keepdim=True).values
         bounds_center = (min_corner + max_corner) / 2.0
         bounds_extent = max_corner - min_corner
         max_extent = float(bounds_extent.max().item())
@@ -619,32 +619,32 @@ def _rgb_to_css_color(
 
 
 def _build_textured_triangle_buffers(
-    vertices: np.ndarray,
+    verts: np.ndarray,
     faces: np.ndarray,
-    vertex_uv: np.ndarray,
-    face_uvs: np.ndarray,
+    verts_uvs: np.ndarray,
+    faces_uvs: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Build exploded triangle buffers for one UV-textured mesh.
 
     Args:
-        vertices: Mesh vertices with shape `(V, 3)`.
+        verts: Mesh verts with shape `(V, 3)`.
         faces: Triangle vertex indices with shape `(F, 3)`.
-        vertex_uv: UV coordinate table with shape `(T, 2)`.
-        face_uvs: Triangle UV indices with shape `(F, 3)`.
+        verts_uvs: UV coordinate table with shape `(T, 2)`.
+        faces_uvs: Triangle UV indices with shape `(F, 3)`.
 
     Returns:
         Flattened position buffer and flattened UV buffer.
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(vertices, np.ndarray), (
-            "Expected `vertices` to be a numpy array. " f"{type(vertices)=}"
+        assert isinstance(verts, np.ndarray), (
+            "Expected `verts` to be a numpy array. " f"{type(verts)=}"
         )
-        assert vertices.ndim == 2 and vertices.shape[1] == 3, (
-            "Expected `vertices` shape `(V, 3)`. " f"{vertices.shape=}"
+        assert verts.ndim == 2 and verts.shape[1] == 3, (
+            "Expected `verts` shape `(V, 3)`. " f"{verts.shape=}"
         )
-        assert np.issubdtype(vertices.dtype, np.floating), (
-            "Expected floating-point mesh vertices. " f"{vertices.dtype=}"
+        assert np.issubdtype(verts.dtype, np.floating), (
+            "Expected floating-point mesh verts. " f"{verts.dtype=}"
         )
 
         assert isinstance(faces, np.ndarray), (
@@ -657,47 +657,47 @@ def _build_textured_triangle_buffers(
             "Expected integer face indices. " f"{faces.dtype=}"
         )
 
-        assert isinstance(vertex_uv, np.ndarray), (
-            "Expected `vertex_uv` to be a numpy array. " f"{type(vertex_uv)=}"
+        assert isinstance(verts_uvs, np.ndarray), (
+            "Expected `verts_uvs` to be a numpy array. " f"{type(verts_uvs)=}"
         )
-        assert vertex_uv.ndim == 2 and vertex_uv.shape[1] == 2, (
-            "Expected `vertex_uv` shape `(T, 2)`. " f"{vertex_uv.shape=}"
+        assert verts_uvs.ndim == 2 and verts_uvs.shape[1] == 2, (
+            "Expected `verts_uvs` shape `(T, 2)`. " f"{verts_uvs.shape=}"
         )
-        assert np.issubdtype(vertex_uv.dtype, np.floating), (
-            "Expected floating-point UV coordinates. " f"{vertex_uv.dtype=}"
+        assert np.issubdtype(verts_uvs.dtype, np.floating), (
+            "Expected floating-point UV coordinates. " f"{verts_uvs.dtype=}"
         )
 
-        assert isinstance(face_uvs, np.ndarray), (
-            "Expected `face_uvs` to be a numpy array. " f"{type(face_uvs)=}"
+        assert isinstance(faces_uvs, np.ndarray), (
+            "Expected `faces_uvs` to be a numpy array. " f"{type(faces_uvs)=}"
         )
-        assert face_uvs.ndim == 2 and face_uvs.shape[1] == 3, (
-            "Expected `face_uvs` shape `(F, 3)`. " f"{face_uvs.shape=}"
+        assert faces_uvs.ndim == 2 and faces_uvs.shape[1] == 3, (
+            "Expected `faces_uvs` shape `(F, 3)`. " f"{faces_uvs.shape=}"
         )
-        assert np.issubdtype(face_uvs.dtype, np.integer), (
-            "Expected integer UV-face indices. " f"{face_uvs.dtype=}"
+        assert np.issubdtype(faces_uvs.dtype, np.integer), (
+            "Expected integer UV-face indices. " f"{faces_uvs.dtype=}"
         )
-        assert faces.shape[0] == face_uvs.shape[0], (
+        assert faces.shape[0] == faces_uvs.shape[0], (
             "Expected mesh faces and UV faces to have matching triangle counts. "
-            f"{faces.shape=} {face_uvs.shape=}"
+            f"{faces.shape=} {faces_uvs.shape=}"
         )
         assert int(faces.min()) >= 0, "Expected non-negative face indices. " f"{faces=}"
-        assert int(faces.max()) < vertices.shape[0], (
-            "Expected face indices to address `vertices`. "
-            f"{faces.max()=} {vertices.shape=}"
+        assert int(faces.max()) < verts.shape[0], (
+            "Expected face indices to address `verts`. "
+            f"{faces.max()=} {verts.shape=}"
         )
-        assert int(face_uvs.min()) >= 0, (
-            "Expected non-negative UV-face indices. " f"{face_uvs=}"
+        assert int(faces_uvs.min()) >= 0, (
+            "Expected non-negative UV-face indices. " f"{faces_uvs=}"
         )
-        assert int(face_uvs.max()) < vertex_uv.shape[0], (
-            "Expected UV-face indices to address `vertex_uv`. "
-            f"{face_uvs.max()=} {vertex_uv.shape=}"
+        assert int(faces_uvs.max()) < verts_uvs.shape[0], (
+            "Expected UV-face indices to address `verts_uvs`. "
+            f"{faces_uvs.max()=} {verts_uvs.shape=}"
         )
 
     _validate_inputs()
 
     def _normalize_inputs() -> Tuple[np.ndarray, np.ndarray]:
-        position_values = vertices[faces.reshape(-1)].reshape(-1)
-        uv_values = vertex_uv[face_uvs.reshape(-1)].reshape(-1)
+        position_values = verts[faces.reshape(-1)].reshape(-1)
+        uv_values = verts_uvs[faces_uvs.reshape(-1)].reshape(-1)
         return position_values, uv_values
 
     return _normalize_inputs()

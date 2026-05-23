@@ -43,7 +43,7 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
         None.
     """
 
-    vertices = torch.tensor(
+    verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
             [2.0, 0.0, 1.0],
@@ -70,7 +70,7 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
         "uv_mask": uv_mask,
         "rast_out": rast_out,
         "raster_face_indices": torch.tensor([0], dtype=torch.long),
-        "camera_attr_vertex_uv": torch.tensor(
+        "camera_attr_verts_uvs": torch.tensor(
             [
                 [0.0, 0.0],
                 [0.0, 1.0],
@@ -81,7 +81,7 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
     }
 
     visibility_mask = compute_f_visibility_mask_v2(
-        vertices=vertices,
+        verts=verts,
         faces=faces,
         camera=cameras,
         image_height=2,
@@ -107,7 +107,7 @@ def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
         None.
     """
 
-    vertices = torch.tensor(
+    verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
             [2.0, 0.0, 1.0],
@@ -134,7 +134,7 @@ def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
         "uv_mask": uv_mask,
         "rast_out": rast_out,
         "raster_face_indices": torch.tensor([0], dtype=torch.long),
-        "camera_attr_vertex_uv": torch.tensor(
+        "camera_attr_verts_uvs": torch.tensor(
             [
                 [0.0, 0.0],
                 [1.0, 0.0],
@@ -145,7 +145,7 @@ def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
     }
 
     visibility_mask = compute_f_visibility_mask_v2(
-        vertices=vertices,
+        verts=verts,
         faces=faces,
         camera=cameras,
         image_height=2,

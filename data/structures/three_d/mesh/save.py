@@ -7,7 +7,7 @@ from PIL import Image
 
 from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_vertex_uv_convention,
+    transform_verts_uvs_convention,
 )
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
@@ -60,12 +60,12 @@ def _save_mesh_geometry_only(mesh: Mesh, output_path: Union[str, Path]) -> None:
 
     output_mesh_path = _resolve_output_non_uv_mesh_path(output_path=output_path)
     output_mesh_path.parent.mkdir(parents=True, exist_ok=True)
-    vertices_np = mesh.vertices.detach().cpu().numpy()
+    verts_np = mesh.verts.detach().cpu().numpy()
     faces_np = mesh.faces.detach().cpu().numpy()
 
     if output_mesh_path.suffix.lower() == ".obj":
         with output_mesh_path.open("w", encoding="utf-8") as handle:
-            for vertex_row in vertices_np:
+            for vertex_row in verts_np:
                 handle.write(
                     "v {:.6f} {:.6f} {:.6f}\n".format(
                         float(vertex_row[0]),
@@ -90,14 +90,14 @@ def _save_mesh_geometry_only(mesh: Mesh, output_path: Union[str, Path]) -> None:
     with output_mesh_path.open("w", encoding="utf-8") as handle:
         handle.write("ply\n")
         handle.write("format ascii 1.0\n")
-        handle.write(f"element vertex {vertices_np.shape[0]}\n")
+        handle.write(f"element vertex {verts_np.shape[0]}\n")
         handle.write("property float x\n")
         handle.write("property float y\n")
         handle.write("property float z\n")
         handle.write(f"element face {faces_np.shape[0]}\n")
         handle.write("property list uchar int vertex_indices\n")
         handle.write("end_header\n")
-        for vertex_row in vertices_np:
+        for vertex_row in verts_np:
             handle.write(
                 "{:.6f} {:.6f} {:.6f}\n".format(
                     float(vertex_row[0]),
@@ -129,7 +129,7 @@ def _save_mesh_vertex_color(mesh: Mesh, output_path: Union[str, Path]) -> None:
 
     output_mesh_path = _resolve_output_non_uv_mesh_path(output_path=output_path)
     output_mesh_path.parent.mkdir(parents=True, exist_ok=True)
-    vertices_np = mesh.vertices.detach().cpu().numpy()
+    verts_np = mesh.verts.detach().cpu().numpy()
     faces_np = mesh.faces.detach().cpu().numpy()
 
     if output_mesh_path.suffix.lower() == ".obj":
@@ -137,7 +137,7 @@ def _save_mesh_vertex_color(mesh: Mesh, output_path: Union[str, Path]) -> None:
             vertex_color=mesh.texture.vertex_color
         ).numpy()
         with output_mesh_path.open("w", encoding="utf-8") as handle:
-            for vertex_row, color_row in zip(vertices_np, colors_np, strict=True):
+            for vertex_row, color_row in zip(verts_np, colors_np, strict=True):
                 handle.write(
                     "v {:.6f} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(
                         float(vertex_row[0]),
@@ -168,7 +168,7 @@ def _save_mesh_vertex_color(mesh: Mesh, output_path: Union[str, Path]) -> None:
     with output_mesh_path.open("w", encoding="utf-8") as handle:
         handle.write("ply\n")
         handle.write("format ascii 1.0\n")
-        handle.write(f"element vertex {vertices_np.shape[0]}\n")
+        handle.write(f"element vertex {verts_np.shape[0]}\n")
         handle.write("property float x\n")
         handle.write("property float y\n")
         handle.write("property float z\n")
@@ -178,7 +178,7 @@ def _save_mesh_vertex_color(mesh: Mesh, output_path: Union[str, Path]) -> None:
         handle.write(f"element face {faces_np.shape[0]}\n")
         handle.write("property list uchar int vertex_indices\n")
         handle.write("end_header\n")
-        for vertex_row, color_row in zip(vertices_np, colors_np, strict=True):
+        for vertex_row, color_row in zip(verts_np, colors_np, strict=True):
             handle.write(
                 "{:.6f} {:.6f} {:.6f} {} {} {}\n".format(
                     float(vertex_row[0]),
@@ -232,19 +232,19 @@ def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None
         handle.write("illum 1\n")
         handle.write(f"map_Kd {output_texture_path.name}\n")
 
-    vertices_np = mesh.vertices.detach().cpu().numpy()
+    verts_np = mesh.verts.detach().cpu().numpy()
     faces_np = mesh.faces.detach().cpu().numpy()
-    vertex_uv_np = transform_vertex_uv_convention(
-        vertex_uv=mesh.texture.vertex_uv.detach().cpu(),
+    verts_uvs_np = transform_verts_uvs_convention(
+        verts_uvs=mesh.texture.verts_uvs.detach().cpu(),
         source_convention=mesh.texture.convention,
         target_convention="obj",
     ).numpy()
-    face_uvs_np = mesh.texture.face_uvs.detach().cpu().numpy()
+    faces_uvs_np = mesh.texture.faces_uvs.detach().cpu().numpy()
 
     with output_obj_path.open("w", encoding="utf-8") as handle:
         handle.write(f"mtllib {output_mtl_path.name}\n")
         handle.write("usemtl material0\n")
-        for vertex_row in vertices_np:
+        for vertex_row in verts_np:
             handle.write(
                 "v {:.6f} {:.6f} {:.6f}\n".format(
                     float(vertex_row[0]),
@@ -252,11 +252,11 @@ def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None
                     float(vertex_row[2]),
                 )
             )
-        for uv_row in vertex_uv_np:
+        for uv_row in verts_uvs_np:
             handle.write(
                 "vt {:.6f} {:.6f}\n".format(float(uv_row[0]), float(uv_row[1]))
             )
-        for face_row, face_uv_row in zip(faces_np, face_uvs_np, strict=True):
+        for face_row, face_uv_row in zip(faces_np, faces_uvs_np, strict=True):
             handle.write(
                 "f {}/{} {}/{} {}/{}\n".format(
                     int(face_row[0]) + 1,

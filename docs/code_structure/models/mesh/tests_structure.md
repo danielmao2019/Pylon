@@ -23,8 +23,8 @@ tests/models/three_d/meshes/texture/test_extract.py
 │   └── # _build_uv_rasterization_mesh leaves a non-seam face as one UV triangle.
 ├── def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None
 │   └── # _build_camera_uv_interpolation_data shifts one seam face into a single continuous UV chart.
-├── def test_vertex_uv_to_clip_uses_rasterizer_buffer_v_mapping() -> None
-│   └── # _vertex_uv_to_clip maps small-`v` UV coordinates to negative clip-space `y`.
+├── def test_verts_uvs_to_clip_uses_rasterizer_buffer_v_mapping() -> None
+│   └── # _verts_uvs_to_clip maps small-`v` UV coordinates to negative clip-space `y`.
 ├── def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None
 │   └── # compute_f_visibility_mask keeps UV visibility masks in `[1, T, T, 1]` layout.
 ├── def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None
@@ -85,6 +85,6 @@ tests/models/three_d/meshes/texture/test_vertex_visibility.py
 │   └── # Build one identity OpenCV CUDA camera for the focused vertex-visibility tests.
 ├── def test_compute_v_visibility_mask_keeps_some_front_facing_triangle_visibility() -> None
 │   └── # compute_v_visibility_mask keeps nonzero visibility when the only face is front-facing.
-└── def test_compute_v_visibility_mask_filters_back_facing_triangle_vertices() -> None
-    └── # compute_v_visibility_mask drops vertices whose only owning face is back-facing.
+└── def test_compute_v_visibility_mask_filters_back_facing_triangle_verts() -> None
+    └── # compute_v_visibility_mask drops verts whose only owning face is back-facing.
 ```

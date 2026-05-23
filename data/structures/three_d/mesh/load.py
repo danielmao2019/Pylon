@@ -87,7 +87,7 @@ def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh:
             if line.startswith("v "):
                 vertex_parts = line.split()
                 assert len(vertex_parts) >= 4, (
-                    "Expected geometry-only OBJ vertices to include xyz values. "
+                    "Expected geometry-only OBJ verts to include xyz values. "
                     f"{obj_path=} {line=}"
                 )
                 vertex_rows.append(
@@ -122,7 +122,7 @@ def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh:
     )
 
     return Mesh(
-        vertices=torch.tensor(vertex_rows, dtype=torch.float32).contiguous(),
+        verts=torch.tensor(vertex_rows, dtype=torch.float32).contiguous(),
         faces=torch.tensor(face_rows, dtype=torch.int64).contiguous(),
         texture=None,
     )
@@ -152,7 +152,7 @@ def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh:
             if line.startswith("v "):
                 vertex_parts = line.split()
                 assert len(vertex_parts) >= 7, (
-                    "Expected vertex-colored OBJ vertices to include RGB values. "
+                    "Expected vertex-colored OBJ verts to include RGB values. "
                     f"{obj_path=} {line=}"
                 )
                 vertex_rows.append(
@@ -201,7 +201,7 @@ def _load_mesh_vertex_color(path: Union[str, Path]) -> Mesh:
     if float(vertex_color.max().item()) > 1.0:
         vertex_color = vertex_color / 255.0
     return Mesh(
-        vertices=torch.tensor(vertex_rows, dtype=torch.float32).contiguous(),
+        verts=torch.tensor(vertex_rows, dtype=torch.float32).contiguous(),
         faces=torch.tensor(face_rows, dtype=torch.int64).contiguous(),
         texture=MeshTextureVertexColor(vertex_color=vertex_color.contiguous()),
     )
@@ -222,7 +222,7 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
 
     obj_path = _resolve_input_path(path=path)
 
-    vertices, faces, aux = load_obj(
+    verts, faces, aux = load_obj(
         obj_path,
         load_textures=True,
         device=torch.device("cpu"),
@@ -239,8 +239,8 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
         f"{obj_path=}"
     )
 
-    vertex_uv = aux.verts_uvs.to(dtype=torch.float32).contiguous()
-    face_uvs = faces.textures_idx.to(dtype=torch.int64).contiguous()
+    verts_uvs = aux.verts_uvs.to(dtype=torch.float32).contiguous()
+    faces_uvs = faces.textures_idx.to(dtype=torch.int64).contiguous()
     if len(aux.texture_images) == 1:
         only_texture_name = list(aux.texture_images.keys())[0]
         uv_texture_map = aux.texture_images[only_texture_name][..., :3].to(
@@ -251,20 +251,20 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
             "Expected multi-material OBJ loading to provide `materials_idx`. "
             f"{obj_path=}"
         )
-        uv_texture_map, vertex_uv, face_uvs = pack_texture_images(
+        uv_texture_map, verts_uvs, faces_uvs = pack_texture_images(
             texture_images=aux.texture_images,
-            verts_uvs=vertex_uv,
-            faces_uvs=face_uvs,
+            verts_uvs=verts_uvs,
+            faces_uvs=faces_uvs,
             materials_idx=faces.materials_idx.to(dtype=torch.int64).contiguous(),
         )
 
     return Mesh(
-        vertices=vertices.to(dtype=torch.float32).contiguous(),
+        verts=verts.to(dtype=torch.float32).contiguous(),
         faces=faces.verts_idx.to(dtype=torch.int64).contiguous(),
         texture=MeshTextureUVTextureMap(
             uv_texture_map=uv_texture_map.detach().cpu().contiguous(),
-            vertex_uv=vertex_uv.detach().cpu().contiguous(),
-            face_uvs=face_uvs.detach().cpu().contiguous(),
+            verts_uvs=verts_uvs.detach().cpu().contiguous(),
+            faces_uvs=faces_uvs.detach().cpu().contiguous(),
             convention="obj",
         ),
     )

@@ -31,7 +31,7 @@ def test_build_app_loads_cached_results_bundle(tmp_path: Path) -> None:
         "scene_name": "demo_scene",
         "source_rgb": np.zeros((4, 4, 3), dtype=np.uint8),
         "reference_texture_rgb": np.zeros((4, 4, 3), dtype=np.uint8),
-        "mesh_vertices": torch.tensor(
+        "mesh_verts": torch.tensor(
             [
                 [0.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],
@@ -40,7 +40,7 @@ def test_build_app_loads_cached_results_bundle(tmp_path: Path) -> None:
             dtype=torch.float32,
         ),
         "mesh_faces": torch.tensor([[0, 1, 2]], dtype=torch.long),
-        "mesh_vertex_uv": torch.tensor(
+        "mesh_verts_uvs": torch.tensor(
             [
                 [0.0, 0.0],
                 [1.0, 0.0],
@@ -48,7 +48,7 @@ def test_build_app_loads_cached_results_bundle(tmp_path: Path) -> None:
             ],
             dtype=torch.float32,
         ),
-        "mesh_face_uvs": torch.tensor([[0, 1, 2]], dtype=torch.long),
+        "mesh_faces_uvs": torch.tensor([[0, 1, 2]], dtype=torch.long),
         "methods": {
             "texel_visibility_v1": _build_method_payload(
                 display_label="Texel Visibility V1",

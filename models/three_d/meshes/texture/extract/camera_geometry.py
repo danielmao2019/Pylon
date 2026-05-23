@@ -10,7 +10,7 @@ from data.structures.three_d.point_cloud.camera.transform import (
 
 
 def _render_camera_face_index_buffer(
-    vertices_camera: torch.Tensor,
+    verts_camera: torch.Tensor,
     faces: torch.Tensor,
     intrinsics: torch.Tensor,
     image_height: int,
@@ -19,7 +19,7 @@ def _render_camera_face_index_buffer(
     """Render a one-view camera-space face-index buffer.
 
     Args:
-        vertices_camera: Camera-space vertices [V, 3].
+        verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
         intrinsics: Camera intrinsics [3, 3].
         image_height: Render height in pixels.
@@ -39,13 +39,13 @@ def _render_camera_face_index_buffer(
             None.
         """
         # Input validations
-        assert isinstance(vertices_camera, torch.Tensor), f"{type(vertices_camera)=}"
+        assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
         assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert vertices_camera.ndim == 2, f"{vertices_camera.shape=}"
-        assert vertices_camera.shape[1] == 3, f"{vertices_camera.shape=}"
+        assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
+        assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
         assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
@@ -54,17 +54,17 @@ def _render_camera_face_index_buffer(
 
     _validate_inputs()
 
-    clip_vertices = _camera_vertices_to_clip(
-        vertices_camera=vertices_camera,
+    clip_verts = _camera_verts_to_clip(
+        verts_camera=verts_camera,
         intrinsics=intrinsics,
         image_height=image_height,
         image_width=image_width,
-    ).to(device=vertices_camera.device, dtype=torch.float32)
-    tri_i32 = faces.to(device=vertices_camera.device, dtype=torch.int32).contiguous()
-    raster_context = dr.RasterizeCudaContext(device=vertices_camera.device)
+    ).to(device=verts_camera.device, dtype=torch.float32)
+    tri_i32 = faces.to(device=verts_camera.device, dtype=torch.int32).contiguous()
+    raster_context = dr.RasterizeCudaContext(device=verts_camera.device)
     rast_out, _ = dr.rasterize(
         glctx=raster_context,
-        pos=clip_vertices.contiguous(),
+        pos=clip_verts.contiguous(),
         tri=tri_i32,
         resolution=[image_height, image_width],
         ranges=None,
@@ -77,7 +77,7 @@ def _render_camera_face_index_buffer(
 
 
 def _render_camera_depth_buffer(
-    vertices_camera: torch.Tensor,
+    verts_camera: torch.Tensor,
     faces: torch.Tensor,
     intrinsics: torch.Tensor,
     image_height: int,
@@ -86,7 +86,7 @@ def _render_camera_depth_buffer(
     """Render a one-view camera-space depth buffer.
 
     Args:
-        vertices_camera: Camera-space vertices [V, 3].
+        verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
         intrinsics: Camera intrinsics [3, 3].
         image_height: Render height in pixels.
@@ -106,13 +106,13 @@ def _render_camera_depth_buffer(
             None.
         """
         # Input validations
-        assert isinstance(vertices_camera, torch.Tensor), f"{type(vertices_camera)=}"
+        assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
         assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert vertices_camera.ndim == 2, f"{vertices_camera.shape=}"
-        assert vertices_camera.shape[1] == 3, f"{vertices_camera.shape=}"
+        assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
+        assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
         assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
@@ -121,23 +121,23 @@ def _render_camera_depth_buffer(
 
     _validate_inputs()
 
-    clip_vertices = _camera_vertices_to_clip(
-        vertices_camera=vertices_camera,
+    clip_verts = _camera_verts_to_clip(
+        verts_camera=verts_camera,
         intrinsics=intrinsics,
         image_height=image_height,
         image_width=image_width,
-    ).to(device=vertices_camera.device, dtype=torch.float32)
-    tri_i32 = faces.to(device=vertices_camera.device, dtype=torch.int32).contiguous()
-    raster_context = dr.RasterizeCudaContext(device=vertices_camera.device)
+    ).to(device=verts_camera.device, dtype=torch.float32)
+    tri_i32 = faces.to(device=verts_camera.device, dtype=torch.int32).contiguous()
+    raster_context = dr.RasterizeCudaContext(device=verts_camera.device)
     rast_out, _ = dr.rasterize(
         glctx=raster_context,
-        pos=clip_vertices.contiguous(),
+        pos=clip_verts.contiguous(),
         tri=tri_i32,
         resolution=[image_height, image_width],
         ranges=None,
     )
     depth_image, _ = dr.interpolate(
-        attr=vertices_camera[:, 2:3].unsqueeze(0).contiguous(),
+        attr=verts_camera[:, 2:3].unsqueeze(0).contiguous(),
         rast=rast_out,
         tri=tri_i32,
     )
@@ -149,18 +149,18 @@ def _render_camera_depth_buffer(
     )
 
 
-def _vertices_world_to_camera(
-    vertices: torch.Tensor,
+def _verts_world_to_camera(
+    verts: torch.Tensor,
     camera: Cameras,
 ) -> torch.Tensor:
-    """Transform one-view world-space vertices to camera-space vertices.
+    """Transform one-view world-space verts to camera-space verts.
 
     Args:
-        vertices: Mesh vertices in world coordinates [V, 3].
+        verts: Mesh verts in world coordinates [V, 3].
         camera: One camera instance.
 
     Returns:
-        Camera-space vertices [V, 3].
+        Camera-space verts [V, 3].
     """
 
     def _validate_inputs() -> None:
@@ -173,37 +173,37 @@ def _vertices_world_to_camera(
             None.
         """
         # Input validations
-        assert isinstance(vertices, torch.Tensor), f"{type(vertices)=}"
+        assert isinstance(verts, torch.Tensor), f"{type(verts)=}"
         assert isinstance(camera, Cameras), f"{type(camera)=}"
-        assert vertices.ndim == 2, f"{vertices.shape=}"
-        assert vertices.shape[1] == 3, f"{vertices.shape=}"
+        assert verts.ndim == 2, f"{verts.shape=}"
+        assert verts.shape[1] == 3, f"{verts.shape=}"
         assert len(camera) == 1, f"{len(camera)=}"
 
     _validate_inputs()
 
-    camera_single = camera[0].to(device=vertices.device, convention="opencv")
-    vertices_camera = world_to_camera_transform(
-        points=vertices,
+    camera_single = camera[0].to(device=verts.device, convention="opencv")
+    verts_camera = world_to_camera_transform(
+        points=verts,
         extrinsics=camera_single.extrinsics,
         inplace=False,
     )
-    assert isinstance(vertices_camera, torch.Tensor), f"{type(vertices_camera)=}"
+    assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
     assert (
-        vertices_camera.shape == vertices.shape
-    ), f"{vertices_camera.shape=} {vertices.shape=}"
-    return vertices_camera
+        verts_camera.shape == verts.shape
+    ), f"{verts_camera.shape=} {verts.shape=}"
+    return verts_camera
 
 
-def _project_vertices_to_image(
-    vertices: torch.Tensor,
+def _project_verts_to_image(
+    verts: torch.Tensor,
     camera: Cameras,
     image_height: int,
     image_width: int,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Project world-space vertices to image pixels for one view.
+    """Project world-space verts to image pixels for one view.
 
     Args:
-        vertices: Mesh vertices in world coordinates [V, 3].
+        verts: Mesh verts in world coordinates [V, 3].
         camera: One camera instance.
         image_height: Image height in pixels.
         image_width: Image width in pixels.
@@ -212,7 +212,7 @@ def _project_vertices_to_image(
         A tuple of:
             xy: Pixel coordinates [V, 2].
             depth: Camera-space depth [V].
-            vertices_camera: Camera-space vertices [V, 3].
+            verts_camera: Camera-space verts [V, 3].
             valid: In-frame projection validity mask [V].
     """
 
@@ -226,32 +226,32 @@ def _project_vertices_to_image(
             None.
         """
         # Input validations
-        assert isinstance(vertices, torch.Tensor), f"{type(vertices)=}"
+        assert isinstance(verts, torch.Tensor), f"{type(verts)=}"
         assert isinstance(camera, Cameras), f"{type(camera)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert vertices.ndim == 2, f"{vertices.shape=}"
-        assert vertices.shape[1] == 3, f"{vertices.shape=}"
+        assert verts.ndim == 2, f"{verts.shape=}"
+        assert verts.shape[1] == 3, f"{verts.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
         assert len(camera) == 1, f"{len(camera)=}"
 
     _validate_inputs()
 
-    camera_single = camera[0].to(device=vertices.device, convention="opencv")
+    camera_single = camera[0].to(device=verts.device, convention="opencv")
     intrinsics = camera_single.intrinsics
-    vertices_camera = _vertices_world_to_camera(
-        vertices=vertices,
+    verts_camera = _verts_world_to_camera(
+        verts=verts,
         camera=camera,
     )
-    depth = vertices_camera[:, 2]
+    depth = verts_camera[:, 2]
 
     fx = intrinsics[0, 0]
     fy = intrinsics[1, 1]
     cx = intrinsics[0, 2]
     cy = intrinsics[1, 2]
-    x = fx * (vertices_camera[:, 0] / depth) + cx
-    y = fy * (vertices_camera[:, 1] / depth) + cy
+    x = fx * (verts_camera[:, 0] / depth) + cx
+    y = fy * (verts_camera[:, 1] / depth) + cy
 
     valid = (
         (depth > 1e-8)
@@ -261,25 +261,25 @@ def _project_vertices_to_image(
         & (y <= float(image_height - 1))
     )
     xy = torch.stack([x, y], dim=1)
-    return xy, depth, vertices_camera, valid
+    return xy, depth, verts_camera, valid
 
 
-def _camera_vertices_to_clip(
-    vertices_camera: torch.Tensor,
+def _camera_verts_to_clip(
+    verts_camera: torch.Tensor,
     intrinsics: torch.Tensor,
     image_height: int,
     image_width: int,
 ) -> torch.Tensor:
-    """Convert camera-space vertices to clip-space for rasterization.
+    """Convert camera-space verts to clip-space for rasterization.
 
     Args:
-        vertices_camera: Camera-space vertices [V, 3].
+        verts_camera: Camera-space verts [V, 3].
         intrinsics: Camera intrinsics [3, 3].
         image_height: Render height in pixels.
         image_width: Render width in pixels.
 
     Returns:
-        Clip-space vertices [1, V, 4].
+        Clip-space verts [1, V, 4].
     """
 
     def _validate_inputs() -> None:
@@ -292,21 +292,21 @@ def _camera_vertices_to_clip(
             None.
         """
         # Input validations
-        assert isinstance(vertices_camera, torch.Tensor), f"{type(vertices_camera)=}"
+        assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert vertices_camera.ndim == 2, f"{vertices_camera.shape=}"
-        assert vertices_camera.shape[1] == 3, f"{vertices_camera.shape=}"
+        assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
+        assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
     _validate_inputs()
 
-    x_camera = vertices_camera[:, 0]
-    y_camera = vertices_camera[:, 1]
-    z_camera = vertices_camera[:, 2].clamp(min=1e-6)
+    x_camera = verts_camera[:, 0]
+    y_camera = verts_camera[:, 1]
+    z_camera = verts_camera[:, 2].clamp(min=1e-6)
 
     fx = intrinsics[0, 0]
     fy = intrinsics[1, 1]

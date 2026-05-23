@@ -19,14 +19,14 @@ def render_uv_texture_aligned(
 
     The mesh carries a ``MeshTextureUVTextureMap`` texture holding its UV
     convention, ``uv_texture_map``, and UV coordinates, plus camera-space
-    ``vertices``. This function converts to the convention required by
+    ``verts``. This function converts to the convention required by
     ``dr.texture`` internally; callers do not need to pre-convert.
 
     Args:
         renderer: Deep3DMM renderer exposing ``ndc_proj``, ``rasterize_size``,
             ``ctx``, and ``use_opengl``.
-        mesh: Mesh providing camera-space ``vertices`` ``[V, 3]``, ``faces``,
-            and a ``MeshTextureUVTextureMap`` texture supplying ``vertex_uv``,
+        mesh: Mesh providing camera-space ``verts`` ``[V, 3]``, ``faces``,
+            and a ``MeshTextureUVTextureMap`` texture supplying ``verts_uvs``,
             ``convention``, and ``uv_texture_map`` (HWC float32 ``[H, W, 3]``).
 
     Returns:
@@ -53,11 +53,11 @@ def render_uv_texture_aligned(
         assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
             "Expected `mesh` to carry a UV texture map. " f"{type(mesh.texture)=}"
         )
-        assert mesh.vertices.shape[0] == mesh.texture.vertex_uv.shape[0], (
-            "Expected `mesh.texture.vertex_uv` to align with `mesh.vertices` because "
-            "this function uses `faces` (not `face_uvs`) as the shared index buffer "
+        assert mesh.verts.shape[0] == mesh.texture.verts_uvs.shape[0], (
+            "Expected `mesh.texture.verts_uvs` to align with `mesh.verts` because "
+            "this function uses `faces` (not `faces_uvs`) as the shared index buffer "
             "for both rasterization and UV interpolation. "
-            f"{mesh.vertices.shape=} {mesh.texture.vertex_uv.shape=}"
+            f"{mesh.verts.shape=} {mesh.texture.verts_uvs.shape=}"
         )
 
     _validate_inputs()
@@ -67,15 +67,15 @@ def render_uv_texture_aligned(
 
     mesh = _normalize_inputs()
 
-    device = mesh.vertices.device
+    device = mesh.verts.device
     ndc_proj = renderer.ndc_proj.to(device)
     vertex = torch.cat(
         [
-            mesh.vertices.unsqueeze(0),
+            mesh.verts.unsqueeze(0),
             torch.ones(
-                (1, mesh.vertices.shape[0], 1),
+                (1, mesh.verts.shape[0], 1),
                 device=device,
-                dtype=mesh.vertices.dtype,
+                dtype=mesh.verts.dtype,
             ),
         ],
         dim=-1,
@@ -99,7 +99,7 @@ def render_uv_texture_aligned(
     )
     mask = (rast_out[..., 3] > 0).float().unsqueeze(1)
     uv_feat = (
-        mesh.texture.vertex_uv.unsqueeze(0)
+        mesh.texture.verts_uvs.unsqueeze(0)
         .to(device=device, dtype=torch.float32)
         .contiguous()
     )

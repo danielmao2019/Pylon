@@ -9,7 +9,7 @@ from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.ops.normals import compute_vertex_normals
 from models.three_d.meshes.texture.extract.camera_geometry import (
-    _vertices_world_to_camera,
+    _verts_world_to_camera,
 )
 from models.three_d.meshes.texture.extract.weights_cfg import (
     normalize_weights_cfg,
@@ -70,12 +70,12 @@ def _compute_v_normals_weights(
     normals_weight_power = weights_cfg["normals_weight_power"]
     normals_weight_threshold = weights_cfg["normals_weight_threshold"]
 
-    vertices_camera = _vertices_world_to_camera(
-        vertices=mesh.vertices,
+    verts_camera = _verts_world_to_camera(
+        verts=mesh.verts,
         camera=camera,
     )
     normals_camera = compute_vertex_normals(
-        base_vertices=vertices_camera,
+        base_verts=verts_camera,
         faces=mesh.faces,
     ).to(device=mesh.device, dtype=torch.float32)
     normals_camera_norm = torch.linalg.norm(normals_camera, dim=1)
@@ -84,7 +84,7 @@ def _compute_v_normals_weights(
         float(normals_camera_norm_error) <= 1.0e-5
     ), f"{float(normals_camera_norm_error)=}"
 
-    view_direction = F.normalize(-vertices_camera, p=2, dim=1)
+    view_direction = F.normalize(-verts_camera, p=2, dim=1)
     alignment = (normals_camera * view_direction).sum(dim=1).clamp(0.0, 1.0)
     assert torch.all(alignment >= 0.0), f"{float(alignment.min())=}"
     assert torch.all(alignment <= 1.0), f"{float(alignment.max())=}"
@@ -150,13 +150,13 @@ def _compute_f_normals_weights(
     normals_weight_power = weights_cfg["normals_weight_power"]
     normals_weight_threshold = weights_cfg["normals_weight_threshold"]
 
-    vertices_camera = _vertices_world_to_camera(
-        vertices=mesh.vertices,
+    verts_camera = _verts_world_to_camera(
+        verts=mesh.verts,
         camera=camera,
     )
-    v0_camera = vertices_camera[mesh.faces[:, 0]]
-    v1_camera = vertices_camera[mesh.faces[:, 1]]
-    v2_camera = vertices_camera[mesh.faces[:, 2]]
+    v0_camera = verts_camera[mesh.faces[:, 0]]
+    v1_camera = verts_camera[mesh.faces[:, 1]]
+    v2_camera = verts_camera[mesh.faces[:, 2]]
     face_normals_camera = torch.cross(
         v1_camera - v0_camera,
         v2_camera - v0_camera,

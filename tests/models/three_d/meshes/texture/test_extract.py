@@ -30,7 +30,7 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
 def test_build_uv_rasterization_mesh_duplicates_seam_crossing_face() -> None:
     """Split a cylindrical seam face into two UV triangles."""
 
-    vertex_uv = torch.tensor(
+    verts_uvs = torch.tensor(
         [
             [0.99, 0.20],
             [0.01, 0.25],
@@ -41,7 +41,7 @@ def test_build_uv_rasterization_mesh_duplicates_seam_crossing_face() -> None:
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
 
     uv_rasterization_mesh = _build_uv_rasterization_mesh(
-        vertex_uv=vertex_uv,
+        verts_uvs=verts_uvs,
         faces=faces,
     )
 
@@ -58,7 +58,7 @@ def test_build_uv_rasterization_mesh_duplicates_seam_crossing_face() -> None:
         torch.tensor([0, 0], dtype=torch.long),
     ), f"{uv_rasterization_mesh['raster_face_indices']=}"
     assert torch.allclose(
-        uv_rasterization_mesh["raster_vertex_uv"][:3],
+        uv_rasterization_mesh["raster_verts_uvs"][:3],
         torch.tensor(
             [
                 [0.99, 0.20],
@@ -67,9 +67,9 @@ def test_build_uv_rasterization_mesh_duplicates_seam_crossing_face() -> None:
             ],
             dtype=torch.float32,
         ),
-    ), f"{uv_rasterization_mesh['raster_vertex_uv']=}"
+    ), f"{uv_rasterization_mesh['raster_verts_uvs']=}"
     assert torch.allclose(
-        uv_rasterization_mesh["raster_vertex_uv"][3:],
+        uv_rasterization_mesh["raster_verts_uvs"][3:],
         torch.tensor(
             [
                 [-0.01, 0.20],
@@ -78,13 +78,13 @@ def test_build_uv_rasterization_mesh_duplicates_seam_crossing_face() -> None:
             ],
             dtype=torch.float32,
         ),
-    ), f"{uv_rasterization_mesh['raster_vertex_uv']=}"
+    ), f"{uv_rasterization_mesh['raster_verts_uvs']=}"
 
 
 def test_build_uv_rasterization_mesh_keeps_non_seam_face_single() -> None:
     """Leave a non-seam face as one UV triangle."""
 
-    vertex_uv = torch.tensor(
+    verts_uvs = torch.tensor(
         [
             [0.20, 0.10],
             [0.30, 0.15],
@@ -95,7 +95,7 @@ def test_build_uv_rasterization_mesh_keeps_non_seam_face_single() -> None:
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
 
     uv_rasterization_mesh = _build_uv_rasterization_mesh(
-        vertex_uv=vertex_uv,
+        verts_uvs=verts_uvs,
         faces=faces,
     )
 
@@ -112,9 +112,9 @@ def test_build_uv_rasterization_mesh_keeps_non_seam_face_single() -> None:
         torch.tensor([0], dtype=torch.long),
     ), f"{uv_rasterization_mesh['raster_face_indices']=}"
     assert torch.allclose(
-        uv_rasterization_mesh["raster_vertex_uv"],
-        vertex_uv,
-    ), f"{uv_rasterization_mesh['raster_vertex_uv']=} {vertex_uv=}"
+        uv_rasterization_mesh["raster_verts_uvs"],
+        verts_uvs,
+    ), f"{uv_rasterization_mesh['raster_verts_uvs']=} {verts_uvs=}"
 
 
 def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None:
@@ -127,7 +127,7 @@ def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None:
         None.
     """
 
-    vertex_uv = torch.tensor(
+    verts_uvs = torch.tensor(
         [
             [0.99, 0.20],
             [0.01, 0.25],
@@ -138,7 +138,7 @@ def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None:
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long)
 
     camera_uv_interpolation_data = _build_camera_uv_interpolation_data(
-        vertex_uv=vertex_uv,
+        verts_uvs=verts_uvs,
         faces=faces,
     )
 
@@ -147,7 +147,7 @@ def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None:
         torch.tensor([[0, 1, 2]], dtype=torch.int32),
     ), f"{camera_uv_interpolation_data['camera_attr_tri_i32']=}"
     assert torch.allclose(
-        camera_uv_interpolation_data["camera_attr_vertex_uv"],
+        camera_uv_interpolation_data["camera_attr_verts_uvs"],
         torch.tensor(
             [
                 [0.99, 0.20],
@@ -156,10 +156,10 @@ def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None:
             ],
             dtype=torch.float32,
         ),
-    ), f"{camera_uv_interpolation_data['camera_attr_vertex_uv']=}"
+    ), f"{camera_uv_interpolation_data['camera_attr_verts_uvs']=}"
 
 
-def test_vertex_uv_to_clip_uses_rasterizer_buffer_v_mapping() -> None:
+def test_verts_uvs_to_clip_uses_rasterizer_buffer_v_mapping() -> None:
     """Map small-`v` UV coordinates to negative clip-space `y`.
 
     Args:
@@ -169,7 +169,7 @@ def test_vertex_uv_to_clip_uses_rasterizer_buffer_v_mapping() -> None:
         None.
     """
 
-    vertex_uv = torch.tensor(
+    verts_uvs = torch.tensor(
         [
             [0.25, 0.00],
             [0.75, 1.00],
@@ -177,7 +177,7 @@ def test_vertex_uv_to_clip_uses_rasterizer_buffer_v_mapping() -> None:
         dtype=torch.float32,
     )
 
-    uv_clip = extract_module._vertex_uv_to_clip(vertex_uv=vertex_uv)
+    uv_clip = extract_module._verts_uvs_to_clip(verts_uvs=verts_uvs)
 
     assert uv_clip.shape == (1, 2, 4), f"{uv_clip.shape=}"
     assert torch.allclose(
@@ -204,7 +204,7 @@ def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
         None.
     """
 
-    vertices = torch.tensor(
+    verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
             [0.0, 1.0, 1.0],
@@ -221,7 +221,7 @@ def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
     )
     uv_rasterization_data = {
         "uv_mask": torch.ones((1, 2, 2, 1), dtype=torch.float32),
-        "camera_attr_vertex_uv": torch.tensor(
+        "camera_attr_verts_uvs": torch.tensor(
             [
                 [0.0, 0.0],
                 [1.0, 0.0],
@@ -233,7 +233,7 @@ def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
     }
 
     visibility_mask = compute_f_visibility_mask(
-        vertices=vertices,
+        verts=verts,
         faces=faces,
         camera=cameras,
         image_height=2,
@@ -247,7 +247,7 @@ def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
 def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
     """Use exact camera-pixel footprints on a one-pixel image."""
 
-    vertices = torch.tensor(
+    verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
             [0.0, 1.0, 1.0],
@@ -264,7 +264,7 @@ def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
     )
     uv_rasterization_data = {
         "uv_mask": torch.ones((1, 2, 2, 1), dtype=torch.float32),
-        "camera_attr_vertex_uv": torch.tensor(
+        "camera_attr_verts_uvs": torch.tensor(
             [
                 [0.0, 0.0],
                 [1.0, 0.0],
@@ -276,7 +276,7 @@ def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
     }
 
     visibility_mask = compute_f_visibility_mask(
-        vertices=vertices,
+        verts=verts,
         faces=faces,
         camera=cameras,
         image_height=1,
@@ -301,7 +301,7 @@ def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face(
         None.
     """
 
-    visible_screen_polygon_vertices = torch.tensor(
+    visible_screen_polygon_verts = torch.tensor(
         [
             [
                 [0.10, 0.10],
@@ -314,7 +314,7 @@ def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face(
     )
     visible_screen_polygon_vertex_counts = torch.tensor([4], dtype=torch.long)
     visible_screen_polygon_face_indices = torch.tensor([0], dtype=torch.long)
-    face_screen_vertices = torch.tensor(
+    face_screen_verts = torch.tensor(
         [
             [
                 [0.0, 0.0],
@@ -325,16 +325,16 @@ def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face(
         dtype=torch.float32,
     )
     face_vertex_depth = torch.ones((1, 3), dtype=torch.float32)
-    face_vertex_uv = face_screen_vertices.clone()
+    face_verts_uvs = face_screen_verts.clone()
 
-    uv_polygon_vertices, uv_polygon_vertex_counts = (
+    uv_polygon_verts, uv_polygon_vertex_counts = (
         _map_visible_screen_space_polygon_regions_to_uv(
-            visible_screen_polygon_vertices=visible_screen_polygon_vertices,
+            visible_screen_polygon_verts=visible_screen_polygon_verts,
             visible_screen_polygon_vertex_counts=visible_screen_polygon_vertex_counts,
             visible_screen_polygon_face_indices=visible_screen_polygon_face_indices,
-            face_screen_vertices=face_screen_vertices,
+            face_screen_verts=face_screen_verts,
             face_vertex_depth=face_vertex_depth,
-            face_vertex_uv=face_vertex_uv,
+            face_verts_uvs=face_verts_uvs,
         )
     )
 
@@ -343,10 +343,10 @@ def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face(
         visible_screen_polygon_vertex_counts,
     ), f"{uv_polygon_vertex_counts=} {visible_screen_polygon_vertex_counts=}"
     assert torch.allclose(
-        uv_polygon_vertices[0, :4],
-        visible_screen_polygon_vertices[0, :4],
+        uv_polygon_verts[0, :4],
+        visible_screen_polygon_verts[0, :4],
         atol=1.0e-6,
-    ), f"{uv_polygon_vertices=} {visible_screen_polygon_vertices=}"
+    ), f"{uv_polygon_verts=} {visible_screen_polygon_verts=}"
 
 
 def test_break_visible_uv_polygon_regions_into_triangles_triangulates_quad_fan() -> (
@@ -361,7 +361,7 @@ def test_break_visible_uv_polygon_regions_into_triangles_triangulates_quad_fan()
         None.
     """
 
-    uv_polygon_vertices = torch.tensor(
+    uv_polygon_verts = torch.tensor(
         [
             [
                 [0.10, 0.10],
@@ -375,7 +375,7 @@ def test_break_visible_uv_polygon_regions_into_triangles_triangulates_quad_fan()
     uv_polygon_vertex_counts = torch.tensor([4], dtype=torch.long)
 
     uv_triangles = _triangulate_convex_uv_polygons(
-        polygon_vertices=uv_polygon_vertices,
+        polygon_verts=uv_polygon_verts,
         polygon_vertex_counts=uv_polygon_vertex_counts,
     )
 
@@ -413,7 +413,7 @@ def test_compute_visible_uv_texels_from_uv_polygon_regions_uses_top_down_v_conve
         None.
     """
 
-    uv_polygon_vertices = torch.tensor(
+    uv_polygon_verts = torch.tensor(
         [
             [
                 [0.20, 0.05],
@@ -427,7 +427,7 @@ def test_compute_visible_uv_texels_from_uv_polygon_regions_uses_top_down_v_conve
     uv_polygon_vertex_counts = torch.tensor([3], dtype=torch.long)
 
     exact_uv_visible = _compute_visible_uv_texels_from_uv_polygon_regions(
-        uv_polygon_vertices=uv_polygon_vertices,
+        uv_polygon_verts=uv_polygon_verts,
         uv_polygon_vertex_counts=uv_polygon_vertex_counts,
         texture_size=texture_size,
     )
@@ -456,7 +456,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
     """
 
     device = torch.device("cuda")
-    vertices = torch.tensor(
+    verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
             [0.0, 1.0, 1.0],
@@ -466,7 +466,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         dtype=torch.float32,
     )
     faces = torch.tensor([[0, 1, 2]], device=device, dtype=torch.long)
-    vertex_uv = torch.tensor(
+    verts_uvs = torch.tensor(
         [
             [0.20, 0.05],
             [0.50, 0.25],
@@ -483,14 +483,14 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
     )
     uv_rasterization_data = _build_uv_rasterization_data(
         mesh=Mesh(
-            vertices=vertices,
+            verts=verts,
             faces=faces,
             texture=MeshTextureUVTextureMap(
                 uv_texture_map=torch.zeros(
                     (1, 1, 3), dtype=torch.float32, device=device
                 ),
-                vertex_uv=vertex_uv,
-                face_uvs=faces,
+                verts_uvs=verts_uvs,
+                faces_uvs=faces,
                 convention="obj",
             ),
         ),
@@ -498,7 +498,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
     )
 
     visibility_mask = compute_f_visibility_mask(
-        vertices=vertices,
+        verts=verts,
         faces=faces,
         camera=cameras,
         image_height=8,
@@ -539,11 +539,11 @@ def test_extract_texture_from_images_reuses_single_mesh_across_views(
         assert isinstance(camera, Cameras), f"{type(camera)=}"
         assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
         assert isinstance(default_color, float), f"{type(default_color)=}"
-        base_color = mesh.vertices[:, :1].repeat(1, 3)
+        base_color = mesh.verts[:, :1].repeat(1, 3)
         view_offset = float(image.mean().item())
         return {
             "texture": base_color + view_offset,
-            "weight": torch.ones((mesh.vertices.shape[0], 1), dtype=torch.float32),
+            "weight": torch.ones((mesh.verts.shape[0], 1), dtype=torch.float32),
         }
 
     monkeypatch.setattr(
@@ -553,7 +553,7 @@ def test_extract_texture_from_images_reuses_single_mesh_across_views(
     )
 
     mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[0.10, 0.0, 0.0], [0.20, 0.0, 0.0]],
             dtype=torch.float32,
         ),
@@ -620,8 +620,8 @@ def test_extract_texture_from_images_uses_per_view_mesh_geometry(
         assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
         assert isinstance(default_color, float), f"{type(default_color)=}"
         return {
-            "texture": mesh.vertices[:, :1].repeat(1, 3),
-            "weight": torch.ones((mesh.vertices.shape[0], 1), dtype=torch.float32),
+            "texture": mesh.verts[:, :1].repeat(1, 3),
+            "weight": torch.ones((mesh.verts.shape[0], 1), dtype=torch.float32),
         }
 
     monkeypatch.setattr(
@@ -632,14 +632,14 @@ def test_extract_texture_from_images_uses_per_view_mesh_geometry(
 
     meshes = [
         Mesh(
-            vertices=torch.tensor(
+            verts=torch.tensor(
                 [[0.10, 0.0, 0.0], [0.20, 0.0, 0.0]],
                 dtype=torch.float32,
             ),
             faces=torch.tensor([[0, 1, 1]], dtype=torch.long),
         ),
         Mesh(
-            vertices=torch.tensor(
+            verts=torch.tensor(
                 [[0.30, 0.0, 0.0], [0.40, 0.0, 0.0]],
                 dtype=torch.float32,
             ),
@@ -687,7 +687,7 @@ def test_extract_texture_from_images_rejects_per_view_mesh_count_mismatch() -> N
     """
 
     mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             dtype=torch.float32,
         ),
@@ -915,7 +915,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
     )
 
     mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [
                 [0.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],
@@ -926,7 +926,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
         faces=torch.tensor([[0, 1, 2]], dtype=torch.long),
         texture=MeshTextureUVTextureMap(
             uv_texture_map=torch.zeros((1, 1, 3), dtype=torch.float32),
-            vertex_uv=torch.tensor(
+            verts_uvs=torch.tensor(
                 [
                     [0.0, 0.0],
                     [1.0, 0.0],
@@ -934,7 +934,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
                 ],
                 dtype=torch.float32,
             ),
-            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
             convention="obj",
         ),
     )
@@ -1059,7 +1059,7 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
     )
 
     mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [
                 [0.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],
@@ -1070,7 +1070,7 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         faces=torch.tensor([[0, 1, 2]], dtype=torch.long),
         texture=MeshTextureUVTextureMap(
             uv_texture_map=torch.zeros((1, 1, 3), dtype=torch.float32),
-            vertex_uv=torch.tensor(
+            verts_uvs=torch.tensor(
                 [
                     [0.0, 0.0],
                     [1.0, 0.0],
@@ -1078,7 +1078,7 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
                 ],
                 dtype=torch.float32,
             ),
-            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
             convention="obj",
         ),
     )
@@ -1125,7 +1125,7 @@ def test_extract_texture_from_images_rejects_out_of_range_float_images() -> None
     """
 
     mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             dtype=torch.float32,
         ),

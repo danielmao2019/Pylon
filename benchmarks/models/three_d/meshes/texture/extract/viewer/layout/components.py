@@ -458,12 +458,12 @@ def _build_method_mesh_card(
 
     method_payload = scene_payload["methods"][method_key]
     mesh = Mesh(
-        vertices=scene_payload["mesh_vertices"],
+        verts=scene_payload["mesh_verts"],
         faces=scene_payload["mesh_faces"],
         texture=MeshTextureUVTextureMap(
             uv_texture_map=method_payload["uv_texture_map"],
-            vertex_uv=scene_payload["mesh_vertex_uv"],
-            face_uvs=scene_payload["mesh_face_uvs"],
+            verts_uvs=scene_payload["mesh_verts_uvs"],
+            faces_uvs=scene_payload["mesh_faces_uvs"],
             convention="obj",
         ),
     )

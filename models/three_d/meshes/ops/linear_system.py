@@ -11,13 +11,13 @@ import torch
 
 
 def build_weighted_laplacian_sparse_matrix(
-    num_vertices: int,
+    num_verts: int,
     edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
 ) -> sparse.csc_matrix:
     # Input validations
-    assert isinstance(num_vertices, int)
-    assert num_vertices > 0
+    assert isinstance(num_verts, int)
+    assert num_verts > 0
     assert isinstance(edge_vertex_indices, torch.Tensor)
     assert edge_vertex_indices.ndim == 2
     assert edge_vertex_indices.shape[1] == 2
@@ -26,7 +26,7 @@ def build_weighted_laplacian_sparse_matrix(
     assert weights.ndim == 1
     assert int(weights.shape[0]) == int(edge_vertex_indices.shape[0])
     assert int(edge_vertex_indices.min().item()) >= 0
-    assert int(edge_vertex_indices.max().item()) < num_vertices
+    assert int(edge_vertex_indices.max().item()) < num_verts
 
     edge_vertex_indices_np = (
         edge_vertex_indices.detach().cpu().numpy().astype(np.int64, copy=False)
@@ -41,7 +41,7 @@ def build_weighted_laplacian_sparse_matrix(
 
     laplacian_matrix = sparse.coo_matrix(
         (data, (rows, cols)),
-        shape=(num_vertices, num_vertices),
+        shape=(num_verts, num_verts),
         dtype=np.float64,
     ).tocsc()
     return laplacian_matrix
@@ -59,11 +59,11 @@ def build_constraint_diagonal_sparse_matrix(
     constraint_np = lambda_c * constraint_mask.detach().cpu().numpy().astype(
         np.float64, copy=False
     )
-    num_vertices = int(constraint_mask.shape[0])
+    num_verts = int(constraint_mask.shape[0])
     constraint_matrix = sparse.diags(
         diagonals=constraint_np,
         offsets=0,
-        shape=(num_vertices, num_vertices),
+        shape=(num_verts, num_verts),
         format="csc",
         dtype=np.float64,
     )
@@ -83,7 +83,7 @@ def factorize_sparse_system_matrix(
 
 
 def factorize_laplacian_system(
-    num_vertices: int,
+    num_verts: int,
     edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
     constraint_mask: torch.Tensor,
@@ -91,17 +91,17 @@ def factorize_laplacian_system(
     square_laplacian: bool,
 ) -> Any:
     # Input validations
-    assert isinstance(num_vertices, int)
-    assert num_vertices > 0
+    assert isinstance(num_verts, int)
+    assert num_verts > 0
     assert isinstance(edge_vertex_indices, torch.Tensor)
     assert isinstance(weights, torch.Tensor)
     assert isinstance(constraint_mask, torch.Tensor)
     assert isinstance(lambda_c, float)
     assert isinstance(square_laplacian, bool)
-    assert int(constraint_mask.shape[0]) == num_vertices
+    assert int(constraint_mask.shape[0]) == num_verts
 
     laplacian_matrix = build_weighted_laplacian_sparse_matrix(
-        num_vertices=num_vertices,
+        num_verts=num_verts,
         edge_vertex_indices=edge_vertex_indices,
         weights=weights,
     )

@@ -11,7 +11,7 @@ from data.structures.three_d.mesh.texture.validate_vertex_color import (
 class MeshTextureVertexColor(MeshTexture):
     """Per-vertex RGB texture.
 
-    Holds `vertex_color` `[V, 3]`, aligned 1:1 with the mesh's vertices.
+    Holds `vertex_color` `[V, 3]`, aligned 1:1 with the mesh's verts.
 
     Args:
         vertex_color: Per-vertex RGB tensor in `[V, 3]` or `[1, V, 3]` layout

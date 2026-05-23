@@ -1,8 +1,8 @@
 import torch
 
 
-def transform_vertex_uv_convention(
-    vertex_uv: torch.Tensor,
+def transform_verts_uvs_convention(
+    verts_uvs: torch.Tensor,
     source_convention: str,
     target_convention: str,
 ) -> torch.Tensor:
@@ -12,7 +12,7 @@ def transform_vertex_uv_convention(
     modules and is intentionally not performed here.
 
     Args:
-        vertex_uv: UV-coordinate tensor with shape `[U, 2]`.
+        verts_uvs: UV-coordinate tensor with shape `[U, 2]`.
         source_convention: Source UV-origin convention. `obj` means `v=0` is the
             bottom edge. `top_left` means `v=0` is the top edge.
         target_convention: Target UV-origin convention.
@@ -23,8 +23,8 @@ def transform_vertex_uv_convention(
     """
 
     if source_convention == target_convention:
-        return vertex_uv
+        return verts_uvs
 
-    flipped = vertex_uv.clone()
+    flipped = verts_uvs.clone()
     flipped[:, 1] = 1.0 - flipped[:, 1]
     return flipped.contiguous()

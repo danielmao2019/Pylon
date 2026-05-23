@@ -80,7 +80,7 @@ def test_base_meshes_scene_model_loads_through_data_mesh_boundary(
     mesh_root = tmp_path / "mesh_scene"
     mesh_root.mkdir(parents=True, exist_ok=True)
     textured_mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             dtype=torch.float32,
         ),
@@ -90,11 +90,11 @@ def test_base_meshes_scene_model_loads_through_data_mesh_boundary(
                 [[[1.0, 0.0, 0.0]]],
                 dtype=torch.float32,
             ),
-            vertex_uv=torch.tensor(
+            verts_uvs=torch.tensor(
                 [[0.10, 0.20], [0.30, 0.40], [0.50, 0.60]],
                 dtype=torch.float32,
             ),
-            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
             convention="obj",
         ),
     )
@@ -110,7 +110,7 @@ def test_base_meshes_scene_model_loads_through_data_mesh_boundary(
     expected_mesh = Mesh.load(path=mesh_root)
 
     assert isinstance(loaded_mesh, Mesh), f"{type(loaded_mesh)=}"
-    assert_close(loaded_mesh.vertices, expected_mesh.vertices)
+    assert_close(loaded_mesh.verts, expected_mesh.verts)
     assert torch.equal(
         loaded_mesh.faces, expected_mesh.faces
     ), f"{loaded_mesh.faces=} {expected_mesh.faces=}"
@@ -125,10 +125,10 @@ def test_base_meshes_scene_model_loads_through_data_mesh_boundary(
     assert_close(
         loaded_mesh.texture.uv_texture_map, expected_mesh.texture.uv_texture_map
     )
-    assert_close(loaded_mesh.texture.vertex_uv, expected_mesh.texture.vertex_uv)
+    assert_close(loaded_mesh.texture.verts_uvs, expected_mesh.texture.verts_uvs)
     assert torch.equal(
-        loaded_mesh.texture.face_uvs, expected_mesh.texture.face_uvs
-    ), f"{loaded_mesh.texture.face_uvs=} {expected_mesh.texture.face_uvs=}"
+        loaded_mesh.texture.faces_uvs, expected_mesh.texture.faces_uvs
+    ), f"{loaded_mesh.texture.faces_uvs=} {expected_mesh.texture.faces_uvs=}"
 
 
 def test_base_meshes_scene_model_to_moves_repo_mesh(
@@ -146,7 +146,7 @@ def test_base_meshes_scene_model_to_moves_repo_mesh(
     mesh_root = tmp_path / "mesh_scene_to"
     mesh_root.mkdir(parents=True, exist_ok=True)
     Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             dtype=torch.float32,
         ),
@@ -156,11 +156,11 @@ def test_base_meshes_scene_model_to_moves_repo_mesh(
                 [[[1.0, 0.0, 0.0]]],
                 dtype=torch.float32,
             ),
-            vertex_uv=torch.tensor(
+            verts_uvs=torch.tensor(
                 [[0.10, 0.20], [0.30, 0.40], [0.50, 0.60]],
                 dtype=torch.float32,
             ),
-            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
             convention="obj",
         ),
     ).save(path=mesh_root / "mesh.obj")

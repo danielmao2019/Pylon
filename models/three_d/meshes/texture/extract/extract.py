@@ -15,7 +15,7 @@ from data.structures.three_d.mesh.texture.validate_vertex_color import (
     validate_vertex_color,
 )
 from models.three_d.meshes.texture.extract.camera_geometry import (
-    _project_vertices_to_image,
+    _project_verts_to_image,
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
     _compute_f_normals_weights,
@@ -107,7 +107,7 @@ def extract_texture_from_images(
             `multi_view_robustness`, `robustness_tau`, and
             `first_frame_blending_weight_power`.
         texture_size: UV texture resolution when `mesh` carries UV coordinates.
-        default_color: Fallback color for texels/vertices without any valid observation.
+        default_color: Fallback color for texels/verts without any valid observation.
         return_valid_mask: Whether to also return a binary valid-observation mask.
         texel_visibility_method: Texel visibility algorithm for UV extraction.
         polygon_rast_method: Step-2 polygon rasterization method for UV extraction.
@@ -220,9 +220,9 @@ def extract_texture_from_images(
                     "Expected all per-view meshes to share identical faces. "
                     f"{mesh[0].faces.shape=} {view_mesh.faces.shape=}"
                 )
-                assert mesh[0].vertices.shape == view_mesh.vertices.shape, (
+                assert mesh[0].verts.shape == view_mesh.verts.shape, (
                     "Expected all per-view meshes to share one vertex layout. "
-                    f"{mesh[0].vertices.shape=} {view_mesh.vertices.shape=}"
+                    f"{mesh[0].verts.shape=} {view_mesh.verts.shape=}"
                 )
                 reference_is_uv = isinstance(mesh[0].texture, MeshTextureUVTextureMap)
                 view_is_uv = isinstance(view_mesh.texture, MeshTextureUVTextureMap)
@@ -233,12 +233,12 @@ def extract_texture_from_images(
                 )
                 if reference_is_uv:
                     assert (
-                        mesh[0].texture.vertex_uv.shape
-                        == view_mesh.texture.vertex_uv.shape
+                        mesh[0].texture.verts_uvs.shape
+                        == view_mesh.texture.verts_uvs.shape
                     ), (
                         "Expected all per-view meshes to share one UV layout. "
-                        f"{mesh[0].texture.vertex_uv.shape=} "
-                        f"{view_mesh.texture.vertex_uv.shape=}"
+                        f"{mesh[0].texture.verts_uvs.shape=} "
+                        f"{view_mesh.texture.verts_uvs.shape=}"
                     )
                     assert mesh[0].texture.convention == view_mesh.texture.convention, (
                         "Expected all per-view meshes to share one UV convention. "
@@ -246,30 +246,30 @@ def extract_texture_from_images(
                         f"{view_mesh.texture.convention=}"
                     )
                     assert torch.equal(
-                        mesh[0].texture.vertex_uv.detach().cpu(),
-                        view_mesh.texture.vertex_uv.detach().cpu(),
+                        mesh[0].texture.verts_uvs.detach().cpu(),
+                        view_mesh.texture.verts_uvs.detach().cpu(),
                     ), (
                         "Expected all per-view meshes to share identical UV "
                         "coordinates. "
-                        f"{mesh[0].texture.vertex_uv.shape=} "
-                        f"{view_mesh.texture.vertex_uv.shape=}"
+                        f"{mesh[0].texture.verts_uvs.shape=} "
+                        f"{view_mesh.texture.verts_uvs.shape=}"
                     )
                     assert (
-                        mesh[0].texture.face_uvs.shape
-                        == view_mesh.texture.face_uvs.shape
+                        mesh[0].texture.faces_uvs.shape
+                        == view_mesh.texture.faces_uvs.shape
                     ), (
                         "Expected all per-view meshes to share one UV-face layout. "
-                        f"{mesh[0].texture.face_uvs.shape=} "
-                        f"{view_mesh.texture.face_uvs.shape=}"
+                        f"{mesh[0].texture.faces_uvs.shape=} "
+                        f"{view_mesh.texture.faces_uvs.shape=}"
                     )
                     assert torch.equal(
-                        mesh[0].texture.face_uvs.detach().cpu(),
-                        view_mesh.texture.face_uvs.detach().cpu(),
+                        mesh[0].texture.faces_uvs.detach().cpu(),
+                        view_mesh.texture.faces_uvs.detach().cpu(),
                     ), (
                         "Expected all per-view meshes to share identical UV-face "
                         "indices. "
-                        f"{mesh[0].texture.face_uvs.shape=} "
-                        f"{view_mesh.texture.face_uvs.shape=}"
+                        f"{mesh[0].texture.faces_uvs.shape=} "
+                        f"{view_mesh.texture.faces_uvs.shape=}"
                     )
         validate_weights_cfg(
             weights_cfg=weights_cfg,
@@ -325,7 +325,7 @@ def extract_texture_from_images(
     else:
         images_nchw = images_nchw.to(dtype=torch.float32)
 
-    device = meshes[0].vertices.device
+    device = meshes[0].verts.device
     meshes = [view_mesh.to(device=device) for view_mesh in meshes]
     images_nchw = images_nchw.to(device=device)
     cameras = cameras.to(device=device, convention="opencv")
@@ -372,7 +372,7 @@ def _extract_vertex_color_from_images(
         images_nchw: Input RGB images [N, 3, H, W].
         cameras: Per-view cameras.
         weights_cfg: Per-view fusion weighting configuration dictionary.
-        default_color: Fallback color for vertices without valid observations.
+        default_color: Fallback color for verts without valid observations.
 
     Returns:
         Dict with:
@@ -464,7 +464,7 @@ def _fuse_vertex_color_observations(
     Args:
         observations: One-view observation mappings with `texture` and `weight`.
         weights_cfg: Per-view fusion weighting configuration dictionary.
-        default_color: Fallback color for vertices without valid observations.
+        default_color: Fallback color for verts without valid observations.
 
     Returns:
         Dict with fused vertex colors and a valid-observation mask.
@@ -728,7 +728,7 @@ def _project_v_colors(
     camera: Cameras,
     default_color: float,
 ) -> torch.Tensor:
-    """Project one image to vertices and sample per-vertex RGB colors.
+    """Project one image to verts and sample per-vertex RGB colors.
 
     Args:
         mesh: Extraction mesh.
@@ -740,14 +740,14 @@ def _project_v_colors(
         Vertex RGB colors with shape [V, 3].
     """
 
-    xy, _depth, _vertices_camera, projection_valid = _project_vertices_to_image(
-        vertices=mesh.vertices,
+    xy, _depth, _verts_camera, projection_valid = _project_verts_to_image(
+        verts=mesh.verts,
         camera=camera,
         image_height=int(image.shape[1]),
         image_width=int(image.shape[2]),
     )
 
-    vertex_count = mesh.vertices.shape[0]
+    vertex_count = mesh.verts.shape[0]
     vertex_color = torch.full(
         (vertex_count, 3),
         fill_value=default_color,
@@ -1181,7 +1181,7 @@ def _extract_uv_texture_map_from_single_image(
 
     if texel_visibility_method == "v1":
         uv_visibility_mask = compute_f_visibility_mask(
-            vertices=mesh.vertices,
+            verts=mesh.verts,
             faces=mesh.faces,
             camera=camera,
             image_height=int(image.shape[1]),
@@ -1195,7 +1195,7 @@ def _extract_uv_texture_map_from_single_image(
             f"{texel_visibility_method=}"
         )
         uv_visibility_mask = compute_f_visibility_mask_v2(
-            vertices=mesh.vertices,
+            verts=mesh.verts,
             faces=mesh.faces,
             camera=camera,
             image_height=int(image.shape[1]),
@@ -1361,8 +1361,8 @@ def _project_f_colors(
         )
         return sampled_image.permute(0, 2, 3, 1).contiguous()
 
-    xy, _depth, _vertices_camera, _valid = _project_vertices_to_image(
-        vertices=mesh.vertices,
+    xy, _depth, _verts_camera, _valid = _project_verts_to_image(
+        verts=mesh.verts,
         camera=camera,
         image_height=int(image.shape[1]),
         image_width=int(image.shape[2]),
@@ -1392,7 +1392,7 @@ def _build_uv_rasterization_data(
 
     Args:
         mesh: Mesh carrying a `MeshTextureUVTextureMap` texture (supplying
-            `vertex_uv` and `face_uvs`) and `faces`.
+            `verts_uvs` and `faces_uvs`) and `faces`.
         texture_size: UV texture resolution.
 
     Returns:
@@ -1406,7 +1406,7 @@ def _build_uv_rasterization_data(
                 triangle-soup vertex [Vr].
             "raster_face_indices": Original mesh-face index for each
                 UV-rasterized triangle [Fr].
-            "camera_attr_vertex_uv": Per-face local UV attributes [F * 3, 2]
+            "camera_attr_verts_uvs": Per-face local UV attributes [F * 3, 2]
                 for camera-space interpolation.
             "camera_attr_tri_i32": Triangle index tensor [F, 3] with dtype
                 `torch.int32` for camera-space UV interpolation.
@@ -1430,26 +1430,26 @@ def _build_uv_rasterization_data(
 
     _validate_inputs()
 
-    vertex_uv = mesh.texture.vertex_uv
+    verts_uvs = mesh.texture.verts_uvs
     faces = mesh.faces
-    face_uvs = mesh.texture.face_uvs
+    faces_uvs = mesh.texture.faces_uvs
 
     uv_rasterization_mesh = _build_uv_rasterization_mesh(
-        vertex_uv=vertex_uv,
+        verts_uvs=verts_uvs,
         faces=faces,
-        face_uvs=face_uvs,
+        faces_uvs=faces_uvs,
     )
     camera_uv_interpolation_data = _build_camera_uv_interpolation_data(
-        vertex_uv=vertex_uv,
+        verts_uvs=verts_uvs,
         faces=faces,
-        face_uvs=face_uvs,
+        faces_uvs=faces_uvs,
     )
     tri_i32 = uv_rasterization_mesh["tri_i32"]
-    raster_vertex_uv = uv_rasterization_mesh["raster_vertex_uv"]
-    uv_clip = _vertex_uv_to_clip(
-        vertex_uv=raster_vertex_uv,
-    ).to(device=vertex_uv.device, dtype=torch.float32)
-    uv_ctx = dr.RasterizeCudaContext(device=vertex_uv.device)
+    raster_verts_uvs = uv_rasterization_mesh["raster_verts_uvs"]
+    uv_clip = _verts_uvs_to_clip(
+        verts_uvs=raster_verts_uvs,
+    ).to(device=verts_uvs.device, dtype=torch.float32)
+    uv_ctx = dr.RasterizeCudaContext(device=verts_uvs.device)
     rast_out, _ = dr.rasterize(
         glctx=uv_ctx,
         pos=uv_clip.contiguous(),
@@ -1465,46 +1465,46 @@ def _build_uv_rasterization_data(
         "uv_mask": uv_mask,
         "raster_vertex_indices": uv_rasterization_mesh["raster_vertex_indices"],
         "raster_face_indices": uv_rasterization_mesh["raster_face_indices"],
-        "camera_attr_vertex_uv": camera_uv_interpolation_data["camera_attr_vertex_uv"],
+        "camera_attr_verts_uvs": camera_uv_interpolation_data["camera_attr_verts_uvs"],
         "camera_attr_tri_i32": camera_uv_interpolation_data["camera_attr_tri_i32"],
     }
 
 
 def _build_uv_rasterization_mesh(
-    vertex_uv: torch.Tensor,
+    verts_uvs: torch.Tensor,
     faces: torch.Tensor,
-    face_uvs: Optional[torch.Tensor] = None,
+    faces_uvs: Optional[torch.Tensor] = None,
 ) -> Dict[str, torch.Tensor]:
     """Build a seam-safe UV triangle soup for UV rasterization.
 
     Args:
-        vertex_uv: Per-vertex UV coordinates [V, 2].
+        verts_uvs: Per-vertex UV coordinates [V, 2].
         faces: Mesh faces [F, 3].
-        face_uvs: Optional face-to-UV indices [F, 3]. When omitted, reuse `faces`.
+        faces_uvs: Optional face-to-UV indices [F, 3]. When omitted, reuse `faces`.
 
     Returns:
         Dict containing:
-            "raster_vertex_uv": Triangle-soup UV coordinates [Vr, 2].
+            "raster_verts_uvs": Triangle-soup UV coordinates [Vr, 2].
             "tri_i32": Triangle-soup indices [Fr, 3] with dtype `torch.int32`.
             "raster_vertex_indices": Original mesh-vertex indices [Vr].
             "raster_face_indices": Original mesh-face index for each UV triangle [Fr].
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(vertex_uv, torch.Tensor), (
-            "Expected `vertex_uv` to be a tensor. " f"{type(vertex_uv)=}"
+        assert isinstance(verts_uvs, torch.Tensor), (
+            "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
         )
         assert isinstance(faces, torch.Tensor), (
             "Expected `faces` to be a tensor. " f"{type(faces)=}"
         )
-        assert face_uvs is None or isinstance(face_uvs, torch.Tensor), (
-            "Expected `face_uvs` to be `None` or a tensor. " f"{type(face_uvs)=}"
+        assert faces_uvs is None or isinstance(faces_uvs, torch.Tensor), (
+            "Expected `faces_uvs` to be `None` or a tensor. " f"{type(faces_uvs)=}"
         )
-        assert vertex_uv.ndim == 2, (
-            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        assert verts_uvs.ndim == 2, (
+            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
         )
-        assert vertex_uv.shape[1] == 2, (
-            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        assert verts_uvs.shape[1] == 2, (
+            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
         )
         assert faces.ndim == 2, (
             "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"
@@ -1512,25 +1512,25 @@ def _build_uv_rasterization_mesh(
         assert faces.shape[1] == 3, (
             "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"
         )
-        assert face_uvs is None or face_uvs.shape == faces.shape, (
-            "Expected `face_uvs` to align with `faces` when provided. "
-            f"{face_uvs.shape=} {faces.shape=}"
+        assert faces_uvs is None or faces_uvs.shape == faces.shape, (
+            "Expected `faces_uvs` to align with `faces` when provided. "
+            f"{faces_uvs.shape=} {faces.shape=}"
         )
 
     _validate_inputs()
 
-    faces_long = faces.to(device=vertex_uv.device, dtype=torch.long).contiguous()
-    if face_uvs is None:
-        face_uvs_long = faces_long
+    faces_long = faces.to(device=verts_uvs.device, dtype=torch.long).contiguous()
+    if faces_uvs is None:
+        faces_uvs_long = faces_long
     else:
-        face_uvs_long = face_uvs.to(
-            device=vertex_uv.device, dtype=torch.long
+        faces_uvs_long = faces_uvs.to(
+            device=verts_uvs.device, dtype=torch.long
         ).contiguous()
-    face_vertex_uv = vertex_uv[face_uvs_long]
-    face_u = face_vertex_uv[:, :, 0]
+    face_verts_uvs = verts_uvs[faces_uvs_long]
+    face_u = face_verts_uvs[:, :, 0]
     seam_face_mask = (face_u.max(dim=1).values - face_u.min(dim=1).values) > 0.5
 
-    raster_vertex_uv_chunks: List[torch.Tensor] = []
+    raster_verts_uvs_chunks: List[torch.Tensor] = []
     raster_vertex_index_chunks: List[torch.Tensor] = []
     raster_face_index_chunks: List[torch.Tensor] = []
 
@@ -1566,7 +1566,7 @@ def _build_uv_rasterization_mesh(
                 f"{face_uv.shape=} {face_indices.shape=}"
             )
             assert face_uv.shape[1] == 3, (
-                "Expected `face_uv` to provide three UV vertices per face. "
+                "Expected `face_uv` to provide three UV verts per face. "
                 f"{face_uv.shape=}"
             )
             assert face_uv.shape[2] == 2, (
@@ -1578,8 +1578,8 @@ def _build_uv_rasterization_mesh(
         if face_indices.numel() == 0:
             return
 
-        raster_vertex_uv_chunks.append(
-            face_uv.reshape(-1, 2).to(device=vertex_uv.device, dtype=torch.float32)
+        raster_verts_uvs_chunks.append(
+            face_uv.reshape(-1, 2).to(device=verts_uvs.device, dtype=torch.float32)
         )
         raster_vertex_index_chunks.append(faces_long[face_indices].reshape(-1))
         raster_face_index_chunks.append(face_indices)
@@ -1587,12 +1587,12 @@ def _build_uv_rasterization_mesh(
     non_seam_face_indices = torch.nonzero(~seam_face_mask, as_tuple=False).reshape(-1)
     _append_triangles(
         face_indices=non_seam_face_indices,
-        face_uv=face_vertex_uv[non_seam_face_indices],
+        face_uv=face_verts_uvs[non_seam_face_indices],
     )
 
     seam_face_indices = torch.nonzero(seam_face_mask, as_tuple=False).reshape(-1)
     if seam_face_indices.numel() > 0:
-        seam_face_uv = face_vertex_uv[seam_face_indices].clone()
+        seam_face_uv = face_verts_uvs[seam_face_indices].clone()
         seam_face_u = seam_face_uv[:, :, 0]
         seam_face_uv[:, :, 0] = torch.where(
             seam_face_u < 0.5,
@@ -1611,15 +1611,15 @@ def _build_uv_rasterization_mesh(
         )
 
     assert (
-        len(raster_vertex_uv_chunks) > 0
+        len(raster_verts_uvs_chunks) > 0
     ), "Failed to build UV rasterization mesh: no raster triangles were generated."
-    raster_vertex_uv = torch.cat(raster_vertex_uv_chunks, dim=0).contiguous()
+    raster_verts_uvs = torch.cat(raster_verts_uvs_chunks, dim=0).contiguous()
     raster_vertex_indices = torch.cat(raster_vertex_index_chunks, dim=0).contiguous()
     raster_face_indices = torch.cat(raster_face_index_chunks, dim=0).contiguous()
     tri_i32 = torch.arange(
         start=0,
-        end=raster_vertex_uv.shape[0],
-        device=vertex_uv.device,
+        end=raster_verts_uvs.shape[0],
+        device=verts_uvs.device,
         dtype=torch.int32,
     ).reshape(-1, 3)
     assert (
@@ -1627,7 +1627,7 @@ def _build_uv_rasterization_mesh(
     ), f"{tri_i32.shape=} {raster_face_indices.shape=}"
 
     return {
-        "raster_vertex_uv": raster_vertex_uv,
+        "raster_verts_uvs": raster_verts_uvs,
         "tri_i32": tri_i32,
         "raster_vertex_indices": raster_vertex_indices,
         "raster_face_indices": raster_face_indices,
@@ -1635,39 +1635,39 @@ def _build_uv_rasterization_mesh(
 
 
 def _build_camera_uv_interpolation_data(
-    vertex_uv: torch.Tensor,
+    verts_uvs: torch.Tensor,
     faces: torch.Tensor,
-    face_uvs: Optional[torch.Tensor] = None,
+    faces_uvs: Optional[torch.Tensor] = None,
 ) -> Dict[str, torch.Tensor]:
     """Build seam-safe per-face UV attributes for camera-space interpolation.
 
     Args:
-        vertex_uv: Per-vertex UV coordinates [V, 2].
+        verts_uvs: Per-vertex UV coordinates [V, 2].
         faces: Mesh faces [F, 3].
-        face_uvs: Optional face-to-UV indices [F, 3]. When omitted, reuse `faces`.
+        faces_uvs: Optional face-to-UV indices [F, 3]. When omitted, reuse `faces`.
 
     Returns:
         Dict containing:
-            "camera_attr_vertex_uv": Per-face local UV attributes [F * 3, 2].
+            "camera_attr_verts_uvs": Per-face local UV attributes [F * 3, 2].
             "camera_attr_tri_i32": Triangle index tensor [F, 3] with dtype
                 `torch.int32`, where row `f` corresponds to original face `f`.
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(vertex_uv, torch.Tensor), (
-            "Expected `vertex_uv` to be a tensor. " f"Got {type(vertex_uv)=}."
+        assert isinstance(verts_uvs, torch.Tensor), (
+            "Expected `verts_uvs` to be a tensor. " f"Got {type(verts_uvs)=}."
         )
         assert isinstance(faces, torch.Tensor), (
             "Expected `faces` to be a tensor. " f"Got {type(faces)=}."
         )
-        assert face_uvs is None or isinstance(face_uvs, torch.Tensor), (
-            "Expected `face_uvs` to be `None` or a tensor. " f"Got {type(face_uvs)=}."
+        assert faces_uvs is None or isinstance(faces_uvs, torch.Tensor), (
+            "Expected `faces_uvs` to be `None` or a tensor. " f"Got {type(faces_uvs)=}."
         )
-        assert vertex_uv.ndim == 2, (
-            "Expected `vertex_uv` to have shape [V, 2]. " f"Got {vertex_uv.shape=}."
+        assert verts_uvs.ndim == 2, (
+            "Expected `verts_uvs` to have shape [V, 2]. " f"Got {verts_uvs.shape=}."
         )
-        assert vertex_uv.shape[1] == 2, (
-            "Expected `vertex_uv` to have shape [V, 2]. " f"Got {vertex_uv.shape=}."
+        assert verts_uvs.shape[1] == 2, (
+            "Expected `verts_uvs` to have shape [V, 2]. " f"Got {verts_uvs.shape=}."
         )
         assert faces.ndim == 2, (
             "Expected `faces` to have shape [F, 3]. " f"Got {faces.shape=}."
@@ -1675,35 +1675,35 @@ def _build_camera_uv_interpolation_data(
         assert faces.shape[1] == 3, (
             "Expected `faces` to have shape [F, 3]. " f"Got {faces.shape=}."
         )
-        assert face_uvs is None or face_uvs.shape == faces.shape, (
-            "Expected `face_uvs` to align with `faces` when provided. "
-            f"{face_uvs.shape=} {faces.shape=}"
+        assert faces_uvs is None or faces_uvs.shape == faces.shape, (
+            "Expected `faces_uvs` to align with `faces` when provided. "
+            f"{faces_uvs.shape=} {faces.shape=}"
         )
 
     _validate_inputs()
 
-    faces_long = faces.to(device=vertex_uv.device, dtype=torch.long).contiguous()
-    if face_uvs is None:
-        face_uvs_long = faces_long
+    faces_long = faces.to(device=verts_uvs.device, dtype=torch.long).contiguous()
+    if faces_uvs is None:
+        faces_uvs_long = faces_long
     else:
-        face_uvs_long = face_uvs.to(
-            device=vertex_uv.device, dtype=torch.long
+        faces_uvs_long = faces_uvs.to(
+            device=verts_uvs.device, dtype=torch.long
         ).contiguous()
-    face_vertex_uv = vertex_uv[face_uvs_long].clone()
-    face_u = face_vertex_uv[:, :, 0]
+    face_verts_uvs = verts_uvs[faces_uvs_long].clone()
+    face_u = face_verts_uvs[:, :, 0]
     seam_face_mask = (face_u.max(dim=1).values - face_u.min(dim=1).values) > 0.5
     if torch.any(seam_face_mask):
-        seam_face_u = face_vertex_uv[seam_face_mask, :, 0]
-        face_vertex_uv[seam_face_mask, :, 0] = torch.where(
+        seam_face_u = face_verts_uvs[seam_face_mask, :, 0]
+        face_verts_uvs[seam_face_mask, :, 0] = torch.where(
             seam_face_u < 0.5,
             seam_face_u + 1.0,
             seam_face_u,
         )
-    camera_attr_vertex_uv = face_vertex_uv.reshape(-1, 2).contiguous()
+    camera_attr_verts_uvs = face_verts_uvs.reshape(-1, 2).contiguous()
     camera_attr_tri_i32 = torch.arange(
         start=0,
-        end=camera_attr_vertex_uv.shape[0],
-        device=vertex_uv.device,
+        end=camera_attr_verts_uvs.shape[0],
+        device=verts_uvs.device,
         dtype=torch.int32,
     ).reshape(-1, 3)
     assert camera_attr_tri_i32.shape[0] == faces.shape[0], (
@@ -1711,38 +1711,38 @@ def _build_camera_uv_interpolation_data(
         f"Got {camera_attr_tri_i32.shape=} {faces.shape=}."
     )
     return {
-        "camera_attr_vertex_uv": camera_attr_vertex_uv,
+        "camera_attr_verts_uvs": camera_attr_verts_uvs,
         "camera_attr_tri_i32": camera_attr_tri_i32,
     }
 
 
-def _vertex_uv_to_clip(
-    vertex_uv: torch.Tensor,
+def _verts_uvs_to_clip(
+    verts_uvs: torch.Tensor,
 ) -> torch.Tensor:
     """Convert UV coordinates to clip-space positions for UV rasterization.
 
     Args:
-        vertex_uv: Per-vertex UV coordinates [V, 2].
+        verts_uvs: Per-vertex UV coordinates [V, 2].
 
     Returns:
-        Clip-space UV vertices [1, V, 4].
+        Clip-space UV verts [1, V, 4].
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(vertex_uv, torch.Tensor), (
-            "Expected `vertex_uv` to be a tensor. " f"{type(vertex_uv)=}"
+        assert isinstance(verts_uvs, torch.Tensor), (
+            "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
         )
-        assert vertex_uv.ndim == 2, (
-            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        assert verts_uvs.ndim == 2, (
+            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
         )
-        assert vertex_uv.shape[1] == 2, (
-            "Expected `vertex_uv` to have shape `[V, 2]`. " f"{vertex_uv.shape=}"
+        assert verts_uvs.shape[1] == 2, (
+            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
         )
 
     _validate_inputs()
 
-    x = vertex_uv[:, 0] * 2.0 - 1.0
-    y = vertex_uv[:, 1] * 2.0 - 1.0
+    x = verts_uvs[:, 0] * 2.0 - 1.0
+    y = verts_uvs[:, 1] * 2.0 - 1.0
     z = torch.zeros_like(x)
     w = torch.ones_like(x)
     return torch.stack([x, y, z, w], dim=1).unsqueeze(0)

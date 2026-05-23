@@ -79,18 +79,18 @@ def _merge_vertex_color_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
 
     _validate_inputs()
 
-    vertices_list: List[torch.Tensor] = []
+    verts_list: List[torch.Tensor] = []
     faces_list: List[torch.Tensor] = []
     vertex_color_list: List[torch.Tensor] = []
     vertex_offset = 0
     for mesh in mesh_blocks:
-        vertices_list.append(mesh.vertices)
+        verts_list.append(mesh.verts)
         faces_list.append(mesh.faces + vertex_offset)
         vertex_color_list.append(mesh.texture.vertex_color)
-        vertex_offset += int(mesh.vertices.shape[0])
+        vertex_offset += int(mesh.verts.shape[0])
 
     return Mesh(
-        vertices=torch.cat(vertices_list, dim=0),
+        verts=torch.cat(verts_list, dim=0),
         faces=torch.cat(faces_list, dim=0),
         texture=MeshTextureVertexColor(
             vertex_color=torch.cat(vertex_color_list, dim=0)
@@ -125,19 +125,19 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
 
     mesh_blocks = _normalize_inputs()
 
-    vertices_list: List[torch.Tensor] = []
+    verts_list: List[torch.Tensor] = []
     faces_list: List[torch.Tensor] = []
-    vertex_uv_list: List[torch.Tensor] = []
-    face_uvs_list: List[torch.Tensor] = []
+    verts_uvs_list: List[torch.Tensor] = []
+    faces_uvs_list: List[torch.Tensor] = []
     texture_maps: List[torch.Tensor] = []
     face_materials_list: List[torch.Tensor] = []
     vertex_offset = 0
     uv_offset = 0
     for block_index, mesh in enumerate(mesh_blocks):
-        vertices_list.append(mesh.vertices)
+        verts_list.append(mesh.verts)
         faces_list.append(mesh.faces + vertex_offset)
-        vertex_uv_list.append(mesh.texture.vertex_uv)
-        face_uvs_list.append(mesh.texture.face_uvs + uv_offset)
+        verts_uvs_list.append(mesh.texture.verts_uvs)
+        faces_uvs_list.append(mesh.texture.faces_uvs + uv_offset)
         texture_maps.append(mesh.texture.uv_texture_map)
         face_materials_list.append(
             torch.full(
@@ -147,23 +147,23 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
                 dtype=torch.long,
             )
         )
-        vertex_offset += int(mesh.vertices.shape[0])
-        uv_offset += int(mesh.texture.vertex_uv.shape[0])
+        vertex_offset += int(mesh.verts.shape[0])
+        uv_offset += int(mesh.texture.verts_uvs.shape[0])
 
-    packed_texture_map, merged_vertex_uv, merged_face_uvs = _pack_texture_maps(
+    packed_texture_map, merged_verts_uvs, merged_faces_uvs = _pack_texture_maps(
         texture_maps=texture_maps,
-        verts_uvs=torch.cat(vertex_uv_list, dim=0),
-        faces_uvs=torch.cat(face_uvs_list, dim=0),
+        verts_uvs=torch.cat(verts_uvs_list, dim=0),
+        faces_uvs=torch.cat(faces_uvs_list, dim=0),
         materials_idx=torch.cat(face_materials_list, dim=0),
     )
 
     return Mesh(
-        vertices=torch.cat(vertices_list, dim=0),
+        verts=torch.cat(verts_list, dim=0),
         faces=torch.cat(faces_list, dim=0),
         texture=MeshTextureUVTextureMap(
             uv_texture_map=packed_texture_map,
-            vertex_uv=merged_vertex_uv,
-            face_uvs=merged_face_uvs,
+            verts_uvs=merged_verts_uvs,
+            faces_uvs=merged_faces_uvs,
             convention="obj",
         ),
     )
@@ -188,16 +188,16 @@ def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
 
     _validate_inputs()
 
-    vertices_list: List[torch.Tensor] = []
+    verts_list: List[torch.Tensor] = []
     faces_list: List[torch.Tensor] = []
     vertex_offset = 0
     for mesh in mesh_blocks:
-        vertices_list.append(mesh.vertices)
+        verts_list.append(mesh.verts)
         faces_list.append(mesh.faces + vertex_offset)
-        vertex_offset += int(mesh.vertices.shape[0])
+        vertex_offset += int(mesh.verts.shape[0])
 
     return Mesh(
-        vertices=torch.cat(vertices_list, dim=0),
+        verts=torch.cat(verts_list, dim=0),
         faces=torch.cat(faces_list, dim=0),
         texture=None,
     )

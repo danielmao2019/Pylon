@@ -16,15 +16,15 @@ DEFAULT_EARLY_STOP_PATIENCE = 5
 
 
 def estimate_rotations(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
     edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
     reference_edge_vectors: torch.Tensor,
 ) -> torch.Tensor:
     # Input validations
-    assert isinstance(vertices, torch.Tensor)
-    assert vertices.ndim == 2
-    assert vertices.shape[1] == 3
+    assert isinstance(verts, torch.Tensor)
+    assert verts.ndim == 2
+    assert verts.shape[1] == 3
 
     assert isinstance(edge_vertex_indices, torch.Tensor)
     assert edge_vertex_indices.ndim == 2
@@ -32,7 +32,7 @@ def estimate_rotations(
     assert edge_vertex_indices.dtype == torch.long
     assert int(edge_vertex_indices.shape[0]) > 0
     assert int(edge_vertex_indices.min().item()) >= 0
-    assert int(edge_vertex_indices.max().item()) < int(vertices.shape[0])
+    assert int(edge_vertex_indices.max().item()) < int(verts.shape[0])
 
     assert isinstance(weights, torch.Tensor)
     assert weights.ndim == 1
@@ -43,18 +43,18 @@ def estimate_rotations(
     assert reference_edge_vectors.shape[1] == 3
     assert int(reference_edge_vectors.shape[0]) == int(edge_vertex_indices.shape[0])
 
-    num_vertices = vertices.shape[0]
-    edge_vec = vertices[edge_vertex_indices[:, 0]] - vertices[edge_vertex_indices[:, 1]]
+    num_verts = verts.shape[0]
+    edge_vec = verts[edge_vertex_indices[:, 0]] - verts[edge_vertex_indices[:, 1]]
     outer = edge_vec.unsqueeze(2) * reference_edge_vectors.unsqueeze(1)
     weighted_outer = weights[:, None, None] * outer
     cov = torch.zeros(
-        (num_vertices, 3, 3), device=vertices.device, dtype=vertices.dtype
+        (num_verts, 3, 3), device=verts.device, dtype=verts.dtype
     )
     cov.index_add_(0, edge_vertex_indices[:, 0], weighted_outer)
     cov.index_add_(0, edge_vertex_indices[:, 1], weighted_outer)
     u, _, v = torch.linalg.svd(cov)
     det = torch.linalg.det(u @ v)
-    signs = torch.ones((num_vertices, 3), device=vertices.device, dtype=vertices.dtype)
+    signs = torch.ones((num_verts, 3), device=verts.device, dtype=verts.dtype)
     signs[:, 2] = torch.sign(det)
     diag = torch.diag_embed(signs)
     rotations = u @ diag @ v
@@ -62,16 +62,16 @@ def estimate_rotations(
 
 
 def apply_arap_operator(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
     edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
     constraint_mask: torch.Tensor,
     lambda_c: float,
 ) -> torch.Tensor:
     # Input validations
-    assert isinstance(vertices, torch.Tensor)
-    assert vertices.ndim == 2
-    assert vertices.shape[1] == 3
+    assert isinstance(verts, torch.Tensor)
+    assert verts.ndim == 2
+    assert verts.shape[1] == 3
 
     assert isinstance(edge_vertex_indices, torch.Tensor)
     assert edge_vertex_indices.ndim == 2
@@ -79,7 +79,7 @@ def apply_arap_operator(
     assert edge_vertex_indices.dtype == torch.long
     assert int(edge_vertex_indices.shape[0]) > 0
     assert int(edge_vertex_indices.min().item()) >= 0
-    assert int(edge_vertex_indices.max().item()) < int(vertices.shape[0])
+    assert int(edge_vertex_indices.max().item()) < int(verts.shape[0])
 
     assert isinstance(weights, torch.Tensor)
     assert weights.ndim == 1
@@ -87,17 +87,17 @@ def apply_arap_operator(
 
     assert isinstance(constraint_mask, torch.Tensor)
     assert constraint_mask.ndim == 1
-    assert int(constraint_mask.shape[0]) == int(vertices.shape[0])
+    assert int(constraint_mask.shape[0]) == int(verts.shape[0])
 
     assert isinstance(lambda_c, float)
 
-    vi = vertices[edge_vertex_indices[:, 0]]
-    vj = vertices[edge_vertex_indices[:, 1]]
+    vi = verts[edge_vertex_indices[:, 0]]
+    vj = verts[edge_vertex_indices[:, 1]]
     weighted = weights[:, None] * (vi - vj)
-    result = torch.zeros_like(vertices)
+    result = torch.zeros_like(verts)
     result.index_add_(0, edge_vertex_indices[:, 0], weighted)
     result.index_add_(0, edge_vertex_indices[:, 1], -weighted)
-    result = result + lambda_c * constraint_mask[:, None] * vertices
+    result = result + lambda_c * constraint_mask[:, None] * verts
     return result
 
 
@@ -157,7 +157,7 @@ def build_arap_rhs(
 
 
 def compute_arap_energy(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
     edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
     reference_edge_vectors: torch.Tensor,
@@ -168,9 +168,9 @@ def compute_arap_energy(
 ) -> torch.Tensor:
     """Compute ARAP energy (edge + constraint terms)."""
     # Input validations
-    assert isinstance(vertices, torch.Tensor)
-    assert vertices.ndim == 2
-    assert vertices.shape[1] == 3
+    assert isinstance(verts, torch.Tensor)
+    assert verts.ndim == 2
+    assert verts.shape[1] == 3
 
     assert isinstance(edge_vertex_indices, torch.Tensor)
     assert edge_vertex_indices.ndim == 2
@@ -178,7 +178,7 @@ def compute_arap_energy(
     assert edge_vertex_indices.dtype == torch.long
     assert int(edge_vertex_indices.shape[0]) > 0
     assert int(edge_vertex_indices.min().item()) >= 0
-    assert int(edge_vertex_indices.max().item()) < int(vertices.shape[0])
+    assert int(edge_vertex_indices.max().item()) < int(verts.shape[0])
 
     assert isinstance(weights, torch.Tensor)
     assert weights.ndim == 1
@@ -191,29 +191,29 @@ def compute_arap_energy(
 
     assert isinstance(rotations, torch.Tensor)
     assert rotations.ndim == 3
-    assert int(rotations.shape[0]) == int(vertices.shape[0])
+    assert int(rotations.shape[0]) == int(verts.shape[0])
     assert rotations.shape[1] == 3
     assert rotations.shape[2] == 3
 
     assert isinstance(constraint_mask, torch.Tensor)
     assert constraint_mask.ndim == 1
-    assert int(constraint_mask.shape[0]) == int(vertices.shape[0])
+    assert int(constraint_mask.shape[0]) == int(verts.shape[0])
 
     assert isinstance(targets, torch.Tensor)
     assert targets.ndim == 2
     assert targets.shape[1] == 3
-    assert int(targets.shape[0]) == int(vertices.shape[0])
+    assert int(targets.shape[0]) == int(verts.shape[0])
 
     assert isinstance(lambda_c, float)
 
-    edge_vec = vertices[edge_vertex_indices[:, 0]] - vertices[edge_vertex_indices[:, 1]]
+    edge_vec = verts[edge_vertex_indices[:, 0]] - verts[edge_vertex_indices[:, 1]]
     rot_avg = 0.5 * (
         rotations[edge_vertex_indices[:, 0]] + rotations[edge_vertex_indices[:, 1]]
     )
     rotated = torch.bmm(rot_avg, reference_edge_vectors.unsqueeze(-1)).squeeze(-1)
     residual = edge_vec - rotated
     edge_energy = weights * torch.sum(residual * residual, dim=1)
-    constraint_residual = vertices - targets
+    constraint_residual = verts - targets
     constraint_energy = (
         lambda_c
         * constraint_mask
@@ -223,7 +223,7 @@ def compute_arap_energy(
 
 
 def run_arap(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
     edge_vertex_indices: torch.Tensor,
     weights: torch.Tensor,
     reference_edge_vectors: torch.Tensor,
@@ -236,9 +236,9 @@ def run_arap(
     report_iters: Optional[List[int]] = None,
 ) -> Tuple[torch.Tensor, Dict[int, torch.Tensor], int]:
     # Input validations
-    assert isinstance(vertices, torch.Tensor)
-    assert vertices.ndim == 2
-    assert vertices.shape[1] == 3
+    assert isinstance(verts, torch.Tensor)
+    assert verts.ndim == 2
+    assert verts.shape[1] == 3
 
     assert isinstance(edge_vertex_indices, torch.Tensor)
     assert edge_vertex_indices.ndim == 2
@@ -246,7 +246,7 @@ def run_arap(
     assert edge_vertex_indices.dtype == torch.long
     assert int(edge_vertex_indices.shape[0]) > 0
     assert int(edge_vertex_indices.min().item()) >= 0
-    assert int(edge_vertex_indices.max().item()) < int(vertices.shape[0])
+    assert int(edge_vertex_indices.max().item()) < int(verts.shape[0])
 
     assert isinstance(weights, torch.Tensor)
     assert weights.ndim == 1
@@ -259,12 +259,12 @@ def run_arap(
 
     assert isinstance(constraint_mask, torch.Tensor)
     assert constraint_mask.ndim == 1
-    assert int(constraint_mask.shape[0]) == int(vertices.shape[0])
+    assert int(constraint_mask.shape[0]) == int(verts.shape[0])
 
     assert isinstance(targets, torch.Tensor)
     assert targets.ndim == 2
     assert targets.shape[1] == 3
-    assert int(targets.shape[0]) == int(vertices.shape[0])
+    assert int(targets.shape[0]) == int(verts.shape[0])
 
     assert isinstance(lambda_c, float)
 
@@ -288,7 +288,7 @@ def run_arap(
     # Input normalizations
     if factorized_system is None:
         factorized_system = factorize_laplacian_system(
-            num_vertices=int(vertices.shape[0]),
+            num_verts=int(verts.shape[0]),
             edge_vertex_indices=edge_vertex_indices,
             weights=weights,
             constraint_mask=constraint_mask,
@@ -304,7 +304,7 @@ def run_arap(
 
     for iter_idx in range(max_iters):
         rotations = estimate_rotations(
-            vertices=vertices,
+            verts=verts,
             edge_vertex_indices=edge_vertex_indices,
             weights=weights,
             reference_edge_vectors=reference_edge_vectors,
@@ -318,19 +318,19 @@ def run_arap(
             targets=targets,
             lambda_c=lambda_c,
         )
-        vertices = solve_factorized_sparse_system(
+        verts = solve_factorized_sparse_system(
             factorized_system=factorized_system,
             rhs=rhs,
-            device=vertices.device,
-            dtype=vertices.dtype,
+            device=verts.device,
+            dtype=verts.dtype,
         )
         iterations_run = iter_idx + 1
         if report_set and iterations_run in report_set:
-            progress[iterations_run] = vertices.detach().clone()
+            progress[iterations_run] = verts.detach().clone()
             logging.info("Captured ARAP iteration %d/%d", iterations_run, max_iters)
         if early_stop_patience is not None:
             energy = compute_arap_energy(
-                vertices=vertices,
+                verts=verts,
                 edge_vertex_indices=edge_vertex_indices,
                 weights=weights,
                 reference_edge_vectors=reference_edge_vectors,
@@ -346,4 +346,4 @@ def run_arap(
                 stale_iters += 1
                 if stale_iters >= early_stop_patience:
                     break
-    return vertices, progress, iterations_run
+    return verts, progress, iterations_run

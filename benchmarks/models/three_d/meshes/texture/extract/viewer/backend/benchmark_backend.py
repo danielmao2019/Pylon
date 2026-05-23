@@ -537,10 +537,10 @@ def _build_scene_result(
         "scene_name": scene_name,
         "source_rgb": scene_context["source_rgb"],
         "reference_texture_rgb": scene_context["reference_texture_rgb"],
-        "mesh_vertices": scene_context["mesh_vertices"].detach().cpu(),
+        "mesh_verts": scene_context["mesh_verts"].detach().cpu(),
         "mesh_faces": scene_context["mesh_faces"].detach().cpu(),
-        "mesh_vertex_uv": scene_context["mesh_vertex_uv"].detach().cpu(),
-        "mesh_face_uvs": scene_context["mesh_face_uvs"].detach().cpu(),
+        "mesh_verts_uvs": scene_context["mesh_verts_uvs"].detach().cpu(),
+        "mesh_faces_uvs": scene_context["mesh_faces_uvs"].detach().cpu(),
         "methods": {
             method_key: {
                 **method_payload,
@@ -622,8 +622,8 @@ def _build_scene_context(
         "Expected the benchmark mesh to be UV textured. "
         f"{type(mesh.texture)=} {raw_scene_root=}"
     )
-    normalized_mesh_vertices = _normalize_gso_mesh_vertices_to_processed_frame(
-        mesh_vertices=mesh.vertices.to(dtype=torch.float32),
+    normalized_mesh_verts = _normalize_gso_mesh_verts_to_processed_frame(
+        mesh_verts=mesh.verts.to(dtype=torch.float32),
         point_cloud=point_cloud,
     )
     frames = transforms_data.data["frames"]
@@ -644,10 +644,10 @@ def _build_scene_context(
         .contiguous()
     )
     exploded_geometry = _build_exploded_uv_geometry(
-        mesh_vertices=normalized_mesh_vertices,
+        mesh_verts=normalized_mesh_verts,
         mesh_faces=mesh.faces.to(dtype=torch.long),
-        mesh_vertex_uv=mesh.texture.vertex_uv.to(dtype=torch.float32),
-        mesh_face_uvs=mesh.texture.face_uvs.to(dtype=torch.long),
+        mesh_verts_uvs=mesh.texture.verts_uvs.to(dtype=torch.float32),
+        mesh_faces_uvs=mesh.texture.faces_uvs.to(dtype=torch.long),
     )
     return {
         "scene_name": scene_name,
@@ -655,13 +655,13 @@ def _build_scene_context(
         "source_rgb": source_rgb,
         "reference_texture_rgb": reference_texture_rgb,
         "image_chw": image_chw,
-        "mesh_vertices": normalized_mesh_vertices.contiguous(),
+        "mesh_verts": normalized_mesh_verts.contiguous(),
         "mesh_faces": mesh_faces.verts_idx.to(dtype=torch.long).contiguous(),
-        "mesh_vertex_uv": mesh_aux.verts_uvs.to(dtype=torch.float32).contiguous(),
-        "mesh_face_uvs": mesh_faces.textures_idx.to(dtype=torch.long).contiguous(),
-        "exploded_vertices": exploded_geometry["vertices"],
+        "mesh_verts_uvs": mesh_aux.verts_uvs.to(dtype=torch.float32).contiguous(),
+        "mesh_faces_uvs": mesh_faces.textures_idx.to(dtype=torch.long).contiguous(),
+        "exploded_verts": exploded_geometry["verts"],
         "exploded_faces": exploded_geometry["faces"],
-        "exploded_vertex_uv": exploded_geometry["vertex_uv"],
+        "exploded_verts_uvs": exploded_geometry["verts_uvs"],
         "texture_size": int(source_rgb.shape[0]),
     }
 
@@ -720,18 +720,18 @@ def _resolve_reference_texture_path(
     )
 
 
-def _normalize_gso_mesh_vertices_to_processed_frame(
-    mesh_vertices: torch.Tensor,
+def _normalize_gso_mesh_verts_to_processed_frame(
+    mesh_verts: torch.Tensor,
     point_cloud: PointCloud,
 ) -> torch.Tensor:
     """Normalize one raw GSO mesh into the processed scene frame.
 
     Args:
-        mesh_vertices: Raw mesh vertices `[V, 3]`.
+        mesh_verts: Raw mesh verts `[V, 3]`.
         point_cloud: Processed-scene sparse point cloud.
 
     Returns:
-        Mesh vertices aligned to the processed scene frame.
+        Mesh verts aligned to the processed scene frame.
     """
 
     def _validate_inputs() -> None:
@@ -744,8 +744,8 @@ def _normalize_gso_mesh_vertices_to_processed_frame(
             None.
         """
 
-        assert isinstance(mesh_vertices, torch.Tensor), (
-            "Expected `mesh_vertices` to be a tensor. " f"{type(mesh_vertices)=}."
+        assert isinstance(mesh_verts, torch.Tensor), (
+            "Expected `mesh_verts` to be a tensor. " f"{type(mesh_verts)=}."
         )
         assert isinstance(point_cloud, PointCloud), (
             "Expected `point_cloud` to be a `PointCloud`. " f"{type(point_cloud)=}."
@@ -753,8 +753,8 @@ def _normalize_gso_mesh_vertices_to_processed_frame(
 
     _validate_inputs()
 
-    mesh_min = mesh_vertices.min(dim=0).values
-    mesh_max = mesh_vertices.max(dim=0).values
+    mesh_min = mesh_verts.min(dim=0).values
+    mesh_max = mesh_verts.max(dim=0).values
     mesh_center = 0.5 * (mesh_min + mesh_max)
     mesh_half_extent = 0.5 * (mesh_max - mesh_min)
     point_xyz = point_cloud.xyz.detach().to(dtype=torch.float32, device="cpu")
@@ -765,26 +765,26 @@ def _normalize_gso_mesh_vertices_to_processed_frame(
     mesh_scale = torch.clamp(mesh_half_extent.max(), min=1e-8)
     point_scale = torch.clamp(point_half_extent.max(), min=1e-8)
     return (
-        (mesh_vertices - mesh_center) * (point_scale / mesh_scale) + point_center
+        (mesh_verts - mesh_center) * (point_scale / mesh_scale) + point_center
     ).contiguous()
 
 
 def _build_exploded_uv_geometry(
-    mesh_vertices: torch.Tensor,
+    mesh_verts: torch.Tensor,
     mesh_faces: torch.Tensor,
-    mesh_vertex_uv: torch.Tensor,
-    mesh_face_uvs: torch.Tensor,
+    mesh_verts_uvs: torch.Tensor,
+    mesh_faces_uvs: torch.Tensor,
 ) -> Dict[str, torch.Tensor]:
     """Build one exploded UV mesh for single-material texture extraction.
 
     Args:
-        mesh_vertices: Original mesh vertices `[V, 3]`.
+        mesh_verts: Original mesh verts `[V, 3]`.
         mesh_faces: Original mesh faces `[F, 3]`.
-        mesh_vertex_uv: Original mesh UV table `[U, 2]`.
-        mesh_face_uvs: Original face-to-UV indices `[F, 3]`.
+        mesh_verts_uvs: Original mesh UV table `[U, 2]`.
+        mesh_faces_uvs: Original face-to-UV indices `[F, 3]`.
 
     Returns:
-        Dict containing exploded vertices, faces, and UV coordinates.
+        Dict containing exploded verts, faces, and UV coordinates.
     """
 
     def _validate_inputs() -> None:
@@ -797,25 +797,25 @@ def _build_exploded_uv_geometry(
             None.
         """
 
-        assert isinstance(mesh_vertices, torch.Tensor), (
-            "Expected `mesh_vertices` to be a tensor. " f"{type(mesh_vertices)=}."
+        assert isinstance(mesh_verts, torch.Tensor), (
+            "Expected `mesh_verts` to be a tensor. " f"{type(mesh_verts)=}."
         )
         assert isinstance(mesh_faces, torch.Tensor), (
             "Expected `mesh_faces` to be a tensor. " f"{type(mesh_faces)=}."
         )
-        assert isinstance(mesh_vertex_uv, torch.Tensor), (
-            "Expected `mesh_vertex_uv` to be a tensor. " f"{type(mesh_vertex_uv)=}."
+        assert isinstance(mesh_verts_uvs, torch.Tensor), (
+            "Expected `mesh_verts_uvs` to be a tensor. " f"{type(mesh_verts_uvs)=}."
         )
-        assert isinstance(mesh_face_uvs, torch.Tensor), (
-            "Expected `mesh_face_uvs` to be a tensor. " f"{type(mesh_face_uvs)=}."
+        assert isinstance(mesh_faces_uvs, torch.Tensor), (
+            "Expected `mesh_faces_uvs` to be a tensor. " f"{type(mesh_faces_uvs)=}."
         )
 
     _validate_inputs()
 
-    face_vertices = mesh_vertices[mesh_faces].contiguous()
-    face_vertex_uv = mesh_vertex_uv[mesh_face_uvs].contiguous()
-    edge01 = face_vertices[:, 1] - face_vertices[:, 0]
-    edge02 = face_vertices[:, 2] - face_vertices[:, 0]
+    face_verts = mesh_verts[mesh_faces].contiguous()
+    face_verts_uvs = mesh_verts_uvs[mesh_faces_uvs].contiguous()
+    edge01 = face_verts[:, 1] - face_verts[:, 0]
+    edge02 = face_verts[:, 2] - face_verts[:, 0]
     face_area_norm = torch.linalg.norm(
         torch.cross(edge01, edge02, dim=1),
         dim=1,
@@ -825,18 +825,18 @@ def _build_exploded_uv_geometry(
         "Expected at least one non-degenerate face in the exploded extraction mesh. "
         f"{valid_face_mask.shape=}."
     )
-    filtered_face_vertices = face_vertices[valid_face_mask].contiguous()
-    filtered_face_vertex_uv = face_vertex_uv[valid_face_mask].contiguous()
-    exploded_vertices = filtered_face_vertices.reshape(-1, 3).contiguous()
-    exploded_vertex_uv = filtered_face_vertex_uv.reshape(-1, 2).contiguous()
+    filtered_face_verts = face_verts[valid_face_mask].contiguous()
+    filtered_face_verts_uvs = face_verts_uvs[valid_face_mask].contiguous()
+    exploded_verts = filtered_face_verts.reshape(-1, 3).contiguous()
+    exploded_verts_uvs = filtered_face_verts_uvs.reshape(-1, 2).contiguous()
     exploded_faces = torch.arange(
-        exploded_vertices.shape[0],
+        exploded_verts.shape[0],
         dtype=torch.long,
     ).reshape(-1, 3)
     return {
-        "vertices": exploded_vertices,
+        "verts": exploded_verts,
         "faces": exploded_faces,
-        "vertex_uv": exploded_vertex_uv,
+        "verts_uvs": exploded_verts_uvs,
     }
 
 
@@ -874,7 +874,7 @@ def _build_cuda_extraction_inputs(
 
     device = _select_cuda_device()
     torch.cuda.set_device(device)
-    exploded_vertices_cuda = scene_context["exploded_vertices"].to(
+    exploded_verts_cuda = scene_context["exploded_verts"].to(
         device=device,
         dtype=torch.float32,
     )
@@ -882,7 +882,7 @@ def _build_cuda_extraction_inputs(
         device=device,
         dtype=torch.long,
     )
-    exploded_vertex_uv_cuda = scene_context["exploded_vertex_uv"].to(
+    exploded_verts_uvs_cuda = scene_context["exploded_verts_uvs"].to(
         device=device,
         dtype=torch.float32,
     )
@@ -893,14 +893,14 @@ def _build_cuda_extraction_inputs(
     camera_cuda = scene_context["camera"].to(device=device, convention="opencv")
     uv_rasterization_data = _build_uv_rasterization_data(
         mesh=Mesh(
-            vertices=exploded_vertices_cuda,
+            verts=exploded_verts_cuda,
             faces=exploded_faces_cuda,
             texture=MeshTextureUVTextureMap(
                 uv_texture_map=torch.zeros(
                     (1, 1, 3), dtype=torch.float32, device=device
                 ),
-                vertex_uv=exploded_vertex_uv_cuda,
-                face_uvs=exploded_faces_cuda,
+                verts_uvs=exploded_verts_uvs_cuda,
+                faces_uvs=exploded_faces_cuda,
                 convention="obj",
             ),
         ),
@@ -908,9 +908,9 @@ def _build_cuda_extraction_inputs(
     )
     return {
         "device": device,
-        "vertices": exploded_vertices_cuda,
+        "verts": exploded_verts_cuda,
         "faces": exploded_faces_cuda,
-        "vertex_uv": exploded_vertex_uv_cuda,
+        "verts_uvs": exploded_verts_uvs_cuda,
         "image": image_cuda,
         "camera": camera_cuda,
         "uv_rasterization_data": uv_rasterization_data,
@@ -1033,7 +1033,7 @@ def _run_single_texel_visibility_extraction(
 
     _validate_inputs()
 
-    vertices = cuda_inputs["vertices"]
+    verts = cuda_inputs["verts"]
     faces = cuda_inputs["faces"]
     image = cuda_inputs["image"]
     camera = cuda_inputs["camera"]
@@ -1044,7 +1044,7 @@ def _run_single_texel_visibility_extraction(
     visibility_start_time = time.perf_counter()
     uv_visibility_mask = (
         compute_f_visibility_mask_v2(
-            vertices=vertices,
+            verts=verts,
             faces=faces,
             camera=camera,
             image_height=int(image.shape[1]),
@@ -1053,7 +1053,7 @@ def _run_single_texel_visibility_extraction(
         )
         if use_v2
         else compute_f_visibility_mask(
-            vertices=vertices,
+            verts=verts,
             faces=faces,
             camera=camera,
             image_height=int(image.shape[1]),
@@ -1066,7 +1066,7 @@ def _run_single_texel_visibility_extraction(
     torch.cuda.synchronize(device=cuda_device)
     other_start_time = time.perf_counter()
     face_normals_weight = _compute_f_normals_weights(
-        vertices=vertices,
+        verts=verts,
         faces=faces,
         camera=camera,
         weights_cfg=weights_cfg,
@@ -1077,7 +1077,7 @@ def _run_single_texel_visibility_extraction(
     )
     uv_weight = uv_visibility_mask * uv_normals_weight
     uv_texture = _project_f_colors(
-        vertices=vertices,
+        verts=verts,
         image=image,
         camera=camera,
         uv_rasterization_data=uv_rasterization_data,
@@ -1140,7 +1140,7 @@ def _benchmark_open3d_cpu_method(
         camera.extrinsics.detach().cpu().numpy().astype(np.float32)
     )
     triangle_uvs = (
-        scene_context["exploded_vertex_uv"]
+        scene_context["exploded_verts_uvs"]
         .reshape(-1, 3, 2)
         .detach()
         .cpu()
@@ -1150,7 +1150,7 @@ def _benchmark_open3d_cpu_method(
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(
         o3d.core.Tensor(
-            scene_context["exploded_vertices"]
+            scene_context["exploded_verts"]
             .detach()
             .cpu()
             .numpy()

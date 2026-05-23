@@ -32,7 +32,7 @@ CANONICAL_BFM_VERTEX_UV_PATH = (
 
 
 @lru_cache(maxsize=1)
-def _load_canonical_bfm_vertex_uv_cpu() -> torch.Tensor:
+def _load_canonical_bfm_verts_uvs_cpu() -> torch.Tensor:
     """Load the topology-compatible canonical BFM UV table on CPU.
 
     Args:
@@ -46,46 +46,46 @@ def _load_canonical_bfm_vertex_uv_cpu() -> torch.Tensor:
         "Expected the canonical BFM UV asset to exist. "
         f"{CANONICAL_BFM_VERTEX_UV_PATH=}"
     )
-    canonical_bfm_vertex_uv = np.load(CANONICAL_BFM_VERTEX_UV_PATH)
-    assert isinstance(canonical_bfm_vertex_uv, np.ndarray), (
+    canonical_bfm_verts_uvs = np.load(CANONICAL_BFM_VERTEX_UV_PATH)
+    assert isinstance(canonical_bfm_verts_uvs, np.ndarray), (
         "Expected the canonical BFM UV asset to load as a `numpy.ndarray`. "
-        f"{type(canonical_bfm_vertex_uv)=}"
+        f"{type(canonical_bfm_verts_uvs)=}"
     )
-    assert canonical_bfm_vertex_uv.ndim == 2, (
+    assert canonical_bfm_verts_uvs.ndim == 2, (
         "Expected the canonical BFM UV asset to have shape `[V, 2]`. "
-        f"{canonical_bfm_vertex_uv.shape=}"
+        f"{canonical_bfm_verts_uvs.shape=}"
     )
-    assert canonical_bfm_vertex_uv.shape[1] == 2, (
+    assert canonical_bfm_verts_uvs.shape[1] == 2, (
         "Expected the canonical BFM UV asset to have shape `[V, 2]`. "
-        f"{canonical_bfm_vertex_uv.shape=}"
+        f"{canonical_bfm_verts_uvs.shape=}"
     )
-    assert canonical_bfm_vertex_uv.dtype in (np.float32, np.float64), (
+    assert canonical_bfm_verts_uvs.dtype in (np.float32, np.float64), (
         "Expected the canonical BFM UV asset dtype to be float32 or float64. "
-        f"{canonical_bfm_vertex_uv.dtype=}"
+        f"{canonical_bfm_verts_uvs.dtype=}"
     )
-    canonical_bfm_vertex_uv = torch.from_numpy(canonical_bfm_vertex_uv)
-    assert isinstance(canonical_bfm_vertex_uv, torch.Tensor), (
+    canonical_bfm_verts_uvs = torch.from_numpy(canonical_bfm_verts_uvs)
+    assert isinstance(canonical_bfm_verts_uvs, torch.Tensor), (
         "Expected the canonical BFM UV asset to convert to a `torch.Tensor`. "
-        f"{type(canonical_bfm_vertex_uv)=}"
+        f"{type(canonical_bfm_verts_uvs)=}"
     )
-    assert canonical_bfm_vertex_uv.dtype in (torch.float32, torch.float64), (
+    assert canonical_bfm_verts_uvs.dtype in (torch.float32, torch.float64), (
         "Expected the canonical BFM UV tensor dtype to be float32 or float64 "
         "before normalization. "
-        f"{canonical_bfm_vertex_uv.dtype=}"
+        f"{canonical_bfm_verts_uvs.dtype=}"
     )
-    canonical_bfm_vertex_uv = canonical_bfm_vertex_uv.to(dtype=torch.float32)
-    assert torch.all(canonical_bfm_vertex_uv >= 0.0), (
+    canonical_bfm_verts_uvs = canonical_bfm_verts_uvs.to(dtype=torch.float32)
+    assert torch.all(canonical_bfm_verts_uvs >= 0.0), (
         "Expected canonical BFM UV coordinates to stay within `[0, 1]`. "
-        f"{float(canonical_bfm_vertex_uv.min())=}"
+        f"{float(canonical_bfm_verts_uvs.min())=}"
     )
-    assert torch.all(canonical_bfm_vertex_uv <= 1.0), (
+    assert torch.all(canonical_bfm_verts_uvs <= 1.0), (
         "Expected canonical BFM UV coordinates to stay within `[0, 1]`. "
-        f"{float(canonical_bfm_vertex_uv.max())=}"
+        f"{float(canonical_bfm_verts_uvs.max())=}"
     )
-    return canonical_bfm_vertex_uv.contiguous()
+    return canonical_bfm_verts_uvs.contiguous()
 
 
-def build_canonical_bfm_vertex_uv(
+def build_canonical_bfm_verts_uvs(
     mean_shape: torch.Tensor,
 ) -> torch.Tensor:
     """Build the canonical BFM UV layout for one BFM-topology mesh.
@@ -112,32 +112,32 @@ def build_canonical_bfm_vertex_uv(
     _validate_inputs()
 
     vertex_count = int(mean_shape.reshape(-1, 3).shape[0])
-    canonical_bfm_vertex_uv = _load_canonical_bfm_vertex_uv_cpu()
-    assert canonical_bfm_vertex_uv.shape == (vertex_count, 2), (
+    canonical_bfm_verts_uvs = _load_canonical_bfm_verts_uvs_cpu()
+    assert canonical_bfm_verts_uvs.shape == (vertex_count, 2), (
         "Expected the canonical BFM UV table to match the requested vertex "
         "count. "
-        f"{canonical_bfm_vertex_uv.shape=} {vertex_count=}"
+        f"{canonical_bfm_verts_uvs.shape=} {vertex_count=}"
     )
-    return canonical_bfm_vertex_uv.to(
+    return canonical_bfm_verts_uvs.to(
         device=mean_shape.device,
         dtype=torch.float32,
     ).contiguous()
 
 
-def _vertex_uv_to_clip(
-    vertex_uv: torch.Tensor,
+def _verts_uvs_to_clip(
+    verts_uvs: torch.Tensor,
 ) -> torch.Tensor:
     """Convert UV coordinates to rasterization clip-space coordinates.
 
     Args:
-        vertex_uv: UV-coordinate tensor with shape ``[V, 2]``.
+        verts_uvs: UV-coordinate tensor with shape ``[V, 2]``.
 
     Returns:
         Homogeneous clip-space positions with shape ``[1, V, 4]``.
     """
 
-    x = vertex_uv[:, 0] * 2.0 - 1.0
-    y = 1.0 - vertex_uv[:, 1] * 2.0
+    x = verts_uvs[:, 0] * 2.0 - 1.0
+    y = 1.0 - verts_uvs[:, 1] * 2.0
     z = torch.zeros_like(x)
     w = torch.ones_like(x)
     return torch.stack([x, y, z, w], dim=1).unsqueeze(0)
@@ -152,7 +152,7 @@ def rasterize_vertex_features_to_uv_map(
 
     Args:
         mesh: Mesh providing ``faces``, ``device``, and a
-            ``MeshTextureUVTextureMap`` texture supplying ``vertex_uv``.
+            ``MeshTextureUVTextureMap`` texture supplying ``verts_uvs``.
         vertex_feature: Per-vertex feature tensor with shape ``[V, C]`` or
             ``[1, V, C]``.
         texture_size: Output square texture resolution.
@@ -183,11 +183,11 @@ def rasterize_vertex_features_to_uv_map(
             "Expected `vertex_feature` to have shape `[V, C]` or `[1, V, C]`. "
             f"{vertex_feature.shape=}"
         )
-        vertex_count = mesh.texture.vertex_uv.shape[0]
+        vertex_count = mesh.texture.verts_uvs.shape[0]
         if vertex_feature.ndim == 2:
             assert vertex_feature.shape[0] == vertex_count, (
-                "Expected `vertex_feature` to align with `mesh.texture.vertex_uv`. "
-                f"{vertex_feature.shape=} {mesh.texture.vertex_uv.shape=}"
+                "Expected `vertex_feature` to align with `mesh.texture.verts_uvs`. "
+                f"{vertex_feature.shape=} {mesh.texture.verts_uvs.shape=}"
             )
         else:
             assert vertex_feature.shape[0] == 1, (
@@ -195,8 +195,8 @@ def rasterize_vertex_features_to_uv_map(
                 f"{vertex_feature.shape=}"
             )
             assert vertex_feature.shape[1] == vertex_count, (
-                "Expected `vertex_feature` to align with `mesh.texture.vertex_uv`. "
-                f"{vertex_feature.shape=} {mesh.texture.vertex_uv.shape=}"
+                "Expected `vertex_feature` to align with `mesh.texture.verts_uvs`. "
+                f"{vertex_feature.shape=} {mesh.texture.verts_uvs.shape=}"
             )
 
     _validate_inputs()
@@ -217,7 +217,7 @@ def rasterize_vertex_features_to_uv_map(
 
     vertex_feature = _normalize_inputs()
 
-    uv_clip = _vertex_uv_to_clip(vertex_uv=mesh.texture.vertex_uv).to(
+    uv_clip = _verts_uvs_to_clip(verts_uvs=mesh.texture.verts_uvs).to(
         device=mesh.device,
         dtype=torch.float32,
     )
@@ -245,7 +245,7 @@ def bake_vertex_colors_to_uv_texture_map(
     """Bake per-vertex colors onto a UV texture map via rasterization.
 
     The vertex colors and the UV layout are two separate ``MeshTexture``
-    objects over the same ``vertices`` / ``faces``: one mesh carries the
+    objects over the same ``verts`` / ``faces``: one mesh carries the
     vertex-color texture, and ``uv_layout`` carries the UV coordinates and
     UV-face indices. The ``uv_layout`` UV convention is converted internally;
     callers do not need to pre-convert.
@@ -253,15 +253,15 @@ def bake_vertex_colors_to_uv_texture_map(
     Args:
         vertex_colored_mesh: Mesh carrying a ``MeshTextureVertexColor`` texture
             and providing ``faces`` and ``device``.
-        uv_layout: UV layout texture over the same ``vertices`` / ``faces``,
-            supplying ``vertex_uv``, ``face_uvs``, and ``convention``. Its
+        uv_layout: UV layout texture over the same ``verts`` / ``faces``,
+            supplying ``verts_uvs``, ``faces_uvs``, and ``convention``. Its
             ``uv_texture_map`` image is ignored; only the UV layout is used.
         texture_size: Output square texture resolution.
 
     Returns:
         Baked ``MeshTextureUVTextureMap`` whose ``uv_texture_map`` holds the
         rasterized per-vertex colors in HWC float32 ``[0, 1]`` and whose
-        ``vertex_uv`` / ``face_uvs`` / ``convention`` match ``uv_layout``.
+        ``verts_uvs`` / ``faces_uvs`` / ``convention`` match ``uv_layout``.
     """
 
     def _validate_inputs() -> None:
@@ -280,12 +280,12 @@ def bake_vertex_colors_to_uv_texture_map(
         )
         assert (
             vertex_colored_mesh.texture.vertex_color.shape[0]
-            == uv_layout.vertex_uv.shape[0]
+            == uv_layout.verts_uvs.shape[0]
         ), (
-            "Expected the vertex colors to align with `uv_layout.vertex_uv` "
+            "Expected the vertex colors to align with `uv_layout.verts_uvs` "
             "because this function uses `faces` as the shared index buffer. "
             f"{vertex_colored_mesh.texture.vertex_color.shape=} "
-            f"{uv_layout.vertex_uv.shape=}"
+            f"{uv_layout.verts_uvs.shape=}"
         )
         assert isinstance(texture_size, int), (
             "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
@@ -307,7 +307,7 @@ def bake_vertex_colors_to_uv_texture_map(
     ).unsqueeze(0)
 
     rasterization_mesh = Mesh(
-        vertices=vertex_colored_mesh.vertices,
+        verts=vertex_colored_mesh.verts,
         faces=vertex_colored_mesh.faces,
         texture=uv_layout,
     )
@@ -320,7 +320,7 @@ def bake_vertex_colors_to_uv_texture_map(
     uv_texture_map = texel_color * mask + mean_color * (1.0 - mask)
     return MeshTextureUVTextureMap(
         uv_texture_map=uv_texture_map.contiguous(),
-        vertex_uv=uv_layout.vertex_uv,
-        face_uvs=uv_layout.face_uvs,
+        verts_uvs=uv_layout.verts_uvs,
+        faces_uvs=uv_layout.faces_uvs,
         convention=uv_layout.convention,
     )

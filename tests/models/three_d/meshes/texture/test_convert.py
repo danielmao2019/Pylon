@@ -3,10 +3,10 @@
 import pytest
 import torch
 
-from models.three_d.meshes.texture.convert import build_canonical_bfm_vertex_uv
+from models.three_d.meshes.texture.convert import build_canonical_bfm_verts_uvs
 
 
-def test_build_canonical_bfm_vertex_uv_matches_bfm_topology() -> None:
+def test_build_canonical_bfm_verts_uvs_matches_bfm_topology() -> None:
     """The canonical BFM UV builder should return one UV pair per BFM vertex.
 
     Args:
@@ -18,19 +18,19 @@ def test_build_canonical_bfm_vertex_uv_matches_bfm_topology() -> None:
 
     mean_shape = torch.zeros((35709, 3), dtype=torch.float32)
 
-    vertex_uv = build_canonical_bfm_vertex_uv(mean_shape=mean_shape)
+    verts_uvs = build_canonical_bfm_verts_uvs(mean_shape=mean_shape)
 
-    assert vertex_uv.shape == (35709, 2), f"{vertex_uv.shape=}"
-    assert vertex_uv.dtype == torch.float32, f"{vertex_uv.dtype=}"
-    assert vertex_uv.device == mean_shape.device, (
+    assert verts_uvs.shape == (35709, 2), f"{verts_uvs.shape=}"
+    assert verts_uvs.dtype == torch.float32, f"{verts_uvs.dtype=}"
+    assert verts_uvs.device == mean_shape.device, (
         "Expected the canonical UV builder to preserve the requested device. "
-        f"{vertex_uv.device=} {mean_shape.device=}"
+        f"{verts_uvs.device=} {mean_shape.device=}"
     )
-    assert float(vertex_uv.min().item()) >= 0.0, f"{float(vertex_uv.min().item())=}"
-    assert float(vertex_uv.max().item()) <= 1.0, f"{float(vertex_uv.max().item())=}"
+    assert float(verts_uvs.min().item()) >= 0.0, f"{float(verts_uvs.min().item())=}"
+    assert float(verts_uvs.max().item()) <= 1.0, f"{float(verts_uvs.max().item())=}"
 
 
-def test_build_canonical_bfm_vertex_uv_rejects_vertex_count_mismatch() -> None:
+def test_build_canonical_bfm_verts_uvs_rejects_vertex_count_mismatch() -> None:
     """The canonical BFM UV builder should reject non-BFM vertex counts.
 
     Args:
@@ -43,4 +43,4 @@ def test_build_canonical_bfm_vertex_uv_rejects_vertex_count_mismatch() -> None:
     mean_shape = torch.zeros((3, 3), dtype=torch.float32)
 
     with pytest.raises(AssertionError, match="vertex count"):
-        build_canonical_bfm_vertex_uv(mean_shape=mean_shape)
+        build_canonical_bfm_verts_uvs(mean_shape=mean_shape)

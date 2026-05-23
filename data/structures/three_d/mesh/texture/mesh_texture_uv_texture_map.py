@@ -3,7 +3,7 @@ from typing import Optional, Tuple, Union
 import torch
 
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_vertex_uv_convention,
+    transform_verts_uvs_convention,
 )
 from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 from data.structures.three_d.mesh.texture.validate_uv_texture_map import (
@@ -15,15 +15,15 @@ class MeshTextureUVTextureMap(MeshTexture):
     """UV-atlas texture.
 
     Holds a UV texture image `uv_texture_map` `[H, W, 3]`, a UV-coordinate table
-    `vertex_uv` `[U, 2]`, face-to-UV indices `face_uvs` `[F, 3]`, and the
-    UV-origin convention of `vertex_uv`.
+    `verts_uvs` `[U, 2]`, face-to-UV indices `faces_uvs` `[F, 3]`, and the
+    UV-origin convention of `verts_uvs`.
 
     Args:
         uv_texture_map: UV texture map in CHW, HWC, NCHW, or NHWC layout with
             uint8 `[0, 255]` or float32 `[0, 1]` values.
-        vertex_uv: UV-coordinate table `[U, 2]`.
-        face_uvs: Face-to-UV index tensor `[F, 3]`.
-        convention: UV-origin convention for `vertex_uv`. `obj` means `v=0` is
+        verts_uvs: UV-coordinate table `[U, 2]`.
+        faces_uvs: Face-to-UV index tensor `[F, 3]`.
+        convention: UV-origin convention for `verts_uvs`. `obj` means `v=0` is
             the bottom edge. `top_left` means `v=0` is the top edge.
 
     Returns:
@@ -31,15 +31,15 @@ class MeshTextureUVTextureMap(MeshTexture):
     """
 
     uv_texture_map: torch.Tensor
-    vertex_uv: torch.Tensor
-    face_uvs: torch.Tensor
+    verts_uvs: torch.Tensor
+    faces_uvs: torch.Tensor
     convention: str
 
     def __init__(
         self,
         uv_texture_map: torch.Tensor,
-        vertex_uv: torch.Tensor,
-        face_uvs: torch.Tensor,
+        verts_uvs: torch.Tensor,
+        faces_uvs: torch.Tensor,
         convention: str,
     ) -> None:
         """Initialize one UV-atlas texture.
@@ -47,9 +47,9 @@ class MeshTextureUVTextureMap(MeshTexture):
         Args:
             uv_texture_map: UV texture map in CHW, HWC, NCHW, or NHWC layout
                 with uint8 `[0, 255]` or float32 `[0, 1]` values.
-            vertex_uv: UV-coordinate table `[U, 2]`.
-            face_uvs: Face-to-UV index tensor `[F, 3]`.
-            convention: UV-origin convention for `vertex_uv`.
+            verts_uvs: UV-coordinate table `[U, 2]`.
+            faces_uvs: Face-to-UV index tensor `[F, 3]`.
+            convention: UV-origin convention for `verts_uvs`.
 
         Returns:
             None.
@@ -58,8 +58,8 @@ class MeshTextureUVTextureMap(MeshTexture):
         def _validate_inputs() -> None:
             validate_uv_texture_map(
                 uv_texture_map=uv_texture_map,
-                vertex_uv=vertex_uv,
-                face_uvs=face_uvs,
+                verts_uvs=verts_uvs,
+                faces_uvs=faces_uvs,
                 convention=convention,
             )
 
@@ -70,15 +70,15 @@ class MeshTextureUVTextureMap(MeshTexture):
                 MeshTextureUVTextureMap.normalize_uv_texture_map(
                     uv_texture_map=uv_texture_map
                 ),
-                vertex_uv.contiguous(),
-                face_uvs.to(dtype=torch.int64).contiguous(),
+                verts_uvs.contiguous(),
+                faces_uvs.to(dtype=torch.int64).contiguous(),
             )
 
-        uv_texture_map, vertex_uv, face_uvs = _normalize_inputs()
+        uv_texture_map, verts_uvs, faces_uvs = _normalize_inputs()
 
         self.uv_texture_map = uv_texture_map
-        self.vertex_uv = vertex_uv
-        self.face_uvs = face_uvs
+        self.verts_uvs = verts_uvs
+        self.faces_uvs = faces_uvs
         self.convention = convention
 
     @staticmethod
@@ -148,17 +148,17 @@ class MeshTextureUVTextureMap(MeshTexture):
         if self.device == target_device and self.convention == target_convention:
             return self
 
-        target_vertex_uv = self.vertex_uv
+        target_verts_uvs = self.verts_uvs
         if target_convention != self.convention:
-            target_vertex_uv = transform_vertex_uv_convention(
-                vertex_uv=self.vertex_uv,
+            target_verts_uvs = transform_verts_uvs_convention(
+                verts_uvs=self.verts_uvs,
                 source_convention=self.convention,
                 target_convention=target_convention,
             )
 
         return MeshTextureUVTextureMap(
             uv_texture_map=self.uv_texture_map.to(device=target_device),
-            vertex_uv=target_vertex_uv.to(device=target_device),
-            face_uvs=self.face_uvs.to(device=target_device),
+            verts_uvs=target_verts_uvs.to(device=target_device),
+            faces_uvs=self.faces_uvs.to(device=target_device),
             convention=target_convention,
         )

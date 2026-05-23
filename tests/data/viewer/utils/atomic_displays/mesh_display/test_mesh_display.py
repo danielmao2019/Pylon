@@ -27,7 +27,7 @@ def _build_uv_test_mesh() -> Mesh:
     """
 
     return Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             dtype=torch.float32,
         ),
@@ -40,11 +40,11 @@ def _build_uv_test_mesh() -> Mesh:
                 ],
                 dtype=torch.uint8,
             ),
-            vertex_uv=torch.tensor(
+            verts_uvs=torch.tensor(
                 [[0.0, 1.0], [1.0, 1.0], [0.0, 0.0]],
                 dtype=torch.float32,
             ),
-            face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
             convention="top_left",
         ),
     )
@@ -61,7 +61,7 @@ def test_create_mesh_display_vertex_color_mesh() -> None:
     """
 
     mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[1.0, 0.0, 0.0], [3.0, 0.0, 0.0], [1.0, 2.0, 0.0]],
             dtype=torch.float32,
         ),
@@ -128,7 +128,7 @@ def test_build_mesh_view_bounds_computes_camera_coordinate_scale() -> None:
         None.
     """
 
-    volumetric_vertices = torch.tensor(
+    volumetric_verts = torch.tensor(
         [
             [1.0, 2.0, 3.0],
             [5.0, 2.0, 3.0],
@@ -138,14 +138,14 @@ def test_build_mesh_view_bounds_computes_camera_coordinate_scale() -> None:
         dtype=torch.float32,
     )
     volumetric_view_bounds = mesh_display_module.build_mesh_view_bounds(
-        vertices=volumetric_vertices,
+        verts=volumetric_verts,
     )
 
     assert pytest.approx(
         volumetric_view_bounds["camera_coordinate_scale"], abs=1.0e-6
     ) == (4.0 * 6.0 * 12.0) ** (1.0 / 3.0), f"{volumetric_view_bounds=}"
 
-    planar_vertices = torch.tensor(
+    planar_verts = torch.tensor(
         [
             [1.0, 2.0, 3.0],
             [5.0, 2.0, 3.0],
@@ -154,7 +154,7 @@ def test_build_mesh_view_bounds_computes_camera_coordinate_scale() -> None:
         dtype=torch.float32,
     )
     planar_view_bounds = mesh_display_module.build_mesh_view_bounds(
-        vertices=planar_vertices,
+        verts=planar_verts,
     )
 
     assert (
@@ -174,7 +174,7 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
     """
 
     vertex_color_mesh = Mesh(
-        vertices=torch.tensor(
+        verts=torch.tensor(
             [[1.0, 0.0, 0.0], [3.0, 0.0, 0.0], [1.0, 2.0, 0.0]],
             dtype=torch.float32,
         ),
@@ -190,7 +190,7 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
         "Expected the vertex-color test mesh to carry a `MeshTextureVertexColor`. "
         f"{type(vertex_color_mesh.texture)=}"
     )
-    vertex_color_vertices_before = vertex_color_mesh.vertices.clone()
+    vertex_color_verts_before = vertex_color_mesh.verts.clone()
     vertex_color_faces_before = vertex_color_mesh.faces.clone()
     vertex_color_values_before = vertex_color_mesh.texture.vertex_color.clone()
 
@@ -199,9 +199,9 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
         title="Vertex Mesh",
     )
 
-    assert torch.equal(vertex_color_mesh.vertices, vertex_color_vertices_before), (
-        "Expected vertex-color mesh display creation to preserve input vertices. "
-        f"{vertex_color_mesh.vertices=} {vertex_color_vertices_before=}"
+    assert torch.equal(vertex_color_mesh.verts, vertex_color_verts_before), (
+        "Expected vertex-color mesh display creation to preserve input verts. "
+        f"{vertex_color_mesh.verts=} {vertex_color_verts_before=}"
     )
     assert torch.equal(vertex_color_mesh.faces, vertex_color_faces_before), (
         "Expected vertex-color mesh display creation to preserve input faces. "
@@ -219,11 +219,11 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
         "Expected the UV test mesh to carry a `MeshTextureUVTextureMap`. "
         f"{type(uv_mesh.texture)=}"
     )
-    uv_vertices_before = uv_mesh.vertices.clone()
+    uv_verts_before = uv_mesh.verts.clone()
     uv_faces_before = uv_mesh.faces.clone()
     uv_texture_before = uv_mesh.texture.uv_texture_map.clone()
-    uv_vertex_uv_before = uv_mesh.texture.vertex_uv.clone()
-    uv_face_uvs_before = uv_mesh.texture.face_uvs.clone()
+    uv_verts_uvs_before = uv_mesh.texture.verts_uvs.clone()
+    uv_faces_uvs_before = uv_mesh.texture.faces_uvs.clone()
 
     create_mesh_display(
         mesh=uv_mesh,
@@ -231,9 +231,9 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
         component_id="uv-mesh-viewer",
     )
 
-    assert torch.equal(uv_mesh.vertices, uv_vertices_before), (
-        "Expected UV mesh display creation to preserve input vertices. "
-        f"{uv_mesh.vertices=} {uv_vertices_before=}"
+    assert torch.equal(uv_mesh.verts, uv_verts_before), (
+        "Expected UV mesh display creation to preserve input verts. "
+        f"{uv_mesh.verts=} {uv_verts_before=}"
     )
     assert torch.equal(uv_mesh.faces, uv_faces_before), (
         "Expected UV mesh display creation to preserve input faces. "
@@ -243,13 +243,13 @@ def test_create_mesh_display_does_not_modify_input_mesh_data() -> None:
         "Expected UV mesh display creation to preserve input texture values. "
         f"{uv_mesh.texture.uv_texture_map=} {uv_texture_before=}"
     )
-    assert torch.equal(uv_mesh.texture.vertex_uv, uv_vertex_uv_before), (
+    assert torch.equal(uv_mesh.texture.verts_uvs, uv_verts_uvs_before), (
         "Expected UV mesh display creation to preserve input UV coordinates. "
-        f"{uv_mesh.texture.vertex_uv=} {uv_vertex_uv_before=}"
+        f"{uv_mesh.texture.verts_uvs=} {uv_verts_uvs_before=}"
     )
-    assert torch.equal(uv_mesh.texture.face_uvs, uv_face_uvs_before), (
+    assert torch.equal(uv_mesh.texture.faces_uvs, uv_faces_uvs_before), (
         "Expected UV mesh display creation to preserve input face UV indices. "
-        f"{uv_mesh.texture.face_uvs=} {uv_face_uvs_before=}"
+        f"{uv_mesh.texture.faces_uvs=} {uv_faces_uvs_before=}"
     )
 
 

@@ -44,7 +44,7 @@ def test_compute_v_visibility_mask_keeps_some_front_facing_triangle_visibility()
         None.
     """
 
-    vertices = torch.tensor(
+    verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
             [2.0, 0.0, 1.0],
@@ -56,21 +56,21 @@ def test_compute_v_visibility_mask_keeps_some_front_facing_triangle_visibility()
     faces = torch.tensor([[0, 2, 1]], dtype=torch.long, device="cuda")
 
     visibility_mask = compute_v_visibility_mask(
-        mesh=Mesh(vertices=vertices, faces=faces),
+        mesh=Mesh(verts=verts, faces=faces),
         camera=_build_one_camera(),
         image_height=2,
         image_width=2,
     )
 
     assert float(visibility_mask.sum()) > 0.0, (
-        "Expected a front-facing triangle to contribute some visible vertices "
+        "Expected a front-facing triangle to contribute some visible verts "
         "to the one-view rasterized visibility mask. "
         f"{visibility_mask=}"
     )
 
 
-def test_compute_v_visibility_mask_filters_back_facing_triangle_vertices() -> None:
-    """Drop vertices whose only owning face is back-facing.
+def test_compute_v_visibility_mask_filters_back_facing_triangle_verts() -> None:
+    """Drop verts whose only owning face is back-facing.
 
     Args:
         None.
@@ -79,7 +79,7 @@ def test_compute_v_visibility_mask_filters_back_facing_triangle_vertices() -> No
         None.
     """
 
-    vertices = torch.tensor(
+    verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
             [2.0, 0.0, 1.0],
@@ -91,7 +91,7 @@ def test_compute_v_visibility_mask_filters_back_facing_triangle_vertices() -> No
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long, device="cuda")
 
     visibility_mask = compute_v_visibility_mask(
-        mesh=Mesh(vertices=vertices, faces=faces),
+        mesh=Mesh(verts=verts, faces=faces),
         camera=_build_one_camera(),
         image_height=2,
         image_width=2,
@@ -99,7 +99,7 @@ def test_compute_v_visibility_mask_filters_back_facing_triangle_vertices() -> No
 
     expected_visibility_mask = torch.zeros((3,), dtype=torch.float32, device="cuda")
     assert torch.equal(visibility_mask, expected_visibility_mask), (
-        "Expected vertices belonging only to a back-facing triangle to be "
+        "Expected verts belonging only to a back-facing triangle to be "
         "removed from the visible set before vertex-color extraction. "
         f"{visibility_mask=} {expected_visibility_mask=}"
     )

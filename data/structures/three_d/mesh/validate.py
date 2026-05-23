@@ -11,23 +11,23 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 )
 
 
-def validate_vertices(obj: Any) -> None:
+def validate_verts(obj: Any) -> None:
     assert isinstance(obj, torch.Tensor), (
-        "Expected `vertices` to be a `torch.Tensor`. " f"{type(obj)=}"
+        "Expected `verts` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
-    assert obj.ndim == 2, "Expected `vertices` to be rank 2. " f"{obj.shape=}"
+    assert obj.ndim == 2, "Expected `verts` to be rank 2. " f"{obj.shape=}"
     assert obj.shape[1] == 3, (
-        "Expected `vertices` to have XYZ coordinates in the last dimension. "
+        "Expected `verts` to have XYZ coordinates in the last dimension. "
         f"{obj.shape=}"
     )
     assert obj.shape[0] > 0, (
-        "Expected `vertices` to contain at least one vertex. " f"{obj.shape=}"
+        "Expected `verts` to contain at least one vertex. " f"{obj.shape=}"
     )
     assert obj.is_floating_point(), (
-        "Expected `vertices` to use a floating dtype. " f"{obj.dtype=}"
+        "Expected `verts` to use a floating dtype. " f"{obj.dtype=}"
     )
     assert torch.isfinite(obj).all(), (
-        "Expected `vertices` to contain only finite values. "
+        "Expected `verts` to contain only finite values. "
         f"{obj.shape=} {obj.dtype=}"
     )
 
@@ -56,33 +56,33 @@ def validate_faces(obj: Any) -> None:
 
 
 def _validate_device_compatible(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
     faces: torch.Tensor,
     texture: Optional[MeshTexture],
 ) -> None:
-    assert faces.device == vertices.device, (
-        "Expected `faces` to live on the same device as `vertices`. "
-        f"{faces.device=} {vertices.device=}"
+    assert faces.device == verts.device, (
+        "Expected `faces` to live on the same device as `verts`. "
+        f"{faces.device=} {verts.device=}"
     )
     if texture is not None:
-        assert texture.device == vertices.device, (
+        assert texture.device == verts.device, (
             "Expected the mesh texture to live on the same device as "
-            "`vertices`. "
-            f"{texture.device=} {vertices.device=}"
+            "`verts`. "
+            f"{texture.device=} {verts.device=}"
         )
 
 
 def validate_mesh_attributes(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
     faces: torch.Tensor,
     texture: Optional[MeshTexture] = None,
 ) -> None:
-    validate_vertices(obj=vertices)
+    validate_verts(obj=verts)
     validate_faces(obj=faces)
-    _validate_device_compatible(vertices=vertices, faces=faces, texture=texture)
-    assert int(faces.max().item()) < int(vertices.shape[0]), (
-        "Expected `faces` indices to reference existing vertices only. "
-        f"{int(faces.max().item())=} {int(vertices.shape[0])=}"
+    _validate_device_compatible(verts=verts, faces=faces, texture=texture)
+    assert int(faces.max().item()) < int(verts.shape[0]), (
+        "Expected `faces` indices to reference existing verts only. "
+        f"{int(faces.max().item())=} {int(verts.shape[0])=}"
     )
 
     if texture is None:
@@ -93,15 +93,15 @@ def validate_mesh_attributes(
         f"{type(texture)=}"
     )
     if isinstance(texture, MeshTextureVertexColor):
-        assert int(texture.vertex_color.shape[0]) == int(vertices.shape[0]), (
+        assert int(texture.vertex_color.shape[0]) == int(verts.shape[0]), (
             "Expected `vertex_color` to align one RGB value per vertex. "
-            f"{texture.vertex_color.shape=} {vertices.shape=}"
+            f"{texture.vertex_color.shape=} {verts.shape=}"
         )
         return
     if isinstance(texture, MeshTextureUVTextureMap):
-        assert texture.face_uvs.shape == faces.shape, (
-            "Expected `face_uvs` to align one UV triangle per mesh face. "
-            f"{texture.face_uvs.shape=} {faces.shape=}"
+        assert texture.faces_uvs.shape == faces.shape, (
+            "Expected `faces_uvs` to align one UV triangle per mesh face. "
+            f"{texture.faces_uvs.shape=} {faces.shape=}"
         )
         return
     raise AssertionError(

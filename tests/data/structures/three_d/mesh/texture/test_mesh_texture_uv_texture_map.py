@@ -62,8 +62,8 @@ def _build_uv_texture_map() -> torch.Tensor:
     )
 
 
-def test_rejects_face_uvs_index_out_of_range() -> None:
-    """Reject face_uvs whose indices do not reference valid vertex_uv rows.
+def test_rejects_faces_uvs_index_out_of_range() -> None:
+    """Reject faces_uvs whose indices do not reference valid verts_uvs rows.
 
     Args:
         None.
@@ -72,14 +72,14 @@ def test_rejects_face_uvs_index_out_of_range() -> None:
         None.
     """
 
-    with pytest.raises(AssertionError, match="vertex_uv"):
+    with pytest.raises(AssertionError, match="verts_uvs"):
         MeshTextureUVTextureMap(
             uv_texture_map=_build_uv_texture_map(),
-            vertex_uv=torch.tensor(
+            verts_uvs=torch.tensor(
                 [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
                 dtype=torch.float32,
             ),
-            face_uvs=torch.tensor([[0, 1, 3]], dtype=torch.int64),
+            faces_uvs=torch.tensor([[0, 1, 3]], dtype=torch.int64),
             convention="obj",
         )
 
@@ -102,11 +102,11 @@ def test_normalizes_uint8_texture_map() -> None:
             ],
             dtype=torch.uint8,
         ),
-        vertex_uv=torch.tensor(
+        verts_uvs=torch.tensor(
             [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
             dtype=torch.float32,
         ),
-        face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+        faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
         convention="obj",
     )
 
@@ -129,7 +129,7 @@ def test_normalizes_uint8_texture_map() -> None:
 
 
 def test_to_converts_uv_convention() -> None:
-    """Return a texture whose vertex_uv is converted to the target convention.
+    """Return a texture whose verts_uvs is converted to the target convention.
 
     Args:
         None.
@@ -140,11 +140,11 @@ def test_to_converts_uv_convention() -> None:
 
     texture = MeshTextureUVTextureMap(
         uv_texture_map=_build_uv_texture_map(),
-        vertex_uv=torch.tensor(
+        verts_uvs=torch.tensor(
             [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
             dtype=torch.float32,
         ),
-        face_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+        faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
         convention="obj",
     )
 
@@ -152,17 +152,17 @@ def test_to_converts_uv_convention() -> None:
 
     assert converted.convention == "top_left", f"{converted.convention=}"
     assert torch.allclose(
-        converted.vertex_uv,
+        converted.verts_uvs,
         torch.tensor(
             [[0.0, 1.0], [1.0, 1.0], [0.0, 0.0]],
             dtype=torch.float32,
         ),
         atol=1.0e-06,
         rtol=0.0,
-    ), f"{converted.vertex_uv=}"
+    ), f"{converted.verts_uvs=}"
     assert torch.equal(
-        converted.face_uvs, texture.face_uvs
-    ), f"{converted.face_uvs=} {texture.face_uvs=}"
+        converted.faces_uvs, texture.faces_uvs
+    ), f"{converted.faces_uvs=} {texture.faces_uvs=}"
     assert torch.equal(
         converted.uv_texture_map, texture.uv_texture_map
     ), f"{converted.uv_texture_map=} {texture.uv_texture_map=}"

@@ -3,7 +3,7 @@ DATA.STRUCTURES.THREE_D.MESH.TEXTURE API
 """
 
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_vertex_uv_convention,
+    transform_verts_uvs_convention,
 )
 from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
@@ -23,7 +23,7 @@ __all__ = (
     "MeshTexture",
     "MeshTextureVertexColor",
     "MeshTextureUVTextureMap",
-    "transform_vertex_uv_convention",
+    "transform_verts_uvs_convention",
     "validate_vertex_color",
     "validate_uv_texture_map",
 )

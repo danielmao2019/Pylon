@@ -38,7 +38,7 @@ _install_namespace_package(
 )
 
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_vertex_uv_convention,
+    transform_verts_uvs_convention,
 )
 
 
@@ -52,18 +52,18 @@ def test_identity_when_conventions_match() -> None:
         None.
     """
 
-    vertex_uv = torch.tensor(
+    verts_uvs = torch.tensor(
         [[0.0, 0.0], [1.0, 0.25], [0.5, 1.0]],
         dtype=torch.float32,
     )
 
-    transformed = transform_vertex_uv_convention(
-        vertex_uv=vertex_uv,
+    transformed = transform_verts_uvs_convention(
+        verts_uvs=verts_uvs,
         source_convention="obj",
         target_convention="obj",
     )
 
-    assert transformed is vertex_uv, f"{transformed=} {vertex_uv=}"
+    assert transformed is verts_uvs, f"{transformed=} {verts_uvs=}"
 
 
 def test_flips_v_axis_when_conventions_differ() -> None:
@@ -76,13 +76,13 @@ def test_flips_v_axis_when_conventions_differ() -> None:
         None.
     """
 
-    vertex_uv = torch.tensor(
+    verts_uvs = torch.tensor(
         [[0.0, 0.0], [1.0, 0.25], [0.5, 1.0]],
         dtype=torch.float32,
     )
 
-    transformed = transform_vertex_uv_convention(
-        vertex_uv=vertex_uv,
+    transformed = transform_verts_uvs_convention(
+        verts_uvs=verts_uvs,
         source_convention="obj",
         target_convention="top_left",
     )
@@ -97,5 +97,5 @@ def test_flips_v_axis_when_conventions_differ() -> None:
         rtol=0.0,
     ), f"{transformed=}"
     assert torch.equal(
-        transformed[:, 0], vertex_uv[:, 0]
-    ), f"{transformed[:, 0]=} {vertex_uv[:, 0]=}"
+        transformed[:, 0], verts_uvs[:, 0]
+    ), f"{transformed[:, 0]=} {verts_uvs[:, 0]=}"

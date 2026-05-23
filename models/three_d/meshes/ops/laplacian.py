@@ -16,10 +16,10 @@ def cotangent(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor) -> torch.Tensor
 
 
 def build_cotangent_laplacian(
-    base_vertices: torch.Tensor, faces: torch.Tensor
+    base_verts: torch.Tensor, faces: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    num_vertices = base_vertices.shape[0]
-    face_verts = base_vertices[faces]
+    num_verts = base_verts.shape[0]
+    face_verts = base_verts[faces]
     v0 = face_verts[:, 0]
     v1 = face_verts[:, 1]
     v2 = face_verts[:, 2]
@@ -39,28 +39,28 @@ def build_cotangent_laplacian(
     edges_sorted, _ = torch.sort(edges, dim=1)
     indices = edges_sorted.t()
     coalesced = torch.sparse_coo_tensor(
-        indices, weights, size=(num_vertices, num_vertices)
+        indices, weights, size=(num_verts, num_verts)
     ).coalesce()
     edges_coalesced = coalesced.indices().t()
     weights_coalesced = coalesced.values()
 
-    weight_sums = torch.zeros(num_vertices, device=base_vertices.device)
+    weight_sums = torch.zeros(num_verts, device=base_verts.device)
     weight_sums.index_add_(0, edges_coalesced[:, 0], weights_coalesced)
     weight_sums.index_add_(0, edges_coalesced[:, 1], weights_coalesced)
     return edges_coalesced, weights_coalesced, weight_sums
 
 
 def compute_cotangent_weights_for_edges(
-    base_vertices: torch.Tensor,
+    base_verts: torch.Tensor,
     faces: torch.Tensor,
     edges: torch.Tensor,
 ) -> torch.Tensor:
     # Input validations
-    assert isinstance(base_vertices, torch.Tensor)
+    assert isinstance(base_verts, torch.Tensor)
     assert isinstance(faces, torch.Tensor)
     assert isinstance(edges, torch.Tensor)
-    assert base_vertices.ndim == 2
-    assert base_vertices.shape[1] == 3
+    assert base_verts.ndim == 2
+    assert base_verts.shape[1] == 3
     assert faces.ndim == 2
     assert faces.shape[1] == 3
     assert edges.ndim == 2
@@ -68,16 +68,16 @@ def compute_cotangent_weights_for_edges(
     assert faces.dtype == torch.long
     assert edges.dtype == torch.long
     assert int(faces.min().item()) >= 0
-    assert int(faces.max().item()) < int(base_vertices.shape[0])
+    assert int(faces.max().item()) < int(base_verts.shape[0])
     assert int(edges.min().item()) >= 0
-    assert int(edges.max().item()) < int(base_vertices.shape[0])
+    assert int(edges.max().item()) < int(base_verts.shape[0])
 
     # Input normalizations
-    faces = faces.to(device=base_vertices.device)
-    edges = edges.to(device=base_vertices.device)
+    faces = faces.to(device=base_verts.device)
+    edges = edges.to(device=base_verts.device)
 
-    num_vertices = int(base_vertices.shape[0])
-    face_verts = base_vertices[faces]
+    num_verts = int(base_verts.shape[0])
+    face_verts = base_verts[faces]
     v0 = face_verts[:, 0]
     v1 = face_verts[:, 1]
     v2 = face_verts[:, 2]
@@ -95,9 +95,9 @@ def compute_cotangent_weights_for_edges(
     tri_weights = torch.cat([cot0, cot1, cot2], dim=0) * 0.5
     tri_edges, _ = torch.sort(tri_edges, dim=1)
 
-    edge_keys = edges[:, 0] * num_vertices + edges[:, 1]
+    edge_keys = edges[:, 0] * num_verts + edges[:, 1]
     edge_keys_sorted, sorted_edge_ids = torch.sort(edge_keys)
-    tri_keys = tri_edges[:, 0] * num_vertices + tri_edges[:, 1]
+    tri_keys = tri_edges[:, 0] * num_verts + tri_edges[:, 1]
     tri_positions = torch.searchsorted(edge_keys_sorted, tri_keys)
     assert torch.all(tri_positions >= 0)
     assert torch.all(tri_positions < int(edge_keys_sorted.shape[0]))
@@ -106,20 +106,20 @@ def compute_cotangent_weights_for_edges(
     edge_ids = sorted_edge_ids[tri_positions]
     cotangent_weights = torch.zeros(
         int(edges.shape[0]),
-        dtype=base_vertices.dtype,
-        device=base_vertices.device,
+        dtype=base_verts.dtype,
+        device=base_verts.device,
     )
     cotangent_weights.index_add_(0, edge_ids, tri_weights)
     return cotangent_weights
 
 
 def laplacian_apply(
-    vertices: torch.Tensor, edges: torch.Tensor, weights: torch.Tensor
+    verts: torch.Tensor, edges: torch.Tensor, weights: torch.Tensor
 ) -> torch.Tensor:
-    vi = vertices[edges[:, 0]]
-    vj = vertices[edges[:, 1]]
+    vi = verts[edges[:, 0]]
+    vj = verts[edges[:, 1]]
     weighted = weights[:, None] * (vi - vj)
-    result = torch.zeros_like(vertices)
+    result = torch.zeros_like(verts)
     result.index_add_(0, edges[:, 0], weighted)
     result.index_add_(0, edges[:, 1], -weighted)
     return result
@@ -128,25 +128,25 @@ def laplacian_apply(
 def build_neighbor_data(
     edges: torch.Tensor,
     weights: torch.Tensor,
-    base_vertices: torch.Tensor,
-    num_vertices: int,
+    base_verts: torch.Tensor,
+    num_verts: int,
 ) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
     # Input validations
     assert isinstance(edges, torch.Tensor)
     assert isinstance(weights, torch.Tensor)
-    assert isinstance(base_vertices, torch.Tensor)
-    assert isinstance(num_vertices, int)
+    assert isinstance(base_verts, torch.Tensor)
+    assert isinstance(num_verts, int)
     assert edges.ndim == 2
     assert edges.shape[1] == 2
     assert weights.ndim == 1
     assert int(edges.shape[0]) == int(weights.shape[0])
     assert int(edges.shape[0]) > 0
-    assert base_vertices.ndim == 2
-    assert base_vertices.shape[1] == 3
-    assert int(base_vertices.shape[0]) == num_vertices
+    assert base_verts.ndim == 2
+    assert base_verts.shape[1] == 3
+    assert int(base_verts.shape[0]) == num_verts
     assert edges.dtype == torch.long
     assert int(edges.min().item()) >= 0
-    assert int(edges.max().item()) < num_vertices
+    assert int(edges.max().item()) < num_verts
 
     # Build directed edge incidence tensorized, then group by source vertex.
     directed_sources = torch.stack(
@@ -164,7 +164,7 @@ def build_neighbor_data(
     directed_targets = directed_targets[sort_ids]
     directed_weights = directed_weights[sort_ids]
 
-    neighbor_counts = torch.bincount(directed_sources, minlength=num_vertices)
+    neighbor_counts = torch.bincount(directed_sources, minlength=num_verts)
     assert int(neighbor_counts.sum().item()) == int(directed_targets.shape[0])
     split_indices = torch.cumsum(neighbor_counts, dim=0)[:-1].detach().cpu().tolist()
 
@@ -183,7 +183,7 @@ def build_neighbor_data(
         )
     )
     directed_reference_edge_vectors = (
-        base_vertices[directed_sources] - base_vertices[directed_targets]
+        base_verts[directed_sources] - base_verts[directed_targets]
     )
     neighbor_reference_edge_vectors = list(
         torch.tensor_split(
@@ -192,16 +192,16 @@ def build_neighbor_data(
             dim=0,
         )
     )
-    assert len(neighbors) == num_vertices
-    assert len(neighbor_weights) == num_vertices
-    assert len(neighbor_reference_edge_vectors) == num_vertices
+    assert len(neighbors) == num_verts
+    assert len(neighbor_weights) == num_verts
+    assert len(neighbor_reference_edge_vectors) == num_verts
     return neighbors, neighbor_weights, neighbor_reference_edge_vectors
 
 
 def build_adjacency(
-    num_vertices: int, edges: torch.Tensor, lengths: torch.Tensor
+    num_verts: int, edges: torch.Tensor, lengths: torch.Tensor
 ) -> List[List[Tuple[int, float]]]:
-    adjacency: List[List[Tuple[int, float]]] = [[] for _ in range(num_vertices)]
+    adjacency: List[List[Tuple[int, float]]] = [[] for _ in range(num_verts)]
     for idx in range(edges.shape[0]):
         i = int(edges[idx, 0].item())
         j = int(edges[idx, 1].item())
@@ -212,12 +212,12 @@ def build_adjacency(
 
 
 def geodesic_distances(
-    num_vertices: int, edges: torch.Tensor, lengths: torch.Tensor, source: int
+    num_verts: int, edges: torch.Tensor, lengths: torch.Tensor, source: int
 ) -> torch.Tensor:
-    adjacency = build_adjacency(num_vertices, edges, lengths)
-    distances = [float("inf")] * num_vertices
+    adjacency = build_adjacency(num_verts, edges, lengths)
+    distances = [float("inf")] * num_verts
     distances[source] = 0.0
-    visited = [False] * num_vertices
+    visited = [False] * num_verts
     heap: List[Tuple[float, int]] = [(0.0, source)]
     while heap:
         dist_u, u = heapq.heappop(heap)

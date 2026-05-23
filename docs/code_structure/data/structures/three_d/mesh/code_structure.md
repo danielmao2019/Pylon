@@ -9,18 +9,18 @@ data/structures/three_d/mesh/mesh.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.validate import validate_mesh_attributes
 └── class Mesh
-    ├── # One triangle mesh: geometry (vertices, faces) plus an optional MeshTexture.
-    ├── vertices: torch.Tensor
+    ├── # One triangle mesh: geometry (verts, faces) plus an optional MeshTexture.
+    ├── verts: torch.Tensor
     ├── faces: torch.Tensor
     ├── texture: Optional[MeshTexture]
     ├── device: torch.device
-    ├── def __init__(self, vertices: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
+    ├── def __init__(self, verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
     │   ├── # Validates the geometry and the texture<->geometry linkage, then stores the attributes.
     │   ├── calls validate_mesh_attributes
-    │   ├── impls self.vertices = vertices
+    │   ├── impls self.verts = verts
     │   ├── impls self.faces = faces
     │   ├── impls self.texture = texture
-    │   └── impls self.device = self.vertices.device
+    │   └── impls self.device = self.verts.device
     ├── @classmethod def load(cls, path: Union[str, Path]) -> "Mesh"
     │   ├── # Loads one mesh from an OBJ file or a mesh-root directory.
     │   ├── from data.structures.three_d.mesh.load import load_mesh   # deferred: load.py imports mesh.py, so mesh.py must not import load.py at module level
@@ -42,18 +42,18 @@ data/structures/three_d/mesh/mesh.py
 data/structures/three_d/mesh/validate.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def validate_vertices(obj: Any) -> None
+├── def validate_verts(obj: Any) -> None
 │   └── # Validates a mesh vertex tensor (float [V,3], finite, non-empty).
 ├── def validate_faces(obj: Any) -> None
 │   └── # Validates a mesh face tensor (integer [F,3], non-empty, non-negative indices).
-├── def _validate_device_compatible(vertices: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture]) -> None
-│   └── # Asserts the texture's tensors live on the vertices' device.
-└── def validate_mesh_attributes(vertices: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
+├── def _validate_device_compatible(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture]) -> None
+│   └── # Asserts the texture's tensors live on the verts' device.
+└── def validate_mesh_attributes(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
     ├── # Validates the geometry and the texture<->geometry linkage; the texture self-validates its own internal shapes.
-    ├── calls validate_vertices
+    ├── calls validate_verts
     ├── calls validate_faces
     ├── calls _validate_device_compatible
-    └── # linkage: faces index vertices; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.face_uvs rows == F
+    └── # linkage: faces index verts; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.faces_uvs rows == F
 ```
 
 ## Texture: abstract base
@@ -76,7 +76,7 @@ data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 └── class MeshTextureVertexColor(MeshTexture)
-    ├── # Per-vertex RGB texture: vertex_color [V,3], aligned 1:1 with the mesh's vertices.
+    ├── # Per-vertex RGB texture: vertex_color [V,3], aligned 1:1 with the mesh's verts.
     ├── vertex_color: torch.Tensor
     ├── def __init__(self, vertex_color: torch.Tensor) -> None
     │   ├── # Validates and normalizes vertex_color, then stores it.
@@ -96,22 +96,22 @@ data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py
 
 ```text
 data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
-├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map
 └── class MeshTextureUVTextureMap(MeshTexture)
-    ├── # UV-atlas texture: uv_texture_map [H,W,3] + vertex_uv [U,2] + face_uvs [F,3] + UV-origin convention.
+    ├── # UV-atlas texture: uv_texture_map [H,W,3] + verts_uvs [U,2] + faces_uvs [F,3] + UV-origin convention.
     ├── uv_texture_map: torch.Tensor
-    ├── vertex_uv: torch.Tensor
-    ├── face_uvs: torch.Tensor
+    ├── verts_uvs: torch.Tensor
+    ├── faces_uvs: torch.Tensor
     ├── convention: str
-    ├── def __init__(self, uv_texture_map: torch.Tensor, vertex_uv: torch.Tensor, face_uvs: torch.Tensor, convention: str) -> None
+    ├── def __init__(self, uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
     │   ├── # Validates the UV representation and normalizes the texture map, then stores the attributes.
     │   ├── calls validate_uv_texture_map                  # representation-level validator (all fields + cross-field invariant)
     │   ├── calls MeshTextureUVTextureMap.normalize_uv_texture_map
     │   ├── impls self.uv_texture_map = normalized uv_texture_map
-    │   ├── impls self.vertex_uv = vertex_uv
-    │   ├── impls self.face_uvs = face_uvs
+    │   ├── impls self.verts_uvs = verts_uvs
+    │   ├── impls self.faces_uvs = faces_uvs
     │   └── impls self.convention = convention
     ├── @staticmethod def normalize_uv_texture_map(uv_texture_map: torch.Tensor) -> torch.Tensor
     │   └── # Normalizes the UV texture map to contiguous float32 HWC in [0,1] (drops a leading batch axis; CHW -> HWC; uint8 -> /255).
@@ -119,7 +119,7 @@ data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
     │   └── # The device the UV-texture tensors live on.
     └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "MeshTextureUVTextureMap"
         ├── # Returns this texture on a target device and/or UV-origin convention.
-        ├── calls transform_vertex_uv_convention        # when the convention changes
+        ├── calls transform_verts_uvs_convention        # when the convention changes
         └── return MeshTextureUVTextureMap
 ```
 
@@ -127,12 +127,12 @@ data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
 
 ```text
 data/structures/three_d/mesh/texture/conventions.py
-└── def transform_vertex_uv_convention(vertex_uv: torch.Tensor, source_convention: str, target_convention: str) -> torch.Tensor
+└── def transform_verts_uvs_convention(verts_uvs: torch.Tensor, source_convention: str, target_convention: str) -> torch.Tensor
     ├── # Transforms a UV table between origin conventions ("obj" = v from bottom, "top_left" = v from top).
     ├── if source_convention == target_convention
-    │   └── return vertex_uv
+    │   └── return verts_uvs
     └── else
-        ├── impls flipped = a copy of vertex_uv with the V axis flipped (v -> 1 - v)
+        ├── impls flipped = a copy of verts_uvs with the V axis flipped (v -> 1 - v)
         └── return flipped
 ```
 
@@ -154,20 +154,20 @@ data/structures/three_d/mesh/texture/validate_vertex_color.py
 
 ```text
 data/structures/three_d/mesh/texture/validate_uv_texture_map.py
-├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, vertex_uv: torch.Tensor, face_uvs: torch.Tensor, convention: str) -> None
+├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
 │   ├── # Validates the whole uv-texture-map representation — every field plus the cross-field invariant; the per-field validators it calls are public too.
 │   ├── calls validate_uv_texture_map_image
-│   ├── calls validate_vertex_uv
-│   ├── calls validate_face_uvs
+│   ├── calls validate_verts_uvs
+│   ├── calls validate_faces_uvs
 │   ├── calls validate_mesh_uv_convention
-│   └── # cross-field: asserts face_uvs indices reference valid vertex_uv rows (in [0, U))
+│   └── # cross-field: asserts faces_uvs indices reference valid verts_uvs rows (in [0, U))
 ├── def validate_uv_texture_map_image(obj: Any) -> None
 │   ├── # Validates a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
 │   ├── calls _validate_uv_texture_map_image_uint8             # uint8 branch
 │   └── calls _validate_uv_texture_map_image_float32           # float32 branch
-├── def validate_vertex_uv(obj: Any) -> None
+├── def validate_verts_uvs(obj: Any) -> None
 │   └── # Validates a UV-coordinate table (float [U,2], finite, values in [0,1]).
-├── def validate_face_uvs(obj: Any) -> None
+├── def validate_faces_uvs(obj: Any) -> None
 │   └── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
 ├── def validate_mesh_uv_convention(convention: Any) -> str
 │   └── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
@@ -181,11 +181,11 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 
 ```text
 data/structures/three_d/mesh/texture/__init__.py
-├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_vertex_uv, validate_face_uvs, validate_mesh_uv_convention
+├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_verts_uvs, validate_faces_uvs, validate_mesh_uv_convention
 └── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ```
 
@@ -237,7 +237,7 @@ data/structures/three_d/mesh/load.py
 ```text
 data/structures/three_d/mesh/save.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
-├── from data.structures.three_d.mesh.texture.conventions import transform_vertex_uv_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def save_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
@@ -266,7 +266,7 @@ data/structures/three_d/mesh/save.py
 │   ├── # Writes a UV-textured mesh as an OBJ plus a sibling MTL and texture PNG.
 │   ├── calls _resolve_output_obj_path
 │   ├── calls _normalize_uv_texture_map_for_png
-│   └── calls transform_vertex_uv_convention                  # texture convention -> "obj" for the written vt lines
+│   └── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
 │   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
 ├── def _resolve_output_non_uv_mesh_path(output_path: Union[str, Path]) -> Path
@@ -344,7 +344,7 @@ data/structures/three_d/mesh/convert.py
 ├── def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -> Mesh
 │   ├── # Converts a trimesh.Trimesh into a Mesh.
 │   ├── if mesh.visual carries uv
-│   │   ├── calls _uv_mesh_from_trimesh                      # welds per-corner duplicate vertices into the geometry domain
+│   │   ├── calls _uv_mesh_from_trimesh                      # welds per-corner duplicate verts into the geometry domain
 │   │   ├── calls _texture_image_from_trimesh
 │   │   └── # builds Mesh with a MeshTextureUVTextureMap
 │   └── else
@@ -361,14 +361,14 @@ data/structures/three_d/mesh/convert.py
 │       └── # geometry-only Trimesh
 ├── def _vertex_color_to_float_rgb(vertex_color: torch.Tensor) -> np.ndarray
 │   └── # Converts a repo vertex_color tensor to a float32 RGB [0,1] array; shared by mesh_to_open3d and _vertex_color_to_trimesh.
-├── def _uv_mesh_from_trimesh(vertices: np.ndarray, faces: np.ndarray, vertex_uv: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-│   └── # Welds trimesh's per-corner duplicate vertices (exact-position equality) into the geometry domain, returning (vertices, faces, vertex_uv, face_uvs).
+├── def _uv_mesh_from_trimesh(verts: np.ndarray, faces: np.ndarray, verts_uvs: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+│   └── # Welds trimesh's per-corner duplicate verts (exact-position equality) into the geometry domain, returning (verts, faces, verts_uvs, faces_uvs).
 ├── def _texture_image_from_trimesh(image: object) -> np.ndarray
 │   └── # Converts a trimesh material image to a uint8 HWC RGB array (drops uniform alpha).
 ├── def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray
 │   └── # Converts trimesh vertex colors to a repo RGB array (drops opaque alpha).
 ├── def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-│   └── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (vertices, faces, uv).
+│   └── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
 ├── def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray
 │   └── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.
 └── def _vertex_color_to_trimesh(vertex_color: torch.Tensor) -> np.ndarray
@@ -386,5 +386,5 @@ data/structures/three_d/mesh/__init__.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.merge import merge_meshes
 ├── from data.structures.three_d.mesh.save import save_mesh
-└── from data.structures.three_d.mesh.validate import validate_faces, validate_mesh_attributes, validate_vertices
+└── from data.structures.three_d.mesh.validate import validate_faces, validate_mesh_attributes, validate_verts
 ```

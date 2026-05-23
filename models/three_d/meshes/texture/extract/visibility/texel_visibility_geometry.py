@@ -10,14 +10,14 @@ TARGET_MULTI_FACE_PIXEL_SPLIT_LINE_BUDGET = 2**18
 
 def _plan_multi_face_pixel_chunks(
     face_count_per_pixel: torch.Tensor,
-    max_vertices_per_polygon: int,
+    max_verts_per_polygon: int,
     target_split_line_budget: int,
 ) -> List[Tuple[int, int]]:
     """Plan sorted multi-face pixel chunks under a split-line budget.
 
     Args:
         face_count_per_pixel: Sorted per-pixel face counts `[Np]`.
-        max_vertices_per_polygon: Maximum padded polygon vertex capacity.
+        max_verts_per_polygon: Maximum padded polygon vertex capacity.
         target_split_line_budget: Maximum chunk budget in split-line units.
 
     Returns:
@@ -41,13 +41,13 @@ def _plan_multi_face_pixel_chunks(
             "Expected `face_count_per_pixel` to have shape `[Np]`. "
             f"Got {face_count_per_pixel.shape=}."
         )
-        assert isinstance(max_vertices_per_polygon, int), (
-            "Expected `max_vertices_per_polygon` to be an integer. "
-            f"Got {type(max_vertices_per_polygon)=}."
+        assert isinstance(max_verts_per_polygon, int), (
+            "Expected `max_verts_per_polygon` to be an integer. "
+            f"Got {type(max_verts_per_polygon)=}."
         )
-        assert max_vertices_per_polygon > 0, (
-            "Expected `max_vertices_per_polygon` to be positive. "
-            f"Got {max_vertices_per_polygon=}."
+        assert max_verts_per_polygon > 0, (
+            "Expected `max_verts_per_polygon` to be positive. "
+            f"Got {max_verts_per_polygon=}."
         )
         assert isinstance(target_split_line_budget, int), (
             "Expected `target_split_line_budget` to be an integer. "
@@ -76,7 +76,7 @@ def _plan_multi_face_pixel_chunks(
             next_max_face_count = int(face_count_per_pixel[chunk_end].item())
             prospective_chunk_size = chunk_end - chunk_start + 1
             prospective_split_line_count = (
-                next_max_face_count * max_vertices_per_polygon
+                next_max_face_count * max_verts_per_polygon
                 + (next_max_face_count * (next_max_face_count - 1)) // 2
             )
             prospective_budget = prospective_chunk_size * prospective_split_line_count
@@ -89,7 +89,7 @@ def _plan_multi_face_pixel_chunks(
 
 
 def _gather_visible_pixel_face_polygons(
-    pixel_polygon_vertices: torch.Tensor,
+    pixel_polygon_verts: torch.Tensor,
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_indices: torch.Tensor,
     pixel_face_slot_mask: torch.Tensor,
@@ -97,7 +97,7 @@ def _gather_visible_pixel_face_polygons(
     """Gather selected pixel-face polygons into flat visible outputs.
 
     Args:
-        pixel_polygon_vertices: Pixel-major face polygons [Np, M, Vmax, 2].
+        pixel_polygon_verts: Pixel-major face polygons [Np, M, Vmax, 2].
         pixel_polygon_vertex_counts: Pixel-major vertex counts [Np, M].
         pixel_face_indices: Pixel-major local face indices [Np, M].
         pixel_face_slot_mask: Pixel-major selection mask [Np, M].
@@ -118,9 +118,9 @@ def _gather_visible_pixel_face_polygons(
         Returns:
             None.
         """
-        assert isinstance(pixel_polygon_vertices, torch.Tensor), (
-            "Expected `pixel_polygon_vertices` to be a tensor. "
-            f"Got {type(pixel_polygon_vertices)=}."
+        assert isinstance(pixel_polygon_verts, torch.Tensor), (
+            "Expected `pixel_polygon_verts` to be a tensor. "
+            f"Got {type(pixel_polygon_verts)=}."
         )
         assert isinstance(pixel_polygon_vertex_counts, torch.Tensor), (
             "Expected `pixel_polygon_vertex_counts` to be a tensor. "
@@ -134,51 +134,51 @@ def _gather_visible_pixel_face_polygons(
             "Expected `pixel_face_slot_mask` to be a tensor. "
             f"Got {type(pixel_face_slot_mask)=}."
         )
-        assert pixel_polygon_vertices.ndim == 4, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.ndim == 4, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertices.shape[3] == 2, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.shape[3] == 2, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertex_counts.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_polygon_vertex_counts.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_polygon_vertex_counts` to match the first two dimensions "
-            "of `pixel_polygon_vertices`. "
-            f"Got {pixel_polygon_vertex_counts.shape=} {pixel_polygon_vertices.shape=}."
+            "of `pixel_polygon_verts`. "
+            f"Got {pixel_polygon_vertex_counts.shape=} {pixel_polygon_verts.shape=}."
         )
-        assert pixel_face_indices.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_face_indices.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_face_indices` to match the first two dimensions of "
-            "`pixel_polygon_vertices`. "
-            f"Got {pixel_face_indices.shape=} {pixel_polygon_vertices.shape=}."
+            "`pixel_polygon_verts`. "
+            f"Got {pixel_face_indices.shape=} {pixel_polygon_verts.shape=}."
         )
-        assert pixel_face_slot_mask.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_face_slot_mask.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_face_slot_mask` to match the first two dimensions of "
-            "`pixel_polygon_vertices`. "
-            f"Got {pixel_face_slot_mask.shape=} {pixel_polygon_vertices.shape=}."
+            "`pixel_polygon_verts`. "
+            f"Got {pixel_face_slot_mask.shape=} {pixel_polygon_verts.shape=}."
         )
 
     _validate_inputs()
 
     return (
-        pixel_polygon_vertices[pixel_face_slot_mask].contiguous(),
+        pixel_polygon_verts[pixel_face_slot_mask].contiguous(),
         pixel_polygon_vertex_counts[pixel_face_slot_mask].contiguous(),
         pixel_face_indices[pixel_face_slot_mask].contiguous(),
     )
 
 
 def _compute_pair_positive_area_overlap_mask(
-    first_polygon_vertices: torch.Tensor,
+    first_polygon_verts: torch.Tensor,
     first_polygon_vertex_counts: torch.Tensor,
-    second_polygon_vertices: torch.Tensor,
+    second_polygon_verts: torch.Tensor,
     second_polygon_vertex_counts: torch.Tensor,
 ) -> torch.Tensor:
     """Detect positive-area overlap for convex polygon pairs.
 
     Args:
-        first_polygon_vertices: First convex polygons [P, Vmax, 2].
+        first_polygon_verts: First convex polygons [P, Vmax, 2].
         first_polygon_vertex_counts: First polygon vertex counts [P].
-        second_polygon_vertices: Second convex polygons [P, Vmax, 2].
+        second_polygon_verts: Second convex polygons [P, Vmax, 2].
         second_polygon_vertex_counts: Second polygon vertex counts [P].
 
     Returns:
@@ -194,39 +194,39 @@ def _compute_pair_positive_area_overlap_mask(
         Returns:
             None.
         """
-        assert isinstance(first_polygon_vertices, torch.Tensor), (
-            "Expected `first_polygon_vertices` to be a tensor. "
-            f"Got {type(first_polygon_vertices)=}."
+        assert isinstance(first_polygon_verts, torch.Tensor), (
+            "Expected `first_polygon_verts` to be a tensor. "
+            f"Got {type(first_polygon_verts)=}."
         )
         assert isinstance(first_polygon_vertex_counts, torch.Tensor), (
             "Expected `first_polygon_vertex_counts` to be a tensor. "
             f"Got {type(first_polygon_vertex_counts)=}."
         )
-        assert isinstance(second_polygon_vertices, torch.Tensor), (
-            "Expected `second_polygon_vertices` to be a tensor. "
-            f"Got {type(second_polygon_vertices)=}."
+        assert isinstance(second_polygon_verts, torch.Tensor), (
+            "Expected `second_polygon_verts` to be a tensor. "
+            f"Got {type(second_polygon_verts)=}."
         )
         assert isinstance(second_polygon_vertex_counts, torch.Tensor), (
             "Expected `second_polygon_vertex_counts` to be a tensor. "
             f"Got {type(second_polygon_vertex_counts)=}."
         )
-        assert first_polygon_vertices.ndim == 3, (
-            "Expected `first_polygon_vertices` to have shape `[P, Vmax, 2]`. "
-            f"Got {first_polygon_vertices.shape=}."
+        assert first_polygon_verts.ndim == 3, (
+            "Expected `first_polygon_verts` to have shape `[P, Vmax, 2]`. "
+            f"Got {first_polygon_verts.shape=}."
         )
-        assert first_polygon_vertices.shape[2] == 2, (
-            "Expected `first_polygon_vertices` to have shape `[P, Vmax, 2]`. "
-            f"Got {first_polygon_vertices.shape=}."
+        assert first_polygon_verts.shape[2] == 2, (
+            "Expected `first_polygon_verts` to have shape `[P, Vmax, 2]`. "
+            f"Got {first_polygon_verts.shape=}."
         )
-        assert second_polygon_vertices.shape == first_polygon_vertices.shape, (
-            "Expected `second_polygon_vertices` to match `first_polygon_vertices`. "
-            f"Got {second_polygon_vertices.shape=} {first_polygon_vertices.shape=}."
+        assert second_polygon_verts.shape == first_polygon_verts.shape, (
+            "Expected `second_polygon_verts` to match `first_polygon_verts`. "
+            f"Got {second_polygon_verts.shape=} {first_polygon_verts.shape=}."
         )
         assert first_polygon_vertex_counts.shape == (
-            first_polygon_vertices.shape[0],
+            first_polygon_verts.shape[0],
         ), (
             "Expected `first_polygon_vertex_counts` to have shape `[P]`. "
-            f"Got {first_polygon_vertex_counts.shape=} {first_polygon_vertices.shape=}."
+            f"Got {first_polygon_vertex_counts.shape=} {first_polygon_verts.shape=}."
         )
         assert (
             second_polygon_vertex_counts.shape == first_polygon_vertex_counts.shape
@@ -239,18 +239,18 @@ def _compute_pair_positive_area_overlap_mask(
 
     _validate_inputs()
 
-    pair_count = first_polygon_vertices.shape[0]
+    pair_count = first_polygon_verts.shape[0]
     if pair_count == 0:
         return torch.zeros(
             (0,),
-            device=first_polygon_vertices.device,
+            device=first_polygon_verts.device,
             dtype=torch.bool,
         )
 
-    max_vertices_per_polygon = first_polygon_vertices.shape[1]
+    max_verts_per_polygon = first_polygon_verts.shape[1]
     vertex_indices = torch.arange(
-        max_vertices_per_polygon,
-        device=first_polygon_vertices.device,
+        max_verts_per_polygon,
+        device=first_polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, -1)
     first_vertex_valid_mask = vertex_indices < first_polygon_vertex_counts.reshape(
@@ -263,54 +263,54 @@ def _compute_pair_positive_area_overlap_mask(
     positive_infinity = torch.full(
         (1,),
         fill_value=torch.inf,
-        device=first_polygon_vertices.device,
-        dtype=first_polygon_vertices.dtype,
+        device=first_polygon_verts.device,
+        dtype=first_polygon_verts.dtype,
     )
     negative_infinity = torch.full(
         (1,),
         fill_value=-torch.inf,
-        device=first_polygon_vertices.device,
-        dtype=first_polygon_vertices.dtype,
+        device=first_polygon_verts.device,
+        dtype=first_polygon_verts.dtype,
     )
 
     first_min_x = torch.where(
         first_vertex_valid_mask,
-        first_polygon_vertices[:, :, 0],
+        first_polygon_verts[:, :, 0],
         positive_infinity,
     ).amin(dim=1)
     first_max_x = torch.where(
         first_vertex_valid_mask,
-        first_polygon_vertices[:, :, 0],
+        first_polygon_verts[:, :, 0],
         negative_infinity,
     ).amax(dim=1)
     first_min_y = torch.where(
         first_vertex_valid_mask,
-        first_polygon_vertices[:, :, 1],
+        first_polygon_verts[:, :, 1],
         positive_infinity,
     ).amin(dim=1)
     first_max_y = torch.where(
         first_vertex_valid_mask,
-        first_polygon_vertices[:, :, 1],
+        first_polygon_verts[:, :, 1],
         negative_infinity,
     ).amax(dim=1)
     second_min_x = torch.where(
         second_vertex_valid_mask,
-        second_polygon_vertices[:, :, 0],
+        second_polygon_verts[:, :, 0],
         positive_infinity,
     ).amin(dim=1)
     second_max_x = torch.where(
         second_vertex_valid_mask,
-        second_polygon_vertices[:, :, 0],
+        second_polygon_verts[:, :, 0],
         negative_infinity,
     ).amax(dim=1)
     second_min_y = torch.where(
         second_vertex_valid_mask,
-        second_polygon_vertices[:, :, 1],
+        second_polygon_verts[:, :, 1],
         positive_infinity,
     ).amin(dim=1)
     second_max_y = torch.where(
         second_vertex_valid_mask,
-        second_polygon_vertices[:, :, 1],
+        second_polygon_verts[:, :, 1],
         negative_infinity,
     ).amax(dim=1)
     bbox_overlap_mask = (
@@ -321,28 +321,28 @@ def _compute_pair_positive_area_overlap_mask(
     )
     positive_area_overlap_mask = torch.zeros(
         (pair_count,),
-        device=first_polygon_vertices.device,
+        device=first_polygon_verts.device,
         dtype=torch.bool,
     )
     if not torch.any(bbox_overlap_mask):
         return positive_area_overlap_mask.contiguous()
 
-    overlapping_first_polygon_vertices = first_polygon_vertices[bbox_overlap_mask]
+    overlapping_first_polygon_verts = first_polygon_verts[bbox_overlap_mask]
     overlapping_first_polygon_vertex_counts = first_polygon_vertex_counts[
         bbox_overlap_mask
     ]
-    overlapping_second_polygon_vertices = second_polygon_vertices[bbox_overlap_mask]
+    overlapping_second_polygon_verts = second_polygon_verts[bbox_overlap_mask]
     overlapping_second_polygon_vertex_counts = second_polygon_vertex_counts[
         bbox_overlap_mask
     ]
     batch_indices = torch.arange(
-        overlapping_first_polygon_vertices.shape[0],
-        device=first_polygon_vertices.device,
+        overlapping_first_polygon_verts.shape[0],
+        device=first_polygon_verts.device,
         dtype=torch.long,
     ).reshape(-1, 1)
     edge_indices = torch.arange(
-        max_vertices_per_polygon,
-        device=first_polygon_vertices.device,
+        max_verts_per_polygon,
+        device=first_polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, -1)
     first_next_edge_indices = torch.where(
@@ -354,8 +354,8 @@ def _compute_pair_positive_area_overlap_mask(
         overlapping_first_polygon_vertex_counts.reshape(-1, 1)
     )
     first_edge_direction = (
-        overlapping_first_polygon_vertices[batch_indices, first_next_edge_indices]
-        - overlapping_first_polygon_vertices
+        overlapping_first_polygon_verts[batch_indices, first_next_edge_indices]
+        - overlapping_first_polygon_verts
     )
     first_edge_axes = torch.stack(
         [-first_edge_direction[..., 1], first_edge_direction[..., 0]],
@@ -370,8 +370,8 @@ def _compute_pair_positive_area_overlap_mask(
         overlapping_second_polygon_vertex_counts.reshape(-1, 1)
     )
     second_edge_direction = (
-        overlapping_second_polygon_vertices[batch_indices, second_next_edge_indices]
-        - overlapping_second_polygon_vertices
+        overlapping_second_polygon_verts[batch_indices, second_next_edge_indices]
+        - overlapping_second_polygon_verts
     )
     second_edge_axes = torch.stack(
         [-second_edge_direction[..., 1], second_edge_direction[..., 0]],
@@ -383,11 +383,11 @@ def _compute_pair_positive_area_overlap_mask(
         dim=1,
     ) & (torch.linalg.norm(candidate_axes, dim=2) > 1.0e-12)
     first_projection = torch.sum(
-        overlapping_first_polygon_vertices.unsqueeze(2) * candidate_axes.unsqueeze(1),
+        overlapping_first_polygon_verts.unsqueeze(2) * candidate_axes.unsqueeze(1),
         dim=3,
     )
     second_projection = torch.sum(
-        overlapping_second_polygon_vertices.unsqueeze(2) * candidate_axes.unsqueeze(1),
+        overlapping_second_polygon_verts.unsqueeze(2) * candidate_axes.unsqueeze(1),
         dim=3,
     )
     first_projection_min = torch.where(
@@ -422,14 +422,14 @@ def _compute_pair_positive_area_overlap_mask(
 
 
 def _compute_triangle_pixel_square_positive_area_overlap_mask(
-    triangle_vertices: torch.Tensor,
+    triangle_verts: torch.Tensor,
     pixel_x: torch.Tensor,
     pixel_y: torch.Tensor,
 ) -> torch.Tensor:
     """Detect positive-area overlap between triangles and pixel squares.
 
     Args:
-        triangle_vertices: Triangle vertices [N, 3, 2].
+        triangle_verts: Triangle verts [N, 3, 2].
         pixel_x: Pixel-center x coordinate for each triangle [N].
         pixel_y: Pixel-center y coordinate for each triangle [N].
 
@@ -446,9 +446,9 @@ def _compute_triangle_pixel_square_positive_area_overlap_mask(
         Returns:
             None.
         """
-        assert isinstance(triangle_vertices, torch.Tensor), (
-            "Expected `triangle_vertices` to be a tensor. "
-            f"Got {type(triangle_vertices)=}."
+        assert isinstance(triangle_verts, torch.Tensor), (
+            "Expected `triangle_verts` to be a tensor. "
+            f"Got {type(triangle_verts)=}."
         )
         assert isinstance(pixel_x, torch.Tensor), (
             "Expected `pixel_x` to be a tensor. " f"Got {type(pixel_x)=}."
@@ -456,38 +456,38 @@ def _compute_triangle_pixel_square_positive_area_overlap_mask(
         assert isinstance(pixel_y, torch.Tensor), (
             "Expected `pixel_y` to be a tensor. " f"Got {type(pixel_y)=}."
         )
-        assert triangle_vertices.ndim == 3, (
-            "Expected `triangle_vertices` to have shape `[N, 3, 2]`. "
-            f"Got {triangle_vertices.shape=}."
+        assert triangle_verts.ndim == 3, (
+            "Expected `triangle_verts` to have shape `[N, 3, 2]`. "
+            f"Got {triangle_verts.shape=}."
         )
-        assert triangle_vertices.shape[1:] == (3, 2), (
-            "Expected `triangle_vertices` to have shape `[N, 3, 2]`. "
-            f"Got {triangle_vertices.shape=}."
+        assert triangle_verts.shape[1:] == (3, 2), (
+            "Expected `triangle_verts` to have shape `[N, 3, 2]`. "
+            f"Got {triangle_verts.shape=}."
         )
-        assert pixel_x.shape == (triangle_vertices.shape[0],), (
+        assert pixel_x.shape == (triangle_verts.shape[0],), (
             "Expected one pixel x coordinate per triangle. "
-            f"Got {pixel_x.shape=} {triangle_vertices.shape=}."
+            f"Got {pixel_x.shape=} {triangle_verts.shape=}."
         )
-        assert pixel_y.shape == (triangle_vertices.shape[0],), (
+        assert pixel_y.shape == (triangle_verts.shape[0],), (
             "Expected one pixel y coordinate per triangle. "
-            f"Got {pixel_y.shape=} {triangle_vertices.shape=}."
+            f"Got {pixel_y.shape=} {triangle_verts.shape=}."
         )
-        assert triangle_vertices.device == pixel_x.device, (
-            "Expected `triangle_vertices` and `pixel_x` to share a device. "
-            f"Got {triangle_vertices.device=} {pixel_x.device=}."
+        assert triangle_verts.device == pixel_x.device, (
+            "Expected `triangle_verts` and `pixel_x` to share a device. "
+            f"Got {triangle_verts.device=} {pixel_x.device=}."
         )
-        assert triangle_vertices.device == pixel_y.device, (
-            "Expected `triangle_vertices` and `pixel_y` to share a device. "
-            f"Got {triangle_vertices.device=} {pixel_y.device=}."
+        assert triangle_verts.device == pixel_y.device, (
+            "Expected `triangle_verts` and `pixel_y` to share a device. "
+            f"Got {triangle_verts.device=} {pixel_y.device=}."
         )
 
     _validate_inputs()
 
-    triangle_count = triangle_vertices.shape[0]
+    triangle_count = triangle_verts.shape[0]
     if triangle_count == 0:
         return torch.zeros(
             (0,),
-            device=triangle_vertices.device,
+            device=triangle_verts.device,
             dtype=torch.bool,
         )
 
@@ -495,10 +495,10 @@ def _compute_triangle_pixel_square_positive_area_overlap_mask(
     xmax = pixel_x + 0.5
     ymin = pixel_y - 0.5
     ymax = pixel_y + 0.5
-    triangle_min_x = triangle_vertices[:, :, 0].amin(dim=1)
-    triangle_max_x = triangle_vertices[:, :, 0].amax(dim=1)
-    triangle_min_y = triangle_vertices[:, :, 1].amin(dim=1)
-    triangle_max_y = triangle_vertices[:, :, 1].amax(dim=1)
+    triangle_min_x = triangle_verts[:, :, 0].amin(dim=1)
+    triangle_max_x = triangle_verts[:, :, 0].amax(dim=1)
+    triangle_min_y = triangle_verts[:, :, 1].amin(dim=1)
+    triangle_max_y = triangle_verts[:, :, 1].amax(dim=1)
     bbox_overlap_mask = (
         (triangle_min_x < xmax)
         & (xmin < triangle_max_x)
@@ -507,22 +507,22 @@ def _compute_triangle_pixel_square_positive_area_overlap_mask(
     )
     positive_area_overlap_mask = torch.zeros(
         (triangle_count,),
-        device=triangle_vertices.device,
+        device=triangle_verts.device,
         dtype=torch.bool,
     )
     if not torch.any(bbox_overlap_mask):
         return positive_area_overlap_mask.contiguous()
 
-    clipped_polygon_vertices, clipped_polygon_vertex_counts = (
+    clipped_polygon_verts, clipped_polygon_vertex_counts = (
         _clip_triangle_polygons_to_pixel_squares(
-            triangle_vertices=triangle_vertices[bbox_overlap_mask],
+            triangle_verts=triangle_verts[bbox_overlap_mask],
             pixel_x=pixel_x[bbox_overlap_mask],
             pixel_y=pixel_y[bbox_overlap_mask],
             output_vertex_capacity=8,
         )
     )
     clipped_polygon_area = _compute_convex_polygon_areas(
-        polygon_vertices=clipped_polygon_vertices,
+        polygon_verts=clipped_polygon_verts,
         polygon_vertex_counts=clipped_polygon_vertex_counts,
     )
     positive_area_overlap_mask[bbox_overlap_mask] = (
@@ -532,14 +532,14 @@ def _compute_triangle_pixel_square_positive_area_overlap_mask(
 
 
 def _compute_multi_face_pixel_second_bucket_mask(
-    pixel_polygon_vertices: torch.Tensor,
+    pixel_polygon_verts: torch.Tensor,
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_valid_mask: torch.Tensor,
 ) -> torch.Tensor:
     """Detect which multi-face pixels require full overlap resolution.
 
     Args:
-        pixel_polygon_vertices: Pixel-major face polygons [Np, M, Vmax, 2].
+        pixel_polygon_verts: Pixel-major face polygons [Np, M, Vmax, 2].
         pixel_polygon_vertex_counts: Pixel-major vertex counts [Np, M].
         pixel_face_valid_mask: Pixel-major face validity mask [Np, M].
 
@@ -556,9 +556,9 @@ def _compute_multi_face_pixel_second_bucket_mask(
         Returns:
             None.
         """
-        assert isinstance(pixel_polygon_vertices, torch.Tensor), (
-            "Expected `pixel_polygon_vertices` to be a tensor. "
-            f"Got {type(pixel_polygon_vertices)=}."
+        assert isinstance(pixel_polygon_verts, torch.Tensor), (
+            "Expected `pixel_polygon_verts` to be a tensor. "
+            f"Got {type(pixel_polygon_verts)=}."
         )
         assert isinstance(pixel_polygon_vertex_counts, torch.Tensor), (
             "Expected `pixel_polygon_vertex_counts` to be a tensor. "
@@ -568,38 +568,38 @@ def _compute_multi_face_pixel_second_bucket_mask(
             "Expected `pixel_face_valid_mask` to be a tensor. "
             f"Got {type(pixel_face_valid_mask)=}."
         )
-        assert pixel_polygon_vertices.ndim == 4, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.ndim == 4, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertices.shape[3] == 2, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.shape[3] == 2, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertex_counts.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_polygon_vertex_counts.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_polygon_vertex_counts` to match the first two dimensions "
-            "of `pixel_polygon_vertices`. "
-            f"Got {pixel_polygon_vertex_counts.shape=} {pixel_polygon_vertices.shape=}."
+            "of `pixel_polygon_verts`. "
+            f"Got {pixel_polygon_vertex_counts.shape=} {pixel_polygon_verts.shape=}."
         )
-        assert pixel_face_valid_mask.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_face_valid_mask.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_face_valid_mask` to match the first two dimensions of "
-            "`pixel_polygon_vertices`. "
-            f"Got {pixel_face_valid_mask.shape=} {pixel_polygon_vertices.shape=}."
+            "`pixel_polygon_verts`. "
+            f"Got {pixel_face_valid_mask.shape=} {pixel_polygon_verts.shape=}."
         )
 
     _validate_inputs()
 
-    pixel_count, max_faces_per_pixel = pixel_polygon_vertices.shape[:2]
+    pixel_count, max_faces_per_pixel = pixel_polygon_verts.shape[:2]
     pair_first_indices, pair_second_indices = torch.triu_indices(
         max_faces_per_pixel,
         max_faces_per_pixel,
         offset=1,
-        device=pixel_polygon_vertices.device,
+        device=pixel_polygon_verts.device,
     )
     if pair_first_indices.numel() == 0:
         return torch.zeros(
             (pixel_count,),
-            device=pixel_polygon_vertices.device,
+            device=pixel_polygon_verts.device,
             dtype=torch.bool,
         )
 
@@ -613,31 +613,31 @@ def _compute_multi_face_pixel_second_bucket_mask(
     if not torch.any(pair_valid_mask):
         return torch.zeros(
             (pixel_count,),
-            device=pixel_polygon_vertices.device,
+            device=pixel_polygon_verts.device,
             dtype=torch.bool,
         )
 
-    first_pair_polygon_vertices = pixel_polygon_vertices[:, pair_first_indices][
+    first_pair_polygon_verts = pixel_polygon_verts[:, pair_first_indices][
         pair_valid_mask
     ]
     first_pair_polygon_vertex_counts = pixel_polygon_vertex_counts[
         :, pair_first_indices
     ][pair_valid_mask]
-    second_pair_polygon_vertices = pixel_polygon_vertices[:, pair_second_indices][
+    second_pair_polygon_verts = pixel_polygon_verts[:, pair_second_indices][
         pair_valid_mask
     ]
     second_pair_polygon_vertex_counts = pixel_polygon_vertex_counts[
         :, pair_second_indices
     ][pair_valid_mask]
     positive_area_overlap_mask = _compute_pair_positive_area_overlap_mask(
-        first_polygon_vertices=first_pair_polygon_vertices,
+        first_polygon_verts=first_pair_polygon_verts,
         first_polygon_vertex_counts=first_pair_polygon_vertex_counts,
-        second_polygon_vertices=second_pair_polygon_vertices,
+        second_polygon_verts=second_pair_polygon_verts,
         second_polygon_vertex_counts=second_pair_polygon_vertex_counts,
     )
     second_bucket_mask = torch.zeros(
         (pixel_count,),
-        device=pixel_polygon_vertices.device,
+        device=pixel_polygon_verts.device,
         dtype=torch.bool,
     )
     if torch.any(positive_area_overlap_mask):
@@ -647,7 +647,7 @@ def _compute_multi_face_pixel_second_bucket_mask(
 
 
 def _build_visible_face_pixel_polygons(
-    clipped_polygon_vertices: torch.Tensor,
+    clipped_polygon_verts: torch.Tensor,
     clipped_polygon_vertex_counts: torch.Tensor,
     clipped_pixel_indices: torch.Tensor,
     clipped_face_indices: torch.Tensor,
@@ -656,7 +656,7 @@ def _build_visible_face_pixel_polygons(
     """Build exact visible face-pixel polygons in batched tensor form.
 
     Args:
-        clipped_polygon_vertices: Face-pixel polygons [P, Vmax, 2].
+        clipped_polygon_verts: Face-pixel polygons [P, Vmax, 2].
         clipped_polygon_vertex_counts: Valid polygon vertex counts [P].
         clipped_pixel_indices: Pixel indices [P, 2] in `(y, x)` order.
         clipped_face_indices: Local face indices [P].
@@ -678,9 +678,9 @@ def _build_visible_face_pixel_polygons(
         Returns:
             None.
         """
-        assert isinstance(clipped_polygon_vertices, torch.Tensor), (
-            "Expected `clipped_polygon_vertices` to be a tensor. "
-            f"Got {type(clipped_polygon_vertices)=}."
+        assert isinstance(clipped_polygon_verts, torch.Tensor), (
+            "Expected `clipped_polygon_verts` to be a tensor. "
+            f"Got {type(clipped_polygon_verts)=}."
         )
         assert isinstance(clipped_polygon_vertex_counts, torch.Tensor), (
             "Expected `clipped_polygon_vertex_counts` to be a tensor. "
@@ -698,31 +698,31 @@ def _build_visible_face_pixel_polygons(
             "Expected `face_inverse_depth_coefficients` to be a tensor. "
             f"Got {type(face_inverse_depth_coefficients)=}."
         )
-        assert clipped_polygon_vertices.ndim == 3, (
-            "Expected `clipped_polygon_vertices` to have shape `[P, Vmax, 2]`. "
-            f"Got {clipped_polygon_vertices.shape=}."
+        assert clipped_polygon_verts.ndim == 3, (
+            "Expected `clipped_polygon_verts` to have shape `[P, Vmax, 2]`. "
+            f"Got {clipped_polygon_verts.shape=}."
         )
-        assert clipped_polygon_vertices.shape[2] == 2, (
-            "Expected `clipped_polygon_vertices` to have shape `[P, Vmax, 2]`. "
-            f"Got {clipped_polygon_vertices.shape=}."
+        assert clipped_polygon_verts.shape[2] == 2, (
+            "Expected `clipped_polygon_verts` to have shape `[P, Vmax, 2]`. "
+            f"Got {clipped_polygon_verts.shape=}."
         )
         assert clipped_polygon_vertex_counts.shape == (
-            clipped_polygon_vertices.shape[0],
+            clipped_polygon_verts.shape[0],
         ), (
             "Expected `clipped_polygon_vertex_counts` to have shape `[P]`. "
             f"Got {clipped_polygon_vertex_counts.shape=} "
-            f"{clipped_polygon_vertices.shape=}."
+            f"{clipped_polygon_verts.shape=}."
         )
         assert clipped_pixel_indices.shape == (
-            clipped_polygon_vertices.shape[0],
+            clipped_polygon_verts.shape[0],
             2,
         ), (
             "Expected `clipped_pixel_indices` to have shape `[P, 2]`. "
-            f"Got {clipped_pixel_indices.shape=} {clipped_polygon_vertices.shape=}."
+            f"Got {clipped_pixel_indices.shape=} {clipped_polygon_verts.shape=}."
         )
-        assert clipped_face_indices.shape == (clipped_polygon_vertices.shape[0],), (
+        assert clipped_face_indices.shape == (clipped_polygon_verts.shape[0],), (
             "Expected `clipped_face_indices` to have shape `[P]`. "
-            f"Got {clipped_face_indices.shape=} {clipped_polygon_vertices.shape=}."
+            f"Got {clipped_face_indices.shape=} {clipped_polygon_verts.shape=}."
         )
         assert face_inverse_depth_coefficients.ndim == 2, (
             "Expected `face_inverse_depth_coefficients` to have shape `[F, 3]`. "
@@ -735,34 +735,34 @@ def _build_visible_face_pixel_polygons(
 
     _validate_inputs()
 
-    if clipped_polygon_vertices.shape[0] == 0:
+    if clipped_polygon_verts.shape[0] == 0:
         return (
             torch.zeros(
-                (0, clipped_polygon_vertices.shape[1], 2),
-                device=clipped_polygon_vertices.device,
+                (0, clipped_polygon_verts.shape[1], 2),
+                device=clipped_polygon_verts.device,
                 dtype=torch.float32,
             ),
             torch.zeros(
                 (0,),
-                device=clipped_polygon_vertices.device,
+                device=clipped_polygon_verts.device,
                 dtype=torch.long,
             ),
             torch.zeros(
                 (0,),
-                device=clipped_polygon_vertices.device,
+                device=clipped_polygon_verts.device,
                 dtype=torch.long,
             ),
         )
 
     (
         pixel_indices,
-        pixel_polygon_vertices,
+        pixel_polygon_verts,
         pixel_polygon_vertex_counts,
         pixel_face_indices,
         pixel_face_valid_mask,
         pixel_inverse_depth_coefficients,
     ) = _pack_face_pixel_polygons_by_pixel(
-        clipped_polygon_vertices=clipped_polygon_vertices,
+        clipped_polygon_verts=clipped_polygon_verts,
         clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
         clipped_pixel_indices=clipped_pixel_indices,
         clipped_face_indices=clipped_face_indices,
@@ -772,23 +772,23 @@ def _build_visible_face_pixel_polygons(
     single_face_pixel_mask = face_count_per_pixel == 1
     multi_face_pixel_mask = face_count_per_pixel > 1
 
-    visible_polygon_vertices_chunks: List[torch.Tensor] = []
+    visible_polygon_verts_chunks: List[torch.Tensor] = []
     visible_polygon_vertex_counts_chunks: List[torch.Tensor] = []
     visible_polygon_face_indices_chunks: List[torch.Tensor] = []
     if torch.any(single_face_pixel_mask):
         (
-            single_face_visible_polygon_vertices,
+            single_face_visible_polygon_verts,
             single_face_visible_polygon_vertex_counts,
             single_face_visible_polygon_face_indices,
         ) = _gather_visible_pixel_face_polygons(
-            pixel_polygon_vertices=pixel_polygon_vertices[single_face_pixel_mask],
+            pixel_polygon_verts=pixel_polygon_verts[single_face_pixel_mask],
             pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[
                 single_face_pixel_mask
             ],
             pixel_face_indices=pixel_face_indices[single_face_pixel_mask],
             pixel_face_slot_mask=pixel_face_valid_mask[single_face_pixel_mask],
         )
-        visible_polygon_vertices_chunks.append(single_face_visible_polygon_vertices)
+        visible_polygon_verts_chunks.append(single_face_visible_polygon_verts)
         visible_polygon_vertex_counts_chunks.append(
             single_face_visible_polygon_vertex_counts
         )
@@ -797,18 +797,18 @@ def _build_visible_face_pixel_polygons(
         )
     if not torch.any(multi_face_pixel_mask):
         return (
-            torch.cat(visible_polygon_vertices_chunks, dim=0).contiguous(),
+            torch.cat(visible_polygon_verts_chunks, dim=0).contiguous(),
             torch.cat(visible_polygon_vertex_counts_chunks, dim=0).contiguous(),
             torch.cat(visible_polygon_face_indices_chunks, dim=0).contiguous(),
         )
 
     (
-        multi_face_visible_polygon_vertices,
+        multi_face_visible_polygon_verts,
         multi_face_visible_polygon_vertex_counts,
         multi_face_visible_polygon_face_indices,
     ) = _build_visible_multi_face_pixel_polygons(
         pixel_indices=pixel_indices[multi_face_pixel_mask],
-        pixel_polygon_vertices=pixel_polygon_vertices[multi_face_pixel_mask],
+        pixel_polygon_verts=pixel_polygon_verts[multi_face_pixel_mask],
         pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[multi_face_pixel_mask],
         pixel_face_indices=pixel_face_indices[multi_face_pixel_mask],
         pixel_face_valid_mask=pixel_face_valid_mask[multi_face_pixel_mask],
@@ -816,33 +816,33 @@ def _build_visible_face_pixel_polygons(
             multi_face_pixel_mask
         ],
     )
-    visible_polygon_vertices_chunks.append(multi_face_visible_polygon_vertices)
+    visible_polygon_verts_chunks.append(multi_face_visible_polygon_verts)
     visible_polygon_vertex_counts_chunks.append(
         multi_face_visible_polygon_vertex_counts
     )
     visible_polygon_face_indices_chunks.append(multi_face_visible_polygon_face_indices)
     max_visible_polygon_vertex_capacity = max(
-        polygon_vertices.shape[1]
-        for polygon_vertices in visible_polygon_vertices_chunks
+        polygon_verts.shape[1]
+        for polygon_verts in visible_polygon_verts_chunks
     )
-    visible_polygon_vertices_chunks = [
+    visible_polygon_verts_chunks = [
         (
-            polygon_vertices
-            if polygon_vertices.shape[1] == max_visible_polygon_vertex_capacity
+            polygon_verts
+            if polygon_verts.shape[1] == max_visible_polygon_vertex_capacity
             else F.pad(
-                polygon_vertices,
+                polygon_verts,
                 pad=(
                     0,
                     0,
                     0,
-                    max_visible_polygon_vertex_capacity - polygon_vertices.shape[1],
+                    max_visible_polygon_vertex_capacity - polygon_verts.shape[1],
                 ),
             )
         )
-        for polygon_vertices in visible_polygon_vertices_chunks
+        for polygon_verts in visible_polygon_verts_chunks
     ]
     return (
-        torch.cat(visible_polygon_vertices_chunks, dim=0).contiguous(),
+        torch.cat(visible_polygon_verts_chunks, dim=0).contiguous(),
         torch.cat(visible_polygon_vertex_counts_chunks, dim=0).contiguous(),
         torch.cat(visible_polygon_face_indices_chunks, dim=0).contiguous(),
     )
@@ -850,7 +850,7 @@ def _build_visible_face_pixel_polygons(
 
 def _build_visible_multi_face_pixel_polygons(
     pixel_indices: torch.Tensor,
-    pixel_polygon_vertices: torch.Tensor,
+    pixel_polygon_verts: torch.Tensor,
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_indices: torch.Tensor,
     pixel_face_valid_mask: torch.Tensor,
@@ -860,7 +860,7 @@ def _build_visible_multi_face_pixel_polygons(
 
     Args:
         pixel_indices: Pixel indices [Np, 2] in `(y, x)` order.
-        pixel_polygon_vertices: Pixel-major face polygons [Np, M, Vmax, 2].
+        pixel_polygon_verts: Pixel-major face polygons [Np, M, Vmax, 2].
         pixel_polygon_vertex_counts: Pixel-major vertex counts [Np, M].
         pixel_face_indices: Pixel-major local face indices [Np, M].
         pixel_face_valid_mask: Pixel-major face validity mask [Np, M].
@@ -885,9 +885,9 @@ def _build_visible_multi_face_pixel_polygons(
         assert isinstance(pixel_indices, torch.Tensor), (
             "Expected `pixel_indices` to be a tensor. " f"Got {type(pixel_indices)=}."
         )
-        assert isinstance(pixel_polygon_vertices, torch.Tensor), (
-            "Expected `pixel_polygon_vertices` to be a tensor. "
-            f"Got {type(pixel_polygon_vertices)=}."
+        assert isinstance(pixel_polygon_verts, torch.Tensor), (
+            "Expected `pixel_polygon_verts` to be a tensor. "
+            f"Got {type(pixel_polygon_verts)=}."
         )
         assert isinstance(pixel_polygon_vertex_counts, torch.Tensor), (
             "Expected `pixel_polygon_vertex_counts` to be a tensor. "
@@ -913,38 +913,38 @@ def _build_visible_multi_face_pixel_polygons(
             "Expected `pixel_indices` to have shape `[Np, 2]`. "
             f"Got {pixel_indices.shape=}."
         )
-        assert pixel_polygon_vertices.ndim == 4, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.ndim == 4, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertices.shape[3] == 2, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.shape[3] == 2, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertex_counts.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_polygon_vertex_counts.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_polygon_vertex_counts` to match the first two "
-            "dimensions of `pixel_polygon_vertices`. "
+            "dimensions of `pixel_polygon_verts`. "
             f"Got {pixel_polygon_vertex_counts.shape=} "
-            f"{pixel_polygon_vertices.shape=}."
+            f"{pixel_polygon_verts.shape=}."
         )
-        assert pixel_face_indices.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_face_indices.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_face_indices` to match the first two dimensions "
-            "of `pixel_polygon_vertices`. "
-            f"Got {pixel_face_indices.shape=} {pixel_polygon_vertices.shape=}."
+            "of `pixel_polygon_verts`. "
+            f"Got {pixel_face_indices.shape=} {pixel_polygon_verts.shape=}."
         )
-        assert pixel_face_valid_mask.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_face_valid_mask.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_face_valid_mask` to match the first two dimensions "
-            "of `pixel_polygon_vertices`. "
-            f"Got {pixel_face_valid_mask.shape=} {pixel_polygon_vertices.shape=}."
+            "of `pixel_polygon_verts`. "
+            f"Got {pixel_face_valid_mask.shape=} {pixel_polygon_verts.shape=}."
         )
         assert pixel_inverse_depth_coefficients.shape == (
-            pixel_polygon_vertices.shape[0],
-            pixel_polygon_vertices.shape[1],
+            pixel_polygon_verts.shape[0],
+            pixel_polygon_verts.shape[1],
             3,
         ), (
             "Expected `pixel_inverse_depth_coefficients` to have shape `[Np, M, 3]`. "
             f"Got {pixel_inverse_depth_coefficients.shape=} "
-            f"{pixel_polygon_vertices.shape=}."
+            f"{pixel_polygon_verts.shape=}."
         )
 
     _validate_inputs()
@@ -952,18 +952,18 @@ def _build_visible_multi_face_pixel_polygons(
     if pixel_indices.shape[0] == 0:
         return (
             torch.zeros(
-                (0, pixel_polygon_vertices.shape[2], 2),
-                device=pixel_polygon_vertices.device,
+                (0, pixel_polygon_verts.shape[2], 2),
+                device=pixel_polygon_verts.device,
                 dtype=torch.float32,
             ),
             torch.zeros(
                 (0,),
-                device=pixel_polygon_vertices.device,
+                device=pixel_polygon_verts.device,
                 dtype=torch.long,
             ),
             torch.zeros(
                 (0,),
-                device=pixel_polygon_vertices.device,
+                device=pixel_polygon_verts.device,
                 dtype=torch.long,
             ),
         )
@@ -972,7 +972,7 @@ def _build_visible_multi_face_pixel_polygons(
     sorted_pixel_indices = torch.argsort(face_count_per_pixel)
     face_count_per_pixel = face_count_per_pixel[sorted_pixel_indices]
     pixel_indices = pixel_indices[sorted_pixel_indices]
-    pixel_polygon_vertices = pixel_polygon_vertices[sorted_pixel_indices]
+    pixel_polygon_verts = pixel_polygon_verts[sorted_pixel_indices]
     pixel_polygon_vertex_counts = pixel_polygon_vertex_counts[sorted_pixel_indices]
     pixel_face_indices = pixel_face_indices[sorted_pixel_indices]
     pixel_face_valid_mask = pixel_face_valid_mask[sorted_pixel_indices]
@@ -980,27 +980,27 @@ def _build_visible_multi_face_pixel_polygons(
         sorted_pixel_indices
     ]
 
-    visible_polygon_vertices_chunks: List[torch.Tensor] = []
+    visible_polygon_verts_chunks: List[torch.Tensor] = []
     visible_polygon_vertex_counts_chunks: List[torch.Tensor] = []
     visible_polygon_face_indices_chunks: List[torch.Tensor] = []
     second_bucket_mask = _compute_multi_face_pixel_second_bucket_mask(
-        pixel_polygon_vertices=pixel_polygon_vertices,
+        pixel_polygon_verts=pixel_polygon_verts,
         pixel_polygon_vertex_counts=pixel_polygon_vertex_counts,
         pixel_face_valid_mask=pixel_face_valid_mask,
     )
     first_bucket_mask = ~second_bucket_mask
     if torch.any(first_bucket_mask):
         (
-            first_bucket_visible_polygon_vertices,
+            first_bucket_visible_polygon_verts,
             first_bucket_visible_polygon_vertex_counts,
             first_bucket_visible_polygon_face_indices,
         ) = _gather_visible_pixel_face_polygons(
-            pixel_polygon_vertices=pixel_polygon_vertices[first_bucket_mask],
+            pixel_polygon_verts=pixel_polygon_verts[first_bucket_mask],
             pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[first_bucket_mask],
             pixel_face_indices=pixel_face_indices[first_bucket_mask],
             pixel_face_slot_mask=pixel_face_valid_mask[first_bucket_mask],
         )
-        visible_polygon_vertices_chunks.append(first_bucket_visible_polygon_vertices)
+        visible_polygon_verts_chunks.append(first_bucket_visible_polygon_verts)
         visible_polygon_vertex_counts_chunks.append(
             first_bucket_visible_polygon_vertex_counts
         )
@@ -1009,31 +1009,31 @@ def _build_visible_multi_face_pixel_polygons(
         )
     if not torch.any(second_bucket_mask):
         return (
-            torch.cat(visible_polygon_vertices_chunks, dim=0).contiguous(),
+            torch.cat(visible_polygon_verts_chunks, dim=0).contiguous(),
             torch.cat(visible_polygon_vertex_counts_chunks, dim=0).contiguous(),
             torch.cat(visible_polygon_face_indices_chunks, dim=0).contiguous(),
         )
 
     pixel_indices = pixel_indices[second_bucket_mask]
     face_count_per_pixel = face_count_per_pixel[second_bucket_mask]
-    pixel_polygon_vertices = pixel_polygon_vertices[second_bucket_mask]
+    pixel_polygon_verts = pixel_polygon_verts[second_bucket_mask]
     pixel_polygon_vertex_counts = pixel_polygon_vertex_counts[second_bucket_mask]
     pixel_face_indices = pixel_face_indices[second_bucket_mask]
     pixel_face_valid_mask = pixel_face_valid_mask[second_bucket_mask]
     pixel_inverse_depth_coefficients = pixel_inverse_depth_coefficients[
         second_bucket_mask
     ]
-    max_vertices_per_polygon = pixel_polygon_vertices.shape[2]
+    max_verts_per_polygon = pixel_polygon_verts.shape[2]
     chunk_ranges = _plan_multi_face_pixel_chunks(
         face_count_per_pixel=face_count_per_pixel,
-        max_vertices_per_polygon=max_vertices_per_polygon,
+        max_verts_per_polygon=max_verts_per_polygon,
         target_split_line_budget=TARGET_MULTI_FACE_PIXEL_SPLIT_LINE_BUDGET,
     )
     for chunk_start, chunk_end in chunk_ranges:
         pixel_split_line_coefficients, pixel_split_line_valid_mask = (
             _build_padded_pixel_split_line_coefficients(
                 pixel_indices=pixel_indices[chunk_start:chunk_end],
-                pixel_polygon_vertices=pixel_polygon_vertices[chunk_start:chunk_end],
+                pixel_polygon_verts=pixel_polygon_verts[chunk_start:chunk_end],
                 pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[
                     chunk_start:chunk_end
                 ],
@@ -1041,12 +1041,12 @@ def _build_visible_multi_face_pixel_polygons(
             )
         )
         (
-            cell_polygon_vertices,
+            cell_polygon_verts,
             cell_polygon_vertex_counts,
             cell_pixel_indices,
         ) = _build_batched_pixel_cell_polygons(
             pixel_indices=pixel_indices[chunk_start:chunk_end],
-            pixel_polygon_vertices=pixel_polygon_vertices[chunk_start:chunk_end],
+            pixel_polygon_verts=pixel_polygon_verts[chunk_start:chunk_end],
             pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[
                 chunk_start:chunk_end
             ],
@@ -1055,14 +1055,14 @@ def _build_visible_multi_face_pixel_polygons(
             pixel_split_line_valid_mask=pixel_split_line_valid_mask,
         )
         (
-            chunk_visible_polygon_vertices,
+            chunk_visible_polygon_verts,
             chunk_visible_polygon_vertex_counts,
             chunk_visible_polygon_face_indices,
         ) = _assign_visible_faces_to_cells(
-            cell_polygon_vertices=cell_polygon_vertices,
+            cell_polygon_verts=cell_polygon_verts,
             cell_polygon_vertex_counts=cell_polygon_vertex_counts,
             cell_pixel_indices=cell_pixel_indices,
-            pixel_polygon_vertices=pixel_polygon_vertices[chunk_start:chunk_end],
+            pixel_polygon_verts=pixel_polygon_verts[chunk_start:chunk_end],
             pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[
                 chunk_start:chunk_end
             ],
@@ -1072,32 +1072,32 @@ def _build_visible_multi_face_pixel_polygons(
                 chunk_start:chunk_end
             ],
         )
-        visible_polygon_vertices_chunks.append(chunk_visible_polygon_vertices)
+        visible_polygon_verts_chunks.append(chunk_visible_polygon_verts)
         visible_polygon_vertex_counts_chunks.append(chunk_visible_polygon_vertex_counts)
         visible_polygon_face_indices_chunks.append(chunk_visible_polygon_face_indices)
 
     max_visible_polygon_vertex_capacity = max(
-        polygon_vertices.shape[1]
-        for polygon_vertices in visible_polygon_vertices_chunks
+        polygon_verts.shape[1]
+        for polygon_verts in visible_polygon_verts_chunks
     )
-    visible_polygon_vertices_chunks = [
+    visible_polygon_verts_chunks = [
         (
-            polygon_vertices
-            if polygon_vertices.shape[1] == max_visible_polygon_vertex_capacity
+            polygon_verts
+            if polygon_verts.shape[1] == max_visible_polygon_vertex_capacity
             else F.pad(
-                polygon_vertices,
+                polygon_verts,
                 pad=(
                     0,
                     0,
                     0,
-                    max_visible_polygon_vertex_capacity - polygon_vertices.shape[1],
+                    max_visible_polygon_vertex_capacity - polygon_verts.shape[1],
                 ),
             )
         )
-        for polygon_vertices in visible_polygon_vertices_chunks
+        for polygon_verts in visible_polygon_verts_chunks
     ]
     return (
-        torch.cat(visible_polygon_vertices_chunks, dim=0).contiguous(),
+        torch.cat(visible_polygon_verts_chunks, dim=0).contiguous(),
         torch.cat(visible_polygon_vertex_counts_chunks, dim=0).contiguous(),
         torch.cat(visible_polygon_face_indices_chunks, dim=0).contiguous(),
     )
@@ -1231,7 +1231,7 @@ def _deduplicate_padded_pixel_split_lines(
 
 def _build_padded_pixel_split_line_coefficients(
     pixel_indices: torch.Tensor,
-    pixel_polygon_vertices: torch.Tensor,
+    pixel_polygon_verts: torch.Tensor,
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_valid_mask: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -1239,7 +1239,7 @@ def _build_padded_pixel_split_line_coefficients(
 
     Args:
         pixel_indices: Pixel indices [Np, 2] in `(y, x)` order.
-        pixel_polygon_vertices: Pixel-major face polygons [Np, M, Vmax, 2].
+        pixel_polygon_verts: Pixel-major face polygons [Np, M, Vmax, 2].
         pixel_polygon_vertex_counts: Pixel-major vertex counts [Np, M].
         pixel_face_valid_mask: Pixel-major face validity mask [Np, M].
 
@@ -1262,9 +1262,9 @@ def _build_padded_pixel_split_line_coefficients(
         assert isinstance(pixel_indices, torch.Tensor), (
             "Expected `pixel_indices` to be a tensor. " f"Got {type(pixel_indices)=}."
         )
-        assert isinstance(pixel_polygon_vertices, torch.Tensor), (
-            "Expected `pixel_polygon_vertices` to be a tensor. "
-            f"Got {type(pixel_polygon_vertices)=}."
+        assert isinstance(pixel_polygon_verts, torch.Tensor), (
+            "Expected `pixel_polygon_verts` to be a tensor. "
+            f"Got {type(pixel_polygon_verts)=}."
         )
         assert isinstance(pixel_polygon_vertex_counts, torch.Tensor), (
             "Expected `pixel_polygon_vertex_counts` to be a tensor. "
@@ -1282,46 +1282,46 @@ def _build_padded_pixel_split_line_coefficients(
             "Expected `pixel_indices` to have shape `[Np, 2]`. "
             f"Got {pixel_indices.shape=}."
         )
-        assert pixel_polygon_vertices.ndim == 4, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.ndim == 4, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertices.shape[3] == 2, (
-            "Expected `pixel_polygon_vertices` to have shape `[Np, M, Vmax, 2]`. "
-            f"Got {pixel_polygon_vertices.shape=}."
+        assert pixel_polygon_verts.shape[3] == 2, (
+            "Expected `pixel_polygon_verts` to have shape `[Np, M, Vmax, 2]`. "
+            f"Got {pixel_polygon_verts.shape=}."
         )
-        assert pixel_polygon_vertex_counts.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_polygon_vertex_counts.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_polygon_vertex_counts` to match the first two dimensions "
-            "of `pixel_polygon_vertices`. "
-            f"Got {pixel_polygon_vertex_counts.shape=} {pixel_polygon_vertices.shape=}."
+            "of `pixel_polygon_verts`. "
+            f"Got {pixel_polygon_vertex_counts.shape=} {pixel_polygon_verts.shape=}."
         )
-        assert pixel_face_valid_mask.shape == pixel_polygon_vertices.shape[:2], (
+        assert pixel_face_valid_mask.shape == pixel_polygon_verts.shape[:2], (
             "Expected `pixel_face_valid_mask` to match the first two dimensions "
-            "of `pixel_polygon_vertices`. "
-            f"Got {pixel_face_valid_mask.shape=} {pixel_polygon_vertices.shape=}."
+            "of `pixel_polygon_verts`. "
+            f"Got {pixel_face_valid_mask.shape=} {pixel_polygon_verts.shape=}."
         )
-        assert pixel_indices.shape[0] == pixel_polygon_vertices.shape[0], (
+        assert pixel_indices.shape[0] == pixel_polygon_verts.shape[0], (
             "Expected one pixel index per pixel-major polygon batch item. "
-            f"Got {pixel_indices.shape=} {pixel_polygon_vertices.shape=}."
+            f"Got {pixel_indices.shape=} {pixel_polygon_verts.shape=}."
         )
 
     _validate_inputs()
 
-    pixel_count = pixel_polygon_vertices.shape[0]
-    max_vertices_per_polygon = pixel_polygon_vertices.shape[2]
+    pixel_count = pixel_polygon_verts.shape[0]
+    max_verts_per_polygon = pixel_polygon_verts.shape[2]
     polygon_indices = torch.arange(
         pixel_count,
-        device=pixel_polygon_vertices.device,
+        device=pixel_polygon_verts.device,
         dtype=torch.long,
     ).reshape(-1, 1, 1)
     face_indices = torch.arange(
-        pixel_polygon_vertices.shape[1],
-        device=pixel_polygon_vertices.device,
+        pixel_polygon_verts.shape[1],
+        device=pixel_polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, -1, 1)
     edge_indices = torch.arange(
-        max_vertices_per_polygon,
-        device=pixel_polygon_vertices.device,
+        max_verts_per_polygon,
+        device=pixel_polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, 1, -1)
     edge_valid_mask = pixel_face_valid_mask.unsqueeze(-1) & (
@@ -1332,15 +1332,15 @@ def _build_padded_pixel_split_line_coefficients(
         edge_indices + 1,
         torch.zeros_like(edge_indices),
     )
-    edge_start = pixel_polygon_vertices
-    edge_end = pixel_polygon_vertices[
+    edge_start = pixel_polygon_verts
+    edge_end = pixel_polygon_verts[
         polygon_indices,
         face_indices,
         next_edge_indices,
     ]
     pixel_x = (
         pixel_indices[:, 1]
-        .to(dtype=pixel_polygon_vertices.dtype)
+        .to(dtype=pixel_polygon_verts.dtype)
         .reshape(
             -1,
             1,
@@ -1349,7 +1349,7 @@ def _build_padded_pixel_split_line_coefficients(
     )
     pixel_y = (
         pixel_indices[:, 0]
-        .to(dtype=pixel_polygon_vertices.dtype)
+        .to(dtype=pixel_polygon_verts.dtype)
         .reshape(
             -1,
             1,
@@ -1399,7 +1399,7 @@ def _build_padded_pixel_split_line_coefficients(
 
 def _build_batched_pixel_cell_polygons(
     pixel_indices: torch.Tensor,
-    pixel_polygon_vertices: torch.Tensor,
+    pixel_polygon_verts: torch.Tensor,
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_valid_mask: torch.Tensor,
     pixel_split_line_coefficients: torch.Tensor,
@@ -1409,7 +1409,7 @@ def _build_batched_pixel_cell_polygons(
 
     Args:
         pixel_indices: Pixel indices [Np, 2] in `(y, x)` order.
-        pixel_polygon_vertices: Pixel-major face polygons [Np, M, Vmax, 2].
+        pixel_polygon_verts: Pixel-major face polygons [Np, M, Vmax, 2].
         pixel_polygon_vertex_counts: Pixel-major vertex counts [Np, M].
         pixel_face_valid_mask: Pixel-major face validity mask [Np, M].
         pixel_split_line_coefficients: Pixel-major split lines [Np, Lmax, 3].
@@ -1435,9 +1435,9 @@ def _build_batched_pixel_cell_polygons(
         assert isinstance(pixel_indices, torch.Tensor), (
             "Expected `pixel_indices` to be a tensor. " f"Got {type(pixel_indices)=}."
         )
-        assert isinstance(pixel_polygon_vertices, torch.Tensor), (
-            "Expected `pixel_polygon_vertices` to be a tensor. "
-            f"Got {type(pixel_polygon_vertices)=}."
+        assert isinstance(pixel_polygon_verts, torch.Tensor), (
+            "Expected `pixel_polygon_verts` to be a tensor. "
+            f"Got {type(pixel_polygon_verts)=}."
         )
         assert isinstance(pixel_polygon_vertex_counts, torch.Tensor), (
             "Expected `pixel_polygon_vertex_counts` to be a tensor. "
@@ -1458,10 +1458,10 @@ def _build_batched_pixel_cell_polygons(
 
     _validate_inputs()
 
-    pixel_count = pixel_polygon_vertices.shape[0]
+    pixel_count = pixel_polygon_verts.shape[0]
     pixel_x = pixel_indices[:, 1].to(dtype=torch.float32)
     pixel_y = pixel_indices[:, 0].to(dtype=torch.float32)
-    cell_polygon_vertices = torch.stack(
+    cell_polygon_verts = torch.stack(
         [
             torch.stack([pixel_x - 0.5, pixel_y - 0.5], dim=1),
             torch.stack([pixel_x + 0.5, pixel_y - 0.5], dim=1),
@@ -1473,17 +1473,17 @@ def _build_batched_pixel_cell_polygons(
     cell_polygon_vertex_counts = torch.full(
         (pixel_count,),
         fill_value=4,
-        device=pixel_polygon_vertices.device,
+        device=pixel_polygon_verts.device,
         dtype=torch.long,
     )
     cell_pixel_indices = torch.arange(
         pixel_count,
-        device=pixel_polygon_vertices.device,
+        device=pixel_polygon_verts.device,
         dtype=torch.long,
     )
     cell_valid_mask = torch.ones(
         (pixel_count,),
-        device=pixel_polygon_vertices.device,
+        device=pixel_polygon_verts.device,
         dtype=torch.bool,
     )
 
@@ -1493,8 +1493,8 @@ def _build_batched_pixel_cell_polygons(
         current_max_cell_vertex_count = int(
             cell_polygon_vertex_counts[cell_valid_mask].max().item()
         )
-        if cell_polygon_vertices.shape[1] != current_max_cell_vertex_count:
-            cell_polygon_vertices = cell_polygon_vertices[
+        if cell_polygon_verts.shape[1] != current_max_cell_vertex_count:
+            cell_polygon_verts = cell_polygon_verts[
                 :,
                 :current_max_cell_vertex_count,
             ].contiguous()
@@ -1513,7 +1513,7 @@ def _build_batched_pixel_cell_polygons(
             as_tuple=False,
         ).reshape(-1)
         inactive_cell_mask = cell_valid_mask & ~active_line_mask
-        active_cell_polygon_vertices = cell_polygon_vertices[active_cell_indices]
+        active_cell_polygon_verts = cell_polygon_verts[active_cell_indices]
         active_cell_polygon_vertex_counts = cell_polygon_vertex_counts[
             active_cell_indices
         ]
@@ -1522,14 +1522,14 @@ def _build_batched_pixel_cell_polygons(
             split_line_index,
         ]
         active_vertex_mask = torch.arange(
-            active_cell_polygon_vertices.shape[1],
-            device=active_cell_polygon_vertices.device,
+            active_cell_polygon_verts.shape[1],
+            device=active_cell_polygon_verts.device,
             dtype=torch.long,
         ).reshape(1, -1) < active_cell_polygon_vertex_counts.reshape(-1, 1)
         active_line_values = (
-            line_coefficients[:, 0].unsqueeze(1) * active_cell_polygon_vertices[:, :, 0]
+            line_coefficients[:, 0].unsqueeze(1) * active_cell_polygon_verts[:, :, 0]
             + line_coefficients[:, 1].unsqueeze(1)
-            * active_cell_polygon_vertices[:, :, 1]
+            * active_cell_polygon_verts[:, :, 1]
             + line_coefficients[:, 2].unsqueeze(1)
         )
         has_positive_vertex = torch.any(
@@ -1545,21 +1545,21 @@ def _build_batched_pixel_cell_polygons(
         if not torch.any(candidate_split_mask):
             continue
 
-        padded_cell_polygon_vertices = F.pad(
-            cell_polygon_vertices,
+        padded_cell_polygon_verts = F.pad(
+            cell_polygon_verts,
             pad=(0, 0, 0, 2),
         )
-        active_padded_cell_polygon_vertices = padded_cell_polygon_vertices[
+        active_padded_cell_polygon_verts = padded_cell_polygon_verts[
             active_cell_indices
         ]
-        next_cell_polygon_vertices = [padded_cell_polygon_vertices[inactive_cell_mask]]
+        next_cell_polygon_verts = [padded_cell_polygon_verts[inactive_cell_mask]]
         next_cell_polygon_vertex_counts = [
             cell_polygon_vertex_counts[inactive_cell_mask]
         ]
         next_cell_pixel_indices = [cell_pixel_indices[inactive_cell_mask]]
         next_cell_valid_mask = [cell_valid_mask[inactive_cell_mask]]
-        next_cell_polygon_vertices.append(
-            active_padded_cell_polygon_vertices[keep_active_cell_mask]
+        next_cell_polygon_verts.append(
+            active_padded_cell_polygon_verts[keep_active_cell_mask]
         )
         next_cell_polygon_vertex_counts.append(
             active_cell_polygon_vertex_counts[keep_active_cell_mask]
@@ -1573,10 +1573,10 @@ def _build_batched_pixel_cell_polygons(
                 dtype=torch.bool,
             )
         )
-        candidate_cell_polygon_vertices = active_cell_polygon_vertices[
+        candidate_cell_polygon_verts = active_cell_polygon_verts[
             candidate_split_mask
         ]
-        candidate_padded_cell_polygon_vertices = active_padded_cell_polygon_vertices[
+        candidate_padded_cell_polygon_verts = active_padded_cell_polygon_verts[
             candidate_split_mask
         ]
         candidate_cell_polygon_vertex_counts = active_cell_polygon_vertex_counts[
@@ -1586,26 +1586,26 @@ def _build_batched_pixel_cell_polygons(
             candidate_split_mask
         ]
         candidate_line_coefficients = line_coefficients[candidate_split_mask]
-        positive_polygon_vertices, positive_polygon_vertex_counts = (
+        positive_polygon_verts, positive_polygon_vertex_counts = (
             _clip_convex_polygons_to_half_plane(
-                polygon_vertices=candidate_padded_cell_polygon_vertices,
+                polygon_verts=candidate_padded_cell_polygon_verts,
                 polygon_vertex_counts=candidate_cell_polygon_vertex_counts,
                 line_coefficients=candidate_line_coefficients,
             )
         )
-        negative_polygon_vertices, negative_polygon_vertex_counts = (
+        negative_polygon_verts, negative_polygon_vertex_counts = (
             _clip_convex_polygons_to_half_plane(
-                polygon_vertices=candidate_padded_cell_polygon_vertices,
+                polygon_verts=candidate_padded_cell_polygon_verts,
                 polygon_vertex_counts=candidate_cell_polygon_vertex_counts,
                 line_coefficients=-candidate_line_coefficients,
             )
         )
         positive_polygon_area = _compute_convex_polygon_areas(
-            polygon_vertices=positive_polygon_vertices,
+            polygon_verts=positive_polygon_verts,
             polygon_vertex_counts=positive_polygon_vertex_counts,
         )
         negative_polygon_area = _compute_convex_polygon_areas(
-            polygon_vertices=negative_polygon_vertices,
+            polygon_verts=negative_polygon_verts,
             polygon_vertex_counts=negative_polygon_vertex_counts,
         )
         split_cell_mask = (
@@ -1614,8 +1614,8 @@ def _build_batched_pixel_cell_polygons(
             & (positive_polygon_area > 1.0e-12)
             & (negative_polygon_area > 1.0e-12)
         )
-        next_cell_polygon_vertices.append(
-            candidate_padded_cell_polygon_vertices[~split_cell_mask]
+        next_cell_polygon_verts.append(
+            candidate_padded_cell_polygon_verts[~split_cell_mask]
         )
         next_cell_polygon_vertex_counts.append(
             candidate_cell_polygon_vertex_counts[~split_cell_mask]
@@ -1628,10 +1628,10 @@ def _build_batched_pixel_cell_polygons(
             )
         )
         if torch.any(split_cell_mask):
-            next_cell_polygon_vertices.extend(
+            next_cell_polygon_verts.extend(
                 [
-                    positive_polygon_vertices[split_cell_mask].contiguous(),
-                    negative_polygon_vertices[split_cell_mask].contiguous(),
+                    positive_polygon_verts[split_cell_mask].contiguous(),
+                    negative_polygon_verts[split_cell_mask].contiguous(),
                 ]
             )
             next_cell_polygon_vertex_counts.extend(
@@ -1659,8 +1659,8 @@ def _build_batched_pixel_cell_polygons(
                 ]
             )
 
-        cell_polygon_vertices = torch.cat(
-            next_cell_polygon_vertices, dim=0
+        cell_polygon_verts = torch.cat(
+            next_cell_polygon_verts, dim=0
         ).contiguous()
         cell_polygon_vertex_counts = torch.cat(
             next_cell_polygon_vertex_counts,
@@ -1670,7 +1670,7 @@ def _build_batched_pixel_cell_polygons(
         cell_valid_mask = torch.cat(next_cell_valid_mask, dim=0).contiguous()
 
     final_cell_polygon_area = _compute_convex_polygon_areas(
-        polygon_vertices=cell_polygon_vertices,
+        polygon_verts=cell_polygon_verts,
         polygon_vertex_counts=cell_polygon_vertex_counts,
     )
     final_cell_valid_mask = (
@@ -1679,17 +1679,17 @@ def _build_batched_pixel_cell_polygons(
         & (final_cell_polygon_area > 1.0e-12)
     )
     return (
-        cell_polygon_vertices[final_cell_valid_mask].contiguous(),
+        cell_polygon_verts[final_cell_valid_mask].contiguous(),
         cell_polygon_vertex_counts[final_cell_valid_mask].contiguous(),
         cell_pixel_indices[final_cell_valid_mask].contiguous(),
     )
 
 
 def _assign_visible_faces_to_cells(
-    cell_polygon_vertices: torch.Tensor,
+    cell_polygon_verts: torch.Tensor,
     cell_polygon_vertex_counts: torch.Tensor,
     cell_pixel_indices: torch.Tensor,
-    pixel_polygon_vertices: torch.Tensor,
+    pixel_polygon_verts: torch.Tensor,
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_indices: torch.Tensor,
     pixel_face_valid_mask: torch.Tensor,
@@ -1698,10 +1698,10 @@ def _assign_visible_faces_to_cells(
     """Assign each batched arrangement cell to its frontmost covering face.
 
     Args:
-        cell_polygon_vertices: Cell polygons [C, Vcmax, 2].
+        cell_polygon_verts: Cell polygons [C, Vcmax, 2].
         cell_polygon_vertex_counts: Cell polygon vertex counts [C].
         cell_pixel_indices: Parent pixel index for each cell [C].
-        pixel_polygon_vertices: Pixel-major face polygons [Np, M, Vmax, 2].
+        pixel_polygon_verts: Pixel-major face polygons [Np, M, Vmax, 2].
         pixel_polygon_vertex_counts: Pixel-major face vertex counts [Np, M].
         pixel_face_indices: Pixel-major local face indices [Np, M].
         pixel_face_valid_mask: Pixel-major face validity mask [Np, M].
@@ -1724,9 +1724,9 @@ def _assign_visible_faces_to_cells(
             None.
         """
         # Input validations
-        assert isinstance(cell_polygon_vertices, torch.Tensor), (
-            "Expected `cell_polygon_vertices` to be a tensor. "
-            f"Got {type(cell_polygon_vertices)=}."
+        assert isinstance(cell_polygon_verts, torch.Tensor), (
+            "Expected `cell_polygon_verts` to be a tensor. "
+            f"Got {type(cell_polygon_verts)=}."
         )
         assert isinstance(cell_polygon_vertex_counts, torch.Tensor), (
             "Expected `cell_polygon_vertex_counts` to be a tensor. "
@@ -1736,13 +1736,13 @@ def _assign_visible_faces_to_cells(
             "Expected `cell_pixel_indices` to be a tensor. "
             f"Got {type(cell_pixel_indices)=}."
         )
-        if cell_polygon_vertices.shape[0] == 0:
+        if cell_polygon_verts.shape[0] == 0:
             return (
-                cell_polygon_vertices.contiguous(),
+                cell_polygon_verts.contiguous(),
                 cell_polygon_vertex_counts.contiguous(),
                 torch.zeros(
                     (0,),
-                    device=cell_polygon_vertices.device,
+                    device=cell_polygon_verts.device,
                     dtype=torch.long,
                 ),
             )
@@ -1750,20 +1750,20 @@ def _assign_visible_faces_to_cells(
     _validate_inputs()
 
     cell_vertex_valid_mask = torch.arange(
-        cell_polygon_vertices.shape[1],
-        device=cell_polygon_vertices.device,
+        cell_polygon_verts.shape[1],
+        device=cell_polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, -1) < cell_polygon_vertex_counts.reshape(-1, 1)
     cell_centroid = (
-        cell_polygon_vertices
-        * cell_vertex_valid_mask.unsqueeze(-1).to(dtype=cell_polygon_vertices.dtype)
+        cell_polygon_verts
+        * cell_vertex_valid_mask.unsqueeze(-1).to(dtype=cell_polygon_verts.dtype)
     ).sum(dim=1) / cell_polygon_vertex_counts.to(
-        dtype=cell_polygon_vertices.dtype
+        dtype=cell_polygon_verts.dtype
     ).unsqueeze(
         1
     )
 
-    candidate_polygon_vertices = pixel_polygon_vertices[cell_pixel_indices]
+    candidate_polygon_verts = pixel_polygon_verts[cell_pixel_indices]
     candidate_polygon_vertex_counts = pixel_polygon_vertex_counts[cell_pixel_indices]
     candidate_face_valid_mask = pixel_face_valid_mask[cell_pixel_indices]
     candidate_inverse_depth_coefficients = pixel_inverse_depth_coefficients[
@@ -1773,20 +1773,20 @@ def _assign_visible_faces_to_cells(
         points=cell_centroid.unsqueeze(1)
         .expand(
             -1,
-            candidate_polygon_vertices.shape[1],
+            candidate_polygon_verts.shape[1],
             -1,
         )
         .reshape(-1, 2),
-        polygon_vertices=candidate_polygon_vertices.reshape(
+        polygon_verts=candidate_polygon_verts.reshape(
             -1,
-            candidate_polygon_vertices.shape[2],
+            candidate_polygon_verts.shape[2],
             2,
         ),
         polygon_vertex_counts=candidate_polygon_vertex_counts.reshape(-1),
     )
     containing_face_mask = flattened_containing_face_mask.reshape(
-        candidate_polygon_vertices.shape[0],
-        candidate_polygon_vertices.shape[1],
+        candidate_polygon_verts.shape[0],
+        candidate_polygon_verts.shape[1],
     )
     depth_query = torch.stack(
         [
@@ -1821,14 +1821,14 @@ def _assign_visible_faces_to_cells(
         visible_face_local_indices,
     ]
     return (
-        cell_polygon_vertices[has_visible_face].contiguous(),
+        cell_polygon_verts[has_visible_face].contiguous(),
         cell_polygon_vertex_counts[has_visible_face].contiguous(),
         visible_face_indices[has_visible_face].contiguous(),
     )
 
 
 def _pack_face_pixel_polygons_by_pixel(
-    clipped_polygon_vertices: torch.Tensor,
+    clipped_polygon_verts: torch.Tensor,
     clipped_polygon_vertex_counts: torch.Tensor,
     clipped_pixel_indices: torch.Tensor,
     clipped_face_indices: torch.Tensor,
@@ -1844,7 +1844,7 @@ def _pack_face_pixel_polygons_by_pixel(
     """Pack variable-count face-pixel polygons into pixel-major padded tensors.
 
     Args:
-        clipped_polygon_vertices: Face-pixel polygons [P, Vmax, 2].
+        clipped_polygon_verts: Face-pixel polygons [P, Vmax, 2].
         clipped_polygon_vertex_counts: Valid polygon vertex counts [P].
         clipped_pixel_indices: Pixel indices [P, 2] in `(y, x)` order.
         clipped_face_indices: Local face indices [P].
@@ -1871,8 +1871,8 @@ def _pack_face_pixel_polygons_by_pixel(
         """
         # Input validations
         assert isinstance(
-            clipped_polygon_vertices, torch.Tensor
-        ), f"{type(clipped_polygon_vertices)=}"
+            clipped_polygon_verts, torch.Tensor
+        ), f"{type(clipped_polygon_verts)=}"
         assert isinstance(
             clipped_polygon_vertex_counts, torch.Tensor
         ), f"{type(clipped_polygon_vertex_counts)=}"
@@ -1886,11 +1886,11 @@ def _pack_face_pixel_polygons_by_pixel(
             face_inverse_depth_coefficients, torch.Tensor
         ), f"{type(face_inverse_depth_coefficients)=}"
         assert (
-            clipped_polygon_vertices.shape[0] == clipped_pixel_indices.shape[0]
-        ), f"{clipped_polygon_vertices.shape=} {clipped_pixel_indices.shape=}"
+            clipped_polygon_verts.shape[0] == clipped_pixel_indices.shape[0]
+        ), f"{clipped_polygon_verts.shape=} {clipped_pixel_indices.shape=}"
         assert (
-            clipped_polygon_vertices.shape[0] == clipped_face_indices.shape[0]
-        ), f"{clipped_polygon_vertices.shape=} {clipped_face_indices.shape=}"
+            clipped_polygon_verts.shape[0] == clipped_face_indices.shape[0]
+        ), f"{clipped_polygon_verts.shape=} {clipped_face_indices.shape=}"
 
     _validate_inputs()
 
@@ -1911,43 +1911,43 @@ def _pack_face_pixel_polygons_by_pixel(
     group_indices = torch.repeat_interleave(
         torch.arange(
             pixel_count,
-            device=clipped_polygon_vertices.device,
+            device=clipped_polygon_verts.device,
             dtype=torch.long,
         ),
         pixel_group_counts,
     )
     within_group_indices = torch.arange(
-        clipped_polygon_vertices.shape[0],
-        device=clipped_polygon_vertices.device,
+        clipped_polygon_verts.shape[0],
+        device=clipped_polygon_verts.device,
         dtype=torch.long,
     ) - torch.repeat_interleave(group_start_offsets, pixel_group_counts)
 
-    sorted_polygon_vertices = clipped_polygon_vertices[sorted_pair_indices]
+    sorted_polygon_verts = clipped_polygon_verts[sorted_pair_indices]
     sorted_polygon_vertex_counts = clipped_polygon_vertex_counts[sorted_pair_indices]
     sorted_face_indices = clipped_face_indices[sorted_pair_indices]
-    pixel_polygon_vertices = torch.zeros(
+    pixel_polygon_verts = torch.zeros(
         (
             pixel_count,
             max_faces_per_pixel,
-            clipped_polygon_vertices.shape[1],
+            clipped_polygon_verts.shape[1],
             2,
         ),
-        device=clipped_polygon_vertices.device,
+        device=clipped_polygon_verts.device,
         dtype=torch.float32,
     )
     pixel_polygon_vertex_counts = torch.zeros(
         (pixel_count, max_faces_per_pixel),
-        device=clipped_polygon_vertices.device,
+        device=clipped_polygon_verts.device,
         dtype=torch.long,
     )
     pixel_face_indices = torch.full(
         (pixel_count, max_faces_per_pixel),
         fill_value=-1,
-        device=clipped_polygon_vertices.device,
+        device=clipped_polygon_verts.device,
         dtype=torch.long,
     )
-    pixel_polygon_vertices[group_indices, within_group_indices] = (
-        sorted_polygon_vertices
+    pixel_polygon_verts[group_indices, within_group_indices] = (
+        sorted_polygon_verts
     )
     pixel_polygon_vertex_counts[group_indices, within_group_indices] = (
         sorted_polygon_vertex_counts
@@ -1956,7 +1956,7 @@ def _pack_face_pixel_polygons_by_pixel(
     pixel_face_valid_mask = pixel_face_indices >= 0
     pixel_inverse_depth_coefficients = torch.zeros(
         (pixel_count, max_faces_per_pixel, 3),
-        device=clipped_polygon_vertices.device,
+        device=clipped_polygon_verts.device,
         dtype=torch.float32,
     )
     pixel_inverse_depth_coefficients[group_indices, within_group_indices] = (
@@ -1964,7 +1964,7 @@ def _pack_face_pixel_polygons_by_pixel(
     )
     return (
         pixel_indices.contiguous(),
-        pixel_polygon_vertices.contiguous(),
+        pixel_polygon_verts.contiguous(),
         pixel_polygon_vertex_counts.contiguous(),
         pixel_face_indices.contiguous(),
         pixel_face_valid_mask.contiguous(),
@@ -1973,13 +1973,13 @@ def _pack_face_pixel_polygons_by_pixel(
 
 
 def _compute_face_inverse_depth_coefficients(
-    face_screen_vertices: torch.Tensor,
+    face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
 ) -> torch.Tensor:
     """Compute affine inverse-depth coefficients over projected face triangles.
 
     Args:
-        face_screen_vertices: Projected triangle vertices [F, 3, 2].
+        face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
 
     Returns:
@@ -1997,20 +1997,20 @@ def _compute_face_inverse_depth_coefficients(
         """
         # Input validations
         assert isinstance(
-            face_screen_vertices, torch.Tensor
-        ), f"{type(face_screen_vertices)=}"
+            face_screen_verts, torch.Tensor
+        ), f"{type(face_screen_verts)=}"
         assert isinstance(
             face_vertex_depth, torch.Tensor
         ), f"{type(face_vertex_depth)=}"
-        assert face_screen_vertices.ndim == 3, f"{face_screen_vertices.shape=}"
-        assert face_screen_vertices.shape[1:] == (
+        assert face_screen_verts.ndim == 3, f"{face_screen_verts.shape=}"
+        assert face_screen_verts.shape[1:] == (
             3,
             2,
-        ), f"{face_screen_vertices.shape=}"
+        ), f"{face_screen_verts.shape=}"
         assert face_vertex_depth.shape == (
-            face_screen_vertices.shape[0],
+            face_screen_verts.shape[0],
             3,
-        ), f"{face_vertex_depth.shape=} {face_screen_vertices.shape=}"
+        ), f"{face_vertex_depth.shape=} {face_screen_verts.shape=}"
         assert torch.all(face_vertex_depth > 0.0), (
             "Expected positive camera depths for inverse-depth interpolation. "
             f"{face_vertex_depth.min()=}"
@@ -2020,11 +2020,11 @@ def _compute_face_inverse_depth_coefficients(
 
     solve_matrix = torch.cat(
         [
-            face_screen_vertices,
+            face_screen_verts,
             torch.ones(
-                (face_screen_vertices.shape[0], 3, 1),
-                device=face_screen_vertices.device,
-                dtype=face_screen_vertices.dtype,
+                (face_screen_verts.shape[0], 3, 1),
+                device=face_screen_verts.device,
+                dtype=face_screen_verts.dtype,
             ),
         ],
         dim=2,
@@ -2045,14 +2045,14 @@ def _compute_face_inverse_depth_coefficients(
 
 
 def _build_face_pixel_intersection_polygons(
-    face_screen_vertices: torch.Tensor,
+    face_screen_verts: torch.Tensor,
     image_height: int,
     image_width: int,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Build exact face-pixel intersection polygons for all candidate pixels.
 
     Args:
-        face_screen_vertices: Projected triangle vertices [F, 3, 2].
+        face_screen_verts: Projected triangle verts [F, 3, 2].
         image_height: Image height in pixels.
         image_width: Image width in pixels.
 
@@ -2075,24 +2075,24 @@ def _build_face_pixel_intersection_polygons(
         """
         # Input validations
         assert isinstance(
-            face_screen_vertices, torch.Tensor
-        ), f"{type(face_screen_vertices)=}"
+            face_screen_verts, torch.Tensor
+        ), f"{type(face_screen_verts)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert face_screen_vertices.ndim == 3, f"{face_screen_vertices.shape=}"
-        assert face_screen_vertices.shape[1:] == (
+        assert face_screen_verts.ndim == 3, f"{face_screen_verts.shape=}"
+        assert face_screen_verts.shape[1:] == (
             3,
             2,
-        ), f"{face_screen_vertices.shape=}"
+        ), f"{face_screen_verts.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
     _validate_inputs()
 
-    face_x_min = face_screen_vertices[:, :, 0].amin(dim=1)
-    face_x_max = face_screen_vertices[:, :, 0].amax(dim=1)
-    face_y_min = face_screen_vertices[:, :, 1].amin(dim=1)
-    face_y_max = face_screen_vertices[:, :, 1].amax(dim=1)
+    face_x_min = face_screen_verts[:, :, 0].amin(dim=1)
+    face_x_max = face_screen_verts[:, :, 0].amax(dim=1)
+    face_y_min = face_screen_verts[:, :, 1].amin(dim=1)
+    face_y_max = face_screen_verts[:, :, 1].amax(dim=1)
     pixel_x_start = torch.ceil(face_x_min - 0.5).to(dtype=torch.long)
     pixel_x_end = torch.floor(face_x_max + 0.5).to(dtype=torch.long)
     pixel_y_start = torch.ceil(face_y_min - 0.5).to(dtype=torch.long)
@@ -2108,27 +2108,27 @@ def _build_face_pixel_intersection_polygons(
     if total_pair_count == 0:
         empty_long = torch.zeros(
             (0,),
-            device=face_screen_vertices.device,
+            device=face_screen_verts.device,
             dtype=torch.long,
         )
         return (
             torch.zeros(
                 (0, 8, 2),
-                device=face_screen_vertices.device,
+                device=face_screen_verts.device,
                 dtype=torch.float32,
             ),
             empty_long,
             torch.zeros(
                 (0, 2),
-                device=face_screen_vertices.device,
+                device=face_screen_verts.device,
                 dtype=torch.long,
             ),
             empty_long,
         )
 
     local_face_indices = torch.arange(
-        face_screen_vertices.shape[0],
-        device=face_screen_vertices.device,
+        face_screen_verts.shape[0],
+        device=face_screen_verts.device,
         dtype=torch.long,
     )
     repeated_face_indices = torch.repeat_interleave(
@@ -2155,7 +2155,7 @@ def _build_face_pixel_intersection_polygons(
     pair_offsets = (
         torch.arange(
             total_pair_count,
-            device=face_screen_vertices.device,
+            device=face_screen_verts.device,
             dtype=torch.long,
         )
         - repeated_pair_start_offsets
@@ -2169,37 +2169,37 @@ def _build_face_pixel_intersection_polygons(
     pixel_x = repeated_pixel_x_start + local_pixel_x_offset
     pixel_y = repeated_pixel_y_start + local_pixel_y_offset
 
-    polygon_vertices = torch.zeros(
+    polygon_verts = torch.zeros(
         (total_pair_count, 8, 2),
-        device=face_screen_vertices.device,
+        device=face_screen_verts.device,
         dtype=torch.float32,
     )
-    polygon_vertices[:, :3, :] = face_screen_vertices[repeated_face_indices].to(
+    polygon_verts[:, :3, :] = face_screen_verts[repeated_face_indices].to(
         dtype=torch.float32
     )
     polygon_vertex_counts = torch.full(
         (total_pair_count,),
         fill_value=3,
-        device=face_screen_vertices.device,
+        device=face_screen_verts.device,
         dtype=torch.long,
     )
-    clipped_polygon_vertices, clipped_polygon_vertex_counts = (
+    clipped_polygon_verts, clipped_polygon_vertex_counts = (
         _clip_convex_polygons_to_pixel_squares(
-            polygon_vertices=polygon_vertices,
+            polygon_verts=polygon_verts,
             polygon_vertex_counts=polygon_vertex_counts,
             pixel_x=pixel_x.to(dtype=torch.float32),
             pixel_y=pixel_y.to(dtype=torch.float32),
         )
     )
     clipped_polygon_area = _compute_convex_polygon_areas(
-        polygon_vertices=clipped_polygon_vertices,
+        polygon_verts=clipped_polygon_verts,
         polygon_vertex_counts=clipped_polygon_vertex_counts,
     )
     polygon_valid_mask = (clipped_polygon_vertex_counts >= 3) & (
         clipped_polygon_area > 1.0e-12
     )
     return (
-        clipped_polygon_vertices[polygon_valid_mask].contiguous(),
+        clipped_polygon_verts[polygon_valid_mask].contiguous(),
         clipped_polygon_vertex_counts[polygon_valid_mask].contiguous(),
         torch.stack(
             [pixel_y[polygon_valid_mask], pixel_x[polygon_valid_mask]],
@@ -2211,14 +2211,14 @@ def _build_face_pixel_intersection_polygons(
 
 def _compute_points_in_convex_polygons(
     points: torch.Tensor,
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
 ) -> torch.Tensor:
     """Test whether each point lies inside its corresponding convex polygon.
 
     Args:
         points: Query points [N, 2].
-        polygon_vertices: Convex polygons [N, Vmax, 2].
+        polygon_verts: Convex polygons [N, Vmax, 2].
         polygon_vertex_counts: Valid polygon vertex counts [N].
 
     Returns:
@@ -2236,34 +2236,34 @@ def _compute_points_in_convex_polygons(
         """
         # Input validations
         assert isinstance(points, torch.Tensor), f"{type(points)=}"
-        assert isinstance(polygon_vertices, torch.Tensor), f"{type(polygon_vertices)=}"
+        assert isinstance(polygon_verts, torch.Tensor), f"{type(polygon_verts)=}"
         assert isinstance(
             polygon_vertex_counts, torch.Tensor
         ), f"{type(polygon_vertex_counts)=}"
         assert points.ndim == 2, f"{points.shape=}"
         assert points.shape[1] == 2, f"{points.shape=}"
-        assert polygon_vertices.ndim == 3, f"{polygon_vertices.shape=}"
-        assert polygon_vertices.shape[2] == 2, f"{polygon_vertices.shape=}"
+        assert polygon_verts.ndim == 3, f"{polygon_verts.shape=}"
+        assert polygon_verts.shape[2] == 2, f"{polygon_verts.shape=}"
         assert polygon_vertex_counts.shape == (
-            polygon_vertices.shape[0],
-        ), f"{polygon_vertex_counts.shape=} {polygon_vertices.shape=}"
-        assert points.shape[0] == polygon_vertices.shape[0], (
+            polygon_verts.shape[0],
+        ), f"{polygon_vertex_counts.shape=} {polygon_verts.shape=}"
+        assert points.shape[0] == polygon_verts.shape[0], (
             "Expected one query point per polygon. "
-            f"Got {points.shape=} {polygon_vertices.shape=}."
+            f"Got {points.shape=} {polygon_verts.shape=}."
         )
 
     _validate_inputs()
 
-    polygon_count = polygon_vertices.shape[0]
-    max_vertices = polygon_vertices.shape[1]
+    polygon_count = polygon_verts.shape[0]
+    max_verts = polygon_verts.shape[1]
     batch_indices = torch.arange(
         polygon_count,
-        device=polygon_vertices.device,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).unsqueeze(1)
     edge_indices = torch.arange(
-        max_vertices,
-        device=polygon_vertices.device,
+        max_verts,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).unsqueeze(0)
     edge_active = edge_indices < polygon_vertex_counts.unsqueeze(1)
@@ -2272,11 +2272,11 @@ def _compute_points_in_convex_polygons(
         edge_indices + 1,
         torch.zeros_like(edge_indices),
     )
-    current_vertices = polygon_vertices
-    next_vertices = polygon_vertices[batch_indices, next_indices]
+    current_verts = polygon_verts
+    next_verts = polygon_verts[batch_indices, next_indices]
     edge_cross_values = _cross_2d(
-        a=(next_vertices - current_vertices),
-        b=(points.reshape(-1, 1, 2) - current_vertices),
+        a=(next_verts - current_verts),
+        b=(points.reshape(-1, 1, 2) - current_verts),
     ).squeeze(-1)
     edge_cross_values = torch.where(
         edge_active,
@@ -2290,13 +2290,13 @@ def _compute_points_in_convex_polygons(
 
 
 def _compute_convex_polygon_bounds(
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Compute axis-aligned bounds for convex polygons.
 
     Args:
-        polygon_vertices: Convex polygons [N, Vmax, 2].
+        polygon_verts: Convex polygons [N, Vmax, 2].
         polygon_vertex_counts: Valid polygon vertex counts [N].
 
     Returns:
@@ -2312,65 +2312,65 @@ def _compute_convex_polygon_bounds(
         Returns:
             None.
         """
-        assert isinstance(polygon_vertices, torch.Tensor), (
-            "Expected `polygon_vertices` to be a tensor. "
-            f"Got {type(polygon_vertices)=}."
+        assert isinstance(polygon_verts, torch.Tensor), (
+            "Expected `polygon_verts` to be a tensor. "
+            f"Got {type(polygon_verts)=}."
         )
         assert isinstance(polygon_vertex_counts, torch.Tensor), (
             "Expected `polygon_vertex_counts` to be a tensor. "
             f"Got {type(polygon_vertex_counts)=}."
         )
-        assert polygon_vertices.ndim == 3, (
-            "Expected `polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {polygon_vertices.shape=}."
+        assert polygon_verts.ndim == 3, (
+            "Expected `polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {polygon_verts.shape=}."
         )
-        assert polygon_vertices.shape[2] == 2, (
-            "Expected `polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {polygon_vertices.shape=}."
+        assert polygon_verts.shape[2] == 2, (
+            "Expected `polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {polygon_verts.shape=}."
         )
-        assert polygon_vertex_counts.shape == (polygon_vertices.shape[0],), (
+        assert polygon_vertex_counts.shape == (polygon_verts.shape[0],), (
             "Expected one polygon vertex count per polygon. "
-            f"Got {polygon_vertex_counts.shape=} {polygon_vertices.shape=}."
+            f"Got {polygon_vertex_counts.shape=} {polygon_verts.shape=}."
         )
 
     _validate_inputs()
 
-    if polygon_vertices.shape[0] == 0:
+    if polygon_verts.shape[0] == 0:
         empty = torch.zeros(
             (0,),
-            device=polygon_vertices.device,
-            dtype=polygon_vertices.dtype,
+            device=polygon_verts.device,
+            dtype=polygon_verts.dtype,
         )
         return empty, empty, empty, empty
 
-    max_vertices = polygon_vertices.shape[1]
+    max_verts = polygon_verts.shape[1]
     vertex_indices = torch.arange(
-        max_vertices,
-        device=polygon_vertices.device,
+        max_verts,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, -1)
     vertex_active_mask = vertex_indices < polygon_vertex_counts.reshape(-1, 1)
-    x_vertices = polygon_vertices[:, :, 0]
-    y_vertices = polygon_vertices[:, :, 1]
+    x_verts = polygon_verts[:, :, 0]
+    y_verts = polygon_verts[:, :, 1]
     polygon_x_min = torch.where(
         vertex_active_mask,
-        x_vertices,
-        torch.full_like(x_vertices, fill_value=float("inf")),
+        x_verts,
+        torch.full_like(x_verts, fill_value=float("inf")),
     ).amin(dim=1)
     polygon_x_max = torch.where(
         vertex_active_mask,
-        x_vertices,
-        torch.full_like(x_vertices, fill_value=-float("inf")),
+        x_verts,
+        torch.full_like(x_verts, fill_value=-float("inf")),
     ).amax(dim=1)
     polygon_y_min = torch.where(
         vertex_active_mask,
-        y_vertices,
-        torch.full_like(y_vertices, fill_value=float("inf")),
+        y_verts,
+        torch.full_like(y_verts, fill_value=float("inf")),
     ).amin(dim=1)
     polygon_y_max = torch.where(
         vertex_active_mask,
-        y_vertices,
-        torch.full_like(y_vertices, fill_value=-float("inf")),
+        y_verts,
+        torch.full_like(y_verts, fill_value=-float("inf")),
     ).amax(dim=1)
     return (
         polygon_x_min.contiguous(),
@@ -2382,7 +2382,7 @@ def _compute_convex_polygon_bounds(
 
 def _compute_points_near_convex_polygon_boundaries(
     points: torch.Tensor,
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
     squared_distance_threshold: float,
 ) -> torch.Tensor:
@@ -2390,7 +2390,7 @@ def _compute_points_near_convex_polygon_boundaries(
 
     Args:
         points: Query points [N, 2].
-        polygon_vertices: Convex polygons [N, Vmax, 2].
+        polygon_verts: Convex polygons [N, Vmax, 2].
         polygon_vertex_counts: Valid polygon vertex counts [N].
         squared_distance_threshold: Maximum squared Euclidean distance.
 
@@ -2410,9 +2410,9 @@ def _compute_points_near_convex_polygon_boundaries(
         assert isinstance(points, torch.Tensor), (
             "Expected `points` to be a tensor. " f"Got {type(points)=}."
         )
-        assert isinstance(polygon_vertices, torch.Tensor), (
-            "Expected `polygon_vertices` to be a tensor. "
-            f"Got {type(polygon_vertices)=}."
+        assert isinstance(polygon_verts, torch.Tensor), (
+            "Expected `polygon_verts` to be a tensor. "
+            f"Got {type(polygon_verts)=}."
         )
         assert isinstance(polygon_vertex_counts, torch.Tensor), (
             "Expected `polygon_vertex_counts` to be a tensor. "
@@ -2428,21 +2428,21 @@ def _compute_points_near_convex_polygon_boundaries(
         assert points.shape[1] == 2, (
             "Expected `points` to have shape `[N, 2]`. " f"Got {points.shape=}."
         )
-        assert polygon_vertices.ndim == 3, (
-            "Expected `polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {polygon_vertices.shape=}."
+        assert polygon_verts.ndim == 3, (
+            "Expected `polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {polygon_verts.shape=}."
         )
-        assert polygon_vertices.shape[2] == 2, (
-            "Expected `polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {polygon_vertices.shape=}."
+        assert polygon_verts.shape[2] == 2, (
+            "Expected `polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {polygon_verts.shape=}."
         )
-        assert polygon_vertex_counts.shape == (polygon_vertices.shape[0],), (
+        assert polygon_vertex_counts.shape == (polygon_verts.shape[0],), (
             "Expected one polygon vertex count per polygon. "
-            f"Got {polygon_vertex_counts.shape=} {polygon_vertices.shape=}."
+            f"Got {polygon_vertex_counts.shape=} {polygon_verts.shape=}."
         )
-        assert points.shape[0] == polygon_vertices.shape[0], (
+        assert points.shape[0] == polygon_verts.shape[0], (
             "Expected one query point per polygon. "
-            f"Got {points.shape=} {polygon_vertices.shape=}."
+            f"Got {points.shape=} {polygon_verts.shape=}."
         )
 
     _validate_inputs()
@@ -2450,16 +2450,16 @@ def _compute_points_near_convex_polygon_boundaries(
     if points.shape[0] == 0:
         return torch.zeros((0,), device=points.device, dtype=torch.bool)
 
-    polygon_count = polygon_vertices.shape[0]
-    max_vertices = polygon_vertices.shape[1]
+    polygon_count = polygon_verts.shape[0]
+    max_verts = polygon_verts.shape[1]
     batch_indices = torch.arange(
         polygon_count,
-        device=polygon_vertices.device,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).reshape(-1, 1)
     edge_indices = torch.arange(
-        max_vertices,
-        device=polygon_vertices.device,
+        max_verts,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, -1)
     edge_active_mask = edge_indices < polygon_vertex_counts.reshape(-1, 1)
@@ -2468,10 +2468,10 @@ def _compute_points_near_convex_polygon_boundaries(
         edge_indices + 1,
         torch.zeros_like(edge_indices),
     )
-    current_vertices = polygon_vertices
-    next_vertices = polygon_vertices[batch_indices, next_indices]
-    edge_vectors = next_vertices - current_vertices
-    point_offsets = points.reshape(-1, 1, 2) - current_vertices
+    current_verts = polygon_verts
+    next_verts = polygon_verts[batch_indices, next_indices]
+    edge_vectors = next_verts - current_verts
+    point_offsets = points.reshape(-1, 1, 2) - current_verts
     edge_length_sq = torch.sum(edge_vectors * edge_vectors, dim=2)
     edge_projection = torch.sum(point_offsets * edge_vectors, dim=2)
     projection_t = torch.where(
@@ -2479,7 +2479,7 @@ def _compute_points_near_convex_polygon_boundaries(
         edge_projection / edge_length_sq,
         torch.zeros_like(edge_projection),
     ).clamp(min=0.0, max=1.0)
-    closest_points = current_vertices + projection_t.unsqueeze(-1) * edge_vectors
+    closest_points = current_verts + projection_t.unsqueeze(-1) * edge_vectors
     squared_distance = torch.sum(
         (points.reshape(-1, 1, 2) - closest_points) ** 2,
         dim=2,
@@ -2493,13 +2493,13 @@ def _compute_points_near_convex_polygon_boundaries(
 
 
 def _compute_convex_polygon_areas(
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
 ) -> torch.Tensor:
     """Compute areas of convex polygons.
 
     Args:
-        polygon_vertices: Convex polygons [N, Vmax, 2].
+        polygon_verts: Convex polygons [N, Vmax, 2].
         polygon_vertex_counts: Valid polygon vertex counts [N].
 
     Returns:
@@ -2516,28 +2516,28 @@ def _compute_convex_polygon_areas(
             None.
         """
         # Input validations
-        assert isinstance(polygon_vertices, torch.Tensor), f"{type(polygon_vertices)=}"
+        assert isinstance(polygon_verts, torch.Tensor), f"{type(polygon_verts)=}"
         assert isinstance(
             polygon_vertex_counts, torch.Tensor
         ), f"{type(polygon_vertex_counts)=}"
-        assert polygon_vertices.ndim == 3, f"{polygon_vertices.shape=}"
-        assert polygon_vertices.shape[2] == 2, f"{polygon_vertices.shape=}"
+        assert polygon_verts.ndim == 3, f"{polygon_verts.shape=}"
+        assert polygon_verts.shape[2] == 2, f"{polygon_verts.shape=}"
         assert polygon_vertex_counts.shape == (
-            polygon_vertices.shape[0],
-        ), f"{polygon_vertex_counts.shape=} {polygon_vertices.shape=}"
+            polygon_verts.shape[0],
+        ), f"{polygon_vertex_counts.shape=} {polygon_verts.shape=}"
 
     _validate_inputs()
 
-    polygon_count = polygon_vertices.shape[0]
-    max_vertices = polygon_vertices.shape[1]
+    polygon_count = polygon_verts.shape[0]
+    max_verts = polygon_verts.shape[1]
     batch_indices = torch.arange(
         polygon_count,
-        device=polygon_vertices.device,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).unsqueeze(1)
     edge_indices = torch.arange(
-        max_vertices,
-        device=polygon_vertices.device,
+        max_verts,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).unsqueeze(0)
     edge_active = edge_indices < polygon_vertex_counts.unsqueeze(1)
@@ -2546,11 +2546,11 @@ def _compute_convex_polygon_areas(
         edge_indices + 1,
         torch.zeros_like(edge_indices),
     )
-    current_vertices = polygon_vertices
-    next_vertices = polygon_vertices[batch_indices, next_indices]
+    current_verts = polygon_verts
+    next_verts = polygon_verts[batch_indices, next_indices]
     edge_term = (
-        current_vertices[:, :, 0] * next_vertices[:, :, 1]
-        - current_vertices[:, :, 1] * next_vertices[:, :, 0]
+        current_verts[:, :, 0] * next_verts[:, :, 1]
+        - current_verts[:, :, 1] * next_verts[:, :, 0]
     )
     double_area = torch.where(
         edge_active,
@@ -2560,14 +2560,14 @@ def _compute_convex_polygon_areas(
     return (0.5 * torch.abs(double_area)).contiguous()
 
 
-def _camera_vertices_to_pixel(
-    vertices_camera: torch.Tensor,
+def _camera_verts_to_pixel(
+    verts_camera: torch.Tensor,
     intrinsics: torch.Tensor,
 ) -> torch.Tensor:
-    """Project camera-space vertices into image pixel coordinates.
+    """Project camera-space verts into image pixel coordinates.
 
     Args:
-        vertices_camera: Camera-space vertices [V, 3].
+        verts_camera: Camera-space verts [V, 3].
         intrinsics: Camera intrinsics [3, 3].
 
     Returns:
@@ -2584,21 +2584,21 @@ def _camera_vertices_to_pixel(
             None.
         """
         # Input validations
-        assert isinstance(vertices_camera, torch.Tensor), f"{type(vertices_camera)=}"
+        assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
-        assert vertices_camera.ndim == 2, f"{vertices_camera.shape=}"
-        assert vertices_camera.shape[1] == 3, f"{vertices_camera.shape=}"
+        assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
+        assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
-        assert vertices_camera.device == intrinsics.device, (
-            "Expected `vertices_camera` and `intrinsics` to share a device. "
-            f"Got {vertices_camera.device=} {intrinsics.device=}."
+        assert verts_camera.device == intrinsics.device, (
+            "Expected `verts_camera` and `intrinsics` to share a device. "
+            f"Got {verts_camera.device=} {intrinsics.device=}."
         )
 
     _validate_inputs()
 
-    vertex_x_camera = vertices_camera[:, 0]
-    vertex_y_camera = vertices_camera[:, 1]
-    vertex_z_camera = vertices_camera[:, 2]
+    vertex_x_camera = verts_camera[:, 0]
+    vertex_y_camera = verts_camera[:, 1]
+    vertex_z_camera = verts_camera[:, 2]
     fx = intrinsics[0, 0]
     fy = intrinsics[1, 1]
     cx = intrinsics[0, 2]
@@ -2609,7 +2609,7 @@ def _camera_vertices_to_pixel(
 
 
 def _clip_convex_polygons_to_pixel_squares(
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
     pixel_x: torch.Tensor,
     pixel_y: torch.Tensor,
@@ -2617,7 +2617,7 @@ def _clip_convex_polygons_to_pixel_squares(
     """Clip convex polygons against their corresponding pixel squares.
 
     Args:
-        polygon_vertices: Convex polygons [N, Vmax, 2].
+        polygon_verts: Convex polygons [N, Vmax, 2].
         polygon_vertex_counts: Valid vertex count for each polygon [N].
         pixel_x: Pixel-center x coordinate for each polygon [N].
         pixel_y: Pixel-center y coordinate for each polygon [N].
@@ -2638,35 +2638,35 @@ def _clip_convex_polygons_to_pixel_squares(
             None.
         """
         # Input validations
-        assert isinstance(polygon_vertices, torch.Tensor), f"{type(polygon_vertices)=}"
+        assert isinstance(polygon_verts, torch.Tensor), f"{type(polygon_verts)=}"
         assert isinstance(
             polygon_vertex_counts, torch.Tensor
         ), f"{type(polygon_vertex_counts)=}"
         assert isinstance(pixel_x, torch.Tensor), f"{type(pixel_x)=}"
         assert isinstance(pixel_y, torch.Tensor), f"{type(pixel_y)=}"
-        assert polygon_vertices.ndim == 3, f"{polygon_vertices.shape=}"
-        assert polygon_vertices.shape[2] == 2, f"{polygon_vertices.shape=}"
+        assert polygon_verts.ndim == 3, f"{polygon_verts.shape=}"
+        assert polygon_verts.shape[2] == 2, f"{polygon_verts.shape=}"
         assert polygon_vertex_counts.ndim == 1, f"{polygon_vertex_counts.shape=}"
         assert pixel_x.ndim == 1, f"{pixel_x.shape=}"
         assert pixel_y.ndim == 1, f"{pixel_y.shape=}"
         assert (
-            polygon_vertices.shape[0] == polygon_vertex_counts.shape[0]
-        ), f"{polygon_vertices.shape=} {polygon_vertex_counts.shape=}"
+            polygon_verts.shape[0] == polygon_vertex_counts.shape[0]
+        ), f"{polygon_verts.shape=} {polygon_vertex_counts.shape=}"
         assert (
-            pixel_x.shape[0] == polygon_vertices.shape[0]
-        ), f"{pixel_x.shape=} {polygon_vertices.shape=}"
+            pixel_x.shape[0] == polygon_verts.shape[0]
+        ), f"{pixel_x.shape=} {polygon_verts.shape=}"
         assert (
-            pixel_y.shape[0] == polygon_vertices.shape[0]
-        ), f"{pixel_y.shape=} {polygon_vertices.shape=}"
+            pixel_y.shape[0] == polygon_verts.shape[0]
+        ), f"{pixel_y.shape=} {polygon_verts.shape=}"
 
     _validate_inputs()
 
     if torch.all(polygon_vertex_counts == 3):
         return _clip_triangle_polygons_to_pixel_squares(
-            triangle_vertices=polygon_vertices[:, :3, :].contiguous(),
+            triangle_verts=polygon_verts[:, :3, :].contiguous(),
             pixel_x=pixel_x,
             pixel_y=pixel_y,
-            output_vertex_capacity=polygon_vertices.shape[1],
+            output_vertex_capacity=polygon_verts.shape[1],
         )
 
     xmin = pixel_x - 0.5
@@ -2693,28 +2693,28 @@ def _clip_convex_polygons_to_pixel_squares(
         ),
     ]
 
-    clipped_polygon_vertices = polygon_vertices
+    clipped_polygon_verts = polygon_verts
     clipped_polygon_vertex_counts = polygon_vertex_counts
     for coefficients in line_coefficients:
-        clipped_polygon_vertices, clipped_polygon_vertex_counts = (
+        clipped_polygon_verts, clipped_polygon_vertex_counts = (
             _clip_convex_polygons_to_half_plane(
-                polygon_vertices=clipped_polygon_vertices,
+                polygon_verts=clipped_polygon_verts,
                 polygon_vertex_counts=clipped_polygon_vertex_counts,
                 line_coefficients=coefficients,
             )
         )
-    return clipped_polygon_vertices, clipped_polygon_vertex_counts
+    return clipped_polygon_verts, clipped_polygon_vertex_counts
 
 
 def _clip_convex_polygons_to_half_plane(
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
     line_coefficients: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Clip convex polygons against one half-plane.
 
     Args:
-        polygon_vertices: Convex polygons [N, Vmax, 2].
+        polygon_verts: Convex polygons [N, Vmax, 2].
         polygon_vertex_counts: Valid vertex count for each polygon [N].
         line_coefficients: Half-plane coefficients [N, 3] for `ax + by + c >= 0`.
 
@@ -2734,37 +2734,37 @@ def _clip_convex_polygons_to_half_plane(
             None.
         """
         # Input validations
-        assert isinstance(polygon_vertices, torch.Tensor), f"{type(polygon_vertices)=}"
+        assert isinstance(polygon_verts, torch.Tensor), f"{type(polygon_verts)=}"
         assert isinstance(
             polygon_vertex_counts, torch.Tensor
         ), f"{type(polygon_vertex_counts)=}"
         assert isinstance(
             line_coefficients, torch.Tensor
         ), f"{type(line_coefficients)=}"
-        assert polygon_vertices.ndim == 3, f"{polygon_vertices.shape=}"
-        assert polygon_vertices.shape[2] == 2, f"{polygon_vertices.shape=}"
+        assert polygon_verts.ndim == 3, f"{polygon_verts.shape=}"
+        assert polygon_verts.shape[2] == 2, f"{polygon_verts.shape=}"
         assert polygon_vertex_counts.ndim == 1, f"{polygon_vertex_counts.shape=}"
         assert line_coefficients.ndim == 2, f"{line_coefficients.shape=}"
         assert line_coefficients.shape[1] == 3, f"{line_coefficients.shape=}"
         assert (
-            polygon_vertices.shape[0] == polygon_vertex_counts.shape[0]
-        ), f"{polygon_vertices.shape=} {polygon_vertex_counts.shape=}"
+            polygon_verts.shape[0] == polygon_vertex_counts.shape[0]
+        ), f"{polygon_verts.shape=} {polygon_vertex_counts.shape=}"
         assert (
-            polygon_vertices.shape[0] == line_coefficients.shape[0]
-        ), f"{polygon_vertices.shape=} {line_coefficients.shape=}"
+            polygon_verts.shape[0] == line_coefficients.shape[0]
+        ), f"{polygon_verts.shape=} {line_coefficients.shape=}"
 
     _validate_inputs()
 
-    polygon_count = polygon_vertices.shape[0]
-    max_vertices = polygon_vertices.shape[1]
+    polygon_count = polygon_verts.shape[0]
+    max_verts = polygon_verts.shape[1]
     batch_indices = torch.arange(
         polygon_count,
-        device=polygon_vertices.device,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).reshape(-1, 1)
     edge_indices = torch.arange(
-        max_vertices,
-        device=polygon_vertices.device,
+        max_verts,
+        device=polygon_verts.device,
         dtype=torch.long,
     ).reshape(1, -1)
     edge_active = edge_indices < polygon_vertex_counts.reshape(-1, 1)
@@ -2773,16 +2773,16 @@ def _clip_convex_polygons_to_half_plane(
         edge_indices + 1,
         torch.zeros_like(edge_indices),
     )
-    current_vertices = polygon_vertices
-    next_vertices = polygon_vertices[batch_indices, next_indices]
+    current_verts = polygon_verts
+    next_verts = polygon_verts[batch_indices, next_indices]
     current_line_values = (
-        line_coefficients[:, 0].reshape(-1, 1) * current_vertices[:, :, 0]
-        + line_coefficients[:, 1].reshape(-1, 1) * current_vertices[:, :, 1]
+        line_coefficients[:, 0].reshape(-1, 1) * current_verts[:, :, 0]
+        + line_coefficients[:, 1].reshape(-1, 1) * current_verts[:, :, 1]
         + line_coefficients[:, 2].reshape(-1, 1)
     )
     next_line_values = (
-        line_coefficients[:, 0].reshape(-1, 1) * next_vertices[:, :, 0]
-        + line_coefficients[:, 1].reshape(-1, 1) * next_vertices[:, :, 1]
+        line_coefficients[:, 0].reshape(-1, 1) * next_verts[:, :, 0]
+        + line_coefficients[:, 1].reshape(-1, 1) * next_verts[:, :, 1]
         + line_coefficients[:, 2].reshape(-1, 1)
     )
     current_inside = edge_active & (current_line_values >= 0.0)
@@ -2794,24 +2794,24 @@ def _clip_convex_polygons_to_half_plane(
     edge_t[safe_crossing_mask] = (
         current_line_values[safe_crossing_mask] / edge_denominator[safe_crossing_mask]
     )
-    intersection_vertices = current_vertices + edge_t.unsqueeze(-1) * (
-        next_vertices - current_vertices
+    intersection_verts = current_verts + edge_t.unsqueeze(-1) * (
+        next_verts - current_verts
     )
 
-    candidate_vertices = torch.stack(
-        [intersection_vertices, next_vertices],
+    candidate_verts = torch.stack(
+        [intersection_verts, next_verts],
         dim=2,
-    ).reshape(polygon_count, 2 * max_vertices, 2)
+    ).reshape(polygon_count, 2 * max_verts, 2)
     candidate_vertex_valid_mask = torch.stack(
         [crossing_mask, next_inside],
         dim=2,
-    ).reshape(polygon_count, 2 * max_vertices)
+    ).reshape(polygon_count, 2 * max_verts)
     clipped_polygon_vertex_counts = candidate_vertex_valid_mask.sum(dim=1)
-    assert torch.all(clipped_polygon_vertex_counts <= max_vertices), (
+    assert torch.all(clipped_polygon_vertex_counts <= max_verts), (
         "Expected clipped polygon output to fit the provided vertex capacity. "
-        f"{clipped_polygon_vertex_counts.max()=} {max_vertices=}."
+        f"{clipped_polygon_vertex_counts.max()=} {max_verts=}."
     )
-    clipped_polygon_vertices = torch.zeros_like(polygon_vertices)
+    clipped_polygon_verts = torch.zeros_like(polygon_verts)
     if torch.any(candidate_vertex_valid_mask):
         candidate_output_indices = (
             torch.cumsum(
@@ -2824,22 +2824,22 @@ def _clip_convex_polygons_to_half_plane(
         flattened_batch_indices = (
             torch.arange(
                 polygon_count,
-                device=polygon_vertices.device,
+                device=polygon_verts.device,
                 dtype=torch.long,
             )
             .reshape(-1, 1)
-            .expand(-1, 2 * max_vertices)
+            .expand(-1, 2 * max_verts)
             .reshape(-1)
         )
-        clipped_polygon_vertices[
+        clipped_polygon_verts[
             flattened_batch_indices[flattened_valid_mask],
             candidate_output_indices.reshape(-1)[flattened_valid_mask],
-        ] = candidate_vertices.reshape(-1, 2)[flattened_valid_mask]
-    return clipped_polygon_vertices, clipped_polygon_vertex_counts.contiguous()
+        ] = candidate_verts.reshape(-1, 2)[flattened_valid_mask]
+    return clipped_polygon_verts, clipped_polygon_vertex_counts.contiguous()
 
 
 def _clip_triangle_polygons_to_pixel_squares(
-    triangle_vertices: torch.Tensor,
+    triangle_verts: torch.Tensor,
     pixel_x: torch.Tensor,
     pixel_y: torch.Tensor,
     output_vertex_capacity: int,
@@ -2847,7 +2847,7 @@ def _clip_triangle_polygons_to_pixel_squares(
     """Clip triangles against pixel squares with exact candidate-point geometry.
 
     Args:
-        triangle_vertices: Triangle vertices [N, 3, 2].
+        triangle_verts: Triangle verts [N, 3, 2].
         pixel_x: Pixel-center x coordinate for each triangle [N].
         pixel_y: Pixel-center y coordinate for each triangle [N].
         output_vertex_capacity: Output polygon capacity.
@@ -2868,9 +2868,9 @@ def _clip_triangle_polygons_to_pixel_squares(
             None.
         """
         # Input validations
-        assert isinstance(triangle_vertices, torch.Tensor), (
-            "Expected `triangle_vertices` to be a tensor. "
-            f"Got {type(triangle_vertices)=}."
+        assert isinstance(triangle_verts, torch.Tensor), (
+            "Expected `triangle_verts` to be a tensor. "
+            f"Got {type(triangle_verts)=}."
         )
         assert isinstance(pixel_x, torch.Tensor), (
             "Expected `pixel_x` to be a tensor. " f"Got {type(pixel_x)=}."
@@ -2882,23 +2882,23 @@ def _clip_triangle_polygons_to_pixel_squares(
             "Expected `output_vertex_capacity` to be an int. "
             f"Got {type(output_vertex_capacity)=}."
         )
-        assert triangle_vertices.ndim == 3, (
-            "Expected `triangle_vertices` to have shape `[N, 3, 2]`. "
-            f"Got {triangle_vertices.shape=}."
+        assert triangle_verts.ndim == 3, (
+            "Expected `triangle_verts` to have shape `[N, 3, 2]`. "
+            f"Got {triangle_verts.shape=}."
         )
-        assert triangle_vertices.shape[1:] == (3, 2), (
-            "Expected `triangle_vertices` to have shape `[N, 3, 2]`. "
-            f"Got {triangle_vertices.shape=}."
+        assert triangle_verts.shape[1:] == (3, 2), (
+            "Expected `triangle_verts` to have shape `[N, 3, 2]`. "
+            f"Got {triangle_verts.shape=}."
         )
         assert pixel_x.ndim == 1, f"{pixel_x.shape=}"
         assert pixel_y.ndim == 1, f"{pixel_y.shape=}"
-        assert triangle_vertices.shape[0] == pixel_x.shape[0], (
+        assert triangle_verts.shape[0] == pixel_x.shape[0], (
             "Expected one pixel x coordinate per triangle. "
-            f"Got {triangle_vertices.shape=} {pixel_x.shape=}."
+            f"Got {triangle_verts.shape=} {pixel_x.shape=}."
         )
-        assert triangle_vertices.shape[0] == pixel_y.shape[0], (
+        assert triangle_verts.shape[0] == pixel_y.shape[0], (
             "Expected one pixel y coordinate per triangle. "
-            f"Got {triangle_vertices.shape=} {pixel_y.shape=}."
+            f"Got {triangle_verts.shape=} {pixel_y.shape=}."
         )
         assert output_vertex_capacity >= 3, (
             "Expected `output_vertex_capacity` to be at least 3. "
@@ -2907,17 +2907,17 @@ def _clip_triangle_polygons_to_pixel_squares(
 
     _validate_inputs()
 
-    triangle_count = triangle_vertices.shape[0]
+    triangle_count = triangle_verts.shape[0]
     if triangle_count == 0:
         return (
             torch.zeros(
                 (0, output_vertex_capacity, 2),
-                device=triangle_vertices.device,
-                dtype=triangle_vertices.dtype,
+                device=triangle_verts.device,
+                dtype=triangle_verts.dtype,
             ),
             torch.zeros(
                 (0,),
-                device=triangle_vertices.device,
+                device=triangle_verts.device,
                 dtype=torch.long,
             ),
         )
@@ -2936,28 +2936,28 @@ def _clip_triangle_polygons_to_pixel_squares(
             torch.stack([xmin, ymax], dim=1),
         ],
         dim=1,
-    ).to(dtype=triangle_vertices.dtype)
+    ).to(dtype=triangle_verts.dtype)
     triangle_vertex_inside_mask = (
-        (triangle_vertices[:, :, 0] >= xmin.unsqueeze(1) - eps)
-        & (triangle_vertices[:, :, 0] <= xmax.unsqueeze(1) + eps)
-        & (triangle_vertices[:, :, 1] >= ymin.unsqueeze(1) - eps)
-        & (triangle_vertices[:, :, 1] <= ymax.unsqueeze(1) + eps)
+        (triangle_verts[:, :, 0] >= xmin.unsqueeze(1) - eps)
+        & (triangle_verts[:, :, 0] <= xmax.unsqueeze(1) + eps)
+        & (triangle_verts[:, :, 1] >= ymin.unsqueeze(1) - eps)
+        & (triangle_verts[:, :, 1] <= ymax.unsqueeze(1) + eps)
     )
     square_corner_inside_mask = _compute_points_in_triangles(
         points=square_corners,
-        triangle_vertices=triangle_vertices,
+        triangle_verts=triangle_verts,
     )
 
-    edge_start = triangle_vertices
-    edge_end = triangle_vertices[:, [1, 2, 0], :]
+    edge_start = triangle_verts
+    edge_end = triangle_verts[:, [1, 2, 0], :]
     edge_direction = edge_end - edge_start
     edge_dx = edge_direction[:, :, 0]
     edge_dy = edge_direction[:, :, 1]
     vertical_boundaries = torch.stack([xmin, xmax], dim=1).to(
-        dtype=triangle_vertices.dtype
+        dtype=triangle_verts.dtype
     )
     horizontal_boundaries = torch.stack([ymin, ymax], dim=1).to(
-        dtype=triangle_vertices.dtype
+        dtype=triangle_verts.dtype
     )
 
     safe_edge_dx = torch.where(
@@ -3014,7 +3014,7 @@ def _clip_triangle_polygons_to_pixel_squares(
 
     candidate_points = torch.cat(
         [
-            triangle_vertices,
+            triangle_verts,
             square_corners,
             vertical_intersection_points.reshape(triangle_count, 6, 2),
             horizontal_intersection_points.reshape(triangle_count, 6, 2),
@@ -3044,7 +3044,7 @@ def _clip_triangle_polygons_to_pixel_squares(
     earlier_duplicate_mask = torch.tril(
         torch.ones(
             (candidate_count, candidate_count),
-            device=triangle_vertices.device,
+            device=triangle_verts.device,
             dtype=torch.bool,
         ),
         diagonal=-1,
@@ -3065,7 +3065,7 @@ def _clip_triangle_polygons_to_pixel_squares(
         torch.zeros_like(candidate_points),
     )
     safe_unique_candidate_count = unique_candidate_count.clamp(min=1).to(
-        dtype=triangle_vertices.dtype
+        dtype=triangle_verts.dtype
     )
     polygon_centroid = unique_candidate_points.sum(
         dim=1
@@ -3090,33 +3090,33 @@ def _clip_triangle_polygons_to_pixel_squares(
         dim=1,
         index=sorted_candidate_indices,
     ).to(dtype=torch.bool)
-    clipped_polygon_vertices = torch.zeros(
+    clipped_polygon_verts = torch.zeros(
         (triangle_count, output_vertex_capacity, 2),
-        device=triangle_vertices.device,
-        dtype=triangle_vertices.dtype,
+        device=triangle_verts.device,
+        dtype=triangle_verts.dtype,
     )
-    clipped_polygon_vertices[:, :candidate_count, :] = torch.where(
+    clipped_polygon_verts[:, :candidate_count, :] = torch.where(
         sorted_candidate_mask.unsqueeze(-1),
         sorted_candidate_points,
         torch.zeros_like(sorted_candidate_points),
     )[:, :output_vertex_capacity, :]
     clipped_polygon_vertex_counts = unique_candidate_count.to(dtype=torch.long)
-    return clipped_polygon_vertices.contiguous(), clipped_polygon_vertex_counts
+    return clipped_polygon_verts.contiguous(), clipped_polygon_vertex_counts
 
 
 def _project_screen_polygons_to_face_uv(
-    polygon_vertices: torch.Tensor,
-    face_screen_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
+    face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
-    face_vertex_uv: torch.Tensor,
+    face_verts_uvs: torch.Tensor,
 ) -> torch.Tensor:
-    """Map image-space polygon vertices to UV using exact perspective interpolation.
+    """Map image-space polygon verts to UV using exact perspective interpolation.
 
     Args:
-        polygon_vertices: Image-space polygons [N, Vmax, 2].
-        face_screen_vertices: Projected triangle vertices [N, 3, 2].
+        polygon_verts: Image-space polygons [N, Vmax, 2].
+        face_screen_verts: Projected triangle verts [N, 3, 2].
         face_vertex_depth: Camera-space triangle depths [N, 3].
-        face_vertex_uv: Seam-safe triangle UV coordinates [N, 3, 2].
+        face_verts_uvs: Seam-safe triangle UV coordinates [N, 3, 2].
 
     Returns:
         UV-space polygons [N, Vmax, 2].
@@ -3132,36 +3132,36 @@ def _project_screen_polygons_to_face_uv(
             None.
         """
         # Input validations
-        assert isinstance(polygon_vertices, torch.Tensor), f"{type(polygon_vertices)=}"
+        assert isinstance(polygon_verts, torch.Tensor), f"{type(polygon_verts)=}"
         assert isinstance(
-            face_screen_vertices, torch.Tensor
-        ), f"{type(face_screen_vertices)=}"
+            face_screen_verts, torch.Tensor
+        ), f"{type(face_screen_verts)=}"
         assert isinstance(
             face_vertex_depth, torch.Tensor
         ), f"{type(face_vertex_depth)=}"
-        assert isinstance(face_vertex_uv, torch.Tensor), f"{type(face_vertex_uv)=}"
-        assert polygon_vertices.ndim == 3, f"{polygon_vertices.shape=}"
-        assert polygon_vertices.shape[2] == 2, f"{polygon_vertices.shape=}"
-        assert face_screen_vertices.shape == (
-            polygon_vertices.shape[0],
+        assert isinstance(face_verts_uvs, torch.Tensor), f"{type(face_verts_uvs)=}"
+        assert polygon_verts.ndim == 3, f"{polygon_verts.shape=}"
+        assert polygon_verts.shape[2] == 2, f"{polygon_verts.shape=}"
+        assert face_screen_verts.shape == (
+            polygon_verts.shape[0],
             3,
             2,
-        ), f"{face_screen_vertices.shape=} {polygon_vertices.shape=}"
+        ), f"{face_screen_verts.shape=} {polygon_verts.shape=}"
         assert face_vertex_depth.shape == (
-            polygon_vertices.shape[0],
+            polygon_verts.shape[0],
             3,
-        ), f"{face_vertex_depth.shape=} {polygon_vertices.shape=}"
-        assert face_vertex_uv.shape == (
-            polygon_vertices.shape[0],
+        ), f"{face_vertex_depth.shape=} {polygon_verts.shape=}"
+        assert face_verts_uvs.shape == (
+            polygon_verts.shape[0],
             3,
             2,
-        ), f"{face_vertex_uv.shape=} {polygon_vertices.shape=}"
+        ), f"{face_verts_uvs.shape=} {polygon_verts.shape=}"
 
     _validate_inputs()
 
-    face_screen_v0 = face_screen_vertices[:, 0:1, :]
-    face_screen_v1 = face_screen_vertices[:, 1:2, :]
-    face_screen_v2 = face_screen_vertices[:, 2:3, :]
+    face_screen_v0 = face_screen_verts[:, 0:1, :]
+    face_screen_v1 = face_screen_verts[:, 1:2, :]
+    face_screen_v2 = face_screen_verts[:, 2:3, :]
     denominator = _cross_2d(
         a=(face_screen_v1 - face_screen_v0),
         b=(face_screen_v2 - face_screen_v0),
@@ -3170,15 +3170,15 @@ def _project_screen_polygons_to_face_uv(
 
     barycentric_0 = (
         _cross_2d(
-            a=(face_screen_v1 - polygon_vertices),
-            b=(face_screen_v2 - polygon_vertices),
+            a=(face_screen_v1 - polygon_verts),
+            b=(face_screen_v2 - polygon_verts),
         ).squeeze(-1)
         / denominator
     )
     barycentric_1 = (
         _cross_2d(
-            a=(face_screen_v2 - polygon_vertices),
-            b=(face_screen_v0 - polygon_vertices),
+            a=(face_screen_v2 - polygon_verts),
+            b=(face_screen_v0 - polygon_verts),
         ).squeeze(-1)
         / denominator
     )
@@ -3194,7 +3194,7 @@ def _project_screen_polygons_to_face_uv(
         keepdim=True,
     )
     return torch.sum(
-        perspective_weight.unsqueeze(-1) * face_vertex_uv.unsqueeze(1),
+        perspective_weight.unsqueeze(-1) * face_verts_uvs.unsqueeze(1),
         dim=2,
     ).contiguous()
 
@@ -3235,13 +3235,13 @@ def _cross_2d(
 
 def _compute_points_in_triangles(
     points: torch.Tensor,
-    triangle_vertices: torch.Tensor,
+    triangle_verts: torch.Tensor,
 ) -> torch.Tensor:
     """Test whether batched points lie inside their corresponding triangles.
 
     Args:
         points: Query points [N, P, 2].
-        triangle_vertices: Triangle vertices [N, 3, 2].
+        triangle_verts: Triangle verts [N, 3, 2].
 
     Returns:
         Boolean containment mask [N, P].
@@ -3259,22 +3259,22 @@ def _compute_points_in_triangles(
         # Input validations
         assert isinstance(points, torch.Tensor), f"{type(points)=}"
         assert isinstance(
-            triangle_vertices, torch.Tensor
-        ), f"{type(triangle_vertices)=}"
+            triangle_verts, torch.Tensor
+        ), f"{type(triangle_verts)=}"
         assert points.ndim == 3, f"{points.shape=}"
         assert points.shape[2] == 2, f"{points.shape=}"
-        assert triangle_vertices.ndim == 3, f"{triangle_vertices.shape=}"
-        assert triangle_vertices.shape[1:] == (3, 2), f"{triangle_vertices.shape=}"
-        assert points.shape[0] == triangle_vertices.shape[0], (
+        assert triangle_verts.ndim == 3, f"{triangle_verts.shape=}"
+        assert triangle_verts.shape[1:] == (3, 2), f"{triangle_verts.shape=}"
+        assert points.shape[0] == triangle_verts.shape[0], (
             "Expected one triangle per point batch. "
-            f"Got {points.shape=} {triangle_vertices.shape=}."
+            f"Got {points.shape=} {triangle_verts.shape=}."
         )
 
     _validate_inputs()
 
-    triangle_v0 = triangle_vertices[:, 0:1, :]
-    triangle_v1 = triangle_vertices[:, 1:2, :]
-    triangle_v2 = triangle_vertices[:, 2:3, :]
+    triangle_v0 = triangle_verts[:, 0:1, :]
+    triangle_v1 = triangle_verts[:, 1:2, :]
+    triangle_v2 = triangle_verts[:, 2:3, :]
     point_count = points.shape[1]
     edge01_cross = _cross_2d(
         a=(triangle_v1 - triangle_v0).expand(-1, point_count, -1),
@@ -3303,7 +3303,7 @@ def _compute_points_in_triangles(
 
 
 def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
     pixel_x: torch.Tensor,
     pixel_y: torch.Tensor,
@@ -3311,7 +3311,7 @@ def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(
     """Detect positive-area overlap between convex polygons and pixel squares.
 
     Args:
-        polygon_vertices: Convex polygon vertices [N, Vmax, 2].
+        polygon_verts: Convex polygon verts [N, Vmax, 2].
         polygon_vertex_counts: Valid polygon vertex counts [N].
         pixel_x: Pixel-center x coordinate for each polygon [N].
         pixel_y: Pixel-center y coordinate for each polygon [N].
@@ -3329,9 +3329,9 @@ def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(
         Returns:
             None.
         """
-        assert isinstance(polygon_vertices, torch.Tensor), (
-            "Expected `polygon_vertices` to be a tensor. "
-            f"Got {type(polygon_vertices)=}."
+        assert isinstance(polygon_verts, torch.Tensor), (
+            "Expected `polygon_verts` to be a tensor. "
+            f"Got {type(polygon_verts)=}."
         )
         assert isinstance(polygon_vertex_counts, torch.Tensor), (
             "Expected `polygon_vertex_counts` to be a tensor. "
@@ -3343,36 +3343,36 @@ def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(
         assert isinstance(pixel_y, torch.Tensor), (
             "Expected `pixel_y` to be a tensor. " f"Got {type(pixel_y)=}."
         )
-        assert polygon_vertices.ndim == 3, (
-            "Expected `polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {polygon_vertices.shape=}."
+        assert polygon_verts.ndim == 3, (
+            "Expected `polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {polygon_verts.shape=}."
         )
-        assert polygon_vertices.shape[2] == 2, (
-            "Expected `polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {polygon_vertices.shape=}."
+        assert polygon_verts.shape[2] == 2, (
+            "Expected `polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {polygon_verts.shape=}."
         )
-        assert polygon_vertex_counts.shape == (polygon_vertices.shape[0],), (
+        assert polygon_vertex_counts.shape == (polygon_verts.shape[0],), (
             "Expected one polygon vertex count per polygon. "
-            f"Got {polygon_vertex_counts.shape=} {polygon_vertices.shape=}."
+            f"Got {polygon_vertex_counts.shape=} {polygon_verts.shape=}."
         )
-        assert pixel_x.shape == (polygon_vertices.shape[0],), (
+        assert pixel_x.shape == (polygon_verts.shape[0],), (
             "Expected one pixel x coordinate per polygon. "
-            f"Got {pixel_x.shape=} {polygon_vertices.shape=}."
+            f"Got {pixel_x.shape=} {polygon_verts.shape=}."
         )
-        assert pixel_y.shape == (polygon_vertices.shape[0],), (
+        assert pixel_y.shape == (polygon_verts.shape[0],), (
             "Expected one pixel y coordinate per polygon. "
-            f"Got {pixel_y.shape=} {polygon_vertices.shape=}."
+            f"Got {pixel_y.shape=} {polygon_verts.shape=}."
         )
 
     _validate_inputs()
 
-    polygon_count = polygon_vertices.shape[0]
+    polygon_count = polygon_verts.shape[0]
     if polygon_count == 0:
-        return torch.zeros((0,), device=polygon_vertices.device, dtype=torch.bool)
+        return torch.zeros((0,), device=polygon_verts.device, dtype=torch.bool)
 
     polygon_x_min, polygon_x_max, polygon_y_min, polygon_y_max = (
         _compute_convex_polygon_bounds(
-            polygon_vertices=polygon_vertices,
+            polygon_verts=polygon_verts,
             polygon_vertex_counts=polygon_vertex_counts,
         )
     )
@@ -3388,37 +3388,37 @@ def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(
     )
     positive_area_overlap_mask = torch.zeros(
         (polygon_count,),
-        device=polygon_vertices.device,
+        device=polygon_verts.device,
         dtype=torch.bool,
     )
     if not torch.any(bbox_overlap_mask):
         return positive_area_overlap_mask.contiguous()
 
-    unclipped_polygon_vertices = polygon_vertices[bbox_overlap_mask]
-    unclipped_polygon_vertex_capacity = unclipped_polygon_vertices.shape[1]
-    clipped_polygon_input_vertices = torch.zeros(
+    unclipped_polygon_verts = polygon_verts[bbox_overlap_mask]
+    unclipped_polygon_vertex_capacity = unclipped_polygon_verts.shape[1]
+    clipped_polygon_input_verts = torch.zeros(
         (
-            unclipped_polygon_vertices.shape[0],
+            unclipped_polygon_verts.shape[0],
             unclipped_polygon_vertex_capacity + 4,
             2,
         ),
-        device=polygon_vertices.device,
-        dtype=polygon_vertices.dtype,
+        device=polygon_verts.device,
+        dtype=polygon_verts.dtype,
     )
-    clipped_polygon_input_vertices[:, :unclipped_polygon_vertex_capacity, :] = (
-        unclipped_polygon_vertices
+    clipped_polygon_input_verts[:, :unclipped_polygon_vertex_capacity, :] = (
+        unclipped_polygon_verts
     )
     (
-        clipped_polygon_vertices,
+        clipped_polygon_verts,
         clipped_polygon_vertex_counts,
     ) = _clip_convex_polygons_to_pixel_squares(
-        polygon_vertices=clipped_polygon_input_vertices,
+        polygon_verts=clipped_polygon_input_verts,
         polygon_vertex_counts=polygon_vertex_counts[bbox_overlap_mask],
         pixel_x=pixel_x[bbox_overlap_mask],
         pixel_y=pixel_y[bbox_overlap_mask],
     )
     clipped_polygon_area = _compute_convex_polygon_areas(
-        polygon_vertices=clipped_polygon_vertices,
+        polygon_verts=clipped_polygon_verts,
         polygon_vertex_counts=clipped_polygon_vertex_counts,
     )
     positive_area_overlap_mask[bbox_overlap_mask] = (
@@ -3428,13 +3428,13 @@ def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(
 
 
 def _duplicate_wrapped_uv_polygons(
-    uv_polygon_vertices: torch.Tensor,
+    uv_polygon_verts: torch.Tensor,
     uv_polygon_vertex_counts: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Duplicate UV polygons across the cylindrical wrap boundary when needed.
 
     Args:
-        uv_polygon_vertices: Convex UV polygons [N, Vmax, 2].
+        uv_polygon_verts: Convex UV polygons [N, Vmax, 2].
         uv_polygon_vertex_counts: Valid polygon vertex counts [N].
 
     Returns:
@@ -3452,47 +3452,47 @@ def _duplicate_wrapped_uv_polygons(
         Returns:
             None.
         """
-        assert isinstance(uv_polygon_vertices, torch.Tensor), (
-            "Expected `uv_polygon_vertices` to be a tensor. "
-            f"Got {type(uv_polygon_vertices)=}."
+        assert isinstance(uv_polygon_verts, torch.Tensor), (
+            "Expected `uv_polygon_verts` to be a tensor. "
+            f"Got {type(uv_polygon_verts)=}."
         )
         assert isinstance(uv_polygon_vertex_counts, torch.Tensor), (
             "Expected `uv_polygon_vertex_counts` to be a tensor. "
             f"Got {type(uv_polygon_vertex_counts)=}."
         )
-        assert uv_polygon_vertices.ndim == 3, (
-            "Expected `uv_polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {uv_polygon_vertices.shape=}."
+        assert uv_polygon_verts.ndim == 3, (
+            "Expected `uv_polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {uv_polygon_verts.shape=}."
         )
-        assert uv_polygon_vertices.shape[2] == 2, (
-            "Expected `uv_polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {uv_polygon_vertices.shape=}."
+        assert uv_polygon_verts.shape[2] == 2, (
+            "Expected `uv_polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {uv_polygon_verts.shape=}."
         )
-        assert uv_polygon_vertex_counts.shape == (uv_polygon_vertices.shape[0],), (
+        assert uv_polygon_vertex_counts.shape == (uv_polygon_verts.shape[0],), (
             "Expected one polygon vertex count per polygon. "
-            f"Got {uv_polygon_vertex_counts.shape=} {uv_polygon_vertices.shape=}."
+            f"Got {uv_polygon_vertex_counts.shape=} {uv_polygon_verts.shape=}."
         )
 
     _validate_inputs()
 
-    if uv_polygon_vertices.shape[0] == 0:
+    if uv_polygon_verts.shape[0] == 0:
         return (
-            uv_polygon_vertices.to(dtype=torch.float32).contiguous(),
+            uv_polygon_verts.to(dtype=torch.float32).contiguous(),
             uv_polygon_vertex_counts.contiguous(),
         )
 
     polygon_x_min, polygon_x_max, _, _ = _compute_convex_polygon_bounds(
-        polygon_vertices=uv_polygon_vertices,
+        polygon_verts=uv_polygon_verts,
         polygon_vertex_counts=uv_polygon_vertex_counts,
     )
     wrapped_polygon_vertex_chunks = [
-        uv_polygon_vertices.to(dtype=torch.float32).contiguous()
+        uv_polygon_verts.to(dtype=torch.float32).contiguous()
     ]
     wrapped_polygon_count_chunks = [uv_polygon_vertex_counts.contiguous()]
     polygon_extends_right = polygon_x_max > 1.0
     polygon_extends_left = polygon_x_min < 0.0
     if torch.any(polygon_extends_right):
-        shifted_right = uv_polygon_vertices[polygon_extends_right].to(
+        shifted_right = uv_polygon_verts[polygon_extends_right].to(
             dtype=torch.float32
         )
         shifted_right = shifted_right.clone()
@@ -3502,7 +3502,7 @@ def _duplicate_wrapped_uv_polygons(
             uv_polygon_vertex_counts[polygon_extends_right].contiguous()
         )
     if torch.any(polygon_extends_left):
-        shifted_left = uv_polygon_vertices[polygon_extends_left].to(dtype=torch.float32)
+        shifted_left = uv_polygon_verts[polygon_extends_left].to(dtype=torch.float32)
         shifted_left = shifted_left.clone()
         shifted_left[:, :, 0] = shifted_left[:, :, 0] + 1.0
         wrapped_polygon_vertex_chunks.append(shifted_left.contiguous())
@@ -3516,14 +3516,14 @@ def _duplicate_wrapped_uv_polygons(
 
 
 def _build_uv_polygon_texel_intersections(
-    uv_polygon_vertices: torch.Tensor,
+    uv_polygon_verts: torch.Tensor,
     uv_polygon_vertex_counts: torch.Tensor,
     texture_size: int,
 ) -> torch.Tensor:
     """Build exact UV-polygon to texel-cell intersection indices.
 
     Args:
-        uv_polygon_vertices: Convex UV polygons [N, Vmax, 2].
+        uv_polygon_verts: Convex UV polygons [N, Vmax, 2].
         uv_polygon_vertex_counts: Valid polygon vertex counts [N].
         texture_size: UV texture resolution.
 
@@ -3540,9 +3540,9 @@ def _build_uv_polygon_texel_intersections(
         Returns:
             None.
         """
-        assert isinstance(uv_polygon_vertices, torch.Tensor), (
-            "Expected `uv_polygon_vertices` to be a tensor. "
-            f"Got {type(uv_polygon_vertices)=}."
+        assert isinstance(uv_polygon_verts, torch.Tensor), (
+            "Expected `uv_polygon_verts` to be a tensor. "
+            f"Got {type(uv_polygon_verts)=}."
         )
         assert isinstance(uv_polygon_vertex_counts, torch.Tensor), (
             "Expected `uv_polygon_vertex_counts` to be a tensor. "
@@ -3551,17 +3551,17 @@ def _build_uv_polygon_texel_intersections(
         assert isinstance(texture_size, int), (
             "Expected `texture_size` to be an int. " f"Got {type(texture_size)=}."
         )
-        assert uv_polygon_vertices.ndim == 3, (
-            "Expected `uv_polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {uv_polygon_vertices.shape=}."
+        assert uv_polygon_verts.ndim == 3, (
+            "Expected `uv_polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {uv_polygon_verts.shape=}."
         )
-        assert uv_polygon_vertices.shape[2] == 2, (
-            "Expected `uv_polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {uv_polygon_vertices.shape=}."
+        assert uv_polygon_verts.shape[2] == 2, (
+            "Expected `uv_polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {uv_polygon_verts.shape=}."
         )
-        assert uv_polygon_vertex_counts.shape == (uv_polygon_vertices.shape[0],), (
+        assert uv_polygon_vertex_counts.shape == (uv_polygon_verts.shape[0],), (
             "Expected one polygon vertex count per polygon. "
-            f"Got {uv_polygon_vertex_counts.shape=} {uv_polygon_vertices.shape=}."
+            f"Got {uv_polygon_vertex_counts.shape=} {uv_polygon_verts.shape=}."
         )
         assert texture_size > 0, (
             "Expected `texture_size` to be positive. " f"Got {texture_size=}."
@@ -3569,19 +3569,19 @@ def _build_uv_polygon_texel_intersections(
 
     _validate_inputs()
 
-    if uv_polygon_vertices.shape[0] == 0:
+    if uv_polygon_verts.shape[0] == 0:
         return torch.zeros(
             (0, 2),
-            device=uv_polygon_vertices.device,
+            device=uv_polygon_verts.device,
             dtype=torch.long,
         )
 
-    polygon_texel_vertices = uv_polygon_vertices.to(dtype=torch.float32) * float(
+    polygon_texel_verts = uv_polygon_verts.to(dtype=torch.float32) * float(
         texture_size
     )
     polygon_x_min, polygon_x_max, polygon_y_min, polygon_y_max = (
         _compute_convex_polygon_bounds(
-            polygon_vertices=polygon_texel_vertices,
+            polygon_verts=polygon_texel_verts,
             polygon_vertex_counts=uv_polygon_vertex_counts,
         )
     )
@@ -3600,22 +3600,22 @@ def _build_uv_polygon_texel_intersections(
     if total_pair_count == 0:
         return torch.zeros(
             (0, 2),
-            device=uv_polygon_vertices.device,
+            device=uv_polygon_verts.device,
             dtype=torch.long,
         )
 
     covered_texel_mask = torch.zeros(
         (texture_size, texture_size),
-        device=uv_polygon_vertices.device,
+        device=uv_polygon_verts.device,
         dtype=torch.bool,
     )
     target_uv_polygon_texel_pair_budget = 262144
     boundary_squared_distance_threshold = 0.501
     chunk_start = 0
-    while chunk_start < uv_polygon_vertices.shape[0]:
+    while chunk_start < uv_polygon_verts.shape[0]:
         chunk_end = chunk_start + 1
         chunk_pair_count = int(pair_count_per_polygon[chunk_start].item())
-        while chunk_end < uv_polygon_vertices.shape[0]:
+        while chunk_end < uv_polygon_verts.shape[0]:
             next_pair_count = int(pair_count_per_polygon[chunk_end].item())
             if chunk_pair_count + next_pair_count > target_uv_polygon_texel_pair_budget:
                 break
@@ -3625,7 +3625,7 @@ def _build_uv_polygon_texel_intersections(
         chunk_polygon_indices = torch.arange(
             chunk_start,
             chunk_end,
-            device=uv_polygon_vertices.device,
+            device=uv_polygon_verts.device,
             dtype=torch.long,
         )
         chunk_pair_count_per_polygon = pair_count_per_polygon[chunk_start:chunk_end]
@@ -3663,7 +3663,7 @@ def _build_uv_polygon_texel_intersections(
         pair_offsets = (
             torch.arange(
                 chunk_pair_count,
-                device=uv_polygon_vertices.device,
+                device=uv_polygon_verts.device,
                 dtype=torch.long,
             )
             - repeated_pair_start_offsets
@@ -3677,25 +3677,25 @@ def _build_uv_polygon_texel_intersections(
         pixel_x = texel_x.to(dtype=torch.float32) + 0.5
         pixel_y = texel_y.to(dtype=torch.float32) + 0.5
         pixel_centers = torch.stack([pixel_x, pixel_y], dim=1)
-        candidate_polygon_vertices = polygon_texel_vertices[repeated_polygon_indices]
+        candidate_polygon_verts = polygon_texel_verts[repeated_polygon_indices]
         candidate_polygon_vertex_counts = uv_polygon_vertex_counts[
             repeated_polygon_indices
         ]
         interior_mask = _compute_points_in_convex_polygons(
             points=pixel_centers,
-            polygon_vertices=candidate_polygon_vertices,
+            polygon_verts=candidate_polygon_verts,
             polygon_vertex_counts=candidate_polygon_vertex_counts,
         )
         near_boundary_mask = _compute_points_near_convex_polygon_boundaries(
             points=pixel_centers,
-            polygon_vertices=candidate_polygon_vertices,
+            polygon_verts=candidate_polygon_verts,
             polygon_vertex_counts=candidate_polygon_vertex_counts,
             squared_distance_threshold=boundary_squared_distance_threshold,
         )
         boundary_candidate_mask = near_boundary_mask
         accepted_mask = interior_mask & (~near_boundary_mask)
         if torch.any(boundary_candidate_mask):
-            boundary_polygon_vertices = candidate_polygon_vertices[
+            boundary_polygon_verts = candidate_polygon_verts[
                 boundary_candidate_mask
             ]
             boundary_polygon_vertex_counts = candidate_polygon_vertex_counts[
@@ -3705,16 +3705,16 @@ def _build_uv_polygon_texel_intersections(
             boundary_pixel_y = pixel_y[boundary_candidate_mask]
             boundary_triangle_chunks: List[torch.Tensor] = []
             boundary_triangle_candidate_index_chunks: List[torch.Tensor] = []
-            for fan_index in range(1, boundary_polygon_vertices.shape[1] - 1):
+            for fan_index in range(1, boundary_polygon_verts.shape[1] - 1):
                 fan_valid_mask = boundary_polygon_vertex_counts > (fan_index + 1)
                 if not torch.any(fan_valid_mask):
                     continue
                 boundary_triangle_chunks.append(
                     torch.stack(
                         [
-                            boundary_polygon_vertices[fan_valid_mask, 0, :],
-                            boundary_polygon_vertices[fan_valid_mask, fan_index, :],
-                            boundary_polygon_vertices[fan_valid_mask, fan_index + 1, :],
+                            boundary_polygon_verts[fan_valid_mask, 0, :],
+                            boundary_polygon_verts[fan_valid_mask, fan_index, :],
+                            boundary_polygon_verts[fan_valid_mask, fan_index + 1, :],
                         ],
                         dim=1,
                     )
@@ -3736,14 +3736,14 @@ def _build_uv_polygon_texel_intersections(
                 ).contiguous()
                 boundary_triangle_overlap_mask = (
                     _compute_triangle_pixel_square_positive_area_overlap_mask(
-                        triangle_vertices=boundary_triangles,
+                        triangle_verts=boundary_triangles,
                         pixel_x=boundary_pixel_x[boundary_triangle_candidate_indices],
                         pixel_y=boundary_pixel_y[boundary_triangle_candidate_indices],
                     )
                 )
                 boundary_candidate_positive_mask = torch.zeros(
-                    (boundary_polygon_vertices.shape[0],),
-                    device=boundary_polygon_vertices.device,
+                    (boundary_polygon_verts.shape[0],),
+                    device=boundary_polygon_verts.device,
                     dtype=torch.bool,
                 )
                 boundary_candidate_positive_mask[
@@ -3763,13 +3763,13 @@ def _build_uv_polygon_texel_intersections(
 
 
 def _triangulate_convex_uv_polygons(
-    polygon_vertices: torch.Tensor,
+    polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
 ) -> torch.Tensor:
     """Triangulate convex UV polygons into a triangle soup.
 
     Args:
-        polygon_vertices: Convex UV polygons [N, Vmax, 2].
+        polygon_verts: Convex UV polygons [N, Vmax, 2].
         polygon_vertex_counts: Valid vertex count for each polygon [N].
 
     Returns:
@@ -3786,30 +3786,30 @@ def _triangulate_convex_uv_polygons(
             None.
         """
         # Input validations
-        assert isinstance(polygon_vertices, torch.Tensor), f"{type(polygon_vertices)=}"
+        assert isinstance(polygon_verts, torch.Tensor), f"{type(polygon_verts)=}"
         assert isinstance(
             polygon_vertex_counts, torch.Tensor
         ), f"{type(polygon_vertex_counts)=}"
-        assert polygon_vertices.ndim == 3, f"{polygon_vertices.shape=}"
-        assert polygon_vertices.shape[2] == 2, f"{polygon_vertices.shape=}"
+        assert polygon_verts.ndim == 3, f"{polygon_verts.shape=}"
+        assert polygon_verts.shape[2] == 2, f"{polygon_verts.shape=}"
         assert polygon_vertex_counts.ndim == 1, f"{polygon_vertex_counts.shape=}"
         assert (
-            polygon_vertices.shape[0] == polygon_vertex_counts.shape[0]
-        ), f"{polygon_vertices.shape=} {polygon_vertex_counts.shape=}"
+            polygon_verts.shape[0] == polygon_vertex_counts.shape[0]
+        ), f"{polygon_verts.shape=} {polygon_vertex_counts.shape=}"
 
     _validate_inputs()
 
     uv_triangle_chunks: List[torch.Tensor] = []
-    for fan_index in range(1, polygon_vertices.shape[1] - 1):
+    for fan_index in range(1, polygon_verts.shape[1] - 1):
         fan_valid_mask = polygon_vertex_counts > (fan_index + 1)
         if not torch.any(fan_valid_mask):
             continue
         uv_triangle_chunks.append(
             torch.stack(
                 [
-                    polygon_vertices[fan_valid_mask, 0, :],
-                    polygon_vertices[fan_valid_mask, fan_index, :],
-                    polygon_vertices[fan_valid_mask, fan_index + 1, :],
+                    polygon_verts[fan_valid_mask, 0, :],
+                    polygon_verts[fan_valid_mask, fan_index, :],
+                    polygon_verts[fan_valid_mask, fan_index + 1, :],
                 ],
                 dim=1,
             )
@@ -3818,7 +3818,7 @@ def _triangulate_convex_uv_polygons(
     if len(uv_triangle_chunks) == 0:
         return torch.zeros(
             (0, 3, 2),
-            device=polygon_vertices.device,
+            device=polygon_verts.device,
             dtype=torch.float32,
         )
     return torch.cat(uv_triangle_chunks, dim=0).to(dtype=torch.float32).contiguous()
@@ -3902,11 +3902,11 @@ def _build_uv_triangle_texel_intersections(
 
     _validate_inputs()
 
-    triangle_texel_vertices = uv_triangles.to(dtype=torch.float32) * float(texture_size)
-    triangle_x_min = triangle_texel_vertices[:, :, 0].amin(dim=1)
-    triangle_x_max = triangle_texel_vertices[:, :, 0].amax(dim=1)
-    triangle_y_min = triangle_texel_vertices[:, :, 1].amin(dim=1)
-    triangle_y_max = triangle_texel_vertices[:, :, 1].amax(dim=1)
+    triangle_texel_verts = uv_triangles.to(dtype=torch.float32) * float(texture_size)
+    triangle_x_min = triangle_texel_verts[:, :, 0].amin(dim=1)
+    triangle_x_max = triangle_texel_verts[:, :, 0].amax(dim=1)
+    triangle_y_min = triangle_texel_verts[:, :, 1].amin(dim=1)
+    triangle_y_max = triangle_texel_verts[:, :, 1].amax(dim=1)
     texel_x_start = torch.floor(triangle_x_min).to(dtype=torch.long)
     texel_x_end = torch.ceil(triangle_x_max).to(dtype=torch.long) - 1
     texel_y_start = torch.floor(triangle_y_min).to(dtype=torch.long)
@@ -3976,7 +3976,7 @@ def _build_uv_triangle_texel_intersections(
     texel_y = repeated_texel_y_start + local_texel_y_offset
 
     positive_overlap_mask = _compute_triangle_pixel_square_positive_area_overlap_mask(
-        triangle_vertices=triangle_texel_vertices[repeated_triangle_indices],
+        triangle_verts=triangle_texel_verts[repeated_triangle_indices],
         pixel_x=texel_x.to(dtype=torch.float32) + 0.5,
         pixel_y=texel_y.to(dtype=torch.float32) + 0.5,
     )
@@ -4046,12 +4046,12 @@ def _build_uv_triangle_texel_intersections_v2(
     _validate_inputs()
 
     def _compute_triangle_edge_function_coefficients(
-        triangle_vertices: torch.Tensor,
+        triangle_verts: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute oriented triangle edge-function coefficients and thresholds.
 
         Args:
-            triangle_vertices: Triangle vertices [K, 3, 2] in texel space.
+            triangle_verts: Triangle verts [K, 3, 2] in texel space.
 
         Returns:
             Tuple of:
@@ -4068,34 +4068,34 @@ def _build_uv_triangle_texel_intersections_v2(
             Returns:
                 None.
             """
-            assert isinstance(triangle_vertices, torch.Tensor), (
-                "Expected `triangle_vertices` to be a tensor. "
-                f"type(triangle_vertices)={type(triangle_vertices)!r}."
+            assert isinstance(triangle_verts, torch.Tensor), (
+                "Expected `triangle_verts` to be a tensor. "
+                f"type(triangle_verts)={type(triangle_verts)!r}."
             )
-            assert triangle_vertices.ndim == 3, (
-                "Expected `triangle_vertices` to have shape `[K, 3, 2]`. "
-                f"triangle_vertices.shape={triangle_vertices.shape!r}."
+            assert triangle_verts.ndim == 3, (
+                "Expected `triangle_verts` to have shape `[K, 3, 2]`. "
+                f"triangle_verts.shape={triangle_verts.shape!r}."
             )
-            assert triangle_vertices.shape[1:] == (3, 2), (
-                "Expected `triangle_vertices` to have shape `[K, 3, 2]`. "
-                f"triangle_vertices.shape={triangle_vertices.shape!r}."
+            assert triangle_verts.shape[1:] == (3, 2), (
+                "Expected `triangle_verts` to have shape `[K, 3, 2]`. "
+                f"triangle_verts.shape={triangle_verts.shape!r}."
             )
 
         _validate_inputs()
 
-        next_triangle_vertices = triangle_vertices[:, [1, 2, 0], :]
-        edge_a = triangle_vertices[:, :, 1] - next_triangle_vertices[:, :, 1]
-        edge_b = next_triangle_vertices[:, :, 0] - triangle_vertices[:, :, 0]
+        next_triangle_verts = triangle_verts[:, [1, 2, 0], :]
+        edge_a = triangle_verts[:, :, 1] - next_triangle_verts[:, :, 1]
+        edge_b = next_triangle_verts[:, :, 0] - triangle_verts[:, :, 0]
         edge_c = (
-            triangle_vertices[:, :, 0] * next_triangle_vertices[:, :, 1]
-            - next_triangle_vertices[:, :, 0] * triangle_vertices[:, :, 1]
+            triangle_verts[:, :, 0] * next_triangle_verts[:, :, 1]
+            - next_triangle_verts[:, :, 0] * triangle_verts[:, :, 1]
         )
         triangle_double_area = (
-            triangle_vertices[:, 1, 0] - triangle_vertices[:, 0, 0]
-        ) * (triangle_vertices[:, 2, 1] - triangle_vertices[:, 0, 1]) - (
-            triangle_vertices[:, 1, 1] - triangle_vertices[:, 0, 1]
+            triangle_verts[:, 1, 0] - triangle_verts[:, 0, 0]
+        ) * (triangle_verts[:, 2, 1] - triangle_verts[:, 0, 1]) - (
+            triangle_verts[:, 1, 1] - triangle_verts[:, 0, 1]
         ) * (
-            triangle_vertices[:, 2, 0] - triangle_vertices[:, 0, 0]
+            triangle_verts[:, 2, 0] - triangle_verts[:, 0, 0]
         )
         triangle_orientation = torch.where(
             triangle_double_area >= 0.0,
@@ -4124,11 +4124,11 @@ def _build_uv_triangle_texel_intersections_v2(
             f"uv_triangles.dtype={uv_triangles.dtype!r}."
         )
 
-    triangle_texel_vertices = uv_triangles.to(dtype=torch.float32) * float(texture_size)
-    triangle_x_min = triangle_texel_vertices[:, :, 0].amin(dim=1)
-    triangle_x_max = triangle_texel_vertices[:, :, 0].amax(dim=1)
-    triangle_y_min = triangle_texel_vertices[:, :, 1].amin(dim=1)
-    triangle_y_max = triangle_texel_vertices[:, :, 1].amax(dim=1)
+    triangle_texel_verts = uv_triangles.to(dtype=torch.float32) * float(texture_size)
+    triangle_x_min = triangle_texel_verts[:, :, 0].amin(dim=1)
+    triangle_x_max = triangle_texel_verts[:, :, 0].amax(dim=1)
+    triangle_y_min = triangle_texel_verts[:, :, 1].amin(dim=1)
+    triangle_y_max = triangle_texel_verts[:, :, 1].amax(dim=1)
     texel_x_start = torch.floor(triangle_x_min).to(dtype=torch.long)
     texel_x_end = torch.ceil(triangle_x_max).to(dtype=torch.long) - 1
     texel_y_start = torch.floor(triangle_y_min).to(dtype=torch.long)
@@ -4152,7 +4152,7 @@ def _build_uv_triangle_texel_intersections_v2(
         triangle_edge_function_coefficients,
         triangle_edge_thresholds,
     ) = _compute_triangle_edge_function_coefficients(
-        triangle_vertices=triangle_texel_vertices,
+        triangle_verts=triangle_texel_verts,
     )
 
     triangle_indices = torch.arange(
@@ -4242,7 +4242,7 @@ def _build_uv_triangle_texel_intersections_v2(
             ]
             boundary_positive_overlap_mask = (
                 _compute_triangle_pixel_square_positive_area_overlap_mask(
-                    triangle_vertices=triangle_texel_vertices[
+                    triangle_verts=triangle_texel_verts[
                         repeated_triangle_indices[boundary_chunk_indices]
                     ],
                     pixel_x=pixel_x[boundary_chunk_indices],

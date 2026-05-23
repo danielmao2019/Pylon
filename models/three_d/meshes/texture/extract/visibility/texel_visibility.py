@@ -27,8 +27,8 @@
     Helper function: _map_visible_screen_space_polygon_regions_to_uv(...)
     - 1.2.1. Gather the owning face screen-space, depth, and UV data for each visible polygon.
       Local function: _gather_visible_polygon_face_geometry(...)
-    - 1.2.2. Compute perspective-correct UV positions for all visible polygon vertices.
-      Local function: _project_screen_polygon_vertices_to_uv(...)
+    - 1.2.2. Compute perspective-correct UV positions for all visible polygon verts.
+      Local function: _project_screen_polygon_verts_to_uv(...)
     - 1.2.3. Return the UV polygons together with the original visible polygon vertex counts.
       Local function: _pack_visible_uv_polygons(...)
 - 2. Compute visible UV texels from the UV polygon regions.
@@ -59,7 +59,7 @@ import torch
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.texture.extract.camera_geometry import (
-    _vertices_world_to_camera,
+    _verts_world_to_camera,
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
     _compute_f_normals_weights,
@@ -68,7 +68,7 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
     _build_uv_polygon_texel_intersections,
     _build_uv_triangle_texel_intersections_v2,
     _build_visible_face_pixel_polygons,
-    _camera_vertices_to_pixel,
+    _camera_verts_to_pixel,
     _clip_convex_polygons_to_pixel_squares,
     _compute_convex_polygon_areas,
     _compute_face_inverse_depth_coefficients,
@@ -83,7 +83,7 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
 
 
 def compute_f_visibility_mask(
-    vertices: torch.Tensor,
+    verts: torch.Tensor,
     faces: torch.Tensor,
     camera: Cameras,
     image_height: int,
@@ -94,7 +94,7 @@ def compute_f_visibility_mask(
     """Compute one-view UV-pixel visibility mask from exact camera-pixel footprints.
 
     Args:
-        vertices: Mesh vertices [V, 3].
+        verts: Mesh verts [V, 3].
         faces: Mesh faces [F, 3].
         camera: One camera instance.
         image_height: Image height in pixels.
@@ -116,7 +116,7 @@ def compute_f_visibility_mask(
             None.
         """
         # Input validations
-        assert isinstance(vertices, torch.Tensor), f"{type(vertices)=}"
+        assert isinstance(verts, torch.Tensor), f"{type(verts)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
         assert isinstance(camera, Cameras), f"{type(camera)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
@@ -125,8 +125,8 @@ def compute_f_visibility_mask(
             uv_rasterization_data, dict
         ), f"{type(uv_rasterization_data)=}"
         assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
-        assert vertices.ndim == 2, f"{vertices.shape=}"
-        assert vertices.shape[1] == 3, f"{vertices.shape=}"
+        assert verts.ndim == 2, f"{verts.shape=}"
+        assert verts.shape[1] == 3, f"{verts.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
         assert faces.dtype == torch.long, f"{faces.dtype=}"
@@ -135,7 +135,7 @@ def compute_f_visibility_mask(
         assert image_width > 0, f"{image_width=}"
         assert "uv_mask" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
         assert (
-            "camera_attr_vertex_uv" in uv_rasterization_data
+            "camera_attr_verts_uvs" in uv_rasterization_data
         ), f"{uv_rasterization_data.keys()=}"
         assert polygon_rast_method in ("v1", "v2"), (
             "Expected `polygon_rast_method` to be one of the supported polygon "
@@ -146,52 +146,52 @@ def compute_f_visibility_mask(
     _validate_inputs()
 
     with torch.no_grad():
-        vertices_camera = _vertices_world_to_camera(
-            vertices=vertices,
+        verts_camera = _verts_world_to_camera(
+            verts=verts,
             camera=camera,
         )
         uv_mask = uv_rasterization_data["uv_mask"]
-        camera_attr_vertex_uv = uv_rasterization_data["camera_attr_vertex_uv"]
+        camera_attr_verts_uvs = uv_rasterization_data["camera_attr_verts_uvs"]
         assert isinstance(uv_mask, torch.Tensor), f"{type(uv_mask)=}"
-        assert isinstance(camera_attr_vertex_uv, torch.Tensor), (
-            "Expected `camera_attr_vertex_uv` to be a tensor. "
-            f"Got {type(camera_attr_vertex_uv)=}."
+        assert isinstance(camera_attr_verts_uvs, torch.Tensor), (
+            "Expected `camera_attr_verts_uvs` to be a tensor. "
+            f"Got {type(camera_attr_verts_uvs)=}."
         )
-        assert vertices.device == faces.device, (
-            "Expected `vertices` and `faces` to share a device. "
-            f"Got {vertices.device=} {faces.device=}."
+        assert verts.device == faces.device, (
+            "Expected `verts` and `faces` to share a device. "
+            f"Got {verts.device=} {faces.device=}."
         )
-        assert vertices.device == uv_mask.device, (
-            "Expected `vertices` and `uv_mask` to share a device. "
-            f"Got {vertices.device=} {uv_mask.device=}."
+        assert verts.device == uv_mask.device, (
+            "Expected `verts` and `uv_mask` to share a device. "
+            f"Got {verts.device=} {uv_mask.device=}."
         )
-        assert vertices.device == camera_attr_vertex_uv.device, (
-            "Expected `vertices` and `camera_attr_vertex_uv` to share a device. "
-            f"Got {vertices.device=} {camera_attr_vertex_uv.device=}."
+        assert verts.device == camera_attr_verts_uvs.device, (
+            "Expected `verts` and `camera_attr_verts_uvs` to share a device. "
+            f"Got {verts.device=} {camera_attr_verts_uvs.device=}."
         )
 
         face_front_facing_mask = (
             _compute_f_normals_weights(
-                mesh=Mesh(vertices=vertices, faces=faces),
+                mesh=Mesh(verts=verts, faces=faces),
                 camera=camera,
                 weights_cfg={"weights": "normals"},
             )
             > 0.0
         )
         (
-            uv_polygon_vertices,
+            uv_polygon_verts,
             uv_polygon_vertex_counts,
         ) = _compute_visible_uv_polygon_regions_from_camera_pixels(
-            vertices_camera=vertices_camera,
+            verts_camera=verts_camera,
             faces=faces,
             intrinsics=camera[0].intrinsics,
             image_height=image_height,
             image_width=image_width,
             face_front_facing_mask=face_front_facing_mask,
-            camera_face_vertex_uv=camera_attr_vertex_uv.reshape(-1, 3, 2),
+            camera_face_verts_uvs=camera_attr_verts_uvs.reshape(-1, 3, 2),
         )
         uv_visible = _compute_visible_uv_texels_from_uv_polygon_regions(
-            uv_polygon_vertices=uv_polygon_vertices,
+            uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
             texture_size=int(uv_mask.shape[1]),
             polygon_rast_method=polygon_rast_method,
@@ -200,24 +200,24 @@ def compute_f_visibility_mask(
 
 
 def _compute_visible_uv_polygon_regions_from_camera_pixels(
-    vertices_camera: torch.Tensor,
+    verts_camera: torch.Tensor,
     faces: torch.Tensor,
     intrinsics: torch.Tensor,
     image_height: int,
     image_width: int,
     face_front_facing_mask: torch.Tensor,
-    camera_face_vertex_uv: torch.Tensor,
+    camera_face_verts_uvs: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Compute exact visible UV polygon regions from camera pixels.
 
     Args:
-        vertices_camera: Camera-space vertices [V, 3].
+        verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
         intrinsics: Camera intrinsics [3, 3].
         image_height: Image height in pixels.
         image_width: Image width in pixels.
         face_front_facing_mask: Binary front-facing face mask [F].
-        camera_face_vertex_uv: Seam-safe per-face UV coordinates [F, 3, 2].
+        camera_face_verts_uvs: Seam-safe per-face UV coordinates [F, 3, 2].
 
     Returns:
         Tuple of:
@@ -235,7 +235,7 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
             None.
         """
         # Input validations
-        assert isinstance(vertices_camera, torch.Tensor), f"{type(vertices_camera)=}"
+        assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
         assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
@@ -244,10 +244,10 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
             face_front_facing_mask, torch.Tensor
         ), f"{type(face_front_facing_mask)=}"
         assert isinstance(
-            camera_face_vertex_uv, torch.Tensor
-        ), f"{type(camera_face_vertex_uv)=}"
-        assert vertices_camera.ndim == 2, f"{vertices_camera.shape=}"
-        assert vertices_camera.shape[1] == 3, f"{vertices_camera.shape=}"
+            camera_face_verts_uvs, torch.Tensor
+        ), f"{type(camera_face_verts_uvs)=}"
+        assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
+        assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
         assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
@@ -256,20 +256,20 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
         assert face_front_facing_mask.shape == (
             faces.shape[0],
         ), f"{face_front_facing_mask.shape=} {faces.shape=}"
-        assert camera_face_vertex_uv.shape == (
+        assert camera_face_verts_uvs.shape == (
             faces.shape[0],
             3,
             2,
-        ), f"{camera_face_vertex_uv.shape=} {faces.shape=}"
+        ), f"{camera_face_verts_uvs.shape=} {faces.shape=}"
 
     _validate_inputs()
 
-    vertex_pixels = _camera_vertices_to_pixel(
-        vertices_camera=vertices_camera,
+    vertex_pixels = _camera_verts_to_pixel(
+        verts_camera=verts_camera,
         intrinsics=intrinsics,
     )
-    all_face_screen_vertices = vertex_pixels[faces]
-    all_face_vertex_depth = vertices_camera[faces][:, :, 2]
+    all_face_screen_verts = vertex_pixels[faces]
+    all_face_vertex_depth = verts_camera[faces][:, :, 2]
     front_face_indices = torch.nonzero(
         face_front_facing_mask,
         as_tuple=False,
@@ -278,25 +278,25 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
         return (
             torch.zeros(
                 (0, 3, 2),
-                device=vertices_camera.device,
+                device=verts_camera.device,
                 dtype=torch.float32,
             ),
             torch.zeros(
                 (0,),
-                device=vertices_camera.device,
+                device=verts_camera.device,
                 dtype=torch.long,
             ),
         )
 
-    face_screen_vertices = all_face_screen_vertices[front_face_indices]
+    face_screen_verts = all_face_screen_verts[front_face_indices]
     face_vertex_depth = all_face_vertex_depth[front_face_indices]
-    face_vertex_uv = camera_face_vertex_uv[front_face_indices]
+    face_verts_uvs = camera_face_verts_uvs[front_face_indices]
     (
-        visible_screen_polygon_vertices,
+        visible_screen_polygon_verts,
         visible_screen_polygon_vertex_counts,
         visible_screen_polygon_face_indices,
     ) = _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
-        face_screen_vertices=face_screen_vertices,
+        face_screen_verts=face_screen_verts,
         face_vertex_depth=face_vertex_depth,
         image_height=image_height,
         image_width=image_width,
@@ -304,29 +304,29 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
     if visible_screen_polygon_face_indices.numel() == 0:
         return (
             torch.zeros(
-                (0, visible_screen_polygon_vertices.shape[1], 2),
-                device=vertices_camera.device,
+                (0, visible_screen_polygon_verts.shape[1], 2),
+                device=verts_camera.device,
                 dtype=torch.float32,
             ),
             torch.zeros(
                 (0,),
-                device=vertices_camera.device,
+                device=verts_camera.device,
                 dtype=torch.long,
             ),
         )
 
     return _map_visible_screen_space_polygon_regions_to_uv(
-        visible_screen_polygon_vertices=visible_screen_polygon_vertices,
+        visible_screen_polygon_verts=visible_screen_polygon_verts,
         visible_screen_polygon_vertex_counts=visible_screen_polygon_vertex_counts,
         visible_screen_polygon_face_indices=visible_screen_polygon_face_indices,
-        face_screen_vertices=face_screen_vertices,
+        face_screen_verts=face_screen_verts,
         face_vertex_depth=face_vertex_depth,
-        face_vertex_uv=face_vertex_uv,
+        face_verts_uvs=face_verts_uvs,
     )
 
 
 def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
-    face_screen_vertices: torch.Tensor,
+    face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
     image_height: int,
     image_width: int,
@@ -334,7 +334,7 @@ def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
     """Compute exact visible screen-space polygon regions inside each camera pixel.
 
     Args:
-        face_screen_vertices: Projected triangle vertices [F, 3, 2].
+        face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
         image_height: Image height in pixels.
         image_width: Image width in pixels.
@@ -357,62 +357,62 @@ def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
         """
         # Input validations
         assert isinstance(
-            face_screen_vertices, torch.Tensor
-        ), f"{type(face_screen_vertices)=}"
+            face_screen_verts, torch.Tensor
+        ), f"{type(face_screen_verts)=}"
         assert isinstance(
             face_vertex_depth, torch.Tensor
         ), f"{type(face_vertex_depth)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert face_screen_vertices.ndim == 3, f"{face_screen_vertices.shape=}"
-        assert face_screen_vertices.shape[1:] == (
+        assert face_screen_verts.ndim == 3, f"{face_screen_verts.shape=}"
+        assert face_screen_verts.shape[1:] == (
             3,
             2,
-        ), f"{face_screen_vertices.shape=}"
+        ), f"{face_screen_verts.shape=}"
         assert face_vertex_depth.shape == (
-            face_screen_vertices.shape[0],
+            face_screen_verts.shape[0],
             3,
-        ), f"{face_vertex_depth.shape=} {face_screen_vertices.shape=}"
+        ), f"{face_vertex_depth.shape=} {face_screen_verts.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
     _validate_inputs()
 
     (
-        clipped_polygon_vertices,
+        clipped_polygon_verts,
         clipped_polygon_vertex_counts,
         clipped_pixel_indices,
         clipped_face_indices,
     ) = _compute_face_pixel_polygon_intersections_without_occlusion(
-        face_screen_vertices=face_screen_vertices,
+        face_screen_verts=face_screen_verts,
         image_height=image_height,
         image_width=image_width,
     )
     if clipped_face_indices.numel() == 0:
         return (
             torch.zeros(
-                (0, clipped_polygon_vertices.shape[1], 2),
-                device=face_screen_vertices.device,
+                (0, clipped_polygon_verts.shape[1], 2),
+                device=face_screen_verts.device,
                 dtype=torch.float32,
             ),
             torch.zeros(
                 (0,),
-                device=face_screen_vertices.device,
+                device=face_screen_verts.device,
                 dtype=torch.long,
             ),
             torch.zeros(
                 (0,),
-                device=face_screen_vertices.device,
+                device=face_screen_verts.device,
                 dtype=torch.long,
             ),
         )
 
     return _compute_visible_screen_space_polygon_regions_with_occlusion(
-        clipped_polygon_vertices=clipped_polygon_vertices,
+        clipped_polygon_verts=clipped_polygon_verts,
         clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
         clipped_pixel_indices=clipped_pixel_indices,
         clipped_face_indices=clipped_face_indices,
-        face_screen_vertices=face_screen_vertices,
+        face_screen_verts=face_screen_verts,
         face_vertex_depth=face_vertex_depth,
         image_height=image_height,
         image_width=image_width,
@@ -420,14 +420,14 @@ def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
 
 
 def _compute_face_pixel_polygon_intersections_without_occlusion(
-    face_screen_vertices: torch.Tensor,
+    face_screen_verts: torch.Tensor,
     image_height: int,
     image_width: int,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Compute all face-pixel polygon intersections without considering occlusion.
 
     Args:
-        face_screen_vertices: Projected triangle vertices [F, 3, 2].
+        face_screen_verts: Projected triangle verts [F, 3, 2].
         image_height: Image height in pixels.
         image_width: Image width in pixels.
 
@@ -450,15 +450,15 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
         """
         # Input validations
         assert isinstance(
-            face_screen_vertices, torch.Tensor
-        ), f"{type(face_screen_vertices)=}"
+            face_screen_verts, torch.Tensor
+        ), f"{type(face_screen_verts)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert face_screen_vertices.ndim == 3, f"{face_screen_vertices.shape=}"
-        assert face_screen_vertices.shape[1:] == (
+        assert face_screen_verts.ndim == 3, f"{face_screen_verts.shape=}"
+        assert face_screen_verts.shape[1:] == (
             3,
             2,
-        ), f"{face_screen_vertices.shape=}"
+        ), f"{face_screen_verts.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
@@ -482,10 +482,10 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
         Returns:
             Tuple of pixel-range tensors and the total candidate pair count.
         """
-        face_x_min = face_screen_vertices[:, :, 0].amin(dim=1)
-        face_x_max = face_screen_vertices[:, :, 0].amax(dim=1)
-        face_y_min = face_screen_vertices[:, :, 1].amin(dim=1)
-        face_y_max = face_screen_vertices[:, :, 1].amax(dim=1)
+        face_x_min = face_screen_verts[:, :, 0].amin(dim=1)
+        face_x_max = face_screen_verts[:, :, 0].amax(dim=1)
+        face_y_min = face_screen_verts[:, :, 1].amin(dim=1)
+        face_y_max = face_screen_verts[:, :, 1].amax(dim=1)
         pixel_x_start = torch.ceil(face_x_min - 0.5).to(dtype=torch.long)
         pixel_x_end = torch.floor(face_x_max + 0.5).to(dtype=torch.long)
         pixel_y_start = torch.ceil(face_y_min - 0.5).to(dtype=torch.long)
@@ -529,8 +529,8 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
             Repeated face indices and pixel coordinates for each pair.
         """
         local_face_indices = torch.arange(
-            face_screen_vertices.shape[0],
-            device=face_screen_vertices.device,
+            face_screen_verts.shape[0],
+            device=face_screen_verts.device,
             dtype=torch.long,
         )
         repeated_face_indices = torch.repeat_interleave(
@@ -559,7 +559,7 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
         pair_offsets = (
             torch.arange(
                 total_pair_count,
-                device=face_screen_vertices.device,
+                device=face_screen_verts.device,
                 dtype=torch.long,
             )
             - repeated_pair_start_offsets
@@ -589,31 +589,31 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
             total_pair_count: Total pair count.
 
         Returns:
-            Clipped polygon vertices and counts for each candidate pair.
+            Clipped polygon verts and counts for each candidate pair.
         """
-        polygon_vertices = torch.zeros(
+        polygon_verts = torch.zeros(
             (total_pair_count, 8, 2),
-            device=face_screen_vertices.device,
+            device=face_screen_verts.device,
             dtype=torch.float32,
         )
-        polygon_vertices[:, :3, :] = face_screen_vertices[repeated_face_indices].to(
+        polygon_verts[:, :3, :] = face_screen_verts[repeated_face_indices].to(
             dtype=torch.float32
         )
         polygon_vertex_counts = torch.full(
             (total_pair_count,),
             fill_value=3,
-            device=face_screen_vertices.device,
+            device=face_screen_verts.device,
             dtype=torch.long,
         )
         return _clip_convex_polygons_to_pixel_squares(
-            polygon_vertices=polygon_vertices,
+            polygon_verts=polygon_verts,
             polygon_vertex_counts=polygon_vertex_counts,
             pixel_x=pixel_x.to(dtype=torch.float32),
             pixel_y=pixel_y.to(dtype=torch.float32),
         )
 
     def _pack_valid_face_pixel_polygons(
-        clipped_polygon_vertices: torch.Tensor,
+        clipped_polygon_verts: torch.Tensor,
         clipped_polygon_vertex_counts: torch.Tensor,
         pixel_x: torch.Tensor,
         pixel_y: torch.Tensor,
@@ -622,7 +622,7 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
         """Reject degenerate overlaps and pack the surviving polygons.
 
         Args:
-            clipped_polygon_vertices: Clipped polygon vertices [P, Vmax, 2].
+            clipped_polygon_verts: Clipped polygon verts [P, Vmax, 2].
             clipped_polygon_vertex_counts: Clipped polygon vertex counts [P].
             pixel_x: Pixel x per candidate pair [P].
             pixel_y: Pixel y per candidate pair [P].
@@ -632,14 +632,14 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
             Packed valid polygons, counts, pixel indices, and face indices.
         """
         clipped_polygon_area = _compute_convex_polygon_areas(
-            polygon_vertices=clipped_polygon_vertices,
+            polygon_verts=clipped_polygon_verts,
             polygon_vertex_counts=clipped_polygon_vertex_counts,
         )
         polygon_valid_mask = (clipped_polygon_vertex_counts >= 3) & (
             clipped_polygon_area > 1.0e-12
         )
         return (
-            clipped_polygon_vertices[polygon_valid_mask].contiguous(),
+            clipped_polygon_verts[polygon_valid_mask].contiguous(),
             clipped_polygon_vertex_counts[polygon_valid_mask].contiguous(),
             torch.stack(
                 [pixel_y[polygon_valid_mask], pixel_x[polygon_valid_mask]],
@@ -661,19 +661,19 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
     if total_pair_count == 0:
         empty_long = torch.zeros(
             (0,),
-            device=face_screen_vertices.device,
+            device=face_screen_verts.device,
             dtype=torch.long,
         )
         return (
             torch.zeros(
                 (0, 8, 2),
-                device=face_screen_vertices.device,
+                device=face_screen_verts.device,
                 dtype=torch.float32,
             ),
             empty_long,
             torch.zeros(
                 (0, 2),
-                device=face_screen_vertices.device,
+                device=face_screen_verts.device,
                 dtype=torch.long,
             ),
             empty_long,
@@ -686,7 +686,7 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
         pixel_x_count=pixel_x_count,
         total_pair_count=total_pair_count,
     )
-    clipped_polygon_vertices, clipped_polygon_vertex_counts = (
+    clipped_polygon_verts, clipped_polygon_vertex_counts = (
         _clip_face_triangles_to_pixel_squares(
             repeated_face_indices=repeated_face_indices,
             pixel_x=pixel_x,
@@ -695,7 +695,7 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
         )
     )
     return _pack_valid_face_pixel_polygons(
-        clipped_polygon_vertices=clipped_polygon_vertices,
+        clipped_polygon_verts=clipped_polygon_verts,
         clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
         pixel_x=pixel_x,
         pixel_y=pixel_y,
@@ -704,11 +704,11 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
 
 
 def _compute_visible_screen_space_polygon_regions_with_occlusion(
-    clipped_polygon_vertices: torch.Tensor,
+    clipped_polygon_verts: torch.Tensor,
     clipped_polygon_vertex_counts: torch.Tensor,
     clipped_pixel_indices: torch.Tensor,
     clipped_face_indices: torch.Tensor,
-    face_screen_vertices: torch.Tensor,
+    face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
     image_height: int,
     image_width: int,
@@ -716,11 +716,11 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
     """Compute inter-polygon occlusion and remove hidden screen-space regions.
 
     Args:
-        clipped_polygon_vertices: Face-pixel polygons [P, Vmax, 2].
+        clipped_polygon_verts: Face-pixel polygons [P, Vmax, 2].
         clipped_polygon_vertex_counts: Valid polygon vertex counts [P].
         clipped_pixel_indices: Pixel indices [P, 2] in `(y, x)` order.
         clipped_face_indices: Local face indices [P].
-        face_screen_vertices: Projected triangle vertices [F, 3, 2].
+        face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
         image_height: Image height in pixels.
         image_width: Image width in pixels.
@@ -743,8 +743,8 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         """
         # Input validations
         assert isinstance(
-            clipped_polygon_vertices, torch.Tensor
-        ), f"{type(clipped_polygon_vertices)=}"
+            clipped_polygon_verts, torch.Tensor
+        ), f"{type(clipped_polygon_verts)=}"
         assert isinstance(
             clipped_polygon_vertex_counts, torch.Tensor
         ), f"{type(clipped_polygon_vertex_counts)=}"
@@ -755,36 +755,36 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
             clipped_face_indices, torch.Tensor
         ), f"{type(clipped_face_indices)=}"
         assert isinstance(
-            face_screen_vertices, torch.Tensor
-        ), f"{type(face_screen_vertices)=}"
+            face_screen_verts, torch.Tensor
+        ), f"{type(face_screen_verts)=}"
         assert isinstance(
             face_vertex_depth, torch.Tensor
         ), f"{type(face_vertex_depth)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert clipped_polygon_vertices.ndim == 3, f"{clipped_polygon_vertices.shape=}"
+        assert clipped_polygon_verts.ndim == 3, f"{clipped_polygon_verts.shape=}"
         assert (
-            clipped_polygon_vertices.shape[2] == 2
-        ), f"{clipped_polygon_vertices.shape=}"
+            clipped_polygon_verts.shape[2] == 2
+        ), f"{clipped_polygon_verts.shape=}"
         assert clipped_polygon_vertex_counts.shape == (
-            clipped_polygon_vertices.shape[0],
-        ), f"{clipped_polygon_vertex_counts.shape=} {clipped_polygon_vertices.shape=}"
+            clipped_polygon_verts.shape[0],
+        ), f"{clipped_polygon_vertex_counts.shape=} {clipped_polygon_verts.shape=}"
         assert clipped_pixel_indices.shape == (
-            clipped_polygon_vertices.shape[0],
+            clipped_polygon_verts.shape[0],
             2,
-        ), f"{clipped_pixel_indices.shape=} {clipped_polygon_vertices.shape=}"
+        ), f"{clipped_pixel_indices.shape=} {clipped_polygon_verts.shape=}"
         assert clipped_face_indices.shape == (
-            clipped_polygon_vertices.shape[0],
-        ), f"{clipped_face_indices.shape=} {clipped_polygon_vertices.shape=}"
-        assert face_screen_vertices.ndim == 3, f"{face_screen_vertices.shape=}"
-        assert face_screen_vertices.shape[1:] == (
+            clipped_polygon_verts.shape[0],
+        ), f"{clipped_face_indices.shape=} {clipped_polygon_verts.shape=}"
+        assert face_screen_verts.ndim == 3, f"{face_screen_verts.shape=}"
+        assert face_screen_verts.shape[1:] == (
             3,
             2,
-        ), f"{face_screen_vertices.shape=}"
+        ), f"{face_screen_verts.shape=}"
         assert face_vertex_depth.shape == (
-            face_screen_vertices.shape[0],
+            face_screen_verts.shape[0],
             3,
-        ), f"{face_vertex_depth.shape=} {face_screen_vertices.shape=}"
+        ), f"{face_vertex_depth.shape=} {face_screen_verts.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
@@ -800,7 +800,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
             Inverse-depth coefficients [F, 3].
         """
         return _compute_face_inverse_depth_coefficients(
-            face_screen_vertices=face_screen_vertices,
+            face_screen_verts=face_screen_verts,
             face_vertex_depth=face_vertex_depth,
         )
 
@@ -813,10 +813,10 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
             face_inverse_depth_coefficients: Inverse-depth coefficients [F, 3].
 
         Returns:
-            Visible polygon vertices, counts, and local face indices.
+            Visible polygon verts, counts, and local face indices.
         """
         return _build_visible_face_pixel_polygons(
-            clipped_polygon_vertices=clipped_polygon_vertices,
+            clipped_polygon_verts=clipped_polygon_verts,
             clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
             clipped_pixel_indices=clipped_pixel_indices,
             clipped_face_indices=clipped_face_indices,
@@ -824,77 +824,77 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         )
 
     def _pack_visible_polygon_outputs(
-        visible_polygon_vertices: torch.Tensor,
+        visible_polygon_verts: torch.Tensor,
         visible_polygon_vertex_counts: torch.Tensor,
         visible_polygon_face_indices: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Pack exact visible polygons into the downstream tensor format.
 
         Args:
-            visible_polygon_vertices: Visible polygons [N, Vmax, 2].
+            visible_polygon_verts: Visible polygons [N, Vmax, 2].
             visible_polygon_vertex_counts: Visible polygon vertex counts [N].
             visible_polygon_face_indices: Visible local face indices [N].
 
         Returns:
-            Visible polygon vertices, counts, and local face indices.
+            Visible polygon verts, counts, and local face indices.
         """
         return (
-            visible_polygon_vertices.contiguous(),
+            visible_polygon_verts.contiguous(),
             visible_polygon_vertex_counts.contiguous(),
             visible_polygon_face_indices.contiguous(),
         )
 
-    if clipped_polygon_vertices.shape[0] == 0:
+    if clipped_polygon_verts.shape[0] == 0:
         return (
             torch.zeros(
-                (0, clipped_polygon_vertices.shape[1], 2),
-                device=clipped_polygon_vertices.device,
+                (0, clipped_polygon_verts.shape[1], 2),
+                device=clipped_polygon_verts.device,
                 dtype=torch.float32,
             ),
             torch.zeros(
                 (0,),
-                device=clipped_polygon_vertices.device,
+                device=clipped_polygon_verts.device,
                 dtype=torch.long,
             ),
             torch.zeros(
                 (0,),
-                device=clipped_polygon_vertices.device,
+                device=clipped_polygon_verts.device,
                 dtype=torch.long,
             ),
         )
 
     face_inverse_depth_coefficients = _compute_projected_face_inverse_depth_coefficients()
     (
-        visible_polygon_vertices,
+        visible_polygon_verts,
         visible_polygon_vertex_counts,
         visible_polygon_face_indices,
     ) = _build_exact_visible_face_pixel_polygons(
         face_inverse_depth_coefficients=face_inverse_depth_coefficients,
     )
     return _pack_visible_polygon_outputs(
-        visible_polygon_vertices=visible_polygon_vertices,
+        visible_polygon_verts=visible_polygon_verts,
         visible_polygon_vertex_counts=visible_polygon_vertex_counts,
         visible_polygon_face_indices=visible_polygon_face_indices,
     )
 
 
 def _map_visible_screen_space_polygon_regions_to_uv(
-    visible_screen_polygon_vertices: torch.Tensor,
+    visible_screen_polygon_verts: torch.Tensor,
     visible_screen_polygon_vertex_counts: torch.Tensor,
     visible_screen_polygon_face_indices: torch.Tensor,
-    face_screen_vertices: torch.Tensor,
+    face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
-    face_vertex_uv: torch.Tensor,
+    face_verts_uvs: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Map visible screen-space polygon regions into UV.
 
     Args:
-        visible_screen_polygon_vertices: Visible screen polygons [N, Vmax, 2].
+        visible_screen_polygon_verts: Visible screen polygons [N, Vmax, 2].
         visible_screen_polygon_vertex_counts: Valid polygon vertex counts [N].
         visible_screen_polygon_face_indices: Local face index for each visible polygon [N].
-        face_screen_vertices: Projected triangle vertices [F, 3, 2].
+        face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
-        face_vertex_uv: Seam-safe per-face UV coordinates [F, 3, 2].
+        face_verts_uvs: Seam-safe per-face UV coordinates [F, 3, 2].
 
     Returns:
         Tuple of:
@@ -913,8 +913,8 @@ def _map_visible_screen_space_polygon_regions_to_uv(
         """
         # Input validations
         assert isinstance(
-            visible_screen_polygon_vertices, torch.Tensor
-        ), f"{type(visible_screen_polygon_vertices)=}"
+            visible_screen_polygon_verts, torch.Tensor
+        ), f"{type(visible_screen_polygon_verts)=}"
         assert isinstance(
             visible_screen_polygon_vertex_counts, torch.Tensor
         ), f"{type(visible_screen_polygon_vertex_counts)=}"
@@ -922,38 +922,38 @@ def _map_visible_screen_space_polygon_regions_to_uv(
             visible_screen_polygon_face_indices, torch.Tensor
         ), f"{type(visible_screen_polygon_face_indices)=}"
         assert isinstance(
-            face_screen_vertices, torch.Tensor
-        ), f"{type(face_screen_vertices)=}"
+            face_screen_verts, torch.Tensor
+        ), f"{type(face_screen_verts)=}"
         assert isinstance(
             face_vertex_depth, torch.Tensor
         ), f"{type(face_vertex_depth)=}"
-        assert isinstance(face_vertex_uv, torch.Tensor), f"{type(face_vertex_uv)=}"
+        assert isinstance(face_verts_uvs, torch.Tensor), f"{type(face_verts_uvs)=}"
         assert (
-            visible_screen_polygon_vertices.ndim == 3
-        ), f"{visible_screen_polygon_vertices.shape=}"
+            visible_screen_polygon_verts.ndim == 3
+        ), f"{visible_screen_polygon_verts.shape=}"
         assert (
-            visible_screen_polygon_vertices.shape[2] == 2
-        ), f"{visible_screen_polygon_vertices.shape=}"
+            visible_screen_polygon_verts.shape[2] == 2
+        ), f"{visible_screen_polygon_verts.shape=}"
         assert visible_screen_polygon_vertex_counts.shape == (
-            visible_screen_polygon_vertices.shape[0],
-        ), f"{visible_screen_polygon_vertex_counts.shape=} {visible_screen_polygon_vertices.shape=}"
+            visible_screen_polygon_verts.shape[0],
+        ), f"{visible_screen_polygon_vertex_counts.shape=} {visible_screen_polygon_verts.shape=}"
         assert visible_screen_polygon_face_indices.shape == (
-            visible_screen_polygon_vertices.shape[0],
-        ), f"{visible_screen_polygon_face_indices.shape=} {visible_screen_polygon_vertices.shape=}"
-        assert face_screen_vertices.ndim == 3, f"{face_screen_vertices.shape=}"
-        assert face_screen_vertices.shape[1:] == (
+            visible_screen_polygon_verts.shape[0],
+        ), f"{visible_screen_polygon_face_indices.shape=} {visible_screen_polygon_verts.shape=}"
+        assert face_screen_verts.ndim == 3, f"{face_screen_verts.shape=}"
+        assert face_screen_verts.shape[1:] == (
             3,
             2,
-        ), f"{face_screen_vertices.shape=}"
+        ), f"{face_screen_verts.shape=}"
         assert face_vertex_depth.shape == (
-            face_screen_vertices.shape[0],
+            face_screen_verts.shape[0],
             3,
-        ), f"{face_vertex_depth.shape=} {face_screen_vertices.shape=}"
-        assert face_vertex_uv.shape == (
-            face_screen_vertices.shape[0],
+        ), f"{face_vertex_depth.shape=} {face_screen_verts.shape=}"
+        assert face_verts_uvs.shape == (
+            face_screen_verts.shape[0],
             3,
             2,
-        ), f"{face_vertex_uv.shape=} {face_screen_vertices.shape=}"
+        ), f"{face_verts_uvs.shape=} {face_screen_verts.shape=}"
 
     _validate_inputs()
 
@@ -968,69 +968,69 @@ def _map_visible_screen_space_polygon_regions_to_uv(
             None.
 
         Returns:
-            Screen-space vertices, depths, and UVs for each visible polygon.
+            Screen-space verts, depths, and UVs for each visible polygon.
         """
         return (
-            face_screen_vertices[visible_screen_polygon_face_indices].contiguous(),
+            face_screen_verts[visible_screen_polygon_face_indices].contiguous(),
             face_vertex_depth[visible_screen_polygon_face_indices].contiguous(),
-            face_vertex_uv[visible_screen_polygon_face_indices].contiguous(),
+            face_verts_uvs[visible_screen_polygon_face_indices].contiguous(),
         )
 
-    def _project_screen_polygon_vertices_to_uv(
-        polygon_face_screen_vertices: torch.Tensor,
+    def _project_screen_polygon_verts_to_uv(
+        polygon_face_screen_verts: torch.Tensor,
         polygon_face_vertex_depth: torch.Tensor,
-        polygon_face_vertex_uv: torch.Tensor,
+        polygon_face_verts_uvs: torch.Tensor,
     ) -> torch.Tensor:
         """Project visible screen polygons into UV.
 
         Args:
-            polygon_face_screen_vertices: Owning face screen vertices [N, 3, 2].
+            polygon_face_screen_verts: Owning face screen verts [N, 3, 2].
             polygon_face_vertex_depth: Owning face depths [N, 3].
-            polygon_face_vertex_uv: Owning face UVs [N, 3, 2].
+            polygon_face_verts_uvs: Owning face UVs [N, 3, 2].
 
         Returns:
             Visible UV polygons [N, Vmax, 2].
         """
         return _project_screen_polygons_to_face_uv(
-            polygon_vertices=visible_screen_polygon_vertices,
-            face_screen_vertices=polygon_face_screen_vertices,
+            polygon_verts=visible_screen_polygon_verts,
+            face_screen_verts=polygon_face_screen_verts,
             face_vertex_depth=polygon_face_vertex_depth,
-            face_vertex_uv=polygon_face_vertex_uv,
+            face_verts_uvs=polygon_face_verts_uvs,
         )
 
     def _pack_visible_uv_polygons(
-        uv_polygon_vertices: torch.Tensor,
+        uv_polygon_verts: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Pack UV polygons with their original vertex counts.
 
         Args:
-            uv_polygon_vertices: Visible UV polygons [N, Vmax, 2].
+            uv_polygon_verts: Visible UV polygons [N, Vmax, 2].
 
         Returns:
             UV polygons and their vertex counts.
         """
         return (
-            uv_polygon_vertices.contiguous(),
+            uv_polygon_verts.contiguous(),
             visible_screen_polygon_vertex_counts.contiguous(),
         )
 
     (
-        polygon_face_screen_vertices,
+        polygon_face_screen_verts,
         polygon_face_vertex_depth,
-        polygon_face_vertex_uv,
+        polygon_face_verts_uvs,
     ) = _gather_visible_polygon_face_geometry()
-    uv_polygon_vertices = _project_screen_polygon_vertices_to_uv(
-        polygon_face_screen_vertices=polygon_face_screen_vertices,
+    uv_polygon_verts = _project_screen_polygon_verts_to_uv(
+        polygon_face_screen_verts=polygon_face_screen_verts,
         polygon_face_vertex_depth=polygon_face_vertex_depth,
-        polygon_face_vertex_uv=polygon_face_vertex_uv,
+        polygon_face_verts_uvs=polygon_face_verts_uvs,
     )
     return _pack_visible_uv_polygons(
-        uv_polygon_vertices=uv_polygon_vertices,
+        uv_polygon_verts=uv_polygon_verts,
     )
 
 
 def _compute_visible_uv_texels_from_uv_polygon_regions(
-    uv_polygon_vertices: torch.Tensor,
+    uv_polygon_verts: torch.Tensor,
     uv_polygon_vertex_counts: torch.Tensor,
     texture_size: int,
     polygon_rast_method: str = "v2",
@@ -1038,7 +1038,7 @@ def _compute_visible_uv_texels_from_uv_polygon_regions(
     """Compute visible UV texels from the UV polygon regions.
 
     Args:
-        uv_polygon_vertices: Visible UV polygons [N, Vmax, 2].
+        uv_polygon_verts: Visible UV polygons [N, Vmax, 2].
         uv_polygon_vertex_counts: Valid polygon vertex counts [N].
         texture_size: UV texture resolution.
         polygon_rast_method: Step-2 polygon rasterization method, `"v1"` or `"v2"`.
@@ -1058,18 +1058,18 @@ def _compute_visible_uv_texels_from_uv_polygon_regions(
         """
         # Input validations
         assert isinstance(
-            uv_polygon_vertices, torch.Tensor
-        ), f"{type(uv_polygon_vertices)=}"
+            uv_polygon_verts, torch.Tensor
+        ), f"{type(uv_polygon_verts)=}"
         assert isinstance(
             uv_polygon_vertex_counts, torch.Tensor
         ), f"{type(uv_polygon_vertex_counts)=}"
         assert isinstance(texture_size, int), f"{type(texture_size)=}"
         assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
-        assert uv_polygon_vertices.ndim == 3, f"{uv_polygon_vertices.shape=}"
-        assert uv_polygon_vertices.shape[2] == 2, f"{uv_polygon_vertices.shape=}"
+        assert uv_polygon_verts.ndim == 3, f"{uv_polygon_verts.shape=}"
+        assert uv_polygon_verts.shape[2] == 2, f"{uv_polygon_verts.shape=}"
         assert uv_polygon_vertex_counts.shape == (
-            uv_polygon_vertices.shape[0],
-        ), f"{uv_polygon_vertex_counts.shape=} {uv_polygon_vertices.shape=}"
+            uv_polygon_verts.shape[0],
+        ), f"{uv_polygon_vertex_counts.shape=} {uv_polygon_verts.shape=}"
         assert texture_size > 0, f"{texture_size=}"
         assert polygon_rast_method in ("v1", "v2"), (
             "Expected `polygon_rast_method` to be one of the supported polygon "
@@ -1081,19 +1081,19 @@ def _compute_visible_uv_texels_from_uv_polygon_regions(
 
     if polygon_rast_method == "v1":
         covered_texel_indices = _compute_uv_polygon_texel_contributions_v1(
-            uv_polygon_vertices=uv_polygon_vertices,
+            uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
             texture_size=texture_size,
         )
     else:
         covered_texel_indices = _compute_uv_polygon_texel_contributions_v2(
-            uv_polygon_vertices=uv_polygon_vertices,
+            uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
             texture_size=texture_size,
         )
     uv_mask = torch.zeros(
         (1, texture_size, texture_size, 1),
-        device=uv_polygon_vertices.device,
+        device=uv_polygon_verts.device,
         dtype=torch.float32,
     )
     if covered_texel_indices.shape[0] == 0:
@@ -1109,14 +1109,14 @@ def _compute_visible_uv_texels_from_uv_polygon_regions(
 
 
 def _compute_uv_polygon_texel_contributions_v1(
-    uv_polygon_vertices: torch.Tensor,
+    uv_polygon_verts: torch.Tensor,
     uv_polygon_vertex_counts: torch.Tensor,
     texture_size: int,
 ) -> torch.Tensor:
     """Construct exact step-2 `v1` texel contributions for visible UV polygons.
 
     Args:
-        uv_polygon_vertices: Visible UV polygons [N, Vmax, 2].
+        uv_polygon_verts: Visible UV polygons [N, Vmax, 2].
         uv_polygon_vertex_counts: Valid polygon vertex counts [N].
         texture_size: UV texture resolution.
 
@@ -1135,16 +1135,16 @@ def _compute_uv_polygon_texel_contributions_v1(
         """
         # Input validations
         assert isinstance(
-            uv_polygon_vertices, torch.Tensor
-        ), f"{type(uv_polygon_vertices)=}"
+            uv_polygon_verts, torch.Tensor
+        ), f"{type(uv_polygon_verts)=}"
         assert isinstance(
             uv_polygon_vertex_counts, torch.Tensor
         ), f"{type(uv_polygon_vertex_counts)=}"
-        assert uv_polygon_vertices.ndim == 3, f"{uv_polygon_vertices.shape=}"
-        assert uv_polygon_vertices.shape[2] == 2, f"{uv_polygon_vertices.shape=}"
+        assert uv_polygon_verts.ndim == 3, f"{uv_polygon_verts.shape=}"
+        assert uv_polygon_verts.shape[2] == 2, f"{uv_polygon_verts.shape=}"
         assert uv_polygon_vertex_counts.shape == (
-            uv_polygon_vertices.shape[0],
-        ), f"{uv_polygon_vertex_counts.shape=} {uv_polygon_vertices.shape=}"
+            uv_polygon_verts.shape[0],
+        ), f"{uv_polygon_vertex_counts.shape=} {uv_polygon_verts.shape=}"
         assert isinstance(texture_size, int), f"{type(texture_size)=}"
         assert texture_size > 0, f"{texture_size=}"
 
@@ -1162,30 +1162,30 @@ def _compute_uv_polygon_texel_contributions_v1(
                 wrapped UV polygon vertex counts [Nw].
         """
         return _duplicate_wrapped_uv_polygons(
-            uv_polygon_vertices=uv_polygon_vertices,
+            uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
         )
 
     (
-        wrapped_uv_polygon_vertices,
+        wrapped_uv_polygon_verts,
         wrapped_uv_polygon_vertex_counts,
     ) = _duplicate_wrap_crossing_polygons()
     return _build_uv_polygon_texel_intersections(
-        uv_polygon_vertices=wrapped_uv_polygon_vertices,
+        uv_polygon_verts=wrapped_uv_polygon_verts,
         uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
         texture_size=texture_size,
     )
 
 
 def _compute_uv_polygon_texel_contributions_v2(
-    uv_polygon_vertices: torch.Tensor,
+    uv_polygon_verts: torch.Tensor,
     uv_polygon_vertex_counts: torch.Tensor,
     texture_size: int,
 ) -> torch.Tensor:
     """Construct approximate step-2 `v2` texel contributions for visible UV polygons.
 
     Args:
-        uv_polygon_vertices: Visible UV polygons [N, Vmax, 2].
+        uv_polygon_verts: Visible UV polygons [N, Vmax, 2].
         uv_polygon_vertex_counts: Valid polygon vertex counts [N].
         texture_size: UV texture resolution.
 
@@ -1202,25 +1202,25 @@ def _compute_uv_polygon_texel_contributions_v2(
         Returns:
             None.
         """
-        assert isinstance(uv_polygon_vertices, torch.Tensor), (
-            "Expected `uv_polygon_vertices` to be a tensor. "
-            f"Got {type(uv_polygon_vertices)=}."
+        assert isinstance(uv_polygon_verts, torch.Tensor), (
+            "Expected `uv_polygon_verts` to be a tensor. "
+            f"Got {type(uv_polygon_verts)=}."
         )
         assert isinstance(uv_polygon_vertex_counts, torch.Tensor), (
             "Expected `uv_polygon_vertex_counts` to be a tensor. "
             f"Got {type(uv_polygon_vertex_counts)=}."
         )
-        assert uv_polygon_vertices.ndim == 3, (
-            "Expected `uv_polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {uv_polygon_vertices.shape=}."
+        assert uv_polygon_verts.ndim == 3, (
+            "Expected `uv_polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {uv_polygon_verts.shape=}."
         )
-        assert uv_polygon_vertices.shape[2] == 2, (
-            "Expected `uv_polygon_vertices` to have shape `[N, Vmax, 2]`. "
-            f"Got {uv_polygon_vertices.shape=}."
+        assert uv_polygon_verts.shape[2] == 2, (
+            "Expected `uv_polygon_verts` to have shape `[N, Vmax, 2]`. "
+            f"Got {uv_polygon_verts.shape=}."
         )
-        assert uv_polygon_vertex_counts.shape == (uv_polygon_vertices.shape[0],), (
+        assert uv_polygon_vertex_counts.shape == (uv_polygon_verts.shape[0],), (
             "Expected `uv_polygon_vertex_counts` to align with polygon count. "
-            f"{uv_polygon_vertex_counts.shape=} {uv_polygon_vertices.shape=}."
+            f"{uv_polygon_vertex_counts.shape=} {uv_polygon_verts.shape=}."
         )
         assert isinstance(texture_size, int), (
             "Expected `texture_size` to be an int. " f"Got {type(texture_size)=}."
@@ -1243,18 +1243,18 @@ def _compute_uv_polygon_texel_contributions_v2(
                 wrapped UV polygon vertex counts [Nw].
         """
         return _duplicate_wrapped_uv_polygons(
-            uv_polygon_vertices=uv_polygon_vertices,
+            uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
         )
 
     def _triangulate_wrapped_uv_polygons(
-        wrapped_uv_polygon_vertices: torch.Tensor,
+        wrapped_uv_polygon_verts: torch.Tensor,
         wrapped_uv_polygon_vertex_counts: torch.Tensor,
     ) -> torch.Tensor:
         """Triangulate wrapped convex UV polygons into a triangle soup.
 
         Args:
-            wrapped_uv_polygon_vertices: Wrapped UV polygons [Nw, Vmax, 2].
+            wrapped_uv_polygon_verts: Wrapped UV polygons [Nw, Vmax, 2].
             wrapped_uv_polygon_vertex_counts: Wrapped UV polygon vertex counts [Nw].
 
         Returns:
@@ -1270,43 +1270,43 @@ def _compute_uv_polygon_texel_contributions_v2(
             Returns:
                 None.
             """
-            assert isinstance(wrapped_uv_polygon_vertices, torch.Tensor), (
-                "Expected `wrapped_uv_polygon_vertices` to be a tensor. "
-                f"Got {type(wrapped_uv_polygon_vertices)=}."
+            assert isinstance(wrapped_uv_polygon_verts, torch.Tensor), (
+                "Expected `wrapped_uv_polygon_verts` to be a tensor. "
+                f"Got {type(wrapped_uv_polygon_verts)=}."
             )
             assert isinstance(wrapped_uv_polygon_vertex_counts, torch.Tensor), (
                 "Expected `wrapped_uv_polygon_vertex_counts` to be a tensor. "
                 f"Got {type(wrapped_uv_polygon_vertex_counts)=}."
             )
-            assert wrapped_uv_polygon_vertices.ndim == 3, (
-                "Expected `wrapped_uv_polygon_vertices` to be rank-3. "
-                f"{wrapped_uv_polygon_vertices.shape=}."
+            assert wrapped_uv_polygon_verts.ndim == 3, (
+                "Expected `wrapped_uv_polygon_verts` to be rank-3. "
+                f"{wrapped_uv_polygon_verts.shape=}."
             )
-            assert wrapped_uv_polygon_vertices.shape[2] == 2, (
-                "Expected `wrapped_uv_polygon_vertices` to end with UV pairs. "
-                f"{wrapped_uv_polygon_vertices.shape=}."
+            assert wrapped_uv_polygon_verts.shape[2] == 2, (
+                "Expected `wrapped_uv_polygon_verts` to end with UV pairs. "
+                f"{wrapped_uv_polygon_verts.shape=}."
             )
             assert wrapped_uv_polygon_vertex_counts.shape == (
-                wrapped_uv_polygon_vertices.shape[0],
+                wrapped_uv_polygon_verts.shape[0],
             ), (
                 "Expected wrapped vertex counts to align with polygon count. "
                 f"{wrapped_uv_polygon_vertex_counts.shape=} "
-                f"{wrapped_uv_polygon_vertices.shape=}."
+                f"{wrapped_uv_polygon_verts.shape=}."
             )
 
         _validate_inputs()
 
         return _triangulate_convex_uv_polygons(
-            polygon_vertices=wrapped_uv_polygon_vertices,
+            polygon_verts=wrapped_uv_polygon_verts,
             polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
         )
 
     (
-        wrapped_uv_polygon_vertices,
+        wrapped_uv_polygon_verts,
         wrapped_uv_polygon_vertex_counts,
     ) = _duplicate_wrap_crossing_polygons()
     wrapped_uv_triangles = _triangulate_wrapped_uv_polygons(
-        wrapped_uv_polygon_vertices=wrapped_uv_polygon_vertices,
+        wrapped_uv_polygon_verts=wrapped_uv_polygon_verts,
         wrapped_uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
     )
     return _build_uv_triangle_texel_intersections_v2(

@@ -45,7 +45,7 @@ class BaseMeshesSceneModel(BaseSceneModel):
     def extract_positions(self) -> torch.Tensor:
         mesh = self.model
         assert isinstance(mesh, Mesh), f"{type(mesh)=}"
-        return mesh.vertices
+        return mesh.verts
 
     @staticmethod
     @abstractmethod

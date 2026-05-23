@@ -10,12 +10,12 @@ from data.structures.three_d.mesh.validate import validate_mesh_attributes
 class Mesh:
     """One triangle mesh: geometry plus an optional texture.
 
-    `vertices` / `faces` always hold the geometry domain — the distinct surface
+    `verts` / `faces` always hold the geometry domain — the distinct surface
     positions and the faces indexing them. `texture is None` means the mesh is
     geometry-only.
 
     Args:
-        vertices: Mesh vertex tensor `[V, 3]`.
+        verts: Mesh vertex tensor `[V, 3]`.
         faces: Mesh face tensor `[F, 3]`.
         texture: Optional `MeshTexture` (`MeshTextureVertexColor` or
             `MeshTextureUVTextureMap`).
@@ -24,21 +24,21 @@ class Mesh:
         None.
     """
 
-    vertices: torch.Tensor
+    verts: torch.Tensor
     faces: torch.Tensor
     texture: Optional[MeshTexture]
     device: torch.device
 
     def __init__(
         self,
-        vertices: torch.Tensor,
+        verts: torch.Tensor,
         faces: torch.Tensor,
         texture: Optional[MeshTexture] = None,
     ) -> None:
         """Initialize one mesh container.
 
         Args:
-            vertices: Mesh vertex tensor `[V, 3]`.
+            verts: Mesh vertex tensor `[V, 3]`.
             faces: Mesh face tensor `[F, 3]`.
             texture: Optional `MeshTexture`.
 
@@ -47,22 +47,22 @@ class Mesh:
         """
 
         def _validate_inputs() -> None:
-            validate_mesh_attributes(vertices=vertices, faces=faces, texture=texture)
+            validate_mesh_attributes(verts=verts, faces=faces, texture=texture)
 
         _validate_inputs()
 
         def _normalize_inputs() -> Tuple[torch.Tensor, torch.Tensor]:
             return (
-                vertices.contiguous(),
+                verts.contiguous(),
                 faces.to(dtype=torch.int64).contiguous(),
             )
 
-        vertices, faces = _normalize_inputs()
+        verts, faces = _normalize_inputs()
 
-        self.vertices = vertices
+        self.verts = verts
         self.faces = faces
         self.texture = texture
-        self.device = self.vertices.device
+        self.device = self.verts.device
 
     @classmethod
     def load(cls, path: Union[str, Path]) -> "Mesh":
@@ -133,13 +133,13 @@ class Mesh:
 
         if self.texture is None:
             return Mesh(
-                vertices=self.vertices.to(device=target_device),
+                verts=self.verts.to(device=target_device),
                 faces=self.faces.to(device=target_device),
                 texture=None,
             )
 
         return Mesh(
-            vertices=self.vertices.to(device=target_device),
+            verts=self.verts.to(device=target_device),
             faces=self.faces.to(device=target_device),
             texture=self.texture.to(device=target_device, convention=convention),
         )

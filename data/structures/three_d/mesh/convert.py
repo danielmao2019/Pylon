@@ -47,9 +47,9 @@ def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> Mesh:
 
     _validate_inputs()
 
-    vertices_np = np.asarray(mesh.vertices)
-    assert vertices_np.dtype == np.float64, (
-        "Expected Open3D vertex positions to be float64. " f"{vertices_np.dtype=}"
+    verts_np = np.asarray(mesh.vertices)
+    assert verts_np.dtype == np.float64, (
+        "Expected Open3D vertex positions to be float64. " f"{verts_np.dtype=}"
     )
     faces_np = np.asarray(mesh.triangles)
     assert faces_np.dtype == np.int32, (
@@ -67,7 +67,7 @@ def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> Mesh:
         )
 
     return Mesh(
-        vertices=torch.as_tensor(vertices_np, dtype=torch.float32),
+        verts=torch.as_tensor(verts_np, dtype=torch.float32),
         faces=torch.as_tensor(faces_np, dtype=torch.int64),
         texture=texture,
     )
@@ -98,7 +98,7 @@ def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh:
 
     open3d_mesh = o3d.geometry.TriangleMesh()
     open3d_mesh.vertices = o3d.utility.Vector3dVector(
-        mesh.vertices.detach().cpu().numpy()
+        mesh.verts.detach().cpu().numpy()
     )
     open3d_mesh.triangles = o3d.utility.Vector3iVector(
         mesh.faces.detach().cpu().numpy()
@@ -139,16 +139,16 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
 
     _validate_inputs()
 
-    vertices = mesh.verts_list()[0].to(dtype=torch.float32).contiguous()
+    verts = mesh.verts_list()[0].to(dtype=torch.float32).contiguous()
     faces = mesh.faces_list()[0].to(dtype=torch.int64).contiguous()
     textures = mesh.textures
     if textures is None:
-        return Mesh(vertices=vertices, faces=faces, texture=None)
+        return Mesh(verts=verts, faces=faces, texture=None)
 
     if isinstance(textures, TexturesVertex):
         vertex_color = textures.verts_features_list()[0].to(dtype=torch.float32)
         return Mesh(
-            vertices=vertices,
+            verts=verts,
             faces=faces,
             texture=MeshTextureVertexColor(vertex_color=vertex_color.contiguous()),
         )
@@ -158,14 +158,14 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
         f"`TexturesUV`. {type(textures)=}"
     )
     return Mesh(
-        vertices=vertices,
+        verts=verts,
         faces=faces,
         texture=MeshTextureUVTextureMap(
             uv_texture_map=textures.maps_padded()[0]
             .to(dtype=torch.float32)
             .contiguous(),
-            vertex_uv=textures.verts_uvs_list()[0].to(dtype=torch.float32).contiguous(),
-            face_uvs=textures.faces_uvs_list()[0].to(dtype=torch.int64).contiguous(),
+            verts_uvs=textures.verts_uvs_list()[0].to(dtype=torch.float32).contiguous(),
+            faces_uvs=textures.faces_uvs_list()[0].to(dtype=torch.int64).contiguous(),
             convention=convention,
         ),
     )
@@ -207,7 +207,7 @@ def mesh_to_pytorch3d(
         if isinstance(mesh.texture, MeshTextureUVTextureMap)
         else mesh.to(device=target_device)
     )
-    verts = target_mesh.vertices.to(dtype=dtype).contiguous()
+    verts = target_mesh.verts.to(dtype=dtype).contiguous()
     faces = target_mesh.faces.to(dtype=torch.int64).contiguous()
 
     textures = None
@@ -220,8 +220,8 @@ def mesh_to_pytorch3d(
     elif isinstance(target_mesh.texture, MeshTextureUVTextureMap):
         textures = TexturesUV(
             maps=[target_mesh.texture.uv_texture_map.to(dtype=dtype).contiguous()],
-            faces_uvs=[target_mesh.texture.face_uvs.to(dtype=torch.int64).contiguous()],
-            verts_uvs=[target_mesh.texture.vertex_uv.to(dtype=dtype).contiguous()],
+            faces_uvs=[target_mesh.texture.faces_uvs.to(dtype=torch.int64).contiguous()],
+            verts_uvs=[target_mesh.texture.verts_uvs.to(dtype=dtype).contiguous()],
         )
 
     return Meshes(verts=[verts], faces=[faces], textures=textures)
@@ -260,26 +260,26 @@ def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -
         assert mesh.visual.uv is not None, (
             "Expected a textured trimesh to carry UV coordinates. " f"{mesh.visual.uv=}"
         )
-        vertices, faces, vertex_uv, face_uvs = _uv_mesh_from_trimesh(
-            vertices=np.asarray(mesh.vertices),
+        verts, faces, verts_uvs, faces_uvs = _uv_mesh_from_trimesh(
+            verts=np.asarray(mesh.vertices),
             faces=np.asarray(mesh.faces),
-            vertex_uv=np.asarray(mesh.visual.uv),
+            verts_uvs=np.asarray(mesh.visual.uv),
         )
         texture_image = _texture_image_from_trimesh(image=mesh.visual.material.image)
         return Mesh(
-            vertices=vertices,
+            verts=verts,
             faces=faces,
             texture=MeshTextureUVTextureMap(
                 uv_texture_map=torch.as_tensor(texture_image),
-                vertex_uv=vertex_uv,
-                face_uvs=face_uvs,
+                verts_uvs=verts_uvs,
+                faces_uvs=faces_uvs,
                 convention=convention,
             ),
         )
 
-    vertices_np = np.asarray(mesh.vertices)
-    assert vertices_np.dtype == np.float64, (
-        "Expected trimesh vertex positions to be float64. " f"{vertices_np.dtype=}"
+    verts_np = np.asarray(mesh.vertices)
+    assert verts_np.dtype == np.float64, (
+        "Expected trimesh vertex positions to be float64. " f"{verts_np.dtype=}"
     )
     faces_np = np.asarray(mesh.faces)
     assert faces_np.dtype == np.int64, (
@@ -294,7 +294,7 @@ def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -
         texture = MeshTextureVertexColor(vertex_color=torch.as_tensor(vertex_color))
 
     return Mesh(
-        vertices=torch.as_tensor(vertices_np, dtype=torch.float32),
+        verts=torch.as_tensor(verts_np, dtype=torch.float32),
         faces=torch.as_tensor(faces_np, dtype=torch.int64),
         texture=texture,
     )
@@ -323,14 +323,14 @@ def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
             "Expected the OBJ-convention mesh to keep a UV-texture-map texture. "
             f"{type(obj_mesh.texture)=}"
         )
-        expanded_vertices, expanded_faces, expanded_uv = _uv_mesh_to_trimesh(
+        expanded_verts, expanded_faces, expanded_uv = _uv_mesh_to_trimesh(
             mesh=obj_mesh
         )
         texture_image = _texture_image_to_trimesh(
             uv_texture_map=obj_mesh.texture.uv_texture_map
         )
         return trimesh.Trimesh(
-            vertices=expanded_vertices,
+            vertices=expanded_verts,
             faces=expanded_faces,
             visual=trimesh.visual.texture.TextureVisuals(
                 uv=expanded_uv,
@@ -341,7 +341,7 @@ def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
 
     if isinstance(mesh.texture, MeshTextureVertexColor):
         return trimesh.Trimesh(
-            vertices=mesh.vertices.detach().cpu().numpy(),
+            vertices=mesh.verts.detach().cpu().numpy(),
             faces=mesh.faces.detach().cpu().numpy(),
             vertex_colors=_vertex_color_to_trimesh(
                 vertex_color=mesh.texture.vertex_color
@@ -350,7 +350,7 @@ def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
         )
 
     return trimesh.Trimesh(
-        vertices=mesh.vertices.detach().cpu().numpy(),
+        vertices=mesh.verts.detach().cpu().numpy(),
         faces=mesh.faces.detach().cpu().numpy(),
         process=False,
     )
@@ -385,36 +385,36 @@ def _vertex_color_to_float_rgb(vertex_color: torch.Tensor) -> np.ndarray:
 
 
 def _uv_mesh_from_trimesh(
-    vertices: np.ndarray,
+    verts: np.ndarray,
     faces: np.ndarray,
-    vertex_uv: np.ndarray,
+    verts_uvs: np.ndarray,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Weld trimesh's per-corner duplicate vertices into the geometry domain.
+    """Weld trimesh's per-corner duplicate verts into the geometry domain.
 
-    Trimesh's `force="mesh"` OBJ loader duplicates seam vertices, producing one
+    Trimesh's `force="mesh"` OBJ loader duplicates seam verts, producing one
     vertex per `v/vt` pair. This inverts that expansion: coincident positions
     (exact-position equality) are welded back to the canonical geometry domain,
-    and the seam is re-expressed as `vertex_uv` / `face_uvs`. It is the inverse
+    and the seam is re-expressed as `verts_uvs` / `faces_uvs`. It is the inverse
     of `_uv_mesh_to_trimesh`.
 
     Args:
-        vertices: Per-corner-expanded vertex positions `[N, 3]`.
-        faces: Faces indexing the per-corner-expanded vertices `[F, 3]`.
-        vertex_uv: Per-corner UV coordinates `[N, 2]`, aligned 1:1 with
-            `vertices`.
+        verts: Per-corner-expanded vertex positions `[N, 3]`.
+        faces: Faces indexing the per-corner-expanded verts `[F, 3]`.
+        verts_uvs: Per-corner UV coordinates `[N, 2]`, aligned 1:1 with
+            `verts`.
 
     Returns:
-        Tuple of welded geometry vertices `[V, 3]` (float32), geometry faces
-        `[F, 3]` (int64) indexing the welded vertices, the UV table `[U, 2]`
-        (float32), and `face_uvs` `[F, 3]` (int64) indexing the UV table.
+        Tuple of welded geometry verts `[V, 3]` (float32), geometry faces
+        `[F, 3]` (int64) indexing the welded verts, the UV table `[U, 2]`
+        (float32), and `faces_uvs` `[F, 3]` (int64) indexing the UV table.
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(vertices, np.ndarray), (
-            "Expected `vertices` to be a numpy array. " f"{type(vertices)=}"
+        assert isinstance(verts, np.ndarray), (
+            "Expected `verts` to be a numpy array. " f"{type(verts)=}"
         )
-        assert vertices.ndim == 2 and vertices.shape[1] == 3, (
-            "Expected `vertices` to be `[N, 3]`. " f"{vertices.shape=}"
+        assert verts.ndim == 2 and verts.shape[1] == 3, (
+            "Expected `verts` to be `[N, 3]`. " f"{verts.shape=}"
         )
         assert isinstance(faces, np.ndarray), (
             "Expected `faces` to be a numpy array. " f"{type(faces)=}"
@@ -422,27 +422,27 @@ def _uv_mesh_from_trimesh(
         assert faces.ndim == 2 and faces.shape[1] == 3, (
             "Expected `faces` to be `[F, 3]`. " f"{faces.shape=}"
         )
-        assert isinstance(vertex_uv, np.ndarray), (
-            "Expected `vertex_uv` to be a numpy array. " f"{type(vertex_uv)=}"
+        assert isinstance(verts_uvs, np.ndarray), (
+            "Expected `verts_uvs` to be a numpy array. " f"{type(verts_uvs)=}"
         )
-        assert vertex_uv.ndim == 2 and vertex_uv.shape[1] == 2, (
-            "Expected `vertex_uv` to be `[N, 2]`. " f"{vertex_uv.shape=}"
+        assert verts_uvs.ndim == 2 and verts_uvs.shape[1] == 2, (
+            "Expected `verts_uvs` to be `[N, 2]`. " f"{verts_uvs.shape=}"
         )
-        assert vertex_uv.shape[0] == vertices.shape[0], (
-            "Expected per-corner trimesh UV to align 1:1 with vertices before "
+        assert verts_uvs.shape[0] == verts.shape[0], (
+            "Expected per-corner trimesh UV to align 1:1 with verts before "
             "welding. "
-            f"{vertex_uv.shape=} {vertices.shape=}"
+            f"{verts_uvs.shape=} {verts.shape=}"
         )
 
     _validate_inputs()
 
-    unique_positions, inverse_indices = np.unique(vertices, axis=0, return_inverse=True)
+    unique_positions, inverse_indices = np.unique(verts, axis=0, return_inverse=True)
     inverse_indices = inverse_indices.reshape(-1)
     welded_faces = inverse_indices[faces.reshape(-1)].reshape(faces.shape)
     return (
         torch.as_tensor(unique_positions, dtype=torch.float32).contiguous(),
         torch.as_tensor(welded_faces, dtype=torch.int64).contiguous(),
-        torch.as_tensor(vertex_uv, dtype=torch.float32).contiguous(),
+        torch.as_tensor(verts_uvs, dtype=torch.float32).contiguous(),
         torch.as_tensor(faces, dtype=torch.int64).contiguous(),
     )
 
@@ -527,7 +527,7 @@ def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
         mesh: Repo UV mesh already normalized to the `"obj"` convention.
 
     Returns:
-        Tuple of expanded vertices `[3F, 3]`, expanded faces `[F, 3]`, and
+        Tuple of expanded verts `[3F, 3]`, expanded faces `[F, 3]`, and
         per-corner UV coordinates `[3F, 2]`.
     """
 
@@ -546,14 +546,14 @@ def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
 
     _validate_inputs()
 
-    face_vertices = mesh.faces.detach().cpu()
-    face_uvs = mesh.texture.face_uvs.detach().cpu()
-    expanded_vertices = mesh.vertices.detach().cpu()[face_vertices.reshape(-1)].numpy()
-    expanded_uv = mesh.texture.vertex_uv.detach().cpu()[face_uvs.reshape(-1)].numpy()
-    expanded_faces = np.arange(expanded_vertices.shape[0], dtype=np.int64).reshape(
+    face_verts = mesh.faces.detach().cpu()
+    faces_uvs = mesh.texture.faces_uvs.detach().cpu()
+    expanded_verts = mesh.verts.detach().cpu()[face_verts.reshape(-1)].numpy()
+    expanded_uv = mesh.texture.verts_uvs.detach().cpu()[faces_uvs.reshape(-1)].numpy()
+    expanded_faces = np.arange(expanded_verts.shape[0], dtype=np.int64).reshape(
         -1, 3
     )
-    return expanded_vertices, expanded_faces, expanded_uv
+    return expanded_verts, expanded_faces, expanded_uv
 
 
 def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray:

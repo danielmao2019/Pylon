@@ -5,19 +5,19 @@ import torch
 
 def validate_uv_texture_map(
     uv_texture_map: torch.Tensor,
-    vertex_uv: torch.Tensor,
-    face_uvs: torch.Tensor,
+    verts_uvs: torch.Tensor,
+    faces_uvs: torch.Tensor,
     convention: str,
 ) -> None:
     _validate_uv_texture_map_image(obj=uv_texture_map)
-    _validate_vertex_uv(obj=vertex_uv)
-    _validate_face_uvs(obj=face_uvs)
+    _validate_verts_uvs(obj=verts_uvs)
+    _validate_faces_uvs(obj=faces_uvs)
     _validate_mesh_uv_convention(convention=convention)
 
-    assert int(face_uvs.max().item()) < int(vertex_uv.shape[0]), (
-        "Expected `face_uvs` indices to reference existing `vertex_uv` rows "
+    assert int(faces_uvs.max().item()) < int(verts_uvs.shape[0]), (
+        "Expected `faces_uvs` indices to reference existing `verts_uvs` rows "
         "only. "
-        f"{int(face_uvs.max().item())=} {int(vertex_uv.shape[0])=}"
+        f"{int(faces_uvs.max().item())=} {int(verts_uvs.shape[0])=}"
     )
 
 
@@ -65,52 +65,52 @@ def _validate_uv_texture_map_image(obj: Any) -> None:
     )
 
 
-def _validate_vertex_uv(obj: Any) -> None:
+def _validate_verts_uvs(obj: Any) -> None:
     assert isinstance(obj, torch.Tensor), (
-        "Expected `vertex_uv` to be a `torch.Tensor`. " f"{type(obj)=}"
+        "Expected `verts_uvs` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
-    assert obj.ndim == 2, "Expected `vertex_uv` to be rank 2. " f"{obj.shape=}"
+    assert obj.ndim == 2, "Expected `verts_uvs` to be rank 2. " f"{obj.shape=}"
     assert obj.shape[1] == 2, (
-        "Expected `vertex_uv` to contain UV pairs in the last dimension. "
+        "Expected `verts_uvs` to contain UV pairs in the last dimension. "
         f"{obj.shape=}"
     )
     assert obj.shape[0] > 0, (
-        "Expected `vertex_uv` to contain at least one UV coordinate. " f"{obj.shape=}"
+        "Expected `verts_uvs` to contain at least one UV coordinate. " f"{obj.shape=}"
     )
     assert obj.is_floating_point(), (
-        "Expected `vertex_uv` to use a floating dtype. " f"{obj.dtype=}"
+        "Expected `verts_uvs` to use a floating dtype. " f"{obj.dtype=}"
     )
     assert torch.isfinite(obj).all(), (
-        "Expected `vertex_uv` to contain only finite values. "
+        "Expected `verts_uvs` to contain only finite values. "
         f"{obj.shape=} {obj.dtype=}"
     )
     assert float(obj.min().item()) >= 0.0, (
-        "Expected `vertex_uv` values to be at least 0. " f"{float(obj.min().item())=}"
+        "Expected `verts_uvs` values to be at least 0. " f"{float(obj.min().item())=}"
     )
     assert float(obj.max().item()) <= 1.0, (
-        "Expected `vertex_uv` values to be at most 1. " f"{float(obj.max().item())=}"
+        "Expected `verts_uvs` values to be at most 1. " f"{float(obj.max().item())=}"
     )
 
 
-def _validate_face_uvs(obj: Any) -> None:
+def _validate_faces_uvs(obj: Any) -> None:
     assert isinstance(obj, torch.Tensor), (
-        "Expected `face_uvs` to be a `torch.Tensor`. " f"{type(obj)=}"
+        "Expected `faces_uvs` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
-    assert obj.ndim == 2, "Expected `face_uvs` to be rank 2. " f"{obj.shape=}"
+    assert obj.ndim == 2, "Expected `faces_uvs` to be rank 2. " f"{obj.shape=}"
     assert obj.shape[1] == 3, (
-        "Expected `face_uvs` to contain triangular UV indices. " f"{obj.shape=}"
+        "Expected `faces_uvs` to contain triangular UV indices. " f"{obj.shape=}"
     )
     assert obj.shape[0] > 0, (
-        "Expected `face_uvs` to contain at least one face. " f"{obj.shape=}"
+        "Expected `faces_uvs` to contain at least one face. " f"{obj.shape=}"
     )
     assert not obj.is_floating_point(), (
-        "Expected `face_uvs` to use an integer dtype. " f"{obj.dtype=}"
+        "Expected `faces_uvs` to use an integer dtype. " f"{obj.dtype=}"
     )
     assert obj.dtype != torch.bool, (
-        "Expected `face_uvs` to use an integer index dtype, not bool. " f"{obj.dtype=}"
+        "Expected `faces_uvs` to use an integer index dtype, not bool. " f"{obj.dtype=}"
     )
     assert int(obj.min().item()) >= 0, (
-        "Expected `face_uvs` to contain only non-negative indices. "
+        "Expected `faces_uvs` to contain only non-negative indices. "
         f"{int(obj.min().item())=}"
     )
 
