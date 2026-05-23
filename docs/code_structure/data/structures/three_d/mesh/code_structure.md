@@ -100,7 +100,7 @@ data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map
 └── class MeshTextureUVTextureMap(MeshTexture)
-    ├── # UV-atlas texture: uv_texture_map [H,W,3] + verts_uvs [U,2] + faces_uvs [F,3] + UV-origin convention.
+    ├── # UV-atlas texture: uv_texture_map [H,W,3] + verts_uvs [U,2] (seam-safe canonical) + faces_uvs [F,3] + UV-origin convention.
     ├── uv_texture_map: torch.Tensor
     ├── verts_uvs: torch.Tensor
     ├── faces_uvs: torch.Tensor
@@ -142,8 +142,11 @@ data/structures/three_d/mesh/texture/conventions.py
 data/structures/three_d/mesh/texture/validate_vertex_color.py
 ├── def validate_vertex_color(obj: Any) -> None
 │   ├── # Validates a vertex-color tensor ([V,3] or [1,V,3]; uint8 [0,255] or float32 [0,1]).
-│   ├── calls _validate_vertex_color_uint8                    # uint8 branch
-│   └── calls _validate_vertex_color_float32                  # float32 branch
+│   ├── assert obj.dtype in (torch.uint8, torch.float32)      # supported dtype gate
+│   ├── if obj.dtype == torch.uint8
+│   │   └── calls _validate_vertex_color_uint8
+│   └── if obj.dtype == torch.float32
+│       └── calls _validate_vertex_color_float32
 ├── def _validate_vertex_color_uint8(obj: Any) -> None
 │   └── # Validates a uint8 vertex-color tensor.
 └── def _validate_vertex_color_float32(obj: Any) -> None
@@ -155,18 +158,21 @@ data/structures/three_d/mesh/texture/validate_vertex_color.py
 ```text
 data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 ├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
-│   ├── # Validates the whole uv-texture-map representation — every field plus the cross-field invariant; the per-field validators it calls are public too.
-│   ├── calls validate_uv_texture_map_image
-│   ├── calls validate_verts_uvs
-│   ├── calls validate_faces_uvs
-│   ├── calls validate_mesh_uv_convention
-│   └── # cross-field: asserts faces_uvs indices reference valid verts_uvs rows (in [0, U))
+│   ├── # Validates the whole uv-texture-map representation: every single-field validator plus the cross-field invariants.
+│   ├── calls validate_uv_texture_map_image                  # single-field: uv_texture_map
+│   ├── calls validate_verts_uvs                             # single-field: verts_uvs
+│   ├── calls validate_faces_uvs                             # single-field: faces_uvs
+│   ├── calls validate_mesh_uv_convention                    # single-field: convention
+│   └── calls _validate_verts_uvs_faces_uvs_cross_field      # cross-field: (verts_uvs, faces_uvs)
 ├── def validate_uv_texture_map_image(obj: Any) -> None
 │   ├── # Validates a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
-│   ├── calls _validate_uv_texture_map_image_uint8             # uint8 branch
-│   └── calls _validate_uv_texture_map_image_float32           # float32 branch
+│   ├── assert obj.dtype in (torch.uint8, torch.float32)      # supported dtype gate
+│   ├── if obj.dtype == torch.uint8
+│   │   └── calls _validate_uv_texture_map_image_uint8
+│   └── if obj.dtype == torch.float32
+│       └── calls _validate_uv_texture_map_image_float32
 ├── def validate_verts_uvs(obj: Any) -> None
-│   └── # Validates a UV-coordinate table (float [U,2], finite, values in [0,1]).
+│   └── # Validates a UV-coordinate table (float [U,2], finite, non-negative; values may exceed 1 — see the seam contract on MeshTextureUVTextureMap).
 ├── def validate_faces_uvs(obj: Any) -> None
 │   └── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
 ├── def validate_mesh_uv_convention(convention: Any) -> str
