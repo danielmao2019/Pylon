@@ -200,9 +200,12 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 ```text
 data/structures/three_d/mesh/texture/texel_face_map.py
 ├── import nvdiffrast.torch as dr
-├── def build_texel_face_map(verts_uvs: torch.Tensor, faces: torch.Tensor, faces_uvs: torch.Tensor, texture_size: int) -> Dict[str, torch.Tensor]
-│   ├── # Builds the texel -> mesh-face correspondence at texture_size resolution: every occupied texel maps to (owning mesh face, face-local barycentric position). Operates on seam-safe canonical verts_uvs.
-│   ├── calls _build_seam_safe_uv_triangle_soup(verts_uvs=verts_uvs, faces=faces, faces_uvs=faces_uvs)
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── if TYPE_CHECKING
+│   └── from data.structures.three_d.mesh.mesh import Mesh   # TYPE_CHECKING-only: avoids the mesh.py -> texture/__init__.py -> texel_face_map.py -> mesh.py import cycle
+├── def build_texel_face_map(mesh: Mesh, texture_size: int) -> Dict[str, torch.Tensor]
+│   ├── # Builds the texel -> mesh-face correspondence at texture_size resolution: every occupied texel maps to (owning mesh face, face-local barycentric position). Requires mesh.texture to be a seam-safe canonical MeshTextureUVTextureMap.
+│   ├── calls _build_seam_safe_uv_triangle_soup(verts_uvs=mesh.texture.verts_uvs, faces=mesh.faces, faces_uvs=mesh.texture.faces_uvs)
 │   ├── calls _verts_uvs_to_clip(verts_uvs=raster_verts_uvs)
 │   ├── calls _compute_texel_face_index(rast_out=rast_out, raster_face_indices=raster_face_indices)
 │   └── calls _compute_texel_face_barycentric(rast_out=rast_out)
