@@ -17,14 +17,6 @@ tests/models/three_d/meshes/texture/
 
 ```text
 tests/models/three_d/meshes/texture/test_extract.py
-├── def test_build_uv_rasterization_mesh_duplicates_seam_crossing_face() -> None
-│   └── # _build_uv_rasterization_mesh splits a cylindrical-seam face into two wrapped UV triangles.
-├── def test_build_uv_rasterization_mesh_keeps_non_seam_face_single() -> None
-│   └── # _build_uv_rasterization_mesh leaves a non-seam face as one UV triangle.
-├── def test_build_camera_uv_interpolation_data_shifts_seam_face_once() -> None
-│   └── # _build_camera_uv_interpolation_data shifts one seam face into a single continuous UV chart.
-├── def test_verts_uvs_to_clip_uses_rasterizer_buffer_v_mapping() -> None
-│   └── # _verts_uvs_to_clip maps small-`v` UV coordinates to negative clip-space `y`.
 ├── def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None
 │   └── # compute_f_visibility_mask keeps UV visibility masks in `[1, T, T, 1]` layout.
 ├── def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None
