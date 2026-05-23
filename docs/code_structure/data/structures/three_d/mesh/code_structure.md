@@ -215,9 +215,9 @@ data/structures/three_d/mesh/texture/texel_face_map.py
 ├── def _verts_uvs_to_clip(verts_uvs: torch.Tensor) -> torch.Tensor
 │   └── # Converts UV coordinates to clip-space positions [1, V, 4] for the UV rasterizer (u, v -> 2u - 1, 2v - 1, 0, 1).
 ├── def _compute_texel_face_index(rast_out: torch.Tensor, raster_face_indices: torch.Tensor) -> torch.Tensor
-│   └── # Maps the rasterizer's per-texel soup-triangle index back to the original mesh-face index.
+│   └── # Maps the rasterizer's per-texel soup-triangle index back to the original mesh-face index, with -1 at unoccupied texels.
 └── def _compute_texel_face_barycentric(rast_out: torch.Tensor) -> torch.Tensor
-    └── # Extracts the per-texel face-local barycentric weights from the rasterizer output.
+    └── # Extracts per-texel face-local barycentric weights (summing to 1 on occupied texels) from the rasterizer output.
 ```
 
 ## Texture: package API surface
