@@ -9,19 +9,42 @@ def validate_uv_texture_map(
     faces_uvs: torch.Tensor,
     convention: str,
 ) -> None:
-    _validate_uv_texture_map_image(obj=uv_texture_map)
-    _validate_verts_uvs(obj=verts_uvs)
-    _validate_faces_uvs(obj=faces_uvs)
-    _validate_mesh_uv_convention(convention=convention)
+    """Validate one UV-texture-map representation: single-field validators plus cross-field invariants.
 
-    assert int(faces_uvs.max().item()) < int(verts_uvs.shape[0]), (
-        "Expected `faces_uvs` indices to reference existing `verts_uvs` rows "
-        "only. "
-        f"{int(faces_uvs.max().item())=} {int(verts_uvs.shape[0])=}"
+    Args:
+        uv_texture_map: UV texture image (CHW/HWC/NCHW/NHWC, 3 channels;
+            uint8 [0, 255] or float32 [0, 1]).
+        verts_uvs: UV-coordinate table [U, 2], float, finite, non-negative;
+            values may exceed 1 per the seam-safe canonical contract on
+            `MeshTextureUVTextureMap`.
+        faces_uvs: Face-to-UV index tensor [F, 3], integer, non-empty,
+            non-negative indices.
+        convention: UV-origin convention string (`"obj"` or `"top_left"`).
+
+    Returns:
+        None.
+    """
+
+    validate_uv_texture_map_image(obj=uv_texture_map)
+    validate_verts_uvs(obj=verts_uvs)
+    validate_faces_uvs(obj=faces_uvs)
+    validate_mesh_uv_convention(convention=convention)
+    _validate_verts_uvs_faces_uvs_cross_field(
+        verts_uvs=verts_uvs,
+        faces_uvs=faces_uvs,
     )
 
 
-def _validate_uv_texture_map_image(obj: Any) -> None:
+def validate_uv_texture_map_image(obj: Any) -> None:
+    """Validate a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
+
+    Args:
+        obj: Candidate UV texture image.
+
+    Returns:
+        None.
+    """
+
     assert isinstance(obj, torch.Tensor), (
         "Expected `uv_texture_map` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -58,14 +81,23 @@ def _validate_uv_texture_map_image(obj: Any) -> None:
     if obj.dtype == torch.float32:
         _validate_uv_texture_map_image_float32(obj=obj)
         return
-    raise AssertionError(
+    assert 0, (
         "Expected `uv_texture_map` to be either uint8 `[0, 255]` or "
         "float32 `[0, 1]`. "
         f"{obj.dtype=}"
     )
 
 
-def _validate_verts_uvs(obj: Any) -> None:
+def validate_verts_uvs(obj: Any) -> None:
+    """Validate a UV-coordinate table (float [U, 2], finite, non-negative; values may exceed 1 per the seam-safe canonical contract on `MeshTextureUVTextureMap`).
+
+    Args:
+        obj: Candidate UV-coordinate table.
+
+    Returns:
+        None.
+    """
+
     assert isinstance(obj, torch.Tensor), (
         "Expected `verts_uvs` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -87,12 +119,18 @@ def _validate_verts_uvs(obj: Any) -> None:
     assert float(obj.min().item()) >= 0.0, (
         "Expected `verts_uvs` values to be at least 0. " f"{float(obj.min().item())=}"
     )
-    assert float(obj.max().item()) <= 1.0, (
-        "Expected `verts_uvs` values to be at most 1. " f"{float(obj.max().item())=}"
-    )
 
 
-def _validate_faces_uvs(obj: Any) -> None:
+def validate_faces_uvs(obj: Any) -> None:
+    """Validate a face-to-UV index tensor (integer [F, 3], non-empty, non-negative indices).
+
+    Args:
+        obj: Candidate face-to-UV index tensor.
+
+    Returns:
+        None.
+    """
+
     assert isinstance(obj, torch.Tensor), (
         "Expected `faces_uvs` to be a `torch.Tensor`. " f"{type(obj)=}"
     )
@@ -115,13 +153,60 @@ def _validate_faces_uvs(obj: Any) -> None:
     )
 
 
-def _validate_mesh_uv_convention(convention: Any) -> None:
+def validate_mesh_uv_convention(convention: Any) -> None:
+    """Validate a UV-origin convention string (one of `"obj"`, `"top_left"`).
+
+    Args:
+        convention: Candidate UV-origin convention string.
+
+    Returns:
+        None.
+    """
+
     assert isinstance(convention, str), (
         "Expected `convention` to be a string. " f"{type(convention)=}"
     )
     assert convention in ("obj", "top_left"), (
         "Unsupported mesh UV convention. " f"{convention=}"
     )
+
+
+def _validate_verts_uvs_faces_uvs_cross_field(
+    verts_uvs: torch.Tensor,
+    faces_uvs: torch.Tensor,
+) -> None:
+    """Validate the cross-field invariants between verts_uvs and faces_uvs.
+
+    Args:
+        verts_uvs: UV-coordinate table [U, 2].
+        faces_uvs: Face-to-UV index tensor [F, 3].
+
+    Returns:
+        None.
+    """
+
+    def _validate_faces_uvs_index_range() -> None:
+        assert int(faces_uvs.max().item()) < int(verts_uvs.shape[0]), (
+            "Expected `faces_uvs` indices to reference existing `verts_uvs` "
+            "rows only. "
+            f"{int(faces_uvs.max().item())=} {int(verts_uvs.shape[0])=}"
+        )
+
+    _validate_faces_uvs_index_range()
+
+    def _validate_seam_safe_uv_layout() -> None:
+        face_corner_u = verts_uvs[faces_uvs.to(dtype=torch.long), 0]
+        per_face_u_span = (
+            face_corner_u.max(dim=1).values - face_corner_u.min(dim=1).values
+        )
+        worst_face_u_span = float(per_face_u_span.max().item())
+        assert worst_face_u_span <= 0.5, (
+            "Expected every face to satisfy the seam-safe per-face-span "
+            "invariant (u_max - u_min over verts_uvs[faces_uvs[f]] <= 0.5). "
+            f"{worst_face_u_span=}"
+        )
+
+    _validate_seam_safe_uv_layout()
 
 
 def _validate_uv_texture_map_image_uint8(obj: Any) -> None:

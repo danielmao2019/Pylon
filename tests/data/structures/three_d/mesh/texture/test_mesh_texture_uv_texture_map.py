@@ -62,6 +62,22 @@ def _build_uv_texture_map() -> torch.Tensor:
     )
 
 
+def _build_seam_safe_verts_uvs() -> torch.Tensor:
+    """Build one seam-safe verts_uvs table whose only face has u-span <= 0.5.
+
+    Args:
+        None.
+
+    Returns:
+        Float32 `[3, 2]` UV-coordinate table.
+    """
+
+    return torch.tensor(
+        [[0.1, 0.1], [0.4, 0.1], [0.1, 0.4]],
+        dtype=torch.float32,
+    )
+
+
 def test_rejects_faces_uvs_index_out_of_range() -> None:
     """Reject faces_uvs whose indices do not reference valid verts_uvs rows.
 
@@ -75,10 +91,7 @@ def test_rejects_faces_uvs_index_out_of_range() -> None:
     with pytest.raises(AssertionError, match="verts_uvs"):
         MeshTextureUVTextureMap(
             uv_texture_map=_build_uv_texture_map(),
-            verts_uvs=torch.tensor(
-                [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-                dtype=torch.float32,
-            ),
+            verts_uvs=_build_seam_safe_verts_uvs(),
             faces_uvs=torch.tensor([[0, 1, 3]], dtype=torch.int64),
             convention="obj",
         )
@@ -102,10 +115,7 @@ def test_normalizes_uint8_texture_map() -> None:
             ],
             dtype=torch.uint8,
         ),
-        verts_uvs=torch.tensor(
-            [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-            dtype=torch.float32,
-        ),
+        verts_uvs=_build_seam_safe_verts_uvs(),
         faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
         convention="obj",
     )
@@ -128,6 +138,51 @@ def test_normalizes_uint8_texture_map() -> None:
     ), f"{texture.uv_texture_map[0, 0]=}"
 
 
+def test_accepts_seam_safe_verts_uvs_outside_unit_interval() -> None:
+    """Accept verts_uvs whose u extends beyond 1.0 when the per-face u-span stays <= 0.5 (seam-safe canonical form).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    texture = MeshTextureUVTextureMap(
+        uv_texture_map=_build_uv_texture_map(),
+        verts_uvs=torch.tensor(
+            [[0.95, 0.20], [1.05, 0.25], [1.02, 0.80]],
+            dtype=torch.float32,
+        ),
+        faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+        convention="obj",
+    )
+
+    assert float(texture.verts_uvs.max().item()) > 1.0, f"{texture.verts_uvs=}"
+
+
+def test_rejects_face_with_u_span_exceeding_half() -> None:
+    """Reject any face whose verts_uvs[faces_uvs[f]] u-span exceeds 0.5 (would mean the face straddles the cylindrical wrap without being seam-shifted).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    with pytest.raises(AssertionError, match="seam-safe"):
+        MeshTextureUVTextureMap(
+            uv_texture_map=_build_uv_texture_map(),
+            verts_uvs=torch.tensor(
+                [[0.95, 0.20], [0.05, 0.25], [0.02, 0.80]],
+                dtype=torch.float32,
+            ),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+            convention="obj",
+        )
+
+
 def test_to_converts_uv_convention() -> None:
     """Return a texture whose verts_uvs is converted to the target convention.
 
@@ -140,10 +195,7 @@ def test_to_converts_uv_convention() -> None:
 
     texture = MeshTextureUVTextureMap(
         uv_texture_map=_build_uv_texture_map(),
-        verts_uvs=torch.tensor(
-            [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-            dtype=torch.float32,
-        ),
+        verts_uvs=_build_seam_safe_verts_uvs(),
         faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
         convention="obj",
     )
@@ -154,7 +206,7 @@ def test_to_converts_uv_convention() -> None:
     assert torch.allclose(
         converted.verts_uvs,
         torch.tensor(
-            [[0.0, 1.0], [1.0, 1.0], [0.0, 0.0]],
+            [[0.1, 0.9], [0.4, 0.9], [0.1, 0.6]],
             dtype=torch.float32,
         ),
         atol=1.0e-06,
