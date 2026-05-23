@@ -16,6 +16,9 @@ from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
 from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
     MeshTextureVertexColor,
 )
+from data.structures.three_d.mesh.texture.texel_face_map import (
+    build_texel_face_map,
+)
 from data.structures.three_d.mesh.texture.validate_uv_texture_map import (
     validate_faces_uvs,
     validate_mesh_uv_convention,
@@ -31,6 +34,7 @@ __all__ = (
     "MeshTexture",
     "MeshTextureVertexColor",
     "MeshTextureUVTextureMap",
+    "build_texel_face_map",
     "collapse_seam_shifted_uv_rows",
     "shift_seam_crossing_faces_to_seam_safe",
     "transform_verts_uvs_convention",
