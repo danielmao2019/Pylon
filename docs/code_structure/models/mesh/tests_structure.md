@@ -62,7 +62,8 @@ tests/models/three_d/meshes/texture/test_texel_visibility_v2.py
 │   ├── # compute_f_visibility_mask_v2 keeps the texel-center pipeline consistent on one identity face.
 │   └── calls _build_texel_face_map_with_three_texels
 ├── def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None
-│   └── # compute_f_visibility_mask_v2 drops texels whose owning face is back-facing in the view.
+│   ├── # compute_f_visibility_mask_v2 drops texels whose owning face is back-facing in the view.
+│   └── calls _build_one_camera
 ├── def test_select_visible_depth_clusters_per_camera_pixel_stops_at_first_large_gap() -> None
 │   └── # _select_visible_depth_clusters_per_camera_pixel keeps only the front cluster when no later cluster is larger.
 ├── def test_select_visible_depth_clusters_per_camera_pixel_rejects_larger_second_cluster() -> None
@@ -84,5 +85,6 @@ tests/models/three_d/meshes/texture/test_vertex_visibility.py
 ├── def test_compute_v_visibility_mask_keeps_some_front_facing_triangle_visibility() -> None
 │   └── # compute_v_visibility_mask keeps nonzero visibility when the only face is front-facing.
 └── def test_compute_v_visibility_mask_filters_back_facing_triangle_verts() -> None
-    └── # compute_v_visibility_mask drops verts whose only owning face is back-facing.
+    ├── # compute_v_visibility_mask drops verts whose only owning face is back-facing.
+    └── calls _build_one_camera
 ```
