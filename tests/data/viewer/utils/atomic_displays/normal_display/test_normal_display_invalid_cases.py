@@ -2,20 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import plotly.graph_objects as go
-import numpy as np
 
-from data.viewer.utils.atomic_displays.normal_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.normal_image_display import (
     create_normal_display,
-    get_normal_display_stats
+    get_normal_display_stats,
 )
-
 
 # ================================================================================
 # create_normal_display Tests - Invalid Cases
 # ================================================================================
+
 
 def test_create_normal_display_invalid_input_type():
     """Test assertion failure for invalid input type."""
@@ -106,6 +107,7 @@ def test_create_normal_display_zero_dimensions():
 # get_normal_display_stats Tests - Invalid Cases
 # ================================================================================
 
+
 def test_get_normal_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
@@ -184,6 +186,7 @@ def test_get_normal_display_stats_zero_dimensions():
 # ================================================================================
 # Edge Cases and Boundary Testing
 # ================================================================================
+
 
 def test_create_normal_display_with_different_dtypes():
     """Test normal display with different tensor dtypes (should work)."""

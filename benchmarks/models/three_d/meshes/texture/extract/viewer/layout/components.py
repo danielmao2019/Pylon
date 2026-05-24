@@ -26,8 +26,12 @@ from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
-from data.viewer.utils.atomic_displays.image_display import create_image_display
-from data.viewer.utils.atomic_displays.mesh_display import create_mesh_display
+from data.viewer.utils.atomic_displays.mesh.dash.core_mesh_display import (
+    create_mesh_display,
+)
+from data.viewer.utils.atomic_displays.pixels.dash.image_display import (
+    create_image_display,
+)
 
 SCENE_RADIO_ID = "texture-benchmark-scene-radio"
 RIGHT_PANEL_ID = "texture-benchmark-right-panel"

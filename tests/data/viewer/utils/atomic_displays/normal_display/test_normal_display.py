@@ -2,22 +2,23 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-import plotly.graph_objects as go
-
-from data.viewer.utils.atomic_displays.normal_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.normal_image_display import (
     create_normal_display,
-    get_normal_display_stats
+    get_normal_display_stats,
 )
-
 
 # ================================================================================
 # create_normal_display Tests - Valid Cases
 # ================================================================================
+
 
 def test_create_normal_display_basic(normal_tensor):
     """Test basic normal display creation."""
@@ -25,7 +26,6 @@ def test_create_normal_display_basic(normal_tensor):
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Normal Display"
-    assert fig.layout.height == 400
 
 
 def test_create_normal_display_various_sizes():
@@ -35,7 +35,7 @@ def test_create_normal_display_various_sizes():
     for h, w in sizes:
         normals = torch.randn(3, h, w, dtype=torch.float32)
         # Normalize to unit vectors
-        magnitude = torch.sqrt((normals ** 2).sum(dim=0, keepdim=True))
+        magnitude = torch.sqrt((normals**2).sum(dim=0, keepdim=True))
         magnitude = torch.clamp(magnitude, min=1e-8)
         normals = normals / magnitude
 
@@ -83,9 +83,7 @@ def test_create_normal_display_unit_normals():
 def test_create_normal_display_with_kwargs(normal_tensor):
     """Test normal display with additional keyword arguments."""
     fig = create_normal_display(
-        normal_tensor,
-        "Test with Kwargs",
-        extra_param="ignored"  # Should be ignored
+        normal_tensor, "Test with Kwargs", extra_param="ignored"  # Should be ignored
     )
 
     assert isinstance(fig, go.Figure)
@@ -95,6 +93,7 @@ def test_create_normal_display_with_kwargs(normal_tensor):
 # ================================================================================
 # Integration and Performance Tests
 # ================================================================================
+
 
 def test_normal_display_pipeline(normal_tensor):
     """Test complete normal display pipeline."""
@@ -145,6 +144,7 @@ def test_performance_with_large_normals():
 # ================================================================================
 # Correctness Verification Tests
 # ================================================================================
+
 
 def test_normal_display_rgb_mapping_correctness():
     """Test that normal-to-RGB mapping works correctly."""

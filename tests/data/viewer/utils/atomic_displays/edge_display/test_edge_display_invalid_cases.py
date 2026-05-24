@@ -2,19 +2,20 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+import plotly.graph_objects as go
 import pytest
 import torch
-import plotly.graph_objects as go
 
-from data.viewer.utils.atomic_displays.edge_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.edge_image_display import (
     create_edge_display,
-    get_edge_display_stats
+    get_edge_display_stats,
 )
-
 
 # ================================================================================
 # create_edge_display Tests - Invalid Cases
 # ================================================================================
+
 
 def test_create_edge_display_invalid_input_type():
     """Test assertion failure for invalid input type."""
@@ -132,6 +133,7 @@ def test_create_edge_display_invalid_colorscale_type():
 # get_edge_display_stats Tests - Invalid Cases
 # ================================================================================
 
+
 def test_get_edge_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""
     with pytest.raises(AssertionError) as exc_info:
@@ -227,6 +229,7 @@ def test_get_edge_display_stats_zero_dimensions():
 # ================================================================================
 # Edge Cases and Boundary Testing
 # ================================================================================
+
 
 def test_create_edge_display_with_different_dtypes():
     """Test edge display with various tensor dtypes (should work)."""

@@ -2,19 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-from data.viewer.utils.atomic_displays.edge_display import (
-    get_edge_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.edge_image_display import (
+    get_edge_display_stats,
 )
-
 
 # ================================================================================
 # get_edge_display_stats Tests - Valid Cases
 # ================================================================================
+
 
 def test_get_edge_display_stats_2d_tensor(edge_tensor_2d):
     """Test basic edge statistics with 2D tensor [H, W]."""
@@ -133,6 +135,7 @@ def test_get_edge_display_stats_different_dtypes():
 # Batch Support Stats Tests - CRITICAL for eval viewer
 # ================================================================================
 
+
 def test_get_edge_display_stats_batched(batched_edge_tensor):
     """Test edge statistics calculation for batched edge maps."""
     stats = get_edge_display_stats(batched_edge_tensor)
@@ -144,7 +147,9 @@ def test_get_edge_display_stats_batched(batched_edge_tensor):
 
 def test_batch_size_one_assertion_edge_stats():
     """Test that batch size > 1 raises assertion error in get_edge_display_stats."""
-    invalid_batched_edges = torch.rand(3, 32, 32, dtype=torch.float32)  # [N, H, W] with N=3
+    invalid_batched_edges = torch.rand(
+        3, 32, 32, dtype=torch.float32
+    )  # [N, H, W] with N=3
 
     with pytest.raises(AssertionError, match="Expected batch size 1 for analysis"):
         get_edge_display_stats(invalid_batched_edges)
@@ -153,6 +158,7 @@ def test_batch_size_one_assertion_edge_stats():
 # ================================================================================
 # Integration Tests
 # ================================================================================
+
 
 def test_complete_batch_edge_stats_pipeline(batched_edge_tensor):
     """Test complete batched edge statistics pipeline."""

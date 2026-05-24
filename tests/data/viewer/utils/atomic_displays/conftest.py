@@ -3,15 +3,17 @@
 CRITICAL: This conftest.py provides shared fixtures for all atomic display tests.
 Uses pytest fixtures only - no class definitions as per CLAUDE.md guidelines.
 """
+
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any, List, Tuple
-
 
 # ================================================================================
 # Basic Tensor Fixtures
 # ================================================================================
+
 
 @pytest.fixture
 def rgb_tensor():
@@ -36,7 +38,7 @@ def normal_tensor():
     """Surface normal tensor of shape [3, H, W] with normalized vectors."""
     normals = torch.randn(3, 32, 32, dtype=torch.float32)
     # Normalize to unit vectors
-    magnitude = torch.sqrt((normals ** 2).sum(dim=0, keepdim=True))
+    magnitude = torch.sqrt((normals**2).sum(dim=0, keepdim=True))
     magnitude = torch.clamp(magnitude, min=1e-8)  # Avoid division by zero
     return normals / magnitude
 
@@ -96,27 +98,46 @@ def point_cloud_labels():
 # Camera and Display Fixtures
 # ================================================================================
 
+
 @pytest.fixture
 def camera_state():
     """Camera state for LOD testing."""
     return {
         'eye': {'x': 1.0, 'y': 1.0, 'z': 1.0},
         'center': {'x': 0.0, 'y': 0.0, 'z': 0.0},
-        'up': {'x': 0.0, 'y': 0.0, 'z': 1.0}
+        'up': {'x': 0.0, 'y': 0.0, 'z': 1.0},
     }
+
+
+@pytest.fixture
+def setup_viewer_context():
+    """Set up minimal viewer context for tests that need dataset identity."""
+    import data.viewer.dataset.context as viewer_context_module
+    from data.viewer.dataset.backend import ViewerBackend
+    from data.viewer.dataset.context import DatasetViewerContext, set_viewer_context
+
+    backend = ViewerBackend()
+    backend.current_dataset = 'test_dataset'
+    context = DatasetViewerContext(backend=backend, available_datasets={})
+
+    original_context = viewer_context_module._VIEWER_CONTEXT
+    set_viewer_context(context)
+
+    yield
+
+    viewer_context_module._VIEWER_CONTEXT = original_context
 
 
 @pytest.fixture
 def class_labels():
     """Class labels mapping for segmentation visualization."""
-    return {
-        "segmentation": ["background", "building", "road", "vegetation", "water"]
-    }
+    return {"segmentation": ["background", "building", "road", "vegetation", "water"]}
 
 
 # ================================================================================
 # Dictionary-based Fixtures for Complex Cases
 # ================================================================================
+
 
 @pytest.fixture
 def segmentation_dict():
@@ -133,15 +154,13 @@ def segmentation_dict():
 
     indices = [0, 1, 2]  # Instance indices
 
-    return {
-        'masks': masks,
-        'indices': indices
-    }
+    return {'masks': masks, 'indices': indices}
 
 
 # ================================================================================
 # Edge Case Fixtures
 # ================================================================================
+
 
 @pytest.fixture
 def empty_tensor():
@@ -165,7 +184,7 @@ def large_tensor():
 def extreme_values_tensor():
     """Tensor with extreme values for robustness testing."""
     tensor = torch.zeros(3, 32, 32, dtype=torch.float32)
-    tensor[0] = 1e6   # Very large values
+    tensor[0] = 1e6  # Very large values
     tensor[1] = 1e-6  # Very small values
     tensor[2] = -1e3  # Negative values
     return tensor
@@ -183,7 +202,7 @@ def nan_tensor():
 def inf_tensor():
     """Tensor with infinity values for edge case testing."""
     tensor = torch.randn(3, 32, 32, dtype=torch.float32)
-    tensor[0, :5, :5] = float('inf')   # Add some positive infinity
+    tensor[0, :5, :5] = float('inf')  # Add some positive infinity
     tensor[1, :5, :5] = float('-inf')  # Add some negative infinity
     return tensor
 
@@ -191,6 +210,7 @@ def inf_tensor():
 # ================================================================================
 # Parametrized Fixtures
 # ================================================================================
+
 
 @pytest.fixture(params=["Viridis", "Plasma", "Inferno", "Cividis", "Gray"])
 def colorscale(request):
@@ -214,14 +234,11 @@ def tensor_size(request):
 # LOD Testing Fixtures
 # ================================================================================
 
+
 @pytest.fixture
 def lod_settings():
     """Level-of-Detail settings for point cloud testing."""
-    return {
-        'max_points': 5000,
-        'min_points': 100,
-        'distance_threshold': 10.0
-    }
+    return {'max_points': 5000, 'min_points': 100, 'distance_threshold': 10.0}
 
 
 @pytest.fixture
@@ -233,6 +250,7 @@ def point_cloud_id():
 # ================================================================================
 # Performance Testing Fixtures
 # ================================================================================
+
 
 @pytest.fixture(params=[100, 1000, 10000])
 def point_cloud_sizes(request):
@@ -251,6 +269,7 @@ def image_sizes(request):
 # ================================================================================
 # Batch Support Fixtures - CRITICAL for eval viewer
 # ================================================================================
+
 
 @pytest.fixture
 def batched_rgb_tensor():
@@ -275,7 +294,7 @@ def batched_normal_tensor():
     """Batched surface normal tensor of shape [1, 3, H, W] with normalized vectors."""
     normals = torch.randn(1, 3, 32, 32, dtype=torch.float32)
     # Normalize to unit vectors
-    magnitude = torch.sqrt((normals ** 2).sum(dim=1, keepdim=True))
+    magnitude = torch.sqrt((normals**2).sum(dim=1, keepdim=True))
     magnitude = torch.clamp(magnitude, min=1e-8)  # Avoid division by zero
     return normals / magnitude
 

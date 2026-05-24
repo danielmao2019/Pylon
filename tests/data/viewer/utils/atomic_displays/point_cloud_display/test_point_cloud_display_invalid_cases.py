@@ -2,11 +2,12 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.atomic_displays.point_cloud_display import (
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
     build_point_cloud_id,
     create_point_cloud_display,
     get_point_cloud_display_stats,
@@ -17,18 +18,17 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
 # Fixtures
 # ================================================================================
 
+
 @pytest.fixture
 def sample_datapoint():
     """Fixture providing sample datapoint for ID building."""
-    return {
-        'meta_info': {'idx': 42},
-        'other_data': 'test'
-    }
+    return {'meta_info': {'idx': 42}, 'other_data': 'test'}
 
 
 # ================================================================================
 # create_point_cloud_display Tests - Invalid Cases
 # ================================================================================
+
 
 def test_create_point_cloud_display_invalid_pc_type():
     """Test assertion failure for invalid pc type."""
@@ -65,7 +65,9 @@ def test_create_point_cloud_display_invalid_title_type():
     pc = PointCloud(xyz=points)
 
     with pytest.raises(AssertionError) as exc_info:
-        create_point_cloud_display(pc=pc, color_key=None, title=123)  # Invalid title type
+        create_point_cloud_display(
+            pc=pc, color_key=None, title=123
+        )  # Invalid title type
 
     assert "Expected str title" in str(exc_info.value)
 
@@ -73,6 +75,7 @@ def test_create_point_cloud_display_invalid_title_type():
 # ================================================================================
 # build_point_cloud_id Tests - Invalid Cases
 # ================================================================================
+
 
 def test_build_point_cloud_id_invalid_datapoint_type():
     """Test assertion failure for invalid datapoint type."""
@@ -94,6 +97,7 @@ def test_build_point_cloud_id_invalid_component_type(sample_datapoint):
 # normalize_point_cloud_id Tests - Invalid Cases
 # ================================================================================
 
+
 def test_normalize_point_cloud_id_invalid_input():
     """Test TypeError for invalid input type."""
     with pytest.raises(TypeError):
@@ -103,6 +107,7 @@ def test_normalize_point_cloud_id_invalid_input():
 # ================================================================================
 # get_point_cloud_display_stats Tests - Invalid Cases
 # ================================================================================
+
 
 def test_get_point_cloud_display_stats_invalid_pc_dict_type():
     """Test assertion failure for invalid pc_dict type."""

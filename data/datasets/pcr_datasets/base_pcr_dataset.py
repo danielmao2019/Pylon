@@ -13,7 +13,7 @@ from data.structures.three_d.point_cloud.ops import apply_transform
 from data.structures.three_d.point_cloud.ops.set_ops import pc_symmetric_difference
 from data.structures.three_d.point_cloud.ops.set_ops.symmetric_difference import _normalize_points
 from data.structures.three_d.point_cloud.ops.apply_transform import _normalize_transform
-from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
 from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
 from data.viewer.utils.structure_validation import validate_pcr_structure
 from data.datasets.base_dataset import BaseDataset

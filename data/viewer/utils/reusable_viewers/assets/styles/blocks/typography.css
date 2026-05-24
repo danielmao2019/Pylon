@@ -1,0 +1,7 @@
+.muted {
+  color: var(--color-muted);
+}
+
+.small {
+  font-size: var(--text-xs);
+}

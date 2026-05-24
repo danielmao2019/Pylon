@@ -2,17 +2,18 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
-from data.viewer.utils.atomic_displays.segmentation_display import (
-    get_segmentation_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.segmentation_display import (
+    get_segmentation_display_stats,
 )
-
 
 # ================================================================================
 # get_segmentation_display_stats Tests - Invalid Cases
 # ================================================================================
+
 
 def test_get_segmentation_display_stats_invalid_segmentation_type():
     """Test assertion failure for invalid segmentation input type."""

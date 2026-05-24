@@ -3,12 +3,13 @@
 Focuses on integration testing between multiple point cloud utilities and performance tests.
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import numpy as np
 import pytest
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.atomic_displays.point_cloud_display import (
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import (
     apply_lod_to_point_cloud,
     build_point_cloud_id,
     get_point_cloud_display_stats,
@@ -19,7 +20,10 @@ from data.viewer.utils.atomic_displays.point_cloud_display import (
 # Integration Tests
 # ================================================================================
 
-def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
+
+def test_point_cloud_utilities_pipeline(
+    point_cloud_3d, camera_state, setup_viewer_context
+):
     """Test complete point cloud utilities pipeline."""
     # Generate ID (requires proper datapoint format)
     datapoint = {"meta_info": {"idx": 42}}
@@ -37,9 +41,7 @@ def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
 
     # Apply LOD (no max_points parameter)
     lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
-        points=point_cloud_3d,
-        camera_state=camera_state,
-        lod_type="continuous"
+        points=point_cloud_3d, camera_state=camera_state, lod_type="continuous"
     )
     assert isinstance(lod_points, torch.Tensor)
 
@@ -52,7 +54,9 @@ def test_point_cloud_utilities_pipeline(point_cloud_3d, camera_state):
     assert lod_points.shape[1] == pc_numpy.shape[1] == 3
 
 
-def test_point_cloud_utilities_determinism(point_cloud_3d, camera_state):
+def test_point_cloud_utilities_determinism(
+    point_cloud_3d, camera_state, setup_viewer_context
+):
     """Test that point cloud utilities are deterministic."""
     # Multiple calls should produce same results
     datapoint = {"meta_info": {"idx": 42}}
@@ -78,7 +82,8 @@ def test_point_cloud_utilities_determinism(point_cloud_3d, camera_state):
 # Performance Tests
 # ================================================================================
 
-def test_performance_with_large_point_clouds():
+
+def test_performance_with_large_point_clouds(setup_viewer_context):
     """Test utilities performance with large point clouds."""
     # Create large point cloud
     large_pc = torch.randn(10000, 3, dtype=torch.float32)
@@ -90,9 +95,7 @@ def test_performance_with_large_point_clouds():
     pc_dict = PointCloud(xyz=large_pc)
     stats = get_point_cloud_display_stats(pc_dict)
     lod_points, lod_colors, lod_labels = apply_lod_to_point_cloud(
-        points=large_pc,
-        camera_state=camera_state,
-        lod_type="continuous"
+        points=large_pc, camera_state=camera_state, lod_type="continuous"
     )
     pc_numpy = lod_points.cpu().numpy()
 
@@ -101,5 +104,7 @@ def test_performance_with_large_point_clouds():
     assert isinstance(stats, dict)
     assert isinstance(lod_points, torch.Tensor)
     assert isinstance(pc_numpy, np.ndarray)
-    assert lod_points.shape[0] <= large_pc.shape[0]  # LOD should reduce or maintain size
+    assert (
+        lod_points.shape[0] <= large_pc.shape[0]
+    )  # LOD should reduce or maintain size
     assert pc_numpy.shape == lod_points.shape

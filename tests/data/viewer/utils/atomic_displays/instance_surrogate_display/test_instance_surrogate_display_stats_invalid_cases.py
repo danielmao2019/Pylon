@@ -2,17 +2,18 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
-from data.viewer.utils.atomic_displays.instance_surrogate_display import (
-    get_instance_surrogate_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.instance_surrogate_image_display import (
+    get_instance_surrogate_display_stats,
 )
-
 
 # ================================================================================
 # get_instance_surrogate_display_stats Tests - Invalid Cases
 # ================================================================================
+
 
 def test_get_instance_surrogate_display_stats_invalid_input_type():
     """Test assertion failure for invalid input type."""

@@ -2,19 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-from data.viewer.utils.atomic_displays.depth_display import (
-    get_depth_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.depth_image_display import (
+    get_depth_display_stats,
 )
-
 
 # ================================================================================
 # get_depth_display_stats Tests - Valid Cases
 # ================================================================================
+
 
 def test_get_depth_display_stats_basic(depth_tensor):
     """Test basic depth statistics calculation."""
@@ -37,7 +39,9 @@ def test_get_depth_display_stats_basic(depth_tensor):
 
 def test_get_depth_display_stats_realistic_depths():
     """Test depth statistics with realistic depth values."""
-    depth_map = torch.rand(64, 64, dtype=torch.float32) * 10.0 + 0.1  # Range [0.1, 10.1]
+    depth_map = (
+        torch.rand(64, 64, dtype=torch.float32) * 10.0 + 0.1
+    )  # Range [0.1, 10.1]
     stats = get_depth_display_stats(depth_map)
 
     assert isinstance(stats, dict)
@@ -51,8 +55,8 @@ def test_get_depth_display_stats_with_invalid_depths():
     depth_map = torch.rand(32, 32, dtype=torch.float32) * 5.0 + 1.0
 
     # Introduce some invalid depths
-    depth_map[0:5, 0:5] = 0.0      # Zero depths
-    depth_map[0:3, 10:15] = -1.0   # Negative depths
+    depth_map[0:5, 0:5] = 0.0  # Zero depths
+    depth_map[0:3, 10:15] = -1.0  # Negative depths
     depth_map[10:12, 0:3] = float('inf')  # Infinite depths
     depth_map[20:22, 20:22] = float('nan')  # NaN depths
 
@@ -75,11 +79,9 @@ def test_get_depth_display_stats_all_invalid():
 
 def test_get_depth_display_stats_zero_negative_depths():
     """Test depth statistics with zero and negative depth values."""
-    depth_map = torch.tensor([
-        [0.0, -1.0, 2.0],
-        [1.5, 0.0, 3.0],
-        [-0.5, 2.5, 1.0]
-    ], dtype=torch.float32)
+    depth_map = torch.tensor(
+        [[0.0, -1.0, 2.0], [1.5, 0.0, 3.0], [-0.5, 2.5, 1.0]], dtype=torch.float32
+    )
 
     stats = get_depth_display_stats(depth_map)
 
@@ -125,6 +127,7 @@ def test_get_depth_display_stats_different_dtypes():
 # Batch Support Stats Tests - CRITICAL for eval viewer
 # ================================================================================
 
+
 def test_get_depth_display_stats_batched(batched_depth_tensor):
     """Test depth statistics calculation for batched depth maps."""
     stats = get_depth_display_stats(batched_depth_tensor)
@@ -145,6 +148,7 @@ def test_batch_size_one_assertion_depth_stats():
 # ================================================================================
 # Integration Tests
 # ================================================================================
+
 
 def test_complete_batch_depth_stats_pipeline(batched_depth_tensor):
     """Test complete batched depth statistics pipeline."""

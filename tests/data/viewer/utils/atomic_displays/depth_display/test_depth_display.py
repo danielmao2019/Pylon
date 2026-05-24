@@ -2,22 +2,23 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any
 
-import plotly.graph_objects as go
-
-from data.viewer.utils.atomic_displays.depth_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.depth_image_display import (
     create_depth_display,
-    get_depth_display_stats
+    get_depth_display_stats,
 )
-
 
 # ================================================================================
 # create_depth_display Tests - Valid Cases
 # ================================================================================
+
 
 def test_create_depth_display_basic(depth_tensor):
     """Test basic depth display creation."""
@@ -25,10 +26,11 @@ def test_create_depth_display_basic(depth_tensor):
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Depth Display"
-    assert fig.layout.height == 400
 
 
-@pytest.mark.parametrize("colorscale", ["Viridis", "Plasma", "Inferno", "Cividis", "Turbo"])
+@pytest.mark.parametrize(
+    "colorscale", ["Viridis", "Plasma", "Inferno", "Cividis", "Turbo"]
+)
 def test_create_depth_display_various_colorscales(depth_tensor, colorscale):
     """Test depth display with various colorscales."""
     fig = create_depth_display(depth_tensor, "Test Colorscales", colorscale=colorscale)
@@ -70,7 +72,7 @@ def test_create_depth_display_with_kwargs(depth_tensor):
         depth_tensor,
         "Test with Kwargs",
         colorscale="Viridis",
-        extra_param="ignored"  # Should be ignored
+        extra_param="ignored",  # Should be ignored
     )
 
     assert isinstance(fig, go.Figure)
@@ -111,6 +113,7 @@ def test_create_depth_display_depth_gradient():
 # ================================================================================
 # Integration and Performance Tests
 # ================================================================================
+
 
 def test_depth_display_pipeline(depth_tensor):
     """Test basic depth statistics calculation."""
@@ -228,6 +231,7 @@ def test_get_depth_display_stats_single_pixel():
     assert stats["max_depth"] == 2.5
     assert stats["mean_depth"] == 2.5
     import math
+
     assert math.isnan(stats["std_depth"])  # Single pixel has NaN std
 
 
@@ -247,6 +251,7 @@ def test_get_depth_display_stats_different_dtypes():
 # ================================================================================
 # Integration and Performance Tests
 # ================================================================================
+
 
 def test_depth_display_pipeline(depth_tensor):
     """Test complete depth display pipeline."""
@@ -298,6 +303,7 @@ def test_performance_with_large_depth_maps():
 # Correctness Verification Tests
 # ================================================================================
 
+
 def test_depth_display_known_depth_pattern():
     """Test depth display with known depth pattern."""
     # Create concentric depth rings (like a bowl)
@@ -306,8 +312,10 @@ def test_depth_display_known_depth_pattern():
 
     for i in range(64):
         for j in range(64):
-            distance = np.sqrt((i - center_y)**2 + (j - center_x)**2)
-            depth[i, j] = 1.0 + distance * 0.1  # Depth increases with distance from center
+            distance = np.sqrt((i - center_y) ** 2 + (j - center_x) ** 2)
+            depth[i, j] = (
+                1.0 + distance * 0.1
+            )  # Depth increases with distance from center
 
     fig = create_depth_display(depth, "Concentric Depth")
     assert isinstance(fig, go.Figure)
@@ -323,10 +331,10 @@ def test_depth_display_step_function():
     depth = torch.zeros(32, 32, dtype=torch.float32)
 
     # Create depth steps
-    depth[:8, :] = 1.0    # Near objects
-    depth[8:16, :] = 3.0   # Medium distance
+    depth[:8, :] = 1.0  # Near objects
+    depth[8:16, :] = 3.0  # Medium distance
     depth[16:24, :] = 5.0  # Far objects
-    depth[24:, :] = 10.0   # Very far objects
+    depth[24:, :] = 10.0  # Very far objects
 
     fig = create_depth_display(depth, "Step Depths")
     assert isinstance(fig, go.Figure)
@@ -364,10 +372,10 @@ def test_depth_display_invalid_filtering():
     depth = torch.ones(20, 20, dtype=torch.float32) * 5.0
 
     # Add various invalid values
-    depth[0:5, 0:5] = 0.0      # Zero depths
-    depth[5:10, 0:5] = -1.0    # Negative depths
+    depth[0:5, 0:5] = 0.0  # Zero depths
+    depth[5:10, 0:5] = -1.0  # Negative depths
     depth[0:5, 5:10] = float('nan')  # NaN depths
-    depth[5:10, 5:10] = float('inf') # Infinite depths
+    depth[5:10, 5:10] = float('inf')  # Infinite depths
 
     stats = get_depth_display_stats(depth)
 

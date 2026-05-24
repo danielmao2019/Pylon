@@ -2,21 +2,23 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import plotly.graph_objects as go
-import numpy as np
-from typing import Dict, Any
 
-from data.viewer.utils.atomic_displays.segmentation_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.segmentation_display import (
     create_segmentation_display,
-    get_segmentation_display_stats
+    get_segmentation_display_stats,
 )
-
 
 # ================================================================================
 # create_segmentation_display Tests - Invalid Cases
 # ================================================================================
+
 
 def test_create_segmentation_display_invalid_segmentation_type():
     """Test assertion failure for invalid segmentation input type."""
@@ -83,9 +85,7 @@ def test_create_segmentation_display_tensor_invalid_dtype():
 
 def test_create_segmentation_display_dict_missing_masks():
     """Test assertion failure for dict missing 'masks' key."""
-    segmentation_dict = {
-        'indices': [0, 1, 2]
-    }
+    segmentation_dict = {'indices': [0, 1, 2]}
 
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_dict, "Test")
@@ -96,9 +96,7 @@ def test_create_segmentation_display_dict_missing_masks():
 def test_create_segmentation_display_dict_missing_indices():
     """Test assertion failure for dict missing 'indices' key."""
     masks = [torch.zeros(32, 32, dtype=torch.bool) for _ in range(3)]
-    segmentation_dict = {
-        'masks': masks
-    }
+    segmentation_dict = {'masks': masks}
 
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_dict, "Test")
@@ -108,10 +106,7 @@ def test_create_segmentation_display_dict_missing_indices():
 
 def test_create_segmentation_display_dict_invalid_masks_type():
     """Test assertion failure for dict with invalid masks type."""
-    segmentation_dict = {
-        'masks': "not_a_list",
-        'indices': [0, 1, 2]
-    }
+    segmentation_dict = {'masks': "not_a_list", 'indices': [0, 1, 2]}
 
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_dict, "Test")
@@ -122,10 +117,7 @@ def test_create_segmentation_display_dict_invalid_masks_type():
 def test_create_segmentation_display_dict_invalid_indices_type():
     """Test assertion failure for dict with invalid indices type."""
     masks = [torch.zeros(32, 32, dtype=torch.bool) for _ in range(3)]
-    segmentation_dict = {
-        'masks': masks,
-        'indices': "not_a_list"
-    }
+    segmentation_dict = {'masks': masks, 'indices': "not_a_list"}
 
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_dict, "Test")
@@ -135,10 +127,7 @@ def test_create_segmentation_display_dict_invalid_indices_type():
 
 def test_create_segmentation_display_dict_empty_masks():
     """Test assertion failure for dict with empty masks."""
-    segmentation_dict = {
-        'masks': [],
-        'indices': []
-    }
+    segmentation_dict = {'masks': [], 'indices': []}
 
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_dict, "Test")
@@ -151,10 +140,7 @@ def test_create_segmentation_display_dict_mismatched_lengths():
     masks = [torch.zeros(32, 32, dtype=torch.bool) for _ in range(3)]
     indices = [0, 1]  # Different length than masks
 
-    segmentation_dict = {
-        'masks': masks,
-        'indices': indices
-    }
+    segmentation_dict = {'masks': masks, 'indices': indices}
 
     with pytest.raises(AssertionError) as exc_info:
         create_segmentation_display(segmentation_dict, "Test")
@@ -175,6 +161,7 @@ def test_create_segmentation_display_invalid_class_labels_type():
 # ================================================================================
 # get_segmentation_display_stats Tests - Invalid Cases
 # ================================================================================
+
 
 def test_get_segmentation_display_stats_invalid_segmentation_type():
     """Test assertion failure for invalid segmentation type."""
@@ -211,9 +198,7 @@ def test_get_segmentation_display_stats_empty_tensor():
 
 def test_get_segmentation_display_stats_dict_missing_masks():
     """Test assertion failure for dict missing 'masks' key."""
-    segmentation_dict = {
-        'indices': [0, 1, 2]
-    }
+    segmentation_dict = {'indices': [0, 1, 2]}
 
     with pytest.raises(AssertionError) as exc_info:
         get_segmentation_display_stats(segmentation_dict)
@@ -224,9 +209,7 @@ def test_get_segmentation_display_stats_dict_missing_masks():
 def test_get_segmentation_display_stats_dict_missing_indices():
     """Test assertion failure for dict missing 'indices' key."""
     masks = [torch.zeros(32, 32, dtype=torch.bool) for _ in range(3)]
-    segmentation_dict = {
-        'masks': masks
-    }
+    segmentation_dict = {'masks': masks}
 
     with pytest.raises(AssertionError) as exc_info:
         get_segmentation_display_stats(segmentation_dict)
@@ -237,6 +220,7 @@ def test_get_segmentation_display_stats_dict_missing_indices():
 # ================================================================================
 # Edge Cases and Boundary Testing
 # ================================================================================
+
 
 def test_create_segmentation_display_extreme_tensor_values():
     """Test with extreme tensor values that might cause issues."""
@@ -260,10 +244,7 @@ def test_create_segmentation_display_dict_with_overlapping_masks():
     mask2 = torch.zeros(32, 32, dtype=torch.bool)
     mask2[15:25, 15:25] = True  # Overlaps with mask1
 
-    segmentation_dict = {
-        'masks': [mask1, mask2],
-        'indices': [0, 1]
-    }
+    segmentation_dict = {'masks': [mask1, mask2], 'indices': [0, 1]}
 
     # Should work even with overlapping masks
     fig = create_segmentation_display(segmentation_dict, "Overlapping Test")

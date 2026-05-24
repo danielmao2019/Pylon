@@ -2,22 +2,23 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict, List
+
+import numpy as np
+import plotly.graph_objects as go
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any, List
 
-import plotly.graph_objects as go
-
-from data.viewer.utils.atomic_displays.segmentation_display import (
+from data.viewer.utils.atomic_displays.pixels.dash.segmentation_display import (
     create_segmentation_display,
-    get_segmentation_display_stats
+    get_segmentation_display_stats,
 )
-
 
 # ================================================================================
 # create_segmentation_display Tests - Valid Cases
 # ================================================================================
+
 
 def test_create_segmentation_display_tensor_2d(segmentation_tensor):
     """Test creating segmentation display with 2D tensor."""
@@ -53,12 +54,12 @@ def test_create_segmentation_display_various_classes(num_classes):
     assert fig.layout.title.text == f"Test {num_classes} Classes"
 
 
-def test_create_segmentation_display_with_class_labels(segmentation_tensor, class_labels):
+def test_create_segmentation_display_with_class_labels(
+    segmentation_tensor, class_labels
+):
     """Test segmentation display with class labels."""
     fig = create_segmentation_display(
-        segmentation_tensor,
-        "Test with Labels",
-        class_labels=class_labels
+        segmentation_tensor, "Test with Labels", class_labels=class_labels
     )
 
     assert isinstance(fig, go.Figure)
@@ -88,6 +89,7 @@ def test_create_segmentation_display_various_sizes(tensor_size):
 # ================================================================================
 # Integration and Pipeline Tests
 # ================================================================================
+
 
 def test_segmentation_display_pipeline(segmentation_tensor):
     """Test complete segmentation display pipeline."""
@@ -121,17 +123,16 @@ def test_segmentation_display_with_complex_dict():
         mask = torch.zeros(64, 64, dtype=torch.bool)
         # Create circular-like masks
         center_y, center_x = 16 + i * 8, 16 + i * 8
-        y_coords, x_coords = torch.meshgrid(torch.arange(64), torch.arange(64), indexing='ij')
-        distance = torch.sqrt((y_coords - center_y)**2 + (x_coords - center_x)**2)
+        y_coords, x_coords = torch.meshgrid(
+            torch.arange(64), torch.arange(64), indexing='ij'
+        )
+        distance = torch.sqrt((y_coords - center_y) ** 2 + (x_coords - center_x) ** 2)
         mask[distance < 5] = True
 
         masks.append(mask)
         indices.append(f"instance_{i}")
 
-    segmentation_data = {
-        'masks': masks,
-        'indices': indices
-    }
+    segmentation_data = {'masks': masks, 'indices': indices}
 
     # Test display
     fig = create_segmentation_display(segmentation_data, "Complex Dict Test")
@@ -159,6 +160,7 @@ def test_performance_with_large_segmentation():
 # ================================================================================
 # Correctness Verification Tests
 # ================================================================================
+
 
 def test_segmentation_display_correctness():
     """Test segmentation display with known input patterns."""
@@ -201,13 +203,15 @@ def test_segmentation_stats_determinism(segmentation_tensor):
 # Batch Support Tests - CRITICAL for eval viewer
 # ================================================================================
 
+
 def test_create_segmentation_display_batched_tensor(batched_segmentation_tensor):
     """Test creating segmentation display with batched tensor (batch size 1)."""
-    fig = create_segmentation_display(batched_segmentation_tensor, "Test Batched Segmentation")
+    fig = create_segmentation_display(
+        batched_segmentation_tensor, "Test Batched Segmentation"
+    )
 
     assert isinstance(fig, go.Figure)
     assert fig.layout.title.text == "Test Batched Segmentation"
-
 
 
 def test_batch_size_one_assertion_segmentation_display():
@@ -248,7 +252,9 @@ def test_batched_vs_unbatched_segmentation_consistency(batched_segmentation_tens
 def test_complete_batch_segmentation_pipeline(batched_segmentation_tensor):
     """Test complete batched segmentation pipeline from tensor to figure."""
     # Test display creation (internally handles batch)
-    fig = create_segmentation_display(batched_segmentation_tensor, "Batch Segmentation Integration")
+    fig = create_segmentation_display(
+        batched_segmentation_tensor, "Batch Segmentation Integration"
+    )
     assert isinstance(fig, go.Figure)
 
     # Test statistics (handles batch)

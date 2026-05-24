@@ -1,0 +1,7 @@
+.tab-strip {
+  margin-bottom: var(--space-4);
+}
+
+.tab-content {
+  min-width: 0;
+}

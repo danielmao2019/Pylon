@@ -2,17 +2,18 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
 import pytest
 import torch
 
-from data.viewer.utils.atomic_displays.depth_display import (
-    get_depth_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.depth_image_display import (
+    get_depth_display_stats,
 )
-
 
 # ================================================================================
 # get_depth_display_stats Tests - Invalid Cases
 # ================================================================================
+
 
 def test_get_depth_display_stats_invalid_input_type():
     """Test assertion failure for invalid depth input type."""

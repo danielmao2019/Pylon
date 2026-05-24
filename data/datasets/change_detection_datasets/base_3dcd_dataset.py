@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 import torch
 from dash import dcc, html
 from data.datasets.base_dataset import BaseDataset
-from data.viewer.utils.atomic_displays.point_cloud_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
+from data.viewer.utils.atomic_displays.points.dash.core_points_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.display_utils import (
     DisplayStyles,

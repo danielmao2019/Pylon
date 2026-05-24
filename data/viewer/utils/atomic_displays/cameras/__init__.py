@@ -1,0 +1,1 @@
+"""Camera-geometry display modality."""

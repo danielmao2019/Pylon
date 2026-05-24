@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shared Gaussian Splat Viewer</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #020617;
+      }
+
+      #viewer-root {
+        position: absolute;
+        inset: 0;
+      }
+
+      #viewer-root canvas {
+        display: block;
+      }
+
+      #status {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 10;
+        max-width: calc(100vw - 20px);
+        padding: 5px 8px;
+        border-radius: 4px;
+        background: rgba(2, 6, 23, 0.72);
+        color: #f8fafc;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/",
+          "@mkkellogg/gaussian-splats-3d": "https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.7/build/gaussian-splats-3d.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="status">Loading</div>
+    <script type="module">
+      import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
+      import * as THREE from "three";
+      import { TrackballControls } from "three/addons/controls/TrackballControls.js";
+
+      const params = new URLSearchParams(window.location.search);
+      const autoloadUrl = params.get("autoloadUrl");
+      const label = params.get("label") || "Gaussian splats";
+      const statusElement = document.getElementById("status");
+
+      let viewer = null;
+      let controls = null;
+      let animationFrameId = null;
+      let currentUrl = null;
+      let loadingUrl = null;
+      let loadSequence = 0;
+      let currentCameraState = null;
+      let pendingCameraState = null;
+      let suppressCameraPublish = false;
+      let viewerRootElement = null;
+      let resizeRenderer = null;
+
+      function setStatus(message) {
+        statusElement.textContent = `${label}: ${message}`;
+        window.__splatViewerStatus = message;
+      }
+
+      function createViewer() {
+        disposeViewerRoot();
+        viewerRootElement = document.createElement("div");
+        viewerRootElement.id = "viewer-root";
+        document.body.appendChild(viewerRootElement);
+
+        const renderer = new THREE.WebGLRenderer({
+          antialias: false,
+          precision: "highp",
+          preserveDrawingBuffer: true,
+        });
+        renderer.setPixelRatio(window.devicePixelRatio || 1);
+        renderer.autoClear = true;
+        renderer.setClearColor(new THREE.Color(0x000000), 0.0);
+        viewerRootElement.appendChild(renderer.domElement);
+
+        viewer = new GaussianSplats3D.Viewer({
+          rootElement: viewerRootElement,
+          renderer,
+          selfDrivenMode: true,
+          useBuiltInControls: false,
+          sphericalHarmonicsDegree: 3,
+          gpuAcceleratedSort: false,
+          sharedMemoryForWorkers: false,
+          dynamicScene: false,
+        });
+        resizeRenderer = () => {
+          if (viewerRootElement === null) {
+            return;
+          }
+          const width = viewerRootElement.clientWidth || window.innerWidth;
+          const height = viewerRootElement.clientHeight || window.innerHeight;
+          renderer.setSize(width, height);
+          if (viewer?.camera?.isPerspectiveCamera === true) {
+            viewer.camera.aspect = width / height;
+            viewer.camera.updateProjectionMatrix();
+          }
+          viewer?.forceRenderNextFrame?.();
+        };
+        window.addEventListener("resize", resizeRenderer);
+        resizeRenderer();
+      }
+
+      function disposeControls() {
+        if (animationFrameId !== null) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+        if (controls !== null) {
+          controls.dispose();
+          controls = null;
+        }
+      }
+
+      function disposeViewerRoot() {
+        if (resizeRenderer !== null) {
+          window.removeEventListener("resize", resizeRenderer);
+          resizeRenderer = null;
+        }
+        if (viewerRootElement !== null) {
+          viewerRootElement.remove();
+          viewerRootElement = null;
+        }
+      }
+
+      function attachControls() {
+        if (viewer === null || viewer.camera === undefined || viewer.renderer === undefined) {
+          return;
+        }
+        controls = new TrackballControls(viewer.camera, viewer.renderer.domElement);
+        controls.rotateSpeed = 3.0;
+        controls.zoomSpeed = 1.5;
+        controls.panSpeed = 1.0;
+        controls.staticMoving = true;
+        controls.addEventListener("change", publishCameraState);
+
+        function tick() {
+          if (controls === null) {
+            return;
+          }
+          controls.update();
+          animationFrameId = requestAnimationFrame(tick);
+        }
+
+        tick();
+      }
+
+      async function loadSplat(url) {
+        if (url === null || url.length === 0) {
+          setStatus("Placeholder: no materialized artifact for this selection");
+          return;
+        }
+        if (url === currentUrl && viewer !== null) {
+          return;
+        }
+        if (url === loadingUrl) {
+          return;
+        }
+
+        loadingUrl = url;
+        loadSequence += 1;
+        const activeLoadSequence = loadSequence;
+        setStatus("Fetching");
+
+        try {
+          disposeControls();
+          if (viewer !== null) {
+            viewer.dispose();
+            viewer = null;
+            disposeViewerRoot();
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+          createViewer();
+          await viewer.addSplatScene(url, {
+            showLoadingUI: false,
+            progressiveLoad: false,
+          });
+          if (activeLoadSequence !== loadSequence || loadingUrl !== url) {
+            viewer.dispose();
+            return;
+          }
+          viewer.start();
+          attachControls();
+          currentUrl = url;
+          loadingUrl = null;
+          if (pendingCameraState !== null) {
+            applyCameraState(pendingCameraState);
+            pendingCameraState = null;
+          }
+          setStatus("Loaded");
+          publishCameraState();
+        } catch (error) {
+          if (activeLoadSequence !== loadSequence) {
+            return;
+          }
+          loadingUrl = null;
+          const message = error instanceof Error ? error.message : String(error);
+          setStatus(`Error: ${message}`);
+          console.error("Failed to load Gaussian splat artifact:", error);
+        }
+      }
+
+      function applyCameraState(cameraState) {
+        if (!isCameraState(cameraState)) {
+          return;
+        }
+        if (viewer === null || viewer.camera === undefined) {
+          pendingCameraState = cameraState;
+          return;
+        }
+        const gaussianCameraState = convertToGaussianCameraState(cameraState);
+        if (gaussianCameraState === null) {
+          return;
+        }
+
+        suppressCameraPublish = true;
+        viewer.camera.position.set(
+          gaussianCameraState.position.x,
+          gaussianCameraState.position.y,
+          gaussianCameraState.position.z,
+        );
+        viewer.camera.up.set(
+          gaussianCameraState.up.x,
+          gaussianCameraState.up.y,
+          gaussianCameraState.up.z,
+        );
+        viewer.camera.lookAt(
+          gaussianCameraState.target.x,
+          gaussianCameraState.target.y,
+          gaussianCameraState.target.z,
+        );
+        if (controls !== null) {
+          controls.target.set(
+            gaussianCameraState.target.x,
+            gaussianCameraState.target.y,
+            gaussianCameraState.target.z,
+          );
+          controls.update();
+        }
+        suppressCameraPublish = false;
+        publishCameraState();
+      }
+
+      function publishCameraState() {
+        if (
+          suppressCameraPublish ||
+          viewer === null ||
+          viewer.camera === undefined ||
+          controls === null
+        ) {
+          return;
+        }
+        currentCameraState = {
+          intrinsics: {
+            projection: "perspective",
+            fov: viewer.camera.fov,
+          },
+          extrinsics: {
+            position: vectorToRecord(viewer.camera.position),
+            target: vectorToRecord(controls.target),
+            up: vectorToRecord(viewer.camera.up),
+          },
+          convention: "trackball_gaussian_splatting",
+          name: label,
+          id: currentUrl,
+        };
+        if (window.parent !== window) {
+          window.parent.postMessage(
+            {
+              cameraState: currentCameraState,
+              type: "trackball-camera-state-change",
+            },
+            window.location.origin,
+          );
+        }
+      }
+
+      function convertToGaussianCameraState(cameraState) {
+        if (isGaussianCameraState(cameraState)) {
+          return cameraState.extrinsics;
+        }
+        if (isOpenCvCameraState(cameraState)) {
+          return convertOpenCvCameraState(cameraState);
+        }
+        if (isThreePointCameraState(cameraState)) {
+          return cameraState.extrinsics;
+        }
+        return null;
+      }
+
+      function convertOpenCvCameraState(cameraState) {
+        const matrix = cameraState.extrinsics.matrix;
+        const position = {
+          x: matrix[0][3],
+          y: matrix[1][3],
+          z: matrix[2][3],
+        };
+        const forward = normalizeVector({
+          x: matrix[0][2],
+          y: matrix[1][2],
+          z: matrix[2][2],
+        });
+        const down = normalizeVector({
+          x: matrix[0][1],
+          y: matrix[1][1],
+          z: matrix[2][1],
+        });
+        if (forward === null || down === null) {
+          return null;
+        }
+        return {
+          position,
+          target: {
+            x: position.x + forward.x,
+            y: position.y + forward.y,
+            z: position.z + forward.z,
+          },
+          up: {
+            x: -down.x,
+            y: -down.y,
+            z: -down.z,
+          },
+        };
+      }
+
+      function vectorToRecord(vector) {
+        return {
+          x: vector.x,
+          y: vector.y,
+          z: vector.z,
+        };
+      }
+
+      function normalizeVector(vector) {
+        const norm = Math.hypot(vector.x, vector.y, vector.z);
+        if (!Number.isFinite(norm) || norm <= 0) {
+          return null;
+        }
+        return {
+          x: vector.x / norm,
+          y: vector.y / norm,
+          z: vector.z / norm,
+        };
+      }
+
+      function isCameraState(value) {
+        return (
+          value !== null &&
+          typeof value === "object" &&
+          value.intrinsics !== null &&
+          typeof value.intrinsics === "object" &&
+          value.extrinsics !== null &&
+          typeof value.extrinsics === "object" &&
+          typeof value.convention === "string"
+        );
+      }
+
+      function isOpenCvCameraState(value) {
+        return (
+          isCameraState(value) &&
+          value.convention === "opencv" &&
+          isFiniteMatrix4x4(value.extrinsics.matrix)
+        );
+      }
+
+      function isGaussianCameraState(value) {
+        return (
+          isCameraState(value) &&
+          value.convention === "trackball_gaussian_splatting" &&
+          isFiniteVector(value.extrinsics.position) &&
+          isFiniteVector(value.extrinsics.target) &&
+          isFiniteVector(value.extrinsics.up)
+        );
+      }
+
+      function isThreePointCameraState(value) {
+        return (
+          isCameraState(value) &&
+          value.convention === "three_pointcloud" &&
+          isFiniteVector(value.extrinsics.position) &&
+          isFiniteVector(value.extrinsics.target) &&
+          isFiniteVector(value.extrinsics.up)
+        );
+      }
+
+      function isFiniteMatrix4x4(value) {
+        return (
+          Array.isArray(value) &&
+          value.length === 4 &&
+          value.every(
+            (row) =>
+              Array.isArray(row) &&
+              row.length === 4 &&
+              row.every((item) => Number.isFinite(item)),
+          )
+        );
+      }
+
+      function isFiniteVector(value) {
+        return (
+          value !== null &&
+          typeof value === "object" &&
+          Number.isFinite(value.x) &&
+          Number.isFinite(value.y) &&
+          Number.isFinite(value.z)
+        );
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.origin !== window.location.origin) {
+          return;
+        }
+        const message = event.data;
+        if (
+          message === null ||
+          typeof message !== "object" ||
+          message.type !== "trackball-camera-state"
+        ) {
+          return;
+        }
+        applyCameraState(message.cameraState);
+      });
+
+      setStatus("Ready");
+      void loadSplat(autoloadUrl);
+    </script>
+  </body>
+</html>

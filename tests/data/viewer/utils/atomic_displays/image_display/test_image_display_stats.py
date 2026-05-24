@@ -2,19 +2,21 @@
 
 CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
 """
+
+from typing import Any, Dict, Optional
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from typing import Dict, Any, Optional
 
-from data.viewer.utils.atomic_displays.image_display import (
-    get_image_display_stats
+from data.viewer.utils.atomic_displays.pixels.dash.image_display import (
+    get_image_display_stats,
 )
-
 
 # ================================================================================
 # get_image_display_stats Tests - Valid Cases
 # ================================================================================
+
 
 def test_get_image_display_stats_basic():
     """Test basic image statistics calculation."""
@@ -49,6 +51,7 @@ def test_image_stats_with_edge_cases():
 # Batch Support Stats Tests - CRITICAL for eval viewer
 # ================================================================================
 
+
 def test_get_image_display_stats_batched_rgb(batched_rgb_tensor):
     """Test image statistics calculation for batched RGB image."""
     stats = get_image_display_stats(batched_rgb_tensor)
@@ -75,6 +78,7 @@ def test_batch_size_one_assertion_stats():
 # ================================================================================
 # Integration Tests
 # ================================================================================
+
 
 def test_complete_batch_stats_pipeline_rgb(batched_rgb_tensor):
     """Test complete batched image statistics pipeline."""
