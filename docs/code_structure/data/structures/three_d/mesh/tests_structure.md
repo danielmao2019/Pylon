@@ -1,14 +1,8 @@
 # Mesh Data Structure Tests Structure
 
-Test skeleton for `tests/data/structures/three_d/mesh/`. Branches mirror the
-system-under-test structure declared in `code_structure.md`; leaves are
-individual pytest test functions with a one-line purpose. The skeleton fixes
-what each test pins and the phase-3 implementation follows it exactly. Grow
-leaves as we find regressions, contracts, or spec items worth pinning.
+Test skeleton for `tests/data/structures/three_d/mesh/`. Branches mirror the system-under-test structure declared in `code_structure.md`; leaves are individual pytest test functions with a one-line purpose. The skeleton fixes what each test pins and the phase-3 implementation follows it exactly. Grow leaves as we find regressions, contracts, or spec items worth pinning.
 
-`data/structures/three_d/mesh/` is a pure data-structure library, so there are
-unit tests only — no end-to-end / running-app tests. For module code structure
-see `code_structure.md`; for the module folder layout see `folder_structure.md`.
+`data/structures/three_d/mesh/` is a pure data-structure library, so there are unit tests only — no end-to-end / running-app tests. For module code structure see `code_structure.md`; for the module folder layout see `folder_structure.md`.
 
 ## 1. Folder structure
 
@@ -90,5 +84,5 @@ tests/data/structures/three_d/mesh/test_load_save_roundtrip.py
 ├── def test_load_promotes_seam_crossing_face_to_seam_safe_canonical
 │   └── # After load, every face of a seamed mesh satisfies u-span <= 0.5 over its verts_uvs[faces_uvs[f]] (seam-safe canonical form holds).
 └── def test_save_collapses_seam_shifted_uv_rows
-    └── # _collapse_seam_shifted_uv_rows reduces canonical (U' > U) back to OBJ vt structure (U_obj == U): seam-shifted siblings at (u, v) and (u - 1, v) emit one vt line referenced by both face-corner indices.
+    └── # collapse_seam_shifted_uv_rows reduces canonical (U' > U) back to OBJ vt structure (U_obj == U): seam-shifted siblings at (u, v) and (u - 1, v) emit one vt line referenced by both face-corner indices.
 ```
