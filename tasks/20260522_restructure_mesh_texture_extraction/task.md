@@ -9,3 +9,4 @@ guidelines:
       2. iVISION-PCR, iVISION-PCR-*
       3. OfficeHours, OfficeHours-*
       4. sthetic-face, sthetic-face-*
+3. task scope
