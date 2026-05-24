@@ -136,6 +136,24 @@ data/structures/three_d/mesh/texture/conventions.py
         └── return flipped
 ```
 
+## Texture: seam-safe canonical layout
+
+```text
+data/structures/three_d/mesh/texture/canonicalize.py
+├── def shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
+│   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart (per-face u-span <= 0.5), forking any source vt row shared between a seam-crossing and a non-seam face.
+│   ├── impls detect seam-crossing faces via per-face u-span over verts_uvs[faces_uvs[f]] > 0.5
+│   ├── impls shift small-u corners of each seam-crossing face by +1
+│   ├── impls fork a source vt row into two when one row is shared by a seam-crossing face and a non-seam face (the seam-crossing copy receives +1, the non-seam copy stays)
+│   └── return                                              # (verts_uvs_canonical, faces_uvs_canonical) with U' >= U
+└── def collapse_seam_shifted_uv_rows(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
+    ├── # Collapses seam-shifted canonical UV rows back to the OBJ-style vt structure (inverse of shift_seam_crossing_faces_to_seam_safe).
+    ├── impls detect canonical sibling pairs at (u, v) and (u - 1, v) within verts_uvs
+    ├── impls emit one OBJ vt entry per pair and repoint both face-corner indices in faces_uvs to that entry
+    ├── impls wrap u mod 1 for any canonical row without a sibling
+    └── return                                              # (obj_vt_table, obj_faces_uvs) with U_obj <= U_canonical
+```
+
 ## Texture: vertex-color validation
 
 ```text
@@ -233,6 +251,7 @@ data/structures/three_d/mesh/texture/texel_face_map.py
 
 ```text
 data/structures/three_d/mesh/texture/__init__.py
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
@@ -249,6 +268,7 @@ data/structures/three_d/mesh/load.py
 ├── from pytorch3d.io import load_obj
 ├── from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def load_mesh(path: Union[str, Path]) -> Mesh
@@ -276,13 +296,7 @@ data/structures/three_d/mesh/load.py
 │   ├── calls _resolve_input_path
 │   ├── calls load_obj                                        # verts, faces, aux (verts_uvs, textures_idx, texture_images)
 │   ├── calls pack_texture_images                             # multi-material -> single atlas
-│   └── calls _shift_seam_crossing_faces_to_seam_safe         # raw OBJ verts_uvs -> seam-safe canonical
-├── def _shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart.
-│   ├── impls detect seam-crossing faces via per-face u-span over verts_uvs[faces_uvs[f]] > 0.5
-│   ├── impls shift small-u corners of each seam-crossing face by +1
-│   ├── impls fork a source vt row into two when one row is shared by a seam-crossing face and a non-seam face (the seam-crossing copy receives +1, the non-seam copy stays)
-│   └── return                                              # (verts_uvs_canonical, faces_uvs_canonical) with U' >= U
+│   └── calls shift_seam_crossing_faces_to_seam_safe          # raw OBJ verts_uvs -> seam-safe canonical
 ├── def _resolve_input_path(path: Union[str, Path]) -> Path
 │   ├── # Resolves a mesh path to exactly one OBJ file.
 │   └── calls _resolve_input_paths
@@ -297,6 +311,7 @@ data/structures/three_d/mesh/load.py
 ```text
 data/structures/three_d/mesh/save.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
 ├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
@@ -327,13 +342,7 @@ data/structures/three_d/mesh/save.py
 │   ├── calls _resolve_output_obj_path
 │   ├── calls _normalize_uv_texture_map_for_png
 │   ├── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
-│   └── calls _collapse_seam_shifted_uv_rows                  # seam-safe canonical -> OBJ vt structure
-├── def _collapse_seam_shifted_uv_rows(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   ├── # Collapses seam-shifted UV rows back to the OBJ vt structure.
-│   ├── impls detect canonical sibling pairs at (u, v) and (u - 1, v) within verts_uvs
-│   ├── impls emit one OBJ vt entry per pair and repoint both face-corner indices in faces_uvs to that entry
-│   ├── impls wrap u mod 1 for any canonical row without a sibling
-│   └── return                                              # (obj_vt_table, obj_faces_uvs) with U_obj <= U_canonical
+│   └── calls collapse_seam_shifted_uv_rows                   # seam-safe canonical -> OBJ vt structure
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
 │   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
 ├── def _resolve_output_non_uv_mesh_path(output_path: Union[str, Path]) -> Path
@@ -385,6 +394,7 @@ data/structures/three_d/mesh/merge.py
 ```text
 data/structures/three_d/mesh/convert.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> Mesh
@@ -399,12 +409,14 @@ data/structures/three_d/mesh/convert.py
 │   ├── elif isinstance(mesh.textures, TexturesVertex)
 │   │   └── # builds Mesh with a MeshTextureVertexColor
 │   └── else  # TexturesUV
+│       ├── calls shift_seam_crossing_faces_to_seam_safe     # raw TexturesUV verts_uvs -> seam-safe canonical
 │       └── # builds Mesh with a MeshTextureUVTextureMap
 ├── def mesh_to_pytorch3d(mesh: Mesh, device: Union[str, torch.device, None] = None, dtype: torch.dtype = torch.float32) -> Meshes
 │   ├── # Converts a Mesh into a PyTorch3D Meshes.
 │   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
 │   │   └── # builds Meshes with a TexturesVertex
 │   ├── elif isinstance(mesh.texture, MeshTextureUVTextureMap)
+│   │   ├── calls collapse_seam_shifted_uv_rows              # seam-safe canonical -> OBJ vt structure for TexturesUV
 │   │   └── # builds Meshes with a TexturesUV (UV forced to "obj" convention)
 │   └── else
 │       └── # builds a geometry-only Meshes
@@ -412,6 +424,7 @@ data/structures/three_d/mesh/convert.py
 │   ├── # Converts a trimesh.Trimesh into a Mesh.
 │   ├── if mesh.visual carries uv
 │   │   ├── calls _uv_mesh_from_trimesh                      # welds per-corner duplicate verts into the geometry domain
+│   │   ├── calls shift_seam_crossing_faces_to_seam_safe     # raw trimesh verts_uvs -> seam-safe canonical
 │   │   ├── calls _texture_image_from_trimesh
 │   │   └── # builds Mesh with a MeshTextureUVTextureMap
 │   └── else
@@ -435,7 +448,8 @@ data/structures/three_d/mesh/convert.py
 ├── def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray
 │   └── # Converts trimesh vertex colors to a repo RGB array (drops opaque alpha).
 ├── def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-│   └── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
+│   ├── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
+│   └── calls collapse_seam_shifted_uv_rows                  # seam-safe canonical -> OBJ vt structure before per-corner expansion
 ├── def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray
 │   └── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.
 └── def _vertex_color_to_trimesh(vertex_color: torch.Tensor) -> np.ndarray
