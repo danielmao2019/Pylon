@@ -10,9 +10,11 @@ from PIL import Image
 from pytorch3d.renderer import TexturesUV, TexturesVertex
 from pytorch3d.structures import Meshes
 
-from data.structures.three_d.mesh.load import _shift_seam_crossing_faces_to_seam_safe
 from data.structures.three_d.mesh.mesh import Mesh
-from data.structures.three_d.mesh.save import _collapse_seam_shifted_uv_rows
+from data.structures.three_d.mesh.texture.canonicalize import (
+    collapse_seam_shifted_uv_rows,
+    shift_seam_crossing_faces_to_seam_safe,
+)
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
@@ -161,7 +163,7 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
     )
     raw_verts_uvs = textures.verts_uvs_list()[0].to(dtype=torch.float32).contiguous()
     raw_faces_uvs = textures.faces_uvs_list()[0].to(dtype=torch.int64).contiguous()
-    canonical_verts_uvs, canonical_faces_uvs = _shift_seam_crossing_faces_to_seam_safe(
+    canonical_verts_uvs, canonical_faces_uvs = shift_seam_crossing_faces_to_seam_safe(
         verts_uvs=raw_verts_uvs,
         faces_uvs=raw_faces_uvs,
     )
@@ -226,7 +228,7 @@ def mesh_to_pytorch3d(
             ]
         )
     elif isinstance(target_mesh.texture, MeshTextureUVTextureMap):
-        obj_verts_uvs, obj_faces_uvs = _collapse_seam_shifted_uv_rows(
+        obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
             verts_uvs=target_mesh.texture.verts_uvs.detach().cpu(),
             faces_uvs=target_mesh.texture.faces_uvs.detach().cpu(),
         )
@@ -281,7 +283,7 @@ def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -
             faces=np.asarray(mesh.faces),
             verts_uvs=np.asarray(mesh.visual.uv),
         )
-        canonical_verts_uvs, canonical_faces_uvs = _shift_seam_crossing_faces_to_seam_safe(
+        canonical_verts_uvs, canonical_faces_uvs = shift_seam_crossing_faces_to_seam_safe(
             verts_uvs=verts_uvs,
             faces_uvs=faces_uvs,
         )
@@ -567,7 +569,7 @@ def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
     _validate_inputs()
 
     face_verts = mesh.faces.detach().cpu()
-    obj_verts_uvs, obj_faces_uvs = _collapse_seam_shifted_uv_rows(
+    obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
         verts_uvs=mesh.texture.verts_uvs.detach().cpu(),
         faces_uvs=mesh.texture.faces_uvs.detach().cpu(),
     )
