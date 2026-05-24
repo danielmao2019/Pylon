@@ -1,14 +1,11 @@
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 import numpy as np
 import torch
 from PIL import Image
 
 from data.structures.three_d.mesh.mesh import Mesh
-from data.structures.three_d.mesh.texture.canonicalize import (
-    collapse_seam_shifted_uv_rows,
-)
 from data.structures.three_d.mesh.texture.conventions import (
     transform_verts_uvs_convention,
 )
@@ -242,7 +239,7 @@ def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None
         source_convention=mesh.texture.convention,
         target_convention="obj",
     )
-    obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
+    obj_verts_uvs, obj_faces_uvs = _collapse_seam_shifted_uv_rows(
         verts_uvs=obj_convention_verts_uvs,
         faces_uvs=mesh.texture.faces_uvs.detach().cpu(),
     )
@@ -275,6 +272,100 @@ def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None
                     int(face_uv_row[2]) + 1,
                 )
             )
+
+
+def _collapse_seam_shifted_uv_rows(
+    verts_uvs: torch.Tensor,
+    faces_uvs: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Collapse seam-shifted UV rows back to the OBJ vt structure by detecting (u, v) / (u - 1, v) sibling pairs and emitting one vt entry referenced by both face-corner indices.
+
+    Args:
+        verts_uvs: Canonical seam-safe UV-coordinate table `[U_canonical, 2]`.
+        faces_uvs: Canonical face-to-UV index tensor `[F, 3]`.
+
+    Returns:
+        OBJ-form `(obj_vt_table, obj_faces_uvs)` with `U_obj <= U_canonical`
+        and all UV values wrapped into `[0, 1)` along u.
+    """
+
+    def _validate_inputs() -> None:
+        assert isinstance(verts_uvs, torch.Tensor), (
+            "Expected `verts_uvs` to be a `torch.Tensor`. " f"{type(verts_uvs)=}"
+        )
+        assert verts_uvs.ndim == 2 and verts_uvs.shape[1] == 2, (
+            "Expected `verts_uvs` shape `[U, 2]`. " f"{verts_uvs.shape=}"
+        )
+        assert isinstance(faces_uvs, torch.Tensor), (
+            "Expected `faces_uvs` to be a `torch.Tensor`. " f"{type(faces_uvs)=}"
+        )
+        assert faces_uvs.ndim == 2 and faces_uvs.shape[1] == 3, (
+            "Expected `faces_uvs` shape `[F, 3]`. " f"{faces_uvs.shape=}"
+        )
+
+    _validate_inputs()
+
+    faces_uvs_long = faces_uvs.to(dtype=torch.long).contiguous()
+    wrapped_verts_uvs = verts_uvs.clone().contiguous()
+    wrapped_verts_uvs[:, 0] = wrapped_verts_uvs[:, 0] - torch.floor(
+        wrapped_verts_uvs[:, 0]
+    )
+
+    shifted_row_mask = verts_uvs[:, 0] > 1.0
+    if not bool(shifted_row_mask.any().item()):
+        return wrapped_verts_uvs, faces_uvs_long
+
+    canonical_to_obj_index = torch.arange(
+        int(verts_uvs.shape[0]),
+        dtype=torch.long,
+        device=verts_uvs.device,
+    )
+
+    shifted_row_indices = torch.nonzero(shifted_row_mask, as_tuple=False).reshape(-1)
+    unshifted_row_mask = ~shifted_row_mask
+    unshifted_row_indices = torch.nonzero(unshifted_row_mask, as_tuple=False).reshape(-1)
+    unshifted_uvs = wrapped_verts_uvs[unshifted_row_indices]
+
+    redundant_row_mask = torch.zeros_like(shifted_row_mask)
+    for shifted_row_index_item in shifted_row_indices.tolist():
+        shifted_row_index = int(shifted_row_index_item)
+        target_uv = wrapped_verts_uvs[shifted_row_index]
+        sibling_match = torch.all(
+            torch.isclose(
+                unshifted_uvs,
+                target_uv.unsqueeze(0),
+                atol=1.0e-06,
+                rtol=0.0,
+            ),
+            dim=1,
+        )
+        if bool(sibling_match.any().item()):
+            sibling_local_index = int(
+                torch.nonzero(sibling_match, as_tuple=False).reshape(-1)[0].item()
+            )
+            sibling_row_index = int(unshifted_row_indices[sibling_local_index].item())
+            canonical_to_obj_index[shifted_row_index] = sibling_row_index
+            redundant_row_mask[shifted_row_index] = True
+
+    keep_row_mask = ~redundant_row_mask
+    obj_to_canonical_keep = torch.nonzero(keep_row_mask, as_tuple=False).reshape(-1)
+    new_obj_index_for_canonical = torch.full(
+        (int(verts_uvs.shape[0]),),
+        -1,
+        dtype=torch.long,
+        device=verts_uvs.device,
+    )
+    new_obj_index_for_canonical[obj_to_canonical_keep] = torch.arange(
+        int(obj_to_canonical_keep.shape[0]),
+        dtype=torch.long,
+        device=verts_uvs.device,
+    )
+    final_canonical_to_obj = new_obj_index_for_canonical[canonical_to_obj_index]
+
+    obj_vt_table = wrapped_verts_uvs[obj_to_canonical_keep].contiguous()
+    obj_faces_uvs = final_canonical_to_obj[faces_uvs_long].contiguous()
+
+    return obj_vt_table, obj_faces_uvs
 
 
 def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path:
