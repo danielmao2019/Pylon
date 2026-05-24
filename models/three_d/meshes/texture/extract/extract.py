@@ -1,8 +1,7 @@
 """Texture extraction utilities for generic triangle meshes."""
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
-import nvdiffrast.torch as dr
 import torch
 import torch.nn.functional as F
 
@@ -11,6 +10,7 @@ from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
+from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 from data.structures.three_d.mesh.texture.validate_vertex_color import (
     validate_vertex_color,
 )
@@ -878,7 +878,7 @@ def _extract_uv_texture_map_from_images(
     weights_cfg = _normalize_inputs()
 
     reference_mesh = meshes[0]
-    uv_rasterization_data = _build_uv_rasterization_data(
+    texel_face_map = build_texel_face_map(
         mesh=reference_mesh,
         texture_size=texture_size,
     )
@@ -890,7 +890,7 @@ def _extract_uv_texture_map_from_images(
                 image=images_nchw[view_idx],
                 camera=cameras[view_idx : view_idx + 1],
                 weights_cfg=weights_cfg,
-                uv_rasterization_data=uv_rasterization_data,
+                texel_face_map=texel_face_map,
                 texel_visibility_method=texel_visibility_method,
                 polygon_rast_method=polygon_rast_method,
             )
@@ -1090,7 +1090,7 @@ def _extract_uv_texture_map_from_single_image(
     image: torch.Tensor,
     camera: Cameras,
     weights_cfg: Dict[str, Any],
-    uv_rasterization_data: Dict[str, torch.Tensor],
+    texel_face_map: Dict[str, torch.Tensor],
     texel_visibility_method: str = "v1",
     polygon_rast_method: str = "v2",
 ) -> Dict[str, torch.Tensor]:
@@ -1101,7 +1101,9 @@ def _extract_uv_texture_map_from_single_image(
         image: One RGB image [3, H, W].
         camera: One camera instance.
         weights_cfg: One-view weighting configuration dictionary.
-        uv_rasterization_data: Precomputed UV rasterization tensors.
+        texel_face_map: Texel -> mesh-face correspondence dict from
+            `build_texel_face_map` (`"texel_face_index"` [T, T] int64,
+            `"texel_face_barycentric"` [T, T, 3] float32).
         texel_visibility_method: Texel visibility algorithm, `"v1"` or `"v2"`.
         polygon_rast_method: Step-2 polygon rasterization method.
 
@@ -1114,6 +1116,11 @@ def _extract_uv_texture_map_from_single_image(
         assert isinstance(mesh, Mesh), (
             "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
         )
+        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+            "Expected `mesh` to carry a `MeshTextureUVTextureMap` texture for "
+            "UV extraction. "
+            f"{type(mesh.texture)=}"
+        )
         assert isinstance(image, torch.Tensor), (
             "Expected `image` to be a tensor. " f"{type(image)=}"
         )
@@ -1123,9 +1130,9 @@ def _extract_uv_texture_map_from_single_image(
         assert isinstance(weights_cfg, dict), (
             "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
         )
-        assert isinstance(uv_rasterization_data, dict), (
-            "Expected `uv_rasterization_data` to be a dictionary. "
-            f"{type(uv_rasterization_data)=}"
+        assert isinstance(texel_face_map, dict), (
+            "Expected `texel_face_map` to be a dictionary. "
+            f"{type(texel_face_map)=}"
         )
         assert isinstance(texel_visibility_method, str), (
             "Expected `texel_visibility_method` to be a `str`. "
@@ -1179,14 +1186,22 @@ def _extract_uv_texture_map_from_single_image(
     weights_cfg = _normalize_inputs()
     weights = weights_cfg["weights"]
 
+    faces_uvs_long = mesh.texture.faces_uvs.to(
+        device=mesh.texture.verts_uvs.device, dtype=torch.long
+    )
+    face_verts_uvs = mesh.texture.verts_uvs[faces_uvs_long].to(
+        dtype=torch.float32
+    ).contiguous()
+
     if texel_visibility_method == "v1":
         uv_visibility_mask = compute_f_visibility_mask(
             verts=mesh.verts,
             faces=mesh.faces,
+            face_verts_uvs=face_verts_uvs,
             camera=camera,
             image_height=int(image.shape[1]),
             image_width=int(image.shape[2]),
-            uv_rasterization_data=uv_rasterization_data,
+            texel_face_map=texel_face_map,
             polygon_rast_method=polygon_rast_method,
         )
     else:
@@ -1197,10 +1212,11 @@ def _extract_uv_texture_map_from_single_image(
         uv_visibility_mask = compute_f_visibility_mask_v2(
             verts=mesh.verts,
             faces=mesh.faces,
+            face_verts_uvs=face_verts_uvs,
             camera=camera,
             image_height=int(image.shape[1]),
             image_width=int(image.shape[2]),
-            uv_rasterization_data=uv_rasterization_data,
+            texel_face_map=texel_face_map,
         )
     if weights == "normals":
         face_normals_weight = _compute_f_normals_weights(
@@ -1210,7 +1226,7 @@ def _extract_uv_texture_map_from_single_image(
         )
         uv_normals_weight = _rasterize_face_weights_to_uv(
             face_weight=face_normals_weight,
-            uv_rasterization_data=uv_rasterization_data,
+            texel_face_map=texel_face_map,
         )
         uv_weight = uv_visibility_mask * uv_normals_weight
     else:
@@ -1220,7 +1236,7 @@ def _extract_uv_texture_map_from_single_image(
         mesh=mesh,
         image=image,
         camera=camera,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
     return {
         "texture": torch.flip(uv_texture, dims=[1]).contiguous(),
@@ -1232,52 +1248,51 @@ def _project_f_colors(
     mesh: Mesh,
     image: torch.Tensor,
     camera: Cameras,
-    uv_rasterization_data: Dict[str, torch.Tensor],
+    texel_face_map: Dict[str, torch.Tensor],
 ) -> torch.Tensor:
-    """Project one image into UV space using rasterized UV correspondence.
+    """Project one image into UV space by per-texel face-barycentric interpolation of projected mesh vertices.
 
     Args:
         mesh: Extraction mesh.
         image: One RGB image [3, H, W].
         camera: One camera instance.
-        uv_rasterization_data: Precomputed UV rasterization tensors.
+        texel_face_map: Texel -> mesh-face correspondence dict from
+            `build_texel_face_map` (`"texel_face_index"` [T, T] int64,
+            `"texel_face_barycentric"` [T, T, 3] float32).
 
     Returns:
         One-view UV RGB image with shape [1, T, T, 3].
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(uv_rasterization_data, dict), (
-            "Expected `uv_rasterization_data` to be a dictionary. "
-            f"{type(uv_rasterization_data)=}"
+        assert isinstance(texel_face_map, dict), (
+            "Expected `texel_face_map` to be a dictionary. "
+            f"{type(texel_face_map)=}"
         )
-        assert "tri_i32" in uv_rasterization_data, (
-            "Expected `uv_rasterization_data` to contain `tri_i32`. "
-            f"{uv_rasterization_data.keys()=}"
+        assert "texel_face_index" in texel_face_map, (
+            "Expected `texel_face_map` to contain `texel_face_index`. "
+            f"{texel_face_map.keys()=}"
         )
-        assert "rast_out" in uv_rasterization_data, (
-            "Expected `uv_rasterization_data` to contain `rast_out`. "
-            f"{uv_rasterization_data.keys()=}"
-        )
-        assert "raster_vertex_indices" in uv_rasterization_data, (
-            "Expected `uv_rasterization_data` to contain `raster_vertex_indices`. "
-            f"{uv_rasterization_data.keys()=}"
+        assert "texel_face_barycentric" in texel_face_map, (
+            "Expected `texel_face_map` to contain `texel_face_barycentric`. "
+            f"{texel_face_map.keys()=}"
         )
 
     _validate_inputs()
 
     def _interpolate_uv_texel_image_coords(
         projected_vertex_xy: torch.Tensor,
-        uv_rasterization_data: Dict[str, torch.Tensor],
+        texel_face_map: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
-        """Interpolate image-space coordinates for every occupied UV texel.
+        """Interpolate image-space coordinates at every texel as a barycentric weighted sum of the projected mesh vertices of the texel's owning face.
 
         Args:
             projected_vertex_xy: Image-space mesh-vertex coordinates `[V, 2]`.
-            uv_rasterization_data: Precomputed UV rasterization tensors.
+            texel_face_map: Texel -> mesh-face correspondence dict.
 
         Returns:
-            Interpolated image-space UV texel coordinates `[1, T, T, 2]`.
+            Interpolated image-space UV texel coordinates `[1, T, T, 2]`
+            (zeros at unoccupied texels).
         """
 
         def _validate_inputs() -> None:
@@ -1296,20 +1311,18 @@ def _project_f_colors(
 
         _validate_inputs()
 
-        tri_i32 = uv_rasterization_data["tri_i32"]
-        rast_out = uv_rasterization_data["rast_out"]
-        raster_vertex_indices = uv_rasterization_data["raster_vertex_indices"]
-        assert isinstance(raster_vertex_indices, torch.Tensor), (
-            "Expected `raster_vertex_indices` to be a tensor. "
-            f"{type(raster_vertex_indices)=}"
+        texel_face_index = texel_face_map["texel_face_index"]
+        texel_face_barycentric = texel_face_map["texel_face_barycentric"]
+        clamped_face_index = texel_face_index.clamp(min=0)
+        per_corner_xy = projected_vertex_xy[mesh.faces[clamped_face_index]]
+        interpolated_xy = (
+            per_corner_xy * texel_face_barycentric.unsqueeze(-1)
+        ).sum(dim=-2)
+        occupied_mask = (texel_face_index >= 0).unsqueeze(-1)
+        interpolated_xy = torch.where(
+            occupied_mask, interpolated_xy, torch.zeros_like(interpolated_xy)
         )
-        raster_xy = projected_vertex_xy[raster_vertex_indices]
-        interpolated_uv_xy, _ = dr.interpolate(
-            attr=raster_xy.unsqueeze(0).contiguous(),
-            rast=rast_out,
-            tri=tri_i32,
-        )
-        return interpolated_uv_xy
+        return interpolated_xy.unsqueeze(0).contiguous()
 
     def _sample_uv_texel_colors_from_source_image(
         interpolated_uv_xy: torch.Tensor,
@@ -1369,7 +1382,7 @@ def _project_f_colors(
     )
     interpolated_uv_xy = _interpolate_uv_texel_image_coords(
         projected_vertex_xy=xy,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
     uv_texture = _sample_uv_texel_colors_from_source_image(
         interpolated_uv_xy=interpolated_uv_xy,
@@ -1379,408 +1392,41 @@ def _project_f_colors(
     return uv_texture.contiguous()
 
 
-# -----------------------------------------------------------------------------
-# Other helpers
-# -----------------------------------------------------------------------------
-
-
-def _build_uv_rasterization_data(
-    mesh: Mesh,
-    texture_size: int,
-) -> Dict[str, torch.Tensor]:
-    """Build reusable UV rasterization tensors for UV-space operations.
-
-    Args:
-        mesh: Mesh carrying a `MeshTextureUVTextureMap` texture (supplying
-            `verts_uvs` and `faces_uvs`) and `faces`.
-        texture_size: UV texture resolution.
-
-    Returns:
-        Dict containing:
-            "tri_i32": Triangle index tensor with shape [F, 3] and dtype
-                `torch.int32`, where each row stores the three triangle-soup
-                vertex indices of one UV-rasterized triangle.
-            "rast_out": UV rasterization output [1, T, T, 4].
-            "uv_mask": UV occupancy mask [1, T, T, 1].
-            "raster_vertex_indices": Original mesh-vertex index for each
-                triangle-soup vertex [Vr].
-            "raster_face_indices": Original mesh-face index for each
-                UV-rasterized triangle [Fr].
-            "camera_attr_verts_uvs": Per-face local UV attributes [F * 3, 2]
-                for camera-space interpolation.
-            "camera_attr_tri_i32": Triangle index tensor [F, 3] with dtype
-                `torch.int32` for camera-space UV interpolation.
-    """
-
-    def _validate_inputs() -> None:
-        assert isinstance(mesh, Mesh), (
-            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
-        )
-        assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
-            "Expected `mesh` to carry a `MeshTextureUVTextureMap` texture for "
-            "UV rasterization. "
-            f"{type(mesh.texture)=}"
-        )
-        assert isinstance(texture_size, int), (
-            "Expected `texture_size` to be an `int`. " f"{type(texture_size)=}"
-        )
-        assert texture_size > 0, (
-            "Expected `texture_size` to be positive. " f"{texture_size=}"
-        )
-
-    _validate_inputs()
-
-    verts_uvs = mesh.texture.verts_uvs
-    faces = mesh.faces
-    faces_uvs = mesh.texture.faces_uvs
-
-    uv_rasterization_mesh = _build_uv_rasterization_mesh(
-        verts_uvs=verts_uvs,
-        faces=faces,
-        faces_uvs=faces_uvs,
-    )
-    camera_uv_interpolation_data = _build_camera_uv_interpolation_data(
-        verts_uvs=verts_uvs,
-        faces=faces,
-        faces_uvs=faces_uvs,
-    )
-    tri_i32 = uv_rasterization_mesh["tri_i32"]
-    raster_verts_uvs = uv_rasterization_mesh["raster_verts_uvs"]
-    uv_clip = _verts_uvs_to_clip(
-        verts_uvs=raster_verts_uvs,
-    ).to(device=verts_uvs.device, dtype=torch.float32)
-    uv_ctx = dr.RasterizeCudaContext(device=verts_uvs.device)
-    rast_out, _ = dr.rasterize(
-        glctx=uv_ctx,
-        pos=uv_clip.contiguous(),
-        tri=tri_i32,
-        resolution=[texture_size, texture_size],
-        ranges=None,
-    )
-    uv_mask = (rast_out[..., 3] > 0).float().unsqueeze(-1)
-
-    return {
-        "tri_i32": tri_i32,
-        "rast_out": rast_out,
-        "uv_mask": uv_mask,
-        "raster_vertex_indices": uv_rasterization_mesh["raster_vertex_indices"],
-        "raster_face_indices": uv_rasterization_mesh["raster_face_indices"],
-        "camera_attr_verts_uvs": camera_uv_interpolation_data["camera_attr_verts_uvs"],
-        "camera_attr_tri_i32": camera_uv_interpolation_data["camera_attr_tri_i32"],
-    }
-
-
-def _build_uv_rasterization_mesh(
-    verts_uvs: torch.Tensor,
-    faces: torch.Tensor,
-    faces_uvs: Optional[torch.Tensor] = None,
-) -> Dict[str, torch.Tensor]:
-    """Build a seam-safe UV triangle soup for UV rasterization.
-
-    Args:
-        verts_uvs: Per-vertex UV coordinates [V, 2].
-        faces: Mesh faces [F, 3].
-        faces_uvs: Optional face-to-UV indices [F, 3]. When omitted, reuse `faces`.
-
-    Returns:
-        Dict containing:
-            "raster_verts_uvs": Triangle-soup UV coordinates [Vr, 2].
-            "tri_i32": Triangle-soup indices [Fr, 3] with dtype `torch.int32`.
-            "raster_vertex_indices": Original mesh-vertex indices [Vr].
-            "raster_face_indices": Original mesh-face index for each UV triangle [Fr].
-    """
-
-    def _validate_inputs() -> None:
-        assert isinstance(verts_uvs, torch.Tensor), (
-            "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
-        )
-        assert isinstance(faces, torch.Tensor), (
-            "Expected `faces` to be a tensor. " f"{type(faces)=}"
-        )
-        assert faces_uvs is None or isinstance(faces_uvs, torch.Tensor), (
-            "Expected `faces_uvs` to be `None` or a tensor. " f"{type(faces_uvs)=}"
-        )
-        assert verts_uvs.ndim == 2, (
-            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
-        )
-        assert verts_uvs.shape[1] == 2, (
-            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
-        )
-        assert faces.ndim == 2, (
-            "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"
-        )
-        assert faces.shape[1] == 3, (
-            "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"
-        )
-        assert faces_uvs is None or faces_uvs.shape == faces.shape, (
-            "Expected `faces_uvs` to align with `faces` when provided. "
-            f"{faces_uvs.shape=} {faces.shape=}"
-        )
-
-    _validate_inputs()
-
-    faces_long = faces.to(device=verts_uvs.device, dtype=torch.long).contiguous()
-    if faces_uvs is None:
-        faces_uvs_long = faces_long
-    else:
-        faces_uvs_long = faces_uvs.to(
-            device=verts_uvs.device, dtype=torch.long
-        ).contiguous()
-    face_verts_uvs = verts_uvs[faces_uvs_long]
-    face_u = face_verts_uvs[:, :, 0]
-    seam_face_mask = (face_u.max(dim=1).values - face_u.min(dim=1).values) > 0.5
-
-    raster_verts_uvs_chunks: List[torch.Tensor] = []
-    raster_vertex_index_chunks: List[torch.Tensor] = []
-    raster_face_index_chunks: List[torch.Tensor] = []
-
-    def _append_triangles(
-        face_indices: torch.Tensor,
-        face_uv: torch.Tensor,
-    ) -> None:
-        """Append one batch of UV triangles to the triangle-soup buffers.
-
-        Args:
-            face_indices: Original face indices [K].
-            face_uv: UV coordinates for those faces [K, 3, 2].
-
-        Returns:
-            None.
-        """
-
-        def _validate_inputs() -> None:
-            assert isinstance(face_indices, torch.Tensor), (
-                "Expected `face_indices` to be a tensor. " f"{type(face_indices)=}"
-            )
-            assert isinstance(face_uv, torch.Tensor), (
-                "Expected `face_uv` to be a tensor. " f"{type(face_uv)=}"
-            )
-            assert face_indices.ndim == 1, (
-                "Expected `face_indices` to have shape `[K]`. " f"{face_indices.shape=}"
-            )
-            assert face_uv.ndim == 3, (
-                "Expected `face_uv` to have shape `[K, 3, 2]`. " f"{face_uv.shape=}"
-            )
-            assert face_uv.shape[0] == face_indices.shape[0], (
-                "Expected `face_uv` to align with `face_indices`. "
-                f"{face_uv.shape=} {face_indices.shape=}"
-            )
-            assert face_uv.shape[1] == 3, (
-                "Expected `face_uv` to provide three UV verts per face. "
-                f"{face_uv.shape=}"
-            )
-            assert face_uv.shape[2] == 2, (
-                "Expected `face_uv` to store 2D UV coordinates. " f"{face_uv.shape=}"
-            )
-
-        _validate_inputs()
-
-        if face_indices.numel() == 0:
-            return
-
-        raster_verts_uvs_chunks.append(
-            face_uv.reshape(-1, 2).to(device=verts_uvs.device, dtype=torch.float32)
-        )
-        raster_vertex_index_chunks.append(faces_long[face_indices].reshape(-1))
-        raster_face_index_chunks.append(face_indices)
-
-    non_seam_face_indices = torch.nonzero(~seam_face_mask, as_tuple=False).reshape(-1)
-    _append_triangles(
-        face_indices=non_seam_face_indices,
-        face_uv=face_verts_uvs[non_seam_face_indices],
-    )
-
-    seam_face_indices = torch.nonzero(seam_face_mask, as_tuple=False).reshape(-1)
-    if seam_face_indices.numel() > 0:
-        seam_face_uv = face_verts_uvs[seam_face_indices].clone()
-        seam_face_u = seam_face_uv[:, :, 0]
-        seam_face_uv[:, :, 0] = torch.where(
-            seam_face_u < 0.5,
-            seam_face_u + 1.0,
-            seam_face_u,
-        )
-        _append_triangles(
-            face_indices=seam_face_indices,
-            face_uv=seam_face_uv,
-        )
-        seam_face_uv_wrapped = seam_face_uv.clone()
-        seam_face_uv_wrapped[:, :, 0] = seam_face_uv_wrapped[:, :, 0] - 1.0
-        _append_triangles(
-            face_indices=seam_face_indices,
-            face_uv=seam_face_uv_wrapped,
-        )
-
-    assert (
-        len(raster_verts_uvs_chunks) > 0
-    ), "Failed to build UV rasterization mesh: no raster triangles were generated."
-    raster_verts_uvs = torch.cat(raster_verts_uvs_chunks, dim=0).contiguous()
-    raster_vertex_indices = torch.cat(raster_vertex_index_chunks, dim=0).contiguous()
-    raster_face_indices = torch.cat(raster_face_index_chunks, dim=0).contiguous()
-    tri_i32 = torch.arange(
-        start=0,
-        end=raster_verts_uvs.shape[0],
-        device=verts_uvs.device,
-        dtype=torch.int32,
-    ).reshape(-1, 3)
-    assert (
-        tri_i32.shape[0] == raster_face_indices.shape[0]
-    ), f"{tri_i32.shape=} {raster_face_indices.shape=}"
-
-    return {
-        "raster_verts_uvs": raster_verts_uvs,
-        "tri_i32": tri_i32,
-        "raster_vertex_indices": raster_vertex_indices,
-        "raster_face_indices": raster_face_indices,
-    }
-
-
-def _build_camera_uv_interpolation_data(
-    verts_uvs: torch.Tensor,
-    faces: torch.Tensor,
-    faces_uvs: Optional[torch.Tensor] = None,
-) -> Dict[str, torch.Tensor]:
-    """Build seam-safe per-face UV attributes for camera-space interpolation.
-
-    Args:
-        verts_uvs: Per-vertex UV coordinates [V, 2].
-        faces: Mesh faces [F, 3].
-        faces_uvs: Optional face-to-UV indices [F, 3]. When omitted, reuse `faces`.
-
-    Returns:
-        Dict containing:
-            "camera_attr_verts_uvs": Per-face local UV attributes [F * 3, 2].
-            "camera_attr_tri_i32": Triangle index tensor [F, 3] with dtype
-                `torch.int32`, where row `f` corresponds to original face `f`.
-    """
-
-    def _validate_inputs() -> None:
-        assert isinstance(verts_uvs, torch.Tensor), (
-            "Expected `verts_uvs` to be a tensor. " f"Got {type(verts_uvs)=}."
-        )
-        assert isinstance(faces, torch.Tensor), (
-            "Expected `faces` to be a tensor. " f"Got {type(faces)=}."
-        )
-        assert faces_uvs is None or isinstance(faces_uvs, torch.Tensor), (
-            "Expected `faces_uvs` to be `None` or a tensor. " f"Got {type(faces_uvs)=}."
-        )
-        assert verts_uvs.ndim == 2, (
-            "Expected `verts_uvs` to have shape [V, 2]. " f"Got {verts_uvs.shape=}."
-        )
-        assert verts_uvs.shape[1] == 2, (
-            "Expected `verts_uvs` to have shape [V, 2]. " f"Got {verts_uvs.shape=}."
-        )
-        assert faces.ndim == 2, (
-            "Expected `faces` to have shape [F, 3]. " f"Got {faces.shape=}."
-        )
-        assert faces.shape[1] == 3, (
-            "Expected `faces` to have shape [F, 3]. " f"Got {faces.shape=}."
-        )
-        assert faces_uvs is None or faces_uvs.shape == faces.shape, (
-            "Expected `faces_uvs` to align with `faces` when provided. "
-            f"{faces_uvs.shape=} {faces.shape=}"
-        )
-
-    _validate_inputs()
-
-    faces_long = faces.to(device=verts_uvs.device, dtype=torch.long).contiguous()
-    if faces_uvs is None:
-        faces_uvs_long = faces_long
-    else:
-        faces_uvs_long = faces_uvs.to(
-            device=verts_uvs.device, dtype=torch.long
-        ).contiguous()
-    face_verts_uvs = verts_uvs[faces_uvs_long].clone()
-    face_u = face_verts_uvs[:, :, 0]
-    seam_face_mask = (face_u.max(dim=1).values - face_u.min(dim=1).values) > 0.5
-    if torch.any(seam_face_mask):
-        seam_face_u = face_verts_uvs[seam_face_mask, :, 0]
-        face_verts_uvs[seam_face_mask, :, 0] = torch.where(
-            seam_face_u < 0.5,
-            seam_face_u + 1.0,
-            seam_face_u,
-        )
-    camera_attr_verts_uvs = face_verts_uvs.reshape(-1, 2).contiguous()
-    camera_attr_tri_i32 = torch.arange(
-        start=0,
-        end=camera_attr_verts_uvs.shape[0],
-        device=verts_uvs.device,
-        dtype=torch.int32,
-    ).reshape(-1, 3)
-    assert camera_attr_tri_i32.shape[0] == faces.shape[0], (
-        "Expected one camera UV triangle per original face. "
-        f"Got {camera_attr_tri_i32.shape=} {faces.shape=}."
-    )
-    return {
-        "camera_attr_verts_uvs": camera_attr_verts_uvs,
-        "camera_attr_tri_i32": camera_attr_tri_i32,
-    }
-
-
-def _verts_uvs_to_clip(
-    verts_uvs: torch.Tensor,
-) -> torch.Tensor:
-    """Convert UV coordinates to clip-space positions for UV rasterization.
-
-    Args:
-        verts_uvs: Per-vertex UV coordinates [V, 2].
-
-    Returns:
-        Clip-space UV verts [1, V, 4].
-    """
-
-    def _validate_inputs() -> None:
-        assert isinstance(verts_uvs, torch.Tensor), (
-            "Expected `verts_uvs` to be a tensor. " f"{type(verts_uvs)=}"
-        )
-        assert verts_uvs.ndim == 2, (
-            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
-        )
-        assert verts_uvs.shape[1] == 2, (
-            "Expected `verts_uvs` to have shape `[V, 2]`. " f"{verts_uvs.shape=}"
-        )
-
-    _validate_inputs()
-
-    x = verts_uvs[:, 0] * 2.0 - 1.0
-    y = verts_uvs[:, 1] * 2.0 - 1.0
-    z = torch.zeros_like(x)
-    w = torch.ones_like(x)
-    return torch.stack([x, y, z, w], dim=1).unsqueeze(0)
-
-
 def _rasterize_face_weights_to_uv(
     face_weight: torch.Tensor,
-    uv_rasterization_data: Dict[str, torch.Tensor],
+    texel_face_map: Dict[str, torch.Tensor],
 ) -> torch.Tensor:
-    """Map per-face weights to per-UV-pixel weights for one view.
+    """Map per-face weights to per-UV-texel weights by gathering on `texel_face_index`, zero at unoccupied texels.
 
     Args:
         face_weight: Per-face weights [F].
-        uv_rasterization_data: Precomputed UV rasterization tensors.
+        texel_face_map: Texel -> mesh-face correspondence dict from
+            `build_texel_face_map` with key `"texel_face_index"` [T, T] int64
+            (`-1` at unoccupied texels).
 
     Returns:
-        UV weight map [1, T, T, 1].
+        UV weight map [1, T, T, 1] with non-negative values.
     """
 
     def _validate_inputs() -> None:
         assert isinstance(face_weight, torch.Tensor), (
             "Expected `face_weight` to be a tensor. " f"{type(face_weight)=}"
         )
-        assert isinstance(uv_rasterization_data, dict), (
-            "Expected `uv_rasterization_data` to be a dictionary. "
-            f"{type(uv_rasterization_data)=}"
+        assert isinstance(texel_face_map, dict), (
+            "Expected `texel_face_map` to be a dictionary. "
+            f"{type(texel_face_map)=}"
         )
-        assert "rast_out" in uv_rasterization_data, (
-            "Expected `uv_rasterization_data` to contain `rast_out`. "
-            f"{uv_rasterization_data.keys()=}"
+        assert "texel_face_index" in texel_face_map, (
+            "Expected `texel_face_map` to contain `texel_face_index`. "
+            f"{texel_face_map.keys()=}"
         )
-        assert "uv_mask" in uv_rasterization_data, (
-            "Expected `uv_rasterization_data` to contain `uv_mask`. "
-            f"{uv_rasterization_data.keys()=}"
+        assert isinstance(texel_face_map["texel_face_index"], torch.Tensor), (
+            "Expected `texel_face_index` to be a tensor. "
+            f"{type(texel_face_map['texel_face_index'])=}"
         )
-        assert "raster_face_indices" in uv_rasterization_data, (
-            "Expected `uv_rasterization_data` to contain `raster_face_indices`. "
-            f"{uv_rasterization_data.keys()=}"
+        assert texel_face_map["texel_face_index"].ndim == 2, (
+            "Expected `texel_face_index` to have shape `[T, T]`. "
+            f"{texel_face_map['texel_face_index'].shape=}"
         )
         assert face_weight.ndim == 1, (
             "Expected `face_weight` to have shape `[F]`. " f"{face_weight.shape=}"
@@ -1788,27 +1434,9 @@ def _rasterize_face_weights_to_uv(
 
     _validate_inputs()
 
-    rast_out = uv_rasterization_data["rast_out"]
-    uv_mask = uv_rasterization_data["uv_mask"]
-    raster_face_indices = uv_rasterization_data["raster_face_indices"]
-    assert isinstance(rast_out, torch.Tensor), (
-        "Expected `rast_out` to be a tensor. " f"{type(rast_out)=}"
-    )
-    assert isinstance(uv_mask, torch.Tensor), (
-        "Expected `uv_mask` to be a tensor. " f"{type(uv_mask)=}"
-    )
-    assert isinstance(raster_face_indices, torch.Tensor), (
-        "Expected `raster_face_indices` to be a tensor. "
-        f"{type(raster_face_indices)=}"
-    )
+    texel_face_index = texel_face_map["texel_face_index"]
+    occupied_mask = texel_face_index >= 0
+    gathered = face_weight[texel_face_index.clamp(min=0)]
+    uv_weight = torch.where(occupied_mask, gathered, torch.zeros_like(gathered))
+    return uv_weight.clamp(min=0.0).unsqueeze(0).unsqueeze(-1).contiguous()
 
-    uv_raster_triangle_indices = rast_out[..., 3].to(dtype=torch.long) - 1
-    uv_visible = uv_raster_triangle_indices >= 0
-    uv_weight = torch.zeros_like(uv_mask)
-    if torch.any(uv_visible):
-        uv_weight_values = face_weight[
-            raster_face_indices[uv_raster_triangle_indices[uv_visible]]
-        ]
-        uv_weight[uv_visible.unsqueeze(-1)] = uv_weight_values.reshape(-1)
-    uv_weight = uv_weight.clamp(min=0.0) * uv_mask
-    return uv_weight

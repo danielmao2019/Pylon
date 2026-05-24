@@ -21,8 +21,8 @@ from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 from models.three_d.meshes.texture.extract.extract import (
-    _build_uv_rasterization_data,
     _compute_f_normals_weights,
     _project_f_colors,
     _rasterize_face_weights_to_uv,
@@ -656,9 +656,9 @@ def _build_scene_context(
         "reference_texture_rgb": reference_texture_rgb,
         "image_chw": image_chw,
         "mesh_verts": normalized_mesh_verts.contiguous(),
-        "mesh_faces": mesh_faces.verts_idx.to(dtype=torch.long).contiguous(),
-        "mesh_verts_uvs": mesh_aux.verts_uvs.to(dtype=torch.float32).contiguous(),
-        "mesh_faces_uvs": mesh_faces.textures_idx.to(dtype=torch.long).contiguous(),
+        "mesh_faces": mesh.faces.to(dtype=torch.long).contiguous(),
+        "mesh_verts_uvs": mesh.texture.verts_uvs.to(dtype=torch.float32).contiguous(),
+        "mesh_faces_uvs": mesh.texture.faces_uvs.to(dtype=torch.long).contiguous(),
         "exploded_verts": exploded_geometry["verts"],
         "exploded_faces": exploded_geometry["faces"],
         "exploded_verts_uvs": exploded_geometry["verts_uvs"],
@@ -891,7 +891,7 @@ def _build_cuda_extraction_inputs(
         dtype=torch.float32,
     )
     camera_cuda = scene_context["camera"].to(device=device, convention="opencv")
-    uv_rasterization_data = _build_uv_rasterization_data(
+    texel_face_map = build_texel_face_map(
         mesh=Mesh(
             verts=exploded_verts_cuda,
             faces=exploded_faces_cuda,
@@ -906,6 +906,16 @@ def _build_cuda_extraction_inputs(
         ),
         texture_size=scene_context["texture_size"],
     )
+    uv_occupancy_mask_cuda = (
+        (texel_face_map["texel_face_index"] >= 0)
+        .to(dtype=torch.float32)
+        .unsqueeze(0)
+        .unsqueeze(-1)
+        .contiguous()
+    )
+    face_verts_uvs_cuda = exploded_verts_uvs_cuda[exploded_faces_cuda].to(
+        dtype=torch.float32
+    ).contiguous()
     return {
         "device": device,
         "verts": exploded_verts_cuda,
@@ -913,8 +923,10 @@ def _build_cuda_extraction_inputs(
         "verts_uvs": exploded_verts_uvs_cuda,
         "image": image_cuda,
         "camera": camera_cuda,
-        "uv_rasterization_data": uv_rasterization_data,
-        "uv_occupancy_mask_cpu": uv_rasterization_data["uv_mask"].detach().cpu(),
+        "texel_face_map": texel_face_map,
+        "face_verts_uvs": face_verts_uvs_cuda,
+        "uv_occupancy_mask_cuda": uv_occupancy_mask_cuda,
+        "uv_occupancy_mask_cpu": uv_occupancy_mask_cuda.detach().cpu(),
         "weights_cfg": normalize_weights_cfg(
             weights_cfg=DEFAULT_WEIGHTS_CFG,
             default_weights="visible",
@@ -1037,7 +1049,9 @@ def _run_single_texel_visibility_extraction(
     faces = cuda_inputs["faces"]
     image = cuda_inputs["image"]
     camera = cuda_inputs["camera"]
-    uv_rasterization_data = cuda_inputs["uv_rasterization_data"]
+    texel_face_map = cuda_inputs["texel_face_map"]
+    face_verts_uvs = cuda_inputs["face_verts_uvs"]
+    uv_occupancy_mask_cuda = cuda_inputs["uv_occupancy_mask_cuda"]
     weights_cfg = cuda_inputs["weights_cfg"]
     cuda_device = cuda_inputs["device"]
     torch.cuda.synchronize(device=cuda_device)
@@ -1046,19 +1060,21 @@ def _run_single_texel_visibility_extraction(
         compute_f_visibility_mask_v2(
             verts=verts,
             faces=faces,
+            face_verts_uvs=face_verts_uvs,
             camera=camera,
             image_height=int(image.shape[1]),
             image_width=int(image.shape[2]),
-            uv_rasterization_data=uv_rasterization_data,
+            texel_face_map=texel_face_map,
         )
         if use_v2
         else compute_f_visibility_mask(
             verts=verts,
             faces=faces,
+            face_verts_uvs=face_verts_uvs,
             camera=camera,
             image_height=int(image.shape[1]),
             image_width=int(image.shape[2]),
-            uv_rasterization_data=uv_rasterization_data,
+            texel_face_map=texel_face_map,
         )
     )
     torch.cuda.synchronize(device=cuda_device)
@@ -1073,20 +1089,20 @@ def _run_single_texel_visibility_extraction(
     )
     uv_normals_weight = _rasterize_face_weights_to_uv(
         face_weight=face_normals_weight,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
     uv_weight = uv_visibility_mask * uv_normals_weight
     uv_texture = _project_f_colors(
         verts=verts,
         image=image,
         camera=camera,
-        uv_rasterization_data=uv_rasterization_data,
+        texel_face_map=texel_face_map,
     )
     uv_valid_mask = (uv_weight > 0.0).to(dtype=torch.float32)
     uv_texture_map = _apply_invisible_texel_noise(
         uv_texture_map=uv_texture,
         uv_valid_mask=uv_valid_mask,
-        uv_occupancy_mask=uv_rasterization_data["uv_mask"],
+        uv_occupancy_mask=uv_occupancy_mask_cuda,
     )
     torch.cuda.synchronize(device=cuda_device)
     other_ms = (time.perf_counter() - other_start_time) * 1000.0

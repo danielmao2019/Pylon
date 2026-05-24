@@ -6,6 +6,9 @@ import torch
 from PIL import Image
 
 from data.structures.three_d.mesh.mesh import Mesh
+from data.structures.three_d.mesh.texture.canonicalize import (
+    collapse_seam_shifted_uv_rows,
+)
 from data.structures.three_d.mesh.texture.conventions import (
     transform_verts_uvs_convention,
 )
@@ -234,12 +237,17 @@ def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None
 
     verts_np = mesh.verts.detach().cpu().numpy()
     faces_np = mesh.faces.detach().cpu().numpy()
-    verts_uvs_np = transform_verts_uvs_convention(
+    obj_convention_verts_uvs = transform_verts_uvs_convention(
         verts_uvs=mesh.texture.verts_uvs.detach().cpu(),
         source_convention=mesh.texture.convention,
         target_convention="obj",
-    ).numpy()
-    faces_uvs_np = mesh.texture.faces_uvs.detach().cpu().numpy()
+    )
+    obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
+        verts_uvs=obj_convention_verts_uvs,
+        faces_uvs=mesh.texture.faces_uvs.detach().cpu(),
+    )
+    verts_uvs_np = obj_verts_uvs.numpy()
+    faces_uvs_np = obj_faces_uvs.numpy()
 
     with output_obj_path.open("w", encoding="utf-8") as handle:
         handle.write(f"mtllib {output_mtl_path.name}\n")

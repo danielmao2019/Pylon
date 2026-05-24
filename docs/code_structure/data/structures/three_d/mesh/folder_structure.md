@@ -17,10 +17,12 @@ mesh/
     ├── __init__.py                       # texture API surface
     ├── mesh_texture.py                   # MeshTexture ABC
     ├── mesh_texture_vertex_color.py       # MeshTextureVertexColor (per-vertex RGB)
-    ├── mesh_texture_uv_texture_map.py     # MeshTextureUVTextureMap (UV atlas)
+    ├── mesh_texture_uv_texture_map.py     # MeshTextureUVTextureMap (UV atlas; seam-safe canonical verts_uvs)
     ├── conventions.py                     # UV-origin convention transform (obj <-> top_left)
+    ├── canonicalize.py                    # OBJ-style vt layout <-> seam-safe canonical layout (shared by load / save / convert)
+    ├── texel_face_map.py                   # nvdiffrast-backed texel -> mesh-face correspondence for UV-textured meshes
     ├── validate_vertex_color.py           # vertex-color representation validation
-    └── validate_uv_texture_map.py         # uv-texture-map representation validation
+    └── validate_uv_texture_map.py         # uv-texture-map representation validation (incl. seam-safe layout invariant)
 ```
 
 The test-folder layout is owned by `tests_structure.md`.

@@ -7,7 +7,7 @@
 ```text
 extract/
 ├── __init__.py             # package API surface (re-exports extract / camera_geometry / visibility functions)
-├── extract.py              # main entry: extract_texture_from_images + UV-rasterization and per-image extraction helpers
+├── extract.py              # main entry: extract_texture_from_images + per-view UV extraction helpers (consumes data-layer build_texel_face_map)
 ├── camera_geometry.py      # camera-space geometry: world->camera, clip-space, depth- and face-index-buffer rendering
 ├── normal_weights.py       # normal-alignment weighting helpers
 ├── weights_cfg.py          # weight-config validation / normalization helpers

@@ -85,10 +85,11 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
 def compute_f_visibility_mask(
     verts: torch.Tensor,
     faces: torch.Tensor,
+    face_verts_uvs: torch.Tensor,
     camera: Cameras,
     image_height: int,
     image_width: int,
-    uv_rasterization_data: Dict[str, torch.Tensor],
+    texel_face_map: Dict[str, torch.Tensor],
     polygon_rast_method: str = "v2",
 ) -> torch.Tensor:
     """Compute one-view UV-pixel visibility mask from exact camera-pixel footprints.
@@ -96,10 +97,14 @@ def compute_f_visibility_mask(
     Args:
         verts: Mesh verts [V, 3].
         faces: Mesh faces [F, 3].
+        face_verts_uvs: Seam-safe per-face UV triangles [F, 3, 2].
         camera: One camera instance.
         image_height: Image height in pixels.
         image_width: Image width in pixels.
-        uv_rasterization_data: Precomputed UV rasterization tensors.
+        texel_face_map: Texel -> mesh-face correspondence dict from
+            `build_texel_face_map` with keys `"texel_face_index"` [T, T] int64
+            (`-1` at unoccupied texels) and `"texel_face_barycentric"`
+            [T, T, 3] float32.
         polygon_rast_method: Step-2 polygon rasterization method, `"v1"` or `"v2"`.
 
     Returns:
@@ -115,28 +120,38 @@ def compute_f_visibility_mask(
         Returns:
             None.
         """
-        # Input validations
         assert isinstance(verts, torch.Tensor), f"{type(verts)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
+        assert isinstance(face_verts_uvs, torch.Tensor), f"{type(face_verts_uvs)=}"
         assert isinstance(camera, Cameras), f"{type(camera)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
-        assert isinstance(
-            uv_rasterization_data, dict
-        ), f"{type(uv_rasterization_data)=}"
+        assert isinstance(texel_face_map, dict), f"{type(texel_face_map)=}"
         assert isinstance(polygon_rast_method, str), f"{type(polygon_rast_method)=}"
         assert verts.ndim == 2, f"{verts.shape=}"
         assert verts.shape[1] == 3, f"{verts.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
         assert faces.dtype == torch.long, f"{faces.dtype=}"
+        assert face_verts_uvs.ndim == 3, f"{face_verts_uvs.shape=}"
+        assert face_verts_uvs.shape == (faces.shape[0], 3, 2), (
+            "Expected `face_verts_uvs` to align with `faces` as `[F, 3, 2]`. "
+            f"{face_verts_uvs.shape=} {faces.shape=}"
+        )
         assert len(camera) == 1, f"{len(camera)=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
-        assert "uv_mask" in uv_rasterization_data, f"{uv_rasterization_data.keys()=}"
+        assert "texel_face_index" in texel_face_map, f"{texel_face_map.keys()=}"
+        assert isinstance(
+            texel_face_map["texel_face_index"], torch.Tensor
+        ), f"{type(texel_face_map['texel_face_index'])=}"
         assert (
-            "camera_attr_verts_uvs" in uv_rasterization_data
-        ), f"{uv_rasterization_data.keys()=}"
+            texel_face_map["texel_face_index"].ndim == 2
+        ), f"{texel_face_map['texel_face_index'].shape=}"
+        assert (
+            texel_face_map["texel_face_index"].shape[0]
+            == texel_face_map["texel_face_index"].shape[1]
+        ), f"{texel_face_map['texel_face_index'].shape=}"
         assert polygon_rast_method in ("v1", "v2"), (
             "Expected `polygon_rast_method` to be one of the supported polygon "
             "rasterization methods. "
@@ -150,26 +165,28 @@ def compute_f_visibility_mask(
             verts=verts,
             camera=camera,
         )
-        uv_mask = uv_rasterization_data["uv_mask"]
-        camera_attr_verts_uvs = uv_rasterization_data["camera_attr_verts_uvs"]
-        assert isinstance(uv_mask, torch.Tensor), f"{type(uv_mask)=}"
-        assert isinstance(camera_attr_verts_uvs, torch.Tensor), (
-            "Expected `camera_attr_verts_uvs` to be a tensor. "
-            f"Got {type(camera_attr_verts_uvs)=}."
-        )
+        texel_face_index = texel_face_map["texel_face_index"]
         assert verts.device == faces.device, (
             "Expected `verts` and `faces` to share a device. "
-            f"Got {verts.device=} {faces.device=}."
+            f"{verts.device=} {faces.device=}"
         )
-        assert verts.device == uv_mask.device, (
-            "Expected `verts` and `uv_mask` to share a device. "
-            f"Got {verts.device=} {uv_mask.device=}."
+        assert verts.device == texel_face_index.device, (
+            "Expected `verts` and `texel_face_index` to share a device. "
+            f"{verts.device=} {texel_face_index.device=}"
         )
-        assert verts.device == camera_attr_verts_uvs.device, (
-            "Expected `verts` and `camera_attr_verts_uvs` to share a device. "
-            f"Got {verts.device=} {camera_attr_verts_uvs.device=}."
+        assert verts.device == face_verts_uvs.device, (
+            "Expected `verts` and `face_verts_uvs` to share a device. "
+            f"{verts.device=} {face_verts_uvs.device=}"
         )
 
+        texture_size = int(texel_face_index.shape[0])
+        uv_occupancy_mask = (
+            (texel_face_index >= 0)
+            .to(dtype=torch.float32)
+            .unsqueeze(0)
+            .unsqueeze(-1)
+            .contiguous()
+        )
         face_front_facing_mask = (
             _compute_f_normals_weights(
                 mesh=Mesh(verts=verts, faces=faces),
@@ -188,15 +205,15 @@ def compute_f_visibility_mask(
             image_height=image_height,
             image_width=image_width,
             face_front_facing_mask=face_front_facing_mask,
-            camera_face_verts_uvs=camera_attr_verts_uvs.reshape(-1, 3, 2),
+            camera_face_verts_uvs=face_verts_uvs,
         )
         uv_visible = _compute_visible_uv_texels_from_uv_polygon_regions(
             uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
-            texture_size=int(uv_mask.shape[1]),
+            texture_size=texture_size,
             polygon_rast_method=polygon_rast_method,
         )
-        return (uv_visible * uv_mask).contiguous()
+        return (uv_visible * uv_occupancy_mask).contiguous()
 
 
 def _compute_visible_uv_polygon_regions_from_camera_pixels(

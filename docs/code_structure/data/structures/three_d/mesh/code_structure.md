@@ -100,7 +100,7 @@ data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map
 └── class MeshTextureUVTextureMap(MeshTexture)
-    ├── # UV-atlas texture: uv_texture_map [H,W,3] + verts_uvs [U,2] + faces_uvs [F,3] + UV-origin convention.
+    ├── # UV-atlas texture: uv_texture_map [H,W,3] + verts_uvs [U,2] (seam-safe canonical) + faces_uvs [F,3] + UV-origin convention.
     ├── uv_texture_map: torch.Tensor
     ├── verts_uvs: torch.Tensor
     ├── faces_uvs: torch.Tensor
@@ -136,14 +136,37 @@ data/structures/three_d/mesh/texture/conventions.py
         └── return flipped
 ```
 
+## Texture: seam-safe canonical layout
+
+```text
+data/structures/three_d/mesh/texture/canonicalize.py
+├── def shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
+│   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart (per-face u-span <= 0.5), forking any source vt row shared between a seam-crossing and a non-seam face.
+│   ├── impls detect seam-crossing faces via per-face u-span over verts_uvs[faces_uvs[f]] > 0.5
+│   ├── impls shift small-u corners of each seam-crossing face by +1
+│   ├── impls fork a source vt row into two when one row is shared by a seam-crossing face and a non-seam face (the seam-crossing copy receives +1, the non-seam copy stays)
+│   └── return                                              # (verts_uvs_canonical, faces_uvs_canonical) with U' >= U
+└── def collapse_seam_shifted_uv_rows(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
+    ├── # Collapses seam-shifted canonical UV rows back to the OBJ-style vt structure (inverse of shift_seam_crossing_faces_to_seam_safe).
+    ├── impls detect canonical sibling pairs at (u, v) and (u - 1, v) within verts_uvs
+    ├── impls emit one OBJ vt entry per pair and repoint both face-corner indices in faces_uvs to that entry
+    ├── impls wrap u mod 1 for any canonical row without a sibling
+    └── return                                              # (obj_vt_table, obj_faces_uvs) with U_obj <= U_canonical
+```
+
 ## Texture: vertex-color validation
 
 ```text
 data/structures/three_d/mesh/texture/validate_vertex_color.py
 ├── def validate_vertex_color(obj: Any) -> None
 │   ├── # Validates a vertex-color tensor ([V,3] or [1,V,3]; uint8 [0,255] or float32 [0,1]).
-│   ├── calls _validate_vertex_color_uint8                    # uint8 branch
-│   └── calls _validate_vertex_color_float32                  # float32 branch
+│   ├── if obj.dtype == torch.uint8
+│   │   ├── calls _validate_vertex_color_uint8
+│   │   └── return
+│   ├── if obj.dtype == torch.float32
+│   │   ├── calls _validate_vertex_color_float32
+│   │   └── return
+│   └── assert 0, "should not reach here"
 ├── def _validate_vertex_color_uint8(obj: Any) -> None
 │   └── # Validates a uint8 vertex-color tensor.
 └── def _validate_vertex_color_float32(obj: Any) -> None
@@ -155,36 +178,85 @@ data/structures/three_d/mesh/texture/validate_vertex_color.py
 ```text
 data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 ├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
-│   ├── # Validates the whole uv-texture-map representation — every field plus the cross-field invariant; the per-field validators it calls are public too.
-│   ├── calls validate_uv_texture_map_image
-│   ├── calls validate_verts_uvs
-│   ├── calls validate_faces_uvs
-│   ├── calls validate_mesh_uv_convention
-│   └── # cross-field: asserts faces_uvs indices reference valid verts_uvs rows (in [0, U))
+│   ├── # Validates the whole uv-texture-map representation: every single-field validator plus the cross-field invariants.
+│   ├── calls validate_uv_texture_map_image                  # single-field: uv_texture_map
+│   ├── calls validate_verts_uvs                             # single-field: verts_uvs
+│   ├── calls validate_faces_uvs                             # single-field: faces_uvs
+│   ├── calls validate_mesh_uv_convention                    # single-field: convention
+│   └── calls _validate_verts_uvs_faces_uvs_cross_field      # cross-field: (verts_uvs, faces_uvs)
 ├── def validate_uv_texture_map_image(obj: Any) -> None
 │   ├── # Validates a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
-│   ├── calls _validate_uv_texture_map_image_uint8             # uint8 branch
-│   └── calls _validate_uv_texture_map_image_float32           # float32 branch
+│   ├── if obj.dtype == torch.uint8
+│   │   ├── calls _validate_uv_texture_map_image_uint8
+│   │   └── return
+│   ├── if obj.dtype == torch.float32
+│   │   ├── calls _validate_uv_texture_map_image_float32
+│   │   └── return
+│   └── assert 0, "should not reach here"
+├── def _validate_uv_texture_map_image_uint8(obj: Any) -> None
+│   └── # Validates a uint8 UV texture image tensor.
+├── def _validate_uv_texture_map_image_float32(obj: Any) -> None
+│   └── # Validates a float32 UV texture image tensor (finite, values within [0,1]).
 ├── def validate_verts_uvs(obj: Any) -> None
-│   └── # Validates a UV-coordinate table (float [U,2], finite, values in [0,1]).
+│   └── # Validates a UV-coordinate table (float [U,2], finite, non-negative; values may exceed 1 — see the seam contract on MeshTextureUVTextureMap).
 ├── def validate_faces_uvs(obj: Any) -> None
 │   └── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
 ├── def validate_mesh_uv_convention(convention: Any) -> str
 │   └── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
-├── def _validate_uv_texture_map_image_uint8(obj: Any) -> None
-│   └── # Validates a uint8 UV texture image tensor.
-└── def _validate_uv_texture_map_image_float32(obj: Any) -> None
-    └── # Validates a float32 UV texture image tensor (finite, values within [0,1]).
+└── def _validate_verts_uvs_faces_uvs_cross_field(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> None
+    ├── # Validates the cross-field invariants between verts_uvs and faces_uvs.
+    ├── def _validate_faces_uvs_index_range() -> None [local]
+    │   ├── # Asserts that every faces_uvs entry references a valid verts_uvs row.
+    │   └── impls assert max(faces_uvs) < verts_uvs.shape[0]
+    ├── calls _validate_faces_uvs_index_range()
+    ├── def _validate_seam_safe_uv_layout() -> None [local]
+    │   ├── # Asserts the seam-safe per-face-span invariant.
+    │   └── impls assert per-face (u_max - u_min over verts_uvs[faces_uvs[f]]) <= 0.5
+    └── calls _validate_seam_safe_uv_layout()
+```
+
+## Texture: texel-to-face map
+
+```text
+data/structures/three_d/mesh/texture/texel_face_map.py
+├── import nvdiffrast.torch as dr
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── if TYPE_CHECKING
+│   └── from data.structures.three_d.mesh.mesh import Mesh   # TYPE_CHECKING-only: avoids the mesh.py -> texture/__init__.py -> texel_face_map.py -> mesh.py import cycle
+├── def build_texel_face_map(mesh: Mesh, texture_size: int) -> Dict[str, torch.Tensor]
+│   ├── # Builds the texel -> mesh-face correspondence for one UV-textured mesh (requires a seam-safe canonical MeshTextureUVTextureMap) at the given texture resolution.
+│   ├── calls _build_seam_safe_uv_triangle_soup(verts_uvs=mesh.texture.verts_uvs, faces=mesh.faces, faces_uvs=mesh.texture.faces_uvs)
+│   ├── calls _verts_uvs_to_clip(verts_uvs=raster_verts_uvs)
+│   ├── calls _compute_texel_face_index(rast_out=rast_out, raster_face_indices=raster_face_indices)
+│   └── calls _compute_texel_face_barycentric(rast_out=rast_out)
+├── def _build_seam_safe_uv_triangle_soup(verts_uvs: torch.Tensor, faces: torch.Tensor, faces_uvs: torch.Tensor) -> Dict[str, torch.Tensor]
+│   ├── # Builds the per-face UV triangle soup, adding a u-shifted mirror copy for any face whose seam-safe corners extend outside [0, 1] so the T x T rasterizer covers both sides of the cylindrical wrap.
+│   └── return                                              # "raster_verts_uvs" [Vr, 2] / "tri_i32" [Fr, 3] int32 / "raster_face_indices" [Fr] (mesh-face id per soup triangle)
+├── def _verts_uvs_to_clip(verts_uvs: torch.Tensor) -> torch.Tensor
+│   └── # Converts UV coordinates to clip-space positions [1, V, 4] for the UV rasterizer (u, v -> 2u - 1, 2v - 1, 0, 1).
+├── def _compute_texel_face_index(rast_out: torch.Tensor, raster_face_indices: torch.Tensor) -> torch.Tensor
+│   ├── # Maps the rasterizer's per-texel soup-triangle index back to the original mesh-face index.
+│   ├── impls soup_triangle_index = rast_out[..., 3].long() - 1   # nvdiffrast is 1-indexed; -1 marks unoccupied texels
+│   ├── impls texel_face_index = raster_face_indices[soup_triangle_index]
+│   ├── impls preserve -1 sentinel where soup_triangle_index < 0
+│   └── return                                              # [T, T] int64 mesh-face index map (-1 sentinel for unoccupied texels)
+└── def _compute_texel_face_barycentric(rast_out: torch.Tensor) -> torch.Tensor
+    ├── # Extracts per-texel face-local barycentric weights from the rasterizer output.
+    ├── impls (u_bary, v_bary) = rast_out[..., 0], rast_out[..., 1]
+    ├── impls (w0, w1, w2) = (1 - u_bary - v_bary, u_bary, v_bary)
+    └── return                                              # [T, T, 3] barycentric weights (w0, w1, w2 summing to 1 on occupied texels)
 ```
 
 ## Texture: package API surface
 
 ```text
 data/structures/three_d/mesh/texture/__init__.py
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
+├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_verts_uvs, validate_faces_uvs, validate_mesh_uv_convention
 └── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ```
@@ -196,6 +268,7 @@ data/structures/three_d/mesh/load.py
 ├── from pytorch3d.io import load_obj
 ├── from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def load_mesh(path: Union[str, Path]) -> Mesh
@@ -222,7 +295,8 @@ data/structures/three_d/mesh/load.py
 │   ├── # Loads a UV-textured OBJ via PyTorch3D into a MeshTextureUVTextureMap-textured mesh on the geometry domain (convention "obj").
 │   ├── calls _resolve_input_path
 │   ├── calls load_obj                                        # verts, faces, aux (verts_uvs, textures_idx, texture_images)
-│   └── calls pack_texture_images                             # multi-material -> single atlas
+│   ├── calls pack_texture_images                             # multi-material -> single atlas
+│   └── calls shift_seam_crossing_faces_to_seam_safe          # raw OBJ verts_uvs -> seam-safe canonical
 ├── def _resolve_input_path(path: Union[str, Path]) -> Path
 │   ├── # Resolves a mesh path to exactly one OBJ file.
 │   └── calls _resolve_input_paths
@@ -237,6 +311,7 @@ data/structures/three_d/mesh/load.py
 ```text
 data/structures/three_d/mesh/save.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
 ├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
@@ -266,7 +341,8 @@ data/structures/three_d/mesh/save.py
 │   ├── # Writes a UV-textured mesh as an OBJ plus a sibling MTL and texture PNG.
 │   ├── calls _resolve_output_obj_path
 │   ├── calls _normalize_uv_texture_map_for_png
-│   └── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
+│   ├── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
+│   └── calls collapse_seam_shifted_uv_rows                   # seam-safe canonical -> OBJ vt structure
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
 │   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
 ├── def _resolve_output_non_uv_mesh_path(output_path: Union[str, Path]) -> Path
@@ -318,6 +394,7 @@ data/structures/three_d/mesh/merge.py
 ```text
 data/structures/three_d/mesh/convert.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> Mesh
@@ -332,12 +409,14 @@ data/structures/three_d/mesh/convert.py
 │   ├── elif isinstance(mesh.textures, TexturesVertex)
 │   │   └── # builds Mesh with a MeshTextureVertexColor
 │   └── else  # TexturesUV
+│       ├── calls shift_seam_crossing_faces_to_seam_safe     # raw TexturesUV verts_uvs -> seam-safe canonical
 │       └── # builds Mesh with a MeshTextureUVTextureMap
 ├── def mesh_to_pytorch3d(mesh: Mesh, device: Union[str, torch.device, None] = None, dtype: torch.dtype = torch.float32) -> Meshes
 │   ├── # Converts a Mesh into a PyTorch3D Meshes.
 │   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
 │   │   └── # builds Meshes with a TexturesVertex
 │   ├── elif isinstance(mesh.texture, MeshTextureUVTextureMap)
+│   │   ├── calls collapse_seam_shifted_uv_rows              # seam-safe canonical -> OBJ vt structure for TexturesUV
 │   │   └── # builds Meshes with a TexturesUV (UV forced to "obj" convention)
 │   └── else
 │       └── # builds a geometry-only Meshes
@@ -345,6 +424,7 @@ data/structures/three_d/mesh/convert.py
 │   ├── # Converts a trimesh.Trimesh into a Mesh.
 │   ├── if mesh.visual carries uv
 │   │   ├── calls _uv_mesh_from_trimesh                      # welds per-corner duplicate verts into the geometry domain
+│   │   ├── calls shift_seam_crossing_faces_to_seam_safe     # raw trimesh verts_uvs -> seam-safe canonical
 │   │   ├── calls _texture_image_from_trimesh
 │   │   └── # builds Mesh with a MeshTextureUVTextureMap
 │   └── else
@@ -368,7 +448,8 @@ data/structures/three_d/mesh/convert.py
 ├── def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray
 │   └── # Converts trimesh vertex colors to a repo RGB array (drops opaque alpha).
 ├── def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-│   └── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
+│   ├── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
+│   └── calls collapse_seam_shifted_uv_rows                  # seam-safe canonical -> OBJ vt structure before per-corner expansion
 ├── def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray
 │   └── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.
 └── def _vertex_color_to_trimesh(vertex_color: torch.Tensor) -> np.ndarray

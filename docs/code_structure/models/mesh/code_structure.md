@@ -28,6 +28,7 @@ models/three_d/meshes/texture/extract/camera_geometry.py
 models/three_d/meshes/texture/extract/extract.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 ├── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ├── from models.three_d.meshes.texture.extract.camera_geometry import _project_verts_to_image
 ├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights, _compute_v_normals_weights
@@ -65,9 +66,9 @@ models/three_d/meshes/texture/extract/extract.py
 │   └── calls _project_verts_to_image(verts=mesh.verts, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
 ├── def _extract_uv_texture_map_from_images(meshes: List[Mesh], images_nchw: torch.Tensor, cameras: Cameras, weights_cfg: Dict[str, Any], texture_size: int, default_color: float, texel_visibility_method: str, polygon_rast_method: str='v2') -> Dict[str, torch.Tensor]
 │   ├── # Fuse per-view UV observations into one UV texture map.
-│   ├── calls _build_uv_rasterization_data(mesh=reference_mesh, texture_size=texture_size)
+│   ├── calls build_texel_face_map(mesh=reference_mesh, texture_size=texture_size)
 │   ├── for view_idx in range(images_nchw.shape[0])
-│   │   └── calls _extract_uv_texture_map_from_single_image(mesh=meshes[view_idx], image=images_nchw[view_idx], camera=cameras[view_idx:view_idx + 1], weights_cfg=weights_cfg, uv_rasterization_data=uv_rasterization_data, texel_visibility_method=texel_visibility_method, polygon_rast_method=polygon_rast_method)
+│   │   └── calls _extract_uv_texture_map_from_single_image(mesh=meshes[view_idx], image=images_nchw[view_idx], camera=cameras[view_idx:view_idx + 1], weights_cfg=weights_cfg, texel_face_map=texel_face_map, texel_visibility_method=texel_visibility_method, polygon_rast_method=polygon_rast_method)
 │   └── calls _fuse_uv_texture_observations(observations=observations, weights_cfg=weights_cfg, default_color=default_color)
 ├── def _fuse_uv_texture_observations(observations: List[Dict[str, torch.Tensor]], weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse one-view UV observations into one UV texture map.
@@ -76,45 +77,28 @@ models/three_d/meshes/texture/extract/extract.py
 │   │   └── calls _validate_rgb_image(obj=provisional_uv_texture_map)
 │   ├── calls _validate_rgb_image(obj=uv_texture_map)
 │   └── calls _validate_rgb_image(obj=uv_texture_map)
-├── def _extract_uv_texture_map_from_single_image(mesh: Mesh, image: torch.Tensor, camera: Cameras, weights_cfg: Dict[str, Any], uv_rasterization_data: Dict[str, torch.Tensor], texel_visibility_method: str='v1', polygon_rast_method: str='v2') -> Dict[str, torch.Tensor]
+├── def _extract_uv_texture_map_from_single_image(mesh: Mesh, image: torch.Tensor, camera: Cameras, weights_cfg: Dict[str, Any], texel_face_map: Dict[str, torch.Tensor], texel_visibility_method: str='v1', polygon_rast_method: str='v2') -> Dict[str, torch.Tensor]
 │   ├── # Extract one-view UV texture observation and UV weight map.
 │   ├── if texel_visibility_method == 'v1'
-│   │   └── calls compute_f_visibility_mask(verts=mesh.verts, faces=mesh.faces, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]), uv_rasterization_data=uv_rasterization_data, polygon_rast_method=polygon_rast_method)
+│   │   └── calls compute_f_visibility_mask(verts=mesh.verts, faces=mesh.faces, face_verts_uvs=mesh.texture.verts_uvs[mesh.texture.faces_uvs], camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]), texel_face_map=texel_face_map, polygon_rast_method=polygon_rast_method)
 │   ├── else
-│   │   └── calls compute_f_visibility_mask_v2(verts=mesh.verts, faces=mesh.faces, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]), uv_rasterization_data=uv_rasterization_data)
+│   │   └── calls compute_f_visibility_mask_v2(verts=mesh.verts, faces=mesh.faces, face_verts_uvs=mesh.texture.verts_uvs[mesh.texture.faces_uvs], camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]), texel_face_map=texel_face_map)
 │   ├── if weights == 'normals'
 │   │   ├── calls _compute_f_normals_weights(mesh=mesh, camera=camera, weights_cfg=weights_cfg)
-│   │   └── calls _rasterize_face_weights_to_uv(face_weight=face_normals_weight, uv_rasterization_data=uv_rasterization_data)
+│   │   └── calls _rasterize_face_weights_to_uv(face_weight=face_normals_weight, texel_face_map=texel_face_map)
 │   ├── else
-│   └── calls _project_f_colors(mesh=mesh, image=image, camera=camera, uv_rasterization_data=uv_rasterization_data)
-├── def _project_f_colors(mesh: Mesh, image: torch.Tensor, camera: Cameras, uv_rasterization_data: Dict[str, torch.Tensor]) -> torch.Tensor
+│   └── calls _project_f_colors(mesh=mesh, image=image, camera=camera, texel_face_map=texel_face_map)
+├── def _project_f_colors(mesh: Mesh, image: torch.Tensor, camera: Cameras, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Project one image into UV space using rasterized UV correspondence.
-│   ├── def _interpolate_uv_texel_image_coords(projected_vertex_xy: torch.Tensor, uv_rasterization_data: Dict[str, torch.Tensor]) -> torch.Tensor [local]
+│   ├── def _interpolate_uv_texel_image_coords(projected_vertex_xy: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor [local]
 │   │   └── # Interpolate image-space coordinates for every occupied UV texel.
 │   ├── def _sample_uv_texel_colors_from_source_image(interpolated_uv_xy: torch.Tensor, image: torch.Tensor) -> torch.Tensor [local]
 │   │   └── # Sample source-image colors at interpolated UV texel image coordinates.
 │   ├── calls _project_verts_to_image(verts=mesh.verts, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
-│   ├── calls _interpolate_uv_texel_image_coords(projected_vertex_xy=xy, uv_rasterization_data=uv_rasterization_data)
+│   ├── calls _interpolate_uv_texel_image_coords(projected_vertex_xy=xy, texel_face_map=texel_face_map)
 │   ├── calls _sample_uv_texel_colors_from_source_image(interpolated_uv_xy=interpolated_uv_xy, image=image)
 │   └── calls _validate_rgb_image(obj=uv_texture)
-├── def _build_uv_rasterization_data(mesh: Mesh, texture_size: int) -> Dict[str, torch.Tensor]
-│   ├── # Build reusable UV rasterization tensors for UV-space operations.
-│   ├── calls _build_uv_rasterization_mesh(verts_uvs=verts_uvs, faces=faces, faces_uvs=faces_uvs)
-│   ├── calls _build_camera_uv_interpolation_data(verts_uvs=verts_uvs, faces=faces, faces_uvs=faces_uvs)
-│   └── calls _verts_uvs_to_clip(verts_uvs=raster_verts_uvs)
-├── def _build_uv_rasterization_mesh(verts_uvs: torch.Tensor, faces: torch.Tensor, faces_uvs: Optional[torch.Tensor]=None) -> Dict[str, torch.Tensor]
-│   ├── # Build a seam-safe UV triangle soup for UV rasterization.
-│   ├── def _append_triangles(face_indices: torch.Tensor, face_uv: torch.Tensor) -> None [local]
-│   │   └── # Append one batch of UV triangles to the triangle-soup buffers.
-│   ├── calls _append_triangles(face_indices=non_seam_face_indices, face_uv=face_verts_uvs[non_seam_face_indices])
-│   └── if seam_face_indices.numel() > 0
-│       ├── calls _append_triangles(face_indices=seam_face_indices, face_uv=seam_face_uv)
-│       └── calls _append_triangles(face_indices=seam_face_indices, face_uv=seam_face_uv_wrapped)
-├── def _build_camera_uv_interpolation_data(verts_uvs: torch.Tensor, faces: torch.Tensor, faces_uvs: Optional[torch.Tensor]=None) -> Dict[str, torch.Tensor]
-│   └── # Build seam-safe per-face UV attributes for camera-space interpolation.
-├── def _verts_uvs_to_clip(verts_uvs: torch.Tensor) -> torch.Tensor
-│   └── # Convert UV coordinates to clip-space positions for UV rasterization.
-└── def _rasterize_face_weights_to_uv(face_weight: torch.Tensor, uv_rasterization_data: Dict[str, torch.Tensor]) -> torch.Tensor
+└── def _rasterize_face_weights_to_uv(face_weight: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
     └── # Map per-face weights to per-UV-pixel weights for one view.
 ```
 
@@ -148,12 +132,12 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 ├── from models.three_d.meshes.texture.extract.camera_geometry import _verts_world_to_camera
 ├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights
 ├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import _build_uv_polygon_texel_intersections, _build_uv_triangle_texel_intersections_v2, _build_visible_face_pixel_polygons, _camera_verts_to_pixel, _clip_convex_polygons_to_pixel_squares, _compute_convex_polygon_areas, _compute_face_inverse_depth_coefficients, _duplicate_wrapped_uv_polygons, _project_screen_polygons_to_face_uv, _triangulate_convex_uv_polygons
-├── def compute_f_visibility_mask(verts: torch.Tensor, faces: torch.Tensor, camera: Cameras, image_height: int, image_width: int, uv_rasterization_data: Dict[str, torch.Tensor], polygon_rast_method: str='v2') -> torch.Tensor
+├── def compute_f_visibility_mask(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor], polygon_rast_method: str='v2') -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from exact camera-pixel footprints.
 │   ├── calls _verts_world_to_camera(verts=verts, camera=camera)
 │   ├── calls _compute_f_normals_weights(mesh=Mesh(verts=verts, faces=faces), camera=camera, weights_cfg={'weights': 'normals'})
-│   ├── calls _compute_visible_uv_polygon_regions_from_camera_pixels(verts_camera=verts_camera, faces=faces, intrinsics=camera[0].intrinsics, image_height=image_height, image_width=image_width, face_front_facing_mask=face_front_facing_mask, camera_face_verts_uvs=camera_attr_verts_uvs.reshape(-1, 3, 2))
-│   └── calls _compute_visible_uv_texels_from_uv_polygon_regions(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts, texture_size=int(uv_mask.shape[1]), polygon_rast_method=polygon_rast_method)
+│   ├── calls _compute_visible_uv_polygon_regions_from_camera_pixels(verts_camera=verts_camera, faces=faces, intrinsics=camera[0].intrinsics, image_height=image_height, image_width=image_width, face_front_facing_mask=face_front_facing_mask, camera_face_verts_uvs=face_verts_uvs)
+│   └── calls _compute_visible_uv_texels_from_uv_polygon_regions(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts, texture_size=int(texel_face_map['texel_face_index'].shape[0]), polygon_rast_method=polygon_rast_method)
 ├── def _compute_visible_uv_polygon_regions_from_camera_pixels(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int, face_front_facing_mask: torch.Tensor, camera_face_verts_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Compute exact visible UV polygon regions from camera pixels.
 │   ├── calls _camera_verts_to_pixel(verts_camera=verts_camera, intrinsics=intrinsics)
@@ -361,17 +345,17 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
 ├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
 ├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights
 ├── FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER
-├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, camera: Cameras, image_height: int, image_width: int, uv_rasterization_data: Dict[str, torch.Tensor]) -> torch.Tensor
+├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from projected texel centers.
 │   ├── calls _map_valid_texels_to_continuous_uv_coords(valid_texel_mask=valid_texel_mask)
-│   ├── calls _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords=continuous_uv_coords, valid_texel_indices=valid_texel_indices, uv_rasterization_data=uv_rasterization_data)
+│   ├── calls _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords=continuous_uv_coords, valid_texel_indices=valid_texel_indices, face_verts_uvs=face_verts_uvs, texel_face_map=texel_face_map)
 │   ├── calls _filter_texels_by_face_facing(valid_texel_indices=valid_texel_indices, texel_face_indices=texel_face_indices, barycentric_coords=barycentric_coords, verts=verts, faces=faces, camera=camera)
 │   ├── calls _map_barycentric_coords_to_3d_world_coords(barycentric_coords=barycentric_coords, texel_face_indices=texel_face_indices, verts=verts, faces=faces)
 │   ├── calls _compute_mesh_diagonal(verts=verts)
 │   └── calls _compute_texel_visibility_mask_from_world_coords(world_coords=world_coords, valid_texel_indices=valid_texel_indices, valid_texel_mask=valid_texel_mask, mesh_diagonal=mesh_diagonal, camera=camera, image_height=image_height, image_width=image_width)
 ├── def _map_valid_texels_to_continuous_uv_coords(valid_texel_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   └── # Map valid texel centers to continuous UV coordinates.
-├── def _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords: torch.Tensor, valid_texel_indices: torch.Tensor, uv_rasterization_data: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]
+├── def _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords: torch.Tensor, valid_texel_indices: torch.Tensor, face_verts_uvs: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Map continuous UV coordinates to owning-face barycentric coordinates.
 │   ├── calls _wrap_continuous_uv_coords_for_faces(continuous_uv_coords=continuous_uv_coords, face_verts_uvs=face_verts_uvs)
 │   └── calls _compute_barycentric_coords_in_uv_faces(continuous_uv_coords=wrapped_continuous_uv_coords, face_verts_uvs=face_verts_uvs)

@@ -148,7 +148,7 @@ def _build_uv_textured_mesh() -> Mesh:
                 dtype=torch.float32,
             ),
             verts_uvs=torch.tensor(
-                [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                [[0.1, 0.1], [0.4, 0.1], [0.1, 0.4]],
                 dtype=torch.float32,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
