@@ -1,3 +1,5 @@
+import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+import type { VNode } from "web/reconcile/reconcile";
 import { renderPointsDisplay } from "./core_points_display";
 import type {
   ColorPCDisplayResponse,
@@ -6,16 +8,20 @@ import type {
 
 export function renderColorPCDisplay({
   displayResponse,
+  initialCameraState = null,
 }: {
   displayResponse: ColorPCDisplayResponse;
-}): HTMLElement {
-  return renderPointsDisplay({ displayResponse });
+  initialCameraState?: CameraState | null;
+}): VNode {
+  return renderPointsDisplay({ displayResponse, initialCameraState });
 }
 
 export function renderSegmentationPCDisplay({
   displayResponse,
+  initialCameraState = null,
 }: {
   displayResponse: SegmentationPCDisplayResponse;
-}): HTMLElement {
-  return renderPointsDisplay({ displayResponse });
+  initialCameraState?: CameraState | null;
+}): VNode {
+  return renderPointsDisplay({ displayResponse, initialCameraState });
 }

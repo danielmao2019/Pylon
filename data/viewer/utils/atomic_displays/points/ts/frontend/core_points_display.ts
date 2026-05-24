@@ -4,6 +4,13 @@ import {
   type ThreeTrackballCameraControls,
 } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
 import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+import {
+  createThreePerspectiveCamera,
+  createThreeScene,
+  createThreeWebGLRenderer,
+  startThreeSceneRenderLoop,
+} from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
+import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 import type { PointDisplayResponse } from "./types/display_response";
 
 interface FiniteVector {
@@ -53,8 +60,26 @@ interface PlyPropertyOffsets {
 
 export function renderPointsDisplay({
   displayResponse,
+  initialCameraState = null,
 }: {
   displayResponse: PointDisplayResponse;
+  initialCameraState?: CameraState | null;
+}): VNode {
+  const leaf: LeafVNode = {
+    kind: "leaf",
+    key: displayResponse.url ?? `points:${displayResponse.slot_id}`,
+    props: {},
+    render: () => _renderPointsElement({ displayResponse, initialCameraState }),
+  };
+  return leaf;
+}
+
+function _renderPointsElement({
+  displayResponse,
+  initialCameraState,
+}: {
+  displayResponse: PointDisplayResponse;
+  initialCameraState: CameraState | null;
 }): HTMLElement {
   if (displayResponse.url === null) {
     return createPointDisplayPlaceholder(
@@ -71,6 +96,7 @@ export function renderPointsDisplay({
     container,
     status,
     displayResponse,
+    initialCameraState,
   });
   return container;
 }
@@ -79,32 +105,26 @@ async function loadAndRenderPointsDisplay({
   container,
   status,
   displayResponse,
+  initialCameraState,
 }: {
   container: HTMLDivElement;
   status: HTMLDivElement;
   displayResponse: PointDisplayResponse;
+  initialCameraState: CameraState | null;
 }): Promise<void> {
   try {
     const points = await createThreePoints({ displayResponse });
-    const scene = createThreeScene({ points });
-    const camera = createThreePerspectiveCamera({ points });
+    const scene = createThreeScene({ object: points });
+    const camera = createThreePerspectiveCamera({ initialCameraState });
     const renderer = createThreeWebGLRenderer({ container });
-    const controls = createTrackballCameraControls({ camera, renderer });
-    fitThreeCameraToPoints({ camera, controls, points });
+    const controls = createTrackballCameraControls({ camera, renderer, container, initialCameraState });
     registerThreeSceneResize({
       container,
       camera,
       renderer,
       controls,
     });
-    registerThreeSceneCameraSync({
-      container,
-      camera,
-      controls,
-      points,
-      displayResponse,
-    });
-    renderThreeScene({
+    startThreeSceneRenderLoop({
       scene,
       camera,
       renderer,
@@ -116,6 +136,14 @@ async function loadAndRenderPointsDisplay({
       camera,
       controls,
       displayResponse,
+    });
+    controls.addEventListener("change", () => {
+      publishThreePointCameraState({
+        container,
+        camera,
+        controls,
+        displayResponse,
+      });
     });
   } catch (error) {
     status.textContent = formatErrorMessage({ error });
@@ -136,9 +164,7 @@ function createThreePointsContainer({
 }): HTMLDivElement {
   const container = document.createElement("div");
   container.className = "artifact-frame point-display-scene";
-  container.style.position = "relative";
   container.style.overflow = "hidden";
-  container.style.background = "#ffffff";
   container.dataset.pointDisplayRenderer = "three";
   container.dataset.resourceUrl = resourceUrl;
   return container;
@@ -180,89 +206,6 @@ async function createThreePoints({
   return new THREE.Points(geometry, material);
 }
 
-function createThreeScene({ points }: { points: THREE.Points }): THREE.Scene {
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
-  scene.add(points);
-  return scene;
-}
-
-function createThreePerspectiveCamera({
-  points,
-}: {
-  points: THREE.Points;
-}): THREE.PerspectiveCamera {
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1000);
-  const boundingSphere = readPointsBoundingSphere({ points });
-  const radius = Math.max(0.001, boundingSphere.radius);
-  camera.near = radius / 1000;
-  camera.far = radius * 1000;
-  camera.position.set(
-    boundingSphere.center.x,
-    boundingSphere.center.y,
-    boundingSphere.center.z + radius * 2.5,
-  );
-  camera.up.set(0, 1, 0);
-  camera.lookAt(boundingSphere.center);
-  camera.updateProjectionMatrix();
-  return camera;
-}
-
-function createThreeWebGLRenderer({
-  container,
-}: {
-  container: HTMLDivElement;
-}): THREE.WebGLRenderer {
-  const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    preserveDrawingBuffer: true,
-  });
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
-  renderer.domElement.style.display = "block";
-  renderer.domElement.style.width = "100%";
-  renderer.domElement.style.height = "100%";
-  container.append(renderer.domElement);
-  return renderer;
-}
-
-function renderThreeScene({
-  scene,
-  camera,
-  renderer,
-  controls,
-}: {
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  controls: ThreeTrackballCameraControls;
-}): void {
-  startThreeSceneRenderLoop({
-    scene,
-    camera,
-    renderer,
-    controls,
-  });
-}
-
-function startThreeSceneRenderLoop({
-  scene,
-  camera,
-  renderer,
-  controls,
-}: {
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  controls: ThreeTrackballCameraControls;
-}): void {
-  const draw = () => {
-    controls.update();
-    renderer.render(scene, camera);
-    window.requestAnimationFrame(draw);
-  };
-  window.requestAnimationFrame(draw);
-}
-
 function registerThreeSceneResize({
   container,
   camera,
@@ -287,63 +230,6 @@ function registerThreeSceneResize({
     new ResizeObserver(resize).observe(container);
   }
   window.addEventListener("resize", resize);
-}
-
-function registerThreeSceneCameraSync({
-  container,
-  camera,
-  controls,
-  points,
-  displayResponse,
-}: {
-  container: HTMLDivElement;
-  camera: THREE.PerspectiveCamera;
-  controls: ThreeTrackballCameraControls;
-  points: THREE.Points;
-  displayResponse: PointDisplayResponse;
-}): void {
-  const applyContainerCameraState = () => {
-    const cameraState = readCameraStateFromContainer(container);
-    if (cameraState === null) {
-      return;
-    }
-    applyCameraStateToThreeScene({
-      camera,
-      controls,
-      points,
-      cameraState,
-    });
-  };
-  const observer = new MutationObserver(applyContainerCameraState);
-  observer.observe(container, {
-    attributeFilter: ["data-camera-state"],
-    attributes: true,
-  });
-  controls.addEventListener("change", () => {
-    publishThreePointCameraState({
-      container,
-      camera,
-      controls,
-      displayResponse,
-    });
-  });
-  applyContainerCameraState();
-}
-
-function fitThreeCameraToPoints({
-  camera,
-  controls,
-  points,
-}: {
-  camera: THREE.PerspectiveCamera;
-  controls: ThreeTrackballCameraControls;
-  points: THREE.Points;
-}): void {
-  const boundingSphere = readPointsBoundingSphere({ points });
-  const center = boundingSphere.center;
-  controls.target.copy(center);
-  controls.update();
-  camera.lookAt(center);
 }
 
 function parsePlyPointGeometry({
@@ -716,18 +602,6 @@ function createThreePointsMaterial({
   return material;
 }
 
-function readPointsBoundingSphere({
-  points,
-}: {
-  points: THREE.Points;
-}): THREE.Sphere {
-  const boundingSphere = points.geometry.boundingSphere;
-  if (boundingSphere === null) {
-    throw new Error("point cloud geometry has no bounding sphere");
-  }
-  return boundingSphere;
-}
-
 function publishThreePointCameraState({
   container,
   camera,
@@ -782,109 +656,6 @@ function buildThreePointCameraState({
   };
 }
 
-function readCameraStateFromContainer(
-  container: HTMLElement,
-): CameraState | null {
-  const serializedCameraState = container.dataset.cameraState;
-  if (serializedCameraState === undefined) {
-    return null;
-  }
-  const parsedCameraState: unknown = JSON.parse(serializedCameraState);
-  if (!isCameraState(parsedCameraState)) {
-    return null;
-  }
-  return parsedCameraState;
-}
-
-function applyCameraStateToThreeScene({
-  camera,
-  controls,
-  points,
-  cameraState,
-}: {
-  camera: THREE.PerspectiveCamera;
-  controls: ThreeTrackballCameraControls;
-  points: THREE.Points;
-  cameraState: CameraState;
-}): void {
-  if (applyThreePointCameraState({ camera, controls, cameraState })) {
-    return;
-  }
-  applyOpenCvCameraState({
-    camera,
-    controls,
-    points,
-    cameraState,
-  });
-}
-
-function applyThreePointCameraState({
-  camera,
-  controls,
-  cameraState,
-}: {
-  camera: THREE.PerspectiveCamera;
-  controls: ThreeTrackballCameraControls;
-  cameraState: CameraState;
-}): boolean {
-  if (cameraState.convention !== "three_pointcloud") {
-    return false;
-  }
-  const extrinsics = cameraState.extrinsics;
-  const position = readFiniteVector(extrinsics.position);
-  const target = readFiniteVector(extrinsics.target);
-  const quaternion = readFiniteQuaternion(extrinsics.quaternion);
-  const up = readFiniteVector(extrinsics.up);
-  if (
-    position === null ||
-    target === null ||
-    quaternion === null ||
-    up === null
-  ) {
-    return false;
-  }
-  camera.position.copy(vectorFromRecord(position));
-  camera.quaternion.copy(quaternionFromRecord(quaternion));
-  camera.up.copy(vectorFromRecord(up));
-  controls.target.copy(vectorFromRecord(target));
-  controls.update();
-  return true;
-}
-
-function applyOpenCvCameraState({
-  camera,
-  controls,
-  points,
-  cameraState,
-}: {
-  camera: THREE.PerspectiveCamera;
-  controls: ThreeTrackballCameraControls;
-  points: THREE.Points;
-  cameraState: CameraState;
-}): boolean {
-  if (
-    cameraState.convention !== "opencv" ||
-    !isFiniteMatrix4x4(cameraState.extrinsics.matrix)
-  ) {
-    return false;
-  }
-  const matrix = cameraState.extrinsics.matrix;
-  const position = new THREE.Vector3(matrix[0][3], matrix[1][3], matrix[2][3]);
-  const down = new THREE.Vector3(matrix[0][1], matrix[1][1], matrix[2][1]);
-  const forward = new THREE.Vector3(matrix[0][2], matrix[1][2], matrix[2][2]);
-  if (down.length() === 0 || forward.length() === 0) {
-    return false;
-  }
-  const up = down.normalize().multiplyScalar(-1);
-  const target = readPointsBoundingSphere({ points }).center;
-  camera.position.copy(position);
-  camera.up.copy(up);
-  camera.lookAt(target);
-  controls.target.copy(target);
-  controls.update();
-  return true;
-}
-
 function formatLoadedStatus({ points }: { points: THREE.Points }): string {
   const position = points.geometry.getAttribute("position");
   const pointCount = position?.count ?? 0;
@@ -915,82 +686,3 @@ function quaternionToRecord(quaternion: THREE.Quaternion): FiniteQuaternion {
   };
 }
 
-function vectorFromRecord(vector: FiniteVector): THREE.Vector3 {
-  return new THREE.Vector3(vector.x, vector.y, vector.z);
-}
-
-function quaternionFromRecord(
-  quaternion: FiniteQuaternion,
-): THREE.Quaternion {
-  return new THREE.Quaternion(
-    quaternion.x,
-    quaternion.y,
-    quaternion.z,
-    quaternion.w,
-  );
-}
-
-function readFiniteVector(value: unknown): FiniteVector | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  const { x, y, z } = value;
-  if (
-    typeof x !== "number" ||
-    typeof y !== "number" ||
-    typeof z !== "number" ||
-    !Number.isFinite(x) ||
-    !Number.isFinite(y) ||
-    !Number.isFinite(z)
-  ) {
-    return null;
-  }
-  return {
-    x,
-    y,
-    z,
-  };
-}
-
-function readFiniteQuaternion(value: unknown): FiniteQuaternion | null {
-  const vector = readFiniteVector(value);
-  if (vector === null || !isRecord(value)) {
-    return null;
-  }
-  const { w } = value;
-  if (typeof w !== "number" || !Number.isFinite(w)) {
-    return null;
-  }
-  return {
-    ...vector,
-    w,
-  };
-}
-
-function isCameraState(value: unknown): value is CameraState {
-  return (
-    isRecord(value) &&
-    isRecord(value.intrinsics) &&
-    isRecord(value.extrinsics) &&
-    typeof value.convention === "string" &&
-    (value.name === null || typeof value.name === "string") &&
-    (value.id === null || typeof value.id === "string")
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
-}
-
-function isFiniteMatrix4x4(value: unknown): value is number[][] {
-  return (
-    Array.isArray(value) &&
-    value.length === 4 &&
-    value.every(
-      (row) =>
-        Array.isArray(row) &&
-        row.length === 4 &&
-        row.every((item) => Number.isFinite(item)),
-    )
-  );
-}

@@ -10,3 +10,11 @@ export interface SegmentationMeshDisplayResponse extends MeshDisplayResponse {
   display_kind: "segmentation_mesh";
   original_overlay_url?: string | null;
 }
+
+export interface HeatmapMeshDisplayResponse extends MeshDisplayResponse {
+  display_kind: "heatmap_mesh";
+}
+
+export interface SparseHeatmapMeshDisplayResponse extends MeshDisplayResponse {
+  display_kind: "sparse_heatmap_mesh";
+}

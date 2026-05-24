@@ -1,8 +1,6 @@
-# All-Benchmarks Refactor Tree
+# Data Viewer Folder Structure
 
-We expand this tree one hierarchy level at a time. At every checkpoint the user reviews and approves, then we descend. Once the tree is fully agreed, the actual code refactor is performed in one pass.
-
-## 2. Folder structure trees
+## 1. Folder structure trees
 
 `./data/viewer/utils/`
 
@@ -11,14 +9,17 @@ utils/
 ├── atomic_displays/
 │   ├── utils/
 │   │   ├── class_colors.py          # shared class-id to RGB palette utility
+│   │   ├── heatmap_colors.py        # shared non-negative-scalar to RGB palette utility (continuous; analogous to class_colors)
 │   │   └── ts/
 │   │       ├── backend/
 │   │       │   └── schemas/
-│   │       │       └── display_response.py # base atomic DisplayResponse schema
+│   │       │       ├── display_response.py # base atomic DisplayResponse schema
+│   │       │       └── layered_display_response.py # composite LayeredDisplayResponse schema: one base + a generic list of auxiliary layers
 │   │       └── frontend/
-│   │           ├── layered_display_container.ts # wraps base, original-overlay, and camera layer elements with caller-owned visibility state
+│   │           ├── layered_display_container.ts # stacks a base VNode + a generic list of auxiliary VNodes into one layered-container VNode
 │   │           └── types/
-│   │               └── display_response.ts # base atomic DisplayResponse interface
+│   │               ├── display_response.ts # base atomic DisplayResponse interface
+│   │               └── layered_display_response.ts # composite LayeredDisplayResponse interface: one base + a generic list of auxiliary layers
 │   ├── points/                      # point-set display modality
 │   │   ├── dash/
 │   │   │   ├── core_points_display.py # Dash points display object core

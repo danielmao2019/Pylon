@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { TrackballControls as ThreeTrackballControlsImpl } from "three/examples/jsm/controls/TrackballControls.js";
 import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 
+export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45;
+
 type CameraStateListener = (cameraState: CameraState) => void;
 
 interface RendererTrackballCameraControls {
@@ -36,6 +38,8 @@ export function createTrackballCameraControls(args: {
 export function createTrackballCameraControls(args: {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
+  container: HTMLElement;
+  initialCameraState?: CameraState | null;
 }): ThreeTrackballCameraControls;
 
 export function createTrackballCameraControls(args:
@@ -46,6 +50,8 @@ export function createTrackballCameraControls(args:
   | {
       camera: THREE.PerspectiveCamera;
       renderer: THREE.WebGLRenderer;
+      container: HTMLElement;
+      initialCameraState?: CameraState | null;
     },
 ): TrackballCameraControls | ThreeTrackballCameraControls {
   if ("camera" in args) {
@@ -63,8 +69,10 @@ export function createTrackballCameraControls(args:
 function createThreeTrackballCameraControls(args: {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
+  container: HTMLElement;
+  initialCameraState?: CameraState | null;
 }): ThreeTrackballCameraControls {
-  const { camera, renderer } = args;
+  const { camera, renderer, container, initialCameraState = null } = args;
   const threeControls = new ThreeTrackballControlsImpl(camera, renderer.domElement);
   const listeners = new Set<CameraStateListener>();
   threeControls.rotateSpeed = 3;
@@ -83,7 +91,7 @@ function createThreeTrackballCameraControls(args: {
       listener(cameraState);
     }
   });
-  return Object.assign(threeControls, {
+  const result = Object.assign(threeControls, {
     getCameraState: () =>
       buildThreeTrackballCameraState({
         camera,
@@ -106,6 +114,25 @@ function createThreeTrackballCameraControls(args: {
       };
     },
   });
+  if (initialCameraState !== null) {
+    result.applyCameraState(initialCameraState);
+  }
+  const observer = new MutationObserver(() => {
+    const raw = container.dataset.cameraState;
+    if (raw === undefined) {
+      return;
+    }
+    try {
+      result.applyCameraState(JSON.parse(raw) as CameraState);
+    } catch {
+      // ignore unparseable dataset values
+    }
+  });
+  observer.observe(container, {
+    attributeFilter: ["data-camera-state"],
+    attributes: true,
+  });
+  return result;
 }
 
 function buildThreeTrackballCameraState({
@@ -151,11 +178,19 @@ function applyThreeTrackballCameraState({
   const quaternion = cameraState.extrinsics.quaternion;
   const target = cameraState.extrinsics.target;
   const up = cameraState.extrinsics.up;
+  const aspect = cameraState.intrinsics.aspect;
+  const far = cameraState.intrinsics.far;
+  const fov = cameraState.intrinsics.fov;
+  const near = cameraState.intrinsics.near;
   if (
     !isVectorRecord(position) ||
     !isQuaternionRecord(quaternion) ||
     !isVectorRecord(target) ||
-    !isVectorRecord(up)
+    !isVectorRecord(up) ||
+    typeof aspect !== "number" ||
+    typeof far !== "number" ||
+    typeof fov !== "number" ||
+    typeof near !== "number"
   ) {
     return;
   }
@@ -163,6 +198,11 @@ function applyThreeTrackballCameraState({
   camera.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
   camera.up.set(up.x, up.y, up.z);
   controls.target.set(target.x, target.y, target.z);
+  camera.aspect = aspect;
+  camera.far = far;
+  camera.fov = fov;
+  camera.near = near;
+  camera.updateProjectionMatrix();
   controls.update();
 }
 
