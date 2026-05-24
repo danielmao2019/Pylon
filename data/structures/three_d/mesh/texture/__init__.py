@@ -2,6 +2,10 @@
 DATA.STRUCTURES.THREE_D.MESH.TEXTURE API
 """
 
+from data.structures.three_d.mesh.texture.canonicalize import (
+    collapse_seam_shifted_uv_rows,
+    shift_seam_crossing_faces_to_seam_safe,
+)
 from data.structures.three_d.mesh.texture.conventions import (
     transform_verts_uvs_convention,
 )
@@ -31,6 +35,8 @@ __all__ = (
     "MeshTextureVertexColor",
     "MeshTextureUVTextureMap",
     "build_texel_face_map",
+    "collapse_seam_shifted_uv_rows",
+    "shift_seam_crossing_faces_to_seam_safe",
     "transform_verts_uvs_convention",
     "validate_faces_uvs",
     "validate_mesh_uv_convention",
