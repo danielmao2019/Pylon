@@ -141,10 +141,11 @@ data/structures/three_d/mesh/texture/conventions.py
 ```text
 data/structures/three_d/mesh/texture/canonicalize.py
 ├── def shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart (per-face u-span <= 0.5), forking any source vt row shared between a seam-crossing and a non-seam face.
-│   ├── impls detect seam-crossing faces via per-face u-span over verts_uvs[faces_uvs[f]] > 0.5
-│   ├── impls shift small-u corners of each seam-crossing face by +1
-│   ├── impls fork a source vt row into two when one row is shared by a seam-crossing face and a non-seam face (the seam-crossing copy receives +1, the non-seam copy stays)
+│   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart (each face's corners made contiguous: its largest cyclic gap is the wraparound gap), forking any source vt row shared between a shifted and a non-shifted face.
+│   ├── impls for each face, sort its 3 corner-u's and find the largest cyclic gap among the two interior gaps and the wraparound gap (min_u + 1 - max_u)
+│   ├── impls a face is seam-crossing iff its largest cyclic gap is an INTERIOR gap (not the wraparound gap); a wide but non-wrapping face has its largest gap at the wraparound position and needs no shift
+│   ├── impls for each seam-crossing face, shift the corners lying below the largest-gap cut by +1 so the cut moves to the wraparound position and the corners become contiguous (number of shifted corners is per-face, not a fixed 0.5 threshold)
+│   ├── impls fork a source vt row into two when one row must be shifted by a seam-crossing face but left in place by another face sharing it (the shifted copy receives +1, the in-place copy stays)
 │   └── return                                              # (verts_uvs_canonical, faces_uvs_canonical) with U' >= U
 └── def collapse_seam_shifted_uv_rows(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
     ├── # Collapses seam-shifted canonical UV rows back to the OBJ-style vt structure (inverse of shift_seam_crossing_faces_to_seam_safe).
@@ -210,8 +211,8 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
     │   └── impls assert max(faces_uvs) < verts_uvs.shape[0]
     ├── calls _validate_faces_uvs_index_range()
     ├── def _validate_seam_safe_uv_layout() -> None [local]
-    │   ├── # Asserts the seam-safe per-face-span invariant.
-    │   └── impls assert per-face (u_max - u_min over verts_uvs[faces_uvs[f]]) <= 0.5
+    │   ├── # Asserts each face is in non-wrapping canonical form: its corners are contiguous, so its largest cyclic gap is the wraparound gap.
+    │   └── impls assert per-face the wraparound gap (min_u + 1 - max_u over verts_uvs[faces_uvs[f]]) >= both interior gaps between the sorted corner-u's
     └── calls _validate_seam_safe_uv_layout()
 ```
 

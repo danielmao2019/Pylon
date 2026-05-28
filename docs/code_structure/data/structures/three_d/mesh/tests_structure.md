@@ -58,9 +58,11 @@ tests/data/structures/three_d/mesh/texture/test_mesh_texture_uv_texture_map.py
 ├── def test_normalizes_uint8_texture_map
 │   └── # MeshTextureUVTextureMap normalizes a uint8 uv_texture_map into contiguous float32 HWC in [0,1].
 ├── def test_accepts_seam_safe_verts_uvs_outside_unit_interval
-│   └── # MeshTextureUVTextureMap accepts verts_uvs whose u extends beyond 1.0 when the per-face u-span stays <= 0.5 (seam-safe canonical form).
-├── def test_rejects_face_with_u_span_exceeding_half
-│   └── # MeshTextureUVTextureMap rejects any face whose verts_uvs[faces_uvs[f]] u-span exceeds 0.5 (would mean the face straddles the cylindrical wrap without being seam-shifted).
+│   └── # MeshTextureUVTextureMap accepts verts_uvs whose u extends beyond 1.0 when each face is non-wrapping (its largest cyclic gap is the wraparound gap), the seam-safe canonical form.
+├── def test_accepts_wide_non_wrapping_face
+│   └── # MeshTextureUVTextureMap accepts a wide face whose u-span exceeds 0.5 but whose corners are contiguous (largest cyclic gap is the wraparound gap), e.g. corner u's {0.293, 0.735, 0.801} — a wide face is not a wrapping face.
+├── def test_rejects_wrapping_face
+│   └── # MeshTextureUVTextureMap rejects a face whose largest cyclic gap is an interior gap (its corners straddle the cylindrical wrap and were not seam-shifted into contiguous canonical form).
 └── def test_to_converts_uv_convention
     └── # MeshTextureUVTextureMap.to(convention=...) returns a texture whose verts_uvs is converted to the target UV-origin convention.
 ```
@@ -82,7 +84,7 @@ tests/data/structures/three_d/mesh/test_load_save_roundtrip.py
 ├── def test_load_save_obj_with_seam_face_is_byte_identical
 │   └── # Load a hand-written seamed UV OBJ, save it back, and assert byte equality of the resulting vt / f lines — exercises the seam-shift-at-load + collapse-on-save round-trip.
 ├── def test_load_promotes_seam_crossing_face_to_seam_safe_canonical
-│   └── # After load, every face of a seamed mesh satisfies u-span <= 0.5 over its verts_uvs[faces_uvs[f]] (seam-safe canonical form holds).
+│   └── # After load, every face of a seamed mesh is non-wrapping (its largest cyclic gap over verts_uvs[faces_uvs[f]] is the wraparound gap), the seam-safe canonical form.
 └── def test_save_collapses_seam_shifted_uv_rows
     └── # collapse_seam_shifted_uv_rows reduces canonical (U' > U) back to OBJ vt structure (U_obj == U): seam-shifted siblings at (u, v) and (u - 1, v) emit one vt line referenced by both face-corner indices.
 ```

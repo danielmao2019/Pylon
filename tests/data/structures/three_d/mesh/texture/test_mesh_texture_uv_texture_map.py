@@ -139,7 +139,7 @@ def test_normalizes_uint8_texture_map() -> None:
 
 
 def test_accepts_seam_safe_verts_uvs_outside_unit_interval() -> None:
-    """Accept verts_uvs whose u extends beyond 1.0 when the per-face u-span stays <= 0.5 (seam-safe canonical form).
+    """Accept verts_uvs whose u extends beyond 1.0 when each face is non-wrapping (its largest cyclic gap is the wraparound gap), the seam-safe canonical form.
 
     Args:
         None.
@@ -161,8 +161,8 @@ def test_accepts_seam_safe_verts_uvs_outside_unit_interval() -> None:
     assert float(texture.verts_uvs.max().item()) > 1.0, f"{texture.verts_uvs=}"
 
 
-def test_rejects_face_with_u_span_exceeding_half() -> None:
-    """Reject any face whose verts_uvs[faces_uvs[f]] u-span exceeds 0.5 (would mean the face straddles the cylindrical wrap without being seam-shifted).
+def test_accepts_wide_non_wrapping_face() -> None:
+    """Accept a wide face whose u-span exceeds 0.5 but whose corners are contiguous (largest cyclic gap is the wraparound gap) — a wide face is not a wrapping face.
 
     Args:
         None.
@@ -171,7 +171,32 @@ def test_rejects_face_with_u_span_exceeding_half() -> None:
         None.
     """
 
-    with pytest.raises(AssertionError, match="seam-safe"):
+    texture = MeshTextureUVTextureMap(
+        uv_texture_map=_build_uv_texture_map(),
+        verts_uvs=torch.tensor(
+            [[0.293, 0.20], [0.735, 0.25], [0.801, 0.80]],
+            dtype=torch.float32,
+        ),
+        faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
+        convention="obj",
+    )
+
+    face_u = texture.verts_uvs[texture.faces_uvs.to(dtype=torch.int64), 0]
+    span = float((face_u.max(dim=1).values - face_u.min(dim=1).values).max().item())
+    assert span > 0.5, f"test fixture must be a wide face, {span=}"
+
+
+def test_rejects_wrapping_face() -> None:
+    """Reject a face whose largest cyclic gap is an interior gap (its corners straddle the cylindrical wrap and were not seam-shifted into contiguous canonical form).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+
+    with pytest.raises(AssertionError, match="non-wrapping"):
         MeshTextureUVTextureMap(
             uv_texture_map=_build_uv_texture_map(),
             verts_uvs=torch.tensor(

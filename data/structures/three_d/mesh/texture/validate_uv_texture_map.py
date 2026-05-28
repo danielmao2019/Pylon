@@ -196,14 +196,20 @@ def _validate_verts_uvs_faces_uvs_cross_field(
 
     def _validate_seam_safe_uv_layout() -> None:
         face_corner_u = verts_uvs[faces_uvs.to(dtype=torch.long), 0]
-        per_face_u_span = (
-            face_corner_u.max(dim=1).values - face_corner_u.min(dim=1).values
+        sorted_face_corner_u = face_corner_u.sort(dim=1).values
+        interior_gaps = sorted_face_corner_u[:, 1:] - sorted_face_corner_u[:, :-1]
+        wraparound_gap = sorted_face_corner_u[:, 0] + 1.0 - sorted_face_corner_u[:, -1]
+        largest_interior_gap = interior_gaps.max(dim=1).values
+        worst_face_interior_excess = float(
+            (largest_interior_gap - wraparound_gap).max().item()
         )
-        worst_face_u_span = float(per_face_u_span.max().item())
-        assert worst_face_u_span <= 0.5, (
-            "Expected every face to satisfy the seam-safe per-face-span "
-            "invariant (u_max - u_min over verts_uvs[faces_uvs[f]] <= 0.5). "
-            f"{worst_face_u_span=}"
+        assert worst_face_interior_excess <= 0.0, (
+            "Expected every face to be in non-wrapping canonical form: its "
+            "corners contiguous, so the wraparound gap (min_u + 1 - max_u) is "
+            ">= every interior gap between the sorted corner-u's. A face whose "
+            "largest cyclic gap is an interior gap straddles the cylindrical "
+            "wrap without having been seam-shifted into canonical form. "
+            f"{worst_face_interior_excess=}"
         )
 
     _validate_seam_safe_uv_layout()
