@@ -542,10 +542,10 @@ apis.py
 │   ├── impls stores `class_id_to_rgb`
 │   └── return
 ├── def _map_instance_surrogate_image_to_rgb
-├── def _build_instance_surrogate_image_meta_info
-│   ├── # Builds factual class/color metadata from the class-to-RGB mapping.
-│   ├── impls stores `class_id_to_rgb`
-│   └── return
+└── def _build_instance_surrogate_image_meta_info
+    ├── # Builds factual class/color metadata from the class-to-RGB mapping.
+    ├── impls stores `class_id_to_rgb`
+    └── return
 ```
 
 `./data/viewer/utils/atomic_displays/pixels/ts/backend/core_pixels_display.py`
