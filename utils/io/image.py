@@ -1,9 +1,12 @@
-from typing import Literal, List, Sequence, Union, Optional
+import io
+from typing import List, Literal, Optional, Sequence, Union
+
 import numpy
+import rasterio
 import torch
 import torchvision
 from PIL import Image
-import rasterio
+
 from utils.input_checks import check_read_file, check_write_file
 
 
@@ -245,3 +248,50 @@ def save_image(tensor: torch.Tensor, filepath: str) -> None:
         raise NotImplementedError(
             f"Unrecognized tensor format: shape={tensor.shape}, dtype={tensor.dtype}."
         )
+
+
+def decode_image_bytes(image_bytes: bytes) -> torch.Tensor:
+    """Decode encoded image bytes into an HWC uint8 RGB tensor.
+
+    In-memory counterpart of the file-based ``load_image``: takes encoded bytes
+    (PNG / JPEG / ...) rather than a path and returns the decoded pixels.
+
+    Args:
+        image_bytes: Encoded image bytes (PNG / JPEG / ...).
+
+    Returns:
+        torch.Tensor of shape (H, W, 3), dtype uint8, RGB channel order.
+    """
+    assert isinstance(
+        image_bytes, (bytes, bytearray)
+    ), f"image_bytes must be bytes-like, got type={type(image_bytes).__name__}"
+    image = Image.open(io.BytesIO(bytes(image_bytes))).convert("RGB")
+    return torch.from_numpy(numpy.array(image))
+
+
+def encode_image_bytes(image: torch.Tensor, image_format: str) -> bytes:
+    """Encode an HWC uint8 RGB image tensor into encoded image bytes.
+
+    In-memory counterpart of the file-based ``save_image``: returns encoded
+    bytes (PNG / JPEG / ...) rather than writing a path.
+
+    Args:
+        image: torch.Tensor of shape (H, W, 3), dtype uint8, RGB channel order.
+        image_format: PIL image format string (e.g. "PNG", "JPEG").
+
+    Returns:
+        Encoded image bytes in the requested format.
+    """
+    assert isinstance(
+        image, torch.Tensor
+    ), f"image must be torch.Tensor, got type={type(image).__name__}"
+    assert (
+        image.ndim == 3 and image.shape[2] == 3
+    ), f"image must be HWC with 3 channels, got shape={tuple(image.shape)}"
+    assert image.dtype == torch.uint8, f"image must be uint8, got dtype={image.dtype}"
+    assert isinstance(
+        image_format, str
+    ), f"image_format must be str, got type={type(image_format).__name__}"
+    buffer = io.BytesIO()
+    Image.fromarray(image.cpu().numpy(), mode="RGB").save(buffer, format=image_format)
+    return buffer.getvalue()

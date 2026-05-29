@@ -22,7 +22,7 @@ data/structures/three_d/mesh/mesh.py
     │   ├── impls self.texture = texture
     │   └── impls self.device = self.verts.device
     ├── @classmethod def load(cls, path: Union[str, Path]) -> "Mesh"
-    │   ├── # Loads one mesh from an OBJ file or a mesh-root directory.
+    │   ├── # Loads one mesh from a GLB file or an OBJ source (a single OBJ file or a mesh-root directory of OBJs).
     │   ├── from data.structures.three_d.mesh.load import load_mesh   # deferred: load.py imports mesh.py, so mesh.py must not import load.py at module level
     │   ├── calls load_mesh
     │   └── return                                  # the Mesh returned by load_mesh
@@ -262,30 +262,56 @@ data/structures/three_d/mesh/texture/__init__.py
 └── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ```
 
-## Loading
+## Loading: API and format dispatch
 
 ```text
-data/structures/three_d/mesh/load.py
+data/structures/three_d/mesh/load/__init__.py
+└── from data.structures.three_d.mesh.load.load import load_mesh
+```
+
+```text
+data/structures/three_d/mesh/load/load.py
+├── from data.structures.three_d.mesh.load.load_glb import load_glb_mesh
+├── from data.structures.three_d.mesh.load.load_obj import load_obj_mesh
+└── def load_mesh(path: Union[str, Path]) -> Mesh
+    ├── # Loads one mesh from a GLB file or an OBJ source (a single OBJ file or a mesh-root directory of OBJs).
+    ├── if the path is a .glb file
+    │   ├── calls load_glb_mesh
+    │   └── return
+    ├── if the path is an OBJ file or a mesh-root directory of OBJs
+    │   ├── calls load_obj_mesh
+    │   └── return
+    └── assert 0, "should not reach here"
+```
+
+## Loading: OBJ
+
+```text
+data/structures/three_d/mesh/load/load_obj.py
 ├── from pytorch3d.io import load_obj
-├── from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
+├── from data.structures.three_d.mesh.load.merge import merge_meshes, pack_texture_images
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.canonicalize import shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def load_mesh(path: Union[str, Path]) -> Mesh
-│   ├── # Loads one OBJ file, or every OBJ under a mesh-root directory, into one merged Mesh.
+├── def load_obj_mesh(path: Union[str, Path]) -> Mesh
+│   ├── # Loads one OBJ file, or every OBJ under a mesh-root directory, into one merged Mesh (single or multiple blocks).
 │   ├── calls _resolve_input_paths
 │   ├── calls _load_mesh_block_from_obj_path                  # per OBJ block
 │   └── calls merge_meshes
 ├── def _load_mesh_block_from_obj_path(obj_path: Path) -> Mesh
 │   ├── # Loads one OBJ as a single mesh block, dispatched to the texture-representation-specific loader.
 │   ├── calls _inspect_obj_file
+│   ├── if not has_vertex_colors and not (has_uv_coords and has_uv_faces)
+│   │   ├── calls _load_mesh_geometry_only
+│   │   └── return
+│   ├── if has_vertex_colors
+│   │   ├── calls _load_mesh_vertex_color
+│   │   └── return
 │   ├── if has_uv_coords and has_uv_faces
-│   │   └── calls _load_mesh_uv_texture_map
-│   ├── elif has_vertex_colors
-│   │   └── calls _load_mesh_vertex_color
-│   └── else
-│       └── calls _load_mesh_geometry_only
+│   │   ├── calls _load_mesh_uv_texture_map
+│   │   └── return
+│   └── assert 0, "should not reach here"
 ├── def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh
 │   ├── # Loads a geometry-only OBJ (parses v / f lines; texture None).
 │   └── calls _resolve_input_path
@@ -307,79 +333,82 @@ data/structures/three_d/mesh/load.py
     └── # Inspects one OBJ to detect its texture representation (has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib).
 ```
 
-## Saving
+## Loading: GLB
 
 ```text
-data/structures/three_d/mesh/save.py
+data/structures/three_d/mesh/load/load_glb.py
+├── import numpy as np
+├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
-├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
-├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
+├── from data.structures.three_d.mesh.texture.canonicalize import shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def save_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
-│   ├── # Dispatches on the mesh's texture type to the matching writer.
-│   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
-│   │   └── calls _save_mesh_vertex_color
-│   ├── elif isinstance(mesh.texture, MeshTextureUVTextureMap)
-│   │   └── calls _save_mesh_uv_texture_map
-│   └── else
-│       └── calls _save_mesh_geometry_only                    # texture is None
-├── def _save_mesh_geometry_only(mesh: Mesh, output_path: Union[str, Path]) -> None
-│   ├── # Writes a geometry-only mesh as OBJ or PLY.
-│   ├── calls _resolve_output_non_uv_mesh_path
-│   ├── if the resolved path is an .obj
-│   │   └── # writes the OBJ (v / f lines)
-│   └── else  # .ply
-│       └── # writes the PLY
-├── def _save_mesh_vertex_color(mesh: Mesh, output_path: Union[str, Path]) -> None
-│   ├── # Writes a vertex-colored mesh as OBJ (v x y z r g b) or PLY.
-│   ├── calls _resolve_output_non_uv_mesh_path
-│   ├── if the resolved path is an .obj
-│   │   └── calls _normalize_vertex_color_for_obj
-│   └── else  # .ply
-│       └── calls _normalize_vertex_color_for_ply
-├── def _save_mesh_uv_texture_map(mesh: Mesh, output_path: Union[str, Path]) -> None
-│   ├── # Writes a UV-textured mesh as an OBJ plus a sibling MTL and texture PNG.
-│   ├── calls _resolve_output_obj_path
-│   ├── calls _normalize_uv_texture_map_for_png
-│   ├── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
-│   └── calls collapse_seam_shifted_uv_rows                   # seam-safe canonical -> OBJ vt structure
-├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
-│   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
-├── def _resolve_output_non_uv_mesh_path(output_path: Union[str, Path]) -> Path
-│   └── # Resolves an output path to a concrete .obj or .ply file path (an ".obj"/".ply" path, or "<dir>/mesh.obj").
-├── def _normalize_vertex_color_for_obj(vertex_color: torch.Tensor) -> torch.Tensor
-│   └── # Normalizes vertex color to float32 [0,1] for OBJ export.
-├── def _normalize_vertex_color_for_ply(vertex_color: torch.Tensor) -> torch.Tensor
-│   └── # Normalizes vertex color to uint8 [0,255] for PLY export.
-└── def _normalize_uv_texture_map_for_png(uv_texture_map: torch.Tensor) -> np.ndarray
-    └── # Normalizes a UV texture map to a uint8 HWC array for PNG export.
+├── from utils.io.glb import load_glb_json_and_bin, read_accessor, read_image_bytes
+├── from utils.io.image import decode_image_bytes
+├── def load_glb_mesh(path: Union[str, Path]) -> Mesh
+│   ├── # Loads one GLB file into a Mesh, dispatched to the texture-representation-specific loader (a GLB is one self-contained file, so no block split).
+│   ├── calls load_glb_json_and_bin
+│   ├── calls _select_mesh_primitive
+│   ├── if the primitive has neither a COLOR_0 attribute nor a TEXCOORD_0 with a base-color texture
+│   │   ├── calls _load_glb_geometry_only
+│   │   └── return
+│   ├── if the primitive has a COLOR_0 attribute
+│   │   ├── calls _load_glb_vertex_color
+│   │   └── return
+│   ├── if the primitive has TEXCOORD_0 and a base-color texture
+│   │   ├── calls _load_glb_uv_texture_map
+│   │   └── return
+│   └── assert 0, "should not reach here"
+├── def _load_glb_geometry_only(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
+│   ├── # Builds a geometry-only Mesh from a GLB primitive (POSITION -> verts; indices -> faces; texture None).
+│   ├── calls read_accessor                                  # POSITION -> verts, indices -> faces
+│   └── return Mesh                                           # texture None
+├── def _load_glb_vertex_color(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
+│   ├── # Builds a vertex-colored Mesh from a GLB primitive (POSITION -> verts; indices -> faces; COLOR_0 -> vertex_color).
+│   ├── calls read_accessor                                  # POSITION -> verts, indices -> faces, COLOR_0 -> vertex_color
+│   └── return Mesh                                           # MeshTextureVertexColor
+├── def _load_glb_uv_texture_map(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
+│   ├── # Builds a UV-textured Mesh from a GLB primitive (POSITION -> verts; the shared index buffer -> faces and the raw faces_uvs; TEXCOORD_0 -> verts_uvs; base-color image -> uv_texture_map) on convention "top_left".
+│   ├── calls read_accessor                                  # POSITION -> verts, indices -> faces, TEXCOORD_0 -> verts_uvs
+│   ├── calls _resolve_base_color_texture_image_index
+│   ├── calls read_image_bytes
+│   ├── calls decode_image_bytes
+│   ├── calls shift_seam_crossing_faces_to_seam_safe          # raw glTF verts_uvs (faces_uvs = the shared index buffer) -> seam-safe canonical
+│   └── return Mesh                                           # MeshTextureUVTextureMap(convention="top_left")
+├── def _select_mesh_primitive(gltf: Dict[str, Any]) -> Tuple[int, int]
+│   └── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many untextured marker meshes plus one textured face, this uniquely picks the face).
+└── def _resolve_base_color_texture_image_index(gltf: Dict[str, Any], primitive: Dict[str, Any]) -> int
+    └── # Resolves a primitive's material base-color texture to its glTF image index (glTF-semantic material navigation).
 ```
 
-## Merging and texture-atlas packing
+## Loading: block merging
 
 ```text
-data/structures/three_d/mesh/merge.py
+data/structures/three_d/mesh/load/merge.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def merge_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
-│   ├── # Merges one or more mesh blocks into one Mesh.
+│   ├── # Merges one or more mesh blocks (assumed homogeneous in texture representation) into one Mesh.
 │   ├── if len(mesh_blocks) == 1
 │   │   └── return mesh_blocks[0]                             # single block: pass-through
+│   ├── if no block carries a texture
+│   │   ├── calls _merge_geometry_only_meshes
+│   │   └── return
+│   ├── if any block carries MeshTextureVertexColor
+│   │   ├── calls _merge_vertex_color_meshes
+│   │   └── return
 │   ├── if any block carries MeshTextureUVTextureMap
-│   │   └── calls _merge_uv_textured_meshes
-│   ├── elif any block carries MeshTextureVertexColor
-│   │   └── calls _merge_vertex_color_meshes
-│   └── else
-│       └── calls _merge_geometry_only_meshes
+│   │   ├── calls _merge_uv_textured_meshes
+│   │   └── return
+│   └── assert 0, "should not reach here"
+├── def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
+│   └── # Merges geometry-only mesh blocks, concatenating geometry with vertex offsets.
 ├── def _merge_vertex_color_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   └── # Merges vertex-colored mesh blocks, concatenating geometry and vertex colors with vertex offsets.
 ├── def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   ├── # Merges UV-textured mesh blocks, concatenating geometry and UV and packing per-block textures into one atlas.
 │   └── calls _pack_texture_maps
-├── def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
-│   └── # Merges geometry-only mesh blocks, concatenating geometry with vertex offsets.
 ├── def pack_texture_images(texture_images: Dict[str, torch.Tensor], verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, materials_idx: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Packs a material-name -> image mapping into one atlas plus remapped UVs.
 │   └── calls _pack_texture_maps
@@ -388,6 +417,147 @@ data/structures/three_d/mesh/merge.py
 │   └── calls _remap_uvs
 └── def _remap_uvs(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, map_offsets: torch.Tensor, atlas_height: int, atlas_width: int, materials_idx: torch.Tensor) -> torch.Tensor
     └── # Rescales and offsets each material's UVs into its packed atlas region.
+```
+
+## Saving: API and format dispatch
+
+```text
+data/structures/three_d/mesh/save/__init__.py
+└── from data.structures.three_d.mesh.save.save import save_mesh
+```
+
+```text
+data/structures/three_d/mesh/save/save.py
+├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.save.save_glb import save_glb_mesh
+├── from data.structures.three_d.mesh.save.save_obj import save_obj_mesh
+├── from data.structures.three_d.mesh.save.save_ply import save_ply_mesh
+└── def save_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
+    ├── # Saves a mesh to OBJ, PLY, or GLB, dispatched on the output path's format (OBJ vs PLY vs GLB is the top-level responsibility split; a directory defaults to an OBJ file).
+    ├── if the output path is a .glb file
+    │   ├── calls save_glb_mesh
+    │   └── return
+    ├── if the output path is a .ply file
+    │   ├── calls save_ply_mesh
+    │   └── return
+    ├── if the output path is an .obj file or a directory
+    │   ├── calls save_obj_mesh
+    │   └── return
+    └── assert 0, "should not reach here"
+```
+
+## Saving: OBJ
+
+```text
+data/structures/three_d/mesh/save/save_obj.py
+├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
+├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
+├── def save_obj_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
+│   ├── # Writes a Mesh to OBJ, dispatched to the texture-representation-specific writer.
+│   ├── calls _resolve_output_obj_path
+│   ├── if mesh.texture is None
+│   │   ├── calls _save_geometry_only_obj
+│   │   └── return
+│   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
+│   │   ├── calls _save_vertex_color_obj
+│   │   └── return
+│   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
+│   │   ├── calls _save_uv_texture_map_obj
+│   │   └── return
+│   └── assert 0, "should not reach here"
+├── def _save_geometry_only_obj(mesh: Mesh, obj_path: Path) -> None
+│   └── # Writes the OBJ v / f lines.
+├── def _save_vertex_color_obj(mesh: Mesh, obj_path: Path) -> None
+│   ├── # Writes the OBJ v-x-y-z-r-g-b / f lines.
+│   └── calls _normalize_vertex_color_for_obj
+├── def _save_uv_texture_map_obj(mesh: Mesh, obj_path: Path) -> None
+│   ├── # Writes the OBJ plus a sibling MTL and texture PNG.
+│   ├── calls _normalize_uv_texture_map_for_png
+│   ├── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
+│   └── calls collapse_seam_shifted_uv_rows                   # seam-safe canonical -> OBJ vt structure
+├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
+│   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
+├── def _normalize_vertex_color_for_obj(vertex_color: torch.Tensor) -> torch.Tensor
+│   └── # Normalizes vertex color to float32 [0,1] for OBJ export.
+└── def _normalize_uv_texture_map_for_png(uv_texture_map: torch.Tensor) -> np.ndarray
+    └── # Normalizes a UV texture map to a uint8 HWC array for PNG export.
+```
+
+## Saving: PLY
+
+```text
+data/structures/three_d/mesh/save/save_ply.py
+├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
+├── def save_ply_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
+│   ├── # Writes a Mesh to PLY, dispatched to the texture-representation-specific writer (PLY carries geometry + optional per-vertex color; a UV-atlas texture has no PLY representation).
+│   ├── calls _resolve_output_ply_path
+│   ├── if mesh.texture is None
+│   │   ├── calls _save_geometry_only_ply
+│   │   └── return
+│   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
+│   │   ├── calls _save_vertex_color_ply
+│   │   └── return
+│   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
+│   │   └── raise ValueError                                  # a UV-atlas texture cannot be written to PLY; save to OBJ or GLB
+│   └── assert 0, "should not reach here"
+├── def _save_geometry_only_ply(mesh: Mesh, ply_path: Path) -> None
+│   └── # Writes a geometry-only PLY.
+├── def _save_vertex_color_ply(mesh: Mesh, ply_path: Path) -> None
+│   ├── # Writes a vertex-colored PLY.
+│   └── calls _normalize_vertex_color_for_ply
+├── def _resolve_output_ply_path(output_path: Union[str, Path]) -> Path
+│   └── # Resolves an output path to a concrete .ply file path (a ".ply" path, or "<dir>/mesh.ply").
+└── def _normalize_vertex_color_for_ply(vertex_color: torch.Tensor) -> torch.Tensor
+    └── # Normalizes vertex color to uint8 [0,255] for PLY export.
+```
+
+## Saving: GLB
+
+```text
+data/structures/three_d/mesh/save/save_glb.py
+├── import numpy as np
+├── import torch
+├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
+├── from utils.io.glb import append_accessor, append_image, write_glb
+├── from utils.io.image import encode_image_bytes
+├── def save_glb_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
+│   ├── # Writes a Mesh to a GLB container, dispatched to the texture-representation-specific writer.
+│   ├── calls _resolve_output_glb_path
+│   ├── if mesh.texture is None
+│   │   ├── calls _save_geometry_only_glb
+│   │   └── return
+│   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
+│   │   ├── calls _save_vertex_color_glb
+│   │   └── return
+│   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
+│   │   ├── calls _save_uv_texture_map_glb
+│   │   └── return
+│   └── assert 0, "should not reach here"
+├── def _save_geometry_only_glb(mesh: Mesh, glb_path: Path) -> None
+│   ├── # Appends POSITION + indices accessors and writes the GLB (no material).
+│   ├── calls append_accessor
+│   └── calls write_glb
+├── def _save_vertex_color_glb(mesh: Mesh, glb_path: Path) -> None
+│   ├── # Appends POSITION + indices + COLOR_0 accessors and writes the GLB (no texture material).
+│   ├── calls append_accessor
+│   └── calls write_glb
+├── def _save_uv_texture_map_glb(mesh: Mesh, glb_path: Path) -> None
+│   ├── # Appends POSITION + indices + TEXCOORD_0 accessors + an embedded base-color texture image, then writes the GLB.
+│   ├── calls collapse_seam_shifted_uv_rows                   # seam-safe canonical -> glTF shared-index vt structure
+│   ├── calls append_accessor
+│   ├── calls encode_image_bytes
+│   ├── calls append_image
+│   └── calls write_glb
+└── def _resolve_output_glb_path(output_path: Union[str, Path]) -> Path
+    └── # Resolves an output path to a concrete .glb file path (a ".glb" path, or "<dir>/mesh.glb").
 ```
 
 ## Framework interop conversions
@@ -466,7 +636,6 @@ data/structures/three_d/mesh/__init__.py
 ├── from data.structures.three_d.mesh.convert import mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh
 ├── from data.structures.three_d.mesh.load import load_mesh
 ├── from data.structures.three_d.mesh.mesh import Mesh
-├── from data.structures.three_d.mesh.merge import merge_meshes
 ├── from data.structures.three_d.mesh.save import save_mesh
 └── from data.structures.three_d.mesh.validate import validate_faces, validate_mesh_attributes, validate_verts
 ```
