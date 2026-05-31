@@ -26,6 +26,7 @@ laspy
 
 # --- Experiment utilities
 pytest
+playwright
 tqdm
 tensorboard
 tensorboardX
