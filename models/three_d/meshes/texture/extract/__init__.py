@@ -4,9 +4,9 @@ MODELS.THREE_D.MESHES.TEXTURE.EXTRACT API
 
 from models.three_d.meshes.texture.extract.camera_geometry import (
     _camera_verts_to_clip,
-    _render_camera_depth_buffer,
-    _render_camera_face_index_buffer,
     _verts_world_to_camera,
+    render_camera_depth_buffer,
+    render_camera_face_index_buffer,
 )
 from models.three_d.meshes.texture.extract.extract import (
     _extract_uv_texture_map_from_single_image,
@@ -14,7 +14,7 @@ from models.three_d.meshes.texture.extract.extract import (
     extract_texture_from_images,
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
-    _compute_f_normals_weights,
+    compute_f_normals_weights,
 )
 from models.three_d.meshes.texture.extract.visibility import (
     compute_f_visibility_mask,
@@ -24,14 +24,14 @@ from models.three_d.meshes.texture.extract.visibility import (
 
 __all__ = (
     "_camera_verts_to_clip",
-    "_compute_f_normals_weights",
     "_extract_uv_texture_map_from_single_image",
     "_extract_vertex_color_from_single_image",
-    "_render_camera_depth_buffer",
-    "_render_camera_face_index_buffer",
     "_verts_world_to_camera",
+    "compute_f_normals_weights",
     "compute_f_visibility_mask",
     "compute_f_visibility_mask_v2",
     "compute_v_visibility_mask",
     "extract_texture_from_images",
+    "render_camera_depth_buffer",
+    "render_camera_face_index_buffer",
 )

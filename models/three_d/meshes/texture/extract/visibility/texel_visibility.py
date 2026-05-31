@@ -62,19 +62,19 @@ from models.three_d.meshes.texture.extract.camera_geometry import (
     _verts_world_to_camera,
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
-    _compute_f_normals_weights,
+    compute_f_normals_weights,
 )
 from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import (
-    _build_uv_polygon_texel_intersections,
-    _build_uv_triangle_texel_intersections_v2,
-    _build_visible_face_pixel_polygons,
-    _camera_verts_to_pixel,
     _clip_convex_polygons_to_pixel_squares,
     _compute_convex_polygon_areas,
-    _compute_face_inverse_depth_coefficients,
-    _duplicate_wrapped_uv_polygons,
-    _project_screen_polygons_to_face_uv,
-    _triangulate_convex_uv_polygons,
+    build_uv_polygon_texel_intersections,
+    build_uv_triangle_texel_intersections_v2,
+    build_visible_face_pixel_polygons,
+    camera_verts_to_pixel,
+    compute_face_inverse_depth_coefficients,
+    duplicate_wrapped_uv_polygons,
+    project_screen_polygons_to_face_uv,
+    triangulate_convex_uv_polygons,
 )
 
 # -----------------------------------------------------------------------------
@@ -188,7 +188,7 @@ def compute_f_visibility_mask(
             .contiguous()
         )
         face_front_facing_mask = (
-            _compute_f_normals_weights(
+            compute_f_normals_weights(
                 mesh=Mesh(verts=verts, faces=faces),
                 camera=camera,
                 weights_cfg={"weights": "normals"},
@@ -281,7 +281,7 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
 
     _validate_inputs()
 
-    vertex_pixels = _camera_verts_to_pixel(
+    vertex_pixels = camera_verts_to_pixel(
         verts_camera=verts_camera,
         intrinsics=intrinsics,
     )
@@ -816,7 +816,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         Returns:
             Inverse-depth coefficients [F, 3].
         """
-        return _compute_face_inverse_depth_coefficients(
+        return compute_face_inverse_depth_coefficients(
             face_screen_verts=face_screen_verts,
             face_vertex_depth=face_vertex_depth,
         )
@@ -832,7 +832,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         Returns:
             Visible polygon verts, counts, and local face indices.
         """
-        return _build_visible_face_pixel_polygons(
+        return build_visible_face_pixel_polygons(
             clipped_polygon_verts=clipped_polygon_verts,
             clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
             clipped_pixel_indices=clipped_pixel_indices,
@@ -1008,7 +1008,7 @@ def _map_visible_screen_space_polygon_regions_to_uv(
         Returns:
             Visible UV polygons [N, Vmax, 2].
         """
-        return _project_screen_polygons_to_face_uv(
+        return project_screen_polygons_to_face_uv(
             polygon_verts=visible_screen_polygon_verts,
             face_screen_verts=polygon_face_screen_verts,
             face_vertex_depth=polygon_face_vertex_depth,
@@ -1178,7 +1178,7 @@ def _compute_uv_polygon_texel_contributions_v1(
                 wrapped UV polygons [Nw, Vmax, 2],
                 wrapped UV polygon vertex counts [Nw].
         """
-        return _duplicate_wrapped_uv_polygons(
+        return duplicate_wrapped_uv_polygons(
             uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
         )
@@ -1187,7 +1187,7 @@ def _compute_uv_polygon_texel_contributions_v1(
         wrapped_uv_polygon_verts,
         wrapped_uv_polygon_vertex_counts,
     ) = _duplicate_wrap_crossing_polygons()
-    return _build_uv_polygon_texel_intersections(
+    return build_uv_polygon_texel_intersections(
         uv_polygon_verts=wrapped_uv_polygon_verts,
         uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
         texture_size=texture_size,
@@ -1259,7 +1259,7 @@ def _compute_uv_polygon_texel_contributions_v2(
                 wrapped UV polygons [Nw, Vmax, 2],
                 wrapped UV polygon vertex counts [Nw].
         """
-        return _duplicate_wrapped_uv_polygons(
+        return duplicate_wrapped_uv_polygons(
             uv_polygon_verts=uv_polygon_verts,
             uv_polygon_vertex_counts=uv_polygon_vertex_counts,
         )
@@ -1313,7 +1313,7 @@ def _compute_uv_polygon_texel_contributions_v2(
 
         _validate_inputs()
 
-        return _triangulate_convex_uv_polygons(
+        return triangulate_convex_uv_polygons(
             polygon_verts=wrapped_uv_polygon_verts,
             polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
         )
@@ -1326,7 +1326,7 @@ def _compute_uv_polygon_texel_contributions_v2(
         wrapped_uv_polygon_verts=wrapped_uv_polygon_verts,
         wrapped_uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts,
     )
-    return _build_uv_triangle_texel_intersections_v2(
+    return build_uv_triangle_texel_intersections_v2(
         uv_triangles=wrapped_uv_triangles,
         texture_size=texture_size,
     )

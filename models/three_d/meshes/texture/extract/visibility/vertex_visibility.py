@@ -7,8 +7,8 @@ import torch
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.texture.extract.camera_geometry import (
-    _project_verts_to_image,
-    _render_camera_face_index_buffer,
+    project_verts_to_image,
+    render_camera_face_index_buffer,
 )
 
 # -----------------------------------------------------------------------------
@@ -54,7 +54,7 @@ def compute_v_visibility_mask(
 
     _validate_inputs()
 
-    _xy, _depth, verts_camera, projection_valid = _project_verts_to_image(
+    _xy, _depth, verts_camera, projection_valid = project_verts_to_image(
         verts=mesh.verts,
         camera=camera,
         image_height=image_height,
@@ -133,7 +133,7 @@ def _compute_rasterized_visible_vertex_mask(
     if front_facing_faces.shape[0] == 0:
         return torch.zeros((vertex_count,), device=device, dtype=torch.bool)
 
-    face_plus1 = _render_camera_face_index_buffer(
+    face_plus1 = render_camera_face_index_buffer(
         verts_camera=verts_camera,
         faces=front_facing_faces,
         intrinsics=intrinsics,

@@ -11,7 +11,7 @@ from data.structures.three_d.point_cloud.camera.transform import (
     world_to_camera_transform,
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
-    _compute_f_normals_weights,
+    compute_f_normals_weights,
 )
 
 FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER = 3.0
@@ -461,7 +461,7 @@ def _filter_texels_by_face_facing(
         return valid_texel_indices, texel_face_indices, barycentric_coords
 
     face_front_facing_mask = (
-        _compute_f_normals_weights(
+        compute_f_normals_weights(
             mesh=Mesh(verts=verts, faces=faces),
             camera=camera,
             weights_cfg={"weights": "normals"},
