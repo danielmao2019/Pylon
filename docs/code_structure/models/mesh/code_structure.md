@@ -8,16 +8,16 @@ Code-structure skeleton for `models/three_d/meshes/texture/extract/`. `def` line
 models/three_d/meshes/texture/extract/camera_geometry.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
-├── def _render_camera_face_index_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
+├── def render_camera_face_index_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Render a one-view camera-space face-index buffer.
 │   └── calls _camera_verts_to_clip(verts_camera=verts_camera, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
-├── def _render_camera_depth_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
+├── def render_camera_depth_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Render a one-view camera-space depth buffer.
 │   └── calls _camera_verts_to_clip(verts_camera=verts_camera, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
 ├── def _verts_world_to_camera(verts: torch.Tensor, camera: Cameras) -> torch.Tensor
 │   ├── # Transform one-view world-space verts to camera-space verts.
 │   └── calls world_to_camera_transform(points=verts, extrinsics=camera_single.extrinsics, inplace=False)
-├── def _project_verts_to_image(verts: torch.Tensor, camera: Cameras, image_height: int, image_width: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+├── def project_verts_to_image(verts: torch.Tensor, camera: Cameras, image_height: int, image_width: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Project world-space verts to image pixels for one view.
 │   └── calls _verts_world_to_camera(verts=verts, camera=camera)
 └── def _camera_verts_to_clip(verts_camera: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
@@ -30,8 +30,8 @@ models/three_d/meshes/texture/extract/extract.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 ├── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
-├── from models.three_d.meshes.texture.extract.camera_geometry import _project_verts_to_image
-├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights, _compute_v_normals_weights
+├── from models.three_d.meshes.texture.extract.camera_geometry import project_verts_to_image
+├── from models.three_d.meshes.texture.extract.normal_weights import compute_f_normals_weights, compute_v_normals_weights
 ├── from models.three_d.meshes.texture.extract.visibility.texel_visibility import compute_f_visibility_mask
 ├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_v2 import compute_f_visibility_mask_v2
 ├── from models.three_d.meshes.texture.extract.visibility.vertex_visibility import compute_v_visibility_mask
@@ -58,12 +58,12 @@ models/three_d/meshes/texture/extract/extract.py
 │   ├── # Extract one-view vertex colors and corresponding per-vertex weights.
 │   ├── calls compute_v_visibility_mask(mesh=mesh, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
 │   ├── if weights == 'normals'
-│   │   └── calls _compute_v_normals_weights(mesh=mesh, camera=camera, weights_cfg=weights_cfg)
+│   │   └── calls compute_v_normals_weights(mesh=mesh, camera=camera, weights_cfg=weights_cfg)
 │   ├── else
 │   └── calls _project_v_colors(mesh=mesh, image=image, camera=camera, default_color=default_color)
 ├── def _project_v_colors(mesh: Mesh, image: torch.Tensor, camera: Cameras, default_color: float) -> torch.Tensor
 │   ├── # Project one image to verts and sample per-vertex RGB colors.
-│   └── calls _project_verts_to_image(verts=mesh.verts, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
+│   └── calls project_verts_to_image(verts=mesh.verts, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
 ├── def _extract_uv_texture_map_from_images(meshes: List[Mesh], images_nchw: torch.Tensor, cameras: Cameras, weights_cfg: Dict[str, Any], texture_size: int, default_color: float, texel_visibility_method: str, polygon_rast_method: str='v2') -> Dict[str, torch.Tensor]
 │   ├── # Fuse per-view UV observations into one UV texture map.
 │   ├── calls build_texel_face_map(mesh=reference_mesh, texture_size=texture_size)
@@ -84,7 +84,7 @@ models/three_d/meshes/texture/extract/extract.py
 │   ├── else
 │   │   └── calls compute_f_visibility_mask_v2(verts=mesh.verts, faces=mesh.faces, face_verts_uvs=mesh.texture.verts_uvs[mesh.texture.faces_uvs], camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]), texel_face_map=texel_face_map)
 │   ├── if weights == 'normals'
-│   │   ├── calls _compute_f_normals_weights(mesh=mesh, camera=camera, weights_cfg=weights_cfg)
+│   │   ├── calls compute_f_normals_weights(mesh=mesh, camera=camera, weights_cfg=weights_cfg)
 │   │   └── calls _rasterize_face_weights_to_uv(face_weight=face_normals_weight, texel_face_map=texel_face_map)
 │   ├── else
 │   └── calls _project_f_colors(mesh=mesh, image=image, camera=camera, texel_face_map=texel_face_map)
@@ -94,7 +94,7 @@ models/three_d/meshes/texture/extract/extract.py
 │   │   └── # Interpolate image-space coordinates for every occupied UV texel.
 │   ├── def _sample_uv_texel_colors_from_source_image(interpolated_uv_xy: torch.Tensor, image: torch.Tensor) -> torch.Tensor [local]
 │   │   └── # Sample source-image colors at interpolated UV texel image coordinates.
-│   ├── calls _project_verts_to_image(verts=mesh.verts, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
+│   ├── calls project_verts_to_image(verts=mesh.verts, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
 │   ├── calls _interpolate_uv_texel_image_coords(projected_vertex_xy=xy, texel_face_map=texel_face_map)
 │   ├── calls _sample_uv_texel_colors_from_source_image(interpolated_uv_xy=interpolated_uv_xy, image=image)
 │   └── calls _validate_rgb_image(obj=uv_texture)
@@ -108,11 +108,11 @@ models/three_d/meshes/texture/extract/normal_weights.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from models.three_d.meshes.ops.normals import compute_vertex_normals
 ├── from models.three_d.meshes.texture.extract.camera_geometry import _verts_world_to_camera
-├── def _compute_v_normals_weights(mesh: Mesh, camera: Cameras, weights_cfg: Dict[str, Any]) -> torch.Tensor
+├── def compute_v_normals_weights(mesh: Mesh, camera: Cameras, weights_cfg: Dict[str, Any]) -> torch.Tensor
 │   ├── # Compute one-view per-vertex normal-alignment weights.
 │   ├── calls _verts_world_to_camera(verts=mesh.verts, camera=camera)
 │   └── calls compute_vertex_normals(base_verts=verts_camera, faces=mesh.faces)
-└── def _compute_f_normals_weights(mesh: Mesh, camera: Cameras, weights_cfg: Dict[str, Any]) -> torch.Tensor
+└── def compute_f_normals_weights(mesh: Mesh, camera: Cameras, weights_cfg: Dict[str, Any]) -> torch.Tensor
     ├── # Compute one-view per-face normal-alignment weights.
     └── calls _verts_world_to_camera(verts=mesh.verts, camera=camera)
 ```
@@ -130,17 +130,17 @@ models/three_d/meshes/texture/extract/weights_cfg.py
 models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from models.three_d.meshes.texture.extract.camera_geometry import _verts_world_to_camera
-├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights
-├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import _build_uv_polygon_texel_intersections, _build_uv_triangle_texel_intersections_v2, _build_visible_face_pixel_polygons, _camera_verts_to_pixel, _clip_convex_polygons_to_pixel_squares, _compute_convex_polygon_areas, _compute_face_inverse_depth_coefficients, _duplicate_wrapped_uv_polygons, _project_screen_polygons_to_face_uv, _triangulate_convex_uv_polygons
+├── from models.three_d.meshes.texture.extract.normal_weights import compute_f_normals_weights
+├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import build_uv_polygon_texel_intersections, build_uv_triangle_texel_intersections_v2, build_visible_face_pixel_polygons, camera_verts_to_pixel, _clip_convex_polygons_to_pixel_squares, _compute_convex_polygon_areas, compute_face_inverse_depth_coefficients, duplicate_wrapped_uv_polygons, project_screen_polygons_to_face_uv, triangulate_convex_uv_polygons
 ├── def compute_f_visibility_mask(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor], polygon_rast_method: str='v2') -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from exact camera-pixel footprints.
 │   ├── calls _verts_world_to_camera(verts=verts, camera=camera)
-│   ├── calls _compute_f_normals_weights(mesh=Mesh(verts=verts, faces=faces), camera=camera, weights_cfg={'weights': 'normals'})
+│   ├── calls compute_f_normals_weights(mesh=Mesh(verts=verts, faces=faces), camera=camera, weights_cfg={'weights': 'normals'})
 │   ├── calls _compute_visible_uv_polygon_regions_from_camera_pixels(verts_camera=verts_camera, faces=faces, intrinsics=camera[0].intrinsics, image_height=image_height, image_width=image_width, face_front_facing_mask=face_front_facing_mask, camera_face_verts_uvs=face_verts_uvs)
 │   └── calls _compute_visible_uv_texels_from_uv_polygon_regions(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts, texture_size=int(texel_face_map['texel_face_index'].shape[0]), polygon_rast_method=polygon_rast_method)
 ├── def _compute_visible_uv_polygon_regions_from_camera_pixels(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int, face_front_facing_mask: torch.Tensor, camera_face_verts_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Compute exact visible UV polygon regions from camera pixels.
-│   ├── calls _camera_verts_to_pixel(verts_camera=verts_camera, intrinsics=intrinsics)
+│   ├── calls camera_verts_to_pixel(verts_camera=verts_camera, intrinsics=intrinsics)
 │   ├── calls _compute_visible_screen_space_polygon_regions_inside_camera_pixels(face_screen_verts=face_screen_verts, face_vertex_depth=face_vertex_depth, image_height=image_height, image_width=image_width)
 │   └── calls _map_visible_screen_space_polygon_regions_to_uv(visible_screen_polygon_verts=visible_screen_polygon_verts, visible_screen_polygon_vertex_counts=visible_screen_polygon_vertex_counts, visible_screen_polygon_face_indices=visible_screen_polygon_face_indices, face_screen_verts=face_screen_verts, face_vertex_depth=face_vertex_depth, face_verts_uvs=face_verts_uvs)
 ├── def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor, image_height: int, image_width: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
@@ -167,10 +167,10 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 │   ├── # Compute inter-polygon occlusion and remove hidden screen-space regions.
 │   ├── def _compute_projected_face_inverse_depth_coefficients() -> torch.Tensor [local]
 │   │   ├── # Compute affine inverse-depth coefficients for the projected faces.
-│   │   └── calls _compute_face_inverse_depth_coefficients(face_screen_verts=face_screen_verts, face_vertex_depth=face_vertex_depth)
+│   │   └── calls compute_face_inverse_depth_coefficients(face_screen_verts=face_screen_verts, face_vertex_depth=face_vertex_depth)
 │   ├── def _build_exact_visible_face_pixel_polygons(face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
 │   │   ├── # Resolve exact visible face-pixel polygons from clipped overlaps.
-│   │   └── calls _build_visible_face_pixel_polygons(clipped_polygon_verts=clipped_polygon_verts, clipped_polygon_vertex_counts=clipped_polygon_vertex_counts, clipped_pixel_indices=clipped_pixel_indices, clipped_face_indices=clipped_face_indices, face_inverse_depth_coefficients=face_inverse_depth_coefficients)
+│   │   └── calls build_visible_face_pixel_polygons(clipped_polygon_verts=clipped_polygon_verts, clipped_polygon_vertex_counts=clipped_polygon_vertex_counts, clipped_pixel_indices=clipped_pixel_indices, clipped_face_indices=clipped_face_indices, face_inverse_depth_coefficients=face_inverse_depth_coefficients)
 │   ├── def _pack_visible_polygon_outputs(visible_polygon_verts: torch.Tensor, visible_polygon_vertex_counts: torch.Tensor, visible_polygon_face_indices: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor] [local]
 │   │   └── # Pack exact visible polygons into the downstream tensor format.
 │   ├── calls _compute_projected_face_inverse_depth_coefficients()
@@ -182,7 +182,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 │   │   └── # Gather owning-face geometry for each visible polygon.
 │   ├── def _project_screen_polygon_verts_to_uv(polygon_face_screen_verts: torch.Tensor, polygon_face_vertex_depth: torch.Tensor, polygon_face_verts_uvs: torch.Tensor) -> torch.Tensor [local]
 │   │   ├── # Project visible screen polygons into UV.
-│   │   └── calls _project_screen_polygons_to_face_uv(polygon_verts=visible_screen_polygon_verts, face_screen_verts=polygon_face_screen_verts, face_vertex_depth=polygon_face_vertex_depth, face_verts_uvs=polygon_face_verts_uvs)
+│   │   └── calls project_screen_polygons_to_face_uv(polygon_verts=visible_screen_polygon_verts, face_screen_verts=polygon_face_screen_verts, face_vertex_depth=polygon_face_vertex_depth, face_verts_uvs=polygon_face_verts_uvs)
 │   ├── def _pack_visible_uv_polygons(uv_polygon_verts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
 │   │   └── # Pack UV polygons with their original vertex counts.
 │   ├── calls _gather_visible_polygon_face_geometry()
@@ -198,20 +198,20 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 │   ├── # Construct exact step-2 `v1` texel contributions for visible UV polygons.
 │   ├── def _duplicate_wrap_crossing_polygons() -> Tuple[torch.Tensor, torch.Tensor] [local]
 │   │   ├── # Duplicate wrap-crossing polygons so the cylindrical UV union is preserved.
-│   │   └── calls _duplicate_wrapped_uv_polygons(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts)
+│   │   └── calls duplicate_wrapped_uv_polygons(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts)
 │   ├── calls _duplicate_wrap_crossing_polygons()
-│   └── calls _build_uv_polygon_texel_intersections(uv_polygon_verts=wrapped_uv_polygon_verts, uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts, texture_size=texture_size)
+│   └── calls build_uv_polygon_texel_intersections(uv_polygon_verts=wrapped_uv_polygon_verts, uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts, texture_size=texture_size)
 └── def _compute_uv_polygon_texel_contributions_v2(uv_polygon_verts: torch.Tensor, uv_polygon_vertex_counts: torch.Tensor, texture_size: int) -> torch.Tensor
     ├── # Construct approximate step-2 `v2` texel contributions for visible UV polygons.
     ├── def _duplicate_wrap_crossing_polygons() -> Tuple[torch.Tensor, torch.Tensor] [local]
     │   ├── # Duplicate wrap-crossing polygons so the cylindrical UV union is preserved.
-    │   └── calls _duplicate_wrapped_uv_polygons(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts)
+    │   └── calls duplicate_wrapped_uv_polygons(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts)
     ├── def _triangulate_wrapped_uv_polygons(wrapped_uv_polygon_verts: torch.Tensor, wrapped_uv_polygon_vertex_counts: torch.Tensor) -> torch.Tensor [local]
     │   ├── # Triangulate wrapped convex UV polygons into a triangle soup.
-    │   └── calls _triangulate_convex_uv_polygons(polygon_verts=wrapped_uv_polygon_verts, polygon_vertex_counts=wrapped_uv_polygon_vertex_counts)
+    │   └── calls triangulate_convex_uv_polygons(polygon_verts=wrapped_uv_polygon_verts, polygon_vertex_counts=wrapped_uv_polygon_vertex_counts)
     ├── calls _duplicate_wrap_crossing_polygons()
     ├── calls _triangulate_wrapped_uv_polygons(wrapped_uv_polygon_verts=wrapped_uv_polygon_verts, wrapped_uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts)
-    └── calls _build_uv_triangle_texel_intersections_v2(uv_triangles=wrapped_uv_triangles, texture_size=texture_size)
+    └── calls build_uv_triangle_texel_intersections_v2(uv_triangles=wrapped_uv_triangles, texture_size=texture_size)
 ```
 
 ```text
@@ -230,7 +230,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 ├── def _compute_multi_face_pixel_second_bucket_mask(pixel_polygon_verts: torch.Tensor, pixel_polygon_vertex_counts: torch.Tensor, pixel_face_valid_mask: torch.Tensor) -> torch.Tensor
 │   ├── # Detect which multi-face pixels require full overlap resolution.
 │   └── calls _compute_pair_positive_area_overlap_mask(first_polygon_verts=first_pair_polygon_verts, first_polygon_vertex_counts=first_pair_polygon_vertex_counts, second_polygon_verts=second_pair_polygon_verts, second_polygon_vertex_counts=second_pair_polygon_vertex_counts)
-├── def _build_visible_face_pixel_polygons(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, clipped_pixel_indices: torch.Tensor, clipped_face_indices: torch.Tensor, face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+├── def build_visible_face_pixel_polygons(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, clipped_pixel_indices: torch.Tensor, clipped_face_indices: torch.Tensor, face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Build exact visible face-pixel polygons in batched tensor form.
 │   ├── calls _pack_face_pixel_polygons_by_pixel(clipped_polygon_verts=clipped_polygon_verts, clipped_polygon_vertex_counts=clipped_polygon_vertex_counts, clipped_pixel_indices=clipped_pixel_indices, clipped_face_indices=clipped_face_indices, face_inverse_depth_coefficients=face_inverse_depth_coefficients)
 │   ├── if torch.any(single_face_pixel_mask)
@@ -264,7 +264,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │   └── calls _compute_points_in_convex_polygons(points=cell_centroid.unsqueeze(1).expand(-1, candidate_polygon_verts.shape[1], -1).reshape(-1, 2), polygon_verts=candidate_polygon_verts.reshape(-1, candidate_polygon_verts.shape[2], 2), polygon_vertex_counts=candidate_polygon_vertex_counts.reshape(-1))
 ├── def _pack_face_pixel_polygons_by_pixel(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, clipped_pixel_indices: torch.Tensor, clipped_face_indices: torch.Tensor, face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
 │   └── # Pack variable-count face-pixel polygons into pixel-major padded tensors.
-├── def _compute_face_inverse_depth_coefficients(face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor) -> torch.Tensor
+├── def compute_face_inverse_depth_coefficients(face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor) -> torch.Tensor
 │   └── # Compute affine inverse-depth coefficients over projected face triangles.
 ├── def _build_face_pixel_intersection_polygons(face_screen_verts: torch.Tensor, image_height: int, image_width: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Build exact face-pixel intersection polygons for all candidate pixels.
@@ -279,7 +279,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │   └── # Test whether each point lies near its corresponding convex polygon boundary.
 ├── def _compute_convex_polygon_areas(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> torch.Tensor
 │   └── # Compute areas of convex polygons.
-├── def _camera_verts_to_pixel(verts_camera: torch.Tensor, intrinsics: torch.Tensor) -> torch.Tensor
+├── def camera_verts_to_pixel(verts_camera: torch.Tensor, intrinsics: torch.Tensor) -> torch.Tensor
 │   └── # Project camera-space verts into image pixel coordinates.
 ├── def _clip_convex_polygons_to_pixel_squares(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Clip convex polygons against their corresponding pixel squares.
@@ -292,7 +292,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 ├── def _clip_triangle_polygons_to_pixel_squares(triangle_verts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor, output_vertex_capacity: int) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Clip triangles against pixel squares with exact candidate-point geometry.
 │   └── calls _compute_points_in_triangles(points=square_corners, triangle_verts=triangle_verts)
-├── def _project_screen_polygons_to_face_uv(polygon_verts: torch.Tensor, face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor, face_verts_uvs: torch.Tensor) -> torch.Tensor
+├── def project_screen_polygons_to_face_uv(polygon_verts: torch.Tensor, face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor, face_verts_uvs: torch.Tensor) -> torch.Tensor
 │   ├── # Map image-space polygon verts to UV using exact perspective interpolation.
 │   ├── calls _cross_2d(a=face_screen_v1 - face_screen_v0, b=face_screen_v2 - face_screen_v0)
 │   ├── calls _cross_2d(a=face_screen_v1 - polygon_verts, b=face_screen_v2 - polygon_verts)
@@ -309,10 +309,10 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │   ├── calls _compute_convex_polygon_bounds(polygon_verts=polygon_verts, polygon_vertex_counts=polygon_vertex_counts)
 │   ├── calls _clip_convex_polygons_to_pixel_squares(polygon_verts=clipped_polygon_input_verts, polygon_vertex_counts=polygon_vertex_counts[bbox_overlap_mask], pixel_x=pixel_x[bbox_overlap_mask], pixel_y=pixel_y[bbox_overlap_mask])
 │   └── calls _compute_convex_polygon_areas(polygon_verts=clipped_polygon_verts, polygon_vertex_counts=clipped_polygon_vertex_counts)
-├── def _duplicate_wrapped_uv_polygons(uv_polygon_verts: torch.Tensor, uv_polygon_vertex_counts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
+├── def duplicate_wrapped_uv_polygons(uv_polygon_verts: torch.Tensor, uv_polygon_vertex_counts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Duplicate UV polygons across the cylindrical wrap boundary when needed.
 │   └── calls _compute_convex_polygon_bounds(polygon_verts=uv_polygon_verts, polygon_vertex_counts=uv_polygon_vertex_counts)
-├── def _build_uv_polygon_texel_intersections(uv_polygon_verts: torch.Tensor, uv_polygon_vertex_counts: torch.Tensor, texture_size: int) -> torch.Tensor
+├── def build_uv_polygon_texel_intersections(uv_polygon_verts: torch.Tensor, uv_polygon_vertex_counts: torch.Tensor, texture_size: int) -> torch.Tensor
 │   ├── # Build exact UV-polygon to texel-cell intersection indices.
 │   ├── calls _compute_convex_polygon_bounds(polygon_verts=polygon_texel_verts, polygon_vertex_counts=uv_polygon_vertex_counts)
 │   └── while chunk_start < uv_polygon_verts.shape[0]
@@ -321,14 +321,14 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │       └── if torch.any(boundary_candidate_mask)
 │           └── if len(boundary_triangle_chunks) > 0
 │               └── calls _compute_triangle_pixel_square_positive_area_overlap_mask(triangle_verts=boundary_triangles, pixel_x=boundary_pixel_x[boundary_triangle_candidate_indices], pixel_y=boundary_pixel_y[boundary_triangle_candidate_indices])
-├── def _triangulate_convex_uv_polygons(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> torch.Tensor
+├── def triangulate_convex_uv_polygons(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> torch.Tensor
 │   └── # Triangulate convex UV polygons into a triangle soup.
 ├── def _duplicate_wrapped_uv_triangles(uv_triangles: torch.Tensor) -> torch.Tensor
 │   └── # Duplicate UV triangles across the cylindrical wrap boundary when needed.
 ├── def _build_uv_triangle_texel_intersections(uv_triangles: torch.Tensor, texture_size: int) -> torch.Tensor
 │   ├── # Build exact UV-triangle to texel-cell intersection indices.
 │   └── calls _compute_triangle_pixel_square_positive_area_overlap_mask(triangle_verts=triangle_texel_verts[repeated_triangle_indices], pixel_x=texel_x.to(dtype=torch.float32) + 0.5, pixel_y=texel_y.to(dtype=torch.float32) + 0.5)
-└── def _build_uv_triangle_texel_intersections_v2(uv_triangles: torch.Tensor, texture_size: int) -> torch.Tensor
+└── def build_uv_triangle_texel_intersections_v2(uv_triangles: torch.Tensor, texture_size: int) -> torch.Tensor
     ├── # Build approximate step-2 `v2` UV-triangle to texel-cell intersections.
     ├── def _compute_triangle_edge_function_coefficients(triangle_verts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
     │   └── # Compute oriented triangle edge-function coefficients and thresholds.
@@ -343,7 +343,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
 ├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
-├── from models.three_d.meshes.texture.extract.normal_weights import _compute_f_normals_weights
+├── from models.three_d.meshes.texture.extract.normal_weights import compute_f_normals_weights
 ├── FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER
 ├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from projected texel centers.
@@ -361,7 +361,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
 │   └── calls _compute_barycentric_coords_in_uv_faces(continuous_uv_coords=wrapped_continuous_uv_coords, face_verts_uvs=face_verts_uvs)
 ├── def _filter_texels_by_face_facing(valid_texel_indices: torch.Tensor, texel_face_indices: torch.Tensor, barycentric_coords: torch.Tensor, verts: torch.Tensor, faces: torch.Tensor, camera: Cameras) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Filter texels whose owning mesh face is back-facing in the current view.
-│   └── calls _compute_f_normals_weights(mesh=Mesh(verts=verts, faces=faces), camera=camera, weights_cfg={'weights': 'normals'})
+│   └── calls compute_f_normals_weights(mesh=Mesh(verts=verts, faces=faces), camera=camera, weights_cfg={'weights': 'normals'})
 ├── def _map_barycentric_coords_to_3d_world_coords(barycentric_coords: torch.Tensor, texel_face_indices: torch.Tensor, verts: torch.Tensor, faces: torch.Tensor) -> torch.Tensor
 │   └── # Map barycentric texel coordinates to world-space mesh points.
 ├── def _compute_texel_visibility_mask_from_world_coords(world_coords: torch.Tensor, valid_texel_indices: torch.Tensor, valid_texel_mask: torch.Tensor, mesh_diagonal: float, camera: Cameras, image_height: int, image_width: int) -> torch.Tensor
@@ -389,15 +389,15 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
 models/three_d/meshes/texture/extract/visibility/vertex_visibility.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.mesh.mesh import Mesh
-├── from models.three_d.meshes.texture.extract.camera_geometry import _project_verts_to_image, _render_camera_face_index_buffer
+├── from models.three_d.meshes.texture.extract.camera_geometry import project_verts_to_image, render_camera_face_index_buffer
 ├── def compute_v_visibility_mask(mesh: Mesh, camera: Cameras, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Compute one-view binary visibility mask over verts.
-│   ├── calls _project_verts_to_image(verts=mesh.verts, camera=camera, image_height=image_height, image_width=image_width)
+│   ├── calls project_verts_to_image(verts=mesh.verts, camera=camera, image_height=image_height, image_width=image_width)
 │   └── calls _compute_rasterized_visible_vertex_mask(verts_camera=verts_camera, faces=mesh.faces.to(device=mesh.device, dtype=torch.long).contiguous(), intrinsics=camera[0].intrinsics, image_height=image_height, image_width=image_width)
 ├── def _compute_rasterized_visible_vertex_mask(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Compute rasterized one-view vertex visibility mask.
 │   ├── calls _compute_face_front_facing_mask(verts_camera=verts_camera, faces=faces)
-│   └── calls _render_camera_face_index_buffer(verts_camera=verts_camera, faces=front_facing_faces, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
+│   └── calls render_camera_face_index_buffer(verts_camera=verts_camera, faces=front_facing_faces, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
 └── def _compute_face_front_facing_mask(verts_camera: torch.Tensor, faces: torch.Tensor) -> torch.Tensor
     └── # Compute which camera-space mesh faces are front-facing.
 ```

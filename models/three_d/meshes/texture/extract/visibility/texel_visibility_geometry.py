@@ -646,7 +646,7 @@ def _compute_multi_face_pixel_second_bucket_mask(
     return second_bucket_mask.contiguous()
 
 
-def _build_visible_face_pixel_polygons(
+def build_visible_face_pixel_polygons(
     clipped_polygon_verts: torch.Tensor,
     clipped_polygon_vertex_counts: torch.Tensor,
     clipped_pixel_indices: torch.Tensor,
@@ -1972,7 +1972,7 @@ def _pack_face_pixel_polygons_by_pixel(
     )
 
 
-def _compute_face_inverse_depth_coefficients(
+def compute_face_inverse_depth_coefficients(
     face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
 ) -> torch.Tensor:
@@ -2560,7 +2560,7 @@ def _compute_convex_polygon_areas(
     return (0.5 * torch.abs(double_area)).contiguous()
 
 
-def _camera_verts_to_pixel(
+def camera_verts_to_pixel(
     verts_camera: torch.Tensor,
     intrinsics: torch.Tensor,
 ) -> torch.Tensor:
@@ -3104,7 +3104,7 @@ def _clip_triangle_polygons_to_pixel_squares(
     return clipped_polygon_verts.contiguous(), clipped_polygon_vertex_counts
 
 
-def _project_screen_polygons_to_face_uv(
+def project_screen_polygons_to_face_uv(
     polygon_verts: torch.Tensor,
     face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
@@ -3427,7 +3427,7 @@ def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(
     return positive_area_overlap_mask.contiguous()
 
 
-def _duplicate_wrapped_uv_polygons(
+def duplicate_wrapped_uv_polygons(
     uv_polygon_verts: torch.Tensor,
     uv_polygon_vertex_counts: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -3515,7 +3515,7 @@ def _duplicate_wrapped_uv_polygons(
     )
 
 
-def _build_uv_polygon_texel_intersections(
+def build_uv_polygon_texel_intersections(
     uv_polygon_verts: torch.Tensor,
     uv_polygon_vertex_counts: torch.Tensor,
     texture_size: int,
@@ -3762,7 +3762,7 @@ def _build_uv_polygon_texel_intersections(
     return torch.nonzero(covered_texel_mask, as_tuple=False).contiguous()
 
 
-def _triangulate_convex_uv_polygons(
+def triangulate_convex_uv_polygons(
     polygon_verts: torch.Tensor,
     polygon_vertex_counts: torch.Tensor,
 ) -> torch.Tensor:
@@ -4000,7 +4000,7 @@ def _build_uv_triangle_texel_intersections(
     ).contiguous()
 
 
-def _build_uv_triangle_texel_intersections_v2(
+def build_uv_triangle_texel_intersections_v2(
     uv_triangles: torch.Tensor,
     texture_size: int,
 ) -> torch.Tensor:

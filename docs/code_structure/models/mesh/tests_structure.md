@@ -28,7 +28,7 @@ tests/models/three_d/meshes/texture/test_extract.py
 ├── def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face() -> None
 │   └── # _map_visible_screen_space_polygon_regions_to_uv maps a polygon to identical UVs on an identity face.
 ├── def test_break_visible_uv_polygon_regions_into_triangles_triangulates_quad_fan() -> None
-│   └── # _triangulate_convex_uv_polygons triangulates one convex quad into a two-triangle fan.
+│   └── # triangulate_convex_uv_polygons triangulates one convex quad into a two-triangle fan.
 ├── def test_compute_visible_uv_texels_from_uv_polygon_regions_uses_top_down_v_convention() -> None
 │   └── # _compute_visible_uv_texels_from_uv_polygon_regions maps small-`v` UV triangles into the top texel rows.
 ├── def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> None

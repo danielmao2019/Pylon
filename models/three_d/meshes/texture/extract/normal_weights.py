@@ -17,7 +17,7 @@ from models.three_d.meshes.texture.extract.weights_cfg import (
 )
 
 
-def _compute_v_normals_weights(
+def compute_v_normals_weights(
     mesh: Mesh,
     camera: Cameras,
     weights_cfg: Dict[str, Any],
@@ -97,7 +97,7 @@ def _compute_v_normals_weights(
     return alignment
 
 
-def _compute_f_normals_weights(
+def compute_f_normals_weights(
     mesh: Mesh,
     camera: Cameras,
     weights_cfg: Dict[str, Any],

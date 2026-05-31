@@ -15,11 +15,11 @@ from data.structures.three_d.mesh.texture.validate_vertex_color import (
     validate_vertex_color,
 )
 from models.three_d.meshes.texture.extract.camera_geometry import (
-    _project_verts_to_image,
+    project_verts_to_image,
 )
 from models.three_d.meshes.texture.extract.normal_weights import (
-    _compute_f_normals_weights,
-    _compute_v_normals_weights,
+    compute_f_normals_weights,
+    compute_v_normals_weights,
 )
 from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
     compute_f_visibility_mask,
@@ -701,7 +701,7 @@ def _extract_vertex_color_from_single_image(
         image_width=int(image.shape[2]),
     )
     if weights == "normals":
-        normals_weight = _compute_v_normals_weights(
+        normals_weight = compute_v_normals_weights(
             mesh=mesh,
             camera=camera,
             weights_cfg=weights_cfg,
@@ -740,7 +740,7 @@ def _project_v_colors(
         Vertex RGB colors with shape [V, 3].
     """
 
-    xy, _depth, _verts_camera, projection_valid = _project_verts_to_image(
+    xy, _depth, _verts_camera, projection_valid = project_verts_to_image(
         verts=mesh.verts,
         camera=camera,
         image_height=int(image.shape[1]),
@@ -1219,7 +1219,7 @@ def _extract_uv_texture_map_from_single_image(
             texel_face_map=texel_face_map,
         )
     if weights == "normals":
-        face_normals_weight = _compute_f_normals_weights(
+        face_normals_weight = compute_f_normals_weights(
             mesh=mesh,
             camera=camera,
             weights_cfg=weights_cfg,
@@ -1374,7 +1374,7 @@ def _project_f_colors(
         )
         return sampled_image.permute(0, 2, 3, 1).contiguous()
 
-    xy, _depth, _verts_camera, _valid = _project_verts_to_image(
+    xy, _depth, _verts_camera, _valid = project_verts_to_image(
         verts=mesh.verts,
         camera=camera,
         image_height=int(image.shape[1]),

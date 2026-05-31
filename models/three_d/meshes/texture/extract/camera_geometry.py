@@ -9,7 +9,7 @@ from data.structures.three_d.point_cloud.camera.transform import (
 )
 
 
-def _render_camera_face_index_buffer(
+def render_camera_face_index_buffer(
     verts_camera: torch.Tensor,
     faces: torch.Tensor,
     intrinsics: torch.Tensor,
@@ -76,7 +76,7 @@ def _render_camera_face_index_buffer(
     return torch.where(visible.unsqueeze(-1), face_plus1, torch.zeros_like(face_plus1))
 
 
-def _render_camera_depth_buffer(
+def render_camera_depth_buffer(
     verts_camera: torch.Tensor,
     faces: torch.Tensor,
     intrinsics: torch.Tensor,
@@ -194,7 +194,7 @@ def _verts_world_to_camera(
     return verts_camera
 
 
-def _project_verts_to_image(
+def project_verts_to_image(
     verts: torch.Tensor,
     camera: Cameras,
     image_height: int,
