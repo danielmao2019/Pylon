@@ -240,15 +240,32 @@ apis.py
 
 ```text
 core_points_display.py
+├── from typing import Optional
+├── import plotly.graph_objects as go
+├── from dash import dcc
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from data.viewer.utils.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
-├── def create_dash_points_display
-│   ├── calls create_dash_points_scene
+├── DEFAULT_POINT_SIZE_FLOOR = 0.005                            # absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when point_size is not supplied
+├── DEFAULT_POINT_SIZE_RATIO = 0.002                            # fraction of point-cloud bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
+├── DEFAULT_POINT_COLOR = "#cccccc"                             # uniform fallback color used when the point cloud has no per-point colors AND the caller does not supply point_color; lib-owned default, overridable
+├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> dcc.Graph
+│   ├── # Renders a Dash point-cloud display element; point_size and point_color overrides are opt-in. point_color when supplied replaces per-point colors with a uniform color so the consumer can override the rendered look without rebuilding the data.
+│   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)
 │   ├── calls create_dash_trackball_camera_controls
 │   ├── calls create_dash_points_component
 │   └── return
-├── def create_dash_points_scene
-│   ├── impls Dash point-display scene from point-cloud data and display metadata
-│   └── return
+├── def create_dash_points_scene(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> go.Scatter3d
+│   ├── # Sync-builds the Plotly Scatter3d trace from the point cloud.
+│   ├── impls bounding_radius = point_cloud bounding-sphere radius
+│   ├── impls effective_size = point_size if point_size is not None else max(DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO)
+│   ├── if point_color is not None
+│   │   └── impls effective_color = point_color
+│   ├── elif point_cloud has per-point rgb
+│   │   └── impls effective_color = point_cloud.per_point_rgb
+│   ├── else
+│   │   └── impls effective_color = DEFAULT_POINT_COLOR
+│   ├── impls trace = go.Scatter3d(x=..., y=..., z=..., mode="markers", marker=dict(size=effective_size, color=effective_color))
+│   └── return trace
 └── def create_dash_points_component
     └── return
 ```
@@ -282,20 +299,21 @@ display_response.py
 
 ```text
 apis.py
-├── from typing import Any, Dict, Tuple
+├── from typing import Any, Dict, Optional, Tuple
 ├── import torch
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 ├── from data.viewer.utils.atomic_displays.points.ts.backend.core_points_display import create_points_display_response
+├── from data.viewer.utils.atomic_displays.points.ts.backend.schemas.display_response import SegmentationPCDisplayResponse
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_pc_display_response
 │   ├── # Creates a color point-cloud response from an already colorized point resource.
 │   ├── impls point-display meta_info is empty metadata
 │   ├── calls create_points_display_response
 │   └── return
-├── def create_segmentation_pc_display_response
-│   ├── # Creates a segmentation point-cloud response from a class-labeled point resource.
+├── def create_segmentation_pc_display_response(segmentation_pc_path: str, output_path: str, url: str, slot_id: str, title: str, class_id_to_rgb: Optional[Dict[int, Tuple[int, int, int]]] = None) -> SegmentationPCDisplayResponse
+│   ├── # Creates a segmentation point-cloud response from a class-labeled point resource; the caller may override the class-id → rgb mapping, otherwise the lib computes the default mapping via map_class_ids_to_rgb.
 │   ├── calls load_point_cloud
-│   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_pc.label))
+│   ├── impls effective_class_id_to_rgb = class_id_to_rgb if class_id_to_rgb is not None else map_class_ids_to_rgb(class_ids=torch.unique(segmentation_pc.label))
 │   ├── calls _map_segmentation_pc_to_rgb
 │   ├── calls _build_segmentation_pc_meta_info
 │   ├── calls create_points_display_response
@@ -353,12 +371,12 @@ apis.ts
 ├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 ├── import type { ColorPCDisplayResponse, SegmentationPCDisplayResponse } from "./types/display_response";
 ├── import { renderPointsDisplay } from "./core_points_display";
-├── function renderColorPCDisplay({ displayResponse, initialCameraState }: { displayResponse: ColorPCDisplayResponse; initialCameraState?: CameraState | null }): VNode
-│   ├── calls renderPointsDisplay({ displayResponse, initialCameraState })
+├── function renderColorPCDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: ColorPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): VNode
+│   ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor })
 │   └── return
-└── function renderSegmentationPCDisplay({ displayResponse, initialCameraState }: { displayResponse: SegmentationPCDisplayResponse; initialCameraState?: CameraState | null }): VNode
-    ├── # renders backend-colorized segmentation display and legend derived from meta_info
-    ├── calls renderPointsDisplay({ displayResponse, initialCameraState })
+└── function renderSegmentationPCDisplay({ displayResponse, initialCameraState, pointSize }: { displayResponse: SegmentationPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number }): VNode
+    ├── # Renders the backend-colorized segmentation display and legend derived from meta_info; per-point colors are already baked in by the backend's class-id → rgb mapping, so no color override is exposed here.
+    ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize })
     └── return
 ```
 
@@ -372,27 +390,43 @@ core_points_display.ts
 ├── import type { PointDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
-├── function renderPointsDisplay({ displayResponse, initialCameraState }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null }): VNode
+├── const DEFAULT_POINT_SIZE_FLOOR = 0.005   # number — absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when pointSize is not supplied
+├── const DEFAULT_POINT_SIZE_RATIO = 0.002   # number — fraction of geometry bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
+├── const DEFAULT_POINT_COLOR = "#cccccc"    # hex color — uniform fallback used when geometry has no per-point colors AND the caller does not supply pointColor; lib-owned default, overridable
+├── function renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): VNode
 │   ├── # Renders a self-contained point-cloud display element initialized at initialCameraState.
-│   ├── calls createPointsScene({ displayResponse, initialCameraState })
+│   ├── calls createPointsScene({ displayResponse, initialCameraState, pointSize, pointColor })
 │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
 │   ├── calls renderPointsScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by displayResponse.url
-├── function createPointsScene({ displayResponse, initialCameraState }: { displayResponse: PointDisplayResponse; initialCameraState: CameraState | null }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
-│   ├── # Composes the point-cloud scene's container, scene, camera, and renderer from displayResponse.
-│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })
-│   ├── calls createThreePoints
-│   ├── calls createThreeScene({ object: points })
-│   ├── calls createThreePerspectiveCamera({ initialCameraState })
-│   ├── calls createThreeWebGLRenderer({ container })
-│   └── return
-├── function createThreePoints({ displayResponse }: { displayResponse: PointDisplayResponse }): THREE.Points
-│   ├── impls loads point-cloud resource from displayResponse.url
-│   ├── impls parses point positions and colors using displayResponse.meta_info parser/format hints
-│   ├── impls creates THREE.BufferGeometry with position and optional color BufferAttribute
-│   ├── impls creates THREE.PointsMaterial with vertexColors enabled when geometry has color attribute
-│   ├── impls creates THREE.Points from geometry and material
-│   └── return
+├── function createPointsScene({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState: CameraState | null; pointSize?: number; pointColor?: string }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
+│   ├── # Composes container, scene, camera, renderer; the THREE.Points is loaded asynchronously and added to the scene when ready.
+│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
+│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; THREE.Points joins on async resolve
+│   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
+│   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
+│   ├── impls loadPointGeometry({ displayResponse }).then(geometry => scene.add(createThreePoints({ geometry, pointSize, pointColor })))
+│   └── return { container, scene, camera, renderer }
+├── async function loadPointGeometry({ displayResponse }: { displayResponse: PointDisplayResponse }): Promise<THREE.BufferGeometry>
+│   ├── # Async-loads the point-cloud resource from displayResponse.url and returns a BufferGeometry with `position` and (when colors are present) `color` attributes.
+│   ├── impls assert displayResponse.url !== null
+│   ├── impls response = await fetch(displayResponse.url); buffer = await response.arrayBuffer()
+│   ├── calls parsePlyBuffer({ buffer })                                                          → geometry
+│   └── return geometry
+├── function parsePlyBuffer({ buffer }: { buffer: ArrayBuffer }): THREE.BufferGeometry
+│   └── # Parses a PLY buffer (ASCII or binary little-endian) into a BufferGeometry with `position` and optional `color` attributes; internal PLY scalar/property parsing is private to this function.
+├── function createThreePoints({ geometry, pointSize, pointColor }: { geometry: THREE.BufferGeometry; pointSize?: number; pointColor?: string }): THREE.Points
+│   ├── # Sync-builds THREE.PointsMaterial + THREE.Points from the loaded geometry.
+│   ├── impls geometry.computeBoundingSphere(); boundingRadius = geometry.boundingSphere.radius
+│   ├── impls effectiveSize = pointSize ?? Math.max(DEFAULT_POINT_SIZE_FLOOR, boundingRadius * DEFAULT_POINT_SIZE_RATIO)
+│   ├── if pointColor !== undefined
+│   │   └── impls useVertexColors = false; effectiveColor = pointColor
+│   ├── else if geometry.hasAttribute("color")
+│   │   └── impls useVertexColors = true; effectiveColor = undefined
+│   ├── else
+│   │   └── impls useVertexColors = false; effectiveColor = DEFAULT_POINT_COLOR
+│   ├── impls material = new THREE.PointsMaterial({ vertexColors: useVertexColors, size: effectiveSize, ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
+│   └── return new THREE.Points(geometry, material)                                                # no post-construction mutation of points
 └── function renderPointsScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
     └── return
@@ -402,30 +436,40 @@ core_points_display.ts
 
 ```text
 apis.py
+├── from typing import Optional
 ├── import torch
+├── from dash import dcc
 ├── from data.viewer.utils.atomic_displays.pixels.dash.core_pixels_display import create_dash_pixels_display
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
-├── def create_color_image_display
-│   └── calls create_dash_pixels_display
-├── def create_depth_image_display
+├── DEFAULT_COLOR_IMAGE_INTERPOLATION = "linear"                # color images: linear interpolation smooths between RGB samples, appropriate for natural-image content
+├── DEFAULT_DEPTH_IMAGE_INTERPOLATION = "nearest"               # depth images: nearest preserves exact metric depth samples; linear would invent midpoint depths that don't exist in the data
+├── DEFAULT_EDGE_IMAGE_INTERPOLATION = "nearest"                # edge images: nearest preserves edge crispness; linear would smooth edges and defeat their purpose
+├── DEFAULT_NORMAL_IMAGE_INTERPOLATION = "nearest"              # normal images: nearest preserves unit-length normal vectors; linear interpolation between normals produces non-unit results
+├── DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION = "nearest"        # segmentation images: nearest preserves class-id integrity; linear would invent fractional class ids
+├── DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION = "nearest"  # instance-surrogate images: nearest preserves class-id integrity (same reason as segmentation)
+├── def create_color_image_display(color_image_path: str, image_interpolation: str = DEFAULT_COLOR_IMAGE_INTERPOLATION) -> dcc.Graph
+│   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
+├── def create_depth_image_display(depth_image_path: str, image_interpolation: str = DEFAULT_DEPTH_IMAGE_INTERPOLATION) -> dcc.Graph
 │   ├── calls _map_depth_image_to_rgb
-│   └── calls create_dash_pixels_display
-├── def create_edge_image_display
+│   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
+├── def create_edge_image_display(edge_image_path: str, image_interpolation: str = DEFAULT_EDGE_IMAGE_INTERPOLATION) -> dcc.Graph
 │   ├── calls _map_edge_image_to_rgb
-│   └── calls create_dash_pixels_display
-├── def create_normal_image_display
+│   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
+├── def create_normal_image_display(normal_image_path: str, image_interpolation: str = DEFAULT_NORMAL_IMAGE_INTERPOLATION) -> dcc.Graph
 │   ├── calls _map_normal_image_to_rgb
-│   └── calls create_dash_pixels_display
-├── def create_segmentation_image_display
+│   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
+├── def create_segmentation_image_display(segmentation_image_path: str, image_interpolation: str = DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION) -> dcc.Graph
+│   ├── # Renders the backend-colorized segmentation image display.
 │   ├── impls reads segmentation image tensor from segmentation_image_path
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_image))
 │   ├── calls _map_segmentation_image_to_rgb(segmentation_image_path=segmentation_image_path, class_id_to_rgb=class_id_to_rgb)
-│   └── calls create_dash_pixels_display
-├── def create_instance_surrogate_image_display
+│   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
+├── def create_instance_surrogate_image_display(image_path: str, image_interpolation: str = DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION) -> dcc.Graph
+│   ├── # Renders the backend-colorized instance-surrogate image display.
 │   ├── impls builds integer instance-surrogate class-id image from offset-magnitude quantile bins
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(instance_surrogate_class_id_image))
 │   ├── calls _map_instance_surrogate_image_to_rgb(image_path=image_path, class_id_to_rgb=class_id_to_rgb)
-│   └── calls create_dash_pixels_display
+│   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
 ├── def _map_depth_image_to_rgb
 ├── def _map_edge_image_to_rgb
 ├── def _map_normal_image_to_rgb
@@ -438,7 +482,11 @@ apis.py
 
 ```text
 core_pixels_display.py
-└── def create_dash_pixels_display
+├── from typing import Any
+├── from dash import dcc
+└── def create_dash_pixels_display(image: Any, image_interpolation: str) -> dcc.Graph
+    ├── # Renders a Dash pixel-image display element from the resolved interpolation choice; modality-agnostic.
+    └── return
 ```
 
 `./data/viewer/utils/atomic_displays/pixels/ts/backend/schemas/display_response.py`
@@ -614,25 +662,31 @@ apis.ts
 ├── import type { VNode } from "web/reconcile/reconcile";
 ├── import type { ColorImageDisplayResponse, DepthImageDisplayResponse, EdgeImageDisplayResponse, InstanceSurrogateImageDisplayResponse, NormalImageDisplayResponse, SegmentationImageDisplayResponse } from "./types/display_response";
 ├── import { renderPixelsDisplay } from "./core_pixels_display";
-├── function renderColorImageDisplay({ displayResponse }: { displayResponse: ColorImageDisplayResponse }): VNode
-│   ├── calls renderPixelsDisplay({ displayResponse })
+├── const DEFAULT_COLOR_IMAGE_INTERPOLATION = "linear"                # color images: linear interpolation smooths between RGB samples, appropriate for natural-image content
+├── const DEFAULT_DEPTH_IMAGE_INTERPOLATION = "nearest"               # depth images: nearest preserves exact metric depth samples; linear would invent midpoint depths that don't exist in the data
+├── const DEFAULT_EDGE_IMAGE_INTERPOLATION = "nearest"                # edge images: nearest preserves edge crispness; linear would smooth edges and defeat their purpose
+├── const DEFAULT_NORMAL_IMAGE_INTERPOLATION = "nearest"              # normal images: nearest preserves unit-length normal vectors; linear interpolation between normals produces non-unit results
+├── const DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION = "nearest"        # segmentation images: nearest preserves class-id integrity; linear would invent fractional class ids
+├── const DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION = "nearest"  # instance-surrogate images: nearest preserves class-id integrity (same reason as segmentation)
+├── function renderColorImageDisplay({ displayResponse, imageInterpolation = DEFAULT_COLOR_IMAGE_INTERPOLATION }: { displayResponse: ColorImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderDepthImageDisplay({ displayResponse }: { displayResponse: DepthImageDisplayResponse }): VNode
-│   ├── calls renderPixelsDisplay({ displayResponse })
+├── function renderDepthImageDisplay({ displayResponse, imageInterpolation = DEFAULT_DEPTH_IMAGE_INTERPOLATION }: { displayResponse: DepthImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderEdgeImageDisplay({ displayResponse }: { displayResponse: EdgeImageDisplayResponse }): VNode
-│   ├── calls renderPixelsDisplay({ displayResponse })
+├── function renderEdgeImageDisplay({ displayResponse, imageInterpolation = DEFAULT_EDGE_IMAGE_INTERPOLATION }: { displayResponse: EdgeImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderNormalImageDisplay({ displayResponse }: { displayResponse: NormalImageDisplayResponse }): VNode
-│   ├── calls renderPixelsDisplay({ displayResponse })
+├── function renderNormalImageDisplay({ displayResponse, imageInterpolation = DEFAULT_NORMAL_IMAGE_INTERPOLATION }: { displayResponse: NormalImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderSegmentationImageDisplay({ displayResponse }: { displayResponse: SegmentationImageDisplayResponse }): VNode
-│   ├── # renders backend-colorized segmentation display and legend derived from meta_info
-│   ├── calls renderPixelsDisplay({ displayResponse })
+├── function renderSegmentationImageDisplay({ displayResponse, imageInterpolation = DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION }: { displayResponse: SegmentationImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── # Renders the backend-colorized segmentation display and legend derived from meta_info.
+│   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-└── function renderInstanceSurrogateImageDisplay({ displayResponse }: { displayResponse: InstanceSurrogateImageDisplayResponse }): VNode
-    ├── # renders backend-colorized image display and legend derived from meta_info
-    ├── calls renderPixelsDisplay({ displayResponse })
+└── function renderInstanceSurrogateImageDisplay({ displayResponse, imageInterpolation = DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION }: { displayResponse: InstanceSurrogateImageDisplayResponse; imageInterpolation?: string }): VNode
+    ├── # Renders the backend-colorized image display and legend derived from meta_info.
+    ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
     └── return
 ```
 
@@ -642,8 +696,8 @@ apis.ts
 core_pixels_display.ts
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 ├── import type { PixelDisplayResponse } from "./types/display_response";
-└── function renderPixelsDisplay({ displayResponse }: { displayResponse: PixelDisplayResponse }): VNode
-    ├── impls complete pixel-display UI from DisplayResponse url and meta_info
+└── function renderPixelsDisplay({ displayResponse, imageInterpolation }: { displayResponse: PixelDisplayResponse; imageInterpolation: string }): VNode
+    ├── # Renders a self-contained pixel-image display element from the resolved interpolation choice; modality-agnostic.
     └── return LeafVNode keyed by displayResponse.url
 ```
 
@@ -890,14 +944,14 @@ display_response.py
 
 ```text
 scene_graph_display.py
+├── import torch
 ├── from data.viewer.utils.atomic_displays.scene_graphs.ts.backend.schemas.display_response import SceneGraphDisplayResponse
-├── def create_scene_graph_display_response
+├── def create_scene_graph_display_response(graph_nodes: torch.Tensor, graph_edges: torch.Tensor, object_nodes: torch.Tensor, scene_scale_reference_points: torch.Tensor, slot_id: str, title: str) -> SceneGraphDisplayResponse
 │   ├── # Builds the scene-graph base-layer response from a method-agnostic graph payload.
-│   ├── # inputs: graph_nodes, graph_edges, object_nodes, scene_scale_reference_points, slot_id, title
-│   ├── calls bake_scene_graph_payload
+│   ├── calls bake_scene_graph_payload(graph_nodes=graph_nodes, graph_edges=graph_edges, object_nodes=object_nodes, scene_scale_reference_points=scene_scale_reference_points)
 │   ├── impls builds frontend resource url pointing at the baked scene-graph payload
 │   ├── impls sets meta_info to empty scene-graph metadata
-│   └── return
+│   └── return SceneGraphDisplayResponse(slot_id=slot_id, title=title, url=url, meta_info=meta_info)
 ├── def bake_scene_graph_payload
 │   ├── # Bakes the full method-agnostic scene-graph asset served at SceneGraphDisplayResponse.url.
 │   ├── calls estimate_scene_scale
@@ -946,37 +1000,56 @@ scene_graph_display.ts
 ├── import type { SceneGraphDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
-├── function renderSceneGraphDisplay({ displayResponse, initialCameraState }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null }): VNode
+├── const DEFAULT_NODE_SIZE = 0.02            # number — heuristic default size for node markers when the caller does not supply nodeSize; lib-owned default, overridable
+├── const DEFAULT_EDGE_COLOR = "#888888"      # hex color — neutral gray fallback for edge lines when the payload does not carry an edge color AND the caller does not supply edgeColor; lib-owned default, overridable
+├── const DEFAULT_EDGE_WIDTH = 1.0            # number — line width fallback for edges when the caller does not supply edgeWidth; lib-owned default, overridable
+├── const DEFAULT_LABEL_FONT_SIZE = 12        # px — font size fallback for overlay labels when the caller does not supply labelFontSize; lib-owned default, overridable
+├── const DEFAULT_LABEL_COLOR = "#000000"     # hex color — text color fallback for overlay labels when the caller does not supply labelColor; lib-owned default, overridable
+├── function renderSceneGraphDisplay({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): VNode
 │   ├── # Renders a self-contained scene-graph display: baked node/edge geometry plus HTML label overlay projected per frame.
-│   ├── calls createSceneGraphScene({ displayResponse, initialCameraState })
+│   ├── calls createSceneGraphScene({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor })
 │   ├── calls createTrackballCameraControls({ camera, renderer, initialCameraState })
-│   ├── calls renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay })
+│   ├── calls renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor })
 │   └── return LeafVNode keyed by displayResponse.url
-├── function createSceneGraphScene({ displayResponse, initialCameraState }: { displayResponse: SceneGraphDisplayResponse; initialCameraState: CameraState | null }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; labels: object[]; labelOverlay: HTMLDivElement }
-│   ├── # Composes the scene-graph scene's container, scene, camera, renderer, label data, and the HTML label-overlay container from displayResponse.
-│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })
-│   ├── calls createThreeSceneGraphPoints
-│   ├── calls createThreeScene({ object: points })
-│   ├── calls createThreePerspectiveCamera({ initialCameraState })
-│   ├── calls createThreeWebGLRenderer({ container })
-│   ├── calls createThreeSceneGraphLabelOverlay({ container })
+├── function createSceneGraphScene({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; labels: object[]; labelOverlay: HTMLDivElement }
+│   ├── # Composes container, scene, camera, renderer, label-overlay, and a mutable labels array; payload is loaded asynchronously and Points + labels join on resolve.
+│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
+│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; THREE.Points joins on async resolve
+│   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
+│   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
+│   ├── calls createThreeSceneGraphLabelOverlay({ container, labelFontSize, labelColor })       → labelOverlay
+│   ├── impls labels: object[] = []                                                              # initially empty; mutated on async resolve so renderSceneGraphScene's per-frame projection sees the populated list
+│   ├── impls loadSceneGraphPayload({ displayResponse }).then(payload => { const built = createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }); scene.add(built.points); labels.push(...built.labels); })
+│   └── return { container, scene, camera, renderer, labels, labelOverlay }
+├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
+│   └── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
+├── function createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }: { payload: SceneGraphPayload; nodeSize?: number; edgeColor?: string; edgeWidth?: number }): { points: THREE.Points; labels: object[] }
+│   ├── # Sync-builds THREE.Points + per-frame label data from a pre-loaded payload.
+│   ├── impls effectiveNodeSize = nodeSize ?? DEFAULT_NODE_SIZE
+│   ├── impls effectiveEdgeWidth = edgeWidth ?? DEFAULT_EDGE_WIDTH
+│   ├── if edgeColor !== undefined
+│   │   └── impls useEdgeVertexColors = false; effectiveEdgeColor = edgeColor
+│   ├── else if payload has per-edge colors
+│   │   └── impls useEdgeVertexColors = true; effectiveEdgeColor = undefined
+│   ├── else
+│   │   └── impls useEdgeVertexColors = false; effectiveEdgeColor = DEFAULT_EDGE_COLOR
 │   └── return
-├── function createThreeSceneGraphPoints({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): { points: THREE.Points; labels: object[] }
-│   ├── impls fetches the scene-graph payload from displayResponse.url
-│   ├── impls parses node/edge geometry into THREE.Points (positions + colors, vertexColors enabled)
-│   ├── impls parses the payload's label list as the per-frame label data
+├── function createThreeSceneGraphLabelOverlay({ container, labelFontSize, labelColor }: { container: HTMLDivElement; labelFontSize?: number; labelColor?: string }): HTMLDivElement
+│   ├── # Builds the absolutely-positioned HTML overlay container layered above the canvas; labelFontSize / labelColor apply as the overlay's default font-size and color (per-label inline styles still take precedence).
+│   ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
+│   ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
+│   ├── impls absolutely-positioned HTML overlay container layered above the canvas with default font-size = effectiveLabelFontSize px and color = effectiveLabelColor, returned and mounted inside the display container
 │   └── return
-├── function createThreeSceneGraphLabelOverlay({ container }: { container: HTMLDivElement }): HTMLDivElement
-│   ├── impls absolutely-positioned HTML overlay container layered above the canvas, returned and mounted inside the display container
-│   └── return
-├── function renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; labels: object[]; labelOverlay: HTMLDivElement }): void
+├── function renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; labels: object[]; labelOverlay: HTMLDivElement; labelFontSize?: number; labelColor?: string }): void
 │   ├── # Drives the render + label-projection loop by wrapping the shared startThreeSceneRenderLoop with an onAfterRender step that projects labels each frame.
-│   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender: () => _projectLabelsOntoOverlay({ camera, labels, labelOverlay }) })
+│   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender: () => _projectLabelsOntoOverlay({ camera, labels, labelOverlay, labelFontSize, labelColor }) })
 │   └── return
-└── function _projectLabelsOntoOverlay({ camera, labels, labelOverlay }: { camera: THREE.PerspectiveCamera; labels: object[]; labelOverlay: HTMLDivElement }): void
-    ├── # Per-frame step: projects each label's world position into overlay-pixel coordinates, updates the HTML node positions, and culls offscreen labels.
+└── function _projectLabelsOntoOverlay({ camera, labels, labelOverlay, labelFontSize, labelColor }: { camera: THREE.PerspectiveCamera; labels: object[]; labelOverlay: HTMLDivElement; labelFontSize?: number; labelColor?: string }): void
+    ├── # Per-frame step: projects each label's world position into overlay-pixel coordinates, updates the HTML node positions and per-label font-size/color, and culls offscreen labels.
+    ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
+    ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
     ├── impls projects each label's world position to NDC via camera, then converts to overlay-pixel coordinates
-    ├── impls updates each label's HTML node position (left/top), and culls labels behind the camera or outside the viewport
+    ├── impls updates each label's HTML node position (left/top), font-size = effectiveLabelFontSize px, color = effectiveLabelColor, and culls labels behind the camera or outside the viewport
     └── return
 ```
 
@@ -984,22 +1057,26 @@ scene_graph_display.ts
 
 ```text
 apis.py
+├── from typing import Optional
 ├── import torch
+├── from dash import dcc
 ├── from data.viewer.utils.atomic_displays.mesh.dash.core_mesh_display import create_dash_mesh_display
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── from data.viewer.utils.atomic_displays.utils.heatmap_colors import map_scalars_to_rgb
-├── def create_color_mesh_display
-│   └── calls create_dash_mesh_display
-├── def create_segmentation_mesh_display
+├── def create_color_mesh_display(color_mesh_path: str, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+│   └── calls create_dash_mesh_display(mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
+├── def create_segmentation_mesh_display(segmentation_mesh_path: str, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+│   ├── # renders backend-colorized segmentation mesh display; per-element colors are already baked in by the backend's class-id → rgb mapping, so no mesh_color override is exposed here.
 │   ├── impls reads segmentation mesh class ids from segmentation_mesh_path
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_mesh_class_ids))
 │   ├── calls _map_segmentation_mesh_to_rgb(segmentation_mesh_path=segmentation_mesh_path, class_id_to_rgb=class_id_to_rgb)
-│   └── calls create_dash_mesh_display
-├── def create_heatmap_mesh_display
+│   └── calls create_dash_mesh_display(mesh_opacity=mesh_opacity, mesh_side=mesh_side)
+├── def create_heatmap_mesh_display(heatmap_mesh_path: str, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+│   ├── # renders backend-colorized heatmap mesh display; per-element colors are already baked in by the backend's scalar → rgb mapping, so no mesh_color override is exposed here.
 │   ├── impls reads heatmap mesh scalar values from heatmap_mesh_path (per-vertex 1-D or per-texel 2-D, non-negative)
 │   ├── calls map_scalars_to_rgb(scalars=heatmap_mesh_scalars)
 │   ├── calls _map_heatmap_mesh_to_rgb(heatmap_mesh_path=heatmap_mesh_path, scalar_rgb=scalar_rgb)
-│   └── calls create_dash_mesh_display
+│   └── calls create_dash_mesh_display(mesh_opacity=mesh_opacity, mesh_side=mesh_side)
 ├── def _map_segmentation_mesh_to_rgb
 │   ├── # Applies class_id_to_rgb to the segmentation mesh's class-id storage.
 │   ├── if class-id storage is per-vertex
@@ -1020,23 +1097,46 @@ apis.py
 
 ```text
 core_mesh_display.py
+├── from typing import Any, Dict, Optional
+├── import plotly.graph_objects as go
+├── from dash import dcc
 ├── from data.viewer.utils.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
-├── def create_dash_mesh_display
-│   ├── calls create_dash_mesh_scene
+├── DEFAULT_MESH_COLOR = "#cccccc"                             # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
+├── DEFAULT_MESH_OPACITY = 1.0                                 # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
+├── DEFAULT_MESH_SIDE = "double"                               # fallback side mode for visibility under arbitrary camera framings when the caller does not supply mesh_side; lib-owned default, overridable
+├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+│   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
 │   ├── calls create_dash_trackball_camera_controls
 │   ├── calls create_dash_mesh_component
 │   └── return
-├── def create_dash_mesh_scene
+├── def create_dash_mesh_scene(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> go.Mesh3d
+│   ├── # Sync-builds the Plotly Mesh3d trace from the mesh.
+│   ├── impls effective_opacity = mesh_opacity if mesh_opacity is not None else DEFAULT_MESH_OPACITY
+│   ├── impls effective_side = mesh_side if mesh_side is not None else DEFAULT_MESH_SIDE
 │   ├── if mesh texture representation is vertex color
-│   │   ├── calls _create_vertex_color_mesh_display
+│   │   ├── calls _create_vertex_color_mesh_display(mesh=mesh, mesh_color=mesh_color, effective_opacity=effective_opacity, effective_side=effective_side)
 │   │   └── return
 │   ├── elif mesh texture representation is UV texture map
-│   │   ├── calls _create_uv_texture_map_mesh_display
+│   │   ├── calls _create_uv_texture_map_mesh_display(mesh=mesh, mesh_color=mesh_color, effective_opacity=effective_opacity, effective_side=effective_side)
 │   │   └── return
 │   └── else
 │       └── raise unsupported mesh texture representation
-├── def _create_vertex_color_mesh_display
-├── def _create_uv_texture_map_mesh_display
+├── def _create_vertex_color_mesh_display(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
+│   ├── if mesh_color is not None
+│   │   └── impls effective_color = mesh_color
+│   ├── elif mesh has per-vertex rgb
+│   │   └── impls effective_color = mesh.per_vertex_rgb
+│   ├── else
+│   │   └── impls effective_color = DEFAULT_MESH_COLOR
+│   └── return
+├── def _create_uv_texture_map_mesh_display(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
+│   ├── if mesh_color is not None
+│   │   └── impls effective_color = mesh_color
+│   ├── elif mesh has uv_texture_map
+│   │   └── impls effective_color = sample(mesh.uv_texture_map, mesh.uv)
+│   ├── else
+│   │   └── impls effective_color = DEFAULT_MESH_COLOR
+│   └── return
 └── def create_dash_mesh_component
     └── return
 ```
@@ -1213,29 +1313,44 @@ core_mesh_display.ts
 ├── import type { MeshDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
-├── function renderMeshDisplay({ displayResponse, initialCameraState }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null }): VNode
+├── const DEFAULT_MESH_COLOR = "#cccccc"          # hex color — uniform fallback used when geometry has no texture AND has no vertex colors AND the caller does not supply meshColor; lib-owned default, overridable
+├── const DEFAULT_MESH_OPACITY = 1.0              # number — opaque default applied when the caller does not supply meshOpacity; material's `transparent` flag flips true automatically when opacity is less than 1; lib-owned default, overridable
+├── const DEFAULT_MESH_SIDE = THREE.DoubleSide    # THREE.Side — fallback side mode for visibility under arbitrary camera framings when the caller does not supply meshSide; lib-owned default, overridable
+├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): VNode
 │   ├── # Renders a self-contained mesh display element initialized at initialCameraState.
-│   ├── calls createMeshScene({ displayResponse, initialCameraState })
+│   ├── calls createMeshScene({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide })
 │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
 │   ├── calls renderMeshScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by displayResponse.url
-├── function createMeshScene({ displayResponse, initialCameraState }: { displayResponse: MeshDisplayResponse; initialCameraState: CameraState | null }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
-│   ├── # Composes the mesh-display scene's container, scene, camera, and renderer from displayResponse.
-│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })
-│   ├── calls createThreeMesh
-│   ├── calls createThreeScene({ object: mesh })
-│   ├── calls createThreePerspectiveCamera({ initialCameraState })
-│   ├── calls createThreeWebGLRenderer({ container })
-│   └── return
-├── function createThreeMesh({ displayResponse }: { displayResponse: MeshDisplayResponse }): THREE.Mesh
+├── function createMeshScene({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
+│   ├── # Composes container, scene, camera, renderer; mesh payload is loaded asynchronously and THREE.Mesh joins the scene on resolve.
+│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
+│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; THREE.Mesh joins on async resolve
+│   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
+│   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
+│   ├── impls loadMeshPayload({ displayResponse }).then(payload => scene.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })))
+│   └── return { container, scene, camera, renderer }
+├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>
+│   ├── # Async-loads the mesh payload from displayResponse.url; resolves a sparse-heatmap delta against its referenced geometry, otherwise reads the dense resource as-is.
 │   ├── if the url resource is a sparse heatmap resource
-│   │   └── impls resolves the (indices, values) delta against the referenced geometry
+│   │   └── impls resolves the (indices, values) delta against the referenced geometry  → payload
 │   ├── else
-│   │   └── impls reads the dense mesh resource from displayResponse.url
-│   ├── impls creates THREE.BufferGeometry with position and optional uv / vertex-color BufferAttribute from resolved geometry and meta_info
-│   ├── impls creates THREE.MeshBasicMaterial (textured / vertex-colored / fallback uniform color) per displayResponse.meta_info
-│   ├── impls creates THREE.Mesh from geometry and material
-│   └── return
+│   │   └── impls reads the dense mesh resource from displayResponse.url               → payload
+│   └── return payload
+├── function createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide }: { payload: MeshPayload; displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Mesh
+│   ├── # Sync-builds THREE.BufferGeometry + THREE.MeshBasicMaterial + THREE.Mesh from a pre-loaded payload.
+│   ├── impls effectiveOpacity = meshOpacity ?? DEFAULT_MESH_OPACITY
+│   ├── impls effectiveSide = meshSide ?? DEFAULT_MESH_SIDE
+│   ├── if meshColor !== undefined
+│   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = meshColor
+│   ├── else if payload has uv texture map
+│   │   └── impls useTexture = true; useVertexColors = false; effectiveColor = undefined
+│   ├── else if payload has vertex colors
+│   │   └── impls useTexture = false; useVertexColors = true; effectiveColor = undefined
+│   ├── else
+│   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = DEFAULT_MESH_COLOR
+│   ├── impls material = new THREE.MeshBasicMaterial({ vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent: effectiveOpacity < 1, ...(useTexture ? { map: payload.texture } : {}), ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
+│   └── return new THREE.Mesh(geometry, material)                                                # no post-construction mutation of mesh
 └── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
     └── return
@@ -1245,24 +1360,25 @@ core_mesh_display.ts
 
 ```text
 apis.ts
+├── import * as THREE from "three";
 ├── import type { VNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 ├── import type { ColorMeshDisplayResponse, SegmentationMeshDisplayResponse, HeatmapMeshDisplayResponse, SparseHeatmapMeshDisplayResponse } from "./types/display_response";
 ├── import { renderMeshDisplay } from "./core_mesh_display";
-├── function renderColorMeshDisplay({ displayResponse, initialCameraState }: { displayResponse: ColorMeshDisplayResponse; initialCameraState?: CameraState | null }): VNode
-│   ├── calls renderMeshDisplay({ displayResponse, initialCameraState })
+├── function renderColorMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: ColorMeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+│   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide })
 │   └── return
-├── function renderSegmentationMeshDisplay({ displayResponse, initialCameraState }: { displayResponse: SegmentationMeshDisplayResponse; initialCameraState?: CameraState | null }): VNode
-│   ├── # renders backend-colorized mesh display and legend derived from meta_info
-│   ├── calls renderMeshDisplay({ displayResponse, initialCameraState })
+├── function renderSegmentationMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SegmentationMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+│   ├── # renders backend-colorized mesh display and legend derived from meta_info; per-element colors are already baked in by the backend's class-id → rgb mapping, so no meshColor override is exposed here.
+│   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
 │   └── return
-├── function renderHeatmapMeshDisplay({ displayResponse, initialCameraState }: { displayResponse: HeatmapMeshDisplayResponse; initialCameraState?: CameraState | null }): VNode
-│   ├── # renders backend-colorized mesh display and continuous-palette legend derived from meta_info (scalar min/max)
-│   ├── calls renderMeshDisplay({ displayResponse, initialCameraState })
+├── function renderHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: HeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+│   ├── # renders backend-colorized mesh display and continuous-palette legend derived from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping, so no meshColor override is exposed here.
+│   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
 │   └── return
-└── function renderSparseHeatmapMeshDisplay({ displayResponse, initialCameraState }: { displayResponse: SparseHeatmapMeshDisplayResponse; initialCameraState?: CameraState | null }): VNode
-    ├── # renders the sparse heatmap mesh display and continuous-palette legend from meta_info (scalar min/max)
-    ├── calls renderMeshDisplay({ displayResponse, initialCameraState })
+└── function renderSparseHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SparseHeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+    ├── # renders the sparse heatmap mesh display and continuous-palette legend from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping, so no meshColor override is exposed here.
+    ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
     └── return
 ```
 
@@ -1412,17 +1528,11 @@ core_gaussians_display.ts
 ├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 ├── import type { GaussianDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
-├── function renderGaussiansDisplay({ displayResponse, initialCameraState }: { displayResponse: GaussianDisplayResponse; initialCameraState?: CameraState | null }): VNode
-│   ├── # Renders a self-contained Gaussian display element initialized at initialCameraState.
-│   ├── calls createGaussiansScene
-│   ├── calls createTrackballCameraControls({ camera, renderer, initialCameraState })
-│   ├── calls renderGaussiansScene
-│   └── return LeafVNode keyed by displayResponse.url
-├── function createGaussiansScene
-│   ├── impls Gaussian-splat display scene from DisplayResponse url and meta_info
-│   └── return
-└── function renderGaussiansScene
-    └── return
+└── function renderGaussiansDisplay({ displayResponse, initialCameraState }: { displayResponse: GaussianDisplayResponse; initialCameraState?: CameraState | null }): VNode
+    ├── # Delegates rendering to the external Gaussian-splat package; the package owns URL loading, scene assembly, camera controls, and the render loop.
+    ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
+    ├── impls invoke the external Gaussian-splat package's mount API with { container, url: displayResponse.url, initialCameraState, meta_info: displayResponse.meta_info }   # the external package handles fetch + parse + scene + camera + controls + render loop internally; the wrapper does not duplicate any of those concerns
+    └── return LeafVNode keyed by displayResponse.url
 ```
 
 `./data/viewer/utils/atomic_displays/cameras/dash/camera_display.py`
@@ -1519,25 +1629,36 @@ camera_display.ts
 ├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 ├── import type { CameraDisplayResponse } from "./types/display_response";
 ├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
-├── function renderCameraDisplay({ displayResponse, initialCameraState }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null }): VNode
+├── const DEFAULT_FRUSTUM_COLOR = "#888888"        # hex color — last-resort default frustum line color used when the per-camera payload entry does not carry a color AND the caller does not supply frustumColor; per-entry payload colors still take precedence over frustumColor; lib-owned default, overridable
+├── const DEFAULT_FRUSTUM_OPACITY = 0.5            # number — transparent frustum overlay default applied when the caller does not supply frustumOpacity; lib-owned default, overridable
+├── const DEFAULT_CENTER_MARKER_SIZE = 0.01        # number — marker size for the camera center point used when the caller does not supply centerMarkerSize; lib-owned default, overridable
+├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumColor, frustumOpacity, centerMarkerSize }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumColor?: string; frustumOpacity?: number; centerMarkerSize?: number }): VNode
 │   ├── # Builds a non-interactive transparent layer from the main-branch camera-vis JSON payload, initialized at initialCameraState.
 │   ├── throw if CameraDisplayResponse.meta_info is not an empty object
-│   ├── calls createCamerasScene({ displayResponse, initialCameraState })
+│   ├── calls createCamerasScene({ displayResponse, initialCameraState, frustumColor, frustumOpacity, centerMarkerSize })
 │   ├── calls renderCamerasScene({ scene, camera, renderer })
 │   └── return LeafVNode keyed by displayResponse.url
-├── function createCamerasScene({ displayResponse, initialCameraState }: { displayResponse: CameraDisplayResponse; initialCameraState: CameraState | null }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
-│   ├── # Composes the cameras-overlay scene's container, scene, camera, and renderer from the camera-vis payload.
-│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: true })
-│   ├── calls createThreeCameras
-│   ├── calls createThreeScene({ object: cameras })
-│   ├── calls createThreePerspectiveCamera({ initialCameraState })
-│   ├── calls createThreeWebGLRenderer({ container })
-│   └── return
-├── function createThreeCameras({ displayResponse }: { displayResponse: CameraDisplayResponse }): THREE.Object3D
-│   ├── impls fetches camera-vis JSON payload from displayResponse.url
-│   ├── impls validates each payload entry has center, center_color, axes, and frustum_lines
-│   ├── impls validates every axes/frustum line has start, end, and color
-│   ├── impls builds transparent Three.js centers and line segments from the fetched payload
+├── function createCamerasScene({ displayResponse, initialCameraState, frustumColor, frustumOpacity, centerMarkerSize }: { displayResponse: CameraDisplayResponse; initialCameraState: CameraState | null; frustumColor?: string; frustumOpacity?: number; centerMarkerSize?: number }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
+│   ├── # Composes container, scene, camera, renderer; camera-vis payload is loaded asynchronously and the cameras Object3D joins the scene on resolve.
+│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: true })                     → container
+│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; cameras Object3D joins on async resolve
+│   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
+│   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
+│   ├── impls loadCamerasPayload({ displayResponse }).then(payload => scene.add(createThreeCameras({ payload, frustumColor, frustumOpacity, centerMarkerSize })))
+│   └── return { container, scene, camera, renderer }
+├── async function loadCamerasPayload({ displayResponse }: { displayResponse: CameraDisplayResponse }): Promise<CamerasPayload>
+│   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
+├── function createThreeCameras({ payload, frustumColor, frustumOpacity, centerMarkerSize }: { payload: CamerasPayload; frustumColor?: string; frustumOpacity?: number; centerMarkerSize?: number }): THREE.Object3D
+│   ├── # Sync-builds the transparent Three.js centers + line segments from a pre-validated camera-vis payload.
+│   ├── impls effectiveCenterMarkerSize = centerMarkerSize ?? DEFAULT_CENTER_MARKER_SIZE
+│   ├── impls effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY
+│   ├── for each entry in payload
+│   │   ├── if entry.frustum_lines carries per-line color
+│   │   │   └── impls effectiveFrustumColor = entry frustum_lines color
+│   │   ├── elif frustumColor !== undefined
+│   │   │   └── impls effectiveFrustumColor = frustumColor
+│   │   └── else
+│   │       └── impls effectiveFrustumColor = DEFAULT_FRUSTUM_COLOR
 │   └── return
 └── function renderCamerasScene({ scene, camera, renderer }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }): void
     ├── # Drives the render loop; the cameras-overlay has no trackball controls — its camera is externally synced through the camera-sync registry observing the display element's data-camera-state attribute.
@@ -1712,58 +1833,59 @@ types.ts
 camera_sync.ts
 ├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 ├── import type { CameraSyncState } from "./types";
-└── class CameraSyncRegistry
-    ├── # Per-source camera-sync registry: each source_id owns an independent CameraSyncState and target element pool, so apply operations stay confined to their source's own pool.
-    ├── _state_by_source_id    # Record<source_id, CameraSyncState> — per-source CameraSyncState entries
-    ├── _targets_by_source_id  # Record<source_id, Map<target_id, HTMLElement>> — per-source target element registry
-    ├── _listeners             # Array<(camera_sync_state: CameraSyncState) => void>
-    ├── loadCameraSyncState
-    │   ├── # Common API: seeds one source's CameraSyncState entry from a caller-provided camera state.
-    │   ├── impls sets this._state_by_source_id[source_id] to a fresh entry with the caller-provided CameraState and empty target_ids
-    │   ├── impls sets this._targets_by_source_id[source_id] to a fresh empty Map
-    │   └── return
-    ├── getCameraSyncState
-    │   ├── # Common API: reads the current committed CameraSyncState for the given source.
-    │   └── return this._state_by_source_id[source_id]
-    ├── subscribeCameraSyncState
-    │   ├── # Additional API: registers listeners that fire on every apply with the updated source's CameraSyncState.
-    │   ├── impls appends listener to this._listeners
-    │   └── return a callback that removes listener from this._listeners
-    ├── registerCameraSyncTarget
-    │   ├── # Additional API: registers one display panel as a camera-sync target under a specific source; each source owns its own target pool.
-    │   ├── impls idempotently sets this._targets_by_source_id[source_id].set(target_id, target_element)
-    │   ├── impls updates this._state_by_source_id[source_id].target_ids from this._targets_by_source_id[source_id].keys()
-    │   ├── calls this._apply_camera_state_to_element  # target_element, this._state_by_source_id[source_id].camera_state
-    │   └── return
-    ├── unregisterCameraSyncTarget
-    │   ├── # Additional API: unregisters one display panel from a source's target set.
-    │   ├── impls idempotently deletes this._targets_by_source_id[source_id].delete(target_id)
-    │   ├── impls updates this._state_by_source_id[source_id].target_ids from this._targets_by_source_id[source_id].keys()
-    │   └── return
-    ├── applyCameraSyncStateToTargets
-    │   ├── # Additional API: applies a caller-owned CameraState to every target registered under one source.
-    │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the caller-provided CameraState
-    │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
-    │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
-    │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
-    │   └── return
-    ├── applySourceCameraStateToTargets
-    │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
-    │   ├── if source_id not in this._targets_by_source_id
-    │   │   └── throw
-    │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the source display CameraState
-    │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
-    │   │   ├── if target_id == source_id
-    │   │   │   └── continue
-    │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
-    │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
-    │   └── return
-    ├── _apply_camera_state_to_element
-    │   ├── # Writes a CameraState onto an element's `data-camera-state` attribute; mesh / point-cloud display containers observe this attribute and re-apply to their trackball controls.
-    │   └── impls sets target_element.dataset.cameraState to the serialized CameraState (or deletes the attribute when CameraState is null)
-    └── _emit_camera_sync_state
-        ├── # Notifies every subscriber with the just-updated source's CameraSyncState.
-        └── for each listener in this._listeners
-            └── impls listener(camera_sync_state)
+├── class CameraSyncRegistry
+│   ├── # Per-source camera-sync registry: each source_id owns an independent CameraSyncState and target element pool, so apply operations stay confined to their source's own pool.
+│   ├── _state_by_source_id    # Record<source_id, CameraSyncState> — per-source CameraSyncState entries
+│   ├── _targets_by_source_id  # Record<source_id, Map<target_id, HTMLElement>> — per-source target element registry
+│   ├── _listeners             # Array<(camera_sync_state: CameraSyncState) => void>
+│   ├── loadCameraSyncState
+│   │   ├── # Common API: seeds one source's CameraSyncState entry from a caller-provided camera state.
+│   │   ├── impls sets this._state_by_source_id[source_id] to a fresh entry with the caller-provided CameraState and empty target_ids
+│   │   ├── impls sets this._targets_by_source_id[source_id] to a fresh empty Map
+│   │   └── return
+│   ├── getCameraSyncState
+│   │   ├── # Common API: reads the current committed CameraSyncState for the given source.
+│   │   └── return this._state_by_source_id[source_id]
+│   ├── subscribeCameraSyncState
+│   │   ├── # Additional API: registers listeners that fire on every apply with the updated source's CameraSyncState.
+│   │   ├── impls appends listener to this._listeners
+│   │   └── return a callback that removes listener from this._listeners
+│   ├── registerCameraSyncTarget
+│   │   ├── # Additional API: registers one display panel as a camera-sync target under a specific source; each source owns its own target pool.
+│   │   ├── impls idempotently sets this._targets_by_source_id[source_id].set(target_id, target_element)
+│   │   ├── impls updates this._state_by_source_id[source_id].target_ids from this._targets_by_source_id[source_id].keys()
+│   │   ├── calls this._apply_camera_state_to_element  # target_element, this._state_by_source_id[source_id].camera_state
+│   │   └── return
+│   ├── unregisterCameraSyncTarget
+│   │   ├── # Additional API: unregisters one display panel from a source's target set.
+│   │   ├── impls idempotently deletes this._targets_by_source_id[source_id].delete(target_id)
+│   │   ├── impls updates this._state_by_source_id[source_id].target_ids from this._targets_by_source_id[source_id].keys()
+│   │   └── return
+│   ├── applyCameraSyncStateToTargets
+│   │   ├── # Additional API: applies a caller-owned CameraState to every target registered under one source.
+│   │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the caller-provided CameraState
+│   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
+│   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
+│   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
+│   │   └── return
+│   ├── applySourceCameraStateToTargets
+│   │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
+│   │   ├── if source_id not in this._targets_by_source_id
+│   │   │   └── throw
+│   │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the source display CameraState
+│   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
+│   │   │   ├── if target_id == source_id
+│   │   │   │   └── continue
+│   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
+│   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
+│   │   └── return
+│   ├── _apply_camera_state_to_element
+│   │   ├── # Writes a CameraState onto an element's `data-camera-state` attribute; mesh / point-cloud display containers observe this attribute and re-apply to their trackball controls.
+│   │   └── impls sets target_element.dataset.cameraState to the serialized CameraState (or deletes the attribute when CameraState is null)
+│   └── _emit_camera_sync_state
+│       ├── # Notifies every subscriber with the just-updated source's CameraSyncState.
+│       └── for each listener in this._listeners
+│           └── impls listener(camera_sync_state)
+└── const cameraSyncRegistry = new CameraSyncRegistry()    # the single document-global registry instance shared by every spatial display in the document; consumers import this instance and call its methods
 ```
 
