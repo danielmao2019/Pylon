@@ -1,16 +1,28 @@
 import * as THREE from "three";
+import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+import {
+  createThreeDisplayContainer,
+  createThreePerspectiveCamera,
+  createThreeScene,
+  createThreeWebGLRenderer,
+  startThreeSceneRenderLoop,
+} from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
 import type { CameraDisplayResponse } from "./types/display_response";
 
-interface FiniteVector {
-  x: number;
-  y: number;
-  z: number;
-}
+// Last-resort default frustum line color, applied when the per-camera payload
+// entry does not carry a color AND the caller does not supply frustumColor.
+// Per-entry payload colors still take precedence over frustumColor. Lib-owned
+// default, overridable.
+export const DEFAULT_FRUSTUM_COLOR = "#888888";
 
-interface FiniteQuaternion extends FiniteVector {
-  w: number;
-}
+// Transparent frustum overlay opacity applied when the caller does not supply
+// frustumOpacity. Lib-owned default, overridable.
+export const DEFAULT_FRUSTUM_OPACITY = 0.5;
+
+// Marker size for the camera center point used when the caller does not supply
+// centerMarkerSize. Lib-owned default, overridable.
+export const DEFAULT_CENTER_MARKER_SIZE = 0.01;
 
 type CameraVisualizationVectorPayload = [number, number, number];
 
@@ -27,238 +39,134 @@ interface CameraVisualizationPayload {
   frustum_lines: CameraVisualizationLinePayload[];
 }
 
+type CamerasPayload = CameraVisualizationPayload[];
+
 export function renderCameraDisplay({
   displayResponse,
+  initialCameraState = null,
+  frustumColor,
+  frustumOpacity,
+  centerMarkerSize,
 }: {
   displayResponse: CameraDisplayResponse;
-}): HTMLElement {
+  initialCameraState?: CameraState | null;
+  frustumColor?: string;
+  frustumOpacity?: number;
+  centerMarkerSize?: number;
+}): VNode {
   if (Object.keys(displayResponse.meta_info).length !== 0) {
     throw new Error("camera display meta_info must be an empty object");
   }
-  if (displayResponse.url === null) {
-    throw new Error("camera display response url is null");
-  }
-
-  const container = createCameraDisplayContainer({
-    resourceUrl: displayResponse.url,
-  });
-  void loadAndRenderCameraDisplay({
-    container,
-    displayResponse,
-  });
-  return container;
+  const leaf: LeafVNode = {
+    kind: "leaf",
+    key: displayResponse.url ?? `cameras:${displayResponse.slot_id}`,
+    props: {},
+    render: () => {
+      const { container, scene, camera, renderer } = createCamerasScene({
+        displayResponse,
+        initialCameraState,
+        frustumColor,
+        frustumOpacity,
+        centerMarkerSize,
+      });
+      renderCamerasScene({ scene, camera, renderer });
+      return container;
+    },
+  };
+  return leaf;
 }
 
-function createCameraDisplayContainer({
-  resourceUrl,
-}: {
-  resourceUrl: string;
-}): HTMLDivElement {
-  const container = document.createElement("div");
-  container.className = "artifact-frame camera-display-scene";
-  container.style.position = "relative";
-  container.style.overflow = "hidden";
-  container.style.background = "transparent";
-  container.style.pointerEvents = "none";
-  container.dataset.resourceUrl = resourceUrl;
-  return container;
-}
-
-async function loadAndRenderCameraDisplay({
-  container,
+function createCamerasScene({
   displayResponse,
+  initialCameraState,
+  frustumColor,
+  frustumOpacity,
+  centerMarkerSize,
 }: {
-  container: HTMLDivElement;
   displayResponse: CameraDisplayResponse;
-}): Promise<void> {
-  const resourceUrl = displayResponse.url;
-  if (resourceUrl === null) {
-    throw new Error("camera display response url is null");
-  }
-  const response = await fetch(resourceUrl);
-  if (!response.ok) {
-    throw new Error(`unable to load camera visualization: HTTP ${response.status}`);
-  }
-  const cameraVisualizations = validateCameraVisualizationPayloads({
-    value: await response.json(),
-  });
-  const scene = new THREE.Scene();
-  const cameraOverlay = createThreeCameraOverlayLines({
-    cameraVisualizations,
-  });
-  scene.add(cameraOverlay);
-  const camera = createThreePerspectiveCamera();
-  const renderer = createThreeWebGLRenderer({ container });
-  registerCameraDisplayVisibility({
-    container,
-    cameraOverlay,
-  });
-  registerCameraDisplayResize({
-    container,
-    camera,
-    renderer,
-  });
-  registerCameraDisplayCameraSync({
-    container,
-    camera,
-  });
-  startCameraDisplayRenderLoop({
-    scene,
-    camera,
-    renderer,
-  });
-}
-
-function createThreePerspectiveCamera(): THREE.PerspectiveCamera {
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1000);
-  camera.position.set(0, 0, 1);
-  camera.up.set(0, 1, 0);
-  camera.lookAt(new THREE.Vector3(0, 0, 0));
-  camera.updateProjectionMatrix();
-  return camera;
-}
-
-function createThreeWebGLRenderer({
-  container,
-}: {
+  initialCameraState: CameraState | null;
+  frustumColor?: string;
+  frustumOpacity?: number;
+  centerMarkerSize?: number;
+}): {
   container: HTMLDivElement;
-}): THREE.WebGLRenderer {
-  const renderer = new THREE.WebGLRenderer({
-    alpha: true,
-    antialias: true,
-    preserveDrawingBuffer: true,
-  });
-  renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
-  renderer.domElement.style.display = "block";
-  renderer.domElement.style.width = "100%";
-  renderer.domElement.style.height = "100%";
-  renderer.domElement.style.pointerEvents = "none";
-  container.append(renderer.domElement);
-  return renderer;
-}
-
-function registerCameraDisplayResize({
-  container,
-  camera,
-  renderer,
-}: {
-  container: HTMLDivElement;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-}): void {
-  const resize = () => {
-    const width = Math.max(1, container.clientWidth || 1);
-    const height = Math.max(1, container.clientHeight || 1);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(width, height, false);
-  };
-  resize();
-  if (typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(resize).observe(container);
-  }
-  window.addEventListener("resize", resize);
-}
-
-function registerCameraDisplayVisibility({
-  container,
-  cameraOverlay,
-}: {
-  container: HTMLDivElement;
-  cameraOverlay: THREE.Group;
-}): void {
-  const updateVisibility = () => {
-    const showCameras = container.dataset.showCameras !== "false";
-    cameraOverlay.visible = showCameras;
-    container.dataset.cameraOverlayVisible = showCameras ? "true" : "false";
-    container.dataset.cameraOverlayCount = String(
-      cameraOverlay.userData.cameraCount ?? 0,
-    );
-    container.dataset.cameraOverlayLineCount = String(
-      cameraOverlay.userData.lineCount ?? 0,
-    );
-    container.dataset.cameraOverlayFirstAxisLength = String(
-      cameraOverlay.userData.firstAxisLength ?? "",
-    );
-    container.dataset.cameraOverlayFirstFrustumLength = String(
-      cameraOverlay.userData.firstFrustumLength ?? "",
-    );
-  };
-  updateVisibility();
-  new MutationObserver(updateVisibility).observe(container, {
-    attributeFilter: ["data-show-cameras"],
-    attributes: true,
-  });
-}
-
-function registerCameraDisplayCameraSync({
-  container,
-  camera,
-}: {
-  container: HTMLDivElement;
-  camera: THREE.PerspectiveCamera;
-}): void {
-  const applyContainerCameraState = () => {
-    const cameraState = readCameraStateFromContainer({ container });
-    if (cameraState === null) {
-      return;
-    }
-    if (applyCameraState({ camera, cameraState })) {
-      container.dataset.cameraAppliedState = JSON.stringify(cameraState);
-      return;
-    }
-    delete container.dataset.cameraAppliedState;
-  };
-  const observer = new MutationObserver(applyContainerCameraState);
-  observer.observe(container, {
-    attributeFilter: ["data-camera-state"],
-    attributes: true,
-  });
-  applyContainerCameraState();
-}
-
-function startCameraDisplayRenderLoop({
-  scene,
-  camera,
-  renderer,
-}: {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
-}): void {
-  const draw = () => {
-    renderer.render(scene, camera);
-    window.requestAnimationFrame(draw);
-  };
-  window.requestAnimationFrame(draw);
+} {
+  const container = createThreeDisplayContainer({ pointerEventsSuppressed: true });
+  const scene = createThreeScene();
+  const camera = createThreePerspectiveCamera({ initialCameraState });
+  const renderer = createThreeWebGLRenderer({ container });
+  loadCamerasPayload({ displayResponse })
+    .then((payload) =>
+      scene.add(
+        createThreeCameras({ payload, frustumColor, frustumOpacity, centerMarkerSize }),
+      ),
+    )
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      container.replaceChildren(
+        _renderCamerasStatus(`Failed to load camera visualization: ${message}`),
+      );
+    });
+  return { container, scene, camera, renderer };
 }
 
-function createThreeCameraOverlayLines({
-  cameraVisualizations,
+async function loadCamerasPayload({
+  displayResponse,
 }: {
-  cameraVisualizations: CameraVisualizationPayload[];
-}): THREE.Group {
+  displayResponse: CameraDisplayResponse;
+}): Promise<CamerasPayload> {
+  if (displayResponse.url === null) {
+    throw new Error("camera display response url is null");
+  }
+  const response = await fetch(displayResponse.url);
+  if (!response.ok) {
+    throw new Error(`unable to load camera visualization: HTTP ${response.status}`);
+  }
+  return validateCameraVisualizationPayloads({ value: await response.json() });
+}
+
+function createThreeCameras({
+  payload,
+  frustumColor,
+  frustumOpacity,
+  centerMarkerSize,
+}: {
+  payload: CamerasPayload;
+  frustumColor?: string;
+  frustumOpacity?: number;
+  centerMarkerSize?: number;
+}): THREE.Object3D {
+  const effectiveCenterMarkerSize = centerMarkerSize ?? DEFAULT_CENTER_MARKER_SIZE;
+  const effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY;
   const overlay = new THREE.Group();
-  overlay.userData.cameraCount = cameraVisualizations.length;
+  overlay.userData.cameraCount = payload.length;
   overlay.userData.lineCount = 0;
   overlay.renderOrder = 999;
-  for (const cameraVisualization of cameraVisualizations) {
-    overlay.add(createThreeCameraCenter({ cameraVisualization }));
-    for (const line of [
-      ...cameraVisualization.axes,
-      ...cameraVisualization.frustum_lines,
-    ]) {
-      overlay.add(createThreeCameraOverlayLine({ line }));
+  for (const cameraVisualization of payload) {
+    overlay.add(
+      createThreeCameraCenter({
+        cameraVisualization,
+        centerMarkerSize: effectiveCenterMarkerSize,
+      }),
+    );
+    for (const line of cameraVisualization.axes) {
+      overlay.add(createThreeCameraOverlayLine({ line, frustumColor, frustumOpacity: effectiveFrustumOpacity }));
+      overlay.userData.lineCount += 1;
+    }
+    for (const line of cameraVisualization.frustum_lines) {
+      overlay.add(createThreeCameraOverlayLine({ line, frustumColor, frustumOpacity: effectiveFrustumOpacity }));
       overlay.userData.lineCount += 1;
     }
   }
-  if (cameraVisualizations.length > 0) {
+  if (payload.length > 0) {
     overlay.userData.firstAxisLength = cameraVisualizationLineLength({
-      line: cameraVisualizations[0].axes[0],
+      line: payload[0].axes[0],
     });
     overlay.userData.firstFrustumLength = cameraVisualizationLineLength({
-      line: cameraVisualizations[0].frustum_lines[0],
+      line: payload[0].frustum_lines[0],
     });
   }
   return overlay;
@@ -266,8 +174,10 @@ function createThreeCameraOverlayLines({
 
 function createThreeCameraCenter({
   cameraVisualization,
+  centerMarkerSize,
 }: {
   cameraVisualization: CameraVisualizationPayload;
+  centerMarkerSize: number;
 }): THREE.Points {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
@@ -278,7 +188,7 @@ function createThreeCameraCenter({
     color: new THREE.Color(...cameraVisualization.center_color),
     depthTest: false,
     depthWrite: false,
-    size: 0.03,
+    size: centerMarkerSize,
   });
   const center = new THREE.Points(geometry, material);
   center.renderOrder = 999;
@@ -287,18 +197,34 @@ function createThreeCameraCenter({
 
 function createThreeCameraOverlayLine({
   line,
+  frustumColor,
+  frustumOpacity,
 }: {
   line: CameraVisualizationLinePayload;
+  frustumColor?: string;
+  frustumOpacity: number;
 }): THREE.Line {
+  // Per-entry payload colors take precedence over frustumColor, which in turn
+  // takes precedence over the lib-owned DEFAULT_FRUSTUM_COLOR.
+  let effectiveFrustumColor: THREE.Color;
+  if (line.color !== undefined) {
+    effectiveFrustumColor = new THREE.Color(...line.color);
+  } else if (frustumColor !== undefined) {
+    effectiveFrustumColor = new THREE.Color(frustumColor);
+  } else {
+    effectiveFrustumColor = new THREE.Color(DEFAULT_FRUSTUM_COLOR);
+  }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
     new THREE.Float32BufferAttribute([...line.start, ...line.end], 3),
   );
   const material = new THREE.LineBasicMaterial({
-    color: new THREE.Color(...line.color),
+    color: effectiveFrustumColor,
     depthTest: false,
     depthWrite: false,
+    opacity: frustumOpacity,
+    transparent: true,
   });
   const overlayLine = new THREE.Line(geometry, material);
   overlayLine.renderOrder = 999;
@@ -309,7 +235,7 @@ function validateCameraVisualizationPayloads({
   value,
 }: {
   value: unknown;
-}): CameraVisualizationPayload[] {
+}): CamerasPayload {
   if (!Array.isArray(value)) {
     throw new Error("camera visualization payload must be an array");
   }
@@ -417,7 +343,7 @@ function validateCameraVisualizationVector({
 function assertCameraVisualizationPayloadShape({
   cameraVisualizations,
 }: {
-  cameraVisualizations: CameraVisualizationPayload[];
+  cameraVisualizations: CamerasPayload;
 }): void {
   for (let index = 0; index < cameraVisualizations.length; index += 1) {
     const cameraVisualization = cameraVisualizations[index];
@@ -441,177 +367,32 @@ function cameraVisualizationLineLength({
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-function readCameraStateFromContainer({
-  container,
-}: {
-  container: HTMLElement;
-}): CameraState | null {
-  const serializedCameraState = container.dataset.cameraState;
-  if (serializedCameraState === undefined) {
-    return null;
-  }
-  const parsedCameraState: unknown = JSON.parse(serializedCameraState);
-  if (!isCameraState(parsedCameraState)) {
-    return null;
-  }
-  return parsedCameraState;
-}
-
-function applyCameraState({
+function renderCamerasScene({
+  scene,
   camera,
-  cameraState,
+  renderer,
 }: {
+  scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
-  cameraState: CameraState;
-}): boolean {
-  if (applyThreePointCameraState({ camera, cameraState })) {
-    return true;
-  }
-  return applyGaussianTrackballCameraState({ camera, cameraState });
-}
-
-function applyThreePointCameraState({
-  camera,
-  cameraState,
-}: {
-  camera: THREE.PerspectiveCamera;
-  cameraState: CameraState;
-}): boolean {
-  if (cameraState.convention !== "three_pointcloud") {
-    return false;
-  }
-  const position = readFiniteVector(cameraState.extrinsics.position);
-  const quaternion = readFiniteQuaternion(cameraState.extrinsics.quaternion);
-  const up = readFiniteVector(cameraState.extrinsics.up);
-  if (position === null || quaternion === null || up === null) {
-    return false;
-  }
-  camera.position.copy(vectorFromRecord({ vector: position }));
-  camera.quaternion.copy(quaternionFromRecord({ quaternion }));
-  camera.up.copy(vectorFromRecord({ vector: up }));
-  applyPerspectiveIntrinsics({ camera, cameraState });
-  camera.updateProjectionMatrix();
-  camera.updateMatrixWorld(true);
-  return true;
-}
-
-function applyGaussianTrackballCameraState({
-  camera,
-  cameraState,
-}: {
-  camera: THREE.PerspectiveCamera;
-  cameraState: CameraState;
-}): boolean {
-  if (cameraState.convention !== "trackball_gaussian_splatting") {
-    return false;
-  }
-  const position = readFiniteVector(cameraState.extrinsics.position);
-  const target = readFiniteVector(cameraState.extrinsics.target);
-  const up = readFiniteVector(cameraState.extrinsics.up);
-  if (position === null || target === null || up === null) {
-    return false;
-  }
-  camera.position.copy(vectorFromRecord({ vector: position }));
-  camera.up.copy(vectorFromRecord({ vector: up }));
-  camera.lookAt(vectorFromRecord({ vector: target }));
-  applyPerspectiveIntrinsics({ camera, cameraState });
-  camera.updateProjectionMatrix();
-  camera.updateMatrixWorld(true);
-  return true;
-}
-
-function applyPerspectiveIntrinsics({
-  camera,
-  cameraState,
-}: {
-  camera: THREE.PerspectiveCamera;
-  cameraState: CameraState;
+  renderer: THREE.WebGLRenderer;
 }): void {
-  const fov = cameraState.intrinsics.fov;
-  const aspect = cameraState.intrinsics.aspect;
-  const near = cameraState.intrinsics.near;
-  const far = cameraState.intrinsics.far;
-  if (typeof fov === "number" && Number.isFinite(fov)) {
-    camera.fov = fov;
-  }
-  if (typeof aspect === "number" && Number.isFinite(aspect)) {
-    camera.aspect = aspect;
-  }
-  if (typeof near === "number" && Number.isFinite(near)) {
-    camera.near = near;
-  }
-  if (typeof far === "number" && Number.isFinite(far)) {
-    camera.far = far;
-  }
+  startThreeSceneRenderLoop({ scene, camera, renderer, controls: null });
 }
 
-function readFiniteVector(value: unknown): FiniteVector | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  if (
-    typeof value.x !== "number" ||
-    typeof value.y !== "number" ||
-    typeof value.z !== "number"
-  ) {
-    return null;
-  }
-  if (
-    !Number.isFinite(value.x) ||
-    !Number.isFinite(value.y) ||
-    !Number.isFinite(value.z)
-  ) {
-    return null;
-  }
-  return {
-    x: value.x,
-    y: value.y,
-    z: value.z,
-  };
-}
-
-function readFiniteQuaternion(value: unknown): FiniteQuaternion | null {
-  const vector = readFiniteVector(value);
-  if (vector === null || !isRecord(value)) {
-    return null;
-  }
-  if (typeof value.w !== "number" || !Number.isFinite(value.w)) {
-    return null;
-  }
-  return {
-    ...vector,
-    w: value.w,
-  };
-}
-
-function vectorFromRecord({
-  vector,
-}: {
-  vector: FiniteVector;
-}): THREE.Vector3 {
-  return new THREE.Vector3(vector.x, vector.y, vector.z);
-}
-
-function quaternionFromRecord({
-  quaternion,
-}: {
-  quaternion: FiniteQuaternion;
-}): THREE.Quaternion {
-  return new THREE.Quaternion(
-    quaternion.x,
-    quaternion.y,
-    quaternion.z,
-    quaternion.w,
-  );
-}
-
-function isCameraState(value: unknown): value is CameraState {
-  return (
-    isRecord(value) &&
-    isRecord(value.intrinsics) &&
-    isRecord(value.extrinsics) &&
-    typeof value.convention === "string"
-  );
+// Render an inline status card for a load-failure cameras display.
+function _renderCamerasStatus(message: string): HTMLElement {
+  const status = document.createElement("div");
+  status.className = "camera-display-scene__status";
+  status.style.display = "flex";
+  status.style.alignItems = "center";
+  status.style.justifyContent = "center";
+  status.style.width = "100%";
+  status.style.height = "100%";
+  status.style.padding = "1rem";
+  status.style.color = "#888";
+  status.style.fontStyle = "italic";
+  status.textContent = message;
+  return status;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

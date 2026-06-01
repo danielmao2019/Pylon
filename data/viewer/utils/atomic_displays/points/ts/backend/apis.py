@@ -2,7 +2,6 @@
 
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-from urllib.parse import urlencode
 
 import torch
 
@@ -47,54 +46,56 @@ def create_color_pc_display_response(
 
 
 def create_segmentation_pc_display_response(
+    segmentation_pc_path: str,
     slot_id: str,
     title: str,
-    segmentation_pc_path: Optional[str],
-    original_overlay_path: Optional[str],
+    class_id_to_rgb: Optional[Dict[int, Tuple[int, int, int]]] = None,
 ) -> SegmentationPCDisplayResponse:
     """Create a segmentation point-cloud display response.
 
+    The caller may override the class-id to RGB mapping; otherwise the default
+    mapping is computed from the segmentation point-cloud labels.
+
     Args:
+        segmentation_pc_path: Segmentation point-cloud artifact path.
         slot_id: Stable display slot identifier.
         title: Display panel title.
-        segmentation_pc_path: Segmentation point-cloud artifact path.
-        original_overlay_path: Original scene artifact path.
+        class_id_to_rgb: Optional override mapping from class id to RGB color tuple.
 
     Returns:
         Segmentation point-cloud display response.
     """
-    if segmentation_pc_path is None:
-        class_id_to_rgb = {}
-        colorized_segmentation_pc_path = None
-    else:
-        segmentation_pc = load_point_cloud(filepath=segmentation_pc_path, device="cpu")
-        class_ids = _segmentation_pc_class_ids(segmentation_pc)
-        if class_ids is None:
-            class_id_to_rgb = {}
-            colorized_segmentation_pc_path = segmentation_pc_path
-        else:
-            class_id_to_rgb = map_class_ids_to_rgb(
-                class_ids=torch.unique(class_ids),
-            )
-            colorized_segmentation_pc_path = _map_segmentation_pc_to_rgb(
-                segmentation_pc_path=segmentation_pc_path,
-                class_id_to_rgb=class_id_to_rgb,
-            )
-    response = create_points_display_response(
+    assert isinstance(segmentation_pc_path, str), (
+        "Segmentation point-cloud path must be a string. segmentation_pc_path=%r"
+        % segmentation_pc_path
+    )
+    assert isinstance(slot_id, str), "Slot id must be a string. slot_id=%r" % slot_id
+    assert isinstance(title, str), "Title must be a string. title=%r" % title
+    assert class_id_to_rgb is None or isinstance(class_id_to_rgb, dict), (
+        "Class color mapping must be a dict or None. class_id_to_rgb=%r"
+        % class_id_to_rgb
+    )
+
+    segmentation_pc = load_point_cloud(filepath=segmentation_pc_path, device="cpu")
+    effective_class_id_to_rgb = (
+        class_id_to_rgb
+        if class_id_to_rgb is not None
+        else map_class_ids_to_rgb(class_ids=torch.unique(segmentation_pc.label))
+    )
+    colorized_segmentation_pc_path = _map_segmentation_pc_to_rgb(
+        segmentation_pc_path=segmentation_pc_path,
+        class_id_to_rgb=effective_class_id_to_rgb,
+    )
+    return create_points_display_response(
         response_type=SegmentationPCDisplayResponse,
         slot_id=slot_id,
         title=title,
         display_kind="segmentation_pc",
         point_cloud_path=colorized_segmentation_pc_path,
         meta_info=_build_segmentation_pc_meta_info(
-            class_id_to_rgb=class_id_to_rgb,
+            class_id_to_rgb=effective_class_id_to_rgb,
         ),
     )
-    if original_overlay_path is not None:
-        response.original_overlay_url = "/api/artifacts?%s" % urlencode(
-            {"path": original_overlay_path},
-        )
-    return response
 
 
 def _map_segmentation_pc_to_rgb(

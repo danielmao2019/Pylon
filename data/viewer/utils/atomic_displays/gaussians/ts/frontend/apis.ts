@@ -1,3 +1,5 @@
+import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+import type { VNode } from "web/reconcile/reconcile";
 import { renderGaussiansDisplay } from "./core_gaussians_display";
 import type {
   ColorGSDisplayResponse,
@@ -6,16 +8,20 @@ import type {
 
 export function renderColorGSDisplay({
   displayResponse,
+  initialCameraState = null,
 }: {
   displayResponse: ColorGSDisplayResponse;
-}): HTMLElement {
-  return renderGaussiansDisplay({ displayResponse });
+  initialCameraState?: CameraState | null;
+}): VNode {
+  return renderGaussiansDisplay({ displayResponse, initialCameraState });
 }
 
 export function renderSegmentationGSDisplay({
   displayResponse,
+  initialCameraState = null,
 }: {
   displayResponse: SegmentationGSDisplayResponse;
-}): HTMLElement {
-  return renderGaussiansDisplay({ displayResponse });
+  initialCameraState?: CameraState | null;
+}): VNode {
+  return renderGaussiansDisplay({ displayResponse, initialCameraState });
 }
