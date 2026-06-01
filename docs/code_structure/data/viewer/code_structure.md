@@ -1526,7 +1526,7 @@ core_gaussians_display.ts
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 ├── import type { GaussianDisplayResponse } from "./types/display_response";
-├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
+├── import { createThreeDisplayContainer } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
 └── function renderGaussiansDisplay({ displayResponse, initialCameraState }: { displayResponse: GaussianDisplayResponse; initialCameraState?: CameraState | null }): VNode
     ├── # Delegates rendering to the external Gaussian-splat package; the package owns URL loading, scene assembly, camera controls, and the render loop.
     ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
