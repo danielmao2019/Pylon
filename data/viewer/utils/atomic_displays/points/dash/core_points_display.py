@@ -19,14 +19,29 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 import plotly.graph_objects as go
 import torch
+from dash import dcc
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.random_select import RandomSelect
 from data.transforms.vision_3d.pclod import create_lod_function
 from data.viewer.dataset.context import get_viewer_context
+from data.viewer.utils.camera_controls.dash.trackball_camera_controls import (
+    create_dash_trackball_camera_controls,
+)
 from data.viewer.utils.segmentation import get_color
 
 logger = logging.getLogger(__name__)
+
+# Absolute floor for visibility at typical canonical-world camera framings; used
+# by the bounding-sphere heuristic when `point_size` is not supplied. Lib-owned
+# default, documented and overridable by the caller.
+DEFAULT_POINT_SIZE_FLOOR = 0.005
+# Fraction of the point-cloud bounding-sphere radius used as the heuristic
+# default size. Lib-owned default, documented and overridable by the caller.
+DEFAULT_POINT_SIZE_RATIO = 0.002
+# Uniform fallback color used when the point cloud has no per-point colors AND
+# the caller does not supply `point_color`. Lib-owned default, overridable.
+DEFAULT_POINT_COLOR = "#cccccc"
 
 
 def build_point_cloud_id(
@@ -836,6 +851,127 @@ def create_point_cloud_display(
     )
 
     return fig
+
+
+def create_dash_points_display(
+    point_cloud: PointCloud,
+    point_size: Optional[float] = None,
+    point_color: Optional[str] = None,
+) -> dcc.Graph:
+    """Render a Dash point-cloud display element.
+
+    The `point_size` and `point_color` overrides are opt-in. When supplied,
+    `point_color` replaces per-point colors with a uniform color so the consumer
+    can override the rendered look without rebuilding the point-cloud data.
+
+    Args:
+        point_cloud: PointCloud to render; `xyz` holds the point positions and an
+            optional `rgb` field holds per-point colors.
+        point_size: Optional uniform marker size override; when None the
+            bounding-sphere heuristic computes the size.
+        point_color: Optional uniform marker color override (CSS color string);
+            when None per-point colors or the lib default color is used.
+
+    Returns:
+        Dash `dcc.Graph` wrapping the point-cloud scene.
+    """
+    assert isinstance(point_cloud, PointCloud), (
+        "Expected `point_cloud` to be a `PointCloud` instance. " f"{type(point_cloud)=}"
+    )
+    assert point_size is None or isinstance(point_size, (int, float)), (
+        "Expected `point_size` to be None or numeric. " f"{type(point_size)=}"
+    )
+    assert point_color is None or isinstance(point_color, str), (
+        "Expected `point_color` to be None or a CSS color string. "
+        f"{type(point_color)=}"
+    )
+
+    scene = create_dash_points_scene(
+        point_cloud=point_cloud,
+        point_size=point_size,
+        point_color=point_color,
+    )
+    controls = create_dash_trackball_camera_controls
+    return create_dash_points_component(
+        scene=scene,
+        controls=controls,
+    )
+
+
+def create_dash_points_scene(
+    point_cloud: PointCloud,
+    point_size: Optional[float] = None,
+    point_color: Optional[str] = None,
+) -> go.Scatter3d:
+    """Sync-build the Plotly Scatter3d trace from the point cloud.
+
+    Args:
+        point_cloud: PointCloud to render; `xyz` holds the point positions and an
+            optional `rgb` field holds per-point colors.
+        point_size: Optional uniform marker size override; when None the size is
+            `max(DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO)`.
+        point_color: Optional uniform marker color override (CSS color string);
+            when None per-point colors or `DEFAULT_POINT_COLOR` is used.
+
+    Returns:
+        Plotly `go.Scatter3d` marker trace for the point cloud.
+    """
+    assert isinstance(point_cloud, PointCloud), (
+        "Expected `point_cloud` to be a `PointCloud` instance. " f"{type(point_cloud)=}"
+    )
+    assert point_size is None or isinstance(point_size, (int, float)), (
+        "Expected `point_size` to be None or numeric. " f"{type(point_size)=}"
+    )
+    assert point_color is None or isinstance(point_color, str), (
+        "Expected `point_color` to be None or a CSS color string. "
+        f"{type(point_color)=}"
+    )
+
+    points_np = point_cloud.xyz.detach().cpu().numpy()
+    center = points_np.mean(axis=0)
+    bounding_radius = float(np.linalg.norm(points_np - center, axis=1).max())
+
+    if point_size is not None:
+        effective_size = point_size
+    else:
+        effective_size = max(
+            DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO
+        )
+
+    if point_color is not None:
+        effective_color = point_color
+    elif "rgb" in point_cloud.field_names():
+        effective_color = point_cloud.rgb.detach().cpu().numpy()
+    else:
+        effective_color = DEFAULT_POINT_COLOR
+
+    trace = go.Scatter3d(
+        x=points_np[:, 0],
+        y=points_np[:, 1],
+        z=points_np[:, 2],
+        mode="markers",
+        marker=dict(size=effective_size, color=effective_color),
+    )
+    return trace
+
+
+def create_dash_points_component(
+    scene: go.Scatter3d,
+    controls: Any,
+) -> dcc.Graph:
+    """Wrap the point-cloud scene and camera controls into a Dash component.
+
+    Args:
+        scene: Plotly `go.Scatter3d` marker trace for the point cloud.
+        controls: Dash trackball camera-controls factory for the renderer.
+
+    Returns:
+        Dash `dcc.Graph` rendering the point-cloud scene.
+    """
+    assert isinstance(scene, go.Scatter3d), (
+        "Expected `scene` to be a Plotly `go.Scatter3d` trace. " f"{type(scene)=}"
+    )
+    return dcc.Graph(figure=go.Figure(data=[scene]))
 
 
 def get_point_cloud_display_stats(
