@@ -56,9 +56,9 @@ def create_mesh_display_response(
 
     mesh = load_mesh(path=input_path)
     if isinstance(mesh.texture, MeshTextureVertexColor):
-        _create_vertex_color_mesh_display(mesh=mesh, output_path=output_path)
+        _create_vertex_color_mesh_display_response(mesh=mesh, output_path=output_path)
     elif isinstance(mesh.texture, MeshTextureUVTextureMap):
-        _create_uv_texture_map_mesh_display(mesh=mesh, output_path=output_path)
+        _create_uv_texture_map_mesh_display_response(mesh=mesh, output_path=output_path)
     else:
         raise ValueError(
             "Unsupported mesh texture representation. texture=%r" % (mesh.texture,),
@@ -71,7 +71,7 @@ def create_mesh_display_response(
     )
 
 
-def _create_vertex_color_mesh_display(mesh: Mesh, output_path: Path) -> None:
+def _create_vertex_color_mesh_display_response(mesh: Mesh, output_path: Path) -> None:
     """Write a vertex-colored mesh resource to disk.
 
     Args:
@@ -93,7 +93,7 @@ def _create_vertex_color_mesh_display(mesh: Mesh, output_path: Path) -> None:
     save_mesh(mesh=mesh, output_path=output_path)
 
 
-def _create_uv_texture_map_mesh_display(mesh: Mesh, output_path: Path) -> None:
+def _create_uv_texture_map_mesh_display_response(mesh: Mesh, output_path: Path) -> None:
     """Write a UV-textured mesh resource to disk.
 
     Args:
