@@ -1113,14 +1113,14 @@ core_mesh_display.py
 │   ├── impls effective_opacity = mesh_opacity if mesh_opacity is not None else DEFAULT_MESH_OPACITY
 │   ├── impls effective_side = mesh_side if mesh_side is not None else DEFAULT_MESH_SIDE
 │   ├── if mesh texture representation is vertex color
-│   │   ├── calls _create_vertex_color_mesh_display(mesh=mesh, mesh_color=mesh_color, effective_opacity=effective_opacity, effective_side=effective_side)
+│   │   ├── calls _create_dash_vertex_color_mesh_scene(mesh=mesh, mesh_color=mesh_color, effective_opacity=effective_opacity, effective_side=effective_side)
 │   │   └── return
 │   ├── elif mesh texture representation is UV texture map
-│   │   ├── calls _create_uv_texture_map_mesh_display(mesh=mesh, mesh_color=mesh_color, effective_opacity=effective_opacity, effective_side=effective_side)
+│   │   ├── calls _create_dash_uv_texture_map_mesh_scene(mesh=mesh, mesh_color=mesh_color, effective_opacity=effective_opacity, effective_side=effective_side)
 │   │   └── return
 │   └── else
 │       └── raise unsupported mesh texture representation
-├── def _create_vertex_color_mesh_display(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
+├── def _create_dash_vertex_color_mesh_scene(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
 │   ├── elif mesh has per-vertex rgb
@@ -1128,7 +1128,7 @@ core_mesh_display.py
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
-├── def _create_uv_texture_map_mesh_display(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
+├── def _create_dash_uv_texture_map_mesh_scene(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
 │   ├── elif mesh has uv_texture_map
