@@ -192,10 +192,9 @@ three_scene_helpers.ts
 │   ├── if pointerEventsSuppressed
 │   │   └── impls sets style.pointerEvents = "none" so the underlying base spatial display remains the interaction source
 │   └── return
-├── function createThreeScene({ object }: { object: THREE.Object3D }): THREE.Scene
-│   ├── # Shared scene factory used by every TS atomic spatial display.
+├── function createThreeScene(): THREE.Scene
+│   ├── # Shared empty-scene factory used by every TS atomic spatial display; callers scene.add their own object(s).
 │   ├── impls creates THREE.Scene; scene.background stays unset so the renderer's clear color is what gets visibly drawn
-│   ├── impls adds object to THREE.Scene
 │   └── return
 ├── function createThreePerspectiveCamera({ initialCameraState }: { initialCameraState: CameraState | null }): THREE.PerspectiveCamera
 │   ├── # Shared PerspectiveCamera factory used by every TS atomic spatial display; the consumer-supplied initialCameraState is the single source of initial framing (no lib-side fit-to-object — the lib does not know what the consumer considers a sensible default framing, and per-display fits across modalities mounted in one layered container produce inconsistent poses).
@@ -402,7 +401,7 @@ core_points_display.ts
 ├── function createPointsScene({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState: CameraState | null; pointSize?: number; pointColor?: string }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Composes container, scene, camera, renderer; the THREE.Points is loaded asynchronously and added to the scene when ready.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
-│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; THREE.Points joins on async resolve
+│   ├── calls createThreeScene()                                                 → scene                  # initially empty; THREE.Points joins on async resolve
 │   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
 │   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
 │   ├── impls loadPointGeometry({ displayResponse }).then(geometry => scene.add(createThreePoints({ geometry, pointSize, pointColor })))
@@ -1014,7 +1013,7 @@ scene_graph_display.ts
 ├── function createSceneGraphScene({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; labels: object[]; labelOverlay: HTMLDivElement }
 │   ├── # Composes container, scene, camera, renderer, label-overlay, and a mutable labels array; payload is loaded asynchronously and Points + labels join on resolve.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
-│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; THREE.Points joins on async resolve
+│   ├── calls createThreeScene()                                                 → scene                  # initially empty; THREE.Points joins on async resolve
 │   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
 │   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
 │   ├── calls createThreeSceneGraphLabelOverlay({ container, labelFontSize, labelColor })       → labelOverlay
@@ -1325,7 +1324,7 @@ core_mesh_display.ts
 ├── function createMeshScene({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Composes container, scene, camera, renderer; mesh payload is loaded asynchronously and THREE.Mesh joins the scene on resolve.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
-│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; THREE.Mesh joins on async resolve
+│   ├── calls createThreeScene()                                                 → scene                  # initially empty; THREE.Mesh joins on async resolve
 │   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
 │   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
 │   ├── impls loadMeshPayload({ displayResponse }).then(payload => scene.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })))
@@ -1641,7 +1640,7 @@ camera_display.ts
 ├── function createCamerasScene({ displayResponse, initialCameraState, frustumColor, frustumOpacity, centerMarkerSize }: { displayResponse: CameraDisplayResponse; initialCameraState: CameraState | null; frustumColor?: string; frustumOpacity?: number; centerMarkerSize?: number }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Composes container, scene, camera, renderer; camera-vis payload is loaded asynchronously and the cameras Object3D joins the scene on resolve.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: true })                     → container
-│   ├── calls createThreeScene({ object: null })                                                 → scene                  # initially empty; cameras Object3D joins on async resolve
+│   ├── calls createThreeScene()                                                 → scene                  # initially empty; cameras Object3D joins on async resolve
 │   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
 │   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
 │   ├── impls loadCamerasPayload({ displayResponse }).then(payload => scene.add(createThreeCameras({ payload, frustumColor, frustumOpacity, centerMarkerSize })))
