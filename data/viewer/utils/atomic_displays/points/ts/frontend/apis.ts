@@ -9,11 +9,13 @@ import type {
 export function renderColorPCDisplay({
   displayResponse,
   initialCameraState = null,
+  pointSize = null,
 }: {
   displayResponse: ColorPCDisplayResponse;
   initialCameraState?: CameraState | null;
+  pointSize?: number | null;
 }): VNode {
-  return renderPointsDisplay({ displayResponse, initialCameraState });
+  return renderPointsDisplay({ displayResponse, initialCameraState, pointSize });
 }
 
 export function renderSegmentationPCDisplay({

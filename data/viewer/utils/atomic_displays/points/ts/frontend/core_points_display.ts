@@ -13,6 +13,12 @@ import {
 import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 import type { PointDisplayResponse } from "./types/display_response";
 
+// Smallest world-space point size the display falls back to when no explicit
+// size is requested; also the floor the bounding-sphere-relative auto-size is
+// clamped against. Exported so consumers can express a requested point size as
+// a multiple of it.
+export const DEFAULT_POINT_SIZE_FLOOR = 0.005;
+
 interface FiniteVector {
   x: number;
   y: number;
@@ -61,15 +67,17 @@ interface PlyPropertyOffsets {
 export function renderPointsDisplay({
   displayResponse,
   initialCameraState = null,
+  pointSize = null,
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState?: CameraState | null;
+  pointSize?: number | null;
 }): VNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `points:${displayResponse.slot_id}`,
     props: {},
-    render: () => _renderPointsElement({ displayResponse, initialCameraState }),
+    render: () => _renderPointsElement({ displayResponse, initialCameraState, pointSize }),
   };
   return leaf;
 }
@@ -77,9 +85,11 @@ export function renderPointsDisplay({
 function _renderPointsElement({
   displayResponse,
   initialCameraState,
+  pointSize,
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState: CameraState | null;
+  pointSize: number | null;
 }): HTMLElement {
   if (displayResponse.url === null) {
     return createPointDisplayPlaceholder(
@@ -97,6 +107,7 @@ function _renderPointsElement({
     status,
     displayResponse,
     initialCameraState,
+    pointSize,
   });
   return container;
 }
@@ -106,14 +117,16 @@ async function loadAndRenderPointsDisplay({
   status,
   displayResponse,
   initialCameraState,
+  pointSize,
 }: {
   container: HTMLDivElement;
   status: HTMLDivElement;
   displayResponse: PointDisplayResponse;
   initialCameraState: CameraState | null;
+  pointSize: number | null;
 }): Promise<void> {
   try {
-    const points = await createThreePoints({ displayResponse });
+    const points = await createThreePoints({ displayResponse, pointSize });
     const scene = createThreeScene({ object: points });
     const camera = createThreePerspectiveCamera({ initialCameraState });
     const renderer = createThreeWebGLRenderer({ container });
@@ -190,8 +203,10 @@ function createThreePointsStatus(): HTMLDivElement {
 
 async function createThreePoints({
   displayResponse,
+  pointSize,
 }: {
   displayResponse: PointDisplayResponse;
+  pointSize: number | null;
 }): Promise<THREE.Points> {
   if (displayResponse.url === null) {
     throw new Error("point display response url is null");
@@ -202,7 +217,7 @@ async function createThreePoints({
   }
   const buffer = await response.arrayBuffer();
   const geometry = parsePlyPointGeometry({ buffer });
-  const material = createThreePointsMaterial({ geometry });
+  const material = createThreePointsMaterial({ geometry, pointSize });
   return new THREE.Points(geometry, material);
 }
 
@@ -585,19 +600,27 @@ function readBinaryScalar({
 
 function createThreePointsMaterial({
   geometry,
+  pointSize,
 }: {
   geometry: THREE.BufferGeometry;
+  pointSize: number | null;
 }): THREE.PointsMaterial {
   const hasVertexColors = geometry.getAttribute("color") !== undefined;
   const material = new THREE.PointsMaterial({
     color: 0xb4b8c0,
-    size: 0.005,
+    size: DEFAULT_POINT_SIZE_FLOOR,
     sizeAttenuation: true,
     vertexColors: hasVertexColors,
   });
+  if (pointSize !== null) {
+    // An explicit requested size pins the world-space point size directly,
+    // bypassing the bounding-sphere-relative auto-size below.
+    material.size = pointSize;
+    return material;
+  }
   const boundingSphere = geometry.boundingSphere;
   if (boundingSphere !== null) {
-    material.size = Math.max(0.005, boundingSphere.radius * 0.002);
+    material.size = Math.max(DEFAULT_POINT_SIZE_FLOOR, boundingSphere.radius * 0.002);
   }
   return material;
 }
