@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 import torch
 from pytorch3d.io import load_obj
 
-from data.structures.three_d.mesh.merge import merge_meshes, pack_texture_images
+from data.structures.three_d.mesh.load.merge import merge_meshes, pack_texture_images
 from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.canonicalize import (
     shift_seam_crossing_faces_to_seam_safe,
@@ -17,11 +17,11 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 )
 
 
-def load_mesh(path: Union[str, Path]) -> Mesh:
+def load_obj_mesh(path: Union[str, Path]) -> Mesh:
     """Load one OBJ file, or every OBJ under a mesh-root directory, as one Mesh.
 
     Args:
-        path: Mesh file path or supported mesh-root directory path.
+        path: OBJ file path or supported mesh-root directory path.
 
     Returns:
         One merged `Mesh`.
@@ -61,11 +61,18 @@ def _load_mesh_block_from_obj_path(obj_path: Path) -> Mesh:
     _validate_inputs()
 
     obj_features = _inspect_obj_file(obj_path=obj_path)
-    if obj_features["has_uv_coords"] and obj_features["has_uv_faces"]:
-        return _load_mesh_uv_texture_map(path=obj_path)
+    if not obj_features["has_vertex_colors"] and not (
+        obj_features["has_uv_coords"] and obj_features["has_uv_faces"]
+    ):
+        return _load_mesh_geometry_only(path=obj_path)
     if obj_features["has_vertex_colors"]:
         return _load_mesh_vertex_color(path=obj_path)
-    return _load_mesh_geometry_only(path=obj_path)
+    if obj_features["has_uv_coords"] and obj_features["has_uv_faces"]:
+        return _load_mesh_uv_texture_map(path=obj_path)
+    assert 0, (
+        "should not reach here: an OBJ block is geometry-only, vertex-color, or "
+        f"uv-texture-map. {obj_path=} {obj_features=}"
+    )
 
 
 def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh:

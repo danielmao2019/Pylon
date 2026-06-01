@@ -9,9 +9,18 @@ mesh/
 ├── __init__.py        # package API surface (re-exports Mesh + MeshTexture types + free functions)
 ├── mesh.py            # the Mesh class: geometry + optional MeshTexture
 ├── validate.py        # geometry validators + texture<->geometry linkage validation
-├── load.py            # OBJ file / mesh-root directory -> Mesh constructor kwargs
-├── save.py            # Mesh -> OBJ / PLY / MTL / PNG assets on disk
-├── merge.py           # merge multiple mesh blocks; texture-atlas packing
+├── load/              # load subpackage: top-level OBJ-vs-GLB dispatch + per-format loaders + block merging
+│   ├── __init__.py    # load API surface (re-exports load_mesh)
+│   ├── load.py        # load_mesh API: dispatches an OBJ source vs a GLB file
+│   ├── load_obj.py    # OBJ file / mesh-root directory -> Mesh (single or multiple blocks; per-representation)
+│   ├── load_glb.py    # GLB file -> Mesh (per-representation); thin glTF<->Mesh adapter over utils.io.glb
+│   └── merge.py       # merge multiple mesh blocks; texture-atlas packing
+├── save/              # save subpackage: top-level OBJ/PLY/GLB dispatch + per-format writers
+│   ├── __init__.py    # save API surface (re-exports save_mesh)
+│   ├── save.py        # save_mesh API: dispatches OBJ / PLY / GLB by output format
+│   ├── save_obj.py    # Mesh -> OBJ (+ sibling MTL + texture PNG)
+│   ├── save_ply.py    # Mesh -> PLY (geometry-only / vertex-color)
+│   └── save_glb.py    # Mesh -> GLB
 ├── convert.py         # interop conversions: PyTorch3D / Open3D / trimesh
 └── texture/           # the mesh-texture subpackage
     ├── __init__.py                       # texture API surface

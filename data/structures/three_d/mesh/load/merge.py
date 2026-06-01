@@ -1,4 +1,4 @@
-"""Mesh merge helpers owned by the data-layer mesh package."""
+"""Mesh block-merging and texture-atlas packing for the load package."""
 
 from typing import Dict, List, Sequence, Tuple
 
@@ -17,7 +17,8 @@ def merge_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
     """Merge one or more mesh blocks into one Mesh.
 
     Args:
-        mesh_blocks: Mesh blocks discovered under one mesh root.
+        mesh_blocks: Mesh blocks discovered under one mesh root, assumed
+            homogeneous in texture representation.
 
     Returns:
         One merged `Mesh`.
@@ -49,12 +50,50 @@ def merge_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
 
     if len(mesh_blocks) == 1:
         return mesh_blocks[0]
-
-    if any(isinstance(mesh.texture, MeshTextureUVTextureMap) for mesh in mesh_blocks):
-        return _merge_uv_textured_meshes(mesh_blocks=mesh_blocks)
+    if all(mesh.texture is None for mesh in mesh_blocks):
+        return _merge_geometry_only_meshes(mesh_blocks=mesh_blocks)
     if any(isinstance(mesh.texture, MeshTextureVertexColor) for mesh in mesh_blocks):
         return _merge_vertex_color_meshes(mesh_blocks=mesh_blocks)
-    return _merge_geometry_only_meshes(mesh_blocks=mesh_blocks)
+    if any(isinstance(mesh.texture, MeshTextureUVTextureMap) for mesh in mesh_blocks):
+        return _merge_uv_textured_meshes(mesh_blocks=mesh_blocks)
+    assert 0, (
+        "should not reach here: mesh blocks must be geometry-only, vertex-color, "
+        f"or uv-texture-map. {[type(mesh.texture) for mesh in mesh_blocks]=}"
+    )
+
+
+def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
+    """Merge multiple geometry-only meshes into one mesh.
+
+    Args:
+        mesh_blocks: Geometry-only mesh blocks (already validated as `Mesh`
+            instances by `merge_meshes`).
+
+    Returns:
+        One merged geometry-only `Mesh`.
+    """
+
+    def _validate_inputs() -> None:
+        assert all(mesh.texture is None for mesh in mesh_blocks), (
+            "Expected every block of a geometry-only merge to carry no texture. "
+            f"{[type(mesh.texture) for mesh in mesh_blocks]=}"
+        )
+
+    _validate_inputs()
+
+    verts_list: List[torch.Tensor] = []
+    faces_list: List[torch.Tensor] = []
+    vertex_offset = 0
+    for mesh in mesh_blocks:
+        verts_list.append(mesh.verts)
+        faces_list.append(mesh.faces + vertex_offset)
+        vertex_offset += int(mesh.verts.shape[0])
+
+    return Mesh(
+        verts=torch.cat(verts_list, dim=0),
+        faces=torch.cat(faces_list, dim=0),
+        texture=None,
+    )
 
 
 def _merge_vertex_color_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
@@ -166,40 +205,6 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
             faces_uvs=merged_faces_uvs,
             convention="obj",
         ),
-    )
-
-
-def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
-    """Merge multiple geometry-only meshes into one mesh.
-
-    Args:
-        mesh_blocks: Geometry-only mesh blocks (already validated as `Mesh`
-            instances by `merge_meshes`).
-
-    Returns:
-        One merged geometry-only `Mesh`.
-    """
-
-    def _validate_inputs() -> None:
-        assert all(mesh.texture is None for mesh in mesh_blocks), (
-            "Expected every block of a geometry-only merge to carry no texture. "
-            f"{[type(mesh.texture) for mesh in mesh_blocks]=}"
-        )
-
-    _validate_inputs()
-
-    verts_list: List[torch.Tensor] = []
-    faces_list: List[torch.Tensor] = []
-    vertex_offset = 0
-    for mesh in mesh_blocks:
-        verts_list.append(mesh.verts)
-        faces_list.append(mesh.faces + vertex_offset)
-        vertex_offset += int(mesh.verts.shape[0])
-
-    return Mesh(
-        verts=torch.cat(verts_list, dim=0),
-        faces=torch.cat(faces_list, dim=0),
-        texture=None,
     )
 
 

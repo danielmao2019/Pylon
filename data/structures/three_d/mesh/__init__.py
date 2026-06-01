@@ -11,7 +11,7 @@ from data.structures.three_d.mesh.convert import (
     mesh_to_trimesh,
 )
 from data.structures.three_d.mesh.load import load_mesh
-from data.structures.three_d.mesh.merge import merge_meshes
+from data.structures.three_d.mesh.load.merge import merge_meshes
 from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.save import save_mesh
 from data.structures.three_d.mesh.texture import (
