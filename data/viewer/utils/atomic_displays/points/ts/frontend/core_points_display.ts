@@ -19,6 +19,14 @@ import type { PointDisplayResponse } from "./types/display_response";
 // a multiple of it.
 export const DEFAULT_POINT_SIZE_FLOOR = 0.005;
 
+// Fraction of the geometry bounding-sphere radius used as the heuristic default
+// point size when no explicit pointSize is supplied. Lib-owned default, overridable.
+export const DEFAULT_POINT_SIZE_RATIO = 0.002;
+
+// Uniform fallback color used when the geometry has no per-point colors AND the
+// caller does not supply pointColor. Lib-owned default, overridable.
+export const DEFAULT_POINT_COLOR = "#cccccc";
+
 interface FiniteVector {
   x: number;
   y: number;
@@ -68,16 +76,18 @@ export function renderPointsDisplay({
   displayResponse,
   initialCameraState = null,
   pointSize = null,
+  pointColor = null,
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState?: CameraState | null;
   pointSize?: number | null;
+  pointColor?: string | null;
 }): VNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `points:${displayResponse.slot_id}`,
     props: {},
-    render: () => _renderPointsElement({ displayResponse, initialCameraState, pointSize }),
+    render: () => _renderPointsElement({ displayResponse, initialCameraState, pointSize, pointColor }),
   };
   return leaf;
 }
@@ -86,10 +96,12 @@ function _renderPointsElement({
   displayResponse,
   initialCameraState,
   pointSize,
+  pointColor,
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState: CameraState | null;
   pointSize: number | null;
+  pointColor: string | null;
 }): HTMLElement {
   if (displayResponse.url === null) {
     return createPointDisplayPlaceholder(
@@ -118,15 +130,17 @@ async function loadAndRenderPointsDisplay({
   displayResponse,
   initialCameraState,
   pointSize,
+  pointColor,
 }: {
   container: HTMLDivElement;
   status: HTMLDivElement;
   displayResponse: PointDisplayResponse;
   initialCameraState: CameraState | null;
   pointSize: number | null;
+  pointColor: string | null;
 }): Promise<void> {
   try {
-    const points = await createThreePoints({ displayResponse, pointSize });
+    const points = await createThreePoints({ displayResponse, pointSize, pointColor });
     const scene = createThreeScene({ object: points });
     const camera = createThreePerspectiveCamera({ initialCameraState });
     const renderer = createThreeWebGLRenderer({ container });
@@ -204,9 +218,11 @@ function createThreePointsStatus(): HTMLDivElement {
 async function createThreePoints({
   displayResponse,
   pointSize,
+  pointColor,
 }: {
   displayResponse: PointDisplayResponse;
   pointSize: number | null;
+  pointColor: string | null;
 }): Promise<THREE.Points> {
   if (displayResponse.url === null) {
     throw new Error("point display response url is null");
@@ -217,7 +233,7 @@ async function createThreePoints({
   }
   const buffer = await response.arrayBuffer();
   const geometry = parsePlyPointGeometry({ buffer });
-  const material = createThreePointsMaterial({ geometry, pointSize });
+  const material = createThreePointsMaterial({ geometry, pointSize, pointColor });
   return new THREE.Points(geometry, material);
 }
 
@@ -601,28 +617,43 @@ function readBinaryScalar({
 function createThreePointsMaterial({
   geometry,
   pointSize,
+  pointColor,
 }: {
   geometry: THREE.BufferGeometry;
   pointSize: number | null;
+  pointColor: string | null;
 }): THREE.PointsMaterial {
-  const hasVertexColors = geometry.getAttribute("color") !== undefined;
-  const material = new THREE.PointsMaterial({
-    color: 0xb4b8c0,
-    size: DEFAULT_POINT_SIZE_FLOOR,
+  // An explicit requested size pins the world-space point size directly;
+  // otherwise fall back to the bounding-sphere-relative heuristic (floored).
+  const boundingRadius = geometry.boundingSphere?.radius ?? 0;
+  const effectiveSize =
+    pointSize !== null
+      ? pointSize
+      : Math.max(DEFAULT_POINT_SIZE_FLOOR, boundingRadius * DEFAULT_POINT_SIZE_RATIO);
+  // pointColor (when supplied) replaces per-point colors with a uniform color;
+  // otherwise use the geometry's per-point colors, falling back to the lib
+  // default uniform color when the geometry carries none.
+  if (pointColor !== null) {
+    return new THREE.PointsMaterial({
+      color: pointColor,
+      size: effectiveSize,
+      sizeAttenuation: true,
+      vertexColors: false,
+    });
+  }
+  if (geometry.getAttribute("color") !== undefined) {
+    return new THREE.PointsMaterial({
+      size: effectiveSize,
+      sizeAttenuation: true,
+      vertexColors: true,
+    });
+  }
+  return new THREE.PointsMaterial({
+    color: DEFAULT_POINT_COLOR,
+    size: effectiveSize,
     sizeAttenuation: true,
-    vertexColors: hasVertexColors,
+    vertexColors: false,
   });
-  if (pointSize !== null) {
-    // An explicit requested size pins the world-space point size directly,
-    // bypassing the bounding-sphere-relative auto-size below.
-    material.size = pointSize;
-    return material;
-  }
-  const boundingSphere = geometry.boundingSphere;
-  if (boundingSphere !== null) {
-    material.size = Math.max(DEFAULT_POINT_SIZE_FLOOR, boundingSphere.radius * 0.002);
-  }
-  return material;
 }
 
 function publishThreePointCameraState({
