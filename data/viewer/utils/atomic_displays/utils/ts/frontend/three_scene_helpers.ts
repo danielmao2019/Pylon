@@ -22,9 +22,8 @@ export function createThreeDisplayContainer({
   return container;
 }
 
-export function createThreeScene({ object }: { object: THREE.Object3D }): THREE.Scene {
+export function createThreeScene(): THREE.Scene {
   const scene = new THREE.Scene();
-  scene.add(object);
   return scene;
 }
 

@@ -9,21 +9,25 @@ import type {
 export function renderColorPCDisplay({
   displayResponse,
   initialCameraState = null,
-  pointSize = null,
+  pointSize,
+  pointColor,
 }: {
   displayResponse: ColorPCDisplayResponse;
   initialCameraState?: CameraState | null;
-  pointSize?: number | null;
+  pointSize?: number;
+  pointColor?: string;
 }): VNode {
-  return renderPointsDisplay({ displayResponse, initialCameraState, pointSize });
+  return renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor });
 }
 
 export function renderSegmentationPCDisplay({
   displayResponse,
   initialCameraState = null,
+  pointSize,
 }: {
   displayResponse: SegmentationPCDisplayResponse;
   initialCameraState?: CameraState | null;
+  pointSize?: number;
 }): VNode {
-  return renderPointsDisplay({ displayResponse, initialCameraState });
+  return renderPointsDisplay({ displayResponse, initialCameraState, pointSize });
 }

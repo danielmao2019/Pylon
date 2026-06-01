@@ -5,6 +5,7 @@ import {
 } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
 import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 import {
+  createThreeDisplayContainer,
   createThreePerspectiveCamera,
   createThreeScene,
   createThreeWebGLRenderer,
@@ -26,16 +27,6 @@ export const DEFAULT_POINT_SIZE_RATIO = 0.002;
 // Uniform fallback color used when the geometry has no per-point colors AND the
 // caller does not supply pointColor. Lib-owned default, overridable.
 export const DEFAULT_POINT_COLOR = "#cccccc";
-
-interface FiniteVector {
-  x: number;
-  y: number;
-  z: number;
-}
-
-interface FiniteQuaternion extends FiniteVector {
-  w: number;
-}
 
 interface PlyProperty {
   type: string;
@@ -75,24 +66,39 @@ interface PlyPropertyOffsets {
 export function renderPointsDisplay({
   displayResponse,
   initialCameraState = null,
-  pointSize = null,
-  pointColor = null,
+  pointSize,
+  pointColor,
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState?: CameraState | null;
-  pointSize?: number | null;
-  pointColor?: string | null;
+  pointSize?: number;
+  pointColor?: string;
 }): VNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `points:${displayResponse.slot_id}`,
     props: {},
-    render: () => _renderPointsElement({ displayResponse, initialCameraState, pointSize, pointColor }),
+    render: () => {
+      const { container, scene, camera, renderer } = createPointsScene({
+        displayResponse,
+        initialCameraState,
+        pointSize,
+        pointColor,
+      });
+      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState });
+      _registerSceneResize({ container, camera, renderer, controls });
+      _publishCameraState({ container, controls });
+      controls.addEventListener("change", () => {
+        _publishCameraState({ container, controls });
+      });
+      renderPointsScene({ scene, camera, renderer, controls });
+      return container;
+    },
   };
   return leaf;
 }
 
-function _renderPointsElement({
+function createPointsScene({
   displayResponse,
   initialCameraState,
   pointSize,
@@ -100,130 +106,32 @@ function _renderPointsElement({
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState: CameraState | null;
-  pointSize: number | null;
-  pointColor: string | null;
-}): HTMLElement {
-  if (displayResponse.url === null) {
-    return createPointDisplayPlaceholder(
-      "Placeholder for a benchmark result that is not materialized yet.",
-    );
-  }
-
-  const container = createThreePointsContainer({
-    resourceUrl: displayResponse.url,
-  });
-  const status = createThreePointsStatus();
-  container.append(status);
-  void loadAndRenderPointsDisplay({
-    container,
-    status,
-    displayResponse,
-    initialCameraState,
-    pointSize,
-  });
-  return container;
-}
-
-async function loadAndRenderPointsDisplay({
-  container,
-  status,
-  displayResponse,
-  initialCameraState,
-  pointSize,
-  pointColor,
-}: {
+  pointSize?: number;
+  pointColor?: string;
+}): {
   container: HTMLDivElement;
-  status: HTMLDivElement;
-  displayResponse: PointDisplayResponse;
-  initialCameraState: CameraState | null;
-  pointSize: number | null;
-  pointColor: string | null;
-}): Promise<void> {
-  try {
-    const points = await createThreePoints({ displayResponse, pointSize, pointColor });
-    const scene = createThreeScene({ object: points });
-    const camera = createThreePerspectiveCamera({ initialCameraState });
-    const renderer = createThreeWebGLRenderer({ container });
-    const controls = createTrackballCameraControls({ camera, renderer, container, initialCameraState });
-    registerThreeSceneResize({
-      container,
-      camera,
-      renderer,
-      controls,
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  renderer: THREE.WebGLRenderer;
+} {
+  const container = createThreeDisplayContainer({ pointerEventsSuppressed: false });
+  const scene = createThreeScene();
+  const camera = createThreePerspectiveCamera({ initialCameraState });
+  const renderer = createThreeWebGLRenderer({ container });
+  loadPointGeometry({ displayResponse })
+    .then((geometry) => scene.add(createThreePoints({ geometry, pointSize, pointColor })))
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      container.replaceChildren(_renderPointsStatus(`Failed to load point cloud: ${message}`));
     });
-    startThreeSceneRenderLoop({
-      scene,
-      camera,
-      renderer,
-      controls,
-    });
-    status.textContent = formatLoadedStatus({ points });
-    publishThreePointCameraState({
-      container,
-      camera,
-      controls,
-      displayResponse,
-    });
-    controls.addEventListener("change", () => {
-      publishThreePointCameraState({
-        container,
-        camera,
-        controls,
-        displayResponse,
-      });
-    });
-  } catch (error) {
-    status.textContent = formatErrorMessage({ error });
-  }
+  return { container, scene, camera, renderer };
 }
 
-function createPointDisplayPlaceholder(message: string): HTMLElement {
-  const placeholder = document.createElement("div");
-  placeholder.className = "placeholder-surface";
-  placeholder.textContent = message;
-  return placeholder;
-}
-
-function createThreePointsContainer({
-  resourceUrl,
-}: {
-  resourceUrl: string;
-}): HTMLDivElement {
-  const container = document.createElement("div");
-  container.className = "artifact-frame point-display-scene";
-  container.style.overflow = "hidden";
-  container.dataset.pointDisplayRenderer = "three";
-  container.dataset.resourceUrl = resourceUrl;
-  return container;
-}
-
-function createThreePointsStatus(): HTMLDivElement {
-  const status = document.createElement("div");
-  status.className = "point-display-scene__status";
-  status.textContent = "Loading point cloud";
-  status.style.position = "absolute";
-  status.style.left = "10px";
-  status.style.top = "10px";
-  status.style.zIndex = "2";
-  status.style.border = "1px solid #cdd5c7";
-  status.style.borderRadius = "6px";
-  status.style.padding = "5px 7px";
-  status.style.background = "rgba(255, 255, 255, 0.92)";
-  status.style.color = "#243042";
-  status.style.fontSize = "12px";
-  status.style.fontWeight = "700";
-  return status;
-}
-
-async function createThreePoints({
+async function loadPointGeometry({
   displayResponse,
-  pointSize,
-  pointColor,
 }: {
   displayResponse: PointDisplayResponse;
-  pointSize: number | null;
-  pointColor: string | null;
-}): Promise<THREE.Points> {
+}): Promise<THREE.BufferGeometry> {
   if (displayResponse.url === null) {
     throw new Error("point display response url is null");
   }
@@ -232,12 +140,48 @@ async function createThreePoints({
     throw new Error(`unable to load point cloud: HTTP ${response.status}`);
   }
   const buffer = await response.arrayBuffer();
-  const geometry = parsePlyPointGeometry({ buffer });
-  const material = createThreePointsMaterial({ geometry, pointSize, pointColor });
+  return parsePlyBuffer({ buffer });
+}
+
+function createThreePoints({
+  geometry,
+  pointSize,
+  pointColor,
+}: {
+  geometry: THREE.BufferGeometry;
+  pointSize?: number;
+  pointColor?: string;
+}): THREE.Points {
+  // An explicit requested size pins the world-space point size directly;
+  // otherwise fall back to the bounding-sphere-relative heuristic (floored).
+  geometry.computeBoundingSphere();
+  const boundingRadius = geometry.boundingSphere?.radius ?? 0;
+  const effectiveSize =
+    pointSize ?? Math.max(DEFAULT_POINT_SIZE_FLOOR, boundingRadius * DEFAULT_POINT_SIZE_RATIO);
+  // pointColor (when supplied) replaces per-point colors with a uniform color;
+  // otherwise use the geometry's per-point colors, falling back to the lib
+  // default uniform color when the geometry carries none.
+  let useVertexColors: boolean;
+  let effectiveColor: string | undefined;
+  if (pointColor !== undefined) {
+    useVertexColors = false;
+    effectiveColor = pointColor;
+  } else if (geometry.hasAttribute("color")) {
+    useVertexColors = true;
+    effectiveColor = undefined;
+  } else {
+    useVertexColors = false;
+    effectiveColor = DEFAULT_POINT_COLOR;
+  }
+  const material = new THREE.PointsMaterial({
+    vertexColors: useVertexColors,
+    size: effectiveSize,
+    ...(effectiveColor !== undefined ? { color: effectiveColor } : {}),
+  });
   return new THREE.Points(geometry, material);
 }
 
-function registerThreeSceneResize({
+function _registerSceneResize({
   container,
   camera,
   renderer,
@@ -263,7 +207,7 @@ function registerThreeSceneResize({
   window.addEventListener("resize", resize);
 }
 
-function parsePlyPointGeometry({
+function parsePlyBuffer({
   buffer,
 }: {
   buffer: ArrayBuffer;
@@ -614,64 +558,48 @@ function readBinaryScalar({
   throw new Error(`unsupported PLY scalar type ${type}`);
 }
 
-function createThreePointsMaterial({
-  geometry,
-  pointSize,
-  pointColor,
+function renderPointsScene({
+  scene,
+  camera,
+  renderer,
+  controls,
 }: {
-  geometry: THREE.BufferGeometry;
-  pointSize: number | null;
-  pointColor: string | null;
-}): THREE.PointsMaterial {
-  // An explicit requested size pins the world-space point size directly;
-  // otherwise fall back to the bounding-sphere-relative heuristic (floored).
-  const boundingRadius = geometry.boundingSphere?.radius ?? 0;
-  const effectiveSize =
-    pointSize !== null
-      ? pointSize
-      : Math.max(DEFAULT_POINT_SIZE_FLOOR, boundingRadius * DEFAULT_POINT_SIZE_RATIO);
-  // pointColor (when supplied) replaces per-point colors with a uniform color;
-  // otherwise use the geometry's per-point colors, falling back to the lib
-  // default uniform color when the geometry carries none.
-  if (pointColor !== null) {
-    return new THREE.PointsMaterial({
-      color: pointColor,
-      size: effectiveSize,
-      sizeAttenuation: true,
-      vertexColors: false,
-    });
-  }
-  if (geometry.getAttribute("color") !== undefined) {
-    return new THREE.PointsMaterial({
-      size: effectiveSize,
-      sizeAttenuation: true,
-      vertexColors: true,
-    });
-  }
-  return new THREE.PointsMaterial({
-    color: DEFAULT_POINT_COLOR,
-    size: effectiveSize,
-    sizeAttenuation: true,
-    vertexColors: false,
-  });
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  renderer: THREE.WebGLRenderer;
+  controls: ThreeTrackballCameraControls;
+}): void {
+  startThreeSceneRenderLoop({ scene, camera, renderer, controls });
 }
 
-function publishThreePointCameraState({
+// Render an inline status card for a missing-resource or load-failure points display.
+function _renderPointsStatus(message: string): HTMLElement {
+  const status = document.createElement("div");
+  status.className = "points-display-scene__status";
+  status.style.display = "flex";
+  status.style.alignItems = "center";
+  status.style.justifyContent = "center";
+  status.style.width = "100%";
+  status.style.height = "100%";
+  status.style.padding = "1rem";
+  status.style.color = "#888";
+  status.style.fontStyle = "italic";
+  status.textContent = message;
+  return status;
+}
+
+// Publish the current trackball camera state onto the container so peers sync.
+function _publishCameraState({
   container,
-  camera,
   controls,
-  displayResponse,
 }: {
   container: HTMLDivElement;
-  camera: THREE.PerspectiveCamera;
   controls: ThreeTrackballCameraControls;
-  displayResponse: PointDisplayResponse;
 }): void {
-  const cameraState = buildThreePointCameraState({
-    camera,
-    controls,
-    displayResponse,
-  });
+  const cameraState = controls.getCameraState();
+  if (cameraState === null) {
+    return;
+  }
   container.dataset.cameraState = JSON.stringify(cameraState);
   container.dispatchEvent(
     new CustomEvent<CameraState>("camera-pose-change", {
@@ -679,64 +607,5 @@ function publishThreePointCameraState({
       detail: cameraState,
     }),
   );
-}
-
-function buildThreePointCameraState({
-  camera,
-  controls,
-  displayResponse,
-}: {
-  camera: THREE.PerspectiveCamera;
-  controls: ThreeTrackballCameraControls;
-  displayResponse: PointDisplayResponse;
-}): CameraState {
-  return {
-    intrinsics: {
-      aspect: camera.aspect,
-      far: camera.far,
-      fov: camera.fov,
-      near: camera.near,
-      projection: "perspective-three",
-    },
-    extrinsics: {
-      position: vectorToRecord(camera.position),
-      quaternion: quaternionToRecord(camera.quaternion),
-      target: vectorToRecord(controls.target),
-      up: vectorToRecord(camera.up),
-    },
-    convention: "three_pointcloud",
-    name: displayResponse.title,
-    id: displayResponse.url,
-  };
-}
-
-function formatLoadedStatus({ points }: { points: THREE.Points }): string {
-  const position = points.geometry.getAttribute("position");
-  const pointCount = position?.count ?? 0;
-  return `Loaded ${pointCount.toLocaleString()} points`;
-}
-
-function formatErrorMessage({ error }: { error: unknown }): string {
-  if (error instanceof Error) {
-    return `Placeholder: unable to load artifact (${error.message})`;
-  }
-  return "Placeholder: unable to load artifact";
-}
-
-function vectorToRecord(vector: THREE.Vector3): FiniteVector {
-  return {
-    x: vector.x,
-    y: vector.y,
-    z: vector.z,
-  };
-}
-
-function quaternionToRecord(quaternion: THREE.Quaternion): FiniteQuaternion {
-  return {
-    x: quaternion.x,
-    y: quaternion.y,
-    z: quaternion.z,
-    w: quaternion.w,
-  };
 }
 
