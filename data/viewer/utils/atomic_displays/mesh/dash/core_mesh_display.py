@@ -5,12 +5,12 @@ import io
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objects as go
 import torch
-from dash import html
+from dash import dcc, html
 from PIL import Image
 
 from data.structures.three_d.mesh.mesh import Mesh
@@ -24,6 +24,17 @@ from data.viewer.utils.camera_controls.dash.trackball_camera_controls import (
     create_dash_trackball_camera_controls,
 )
 from data.viewer.utils.camera_sync.threejs import build_threejs_camera_sync_script
+
+# Uniform fallback color used when geometry has no texture AND has no per-vertex
+# colors AND the caller does not supply `mesh_color`. Lib-owned default,
+# overridable by the caller.
+DEFAULT_MESH_COLOR = "#cccccc"
+# Opaque default applied when the caller does not supply `mesh_opacity`.
+# Lib-owned default, overridable by the caller.
+DEFAULT_MESH_OPACITY = 1.0
+# Fallback side mode for visibility under arbitrary camera framings when the
+# caller does not supply `mesh_side`. Lib-owned default, overridable.
+DEFAULT_MESH_SIDE = "double"
 
 MODULE_DIR = Path(__file__).resolve().parent
 TEXTURED_MESH_VIEWER_SCRIPT_PATH = MODULE_DIR / "mesh_display_textured_viewer.js"
@@ -1063,3 +1074,287 @@ def _apply_mesh_layout(
         showlegend=False,
         uirevision=PLOTLY_MESH_CAMERA_UIREVISION,
     )
+
+
+def create_dash_mesh_display(
+    mesh: Any,
+    mesh_color: Optional[str] = None,
+    mesh_opacity: Optional[float] = None,
+    mesh_side: Optional[str] = None,
+) -> dcc.Graph:
+    """Render a Dash mesh display element.
+
+    The `mesh_color`, `mesh_opacity`, and `mesh_side` overrides are opt-in.
+    When supplied, `mesh_color` replaces the mesh's texture/per-vertex colors
+    with a uniform color so the consumer can override the rendered look without
+    rebuilding the mesh data.
+
+    Args:
+        mesh: `Mesh` to render; carries either a `MeshTextureVertexColor` or a
+            `MeshTextureUVTextureMap` texture.
+        mesh_color: Optional uniform color override (CSS color string); when
+            None the mesh's texture/per-vertex colors or the lib default color
+            is used.
+        mesh_opacity: Optional opacity override in `[0, 1]`; when None
+            `DEFAULT_MESH_OPACITY` is used.
+        mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE`
+            is used.
+
+    Returns:
+        Dash `dcc.Graph` wrapping the mesh scene.
+    """
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+    )
+    assert mesh_color is None or isinstance(mesh_color, str), (
+        "Expected `mesh_color` to be None or a CSS color string. "
+        f"{type(mesh_color)=}"
+    )
+    assert mesh_opacity is None or isinstance(mesh_opacity, (int, float)), (
+        "Expected `mesh_opacity` to be None or numeric. " f"{type(mesh_opacity)=}"
+    )
+    assert mesh_side is None or isinstance(mesh_side, str), (
+        "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
+    )
+
+    scene = create_dash_mesh_scene(
+        mesh=mesh,
+        mesh_color=mesh_color,
+        mesh_opacity=mesh_opacity,
+        mesh_side=mesh_side,
+    )
+    controls = create_dash_trackball_camera_controls
+    return create_dash_mesh_component(
+        scene=scene,
+        controls=controls,
+    )
+
+
+def create_dash_mesh_scene(
+    mesh: Any,
+    mesh_color: Optional[str] = None,
+    mesh_opacity: Optional[float] = None,
+    mesh_side: Optional[str] = None,
+) -> go.Mesh3d:
+    """Sync-build the Plotly Mesh3d trace from the mesh.
+
+    Args:
+        mesh: `Mesh` to render; carries either a `MeshTextureVertexColor` or a
+            `MeshTextureUVTextureMap` texture.
+        mesh_color: Optional uniform color override (CSS color string); when
+            None the mesh's texture/per-vertex colors or `DEFAULT_MESH_COLOR`
+            is used.
+        mesh_opacity: Optional opacity override in `[0, 1]`; when None
+            `DEFAULT_MESH_OPACITY` is used.
+        mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE`
+            is used.
+
+    Returns:
+        Plotly `go.Mesh3d` trace for the mesh.
+    """
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+    )
+    assert mesh_color is None or isinstance(mesh_color, str), (
+        "Expected `mesh_color` to be None or a CSS color string. "
+        f"{type(mesh_color)=}"
+    )
+    assert mesh_opacity is None or isinstance(mesh_opacity, (int, float)), (
+        "Expected `mesh_opacity` to be None or numeric. " f"{type(mesh_opacity)=}"
+    )
+    assert mesh_side is None or isinstance(mesh_side, str), (
+        "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
+    )
+
+    effective_opacity = (
+        mesh_opacity if mesh_opacity is not None else DEFAULT_MESH_OPACITY
+    )
+    effective_side = mesh_side if mesh_side is not None else DEFAULT_MESH_SIDE
+
+    if isinstance(mesh.texture, MeshTextureVertexColor):
+        return _create_dash_vertex_color_mesh_scene(
+            mesh=mesh,
+            mesh_color=mesh_color,
+            effective_opacity=effective_opacity,
+            effective_side=effective_side,
+        )
+    if isinstance(mesh.texture, MeshTextureUVTextureMap):
+        return _create_dash_uv_texture_map_mesh_scene(
+            mesh=mesh,
+            mesh_color=mesh_color,
+            effective_opacity=effective_opacity,
+            effective_side=effective_side,
+        )
+    raise ValueError(
+        "Unsupported mesh texture representation. " f"{type(mesh.texture)=}"
+    )
+
+
+def _create_dash_vertex_color_mesh_scene(
+    mesh: Any,
+    mesh_color: Optional[str],
+    effective_opacity: float,
+    effective_side: str,
+) -> go.Mesh3d:
+    """Sync-build the Plotly Mesh3d trace from a vertex-colored mesh.
+
+    Args:
+        mesh: `Mesh` carrying a `MeshTextureVertexColor` texture.
+        mesh_color: Optional uniform color override (CSS color string); when
+            None the mesh's per-vertex colors or `DEFAULT_MESH_COLOR` is used.
+        effective_opacity: Resolved opacity in `[0, 1]`.
+        effective_side: Resolved side mode.
+
+    Returns:
+        Plotly `go.Mesh3d` trace for the vertex-colored mesh.
+    """
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+    )
+    assert isinstance(mesh.texture, MeshTextureVertexColor), (
+        "Expected `mesh` to carry a `MeshTextureVertexColor` texture. "
+        f"{type(mesh.texture)=}"
+    )
+    assert mesh_color is None or isinstance(mesh_color, str), (
+        "Expected `mesh_color` to be None or a CSS color string. "
+        f"{type(mesh_color)=}"
+    )
+    assert isinstance(effective_opacity, (int, float)), (
+        "Expected `effective_opacity` to be numeric. " f"{type(effective_opacity)=}"
+    )
+    assert isinstance(effective_side, str), (
+        "Expected `effective_side` to be a string. " f"{type(effective_side)=}"
+    )
+
+    verts_np = mesh.verts.detach().cpu().numpy()
+    faces_np = mesh.faces.detach().cpu().numpy()
+
+    if mesh_color is not None:
+        effective_color: Union[str, List[str]] = mesh_color
+    else:
+        vertex_colors = _normalize_rgb_tensor_to_uint8(
+            rgb_values=mesh.texture.vertex_color,
+        )
+        effective_color = [
+            _rgb_to_css_color(rgb_values=vertex_rgb) for vertex_rgb in vertex_colors
+        ]
+
+    trace_kwargs: Dict[str, Any] = dict(
+        x=verts_np[:, 0],
+        y=verts_np[:, 1],
+        z=verts_np[:, 2],
+        i=faces_np[:, 0],
+        j=faces_np[:, 1],
+        k=faces_np[:, 2],
+        opacity=effective_opacity,
+        flatshading=False,
+        hoverinfo="skip",
+    )
+    if isinstance(effective_color, list):
+        trace_kwargs["vertexcolor"] = effective_color
+    else:
+        trace_kwargs["color"] = effective_color
+    return go.Mesh3d(**trace_kwargs)
+
+
+def _create_dash_uv_texture_map_mesh_scene(
+    mesh: Any,
+    mesh_color: Optional[str],
+    effective_opacity: float,
+    effective_side: str,
+) -> go.Mesh3d:
+    """Sync-build the Plotly Mesh3d trace from a UV-textured mesh.
+
+    Args:
+        mesh: `Mesh` carrying a `MeshTextureUVTextureMap` texture.
+        mesh_color: Optional uniform color override (CSS color string); when
+            None the mesh's UV-texture-sampled colors or `DEFAULT_MESH_COLOR`
+            is used.
+        effective_opacity: Resolved opacity in `[0, 1]`.
+        effective_side: Resolved side mode.
+
+    Returns:
+        Plotly `go.Mesh3d` trace for the UV-textured mesh.
+    """
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+    )
+    assert isinstance(mesh.texture, MeshTextureUVTextureMap), (
+        "Expected `mesh` to carry a `MeshTextureUVTextureMap` texture. "
+        f"{type(mesh.texture)=}"
+    )
+    assert mesh_color is None or isinstance(mesh_color, str), (
+        "Expected `mesh_color` to be None or a CSS color string. "
+        f"{type(mesh_color)=}"
+    )
+    assert isinstance(effective_opacity, (int, float)), (
+        "Expected `effective_opacity` to be numeric. " f"{type(effective_opacity)=}"
+    )
+    assert isinstance(effective_side, str), (
+        "Expected `effective_side` to be a string. " f"{type(effective_side)=}"
+    )
+
+    verts_np = mesh.verts.detach().cpu().numpy()
+    faces_np = mesh.faces.detach().cpu().numpy()
+
+    if mesh_color is not None:
+        effective_color: Union[str, List[str]] = mesh_color
+    else:
+        texture_map = _normalize_texture_map_to_uint8(
+            texture_map=mesh.texture.uv_texture_map,
+        )
+        texture_height, texture_width = texture_map.shape[0], texture_map.shape[1]
+        verts_uvs_np = mesh.texture.verts_uvs.detach().cpu().numpy()
+        faces_uvs_np = mesh.texture.faces_uvs.detach().cpu().numpy()
+        vertex_uvs = np.zeros((mesh.verts.shape[0], 2), dtype=verts_uvs_np.dtype)
+        vertex_uvs[faces_np.reshape(-1)] = verts_uvs_np[faces_uvs_np.reshape(-1)]
+        column = np.clip(
+            np.round(vertex_uvs[:, 0] * (texture_width - 1)).astype(np.int64),
+            a_min=0,
+            a_max=texture_width - 1,
+        )
+        row = np.clip(
+            np.round((1.0 - vertex_uvs[:, 1]) * (texture_height - 1)).astype(np.int64),
+            a_min=0,
+            a_max=texture_height - 1,
+        )
+        sampled_rgb = texture_map[row, column]
+        effective_color = [
+            _rgb_to_css_color(rgb_values=vertex_rgb) for vertex_rgb in sampled_rgb
+        ]
+
+    trace_kwargs: Dict[str, Any] = dict(
+        x=verts_np[:, 0],
+        y=verts_np[:, 1],
+        z=verts_np[:, 2],
+        i=faces_np[:, 0],
+        j=faces_np[:, 1],
+        k=faces_np[:, 2],
+        opacity=effective_opacity,
+        flatshading=False,
+        hoverinfo="skip",
+    )
+    if isinstance(effective_color, list):
+        trace_kwargs["vertexcolor"] = effective_color
+    else:
+        trace_kwargs["color"] = effective_color
+    return go.Mesh3d(**trace_kwargs)
+
+
+def create_dash_mesh_component(
+    scene: go.Mesh3d,
+    controls: Any,
+) -> dcc.Graph:
+    """Wrap the mesh scene and camera controls into a Dash component.
+
+    Args:
+        scene: Plotly `go.Mesh3d` trace for the mesh.
+        controls: Dash trackball camera-controls factory for the renderer.
+
+    Returns:
+        Dash `dcc.Graph` rendering the mesh scene.
+    """
+    assert isinstance(scene, go.Mesh3d), (
+        "Expected `scene` to be a Plotly `go.Mesh3d` trace. " f"{type(scene)=}"
+    )
+    return dcc.Graph(figure=go.Figure(data=[scene]))

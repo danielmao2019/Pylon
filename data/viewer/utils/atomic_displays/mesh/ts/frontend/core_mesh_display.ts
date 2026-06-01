@@ -1,16 +1,36 @@
 import * as THREE from "three";
+import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+import type { MeshDisplayResponse } from "./types/display_response";
 import {
   createTrackballCameraControls,
   type ThreeTrackballCameraControls,
 } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
-import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 import {
+  createThreeDisplayContainer,
   createThreePerspectiveCamera,
+  createThreeScene,
   createThreeWebGLRenderer,
   startThreeSceneRenderLoop,
 } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
-import type { MeshDisplayResponse } from "./types/display_response";
+
+// Uniform fallback color used when geometry has no texture AND has no vertex
+// colors AND the caller does not supply meshColor; lib-owned default, overridable.
+const DEFAULT_MESH_COLOR = "#cccccc";
+
+// Opaque default applied when the caller does not supply meshOpacity; the
+// material's `transparent` flag flips true automatically when opacity is less
+// than 1; lib-owned default, overridable.
+const DEFAULT_MESH_OPACITY = 1.0;
+
+// Fallback side mode for visibility under arbitrary camera framings when the
+// caller does not supply meshSide; lib-owned default, overridable.
+const DEFAULT_MESH_SIDE: THREE.Side = THREE.DoubleSide;
+
+const NEUTRAL_GRAY = 0.75;
+
+const _objCache = new Map<string, Promise<ParsedObj>>();
+const _textureCache = new Map<string, Promise<THREE.Texture>>();
 
 // One distinct UV/positions corner of a parsed Wavefront OBJ, expanded so
 // each face corner is its own render vertex; this admits per-corner UV
@@ -32,187 +52,193 @@ interface SparseHeatmapResource {
   values: Float32Array;
 }
 
-const NEUTRAL_GRAY = 0.75;
-
-const _objCache = new Map<string, Promise<ParsedObj>>();
-const _textureCache = new Map<string, Promise<THREE.Texture>>();
+// A pre-loaded mesh payload: per-corner-expanded geometry buffers plus the
+// resolved texture representation (a UV texture map, per-vertex colors, or
+// neither). createThreeMesh consumes this synchronously.
+interface MeshPayload {
+  positions: Float32Array;
+  uvs: Float32Array | null;
+  vertexColors: Float32Array | null;
+  texture: THREE.Texture | null;
+}
 
 // Render a self-contained mesh display element initialized at initialCameraState.
-//
-// `displayResponse.url` resolves either to a dense mesh OBJ (a color mesh) or
-// to a sparse heatmap JSON resource that references a shared base geometry; in
-// both cases the result is a full mesh display on one render path.
 export function renderMeshDisplay({
   displayResponse,
   initialCameraState = null,
+  meshColor,
+  meshOpacity,
+  meshSide,
 }: {
   displayResponse: MeshDisplayResponse;
   initialCameraState?: CameraState | null;
+  meshColor?: string;
+  meshOpacity?: number;
+  meshSide?: THREE.Side;
 }): VNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `mesh:${displayResponse.slot_id}`,
     props: {},
-    render: () => _renderMeshElement({ displayResponse, initialCameraState }),
+    render: () => {
+      const { container, scene, camera, renderer } = createMeshScene({
+        displayResponse,
+        initialCameraState,
+        meshColor,
+        meshOpacity,
+        meshSide,
+      });
+      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState });
+      _registerSceneResize({ container, camera, renderer, controls });
+      _publishCameraState({ container, controls });
+      controls.addEventListener("change", () => {
+        _publishCameraState({ container, controls });
+      });
+      renderMeshScene({ scene, camera, renderer, controls });
+      return container;
+    },
   };
   return leaf;
 }
 
-// Build the container element and kick off the asynchronous scene build.
-function _renderMeshElement({
+// Compose container, scene, camera, renderer; the mesh payload is loaded
+// asynchronously and the THREE.Mesh joins the scene on resolve.
+export function createMeshScene({
   displayResponse,
   initialCameraState,
+  meshColor,
+  meshOpacity,
+  meshSide,
 }: {
   displayResponse: MeshDisplayResponse;
   initialCameraState: CameraState | null;
-}): HTMLElement {
-  const container = document.createElement("div");
-  container.className = "mesh-display-scene";
-  container.style.position = "absolute";
-  container.style.inset = "0";
-  container.style.width = "100%";
-  container.style.height = "100%";
-  container.style.overflow = "hidden";
-  if (displayResponse.url === null) {
-    container.replaceChildren(_renderMeshStatus("Mesh display url is missing"));
-    return container;
-  }
-  void _buildAndMountMeshScene({ container, displayResponse, initialCameraState });
-  return container;
-}
-
-// Fetch and parse the mesh resource, then compose and mount the three.js scene.
-async function _buildAndMountMeshScene({
-  container,
-  displayResponse,
-  initialCameraState,
-}: {
-  container: HTMLElement;
-  displayResponse: MeshDisplayResponse;
-  initialCameraState: CameraState | null;
-}): Promise<void> {
-  try {
-    const scene = await createMeshScene({ displayResponse });
-    renderMeshScene({ container, scene, initialCameraState });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    container.replaceChildren(_renderMeshStatus(`Failed to load mesh: ${message}`));
-  }
-}
-
-// One mesh display's three.js plumbing built from a parsed mesh resource.
-//
-// `transparent` is true for a sparse-heatmap overlay scene: the renderer clears
-// to a fully transparent buffer and only the part's support is opaque, so the
-// overlay composites over the base layer below it in the layered container.
-interface MeshScene {
+  meshColor?: string;
+  meshOpacity?: number;
+  meshSide?: THREE.Side;
+}): {
+  container: HTMLDivElement;
   scene: THREE.Scene;
-  baseMesh: THREE.Mesh;
-  geometry: THREE.BufferGeometry;
-  texturedMaterial: THREE.Material;
-  untexturedMaterial: THREE.Material;
-  transparent: boolean;
+  camera: THREE.PerspectiveCamera;
+  renderer: THREE.WebGLRenderer;
+} {
+  const container = createThreeDisplayContainer({ pointerEventsSuppressed: false });
+  const scene = createThreeScene();
+  const camera = createThreePerspectiveCamera({ initialCameraState });
+  const renderer = createThreeWebGLRenderer({ container });
+  loadMeshPayload({ displayResponse })
+    .then((payload) =>
+      scene.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })),
+    )
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      container.replaceChildren(_renderMeshStatus(`Failed to load mesh: ${message}`));
+    });
+  return { container, scene, camera, renderer };
 }
 
-// Compose the mesh-display scene from the resolved mesh resource.
-//
-// When `displayResponse.url` points at a sparse heatmap resource, the
-// (indices, values) delta is resolved against the referenced base geometry and
-// the geometry is colored by the delta; otherwise the dense mesh OBJ is read
-// directly. Either way the result is one mesh ready for display.
-export async function createMeshScene({
+// Async-load the mesh payload from displayResponse.url; resolve a sparse-heatmap
+// delta against its referenced geometry, otherwise read the dense resource as-is.
+export async function loadMeshPayload({
   displayResponse,
 }: {
   displayResponse: MeshDisplayResponse;
-}): Promise<MeshScene> {
+}): Promise<MeshPayload> {
   if (displayResponse.url === null) {
     throw new Error("mesh display response url is null");
   }
   if (displayResponse.display_kind === "sparse_heatmap_mesh") {
     const sparse = await _fetchSparseHeatmapResource(displayResponse.url);
     const parsed = await _fetchObj(sparse.geometryUrl);
-    return _composeSparseHeatmapScene({ parsed, sparse });
+    return _resolveSparseHeatmapPayload({ parsed, sparse });
   }
   const parsed = await _fetchObj(displayResponse.url);
   const texture = await _resolveTexture({ parsed, primaryUrl: displayResponse.url });
-  return _composeColorMeshScene({ parsed, texture });
-}
-
-// Mount the renderer, attach trackball controls, and drive the render loop.
-export function renderMeshScene({
-  container,
-  scene,
-  initialCameraState,
-}: {
-  container: HTMLElement;
-  scene: MeshScene;
-  initialCameraState: CameraState | null;
-}): void {
-  const camera = createThreePerspectiveCamera({ initialCameraState });
-  container.replaceChildren();
-  const renderer = createThreeWebGLRenderer({ container: container as HTMLDivElement });
-
-  const controls = createTrackballCameraControls({ camera, renderer, container, initialCameraState });
-
-  _registerSceneResize({ container, camera, renderer, controls });
-  _registerShowTexturesObserver({ container, scene });
-  _applyShowTextures({ scene, showTextures: _readContainerShowTextures(container) });
-  _publishCameraState({ container, controls });
-  controls.addEventListener("change", () => {
-    _publishCameraState({ container, controls });
-  });
-
-  startThreeSceneRenderLoop({ scene: scene.scene, camera, renderer, controls });
-}
-
-// Build a color mesh scene: a textured or vertex-colored base mesh.
-function _composeColorMeshScene({
-  parsed,
-  texture,
-}: {
-  parsed: ParsedObj;
-  texture: THREE.Texture | null;
-}): MeshScene {
-  if (texture === null && parsed.vertexColors === null) {
-    throw new Error("mesh has no defined texture representation");
-  }
-  const geometry = _buildBaseGeometry(parsed);
-  const texturedMaterial: THREE.Material = texture !== null
-    ? new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })
-    : new THREE.MeshBasicMaterial({ vertexColors: true, color: 0xffffff, side: THREE.DoubleSide });
-  const untexturedMaterial = new THREE.MeshBasicMaterial({
-    color: 0xb4b8c0,
-    side: THREE.DoubleSide,
-  });
-  const baseMesh = new THREE.Mesh(geometry, texturedMaterial);
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf4f4f4);
-  scene.add(baseMesh);
   return {
-    scene,
-    baseMesh,
-    geometry,
-    texturedMaterial,
-    untexturedMaterial,
-    transparent: false,
+    positions: parsed.positions,
+    uvs: parsed.uvs,
+    vertexColors: parsed.vertexColors,
+    texture,
   };
 }
 
-// Build a sparse heatmap scene: the shared base geometry colored by the part's
-// (indices, values) delta. Vertices inside the part's support are opaque
-// heatmap color; vertices outside it are fully transparent, so the overlay
-// composites over the base layer below it in the layered container.
-function _composeSparseHeatmapScene({
+// Sync-build THREE.BufferGeometry + THREE.MeshBasicMaterial + THREE.Mesh from a
+// pre-loaded payload.
+export function createThreeMesh({
+  payload,
+  meshColor,
+  meshOpacity,
+  meshSide,
+}: {
+  payload: MeshPayload;
+  displayResponse: MeshDisplayResponse;
+  meshColor?: string;
+  meshOpacity?: number;
+  meshSide?: THREE.Side;
+}): THREE.Mesh {
+  const geometry = _buildBaseGeometry(payload);
+  const effectiveOpacity = meshOpacity ?? DEFAULT_MESH_OPACITY;
+  const effectiveSide = meshSide ?? DEFAULT_MESH_SIDE;
+  let useTexture: boolean;
+  let useVertexColors: boolean;
+  let effectiveColor: string | undefined;
+  if (meshColor !== undefined) {
+    useTexture = false;
+    useVertexColors = false;
+    effectiveColor = meshColor;
+  } else if (payload.texture !== null) {
+    useTexture = true;
+    useVertexColors = false;
+    effectiveColor = undefined;
+  } else if (payload.vertexColors !== null) {
+    useTexture = false;
+    useVertexColors = true;
+    effectiveColor = undefined;
+  } else {
+    useTexture = false;
+    useVertexColors = false;
+    effectiveColor = DEFAULT_MESH_COLOR;
+  }
+  const material = new THREE.MeshBasicMaterial({
+    vertexColors: useVertexColors,
+    side: effectiveSide,
+    opacity: effectiveOpacity,
+    transparent: effectiveOpacity < 1,
+    ...(useTexture ? { map: payload.texture } : {}),
+    ...(effectiveColor !== undefined ? { color: effectiveColor } : {}),
+  });
+  return new THREE.Mesh(geometry, material);
+}
+
+// Mount the render loop for the composed mesh scene.
+export function renderMeshScene({
+  scene,
+  camera,
+  renderer,
+  controls,
+}: {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  renderer: THREE.WebGLRenderer;
+  controls: ReturnType<typeof createTrackballCameraControls>;
+}): void {
+  startThreeSceneRenderLoop({ scene, camera, renderer, controls });
+}
+
+// Resolve a sparse heatmap (indices, values) delta against its referenced
+// geometry into a per-corner vertex-colored payload; corners outside the part's
+// support fall back to the neutral gray the OBJ parser assigns.
+function _resolveSparseHeatmapPayload({
   parsed,
   sparse,
 }: {
   parsed: ParsedObj;
   sparse: SparseHeatmapResource;
-}): MeshScene {
-  const geometry = _buildBaseGeometry(parsed);
+}): MeshPayload {
   const cornerCount = parsed.cornerVertexIndices.length;
   const colors = new Float32Array(cornerCount * 3);
-  const alphas = new Float32Array(cornerCount);
+  for (let i = 0; i < colors.length; i++) {
+    colors[i] = NEUTRAL_GRAY;
+  }
   const rgb = _mapScalarsToRgb(sparse.values);
   const rgbByGeometryVertex = new Map<number, [number, number, number]>();
   for (let i = 0; i < sparse.indices.length; i++) {
@@ -226,62 +252,18 @@ function _composeSparseHeatmapScene({
     const vertexIndex = parsed.cornerVertexIndices[corner];
     const color = rgbByGeometryVertex.get(vertexIndex);
     if (color === undefined) {
-      alphas[corner] = 0.0;
       continue;
     }
     colors[corner * 3] = color[0];
     colors[corner * 3 + 1] = color[1];
     colors[corner * 3 + 2] = color[2];
-    alphas[corner] = 1.0;
   }
-  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute("aOverlayAlpha", new THREE.BufferAttribute(alphas, 1));
-  const material = _buildOverlayMaterial();
-  const baseMesh = new THREE.Mesh(geometry, material);
-  const scene = new THREE.Scene();
-  scene.add(baseMesh);
-  // A sparse heatmap aux is always heatmap-colored; the show-textures toggle
-  // governs only the base layer, so its two materials coincide here.
   return {
-    scene,
-    baseMesh,
-    geometry,
-    texturedMaterial: material,
-    untexturedMaterial: material,
-    transparent: true,
+    positions: parsed.positions,
+    uvs: null,
+    vertexColors: colors,
+    texture: null,
   };
-}
-
-// Build the heatmap overlay material: per-vertex color with a per-vertex alpha
-// mask so vertices outside the part's support stay fully transparent.
-function _buildOverlayMaterial(): THREE.MeshBasicMaterial {
-  const material = new THREE.MeshBasicMaterial({
-    vertexColors: true,
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
-  material.onBeforeCompile = (shader: THREE.WebGLProgramParametersWithUniforms) => {
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        "#include <common>",
-        "#include <common>\nattribute float aOverlayAlpha;\nvarying float vOverlayAlpha;",
-      )
-      .replace(
-        "#include <begin_vertex>",
-        "#include <begin_vertex>\nvOverlayAlpha = aOverlayAlpha;",
-      );
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        "#include <common>",
-        "#include <common>\nvarying float vOverlayAlpha;",
-      )
-      .replace(
-        "#include <dithering_fragment>",
-        "#include <dithering_fragment>\ngl_FragColor.a *= vOverlayAlpha;",
-      );
-  };
-  return material;
 }
 
 // Fetch and parse a Wavefront OBJ url once; subsequent callers share the promise.
@@ -532,16 +514,16 @@ function _mapScalarsToRgb(values: Float32Array): Uint8Array {
 }
 
 // Build the per-corner-expanded base geometry: positions, optional UVs and colors.
-function _buildBaseGeometry(parsed: ParsedObj): THREE.BufferGeometry {
+function _buildBaseGeometry(payload: MeshPayload): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(parsed.positions, 3));
-  if (parsed.uvs !== null) {
-    geometry.setAttribute("uv", new THREE.BufferAttribute(parsed.uvs, 2));
+  geometry.setAttribute("position", new THREE.BufferAttribute(payload.positions, 3));
+  if (payload.uvs !== null) {
+    geometry.setAttribute("uv", new THREE.BufferAttribute(payload.uvs, 2));
   }
-  if (parsed.vertexColors !== null) {
+  if (payload.vertexColors !== null) {
     geometry.setAttribute(
       "color",
-      new THREE.BufferAttribute(new Float32Array(parsed.vertexColors), 3),
+      new THREE.BufferAttribute(new Float32Array(payload.vertexColors), 3),
     );
   }
   geometry.computeVertexNormals();
@@ -557,7 +539,7 @@ function _registerSceneResize({
   renderer,
   controls,
 }: {
-  container: HTMLElement;
+  container: HTMLDivElement;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   controls: ThreeTrackballCameraControls;
@@ -582,7 +564,7 @@ function _publishCameraState({
   container,
   controls,
 }: {
-  container: HTMLElement;
+  container: HTMLDivElement;
   controls: ThreeTrackballCameraControls;
 }): void {
   const cameraState = controls.getCameraState();
@@ -596,46 +578,6 @@ function _publishCameraState({
       detail: cameraState,
     }),
   );
-}
-
-// Observe the container's `data-show-textures` attribute and swap the base material.
-function _registerShowTexturesObserver({
-  container,
-  scene,
-}: {
-  container: HTMLElement;
-  scene: MeshScene;
-}): void {
-  const observer = new MutationObserver(() => {
-    _applyShowTextures({ scene, showTextures: _readContainerShowTextures(container) });
-  });
-  observer.observe(container, {
-    attributeFilter: ["data-show-textures"],
-    attributes: true,
-  });
-}
-
-// Swap the base mesh material between its texture representation and a neutral surface.
-function _applyShowTextures({
-  scene,
-  showTextures,
-}: {
-  scene: MeshScene;
-  showTextures: boolean;
-}): void {
-  scene.baseMesh.material = showTextures ? scene.texturedMaterial : scene.untexturedMaterial;
-}
-
-// Read the show-textures flag from the container's `data-show-textures` attribute.
-//
-// The attribute is set by the consumer (the layered-display owner) on the base
-// mesh layer; it is absent on heatmap aux layers, which always render colored.
-function _readContainerShowTextures(container: HTMLElement): boolean {
-  const raw = container.dataset.showTextures;
-  if (raw === undefined) {
-    return true;
-  }
-  return raw !== "false";
 }
 
 // Render an inline status card for a missing-resource or load-failure mesh display.
