@@ -1254,15 +1254,15 @@ core_mesh_display.py
 ├── from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response import MeshDisplayResponse
 ├── def create_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> MeshDisplayResponse
 │   ├── if mesh texture representation is vertex color
-│   │   └── calls _create_vertex_color_mesh_display
+│   │   └── calls _create_vertex_color_mesh_display_response
 │   ├── elif mesh texture representation is UV texture map
-│   │   └── calls _create_uv_texture_map_mesh_display
+│   │   └── calls _create_uv_texture_map_mesh_display_response
 │   ├── else
 │   │   └── raise unsupported mesh texture representation
 │   ├── impls writes the processed mesh resource bytes to output_path
 │   └── return MeshDisplayResponse with slot_id, title, url, meta_info from caller-provided args
-├── def _create_vertex_color_mesh_display
-└── def _create_uv_texture_map_mesh_display
+├── def _create_vertex_color_mesh_display_response
+└── def _create_uv_texture_map_mesh_display_response
 ```
 
 `./data/viewer/utils/atomic_displays/mesh/ts/frontend/types/display_response.ts`
