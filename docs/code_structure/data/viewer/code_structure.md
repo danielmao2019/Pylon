@@ -7,7 +7,7 @@
 Backend modality-specific display response schema files.
 
 ```text
-class DisplayResponse
+class DisplayResponse(BaseModel)
 ├── class PointDisplayResponse
 │   ├── class ColorPCDisplayResponse
 │   └── class SegmentationPCDisplayResponse
@@ -116,7 +116,8 @@ heatmap_colors.py
 
 ```text
 display_response.py
-└── class DisplayResponse
+├── from pydantic import BaseModel
+└── class DisplayResponse(BaseModel)
     ├── slot_id                                      # common field
     ├── title                                        # common field
     ├── display_kind                                 # common field
@@ -142,6 +143,8 @@ display_response.ts
 layered_display_response.py
 ├── from typing import List
 ├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── RASTER_DISPLAY_KINDS     # frozenset[str]: color_image, depth_image, edge_image, normal_image, segmentation_image, instance_surrogate_image, video
+├── SPATIAL_DISPLAY_KINDS    # frozenset[str]: color_pc, segmentation_pc, color_gs, segmentation_gs, scene_graph, camera
 └── class LayeredDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -149,7 +152,24 @@ layered_display_response.py
     ├── url                                          # common field
     ├── meta_info                                    # common field
     ├── base_display_response: DisplayResponse                # the single base layer
-    └── aux_display_responses: List[DisplayResponse]          # ordered auxiliary layers stacked on top of the base; consumer-agnostic — each consumer assigns its own per-layer semantics (e.g. spatial input, camera frustums, per-part heatmaps) and owns its own visibility state
+    ├── aux_display_responses: List[DisplayResponse]          # ordered auxiliary layers stacked on top of the base; each consumer assigns its own per-layer semantics and owns its own visibility state
+    ├── def model_post_init [override]
+    │   ├── # Pydantic post-construction hook rejecting a layered response whose non-placeholder layers do not all resolve to a single composable display class.
+    │   ├── for each layer in base_display_response and aux_display_responses
+    │   │   └── calls _display_class_of
+    │   ├── if the resolved non-placeholder classes are not all identical
+    │   │   └── raise ValueError
+    │   └── return
+    └── def _display_class_of
+        ├── # Maps a layer's display_kind to "raster", "spatial", or "placeholder", raising for non-layerable text-based kinds.
+        ├── if display_kind == "placeholder"
+        │   └── return  # passive stand-in, compatible with any class
+        ├── elif display_kind in RASTER_DISPLAY_KINDS
+        │   └── return  # "raster"
+        ├── elif display_kind in SPATIAL_DISPLAY_KINDS
+        │   └── return  # "spatial"
+        └── else
+            └── raise ValueError  # text, table, and other non-layerable kinds
 ```
 
 `./data/viewer/utils/atomic_displays/utils/ts/frontend/types/layered_display_response.ts`
