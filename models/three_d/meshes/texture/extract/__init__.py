@@ -13,13 +13,13 @@ from models.three_d.meshes.texture.extract.extract import (
     _extract_vertex_color_from_single_image,
     extract_texture_from_images,
 )
-from models.three_d.meshes.texture.extract.normal_weights import (
-    compute_f_normals_weights,
-)
 from models.three_d.meshes.texture.extract.visibility import (
     compute_f_visibility_mask,
     compute_f_visibility_mask_v2,
     compute_v_visibility_mask,
+)
+from models.three_d.meshes.texture.extract.weights import (
+    compute_f_normals_weights,
 )
 
 __all__ = (

@@ -61,9 +61,6 @@ from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.texture.extract.camera_geometry import (
     _verts_world_to_camera,
 )
-from models.three_d.meshes.texture.extract.normal_weights import (
-    compute_f_normals_weights,
-)
 from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import (
     _clip_convex_polygons_to_pixel_squares,
     _compute_convex_polygon_areas,
@@ -75,6 +72,9 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
     duplicate_wrapped_uv_polygons,
     project_screen_polygons_to_face_uv,
     triangulate_convex_uv_polygons,
+)
+from models.three_d.meshes.texture.extract.weights.normal_weights import (
+    compute_f_normals_weights,
 )
 
 # -----------------------------------------------------------------------------
