@@ -33,7 +33,7 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
 from models.three_d.meshes.texture.extract.visibility.texel_visibility_v2 import (
     compute_f_visibility_mask_v2,
 )
-from models.three_d.meshes.texture.extract.weights_cfg import normalize_weights_cfg
+from models.three_d.meshes.texture.extract.weights.weights_cfg import normalize_weights_cfg
 
 DEFAULT_PROCESSED_GSO_ROOT = Path("/pub0/data/clod_processed/google_scanned_objects")
 DEFAULT_RAW_GSO_ROOT = Path("/pub0/data/clod/google_scanned_objects")

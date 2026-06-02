@@ -10,7 +10,7 @@ from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
 from data.structures.three_d.point_cloud.camera.transform import (
     world_to_camera_transform,
 )
-from models.three_d.meshes.texture.extract.normal_weights import (
+from models.three_d.meshes.texture.extract.weights.normal_weights import (
     compute_f_normals_weights,
 )
 

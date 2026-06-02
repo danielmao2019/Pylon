@@ -11,7 +11,7 @@ from models.three_d.meshes.ops.normals import compute_vertex_normals
 from models.three_d.meshes.texture.extract.camera_geometry import (
     _verts_world_to_camera,
 )
-from models.three_d.meshes.texture.extract.weights_cfg import (
+from models.three_d.meshes.texture.extract.weights.weights_cfg import (
     normalize_weights_cfg,
     validate_weights_cfg,
 )

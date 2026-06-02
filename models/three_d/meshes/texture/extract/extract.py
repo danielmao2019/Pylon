@@ -17,10 +17,6 @@ from data.structures.three_d.mesh.texture.validate_vertex_color import (
 from models.three_d.meshes.texture.extract.camera_geometry import (
     project_verts_to_image,
 )
-from models.three_d.meshes.texture.extract.normal_weights import (
-    compute_f_normals_weights,
-    compute_v_normals_weights,
-)
 from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
     compute_f_visibility_mask,
 )
@@ -30,7 +26,11 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_v2 import
 from models.three_d.meshes.texture.extract.visibility.vertex_visibility import (
     compute_v_visibility_mask,
 )
-from models.three_d.meshes.texture.extract.weights_cfg import (
+from models.three_d.meshes.texture.extract.weights.normal_weights import (
+    compute_f_normals_weights,
+    compute_v_normals_weights,
+)
+from models.three_d.meshes.texture.extract.weights.weights_cfg import (
     normalize_weights_cfg,
     validate_weights_cfg,
 )
