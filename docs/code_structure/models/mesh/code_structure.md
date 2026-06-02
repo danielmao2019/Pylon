@@ -31,10 +31,11 @@ models/three_d/meshes/texture/extract/extract.py
 ├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 ├── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ├── from models.three_d.meshes.texture.extract.camera_geometry import project_verts_to_image
-├── from models.three_d.meshes.texture.extract.normal_weights import compute_f_normals_weights, compute_v_normals_weights
 ├── from models.three_d.meshes.texture.extract.visibility.texel_visibility import compute_f_visibility_mask
 ├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_v2 import compute_f_visibility_mask_v2
 ├── from models.three_d.meshes.texture.extract.visibility.vertex_visibility import compute_v_visibility_mask
+├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights, compute_v_normals_weights
+├── from models.three_d.meshes.texture.extract.weights.weights_cfg import normalize_weights_cfg, validate_weights_cfg
 ├── def _validate_rgb_image(obj: Any) -> None
 │   └── # Validate that an object is an RGB image tensor (CHW/HWC/NCHW/NHWC, uint8 [0,255] or float32 [0,1]).
 ├── def extract_texture_from_images(mesh: Union[Mesh, List[Mesh]], images: Union[torch.Tensor, List[torch.Tensor]], cameras: Cameras, weights_cfg: Dict[str, Any]={}, texture_size: int=1024, default_color: float=0.7, return_valid_mask: bool=False, texel_visibility_method: str='v1', polygon_rast_method: str='v2') -> Union[torch.Tensor, Dict[str, torch.Tensor]]
@@ -103,7 +104,7 @@ models/three_d/meshes/texture/extract/extract.py
 ```
 
 ```text
-models/three_d/meshes/texture/extract/normal_weights.py
+models/three_d/meshes/texture/extract/weights/normal_weights.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from models.three_d.meshes.ops.normals import compute_vertex_normals
@@ -118,7 +119,7 @@ models/three_d/meshes/texture/extract/normal_weights.py
 ```
 
 ```text
-models/three_d/meshes/texture/extract/weights_cfg.py
+models/three_d/meshes/texture/extract/weights/weights_cfg.py
 ├── WEIGHTS_CFG_ALLOWED_KEYS
 ├── def validate_weights_cfg(weights_cfg: Dict[str, Any]) -> None
 │   └── # Validate one texture-extraction weights config.
@@ -130,7 +131,7 @@ models/three_d/meshes/texture/extract/weights_cfg.py
 models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from models.three_d.meshes.texture.extract.camera_geometry import _verts_world_to_camera
-├── from models.three_d.meshes.texture.extract.normal_weights import compute_f_normals_weights
+├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights
 ├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import build_uv_polygon_texel_intersections, build_uv_triangle_texel_intersections_v2, build_visible_face_pixel_polygons, camera_verts_to_pixel, _clip_convex_polygons_to_pixel_squares, _compute_convex_polygon_areas, compute_face_inverse_depth_coefficients, duplicate_wrapped_uv_polygons, project_screen_polygons_to_face_uv, triangulate_convex_uv_polygons
 ├── def compute_f_visibility_mask(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor], polygon_rast_method: str='v2') -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from exact camera-pixel footprints.
@@ -343,7 +344,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
 ├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
-├── from models.three_d.meshes.texture.extract.normal_weights import compute_f_normals_weights
+├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights
 ├── FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER
 ├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from projected texel centers.
