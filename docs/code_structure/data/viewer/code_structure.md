@@ -99,6 +99,7 @@ class_colors.py
 ├── from typing import Dict, Tuple
 ├── import torch
 └── def map_class_ids_to_rgb(class_ids: torch.Tensor) -> Dict[int, Tuple[int, int, int]]
+    └── # Maps each distinct class id to a deterministic RGB color from a fixed class-color palette.
 ```
 
 `./data/viewer/utils/atomic_displays/utils/heatmap_colors.py`
@@ -246,13 +247,16 @@ apis.py
 ├── from data.viewer.utils.atomic_displays.points.dash.core_points_display import create_dash_points_display
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_pc_display
+│   ├── # Builds a Dash color point-cloud display from an already-colorized point-cloud path.
 │   └── calls create_dash_points_display
 ├── def create_segmentation_pc_display
+│   ├── # Builds a Dash segmentation point-cloud display by recoloring each point from its class id.
 │   ├── calls load_point_cloud
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_pc.label))
 │   ├── calls _map_segmentation_pc_to_rgb(segmentation_pc_path=segmentation_pc_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_points_display
 └── def _map_segmentation_pc_to_rgb
+    └── # Recolors the segmentation point cloud's per-point class labels to RGB via the class-to-RGB mapping for Dash display.
 ```
 
 `./data/viewer/utils/atomic_displays/points/dash/core_points_display.py`
@@ -286,6 +290,7 @@ core_points_display.py
 │   ├── impls trace = go.Scatter3d(x=..., y=..., z=..., mode="markers", marker=dict(size=effective_size, color=effective_color))
 │   └── return trace
 └── def create_dash_points_component
+    ├── # Assembles the Dash component that hosts the point-cloud scene and its trackball camera controls.
     └── return
 ```
 
@@ -391,6 +396,7 @@ apis.ts
 ├── import type { ColorPCDisplayResponse, SegmentationPCDisplayResponse } from "./types/display_response";
 ├── import { renderPointsDisplay } from "./core_points_display";
 ├── function renderColorPCDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: ColorPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): VNode
+│   ├── # Renders a color point-cloud display with opt-in pointSize and pointColor overrides.
 │   ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor })
 │   └── return
 └── function renderSegmentationPCDisplay({ displayResponse, initialCameraState, pointSize }: { displayResponse: SegmentationPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number }): VNode
@@ -447,6 +453,7 @@ core_points_display.ts
 │   ├── impls material = new THREE.PointsMaterial({ vertexColors: useVertexColors, size: effectiveSize, ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
 │   └── return new THREE.Points(geometry, material)                                                # no post-construction mutation of points
 └── function renderPointsScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
+    ├── # Drives the point-cloud render loop with the supplied trackball controls.
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
     └── return
 ```
@@ -467,14 +474,18 @@ apis.py
 ├── DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION = "nearest"        # segmentation images: nearest preserves class-id integrity; linear would invent fractional class ids
 ├── DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION = "nearest"  # instance-surrogate images: nearest preserves class-id integrity (same reason as segmentation)
 ├── def create_color_image_display(color_image_path: str, image_interpolation: str = DEFAULT_COLOR_IMAGE_INTERPOLATION) -> dcc.Graph
+│   ├── # Builds a Dash color-image display from an image path, defaulting to linear interpolation.
 │   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
 ├── def create_depth_image_display(depth_image_path: str, image_interpolation: str = DEFAULT_DEPTH_IMAGE_INTERPOLATION) -> dcc.Graph
+│   ├── # Builds a Dash depth-image display from a depth-map path, colorizing it through the heatmap palette.
 │   ├── calls _map_depth_image_to_rgb
 │   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
 ├── def create_edge_image_display(edge_image_path: str, image_interpolation: str = DEFAULT_EDGE_IMAGE_INTERPOLATION) -> dcc.Graph
+│   ├── # Builds a Dash edge-image display from an edge-map path, colorizing it to RGB.
 │   ├── calls _map_edge_image_to_rgb
 │   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
 ├── def create_normal_image_display(normal_image_path: str, image_interpolation: str = DEFAULT_NORMAL_IMAGE_INTERPOLATION) -> dcc.Graph
+│   ├── # Builds a Dash normal-image display from a normal-map path, colorizing the normal vectors to RGB.
 │   ├── calls _map_normal_image_to_rgb
 │   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
 ├── def create_segmentation_image_display(segmentation_image_path: str, image_interpolation: str = DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION) -> dcc.Graph
@@ -490,10 +501,15 @@ apis.py
 │   ├── calls _map_instance_surrogate_image_to_rgb(image_path=image_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
 ├── def _map_depth_image_to_rgb
+│   └── # Maps the depth image to RGB through the continuous heatmap palette for Dash display.
 ├── def _map_edge_image_to_rgb
+│   └── # Maps the edge image to RGB for Dash display.
 ├── def _map_normal_image_to_rgb
+│   └── # Maps the normal vectors to RGB for Dash display.
 ├── def _map_segmentation_image_to_rgb
+│   └── # Maps the segmentation image's per-pixel class ids to RGB via the class-to-RGB mapping for Dash display.
 └── def _map_instance_surrogate_image_to_rgb
+    ├── # Maps the instance-surrogate class-id image to RGB via the class-to-RGB mapping for Dash display.
     └── return
 ```
 
@@ -601,14 +617,19 @@ apis.py
 │   ├── calls create_pixels_display_response
 │   └── return
 ├── def _map_depth_image_to_rgb
+│   └── # Writes a backend-colorized image resource by mapping the depth image through the continuous heatmap palette.
 ├── def _map_edge_image_to_rgb
+│   └── # Writes a backend-colorized image resource by mapping the edge image to RGB.
 ├── def _map_normal_image_to_rgb
+│   └── # Writes a backend-colorized image resource by mapping the normal vectors to RGB.
 ├── def _map_segmentation_image_to_rgb
+│   └── # Writes a backend-colorized image resource by applying the class-to-RGB mapping to the segmentation image.
 ├── def _build_segmentation_image_meta_info
 │   ├── # Builds factual class/color metadata from the class-to-RGB mapping.
 │   ├── impls stores `class_id_to_rgb`
 │   └── return
 ├── def _map_instance_surrogate_image_to_rgb
+│   └── # Writes a backend-colorized image resource by applying the class-to-RGB mapping to the instance-surrogate class-id image.
 └── def _build_instance_surrogate_image_meta_info
     ├── # Builds factual class/color metadata from the class-to-RGB mapping.
     ├── impls stores `class_id_to_rgb`
@@ -620,6 +641,7 @@ apis.py
 ```text
 core_pixels_display.py
 └── def create_pixels_display_response
+    ├── # Creates a pixel-image display response from the loadable image resource path and caller-provided display metadata.
     ├── impls builds frontend resource url
     ├── impls copies caller-provided meta_info into response metadata
     └── return
@@ -688,15 +710,19 @@ apis.ts
 ├── const DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION = "nearest"        # segmentation images: nearest preserves class-id integrity; linear would invent fractional class ids
 ├── const DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION = "nearest"  # instance-surrogate images: nearest preserves class-id integrity (same reason as segmentation)
 ├── function renderColorImageDisplay({ displayResponse, imageInterpolation = DEFAULT_COLOR_IMAGE_INTERPOLATION }: { displayResponse: ColorImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── # Renders a color-image display, defaulting to linear interpolation for natural-image content.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
 ├── function renderDepthImageDisplay({ displayResponse, imageInterpolation = DEFAULT_DEPTH_IMAGE_INTERPOLATION }: { displayResponse: DepthImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── # Renders a depth-image display, defaulting to nearest interpolation to preserve exact metric depths.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
 ├── function renderEdgeImageDisplay({ displayResponse, imageInterpolation = DEFAULT_EDGE_IMAGE_INTERPOLATION }: { displayResponse: EdgeImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── # Renders an edge-image display, defaulting to nearest interpolation to preserve edge crispness.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
 ├── function renderNormalImageDisplay({ displayResponse, imageInterpolation = DEFAULT_NORMAL_IMAGE_INTERPOLATION }: { displayResponse: NormalImageDisplayResponse; imageInterpolation?: string }): VNode
+│   ├── # Renders a normal-image display, defaulting to nearest interpolation to preserve unit-length normals.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
 ├── function renderSegmentationImageDisplay({ displayResponse, imageInterpolation = DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION }: { displayResponse: SegmentationImageDisplayResponse; imageInterpolation?: string }): VNode
@@ -725,6 +751,7 @@ core_pixels_display.ts
 ```text
 placeholder_display.py
 └── def create_placeholder_display
+    └── # Builds the Dash missing-result placeholder display from a message.
 ```
 
 `./data/viewer/utils/atomic_displays/placeholders/ts/backend/schemas/display_response.py`
@@ -746,6 +773,7 @@ display_response.py
 ```text
 placeholder_display.py
 └── def create_placeholder_display_response
+    ├── # Creates a placeholder display response standing in for a missing result, carrying the message inline.
     ├── impls builds missing-result placeholder response from message
     └── return
 ```
@@ -771,6 +799,7 @@ placeholder_display.ts
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 ├── import type { PlaceholderDisplayResponse } from "./types/display_response";
 └── function renderPlaceholderDisplay({ displayResponse }: { displayResponse: PlaceholderDisplayResponse }): VNode
+    ├── # Renders the missing-result placeholder UI from the response's message.
     ├── impls complete missing-result placeholder UI from PlaceholderDisplayResponse.message
     └── return LeafVNode keyed by displayResponse.url
 ```
@@ -780,6 +809,7 @@ placeholder_display.ts
 ```text
 video_display.py
 └── def create_video_display
+    └── # Builds the Dash video display from a video path.
 ```
 
 `./data/viewer/utils/atomic_displays/videos/ts/backend/schemas/display_response.py`
@@ -800,6 +830,7 @@ display_response.py
 ```text
 video_display.py
 └── def create_video_display_response
+    ├── # Creates a video display response from a loadable video resource.
     ├── impls builds frontend resource url
     ├── impls sets meta_info to empty video metadata
     └── return
@@ -825,6 +856,7 @@ video_display.ts
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 ├── import type { VideoDisplayResponse } from "./types/display_response";
 └── function renderVideoDisplay({ displayResponse }: { displayResponse: VideoDisplayResponse }): VNode
+    ├── # Renders the complete video-display UI from the video resource URL.
     ├── impls complete video-display UI from DisplayResponse url
     └── return LeafVNode keyed by displayResponse.url
 ```
@@ -834,6 +866,7 @@ video_display.ts
 ```text
 text_display.py
 └── def create_text_display
+    └── # Builds the Dash text display from a text string.
 ```
 
 `./data/viewer/utils/atomic_displays/texts/ts/backend/schemas/display_response.py`
@@ -855,6 +888,7 @@ display_response.py
 ```text
 text_display.py
 └── def create_text_display_response
+    ├── # Creates a text display response carrying the text payload inline.
     ├── impls stores text in TextDisplayResponse.text
     ├── impls sets meta_info to empty text metadata
     └── return
@@ -881,6 +915,7 @@ text_display.ts
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 ├── import type { TextDisplayResponse } from "./types/display_response";
 └── function renderTextDisplay({ displayResponse }: { displayResponse: TextDisplayResponse }): VNode
+    ├── # Renders the complete text-display UI from the response's text field.
     ├── impls complete text-display UI from TextDisplayResponse.text
     └── return LeafVNode keyed by displayResponse.url
 ```
@@ -890,6 +925,7 @@ text_display.ts
 ```text
 table_display.py
 └── def create_table_display
+    └── # Builds the Dash table display from tabular data.
 ```
 
 `./data/viewer/utils/atomic_displays/tables/ts/backend/schemas/display_response.py`
@@ -910,6 +946,7 @@ display_response.py
 ```text
 table_display.py
 └── def create_table_display_response
+    ├── # Creates a table display response from a loadable table resource.
     ├── impls builds frontend resource url
     ├── impls sets meta_info to empty table metadata
     └── return
@@ -935,6 +972,7 @@ table_display.ts
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 ├── import type { TableDisplayResponse } from "./types/display_response";
 └── function renderTableDisplay({ displayResponse }: { displayResponse: TableDisplayResponse }): VNode
+    ├── # Renders the complete table-display UI from the table resource URL.
     ├── impls complete table-display UI from DisplayResponse url
     └── return LeafVNode keyed by displayResponse.url
 ```
@@ -944,6 +982,7 @@ table_display.ts
 ```text
 scene_graph_display.py
 └── def create_scene_graph_display
+    └── # Builds the Dash scene-graph display from a method-agnostic graph payload.
 ```
 
 `./data/viewer/utils/atomic_displays/scene_graphs/ts/backend/schemas/display_response.py`
@@ -1083,6 +1122,7 @@ apis.py
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── from data.viewer.utils.atomic_displays.utils.heatmap_colors import map_scalars_to_rgb
 ├── def create_color_mesh_display(color_mesh_path: str, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+│   ├── # Builds a Dash color mesh display from a mesh path, with opt-in mesh_color, mesh_opacity, and mesh_side overrides.
 │   └── calls create_dash_mesh_display(mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
 ├── def create_segmentation_mesh_display(segmentation_mesh_path: str, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
 │   ├── # renders backend-colorized segmentation mesh display; per-element colors are already baked in by the backend's class-id → rgb mapping, so no mesh_color override is exposed here.
@@ -1124,6 +1164,7 @@ core_mesh_display.py
 ├── DEFAULT_MESH_OPACITY = 1.0                                 # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
 ├── DEFAULT_MESH_SIDE = "double"                               # fallback side mode for visibility under arbitrary camera framings when the caller does not supply mesh_side; lib-owned default, overridable
 ├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+│   ├── # Renders a Dash mesh display element with trackball camera controls; mesh_color, mesh_opacity, and mesh_side overrides are opt-in.
 │   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
 │   ├── calls create_dash_trackball_camera_controls
 │   ├── calls create_dash_mesh_component
@@ -1141,6 +1182,7 @@ core_mesh_display.py
 │   └── else
 │       └── raise unsupported mesh texture representation
 ├── def _create_dash_vertex_color_mesh_scene(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
+│   ├── # Builds the Plotly Mesh3d trace for a per-vertex-colored mesh, resolving the effective color.
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
 │   ├── elif mesh has per-vertex rgb
@@ -1149,6 +1191,7 @@ core_mesh_display.py
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
 ├── def _create_dash_uv_texture_map_mesh_scene(mesh: Any, mesh_color: Optional[str], effective_opacity: float, effective_side: str) -> go.Mesh3d
+│   ├── # Builds the Plotly Mesh3d trace for a UV-texture-mapped mesh, resolving the effective color.
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
 │   ├── elif mesh has uv_texture_map
@@ -1157,6 +1200,7 @@ core_mesh_display.py
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
 └── def create_dash_mesh_component
+    ├── # Assembles the Dash component that hosts the Mesh3d scene and its trackball camera controls.
     └── return
 ```
 
@@ -1273,6 +1317,7 @@ core_mesh_display.py
 ├── from typing import Any, Dict
 ├── from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response import MeshDisplayResponse
 ├── def create_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> MeshDisplayResponse
+│   ├── # Writes the processed mesh resource to output_path and returns the mesh display response, dispatching on the mesh texture representation.
 │   ├── if mesh texture representation is vertex color
 │   │   └── calls _create_vertex_color_mesh_display_response
 │   ├── elif mesh texture representation is UV texture map
@@ -1282,7 +1327,9 @@ core_mesh_display.py
 │   ├── impls writes the processed mesh resource bytes to output_path
 │   └── return MeshDisplayResponse with slot_id, title, url, meta_info from caller-provided args
 ├── def _create_vertex_color_mesh_display_response
+│   └── # Builds the mesh display response for a per-vertex-colored mesh.
 └── def _create_uv_texture_map_mesh_display_response
+    └── # Builds the mesh display response for a UV-texture-mapped mesh.
 ```
 
 `./data/viewer/utils/atomic_displays/mesh/ts/frontend/types/display_response.ts`
@@ -1371,6 +1418,7 @@ core_mesh_display.ts
 │   ├── impls material = new THREE.MeshBasicMaterial({ vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent: effectiveOpacity < 1, ...(useTexture ? { map: payload.texture } : {}), ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
 │   └── return new THREE.Mesh(geometry, material)                                                # no post-construction mutation of mesh
 └── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
+    ├── # Drives the mesh render loop with the supplied trackball controls.
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
     └── return
 ```
@@ -1385,6 +1433,7 @@ apis.ts
 ├── import type { ColorMeshDisplayResponse, SegmentationMeshDisplayResponse, HeatmapMeshDisplayResponse, SparseHeatmapMeshDisplayResponse } from "./types/display_response";
 ├── import { renderMeshDisplay } from "./core_mesh_display";
 ├── function renderColorMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: ColorMeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+│   ├── # Renders a color mesh display with opt-in meshColor, meshOpacity, and meshSide overrides.
 │   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide })
 │   └── return
 ├── function renderSegmentationMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SegmentationMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): VNode
@@ -1409,13 +1458,16 @@ apis.py
 ├── from data.viewer.utils.atomic_displays.gaussians.dash.core_gaussians_display import create_dash_gaussians_display
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_gs_display
+│   ├── # Builds a Dash color Gaussian-splat display from an already-colorized Gaussian path.
 │   └── calls create_dash_gaussians_display
 ├── def create_segmentation_gs_display
+│   ├── # Builds a Dash segmentation Gaussian-splat display by recoloring each Gaussian from its class id.
 │   ├── impls reads segmentation Gaussian class ids from segmentation_gs_path
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_gs_class_ids))
 │   ├── calls _map_segmentation_gs_to_rgb(segmentation_gs_path=segmentation_gs_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_gaussians_display
 └── def _map_segmentation_gs_to_rgb
+    └── # Recolors the segmentation Gaussian's per-Gaussian class ids to RGB via the class-to-RGB mapping.
 ```
 
 `./data/viewer/utils/atomic_displays/gaussians/dash/core_gaussians_display.py`
@@ -1424,14 +1476,17 @@ apis.py
 core_gaussians_display.py
 ├── from data.viewer.utils.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── def create_dash_gaussians_display
+│   ├── # Renders a Dash Gaussian-splat display element with trackball camera controls.
 │   ├── calls create_dash_gaussians_scene
 │   ├── calls create_dash_trackball_camera_controls
 │   ├── calls create_dash_gaussians_component
 │   └── return
 ├── def create_dash_gaussians_scene
+│   ├── # Builds the Dash Gaussian-splat display scene from Gaussian data and display metadata.
 │   ├── impls Dash Gaussian-splat display scene from Gaussian data and display metadata
 │   └── return
 └── def create_dash_gaussians_component
+    ├── # Assembles the Dash component that hosts the Gaussian-splat scene and its trackball camera controls.
     └── return
 ```
 
@@ -1481,6 +1536,7 @@ apis.py
 │   ├── calls create_gaussians_display_response
 │   └── return
 ├── def _map_segmentation_gs_to_rgb
+│   └── # Writes a backend-colorized Gaussian resource by applying the class-to-RGB mapping to the segmentation Gaussian's class ids.
 └── def _build_segmentation_gs_meta_info
     ├── # Builds factual class/color metadata from the class-to-RGB mapping.
     ├── impls stores `class_id_to_rgb`
@@ -1492,6 +1548,7 @@ apis.py
 ```text
 core_gaussians_display.py
 └── def create_gaussians_display_response
+    ├── # Creates a Gaussian display response from the loadable Gaussian resource path and caller-provided display metadata.
     ├── impls builds frontend resource url
     ├── impls copies caller-provided meta_info into response metadata
     └── return
@@ -1531,6 +1588,7 @@ apis.ts
 ├── import type { ColorGSDisplayResponse, SegmentationGSDisplayResponse } from "./types/display_response";
 ├── import { renderGaussiansDisplay } from "./core_gaussians_display";
 ├── function renderColorGSDisplay({ displayResponse, initialCameraState }: { displayResponse: ColorGSDisplayResponse; initialCameraState?: CameraState | null }): VNode
+│   ├── # Renders a color Gaussian-splat display from an already-colorized Gaussian resource.
 │   ├── calls renderGaussiansDisplay({ displayResponse, initialCameraState })
 │   └── return
 └── function renderSegmentationGSDisplay({ displayResponse, initialCameraState }: { displayResponse: SegmentationGSDisplayResponse; initialCameraState?: CameraState | null }): VNode
@@ -1559,6 +1617,7 @@ core_gaussians_display.ts
 ```text
 camera_display.py
 └── def create_camera_display
+    └── # Builds the Dash camera-trajectory display from a loaded camera artifact.
 ```
 
 `./data/viewer/utils/atomic_displays/cameras/ts/backend/schemas/display_response.py`
@@ -1739,28 +1798,34 @@ types.ts
 ```text
 trackball_camera_controls.py
 ├── def create_dash_trackball_camera_controls
+│   ├── # Builds and validates the Dash trackball controls that every 3D Dash spatial display must use.
 │   ├── calls create_dash_renderer_trackball_camera_controls
 │   ├── calls assert_dash_trackball_camera_controls
 │   └── return
 ├── def create_dash_renderer_trackball_camera_controls
+│   ├── # Constructs the Dash renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 │   ├── impls Dash renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu
 │   └── return
 ├── def assert_dash_trackball_camera_controls
+│   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
 │   ├── calls assert_dash_trackball_mouse_mapping
 │   ├── calls assert_dash_no_orbit_camera_controls
 │   ├── calls assert_dash_no_camera_pose_clamps
 │   └── return
 ├── def assert_dash_trackball_mouse_mapping
+│   ├── # Asserts the Dash controls map left-drag to rotate, right-drag to pan, and wheel to zoom, and that the canvas suppresses its context menu.
 │   ├── if controls do not map left-button drag to rotation, right-button drag to panning, and mouse-wheel scroll to zoom
 │   │   └── raise invalid trackball camera controls
 │   ├── if viewer canvas does not suppress the default browser context menu
 │   │   └── raise context menu blocks trackball panning
 │   └── return
 ├── def assert_dash_no_orbit_camera_controls
+│   ├── # Asserts the Dash controls do not use forbidden orbit-style target-locked camera semantics.
 │   ├── if controls use orbit-style target-locked camera semantics
 │   │   └── raise orbit-style camera controls are forbidden
 │   └── return
 └── def assert_dash_no_camera_pose_clamps
+    ├── # Asserts the Dash controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
     ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
     │   └── raise restricted camera pose controls
     └── return
@@ -1780,6 +1845,7 @@ trackball_camera_controls.ts
 │   │   └── # applies the entire CameraState (every field — both intrinsics and extrinsics) to the underlying camera and controls
 │   └── subscribeCameraStateChange
 ├── function createTrackballCameraControls
+│   ├── # Builds, validates, and returns the trackball controls, seeding them from initialCameraState and observing the container's data-camera-state attribute for external sync.
 │   ├── calls createRendererTrackballCameraControls
 │   ├── calls assertTrackballCameraControls
 │   ├── if initialCameraState is not null
@@ -1787,24 +1853,29 @@ trackball_camera_controls.ts
 │   ├── impls MutationObserver on container's `data-camera-state` attribute → controls.applyCameraState(parsed state)
 │   └── return
 ├── function createRendererTrackballCameraControls
+│   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 │   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu
 │   └── return
 ├── function assertTrackballCameraControls
+│   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
 │   ├── calls assertTrackballMouseMapping
 │   ├── calls assertNoOrbitCameraControls
 │   ├── calls assertNoCameraPoseClamps
 │   └── return
 ├── function assertTrackballMouseMapping
+│   ├── # Asserts the controls map left-drag to rotate, right-drag to pan, and wheel to zoom, and that the canvas suppresses its context menu.
 │   ├── if controls do not map left-button drag to rotation, right-button drag to panning, and mouse-wheel scroll to zoom
 │   │   └── throw invalid trackball camera controls
 │   ├── if viewer canvas does not suppress the default browser context menu
 │   │   └── throw context menu blocks trackball panning
 │   └── return
 ├── function assertNoOrbitCameraControls
+│   ├── # Asserts the controls do not use forbidden orbit-style target-locked camera semantics.
 │   ├── if controls use orbit-style target-locked camera semantics
 │   │   └── throw orbit-style camera controls are forbidden
 │   └── return
 └── function assertNoCameraPoseClamps
+    ├── # Asserts the controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
     ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
     │   └── throw restricted camera pose controls
     └── return
@@ -1816,12 +1887,15 @@ trackball_camera_controls.ts
 camera_sync.py
 ├── from data.viewer.utils.camera_state.dash.camera_state import CameraState
 ├── def create_camera_sync_store
+│   ├── # Creates the Dash store that holds the per-source camera-sync registry keyed by source id.
 │   ├── impls creates Dash store holding a mapping from source id to its CameraSyncState entry (source id, target ids, current camera state)
 │   └── return
 ├── def register_camera_sync_callbacks
+│   ├── # Registers the Dash callbacks that observe each source display's camera and fan its state out to its targets.
 │   ├── calls _sync_camera_to_current_targets
 │   └── return
 ├── def _sync_camera_to_current_targets
+│   ├── # Dash callback body that commits the firing source's camera and pushes it to every other target registered under that source.
 │   ├── calls _set_camera_state_from_source_camera
 │   ├── for each current target id from Dash callback inputs or layout pattern ids registered under the firing source
 │   │   ├── if target id is source id
@@ -1829,8 +1903,10 @@ camera_sync.py
 │   │   └── calls apply_camera_state_to_target
 │   └── return
 ├── def _set_camera_state_from_source_camera
+│   ├── # Commits the firing source display's current camera state into that source's CameraSyncState entry in the store.
 │   └── return
 └── def apply_camera_state_to_target
+    ├── # Applies one source's current camera state to a single registered Dash spatial-display target.
     ├── impls applies the source's CameraSyncState.camera_state to a Dash spatial-display target registered under that source
     └── return
 ```
