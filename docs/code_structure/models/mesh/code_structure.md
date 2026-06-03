@@ -132,7 +132,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from models.three_d.meshes.texture.extract.camera_geometry import _verts_world_to_camera
 ├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights
-├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import build_uv_polygon_texel_intersections, build_uv_triangle_texel_intersections_v2, build_visible_face_pixel_polygons, camera_verts_to_pixel, _clip_convex_polygons_to_pixel_squares, _compute_convex_polygon_areas, compute_face_inverse_depth_coefficients, duplicate_wrapped_uv_polygons, project_screen_polygons_to_face_uv, triangulate_convex_uv_polygons
+├── from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import build_uv_polygon_texel_intersections, build_uv_triangle_texel_intersections_v2, build_visible_face_pixel_polygons, camera_verts_to_pixel, clip_convex_polygons_to_pixel_squares, _compute_convex_polygon_areas, compute_face_inverse_depth_coefficients, duplicate_wrapped_uv_polygons, project_screen_polygons_to_face_uv, triangulate_convex_uv_polygons
 ├── def compute_f_visibility_mask(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor], polygon_rast_method: str='v2') -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from exact camera-pixel footprints.
 │   ├── calls _verts_world_to_camera(verts=verts, camera=camera)
@@ -156,7 +156,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
 │   │   └── # Enumerate all candidate face-pixel pairs.
 │   ├── def _clip_face_triangles_to_pixel_squares(repeated_face_indices: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor, total_pair_count: int) -> Tuple[torch.Tensor, torch.Tensor] [local]
 │   │   ├── # Clip projected face triangles to candidate pixel squares.
-│   │   └── calls _clip_convex_polygons_to_pixel_squares(polygon_verts=polygon_verts, polygon_vertex_counts=polygon_vertex_counts, pixel_x=pixel_x.to(dtype=torch.float32), pixel_y=pixel_y.to(dtype=torch.float32))
+│   │   └── calls clip_convex_polygons_to_pixel_squares(polygon_verts=polygon_verts, polygon_vertex_counts=polygon_vertex_counts, pixel_x=pixel_x.to(dtype=torch.float32), pixel_y=pixel_y.to(dtype=torch.float32))
 │   ├── def _pack_valid_face_pixel_polygons(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor, repeated_face_indices: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] [local]
 │   │   ├── # Reject degenerate overlaps and pack the surviving polygons.
 │   │   └── calls _compute_convex_polygon_areas(polygon_verts=clipped_polygon_verts, polygon_vertex_counts=clipped_polygon_vertex_counts)
@@ -267,10 +267,6 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │   └── # Pack variable-count face-pixel polygons into pixel-major padded tensors.
 ├── def compute_face_inverse_depth_coefficients(face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor) -> torch.Tensor
 │   └── # Compute affine inverse-depth coefficients over projected face triangles.
-├── def _build_face_pixel_intersection_polygons(face_screen_verts: torch.Tensor, image_height: int, image_width: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-│   ├── # Build exact face-pixel intersection polygons for all candidate pixels.
-│   ├── calls _clip_convex_polygons_to_pixel_squares(polygon_verts=polygon_verts, polygon_vertex_counts=polygon_vertex_counts, pixel_x=pixel_x.to(dtype=torch.float32), pixel_y=pixel_y.to(dtype=torch.float32))
-│   └── calls _compute_convex_polygon_areas(polygon_verts=clipped_polygon_verts, polygon_vertex_counts=clipped_polygon_vertex_counts)
 ├── def _compute_points_in_convex_polygons(points: torch.Tensor, polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> torch.Tensor
 │   ├── # Test whether each point lies inside its corresponding convex polygon.
 │   └── calls _cross_2d(a=next_verts - current_verts, b=points.reshape(-1, 1, 2) - current_verts)
@@ -282,7 +278,7 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │   └── # Compute areas of convex polygons.
 ├── def camera_verts_to_pixel(verts_camera: torch.Tensor, intrinsics: torch.Tensor) -> torch.Tensor
 │   └── # Project camera-space verts into image pixel coordinates.
-├── def _clip_convex_polygons_to_pixel_squares(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
+├── def clip_convex_polygons_to_pixel_squares(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Clip convex polygons against their corresponding pixel squares.
 │   ├── if torch.all(polygon_vertex_counts == 3)
 │   │   └── calls _clip_triangle_polygons_to_pixel_squares(triangle_verts=polygon_verts[:, :3, :].contiguous(), pixel_x=pixel_x, pixel_y=pixel_y, output_vertex_capacity=polygon_verts.shape[1])
@@ -305,11 +301,6 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │   ├── calls _cross_2d(a=(triangle_v1 - triangle_v0).expand(-1, point_count, -1), b=points - triangle_v0)
 │   ├── calls _cross_2d(a=(triangle_v2 - triangle_v1).expand(-1, point_count, -1), b=points - triangle_v1)
 │   └── calls _cross_2d(a=(triangle_v0 - triangle_v2).expand(-1, point_count, -1), b=points - triangle_v2)
-├── def _compute_convex_polygon_pixel_square_positive_area_overlap_mask(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor) -> torch.Tensor
-│   ├── # Detect positive-area overlap between convex polygons and pixel squares.
-│   ├── calls _compute_convex_polygon_bounds(polygon_verts=polygon_verts, polygon_vertex_counts=polygon_vertex_counts)
-│   ├── calls _clip_convex_polygons_to_pixel_squares(polygon_verts=clipped_polygon_input_verts, polygon_vertex_counts=polygon_vertex_counts[bbox_overlap_mask], pixel_x=pixel_x[bbox_overlap_mask], pixel_y=pixel_y[bbox_overlap_mask])
-│   └── calls _compute_convex_polygon_areas(polygon_verts=clipped_polygon_verts, polygon_vertex_counts=clipped_polygon_vertex_counts)
 ├── def duplicate_wrapped_uv_polygons(uv_polygon_verts: torch.Tensor, uv_polygon_vertex_counts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Duplicate UV polygons across the cylindrical wrap boundary when needed.
 │   └── calls _compute_convex_polygon_bounds(polygon_verts=uv_polygon_verts, polygon_vertex_counts=uv_polygon_vertex_counts)
@@ -324,11 +315,6 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
 │               └── calls _compute_triangle_pixel_square_positive_area_overlap_mask(triangle_verts=boundary_triangles, pixel_x=boundary_pixel_x[boundary_triangle_candidate_indices], pixel_y=boundary_pixel_y[boundary_triangle_candidate_indices])
 ├── def triangulate_convex_uv_polygons(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> torch.Tensor
 │   └── # Triangulate convex UV polygons into a triangle soup.
-├── def _duplicate_wrapped_uv_triangles(uv_triangles: torch.Tensor) -> torch.Tensor
-│   └── # Duplicate UV triangles across the cylindrical wrap boundary when needed.
-├── def _build_uv_triangle_texel_intersections(uv_triangles: torch.Tensor, texture_size: int) -> torch.Tensor
-│   ├── # Build exact UV-triangle to texel-cell intersection indices.
-│   └── calls _compute_triangle_pixel_square_positive_area_overlap_mask(triangle_verts=triangle_texel_verts[repeated_triangle_indices], pixel_x=texel_x.to(dtype=torch.float32) + 0.5, pixel_y=texel_y.to(dtype=torch.float32) + 0.5)
 └── def build_uv_triangle_texel_intersections_v2(uv_triangles: torch.Tensor, texture_size: int) -> torch.Tensor
     ├── # Build approximate step-2 `v2` UV-triangle to texel-cell intersections.
     ├── def _compute_triangle_edge_function_coefficients(triangle_verts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
