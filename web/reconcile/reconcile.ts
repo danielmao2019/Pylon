@@ -1,4 +1,4 @@
-// Identity-preserving DOM patch driver consumed by any TS SPA's route render step.
+// VNode constructor plus identity-preserving DOM patch driver, consumed by any TS SPA's route render step.
 
 export type VNode = ElementVNode | LeafVNode;
 
@@ -16,6 +16,29 @@ export interface LeafVNode {
   key: string;
   props: Record<string, unknown>;
   render: () => HTMLElement;
+}
+
+// Constructs an ElementVNode, normalizing the authoring shape into web's strict VNode union so call-sites express a tree rather than literals.
+export function createElementVNode(
+  tag: string,
+  props: Record<string, unknown>,
+  children: Array<VNode | string>,
+): ElementVNode {
+  const { key: rawKey, ...rest } = props;
+  const key: string | null = typeof rawKey === "string" ? rawKey : null;
+  const normalized: VNode[] = children.map((child, index): VNode => {
+    if (typeof child !== "string") {
+      return child;
+    }
+    const text: string = child;
+    return {
+      kind: "leaf",
+      key: `text:${index}`,
+      props: { text },
+      render: () => document.createElement("span"),
+    };
+  });
+  return { kind: "element", tag, key, props: rest, children: normalized };
 }
 
 interface ReconcilerState {
