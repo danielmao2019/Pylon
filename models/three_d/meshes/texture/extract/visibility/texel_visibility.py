@@ -62,12 +62,12 @@ from models.three_d.meshes.texture.extract.camera_geometry import (
     _verts_world_to_camera,
 )
 from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import (
-    _clip_convex_polygons_to_pixel_squares,
     _compute_convex_polygon_areas,
     build_uv_polygon_texel_intersections,
     build_uv_triangle_texel_intersections_v2,
     build_visible_face_pixel_polygons,
     camera_verts_to_pixel,
+    clip_convex_polygons_to_pixel_squares,
     compute_face_inverse_depth_coefficients,
     duplicate_wrapped_uv_polygons,
     project_screen_polygons_to_face_uv,
@@ -622,7 +622,7 @@ def _compute_face_pixel_polygon_intersections_without_occlusion(
             device=face_screen_verts.device,
             dtype=torch.long,
         )
-        return _clip_convex_polygons_to_pixel_squares(
+        return clip_convex_polygons_to_pixel_squares(
             polygon_verts=polygon_verts,
             polygon_vertex_counts=polygon_vertex_counts,
             pixel_x=pixel_x.to(dtype=torch.float32),
