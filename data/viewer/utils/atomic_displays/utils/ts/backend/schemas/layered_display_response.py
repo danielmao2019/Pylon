@@ -26,6 +26,11 @@ SPATIAL_DISPLAY_KINDS = frozenset(
         "segmentation_gs",
         "scene_graph",
         "camera",
+        # Meshes are spatial 3D displays, like point clouds and gaussians.
+        "color_mesh",
+        "segmentation_mesh",
+        "heatmap_mesh",
+        "sparse_heatmap_mesh",
     }
 )
 
