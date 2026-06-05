@@ -23,7 +23,7 @@ from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_c
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 from models.three_d.meshes.texture.extract.extract import (
-    _compute_f_normals_weights,
+    compute_f_normals_weights,
     _project_f_colors,
     _rasterize_face_weights_to_uv,
 )
@@ -1081,7 +1081,7 @@ def _run_single_texel_visibility_extraction(
     visibility_ms = (time.perf_counter() - visibility_start_time) * 1000.0
     torch.cuda.synchronize(device=cuda_device)
     other_start_time = time.perf_counter()
-    face_normals_weight = _compute_f_normals_weights(
+    face_normals_weight = compute_f_normals_weights(
         verts=verts,
         faces=faces,
         camera=camera,
