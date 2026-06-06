@@ -17,6 +17,7 @@ utils/
 │   │       │       └── layered_display_response.py # composite LayeredDisplayResponse schema: one base + a generic list of auxiliary layers
 │   │       └── frontend/
 │   │           ├── layered_display_container.ts # stacks a base VNode + a generic list of auxiliary VNodes into one layered-container VNode
+│   │           ├── three_scene_helpers.ts # shared three.js scene/perspective-camera/WebGL-renderer/display-container factories + render-loop starter
 │   │           └── types/
 │   │               ├── display_response.ts # base atomic DisplayResponse interface
 │   │               └── layered_display_response.ts # composite LayeredDisplayResponse interface: one base + a generic list of auxiliary layers

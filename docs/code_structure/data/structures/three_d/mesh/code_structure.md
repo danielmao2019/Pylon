@@ -42,18 +42,18 @@ data/structures/three_d/mesh/mesh.py
 data/structures/three_d/mesh/validate.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
+├── def validate_mesh_attributes(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
+│   ├── # Validates the geometry and the texture<->geometry linkage; the texture self-validates its own internal shapes.
+│   ├── calls validate_verts
+│   ├── calls validate_faces
+│   ├── calls _validate_device_compatible
+│   └── # linkage: faces index verts; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.faces_uvs rows == F
 ├── def validate_verts(obj: Any) -> None
 │   └── # Validates a mesh vertex tensor (float [V,3], finite, non-empty).
 ├── def validate_faces(obj: Any) -> None
 │   └── # Validates a mesh face tensor (integer [F,3], non-empty, non-negative indices).
-├── def _validate_device_compatible(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture]) -> None
-│   └── # Asserts the texture's tensors live on the verts' device.
-└── def validate_mesh_attributes(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
-    ├── # Validates the geometry and the texture<->geometry linkage; the texture self-validates its own internal shapes.
-    ├── calls validate_verts
-    ├── calls validate_faces
-    ├── calls _validate_device_compatible
-    └── # linkage: faces index verts; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.faces_uvs rows == F
+└── def _validate_device_compatible(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture]) -> None
+    └── # Asserts the texture's tensors live on the verts' device.
 ```
 
 ## Texture: abstract base
@@ -610,8 +610,6 @@ data/structures/three_d/mesh/convert.py
 │   │   └── calls _vertex_color_to_trimesh
 │   └── else
 │       └── # geometry-only Trimesh
-├── def _vertex_color_to_float_rgb(vertex_color: torch.Tensor) -> np.ndarray
-│   └── # Converts a repo vertex_color tensor to a float32 RGB [0,1] array; shared by mesh_to_open3d and _vertex_color_to_trimesh.
 ├── def _uv_mesh_from_trimesh(verts: np.ndarray, faces: np.ndarray, verts_uvs: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
 │   └── # Welds trimesh's per-corner duplicate verts (exact-position equality) into the geometry domain, returning (verts, faces, verts_uvs, faces_uvs).
 ├── def _texture_image_from_trimesh(image: object) -> np.ndarray
@@ -623,9 +621,11 @@ data/structures/three_d/mesh/convert.py
 │   └── calls collapse_seam_shifted_uv_rows                  # seam-safe canonical -> OBJ vt structure before per-corner expansion
 ├── def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray
 │   └── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.
-└── def _vertex_color_to_trimesh(vertex_color: torch.Tensor) -> np.ndarray
-    ├── # Converts a repo vertex_color tensor to a uint8 RGBA array for trimesh.
-    └── calls _vertex_color_to_float_rgb
+├── def _vertex_color_to_trimesh(vertex_color: torch.Tensor) -> np.ndarray
+│   ├── # Converts a repo vertex_color tensor to a uint8 RGBA array for trimesh.
+│   └── calls _vertex_color_to_float_rgb
+└── def _vertex_color_to_float_rgb(vertex_color: torch.Tensor) -> np.ndarray
+    └── # Converts a repo vertex_color tensor to a float32 RGB [0,1] array; shared by mesh_to_open3d and _vertex_color_to_trimesh.
 ```
 
 ## Package API surface
