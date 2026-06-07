@@ -4,8 +4,10 @@ Code-structure skeleton for `models/three_d/meshes/texture/extract/`. `def` line
 
 ## 1. Code structure trees
 
+`models/three_d/meshes/texture/extract/camera_geometry.py`
+
 ```text
-models/three_d/meshes/texture/extract/camera_geometry.py
+camera_geometry.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
 ├── def render_camera_face_index_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
@@ -24,8 +26,10 @@ models/three_d/meshes/texture/extract/camera_geometry.py
     └── calls world_to_camera_transform(points=verts, extrinsics=camera_single.extrinsics, inplace=False)
 ```
 
+`models/three_d/meshes/texture/extract/extract.py`
+
 ```text
-models/three_d/meshes/texture/extract/extract.py
+extract.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
@@ -38,6 +42,8 @@ models/three_d/meshes/texture/extract/extract.py
 ├── from models.three_d.meshes.texture.extract.weights.weights_cfg import normalize_weights_cfg, validate_weights_cfg
 ├── def extract_texture_from_images(mesh: Union[Mesh, List[Mesh]], images: Union[torch.Tensor, List[torch.Tensor]], cameras: Cameras, weights_cfg: Dict[str, Any]={}, texture_size: int=1024, default_color: float=0.7, return_valid_mask: bool=False, texel_visibility_method: str='v1', polygon_rast_method: str='v2') -> Union[torch.Tensor, Dict[str, torch.Tensor]]
 │   ├── # Extract texture from multi-view RGB images.
+│   ├── calls validate_weights_cfg(weights_cfg=weights_cfg)
+│   ├── calls normalize_weights_cfg(weights_cfg=weights_cfg)
 │   ├── if not extract_uv_texture_map
 │   │   └── calls _extract_vertex_color_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, default_color=default_color)
 │   └── calls _extract_uv_texture_map_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, texture_size=texture_size, default_color=default_color, texel_visibility_method=texel_visibility_method, polygon_rast_method=polygon_rast_method)
@@ -103,8 +109,10 @@ models/three_d/meshes/texture/extract/extract.py
     └── # Map per-face weights to per-UV-pixel weights for one view.
 ```
 
+`models/three_d/meshes/texture/extract/weights/normal_weights.py`
+
 ```text
-models/three_d/meshes/texture/extract/weights/normal_weights.py
+normal_weights.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from models.three_d.meshes.ops.normals import compute_vertex_normals
@@ -118,8 +126,10 @@ models/three_d/meshes/texture/extract/weights/normal_weights.py
     └── calls _verts_world_to_camera(verts=mesh.verts, camera=camera)
 ```
 
+`models/three_d/meshes/texture/extract/weights/weights_cfg.py`
+
 ```text
-models/three_d/meshes/texture/extract/weights/weights_cfg.py
+weights_cfg.py
 ├── WEIGHTS_CFG_ALLOWED_KEYS
 ├── def validate_weights_cfg(weights_cfg: Dict[str, Any]) -> None
 │   └── # Validate one texture-extraction weights config.
@@ -127,8 +137,10 @@ models/three_d/meshes/texture/extract/weights/weights_cfg.py
     └── # Normalize one texture-extraction weights config.
 ```
 
+`models/three_d/meshes/texture/extract/visibility/texel_visibility.py`
+
 ```text
-models/three_d/meshes/texture/extract/visibility/texel_visibility.py
+texel_visibility.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from models.three_d.meshes.texture.extract.camera_geometry import _verts_world_to_camera
 ├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights
@@ -215,8 +227,10 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility.py
     └── calls build_uv_triangle_texel_intersections_v2(uv_triangles=wrapped_uv_triangles, texture_size=texture_size)
 ```
 
+`models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py`
+
 ```text
-models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
+texel_visibility_geometry.py
 ├── TARGET_MULTI_FACE_PIXEL_SPLIT_LINE_BUDGET
 ├── def build_visible_face_pixel_polygons(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, clipped_pixel_indices: torch.Tensor, clipped_face_indices: torch.Tensor, face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Build exact visible face-pixel polygons in batched tensor form.
@@ -325,8 +339,10 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_geometry.py
     └── # Compute 2D cross product magnitude.
 ```
 
+`models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py`
+
 ```text
-models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
+texel_visibility_v2.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
 ├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
@@ -372,8 +388,10 @@ models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py
     └── # Derive the front-depth stopping threshold from the gap distribution.
 ```
 
+`models/three_d/meshes/texture/extract/visibility/vertex_visibility.py`
+
 ```text
-models/three_d/meshes/texture/extract/visibility/vertex_visibility.py
+vertex_visibility.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from models.three_d.meshes.texture.extract.camera_geometry import project_verts_to_image, render_camera_face_index_buffer

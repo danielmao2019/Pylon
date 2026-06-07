@@ -4,8 +4,10 @@ Code-structure skeleton for `data/structures/three_d/mesh/`.
 
 ## Mesh class
 
+`data/structures/three_d/mesh/mesh.py`
+
 ```text
-data/structures/three_d/mesh/mesh.py
+mesh.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.validate import validate_mesh_attributes
 └── class Mesh
@@ -38,8 +40,10 @@ data/structures/three_d/mesh/mesh.py
 
 ## Geometry and linkage validation
 
+`data/structures/three_d/mesh/validate.py`
+
 ```text
-data/structures/three_d/mesh/validate.py
+validate.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def validate_mesh_attributes(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
@@ -58,8 +62,10 @@ data/structures/three_d/mesh/validate.py
 
 ## Texture: abstract base
 
+`data/structures/three_d/mesh/texture/mesh_texture.py`
+
 ```text
-data/structures/three_d/mesh/texture/mesh_texture.py
+mesh_texture.py
 ├── import abc
 └── class MeshTexture(abc.ABC)
     ├── # Abstract base for a mesh's texture; concrete subclasses own the representation-specific tensors and validation.
@@ -71,8 +77,10 @@ data/structures/three_d/mesh/texture/mesh_texture.py
 
 ## Texture: vertex-color representation
 
+`data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py`
+
 ```text
-data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py
+mesh_texture_vertex_color.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 └── class MeshTextureVertexColor(MeshTexture)
@@ -94,8 +102,10 @@ data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py
 
 ## Texture: uv-texture-map representation
 
+`data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py`
+
 ```text
-data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
+mesh_texture_uv_texture_map.py
 ├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map
@@ -125,8 +135,10 @@ data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py
 
 ## Texture: UV-origin convention
 
+`data/structures/three_d/mesh/texture/conventions.py`
+
 ```text
-data/structures/three_d/mesh/texture/conventions.py
+conventions.py
 └── def transform_verts_uvs_convention(verts_uvs: torch.Tensor, source_convention: str, target_convention: str) -> torch.Tensor
     ├── # Transforms a UV table between origin conventions ("obj" = v from bottom, "top_left" = v from top).
     ├── if source_convention == target_convention
@@ -138,8 +150,10 @@ data/structures/three_d/mesh/texture/conventions.py
 
 ## Texture: seam-safe canonical layout
 
+`data/structures/three_d/mesh/texture/canonicalize.py`
+
 ```text
-data/structures/three_d/mesh/texture/canonicalize.py
+canonicalize.py
 ├── def shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart (each face's corners made contiguous: its largest cyclic gap is the wraparound gap), forking any source vt row shared between a shifted and a non-shifted face.
 │   ├── impls for each face, sort its 3 corner-u's and find the largest cyclic gap among the two interior gaps and the wraparound gap (min_u + 1 - max_u)
@@ -157,8 +171,10 @@ data/structures/three_d/mesh/texture/canonicalize.py
 
 ## Texture: vertex-color validation
 
+`data/structures/three_d/mesh/texture/validate_vertex_color.py`
+
 ```text
-data/structures/three_d/mesh/texture/validate_vertex_color.py
+validate_vertex_color.py
 ├── def validate_vertex_color(obj: Any) -> None
 │   ├── # Validates a vertex-color tensor ([V,3] or [1,V,3]; uint8 [0,255] or float32 [0,1]).
 │   ├── if obj.dtype == torch.uint8
@@ -176,8 +192,10 @@ data/structures/three_d/mesh/texture/validate_vertex_color.py
 
 ## Texture: uv-texture-map validation
 
+`data/structures/three_d/mesh/texture/validate_uv_texture_map.py`
+
 ```text
-data/structures/three_d/mesh/texture/validate_uv_texture_map.py
+validate_uv_texture_map.py
 ├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
 │   ├── # Validates the whole uv-texture-map representation: every single-field validator plus the cross-field invariants.
 │   ├── calls validate_uv_texture_map_image                  # single-field: uv_texture_map
@@ -218,8 +236,10 @@ data/structures/three_d/mesh/texture/validate_uv_texture_map.py
 
 ## Texture: texel-to-face map
 
+`data/structures/three_d/mesh/texture/texel_face_map.py`
+
 ```text
-data/structures/three_d/mesh/texture/texel_face_map.py
+texel_face_map.py
 ├── import nvdiffrast.torch as dr
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── if TYPE_CHECKING
@@ -250,8 +270,10 @@ data/structures/three_d/mesh/texture/texel_face_map.py
 
 ## Texture: package API surface
 
+`data/structures/three_d/mesh/texture/__init__.py`
+
 ```text
-data/structures/three_d/mesh/texture/__init__.py
+__init__.py
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
@@ -264,13 +286,17 @@ data/structures/three_d/mesh/texture/__init__.py
 
 ## Loading: API and format dispatch
 
+`data/structures/three_d/mesh/load/__init__.py`
+
 ```text
-data/structures/three_d/mesh/load/__init__.py
+__init__.py
 └── from data.structures.three_d.mesh.load.load import load_mesh
 ```
 
+`data/structures/three_d/mesh/load/load.py`
+
 ```text
-data/structures/three_d/mesh/load/load.py
+load.py
 ├── from data.structures.three_d.mesh.load.load_glb import load_glb_mesh
 ├── from data.structures.three_d.mesh.load.load_obj import load_obj_mesh
 └── def load_mesh(path: Union[str, Path]) -> Mesh
@@ -286,8 +312,10 @@ data/structures/three_d/mesh/load/load.py
 
 ## Loading: OBJ
 
+`data/structures/three_d/mesh/load/load_obj.py`
+
 ```text
-data/structures/three_d/mesh/load/load_obj.py
+load_obj.py
 ├── from pytorch3d.io import load_obj
 ├── from data.structures.three_d.mesh.load.merge import merge_meshes, pack_texture_images
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -335,8 +363,10 @@ data/structures/three_d/mesh/load/load_obj.py
 
 ## Loading: GLB
 
+`data/structures/three_d/mesh/load/load_glb.py`
+
 ```text
-data/structures/three_d/mesh/load/load_glb.py
+load_glb.py
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -383,8 +413,10 @@ data/structures/three_d/mesh/load/load_glb.py
 
 ## Loading: block merging
 
+`data/structures/three_d/mesh/load/merge.py`
+
 ```text
-data/structures/three_d/mesh/load/merge.py
+merge.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
@@ -421,13 +453,17 @@ data/structures/three_d/mesh/load/merge.py
 
 ## Saving: API and format dispatch
 
+`data/structures/three_d/mesh/save/__init__.py`
+
 ```text
-data/structures/three_d/mesh/save/__init__.py
+__init__.py
 └── from data.structures.three_d.mesh.save.save import save_mesh
 ```
 
+`data/structures/three_d/mesh/save/save.py`
+
 ```text
-data/structures/three_d/mesh/save/save.py
+save.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.save.save_glb import save_glb_mesh
 ├── from data.structures.three_d.mesh.save.save_obj import save_obj_mesh
@@ -448,8 +484,10 @@ data/structures/three_d/mesh/save/save.py
 
 ## Saving: OBJ
 
+`data/structures/three_d/mesh/save/save_obj.py`
+
 ```text
-data/structures/three_d/mesh/save/save_obj.py
+save_obj.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
 ├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
@@ -488,8 +526,10 @@ data/structures/three_d/mesh/save/save_obj.py
 
 ## Saving: PLY
 
+`data/structures/three_d/mesh/save/save_ply.py`
+
 ```text
-data/structures/three_d/mesh/save/save_ply.py
+save_ply.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
@@ -518,8 +558,10 @@ data/structures/three_d/mesh/save/save_ply.py
 
 ## Saving: GLB
 
+`data/structures/three_d/mesh/save/save_glb.py`
+
 ```text
-data/structures/three_d/mesh/save/save_glb.py
+save_glb.py
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -562,8 +604,10 @@ data/structures/three_d/mesh/save/save_glb.py
 
 ## Framework interop conversions
 
+`data/structures/three_d/mesh/convert.py`
+
 ```text
-data/structures/three_d/mesh/convert.py
+convert.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
@@ -630,8 +674,10 @@ data/structures/three_d/mesh/convert.py
 
 ## Package API surface
 
+`data/structures/three_d/mesh/__init__.py`
+
 ```text
-data/structures/three_d/mesh/__init__.py
+__init__.py
 ├── from data.structures.three_d.mesh import texture
 ├── from data.structures.three_d.mesh.convert import mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh
 ├── from data.structures.three_d.mesh.load import load_mesh

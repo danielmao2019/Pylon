@@ -4,8 +4,10 @@ Code-structure skeleton for `utils/io/glb.py` and `utils/io/image.py`.
 
 ## glTF/GLB I/O
 
+`utils/io/glb.py`
+
 ```text
-utils/io/glb.py
+glb.py
 ├── import json
 ├── import struct
 ├── import numpy as np
@@ -44,8 +46,10 @@ utils/io/glb.py
 
 ## Image: in-memory bytes codec
 
+`utils/io/image.py`
+
 ```text
-utils/io/image.py
+image.py
 ├── def decode_image_bytes(image_bytes: bytes) -> torch.Tensor
 │   └── # Decodes encoded image bytes (PNG / JPEG / ...) into an HWC uint8 RGB tensor — in-memory counterpart of the file-based load_image.
 └── def encode_image_bytes(image: torch.Tensor, image_format: str) -> bytes

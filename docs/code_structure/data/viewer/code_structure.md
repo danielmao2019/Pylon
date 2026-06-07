@@ -462,7 +462,6 @@ core_points_display.ts
 
 ```text
 apis.py
-├── from typing import Optional
 ├── import torch
 ├── from dash import dcc
 ├── from data.viewer.utils.atomic_displays.pixels.dash.core_pixels_display import create_dash_pixels_display
@@ -577,7 +576,6 @@ display_response.py
 
 ```text
 apis.py
-├── from typing import Any, Dict, Tuple
 ├── import torch
 ├── from data.viewer.utils.atomic_displays.pixels.ts.backend.core_pixels_display import create_pixels_display_response
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
@@ -1156,7 +1154,7 @@ apis.py
 
 ```text
 core_mesh_display.py
-├── from typing import Any, Dict, Optional
+├── from typing import Any, Optional
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
 ├── from data.viewer.utils.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
@@ -1519,7 +1517,6 @@ display_response.py
 
 ```text
 apis.py
-├── from typing import Any, Dict, Tuple
 ├── import torch
 ├── from data.viewer.utils.atomic_displays.gaussians.ts.backend.core_gaussians_display import create_gaussians_display_response
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
@@ -1865,7 +1862,6 @@ trackball_camera_controls.ts
 
 ```text
 camera_sync.py
-├── from data.viewer.utils.camera_state.dash.camera_state import CameraState
 ├── def create_camera_sync_store
 │   ├── # Creates the Dash store that holds the per-source camera-sync registry keyed by source id.
 │   ├── impls creates Dash store holding a mapping from source id to its CameraSyncState entry (source id, target ids, current camera state)
@@ -1895,7 +1891,6 @@ camera_sync.py
 
 ```text
 types.ts
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 └── interface CameraSyncState
     ├── source_id    # the source this entry belongs to; one CameraSyncState exists per source
     ├── target_ids   # targets registered under this source
