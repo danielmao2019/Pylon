@@ -55,10 +55,15 @@ interface SparseHeatmapResource {
 // A pre-loaded mesh payload: per-corner-expanded geometry buffers plus the
 // resolved texture representation (a UV texture map, per-vertex colors, or
 // neither). createThreeMesh consumes this synchronously.
+//
+// vertexColorComponents is the itemSize of the vertexColors buffer: 3 for a
+// dense opaque RGB payload, 4 for a sparse-heatmap overlay RGBA payload whose
+// alpha-0 vertices must render transparent and reveal the base layer beneath.
 interface MeshPayload {
   positions: Float32Array;
   uvs: Float32Array | null;
   vertexColors: Float32Array | null;
+  vertexColorComponents: number;
   texture: THREE.Texture | null;
 }
 
@@ -157,6 +162,7 @@ export async function loadMeshPayload({
     positions: parsed.positions,
     uvs: parsed.uvs,
     vertexColors: parsed.vertexColors,
+    vertexColorComponents: 3,
     texture,
   };
 }
@@ -202,7 +208,7 @@ export function createThreeMesh({
     vertexColors: useVertexColors,
     side: effectiveSide,
     opacity: effectiveOpacity,
-    transparent: effectiveOpacity < 1,
+    transparent: effectiveOpacity < 1 || (useVertexColors && payload.vertexColorComponents === 4),
     ...(useTexture ? { map: payload.texture } : {}),
     ...(effectiveColor !== undefined ? { color: effectiveColor } : {}),
   });
@@ -225,8 +231,10 @@ export function renderMeshScene({
 }
 
 // Resolve a sparse heatmap (indices, values) delta against its referenced
-// geometry into a per-corner vertex-colored payload; corners outside the part's
-// support fall back to the neutral gray the OBJ parser assigns.
+// geometry into a per-corner RGBA overlay payload: corners whose geometry
+// vertex is in `indices` carry that vertex's scalar→rgb heatmap color at alpha
+// 1; every other corner carries alpha 0, so outside the delta the overlay is
+// fully transparent and the textured base layer beneath shows through.
 function _resolveSparseHeatmapPayload({
   parsed,
   sparse,
@@ -235,10 +243,7 @@ function _resolveSparseHeatmapPayload({
   sparse: SparseHeatmapResource;
 }): MeshPayload {
   const cornerCount = parsed.cornerVertexIndices.length;
-  const colors = new Float32Array(cornerCount * 3);
-  for (let i = 0; i < colors.length; i++) {
-    colors[i] = NEUTRAL_GRAY;
-  }
+  const colors = new Float32Array(cornerCount * 4);
   const rgb = _mapScalarsToRgb(sparse.values);
   const rgbByGeometryVertex = new Map<number, [number, number, number]>();
   for (let i = 0; i < sparse.indices.length; i++) {
@@ -254,14 +259,16 @@ function _resolveSparseHeatmapPayload({
     if (color === undefined) {
       continue;
     }
-    colors[corner * 3] = color[0];
-    colors[corner * 3 + 1] = color[1];
-    colors[corner * 3 + 2] = color[2];
+    colors[corner * 4] = color[0];
+    colors[corner * 4 + 1] = color[1];
+    colors[corner * 4 + 2] = color[2];
+    colors[corner * 4 + 3] = 1.0;
   }
   return {
     positions: parsed.positions,
     uvs: null,
     vertexColors: colors,
+    vertexColorComponents: 4,
     texture: null,
   };
 }
@@ -523,7 +530,7 @@ function _buildBaseGeometry(payload: MeshPayload): THREE.BufferGeometry {
   if (payload.vertexColors !== null) {
     geometry.setAttribute(
       "color",
-      new THREE.BufferAttribute(new Float32Array(payload.vertexColors), 3),
+      new THREE.BufferAttribute(new Float32Array(payload.vertexColors), payload.vertexColorComponents),
     );
   }
   geometry.computeVertexNormals();

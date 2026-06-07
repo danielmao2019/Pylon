@@ -1399,7 +1399,7 @@ core_mesh_display.ts
 ├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>
 │   ├── # Async-loads the mesh payload from displayResponse.url; resolves a sparse-heatmap delta against its referenced geometry, otherwise reads the dense resource as-is.
 │   ├── if the url resource is a sparse heatmap resource
-│   │   └── impls resolves the (indices, values) delta against the referenced geometry  → payload
+│   │   └── impls resolves the (indices, values) delta against the referenced geometry into a per-vertex RGBA color payload — vertices in `indices` carry their scalar→rgb heatmap color at alpha 1; every other vertex carries alpha 0 — so a sparse heatmap renders as an overlay that reveals the base layer beneath outside the delta, not a full opaque mesh  → payload
 │   ├── else
 │   │   └── impls reads the dense mesh resource from displayResponse.url               → payload
 │   └── return payload
@@ -1415,7 +1415,7 @@ core_mesh_display.ts
 │   │   └── impls useTexture = false; useVertexColors = true; effectiveColor = undefined
 │   ├── else
 │   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = DEFAULT_MESH_COLOR
-│   ├── impls material = new THREE.MeshBasicMaterial({ vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent: effectiveOpacity < 1, ...(useTexture ? { map: payload.texture } : {}), ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
+│   ├── impls material = new THREE.MeshBasicMaterial({ vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent: effectiveOpacity < 1 || (useVertexColors && payload colors carry per-vertex alpha), ...(useTexture ? { map: payload.texture } : {}), ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; vertexColors honors a 4-component (RGBA) color attribute so an overlay payload's alpha-0 vertices render fully transparent and reveal the layer beneath; no other constructor key; no post-construction mutation of material
 │   └── return new THREE.Mesh(geometry, material)                                                # no post-construction mutation of mesh
 └── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
     ├── # Drives the mesh render loop with the supplied trackball controls.
