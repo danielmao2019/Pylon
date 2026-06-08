@@ -24,7 +24,7 @@ tests/data/structures/three_d/mesh/
 ```text
 test_convert.py
 ├── def test_mesh_from_trimesh_welds_seam_to_geometry_domain
-│   └── # A seamed UV mesh that trimesh loads in per-corner-expanded form (V == U) must come through mesh_from_trimesh on the canonical geometry domain (V <= U, distinct positions), with the seam carried only by verts_uvs / faces_uvs. Enforces the seam contract (task.md design.2).
+│   └── # A seamed UV mesh that trimesh loads in per-corner-expanded form (V == U) must come through mesh_from_trimesh on the canonical geometry domain (V <= U, distinct positions), with the seam carried only by verts_uvs / faces_uvs. Enforces the seam contract.
 ├── def test_vertex_count_is_loader_independent
 │   └── # For one OBJ asset, len(mesh.verts) must be identical whether the mesh is loaded via Mesh.load (PyTorch3D) or via mesh_from_trimesh, since both land on the canonical geometry domain.
 ├── def test_trimesh_uv_round_trip_preserves_geometry
