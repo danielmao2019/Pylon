@@ -142,9 +142,9 @@ display_response.ts
 
 ```text
 layered_display_response.py
-├── from typing import List
+├── from typing import List, Literal
 ├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
-├── RASTER_DISPLAY_KINDS     # frozenset[str]: color_image, depth_image, edge_image, normal_image, segmentation_image, instance_surrogate_image, video
+├── RASTER_DISPLAY_KINDS     # frozenset[str]: color_image, depth_image, edge_image, normal_image, segmentation_image, instance_surrogate_image, video — the single source of the raster/spatial taxonomy
 ├── SPATIAL_DISPLAY_KINDS    # frozenset[str]: color_pc, segmentation_pc, color_gs, segmentation_gs, scene_graph, camera
 └── class LayeredDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
@@ -154,12 +154,14 @@ layered_display_response.py
     ├── meta_info                                    # common field
     ├── base_display_response: DisplayResponse                # the single base layer
     ├── aux_display_responses: List[DisplayResponse]          # ordered auxiliary layers stacked on top of the base; each consumer assigns its own per-layer semantics and owns its own visibility state
+    ├── layer_class: Literal["raster", "spatial"]            # the single composable class shared by all non-placeholder layers; assigned in model_post_init and serialized so the frontend reads it instead of re-deriving the taxonomy
     ├── def model_post_init [override]
-    │   ├── # Pydantic post-construction hook rejecting a layered response whose non-placeholder layers do not all resolve to a single composable display class.
+    │   ├── # Pydantic post-construction hook: rejects a layered response whose non-placeholder layers do not all resolve to a single composable class, and records that class as layer_class.
     │   ├── for each layer in base_display_response and aux_display_responses
     │   │   └── calls _display_class_of
     │   ├── if the resolved non-placeholder classes are not all identical
     │   │   └── raise ValueError
+    │   ├── impls self.layer_class = the single resolved non-placeholder class
     │   └── return
     └── def _display_class_of
         ├── # Maps a layer's display_kind to "raster", "spatial", or "placeholder", raising for non-layerable text-based kinds.
@@ -185,19 +187,65 @@ layered_display_response.ts
     ├── url                                          # common field
     ├── meta_info                                    # common field
     ├── base_display_response: DisplayResponse
-    └── aux_display_responses: DisplayResponse[]
+    ├── aux_display_responses: DisplayResponse[]
+    └── layer_class: "raster" | "spatial"            # backend-stamped (layered_display_response.layer_class); the frontend reads it instead of re-deriving the raster/spatial taxonomy
 ```
 
 `./data/viewer/utils/atomic_displays/utils/ts/frontend/layered_display_container.ts`
 
 ```text
 layered_display_container.ts
-├── import type { VNode } from "web/reconcile/reconcile";
-└── function renderLayeredDisplayContainer({ layers, slotId }: { layers: readonly VNode[]; slotId: string }): VNode
-    ├── # Stacks the provided child VNodes in given order into one layered-container ElementVNode.
-    ├── assert layers is non-empty
-    ├── assert slotId is non-empty
-    └── return ElementVNode keyed by slotId with layers as identity-keyed children
+├── import * as THREE from "three";
+├── import type { ElementVNode, VNode } from "web/reconcile/reconcile";
+├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import { createThreeDisplayContainer, createThreeScene, createThreePerspectiveCamera, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
+├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
+├── export type SpatialLayerContributor = (scene: THREE.Scene) => void   # a spatial layer builds its THREE object(s) into its OWN scene; one scene per layer lets the render loop composite layers without Z-fighting coincident geometry
+├── export type LayerSpec = { id: string; visible: boolean; displayClass: "spatial"; contributeToScene: SpatialLayerContributor } | { id: string; visible: boolean; displayClass: "raster"; node: VNode }   # every layer (base + ALL aux) is passed regardless of visibility — `id` identifies it, `visible` is its current toggle state; the consumer rebuilds this list each render with stable `id`s and updated `visible` flags
+├── function renderLayeredDisplayContainer({ layers, slotId, initialCameraState }: { layers: readonly LayerSpec[]; slotId: string; initialCameraState: CameraState | null }): VNode
+│   ├── # Composes a layered display into ONE WebGL context per cell; routes on the backend-stamped class (layers[0].displayClass, homogeneous per layered_display_response.model_post_init).
+│   ├── if layers[0].displayClass == "spatial"
+│   │   └── return renderSpatialLayeredContainer({ layers, slotId, initialCameraState })
+│   └── if layers[0].displayClass == "raster"
+│       └── return renderRasterLayeredContainer({ layers, slotId })
+├── function renderSpatialLayeredContainer({ layers, slotId, initialCameraState }: { layers: readonly LayerSpec[]; slotId: string; initialCameraState: CameraState | null }): VNode
+│   ├── # Renders the spatial layers into ONE shared context as a LeafVNode keyed by the STABLE slotId (never re-mounts on toggle) — the base layer owns the camera/controls and aux follow it; the visible set rides as a data-visible-layers prop the render loop reads each frame.
+│   ├── calls createLayeredSpatialScene({ layers, initialCameraState })                          → { container, baseScene, auxScenes, camera, renderer }
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  → controls   # the one camera, owned by the base layer; aux carry no controls
+│   ├── calls _registerSceneResize({ container, camera, renderer, controls })
+│   ├── calls _publishCameraState({ container, controls })                                        # publish the initial base-camera pose
+│   ├── impls controls.addEventListener("change", () => _publishCameraState({ container, controls }))   # re-publish on change so the consumer can observe and persist this cell's base-camera pose
+│   ├── calls renderLayeredSpatialScene({ container, baseScene, auxScenes, camera, renderer, controls })
+│   └── return LeafVNode keyed by slotId with props { "data-visible-layers": layers.filter(l => l.visible).map(l => l.id).join(",") }   # the reconciler mirrors the visible set onto this attribute every render; the render loop reads it back each frame
+├── function createLayeredSpatialScene({ layers, initialCameraState }: { layers: readonly LayerSpec[]; initialCameraState: CameraState | null }): { container: HTMLDivElement; baseScene: THREE.Scene; auxScenes: { id: string; scene: THREE.Scene }[]; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
+│   ├── # Composes the one shared container/camera/renderer + one THREE.Scene per layer (layers[0] = base, the rest = aux), each populated by its contributor.
+│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })   → container
+│   ├── calls createThreePerspectiveCamera({ initialCameraState })              → camera
+│   ├── calls createThreeWebGLRenderer({ container })                           → renderer
+│   ├── impls baseScene = createThreeScene(); layers[0].contributeToScene(baseScene)
+│   ├── impls auxScenes = layers.slice(1).map(l => { scene = createThreeScene(); l.contributeToScene(scene); return { id: l.id, scene } })
+│   └── return { container, baseScene, auxScenes, camera, renderer }
+├── function renderLayeredSpatialScene({ container, baseScene, auxScenes, camera, renderer, controls }: { container: HTMLElement; baseScene: THREE.Scene; auxScenes: readonly { id: string; scene: THREE.Scene }[]; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
+│   ├── # Reuses startThreeSceneRenderLoop for the base pass; in onAfterRender re-reads container.dataset.visibleLayers each frame and draws only the listed aux scenes over the base (clearDepth between), so toggling the attribute toggles a layer with no observer.
+│   ├── calls startThreeSceneRenderLoop({ scene: baseScene, camera, renderer, controls, onAfterRender: () => { ids = new Set((container.dataset.visibleLayers ?? "").split(",").filter(s => s.length > 0)); renderer.autoClear = false; auxScenes.forEach(({ id, scene }) => { if (ids.has(id)) { renderer.clearDepth(); renderer.render(scene, camera) } }); renderer.autoClear = true } })
+│   └── return
+├── function renderRasterLayeredContainer({ layers, slotId }: { layers: readonly LayerSpec[]; slotId: string }): VNode
+│   ├── # Stacks the VISIBLE raster (2D image/video) layer nodes as absolutely-positioned full-bleed elements; each node is keyed by its layer id so the reconciler adds/removes only the toggled raster layers — DOM stacking has no shared-context cost, so raster needs no one-context observer.
+│   ├── impls children = layers.filter(l => l.visible).map(l => ElementVNode div keyed `${slotId}/layer/${l.id}`, style { position: absolute, inset: 0 }, children [l.node])
+│   └── return ElementVNode keyed by slotId, props { className: "layered-display-container", style { position: relative, full-bleed } }, children
+├── function _registerSceneResize({ container, camera, renderer, controls }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
+│   ├── # Keeps the renderer size + camera aspect synced to the one shared container via a ResizeObserver — the layered container's own copy of the per-display resize helper.
+│   ├── impls resize = () => { camera.aspect = container width/height; camera.updateProjectionMatrix(); renderer.setSize(container width, height, false); controls.handleResize() }
+│   ├── impls resize()
+│   ├── impls new ResizeObserver(resize).observe(container)
+│   └── impls window.addEventListener("resize", resize)
+└── function _publishCameraState({ container, controls }: { container: HTMLDivElement; controls: ReturnType<typeof createTrackballCameraControls> }): void
+    ├── # Publishes the controls' base-camera state onto the container — dataset.cameraState plus a bubbling camera-pose-change event — so the consumer can observe this cell's base-camera pose (e.g. persist it across mode cells); the layered container's own copy of the per-display publish helper.
+    ├── impls cameraState = controls.getCameraState()
+    ├── if cameraState is null
+    │   └── return
+    ├── impls container.dataset.cameraState = JSON.stringify(cameraState)
+    └── impls container.dispatchEvent(new CustomEvent("camera-pose-change", { bubbles: true, detail: cameraState }))
 ```
 
 `./data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers.ts`
@@ -229,13 +277,21 @@ three_scene_helpers.ts
 │   ├── impls canvas mounted inside the provided container
 │   └── return
 └── function startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> | null; onAfterRender?: () => void }): void
-    ├── # Shared requestAnimationFrame loop; controls is null for passive overlays whose camera is externally synced, and onAfterRender lets a caller append a per-frame step (e.g. scene_graph's label projection).
-    ├── if controls is not null
-    │   └── impls calls controls.update() each frame
-    ├── impls calls THREE.WebGLRenderer.render(scene, camera) each frame
-    ├── if onAfterRender is provided
-    │   └── impls invokes onAfterRender after each render
-    └── return
+    ├── # Shared requestAnimationFrame loop driving one base scene each frame; self-stops and releases its WebGL context once its canvas leaves the DOM, so an unmounted cell (mode/scene switch, or a layer-set re-mount) never leaks an active context. onAfterRender lets a caller append a per-frame step (e.g. the layered container's aux passes, or scene_graph's label projection).
+    ├── impls wasConnected = false   # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
+    ├── def draw
+    │   ├── # The requestAnimationFrame callback: stops and frees the context once the canvas leaves the DOM, otherwise renders one frame and reschedules itself.
+    │   ├── impls connected = renderer.domElement.isConnected; if connected then wasConnected = true
+    │   ├── if wasConnected and not connected                                       # canvas detached → the cell was unmounted
+    │   │   ├── impls renderer.dispose(); renderer.forceContextLoss()
+    │   │   └── return                                                              # stop the loop without rescheduling
+    │   ├── if controls is not null
+    │   │   └── impls controls.update()
+    │   ├── impls renderer.render(scene, camera)
+    │   ├── if onAfterRender is provided
+    │   │   └── impls onAfterRender()
+    │   └── impls window.requestAnimationFrame(draw)
+    └── impls window.requestAnimationFrame(draw)
 ```
 
 `./data/viewer/utils/atomic_displays/points/dash/apis.py`
@@ -427,9 +483,9 @@ core_points_display.ts
 ├── function createPointsScene({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState: CameraState | null; pointSize?: number; pointColor?: string }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Composes container, scene, camera, renderer; the THREE.Points is loaded asynchronously and added to the scene when ready.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
-│   ├── calls createThreeScene()                                                 → scene                  # initially empty; THREE.Points joins on async resolve
 │   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
 │   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
+│   ├── calls createThreeScene()                                                 → scene                  # initially empty; THREE.Points joins on async resolve
 │   ├── impls loadPointGeometry({ displayResponse }).then(geometry => scene.add(createThreePoints({ geometry, pointSize, pointColor })))
 │   └── return { container, scene, camera, renderer }
 ├── async function loadPointGeometry({ displayResponse }: { displayResponse: PointDisplayResponse }): Promise<THREE.BufferGeometry>
@@ -1389,9 +1445,9 @@ core_mesh_display.ts
 ├── function createMeshScene({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Composes container, scene, camera, renderer; mesh payload is loaded asynchronously and THREE.Mesh joins the scene on resolve.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
-│   ├── calls createThreeScene()                                                 → scene                  # initially empty; THREE.Mesh joins on async resolve
 │   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
 │   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
+│   ├── calls createThreeScene()                                                 → scene                  # initially empty; THREE.Mesh joins on async resolve
 │   ├── impls loadMeshPayload({ displayResponse }).then(payload => scene.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })))
 │   └── return { container, scene, camera, renderer }
 ├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>

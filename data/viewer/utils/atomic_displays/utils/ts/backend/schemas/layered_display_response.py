@@ -50,6 +50,7 @@ class LayeredDisplayResponse(DisplayResponse):
     display_kind: Literal["layered"] = "layered"
     base_display_response: DisplayResponse
     aux_display_responses: List[DisplayResponse]
+    layer_class: Literal["raster", "spatial"] = "raster"
 
     def _display_class_of(self, layer: DisplayResponse) -> str:
         """Map a layer's display_kind to its composable display class.
@@ -79,14 +80,15 @@ class LayeredDisplayResponse(DisplayResponse):
             )
 
     def model_post_init(self, __context) -> None:
-        """Reject a layered response whose layers do not share one display class.
+        """Reject inhomogeneous layers and record the shared display class.
 
         Args:
             __context: Pydantic post-construction context object (unused).
 
         Returns:
             None. Raises ValueError when the non-placeholder layers do not all
-            resolve to a single composable display class.
+            resolve to a single composable display class. Otherwise assigns
+            self.layer_class to that single resolved class.
         """
         layers = [self.base_display_response] + self.aux_display_responses
         resolved_classes = [self._display_class_of(layer) for layer in layers]
@@ -101,3 +103,4 @@ class LayeredDisplayResponse(DisplayResponse):
                 f"display class: non_placeholder_classes={non_placeholder_classes}, "
                 f"resolved_classes={resolved_classes}."
             )
+        self.layer_class = non_placeholder_classes[0]

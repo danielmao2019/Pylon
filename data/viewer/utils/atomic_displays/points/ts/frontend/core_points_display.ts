@@ -127,7 +127,7 @@ function createPointsScene({
   return { container, scene, camera, renderer };
 }
 
-async function loadPointGeometry({
+export async function loadPointGeometry({
   displayResponse,
 }: {
   displayResponse: PointDisplayResponse;
@@ -143,7 +143,7 @@ async function loadPointGeometry({
   return parsePlyBuffer({ buffer });
 }
 
-function createThreePoints({
+export function createThreePoints({
   geometry,
   pointSize,
   pointColor,
