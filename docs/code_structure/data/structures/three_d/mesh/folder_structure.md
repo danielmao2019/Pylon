@@ -8,7 +8,8 @@
 mesh/
 ├── __init__.py        # package API surface (re-exports Mesh + MeshTexture types + free functions)
 ├── mesh.py            # the Mesh class: geometry + optional MeshTexture
-├── validate.py        # geometry validators + texture<->geometry linkage validation
+├── conventions.py     # geometry coordinate-frame convention transform (opencv right-handed <-> deep3dfacerecon left-handed, etc.)
+├── validate.py        # geometry validators (incl. coordinate-frame convention) + texture<->geometry linkage validation
 ├── load/              # load subpackage: top-level OBJ-vs-GLB dispatch + per-format loaders + block merging
 │   ├── __init__.py    # load API surface (re-exports load_mesh)
 │   ├── load.py        # load_mesh API: dispatches an OBJ source vs a GLB file

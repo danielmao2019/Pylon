@@ -8,20 +8,23 @@ Code-structure skeleton for `data/structures/three_d/mesh/`.
 
 ```text
 mesh.py
+├── from data.structures.three_d.mesh.conventions import transform_verts_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
-├── from data.structures.three_d.mesh.validate import validate_mesh_attributes
+├── from data.structures.three_d.mesh.validate import validate_mesh_attributes, validate_mesh_convention
 └── class Mesh
-    ├── # One triangle mesh: geometry (verts, faces) plus an optional MeshTexture.
+    ├── # One triangle mesh: geometry (verts, faces) carried in a labeled coordinate-frame convention, plus an optional MeshTexture.
     ├── verts: torch.Tensor
     ├── faces: torch.Tensor
     ├── texture: Optional[MeshTexture]
+    ├── convention: str                            # geometry coordinate-frame convention (axes + handedness), e.g. "opencv" (right-handed) / "deep3dfacerecon" (left-handed)
     ├── device: torch.device
-    ├── def __init__(self, verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
-    │   ├── # Validates the geometry and the texture<->geometry linkage, then stores the attributes.
+    ├── def __init__(self, verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None, convention: str = "opencv") -> None
+    │   ├── # Validates the geometry, the texture<->geometry linkage, and the coordinate-frame convention, then stores the attributes.
     │   ├── calls validate_mesh_attributes
     │   ├── impls self.verts = verts
     │   ├── impls self.faces = faces
     │   ├── impls self.texture = texture
+    │   ├── impls self.convention = convention
     │   └── impls self.device = self.verts.device
     ├── @classmethod def load(cls, path: Union[str, Path]) -> "Mesh"
     │   ├── # Loads one mesh from a GLB file or an OBJ source (a single OBJ file or a mesh-root directory of OBJs).
@@ -32,10 +35,28 @@ mesh.py
     │   ├── # Saves this mesh to an OBJ/PLY file or a directory.
     │   ├── from data.structures.three_d.mesh.save import save_mesh   # deferred: save.py imports mesh.py, so mesh.py must not import save.py at module level
     │   └── calls save_mesh
-    └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "Mesh"
-        ├── # Returns this mesh on a target device and/or UV-origin convention (self when both already match).
-        ├── calls MeshTexture.to                       # when texture is not None; delegates device + convention
-        └── return Mesh                                # new Mesh wrapping the moved geometry + texture
+    └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None, uv_convention: Optional[str] = None) -> "Mesh"
+        ├── # Returns this mesh on a target device, geometry coordinate-frame convention, and/or texture UV-origin convention (self when all already match).
+        ├── if convention is not None and convention != self.convention
+        │   └── calls transform_verts_convention       # remaps/reflects verts from self.convention into the target geometry frame
+        ├── if uv_convention is not None
+        │   └── calls MeshTexture.to                   # forwards device + uv_convention to the texture (UV-origin conversion)
+        └── return Mesh                                # new Mesh: converted geometry on the target frame + texture on its target UV-origin convention
+```
+
+## Geometry coordinate-frame convention
+
+`data/structures/three_d/mesh/conventions.py`
+
+```text
+conventions.py
+└── def transform_verts_convention(verts: torch.Tensor, source_convention: str, target_convention: str) -> torch.Tensor
+    ├── # Remaps mesh vertices between named geometry frames (axis orientation + handedness).
+    ├── if source_convention == target_convention
+    │   └── return verts
+    └── else
+        ├── impls apply the source-frame -> target-frame signed axis remap to verts (the "opencv" right-handed <-> "deep3dfacerecon" left-handed pair flips one axis sign)
+        └── return                                       # verts in the target frame
 ```
 
 ## Geometry and linkage validation
@@ -46,16 +67,19 @@ mesh.py
 validate.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
-├── def validate_mesh_attributes(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
-│   ├── # Validates the geometry and the texture<->geometry linkage; the texture self-validates its own internal shapes.
+├── def validate_mesh_attributes(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None, convention: str = "opencv") -> None
+│   ├── # Validates the geometry, the coordinate-frame convention, and the texture<->geometry linkage; the texture self-validates its own internal shapes.
 │   ├── calls validate_verts
 │   ├── calls validate_faces
+│   ├── calls validate_mesh_convention
 │   ├── calls _validate_device_compatible
 │   └── # linkage: faces index verts; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.faces_uvs rows == F
 ├── def validate_verts(obj: Any) -> None
 │   └── # Validates a mesh vertex tensor (float [V,3], finite, non-empty).
 ├── def validate_faces(obj: Any) -> None
 │   └── # Validates a mesh face tensor (integer [F,3], non-empty, non-negative indices).
+├── def validate_mesh_convention(convention: Any) -> str
+│   └── # Validates and returns a mesh geometry coordinate-frame convention string (one of the named frames, e.g. "opencv", "deep3dfacerecon").
 └── def _validate_device_compatible(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture]) -> None
     └── # Asserts the texture's tensors live on the verts' device.
 ```
@@ -679,9 +703,10 @@ convert.py
 ```text
 __init__.py
 ├── from data.structures.three_d.mesh import texture
+├── from data.structures.three_d.mesh.conventions import transform_verts_convention
 ├── from data.structures.three_d.mesh.convert import mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh
 ├── from data.structures.three_d.mesh.load import load_mesh
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.save import save_mesh
-└── from data.structures.three_d.mesh.validate import validate_faces, validate_mesh_attributes, validate_verts
+└── from data.structures.three_d.mesh.validate import validate_faces, validate_mesh_attributes, validate_mesh_convention, validate_verts
 ```
