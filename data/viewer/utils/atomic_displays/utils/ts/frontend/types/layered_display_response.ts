@@ -4,4 +4,5 @@ export interface LayeredDisplayResponse extends DisplayResponse {
   display_kind: "layered";
   base_display_response: DisplayResponse;
   aux_display_responses: DisplayResponse[];
+  layer_class: "raster" | "spatial";
 }

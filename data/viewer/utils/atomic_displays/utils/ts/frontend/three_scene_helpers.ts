@@ -80,7 +80,17 @@ export function startThreeSceneRenderLoop({
   controls: ThreeTrackballCameraControls | null;
   onAfterRender?: () => void;
 }): void {
+  let wasConnected = false;
   const draw = (): void => {
+    const connected = renderer.domElement.isConnected;
+    if (connected) {
+      wasConnected = true;
+    }
+    if (wasConnected && !connected) {
+      renderer.dispose();
+      renderer.forceContextLoss();
+      return;
+    }
     if (controls !== null) {
       controls.update();
     }
