@@ -77,9 +77,9 @@ The base atomic `DisplayResponse` is owned by `./data/viewer/utils/atomic_displa
 `meta_info` must not encode primary display payloads, rendered legends, presentation objects, or artifact availability state such as `available` or `missing`.
 Backend `data.viewer` camera-display code loads the selected camera artifact, interprets camera conventions, and prepares the camera-vis JSON payload exposed through `CameraDisplayResponse.url`.
 `CameraDisplayResponse.meta_info` is empty because the camera-vis JSON payload is the camera display payload.
-That payload is the main-branch camera visualization contract: a camera trajectory list whose entries preserve the `camera_vis()` semantics of `center`, `center_color`, `axes`, and `frustum_lines`, with every line carrying `start`, `end`, and `color`.
-`camera_vis()` owns construction of one camera's visual primitive: `frustum_scale` is the single visualization scale for the camera frustum glyph, and camera intrinsics shape the frustum.
-Missing intrinsics normalized to an identity matrix naturally produce the default frustum at the same `frustum_scale`; no separate intrinsics-provenance field is needed for camera display geometry.
+That payload is the main-branch camera visualization contract: a camera trajectory list whose entries preserve the `camera_vis()` semantics of `center`, `center_color`, `center_size`, `axes`, and `frustum_lines`, with every line carrying `start`, `end`, and `color`.
+`camera_vis()` owns construction of one camera's visual primitive: `frustum_size` is the world-unit size of the camera frustum glyph's frustum + axis lines, and camera intrinsics shape the frustum.
+Missing intrinsics normalized to an identity matrix naturally produce the default frustum at the same `frustum_size`; no separate intrinsics-provenance field is needed for camera display geometry.
 `cameras_vis()` owns applying that primitive across a `Cameras` collection.
 Backend `data.viewer` camera-display code owns serializing the generic camera-vis payload and exposing it at `CameraDisplayResponse.url`; frontend `data.viewer` owns rendering those centers and line segments.
 Concrete artifact-backed `DisplayResponse` variants represent materialized displays, not unavailable displays with a status flag.
@@ -382,13 +382,13 @@ apis.py
 ├── from typing import Any, Dict, Optional, Tuple
 ├── import torch
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
-├── from data.viewer.utils.atomic_displays.points.ts.backend.core_points_display import create_points_display_response
+├── from data.viewer.utils.atomic_displays.points.ts.backend.core_points_display import create_points_display_response_core
 ├── from data.viewer.utils.atomic_displays.points.ts.backend.schemas.display_response import SegmentationPCDisplayResponse
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_pc_display_response
 │   ├── # Creates a color point-cloud response from an already colorized point resource.
 │   ├── impls point-display meta_info is empty metadata
-│   ├── calls create_points_display_response
+│   ├── calls create_points_display_response_core
 │   └── return
 ├── def create_segmentation_pc_display_response(segmentation_pc_path: str, slot_id: str, title: str, class_id_to_rgb: Optional[Dict[int, Tuple[int, int, int]]] = None) -> SegmentationPCDisplayResponse
 │   ├── # Creates a segmentation point-cloud response from a class-labeled point resource; the caller may override the class-id → rgb mapping, otherwise the lib computes the default mapping via map_class_ids_to_rgb.
@@ -396,7 +396,7 @@ apis.py
 │   ├── impls effective_class_id_to_rgb = class_id_to_rgb if class_id_to_rgb is not None else map_class_ids_to_rgb(class_ids=torch.unique(segmentation_pc.label))
 │   ├── calls _map_segmentation_pc_to_rgb
 │   ├── calls _build_segmentation_pc_meta_info
-│   ├── calls create_points_display_response
+│   ├── calls create_points_display_response_core
 │   └── return
 ├── def _map_segmentation_pc_to_rgb(segmentation_pc_path: str, class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> str
 │   ├── # Writes a backend-colorized point-cloud resource using the class-to-RGB mapping.
@@ -411,7 +411,7 @@ apis.py
 
 ```text
 core_points_display.py
-└── def create_points_display_response
+└── def create_points_display_response_core
     ├── # Creates a point display response from the loadable point resource path and caller-provided display metadata.
     ├── impls builds frontend resource url from point_cloud_path
     ├── impls copies caller-provided meta_info into response metadata
@@ -633,26 +633,26 @@ display_response.py
 ```text
 apis.py
 ├── import torch
-├── from data.viewer.utils.atomic_displays.pixels.ts.backend.core_pixels_display import create_pixels_display_response
+├── from data.viewer.utils.atomic_displays.pixels.ts.backend.core_pixels_display import create_pixels_display_response_core
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_image_display_response
 │   ├── # intentional thin wrapper: passes color image directly to core response
-│   ├── calls create_pixels_display_response
+│   ├── calls create_pixels_display_response_core
 │   └── return
 ├── def create_depth_image_display_response
 │   ├── # maps depth image to color image before core response
 │   ├── calls _map_depth_image_to_rgb
-│   ├── calls create_pixels_display_response
+│   ├── calls create_pixels_display_response_core
 │   └── return
 ├── def create_edge_image_display_response
 │   ├── # maps edge image to color image before core response
 │   ├── calls _map_edge_image_to_rgb
-│   ├── calls create_pixels_display_response
+│   ├── calls create_pixels_display_response_core
 │   └── return
 ├── def create_normal_image_display_response
 │   ├── # maps normal image to color image before core response
 │   ├── calls _map_normal_image_to_rgb
-│   ├── calls create_pixels_display_response
+│   ├── calls create_pixels_display_response_core
 │   └── return
 ├── def create_segmentation_image_display_response
 │   ├── # Creates a segmentation image response from a class-labeled image resource.
@@ -660,7 +660,7 @@ apis.py
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_image))
 │   ├── calls _map_segmentation_image_to_rgb(segmentation_image_path=segmentation_image_path, class_id_to_rgb=class_id_to_rgb)
 │   ├── calls _build_segmentation_image_meta_info(class_id_to_rgb=class_id_to_rgb)
-│   ├── calls create_pixels_display_response
+│   ├── calls create_pixels_display_response_core
 │   └── return
 ├── def create_instance_surrogate_image_display_response
 │   ├── # maps instance-surrogate image to color image before core response
@@ -668,7 +668,7 @@ apis.py
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(instance_surrogate_class_id_image))
 │   ├── calls _map_instance_surrogate_image_to_rgb(image_path=image_path, class_id_to_rgb=class_id_to_rgb)
 │   ├── calls _build_instance_surrogate_image_meta_info(class_id_to_rgb=class_id_to_rgb)
-│   ├── calls create_pixels_display_response
+│   ├── calls create_pixels_display_response_core
 │   └── return
 ├── def _map_depth_image_to_rgb
 │   └── # Writes a backend-colorized image resource by mapping the depth image through the continuous heatmap palette.
@@ -694,7 +694,7 @@ apis.py
 
 ```text
 core_pixels_display.py
-└── def create_pixels_display_response
+└── def create_pixels_display_response_core
     ├── # Creates a pixel-image display response from the loadable image resource path and caller-provided display metadata.
     ├── impls builds frontend resource url
     ├── impls copies caller-provided meta_info into response metadata
@@ -1302,13 +1302,13 @@ apis.py
 ├── from pathlib import Path
 ├── from typing import Any, Dict, Tuple
 ├── import torch
-├── from data.viewer.utils.atomic_displays.mesh.ts.backend.core_mesh_display import create_mesh_display_response
+├── from data.viewer.utils.atomic_displays.mesh.ts.backend.core_mesh_display import create_mesh_display_response_core
 ├── from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response import ColorMeshDisplayResponse, HeatmapMeshDisplayResponse, SegmentationMeshDisplayResponse, SparseHeatmapMeshDisplayResponse
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── from data.viewer.utils.atomic_displays.utils.heatmap_colors import map_scalars_to_rgb
 ├── def create_color_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> ColorMeshDisplayResponse
 │   ├── # Intentional thin wrapper: writes the color mesh resource at output_path and returns ColorMeshDisplayResponse with the caller-provided url.
-│   ├── calls create_mesh_display_response
+│   ├── calls create_mesh_display_response_core
 │   └── return
 ├── def create_segmentation_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> SegmentationMeshDisplayResponse
 │   ├── # Creates a segmentation mesh response from a class-labeled mesh resource read from input_path; processed mesh is written to output_path.
@@ -1316,7 +1316,7 @@ apis.py
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_mesh_class_ids))
 │   ├── calls _map_segmentation_mesh_to_rgb(input_path=input_path, output_path=output_path, class_id_to_rgb=class_id_to_rgb)
 │   ├── calls _build_segmentation_mesh_meta_info(class_id_to_rgb=class_id_to_rgb)
-│   ├── calls create_mesh_display_response
+│   ├── calls create_mesh_display_response_core
 │   └── return
 ├── def create_heatmap_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> HeatmapMeshDisplayResponse
 │   ├── # Creates a heatmap mesh response from a non-negative-scalar-labeled mesh resource read from input_path; processed mesh is written to output_path.
@@ -1324,7 +1324,7 @@ apis.py
 │   ├── calls map_scalars_to_rgb(scalars=heatmap_mesh_scalars)
 │   ├── calls _map_heatmap_mesh_to_rgb(input_path=input_path, output_path=output_path, scalar_rgb=scalar_rgb)
 │   ├── calls _build_heatmap_mesh_meta_info(scalars=heatmap_mesh_scalars)
-│   ├── calls create_mesh_display_response
+│   ├── calls create_mesh_display_response_core
 │   └── return
 ├── def create_sparse_heatmap_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> SparseHeatmapMeshDisplayResponse
 │   ├── # Creates a sparse heatmap mesh response; writes the sparse (indices, values) delta resource to output_path.
@@ -1370,7 +1370,7 @@ core_mesh_display.py
 ├── from pathlib import Path
 ├── from typing import Any, Dict
 ├── from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response import MeshDisplayResponse
-├── def create_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> MeshDisplayResponse
+├── def create_mesh_display_response_core(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> MeshDisplayResponse
 │   ├── # Writes the processed mesh resource to output_path and returns the mesh display response, dispatching on the mesh texture representation.
 │   ├── if mesh texture representation is vertex color
 │   │   └── calls _create_vertex_color_mesh_display_response
@@ -1574,11 +1574,11 @@ display_response.py
 ```text
 apis.py
 ├── import torch
-├── from data.viewer.utils.atomic_displays.gaussians.ts.backend.core_gaussians_display import create_gaussians_display_response
+├── from data.viewer.utils.atomic_displays.gaussians.ts.backend.core_gaussians_display import create_gaussians_display_response_core
 ├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_gs_display_response
 │   ├── # intentional thin wrapper: passes color Gaussian field directly to core response
-│   ├── calls create_gaussians_display_response
+│   ├── calls create_gaussians_display_response_core
 │   └── return
 ├── def create_segmentation_gs_display_response
 │   ├── # Creates a segmentation Gaussian response from a class-labeled Gaussian resource.
@@ -1586,7 +1586,7 @@ apis.py
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_gs_class_ids))
 │   ├── calls _map_segmentation_gs_to_rgb(segmentation_gs_path=segmentation_gs_path, class_id_to_rgb=class_id_to_rgb)
 │   ├── calls _build_segmentation_gs_meta_info(class_id_to_rgb=class_id_to_rgb)
-│   ├── calls create_gaussians_display_response
+│   ├── calls create_gaussians_display_response_core
 │   └── return
 ├── def _map_segmentation_gs_to_rgb
 │   └── # Writes a backend-colorized Gaussian resource by applying the class-to-RGB mapping to the segmentation Gaussian's class ids.
@@ -1600,7 +1600,7 @@ apis.py
 
 ```text
 core_gaussians_display.py
-└── def create_gaussians_display_response
+└── def create_gaussians_display_response_core
     ├── # Creates a Gaussian display response from the loadable Gaussian resource path and caller-provided display metadata.
     ├── impls builds frontend resource url
     ├── impls copies caller-provided meta_info into response metadata
@@ -1686,35 +1686,48 @@ display_response.py
     └── meta_info                                    # common field; empty object for camera display
 ```
 
-`./data/viewer/utils/atomic_displays/cameras/ts/backend/camera_display.py`
+`./data/viewer/utils/atomic_displays/cameras/ts/backend/apis.py`
 
 ```text
-camera_display.py
+apis.py
+├── from typing import Any, Dict, List, Optional, Tuple
 ├── from data.structures.three_d.camera.camera_vis import cameras_vis
 ├── from data.structures.three_d.camera.cameras import Cameras
-├── def create_camera_display_response
-│   ├── # Creates a camera display response whose URL points at the camera-vis JSON payload, built from a caller-supplied Cameras.
-│   ├── calls _build_camera_vis_payload
-│   ├── impls exposes the camera-vis JSON payload through a frontend-loadable URL without writing a benchmark camera-visualization artifact to disk
-│   ├── impls constructs CameraDisplayResponse with a distinct camera layer slot_id, title, url, and meta_info={}
+├── from data.viewer.utils.atomic_displays.cameras.ts.backend.core_camera_display import create_camera_display_response_core
+├── from data.viewer.utils.atomic_displays.cameras.ts.backend.schemas.display_response import CameraDisplayResponse
+├── def create_camera_display_response(slot_id: str, title: str, cameras: Optional[Cameras], frustum_size: Optional[float] = None, frustum_color: Optional[Tuple[int, int, int]] = None, point_size: Optional[float] = None, point_color: Optional[Tuple[int, int, int]] = None) -> CameraDisplayResponse
+│   ├── # Creates a camera display response from a caller-supplied Cameras; the caller may override the baked glyph styles, otherwise each None resolves to the cameras_vis module-global default.
+│   ├── calls _map_camera_params_to_vis
+│   ├── calls create_camera_display_response_core
 │   └── return
-├── def _build_camera_vis_payload
-│   ├── # Converts generic camera visualization primitives into the JSON payload exposed by CameraDisplayResponse.url.
-│   ├── calls cameras_vis
+├── def _map_camera_params_to_vis(cameras, frustum_size: Optional[float], frustum_color: Optional[Tuple[int, int, int]], point_size: Optional[float], point_color: Optional[Tuple[int, int, int]]) -> List[Dict[str, Any]]
+│   ├── # Maps a Cameras collection to the JSON-able camera-vis payload (the camera sibling of _map_segmentation_pc_to_rgb), applying the caller's baked styles or their cameras_vis defaults.
+│   ├── calls cameras_vis                          # forwards frustum_size/frustum_color/point_size/point_color untouched; cameras_vis resolves each None to its module-global style default
 │   ├── for each camera-vis entry
 │   │   └── calls _serialize_camera_vis_entry
 │   └── return
-├── def _serialize_camera_vis_entry
+├── def _serialize_camera_vis_entry(camera_vis_entry) -> Dict[str, Any]
 │   ├── # Converts one camera-vis entry into the JSON shape consumed by the camera renderer.
-│   ├── impls serializes center and center_color
+│   ├── impls serializes center, center_color, and center_size
 │   ├── for each line in axes
 │   │   └── calls _serialize_camera_vis_line
 │   ├── for each line in frustum_lines
 │   │   └── calls _serialize_camera_vis_line
 │   └── return
-└── def _serialize_camera_vis_line
+└── def _serialize_camera_vis_line(camera_vis_line) -> Dict[str, Any]
     ├── # Converts one camera-vis line segment into plain start, end, and color lists.
     ├── impls serializes start, end, and color
+    └── return
+```
+
+`./data/viewer/utils/atomic_displays/cameras/ts/backend/core_camera_display.py`
+
+```text
+core_camera_display.py
+└── def create_camera_display_response_core(slot_id: str, title: str, camera_vis_payload: List[Dict[str, Any]], meta_info: Optional[Dict[str, Any]] = None) -> CameraDisplayResponse
+    ├── # Creates a camera display response from the already-mapped camera-vis payload, exposing it through a frontend-loadable URL.
+    ├── impls builds the camera-vis data URL from camera_vis_payload (json then base64)
+    ├── impls copies caller-provided meta_info into response metadata (empty object for camera display)
     └── return
 ```
 
@@ -1740,36 +1753,29 @@ camera_display.ts
 ├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 ├── import type { CameraDisplayResponse } from "./types/display_response";
 ├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
-├── const DEFAULT_FRUSTUM_COLOR = "#888888"        # hex color — last-resort default frustum line color used when the per-camera payload entry does not carry a color AND the caller does not supply frustumColor; per-entry payload colors still take precedence over frustumColor; lib-owned default, overridable
-├── const DEFAULT_FRUSTUM_OPACITY = 0.5            # number — transparent frustum overlay default applied when the caller does not supply frustumOpacity; lib-owned default, overridable
-├── const DEFAULT_CENTER_MARKER_SIZE = 0.01        # number — marker size for the camera center point used when the caller does not supply centerMarkerSize; lib-owned default, overridable
-├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumColor, frustumOpacity, centerMarkerSize }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumColor?: string; frustumOpacity?: number; centerMarkerSize?: number }): VNode
-│   ├── # Builds a non-interactive transparent layer from the main-branch camera-vis JSON payload, initialized at initialCameraState.
+├── const DEFAULT_FRUSTUM_OPACITY = 0.5            # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
+├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number }): VNode
+│   ├── # Builds a non-interactive transparent layer from the camera-vis JSON payload (glyph sizes + colors baked by camera_vis), initialized at initialCameraState.
 │   ├── throw if CameraDisplayResponse.meta_info is not an empty object
-│   ├── calls createCamerasScene({ displayResponse, initialCameraState, frustumColor, frustumOpacity, centerMarkerSize })
+│   ├── calls createCamerasScene({ displayResponse, initialCameraState, frustumOpacity })
 │   ├── calls renderCamerasScene({ scene, camera, renderer })
 │   └── return LeafVNode keyed by displayResponse.url
-├── function createCamerasScene({ displayResponse, initialCameraState, frustumColor, frustumOpacity, centerMarkerSize }: { displayResponse: CameraDisplayResponse; initialCameraState: CameraState | null; frustumColor?: string; frustumOpacity?: number; centerMarkerSize?: number }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
+├── function createCamerasScene({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState: CameraState | null; frustumOpacity?: number }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Composes container, scene, camera, renderer; camera-vis payload is loaded asynchronously and the cameras Object3D joins the scene on resolve.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: true })                     → container
 │   ├── calls createThreeScene()                                                 → scene                  # initially empty; cameras Object3D joins on async resolve
 │   ├── calls createThreePerspectiveCamera({ initialCameraState })                              → camera
 │   ├── calls createThreeWebGLRenderer({ container })                                           → renderer
-│   ├── impls loadCamerasPayload({ displayResponse }).then(payload => scene.add(createThreeCameras({ payload, frustumColor, frustumOpacity, centerMarkerSize })))
+│   ├── impls loadCamerasPayload({ displayResponse }).then(payload => scene.add(createThreeCameras({ payload, frustumOpacity })))
 │   └── return { container, scene, camera, renderer }
 ├── async function loadCamerasPayload({ displayResponse }: { displayResponse: CameraDisplayResponse }): Promise<CamerasPayload>
-│   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
-├── function createThreeCameras({ payload, frustumColor, frustumOpacity, centerMarkerSize }: { payload: CamerasPayload; frustumColor?: string; frustumOpacity?: number; centerMarkerSize?: number }): THREE.Object3D
-│   ├── # Sync-builds the transparent Three.js centers + line segments from a pre-validated camera-vis payload.
-│   ├── impls effectiveCenterMarkerSize = centerMarkerSize ?? DEFAULT_CENTER_MARKER_SIZE
+│   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / center_size / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
+├── function createThreeCameras({ payload, frustumOpacity }: { payload: CamerasPayload; frustumOpacity?: number }): THREE.Object3D
+│   ├── # Sync-builds the transparent Three.js centers + line segments from a pre-validated camera-vis payload, reading every baked glyph size + color from the payload.
 │   ├── impls effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY
 │   ├── for each entry in payload
-│   │   ├── if entry.frustum_lines carries per-line color
-│   │   │   └── impls effectiveFrustumColor = entry frustum_lines color
-│   │   ├── elif frustumColor !== undefined
-│   │   │   └── impls effectiveFrustumColor = frustumColor
-│   │   └── else
-│   │       └── impls effectiveFrustumColor = DEFAULT_FRUSTUM_COLOR
+│   │   ├── impls renders the center point at entry.center_size colored by entry.center_color
+│   │   └── impls renders the axes + frustum lines each at its baked per-line color
 │   └── return
 └── function renderCamerasScene({ scene, camera, renderer }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }): void
     ├── # Drives the render loop; the cameras-overlay has no trackball controls — its camera is externally synced through the camera-sync registry observing the display element's data-camera-state attribute.
@@ -2014,4 +2020,3 @@ camera_sync.ts
 │           └── impls listener(camera_sync_state)
 └── const cameraSyncRegistry = new CameraSyncRegistry()    # the single document-global registry instance shared by every spatial display in the document; consumers import this instance and call its methods
 ```
-

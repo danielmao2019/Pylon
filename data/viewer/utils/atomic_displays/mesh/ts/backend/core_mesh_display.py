@@ -17,7 +17,7 @@ from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response 
 )
 
 
-def create_mesh_display_response(
+def create_mesh_display_response_core(
     input_path: Path,
     output_path: Path,
     url: str,

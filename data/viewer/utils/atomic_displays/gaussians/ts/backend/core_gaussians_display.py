@@ -8,7 +8,7 @@ from data.viewer.utils.atomic_displays.gaussians.ts.backend.schemas.display_resp
 )
 
 
-def create_gaussians_display_response(
+def create_gaussians_display_response_core(
     response_type: Type[GaussianDisplayResponse],
     slot_id: str,
     title: str,

@@ -8,7 +8,7 @@ from data.viewer.utils.atomic_displays.pixels.ts.backend.schemas.display_respons
 )
 
 
-def create_pixels_display_response(
+def create_pixels_display_response_core(
     response_type: Type[PixelDisplayResponse],
     slot_id: str,
     title: str,

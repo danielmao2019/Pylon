@@ -5,11 +5,11 @@ from typing import Tuple, Union
 import torch
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.camera_vis import camera_vis
 from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
 from data.structures.three_d.point_cloud.camera.transform import (
     world_to_camera_transform,
 )
-from data.structures.three_d.camera.camera_vis import camera_vis
 
 
 def render_camera(
@@ -17,8 +17,7 @@ def render_camera(
     render_at_camera: Camera,
     render_at_resolution: Tuple[int, int],
     return_mask: bool = False,
-    axis_length: float = 4.0,
-    frustum_depth: float = 8.0,
+    frustum_size: float = 8.0,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     assert isinstance(camera, Camera), f"{type(camera)=}"
     assert isinstance(render_at_camera, Camera), f"{type(render_at_camera)=}"
@@ -31,8 +30,7 @@ def render_camera(
 
     geometry = camera_vis(
         camera=camera.to(device=device),
-        axis_length=axis_length,
-        frustum_depth=frustum_depth,
+        frustum_size=frustum_size,
     )
 
     render_at_camera = render_at_camera.to(device=device, convention='opencv')
