@@ -7,7 +7,7 @@ from dash import Dash
 from data.viewer.dataset.callbacks import register_viewer_callbacks
 from data.viewer.dataset.context import DatasetViewerContext, set_viewer_context
 from data.viewer.dataset.layout import build_layout
-from data.viewer.utils.camera_sync import register_plotly_camera_sync
+from data.viewer.utils.controls.camera.camera_sync import register_plotly_camera_sync
 
 
 def create_app(viewer: Any) -> Dash:
