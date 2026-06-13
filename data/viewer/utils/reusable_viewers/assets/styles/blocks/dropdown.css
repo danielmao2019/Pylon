@@ -1,9 +1,0 @@
-.Select-control,
-.dash-dropdown .Select-control {
-  border-color: var(--color-border);
-  border-radius: var(--radius-2);
-}
-
-.Select-menu-outer {
-  border-color: var(--color-border);
-}
