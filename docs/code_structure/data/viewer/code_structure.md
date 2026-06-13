@@ -2037,3 +2037,103 @@ camera_sync.ts
 │           └── impls listener(camera_sync_state)
 └── const cameraSyncRegistry = new CameraSyncRegistry()    # the single document-global registry instance shared by every spatial display in the document; consumers import this instance and call its methods
 ```
+
+`./data/viewer/utils/controls/selectors/ts/backend/schemas/selector_response.py`
+
+```text
+selector_response.py
+├── from typing import List
+├── from pydantic import BaseModel
+├── def build_selector_response
+│   ├── # Build a SelectorResponse from an app's nested (value, label, children) option tuple — the app owns the tree shape, the lib owns the schema.
+│   ├── calls _to_selection_node       # convert the imaginary-root tuple
+│   └── return            # SelectorResponse(root=converted imaginary root)
+├── def _to_selection_node
+│   ├── # Recursion helper: convert one (value, label, children) tuple into a SelectionNode, recursing into each child tuple.
+│   ├── for each child tuple
+│   │   └── calls _to_selection_node
+│   ├── calls SelectionNode
+│   └── return            # a SelectionNode holding its converted children
+├── class SelectorResponse(BaseModel)
+│   ├── # One selector axis: the imaginary root of its option tree, descended recursively along the selection path to render the cascade.
+│   └── root: SelectionNode
+└── class SelectionNode(BaseModel)
+    ├── # One option node of a selector axis: its value, display label, and child nodes (empty at a leaf), so parentage is the nesting itself.
+    ├── value: str
+    ├── label: str
+    └── children: List[SelectionNode]
+```
+
+`./data/viewer/utils/controls/selectors/ts/frontend/types/selector_response.ts`
+
+```text
+selector_response.ts
+├── interface SelectorResponse
+│   ├── # One selector axis: the imaginary root of its option tree — mirrors the backend SelectorResponse schema.
+│   └── root: SelectionNode
+└── interface SelectionNode
+    ├── # One option node of a selector axis: value, label, and child nodes (empty at a leaf) — mirrors the backend SelectionNode schema.
+    ├── value: string
+    ├── label: string
+    └── children: SelectionNode[]
+```
+
+`./data/viewer/utils/controls/selectors/ts/frontend/selection_path.ts`
+
+```text
+selection_path.ts
+├── import type { SelectionNode } from "data/viewer/utils/controls/selectors/ts/frontend/types/selector_response";
+└── function completeRootLeafPath({ root, path, level, value }: { root: SelectionNode; path: string[]; level: number; value: string }): string[]
+    ├── # Complete a selector level change into a full root-leaf path: the prefix up to the chosen level, the chosen value, then each deeper level's first child descended to a leaf — so a non-leaf choice resets every finer level to its first option.
+    ├── for each deeper level until the descended node has no children
+    │   └── impls append the descended node's first child's value, then descend into it
+    └── return            # the completed root-leaf path
+```
+
+`./data/viewer/utils/controls/selectors/ts/frontend/selector_cascade.ts`
+
+```text
+selector_cascade.ts
+├── import type { VNode } from "web/reconcile/reconcile";
+├── import type { SelectorResponse, SelectionNode } from "data/viewer/utils/controls/selectors/ts/frontend/types/selector_response";
+├── import { completeRootLeafPath } from "data/viewer/utils/controls/selectors/ts/frontend/selection_path";
+├── function renderSelectorCascade({ axisKey, response, path, onPathChange }: { axisKey: string; response: SelectorResponse; path: string[]; onPathChange: (next: string[]) => void }): VNode
+│   ├── # Render one selector axis as a cascade of native <select> dropdowns: descend the response's imaginary root along the current path, one dropdown per level to a leaf; the app supplies only the option tree, the current path, and an onPathChange handler.
+│   ├── calls _renderSelectorLevel        # called on the response's imaginary root
+│   └── return            # the dropdown-stack VNode
+└── function _renderSelectorLevel({ node, level, axisKey, path, onPathChange }: { node: SelectionNode; level: number; axisKey: string; path: string[]; onPathChange: (next: string[]) => void }): VNode
+    ├── # Recursion helper: render a <select> over this node's children, then recurse into the child the path selects, stopping at a leaf.
+    ├── if this node has children
+    │   ├── impls the <select> is a reconciler leaf keyed `${axisKey}-select-${level}-${path[level-1] ?? "root"}` (its option-set identity) so a coarser-level change re-mounts it with this parent's children
+    │   ├── impls build a native <select> over the children
+    │   ├── function _onLevelChange [local]
+    │   │   ├── # The <select> change handler: report the completed root-leaf path to onPathChange.
+    │   │   ├── calls completeRootLeafPath
+    │   │   └── calls onPathChange
+    │   ├── calls _onLevelChange           # bound as the <select>'s change listener
+    │   └── calls _renderSelectorLevel     # recurse into the child whose value the path selects at this level
+    └── return            # this level's dropdown plus the deeper stack
+```
+
+`./data/viewer/utils/controls/selectors/dash/selector_cascade.py`
+
+```text
+selector_cascade.py
+├── from typing import List
+├── from data.viewer.utils.controls.selectors.ts.backend.schemas.selector_response import SelectorResponse, SelectionNode
+├── def render_selector_cascade(response: SelectorResponse, path: List[str])
+│   ├── # Render one selector axis as a Dash cascade of dropdowns from a SelectorResponse and the current path: one dropdown per level, descending the imaginary root along the path to a leaf, re-rendered per parent change.
+│   ├── calls _render_selector_level
+│   └── return            # the dropdown-stack Dash component
+├── def _render_selector_level(node: SelectionNode, level: int, path: List[str])
+│   ├── # Recursion helper: a Dash dropdown over this node's children, then recurse into the child the path selects, stopping at a leaf.
+│   ├── if this node has children
+│   │   └── calls _render_selector_level
+│   └── return
+└── def complete_root_leaf_path(node: SelectionNode, path: List[str])
+    ├── # Complete a Dash level change into a full root-leaf path: the chosen value, then each deeper level's first child descended to a leaf.
+    ├── for each deeper level until the descended node has no children
+    │   └── impls append the descended node's first child's value, then descend into it
+    └── return            # the completed root-leaf path
+```
+
