@@ -3,7 +3,7 @@ from typing import Any, Dict
 import torch
 from dash import dcc, html
 
-from data.viewer.utils.atomic_displays.pixels.dash.image_display import create_image_display
+from data.viewer.utils.displays.pixels.dash.image_display import create_image_display
 from models.three_d.gspl import styles
 
 

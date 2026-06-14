@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List, Union
 import torch
 from dash import dcc, html
 from data.datasets.base_dataset import BaseDataset
-from data.viewer.utils.atomic_displays.pixels.dash.image_display import create_image_display, get_image_display_stats
+from data.viewer.utils.displays.pixels.dash.image_display import create_image_display, get_image_display_stats
 from data.viewer.utils.segmentation import create_segmentation_figure, get_segmentation_stats
 from data.viewer.utils.display_utils import (
     DisplayStyles,

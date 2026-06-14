@@ -8,15 +8,15 @@ import utils
 from data.datasets.multi_task_datasets.base_multi_task_dataset import (
     BaseMultiTaskDataset,
 )
-from data.viewer.utils.atomic_displays import (
-    create_image_display,
-    get_image_display_stats,
-)
 from data.viewer.utils.display_utils import (
     ParallelFigureCreator,
     create_figure_grid,
     create_standard_datapoint_layout,
     create_statistics_display,
+)
+from data.viewer.utils.displays import (
+    create_image_display,
+    get_image_display_stats,
 )
 
 

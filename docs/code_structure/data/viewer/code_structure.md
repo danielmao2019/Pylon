@@ -2,7 +2,7 @@
 
 ## 1. Inheritance / type trees
 
-`./data/viewer/utils/atomic_displays/utils/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
 Backend modality-specific display response schema files.
 
@@ -35,7 +35,7 @@ class DisplayResponse(BaseModel)
 └── class LayeredDisplayResponse
 ```
 
-`./data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
 
 Frontend modality-specific display response type files.
 
@@ -72,7 +72,7 @@ interface DisplayResponse
 
 Files below are grouped by folder structure; within a runtime folder, API/caller files appear before core/helper files when call order matters.
 
-The base atomic `DisplayResponse` is owned by `./data/viewer/utils/atomic_displays/utils/ts/`; each modality-specific response inherits from that base under the matching `./data/viewer` modality.
+The base atomic `DisplayResponse` is owned by `./data/viewer/utils/displays/utils/ts/`; each modality-specific response inherits from that base under the matching `./data/viewer` modality.
 `display_kind` selects the atomic renderer, `url` and typed response fields identify loadable resources, and `meta_info` carries renderer-owned loading hints plus display statistics/details such as class/color metadata.
 `meta_info` must not encode primary display payloads, rendered legends, presentation objects, or artifact availability state such as `available` or `missing`.
 Backend `data.viewer` camera-display code loads the selected camera artifact, interprets camera conventions, and prepares the camera-vis JSON payload exposed through `CameraDisplayResponse.url`.
@@ -92,7 +92,7 @@ The camera-control helper owns renderer-specific control construction and must r
 Orbit-style target-locked controls are forbidden, and no display may impose camera-pose restrictions through polar angle, azimuth angle, target lock, distance bounds, pan limits, translation limits, or rotation limits.
 It uses the repo's serialized `Camera` contract, including extrinsics, intrinsics, convention, name, and id.
 
-`./data/viewer/utils/atomic_displays/utils/class_colors.py`
+`./data/viewer/utils/displays/utils/class_colors.py`
 
 ```text
 class_colors.py
@@ -102,7 +102,7 @@ class_colors.py
     └── # Maps each distinct class id to a deterministic RGB color from a fixed class-color palette.
 ```
 
-`./data/viewer/utils/atomic_displays/utils/heatmap_colors.py`
+`./data/viewer/utils/displays/utils/heatmap_colors.py`
 
 ```text
 heatmap_colors.py
@@ -113,7 +113,7 @@ heatmap_colors.py
     └── return torch.Tensor of shape (*scalars.shape, 3)
 ```
 
-`./data/viewer/utils/atomic_displays/utils/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -126,7 +126,7 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -138,12 +138,12 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/utils/ts/backend/schemas/layered_display_response.py`
+`./data/viewer/utils/displays/utils/ts/backend/schemas/layered_display_response.py`
 
 ```text
 layered_display_response.py
 ├── from typing import List, Literal
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── RASTER_DISPLAY_KINDS     # frozenset[str]: color_image, depth_image, edge_image, normal_image, segmentation_image, instance_surrogate_image, video — the single source of the raster/spatial taxonomy
 ├── SPATIAL_DISPLAY_KINDS    # frozenset[str]: color_pc, segmentation_pc, color_gs, segmentation_gs, scene_graph, camera
 └── class LayeredDisplayResponse(DisplayResponse)
@@ -175,11 +175,11 @@ layered_display_response.py
             └── raise ValueError  # text, table, and other non-layerable kinds
 ```
 
-`./data/viewer/utils/atomic_displays/utils/ts/frontend/types/layered_display_response.ts`
+`./data/viewer/utils/displays/utils/ts/frontend/types/layered_display_response.ts`
 
 ```text
 layered_display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface LayeredDisplayResponse extends DisplayResponse
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -191,15 +191,15 @@ layered_display_response.ts
     └── layer_class: "raster" | "spatial"            # backend-stamped (layered_display_response.layer_class); the frontend reads it instead of re-deriving the raster/spatial taxonomy
 ```
 
-`./data/viewer/utils/atomic_displays/utils/ts/frontend/layered_display_container.ts`
+`./data/viewer/utils/displays/utils/ts/frontend/layered_display_container.ts`
 
 ```text
 layered_display_container.ts
 ├── import * as THREE from "three";
 ├── import type { ElementVNode, VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
-├── import { createThreeDisplayContainer, createThreeScene, createThreePerspectiveCamera, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
-├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
+├── import { createThreeDisplayContainer, createThreeScene, createThreePerspectiveCamera, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
+├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── export type SpatialLayerContributor = (scene: THREE.Scene) => void   # a spatial layer builds its THREE object(s) into its OWN scene; one scene per layer lets the render loop composite layers without Z-fighting coincident geometry
 ├── export type LayerSpec = { id: string; visible: boolean; displayClass: "spatial"; contributeToScene: SpatialLayerContributor } | { id: string; visible: boolean; displayClass: "raster"; node: VNode }   # every layer (base + ALL aux) is passed regardless of visibility — `id` identifies it, `visible` is its current toggle state; the consumer rebuilds this list each render with stable `id`s and updated `visible` flags
 ├── function renderLayeredDisplayContainer({ layers, slotId, initialCameraState }: { layers: readonly LayerSpec[]; slotId: string; initialCameraState: CameraState | null }): VNode
@@ -248,13 +248,13 @@ layered_display_container.ts
     └── impls container.dispatchEvent(new CustomEvent("camera-pose-change", { bubbles: true, detail: cameraState }))
 ```
 
-`./data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers.ts`
+`./data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers.ts`
 
 ```text
 three_scene_helpers.ts
 ├── import * as THREE from "three";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
-├── import { createTrackballCameraControls, DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
+├── import { createTrackballCameraControls, DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── function createThreeDisplayContainer({ pointerEventsSuppressed }: { pointerEventsSuppressed: boolean }): HTMLDivElement
 │   ├── # Shared display container for every TS atomic spatial display.
 │   ├── impls absolutely-positioned full-bleed HTMLDivElement that owns the Three.js canvas
@@ -294,14 +294,14 @@ three_scene_helpers.ts
     └── impls window.requestAnimationFrame(draw)
 ```
 
-`./data/viewer/utils/atomic_displays/points/dash/apis.py`
+`./data/viewer/utils/displays/points/dash/apis.py`
 
 ```text
 apis.py
 ├── import torch
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
-├── from data.viewer.utils.atomic_displays.points.dash.core_points_display import create_dash_points_display
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.points.dash.core_points_display import create_dash_points_display
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_pc_display
 │   ├── # Builds a Dash color point-cloud display from an already-colorized point-cloud path.
 │   └── calls create_dash_points_display
@@ -315,7 +315,7 @@ apis.py
     └── # Recolors the segmentation point cloud's per-point class labels to RGB via the class-to-RGB mapping for Dash display.
 ```
 
-`./data/viewer/utils/atomic_displays/points/dash/core_points_display.py`
+`./data/viewer/utils/displays/points/dash/core_points_display.py`
 
 ```text
 core_points_display.py
@@ -323,7 +323,7 @@ core_points_display.py
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-├── from data.viewer.utils.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
+├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── DEFAULT_POINT_SIZE_FLOOR = 0.005                            # absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when point_size is not supplied
 ├── DEFAULT_POINT_SIZE_RATIO = 0.002                            # fraction of point-cloud bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── DEFAULT_POINT_COLOR = "#cccccc"                             # uniform fallback color used when the point cloud has no per-point colors AND the caller does not supply point_color; lib-owned default, overridable
@@ -350,11 +350,11 @@ core_points_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/points/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/points/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class PointDisplayResponse(DisplayResponse)
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -375,16 +375,16 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/points/ts/backend/apis.py`
+`./data/viewer/utils/displays/points/ts/backend/apis.py`
 
 ```text
 apis.py
 ├── from typing import Any, Dict, Optional, Tuple
 ├── import torch
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
-├── from data.viewer.utils.atomic_displays.points.ts.backend.core_points_display import create_points_display_response_core
-├── from data.viewer.utils.atomic_displays.points.ts.backend.schemas.display_response import SegmentationPCDisplayResponse
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.points.ts.backend.core_points_display import create_points_display_response_core
+├── from data.viewer.utils.displays.points.ts.backend.schemas.display_response import SegmentationPCDisplayResponse
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_pc_display_response
 │   ├── # Creates a color point-cloud response from an already colorized point resource.
 │   ├── impls point-display meta_info is empty metadata
@@ -407,7 +407,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/points/ts/backend/core_points_display.py`
+`./data/viewer/utils/displays/points/ts/backend/core_points_display.py`
 
 ```text
 core_points_display.py
@@ -418,11 +418,11 @@ core_points_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/points/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/points/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface PointDisplayResponse extends DisplayResponse
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -443,12 +443,12 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/points/ts/frontend/apis.ts`
+`./data/viewer/utils/displays/points/ts/frontend/apis.ts`
 
 ```text
 apis.ts
 ├── import type { VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { ColorPCDisplayResponse, SegmentationPCDisplayResponse } from "./types/display_response";
 ├── import { renderPointsDisplay } from "./core_points_display";
 ├── function renderColorPCDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: ColorPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): VNode
@@ -461,16 +461,16 @@ apis.ts
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/points/ts/frontend/core_points_display.ts`
+`./data/viewer/utils/displays/points/ts/frontend/core_points_display.ts`
 
 ```text
 core_points_display.ts
 ├── import * as THREE from "three";
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { PointDisplayResponse } from "./types/display_response";
-├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
-├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
+├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
+├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── const DEFAULT_POINT_SIZE_FLOOR = 0.005   # number — absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when pointSize is not supplied
 ├── const DEFAULT_POINT_SIZE_RATIO = 0.002   # number — fraction of geometry bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── const DEFAULT_POINT_COLOR = "#cccccc"    # hex color — uniform fallback used when geometry has no per-point colors AND the caller does not supply pointColor; lib-owned default, overridable
@@ -514,14 +514,14 @@ core_points_display.ts
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/dash/apis.py`
+`./data/viewer/utils/displays/pixels/dash/apis.py`
 
 ```text
 apis.py
 ├── import torch
 ├── from dash import dcc
-├── from data.viewer.utils.atomic_displays.pixels.dash.core_pixels_display import create_dash_pixels_display
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.pixels.dash.core_pixels_display import create_dash_pixels_display
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
 ├── DEFAULT_COLOR_IMAGE_INTERPOLATION = "linear"                # color images: linear interpolation smooths between RGB samples, appropriate for natural-image content
 ├── DEFAULT_DEPTH_IMAGE_INTERPOLATION = "nearest"               # depth images: nearest preserves exact metric depth samples; linear would invent midpoint depths that don't exist in the data
 ├── DEFAULT_EDGE_IMAGE_INTERPOLATION = "nearest"                # edge images: nearest preserves edge crispness; linear would smooth edges and defeat their purpose
@@ -568,7 +568,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/dash/core_pixels_display.py`
+`./data/viewer/utils/displays/pixels/dash/core_pixels_display.py`
 
 ```text
 core_pixels_display.py
@@ -579,11 +579,11 @@ core_pixels_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/pixels/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class PixelDisplayResponse(DisplayResponse)
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -628,13 +628,13 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/ts/backend/apis.py`
+`./data/viewer/utils/displays/pixels/ts/backend/apis.py`
 
 ```text
 apis.py
 ├── import torch
-├── from data.viewer.utils.atomic_displays.pixels.ts.backend.core_pixels_display import create_pixels_display_response_core
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.pixels.ts.backend.core_pixels_display import create_pixels_display_response_core
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_image_display_response
 │   ├── # intentional thin wrapper: passes color image directly to core response
 │   ├── calls create_pixels_display_response_core
@@ -690,7 +690,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/ts/backend/core_pixels_display.py`
+`./data/viewer/utils/displays/pixels/ts/backend/core_pixels_display.py`
 
 ```text
 core_pixels_display.py
@@ -701,11 +701,11 @@ core_pixels_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/pixels/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface PixelDisplayResponse extends DisplayResponse
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -750,7 +750,7 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/ts/frontend/apis.ts`
+`./data/viewer/utils/displays/pixels/ts/frontend/apis.ts`
 
 ```text
 apis.ts
@@ -789,7 +789,7 @@ apis.ts
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/pixels/ts/frontend/core_pixels_display.ts`
+`./data/viewer/utils/displays/pixels/ts/frontend/core_pixels_display.ts`
 
 ```text
 core_pixels_display.ts
@@ -800,7 +800,7 @@ core_pixels_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/atomic_displays/placeholders/dash/placeholder_display.py`
+`./data/viewer/utils/displays/placeholders/dash/placeholder_display.py`
 
 ```text
 placeholder_display.py
@@ -808,11 +808,11 @@ placeholder_display.py
     └── # Builds the Dash missing-result placeholder display from a message.
 ```
 
-`./data/viewer/utils/atomic_displays/placeholders/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/placeholders/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class PlaceholderDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -822,7 +822,7 @@ display_response.py
     └── message                                      # additional field
 ```
 
-`./data/viewer/utils/atomic_displays/placeholders/ts/backend/placeholder_display.py`
+`./data/viewer/utils/displays/placeholders/ts/backend/placeholder_display.py`
 
 ```text
 placeholder_display.py
@@ -832,11 +832,11 @@ placeholder_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/placeholders/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/placeholders/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface PlaceholderDisplayResponse extends DisplayResponse
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -846,7 +846,7 @@ display_response.ts
     └── message                                      # additional field
 ```
 
-`./data/viewer/utils/atomic_displays/placeholders/ts/frontend/placeholder_display.ts`
+`./data/viewer/utils/displays/placeholders/ts/frontend/placeholder_display.ts`
 
 ```text
 placeholder_display.ts
@@ -858,7 +858,7 @@ placeholder_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/atomic_displays/videos/dash/video_display.py`
+`./data/viewer/utils/displays/videos/dash/video_display.py`
 
 ```text
 video_display.py
@@ -866,11 +866,11 @@ video_display.py
     └── # Builds the Dash video display from a video path.
 ```
 
-`./data/viewer/utils/atomic_displays/videos/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/videos/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class VideoDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -879,7 +879,7 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/videos/ts/backend/video_display.py`
+`./data/viewer/utils/displays/videos/ts/backend/video_display.py`
 
 ```text
 video_display.py
@@ -890,11 +890,11 @@ video_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/videos/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/videos/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface VideoDisplayResponse extends DisplayResponse
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -903,7 +903,7 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/videos/ts/frontend/video_display.ts`
+`./data/viewer/utils/displays/videos/ts/frontend/video_display.ts`
 
 ```text
 video_display.ts
@@ -915,7 +915,7 @@ video_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/atomic_displays/texts/dash/text_display.py`
+`./data/viewer/utils/displays/texts/dash/text_display.py`
 
 ```text
 text_display.py
@@ -923,11 +923,11 @@ text_display.py
     └── # Builds the Dash text display from a text string.
 ```
 
-`./data/viewer/utils/atomic_displays/texts/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/texts/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class TextDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -937,7 +937,7 @@ display_response.py
     └── text                                         # additional field
 ```
 
-`./data/viewer/utils/atomic_displays/texts/ts/backend/text_display.py`
+`./data/viewer/utils/displays/texts/ts/backend/text_display.py`
 
 ```text
 text_display.py
@@ -948,11 +948,11 @@ text_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/texts/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/texts/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface TextDisplayResponse extends DisplayResponse
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -962,7 +962,7 @@ display_response.ts
     └── text                                         # additional field
 ```
 
-`./data/viewer/utils/atomic_displays/texts/ts/frontend/text_display.ts`
+`./data/viewer/utils/displays/texts/ts/frontend/text_display.ts`
 
 ```text
 text_display.ts
@@ -974,7 +974,7 @@ text_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/atomic_displays/tables/dash/table_display.py`
+`./data/viewer/utils/displays/tables/dash/table_display.py`
 
 ```text
 table_display.py
@@ -982,11 +982,11 @@ table_display.py
     └── # Builds the Dash table display from tabular data.
 ```
 
-`./data/viewer/utils/atomic_displays/tables/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/tables/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class TableDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -995,7 +995,7 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/tables/ts/backend/table_display.py`
+`./data/viewer/utils/displays/tables/ts/backend/table_display.py`
 
 ```text
 table_display.py
@@ -1006,11 +1006,11 @@ table_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/tables/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/tables/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface TableDisplayResponse extends DisplayResponse
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -1019,7 +1019,7 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/tables/ts/frontend/table_display.ts`
+`./data/viewer/utils/displays/tables/ts/frontend/table_display.ts`
 
 ```text
 table_display.ts
@@ -1031,7 +1031,7 @@ table_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/atomic_displays/scene_graphs/dash/scene_graph_display.py`
+`./data/viewer/utils/displays/scene_graphs/dash/scene_graph_display.py`
 
 ```text
 scene_graph_display.py
@@ -1039,11 +1039,11 @@ scene_graph_display.py
     └── # Builds the Dash scene-graph display from a method-agnostic graph payload.
 ```
 
-`./data/viewer/utils/atomic_displays/scene_graphs/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/scene_graphs/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class SceneGraphDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -1052,12 +1052,12 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/scene_graphs/ts/backend/scene_graph_display.py`
+`./data/viewer/utils/displays/scene_graphs/ts/backend/scene_graph_display.py`
 
 ```text
 scene_graph_display.py
 ├── import torch
-├── from data.viewer.utils.atomic_displays.scene_graphs.ts.backend.schemas.display_response import SceneGraphDisplayResponse
+├── from data.viewer.utils.displays.scene_graphs.ts.backend.schemas.display_response import SceneGraphDisplayResponse
 ├── def create_scene_graph_display_response(graph_nodes: torch.Tensor, graph_edges: torch.Tensor, object_nodes: torch.Tensor, scene_scale_reference_points: torch.Tensor, slot_id: str, title: str) -> SceneGraphDisplayResponse
 │   ├── # Builds the scene-graph base-layer response from a method-agnostic graph payload.
 │   ├── calls bake_scene_graph_payload(graph_nodes=graph_nodes, graph_edges=graph_edges, object_nodes=object_nodes, scene_scale_reference_points=scene_scale_reference_points)
@@ -1089,11 +1089,11 @@ scene_graph_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/scene_graphs/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/scene_graphs/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface SceneGraphDisplayResponse extends DisplayResponse
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -1102,16 +1102,16 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/scene_graphs/ts/frontend/scene_graph_display.ts`
+`./data/viewer/utils/displays/scene_graphs/ts/frontend/scene_graph_display.ts`
 
 ```text
 scene_graph_display.ts
 ├── import * as THREE from "three";
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { SceneGraphDisplayResponse } from "./types/display_response";
-├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
-├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
+├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
+├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── const DEFAULT_NODE_SIZE = 0.02            # number — heuristic default size for node markers when the caller does not supply nodeSize; lib-owned default, overridable
 ├── const DEFAULT_EDGE_COLOR = "#888888"      # hex color — neutral gray fallback for edge lines when the payload does not carry an edge color AND the caller does not supply edgeColor; lib-owned default, overridable
 ├── const DEFAULT_EDGE_WIDTH = 1.0            # number — line width fallback for edges when the caller does not supply edgeWidth; lib-owned default, overridable
@@ -1165,16 +1165,16 @@ scene_graph_display.ts
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/dash/apis.py`
+`./data/viewer/utils/displays/mesh/dash/apis.py`
 
 ```text
 apis.py
 ├── from typing import Optional
 ├── import torch
 ├── from dash import dcc
-├── from data.viewer.utils.atomic_displays.mesh.dash.core_mesh_display import create_dash_mesh_display
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
-├── from data.viewer.utils.atomic_displays.utils.heatmap_colors import map_scalars_to_rgb
+├── from data.viewer.utils.displays.mesh.dash.core_mesh_display import create_dash_mesh_display
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.utils.heatmap_colors import map_scalars_to_rgb
 ├── def create_color_mesh_display(color_mesh_path: str, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
 │   ├── # Builds a Dash color mesh display from a mesh path, with opt-in mesh_color, mesh_opacity, and mesh_side overrides.
 │   └── calls create_dash_mesh_display(mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
@@ -1206,14 +1206,14 @@ apis.py
     └── return colored mesh
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/dash/core_mesh_display.py`
+`./data/viewer/utils/displays/mesh/dash/core_mesh_display.py`
 
 ```text
 core_mesh_display.py
 ├── from typing import Any, Optional
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
-├── from data.viewer.utils.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
+├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── DEFAULT_MESH_COLOR = "#cccccc"                             # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
 ├── DEFAULT_MESH_OPACITY = 1.0                                 # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
 ├── DEFAULT_MESH_SIDE = "double"                               # fallback side mode for visibility under arbitrary camera framings when the caller does not supply mesh_side; lib-owned default, overridable
@@ -1258,11 +1258,11 @@ core_mesh_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/mesh/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class MeshDisplayResponse(DisplayResponse)
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -1295,17 +1295,17 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/ts/backend/apis.py`
+`./data/viewer/utils/displays/mesh/ts/backend/apis.py`
 
 ```text
 apis.py
 ├── from pathlib import Path
 ├── from typing import Any, Dict, Tuple
 ├── import torch
-├── from data.viewer.utils.atomic_displays.mesh.ts.backend.core_mesh_display import create_mesh_display_response_core
-├── from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response import ColorMeshDisplayResponse, HeatmapMeshDisplayResponse, SegmentationMeshDisplayResponse, SparseHeatmapMeshDisplayResponse
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
-├── from data.viewer.utils.atomic_displays.utils.heatmap_colors import map_scalars_to_rgb
+├── from data.viewer.utils.displays.mesh.ts.backend.core_mesh_display import create_mesh_display_response_core
+├── from data.viewer.utils.displays.mesh.ts.backend.schemas.display_response import ColorMeshDisplayResponse, HeatmapMeshDisplayResponse, SegmentationMeshDisplayResponse, SparseHeatmapMeshDisplayResponse
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.utils.heatmap_colors import map_scalars_to_rgb
 ├── def create_color_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> ColorMeshDisplayResponse
 │   ├── # Intentional thin wrapper: writes the color mesh resource at output_path and returns ColorMeshDisplayResponse with the caller-provided url.
 │   ├── calls create_mesh_display_response_core
@@ -1363,13 +1363,13 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/ts/backend/core_mesh_display.py`
+`./data/viewer/utils/displays/mesh/ts/backend/core_mesh_display.py`
 
 ```text
 core_mesh_display.py
 ├── from pathlib import Path
 ├── from typing import Any, Dict
-├── from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response import MeshDisplayResponse
+├── from data.viewer.utils.displays.mesh.ts.backend.schemas.display_response import MeshDisplayResponse
 ├── def create_mesh_display_response_core(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> MeshDisplayResponse
 │   ├── # Writes the processed mesh resource to output_path and returns the mesh display response, dispatching on the mesh texture representation.
 │   ├── if mesh texture representation is vertex color
@@ -1386,11 +1386,11 @@ core_mesh_display.py
     └── # Builds the mesh display response for a UV-texture-mapped mesh.
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/mesh/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface MeshDisplayResponse extends DisplayResponse
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -1423,16 +1423,16 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/ts/frontend/core_mesh_display.ts`
+`./data/viewer/utils/displays/mesh/ts/frontend/core_mesh_display.ts`
 
 ```text
 core_mesh_display.ts
 ├── import * as THREE from "three";
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { MeshDisplayResponse } from "./types/display_response";
-├── import { createTrackballCameraControls } from "data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls";
-├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
+├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
+├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── const DEFAULT_MESH_COLOR = "#cccccc"          # hex color — uniform fallback used when geometry has no texture AND has no vertex colors AND the caller does not supply meshColor; lib-owned default, overridable
 ├── const DEFAULT_MESH_OPACITY = 1.0              # number — opaque default applied when the caller does not supply meshOpacity; material's `transparent` flag flips true automatically when opacity is less than 1; lib-owned default, overridable
 ├── const DEFAULT_MESH_SIDE = THREE.DoubleSide    # THREE.Side — fallback side mode for visibility under arbitrary camera framings when the caller does not supply meshSide; lib-owned default, overridable
@@ -1477,13 +1477,13 @@ core_mesh_display.ts
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/mesh/ts/frontend/apis.ts`
+`./data/viewer/utils/displays/mesh/ts/frontend/apis.ts`
 
 ```text
 apis.ts
 ├── import * as THREE from "three";
 ├── import type { VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { ColorMeshDisplayResponse, SegmentationMeshDisplayResponse, HeatmapMeshDisplayResponse, SparseHeatmapMeshDisplayResponse } from "./types/display_response";
 ├── import { renderMeshDisplay } from "./core_mesh_display";
 ├── function renderColorMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: ColorMeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): VNode
@@ -1504,13 +1504,13 @@ apis.ts
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/dash/apis.py`
+`./data/viewer/utils/displays/gaussians/dash/apis.py`
 
 ```text
 apis.py
 ├── import torch
-├── from data.viewer.utils.atomic_displays.gaussians.dash.core_gaussians_display import create_dash_gaussians_display
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.gaussians.dash.core_gaussians_display import create_dash_gaussians_display
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_gs_display
 │   ├── # Builds a Dash color Gaussian-splat display from an already-colorized Gaussian path.
 │   └── calls create_dash_gaussians_display
@@ -1524,11 +1524,11 @@ apis.py
     └── # Recolors the segmentation Gaussian's per-Gaussian class ids to RGB via the class-to-RGB mapping.
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/dash/core_gaussians_display.py`
+`./data/viewer/utils/displays/gaussians/dash/core_gaussians_display.py`
 
 ```text
 core_gaussians_display.py
-├── from data.viewer.utils.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
+├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── def create_dash_gaussians_display
 │   ├── # Renders a Dash Gaussian-splat display element with trackball camera controls.
 │   ├── calls create_dash_gaussians_scene
@@ -1544,11 +1544,11 @@ core_gaussians_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/gaussians/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class GaussianDisplayResponse(DisplayResponse)
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -1569,13 +1569,13 @@ display_response.py
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/ts/backend/apis.py`
+`./data/viewer/utils/displays/gaussians/ts/backend/apis.py`
 
 ```text
 apis.py
 ├── import torch
-├── from data.viewer.utils.atomic_displays.gaussians.ts.backend.core_gaussians_display import create_gaussians_display_response_core
-├── from data.viewer.utils.atomic_displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.gaussians.ts.backend.core_gaussians_display import create_gaussians_display_response_core
+├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
 ├── def create_color_gs_display_response
 │   ├── # intentional thin wrapper: passes color Gaussian field directly to core response
 │   ├── calls create_gaussians_display_response_core
@@ -1596,7 +1596,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/ts/backend/core_gaussians_display.py`
+`./data/viewer/utils/displays/gaussians/ts/backend/core_gaussians_display.py`
 
 ```text
 core_gaussians_display.py
@@ -1607,11 +1607,11 @@ core_gaussians_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/gaussians/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface GaussianDisplayResponse extends DisplayResponse
 │   ├── slot_id                                      # common field
 │   ├── title                                        # common field
@@ -1632,12 +1632,12 @@ display_response.ts
     └── meta_info                                    # common field
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/ts/frontend/apis.ts`
+`./data/viewer/utils/displays/gaussians/ts/frontend/apis.ts`
 
 ```text
 apis.ts
 ├── import type { VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { ColorGSDisplayResponse, SegmentationGSDisplayResponse } from "./types/display_response";
 ├── import { renderGaussiansDisplay } from "./core_gaussians_display";
 ├── function renderColorGSDisplay({ displayResponse, initialCameraState }: { displayResponse: ColorGSDisplayResponse; initialCameraState?: CameraState | null }): VNode
@@ -1650,14 +1650,14 @@ apis.ts
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/gaussians/ts/frontend/core_gaussians_display.ts`
+`./data/viewer/utils/displays/gaussians/ts/frontend/core_gaussians_display.ts`
 
 ```text
 core_gaussians_display.ts
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { GaussianDisplayResponse } from "./types/display_response";
-├── import { createThreeDisplayContainer } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
+├── import { createThreeDisplayContainer } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 └── function renderGaussiansDisplay({ displayResponse, initialCameraState }: { displayResponse: GaussianDisplayResponse; initialCameraState?: CameraState | null }): VNode
     ├── # Delegates rendering to the external Gaussian-splat package; the package owns URL loading, scene assembly, camera controls, and the render loop.
     ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
@@ -1665,7 +1665,7 @@ core_gaussians_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/atomic_displays/cameras/dash/camera_display.py`
+`./data/viewer/utils/displays/cameras/dash/camera_display.py`
 
 ```text
 camera_display.py
@@ -1673,11 +1673,11 @@ camera_display.py
     └── # Builds the Dash camera-trajectory display from a loaded camera artifact.
 ```
 
-`./data/viewer/utils/atomic_displays/cameras/ts/backend/schemas/display_response.py`
+`./data/viewer/utils/displays/cameras/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
-├── from data.viewer.utils.atomic_displays.utils.ts.backend.schemas.display_response import DisplayResponse
+├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class CameraDisplayResponse(DisplayResponse)
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -1686,15 +1686,15 @@ display_response.py
     └── meta_info                                    # common field; empty object for camera display
 ```
 
-`./data/viewer/utils/atomic_displays/cameras/ts/backend/apis.py`
+`./data/viewer/utils/displays/cameras/ts/backend/apis.py`
 
 ```text
 apis.py
 ├── from typing import Any, Dict, List, Optional, Tuple
 ├── from data.structures.three_d.camera.camera_vis import cameras_vis
 ├── from data.structures.three_d.camera.cameras import Cameras
-├── from data.viewer.utils.atomic_displays.cameras.ts.backend.core_camera_display import create_camera_display_response_core
-├── from data.viewer.utils.atomic_displays.cameras.ts.backend.schemas.display_response import CameraDisplayResponse
+├── from data.viewer.utils.displays.cameras.ts.backend.core_camera_display import create_camera_display_response_core
+├── from data.viewer.utils.displays.cameras.ts.backend.schemas.display_response import CameraDisplayResponse
 ├── def create_camera_display_response(slot_id: str, title: str, cameras: Optional[Cameras], frustum_size: Optional[float] = None, frustum_color: Optional[Tuple[int, int, int]] = None, point_size: Optional[float] = None, point_color: Optional[Tuple[int, int, int]] = None) -> CameraDisplayResponse
 │   ├── # Creates a camera display response from a caller-supplied Cameras; the caller may override the baked glyph styles, otherwise each None resolves to the cameras_vis module-global default.
 │   ├── calls _map_camera_params_to_vis
@@ -1720,7 +1720,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/cameras/ts/backend/core_camera_display.py`
+`./data/viewer/utils/displays/cameras/ts/backend/core_camera_display.py`
 
 ```text
 core_camera_display.py
@@ -1731,11 +1731,11 @@ core_camera_display.py
     └── return
 ```
 
-`./data/viewer/utils/atomic_displays/cameras/ts/frontend/types/display_response.ts`
+`./data/viewer/utils/displays/cameras/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
-├── import type { DisplayResponse } from "data/viewer/utils/atomic_displays/utils/ts/frontend/types/display_response";
+├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface CameraDisplayResponse extends DisplayResponse
     ├── slot_id                                      # common field
     ├── title                                        # common field
@@ -1744,15 +1744,15 @@ display_response.ts
     └── meta_info                                    # common field; empty object for camera display
 ```
 
-`./data/viewer/utils/atomic_displays/cameras/ts/frontend/camera_display.ts`
+`./data/viewer/utils/displays/cameras/ts/frontend/camera_display.ts`
 
 ```text
 camera_display.ts
 ├── import * as THREE from "three";
 ├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { CameraDisplayResponse } from "./types/display_response";
-├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
+├── import { createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── const DEFAULT_FRUSTUM_OPACITY = 0.5            # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
 ├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number }): VNode
 │   ├── # Builds a non-interactive transparent layer from the camera-vis JSON payload (glyph sizes + colors baked by camera_vis), initialized at initialCameraState.
@@ -1784,7 +1784,7 @@ camera_display.ts
     └── return
 ```
 
-`./data/viewer/utils/camera_state/dash/camera_state.py`
+`./data/viewer/utils/controls/camera/camera_state/dash/camera_state.py`
 
 ```text
 camera_state.py
@@ -1796,7 +1796,7 @@ camera_state.py
     └── id
 ```
 
-`./data/viewer/utils/camera_state/ts/backend/schemas/camera_state.py`
+`./data/viewer/utils/controls/camera/camera_state/ts/backend/schemas/camera_state.py`
 
 ```text
 camera_state.py
@@ -1808,19 +1808,19 @@ camera_state.py
     └── id
 ```
 
-`./data/viewer/utils/camera_state/ts/backend/camera_state.py`
+`./data/viewer/utils/controls/camera/camera_state/ts/backend/camera_state.py`
 
 ```text
 camera_state.py
 ├── from data.structures.three_d.camera import Camera
-├── from data.viewer.utils.camera_state.ts.backend.schemas.camera_state import CameraState
+├── from data.viewer.utils.controls.camera.camera_state.ts.backend.schemas.camera_state import CameraState
 └── def create_camera_state_from_camera
     ├── # preserves Camera intrinsics, extrinsics, convention, name, and id
     ├── impls converts Camera to TS backend CameraState schema
     └── return
 ```
 
-`./data/viewer/utils/camera_state/ts/frontend/types.ts`
+`./data/viewer/utils/controls/camera/camera_state/ts/frontend/types.ts`
 
 ```text
 types.ts
@@ -1832,7 +1832,7 @@ types.ts
     └── id
 ```
 
-`./data/viewer/utils/camera_controls/dash/trackball_camera_controls.py`
+`./data/viewer/utils/controls/camera/camera_controls/dash/trackball_camera_controls.py`
 
 ```text
 trackball_camera_controls.py
@@ -1870,11 +1870,11 @@ trackball_camera_controls.py
     └── return
 ```
 
-`./data/viewer/utils/camera_controls/ts/frontend/trackball_camera_controls.ts`
+`./data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls.ts`
 
 ```text
 trackball_camera_controls.ts
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45
 │   └── # Shared vertical-FOV (degrees) every TS spatial display must construct its THREE.PerspectiveCamera with — 45° is the standard 50mm-equivalent lens FOV, trading perspective realism against off-center foreshortening for the orbit-around-near-scene-content use case this lib targets.
 ├── interface TrackballCameraControls
@@ -1920,7 +1920,7 @@ trackball_camera_controls.ts
     └── return
 ```
 
-`./data/viewer/utils/camera_sync/dash/camera_sync.py`
+`./data/viewer/utils/controls/camera/camera_sync/dash/camera_sync.py`
 
 ```text
 camera_sync.py
@@ -1949,7 +1949,7 @@ camera_sync.py
     └── return
 ```
 
-`./data/viewer/utils/camera_sync/ts/frontend/types.ts`
+`./data/viewer/utils/controls/camera/camera_sync/ts/frontend/types.ts`
 
 ```text
 types.ts
@@ -1959,11 +1959,11 @@ types.ts
     └── camera_state # this source's current camera state
 ```
 
-`./data/viewer/utils/camera_sync/ts/frontend/camera_sync.ts`
+`./data/viewer/utils/controls/camera/camera_sync/ts/frontend/camera_sync.ts`
 
 ```text
 camera_sync.ts
-├── import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
+├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { CameraSyncState } from "./types";
 ├── class CameraSyncRegistry
 │   ├── # Per-source camera-sync registry: each source_id owns an independent CameraSyncState and target element pool, so apply operations stay confined to their source's own pool.

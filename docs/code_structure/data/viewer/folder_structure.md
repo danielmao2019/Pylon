@@ -6,7 +6,7 @@
 
 ```text
 utils/
-├── atomic_displays/
+├── displays/                        # the display modalities (renamed from atomic_displays)
 │   ├── utils/
 │   │   ├── class_colors.py          # shared class-id to RGB palette utility
 │   │   ├── heatmap_colors.py        # shared non-negative-scalar to RGB palette utility (continuous; analogous to class_colors)
@@ -154,29 +154,31 @@ utils/
 │               ├── types/
 │               │   └── display_response.ts # TS camera-display response interface: camera-vis JSON payload URL + empty meta_info
 │               └── camera_display.ts
-├── camera_state/                    # generic serialized viewer camera state shared by spatial viewers
-│   ├── dash/
-│   │   └── camera_state.py           # Dash/Python CameraState contract
-│   └── ts/
-│       ├── backend/
-│       │   ├── schemas/
-│       │   │   └── camera_state.py  # TS backend CameraState schema
-│       │   └── camera_state.py      # Camera -> TS backend CameraState conversion
-│       └── frontend/
-│           └── types.ts             # CameraState interface
-├── camera_controls/                 # generic trackball 3D viewer camera controls
-│   ├── dash/
-│   │   └── trackball_camera_controls.py # trackball controls; left-drag rotate, right-drag pan, wheel zoom
-│   └── ts/
-│       └── frontend/
-│           └── trackball_camera_controls.ts # trackball controls; left-drag rotate, right-drag pan, wheel zoom
-├── camera_sync/                     # synchronized viewer-camera state shared across spatial displays
-│   ├── dash/
-│   │   └── camera_sync.py           # Dash camera-sync store and callback helpers
-│   └── ts/
-│       └── frontend/
-│           ├── types.ts             # CameraSyncState interface
-│           └── camera_sync.ts       # generic CameraSyncState store with camera-sync-specific additional APIs
+├── controls/                        # viewer controls: camera state/controls/sync
+│   └── camera/                      # camera state, trackball controls, and cross-display sync
+│       ├── camera_state/            # generic serialized viewer camera state shared by spatial viewers
+│       │   ├── dash/
+│       │   │   └── camera_state.py           # Dash/Python CameraState contract
+│       │   └── ts/
+│       │       ├── backend/
+│       │       │   ├── schemas/
+│       │       │   │   └── camera_state.py  # TS backend CameraState schema
+│       │       │   └── camera_state.py      # Camera -> TS backend CameraState conversion
+│       │       └── frontend/
+│       │           └── types.ts             # CameraState interface
+│       ├── camera_controls/         # generic trackball 3D viewer camera controls
+│       │   ├── dash/
+│       │   │   └── trackball_camera_controls.py # trackball controls; left-drag rotate, right-drag pan, wheel zoom
+│       │   └── ts/
+│       │       └── frontend/
+│       │           └── trackball_camera_controls.ts # trackball controls; left-drag rotate, right-drag pan, wheel zoom
+│       └── camera_sync/             # synchronized viewer-camera state shared across spatial displays
+│           ├── dash/
+│           │   └── camera_sync.py           # Dash camera-sync store and callback helpers
+│           └── ts/
+│               └── frontend/
+│                   ├── types.ts             # CameraSyncState interface
+│                   └── camera_sync.ts       # generic CameraSyncState store with camera-sync-specific additional APIs
 └── note: unspecified existing data/viewer/utils entries stay untouched; specified entries live only in this tree
 ```
 

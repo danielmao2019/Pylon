@@ -179,7 +179,7 @@ class PCRDataloader(BaseDataLoader):
         """
         from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
         from data.viewer.utils.structure_validation import validate_pcr_structure
-        from data.viewer.utils.atomic_displays.points.dash.core_points_display import create_point_cloud_display, build_point_cloud_id
+        from data.viewer.utils.displays.points.dash.core_points_display import create_point_cloud_display, build_point_cloud_id
         from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
         from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
