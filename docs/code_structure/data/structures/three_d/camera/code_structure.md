@@ -38,31 +38,23 @@ io.py
 ├── _CAMERA_SERIALIZATION_FORMATS                # supported formats: {"json", "npz"}
 ├── _CAMERA_JSON_KEYS, _CAMERA_NPZ_KEYS          # one camera's payload key schema (convention / name / id, plus has_name / has_id for npz); a collection is just many of these
 ├── def serialize_cameras(cameras: Union["Camera", "Cameras"], format: str = "json") -> Union[Dict[str, Any], List[Dict[str, Any]]]
-│   ├── # Serialize cameras to the canonical payload: a list with one dict per camera.
+│   ├── # Serialize cameras to the canonical payload for the requested format.
 │   ├── from data.structures.three_d.camera.camera import Camera        # inline runtime import; camera.py imports io.py, so this would cycle at module top
 │   ├── from data.structures.three_d.camera.cameras import Cameras      # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── calls _normalize_format
 │   ├── impls was_single = isinstance(cameras, Camera); if was_single -> cameras = a one-element Cameras wrapping it
-│   ├── for each camera in cameras
-│   │   └── calls _serialize_one_camera           # the format-agnostic generic dict for one camera
 │   ├── if format == "json"
-│   │   └── impls payload = the list of per-camera dicts; if was_single -> unwrap to the bare dict
+│   │   └── calls _serialize_cameras_json
 │   ├── if format == "npz"
-│   │   └── calls _serialize_npz_cameras_payload  # encode the per-camera dicts as one batched-array npz payload
+│   │   └── calls _serialize_cameras_npz
 │   └── return
 ├── def deserialize_cameras(payload: Union[Dict[str, Any], List[Dict[str, Any]]], device: Optional[Union[str, torch.device]] = None, format: str = "json") -> Union["Camera", "Cameras"]
 │   ├── # Deserialize the canonical payload back into cameras, the inverse of serialize_cameras.
-│   ├── from data.structures.three_d.camera.cameras import Cameras      # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── calls _normalize_format
 │   ├── if format == "json"
-│   │   └── impls was_single = payload is a bare dict; per_camera_dicts = [payload] if was_single else payload
+│   │   └── calls _deserialize_cameras_json
 │   ├── if format == "npz"
-│   │   └── calls _deserialize_npz_cameras_payload   # decode the batched-array npz payload into the list of per-camera dicts
-│   ├── for each per-camera dict
-│   │   └── calls _deserialize_one_camera          # validated per-camera fields: intrinsics, extrinsics, convention, name, id
-│   ├── calls Cameras                              # assemble the per-camera fields into one Cameras
-│   ├── if was_single
-│   │   └── impls return the single element cameras[0]
+│   │   └── calls _deserialize_cameras_npz
 │   └── return
 ├── def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> None
 │   ├── # Save cameras (a Cameras collection or a single Camera) to a .npz or .json file.
@@ -76,19 +68,42 @@ io.py
 │   ├── impls reads json text or an npz archive per the resolved format
 │   ├── calls deserialize_cameras
 │   └── return
-├── def _serialize_one_camera(camera: "Camera") -> Dict[str, Any]
-│   └── # Convert one Camera into its format-agnostic generic dict (intrinsics, extrinsics, convention, name, id).
-├── def _deserialize_one_camera(payload: Dict[str, Any], device: torch.device) -> Dict[str, Any]
-│   ├── # Convert one generic dict into its per-camera tensor fields (intrinsics, extrinsics, convention, name, id).
-│   └── calls _validate_json_camera_payload         # read side validates untrusted input; serialize trusts the already-valid Camera, so it has no matching call
-├── def _serialize_npz_cameras_payload(per_camera_dicts: List[Dict[str, Any]]) -> Dict[str, Any]
-│   └── # Encode the per-camera generic dicts as one batched-array npz payload (stacked intrinsics / extrinsics, per-camera convention / name / id arrays with has_name / has_id flags and a -1 id sentinel).
-├── def _deserialize_npz_cameras_payload(payload: Dict[str, Any]) -> List[Dict[str, Any]]
-│   └── # Decode one batched-array npz payload back into the list of per-camera generic dicts.
+├── def _serialize_cameras_json(cameras: "Cameras", was_single: bool) -> Union[Dict[str, Any], List[Dict[str, Any]]]
+│   ├── # Map a Cameras directly to the json payload: one dict per camera, unwrapped to the bare dict when was_single.
+│   ├── for each camera in cameras
+│   │   └── impls builds that camera's json dict from intrinsics, extrinsics, convention, name, and id
+│   ├── if was_single
+│   │   └── impls return the one bare dict; else return the list of dicts
+│   └── return
+├── def _deserialize_cameras_json(payload: Union[Dict[str, Any], List[Dict[str, Any]]], device: torch.device) -> Union["Camera", "Cameras"]
+│   ├── # Map a json payload directly to cameras: a bare dict to one Camera, a list to a Cameras.
+│   ├── from data.structures.three_d.camera.cameras import Cameras      # inline runtime import; cameras.py imports io.py, so this would cycle at module top
+│   ├── impls was_single = isinstance(payload, dict); per_camera_dicts = [payload] if was_single else payload
+│   ├── for each per-camera dict
+│   │   ├── impls asserts the keys match _CAMERA_JSON_KEYS and the convention / name / id field types
+│   │   └── impls decodes intrinsics and extrinsics to tensors on device
+│   ├── calls Cameras                               # constructs and field-validates the batch
+│   ├── if was_single
+│   │   └── impls return cameras[0]; else return cameras
+│   └── return
+├── def _serialize_cameras_npz(cameras: "Cameras", was_single: bool) -> Dict[str, Any]
+│   ├── # Map a Cameras directly to one batched-array npz payload.
+│   ├── for each camera in cameras
+│   │   └── impls appends that camera's intrinsics, extrinsics, convention, name, and id to the batch
+│   ├── impls stacks the batch into npz arrays with has_name / has_id flag arrays, a -1 id sentinel, and was_single as an is_single flag
+│   └── return
+├── def _deserialize_cameras_npz(payload: Dict[str, Any], device: torch.device) -> Union["Camera", "Cameras"]
+│   ├── # Map one batched-array npz payload directly to cameras: a Camera when its is_single flag is set, else a Cameras.
+│   ├── from data.structures.three_d.camera.cameras import Cameras      # inline runtime import; cameras.py imports io.py, so this would cycle at module top
+│   ├── impls asserts the keys match _CAMERA_NPZ_KEYS and reads the is_single flag
+│   ├── for each batch index
+│   │   └── impls decodes that index's intrinsics, extrinsics, convention, name, and id (resolving has_name / has_id flags and the -1 id sentinel) to tensors on device
+│   ├── calls Cameras                               # constructs and field-validates the batch
+│   ├── if is_single
+│   │   └── impls return cameras[0]; else return cameras
+│   └── return
 ├── def _resolve_format_from_path(cameras_path: Path) -> str
 │   └── calls _normalize_format
-├── def _normalize_format(format: str) -> str
-│   └── # Normalize a path suffix or format name to a supported serialization format.
-└── def _validate_json_camera_payload(payload: Dict[str, Any]) -> None
-    └── # Validate one generic per-camera dict schema.
+└── def _normalize_format(format: str) -> str
+    └── # Normalize a path suffix or format name to a supported serialization format.
 ```
