@@ -37,6 +37,18 @@ io.py
 │   └── from data.structures.three_d.camera.cameras import Cameras
 ├── _CAMERA_SERIALIZATION_FORMATS                # supported formats: {"json", "npz"}
 ├── _CAMERA_JSON_KEYS, _CAMERA_NPZ_KEYS          # one camera's payload key schema (convention / name / id, plus has_name / has_id for npz); a collection is just many of these
+├── def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> None
+│   ├── # Save cameras (a Cameras collection or a single Camera) to a .npz or .json file.
+│   ├── calls _resolve_format_from_path
+│   ├── calls serialize_cameras
+│   ├── impls writes json text or an npz archive per the resolved format
+│   └── return
+├── def load_cameras(cameras_path: Path, device: Optional[Union[str, torch.device]] = None) -> Union["Camera", "Cameras"]
+│   ├── # Load cameras (a Cameras collection or a single Camera) from a .npz or .json file.
+│   ├── calls _resolve_format_from_path
+│   ├── impls reads json text or an npz archive per the resolved format
+│   ├── calls deserialize_cameras
+│   └── return
 ├── def serialize_cameras(cameras: Union["Camera", "Cameras"], format: str = "json") -> Union[Dict[str, Any], List[Dict[str, Any]]]
 │   ├── # Serialize cameras to the canonical payload for the requested format.
 │   ├── from data.structures.three_d.camera.camera import Camera        # inline runtime import; camera.py imports io.py, so this would cycle at module top
@@ -59,18 +71,6 @@ io.py
 │   │   └── calls _deserialize_cameras_npz          # the batched-array npz payload -> Cameras
 │   ├── impls output-normalize: if was_single -> return cameras[0]
 │   └── return
-├── def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> None
-│   ├── # Save cameras (a Cameras collection or a single Camera) to a .npz or .json file.
-│   ├── calls _resolve_format_from_path
-│   ├── calls serialize_cameras
-│   ├── impls writes json text or an npz archive per the resolved format
-│   └── return
-├── def load_cameras(cameras_path: Path, device: Optional[Union[str, torch.device]] = None) -> Union["Camera", "Cameras"]
-│   ├── # Load cameras (a Cameras collection or a single Camera) from a .npz or .json file.
-│   ├── calls _resolve_format_from_path
-│   ├── impls reads json text or an npz archive per the resolved format
-│   ├── calls deserialize_cameras
-│   └── return
 ├── def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]
 │   ├── # Map a Cameras to the plural json payload: one dict per camera.
 │   ├── for each camera in cameras
@@ -81,6 +81,7 @@ io.py
 │   ├── from data.structures.three_d.camera.cameras import Cameras      # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── for each per-camera dict
 │   │   ├── impls asserts the keys match _CAMERA_JSON_KEYS and the convention / name / id field types
+│   │   ├── calls validate_camera_convention
 │   │   └── impls decodes intrinsics and extrinsics to tensors on device
 │   ├── calls Cameras                               # constructs and field-validates the batch
 │   └── return
@@ -94,11 +95,15 @@ io.py
 │   ├── # Map the plural batched-array npz payload to a Cameras.
 │   ├── from data.structures.three_d.camera.cameras import Cameras      # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── impls asserts the keys match _CAMERA_NPZ_KEYS
+│   ├── calls validate_camera_intrinsics
+│   ├── calls validate_camera_extrinsics
 │   ├── for each batch index
-│   │   └── impls decodes that index's intrinsics, extrinsics, convention, name, and id (resolving has_name / has_id flags and the -1 id sentinel) to tensors on device
+│   │   ├── impls decodes that index's intrinsics, extrinsics, convention, name, and id (resolving has_name / has_id flags and the -1 id sentinel) to tensors on device
+│   │   └── calls validate_camera_convention
 │   ├── calls Cameras                               # constructs and field-validates the batch
 │   └── return
 ├── def _resolve_format_from_path(cameras_path: Path) -> str
+│   ├── # Resolve a Cameras serialization format from a file path.
 │   └── calls _normalize_format
 └── def _normalize_format(format: str) -> str
     └── # Normalize a path suffix or format name to a supported serialization format.
