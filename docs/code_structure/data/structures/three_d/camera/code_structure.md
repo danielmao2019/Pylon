@@ -10,7 +10,7 @@ validation.py
 ├── import numpy as np
 ├── import torch
 ├── from utils.ops.materialize_tensor import materialize_tensor
-├── _ROTATION_MATRIX_ATOL_SAFETY_FACTOR                                   # dimensionless backend-neutral margin over a dtype's machine epsilon; each backend validator derives its own per-dtype atol from its own finfo (concrete magnitude is a phase-3 empirical value)
+├── _ROTATION_MATRIX_DIM = 3                                              # rotation-matrix dimension n; the per-dtype atol is the derived first-order FP residual floor n**2 * eps (determinant term ||R||_F * ||E||_F = n**2 * eps dominates the (n+2)*eps orthogonality term)
 ├── def validate_camera_convention(convention: Any) -> str
 │   ├── # Validate a camera convention string against the supported set.
 │   ├── impls asserts convention is a str in {standard, opengl, opencv, pytorch3d, arkit}
@@ -61,8 +61,8 @@ validation.py
 ├── def _validate_rotation_matrix_numpy(obj: Any) -> np.ndarray
 │   ├── # Validate a (..., 3, 3) numpy rotation matrix; dispatch the tolerance on dtype.
 │   ├── impls asserts ndarray, ndim >= 2, last two dims (3, 3), dtype in {np.float32, np.float64}
-│   ├── impls atol_float32 = _ROTATION_MATRIX_ATOL_SAFETY_FACTOR * float(np.finfo(np.float32).eps)
-│   ├── impls atol_float64 = _ROTATION_MATRIX_ATOL_SAFETY_FACTOR * float(np.finfo(np.float64).eps)
+│   ├── impls atol_float32 = _ROTATION_MATRIX_DIM ** 2 * float(np.finfo(np.float32).eps)
+│   ├── impls atol_float64 = _ROTATION_MATRIX_DIM ** 2 * float(np.finfo(np.float64).eps)
 │   ├── if obj.dtype == np.float32
 │   │   └── return _validate_rotation_matrix_numpy_against_threshold(obj, threshold=atol_float32)
 │   ├── if obj.dtype == np.float64
@@ -71,8 +71,8 @@ validation.py
 ├── def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor
 │   ├── # Validate a (..., 3, 3) torch rotation matrix; dispatch the tolerance on dtype.
 │   ├── impls asserts Tensor, ndim >= 2, last two dims (3, 3), dtype in {torch.float32, torch.float64}
-│   ├── impls atol_float32 = _ROTATION_MATRIX_ATOL_SAFETY_FACTOR * float(torch.finfo(torch.float32).eps)
-│   ├── impls atol_float64 = _ROTATION_MATRIX_ATOL_SAFETY_FACTOR * float(torch.finfo(torch.float64).eps)
+│   ├── impls atol_float32 = _ROTATION_MATRIX_DIM ** 2 * float(torch.finfo(torch.float32).eps)
+│   ├── impls atol_float64 = _ROTATION_MATRIX_DIM ** 2 * float(torch.finfo(torch.float64).eps)
 │   ├── if obj.dtype == torch.float32
 │   │   └── return _validate_rotation_matrix_torch_against_threshold(obj, threshold=atol_float32)
 │   ├── if obj.dtype == torch.float64
