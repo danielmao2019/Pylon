@@ -196,7 +196,7 @@ def test_build_texel_face_map_covers_both_sides_of_cylindrical_seam() -> None:
 
 
 def test_build_texel_face_map_barycentric_recovers_face_vertex_attributes() -> None:
-    """Recover a per-vertex attribute on every occupied texel within numerical tolerance via gather(face_attr[faces[texel_face_index]] * texel_face_barycentric).sum(...).
+    """Barycentric-interpolating the owning face's three corner UVs recovers each occupied texel's own center UV, so a corner-permuted barycentric is caught (not merely an in-range convex combination).
 
     Args:
         None.
@@ -206,24 +206,32 @@ def test_build_texel_face_map_barycentric_recovers_face_vertex_attributes() -> N
     """
 
     mesh = _build_identity_uv_mesh()
-    per_vertex_attr = torch.tensor(
-        [10.0, 20.0, 30.0], dtype=torch.float32, device=_CUDA_DEVICE
-    )
+    texture_size = 64
 
-    texel_face_map = build_texel_face_map(mesh=mesh, texture_size=8)
+    texel_face_map = build_texel_face_map(mesh=mesh, texture_size=texture_size)
     texel_face_index = texel_face_map["texel_face_index"]
     texel_face_barycentric = texel_face_map["texel_face_barycentric"]
 
     occupied_mask = texel_face_index >= 0
-    per_corner_attr = per_vertex_attr[mesh.faces[texel_face_index.clamp(min=0)]]
-    interpolated = (per_corner_attr * texel_face_barycentric).sum(dim=-1)
-
     assert bool(occupied_mask.any().item()), f"{occupied_mask.any()=}"
-    occupied_values = interpolated[occupied_mask]
-    assert torch.isfinite(occupied_values).all(), f"{occupied_values=}"
-    assert float(occupied_values.min().item()) >= 10.0 - 1.0e-3, (
-        f"{float(occupied_values.min().item())=}"
+
+    corner_uvs = mesh.texture.verts_uvs[
+        mesh.texture.faces_uvs[texel_face_index.clamp(min=0)]
+    ]
+    interpolated_uv = (corner_uvs * texel_face_barycentric.unsqueeze(-1)).sum(dim=-2)
+
+    axis = (
+        torch.arange(texture_size, device=_CUDA_DEVICE, dtype=torch.float32) + 0.5
+    ) / texture_size
+    expected_u = axis.view(1, texture_size).expand(texture_size, texture_size)
+    expected_v = axis.view(texture_size, 1).expand(texture_size, texture_size)
+    expected_uv = torch.stack([expected_u, expected_v], dim=-1)
+
+    max_error = float(
+        (interpolated_uv[occupied_mask] - expected_uv[occupied_mask]).abs().max().item()
     )
-    assert float(occupied_values.max().item()) <= 30.0 + 1.0e-3, (
-        f"{float(occupied_values.max().item())=}"
+    assert max_error < 1.0e-3, (
+        "Expected barycentric-interpolated corner UVs to recover each occupied "
+        "texel's center UV; a corner-permuted barycentric fails this. "
+        f"{max_error=}"
     )

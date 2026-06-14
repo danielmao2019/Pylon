@@ -86,7 +86,7 @@ test_texel_face_map.py
 ├── def test_build_texel_face_map_covers_both_sides_of_cylindrical_seam
 │   └── # For a seam-safe canonical mesh whose only face spans u in {0.95, 1.05, 1.02}, both the u-near-1 and u-near-0 texel columns get assigned to that face (cylindrical wrap coverage via internal seam-side duplication).
 └── def test_build_texel_face_map_barycentric_recovers_face_vertex_attributes
-    └── # gather(face_attr[faces[texel_face_index]] * texel_face_barycentric).sum(...) recovers a per-vertex attribute on every occupied texel within numerical tolerance.
+    └── # barycentric-interpolating the owning face's three corner UVs (verts_uvs[faces_uvs[texel_face_index]] * texel_face_barycentric).sum(...) recovers each occupied texel's own center UV within numerical tolerance, so a corner-permuted barycentric is caught (not merely an in-range convex combination).
 ```
 
 `tests/data/structures/three_d/mesh/test_load_save_roundtrip.py`
