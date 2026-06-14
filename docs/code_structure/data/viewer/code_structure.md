@@ -1691,9 +1691,10 @@ display_response.py
 ```text
 camera_display.py
 ├── from data.structures.three_d.camera.camera_vis import cameras_vis
+├── from data.structures.three_d.camera.cameras import Cameras
 ├── def create_camera_display_response
 │   ├── # Creates a camera display response whose URL points at the camera-vis JSON payload.
-│   ├── impls loads camera artifact from camera_artifact_path into a Cameras collection
+│   ├── calls _load_opencv_c2w_cameras
 │   ├── calls _build_camera_vis_payload
 │   ├── impls exposes the camera-vis JSON payload through a frontend-loadable URL without writing a benchmark camera-visualization artifact to disk
 │   ├── impls constructs CameraDisplayResponse with a distinct camera layer slot_id, title, url, and meta_info={}
@@ -1712,9 +1713,19 @@ camera_display.py
 │   ├── for each line in frustum_lines
 │   │   └── calls _serialize_camera_vis_line
 │   └── return
-└── def _serialize_camera_vis_line
-    ├── # Converts one camera-vis line segment into plain start, end, and color lists.
-    ├── impls serializes start, end, and color
+├── def _serialize_camera_vis_line
+│   ├── # Converts one camera-vis line segment into plain start, end, and color lists.
+│   ├── impls serializes start, end, and color
+│   └── return
+├── def _load_opencv_c2w_cameras
+│   ├── # Loads the camera display's on-disk camera artifact (one 4x4 OpenCV camera-to-world matrix per row, 16 floats) into a CPU Cameras collection in the opencv convention.
+│   ├── for each non-empty pose row
+│   │   ├── impls parses 16 floats into a 4x4 camera-to-world matrix
+│   │   └── calls _stabilize_rotation
+│   ├── calls Cameras
+│   └── return
+└── def _stabilize_rotation
+    ├── # Projects one near-rotation matrix onto SO(3) via SVD so a parsed camera-to-world rotation is a proper rotation with determinant +1.
     └── return
 ```
 
