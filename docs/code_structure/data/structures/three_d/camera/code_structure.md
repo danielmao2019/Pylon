@@ -6,19 +6,24 @@
 
 ```text
 camera_vis.py
-├── from typing import Any, Dict, List, Optional
+├── from typing import Any, Dict, List, Optional, Tuple
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
-├── def cameras_vis(cameras: Cameras, frustum_scale: float, frustum_color: Optional[torch.Tensor] = None) -> List[Dict[str, Any]]
-│   ├── # Builds a camera-trajectory visualization payload from a Cameras collection.
+├── DEFAULT_FRUSTUM_SIZE = 0.25             # world-unit frustum/axis size, resolved when frustum_size is None
+├── DEFAULT_FRUSTUM_COLOR = (255, 214, 0)   # RGB line color, resolved when frustum_color is None
+├── DEFAULT_POINT_SIZE = 0.01               # world-unit size of the camera-center point marker, resolved when point_size is None
+├── DEFAULT_POINT_COLOR = (255, 214, 0)     # RGB center-point color, resolved when point_color is None
+├── def cameras_vis(cameras: Cameras, frustum_size: Optional[float] = None, frustum_color: Optional[Tuple[int, int, int]] = None, point_size: Optional[float] = None, point_color: Optional[Tuple[int, int, int]] = None) -> List[Dict[str, Any]]
+│   ├── # The cameras atomic-display data-layer mapping.
 │   ├── for each camera
-│   │   └── calls camera_vis
+│   │   └── calls camera_vis(camera, frustum_size, frustum_color, point_size, point_color)
 │   └── return
-└── def camera_vis(camera: Camera, frustum_scale: float, frustum_color: Optional[torch.Tensor] = None) -> Dict[str, Any]
-    ├── # Builds one camera visualization primitive from a Camera whose intrinsics may be absent.
-    ├── impls computes center, center_color, and axes from camera center, right, forward, and up
-    ├── impls computes frustum lines from camera intrinsics and frustum_scale
+└── def camera_vis(camera: Camera, frustum_size: Optional[float] = None, frustum_color: Optional[Tuple[int, int, int]] = None, point_size: Optional[float] = None, point_color: Optional[Tuple[int, int, int]] = None) -> Dict[str, Any]
+    ├── # The per-camera atomic-display data-layer mapping.
+    ├── impls resolves frustum_size / frustum_color / point_size / point_color from None to DEFAULT_FRUSTUM_SIZE / DEFAULT_FRUSTUM_COLOR / DEFAULT_POINT_SIZE / DEFAULT_POINT_COLOR
+    ├── impls computes center, center_color from point_color, and center_size from point_size
+    ├── impls computes axes and frustum lines colored by frustum_color from camera center, right, forward, up, intrinsics, and frustum_size
     └── return
 ```
 

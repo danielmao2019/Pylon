@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 from data.viewer.utils.atomic_displays.pixels.ts.backend.core_pixels_display import (
-    create_pixels_display_response,
+    create_pixels_display_response_core,
 )
 from data.viewer.utils.atomic_displays.pixels.ts.backend.schemas.display_response import (
     ColorImageDisplayResponse,
@@ -33,7 +33,7 @@ def create_color_image_display_response(
     Returns:
         Color image display response.
     """
-    return create_pixels_display_response(
+    return create_pixels_display_response_core(
         response_type=ColorImageDisplayResponse,
         slot_id=slot_id,
         title=title,
@@ -60,7 +60,7 @@ def create_depth_image_display_response(
     Returns:
         Depth image display response.
     """
-    return create_pixels_display_response(
+    return create_pixels_display_response_core(
         response_type=DepthImageDisplayResponse,
         slot_id=slot_id,
         title=title,
@@ -87,7 +87,7 @@ def create_edge_image_display_response(
     Returns:
         Edge image display response.
     """
-    return create_pixels_display_response(
+    return create_pixels_display_response_core(
         response_type=EdgeImageDisplayResponse,
         slot_id=slot_id,
         title=title,
@@ -114,7 +114,7 @@ def create_normal_image_display_response(
     Returns:
         Normal image display response.
     """
-    return create_pixels_display_response(
+    return create_pixels_display_response_core(
         response_type=NormalImageDisplayResponse,
         slot_id=slot_id,
         title=title,
@@ -144,7 +144,7 @@ def create_segmentation_image_display_response(
         Segmentation image display response.
     """
     payload = {} if meta_info is None else dict(meta_info)
-    response = create_pixels_display_response(
+    response = create_pixels_display_response_core(
         response_type=SegmentationImageDisplayResponse,
         slot_id=slot_id,
         title=title,
@@ -178,7 +178,7 @@ def create_instance_surrogate_image_display_response(
     Returns:
         Instance-surrogate image display response.
     """
-    response = create_pixels_display_response(
+    response = create_pixels_display_response_core(
         response_type=InstanceSurrogateImageDisplayResponse,
         slot_id=slot_id,
         title=title,

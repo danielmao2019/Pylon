@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 import type { CameraState } from "data/viewer/utils/camera_state/ts/frontend/types";
 import {
+  applyCameraStateToThreeCamera,
   createThreeDisplayContainer,
   createThreePerspectiveCamera,
   createThreeScene,
@@ -10,19 +11,27 @@ import {
 } from "data/viewer/utils/atomic_displays/utils/ts/frontend/three_scene_helpers";
 import type { CameraDisplayResponse } from "./types/display_response";
 
-// Last-resort default frustum line color, applied when the per-camera payload
-// entry does not carry a color AND the caller does not supply frustumColor.
-// Per-entry payload colors still take precedence over frustumColor. Lib-owned
-// default, overridable.
-export const DEFAULT_FRUSTUM_COLOR = "#888888";
-
 // Transparent frustum overlay opacity applied when the caller does not supply
-// frustumOpacity. Lib-owned default, overridable.
+// frustumOpacity. A dynamic render property (the per-frame hover dimming
+// multiplies it), not a baked glyph style — glyph size + color are baked by
+// camera_vis. Lib-owned default, overridable.
 export const DEFAULT_FRUSTUM_OPACITY = 0.5;
 
-// Marker size for the camera center point used when the caller does not supply
-// centerMarkerSize. Lib-owned default, overridable.
-export const DEFAULT_CENTER_MARKER_SIZE = 0.01;
+// Fraction of a frame's base opacity applied to a NON-contributing frame when a
+// per-frame opacity predicate dims it. A clearly-visible fade so contributing
+// frames stand out against the dimmed rest. Lib-owned default.
+export const NON_CONTRIBUTING_FRAME_OPACITY_RATIO = 0.12;
+
+// Control surface a caller uses to drive per-frame opacity on a rendered cameras
+// display: `setContributingFrames` re-fades every per-camera group so the frames
+// whose 0-based `cameraIndex` satisfies `isContributing` keep their base opacity
+// and the rest are dimmed to `NON_CONTRIBUTING_FRAME_OPACITY_RATIO` of base. The
+// predicate is latched, so calls made before the async payload mounts still apply
+// once the per-camera groups are added to the scene.
+export interface CameraFrameOpacityControl {
+  container: HTMLElement;
+  setContributingFrames: (isContributing: (cameraIndex: number) => boolean) => void;
+}
 
 type CameraVisualizationVectorPayload = [number, number, number];
 
@@ -35,6 +44,7 @@ interface CameraVisualizationLinePayload {
 interface CameraVisualizationPayload {
   center: CameraVisualizationVectorPayload;
   center_color: CameraVisualizationVectorPayload;
+  center_size: number;
   axes: CameraVisualizationLinePayload[];
   frustum_lines: CameraVisualizationLinePayload[];
 }
@@ -44,15 +54,13 @@ type CamerasPayload = CameraVisualizationPayload[];
 export function renderCameraDisplay({
   displayResponse,
   initialCameraState = null,
-  frustumColor,
   frustumOpacity,
-  centerMarkerSize,
+  onFrameOpacityControl,
 }: {
   displayResponse: CameraDisplayResponse;
   initialCameraState?: CameraState | null;
-  frustumColor?: string;
   frustumOpacity?: number;
-  centerMarkerSize?: number;
+  onFrameOpacityControl?: (control: CameraFrameOpacityControl) => void;
 }): VNode {
   if (Object.keys(displayResponse.meta_info).length !== 0) {
     throw new Error("camera display meta_info must be an empty object");
@@ -65,9 +73,8 @@ export function renderCameraDisplay({
       const { container, scene, camera, renderer } = createCamerasScene({
         displayResponse,
         initialCameraState,
-        frustumColor,
         frustumOpacity,
-        centerMarkerSize,
+        onFrameOpacityControl,
       });
       renderCamerasScene({ scene, camera, renderer });
       return container;
@@ -79,15 +86,13 @@ export function renderCameraDisplay({
 function createCamerasScene({
   displayResponse,
   initialCameraState,
-  frustumColor,
   frustumOpacity,
-  centerMarkerSize,
+  onFrameOpacityControl,
 }: {
   displayResponse: CameraDisplayResponse;
   initialCameraState: CameraState | null;
-  frustumColor?: string;
   frustumOpacity?: number;
-  centerMarkerSize?: number;
+  onFrameOpacityControl?: (control: CameraFrameOpacityControl) => void;
 }): {
   container: HTMLDivElement;
   scene: THREE.Scene;
@@ -98,12 +103,33 @@ function createCamerasScene({
   const scene = createThreeScene();
   const camera = createThreePerspectiveCamera({ initialCameraState });
   const renderer = createThreeWebGLRenderer({ container });
+  followSyncedCameraPose({ container, camera });
+
+  // Per-frame opacity control. The cameras payload loads asynchronously, so the
+  // latest predicate is latched and re-applied once `createThreeCameras` has been
+  // added to the scene. Until then `overlay` is null and the predicate is held.
+  let overlay: THREE.Object3D | null = null;
+  let latestPredicate: ((cameraIndex: number) => boolean) | null = null;
+  const setContributingFrames = (
+    isContributing: (cameraIndex: number) => boolean,
+  ): void => {
+    latestPredicate = isContributing;
+    if (overlay !== null) {
+      _applyFrameOpacity({ overlay, isContributing });
+    }
+  };
+  if (onFrameOpacityControl !== undefined) {
+    onFrameOpacityControl({ container, setContributingFrames });
+  }
+
   loadCamerasPayload({ displayResponse })
-    .then((payload) =>
-      scene.add(
-        createThreeCameras({ payload, frustumColor, frustumOpacity, centerMarkerSize }),
-      ),
-    )
+    .then((payload) => {
+      overlay = createThreeCameras({ payload, frustumOpacity });
+      scene.add(overlay);
+      if (latestPredicate !== null) {
+        _applyFrameOpacity({ overlay, isContributing: latestPredicate });
+      }
+    })
     .catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
       container.replaceChildren(
@@ -111,6 +137,82 @@ function createCamerasScene({
       );
     });
   return { container, scene, camera, renderer };
+}
+
+// Apply a per-frame opacity predicate to a built cameras overlay: walk every
+// per-camera group (tagged with `userData.cameraIndex`), and for every child
+// material set the opacity to the material's captured base when the group's
+// `cameraIndex` is contributing, or to `NON_CONTRIBUTING_FRAME_OPACITY_RATIO` of
+// that base otherwise. The base opacity is captured on first touch under
+// `material.userData.baseOpacity`, and `material.transparent` is forced true so
+// PointsMaterial centers can fade alongside the line materials.
+function _applyFrameOpacity({
+  overlay,
+  isContributing,
+}: {
+  overlay: THREE.Object3D;
+  isContributing: (cameraIndex: number) => boolean;
+}): void {
+  for (const child of overlay.children) {
+    const cameraIndex = child.userData.cameraIndex;
+    if (typeof cameraIndex !== "number") {
+      continue;
+    }
+    const contributing = isContributing(cameraIndex);
+    child.traverse((object) => {
+      const material = (object as THREE.Mesh).material;
+      if (material === undefined || material === null || Array.isArray(material)) {
+        return;
+      }
+      const typedMaterial = material as THREE.Material & { opacity: number };
+      if (typeof typedMaterial.userData.baseOpacity !== "number") {
+        typedMaterial.userData.baseOpacity = typedMaterial.opacity;
+      }
+      const baseOpacity = typedMaterial.userData.baseOpacity as number;
+      typedMaterial.transparent = true;
+      typedMaterial.opacity = contributing
+        ? baseOpacity
+        : baseOpacity * NON_CONTRIBUTING_FRAME_OPACITY_RATIO;
+      typedMaterial.needsUpdate = true;
+    });
+  }
+}
+
+// Make the frustum camera follow the camera-sync pose mirrored onto the
+// container as `data-camera-state`. Applies the current value (if present) once,
+// then watches the attribute for later sync updates. Since the cameras display
+// has no trackball controls, the synced state is applied straight to the camera.
+// A null/absent dataset value is a no-op, so a standalone (non-synced) caller
+// never sees `data-camera-state` and behaves exactly as before.
+function followSyncedCameraPose({
+  container,
+  camera,
+}: {
+  container: HTMLDivElement;
+  camera: THREE.PerspectiveCamera;
+}): void {
+  const applyDatasetCameraState = (): void => {
+    const raw = container.dataset.cameraState;
+    if (raw === undefined) {
+      return;
+    }
+    try {
+      applyCameraStateToThreeCamera({
+        camera,
+        cameraState: JSON.parse(raw) as CameraState,
+      });
+    } catch {
+      // ignore unparseable dataset values
+    }
+  };
+  applyDatasetCameraState();
+  const observer = new MutationObserver(() => {
+    applyDatasetCameraState();
+  });
+  observer.observe(container, {
+    attributeFilter: ["data-camera-state"],
+    attributes: true,
+  });
 }
 
 async function loadCamerasPayload({
@@ -130,36 +232,38 @@ async function loadCamerasPayload({
 
 function createThreeCameras({
   payload,
-  frustumColor,
   frustumOpacity,
-  centerMarkerSize,
 }: {
   payload: CamerasPayload;
-  frustumColor?: string;
   frustumOpacity?: number;
-  centerMarkerSize?: number;
 }): THREE.Object3D {
-  const effectiveCenterMarkerSize = centerMarkerSize ?? DEFAULT_CENTER_MARKER_SIZE;
   const effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY;
   const overlay = new THREE.Group();
   overlay.userData.cameraCount = payload.length;
   overlay.userData.lineCount = 0;
   overlay.renderOrder = 999;
-  for (const cameraVisualization of payload) {
-    overlay.add(
+  // Each camera's center Points plus its axes and frustum lines are wrapped in a
+  // per-camera group tagged with the camera's 0-based position in the payload, so
+  // a per-frame opacity setter can fade whole frames by `cameraIndex` without
+  // knowing what the camera index means.
+  for (let cameraIndex = 0; cameraIndex < payload.length; cameraIndex += 1) {
+    const cameraVisualization = payload[cameraIndex];
+    const cameraGroup = new THREE.Group();
+    cameraGroup.userData.cameraIndex = cameraIndex;
+    cameraGroup.add(
       createThreeCameraCenter({
         cameraVisualization,
-        centerMarkerSize: effectiveCenterMarkerSize,
       }),
     );
     for (const line of cameraVisualization.axes) {
-      overlay.add(createThreeCameraOverlayLine({ line, frustumColor, frustumOpacity: effectiveFrustumOpacity }));
+      cameraGroup.add(createThreeCameraOverlayLine({ line, frustumOpacity: effectiveFrustumOpacity }));
       overlay.userData.lineCount += 1;
     }
     for (const line of cameraVisualization.frustum_lines) {
-      overlay.add(createThreeCameraOverlayLine({ line, frustumColor, frustumOpacity: effectiveFrustumOpacity }));
+      cameraGroup.add(createThreeCameraOverlayLine({ line, frustumOpacity: effectiveFrustumOpacity }));
       overlay.userData.lineCount += 1;
     }
+    overlay.add(cameraGroup);
   }
   if (payload.length > 0) {
     overlay.userData.firstAxisLength = cameraVisualizationLineLength({
@@ -174,21 +278,22 @@ function createThreeCameras({
 
 function createThreeCameraCenter({
   cameraVisualization,
-  centerMarkerSize,
 }: {
   cameraVisualization: CameraVisualizationPayload;
-  centerMarkerSize: number;
 }): THREE.Points {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
     new THREE.Float32BufferAttribute(cameraVisualization.center, 3),
   );
+  // center_size is a world-unit size baked by camera_vis (from point_size), so
+  // sizeAttenuation must be true for `size` to be interpreted in world space.
   const material = new THREE.PointsMaterial({
     color: new THREE.Color(...cameraVisualization.center_color),
     depthTest: false,
     depthWrite: false,
-    size: centerMarkerSize,
+    size: cameraVisualization.center_size,
+    sizeAttenuation: true,
   });
   const center = new THREE.Points(geometry, material);
   center.renderOrder = 999;
@@ -197,30 +302,19 @@ function createThreeCameraCenter({
 
 function createThreeCameraOverlayLine({
   line,
-  frustumColor,
   frustumOpacity,
 }: {
   line: CameraVisualizationLinePayload;
-  frustumColor?: string;
   frustumOpacity: number;
 }): THREE.Line {
-  // Per-entry payload colors take precedence over frustumColor, which in turn
-  // takes precedence over the lib-owned DEFAULT_FRUSTUM_COLOR.
-  let effectiveFrustumColor: THREE.Color;
-  if (line.color !== undefined) {
-    effectiveFrustumColor = new THREE.Color(...line.color);
-  } else if (frustumColor !== undefined) {
-    effectiveFrustumColor = new THREE.Color(frustumColor);
-  } else {
-    effectiveFrustumColor = new THREE.Color(DEFAULT_FRUSTUM_COLOR);
-  }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
     new THREE.Float32BufferAttribute([...line.start, ...line.end], 3),
   );
+  // The backend bakes a per-line color into every axes/frustum line.
   const material = new THREE.LineBasicMaterial({
-    color: effectiveFrustumColor,
+    color: new THREE.Color(...line.color),
     depthTest: false,
     depthWrite: false,
     opacity: frustumOpacity,
@@ -267,6 +361,10 @@ function validateCameraVisualizationPayload({
     center_color: validateCameraVisualizationVector({
       value: value.center_color,
       label: `camera ${cameraIndex} center_color`,
+    }),
+    center_size: validateCameraVisualizationScalar({
+      value: value.center_size,
+      label: `camera ${cameraIndex} center_size`,
     }),
     axes: validateCameraVisualizationLines({
       value: value.axes,
@@ -338,6 +436,19 @@ function validateCameraVisualizationVector({
     throw new Error(`${label} must be a finite 3-vector`);
   }
   return [value[0], value[1], value[2]];
+}
+
+function validateCameraVisualizationScalar({
+  value,
+  label,
+}: {
+  value: unknown;
+  label: string;
+}): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number`);
+  }
+  return value;
 }
 
 function assertCameraVisualizationPayloadShape({

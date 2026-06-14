@@ -10,19 +10,16 @@ from data.structures.three_d.camera.camera_vis import camera_vis
 def add_camera_to_fig(
     fig: go.Figure,
     camera: Camera,
-    axis_length: float = 4.0,
-    frustum_depth: float = 8.0,
+    frustum_size: float = 8.0,
 ) -> go.Figure:
     # Input validations
     assert isinstance(fig, go.Figure), f"{type(fig)=}"
     assert isinstance(camera, Camera), f"{type(camera)=}"
-    assert isinstance(axis_length, (int, float)), f"{type(axis_length)=}"
-    assert isinstance(frustum_depth, (int, float)), f"{type(frustum_depth)=}"
+    assert isinstance(frustum_size, (int, float)), f"{type(frustum_size)=}"
 
     vis = camera_vis(
         camera=camera,
-        axis_length=axis_length,
-        frustum_depth=frustum_depth,
+        frustum_size=frustum_size,
     )
 
     camera_pos = vis["center"].cpu().numpy()

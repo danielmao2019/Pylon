@@ -148,7 +148,8 @@ utils/
 │           ├── backend/
 │           │   ├── schemas/
 │           │   │   └── display_response.py # TS backend camera-display response schema: camera-vis JSON payload URL + empty meta_info
-│           │   └── camera_display.py # camera artifact -> camera-vis JSON payload URL
+│           │   ├── core_camera_display.py # TS DisplayResponse core for cameras
+│           │   └── apis.py # TS backend camera-display APIs
 │           └── frontend/
 │               ├── types/
 │               │   └── display_response.ts # TS camera-display response interface: camera-vis JSON payload URL + empty meta_info

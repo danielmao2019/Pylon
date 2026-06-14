@@ -9,7 +9,7 @@ from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_c
 from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.atomic_displays.points.ts.backend.core_points_display import (
-    create_points_display_response,
+    create_points_display_response_core,
 )
 from data.viewer.utils.atomic_displays.points.ts.backend.schemas.display_response import (
     ColorPCDisplayResponse,
@@ -35,7 +35,7 @@ def create_color_pc_display_response(
     Returns:
         Color point-cloud display response.
     """
-    return create_points_display_response(
+    return create_points_display_response_core(
         response_type=ColorPCDisplayResponse,
         slot_id=slot_id,
         title=title,
@@ -86,7 +86,7 @@ def create_segmentation_pc_display_response(
         segmentation_pc_path=segmentation_pc_path,
         class_id_to_rgb=effective_class_id_to_rgb,
     )
-    return create_points_display_response(
+    return create_points_display_response_core(
         response_type=SegmentationPCDisplayResponse,
         slot_id=slot_id,
         title=title,

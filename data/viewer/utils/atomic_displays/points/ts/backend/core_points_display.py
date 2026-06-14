@@ -8,7 +8,7 @@ from data.viewer.utils.atomic_displays.points.ts.backend.schemas.display_respons
 )
 
 
-def create_points_display_response(
+def create_points_display_response_core(
     response_type: Type[PointDisplayResponse],
     slot_id: str,
     title: str,

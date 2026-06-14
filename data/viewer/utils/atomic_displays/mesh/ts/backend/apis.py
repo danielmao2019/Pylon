@@ -10,7 +10,7 @@ from data.structures.three_d.mesh.load import load_mesh
 from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.save import save_mesh
 from data.viewer.utils.atomic_displays.mesh.ts.backend.core_mesh_display import (
-    create_mesh_display_response,
+    create_mesh_display_response_core,
 )
 from data.viewer.utils.atomic_displays.mesh.ts.backend.schemas.display_response import (
     ColorMeshDisplayResponse,
@@ -43,7 +43,7 @@ def create_color_mesh_display_response(
     Returns:
         Color mesh display response.
     """
-    base_response = create_mesh_display_response(
+    base_response = create_mesh_display_response_core(
         input_path=input_path,
         output_path=output_path,
         url=url,
@@ -93,7 +93,7 @@ def create_segmentation_mesh_display_response(
     )
     payload = dict(meta_info)
     payload.update(_build_segmentation_mesh_meta_info(class_id_to_rgb=class_id_to_rgb))
-    base_response = create_mesh_display_response(
+    base_response = create_mesh_display_response_core(
         input_path=output_path,
         output_path=output_path,
         url=url,
@@ -139,7 +139,7 @@ def create_heatmap_mesh_display_response(
     )
     payload = dict(meta_info)
     payload.update(_build_heatmap_mesh_meta_info(scalars=heatmap_mesh_scalars))
-    base_response = create_mesh_display_response(
+    base_response = create_mesh_display_response_core(
         input_path=output_path,
         output_path=output_path,
         url=url,
@@ -490,9 +490,10 @@ def _read_sparse_heatmap_geometry_url(input_path: Path) -> str:
         % (input_path, sorted(payload.keys()))
     )
     geometry_url = payload["geometry_url"]
-    assert isinstance(geometry_url, str) and len(geometry_url) > 0, (
-        "Expected `geometry_url` to be a non-empty string. geometry_url=%r"
-        % (geometry_url,)
+    assert (
+        isinstance(geometry_url, str) and len(geometry_url) > 0
+    ), "Expected `geometry_url` to be a non-empty string. geometry_url=%r" % (
+        geometry_url,
     )
     return geometry_url
 
@@ -518,23 +519,21 @@ def _read_sparse_heatmap_arrays(input_path: Path) -> Tuple[torch.Tensor, torch.T
         payload = json.load(fh)
     indices = torch.tensor(payload["indices"], dtype=torch.int64)
     values = torch.tensor(payload["values"], dtype=torch.float32)
-    assert indices.ndim == 1, (
-        "Expected `indices` to be 1-D. indices.shape=%r" % (indices.shape,)
+    assert indices.ndim == 1, "Expected `indices` to be 1-D. indices.shape=%r" % (
+        indices.shape,
     )
-    assert values.ndim == 1, (
-        "Expected `values` to be 1-D. values.shape=%r" % (values.shape,)
+    assert values.ndim == 1, "Expected `values` to be 1-D. values.shape=%r" % (
+        values.shape,
     )
     assert indices.shape[0] == values.shape[0], (
         "Expected `indices` and `values` to have matching length. "
         "indices.shape=%r values.shape=%r" % (indices.shape, values.shape)
     )
     assert bool((indices >= 0).all()), (
-        "Expected `indices` to be non-negative. indices.min()=%r"
-        % indices.min().item()
+        "Expected `indices` to be non-negative. indices.min()=%r" % indices.min().item()
     )
     assert bool((values >= 0).all()), (
-        "Expected `values` to be non-negative. values.min()=%r"
-        % values.min().item()
+        "Expected `values` to be non-negative. values.min()=%r" % values.min().item()
     )
     return indices, values
 

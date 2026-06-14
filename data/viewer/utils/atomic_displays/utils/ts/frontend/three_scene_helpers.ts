@@ -43,7 +43,7 @@ export function createThreePerspectiveCamera({
   camera.lookAt(new THREE.Vector3(0, 0, 0));
   camera.updateProjectionMatrix();
   if (initialCameraState !== null) {
-    _applyInitialCameraState({ camera, initialCameraState });
+    applyCameraStateToThreeCamera({ camera, cameraState: initialCameraState });
   }
   return camera;
 }
@@ -103,20 +103,20 @@ export function startThreeSceneRenderLoop({
   window.requestAnimationFrame(draw);
 }
 
-function _applyInitialCameraState({
+export function applyCameraStateToThreeCamera({
   camera,
-  initialCameraState,
+  cameraState,
 }: {
   camera: THREE.PerspectiveCamera;
-  initialCameraState: CameraState;
+  cameraState: CameraState;
 }): void {
-  const position = initialCameraState.extrinsics.position;
-  const quaternion = initialCameraState.extrinsics.quaternion;
-  const up = initialCameraState.extrinsics.up;
-  const fov = initialCameraState.intrinsics.fov;
-  const aspect = initialCameraState.intrinsics.aspect;
-  const near = initialCameraState.intrinsics.near;
-  const far = initialCameraState.intrinsics.far;
+  const position = cameraState.extrinsics.position;
+  const quaternion = cameraState.extrinsics.quaternion;
+  const up = cameraState.extrinsics.up;
+  const fov = cameraState.intrinsics.fov;
+  const aspect = cameraState.intrinsics.aspect;
+  const near = cameraState.intrinsics.near;
+  const far = cameraState.intrinsics.far;
   if (
     !_isVectorRecord(position) ||
     !_isVectorRecord(up) ||

@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 from data.viewer.utils.atomic_displays.gaussians.ts.backend.core_gaussians_display import (
-    create_gaussians_display_response,
+    create_gaussians_display_response_core,
 )
 from data.viewer.utils.atomic_displays.gaussians.ts.backend.schemas.display_response import (
     ColorGSDisplayResponse,
@@ -29,7 +29,7 @@ def create_color_gs_display_response(
     Returns:
         Color Gaussian-splat display response.
     """
-    return create_gaussians_display_response(
+    return create_gaussians_display_response_core(
         response_type=ColorGSDisplayResponse,
         slot_id=slot_id,
         title=title,
@@ -59,7 +59,7 @@ def create_segmentation_gs_display_response(
         Segmentation Gaussian-splat display response.
     """
     payload = {} if meta_info is None else dict(meta_info)
-    response = create_gaussians_display_response(
+    response = create_gaussians_display_response_core(
         response_type=SegmentationGSDisplayResponse,
         slot_id=slot_id,
         title=title,

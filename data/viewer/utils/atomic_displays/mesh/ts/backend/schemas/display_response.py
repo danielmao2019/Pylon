@@ -14,7 +14,7 @@ class MeshDisplayResponse(DisplayResponse):
     ``HeatmapMeshDisplayResponse``, ``SegmentationMeshDisplayResponse``)
     override ``display_kind`` with their kind-specific ``Literal``. The
     default value here is only used by the internal helper
-    :func:`create_mesh_display_response`, whose return value is consumed
+    :func:`create_mesh_display_response_core`, whose return value is consumed
     only by leaf factories that rebuild the concrete response.
 
     Args:
