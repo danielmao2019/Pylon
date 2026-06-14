@@ -39,6 +39,83 @@ _CAMERA_NPZ_KEYS = {
 }
 
 
+def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> None:
+    """Save cameras (a Cameras collection or a single Camera) to a file.
+
+    Args:
+        cameras: Either a single `Camera` or a `Cameras` collection to save.
+        cameras_path: Output `.npz` or `.json` filepath.
+
+    Returns:
+        None.
+    """
+    # Input validations
+    assert isinstance(cameras_path, Path), (
+        "Expected Cameras output path to be a pathlib Path. " f"{type(cameras_path)=}"
+    )
+
+    # Input normalizations
+    format = _resolve_format_from_path(cameras_path=cameras_path)
+
+    payload = serialize_cameras(cameras=cameras, format=format)
+    cameras_path.parent.mkdir(parents=True, exist_ok=True)
+    if format == "json":
+        cameras_path.write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return
+
+    if format == "npz":
+        np.savez(cameras_path, **payload)
+        return
+
+    assert False, "Expected Cameras save format to be handled. " f"{format=}"
+
+
+def load_cameras(
+    cameras_path: Path,
+    device: Optional[Union[str, torch.device]] = None,
+) -> Union["Camera", "Cameras"]:
+    """Load cameras (a Cameras collection or a single Camera) from a file.
+
+    Args:
+        cameras_path: Input `.npz` or `.json` filepath.
+        device: Target device for the loaded cameras.
+
+    Returns:
+        A single `Camera` when the file holds a single form, otherwise a `Cameras`
+        collection.
+    """
+    # Input validations
+    assert isinstance(cameras_path, Path), (
+        "Expected Cameras input path to be a pathlib Path. " f"{type(cameras_path)=}"
+    )
+    assert cameras_path.exists(), (
+        "Expected Cameras input path to exist. " f"{cameras_path=}"
+    )
+    assert cameras_path.is_file(), (
+        "Expected Cameras input path to be a file. " f"{cameras_path=}"
+    )
+    assert device is None or isinstance(device, (str, torch.device)), (
+        "Expected Cameras device to be None, a string, or a torch device. " f"{device=}"
+    )
+
+    # Input normalizations
+    format = _resolve_format_from_path(cameras_path=cameras_path)
+
+    if format == "json":
+        payload = json.loads(cameras_path.read_text(encoding="utf-8"))
+        return deserialize_cameras(payload=payload, device=device, format=format)
+
+    if format == "npz":
+        with np.load(cameras_path, allow_pickle=False) as payload_file:
+            payload = {key: payload_file[key] for key in payload_file.files}
+        return deserialize_cameras(payload=payload, device=device, format=format)
+
+    assert False, "Expected Cameras load format to be handled. " f"{format=}"
+
+
 def serialize_cameras(
     cameras: Union["Camera", "Cameras"],
     format: str = "json",
@@ -161,83 +238,6 @@ def deserialize_cameras(
     if was_single:
         return cameras[0]
     return cameras
-
-
-def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> None:
-    """Save cameras (a Cameras collection or a single Camera) to a file.
-
-    Args:
-        cameras: Either a single `Camera` or a `Cameras` collection to save.
-        cameras_path: Output `.npz` or `.json` filepath.
-
-    Returns:
-        None.
-    """
-    # Input validations
-    assert isinstance(cameras_path, Path), (
-        "Expected Cameras output path to be a pathlib Path. " f"{type(cameras_path)=}"
-    )
-
-    # Input normalizations
-    format = _resolve_format_from_path(cameras_path=cameras_path)
-
-    payload = serialize_cameras(cameras=cameras, format=format)
-    cameras_path.parent.mkdir(parents=True, exist_ok=True)
-    if format == "json":
-        cameras_path.write_text(
-            json.dumps(payload, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        return
-
-    if format == "npz":
-        np.savez(cameras_path, **payload)
-        return
-
-    assert False, "Expected Cameras save format to be handled. " f"{format=}"
-
-
-def load_cameras(
-    cameras_path: Path,
-    device: Optional[Union[str, torch.device]] = None,
-) -> Union["Camera", "Cameras"]:
-    """Load cameras (a Cameras collection or a single Camera) from a file.
-
-    Args:
-        cameras_path: Input `.npz` or `.json` filepath.
-        device: Target device for the loaded cameras.
-
-    Returns:
-        A single `Camera` when the file holds a single form, otherwise a `Cameras`
-        collection.
-    """
-    # Input validations
-    assert isinstance(cameras_path, Path), (
-        "Expected Cameras input path to be a pathlib Path. " f"{type(cameras_path)=}"
-    )
-    assert cameras_path.exists(), (
-        "Expected Cameras input path to exist. " f"{cameras_path=}"
-    )
-    assert cameras_path.is_file(), (
-        "Expected Cameras input path to be a file. " f"{cameras_path=}"
-    )
-    assert device is None or isinstance(device, (str, torch.device)), (
-        "Expected Cameras device to be None, a string, or a torch device. " f"{device=}"
-    )
-
-    # Input normalizations
-    format = _resolve_format_from_path(cameras_path=cameras_path)
-
-    if format == "json":
-        payload = json.loads(cameras_path.read_text(encoding="utf-8"))
-        return deserialize_cameras(payload=payload, device=device, format=format)
-
-    if format == "npz":
-        with np.load(cameras_path, allow_pickle=False) as payload_file:
-            payload = {key: payload_file[key] for key in payload_file.files}
-        return deserialize_cameras(payload=payload, device=device, format=format)
-
-    assert False, "Expected Cameras load format to be handled. " f"{format=}"
 
 
 def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]:
