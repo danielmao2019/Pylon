@@ -263,8 +263,8 @@ texel_face_map.py
 │   └── return                                              # [T, T] int64 mesh-face index map (-1 sentinel for unoccupied texels)
 └── def _compute_texel_face_barycentric(rast_out: torch.Tensor) -> torch.Tensor
     ├── # Extracts per-texel face-local barycentric weights from the rasterizer output.
-    ├── impls (u_bary, v_bary) = rast_out[..., 0], rast_out[..., 1]
-    ├── impls (w0, w1, w2) = (1 - u_bary - v_bary, u_bary, v_bary)
+    ├── impls (u_bary, v_bary) = rast_out[..., 0], rast_out[..., 1]   # nvdiffrast convention: u_bary, v_bary are the weights of corners 0 and 1; corner 2 takes the remainder
+    ├── impls (w0, w1, w2) = (u_bary, v_bary, 1 - u_bary - v_bary)    # w_k is the weight of triangle corner k
     └── return                                              # [T, T, 3] barycentric weights (w0, w1, w2 summing to 1 on occupied texels)
 ```
 

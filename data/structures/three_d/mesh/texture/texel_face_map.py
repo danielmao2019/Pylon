@@ -269,8 +269,10 @@ def _compute_texel_face_barycentric(rast_out: torch.Tensor) -> torch.Tensor:
             are `(u_bary, v_bary)` within the rasterized soup triangle.
 
     Returns:
-        `[T, T, 3]` float32 barycentric weights `(w0, w1, w2) = (1 -
-        u_bary - v_bary, u_bary, v_bary)`.
+        `[T, T, 3]` float32 barycentric weights `(w0, w1, w2) = (u_bary,
+        v_bary, 1 - u_bary - v_bary)`, where `w_k` is the weight of triangle
+        corner `k` (nvdiffrast's `u_bary`/`v_bary` are the weights of corners 0
+        and 1; corner 2 takes the remainder).
     """
 
     def _validate_inputs() -> None:
@@ -285,5 +287,5 @@ def _compute_texel_face_barycentric(rast_out: torch.Tensor) -> torch.Tensor:
 
     u_bary = rast_out[0, :, :, 0]
     v_bary = rast_out[0, :, :, 1]
-    w0 = 1.0 - u_bary - v_bary
-    return torch.stack([w0, u_bary, v_bary], dim=-1).contiguous()
+    w2 = 1.0 - u_bary - v_bary
+    return torch.stack([u_bary, v_bary, w2], dim=-1).contiguous()
