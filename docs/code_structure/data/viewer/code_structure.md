@@ -1691,9 +1691,9 @@ display_response.py
 ```text
 camera_display.py
 ├── from data.structures.three_d.camera.camera_vis import cameras_vis
+├── from data.structures.three_d.camera.cameras import Cameras
 ├── def create_camera_display_response
-│   ├── # Creates a camera display response whose URL points at the camera-vis JSON payload.
-│   ├── impls loads camera artifact from camera_artifact_path into a Cameras collection
+│   ├── # Creates a camera display response whose URL points at the camera-vis JSON payload, built from a caller-supplied Cameras.
 │   ├── calls _build_camera_vis_payload
 │   ├── impls exposes the camera-vis JSON payload through a frontend-loadable URL without writing a benchmark camera-visualization artifact to disk
 │   ├── impls constructs CameraDisplayResponse with a distinct camera layer slot_id, title, url, and meta_info={}

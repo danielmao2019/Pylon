@@ -7,10 +7,10 @@ from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.camera_vis import camera_vis
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.io import (
-    deserialize_camera,
-    load_camera,
-    save_camera,
-    serialize_camera,
+    deserialize_cameras,
+    load_cameras,
+    save_cameras,
+    serialize_cameras,
 )
 from data.structures.three_d.camera.render_camera import render_camera
 from data.structures.three_d.camera.scaling import scale_intrinsics
@@ -26,10 +26,10 @@ __all__ = (
     "Camera",
     "camera_vis",
     "Cameras",
-    "serialize_camera",
-    "deserialize_camera",
-    "save_camera",
-    "load_camera",
+    "serialize_cameras",
+    "deserialize_cameras",
+    "save_cameras",
+    "load_cameras",
     "render_camera",
     "scale_intrinsics",
     "validate_camera_convention",

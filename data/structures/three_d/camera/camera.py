@@ -7,10 +7,10 @@ import torch
 
 from data.structures.three_d.camera.conventions import transform_convention
 from data.structures.three_d.camera.io import (
-    deserialize_camera,
-    load_camera,
-    save_camera,
-    serialize_camera,
+    deserialize_cameras,
+    load_cameras,
+    save_cameras,
+    serialize_cameras,
 )
 from data.structures.three_d.camera.scaling import scale_intrinsics
 from data.structures.three_d.camera.validation import (
@@ -427,15 +427,18 @@ class Camera:
         )
 
     def serialize(self, format: str = "json") -> Dict[str, Any]:
-        """Serialize this Camera into a generic payload.
+        """Serialize this Camera into a single-form payload.
+
+        Single-camera convenience wrapper over the plural `serialize_cameras`
+        dispatcher, which normalizes this single Camera to the single-form payload.
 
         Args:
             format: Serialization format, either `json` or `npz`.
 
         Returns:
-            Camera payload for the requested format.
+            Single-form Camera payload for the requested format.
         """
-        return serialize_camera(camera=self, format=format)
+        return serialize_cameras(cameras=self, format=format)
 
     @classmethod
     def deserialize(
@@ -444,24 +447,36 @@ class Camera:
         device: Optional[Union[str, torch.device]] = None,
         format: str = "json",
     ) -> "Camera":
-        """Deserialize one Camera from a generic payload.
+        """Deserialize one Camera from a single-form payload.
+
+        Single-camera convenience wrapper over the plural `deserialize_cameras`
+        dispatcher; asserts the payload was in single form so the result is a
+        single Camera.
 
         Args:
-            payload: Camera payload for the specified format.
+            payload: Single-form Camera payload for the specified format.
             device: Target device for the deserialized Camera.
             format: Serialization format, either `json` or `npz`.
 
         Returns:
             Camera object represented by the payload.
         """
-        return deserialize_camera(
+        camera = deserialize_cameras(
             payload=payload,
             device=device,
             format=format,
         )
+        assert isinstance(camera, cls), (
+            "Expected Camera.deserialize payload to be a single-form payload "
+            f"yielding one Camera. {type(camera)=}"
+        )
+        return camera
 
     def save(self, camera_path: Path) -> None:
         """Save this Camera to a `.npz` or `.json` file.
+
+        Single-camera convenience wrapper over the plural `save_cameras`
+        dispatcher, which normalizes this single Camera to the single-form file.
 
         Args:
             camera_path: Output `.npz` or `.json` filepath.
@@ -469,7 +484,7 @@ class Camera:
         Returns:
             None.
         """
-        save_camera(camera=self, camera_path=camera_path)
+        save_cameras(cameras=self, cameras_path=camera_path)
 
     @classmethod
     def load(
@@ -479,6 +494,10 @@ class Camera:
     ) -> "Camera":
         """Load one Camera from a `.npz` or `.json` file.
 
+        Single-camera convenience wrapper over the plural `load_cameras`
+        dispatcher; asserts the file held a single form so the result is a single
+        Camera.
+
         Args:
             camera_path: Input `.npz` or `.json` filepath.
             device: Target device for the loaded Camera.
@@ -486,4 +505,9 @@ class Camera:
         Returns:
             Camera object loaded from disk.
         """
-        return load_camera(camera_path=camera_path, device=device)
+        camera = load_cameras(cameras_path=camera_path, device=device)
+        assert isinstance(camera, cls), (
+            "Expected Camera.load file to hold a single-form payload yielding one "
+            f"Camera. {type(camera)=}"
+        )
+        return camera

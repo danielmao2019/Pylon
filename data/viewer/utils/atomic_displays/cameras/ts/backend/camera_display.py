@@ -2,7 +2,6 @@
 
 from base64 import b64encode
 from json import dumps
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import torch
@@ -12,40 +11,32 @@ from data.structures.three_d.camera.cameras import Cameras
 from data.viewer.utils.atomic_displays.cameras.ts.backend.schemas.display_response import (
     CameraDisplayResponse,
 )
-from data.viewer.utils.reusable_viewers.common.camera_vis_payloads import (
-    load_opencv_c2w_cameras,
-)
 
 
 def create_camera_display_response(
     slot_id: str,
     title: str,
-    camera_artifact_path: Optional[str],
+    cameras: Optional[Cameras],
 ) -> CameraDisplayResponse:
     """Create a camera display response.
 
     Args:
         slot_id: Stable display slot identifier.
         title: Display panel title.
-        camera_artifact_path: Optional camera artifact path.
+        cameras: Caller-supplied Cameras collection to visualize, or None for no camera layer.
 
     Returns:
         Camera display response.
     """
     assert isinstance(slot_id, str), "Slot id must be a string. slot_id=%r" % slot_id
     assert isinstance(title, str), "Title must be a string. title=%r" % title
-    assert camera_artifact_path is None or isinstance(camera_artifact_path, str), (
-        "Camera artifact path must be None or a string. camera_artifact_path=%r"
-        % camera_artifact_path
+    assert cameras is None or isinstance(cameras, Cameras), (
+        "Cameras must be None or a Cameras collection. cameras=%r" % cameras
     )
 
     camera_visualizations_url = None
-    if camera_artifact_path is not None:
-        camera_visualizations = _build_camera_vis_payload(
-            cameras=load_opencv_c2w_cameras(
-                camera_poses_path=Path(camera_artifact_path),
-            ),
-        )
+    if cameras is not None:
+        camera_visualizations = _build_camera_vis_payload(cameras=cameras)
         encoded_payload = b64encode(
             dumps(camera_visualizations, separators=(",", ":")).encode("utf-8")
         ).decode("ascii")
