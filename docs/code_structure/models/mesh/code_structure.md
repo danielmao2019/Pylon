@@ -16,7 +16,7 @@ camera_geometry.py
 ├── def render_camera_depth_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Render a one-view camera-space depth buffer.
 │   └── calls _camera_verts_to_clip(verts_camera=verts_camera, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
-├── def project_verts_to_image(verts: torch.Tensor, camera: Cameras, image_height: int, image_width: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+├── def project_verts_to_image(verts: torch.Tensor, camera: Cameras, image_height: int, image_width: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Project world-space verts to image pixels for one view.
 │   └── calls _verts_world_to_camera(verts=verts, camera=camera)
 ├── def _camera_verts_to_clip(verts_camera: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
