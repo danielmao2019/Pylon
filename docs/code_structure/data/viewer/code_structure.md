@@ -209,7 +209,7 @@ layered_display_container.ts
 │   └── if layers[0].displayClass == "raster"
 │       └── return renderRasterLayeredContainer({ layers, slotId })
 ├── function renderSpatialLayeredContainer({ layers, slotId, initialCameraState }: { layers: readonly LayerSpec[]; slotId: string; initialCameraState: CameraState | null }): VNode
-│   ├── # Renders the spatial layers into ONE shared context as a LeafVNode keyed by the STABLE slotId (never re-mounts on toggle) — the base layer owns the camera/controls and aux follow it; the visible set rides as a data-visible-layers prop the render loop reads each frame.
+│   ├── # Renders the spatial layers into one shared context as a slotId-keyed LeafVNode (stable across toggles); the base layer owns the camera/controls and the visible set rides as a data-visible-layers prop.
 │   ├── calls createLayeredSpatialScene({ layers, initialCameraState })                          → { container, baseScene, auxScenes, camera, renderer }
 │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  → controls   # the one camera, owned by the base layer; aux carry no controls
 │   ├── calls _registerSceneResize({ container, camera, renderer, controls })
@@ -230,7 +230,7 @@ layered_display_container.ts
 │   ├── calls startThreeSceneRenderLoop({ scene: baseScene, camera, renderer, controls, onAfterRender: () => { ids = new Set((container.dataset.visibleLayers ?? "").split(",").filter(s => s.length > 0)); renderer.autoClear = false; auxScenes.forEach(({ id, scene }) => { if (ids.has(id)) { renderer.clearDepth(); renderer.render(scene, camera) } }); renderer.autoClear = true } })
 │   └── return
 ├── function renderRasterLayeredContainer({ layers, slotId }: { layers: readonly LayerSpec[]; slotId: string }): VNode
-│   ├── # Stacks the VISIBLE raster (2D image/video) layer nodes as absolutely-positioned full-bleed elements; each node is keyed by its layer id so the reconciler adds/removes only the toggled raster layers — DOM stacking has no shared-context cost, so raster needs no one-context observer.
+│   ├── # Stacks the visible raster (2D image/video) layer nodes as absolutely-positioned full-bleed elements, each keyed by its layer id so the reconciler adds/removes only the toggled layers.
 │   ├── impls children = layers.filter(l => l.visible).map(l => ElementVNode div keyed `${slotId}/layer/${l.id}`, style { position: absolute, inset: 0 }, children [l.node])
 │   └── return ElementVNode keyed by slotId, props { className: "layered-display-container", style { position: relative, full-bleed } }, children
 ├── function _registerSceneResize({ container, camera, renderer, controls }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
@@ -240,7 +240,7 @@ layered_display_container.ts
 │   ├── impls new ResizeObserver(resize).observe(container)
 │   └── impls window.addEventListener("resize", resize)
 └── function _publishCameraState({ container, controls }: { container: HTMLDivElement; controls: ReturnType<typeof createTrackballCameraControls> }): void
-    ├── # Publishes the controls' base-camera state onto the container — dataset.cameraState plus a bubbling camera-pose-change event — so the consumer can observe this cell's base-camera pose (e.g. persist it across mode cells); the layered container's own copy of the per-display publish helper.
+    ├── # Publishes the controls' base-camera state onto the container (dataset.cameraState plus a bubbling camera-pose-change event) so the consumer can observe this cell's base-camera pose — the layered container's copy of the per-display publish helper.
     ├── impls cameraState = controls.getCameraState()
     ├── if cameraState is null
     │   └── return
@@ -266,7 +266,7 @@ three_scene_helpers.ts
 │   ├── impls creates THREE.Scene; scene.background stays unset so the renderer's clear color is what gets visibly drawn
 │   └── return
 ├── function createThreePerspectiveCamera({ initialCameraState }: { initialCameraState: CameraState | null }): THREE.PerspectiveCamera
-│   ├── # Shared PerspectiveCamera factory used by every TS atomic spatial display; the consumer-supplied initialCameraState is the single source of initial framing (no lib-side fit-to-object — the lib does not know what the consumer considers a sensible default framing, and per-display fits across modalities mounted in one layered container produce inconsistent poses).
+│   ├── # Shared PerspectiveCamera factory for every TS atomic spatial display; the consumer-supplied initialCameraState is the single source of initial framing, with no lib-side fit-to-object.
 │   ├── impls THREE.PerspectiveCamera(fov=DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV, ...) at default aspect/near/far/position
 │   ├── if initialCameraState is not null
 │   │   └── impls overlays initialCameraState (every field — both intrinsics and extrinsics) onto the camera so first paint matches the source display
@@ -277,7 +277,7 @@ three_scene_helpers.ts
 │   ├── impls canvas mounted inside the provided container
 │   └── return
 └── function startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> | null; onAfterRender?: () => void }): void
-    ├── # Shared requestAnimationFrame loop driving one base scene each frame; self-stops and releases its WebGL context once its canvas leaves the DOM, so an unmounted cell (mode/scene switch, or a layer-set re-mount) never leaks an active context. onAfterRender lets a caller append a per-frame step (e.g. the layered container's aux passes, or scene_graph's label projection).
+    ├── # Shared requestAnimationFrame loop driving one base scene each frame; self-stops and frees its WebGL context once the canvas leaves the DOM, with an optional onAfterRender hook for per-frame caller steps.
     ├── impls wasConnected = false   # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
     ├── def draw
     │   ├── # The requestAnimationFrame callback: stops and frees the context once the canvas leaves the DOM, otherwise renders one frame and reschedules itself.
@@ -1453,7 +1453,7 @@ core_mesh_display.ts
 ├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>
 │   ├── # Async-loads the mesh payload from displayResponse.url; resolves a sparse-heatmap delta against its referenced geometry, otherwise reads the dense resource as-is.
 │   ├── if the url resource is a sparse heatmap resource
-│   │   └── impls resolves the (indices, values) delta against the referenced geometry into a per-vertex RGBA color payload — vertices in `indices` carry their scalar→rgb heatmap color at alpha 1; every other vertex carries alpha 0 — so a sparse heatmap renders as an overlay that reveals the base layer beneath outside the delta, not a full opaque mesh  → payload
+│   │   └── impls resolves the (indices, values) delta against the referenced geometry into a per-vertex RGBA payload — vertices in `indices` carry their scalar→rgb heatmap color at alpha 1, every other vertex carries alpha 0  → payload
 │   ├── else
 │   │   └── impls reads the dense mesh resource from displayResponse.url               → payload
 │   └── return payload
@@ -1469,7 +1469,8 @@ core_mesh_display.ts
 │   │   └── impls useTexture = false; useVertexColors = true; effectiveColor = undefined
 │   ├── else
 │   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = DEFAULT_MESH_COLOR
-│   ├── impls material = new THREE.MeshBasicMaterial({ vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent: effectiveOpacity < 1 || (useVertexColors && payload colors carry per-vertex alpha), ...(useTexture ? { map: payload.texture } : {}), ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; vertexColors honors a 4-component (RGBA) color attribute so an overlay payload's alpha-0 vertices render fully transparent and reveal the layer beneath; no other constructor key; no post-construction mutation of material
+│   ├── impls isTransparent = effectiveOpacity < 1 || (useVertexColors && payload colors carry per-vertex alpha)
+│   ├── impls material = new THREE.MeshBasicMaterial({ vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent: isTransparent, ...(useTexture ? { map: payload.texture } : {}), ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # no post-construction mutation
 │   └── return new THREE.Mesh(geometry, material)                                                # no post-construction mutation of mesh
 └── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
     ├── # Drives the mesh render loop with the supplied trackball controls.
@@ -1661,7 +1662,7 @@ core_gaussians_display.ts
 └── function renderGaussiansDisplay({ displayResponse, initialCameraState }: { displayResponse: GaussianDisplayResponse; initialCameraState?: CameraState | null }): VNode
     ├── # Delegates rendering to the external Gaussian-splat package; the package owns URL loading, scene assembly, camera controls, and the render loop.
     ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
-    ├── impls invoke the external Gaussian-splat package's mount API with { container, url: displayResponse.url, initialCameraState, meta_info: displayResponse.meta_info }   # the external package handles fetch + parse + scene + camera + controls + render loop internally; the wrapper does not duplicate any of those concerns
+    ├── impls invoke the external Gaussian-splat package's mount API with { container, url: displayResponse.url, initialCameraState, meta_info: displayResponse.meta_info }
     └── return LeafVNode keyed by displayResponse.url
 ```
 
