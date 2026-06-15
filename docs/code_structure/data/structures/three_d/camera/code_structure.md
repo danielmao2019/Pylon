@@ -108,18 +108,6 @@ camera.py
 ├── class Camera
 │   ├── def __init__(self, intrinsics: Optional[torch.Tensor], extrinsics: torch.Tensor, convention: str, name: Optional[str] = None, id: Optional[int] = None, device: Union[str, torch.device] = torch.device("cuda")) -> None
 │   │   ├── # Construct a Camera from intrinsics/extrinsics/convention, validating them and placing the tensors on device.
-│   │   ├── def _validate_inputs()
-│   │   │   ├── # Validate the constructor arguments.
-│   │   │   ├── calls validate_camera_intrinsics                         # when intrinsics is not None
-│   │   │   ├── calls validate_camera_extrinsics
-│   │   │   └── calls validate_camera_convention
-│   │   ├── calls _validate_inputs
-│   │   ├── def _normalize_inputs(intrinsics, extrinsics, device)
-│   │   │   ├── # Resolve device, default missing intrinsics, and move the tensors onto device.
-│   │   │   ├── impls resolves device, defaults None intrinsics to eye(3) float32, moves tensors to device
-│   │   │   ├── calls validate_camera_intrinsics
-│   │   │   └── calls validate_camera_extrinsics
-│   │   ├── calls _normalize_inputs
 │   │   └── impls stores _intrinsics, _extrinsics, _convention, _name, _id, _device
 │   ├── def intrinsics(self) -> torch.Tensor                            # @property
 │   │   └── # The camera intrinsics matrix.
@@ -167,13 +155,6 @@ camera.py
 │   │   └── return Camera(...)
 │   ├── def transform(self, scale: float, rotation: np.ndarray, translation: np.ndarray) -> "Camera"
 │   │   ├── # Return this Camera under a similarity transform (scale, rotation, translation) of its cam2world pose.
-│   │   ├── def _validate_inputs()
-│   │   │   ├── # Validate the transform scale/rotation/translation arguments.
-│   │   │   └── calls validate_rotation_matrix                          # rotation is (3, 3) np.float32
-│   │   ├── calls _validate_inputs
-│   │   ├── def _normalize_inputs(rotation, translation)
-│   │   │   └── # Move rotation/translation onto self device and extrinsics dtype as tensors.
-│   │   ├── calls _normalize_inputs
 │   │   ├── impls composes the new cam2world rotation/translation from scale, rotation, translation
 │   │   ├── calls _stabilize_rotation_matrix(extrinsics_new[:3, :3])
 │   │   └── return Camera(...)                                          # re-validates via validate_camera_extrinsics
@@ -190,11 +171,7 @@ camera.py
 │       ├── # Load one Camera from a .npz or .json file.
 │       └── calls load_cameras
 └── def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor
-    ├── # Project a near-orthogonal (3, 3) rotation onto the nearest proper rotation, in the received dtype.
-    ├── def _validate_inputs()
-    │   ├── # Validate the rotation argument's type, shape, and dtype.
-    │   └── impls asserts torch.Tensor, shape (3, 3), dtype in {torch.float32, torch.float64}   # acknowledges the received dtype; rejects every other dtype
-    ├── calls _validate_inputs
+    ├── # Project a near-orthogonal (3, 3) rotation onto the nearest proper rotation, in the received dtype (float32 or float64).
     ├── impls computes the RR^T-vs-I residual and the |det(R) - 1| residual in rotation.dtype
     ├── impls asserts max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
     ├── impls u, _, v_h = svd(rotation) in rotation.dtype; rotation_fixed = u @ v_h; if det(rotation_fixed) < 0 -> flip u[:, -1] and recompute rotation_fixed
