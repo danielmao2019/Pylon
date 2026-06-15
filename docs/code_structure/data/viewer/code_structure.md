@@ -1436,6 +1436,21 @@ core_mesh_display.ts
 ├── const DEFAULT_MESH_COLOR = "#cccccc"          # hex color — uniform fallback used when geometry has no texture AND has no vertex colors AND the caller does not supply meshColor; lib-owned default, overridable
 ├── const DEFAULT_MESH_OPACITY = 1.0              # number — opaque default applied when the caller does not supply meshOpacity; material's `transparent` flag flips true automatically when opacity is less than 1; lib-owned default, overridable
 ├── const DEFAULT_MESH_SIDE = THREE.DoubleSide    # THREE.Side — fallback side mode for visibility under arbitrary camera framings when the caller does not supply meshSide; lib-owned default, overridable
+├── interface MeshPayload
+│   ├── # The render-side mirror of the Mesh data structure: geometry (verts, faces) plus an optional MeshTexture.
+│   ├── verts: Float32Array                                                # [V, 3] flattened — mirrors Mesh.verts
+│   ├── faces: Uint32Array                                                 # [F, 3] flattened — mirrors Mesh.faces
+│   └── texture: MeshTextureVertexColor | MeshTextureUVTextureMap | null   # mirrors Mesh.texture (Optional[MeshTexture])
+├── interface MeshTextureVertexColor
+│   ├── # Render mirror of the data structure's MeshTextureVertexColor: per-vertex colors aligned 1:1 with verts.
+│   ├── kind: "vertex_color"
+│   └── vertexColor: Float32Array                                          # [V, C] per-vertex colors, C in {3, 4}
+├── interface MeshTextureUVTextureMap
+│   ├── # Render mirror of the data structure's MeshTextureUVTextureMap: a per-face-indexed UV texture map.
+│   ├── kind: "uv_texture_map"
+│   ├── uvTextureMap: THREE.Texture                                        # the texture image
+│   ├── vertsUvs: Float32Array                                             # [VT, 2] UV coordinates
+│   └── facesUvs: Uint32Array                                              # [F, 3] flattened — per-face UV-vertex indices
 ├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): VNode
 │   ├── # Renders a self-contained mesh display element initialized at initialCameraState.
 │   ├── calls createMeshScene({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide })
@@ -1453,24 +1468,25 @@ core_mesh_display.ts
 ├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>
 │   ├── # Async-loads the mesh payload from displayResponse.url; resolves a sparse-heatmap delta against its referenced geometry, otherwise reads the dense resource as-is.
 │   ├── if the url resource is a sparse heatmap resource
-│   │   └── impls resolves the (indices, values) delta against the referenced geometry into a per-vertex RGBA payload — vertices in `indices` carry their scalar→rgb heatmap color at alpha 1, every other vertex carries alpha 0  → payload
+│   │   └── impls resolves the (indices, values) delta into a MeshPayload whose texture is a MeshTextureVertexColor — `indices` vertices at alpha 1 with their scalar→rgb color, every other vertex at alpha 0 (a base-revealing overlay)
 │   ├── else
-│   │   └── impls reads the dense mesh resource from displayResponse.url               → payload
+│   │   └── impls reads the dense mesh resource from displayResponse.url into a MeshPayload — verts + faces, plus its parsed MeshTexture (a MeshTextureUVTextureMap when the OBJ carries a material/UVs, else a MeshTextureVertexColor, else null)
 │   └── return payload
 ├── function createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide }: { payload: MeshPayload; displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Mesh
 │   ├── # Sync-builds THREE.BufferGeometry + THREE.MeshBasicMaterial + THREE.Mesh from a pre-loaded payload.
+│   ├── impls geometry = non-indexed THREE.BufferGeometry whose position attribute gathers payload.verts by payload.faces (each of the F faces contributes its 3 corner positions), so render corner c maps to logical vertex payload.faces[c]
+│   ├── impls set geometry.userData.cornerVertexIndices = payload.faces   # payload.faces flattened IS this non-indexed geometry's corner→vertex map, so a downstream consumer can gather a per-logical-vertex field into the corner render domain
 │   ├── impls effectiveOpacity = meshOpacity ?? DEFAULT_MESH_OPACITY
 │   ├── impls effectiveSide = meshSide ?? DEFAULT_MESH_SIDE
 │   ├── if meshColor !== undefined
 │   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = meshColor
-│   ├── else if payload has uv texture map
-│   │   └── impls useTexture = true; useVertexColors = false; effectiveColor = undefined
-│   ├── else if payload has vertex colors
-│   │   └── impls useTexture = false; useVertexColors = true; effectiveColor = undefined
+│   ├── else if payload.texture is a MeshTextureUVTextureMap
+│   │   └── impls add a uv attribute to geometry gathering payload.texture.vertsUvs by payload.texture.facesUvs; useTexture = true; useVertexColors = false; effectiveColor = undefined
+│   ├── else if payload.texture is a MeshTextureVertexColor
+│   │   └── impls add a color attribute to geometry gathering payload.texture.vertexColor by payload.faces; useTexture = false; useVertexColors = true; effectiveColor = undefined
 │   ├── else
 │   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = DEFAULT_MESH_COLOR
-│   ├── impls isTransparent = effectiveOpacity < 1 || (useVertexColors && payload colors carry per-vertex alpha)
-│   ├── impls material = new THREE.MeshBasicMaterial({ vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent: isTransparent, ...(useTexture ? { map: payload.texture } : {}), ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # no post-construction mutation
+│   ├── impls material = MeshBasicMaterial { vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent when opacity<1 or RGBA vertex colors, map: payload.texture.uvTextureMap when useTexture, color: effectiveColor when set }   # RGBA alpha-0 corners render transparent
 │   └── return new THREE.Mesh(geometry, material)                                                # no post-construction mutation of mesh
 └── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
     ├── # Drives the mesh render loop with the supplied trackball controls.

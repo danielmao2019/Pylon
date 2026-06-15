@@ -32,15 +32,15 @@ const NEUTRAL_GRAY = 0.75;
 const _objCache = new Map<string, Promise<ParsedObj>>();
 const _textureCache = new Map<string, Promise<THREE.Texture>>();
 
-// One distinct UV/positions corner of a parsed Wavefront OBJ, expanded so
-// each face corner is its own render vertex; this admits per-corner UV
-// indexing where the `vt` count differs from the `v` (geometry) count.
+// The logical (indexed) result of parsing a Wavefront OBJ: geometry vertices
+// and faces, plus optional per-vertex colors and a per-face UV indexing layer
+// (vertsUvs + facesUvs) that admits a `vt` count differing from the `v` count.
 interface ParsedObj {
-  positions: Float32Array;
-  cornerVertexIndices: Uint32Array;
-  geometryVertexCount: number;
-  vertexColors: Float32Array | null;
-  uvs: Float32Array | null;
+  verts: Float32Array;
+  faces: Uint32Array;
+  vertexColor: Float32Array | null;
+  vertsUvs: Float32Array | null;
+  facesUvs: Uint32Array | null;
   mtllibName: string | null;
 }
 
@@ -52,19 +52,31 @@ interface SparseHeatmapResource {
   values: Float32Array;
 }
 
-// A pre-loaded mesh payload: per-corner-expanded geometry buffers plus the
-// resolved texture representation (a UV texture map, per-vertex colors, or
-// neither). createThreeMesh consumes this synchronously.
-//
-// vertexColorComponents is the itemSize of the vertexColors buffer: 3 for a
-// dense opaque RGB payload, 4 for a sparse-heatmap overlay RGBA payload whose
-// alpha-0 vertices must render transparent and reveal the base layer beneath.
+// Render mirror of the data structure's MeshTextureVertexColor: per-vertex
+// colors aligned 1:1 with verts. C is 3 for a dense opaque RGB payload, or 4
+// for a sparse-heatmap overlay RGBA payload whose alpha-0 vertices must render
+// transparent and reveal the base layer beneath.
+interface MeshTextureVertexColor {
+  kind: "vertex_color";
+  vertexColor: Float32Array;
+}
+
+// Render mirror of the data structure's MeshTextureUVTextureMap: a
+// per-face-indexed UV texture map.
+interface MeshTextureUVTextureMap {
+  kind: "uv_texture_map";
+  uvTextureMap: THREE.Texture;
+  vertsUvs: Float32Array;
+  facesUvs: Uint32Array;
+}
+
+// The render-side mirror of the Mesh data structure: indexed geometry (verts,
+// faces) plus an optional polymorphic MeshTexture. createThreeMesh consumes
+// this synchronously, expanding it into the non-indexed corner render domain.
 interface MeshPayload {
-  positions: Float32Array;
-  uvs: Float32Array | null;
-  vertexColors: Float32Array | null;
-  vertexColorComponents: number;
-  texture: THREE.Texture | null;
+  verts: Float32Array;
+  faces: Uint32Array;
+  texture: MeshTextureVertexColor | MeshTextureUVTextureMap | null;
 }
 
 // Render a self-contained mesh display element initialized at initialCameraState.
@@ -157,12 +169,10 @@ export async function loadMeshPayload({
     return _resolveSparseHeatmapPayload({ parsed, sparse });
   }
   const parsed = await _fetchObj(displayResponse.url);
-  const texture = await _resolveTexture({ parsed, primaryUrl: displayResponse.url });
+  const texture = await _resolveMeshTexture({ parsed, primaryUrl: displayResponse.url });
   return {
-    positions: parsed.positions,
-    uvs: parsed.uvs,
-    vertexColors: parsed.vertexColors,
-    vertexColorComponents: 3,
+    verts: parsed.verts,
+    faces: parsed.faces,
     texture,
   };
 }
@@ -181,35 +191,85 @@ export function createThreeMesh({
   meshOpacity?: number;
   meshSide?: THREE.Side;
 }): THREE.Mesh {
-  const geometry = _buildBaseGeometry(payload);
+  const cornerCount = payload.faces.length;
+
+  // geometry = non-indexed BufferGeometry whose position attribute gathers
+  // payload.verts by payload.faces (corner domain); userData.cornerVertexIndices
+  // = payload.faces is this geometry's corner→vertex map.
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(cornerCount * 3);
+  for (let corner = 0; corner < cornerCount; corner++) {
+    const vertexIndex = payload.faces[corner];
+    positions[corner * 3] = payload.verts[vertexIndex * 3];
+    positions[corner * 3 + 1] = payload.verts[vertexIndex * 3 + 1];
+    positions[corner * 3 + 2] = payload.verts[vertexIndex * 3 + 2];
+  }
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.userData.cornerVertexIndices = payload.faces;
+
   const effectiveOpacity = meshOpacity ?? DEFAULT_MESH_OPACITY;
   const effectiveSide = meshSide ?? DEFAULT_MESH_SIDE;
   let useTexture: boolean;
   let useVertexColors: boolean;
+  let rgbaVertexColors: boolean;
+  let textureMap: THREE.Texture | undefined;
   let effectiveColor: string | undefined;
   if (meshColor !== undefined) {
     useTexture = false;
     useVertexColors = false;
+    rgbaVertexColors = false;
+    textureMap = undefined;
     effectiveColor = meshColor;
-  } else if (payload.texture !== null) {
+  } else if (payload.texture !== null && payload.texture.kind === "uv_texture_map") {
+    // Add a uv attribute gathering payload.texture.vertsUvs by payload.texture.facesUvs.
+    const uvs = new Float32Array(cornerCount * 2);
+    for (let corner = 0; corner < cornerCount; corner++) {
+      const uvIndex = payload.texture.facesUvs[corner];
+      uvs[corner * 2] = payload.texture.vertsUvs[uvIndex * 2];
+      uvs[corner * 2 + 1] = payload.texture.vertsUvs[uvIndex * 2 + 1];
+    }
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
     useTexture = true;
     useVertexColors = false;
+    rgbaVertexColors = false;
+    textureMap = payload.texture.uvTextureMap;
     effectiveColor = undefined;
-  } else if (payload.vertexColors !== null) {
+  } else if (payload.texture !== null && payload.texture.kind === "vertex_color") {
+    // Add a color attribute gathering payload.texture.vertexColor by payload.faces.
+    const vertexCount = payload.verts.length / 3;
+    const components = payload.texture.vertexColor.length / Math.max(1, vertexCount);
+    const colors = new Float32Array(cornerCount * components);
+    for (let corner = 0; corner < cornerCount; corner++) {
+      const vertexIndex = payload.faces[corner];
+      for (let component = 0; component < components; component++) {
+        colors[corner * components + component] =
+          payload.texture.vertexColor[vertexIndex * components + component];
+      }
+    }
+    geometry.setAttribute("color", new THREE.BufferAttribute(colors, components));
     useTexture = false;
     useVertexColors = true;
+    rgbaVertexColors = components === 4;
+    textureMap = undefined;
     effectiveColor = undefined;
   } else {
     useTexture = false;
     useVertexColors = false;
+    rgbaVertexColors = false;
+    textureMap = undefined;
     effectiveColor = DEFAULT_MESH_COLOR;
   }
+
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
   const material = new THREE.MeshBasicMaterial({
     vertexColors: useVertexColors,
     side: effectiveSide,
     opacity: effectiveOpacity,
-    transparent: effectiveOpacity < 1 || (useVertexColors && payload.vertexColorComponents === 4),
-    ...(useTexture ? { map: payload.texture } : {}),
+    transparent: effectiveOpacity < 1 || (useVertexColors && rgbaVertexColors),
+    ...(useTexture ? { map: textureMap } : {}),
     ...(effectiveColor !== undefined ? { color: effectiveColor } : {}),
   });
   return new THREE.Mesh(geometry, material);
@@ -231,10 +291,10 @@ export function renderMeshScene({
 }
 
 // Resolve a sparse heatmap (indices, values) delta against its referenced
-// geometry into a per-corner RGBA overlay payload: corners whose geometry
-// vertex is in `indices` carry that vertex's scalar→rgb heatmap color at alpha
-// 1; every other corner carries alpha 0, so outside the delta the overlay is
-// fully transparent and the textured base layer beneath shows through.
+// geometry into a per-vertex RGBA MeshTextureVertexColor overlay: vertices in
+// `indices` carry that vertex's scalar→rgb heatmap color at alpha 1; every
+// other vertex carries alpha 0, so outside the delta the overlay is fully
+// transparent and the textured base layer beneath shows through.
 function _resolveSparseHeatmapPayload({
   parsed,
   sparse,
@@ -242,34 +302,25 @@ function _resolveSparseHeatmapPayload({
   parsed: ParsedObj;
   sparse: SparseHeatmapResource;
 }): MeshPayload {
-  const cornerCount = parsed.cornerVertexIndices.length;
-  const colors = new Float32Array(cornerCount * 4);
+  const vertexCount = parsed.verts.length / 3;
+  const vertexColor = new Float32Array(vertexCount * 4);
   const rgb = _mapScalarsToRgb(sparse.values);
-  const rgbByGeometryVertex = new Map<number, [number, number, number]>();
   for (let i = 0; i < sparse.indices.length; i++) {
-    rgbByGeometryVertex.set(sparse.indices[i], [
-      rgb[i * 3] / 255,
-      rgb[i * 3 + 1] / 255,
-      rgb[i * 3 + 2] / 255,
-    ]);
-  }
-  for (let corner = 0; corner < cornerCount; corner++) {
-    const vertexIndex = parsed.cornerVertexIndices[corner];
-    const color = rgbByGeometryVertex.get(vertexIndex);
-    if (color === undefined) {
-      continue;
+    const vertexIndex = sparse.indices[i];
+    if (vertexIndex < 0 || vertexIndex >= vertexCount) {
+      throw new Error(
+        `sparse heatmap references out-of-range vertex index: ${vertexIndex} (vertexCount=${vertexCount})`,
+      );
     }
-    colors[corner * 4] = color[0];
-    colors[corner * 4 + 1] = color[1];
-    colors[corner * 4 + 2] = color[2];
-    colors[corner * 4 + 3] = 1.0;
+    vertexColor[vertexIndex * 4] = rgb[i * 3] / 255;
+    vertexColor[vertexIndex * 4 + 1] = rgb[i * 3 + 1] / 255;
+    vertexColor[vertexIndex * 4 + 2] = rgb[i * 3 + 2] / 255;
+    vertexColor[vertexIndex * 4 + 3] = 1.0;
   }
   return {
-    positions: parsed.positions,
-    uvs: null,
-    vertexColors: colors,
-    vertexColorComponents: 4,
-    texture: null,
+    verts: parsed.verts,
+    faces: parsed.faces,
+    texture: { kind: "vertex_color", vertexColor },
   };
 }
 
@@ -290,15 +341,17 @@ function _fetchObj(url: string): Promise<ParsedObj> {
 }
 
 // Parse a Wavefront OBJ supporting `v x y z [r g b]`, `vt u v`, `mtllib`, and
-// polygon-fan `f` lines whose corners are `v`, `v/vt`, `v//vn`, or `v/vt/vn`.
+// polygon-fan `f` lines whose corners are `v`, `v/vt`, `v//vn`, or `v/vt/vn`,
+// into logical (indexed) geometry: verts + triangulated faces, plus optional
+// per-vertex colors and a per-face UV indexing layer (vertsUvs + facesUvs).
 function _parseObj(text: string): ParsedObj {
   const vPositions: number[] = [];
   const vColors: number[] = [];
   const vtCoords: number[] = [];
   let sawVertexColors = false;
   let mtllibName: string | null = null;
-  const cornerVertexTokens: number[] = [];
-  const cornerUvTokens: number[] = [];
+  const faceVertexTokens: number[] = [];
+  const faceUvTokens: number[] = [];
   let sawAnyUv = false;
 
   for (const raw of text.split("\n")) {
@@ -327,8 +380,8 @@ function _parseObj(text: string): ParsedObj {
       for (let j = 1; j < corners.length - 1; j++) {
         const fan: Array<{ v: number; vt: number }> = [corners[0], corners[j], corners[j + 1]];
         for (const corner of fan) {
-          cornerVertexTokens.push(corner.v);
-          cornerUvTokens.push(corner.vt);
+          faceVertexTokens.push(corner.v);
+          faceUvTokens.push(corner.vt);
           if (corner.vt >= 0) {
             sawAnyUv = true;
           }
@@ -343,37 +396,29 @@ function _parseObj(text: string): ParsedObj {
   }
 
   const geometryVertexCount = vPositions.length / 3;
-  const cornerCount = cornerVertexTokens.length;
-  const positions = new Float32Array(cornerCount * 3);
-  const cornerVertexIndices = new Uint32Array(cornerCount);
+  const cornerCount = faceVertexTokens.length;
   const useUvs = sawAnyUv && vtCoords.length > 0;
-  const vertexColors = sawVertexColors ? new Float32Array(cornerCount * 3) : null;
-  const uvs = useUvs ? new Float32Array(cornerCount * 2) : null;
+  const verts = new Float32Array(vPositions);
+  const faces = new Uint32Array(cornerCount);
+  const vertexColor = sawVertexColors ? new Float32Array(vColors) : null;
+  const facesUvs = useUvs ? new Uint32Array(cornerCount) : null;
+  const vertsUvs = useUvs ? new Float32Array(vtCoords) : null;
 
   for (let corner = 0; corner < cornerCount; corner++) {
-    const vIndex = cornerVertexTokens[corner];
+    const vIndex = faceVertexTokens[corner];
     if (vIndex < 0 || vIndex >= geometryVertexCount) {
       throw new Error(`OBJ face references out-of-range vertex index: ${vIndex}`);
     }
-    cornerVertexIndices[corner] = vIndex;
-    positions[corner * 3] = vPositions[vIndex * 3];
-    positions[corner * 3 + 1] = vPositions[vIndex * 3 + 1];
-    positions[corner * 3 + 2] = vPositions[vIndex * 3 + 2];
-    if (vertexColors !== null) {
-      vertexColors[corner * 3] = vColors[vIndex * 3];
-      vertexColors[corner * 3 + 1] = vColors[vIndex * 3 + 1];
-      vertexColors[corner * 3 + 2] = vColors[vIndex * 3 + 2];
-    }
-    if (uvs !== null) {
-      const vtIndex = cornerUvTokens[corner];
+    faces[corner] = vIndex;
+    if (facesUvs !== null) {
+      const vtIndex = faceUvTokens[corner];
       if (vtIndex < 0 || vtIndex * 2 + 1 >= vtCoords.length) {
         throw new Error(`OBJ face corner is missing a valid UV index: ${vtIndex}`);
       }
-      uvs[corner * 2] = vtCoords[vtIndex * 2];
-      uvs[corner * 2 + 1] = vtCoords[vtIndex * 2 + 1];
+      facesUvs[corner] = vtIndex;
     }
   }
-  return { positions, cornerVertexIndices, geometryVertexCount, vertexColors, uvs, mtllibName };
+  return { verts, faces, vertexColor, vertsUvs, facesUvs, mtllibName };
 }
 
 // Parse one OBJ face token (`v`, `v/vt`, `v//vn`, or `v/vt/vn`) into 0-based indices.
@@ -384,23 +429,34 @@ function _parseFaceCorner(token: string): { v: number; vt: number } {
   return { v, vt };
 }
 
-// Resolve the OBJ's texture: load the MTL `map_Kd` image when the OBJ declares
-// UVs and an `mtllib`; a UV-textured mesh with no `map_Kd` is a hard error.
-async function _resolveTexture({
+// Resolve the parsed OBJ into a MeshTexture: a MeshTextureUVTextureMap when the
+// OBJ declares UVs and an `mtllib` (loading the MTL `map_Kd` image; a UV-textured
+// mesh with no `map_Kd` is a hard error), else a MeshTextureVertexColor when the
+// OBJ carries per-vertex colors, else null.
+async function _resolveMeshTexture({
   parsed,
   primaryUrl,
 }: {
   parsed: ParsedObj;
   primaryUrl: string;
-}): Promise<THREE.Texture | null> {
-  if (parsed.uvs === null || parsed.mtllibName === null) {
-    return null;
+}): Promise<MeshTextureVertexColor | MeshTextureUVTextureMap | null> {
+  if (parsed.vertsUvs !== null && parsed.facesUvs !== null && parsed.mtllibName !== null) {
+    const textureName = await _fetchMtlTextureName(_siblingUrl(primaryUrl, parsed.mtllibName));
+    if (textureName === null) {
+      throw new Error(`mesh OBJ declares UVs but its MTL has no map_Kd: ${primaryUrl}`);
+    }
+    const uvTextureMap = await _fetchTexture(_siblingUrl(primaryUrl, textureName));
+    return {
+      kind: "uv_texture_map",
+      uvTextureMap,
+      vertsUvs: parsed.vertsUvs,
+      facesUvs: parsed.facesUvs,
+    };
   }
-  const textureName = await _fetchMtlTextureName(_siblingUrl(primaryUrl, parsed.mtllibName));
-  if (textureName === null) {
-    throw new Error(`mesh OBJ declares UVs but its MTL has no map_Kd: ${primaryUrl}`);
+  if (parsed.vertexColor !== null) {
+    return { kind: "vertex_color", vertexColor: parsed.vertexColor };
   }
-  return _fetchTexture(_siblingUrl(primaryUrl, textureName));
+  return null;
 }
 
 // Fetch a `.mtl` sibling and parse its `map_Kd` texture-image filename.
@@ -518,25 +574,6 @@ function _mapScalarsToRgb(values: Float32Array): Uint8Array {
     rgb[i * 3 + 2] = Math.round(c0[2] + (c1[2] - c0[2]) * fraction);
   }
   return rgb;
-}
-
-// Build the per-corner-expanded base geometry: positions, optional UVs and colors.
-function _buildBaseGeometry(payload: MeshPayload): THREE.BufferGeometry {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(payload.positions, 3));
-  if (payload.uvs !== null) {
-    geometry.setAttribute("uv", new THREE.BufferAttribute(payload.uvs, 2));
-  }
-  if (payload.vertexColors !== null) {
-    geometry.setAttribute(
-      "color",
-      new THREE.BufferAttribute(new Float32Array(payload.vertexColors), payload.vertexColorComponents),
-    );
-  }
-  geometry.computeVertexNormals();
-  geometry.computeBoundingBox();
-  geometry.computeBoundingSphere();
-  return geometry;
 }
 
 // Keep the renderer and camera aspect synced to the container size.
