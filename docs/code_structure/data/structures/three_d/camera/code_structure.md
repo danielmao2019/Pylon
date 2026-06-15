@@ -103,7 +103,7 @@ camera.py
 ├── from data.structures.three_d.camera.conventions import transform_convention
 ├── from data.structures.three_d.camera.io import deserialize_cameras, load_cameras, save_cameras, serialize_cameras
 ├── from data.structures.three_d.camera.scaling import scale_intrinsics
-├── from data.structures.three_d.camera.validation import validate_camera_convention, validate_camera_extrinsics, validate_camera_intrinsics, validate_rotation_matrix
+├── from data.structures.three_d.camera.validation import validate_camera_convention, validate_camera_extrinsics, validate_rotation_matrix
 ├── _ORTHOGONALITY_REPAIR_ATOL                                           # dtype-independent input-quality guard: max RR^T-vs-I / determinant residual a raw rotation may carry and still be trusted as SVD-repairable
 ├── class Camera
 │   ├── def __init__(self, intrinsics: Optional[torch.Tensor], extrinsics: torch.Tensor, convention: str, name: Optional[str] = None, id: Optional[int] = None, device: Union[str, torch.device] = torch.device("cuda")) -> None
