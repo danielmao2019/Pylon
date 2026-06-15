@@ -20,46 +20,7 @@ from data.structures.three_d.camera.validation import (
     validate_rotation_matrix,
 )
 
-_ORTHOGONALITY_ATOL = 1.0e-06
 _ORTHOGONALITY_REPAIR_ATOL = 1.0e-05
-
-
-def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
-    def _validate_inputs() -> None:
-        assert isinstance(rotation, torch.Tensor), (
-            "Expected rotation matrix to be a torch.Tensor. " f"{type(rotation)=}"
-        )
-        assert rotation.shape == (3, 3), (
-            "Expected rotation matrix shape to be 3x3. " f"{rotation.shape=}"
-        )
-        assert rotation.dtype == torch.float32, (
-            "Expected rotation matrix dtype to be float32. " f"{rotation.dtype=}"
-        )
-
-    _validate_inputs()
-
-    identity = torch.eye(3, dtype=rotation.dtype, device=rotation.device)
-    should_be_identity = rotation @ rotation.transpose(-1, -2)
-    max_diff = torch.max(torch.abs(should_be_identity - identity))
-    max_diff_value = float(max_diff)
-    det_value = float(torch.linalg.det(rotation))
-    det_diff = abs(det_value - 1.0)
-    if max_diff_value <= _ORTHOGONALITY_ATOL and det_diff <= _ORTHOGONALITY_ATOL:
-        return rotation
-    max_error = max(max_diff_value, det_diff)
-    assert max_error <= _ORTHOGONALITY_REPAIR_ATOL, (
-        "Expected near-orthogonal rotation matrix before stabilization. "
-        f"{max_diff_value=} {det_diff=} {_ORTHOGONALITY_REPAIR_ATOL=}"
-    )
-
-    u, _, v_h = torch.linalg.svd(rotation)
-    rotation_fixed = u @ v_h
-    det = torch.linalg.det(rotation_fixed)
-    if float(det) < 0.0:
-        u[:, -1] = -u[:, -1]
-        rotation_fixed = u @ v_h
-    validate_rotation_matrix(rotation_fixed)
-    return rotation_fixed
 
 
 class Camera:
@@ -511,3 +472,38 @@ class Camera:
             f"Camera. {type(camera)=}"
         )
         return camera
+
+
+def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
+    def _validate_inputs() -> None:
+        assert isinstance(rotation, torch.Tensor), (
+            "Expected rotation matrix to be a torch.Tensor. " f"{type(rotation)=}"
+        )
+        assert rotation.shape == (3, 3), (
+            "Expected rotation matrix shape to be 3x3. " f"{rotation.shape=}"
+        )
+        assert rotation.dtype in (torch.float32, torch.float64), (
+            "Expected rotation matrix dtype to be float32 or float64. "
+            f"{rotation.dtype=}"
+        )
+
+    _validate_inputs()
+
+    identity = torch.eye(3, dtype=rotation.dtype, device=rotation.device)
+    should_be_identity = rotation @ rotation.transpose(-1, -2)
+    orthogonality_residual = float(torch.max(torch.abs(should_be_identity - identity)))
+    determinant_residual = abs(float(torch.linalg.det(rotation)) - 1.0)
+    assert (
+        max(orthogonality_residual, determinant_residual) <= _ORTHOGONALITY_REPAIR_ATOL
+    ), (
+        "Expected near-orthogonal rotation matrix before stabilization. "
+        f"{orthogonality_residual=} {determinant_residual=} {_ORTHOGONALITY_REPAIR_ATOL=}"
+    )
+
+    u, _, v_h = torch.linalg.svd(rotation)
+    rotation_fixed = u @ v_h
+    if float(torch.linalg.det(rotation_fixed)) < 0.0:
+        u[:, -1] = -u[:, -1]
+        rotation_fixed = u @ v_h
+    validate_rotation_matrix(rotation_fixed)
+    return rotation_fixed

@@ -2,6 +2,183 @@
 
 ## 1. Code structure trees
 
+`./data/structures/three_d/camera/validation.py`
+
+```text
+validation.py
+├── from typing import Any, Union
+├── import numpy as np
+├── import torch
+├── from utils.ops.materialize_tensor import materialize_tensor
+├── _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32                            # orthogonality/determinant residual floor of the float SVD-projection, in machine-epsilon units; the eps-scaling is derived, the O(1) prefactor is the empirical LAPACK SVD/det floor (measured worst <= 11 over the reference poses + 53k synthetic rotations; set to 32 for margin, still orders of magnitude below any genuinely non-orthogonal rotation)
+├── def validate_camera_convention(convention: Any) -> str
+│   ├── # Validate a camera convention string against the supported set.
+│   ├── impls asserts convention is a str in {standard, opengl, opencv, pytorch3d, arkit}
+│   └── return convention
+├── def validate_camera_intrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]
+│   ├── # Dispatch camera-intrinsics validation on the array backend.
+│   ├── if isinstance(obj, np.ndarray)
+│   │   └── calls _validate_camera_intrinsics_numpy
+│   ├── if isinstance(obj, torch.Tensor)
+│   │   └── calls _validate_camera_intrinsics_torch
+│   └── raise TypeError                                                   # obj is neither a numpy array nor a torch tensor
+├── def _validate_camera_intrinsics_numpy(obj: Any) -> np.ndarray
+│   ├── # Validate a (..., 3, 3) float32 numpy camera-intrinsics matrix.
+│   ├── impls asserts ndarray, ndim >= 2, last two dims (3, 3), dtype float32
+│   ├── impls asserts fx > 0, fy > 0, cx >= 0, cy >= 0, zero skew, last row [0, 0, 1]
+│   └── return obj
+├── def _validate_camera_intrinsics_torch(obj: Any) -> torch.Tensor
+│   ├── # Validate a (..., 3, 3) float32 torch camera-intrinsics matrix.
+│   ├── impls asserts Tensor, ndim >= 2, last two dims (3, 3), dtype float32
+│   ├── impls asserts fx > 0, fy > 0, cx >= 0, cy >= 0, zero skew, last row [0, 0, 1]
+│   └── return obj
+├── def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]
+│   ├── # Dispatch camera-extrinsics validation on the array backend.
+│   ├── if isinstance(obj, np.ndarray)
+│   │   └── calls _validate_camera_extrinsics_numpy
+│   ├── if isinstance(obj, torch.Tensor)
+│   │   └── calls _validate_camera_extrinsics_torch
+│   └── raise TypeError                                                   # obj is neither a numpy array nor a torch tensor
+├── def _validate_camera_extrinsics_numpy(obj: Any) -> np.ndarray
+│   ├── # Validate a (..., 4, 4) numpy camera-extrinsics (cam2world) matrix.
+│   ├── impls asserts ndarray, ndim >= 2, last two dims (4, 4), dtype in {np.float32, np.float64}
+│   ├── impls asserts last row exactly [0, 0, 0, 1] (atol=0, rtol=0)
+│   ├── calls _validate_rotation_matrix_numpy                            # validates obj[..., :3, :3]; tolerance dispatched on its dtype
+│   └── return obj
+├── def _validate_camera_extrinsics_torch(obj: Any) -> torch.Tensor
+│   ├── # Validate a (..., 4, 4) torch camera-extrinsics (cam2world) matrix.
+│   ├── impls asserts Tensor, ndim >= 2, last two dims (4, 4), dtype in {torch.float32, torch.float64}
+│   ├── impls asserts last row exactly [0, 0, 0, 1] (atol=0, rtol=0)
+│   ├── calls _validate_rotation_matrix_torch                            # validates obj[..., :3, :3]; tolerance dispatched on its dtype
+│   └── return obj
+├── def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor]
+│   ├── # Dispatch rotation-matrix validation on the array backend.
+│   ├── if isinstance(obj, np.ndarray)
+│   │   └── calls _validate_rotation_matrix_numpy
+│   ├── if isinstance(obj, torch.Tensor)
+│   │   └── calls _validate_rotation_matrix_torch
+│   └── raise TypeError                                                   # obj is neither a numpy array nor a torch tensor
+├── def _validate_rotation_matrix_numpy(obj: Any) -> np.ndarray
+│   ├── # Validate a (..., 3, 3) numpy rotation matrix; dispatch the tolerance on dtype.
+│   ├── impls asserts ndarray, ndim >= 2, last two dims (3, 3), dtype in {np.float32, np.float64}
+│   ├── impls atol_float32 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(np.finfo(np.float32).eps)
+│   ├── impls atol_float64 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(np.finfo(np.float64).eps)
+│   ├── if obj.dtype == np.float32
+│   │   └── return _validate_rotation_matrix_numpy_against_threshold(obj, threshold=atol_float32)
+│   ├── if obj.dtype == np.float64
+│   │   └── return _validate_rotation_matrix_numpy_against_threshold(obj, threshold=atol_float64)
+│   └── assert 0, "should not reach here."
+├── def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor
+│   ├── # Validate a (..., 3, 3) torch rotation matrix; dispatch the tolerance on dtype.
+│   ├── impls asserts Tensor, ndim >= 2, last two dims (3, 3), dtype in {torch.float32, torch.float64}
+│   ├── impls atol_float32 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(torch.finfo(torch.float32).eps)
+│   ├── impls atol_float64 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(torch.finfo(torch.float64).eps)
+│   ├── if obj.dtype == torch.float32
+│   │   └── return _validate_rotation_matrix_torch_against_threshold(obj, threshold=atol_float32)
+│   ├── if obj.dtype == torch.float64
+│   │   └── return _validate_rotation_matrix_torch_against_threshold(obj, threshold=atol_float64)
+│   └── assert 0, "should not reach here."
+├── def _validate_rotation_matrix_numpy_against_threshold(obj: np.ndarray, threshold: float) -> np.ndarray
+│   ├── # Core numpy rotation check: orthogonality and determinant within the given atol.
+│   ├── impls asserts RR^T close to I at atol=threshold, rtol=0
+│   ├── impls asserts det(R) close to 1 at atol=threshold, rtol=0
+│   └── return obj
+└── def _validate_rotation_matrix_torch_against_threshold(obj: torch.Tensor, threshold: float) -> torch.Tensor
+    ├── # Core torch rotation check: orthogonality and determinant within the given atol.
+    ├── impls materialize_tensor(obj)
+    ├── impls asserts RR^T close to I at atol=threshold, rtol=0
+    ├── impls asserts det(R) close to 1 at atol=threshold, rtol=0
+    └── return obj
+```
+
+`./data/structures/three_d/camera/camera.py`
+
+```text
+camera.py
+├── import math
+├── from pathlib import Path
+├── from typing import Any, Dict, Optional, Tuple, Union
+├── import numpy as np
+├── import torch
+├── from data.structures.three_d.camera.conventions import transform_convention
+├── from data.structures.three_d.camera.io import deserialize_cameras, load_cameras, save_cameras, serialize_cameras
+├── from data.structures.three_d.camera.scaling import scale_intrinsics
+├── from data.structures.three_d.camera.validation import validate_camera_convention, validate_camera_extrinsics, validate_rotation_matrix
+├── _ORTHOGONALITY_REPAIR_ATOL                                           # dtype-independent input-quality guard: max RR^T-vs-I / determinant residual a raw rotation may carry and still be trusted as SVD-repairable
+├── class Camera
+│   ├── def __init__(self, intrinsics: Optional[torch.Tensor], extrinsics: torch.Tensor, convention: str, name: Optional[str] = None, id: Optional[int] = None, device: Union[str, torch.device] = torch.device("cuda")) -> None
+│   │   ├── # Construct a Camera from intrinsics/extrinsics/convention, validating them and placing the tensors on device.
+│   │   └── impls stores _intrinsics, _extrinsics, _convention, _name, _id, _device
+│   ├── def intrinsics(self) -> torch.Tensor                            # @property
+│   │   └── # The camera intrinsics matrix.
+│   ├── def extrinsics(self) -> torch.Tensor                            # @property
+│   │   └── # The camera extrinsics (cam2world) matrix.
+│   ├── def convention(self) -> str                                     # @property
+│   │   └── # The camera convention name.
+│   ├── def name(self) -> Optional[str]                                 # @property
+│   │   └── # The camera name.
+│   ├── def id(self) -> Optional[int]                                   # @property
+│   │   └── # The camera id.
+│   ├── def device(self) -> torch.device                                # @property
+│   │   └── # The device the camera tensors live on.
+│   ├── def w2c(self) -> torch.Tensor                                   # @property
+│   │   └── # The world-to-camera matrix (inverse of extrinsics).
+│   ├── def fx(self) -> float                                           # @property
+│   │   └── # The horizontal focal length.
+│   ├── def fy(self) -> float                                           # @property
+│   │   └── # The vertical focal length.
+│   ├── def cx(self) -> float                                           # @property
+│   │   └── # The horizontal principal-point coordinate.
+│   ├── def cy(self) -> float                                           # @property
+│   │   └── # The vertical principal-point coordinate.
+│   ├── def fov(self) -> Tuple[float, float]                            # @property
+│   │   └── # The horizontal/vertical field of view in degrees.
+│   ├── def center(self) -> torch.Tensor                                # @property
+│   │   └── # The camera center extrinsics[:3, 3].
+│   ├── def right(self) -> torch.Tensor                                 # @property
+│   │   ├── # The convention-dispatched right axis.
+│   │   └── impls selects the right axis per convention and asserts unit norm
+│   ├── def forward(self) -> torch.Tensor                               # @property
+│   │   ├── # The convention-dispatched forward axis.
+│   │   └── impls selects the forward axis per convention and asserts unit norm
+│   ├── def up(self) -> torch.Tensor                                    # @property
+│   │   ├── # The convention-dispatched up axis.
+│   │   └── impls selects the up axis per convention and asserts unit norm
+│   ├── def to(self, device: Optional[Union[str, torch.device]] = None, convention: Optional[str] = None) -> "Camera"
+│   │   ├── # Return this Camera on a target device / convention (self when unchanged).
+│   │   ├── calls validate_camera_convention                            # when convention is not None
+│   │   ├── calls transform_convention                                  # when convention differs
+│   │   └── return Camera(...)
+│   ├── def scale_intrinsics(self, resolution: Optional[Tuple[int, int]] = None, scale: Optional[Union[Union[int, float], Tuple[Union[int, float], Union[int, float]]]] = None) -> "Camera"
+│   │   ├── # Return this Camera with intrinsics scaled to a resolution or by a factor.
+│   │   ├── calls scale_intrinsics
+│   │   └── return Camera(...)
+│   ├── def transform(self, scale: float, rotation: np.ndarray, translation: np.ndarray) -> "Camera"
+│   │   ├── # Return this Camera under a similarity transform (scale, rotation, translation) of its cam2world pose.
+│   │   ├── impls composes the new cam2world rotation/translation from scale, rotation, translation
+│   │   ├── calls _stabilize_rotation_matrix(extrinsics_new[:3, :3])
+│   │   └── return Camera(...)                                          # re-validates via validate_camera_extrinsics
+│   ├── def serialize(self, format: str = "json") -> Dict[str, Any]
+│   │   ├── # Serialize this Camera into a single-form payload.
+│   │   └── calls serialize_cameras
+│   ├── def deserialize(cls, payload: Dict[str, Any], device: Optional[Union[str, torch.device]] = None, format: str = "json") -> "Camera"     # @classmethod
+│   │   ├── # Deserialize one Camera from a single-form payload.
+│   │   └── calls deserialize_cameras
+│   ├── def save(self, camera_path: Path) -> None
+│   │   ├── # Save this Camera to a .npz or .json file.
+│   │   └── calls save_cameras
+│   └── def load(cls, camera_path: Path, device: Optional[Union[str, torch.device]] = None) -> "Camera"                                        # @classmethod
+│       ├── # Load one Camera from a .npz or .json file.
+│       └── calls load_cameras
+└── def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor
+    ├── # Project a near-orthogonal (3, 3) rotation onto the nearest proper rotation, in the received dtype (float32 or float64).
+    ├── impls computes the RR^T-vs-I residual and the |det(R) - 1| residual in rotation.dtype
+    ├── impls asserts max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
+    ├── impls u, _, v_h = svd(rotation) in rotation.dtype; rotation_fixed = u @ v_h; if det(rotation_fixed) < 0 -> flip u[:, -1] and recompute rotation_fixed
+    ├── calls validate_rotation_matrix(rotation_fixed)                   # re-validates at rotation.dtype's atol
+    └── return rotation_fixed
+```
+
 `./data/structures/three_d/camera/camera_vis.py`
 
 ```text
