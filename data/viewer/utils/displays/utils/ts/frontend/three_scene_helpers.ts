@@ -5,6 +5,15 @@ import {
   type ThreeTrackballCameraControls,
 } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 
+// Any spatial display container augmented with an additive base-camera pick seam:
+// a consumer can raycast a pointer position (in client/CSS pixels) against the
+// container's scenes via the camera without owning the camera, renderer, or scenes
+// itself. The base HTMLDivElement contract is unchanged — `pickAt` is an additive
+// property other container consumers ignore.
+export type PickableThreeContainer = HTMLDivElement & {
+  pickAt: (clientX: number, clientY: number) => THREE.Object3D | null;
+};
+
 export function createThreeDisplayContainer({
   pointerEventsSuppressed,
 }: {
@@ -65,6 +74,52 @@ export function createThreeWebGLRenderer({
   renderer.domElement.style.height = "100%";
   container.append(renderer.domElement);
   return renderer;
+}
+
+// Installs a base-camera pick seam (`pickAt`) onto any spatial display container so a
+// consumer can hit-test the given scenes via the camera without owning the camera,
+// renderer, or scenes itself. The base HTMLDivElement contract is untouched — `pickAt`
+// is an additive property; containers and consumers that never call it are unaffected.
+//
+// Args:
+//   container: the spatial display container the pick seam is attached onto; its
+//     bounding rect converts client/CSS pixels to NDC.
+//   camera: the base camera the raycaster casts from, so picks match what the user
+//     sees.
+//   scenes: the scenes whose objects are raycast against, iterated in order; the first
+//     scene with a hit wins.
+//
+// Returns:
+//   void.
+export function attachThreeScenePickSeam({
+  container,
+  camera,
+  scenes,
+}: {
+  container: HTMLDivElement;
+  camera: THREE.PerspectiveCamera;
+  scenes: readonly THREE.Scene[];
+}): void {
+  const raycaster = new THREE.Raycaster();
+  const pickAt = (clientX: number, clientY: number): THREE.Object3D | null => {
+    const rect = container.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(ndc, camera);
+    for (const scene of scenes) {
+      const intersections = raycaster.intersectObjects(scene.children, true);
+      if (intersections.length > 0) {
+        return intersections[0].object;
+      }
+    }
+    return null;
+  };
+  (container as PickableThreeContainer).pickAt = pickAt;
 }
 
 export function startThreeSceneRenderLoop({

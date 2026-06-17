@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { ElementVNode, LeafVNode, VNode } from "web/reconcile/reconcile";
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 import {
+  attachThreeScenePickSeam,
   createThreeDisplayContainer,
   createThreePerspectiveCamera,
   createThreeScene,
@@ -104,6 +105,7 @@ function renderSpatialLayeredContainer({
       controls.addEventListener("change", () => {
         _publishCameraState({ container, controls });
       });
+      attachThreeScenePickSeam({ container, camera, scenes: auxScenes.map((a) => a.scene) });
       renderLayeredSpatialScene({ container, baseScene, auxScenes, camera, renderer, controls });
       return container;
     },
