@@ -4,11 +4,12 @@
 # This work is licensed under the NVIDIA Source Code License
 # ---------------------------------------------------------------
 from abc import ABCMeta, abstractmethod
-import torch.nn as nn
+
 import torch
+import torch.nn as nn
 from mmcv.cnn import ConvModule
-from mmseg.structures import build_pixel_sampler
 from mmseg.models.utils import resize
+from mmseg.structures import build_pixel_sampler
 
 
 class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
@@ -43,25 +44,24 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
             Default: False.
     """
 
-    def __init__(self,
-                 in_channels,
-                 channels,
-                 *,
-                 num_classes,
-                 dropout_ratio=0.1,
-                 conv_cfg=None,
-                 norm_cfg=None,
-                 act_cfg=dict(type='ReLU'),
-                 in_index=-1,
-                 input_transform=None,
-                 loss_decode=dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=False,
-                     loss_weight=1.0),
-                 decoder_params=None,
-                 ignore_index=255,
-                 sampler=None,
-                 align_corners=False):
+    def __init__(
+        self,
+        in_channels,
+        channels,
+        *,
+        num_classes,
+        dropout_ratio=0.1,
+        conv_cfg=None,
+        norm_cfg=None,
+        act_cfg=dict(type='ReLU'),
+        in_index=-1,
+        input_transform=None,
+        loss_decode=dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+        decoder_params=None,
+        ignore_index=255,
+        sampler=None,
+        align_corners=False,
+    ):
         super(BaseDecodeHead, self).__init__()
         self._init_inputs(in_channels, in_index, input_transform)
         self.channels = channels
@@ -88,9 +88,11 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
 
     def extra_repr(self):
         """Extra repr."""
-        s = f'input_transform={self.input_transform}, ' \
-            f'ignore_index={self.ignore_index}, ' \
+        s = (
+            f'input_transform={self.input_transform}, '
+            f'ignore_index={self.ignore_index}, '
             f'align_corners={self.align_corners}'
+        )
         return s
 
     def _init_inputs(self, in_channels, in_index, input_transform):
@@ -148,7 +150,9 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
                     input=x,
                     size=inputs[0].shape[2:],
                     mode='bilinear',
-                    align_corners=self.align_corners) for x in inputs
+                    align_corners=self.align_corners,
+                )
+                for x in inputs
             ]
             inputs = torch.cat(upsampled_inputs, dim=1)
         elif self.input_transform == 'multiple_select':
@@ -208,11 +212,11 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
         return output
 
 
-
 class MLP(nn.Module):
     """
     Linear Embedding
     """
+
     def __init__(self, input_dim=2048, embed_dim=768):
         super().__init__()
         self.proj = nn.Linear(input_dim, embed_dim)
@@ -227,13 +231,16 @@ class SegFormerHead(BaseDecodeHead):
     """
     SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers
     """
+
     def __init__(self, feature_strides, **kwargs):
         super(SegFormerHead, self).__init__(input_transform='multiple_select', **kwargs)
         assert len(feature_strides) == len(self.in_channels)
         assert min(feature_strides) == feature_strides[0]
         self.feature_strides = feature_strides
 
-        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = self.in_channels
+        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = (
+            self.in_channels
+        )
 
         decoder_params = kwargs['decoder_params']
         embedding_dim = decoder_params['embed_dim']
@@ -244,10 +251,10 @@ class SegFormerHead(BaseDecodeHead):
         self.linear_c1 = MLP(input_dim=c1_in_channels, embed_dim=embedding_dim)
 
         self.linear_fuse = ConvModule(
-            in_channels=embedding_dim*4,
+            in_channels=embedding_dim * 4,
             out_channels=embedding_dim,
             kernel_size=1,
-            norm_cfg=dict(type='BN', requires_grad=True)
+            norm_cfg=dict(type='BN', requires_grad=True),
         )
 
         self.linear_pred = nn.Conv2d(embedding_dim, self.num_classes, kernel_size=1)
@@ -269,16 +276,24 @@ class SegFormerHead(BaseDecodeHead):
         ############## MLP decoder on C1-C4 ###########
         n, _, h, w = c4.shape
 
-        _c4 = self.linear_c4(c4).permute(0,2,1).reshape(n, -1, c4.shape[2], c4.shape[3])
-        _c4 = resize(_c4, size=c1.size()[2:],mode='bilinear',align_corners=False)
+        _c4 = (
+            self.linear_c4(c4).permute(0, 2, 1).reshape(n, -1, c4.shape[2], c4.shape[3])
+        )
+        _c4 = resize(_c4, size=c1.size()[2:], mode='bilinear', align_corners=False)
 
-        _c3 = self.linear_c3(c3).permute(0,2,1).reshape(n, -1, c3.shape[2], c3.shape[3])
-        _c3 = resize(_c3, size=c1.size()[2:],mode='bilinear',align_corners=False)
+        _c3 = (
+            self.linear_c3(c3).permute(0, 2, 1).reshape(n, -1, c3.shape[2], c3.shape[3])
+        )
+        _c3 = resize(_c3, size=c1.size()[2:], mode='bilinear', align_corners=False)
 
-        _c2 = self.linear_c2(c2).permute(0,2,1).reshape(n, -1, c2.shape[2], c2.shape[3])
-        _c2 = resize(_c2, size=c1.size()[2:],mode='bilinear',align_corners=False)
+        _c2 = (
+            self.linear_c2(c2).permute(0, 2, 1).reshape(n, -1, c2.shape[2], c2.shape[3])
+        )
+        _c2 = resize(_c2, size=c1.size()[2:], mode='bilinear', align_corners=False)
 
-        _c1 = self.linear_c1(c1).permute(0,2,1).reshape(n, -1, c1.shape[2], c1.shape[3])
+        _c1 = (
+            self.linear_c1(c1).permute(0, 2, 1).reshape(n, -1, c1.shape[2], c1.shape[3])
+        )
 
         _c = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
 
@@ -286,6 +301,7 @@ class SegFormerHead(BaseDecodeHead):
         x = self.linear_pred(x)
 
         return x
+
 
 class Fusion(nn.Module):
     def __init__(self, embedding_dim=768):
@@ -305,17 +321,23 @@ class Fusion(nn.Module):
 
         return fusion
 
+
 class SegFormerHeadz(BaseDecodeHead):
     """
     SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers
     """
+
     def __init__(self, feature_strides, **kwargs):
-        super(SegFormerHeadz, self).__init__(input_transform='multiple_select', **kwargs)
+        super(SegFormerHeadz, self).__init__(
+            input_transform='multiple_select', **kwargs
+        )
         assert len(feature_strides) == len(self.in_channels)
         assert min(feature_strides) == feature_strides[0]
         self.feature_strides = feature_strides
 
-        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = self.in_channels
+        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = (
+            self.in_channels
+        )
 
         decoder_params = kwargs['decoder_params']
         embedding_dim = decoder_params['embed_dim']
@@ -328,7 +350,14 @@ class SegFormerHeadz(BaseDecodeHead):
         self.fusion2 = Fusion(embedding_dim)
         self.fusion1 = Fusion(embedding_dim)
 
-        self.convfusion = nn.Conv2d(in_channels=embedding_dim, out_channels=embedding_dim, kernel_size=7, padding=7 // 2, stride=1,bias=False)
+        self.convfusion = nn.Conv2d(
+            in_channels=embedding_dim,
+            out_channels=embedding_dim,
+            kernel_size=7,
+            padding=7 // 2,
+            stride=1,
+            bias=False,
+        )
         self.bn = nn.BatchNorm2d(embedding_dim)
         self.linear_pred = nn.Conv2d(embedding_dim, self.num_classes, kernel_size=1)
 
@@ -349,20 +378,28 @@ class SegFormerHeadz(BaseDecodeHead):
         ############## MLP decoder on C1-C4 ###########
         n, _, h, w = c4.shape
 
-        _c4 = self.linear_c4(c4).permute(0,2,1).reshape(n, -1, c4.shape[2], c4.shape[3])
-        _c4 = resize(_c4, size=c3.size()[2:],mode='bilinear',align_corners=False)
+        _c4 = (
+            self.linear_c4(c4).permute(0, 2, 1).reshape(n, -1, c4.shape[2], c4.shape[3])
+        )
+        _c4 = resize(_c4, size=c3.size()[2:], mode='bilinear', align_corners=False)
 
-        _c3 = self.linear_c3(c3).permute(0,2,1).reshape(n, -1, c3.shape[2], c3.shape[3])
+        _c3 = (
+            self.linear_c3(c3).permute(0, 2, 1).reshape(n, -1, c3.shape[2], c3.shape[3])
+        )
 
         _c3 = self.fusion3(_c3, _c4)
-        _c3 = resize(_c3, size=c2.size()[2:],mode='bilinear',align_corners=False)
+        _c3 = resize(_c3, size=c2.size()[2:], mode='bilinear', align_corners=False)
 
-        _c2 = self.linear_c2(c2).permute(0,2,1).reshape(n, -1, c2.shape[2], c2.shape[3])
+        _c2 = (
+            self.linear_c2(c2).permute(0, 2, 1).reshape(n, -1, c2.shape[2], c2.shape[3])
+        )
 
         _c2 = self.fusion2(_c2, _c3)
-        _c2 = resize(_c2, size=c1.size()[2:],mode='bilinear',align_corners=False)
+        _c2 = resize(_c2, size=c1.size()[2:], mode='bilinear', align_corners=False)
 
-        _c1 = self.linear_c1(c1).permute(0,2,1).reshape(n, -1, c1.shape[2], c1.shape[3])
+        _c1 = (
+            self.linear_c1(c1).permute(0, 2, 1).reshape(n, -1, c1.shape[2], c1.shape[3])
+        )
         _c1 = self.fusion1(_c1, _c2)
 
         _c = self.convfusion(_c1)
@@ -371,6 +408,7 @@ class SegFormerHeadz(BaseDecodeHead):
         x = self.dropout(_c)
         x = self.linear_pred(x)
         return x
+
 
 class Fusion2(nn.Module):
     def __init__(self, embedding_dim=768):
@@ -381,7 +419,7 @@ class Fusion2(nn.Module):
             in_channels=embedding_dim,
             out_channels=embedding_dim,
             kernel_size=1,
-            norm_cfg=dict(type='BN', requires_grad=True)
+            norm_cfg=dict(type='BN', requires_grad=True),
         )
 
     def forward(self, x_u, x_d):
@@ -395,22 +433,30 @@ class Fusion2(nn.Module):
 
         return fusion
 
+
 class SegFormerHead2(BaseDecodeHead):
     """
     SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers
     """
+
     def __init__(self, feature_strides, **kwargs):
-        super(SegFormerHead2, self).__init__(input_transform='multiple_select', **kwargs)
+        super(SegFormerHead2, self).__init__(
+            input_transform='multiple_select', **kwargs
+        )
         assert len(feature_strides) == len(self.in_channels)
         assert min(feature_strides) == feature_strides[0]
         self.feature_strides = feature_strides
 
-        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = self.in_channels
+        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = (
+            self.in_channels
+        )
 
         decoder_params = kwargs['decoder_params']
         embedding_dim = decoder_params['embed_dim']
 
-        self.linear_c4 = MLP(input_dim=c4_in_channels, embed_dim=embedding_dim) #[32, 64, 160, 256]
+        self.linear_c4 = MLP(
+            input_dim=c4_in_channels, embed_dim=embedding_dim
+        )  # [32, 64, 160, 256]
         self.linear_c3 = MLP(input_dim=c3_in_channels, embed_dim=embedding_dim)
         self.linear_c2 = MLP(input_dim=c2_in_channels, embed_dim=embedding_dim)
         self.linear_c1 = MLP(input_dim=c1_in_channels, embed_dim=embedding_dim)
@@ -422,7 +468,7 @@ class SegFormerHead2(BaseDecodeHead):
             in_channels=embedding_dim,
             out_channels=embedding_dim,
             kernel_size=1,
-            norm_cfg=dict(type='BN', requires_grad=True)
+            norm_cfg=dict(type='BN', requires_grad=True),
         )
         self.linear_pred = nn.Conv2d(embedding_dim, self.num_classes, kernel_size=1)
 
@@ -443,18 +489,26 @@ class SegFormerHead2(BaseDecodeHead):
         ############## MLP decoder on C1-C4 ###########
         n, _, h, w = c4.shape
 
-        _c4 = self.linear_c4(c4).permute(0,2,1).reshape(n, -1, c4.shape[2], c4.shape[3])
-        _c4 = resize(_c4, size=c3.size()[2:],mode='bilinear',align_corners=False)
+        _c4 = (
+            self.linear_c4(c4).permute(0, 2, 1).reshape(n, -1, c4.shape[2], c4.shape[3])
+        )
+        _c4 = resize(_c4, size=c3.size()[2:], mode='bilinear', align_corners=False)
 
-        _c3 = self.linear_c3(c3).permute(0,2,1).reshape(n, -1, c3.shape[2], c3.shape[3])
+        _c3 = (
+            self.linear_c3(c3).permute(0, 2, 1).reshape(n, -1, c3.shape[2], c3.shape[3])
+        )
         _c3 = self.fusion3(_c3, _c4)
 
-        _c3 = resize(_c3, size=c2.size()[2:],mode='bilinear',align_corners=False)
-        _c2 = self.linear_c2(c2).permute(0,2,1).reshape(n, -1, c2.shape[2], c2.shape[3])
+        _c3 = resize(_c3, size=c2.size()[2:], mode='bilinear', align_corners=False)
+        _c2 = (
+            self.linear_c2(c2).permute(0, 2, 1).reshape(n, -1, c2.shape[2], c2.shape[3])
+        )
         _c2 = self.fusion2(_c2, _c3)
 
-        _c2 = resize(_c2, size=c1.size()[2:],mode='bilinear',align_corners=False)
-        _c1 = self.linear_c1(c1).permute(0,2,1).reshape(n, -1, c1.shape[2], c1.shape[3])
+        _c2 = resize(_c2, size=c1.size()[2:], mode='bilinear', align_corners=False)
+        _c1 = (
+            self.linear_c1(c1).permute(0, 2, 1).reshape(n, -1, c1.shape[2], c1.shape[3])
+        )
         _c1 = self.fusion1(_c1, _c2)
 
         _c = self.linear_fuse(_c1)

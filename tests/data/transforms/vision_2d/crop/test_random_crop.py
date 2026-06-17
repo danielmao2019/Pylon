@@ -1,7 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from data.transforms.vision_2d.crop.random_crop import RandomCrop
 import torch
+
+from data.transforms.vision_2d.crop.random_crop import RandomCrop
 
 
 @pytest.mark.parametrize(
@@ -9,36 +11,53 @@ import torch
     [
         # 5x5 tensor, 3x3 crop, mock x=1, y=1 (so crop starts at (1,1))
         (
-            torch.tensor([
-                [1, 2, 3, 4, 5],
-                [6, 7, 8, 9, 10],
-                [11, 12, 13, 14, 15],
-                [16, 17, 18, 19, 20],
-                [21, 22, 23, 24, 25],
-            ]).unsqueeze(0),  # (1, 5, 5) shape
+            torch.tensor(
+                [
+                    [1, 2, 3, 4, 5],
+                    [6, 7, 8, 9, 10],
+                    [11, 12, 13, 14, 15],
+                    [16, 17, 18, 19, 20],
+                    [21, 22, 23, 24, 25],
+                ]
+            ).unsqueeze(
+                0
+            ),  # (1, 5, 5) shape
             (3, 3),
-            1, 1,  # Mock x=1, y=1 (forcing crop to start from (1,1))
-            torch.tensor([
-                [7, 8, 9],
-                [12, 13, 14],
-                [17, 18, 19],
-            ]).unsqueeze(0),  # Expected (1, 3, 3) output
+            1,
+            1,  # Mock x=1, y=1 (forcing crop to start from (1,1))
+            torch.tensor(
+                [
+                    [7, 8, 9],
+                    [12, 13, 14],
+                    [17, 18, 19],
+                ]
+            ).unsqueeze(
+                0
+            ),  # Expected (1, 3, 3) output
         ),
-
         # 4x4 tensor, 2x2 crop, mock x=2, y=1 (crop starts at (2,1))
         (
-            torch.tensor([
-                [10, 20, 30, 40],
-                [50, 60, 70, 80],
-                [90, 100, 110, 120],
-                [130, 140, 150, 160],
-            ]).unsqueeze(0),  # (1, 4, 4) shape
+            torch.tensor(
+                [
+                    [10, 20, 30, 40],
+                    [50, 60, 70, 80],
+                    [90, 100, 110, 120],
+                    [130, 140, 150, 160],
+                ]
+            ).unsqueeze(
+                0
+            ),  # (1, 4, 4) shape
             (2, 2),
-            2, 1,  # Mock x=2, y=1 (forcing crop to start from (2,1))
-            torch.tensor([
-                [70, 80],
-                [110, 120],
-            ]).unsqueeze(0),  # Expected (1, 2, 2) output
+            2,
+            1,  # Mock x=2, y=1 (forcing crop to start from (2,1))
+            torch.tensor(
+                [
+                    [70, 80],
+                    [110, 120],
+                ]
+            ).unsqueeze(
+                0
+            ),  # Expected (1, 2, 2) output
         ),
     ],
 )
@@ -54,8 +73,12 @@ def test_random_crop(input_tensor, crop_size, mock_x, mock_y, expected_output):
     with patch.object(transform, '_get_generator', return_value=mock_generator):
         cropped_tensor = transform(input_tensor)
 
-    assert cropped_tensor.shape == expected_output.shape, f"Expected shape {expected_output.shape}, got {cropped_tensor.shape}"
-    assert torch.equal(cropped_tensor, expected_output), f"Expected output:\n{expected_output}\nGot:\n{cropped_tensor}"
+    assert (
+        cropped_tensor.shape == expected_output.shape
+    ), f"Expected shape {expected_output.shape}, got {cropped_tensor.shape}"
+    assert torch.equal(
+        cropped_tensor, expected_output
+    ), f"Expected output:\n{expected_output}\nGot:\n{cropped_tensor}"
 
 
 def test_random_crop_bounds():
@@ -66,7 +89,9 @@ def test_random_crop_bounds():
 
     for _ in range(10):  # Run multiple times to test randomness
         cropped_tensor = transform(tensor)
-        assert cropped_tensor.shape[-2:] == crop_size, "Crop size does not match expected output."
+        assert (
+            cropped_tensor.shape[-2:] == crop_size
+        ), "Crop size does not match expected output."
 
 
 @pytest.mark.parametrize(

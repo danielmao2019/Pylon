@@ -1,9 +1,9 @@
 # Reference: https://teaser.readthedocs.io/en/latest/quickstart.html#usage-in-python-projects
 from typing import Dict, List, Optional, Tuple, Union
 
-import torch
 import numpy as np
 import open3d as o3d
+import torch
 from scipy.spatial import cKDTree
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -70,16 +70,20 @@ class TeaserPlusPlus(torch.nn.Module):
         # Estimate normals
         radius_normal = self.voxel_size * 2
         pcd.estimate_normals(
-            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30)
+        )
 
         # Compute FPFH features
         radius_feature = self.voxel_size * 5
         fpfh = o3d.pipelines.registration.compute_fpfh_feature(
-            pcd, o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+            pcd, o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100)
+        )
 
         return np.array(fpfh.data).T
 
-    def _find_correspondences(self, feats0: np.ndarray, feats1: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _find_correspondences(
+        self, feats0: np.ndarray, feats1: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Find correspondences between two sets of features using mutual nearest neighbor.
 
         Args:
@@ -102,7 +106,7 @@ class TeaserPlusPlus(torch.nn.Module):
         corres10_idx0 = nns10
 
         # Apply mutual filter
-        mutual_filter = (corres10_idx0[corres01_idx1] == corres01_idx0)
+        mutual_filter = corres10_idx0[corres01_idx1] == corres01_idx0
         corres_idx0 = corres01_idx0[mutual_filter]
         corres_idx1 = corres01_idx1[mutual_filter]
 
@@ -177,7 +181,9 @@ class TeaserPlusPlus(torch.nn.Module):
             solver_params.cbar2 = 1
             solver_params.noise_bound = 0.01
             if self.estimate_rotation:
-                solver_params.rotation_estimation_algorithm = teaserpp_python.RobustRegistrationSolver.ROTATION_ESTIMATION_ALGORITHM.GNC_TLS
+                solver_params.rotation_estimation_algorithm = (
+                    teaserpp_python.RobustRegistrationSolver.ROTATION_ESTIMATION_ALGORITHM.GNC_TLS
+                )
                 solver_params.rotation_gnc_factor = 1.4
                 solver_params.rotation_max_iterations = 100
                 solver_params.rotation_cost_threshold = 1e-12
@@ -185,7 +191,9 @@ class TeaserPlusPlus(torch.nn.Module):
 
             # Create solver and solve
             solver = teaserpp_python.RobustRegistrationSolver(solver_params)
-            solver.solve(src_points.T.astype(np.float64), tgt_points.T.astype(np.float64))
+            solver.solve(
+                src_points.T.astype(np.float64), tgt_points.T.astype(np.float64)
+            )
 
             # Get solution
             solution = solver.getSolution()
@@ -197,4 +205,6 @@ class TeaserPlusPlus(torch.nn.Module):
             transformations.append(solution)
 
         # Convert back to tensor
-        return torch.tensor(np.stack(transformations), dtype=torch.float32, device=device)
+        return torch.tensor(
+            np.stack(transformations), dtype=torch.float32, device=device
+        )

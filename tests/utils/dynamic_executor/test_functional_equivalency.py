@@ -1,7 +1,9 @@
-from typing import List, Dict, Any
-import pytest
 import time
+from typing import Any, Dict, List
+
 import numpy as np
+import pytest
+
 from utils.dynamic_executor import create_dynamic_executor
 
 

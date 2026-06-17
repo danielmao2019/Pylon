@@ -1,7 +1,7 @@
 """Unit tests for the debounce decorator."""
 
-import time
 import threading
+import time
 from unittest.mock import Mock
 
 import pytest
@@ -136,6 +136,7 @@ def test_concurrent_functions():
 
 def test_function_metadata_preserved():
     """Test that the decorated function preserves the original function's metadata."""
+
     @debounce
     def test_func(x, y):
         """Test function docstring."""

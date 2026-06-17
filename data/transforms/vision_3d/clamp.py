@@ -1,8 +1,10 @@
 from typing import Any, List, Optional, Union
+
 import torch
-from data.transforms.base_transform import BaseTransform
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
+from data.transforms.base_transform import BaseTransform
 
 
 class Clamp(BaseTransform):
@@ -13,7 +15,9 @@ class Clamp(BaseTransform):
         self.max_points = max_points
         super(Clamp, self).__init__()
 
-    def __call__(self, *args, seed: Optional[Any] = None) -> Union[PointCloud, List[PointCloud]]:
+    def __call__(
+        self, *args, seed: Optional[Any] = None
+    ) -> Union[PointCloud, List[PointCloud]]:
         """
         Apply clamp transform to one or more point clouds with consistent randomness.
 
@@ -29,7 +33,9 @@ class Clamp(BaseTransform):
 
         point_clouds: List[PointCloud] = []
         for i, pc in enumerate(args):
-            assert isinstance(pc, PointCloud), f"Argument {i} must be PointCloud, got {type(pc)}"
+            assert isinstance(
+                pc, PointCloud
+            ), f"Argument {i} must be PointCloud, got {type(pc)}"
             point_clouds.append(pc)
 
         # Check if all point clouds have the same number of points and device
@@ -38,11 +44,15 @@ class Clamp(BaseTransform):
 
         # Ensure all point clouds have the same number of points for consistent clamping
         if len(set(num_points_list)) > 1:
-            raise ValueError(f"All point clouds must have the same number of points for consistent clamping. Got: {num_points_list}")
+            raise ValueError(
+                f"All point clouds must have the same number of points for consistent clamping. Got: {num_points_list}"
+            )
 
         # Ensure all point clouds are on the same device
         if len(set(devices)) > 1:
-            raise ValueError(f"All point clouds must be on the same device. Got: {devices}")
+            raise ValueError(
+                f"All point clouds must be on the same device. Got: {devices}"
+            )
 
         num_points = num_points_list[0]
         device = devices[0]
@@ -59,13 +69,17 @@ class Clamp(BaseTransform):
             generator = torch.Generator(device=device)
             if seed is None:
                 import random
+
                 seed = random.randint(0, 2**32 - 1)
             if not isinstance(seed, int):
                 from utils.determinism.hash_utils import convert_to_seed
+
                 seed = convert_to_seed(seed)
             generator.manual_seed(seed)
 
-        indices = torch.randperm(num_points, generator=generator, device=device)[:self.max_points]
+        indices = torch.randperm(num_points, generator=generator, device=device)[
+            : self.max_points
+        ]
 
         # Apply the same indices to all point clouds
         result = [Select(indices)(pc) for pc in point_clouds]

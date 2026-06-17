@@ -1,9 +1,13 @@
-from typing import Dict, Any
-import pytest
 import random
-import torch
 from concurrent.futures import ThreadPoolExecutor
-from data.datasets.random_datasets.classification_random_dataset import ClassificationRandomDataset
+from typing import Any, Dict
+
+import pytest
+import torch
+
+from data.datasets.random_datasets.classification_random_dataset import (
+    ClassificationRandomDataset,
+)
 from utils.input_checks import check_image
 
 
@@ -23,21 +27,31 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
     assert set(meta_info.keys()) == set(['idx', 'seed']), f"{meta_info.keys()=}"
     assert type(meta_info['seed']) == int, f"{type(meta_info['seed'])=}"
-    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert (
+        meta_info['idx'] == datapoint_idx
+    ), f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
 @pytest.fixture
 def dataset(request):
     """Fixture for creating a ClassificationRandomDataset instance."""
     num_classes, num_examples, image_res, base_seed = request.param
-    return ClassificationRandomDataset(num_classes, num_examples, image_res, base_seed=base_seed)
+    return ClassificationRandomDataset(
+        num_classes, num_examples, image_res, base_seed=base_seed
+    )
 
 
-@pytest.mark.parametrize("dataset_config", [
-    (10, 1000, (512, 512), None),
-    (10, 1000, (512, 512), 0),
-], indirect=True)
-def test_classification_random_dataset(dataset_config, max_samples, get_samples_to_test):
+@pytest.mark.parametrize(
+    "dataset_config",
+    [
+        (10, 1000, (512, 512), None),
+        (10, 1000, (512, 512), 0),
+    ],
+    indirect=True,
+)
+def test_classification_random_dataset(
+    dataset_config, max_samples, get_samples_to_test
+):
     dataset = build_from_config(dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"

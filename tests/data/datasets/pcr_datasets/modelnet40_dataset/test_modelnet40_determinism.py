@@ -5,11 +5,13 @@ These tests verify that the cache generation and datapoint loading are determini
 and consistent between runs, ensuring reproducible results.
 """
 
-import os
 import json
-import tempfile
+import os
 import random
+import tempfile
+
 import torch
+
 import data
 from utils.ops.dict_as_tensor import buffer_allclose
 
@@ -72,8 +74,9 @@ def test_cache_consistency(modelnet40_data_root):
         print(f"Second run cache keys: {list(cache_content_2.keys())}")
 
         # Compare cache files for absolute identity
-        assert cache_content_1 == cache_content_2, \
-            "Cache files should be absolutely identical between runs"
+        assert (
+            cache_content_1 == cache_content_2
+        ), "Cache files should be absolutely identical between runs"
 
         # Also compare as JSON strings to ensure formatting is identical
         with open(cache_file_1, 'r') as f1, open(cache_file_2, 'r') as f2:
@@ -83,8 +86,9 @@ def test_cache_consistency(modelnet40_data_root):
         # The JSON content should be functionally identical even if formatting differs
         cache1_normalized = json.loads(content1_str)
         cache2_normalized = json.loads(content2_str)
-        assert cache1_normalized == cache2_normalized, \
-            "Normalized cache content should be identical"
+        assert (
+            cache1_normalized == cache2_normalized
+        ), "Normalized cache content should be identical"
 
         print("✅ Cache consistency test passed: both runs produced identical caches")
 
@@ -118,10 +122,12 @@ def test_cache_subset_consistency(modelnet40_data_root):
 
         # Create 10-datapoint dataset
         config_10 = base_config.copy()
-        config_10.update({
-            'dataset_size': 10,
-            'cache_filepath': cache_file_10,
-        })
+        config_10.update(
+            {
+                'dataset_size': 10,
+                'cache_filepath': cache_file_10,
+            }
+        )
 
         print("Creating 10-datapoint dataset...")
         dataset_10 = data.datasets.ModelNet40Dataset(**config_10)
@@ -132,10 +138,12 @@ def test_cache_subset_consistency(modelnet40_data_root):
 
         # Create 20-datapoint dataset
         config_20 = base_config.copy()
-        config_20.update({
-            'dataset_size': 20,
-            'cache_filepath': cache_file_20,
-        })
+        config_20.update(
+            {
+                'dataset_size': 20,
+                'cache_filepath': cache_file_20,
+            }
+        )
 
         print("Creating 20-datapoint dataset...")
         dataset_20 = data.datasets.ModelNet40Dataset(**config_20)
@@ -158,9 +166,10 @@ def test_cache_subset_consistency(modelnet40_data_root):
         cache_10_keys = set(cache_10.keys())
         cache_20_keys = set(cache_20.keys())
 
-        assert cache_10_keys.issubset(cache_20_keys), \
-            f"10-datapoint cache keys should be subset of 20-datapoint cache keys. " \
+        assert cache_10_keys.issubset(cache_20_keys), (
+            f"10-datapoint cache keys should be subset of 20-datapoint cache keys. "
             f"Missing: {cache_10_keys - cache_20_keys}"
+        )
 
         # For each file, check that the first N transforms are identical
         # where N is the number of transforms for that file in the 10-datapoint case
@@ -171,16 +180,20 @@ def test_cache_subset_consistency(modelnet40_data_root):
             num_transforms_10 = len(transforms_10)
 
             # The 20-datapoint dataset should have at least as many transforms
-            assert len(transforms_20) >= num_transforms_10, \
-                f"20-datapoint cache should have at least {num_transforms_10} transforms for file {file_key}"
+            assert (
+                len(transforms_20) >= num_transforms_10
+            ), f"20-datapoint cache should have at least {num_transforms_10} transforms for file {file_key}"
 
             # The first num_transforms_10 should be identical
             first_transforms_20 = transforms_20[:num_transforms_10]
 
-            assert transforms_10 == first_transforms_20, \
-                f"First {num_transforms_10} transforms should be identical for file {file_key}"
+            assert (
+                transforms_10 == first_transforms_20
+            ), f"First {num_transforms_10} transforms should be identical for file {file_key}"
 
-        print("✅ Cache subset consistency test passed: first 10 datapoints are identical")
+        print(
+            "✅ Cache subset consistency test passed: first 10 datapoints are identical"
+        )
 
     finally:
         # Clean up temporary files
@@ -224,9 +237,15 @@ def test_datapoint_determinism(modelnet40_data_root):
             datapoint = dataset1[idx]
             # Deep copy the datapoint to avoid reference issues
             datapoints1[idx] = {
-                'inputs': {k: v.clone() if isinstance(v, torch.Tensor) else v for k, v in datapoint['inputs'].items()},
-                'labels': {k: v.clone() if isinstance(v, torch.Tensor) else v for k, v in datapoint['labels'].items()},
-                'meta_info': datapoint['meta_info'].copy()
+                'inputs': {
+                    k: v.clone() if isinstance(v, torch.Tensor) else v
+                    for k, v in datapoint['inputs'].items()
+                },
+                'labels': {
+                    k: v.clone() if isinstance(v, torch.Tensor) else v
+                    for k, v in datapoint['labels'].items()
+                },
+                'meta_info': datapoint['meta_info'].copy(),
             }
 
         # Create second dataset instance with same config
@@ -238,9 +257,15 @@ def test_datapoint_determinism(modelnet40_data_root):
         for idx in test_indices:
             datapoint = dataset2[idx]
             datapoints2[idx] = {
-                'inputs': {k: v.clone() if isinstance(v, torch.Tensor) else v for k, v in datapoint['inputs'].items()},
-                'labels': {k: v.clone() if isinstance(v, torch.Tensor) else v for k, v in datapoint['labels'].items()},
-                'meta_info': datapoint['meta_info'].copy()
+                'inputs': {
+                    k: v.clone() if isinstance(v, torch.Tensor) else v
+                    for k, v in datapoint['inputs'].items()
+                },
+                'labels': {
+                    k: v.clone() if isinstance(v, torch.Tensor) else v
+                    for k, v in datapoint['labels'].items()
+                },
+                'meta_info': datapoint['meta_info'].copy(),
             }
 
         # Compare datapoints for exact equality
@@ -249,21 +274,26 @@ def test_datapoint_determinism(modelnet40_data_root):
             dp2 = datapoints2[idx]
 
             # Compare inputs using buffer_allclose for tensors
-            assert buffer_allclose(dp1['inputs'], dp2['inputs']), \
-                f"Inputs differ at index {idx}"
+            assert buffer_allclose(
+                dp1['inputs'], dp2['inputs']
+            ), f"Inputs differ at index {idx}"
 
             # Compare labels using buffer_allclose for tensors
-            assert buffer_allclose(dp1['labels'], dp2['labels']), \
-                f"Labels differ at index {idx}"
+            assert buffer_allclose(
+                dp1['labels'], dp2['labels']
+            ), f"Labels differ at index {idx}"
 
             # Compare meta_info (skip dynamic fields like timestamps if any)
             meta_keys_to_compare = ['file_idx', 'transform_idx', 'overlap']
             for key in meta_keys_to_compare:
                 if key in dp1['meta_info'] and key in dp2['meta_info']:
-                    assert dp1['meta_info'][key] == dp2['meta_info'][key], \
-                        f"Meta_info {key} differs at index {idx}: {dp1['meta_info'][key]} vs {dp2['meta_info'][key]}"
+                    assert (
+                        dp1['meta_info'][key] == dp2['meta_info'][key]
+                    ), f"Meta_info {key} differs at index {idx}: {dp1['meta_info'][key]} vs {dp2['meta_info'][key]}"
 
-        print("✅ Datapoint determinism test passed: same indices produce identical datapoints")
+        print(
+            "✅ Datapoint determinism test passed: same indices produce identical datapoints"
+        )
 
     finally:
         # Clean up temporary files

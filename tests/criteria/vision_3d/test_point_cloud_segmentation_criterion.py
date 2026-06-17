@@ -1,14 +1,22 @@
 import pytest
 import torch
-from criteria.vision_3d.point_cloud_segmentation_criterion import PointCloudSegmentationCriterion
+
+from criteria.vision_3d.point_cloud_segmentation_criterion import (
+    PointCloudSegmentationCriterion,
+)
 
 
-@pytest.mark.parametrize("batch_size, num_points, num_classes, ignore_value, class_weights", [
-    (2, 1000, 4, None, None),  # Basic case
-    (1, 500, 3, -1, (1.0, 2.0, 0.5)),  # With class weights
-    (3, 2000, 5, 0, None),  # With ignore value
-])
-def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes, ignore_value, class_weights):
+@pytest.mark.parametrize(
+    "batch_size, num_points, num_classes, ignore_value, class_weights",
+    [
+        (2, 1000, 4, None, None),  # Basic case
+        (1, 500, 3, -1, (1.0, 2.0, 0.5)),  # With class weights
+        (3, 2000, 5, 0, None),  # With ignore value
+    ],
+)
+def test_point_cloud_segmentation_criterion(
+    batch_size, num_points, num_classes, ignore_value, class_weights
+):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initialize criterion and move to device
@@ -22,13 +30,11 @@ def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes,
     if ignore_value is not None:
         # Add some ignored points
         y_true = torch.randint(
-            low=ignore_value, high=num_classes,
-            size=(batch_size * num_points,)
+            low=ignore_value, high=num_classes, size=(batch_size * num_points,)
         ).to(device)
     else:
         y_true = torch.randint(
-            low=0, high=num_classes,
-            size=(batch_size * num_points,)
+            low=0, high=num_classes, size=(batch_size * num_points,)
         ).to(device)
 
     # Compute loss
@@ -42,10 +48,13 @@ def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes,
     assert loss.item() > 0  # Cross entropy loss should be positive
 
 
-@pytest.mark.parametrize("invalid_shape", [
-    ((100, 5), (50,)),  # Different number of points
-    ((100, 3), (100, 1)),  # Target has wrong shape
-])
+@pytest.mark.parametrize(
+    "invalid_shape",
+    [
+        ((100, 5), (50,)),  # Different number of points
+        ((100, 3), (100, 1)),  # Target has wrong shape
+    ],
+)
 def test_invalid_shapes(invalid_shape):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = PointCloudSegmentationCriterion().to(device)
@@ -74,8 +83,7 @@ def test_class_weights():
     normalized_weights = raw_weights / raw_weights.sum()
 
     assert torch.allclose(
-        criterion.criterion.weight,
-        normalized_weights.to(device)
+        criterion.criterion.weight, normalized_weights.to(device)
     ), "Class weights not set correctly"
 
     # Create predictions and targets
@@ -99,8 +107,12 @@ def test_point_cloud_segmentation_with_class_weights():
     criterion = PointCloudSegmentationCriterion(class_weights=class_weights)
 
     # Create two batches of predictions with errors in different classes
-    y_true_1 = torch.full((num_points,), fill_value=2)  # All points belong to last class (highly weighted)
-    y_true_2 = torch.full((num_points,), fill_value=0)  # All points belong to first class (lower weight)
+    y_true_1 = torch.full(
+        (num_points,), fill_value=2
+    )  # All points belong to last class (highly weighted)
+    y_true_2 = torch.full(
+        (num_points,), fill_value=0
+    )  # All points belong to first class (lower weight)
 
     # Same wrong predictions for both cases
     y_pred = torch.zeros(num_points, num_classes)

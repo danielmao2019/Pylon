@@ -1,5 +1,7 @@
-from typing import List, Dict
+from typing import Dict, List
+
 import torch
+
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file
 from utils.io.json import save_json
@@ -15,7 +17,9 @@ class ConfusionMatrix(SingleTaskMetric):
         self.num_classes = num_classes
 
     @staticmethod
-    def _get_bincount(y_pred: torch.Tensor, y_true: torch.Tensor, num_classes: int) -> torch.Tensor:
+    def _get_bincount(
+        y_pred: torch.Tensor, y_true: torch.Tensor, num_classes: int
+    ) -> torch.Tensor:
         """
         Compute bincount for confusion matrix from predictions and ground truth.
 
@@ -29,21 +33,30 @@ class ConfusionMatrix(SingleTaskMetric):
         """
         # Input checks
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
-        assert 0 <= y_true.min() <= y_true.max() < num_classes, f"{y_true.min()=}, {y_true.max()=}, {num_classes=}"
-        assert 0 <= y_pred.min() <= y_pred.max() < num_classes, f"{y_pred.min()=}, {y_pred.max()=}, {num_classes=}"
+        assert (
+            0 <= y_true.min() <= y_true.max() < num_classes
+        ), f"{y_true.min()=}, {y_true.max()=}, {num_classes=}"
+        assert (
+            0 <= y_pred.min() <= y_pred.max() < num_classes
+        ), f"{y_pred.min()=}, {y_pred.max()=}, {num_classes=}"
 
         # Compute bincount
         bincount = torch.bincount(
-            y_true * num_classes + y_pred, minlength=num_classes**2,
+            y_true * num_classes + y_pred,
+            minlength=num_classes**2,
         ).view((num_classes,) * 2)
 
         # Output checks
         assert not bincount.isnan().any(), f"{bincount=}"
-        assert bincount.sum() == y_true.numel(), f"{bincount.sum()=}, {y_true.shape=}, {y_true.numel()=}"
+        assert (
+            bincount.sum() == y_true.numel()
+        ), f"{bincount.sum()=}, {y_true.shape=}, {y_true.numel()=}"
         return bincount
 
     @staticmethod
-    def _bincount2cm(bincount: torch.Tensor, batch_size: int) -> Dict[str, torch.Tensor]:
+    def _bincount2cm(
+        bincount: torch.Tensor, batch_size: int
+    ) -> Dict[str, torch.Tensor]:
         """
         Convert bincount to confusion matrix.
 
@@ -56,11 +69,16 @@ class ConfusionMatrix(SingleTaskMetric):
         """
         cm = {
             'class_tp': bincount.diag(),
-            'class_tn': bincount.sum() - bincount.sum(dim=0) - bincount.sum(dim=1) + bincount.diag(),
+            'class_tn': bincount.sum()
+            - bincount.sum(dim=0)
+            - bincount.sum(dim=1)
+            + bincount.diag(),
             'class_fp': bincount.sum(dim=0) - bincount.diag(),
             'class_fn': bincount.sum(dim=1) - bincount.diag(),
         }
-        assert torch.all(torch.stack(list(cm.values()), dim=0).sum(dim=0) == batch_size), f"{torch.stack(list(cm.values()), dim=0).sum(dim=0)=}"
+        assert torch.all(
+            torch.stack(list(cm.values()), dim=0).sum(dim=0) == batch_size
+        ), f"{torch.stack(list(cm.values()), dim=0).sum(dim=0)=}"
         return cm
 
     @staticmethod
@@ -89,7 +107,9 @@ class ConfusionMatrix(SingleTaskMetric):
             'mean_f1': (2 * tp / (2 * tp + fp + fn)).mean(),
         }
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         # input checks
         assert y_pred.ndim == 2, f"{y_pred.shape=}"
         assert y_true.ndim == 1, f"{y_true.shape=}"
@@ -97,7 +117,9 @@ class ConfusionMatrix(SingleTaskMetric):
         # make prediction from output
         y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
         # compute confusion matrix
-        bincount = self._get_bincount(y_pred=y_pred, y_true=y_true, num_classes=self.num_classes)
+        bincount = self._get_bincount(
+            y_pred=y_pred, y_true=y_true, num_classes=self.num_classes
+        )
         scores = {}
         cm = self._bincount2cm(bincount, batch_size=y_true.size(0))
         cm_scores = self._cm2score(cm)

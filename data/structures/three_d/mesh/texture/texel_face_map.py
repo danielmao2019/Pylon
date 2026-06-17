@@ -233,9 +233,9 @@ def _compute_texel_face_index(
         assert isinstance(rast_out, torch.Tensor), (
             "Expected `rast_out` to be a `torch.Tensor`. " f"{type(rast_out)=}"
         )
-        assert rast_out.ndim == 4 and rast_out.shape[0] == 1 and rast_out.shape[3] == 4, (
-            "Expected `rast_out` shape `[1, T, T, 4]`. " f"{rast_out.shape=}"
-        )
+        assert (
+            rast_out.ndim == 4 and rast_out.shape[0] == 1 and rast_out.shape[3] == 4
+        ), ("Expected `rast_out` shape `[1, T, T, 4]`. " f"{rast_out.shape=}")
         assert isinstance(raster_face_indices, torch.Tensor), (
             "Expected `raster_face_indices` to be a `torch.Tensor`. "
             f"{type(raster_face_indices)=}"
@@ -249,9 +249,7 @@ def _compute_texel_face_index(
 
     soup_triangle_index = rast_out[0, :, :, 3].to(dtype=torch.long) - 1
     occupied_mask = soup_triangle_index >= 0
-    texel_face_index = torch.full_like(
-        soup_triangle_index, -1, dtype=torch.int64
-    )
+    texel_face_index = torch.full_like(soup_triangle_index, -1, dtype=torch.int64)
     raster_face_indices_long = raster_face_indices.to(
         device=texel_face_index.device, dtype=torch.int64
     )
@@ -279,9 +277,9 @@ def _compute_texel_face_barycentric(rast_out: torch.Tensor) -> torch.Tensor:
         assert isinstance(rast_out, torch.Tensor), (
             "Expected `rast_out` to be a `torch.Tensor`. " f"{type(rast_out)=}"
         )
-        assert rast_out.ndim == 4 and rast_out.shape[0] == 1 and rast_out.shape[3] == 4, (
-            "Expected `rast_out` shape `[1, T, T, 4]`. " f"{rast_out.shape=}"
-        )
+        assert (
+            rast_out.ndim == 4 and rast_out.shape[0] == 1 and rast_out.shape[3] == 4
+        ), ("Expected `rast_out` shape `[1, T, T, 4]`. " f"{rast_out.shape=}")
 
     _validate_inputs()
 

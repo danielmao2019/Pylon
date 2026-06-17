@@ -1,14 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
-from sklearn.manifold import TSNE
-from tqdm import tqdm
-
 from geotransformer.utils.open3d import (
-    make_open3d_point_cloud,
     make_open3d_axes,
     make_open3d_corr_lines,
+    make_open3d_point_cloud,
 )
+from sklearn.manifold import TSNE
+from tqdm import tqdm
 
 
 def draw_point_to_node(points, nodes, point_to_node, node_colors=None):
@@ -78,7 +77,9 @@ def get_colors_with_tsne(data):
 
 
 def write_points_to_obj(file_name, points, colors=None, radius=0.02, resolution=6):
-    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=radius, resolution=resolution)
+    sphere = o3d.geometry.TriangleMesh.create_sphere(
+        radius=radius, resolution=resolution
+    )
     vertices = np.asarray(sphere.vertices)
     triangles = np.asarray(sphere.triangles) + 1
 
@@ -91,14 +92,20 @@ def write_points_to_obj(file_name, points, colors=None, radius=0.02, resolution=
 
         for j in range(vertices.shape[0]):
             new_vertex = points[i] + vertices[j]
-            line = 'v {:.6f} {:.6f} {:.6f}'.format(new_vertex[0], new_vertex[1], new_vertex[2])
+            line = 'v {:.6f} {:.6f} {:.6f}'.format(
+                new_vertex[0], new_vertex[1], new_vertex[2]
+            )
             if colors is not None:
-                line += ' {:.6f} {:.6f} {:.6f}'.format(colors[i, 0], colors[i, 1], colors[i, 2])
+                line += ' {:.6f} {:.6f} {:.6f}'.format(
+                    colors[i, 0], colors[i, 1], colors[i, 2]
+                )
             v_lines.append(line + '\n')
 
         for j in range(triangles.shape[0]):
             new_triangle = triangles[j] + n
-            line = 'f {} {} {}\n'.format(new_triangle[0], new_triangle[1], new_triangle[2])
+            line = 'f {} {} {}\n'.format(
+                new_triangle[0], new_triangle[1], new_triangle[2]
+            )
             f_lines.append(line)
 
     with open(file_name, 'w') as f:
@@ -107,7 +114,9 @@ def write_points_to_obj(file_name, points, colors=None, radius=0.02, resolution=
 
 
 def convert_points_to_mesh(points, colors=None, radius=0.02, resolution=6):
-    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=radius, resolution=resolution)
+    sphere = o3d.geometry.TriangleMesh.create_sphere(
+        radius=radius, resolution=resolution
+    )
     vertices = np.asarray(sphere.vertices)
     triangles = np.asarray(sphere.triangles)
 
@@ -129,7 +138,9 @@ def convert_points_to_mesh(points, colors=None, radius=0.02, resolution=6):
 
 
 def write_points_to_ply(file_name, points, colors=None, radius=0.02, resolution=6):
-    mesh = convert_points_to_mesh(points, colors=colors, radius=radius, resolution=resolution)
+    mesh = convert_points_to_mesh(
+        points, colors=colors, radius=radius, resolution=resolution
+    )
     o3d.io.write_triangle_mesh(file_name, mesh, write_vertex_normals=False)
 
 
@@ -144,10 +155,14 @@ def write_correspondences_to_obj(file_name, src_corr_points, tgt_corr_points):
         src_point = src_corr_points[i]
         tgt_point = tgt_corr_points[i]
 
-        line = 'v {:.6f} {:.6f} {:.6f}\n'.format(src_point[0], src_point[1], src_point[2])
+        line = 'v {:.6f} {:.6f} {:.6f}\n'.format(
+            src_point[0], src_point[1], src_point[2]
+        )
         v_lines.append(line)
 
-        line = 'v {:.6f} {:.6f} {:.6f}\n'.format(tgt_point[0], tgt_point[1], tgt_point[2])
+        line = 'v {:.6f} {:.6f} {:.6f}\n'.format(
+            tgt_point[0], tgt_point[1], tgt_point[2]
+        )
         v_lines.append(line)
 
         line = 'l {} {}\n'.format(n + 1, n + 2)

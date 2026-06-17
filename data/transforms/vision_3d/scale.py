@@ -1,8 +1,10 @@
-import torch
 from typing import Any, Optional
-from data.transforms.base_transform import BaseTransform
+
+import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
+from data.transforms.base_transform import BaseTransform
 
 
 class Scale(BaseTransform):
@@ -18,9 +20,7 @@ class Scale(BaseTransform):
         assert scale_factor > 0 and scale_factor < 1, f"{scale_factor=}"
         self.scale_factor = scale_factor
 
-    def __call__(
-        self, pc: PointCloud, seed: Optional[Any] = None
-    ) -> PointCloud:
+    def __call__(self, pc: PointCloud, seed: Optional[Any] = None) -> PointCloud:
         """
         Scale down point cloud and subsample points proportionally.
 
@@ -42,14 +42,18 @@ class Scale(BaseTransform):
         # Calculate number of points to keep based on scale factor
         # Since we're scaling in 3D, we need to reduce points by scale_factor^3
         # to maintain the same density
-        target_points = int(num_points * (self.scale_factor ** 3))
+        target_points = int(num_points * (self.scale_factor**3))
         if target_points == 0:
-            raise ValueError(f"Scale factor {self.scale_factor} is too small for point cloud with {num_points} points. "
-                           f"Would result in 0 points after scaling.")
+            raise ValueError(
+                f"Scale factor {self.scale_factor} is too small for point cloud with {num_points} points. "
+                f"Would result in 0 points after scaling."
+            )
 
         # Randomly sample points
         generator = self._get_generator(g_type='torch', seed=seed)
-        indices = torch.randperm(num_points, device=device, generator=generator)[:target_points]
+        indices = torch.randperm(num_points, device=device, generator=generator)[
+            :target_points
+        ]
 
         selected = Select(indices)(pc)
         selected.xyz = selected.xyz * self.scale_factor

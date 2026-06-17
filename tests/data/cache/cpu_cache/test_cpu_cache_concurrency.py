@@ -1,5 +1,7 @@
-import torch
 import threading
+
+import torch
+
 from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
@@ -20,7 +22,10 @@ def test_cache_thread_safety(sample_datapoint, cache_key_factory):
                 else:
                     result = cache.get(cache_filepath=cache_key)
                     if result is not None:
-                        assert torch.all(result['inputs']['image'] == sample_datapoint['inputs']['image'])
+                        assert torch.all(
+                            result['inputs']['image']
+                            == sample_datapoint['inputs']['image']
+                        )
         except Exception as e:
             errors.append(f"Thread {thread_id} error: {str(e)}")
 

@@ -2,11 +2,7 @@
 UTILS.AUTOMATION API
 """
 
-from utils.automation import tables
-from utils.automation import configs
-from utils.automation import config_seeding
-from utils.automation import config_to_file
-
+from utils.automation import config_seeding, config_to_file, configs, tables
 
 __all__ = (
     'tables',

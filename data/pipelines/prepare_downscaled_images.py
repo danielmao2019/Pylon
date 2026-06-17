@@ -9,7 +9,6 @@ from PIL import Image
 
 from data.pipelines.base_step import BaseStep
 
-
 if hasattr(Image, "Resampling"):
     RESAMPLE_LANCZOS = Image.Resampling.LANCZOS
 else:

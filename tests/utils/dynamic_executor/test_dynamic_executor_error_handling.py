@@ -1,9 +1,11 @@
-from typing import List, Dict, Any
-import pytest
-import time
 import logging
+import time
+from typing import Any, Dict, List
 from unittest.mock import patch
-from utils.dynamic_executor import create_dynamic_executor, DynamicThreadPoolExecutor
+
+import pytest
+
+from utils.dynamic_executor import DynamicThreadPoolExecutor, create_dynamic_executor
 
 
 def error_function(x: int) -> int:

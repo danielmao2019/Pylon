@@ -1,5 +1,5 @@
 from .geotransformer import GeometricStructureEmbedding, GeometricTransformer
+from .local_global_registration import LocalGlobalRegistration
+from .point_matching import PointMatching
 from .superpoint_matching import SuperPointMatching
 from .superpoint_target import SuperPointTargetGenerator
-from .point_matching import PointMatching
-from .local_global_registration import LocalGlobalRegistration

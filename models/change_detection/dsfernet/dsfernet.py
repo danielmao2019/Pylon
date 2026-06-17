@@ -1,9 +1,10 @@
-from typing import Dict, Tuple, Union
-import torch
-from torch import nn
-import torch.nn.functional as F
-from torchvision import models
 import math
+from typing import Dict, Tuple, Union
+
+import torch
+import torch.nn.functional as F
+from torch import nn
+from torchvision import models
 
 epsilon = 1e-14
 
@@ -39,8 +40,19 @@ class Linear_qkv(nn.Module):
 class HopfieldRetrieve(nn.Module):
     """Hopfield Network based retrieval mechanism with multi-head attention."""
 
-    def __init__(self, beta, dim_in_q, dim_in_k, dim_out_k, num_heads=1, v=None,
-                 dim_in_v=0, dim_out_v=0, logits=False, activation=F.relu):
+    def __init__(
+        self,
+        beta,
+        dim_in_q,
+        dim_in_k,
+        dim_out_k,
+        num_heads=1,
+        v=None,
+        dim_in_v=0,
+        dim_out_v=0,
+        logits=False,
+        activation=F.relu,
+    ):
         super(HopfieldRetrieve, self).__init__()
         self.beta = beta
         self.num_heads = num_heads
@@ -52,7 +64,9 @@ class HopfieldRetrieve(nn.Module):
             self.linear_v = Linear_qkv(dim_in_v, dim_out_v)
 
         if self.beta % self.num_heads != 0:
-            raise ValueError(f'`beta`({self.beta}) should be divisible by `num_heads`({self.num_heads})')
+            raise ValueError(
+                f'`beta`({self.beta}) should be divisible by `num_heads`({self.num_heads})'
+            )
 
         self._norm_fact = (self.beta // self.num_heads) ** -0.5
         self.softmax = F.log_softmax if logits else F.softmax
@@ -71,8 +85,12 @@ class HopfieldRetrieve(nn.Module):
         dq = dim_q // self.num_heads  # dim_q of each head
         dk = dim_k // self.num_heads  # dim_k of each head
 
-        q = q.reshape(batch, n, self.num_heads, dq).transpose(1, 2)  # (batch, nh, n, dq)
-        k = k.reshape(batch, n, self.num_heads, dk).transpose(1, 2)  # (batch, nh, n, dk)
+        q = q.reshape(batch, n, self.num_heads, dq).transpose(
+            1, 2
+        )  # (batch, nh, n, dq)
+        k = k.reshape(batch, n, self.num_heads, dk).transpose(
+            1, 2
+        )  # (batch, nh, n, dk)
 
         E = self._norm_fact * torch.matmul(q, k.transpose(2, 3))  # (batch, nh, n, n)
         E = self.softmax(E, dim=-1)
@@ -87,7 +105,9 @@ class HopfieldRetrieve(nn.Module):
             _, _, dim_v = v.shape
             dv = dim_v // self.num_heads  # dim_v of each head
             assert dim_v % self.num_heads == 0
-            v = v.reshape(batch, n, self.num_heads, dv).transpose(1, 2)  # (batch, nh, n, dv)
+            v = v.reshape(batch, n, self.num_heads, dv).transpose(
+                1, 2
+            )  # (batch, nh, n, dv)
             dist = torch.matmul(E, v)  # (batch, nh, n, dv)
             return dist.transpose(1, 2).reshape(batch, n, dim_v)
 
@@ -136,7 +156,9 @@ class OutConv(nn.Module):
 class DsferNet(nn.Module):
     """Main network architecture for change detection."""
 
-    def __init__(self, n_classes=2, beta=2.0, dim=512, numhead=1, n_channels=3, bilinear=True):
+    def __init__(
+        self, n_classes=2, beta=2.0, dim=512, numhead=1, n_channels=3, bilinear=True
+    ):
         super(DsferNet, self).__init__()
         self.n_channels = n_channels
         self.bilinear = bilinear
@@ -145,8 +167,12 @@ class DsferNet(nn.Module):
         self.base = vgg16_base()
 
         # Hopfield layers
-        self.hopf4 = HopfieldRetrieve(beta, 512, 512, dim, numhead, True, 512, 512, logits=False, activation=None)
-        self.hopf5 = HopfieldRetrieve(beta, 512, 512, dim, numhead, True, 512, 512, logits=False, activation=None)
+        self.hopf4 = HopfieldRetrieve(
+            beta, 512, 512, dim, numhead, True, 512, 512, logits=False, activation=None
+        )
+        self.hopf5 = HopfieldRetrieve(
+            beta, 512, 512, dim, numhead, True, 512, 512, logits=False, activation=None
+        )
 
         # Upsampling and activation
         self.UpSample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
@@ -173,13 +199,27 @@ class DsferNet(nn.Module):
         self.dec11 = SingleConv3(128, 32)
         self.outc = OutConv(32, n_classes)
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    def forward(
+        self, inputs: Dict[str, torch.Tensor]
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         xA, xB = inputs['img_1'], inputs['img_2']
         # Extract features from both images
         list_t1 = self.base(xA)
         list_t2 = self.base(xB)
-        xA1, xA2, xA3, xA4, xA5 = list_t1[0], list_t1[1], list_t1[2], list_t1[3], list_t1[4]
-        xB1, xB2, xB3, xB4, xB5 = list_t2[0], list_t2[1], list_t2[2], list_t2[3], list_t2[4]
+        xA1, xA2, xA3, xA4, xA5 = (
+            list_t1[0],
+            list_t1[1],
+            list_t1[2],
+            list_t1[3],
+            list_t1[4],
+        )
+        xB1, xB2, xB3, xB4, xB5 = (
+            list_t2[0],
+            list_t2[1],
+            list_t2[2],
+            list_t2[3],
+            list_t2[4],
+        )
 
         b1, c1, h1, w1 = xA1.shape
         b4, c4, h4, w4 = xA4.shape
@@ -239,7 +279,7 @@ class DsferNet(nn.Module):
         x = self.dec21(x)
         x = self.UpSample(x)
 
-        xx = torch.cat((xA1, xB1), dim=1).reshape(b1, c1*2, h1, w1)
+        xx = torch.cat((xA1, xB1), dim=1).reshape(b1, c1 * 2, h1, w1)
         xx = self.dec1(xx)
         x = torch.cat((xx, x), dim=1)
         x = self.dec11(x)

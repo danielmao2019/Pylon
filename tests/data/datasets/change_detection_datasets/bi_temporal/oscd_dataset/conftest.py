@@ -1,6 +1,7 @@
 """Shared fixtures and helper functions for OSCD dataset tests."""
 
 import pytest
+
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 
 
@@ -12,8 +13,8 @@ def oscd_dataset_train_config(oscd_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': oscd_data_root,
             'split': 'train',
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
@@ -25,8 +26,8 @@ def oscd_dataset_test_config(oscd_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': oscd_data_root,
             'split': 'test',
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
@@ -40,6 +41,6 @@ def dataset_config(request, oscd_data_root, use_cpu_device, get_device):
             'data_root': oscd_data_root,
             'split': split,
             'bands': bands,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }

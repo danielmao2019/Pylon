@@ -43,7 +43,14 @@ def create_random_transform():
 
 def create_point_cloud(points: torch.Tensor) -> PointCloud:
     """Create a PointCloud with a feature field."""
-    return PointCloud(xyz=points, data={'feat': torch.ones((points.shape[0], 1), dtype=points.dtype, device=points.device)})
+    return PointCloud(
+        xyz=points,
+        data={
+            'feat': torch.ones(
+                (points.shape[0], 1), dtype=points.dtype, device=points.device
+            )
+        },
+    )
 
 
 def test_random_rigid_transform():
@@ -65,30 +72,37 @@ def test_random_rigid_transform():
 
     # 4. Create and apply the RandomRigidTransform
     random_rigid_transform = RandomRigidTransform(rot_mag=45.0, trans_mag=0.5)
-    new_src_pc, new_tgt_pc, new_transform = random_rigid_transform(src_pc, tgt_pc, transform, seed=42)
+    new_src_pc, new_tgt_pc, new_transform = random_rigid_transform(
+        src_pc, tgt_pc, transform, seed=42
+    )
 
     # 5. Validate the new triplet
     # Apply the new transform to the new source point cloud
     transformed_src = apply_transform(new_src_pc.xyz, new_transform)
 
     # Check that the transformed source is (almost) exactly the same as the new target
-    assert torch.allclose(transformed_src, new_tgt_pc.xyz, atol=1e-6), \
-        f"Transformed source does not match new target. Max difference: {(transformed_src - new_tgt_pc.xyz).abs().max()}"
+    assert torch.allclose(
+        transformed_src, new_tgt_pc.xyz, atol=1e-6
+    ), f"Transformed source does not match new target. Max difference: {(transformed_src - new_tgt_pc.xyz).abs().max()}"
 
     # 6. Additional checks
     # Check that the target point cloud is unchanged
-    assert torch.allclose(new_tgt_pc.xyz, original_tgt_xyz, atol=1e-6), \
-        f"Target point cloud was modified. Max difference: {(new_tgt_pc.xyz - original_tgt_xyz).abs().max()}"
+    assert torch.allclose(
+        new_tgt_pc.xyz, original_tgt_xyz, atol=1e-6
+    ), f"Target point cloud was modified. Max difference: {(new_tgt_pc.xyz - original_tgt_xyz).abs().max()}"
 
     # Check that the source point cloud was transformed
-    assert not torch.allclose(new_src_pc.xyz, original_src_xyz, atol=1e-6), \
-        "Source point cloud was not transformed"
+    assert not torch.allclose(
+        new_src_pc.xyz, original_src_xyz, atol=1e-6
+    ), "Source point cloud was not transformed"
 
     # Check that the feature fields are preserved
-    assert torch.allclose(new_src_pc.feat, original_src_feat, atol=1e-6), \
-        "Source feature field was modified"
-    assert torch.allclose(new_tgt_pc.feat, original_tgt_feat, atol=1e-6), \
-        "Target feature field was modified"
+    assert torch.allclose(
+        new_src_pc.feat, original_src_feat, atol=1e-6
+    ), "Source feature field was modified"
+    assert torch.allclose(
+        new_tgt_pc.feat, original_tgt_feat, atol=1e-6
+    ), "Target feature field was modified"
 
 
 def test_random_rigid_transform_deterministic():
@@ -126,7 +140,9 @@ def test_random_rigid_transform_deterministic():
     )
 
     # Check that the results are identical
-    assert torch.allclose(new_src_pc1.xyz, new_src_pc2.xyz, atol=1e-6), \
-        "Results are not deterministic with the same seed"
-    assert torch.allclose(new_transform1, new_transform2, atol=1e-6), \
-        "Transforms are not deterministic with the same seed"
+    assert torch.allclose(
+        new_src_pc1.xyz, new_src_pc2.xyz, atol=1e-6
+    ), "Results are not deterministic with the same seed"
+    assert torch.allclose(
+        new_transform1, new_transform2, atol=1e-6
+    ), "Transforms are not deterministic with the same seed"

@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
@@ -9,7 +10,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -56,9 +57,18 @@ def test_summarize_with_different_score_values(metrics_cfg):
 
     # Generate scores with different input values to get varying results
     test_inputs = [
-        (torch.zeros(2, 3, 4, 4, dtype=torch.float32), torch.zeros(2, 3, 4, 4, dtype=torch.float32)),
-        (torch.ones(2, 3, 4, 4, dtype=torch.float32), torch.zeros(2, 3, 4, 4, dtype=torch.float32)),
-        (torch.randn(2, 3, 4, 4, dtype=torch.float32), torch.randn(2, 3, 4, 4, dtype=torch.float32))
+        (
+            torch.zeros(2, 3, 4, 4, dtype=torch.float32),
+            torch.zeros(2, 3, 4, 4, dtype=torch.float32),
+        ),
+        (
+            torch.ones(2, 3, 4, 4, dtype=torch.float32),
+            torch.zeros(2, 3, 4, 4, dtype=torch.float32),
+        ),
+        (
+            torch.randn(2, 3, 4, 4, dtype=torch.float32),
+            torch.randn(2, 3, 4, 4, dtype=torch.float32),
+        ),
     ]
 
     expected_scores = []
@@ -143,7 +153,9 @@ def test_summarize_thread_safety(metrics_cfg, sample_tensor, sample_target):
     assert len(summary['per_datapoint']['metric2']) == num_scores
 
 
-def test_summarize_output_file_writing(metrics_cfg, sample_tensor, sample_target, tmp_path):
+def test_summarize_output_file_writing(
+    metrics_cfg, sample_tensor, sample_target, tmp_path
+):
     """Test that summarize can write to output file."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 

@@ -24,6 +24,10 @@ def test_atomic_displays_module_imports():
         create_edge_display,
         get_edge_display_stats,
     )
+    from data.viewer.utils.displays.pixels.dash.image_display import (
+        create_image_display,
+        get_image_display_stats,
+    )
     from data.viewer.utils.displays.pixels.dash.instance_surrogate_image_display import (
         create_instance_surrogate_display,
         get_instance_surrogate_display_stats,
@@ -31,10 +35,6 @@ def test_atomic_displays_module_imports():
     from data.viewer.utils.displays.pixels.dash.normal_image_display import (
         create_normal_display,
         get_normal_display_stats,
-    )
-    from data.viewer.utils.displays.pixels.dash.image_display import (
-        create_image_display,
-        get_image_display_stats,
     )
     from data.viewer.utils.displays.pixels.dash.segmentation_display import (
         create_segmentation_display,

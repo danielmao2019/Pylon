@@ -1,6 +1,7 @@
-from typing import Dict, Any
 import os
 import random
+from typing import Any, Dict
+
 import numpy
 import torch
 

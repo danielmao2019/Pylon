@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from ..ops import pairwise_distance
 
+
 class SuperPointMatching(nn.Module):
     def __init__(self, num_correspondences, dual_normalization=True):
         super(SuperPointMatching, self).__init__()
@@ -33,13 +34,21 @@ class SuperPointMatching(nn.Module):
         ref_feats = ref_feats[ref_indices]
         src_feats = src_feats[src_indices]
         # select top-k proposals
-        matching_scores = torch.exp(-pairwise_distance(ref_feats, src_feats, normalized=True))
+        matching_scores = torch.exp(
+            -pairwise_distance(ref_feats, src_feats, normalized=True)
+        )
         if self.dual_normalization:
-            ref_matching_scores = matching_scores / matching_scores.sum(dim=1, keepdim=True)
-            src_matching_scores = matching_scores / matching_scores.sum(dim=0, keepdim=True)
+            ref_matching_scores = matching_scores / matching_scores.sum(
+                dim=1, keepdim=True
+            )
+            src_matching_scores = matching_scores / matching_scores.sum(
+                dim=0, keepdim=True
+            )
             matching_scores = ref_matching_scores * src_matching_scores
         num_correspondences = min(self.num_correspondences, matching_scores.numel())
-        corr_scores, corr_indices = matching_scores.view(-1).topk(k=num_correspondences, largest=True)
+        corr_scores, corr_indices = matching_scores.view(-1).topk(
+            k=num_correspondences, largest=True
+        )
         ref_sel_indices = corr_indices // matching_scores.shape[1]
         src_sel_indices = corr_indices % matching_scores.shape[1]
         # recover original indices
@@ -47,4 +56,3 @@ class SuperPointMatching(nn.Module):
         src_corr_indices = src_indices[src_sel_indices]
 
         return ref_corr_indices, src_corr_indices, corr_scores
-

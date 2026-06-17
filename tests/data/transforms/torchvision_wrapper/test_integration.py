@@ -3,10 +3,12 @@ Integration tests for TorchvisionWrapper with other Pylon components.
 
 Tests integration with Randomize transform and other Pylon transform pipeline components.
 """
+
 import torch
 import torchvision.transforms as T
-from data.transforms.torchvision_wrapper import TorchvisionWrapper
+
 from data.transforms.randomize import Randomize
+from data.transforms.torchvision_wrapper import TorchvisionWrapper
 
 
 def test_integration_with_randomize_transform():
@@ -22,7 +24,9 @@ def test_integration_with_randomize_transform():
     result1 = randomize_transform(sample_image.clone(), seed=789)
     result2 = randomize_transform(sample_image.clone(), seed=789)
 
-    assert torch.allclose(result1, result2), f"Integration with Randomize should be deterministic, max diff: {torch.max(torch.abs(result1 - result2))}"
+    assert torch.allclose(
+        result1, result2
+    ), f"Integration with Randomize should be deterministic, max diff: {torch.max(torch.abs(result1 - result2))}"
 
 
 def test_integration_with_randomize_different_seeds():
@@ -36,7 +40,9 @@ def test_integration_with_randomize_different_seeds():
     result1 = randomize_transform(sample_image.clone(), seed=123)
     result2 = randomize_transform(sample_image.clone(), seed=456)
 
-    assert not torch.allclose(result1, result2), "Different seeds should produce different results"
+    assert not torch.allclose(
+        result1, result2
+    ), "Different seeds should produce different results"
 
 
 def test_integration_with_randomize_probability():
@@ -50,13 +56,17 @@ def test_integration_with_randomize_probability():
     never_apply = Randomize(transform=wrapped_transform, p=0.0)
     result_never = never_apply(sample_image.clone(), seed=123)
 
-    assert torch.allclose(sample_image, result_never), "p=0.0 should never apply transform"
+    assert torch.allclose(
+        sample_image, result_never
+    ), "p=0.0 should never apply transform"
 
     # Test with p=1.0 (always apply)
     always_apply = Randomize(transform=wrapped_transform, p=1.0)
     result_always = always_apply(sample_image.clone(), seed=123)
 
-    assert not torch.allclose(sample_image, result_always), "p=1.0 should always apply transform"
+    assert not torch.allclose(
+        sample_image, result_always
+    ), "p=1.0 should always apply transform"
 
 
 def test_multiple_wrapped_transforms_in_sequence():
@@ -86,7 +96,9 @@ def test_multiple_wrapped_transforms_in_sequence():
     gen4.manual_seed(222)
     result4 = rotation._call_single(result3, gen4)
 
-    assert torch.allclose(result2, result4), "Sequential wrapped transforms should be deterministic"
+    assert torch.allclose(
+        result2, result4
+    ), "Sequential wrapped transforms should be deterministic"
 
 
 def test_baseclass_call_method_integration():
@@ -100,7 +112,9 @@ def test_baseclass_call_method_integration():
     result1 = wrapper(sample_image.clone(), seed=555)
     result2 = wrapper(sample_image.clone(), seed=555)
 
-    assert torch.allclose(result1, result2), "BaseTransform.__call__ integration should be deterministic"
+    assert torch.allclose(
+        result1, result2
+    ), "BaseTransform.__call__ integration should be deterministic"
 
 
 def test_wrapper_with_complex_transform_args():
@@ -114,7 +128,7 @@ def test_wrapper_with_complex_transform_args():
         degrees=(-15, 15),
         translate=(0.1, 0.2),
         scale=(0.9, 1.1),
-        shear=(-10, 10)
+        shear=(-10, 10),
     )
 
     gen1 = torch.Generator()
@@ -125,5 +139,7 @@ def test_wrapper_with_complex_transform_args():
     result1 = wrapper._call_single(sample_image.clone(), gen1)
     result2 = wrapper._call_single(sample_image.clone(), gen2)
 
-    assert torch.allclose(result1, result2), "Complex transform args should work deterministically"
+    assert torch.allclose(
+        result1, result2
+    ), "Complex transform args should work deterministically"
     assert result1.shape == sample_image.shape, "Should preserve image dimensions"

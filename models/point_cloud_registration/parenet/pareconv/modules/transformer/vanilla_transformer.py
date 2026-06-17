@@ -2,6 +2,7 @@ r"""Vanilla Transformer without positional embeddings.
 
 The shape of input tensor should be (B, N, C). Implemented with `nn.Linear` and `nn.LayerNorm` (with affine).
 """
+
 import pdb
 
 import torch
@@ -12,11 +13,16 @@ from einops import rearrange
 from ..layers import build_dropout_layer
 from .output_layer import AttentionOutput
 
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None):
         super(MultiHeadAttention, self).__init__()
         if d_model % num_heads != 0:
-            raise ValueError('`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(d_model, num_heads))
+            raise ValueError(
+                '`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(
+                    d_model, num_heads
+                )
+            )
 
         self.d_model = d_model
         self.num_heads = num_heads
@@ -29,7 +35,14 @@ class MultiHeadAttention(nn.Module):
         self.dropout = build_dropout_layer(dropout)
 
     def forward(
-        self, input_q, input_k, input_v, key_weights=None, key_masks=None, attention_factors=None, attention_masks=None
+        self,
+        input_q,
+        input_k,
+        input_v,
+        key_weights=None,
+        key_masks=None,
+        attention_factors=None,
+        attention_masks=None,
     ):
         """Vanilla Self-attention forward propagation.
 
@@ -51,15 +64,21 @@ class MultiHeadAttention(nn.Module):
         k = rearrange(self.proj_k(input_k), 'b m (h c) -> b h m c', h=self.num_heads)
         v = rearrange(self.proj_v(input_v), 'b m (h c) -> b h m c', h=self.num_heads)
 
-        attention_scores = torch.einsum('bhnc,bhmc->bhnm', q, k) / self.d_model_per_head ** 0.5
+        attention_scores = (
+            torch.einsum('bhnc,bhmc->bhnm', q, k) / self.d_model_per_head**0.5
+        )
         if attention_factors is not None:
             attention_scores = attention_factors.unsqueeze(1) * attention_scores
         if key_weights is not None:
             attention_scores = attention_scores * key_weights.unsqueeze(1).unsqueeze(1)
         if key_masks is not None:
-            attention_scores = attention_scores.masked_fill(key_masks.unsqueeze(1).unsqueeze(1), float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                key_masks.unsqueeze(1).unsqueeze(1), float('-inf')
+            )
         if attention_masks is not None:
-            attention_scores = attention_scores.masked_fill(attention_masks, float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                attention_masks, float('-inf')
+            )
         attention_scores = F.softmax(attention_scores, dim=-1)
         attention_scores = self.dropout(attention_scores)
 
@@ -68,11 +87,17 @@ class MultiHeadAttention(nn.Module):
         hidden_states = rearrange(hidden_states, 'b h n c -> b n (h c)')
 
         return hidden_states, attention_scores
+
+
 class SMultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None):
         super(SMultiHeadAttention, self).__init__()
         if d_model % num_heads != 0:
-            raise ValueError('`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(d_model, num_heads))
+            raise ValueError(
+                '`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(
+                    d_model, num_heads
+                )
+            )
 
         self.d_model = d_model
         self.num_heads = num_heads
@@ -83,13 +108,22 @@ class SMultiHeadAttention(nn.Module):
         self.proj_v = nn.Linear(self.d_model, self.d_model)
 
         _init = nn.init.kaiming_normal_
-        tensor2 = _init(torch.empty(1, self.num_heads, 1, self.d_model_per_head)).contiguous()
+        tensor2 = _init(
+            torch.empty(1, self.num_heads, 1, self.d_model_per_head)
+        ).contiguous()
         self.f_shadow = nn.Parameter(tensor2, requires_grad=True)
 
         self.dropout = build_dropout_layer(dropout)
 
     def forward(
-        self, input_q, input_k, input_v, key_weights=None, key_masks=None, attention_factors=None, attention_masks=None
+        self,
+        input_q,
+        input_k,
+        input_v,
+        key_weights=None,
+        key_masks=None,
+        attention_factors=None,
+        attention_masks=None,
     ):
         """Vanilla Self-attention forward propagation.
 
@@ -113,15 +147,21 @@ class SMultiHeadAttention(nn.Module):
 
         k = torch.cat([k, self.f_shadow], 2)
 
-        attention_scores = torch.einsum('bhnc,bhmc->bhnm', q, k) / self.d_model_per_head ** 0.5
+        attention_scores = (
+            torch.einsum('bhnc,bhmc->bhnm', q, k) / self.d_model_per_head**0.5
+        )
         if attention_factors is not None:
             attention_scores = attention_factors.unsqueeze(1) * attention_scores
         if key_weights is not None:
             attention_scores = attention_scores * key_weights.unsqueeze(1).unsqueeze(1)
         if key_masks is not None:
-            attention_scores = attention_scores.masked_fill(key_masks.unsqueeze(1).unsqueeze(1), float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                key_masks.unsqueeze(1).unsqueeze(1), float('-inf')
+            )
         if attention_masks is not None:
-            attention_scores = attention_scores.masked_fill(attention_masks, float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                attention_masks, float('-inf')
+            )
         attention_scores = F.softmax(attention_scores, dim=-1)
         attention_scores = self.dropout(attention_scores)
 
@@ -168,7 +208,9 @@ class TransformerLayer(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None, activation_fn='ReLU'):
         super(TransformerLayer, self).__init__()
         self.attention = AttentionLayer(d_model, num_heads, dropout=dropout)
-        self.output = AttentionOutput(d_model, dropout=dropout, activation_fn=activation_fn)
+        self.output = AttentionOutput(
+            d_model, dropout=dropout, activation_fn=activation_fn
+        )
 
     def forward(
         self,
@@ -196,25 +238,44 @@ class TransformerDecoderLayer(nn.Module):
         super(TransformerDecoderLayer, self).__init__()
         self.self_attention = AttentionLayer(d_model, num_heads, dropout=dropout)
         self.cross_attention = AttentionLayer(d_model, num_heads, dropout=dropout)
-        self.output = AttentionOutput(d_model, dropout=dropout, activation_fn=activation_fn)
+        self.output = AttentionOutput(
+            d_model, dropout=dropout, activation_fn=activation_fn
+        )
 
     def forward(self, input_states, memory_states, input_masks=None, memory_masks=None):
-        hidden_states, attention_scores = self.self_attention(input_states, input_states, memory_masks=input_masks)
-        hidden_states, attention_scores = self.cross_attention(hidden_states, memory_states, memory_masks=memory_masks)
+        hidden_states, attention_scores = self.self_attention(
+            input_states, input_states, memory_masks=input_masks
+        )
+        hidden_states, attention_scores = self.cross_attention(
+            hidden_states, memory_states, memory_masks=memory_masks
+        )
         output_states = self.output(hidden_states)
         return output_states, attention_scores
 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, d_model, num_heads, num_layers, dropout=None, activation_fn='ReLU'):
+    def __init__(
+        self, d_model, num_heads, num_layers, dropout=None, activation_fn='ReLU'
+    ):
         super(TransformerEncoder, self).__init__()
         self.num_layers = num_layers
         layers = []
         for _ in range(num_layers):
-            layers.append(TransformerLayer(d_model, num_heads, dropout=dropout, activation_fn=activation_fn))
+            layers.append(
+                TransformerLayer(
+                    d_model, num_heads, dropout=dropout, activation_fn=activation_fn
+                )
+            )
         self.layers = nn.ModuleList(layers)
 
-    def forward(self, feats, weights=None, masks=None, attention_factors=None, attention_masks=None):
+    def forward(
+        self,
+        feats,
+        weights=None,
+        masks=None,
+        attention_factors=None,
+        attention_masks=None,
+    ):
         r"""Transformer Encoder forward.
 
         Args:
@@ -240,12 +301,18 @@ class TransformerEncoder(nn.Module):
 
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, d_model, num_heads, num_layers, dropout=None, activation_fn='ReLU'):
+    def __init__(
+        self, d_model, num_heads, num_layers, dropout=None, activation_fn='ReLU'
+    ):
         super(TransformerDecoder, self).__init__()
         self.num_layers = num_layers
         layers = []
         for _ in range(num_layers):
-            layers.append(TransformerDecoderLayer(d_model, num_heads, dropout=dropout, activation_fn=activation_fn))
+            layers.append(
+                TransformerDecoderLayer(
+                    d_model, num_heads, dropout=dropout, activation_fn=activation_fn
+                )
+            )
         self.layers = nn.ModuleList(layers)
 
     def forward(self, q_feats, s_feats):

@@ -1,14 +1,15 @@
 """Comprehensive tests for callback functions and plot generation."""
 
-import pytest
 import numpy as np
 import plotly.graph_objects as go
+import pytest
+
+from runners.viewers.eval_viewer.callbacks.datapoint_viewer import (
+    register_datapoint_viewer_callbacks,
+)
 from runners.viewers.eval_viewer.callbacks.update_plots import (
     create_aggregated_scores_plot,
-    create_grid_and_colorbar
-)
-from runners.viewers.eval_viewer.callbacks.datapoint_viewer import (
-    register_datapoint_viewer_callbacks
+    create_grid_and_colorbar,
 )
 
 
@@ -16,7 +17,9 @@ def test_create_aggregated_scores_plot_normal_case():
     """Test aggregated scores plot creation with realistic data."""
     # Create realistic epoch scores data
     epoch_scores_run1 = np.array([0.1, 0.3, 0.5, 0.7, 0.8])  # Improving over time
-    epoch_scores_run2 = np.array([0.2, 0.4, 0.6, 0.65, 0.7])  # Different improvement curve
+    epoch_scores_run2 = np.array(
+        [0.2, 0.4, 0.6, 0.65, 0.7]
+    )  # Different improvement curve
 
     epoch_scores = [epoch_scores_run1, epoch_scores_run2]
     log_dirs = ['logs/run1', 'logs/run2']
@@ -24,9 +27,7 @@ def test_create_aggregated_scores_plot_normal_case():
 
     # Test plot creation
     fig = create_aggregated_scores_plot(
-        epoch_scores=epoch_scores,
-        log_dirs=log_dirs,
-        metric_name=metric_name
+        epoch_scores=epoch_scores, log_dirs=log_dirs, metric_name=metric_name
     )
 
     # Verify figure structure and content
@@ -61,9 +62,7 @@ def test_create_aggregated_scores_plot_single_run():
     metric_name = 'f1_score'
 
     fig = create_aggregated_scores_plot(
-        epoch_scores=epoch_scores,
-        log_dirs=log_dirs,
-        metric_name=metric_name
+        epoch_scores=epoch_scores, log_dirs=log_dirs, metric_name=metric_name
     )
 
     assert len(fig.data) == 1
@@ -79,9 +78,7 @@ def test_create_aggregated_scores_plot_single_epoch():
     metric_name = 'mse'
 
     fig = create_aggregated_scores_plot(
-        epoch_scores=epoch_scores,
-        log_dirs=log_dirs,
-        metric_name=metric_name
+        epoch_scores=epoch_scores, log_dirs=log_dirs, metric_name=metric_name
     )
 
     assert len(fig.data) == 2
@@ -97,9 +94,7 @@ def test_create_aggregated_scores_plot_with_nan_values():
     metric_name = 'accuracy'
 
     fig = create_aggregated_scores_plot(
-        epoch_scores=epoch_scores_with_nan,
-        log_dirs=log_dirs,
-        metric_name=metric_name
+        epoch_scores=epoch_scores_with_nan, log_dirs=log_dirs, metric_name=metric_name
     )
 
     # Verify NaN values are preserved in plot data
@@ -131,7 +126,9 @@ def test_create_aggregated_scores_plot_invalid_inputs():
     # Test mismatched lengths
     epoch_scores = [np.array([0.1, 0.2])]
     log_dirs = ['logs/run1', 'logs/run2']  # Length mismatch
-    with pytest.raises(AssertionError, match="log_dirs length .* must match epoch_scores length"):
+    with pytest.raises(
+        AssertionError, match="log_dirs length .* must match epoch_scores length"
+    ):
         create_aggregated_scores_plot(epoch_scores, log_dirs, 'accuracy')
 
     # Test None log_dirs
@@ -146,11 +143,9 @@ def test_create_aggregated_scores_plot_invalid_inputs():
 def test_create_grid_and_colorbar_normal_case():
     """Test grid and colorbar generation with realistic score maps."""
     # Create a realistic score map
-    score_map = np.array([
-        [0.1, 0.3, 0.8],
-        [0.5, 0.9, 0.2],
-        [0.7, np.nan, np.nan]  # Partial data
-    ])
+    score_map = np.array(
+        [[0.1, 0.3, 0.8], [0.5, 0.9, 0.2], [0.7, np.nan, np.nan]]  # Partial data
+    )
 
     run_idx = 0
     num_datapoints = 7  # More datapoints than grid positions (some NaN expected)
@@ -163,16 +158,20 @@ def test_create_grid_and_colorbar_normal_case():
         run_idx=run_idx,
         num_datapoints=num_datapoints,
         min_score=min_score,
-        max_score=max_score
+        max_score=max_score,
     )
 
     # Verify return structure
-    assert result_run_idx == run_idx, f"Expected run_idx {run_idx}, got {result_run_idx}"
+    assert (
+        result_run_idx == run_idx
+    ), f"Expected run_idx {run_idx}, got {result_run_idx}"
     assert button_grid is not None, "Button grid must not be None"
     assert color_bar is not None, "Color bar must not be None"
 
     # Verify button grid structure (should be Dash components)
-    assert hasattr(button_grid, 'children'), "Button grid should have children attribute"
+    assert hasattr(
+        button_grid, 'children'
+    ), "Button grid should have children attribute"
 
     # Verify colorbar structure (Dash component, not plotly figure)
     assert hasattr(color_bar, 'children'), "Color bar should have children attribute"
@@ -184,11 +183,7 @@ def test_create_grid_and_colorbar_single_datapoint():
     score_map = np.array([[0.5]])
 
     result_run_idx, (button_grid, color_bar) = create_grid_and_colorbar(
-        score_map=score_map,
-        run_idx=2,
-        num_datapoints=1,
-        min_score=0.0,
-        max_score=1.0
+        score_map=score_map, run_idx=2, num_datapoints=1, min_score=0.0, max_score=1.0
     )
 
     assert result_run_idx == 2
@@ -198,17 +193,10 @@ def test_create_grid_and_colorbar_single_datapoint():
 
 def test_create_grid_and_colorbar_all_nan():
     """Test grid and colorbar with all NaN values."""
-    score_map = np.array([
-        [np.nan, np.nan],
-        [np.nan, np.nan]
-    ])
+    score_map = np.array([[np.nan, np.nan], [np.nan, np.nan]])
 
     result_run_idx, (button_grid, color_bar) = create_grid_and_colorbar(
-        score_map=score_map,
-        run_idx=1,
-        num_datapoints=2,
-        min_score=0.0,
-        max_score=1.0
+        score_map=score_map, run_idx=1, num_datapoints=2, min_score=0.0, max_score=1.0
     )
 
     assert result_run_idx == 1
@@ -218,17 +206,10 @@ def test_create_grid_and_colorbar_all_nan():
 
 def test_create_grid_and_colorbar_edge_scores():
     """Test grid and colorbar with edge score values."""
-    score_map = np.array([
-        [0.0, 1.0],  # Min and max values
-        [0.5, np.nan]
-    ])
+    score_map = np.array([[0.0, 1.0], [0.5, np.nan]])  # Min and max values
 
     result_run_idx, (button_grid, color_bar) = create_grid_and_colorbar(
-        score_map=score_map,
-        run_idx=3,
-        num_datapoints=3,
-        min_score=0.0,
-        max_score=1.0
+        score_map=score_map, run_idx=3, num_datapoints=3, min_score=0.0, max_score=1.0
     )
 
     assert result_run_idx == 3
@@ -238,17 +219,10 @@ def test_create_grid_and_colorbar_edge_scores():
 
 def test_create_grid_and_colorbar_custom_score_range():
     """Test grid and colorbar with custom score range."""
-    score_map = np.array([
-        [10.0, 15.0],
-        [12.5, 20.0]
-    ])
+    score_map = np.array([[10.0, 15.0], [12.5, 20.0]])
 
     result_run_idx, (button_grid, color_bar) = create_grid_and_colorbar(
-        score_map=score_map,
-        run_idx=0,
-        num_datapoints=4,
-        min_score=10.0,
-        max_score=20.0
+        score_map=score_map, run_idx=0, num_datapoints=4, min_score=10.0, max_score=20.0
     )
 
     assert result_run_idx == 0
@@ -258,11 +232,13 @@ def test_create_grid_and_colorbar_custom_score_range():
 
 def test_register_datapoint_viewer_callbacks_input_validation():
     """Test datapoint viewer callback registration input validation."""
+
     # Mock app object
     class MockApp:
         def callback(self, *args, **kwargs):
             def decorator(func):
                 return func
+
             return decorator
 
     app = MockApp()
@@ -278,7 +254,7 @@ def test_register_datapoint_viewer_callbacks_input_validation():
             app=app,
             dataset_cfg=dataset_cfg,
             dataset_type=dataset_type,
-            log_dir_infos=log_dir_infos
+            log_dir_infos=log_dir_infos,
         )
     except Exception as e:
         # If it fails, it should be due to missing dependencies, not input validation
@@ -288,16 +264,14 @@ def test_register_datapoint_viewer_callbacks_input_validation():
 def test_create_aggregated_scores_plot_different_lengths():
     """Test plot creation with different epoch lengths between runs."""
     epoch_scores = [
-        np.array([0.1, 0.3, 0.5]),      # 3 epochs
-        np.array([0.2, 0.4])            # 2 epochs
+        np.array([0.1, 0.3, 0.5]),  # 3 epochs
+        np.array([0.2, 0.4]),  # 2 epochs
     ]
     log_dirs = ['logs/run1', 'logs/run2']
     metric_name = 'accuracy'
 
     fig = create_aggregated_scores_plot(
-        epoch_scores=epoch_scores,
-        log_dirs=log_dirs,
-        metric_name=metric_name
+        epoch_scores=epoch_scores, log_dirs=log_dirs, metric_name=metric_name
     )
 
     # Verify both traces are included with their respective lengths
@@ -314,15 +288,13 @@ def test_create_aggregated_scores_plot_extreme_values():
     """Test plot creation with extreme values."""
     epoch_scores = [
         np.array([1e-10, 1e10, -1e10]),  # Very small, very large, very negative
-        np.array([0.0, np.inf, -np.inf])  # Zero, positive infinity, negative infinity
+        np.array([0.0, np.inf, -np.inf]),  # Zero, positive infinity, negative infinity
     ]
     log_dirs = ['logs/extreme1', 'logs/extreme2']
     metric_name = 'extreme_metric'
 
     fig = create_aggregated_scores_plot(
-        epoch_scores=epoch_scores,
-        log_dirs=log_dirs,
-        metric_name=metric_name
+        epoch_scores=epoch_scores, log_dirs=log_dirs, metric_name=metric_name
     )
 
     # Verify extreme values are preserved
@@ -347,14 +319,12 @@ def test_create_aggregated_scores_plot_special_metric_names():
         'metric/with/slashes',
         'metric.with.dots',
         'METRIC_UPPERCASE',
-        'metric123numbers'
+        'metric123numbers',
     ]
 
     for metric_name in special_names:
         fig = create_aggregated_scores_plot(
-            epoch_scores=epoch_scores,
-            log_dirs=log_dirs,
-            metric_name=metric_name
+            epoch_scores=epoch_scores, log_dirs=log_dirs, metric_name=metric_name
         )
 
         assert fig.layout.title.text == f"Aggregated {metric_name} Over Time"
@@ -372,7 +342,7 @@ def test_create_grid_and_colorbar_large_dataset():
         run_idx=5,
         num_datapoints=96,  # 96 out of 100 grid positions
         min_score=0.0,
-        max_score=1.0
+        max_score=1.0,
     )
 
     assert result_run_idx == 5

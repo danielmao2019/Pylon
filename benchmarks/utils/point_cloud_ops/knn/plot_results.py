@@ -1,10 +1,11 @@
 """Plotting utilities for KNN benchmark results."""
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-from typing import Dict
 from datetime import datetime
+from typing import Dict
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def plot_results(results: Dict):
@@ -21,7 +22,7 @@ def plot_results(results: Dict):
         "faiss": "#FF6B6B",
         "pytorch3d": "#4ECDC4",
         "torch": "#45B7D1",
-        "scipy": "#96CEB4"
+        "scipy": "#96CEB4",
     }
 
     # Bar width and positions
@@ -36,7 +37,7 @@ def plot_results(results: Dict):
             times_plot = [t if t != float('inf') else 0 for t in times]
 
             # Position for this method's bars
-            pos = x + (i - len(results["methods"])/2 + 0.5) * bar_width
+            pos = x + (i - len(results["methods"]) / 2 + 0.5) * bar_width
 
             # Plot bars
             bars = ax.bar(
@@ -46,7 +47,7 @@ def plot_results(results: Dict):
                 label=method,
                 color=colors.get(method, "#888888"),
                 edgecolor='black',
-                linewidth=1
+                linewidth=1,
             )
 
             # Add value labels on bars
@@ -54,13 +55,13 @@ def plot_results(results: Dict):
                 if time != float('inf') and time > 0:
                     height = bar.get_height()
                     ax.text(
-                        bar.get_x() + bar.get_width()/2,
+                        bar.get_x() + bar.get_width() / 2,
                         height,
                         f'{time:.3f}',
                         ha='center',
                         va='bottom',
                         fontsize=8,
-                        rotation=45
+                        rotation=45,
                     )
 
     # Customize the plot
@@ -69,8 +70,12 @@ def plot_results(results: Dict):
 
     # Add date to title
     current_date = datetime.now().strftime("%Y-%m-%d")
-    ax.set_title(f'KNN Implementation Performance Comparison - {current_date}\n(Average over 5 shapes × 3 repetitions)',
-                 fontsize=14, fontweight='bold', pad=20)
+    ax.set_title(
+        f'KNN Implementation Performance Comparison - {current_date}\n(Average over 5 shapes × 3 repetitions)',
+        fontsize=14,
+        fontweight='bold',
+        pad=20,
+    )
     ax.set_xticks(x)
     ax.set_xticklabels(results["size_labels"])
     ax.legend(loc='upper left', framealpha=0.95, title='Methods', title_fontsize=10)

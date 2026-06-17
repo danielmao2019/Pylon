@@ -1,5 +1,7 @@
 import time
+
 import pytest
+
 from agents.monitor.gpu_monitor import GPUMonitor
 
 
@@ -19,7 +21,9 @@ def test_gpu_monitor_optional(
             time.sleep(0.1)
 
         gpu_status = monitor.gpu
-        assert gpu_status.connected, "GPU reported as disconnected; monitor check failed"
+        assert (
+            gpu_status.connected
+        ), "GPU reported as disconnected; monitor check failed"
 
         assert gpu_status.window_size == monitor.window_size
         assert gpu_status.max_memory is not None

@@ -1,8 +1,10 @@
 import os
 import tempfile
 import threading
-import pytest
 from collections import defaultdict
+
+import pytest
+
 from utils.io.config import load_config
 
 
@@ -22,8 +24,7 @@ def create_test_config_file(filepath: str, config_dict: dict):
 def create_complex_config_file(filepath: str):
     """Create a complex config file with imports and logic."""
     with open(filepath, 'w') as f:
-        f.write(
-            """
+        f.write("""
 import os
 import torch
 
@@ -50,8 +51,7 @@ if os.environ.get('DEBUG', '').lower() == 'true':
 base_config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 config = base_config
-"""
-        )
+""")
 
 
 def test_load_config_simple(temp_dir):
@@ -221,8 +221,7 @@ def test_load_config_with_imports(temp_dir):
     filepath = os.path.join(temp_dir, "import_config.py")
 
     with open(filepath, 'w') as f:
-        f.write(
-            """
+        f.write("""
 import math
 import os
 from collections import defaultdict
@@ -233,8 +232,7 @@ config = {
     'default_dict': defaultdict(int),
     'computed_value': 2 ** 10
 }
-"""
-        )
+""")
 
     result = load_config(config_path=filepath)
 
@@ -251,8 +249,7 @@ def test_load_config_with_functions(temp_dir):
     filepath = os.path.join(temp_dir, "function_config.py")
 
     with open(filepath, 'w') as f:
-        f.write(
-            """
+        f.write("""
 def create_optimizer():
     return {'type': 'Adam', 'lr': 0.001}
 
@@ -264,8 +261,7 @@ config = {
     'scheduler_factory': create_scheduler,
     'static_value': 42
 }
-"""
-        )
+""")
 
     result = load_config(config_path=filepath)
 

@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
@@ -9,7 +10,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -79,7 +80,7 @@ def test_single_metric_configuration(dummy_metric):
             'class': dummy_metric.__class__,
             'args': {
                 'metric_name': 'single_metric',
-            }
+            },
         }
     ]
 
@@ -100,18 +101,9 @@ def test_single_metric_configuration(dummy_metric):
 def test_multiple_metrics_configuration(dummy_metric, another_dummy_metric):
     """Test hybrid metric with multiple component metrics."""
     multi_metric_cfg = [
-        {
-            'class': dummy_metric.__class__,
-            'args': {'metric_name': 'metric_a'}
-        },
-        {
-            'class': another_dummy_metric.__class__,
-            'args': {'metric_name': 'metric_b'}
-        },
-        {
-            'class': dummy_metric.__class__,
-            'args': {'metric_name': 'metric_c'}
-        }
+        {'class': dummy_metric.__class__, 'args': {'metric_name': 'metric_a'}},
+        {'class': another_dummy_metric.__class__, 'args': {'metric_name': 'metric_b'}},
+        {'class': dummy_metric.__class__, 'args': {'metric_name': 'metric_c'}},
     ]
 
     hybrid_metric = HybridMetric(metrics_cfg=multi_metric_cfg)
@@ -176,14 +168,8 @@ def test_score_tensor_properties(metrics_cfg, sample_tensor, sample_target):
 def test_component_metric_isolation(dummy_metric, another_dummy_metric):
     """Test that component metrics are properly isolated."""
     metrics_cfg = [
-        {
-            'class': dummy_metric.__class__,
-            'args': {'metric_name': 'isolated1'}
-        },
-        {
-            'class': another_dummy_metric.__class__,
-            'args': {'metric_name': 'isolated2'}
-        }
+        {'class': dummy_metric.__class__, 'args': {'metric_name': 'isolated1'}},
+        {'class': another_dummy_metric.__class__, 'args': {'metric_name': 'isolated2'}},
     ]
 
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
@@ -219,4 +205,6 @@ def test_deterministic_computation(metrics_cfg):
 
     # Should be identical
     for key in scores1.keys():
-        assert torch.equal(scores1[key], scores2[key]), f"Non-deterministic computation for {key}"
+        assert torch.equal(
+            scores1[key], scores2[key]
+        ), f"Non-deterministic computation for {key}"

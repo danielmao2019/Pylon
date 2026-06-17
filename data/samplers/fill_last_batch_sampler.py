@@ -1,6 +1,7 @@
-from typing import Iterator, List
-from torch.utils.data import Dataset, Sampler
 import random
+from typing import Iterator, List
+
+from torch.utils.data import Dataset, Sampler
 
 
 class FillLastBatchSampler(Sampler):

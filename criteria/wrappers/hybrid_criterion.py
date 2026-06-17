@@ -1,5 +1,7 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import torch
+
 from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.builders import build_from_config
@@ -46,11 +48,17 @@ class HybridCriterion(SingleTaskCriterion):
                 # If not a config dict, use as-is (might be pre-built object)
                 modified_configs.append(cfg)
         # Build all criteria
-        self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in modified_configs])
+        self.criteria = torch.nn.ModuleList(
+            [build_from_config(cfg) for cfg in modified_configs]
+        )
         # Validate all criteria
         assert all(isinstance(c, BaseCriterion) for c in self.criteria)
-        assert all(not c.use_buffer for c in self.criteria), "Component criteria should not use buffer"
-        assert all(not hasattr(c, 'buffer') for c in self.criteria), "Component criteria should not have buffer attribute"
+        assert all(
+            not c.use_buffer for c in self.criteria
+        ), "Component criteria should not use buffer"
+        assert all(
+            not hasattr(c, 'buffer') for c in self.criteria
+        ), "Component criteria should not have buffer attribute"
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         total_loss = 0

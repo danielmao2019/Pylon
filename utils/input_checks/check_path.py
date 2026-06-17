@@ -1,5 +1,5 @@
-from typing import List, Union, Any, Optional
 import os
+from typing import Any, List, Optional, Union
 
 
 def check_read_file(

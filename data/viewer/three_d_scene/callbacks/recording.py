@@ -8,9 +8,7 @@ if TYPE_CHECKING:
     from data.viewer.three_d_scene.three_d_scene_viewer import ThreeDSceneViewer
 
 
-def register_recording_callbacks(
-    app: dash.Dash, viewer: "ThreeDSceneViewer"
-) -> None:
+def register_recording_callbacks(app: dash.Dash, viewer: "ThreeDSceneViewer") -> None:
     """Register camera recording callback."""
     # Input validations
     assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"

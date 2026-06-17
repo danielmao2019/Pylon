@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class DR(nn.Module):
     def __init__(self, in_d, out_d):
         super(DR, self).__init__()
@@ -33,6 +34,7 @@ class ChannelAttention(nn.Module):
         max_out = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
         out = avg_out + max_out
         return self.sigmoid(out)
+
 
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
@@ -68,8 +70,14 @@ class DS_layer(nn.Module):
     def __init__(self, in_d, out_d, stride, output_padding, n_class):
         super(DS_layer, self).__init__()
 
-        self.dsconv = nn.ConvTranspose2d(in_d, out_d, kernel_size=3, padding=1, stride=stride,
-                                         output_padding=output_padding)
+        self.dsconv = nn.ConvTranspose2d(
+            in_d,
+            out_d,
+            kernel_size=3,
+            padding=1,
+            stride=stride,
+            output_padding=output_padding,
+        )
         self.bn = nn.BatchNorm2d(out_d)
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout2d(p=0.2)

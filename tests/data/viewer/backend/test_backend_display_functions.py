@@ -239,7 +239,9 @@ def test_dataset_inheritance_hierarchy(backend):
             return {"image": image}, {"label": label}, {"sample_idx": idx}
 
     # Test that datasets with complex inheritance can be managed by the backend
-    dataset = FinalSemsegDataset(data_root=None, split="test", device=torch.device("cpu"))
+    dataset = FinalSemsegDataset(
+        data_root=None, split="test", device=torch.device("cpu")
+    )
     dataset_name = "test/FinalSemsegDataset"
     backend._datasets[dataset_name] = dataset
 

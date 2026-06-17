@@ -1,5 +1,7 @@
 from typing import Dict, Optional
+
 import torch
+
 import data
 from models.multi_task_learning.backbones import LeNet5
 
@@ -12,15 +14,21 @@ class MultiMNIST_LeNet5(torch.nn.Module):
         # initialize backbone
         self.backbone = LeNet5()
         # initialize decoders
-        self.decoders = torch.nn.ModuleDict({
-            task: torch.nn.Sequential(
-                torch.nn.Linear(in_features=400, out_features=120),
-                torch.nn.Sigmoid(),
-                torch.nn.Linear(in_features=120, out_features=84),
-                torch.nn.Sigmoid(),
-                torch.nn.Linear(in_features=84, out_features=data.datasets.MultiMNISTDataset.NUM_CLASSES),
-            ) for task in data.datasets.MultiMNISTDataset.LABEL_NAMES
-        })
+        self.decoders = torch.nn.ModuleDict(
+            {
+                task: torch.nn.Sequential(
+                    torch.nn.Linear(in_features=400, out_features=120),
+                    torch.nn.Sigmoid(),
+                    torch.nn.Linear(in_features=120, out_features=84),
+                    torch.nn.Sigmoid(),
+                    torch.nn.Linear(
+                        in_features=84,
+                        out_features=data.datasets.MultiMNISTDataset.NUM_CLASSES,
+                    ),
+                )
+                for task in data.datasets.MultiMNISTDataset.LABEL_NAMES
+            }
+        )
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         x = inputs['image']
@@ -28,8 +36,7 @@ class MultiMNIST_LeNet5(torch.nn.Module):
         x = torch.flatten(x, start_dim=1)
         shared_rep = x
         outputs: Dict[str, torch.Tensor] = {
-            task: self.decoders[task](shared_rep)
-            for task in self.decoders
+            task: self.decoders[task](shared_rep) for task in self.decoders
         }
         if self.return_shared_rep:
             outputs['shared_rep'] = shared_rep

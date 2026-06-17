@@ -2,8 +2,10 @@
 
 import os
 import shutil
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 import torch
+
 from data.dataloaders.pcr_dataloader import PCRDataloader
 from utils.ops.dict_as_tensor import buffer_allclose
 
@@ -17,7 +19,7 @@ class DummyPCRDataloaderForTesting(PCRDataloader):
             'dataloader_class': self.__class__.__name__,
             'dataset_version': dataset.get_cache_version_hash(),
             'collator_version': collator.get_cache_version_hash(),
-            'test_version': 'v1'
+            'test_version': 'v1',
         }
 
 
@@ -33,11 +35,19 @@ def collect_dataloader_outputs(dataloader) -> List[Dict[str, Any]]:
                 for sub_key, sub_value in value.items():
                     if isinstance(sub_value, dict):
                         batch_cpu[key][sub_key] = {
-                            k: v.cpu().detach().clone() if isinstance(v, torch.Tensor) else v
+                            k: (
+                                v.cpu().detach().clone()
+                                if isinstance(v, torch.Tensor)
+                                else v
+                            )
                             for k, v in sub_value.items()
                         }
                     else:
-                        batch_cpu[key][sub_key] = sub_value.cpu().detach().clone() if isinstance(sub_value, torch.Tensor) else sub_value
+                        batch_cpu[key][sub_key] = (
+                            sub_value.cpu().detach().clone()
+                            if isinstance(sub_value, torch.Tensor)
+                            else sub_value
+                        )
             elif key == 'labels':
                 batch_cpu[key] = {
                     k: v.cpu().detach().clone() if isinstance(v, torch.Tensor) else v
@@ -46,7 +56,11 @@ def collect_dataloader_outputs(dataloader) -> List[Dict[str, Any]]:
             elif key == 'meta_info':
                 batch_cpu[key] = value  # meta_info is list of dicts, keep as-is
             else:
-                batch_cpu[key] = value.cpu().detach().clone() if isinstance(value, torch.Tensor) else value
+                batch_cpu[key] = (
+                    value.cpu().detach().clone()
+                    if isinstance(value, torch.Tensor)
+                    else value
+                )
 
         outputs.append(batch_cpu)
 
@@ -71,7 +85,7 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
             use_disk_cache=False,
             max_cache_memory_percent=10.0,
             enable_cpu_validation=False,
-            enable_disk_validation=False
+            enable_disk_validation=False,
         )
 
         # Collect outputs from dataloader without cache
@@ -90,7 +104,7 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
             use_disk_cache=True,
             max_cache_memory_percent=10.0,
             enable_cpu_validation=True,
-            enable_disk_validation=True
+            enable_disk_validation=True,
         )
 
         # Collect outputs from dataloader with cache (first pass - populates cache)
@@ -102,16 +116,34 @@ def test_pcr_dataloader_cache_consistency(dummy_pcr_dataset, dummy_pcr_collator)
         outputs_with_cache_2nd = collect_dataloader_outputs(dataloader_with_cache)
 
         # Verify all outputs are identical
-        assert len(outputs_no_cache) == len(outputs_with_cache_1st) == len(outputs_with_cache_2nd), \
-            f"Different number of batches: {len(outputs_no_cache)}, {len(outputs_with_cache_1st)}, {len(outputs_with_cache_2nd)}"
+        assert (
+            len(outputs_no_cache)
+            == len(outputs_with_cache_1st)
+            == len(outputs_with_cache_2nd)
+        ), f"Different number of batches: {len(outputs_no_cache)}, {len(outputs_with_cache_1st)}, {len(outputs_with_cache_2nd)}"
 
-        for i, (no_cache, cache_1st, cache_2nd) in enumerate(zip(outputs_no_cache, outputs_with_cache_1st, outputs_with_cache_2nd, strict=True)):
+        for i, (no_cache, cache_1st, cache_2nd) in enumerate(
+            zip(
+                outputs_no_cache,
+                outputs_with_cache_1st,
+                outputs_with_cache_2nd,
+                strict=True,
+            )
+        ):
             # Check that all three outputs are identical
-            assert buffer_allclose(no_cache, cache_1st), f"Batch {i}: no_cache vs cache_1st not equal"
-            assert buffer_allclose(cache_1st, cache_2nd), f"Batch {i}: cache_1st vs cache_2nd not equal"
-            assert buffer_allclose(no_cache, cache_2nd), f"Batch {i}: no_cache vs cache_2nd not equal"
+            assert buffer_allclose(
+                no_cache, cache_1st
+            ), f"Batch {i}: no_cache vs cache_1st not equal"
+            assert buffer_allclose(
+                cache_1st, cache_2nd
+            ), f"Batch {i}: cache_1st vs cache_2nd not equal"
+            assert buffer_allclose(
+                no_cache, cache_2nd
+            ), f"Batch {i}: no_cache vs cache_2nd not equal"
 
-        print(f"✅ Test passed: All {len(outputs_no_cache)} batches are identical across cache/no-cache configurations")
+        print(
+            f"✅ Test passed: All {len(outputs_no_cache)} batches are identical across cache/no-cache configurations"
+        )
 
     finally:
         # Cleanup cache directory if it was created

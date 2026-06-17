@@ -11,8 +11,7 @@ from models.three_d.octree_gs.render import (
     render_density_from_octree_gs,
     render_rgb_from_octree_gs,
 )
-from models.three_d.octree_gs.render.rgb import OctreeGSCamera
-from models.three_d.octree_gs.render.rgb import focal2fov
+from models.three_d.octree_gs.render.rgb import OctreeGSCamera, focal2fov
 
 
 def render_display(

@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from models.change_detection.dsfernet.dsfernet import DsferNet
 
 
@@ -17,10 +18,7 @@ def test_dsfernet_valid_input_shape():
     img_2 = torch.randn(batch_size, channels, input_size, input_size)
 
     # Prepare input dictionary
-    inputs = {
-        'img_1': img_1,
-        'img_2': img_2
-    }
+    inputs = {'img_1': img_1, 'img_2': img_2}
 
     # Run inference
     with torch.no_grad():
@@ -28,8 +26,12 @@ def test_dsfernet_valid_input_shape():
 
     # Check output structure
     assert isinstance(output, torch.Tensor), "Output should be a tensor in eval mode"
-    assert output.shape == (batch_size, 2, input_size, input_size), \
-        f"Expected output shape {(batch_size, 2, input_size, input_size)}, got {output.shape}"
+    assert output.shape == (
+        batch_size,
+        2,
+        input_size,
+        input_size,
+    ), f"Expected output shape {(batch_size, 2, input_size, input_size)}, got {output.shape}"
 
 
 def test_dsfernet_invalid_input_shape():
@@ -46,10 +48,7 @@ def test_dsfernet_invalid_input_shape():
     img_2 = torch.randn(batch_size, channels, input_size, input_size)
 
     # Prepare input dictionary
-    inputs = {
-        'img_1': img_1,
-        'img_2': img_2
-    }
+    inputs = {'img_1': img_1, 'img_2': img_2}
 
     # Run inference and expect RuntimeError
     with pytest.raises(RuntimeError) as exc_info:
@@ -57,5 +56,7 @@ def test_dsfernet_invalid_input_shape():
             _ = model(inputs)
 
     # Verify the error message
-    assert "Given normalized_shape=[512, 16, 16], expected input with shape [*, 512, 16, 16], but got input of size[2, 512, 14, 14]" in str(exc_info.value), \
-        "Expected error about mismatched feature map size"
+    assert (
+        "Given normalized_shape=[512, 16, 16], expected input with shape [*, 512, 16, 16], but got input of size[2, 512, 14, 14]"
+        in str(exc_info.value)
+    ), "Expected error about mismatched feature map size"

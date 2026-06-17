@@ -13,9 +13,13 @@ def build_undirected_weighted_adjacency(
     assert node_ids, "node_ids must be non-empty"
     assert all(isinstance(node_id, int) for node_id in node_ids), f"{node_ids=}"
     assert isinstance(edges, list), f"{type(edges)=}"
-    assert all(isinstance(edge, tuple) and len(edge) == 3 for edge in edges), f"{edges=}"
     assert all(
-        isinstance(edge[0], int) and isinstance(edge[1], int) and isinstance(edge[2], int)
+        isinstance(edge, tuple) and len(edge) == 3 for edge in edges
+    ), f"{edges=}"
+    assert all(
+        isinstance(edge[0], int)
+        and isinstance(edge[1], int)
+        and isinstance(edge[2], int)
         for edge in edges
     ), f"{edges=}"
 
@@ -27,9 +31,9 @@ def build_undirected_weighted_adjacency(
         assert node_id_b in node_id_set, f"{node_id_b=} missing from node_ids"
         assert node_id_a != node_id_b, f"Self-loop is not supported: {node_id_a=}"
         assert edge_weight >= 0, f"{edge_weight=}"
-        assert node_id_b not in adjacency[node_id_a], (
-            f"Duplicate undirected edge detected: {(node_id_a, node_id_b)=}"
-        )
+        assert (
+            node_id_b not in adjacency[node_id_a]
+        ), f"Duplicate undirected edge detected: {(node_id_a, node_id_b)=}"
         adjacency[node_id_a][node_id_b] = edge_weight
         adjacency[node_id_b][node_id_a] = edge_weight
 
@@ -50,7 +54,7 @@ def compute_degrees(adjacency: Dict[int, Dict[int, int]]) -> Dict[int, int]:
 
 
 def compute_weighted_degrees_log1p(
-    adjacency: Dict[int, Dict[int, int]]
+    adjacency: Dict[int, Dict[int, int]],
 ) -> Dict[int, float]:
     # Input validations
     assert isinstance(adjacency, dict), f"{type(adjacency)=}"

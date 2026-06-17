@@ -1,10 +1,12 @@
 from typing import Any, Dict
 
 import torch
-from .base_trainer import BaseTrainer
+
 from optimizers.multi_task_optimizers.mtl_optimizer import MTLOptimizer
 from utils.builders import build_from_config
 from utils.ops import apply_tensor_op
+
+from .base_trainer import BaseTrainer
 
 try:
     # torch 2.x

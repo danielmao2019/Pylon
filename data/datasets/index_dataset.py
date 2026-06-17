@@ -1,5 +1,7 @@
-from typing import Tuple, Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
 import torch
+
 from data.datasets.base_dataset import BaseDataset
 
 
@@ -17,11 +19,7 @@ class IndexDataset(BaseDataset):
     LABEL_NAMES: List[str] = []
     SHA1SUM: Optional[str] = None
 
-    def __init__(
-        self,
-        size: int,
-        **kwargs
-    ) -> None:
+    def __init__(self, size: int, **kwargs) -> None:
         """Initialize IndexDataset.
 
         Args:
@@ -38,8 +36,8 @@ class IndexDataset(BaseDataset):
         # Initialize with minimal required parameters for BaseDataset
         super().__init__(
             data_root=None,  # No data_root needed for index dataset
-            split=None,      # No split needed
-            **kwargs
+            split=None,  # No split needed
+            **kwargs,
         )
 
     def _init_annotations(self) -> None:
@@ -47,10 +45,14 @@ class IndexDataset(BaseDataset):
         self.annotations = list(range(self._size))
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         """Not used - overridden by __getitem__."""
-        raise NotImplementedError("This method should not be called as __getitem__ is overridden")
+        raise NotImplementedError(
+            "This method should not be called as __getitem__ is overridden"
+        )
 
     def __getitem__(self, idx: int) -> int:
         """Return the index directly.
@@ -69,7 +71,7 @@ class IndexDataset(BaseDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> Optional['html.Div']:
         """Display function for index dataset - not implemented."""
         return None

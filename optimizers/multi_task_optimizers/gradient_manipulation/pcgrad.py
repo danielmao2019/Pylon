@@ -1,5 +1,6 @@
-from typing import List, Optional
 import random
+from typing import List, Optional
+
 import torch
 
 from ._base_ import GradientManipulationBaseOptimizer
@@ -29,7 +30,9 @@ class PCGradOptimizer(GradientManipulationBaseOptimizer):
             result (torch.Tensor): the 1D manipulated gradient tensor.
         """
         # input checks
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         # compute result
         return self._pcgrad(grads_list=grads_list, prng=self.prng)
 
@@ -45,7 +48,7 @@ class PCGradOptimizer(GradientManipulationBaseOptimizer):
                 gj = grads_list[j]
                 inner_product = torch.dot(gi, gj)
                 if inner_product < 0:
-                    gi -= (inner_product / (torch.linalg.vector_norm(gj)**2)) * gj
+                    gi -= (inner_product / (torch.linalg.vector_norm(gj) ** 2)) * gj
             result += gi
         result /= len(grads_list)
         return result

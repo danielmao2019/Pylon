@@ -48,7 +48,7 @@ def test_parenet_model_forward_pass():
             'meta_info': {
                 'idx': 0,
                 'dataset_name': 'test',
-            }
+            },
         }
     ]
 
@@ -59,7 +59,7 @@ def test_parenet_model_forward_pass():
         voxel_size=0.3,
         num_neighbors=[16, 16, 16, 16],
         subsample_ratio=0.25,
-        precompute_data=True
+        precompute_data=True,
     )
 
     # Step 2: Move to CUDA
@@ -68,12 +68,20 @@ def test_parenet_model_forward_pass():
         if isinstance(value, torch.Tensor):
             inputs[key] = value.cuda()
         elif isinstance(value, list):
-            inputs[key] = [v.cuda() if isinstance(v, torch.Tensor) else v for v in value]
+            inputs[key] = [
+                v.cuda() if isinstance(v, torch.Tensor) else v for v in value
+            ]
 
     # Step 3: Verify neighbors were computed by collator
-    assert 'neighbors' in inputs, "Neighbors should be computed by collator when precompute_data=True"
-    assert 'subsampling' in inputs, "Subsampling should be computed by collator when precompute_data=True"
-    assert 'upsampling' in inputs, "Upsampling should be computed by collator when precompute_data=True"
+    assert (
+        'neighbors' in inputs
+    ), "Neighbors should be computed by collator when precompute_data=True"
+    assert (
+        'subsampling' in inputs
+    ), "Subsampling should be computed by collator when precompute_data=True"
+    assert (
+        'upsampling' in inputs
+    ), "Upsampling should be computed by collator when precompute_data=True"
 
     # Step 4: Test forward pass
     with torch.no_grad():
@@ -84,11 +92,18 @@ def test_parenet_model_forward_pass():
     assert 'estimated_transform' in outputs, "Output must contain estimated_transform"
 
     estimated_transform = outputs['estimated_transform']
-    assert isinstance(estimated_transform, torch.Tensor), "estimated_transform must be tensor"
-    assert estimated_transform.shape == (4, 4), f"Expected shape (4, 4), got {estimated_transform.shape}"
+    assert isinstance(
+        estimated_transform, torch.Tensor
+    ), "estimated_transform must be tensor"
+    assert estimated_transform.shape == (
+        4,
+        4,
+    ), f"Expected shape (4, 4), got {estimated_transform.shape}"
     assert estimated_transform.device.type == 'cuda', "Output must be on CUDA"
 
-    print(f"✓ PARENet forward pass successful, output shape: {estimated_transform.shape}")
+    print(
+        f"✓ PARENet forward pass successful, output shape: {estimated_transform.shape}"
+    )
 
 
 def test_parenet_model_device_handling():
@@ -112,7 +127,9 @@ def test_parenet_model_parameter_count():
 
     # PARENet should have a significant number of parameters (> 1M)
     assert total_params > 1_000_000, f"Model has too few parameters: {total_params}"
-    assert trainable_params > 1_000_000, f"Model has too few trainable parameters: {trainable_params}"
+    assert (
+        trainable_params > 1_000_000
+    ), f"Model has too few trainable parameters: {trainable_params}"
 
     print(f"Total parameters: {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")

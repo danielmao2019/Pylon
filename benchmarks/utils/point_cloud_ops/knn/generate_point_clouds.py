@@ -1,11 +1,14 @@
 """Point cloud generation utilities for KNN benchmarking."""
 
-import torch
-import numpy as np
 from typing import List, Tuple
 
+import numpy as np
+import torch
 
-def generate_point_clouds(n_points: int, shapes: List[str], device: torch.device) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+
+def generate_point_clouds(
+    n_points: int, shapes: List[str], device: torch.device
+) -> List[Tuple[torch.Tensor, torch.Tensor]]:
     """Generate different point cloud shapes for benchmarking.
 
     Args:
@@ -69,12 +72,18 @@ def generate_point_clouds(n_points: int, shapes: List[str], device: torch.device
 
             for i in range(n_clusters):
                 # Add remainder points to last cluster
-                cluster_size = points_per_cluster + (remainder if i == n_clusters - 1 else 0)
+                cluster_size = points_per_cluster + (
+                    remainder if i == n_clusters - 1 else 0
+                )
 
                 # Each cluster at different location
-                center = torch.tensor([i * 30, i * 20, i * 10], device=device, dtype=torch.float32)
+                center = torch.tensor(
+                    [i * 30, i * 20, i * 10], device=device, dtype=torch.float32
+                )
                 query_cluster = torch.randn(cluster_size, 3, device=device) * 5 + center
-                reference_cluster = torch.randn(cluster_size, 3, device=device) * 5 + center
+                reference_cluster = (
+                    torch.randn(cluster_size, 3, device=device) * 5 + center
+                )
 
                 query_list.append(query_cluster)
                 reference_list.append(reference_cluster)

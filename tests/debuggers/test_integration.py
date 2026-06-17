@@ -1,14 +1,16 @@
-import pytest
-import torch
+import copy
 import os
 import shutil
+
 import joblib
-import copy
-from debuggers.wrappers.sequential_debugger import SequentialDebugger
-from debuggers.forward_debugger import ForwardDebugger
-from debuggers.base_debugger import BaseDebugger
-from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+import pytest
+import torch
+
 from configs.examples.linear.config import config as linear_config
+from debuggers.base_debugger import BaseDebugger
+from debuggers.forward_debugger import ForwardDebugger
+from debuggers.wrappers.sequential_debugger import SequentialDebugger
+from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 class DebugForwardDebugger(ForwardDebugger):
@@ -17,9 +19,19 @@ class DebugForwardDebugger(ForwardDebugger):
     def process_forward(self, module, input, output):
         return {
             'module_name': type(module).__name__,
-            'output_shape': list(output.shape) if isinstance(output, torch.Tensor) else None,
-            'output_mean': float(output.mean()) if isinstance(output, torch.Tensor) else None,
-            'input_shape': list(input[0].shape) if isinstance(input, tuple) and len(input) > 0 and isinstance(input[0], torch.Tensor) else None
+            'output_shape': (
+                list(output.shape) if isinstance(output, torch.Tensor) else None
+            ),
+            'output_mean': (
+                float(output.mean()) if isinstance(output, torch.Tensor) else None
+            ),
+            'input_shape': (
+                list(input[0].shape)
+                if isinstance(input, tuple)
+                and len(input) > 0
+                and isinstance(input[0], torch.Tensor)
+                else None
+            ),
         }
 
 
@@ -30,9 +42,13 @@ class DebugBaseDebugger(BaseDebugger):
         # Access real model outputs for meaningful debugging
         outputs = datapoint.get('outputs', torch.tensor([0.0]))
         return {
-            'model_output_mean': float(outputs.mean()) if isinstance(outputs, torch.Tensor) else 0.0,
-            'model_output_shape': list(outputs.shape) if isinstance(outputs, torch.Tensor) else [],
-            'debugger_type': 'base_debugger'
+            'model_output_mean': (
+                float(outputs.mean()) if isinstance(outputs, torch.Tensor) else 0.0
+            ),
+            'model_output_shape': (
+                list(outputs.shape) if isinstance(outputs, torch.Tensor) else []
+            ),
+            'debugger_type': 'base_debugger',
         }
 
 
@@ -87,8 +103,8 @@ def create_linear_config_with_debugger(work_dir, tot_epochs=3, checkpoint_method
     # Reduce batch size and workers for faster testing
     config['train_dataloader']['args']['batch_size'] = 2
     config['train_dataloader']['args']['num_workers'] = 0  # Disable multiprocessing
-    config['val_dataloader']['args']['batch_size'] = 1     # Validation needs batch_size=1
-    config['val_dataloader']['args']['num_workers'] = 0    # Disable multiprocessing
+    config['val_dataloader']['args']['batch_size'] = 1  # Validation needs batch_size=1
+    config['val_dataloader']['args']['num_workers'] = 0  # Disable multiprocessing
 
     # Add debugger configuration
     config['debugger'] = {
@@ -100,18 +116,15 @@ def create_linear_config_with_debugger(work_dir, tot_epochs=3, checkpoint_method
                     'name': 'linear_layer',
                     'debugger_config': {
                         'class': DebugForwardDebugger,
-                        'args': {'layer_name': 'linear'}
-                    }
+                        'args': {'layer_name': 'linear'},
+                    },
                 },
                 {
                     'name': 'model_outputs',
-                    'debugger_config': {
-                        'class': DebugBaseDebugger,
-                        'args': {}
-                    }
-                }
-            ]
-        }
+                    'debugger_config': {'class': DebugBaseDebugger, 'args': {}},
+                },
+            ],
+        },
     }
 
     return config
@@ -120,7 +133,11 @@ def create_linear_config_with_debugger(work_dir, tot_epochs=3, checkpoint_method
 def validate_debugger_output(debugger_dir: str) -> None:
     """Validate debugger output files and content structure."""
     # Should have page files
-    page_files = [f for f in os.listdir(debugger_dir) if f.startswith('page_') and f.endswith('.pkl')]
+    page_files = [
+        f
+        for f in os.listdir(debugger_dir)
+        if f.startswith('page_') and f.endswith('.pkl')
+    ]
     assert len(page_files) > 0, f"No page files in {debugger_dir}"
 
     # Load and verify page content
@@ -166,11 +183,13 @@ def test_linear_experiment_integration_with_debugger():
     config = create_linear_config_with_debugger(
         work_dir=test_work_dir,
         tot_epochs=3,
-        checkpoint_method=2  # Save every 2 epochs + last
+        checkpoint_method=2,  # Save every 2 epochs + last
     )
 
     # Create and run real SupervisedSingleTaskTrainer
-    trainer = SupervisedSingleTaskTrainer(config, torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+    trainer = SupervisedSingleTaskTrainer(
+        config, torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    )
     trainer.run()
 
     # Verify results: debugger data should only exist for checkpoint epochs [1, 2]
@@ -182,11 +201,15 @@ def test_linear_experiment_integration_with_debugger():
 
         if epoch_idx in expected_checkpoint_indices:
             # Should have debugger data
-            assert os.path.exists(debugger_path), f"Missing debugger dir in epoch_{epoch_idx}"
+            assert os.path.exists(
+                debugger_path
+            ), f"Missing debugger dir in epoch_{epoch_idx}"
             validate_debugger_output(debugger_path)
         else:
             # Should not have debugger data
-            assert not os.path.exists(debugger_path), f"Unexpected debugger dir in epoch_{epoch_idx}"
+            assert not os.path.exists(
+                debugger_path
+            ), f"Unexpected debugger dir in epoch_{epoch_idx}"
 
 
 def test_forward_hook_registration_and_execution():
@@ -202,9 +225,7 @@ def test_forward_hook_registration_and_execution():
 
     # Create config based on linear experiment
     config = create_linear_config_with_debugger(
-        work_dir=test_work_dir,
-        tot_epochs=1,
-        checkpoint_method='all'
+        work_dir=test_work_dir, tot_epochs=1, checkpoint_method='all'
     )
 
     # Create trainer and initialize
@@ -239,14 +260,14 @@ def test_forward_hook_registration_and_execution():
     linear_capture = linear_debugger.last_capture
     assert linear_capture['module_name'] == 'Linear'
     assert linear_capture['output_shape'] == [2, 2]  # Expected linear output shape
-    assert linear_capture['input_shape'] == [2, 2]   # Expected linear input shape
+    assert linear_capture['input_shape'] == [2, 2]  # Expected linear input shape
     assert isinstance(linear_capture['output_mean'], float)
 
     # Create test datapoint
     datapoint = {
         'inputs': test_input,
         'outputs': model_output,
-        'meta_info': {'idx': [0]}
+        'meta_info': {'idx': [0]},
     }
 
     # Call debugger - should return captured hook data

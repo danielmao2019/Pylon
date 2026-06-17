@@ -51,7 +51,9 @@ class KPConv(nn.Module):
         self.eps = eps
 
         # Initialize weights
-        self.weights = nn.Parameter(torch.zeros(self.kernel_size, in_channels, out_channels))
+        self.weights = nn.Parameter(
+            torch.zeros(self.kernel_size, in_channels, out_channels)
+        )
         if bias:
             self.bias = nn.Parameter(torch.zeros(self.out_channels))
         else:
@@ -73,7 +75,9 @@ class KPConv(nn.Module):
 
     def initialize_kernel_points(self):
         """Initialize the kernel point positions in a sphere."""
-        kernel_points = load_kernels(self.radius, self.kernel_size, dimension=self.dimension, fixed='center')
+        kernel_points = load_kernels(
+            self.radius, self.kernel_size, dimension=self.dimension, fixed='center'
+        )
         return torch.from_numpy(kernel_points).float()
 
     def forward(self, s_feats, q_points, s_points, neighbor_indices):
@@ -89,31 +93,55 @@ class KPConv(nn.Module):
             q_feats (Tensor): (M, C_out)
         """
         # Validate input shapes
-        assert s_feats.size(0) == s_points.size(0), f"s_feats and s_points must have same first dimension, got {s_feats.size(0)} and {s_points.size(0)}"
-        assert q_points.size(0) == neighbor_indices.size(0), f"q_points and neighbor_indices must have same first dimension, got {q_points.size(0)} and {neighbor_indices.size(0)}"
+        assert s_feats.size(0) == s_points.size(
+            0
+        ), f"s_feats and s_points must have same first dimension, got {s_feats.size(0)} and {s_points.size(0)}"
+        assert q_points.size(0) == neighbor_indices.size(
+            0
+        ), f"q_points and neighbor_indices must have same first dimension, got {q_points.size(0)} and {neighbor_indices.size(0)}"
 
-        s_points = torch.cat([s_points, torch.zeros_like(s_points[:1, :]) + self.inf], 0)  # (N, 3) -> (N+1, 3)
+        s_points = torch.cat(
+            [s_points, torch.zeros_like(s_points[:1, :]) + self.inf], 0
+        )  # (N, 3) -> (N+1, 3)
 
-        neighbors = index_select(s_points, neighbor_indices, dim=0)  # (N+1, 3) -> (M, H, 3)
+        neighbors = index_select(
+            s_points, neighbor_indices, dim=0
+        )  # (N+1, 3) -> (M, H, 3)
 
         neighbors = neighbors - q_points.unsqueeze(1)  # (M, H, 3)
 
         # Get Kernel point influences
         neighbors = neighbors.unsqueeze(2)  # (M, H, 3) -> (M, H, 1, 3)
-        differences = neighbors - self.kernel_points  # (M, H, 1, 3) x (K, 3) -> (M, H, K, 3)
-        sq_distances = torch.sum(differences ** 2, dim=3)  # (M, H, K)
-        neighbor_weights = torch.clamp(1 - torch.sqrt(sq_distances) / self.sigma, min=0.0)  # (M, H, K)
-        neighbor_weights = torch.transpose(neighbor_weights, 1, 2)  # (M, H, K) -> (M, K, H)
+        differences = (
+            neighbors - self.kernel_points
+        )  # (M, H, 1, 3) x (K, 3) -> (M, H, K, 3)
+        sq_distances = torch.sum(differences**2, dim=3)  # (M, H, K)
+        neighbor_weights = torch.clamp(
+            1 - torch.sqrt(sq_distances) / self.sigma, min=0.0
+        )  # (M, H, K)
+        neighbor_weights = torch.transpose(
+            neighbor_weights, 1, 2
+        )  # (M, H, K) -> (M, K, H)
 
         # apply neighbor weights
-        s_feats = torch.cat((s_feats, torch.zeros_like(s_feats[:1, :])), 0)  # (N, C) -> (N+1, C)
-        neighbor_feats = index_select(s_feats, neighbor_indices, dim=0)  # (N+1, C) -> (M, H, C)
-        weighted_feats = torch.matmul(neighbor_weights, neighbor_feats)  # (M, K, H) x (M, H, C) -> (M, K, C)
+        s_feats = torch.cat(
+            (s_feats, torch.zeros_like(s_feats[:1, :])), 0
+        )  # (N, C) -> (N+1, C)
+        neighbor_feats = index_select(
+            s_feats, neighbor_indices, dim=0
+        )  # (N+1, C) -> (M, H, C)
+        weighted_feats = torch.matmul(
+            neighbor_weights, neighbor_feats
+        )  # (M, K, H) x (M, H, C) -> (M, K, C)
 
         # apply convolutional weights
         weighted_feats = weighted_feats.permute(1, 0, 2)  # (M, K, C) -> (K, M, C)
-        kernel_outputs = torch.matmul(weighted_feats, self.weights)  # (K, M, C) x (K, C, C_out) -> (K, M, C_out)
-        output_feats = torch.sum(kernel_outputs, dim=0, keepdim=False)  # (K, M, C_out) -> (M, C_out)
+        kernel_outputs = torch.matmul(
+            weighted_feats, self.weights
+        )  # (K, M, C) x (K, C, C_out) -> (K, M, C_out)
+        output_feats = torch.sum(
+            kernel_outputs, dim=0, keepdim=False
+        )  # (K, M, C_out) -> (M, C_out)
 
         # normalization
         neighbor_feats_sum = torch.sum(neighbor_feats, dim=-1)

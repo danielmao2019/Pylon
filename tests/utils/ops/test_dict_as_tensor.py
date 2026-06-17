@@ -1,8 +1,8 @@
-from typing import List, Dict, Union, Any, Tuple
-import pytest
-import numpy
-import torch
+from typing import Any, Dict, List, Tuple, Union
 
+import numpy
+import pytest
+import torch
 
 # ====================================================================================================
 from utils.ops.dict_as_tensor import buffer_allclose
@@ -61,7 +61,7 @@ def test_buffer_allclose(buffer1, buffer2, expected) -> None:
 
 
 # ====================================================================================================
-from utils.ops.dict_as_tensor import transpose_buffer, buffer_permute
+from utils.ops.dict_as_tensor import buffer_permute, transpose_buffer
 
 # ====================================================================================================
 

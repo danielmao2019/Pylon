@@ -8,13 +8,14 @@ Following CLAUDE.md testing patterns:
 - End-to-end workflow validation
 """
 
-from typing import Any
 import os
 import tempfile
+from typing import Any
+
 import pytest
 
-from agents.manager.manager import Manager
 from agents.manager.default_job import DefaultJobProgressInfo
+from agents.manager.manager import Manager
 
 # ============================================================================
 # INTEGRATION TESTS (REALISTIC WITH MINIMAL MOCK)

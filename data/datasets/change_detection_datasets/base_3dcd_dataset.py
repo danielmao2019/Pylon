@@ -3,17 +3,24 @@
 This module provides the Base3DCDDataset class that inherits from BaseDataset
 and includes type-specific display methods for 3D change detection datasets.
 """
-from typing import Dict, Any, Optional, List
+
+from typing import Any, Dict, List, Optional
+
 import torch
 from dash import dcc, html
+
 from data.datasets.base_dataset import BaseDataset
-from data.viewer.utils.displays.points.dash.core_points_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.display_utils import (
     DisplayStyles,
     ParallelFigureCreator,
     create_standard_datapoint_layout,
-    create_statistics_display
+    create_statistics_display,
+)
+from data.viewer.utils.displays.points.dash.core_points_display import (
+    build_point_cloud_id,
+    create_point_cloud_display,
+    get_point_cloud_display_stats,
 )
 from data.viewer.utils.structure_validation import validate_3dcd_structure
 
@@ -38,7 +45,7 @@ class Base3DCDDataset(BaseDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> html.Div:
         """Display a 3D change detection datapoint.
 
@@ -53,7 +60,9 @@ class Base3DCDDataset(BaseDataset):
         """
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
-        assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
+        assert isinstance(
+            datapoint, dict
+        ), f"datapoint must be dict, got {type(datapoint)}"
 
         # Handle class_labels parameter (convert to class_names format)
         class_names = None
@@ -63,7 +72,9 @@ class Base3DCDDataset(BaseDataset):
                 # Assume first key contains the class names list
                 first_key = next(iter(class_labels))
                 if isinstance(class_labels[first_key], list):
-                    class_names = {i: name for i, name in enumerate(class_labels[first_key])}
+                    class_names = {
+                        i: name for i, name in enumerate(class_labels[first_key])
+                    }
 
         # Extract 3D-specific parameters with defaults
         point_size = 2.0
@@ -73,11 +84,15 @@ class Base3DCDDataset(BaseDataset):
 
         # Unpack 3D settings if provided
         if settings_3d is not None:
-            assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
+            assert isinstance(
+                settings_3d, dict
+            ), f"settings_3d must be dict, got {type(settings_3d)}"
             point_size = settings_3d.get('point_size', point_size)
             point_opacity = settings_3d.get('point_opacity', point_opacity)
             lod_type = settings_3d.get('lod_type', lod_type)
-            density_percentage = settings_3d.get('density_percentage', density_percentage)
+            density_percentage = settings_3d.get(
+                'density_percentage', density_percentage
+            )
 
         # Validate structure and inputs (includes all basic validation)
         validate_3dcd_structure(datapoint)
@@ -85,10 +100,14 @@ class Base3DCDDataset(BaseDataset):
         inputs = datapoint['inputs']
 
         pc_1 = inputs['pc_1']
-        assert isinstance(pc_1, PointCloud), f"pc_1 must be PointCloud, got {type(pc_1)}"
+        assert isinstance(
+            pc_1, PointCloud
+        ), f"pc_1 must be PointCloud, got {type(pc_1)}"
 
         pc_2 = inputs['pc_2']
-        assert isinstance(pc_2, PointCloud), f"pc_2 must be PointCloud, got {type(pc_2)}"
+        assert isinstance(
+            pc_2, PointCloud
+        ), f"pc_2 must be PointCloud, got {type(pc_2)}"
 
         # Extract data
         points_1 = pc_1.xyz  # First point cloud
@@ -99,7 +118,9 @@ class Base3DCDDataset(BaseDataset):
         stats_data = [
             get_point_cloud_display_stats(pc_1, class_names=class_names),
             get_point_cloud_display_stats(pc_2, class_names=class_names),
-            get_point_cloud_display_stats(pc_2, change_map, class_names=class_names),  # change_map corresponds to points_2
+            get_point_cloud_display_stats(
+                pc_2, change_map, class_names=class_names
+            ),  # change_map corresponds to points_2
         ]
 
         # Prepare figure creation tasks with proper point cloud IDs
@@ -129,7 +150,9 @@ class Base3DCDDataset(BaseDataset):
                 density_percentage=density_percentage,
             ),
             lambda: create_point_cloud_display(
-                pc=PointCloud(xyz=points_2, data={'classification': change_map}),  # change_map corresponds to points_2
+                pc=PointCloud(
+                    xyz=points_2, data={'classification': change_map}
+                ),  # change_map corresponds to points_2
                 color_key='classification',  # Use 'classification' as the label key
                 highlight_indices=None,
                 title="Change Map",
@@ -148,36 +171,56 @@ class Base3DCDDataset(BaseDataset):
 
         # Create figure components
         fig_components = [
-            html.Div([
-                dcc.Graph(figure=figures[0], id={'type': 'point-cloud-graph', 'index': 0})
-            ], style=DisplayStyles.GRID_ITEM_33),
-
-            html.Div([
-                dcc.Graph(figure=figures[1], id={'type': 'point-cloud-graph', 'index': 1})
-            ], style=DisplayStyles.GRID_ITEM_33),
-
-            html.Div([
-                dcc.Graph(figure=figures[2] if len(figures) > 2 else {},
-                         id={'type': 'point-cloud-graph', 'index': 2})
-            ], style=DisplayStyles.GRID_ITEM_33),
+            html.Div(
+                [
+                    dcc.Graph(
+                        figure=figures[0], id={'type': 'point-cloud-graph', 'index': 0}
+                    )
+                ],
+                style=DisplayStyles.GRID_ITEM_33,
+            ),
+            html.Div(
+                [
+                    dcc.Graph(
+                        figure=figures[1], id={'type': 'point-cloud-graph', 'index': 1}
+                    )
+                ],
+                style=DisplayStyles.GRID_ITEM_33,
+            ),
+            html.Div(
+                [
+                    dcc.Graph(
+                        figure=figures[2] if len(figures) > 2 else {},
+                        id={'type': 'point-cloud-graph', 'index': 2},
+                    )
+                ],
+                style=DisplayStyles.GRID_ITEM_33,
+            ),
         ]
 
         # Create statistics components directly from HTML returned by get_point_cloud_stats
         stats_components = [
-            html.Div([
-                html.H4("Point Cloud 1 Statistics:"),
-                stats_data[0]  # HTML component returned by get_point_cloud_stats
-            ], style=DisplayStyles.GRID_ITEM_33),
-
-            html.Div([
-                html.H4("Point Cloud 2 Statistics:"),
-                stats_data[1]  # HTML component returned by get_point_cloud_stats
-            ], style=DisplayStyles.GRID_ITEM_33),
-
-            html.Div([
-                html.H4("Change Statistics:"),
-                stats_data[2]  # HTML component returned by get_point_cloud_stats
-            ], style=DisplayStyles.GRID_ITEM_33),
+            html.Div(
+                [
+                    html.H4("Point Cloud 1 Statistics:"),
+                    stats_data[0],  # HTML component returned by get_point_cloud_stats
+                ],
+                style=DisplayStyles.GRID_ITEM_33,
+            ),
+            html.Div(
+                [
+                    html.H4("Point Cloud 2 Statistics:"),
+                    stats_data[1],  # HTML component returned by get_point_cloud_stats
+                ],
+                style=DisplayStyles.GRID_ITEM_33,
+            ),
+            html.Div(
+                [
+                    html.H4("Change Statistics:"),
+                    stats_data[2],  # HTML component returned by get_point_cloud_stats
+                ],
+                style=DisplayStyles.GRID_ITEM_33,
+            ),
         ]
 
         # Create complete layout
@@ -185,7 +228,7 @@ class Base3DCDDataset(BaseDataset):
             figure_components=fig_components,
             stats_components=stats_components,
             meta_info=datapoint.get('meta_info', {}),
-            debug_outputs=datapoint.get('debug')
+            debug_outputs=datapoint.get('debug'),
         )
 
         return result

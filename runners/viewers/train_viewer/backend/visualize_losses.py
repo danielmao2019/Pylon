@@ -1,12 +1,17 @@
 from typing import List
-import torch
-import plotly.graph_objects as go
+
 import numpy as np
+import plotly.graph_objects as go
+import torch
 
 from runners.viewers.train_viewer.backend.utils import apply_smoothing
 
 
-def visualize_losses(losses: List[torch.Tensor], smoothing_window: int = 1, title: str = "Training Losses by Epoch") -> go.Figure:
+def visualize_losses(
+    losses: List[torch.Tensor],
+    smoothing_window: int = 1,
+    title: str = "Training Losses by Epoch",
+) -> go.Figure:
     """Create a plotly figure visualizing training losses across epochs.
 
     Args:
@@ -20,7 +25,9 @@ def visualize_losses(losses: List[torch.Tensor], smoothing_window: int = 1, titl
     assert losses is not None, "losses must not be None"
     assert isinstance(losses, list), f"losses must be list, got {type(losses)}"
     assert len(losses) > 0, f"losses must not be empty"
-    assert all(isinstance(loss, torch.Tensor) for loss in losses), "All losses must be torch.Tensor"
+    assert all(
+        isinstance(loss, torch.Tensor) for loss in losses
+    ), "All losses must be torch.Tensor"
 
     fig = go.Figure()
 
@@ -54,14 +61,16 @@ def visualize_losses(losses: List[torch.Tensor], smoothing_window: int = 1, titl
         # Use start_idx to end_idx directly as batch indices
         batch_indices = np.arange(start_idx, end_idx)
 
-        fig.add_trace(go.Scatter(
-            x=batch_indices,
-            y=epoch_smoothed_values,
-            mode='lines+markers',
-            name=f'Epoch {epoch_idx}',
-            line=dict(color=colors[epoch_idx]),
-            marker=dict(size=4)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=batch_indices,
+                y=epoch_smoothed_values,
+                mode='lines+markers',
+                name=f'Epoch {epoch_idx}',
+                line=dict(color=colors[epoch_idx]),
+                marker=dict(size=4),
+            )
+        )
 
     fig.update_layout(
         title=title,
@@ -69,12 +78,7 @@ def visualize_losses(losses: List[torch.Tensor], smoothing_window: int = 1, titl
         yaxis_title='Loss Value',
         hovermode='x unified',
         showlegend=True,
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=1.01
-        )
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=1.01),
     )
 
     return fig

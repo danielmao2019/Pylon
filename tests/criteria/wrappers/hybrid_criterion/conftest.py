@@ -1,6 +1,7 @@
 import pytest
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.hybrid_criterion import HybridCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 @pytest.fixture
@@ -11,14 +12,14 @@ def criteria_cfg(dummy_criterion):
             'class': PyTorchCriterionWrapper,
             'args': {
                 'criterion': dummy_criterion,
-            }
+            },
         },
         {
             'class': PyTorchCriterionWrapper,
             'args': {
                 'criterion': dummy_criterion,
-            }
-        }
+            },
+        },
     ]
 
 

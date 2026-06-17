@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 import torch
 
 from ._base_ import GradientManipulationBaseOptimizer
@@ -23,7 +24,9 @@ class GradDropOptimizer(GradientManipulationBaseOptimizer):
         assert type(grads_list) == list
         for idx, grads in enumerate(grads_list):
             assert type(grads) == torch.Tensor, f"{idx=}, {type(grads)=}"
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         # initialization
         dim = len(grads_list[0])
         # multiply by sign if provided
@@ -34,15 +37,25 @@ class GradDropOptimizer(GradientManipulationBaseOptimizer):
             for grads in grads_list:
                 grads *= signed_rep
         # compute gradient purity
-        torch_sum = torch.zeros(size=(dim,), dtype=torch.float32, device=torch.device('cuda'))
-        torch_sum_abs = torch.zeros(size=(dim,), dtype=torch.float32, device=torch.device('cuda'))
+        torch_sum = torch.zeros(
+            size=(dim,), dtype=torch.float32, device=torch.device('cuda')
+        )
+        torch_sum_abs = torch.zeros(
+            size=(dim,), dtype=torch.float32, device=torch.device('cuda')
+        )
         for idx in range(self.num_tasks):
             torch_sum += grads_list[idx]
             torch_sum_abs += torch.abs(grads_list[idx])
-        gradient_purity = 0.5 * (1 + torch_sum / (torch_sum_abs+1.0e-09))
-        assert 0 <= torch.min(gradient_purity) <= torch.max(gradient_purity) <= 1, f"{torch.min(gradient_purity)=}, {torch.max(gradient_purity)=}"
-        prob = gradient_purity > torch.rand(size=gradient_purity.shape, device=torch.device('cuda'))
-        result = torch.zeros(size=(dim,), dtype=torch.float32, device=torch.device('cuda'))
+        gradient_purity = 0.5 * (1 + torch_sum / (torch_sum_abs + 1.0e-09))
+        assert (
+            0 <= torch.min(gradient_purity) <= torch.max(gradient_purity) <= 1
+        ), f"{torch.min(gradient_purity)=}, {torch.max(gradient_purity)=}"
+        prob = gradient_purity > torch.rand(
+            size=gradient_purity.shape, device=torch.device('cuda')
+        )
+        result = torch.zeros(
+            size=(dim,), dtype=torch.float32, device=torch.device('cuda')
+        )
         for idx in range(self.num_tasks):
             mask = prob * (grads_list[idx] > 0) + (~prob) * (grads_list[idx] < 0)
             result += mask * grads_list[idx]

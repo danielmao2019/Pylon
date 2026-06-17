@@ -14,9 +14,9 @@ def compute_k_core_nodes(
     assert isinstance(adjacency, dict), f"{type(adjacency)=}"
     assert isinstance(k_core, int), f"{type(k_core)=}"
     assert k_core > 0, f"{k_core=}"
-    assert all(node_id in adjacency for node_id in node_ids), (
-        "adjacency missing node_id entries from node_ids"
-    )
+    assert all(
+        node_id in adjacency for node_id in node_ids
+    ), "adjacency missing node_id entries from node_ids"
 
     remaining_node_ids = set(node_ids)
     degrees: Dict[int, int] = {}

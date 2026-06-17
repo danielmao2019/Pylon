@@ -7,10 +7,12 @@ import torch
 from ..modules.ops import grid_subsample, radius_search
 from .torch import build_dataloader
 
-
 # Stack mode utilities
 
-def precompute_subsample(points, lengths, num_stages, voxel_size, num_neighbors, subsample_ratio):
+
+def precompute_subsample(
+    points, lengths, num_stages, voxel_size, num_neighbors, subsample_ratio
+):
     assert num_stages == len(num_neighbors)
 
     points_list = []
@@ -26,6 +28,8 @@ def precompute_subsample(points, lengths, num_stages, voxel_size, num_neighbors,
         'points': points_list,
         'lengths': lengths_list,
     }
+
+
 def precompute_neibors(points_list, lengths_list, num_stages, num_neighbors):
 
     neighbors_list = []
@@ -36,7 +40,9 @@ def precompute_neibors(points_list, lengths_list, num_stages, num_neighbors):
     for i in range(num_stages):
         cur_points = points_list[i]
         cur_lengths = lengths_list[i]
-        if i < num_stages:    # without adaptive sampling  i < num_stages, with: i < num_stages
+        if (
+            i < num_stages
+        ):  # without adaptive sampling  i < num_stages, with: i < num_stages
             neighbors = radius_search(
                 cur_points,
                 cur_points,
@@ -74,8 +80,14 @@ def precompute_neibors(points_list, lengths_list, num_stages, num_neighbors):
         'upsampling': upsampling_list,
     }
 
+
 def registration_collate_fn_stack_mode(
-    data_dicts, num_stages, voxel_size, num_neighbors, subsample_ratio, precompute_data=True
+    data_dicts,
+    num_stages,
+    voxel_size,
+    num_neighbors,
+    subsample_ratio,
+    precompute_data=True,
 ):
     r"""Collate function for registration in stack mode.
 
@@ -103,7 +115,9 @@ def registration_collate_fn_stack_mode(
             collated_dict[key].append(value)
 
     # handle special keys: [ref_feats, src_feats] -> feats, [ref_points, src_points] -> points, lengths
-    feats = torch.cat(collated_dict.pop('ref_feats') + collated_dict.pop('src_feats'), dim=0)
+    feats = torch.cat(
+        collated_dict.pop('ref_feats') + collated_dict.pop('src_feats'), dim=0
+    )
     points_list = collated_dict.pop('ref_points') + collated_dict.pop('src_points')
     lengths = torch.LongTensor([points.shape[0] for points in points_list])
     points = torch.cat(points_list, dim=0)
@@ -115,7 +129,9 @@ def registration_collate_fn_stack_mode(
 
     collated_dict['features'] = feats
     if precompute_data:
-        input_dict = precompute_subsample(points, lengths, num_stages, voxel_size, num_neighbors, subsample_ratio)
+        input_dict = precompute_subsample(
+            points, lengths, num_stages, voxel_size, num_neighbors, subsample_ratio
+        )
 
         collated_dict.update(input_dict)
     else:
@@ -127,7 +143,13 @@ def registration_collate_fn_stack_mode(
 
 
 def calibrate_neighbors_stack_mode(
-    dataset, collate_fn, num_stages, voxel_size, search_radius, keep_ratio=0.8, sample_threshold=2000
+    dataset,
+    collate_fn,
+    num_stages,
+    voxel_size,
+    search_radius,
+    keep_ratio=0.8,
+    sample_threshold=2000,
 ):
     # Compute higher bound of neighbors number in a neighborhood
     hist_n = int(np.ceil(4 / 3 * np.pi * (search_radius / voxel_size + 1) ** 2))
@@ -137,11 +159,19 @@ def calibrate_neighbors_stack_mode(
     # Get histogram of neighborhood sizes i in 1 epoch max.
     for i in range(len(dataset)):
         data_dict = collate_fn(
-            [dataset[i]], num_stages, voxel_size, search_radius, max_neighbor_limits, precompute_data=True
+            [dataset[i]],
+            num_stages,
+            voxel_size,
+            search_radius,
+            max_neighbor_limits,
+            precompute_data=True,
         )
 
         # update histogram
-        counts = [np.sum(neighbors.numpy() < neighbors.shape[0], axis=1) for neighbors in data_dict['neighbors']]
+        counts = [
+            np.sum(neighbors.numpy() < neighbors.shape[0], axis=1)
+            for neighbors in data_dict['neighbors']
+        ]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighbor_hists += np.vstack(hists)
 

@@ -1,11 +1,12 @@
 """Tests for data validation and consistency checking."""
 
-import pytest
 import numpy as np
+import pytest
+
 from runners.viewers.eval_viewer.backend.initialization import (
     LogDirInfo,
     _validate_log_dir_consistency,
-    compute_per_metric_color_scales
+    compute_per_metric_color_scales,
 )
 
 
@@ -22,7 +23,7 @@ def test_data_consistency_validation():
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='trainer'
+        runner_type='trainer',
     )
 
     info2 = LogDirInfo(
@@ -35,7 +36,7 @@ def test_data_consistency_validation():
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='evaluator'
+        runner_type='evaluator',
     )
 
     log_dir_infos = {'log1': info1, 'log2': info2}
@@ -58,7 +59,7 @@ def test_color_scale_computation_integration():
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='trainer'
+        runner_type='trainer',
     )
 
     evaluator_info = LogDirInfo(
@@ -71,13 +72,10 @@ def test_color_scale_computation_integration():
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='evaluator'
+        runner_type='evaluator',
     )
 
-    log_dir_infos = {
-        'trainer_run': trainer_info,
-        'evaluator_run': evaluator_info
-    }
+    log_dir_infos = {'trainer_run': trainer_info, 'evaluator_run': evaluator_info}
 
     # Test color scale computation
     color_scales = compute_per_metric_color_scales(log_dir_infos)
@@ -96,10 +94,12 @@ def test_color_scale_computation_integration():
 def test_nan_handling_integration():
     """Test NaN handling in integrated pipeline."""
     # Create data with NaN values
-    score_map_with_nans = np.array([
-        [[0.5, 0.7, np.nan], [0.2, np.nan, 0.8], [0.9, 0.1, 0.6]],  # Metric 1
-        [[np.nan, 0.3, 0.4], [0.7, 0.8, np.nan], [0.2, 0.9, 0.5]]   # Metric 2
-    ])
+    score_map_with_nans = np.array(
+        [
+            [[0.5, 0.7, np.nan], [0.2, np.nan, 0.8], [0.9, 0.1, 0.6]],  # Metric 1
+            [[np.nan, 0.3, 0.4], [0.7, 0.8, np.nan], [0.2, 0.9, 0.5]],  # Metric 2
+        ]
+    )
 
     aggregated_with_nans = np.array([0.6, np.nan])
 
@@ -113,7 +113,7 @@ def test_nan_handling_integration():
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='evaluator'
+        runner_type='evaluator',
     )
 
     log_dir_infos = {'test_run': log_dir_info}

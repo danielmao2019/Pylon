@@ -20,8 +20,8 @@ def ppsl_dataset_config(whu_bd_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': whu_bd_data_root,
             'split': 'train',
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
     # Need to build source dataset to get its length for PPSLDataset
@@ -29,10 +29,7 @@ def ppsl_dataset_config(whu_bd_data_root, use_cpu_device, get_device):
 
     return {
         'class': PPSLDataset,
-        'args': {
-            'source': source,
-            'dataset_size': len(source)
-        }
+        'args': {'source': source, 'dataset_size': len(source)},
     }
 
 
@@ -45,24 +42,15 @@ def i3pe_dataset_config(sysu_cd_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': sysu_cd_data_root,
             'split': 'train',
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
     sysu_dataset = build_from_config(sysu_config)
 
-    bi2single_config = {
-        'class': Bi2SingleTemporal,
-        'args': {
-            'source': sysu_dataset
-        }
-    }
+    bi2single_config = {'class': Bi2SingleTemporal, 'args': {'source': sysu_dataset}}
     source = build_from_config(bi2single_config)
 
     return {
         'class': I3PEDataset,
-        'args': {
-            'source': source,
-            'dataset_size': len(source),
-            'exchange_ratio': 0.75
-        }
+        'args': {'source': source, 'dataset_size': len(source), 'exchange_ratio': 0.75},
     }

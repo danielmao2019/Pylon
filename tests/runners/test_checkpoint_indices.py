@@ -1,6 +1,8 @@
+from unittest.mock import Mock, patch
+
 import pytest
 import torch
-from unittest.mock import Mock, patch
+
 from runners.trainers.base_trainer import BaseTrainer
 
 
@@ -12,7 +14,7 @@ class TestableBaseTrainer(BaseTrainer):
         config = {
             'work_dir': './logs/tests',
             'epochs': tot_epochs,  # BaseTrainer expects 'epochs' not 'tot_epochs'
-            'checkpoint_method': checkpoint_method
+            'checkpoint_method': checkpoint_method,
         }
 
         # Mock device
@@ -36,18 +38,25 @@ class TestableBaseTrainer(BaseTrainer):
         pass
 
 
-@pytest.mark.parametrize("tot_epochs,checkpoint_method,expected_indices", [
-    (10, 'latest', [9]),
-    (10, 'all', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-    (10, 2, [1, 3, 5, 7, 9]),  # Every 2 epochs + last
-    (10, 3, [2, 5, 8, 9]),     # Every 3 epochs + last
-    (10, 5, [4, 9]),           # Every 5 epochs + last
-    (5, 2, [1, 3, 4]),         # Every 2 epochs + last
-    (3, 5, [2]),               # Interval > tot_epochs, only last
-])
-def test_checkpoint_indices_calculation(tot_epochs, checkpoint_method, expected_indices):
+@pytest.mark.parametrize(
+    "tot_epochs,checkpoint_method,expected_indices",
+    [
+        (10, 'latest', [9]),
+        (10, 'all', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+        (10, 2, [1, 3, 5, 7, 9]),  # Every 2 epochs + last
+        (10, 3, [2, 5, 8, 9]),  # Every 3 epochs + last
+        (10, 5, [4, 9]),  # Every 5 epochs + last
+        (5, 2, [1, 3, 4]),  # Every 2 epochs + last
+        (3, 5, [2]),  # Interval > tot_epochs, only last
+    ],
+)
+def test_checkpoint_indices_calculation(
+    tot_epochs, checkpoint_method, expected_indices
+):
     """Test that checkpoint indices are calculated correctly for different methods."""
-    trainer = TestableBaseTrainer(tot_epochs=tot_epochs, checkpoint_method=checkpoint_method)
+    trainer = TestableBaseTrainer(
+        tot_epochs=tot_epochs, checkpoint_method=checkpoint_method
+    )
     trainer._init_checkpoint_indices()
 
     assert trainer.checkpoint_indices == expected_indices

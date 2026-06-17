@@ -1,7 +1,9 @@
-import pytest
-from utils.input_checks.check_path import check_read_file
 import os
 from tempfile import NamedTemporaryFile
+
+import pytest
+
+from utils.input_checks.check_path import check_read_file
 
 
 # Helper function to create a temporary file for testing

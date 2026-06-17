@@ -1,7 +1,8 @@
 import pytest
 import torch
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.hybrid_criterion import HybridCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 def test_compute_loss_sum(hybrid_criterion, sample_tensor):
@@ -82,14 +83,8 @@ def test_loss_tensor_properties(hybrid_criterion, sample_tensor):
 def test_combine_options_exhaustive(dummy_criterion, sample_tensor):
     """Test all valid combine options."""
     criteria_cfg = [
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        },
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        }
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}},
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}},
     ]
 
     y_true = torch.randn_like(sample_tensor)
@@ -109,14 +104,8 @@ def test_combine_options_exhaustive(dummy_criterion, sample_tensor):
 def test_component_criterion_isolation(dummy_criterion, sample_tensor):
     """Test that component criteria are properly isolated."""
     criteria_cfg = [
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        },
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        }
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}},
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}},
     ]
 
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
@@ -134,10 +123,7 @@ def test_component_criterion_isolation(dummy_criterion, sample_tensor):
 def test_gradient_flow(dummy_criterion, sample_tensor):
     """Test that gradients flow properly through the hybrid criterion."""
     criteria_cfg = [
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        }
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}}
     ]
 
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
@@ -160,10 +146,7 @@ def test_gradient_flow(dummy_criterion, sample_tensor):
 def test_deterministic_computation(dummy_criterion):
     """Test that computation is deterministic with same inputs."""
     criteria_cfg = [
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        }
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}}
     ]
 
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
@@ -178,4 +161,6 @@ def test_deterministic_computation(dummy_criterion):
     loss2 = criterion(y_pred=sample_input, y_true=sample_target)
 
     # Should be identical
-    assert torch.equal(loss1, loss2), f"Non-deterministic computation: {loss1} != {loss2}"
+    assert torch.equal(
+        loss1, loss2
+    ), f"Non-deterministic computation: {loss1} != {loss2}"

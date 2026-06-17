@@ -1,4 +1,5 @@
-from typing import Tuple, List , Dict, Union, Optional
+from typing import Dict, List, Optional, Tuple, Union
+
 import torch
 
 from ._base_ import GradientBalancingBaseOptimizer
@@ -23,17 +24,24 @@ class DWAOptimizer(GradientBalancingBaseOptimizer):
         losses_tensor = torch.stack(list(losses.values()))
         with torch.no_grad():
             if type(self.losses_buffer) == torch.Tensor:
-                assert self.losses_buffer.shape == (2 * self.window_size, self.num_tasks)
+                assert self.losses_buffer.shape == (
+                    2 * self.window_size,
+                    self.num_tasks,
+                )
                 # compute weights
-                past = self.losses_buffer[self.window_size:, :].mean(dim=0)
-                past_past = self.losses_buffer[:self.window_size, :].mean(dim=0)
+                past = self.losses_buffer[self.window_size :, :].mean(dim=0)
+                past_past = self.losses_buffer[: self.window_size, :].mean(dim=0)
                 weights = past / (past_past + 1.0e-09)
                 # update buffer
                 self.losses_buffer[:-1, :] = self.losses_buffer.clone()[1:, :]
                 self.losses_buffer[-1, :] = losses_tensor.detach().clone()
             elif type(self.losses_buffer) == list:
                 # if buffer not full, then use uniform weighting
-                weights = torch.zeros(size=(self.num_tasks,), dtype=torch.float32, device=torch.device('cuda'))
+                weights = torch.zeros(
+                    size=(self.num_tasks,),
+                    dtype=torch.float32,
+                    device=torch.device('cuda'),
+                )
                 self.losses_buffer.append(losses_tensor.detach().clone())
                 if len(self.losses_buffer) == 2 * self.window_size:
                     self.losses_buffer = torch.stack(self.losses_buffer, dim=0)

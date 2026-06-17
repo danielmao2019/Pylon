@@ -1,10 +1,12 @@
 """Test disk cache concurrent access patterns and thread safety."""
 
-import pytest
 import tempfile
-import time
 import threading
+import time
+
+import pytest
 import torch
+
 from data.cache.disk_dataset_cache import DiskDatasetCache
 
 
@@ -23,18 +25,9 @@ def temp_cache_dir():
 def sample_datapoint():
     """Create a sample datapoint for testing."""
     return {
-        'inputs': {
-            'image': torch.randn(3, 64, 64),
-            'features': torch.randn(256)
-        },
-        'labels': {
-            'mask': torch.randint(0, 2, (64, 64))
-        },
-        'meta_info': {
-            'path': '/test/image.jpg',
-            'index': 42,
-            'dataset': 'test'
-        }
+        'inputs': {'image': torch.randn(3, 64, 64), 'features': torch.randn(256)},
+        'labels': {'mask': torch.randint(0, 2, (64, 64))},
+        'meta_info': {'path': '/test/image.jpg', 'index': 42, 'dataset': 'test'},
     }
 
 
@@ -43,7 +36,7 @@ def test_concurrent_put_operations(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="concurrent_put_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     num_threads = 10
@@ -58,7 +51,11 @@ def test_concurrent_put_operations(temp_cache_dir, sample_datapoint):
                 modified_datapoint = {
                     'inputs': sample_datapoint['inputs'],
                     'labels': sample_datapoint['labels'],
-                    'meta_info': {**sample_datapoint['meta_info'], 'thread_id': thread_id, 'item_id': i}
+                    'meta_info': {
+                        **sample_datapoint['meta_info'],
+                        'thread_id': thread_id,
+                        'item_id': i,
+                    },
                 }
                 cache.put(modified_datapoint, cache_filepath=_fp(cache, idx))
             results[thread_id] = 'success'
@@ -98,7 +95,7 @@ def test_concurrent_get_operations(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="concurrent_get_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     # Pre-populate cache
@@ -107,7 +104,7 @@ def test_concurrent_get_operations(temp_cache_dir, sample_datapoint):
         modified_datapoint = {
             'inputs': sample_datapoint['inputs'],
             'labels': sample_datapoint['labels'],
-            'meta_info': {**sample_datapoint['meta_info'], 'index': i}
+            'meta_info': {**sample_datapoint['meta_info'], 'index': i},
         }
         cache.put(modified_datapoint, cache_filepath=_fp(cache, i))
 
@@ -151,7 +148,7 @@ def test_mixed_concurrent_operations(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="mixed_concurrent_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     results = {}
@@ -175,7 +172,9 @@ def test_mixed_concurrent_operations(temp_cache_dir, sample_datapoint):
                 result = cache.get(cache_filepath=_fp(cache, idx))
                 if result is not None:
                     successful_reads += 1
-                time.sleep(0.001)  # Small delay to allow for more interesting interleavings
+                time.sleep(
+                    0.001
+                )  # Small delay to allow for more interesting interleavings
             results[f'reader_{worker_id}'] = successful_reads
         except Exception as e:
             results[f'reader_{worker_id}'] = f'error: {e}'
@@ -214,7 +213,7 @@ def test_concurrent_validation_operations(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="concurrent_validation_test",
-        enable_validation=True
+        enable_validation=True,
     )
 
     # Pre-populate with validation
@@ -259,7 +258,7 @@ def test_concurrent_clear_operations(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="concurrent_clear_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     results = {}
@@ -306,7 +305,7 @@ def test_concurrent_clear_operations(temp_cache_dir, sample_datapoint):
     threads = [
         threading.Thread(target=writer_worker),
         threading.Thread(target=reader_worker),
-        threading.Thread(target=cleaner_worker)
+        threading.Thread(target=cleaner_worker),
     ]
 
     for thread in threads:
@@ -325,9 +324,7 @@ def test_concurrent_clear_operations(temp_cache_dir, sample_datapoint):
 def test_thread_lock_functionality(temp_cache_dir, sample_datapoint):
     """Test that thread locks work correctly."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="lock_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="lock_test", enable_validation=False
     )
 
     # Test that lock exists and is functional

@@ -1,6 +1,9 @@
 import pytest
 import torch
-from criteria.vision_2d.dense_prediction.dense_regression.normal_estimation import NormalEstimationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_regression.normal_estimation import (
+    NormalEstimationCriterion,
+)
 
 
 def test_normal_estimation_basic():

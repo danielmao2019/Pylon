@@ -1,6 +1,8 @@
 from typing import Dict, Tuple
+
 import numpy as np
 import torch
+
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
@@ -21,7 +23,9 @@ class IsotropicTransformError(SingleTaskMetric):
         super(IsotropicTransformError, self).__init__(use_buffer=use_buffer)
 
     @staticmethod
-    def _get_rotation_translation(transform: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _get_rotation_translation(
+        transform: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""Decompose transformation matrix into rotation matrix and translation vector.
 
         Args:
@@ -31,12 +35,17 @@ class IsotropicTransformError(SingleTaskMetric):
             rotation (Tensor): (*, 3, 3)
             translation (Tensor): (*, 3)
         """
-        assert transform.shape[-2:] == (4, 4), f"Expected transform shape (*, 4, 4), got {transform.shape}"
+        assert transform.shape[-2:] == (
+            4,
+            4,
+        ), f"Expected transform shape (*, 4, 4), got {transform.shape}"
         rotation = transform[..., :3, :3]
         translation = transform[..., :3, 3]
         return rotation, translation
 
-    def _compute_rotation_error(self, gt_rotations: torch.Tensor, rotations: torch.Tensor) -> torch.Tensor:
+    def _compute_rotation_error(
+        self, gt_rotations: torch.Tensor, rotations: torch.Tensor
+    ) -> torch.Tensor:
         r"""Compute Relative Rotation Error (RRE).
 
         RRE = acos((trace(R^T \cdot \bar{R}) - 1) / 2)
@@ -48,8 +57,14 @@ class IsotropicTransformError(SingleTaskMetric):
         Returns:
             Relative rotation errors in degrees (*)
         """
-        assert gt_rotations.shape[-2:] == (3, 3), f"Expected rotation shape (*, 3, 3), got {gt_rotations.shape}"
-        assert rotations.shape[-2:] == (3, 3), f"Expected rotation shape (*, 3, 3), got {rotations.shape}"
+        assert gt_rotations.shape[-2:] == (
+            3,
+            3,
+        ), f"Expected rotation shape (*, 3, 3), got {gt_rotations.shape}"
+        assert rotations.shape[-2:] == (
+            3,
+            3,
+        ), f"Expected rotation shape (*, 3, 3), got {rotations.shape}"
 
         # Compute relative rotation: R_rel = R_gt^T @ R_pred
         rel_rotations = torch.matmul(gt_rotations.transpose(-2, -1), rotations)
@@ -66,7 +81,9 @@ class IsotropicTransformError(SingleTaskMetric):
 
         return rotation_errors_deg
 
-    def _compute_translation_error(self, gt_translations: torch.Tensor, translations: torch.Tensor) -> torch.Tensor:
+    def _compute_translation_error(
+        self, gt_translations: torch.Tensor, translations: torch.Tensor
+    ) -> torch.Tensor:
         r"""Compute Relative Translation Error (RTE).
 
         RTE = ||t_gt - t_pred||_2
@@ -81,7 +98,9 @@ class IsotropicTransformError(SingleTaskMetric):
         rte = torch.linalg.norm(gt_translations - translations, dim=-1)
         return rte
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """Compute rotation and translation errors.
 
         Args:
@@ -92,8 +111,12 @@ class IsotropicTransformError(SingleTaskMetric):
             Dictionary containing rotation and translation errors
         """
         # Input validation
-        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor for y_pred, got {type(y_pred)}"
-        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor for y_true, got {type(y_true)}"
+        assert isinstance(
+            y_pred, torch.Tensor
+        ), f"Expected torch.Tensor for y_pred, got {type(y_pred)}"
+        assert isinstance(
+            y_true, torch.Tensor
+        ), f"Expected torch.Tensor for y_true, got {type(y_true)}"
 
         # Handle batch dimension - expect (1, 4, 4) from SingleTaskMetric
         if y_pred.ndim == 3:
@@ -110,8 +133,16 @@ class IsotropicTransformError(SingleTaskMetric):
         else:
             raise ValueError(f"Expected 2D or 3D tensor, got {y_true.ndim}D")
 
-        assert y_pred.shape == (1, 4, 4), f"Expected (1, 4, 4) transform, got {y_pred.shape}"
-        assert y_true.shape == (1, 4, 4), f"Expected (1, 4, 4) transform, got {y_true.shape}"
+        assert y_pred.shape == (
+            1,
+            4,
+            4,
+        ), f"Expected (1, 4, 4) transform, got {y_pred.shape}"
+        assert y_true.shape == (
+            1,
+            4,
+            4,
+        ), f"Expected (1, 4, 4) transform, got {y_true.shape}"
 
         # Extract rotation and translation from transformation matrices
         gt_rotations, gt_translations = self._get_rotation_translation(y_true)
@@ -120,7 +151,9 @@ class IsotropicTransformError(SingleTaskMetric):
         # Compute errors
         rotation_error = self._compute_rotation_error(gt_rotations, rotations)
         assert rotation_error.shape == (1,), f"{rotation_error.shape=}"
-        translation_error = self._compute_translation_error(gt_translations, translations)
+        translation_error = self._compute_translation_error(
+            gt_translations, translations
+        )
         assert translation_error.shape == (1,), f"{translation_error.shape=}"
 
         return {

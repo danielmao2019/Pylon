@@ -12,7 +12,7 @@ from models.change_detection.ftn.modules.patch.patch_merging import PatchMerging
 
 
 class SwinTransEncoder(torch.nn.Module):
-    r""" Swin Transformer
+    r"""Swin Transformer
         A PyTorch impl of : `Swin Transformer: Hierarchical Vision Transformer using Shifted Windows`  -
           https://arxiv.org/pdf/2103.14030
 
@@ -37,18 +37,37 @@ class SwinTransEncoder(torch.nn.Module):
         use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False
     """
 
-    def __init__(self, img_size=224, patch_size=4, in_chans=3, num_classes=2,
-                 embed_dim=192, depths=[2, 2, 18, 2], depths_decoder=[4, 4, 4, 4], num_heads=[6, 12, 24, 48],
-                 window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
-                 drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                 norm_layer=torch.nn.LayerNorm, ape=False, patch_norm=True,
-                 use_checkpoint=False, final_upsample="expand_first", **kwargs):
+    def __init__(
+        self,
+        img_size=224,
+        patch_size=4,
+        in_chans=3,
+        num_classes=2,
+        embed_dim=192,
+        depths=[2, 2, 18, 2],
+        depths_decoder=[4, 4, 4, 4],
+        num_heads=[6, 12, 24, 48],
+        window_size=7,
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        qk_scale=None,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        drop_path_rate=0.1,
+        norm_layer=torch.nn.LayerNorm,
+        ape=False,
+        patch_norm=True,
+        use_checkpoint=False,
+        final_upsample="expand_first",
+        **kwargs
+    ):
         super().__init__()
 
         print(
             "SwinTransformerSys expand initial----depths:{};depths_decoder:{};drop_path_rate:{};num_classes:{}".format(
-                depths,
-                depths_decoder, drop_path_rate, num_classes))
+                depths, depths_decoder, drop_path_rate, num_classes
+            )
+        )
 
         self.num_classes = num_classes
         self.num_layers = len(depths)
@@ -62,16 +81,22 @@ class SwinTransEncoder(torch.nn.Module):
 
         # split image into non-overlapping patches
         self.patch_embed = PatchEmbed(
-            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim,
-            norm_layer=norm_layer if self.patch_norm else None)
+            img_size=img_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
+            embed_dim=embed_dim,
+            norm_layer=norm_layer if self.patch_norm else None,
+        )
         num_patches = self.patch_embed.num_patches
         patches_resolution = self.patch_embed.patches_resolution
         self.patches_resolution = patches_resolution
 
         # absolute position embedding
         if self.ape:
-            self.absolute_pos_embed = torch.nn.Parameter(torch.zeros(1, num_patches, embed_dim))
-            trunc_normal_(self.absolute_pos_embed, std=.02)
+            self.absolute_pos_embed = torch.nn.Parameter(
+                torch.zeros(1, num_patches, embed_dim)
+            )
+            trunc_normal_(self.absolute_pos_embed, std=0.02)
 
         self.pos_drop = torch.nn.Dropout(p=drop_rate)
 
@@ -82,24 +107,32 @@ class SwinTransEncoder(torch.nn.Module):
         self.deal.append(torch.nn.LayerNorm(1024))
 
         # stochastic depth
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))
+        ]  # stochastic depth decay rule
 
         # build encoder and bottleneck layers
         self.layers = torch.nn.ModuleList()
         for i_layer in range(self.num_layers):
-            layer = BasicLayer(dim=int(embed_dim * 2 ** i_layer),
-                               input_resolution=(patches_resolution[0] // (2 ** i_layer),
-                                                 patches_resolution[1] // (2 ** i_layer)),
-                               depth=depths[i_layer],
-                               num_heads=num_heads[i_layer],
-                               window_size=window_size,
-                               mlp_ratio=self.mlp_ratio,
-                               qkv_bias=qkv_bias, qk_scale=qk_scale,
-                               drop=drop_rate, attn_drop=attn_drop_rate,
-                               drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
-                               norm_layer=norm_layer,
-                               downsample=PatchMerging if (i_layer < self.num_layers - 1) else None,
-                               use_checkpoint=use_checkpoint)
+            layer = BasicLayer(
+                dim=int(embed_dim * 2**i_layer),
+                input_resolution=(
+                    patches_resolution[0] // (2**i_layer),
+                    patches_resolution[1] // (2**i_layer),
+                ),
+                depth=depths[i_layer],
+                num_heads=num_heads[i_layer],
+                window_size=window_size,
+                mlp_ratio=self.mlp_ratio,
+                qkv_bias=qkv_bias,
+                qk_scale=qk_scale,
+                drop=drop_rate,
+                attn_drop=attn_drop_rate,
+                drop_path=dpr[sum(depths[:i_layer]) : sum(depths[: i_layer + 1])],
+                norm_layer=norm_layer,
+                downsample=PatchMerging if (i_layer < self.num_layers - 1) else None,
+                use_checkpoint=use_checkpoint,
+            )
             self.layers.append(layer)
 
         self.norm = norm_layer(self.num_features)
@@ -133,14 +166,20 @@ class SwinTransEncoder(torch.nn.Module):
 
         for inx, layer in enumerate(self.layers):
             if inx != 3:
-                x1_downsample.append(self.deal[inx](x1))  # self.deal[inx](x))  #self.deal[inx]
+                x1_downsample.append(
+                    self.deal[inx](x1)
+                )  # self.deal[inx](x))  #self.deal[inx]
                 x2_downsample.append(self.deal[inx](x2))
                 x1 = layer(x1)  # ??norm(  mlp(layer_norm(self-attention(x)))
                 x2 = layer(x2)
             else:
-                x1_downsample.append(self.deal[inx](x1))  # self.deal[inx](x))  #self.deal[inx]
+                x1_downsample.append(
+                    self.deal[inx](x1)
+                )  # self.deal[inx](x))  #self.deal[inx]
                 x2_downsample.append(self.deal[inx](x2))
-                x_mid = self.transpose_verse(self.fusion(self.transpose(torch.cat([x1, x2], dim=2))))
+                x_mid = self.transpose_verse(
+                    self.fusion(self.transpose(torch.cat([x1, x2], dim=2)))
+                )
                 x_mid = layer(x_mid)
         x_mid = self.norm(x_mid)  # B L C --1 49 768]
 

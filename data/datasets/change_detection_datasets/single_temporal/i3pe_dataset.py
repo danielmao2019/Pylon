@@ -1,9 +1,11 @@
-from typing import Tuple, Dict, Union, Any, Optional, List
 import random
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy
 import torch
-from sklearn.cluster import DBSCAN
 from skimage.segmentation import slic
+from sklearn.cluster import DBSCAN
+
 from data.datasets import BaseSyntheticDataset
 
 
@@ -36,17 +38,21 @@ class I3PEDataset(BaseSyntheticDataset):
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'exchange_ratio': self.exchange_ratio,
-            'n_segments': self.n_segments,
-            'eps': self.eps,
-            'min_samples': self.min_samples,
-            'scale_factors': self.scale_factors,
-        })
+        version_dict.update(
+            {
+                'exchange_ratio': self.exchange_ratio,
+                'n_segments': self.n_segments,
+                'eps': self.eps,
+                'min_samples': self.min_samples,
+                'scale_factors': self.scale_factors,
+            }
+        )
         return version_dict
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         exchange_type_seed = random.random()
         patch_size = random.choice(self.scale_factors)
@@ -55,14 +61,20 @@ class I3PEDataset(BaseSyntheticDataset):
             idx_2 = idx
             img_1 = self.source[idx]['inputs']['image']
             class_labels = self._perform_clustering(img_1)
-            img_2, change_map = self._intra_image_patch_exchange(img_1, class_labels, patch_size)
+            img_2, change_map = self._intra_image_patch_exchange(
+                img_1, class_labels, patch_size
+            )
         else:
             idx_2 = random.choice(range(len(self.source)))
             img_1 = self.source[idx]['inputs']['image']
             img_2 = self.source[idx_2]['inputs']['image']
             objects_1 = self._segment_objects(img_1)
             objects_2 = self._segment_objects(img_2)
-            img_2, change_map, semantic_map_1, semantic_map_2 = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
+            img_2, change_map, semantic_map_1, semantic_map_2 = (
+                self._inter_image_patch_exchange(
+                    img_1, img_2, objects_1, objects_2, patch_size
+                )
+            )
 
         assert all(type(x) == numpy.ndarray for x in [img_2, change_map])
         img_2 = torch.from_numpy(img_2).permute((2, 0, 1))
@@ -81,13 +93,17 @@ class I3PEDataset(BaseSyntheticDataset):
         if exchange_type_seed < 0:
             meta_info['semantic_map_1'] = class_labels
         else:
-            meta_info.update({
-                'semantic_map_1': semantic_map_1,
-                'semantic_map_2': semantic_map_2,
-            })
+            meta_info.update(
+                {
+                    'semantic_map_1': semantic_map_1,
+                    'semantic_map_2': semantic_map_2,
+                }
+            )
         return inputs, labels, meta_info
 
-    def _segment_objects(self, image: Union[numpy.ndarray, torch.Tensor]) -> numpy.ndarray:
+    def _segment_objects(
+        self, image: Union[numpy.ndarray, torch.Tensor]
+    ) -> numpy.ndarray:
         """
         Perform object segmentation using SLIC.
 
@@ -104,7 +120,9 @@ class I3PEDataset(BaseSyntheticDataset):
         assert segmentation.shape == image.shape[:2]
         return segmentation
 
-    def _perform_clustering(self, image: Union[numpy.ndarray, torch.Tensor], segments: numpy.ndarray = None) -> numpy.ndarray:
+    def _perform_clustering(
+        self, image: Union[numpy.ndarray, torch.Tensor], segments: numpy.ndarray = None
+    ) -> numpy.ndarray:
         """
         Perform clustering on image segments using DBSCAN.
 
@@ -129,12 +147,16 @@ class I3PEDataset(BaseSyntheticDataset):
         features = numpy.zeros((num_segments, 6))
         for segment_idx in range(num_segments):
             segment_mask = segments == segment_idx
-            features[segment_idx] = numpy.concatenate([
-                numpy.mean(image[segment_mask], axis=0),
-                numpy.std(image[segment_mask], axis=0)
-            ])
+            features[segment_idx] = numpy.concatenate(
+                [
+                    numpy.mean(image[segment_mask], axis=0),
+                    numpy.std(image[segment_mask], axis=0),
+                ]
+            )
 
-        clustering = DBSCAN(eps=self.eps, min_samples=self.min_samples, metric='euclidean').fit(features)
+        clustering = DBSCAN(
+            eps=self.eps, min_samples=self.min_samples, metric='euclidean'
+        ).fit(features)
         cluster_labels = clustering.labels_
 
         clustered_map = numpy.zeros(image.shape[:2], dtype=int)
@@ -143,7 +165,12 @@ class I3PEDataset(BaseSyntheticDataset):
 
         return clustered_map
 
-    def _intra_image_patch_exchange(self, image: Union[numpy.ndarray, torch.Tensor], labels: numpy.ndarray, patch_size: int) -> Tuple[torch.Tensor, numpy.ndarray]:
+    def _intra_image_patch_exchange(
+        self,
+        image: Union[numpy.ndarray, torch.Tensor],
+        labels: numpy.ndarray,
+        patch_size: int,
+    ) -> Tuple[torch.Tensor, numpy.ndarray]:
         """
         Perform intra-image patch exchange.
 
@@ -160,39 +187,59 @@ class I3PEDataset(BaseSyntheticDataset):
         assert type(image) == numpy.ndarray, f"{type(image)=}"
 
         num_patches = image.shape[0] // patch_size
-        patch_indices = numpy.arange(num_patches ** 2)
+        patch_indices = numpy.arange(num_patches**2)
         numpy.random.shuffle(patch_indices)
 
-        num_exchanges = int(num_patches ** 2 * self.exchange_ratio)
+        num_exchanges = int(num_patches**2 * self.exchange_ratio)
         exchanged_image = image.copy()
         change_map = numpy.zeros(image.shape[:2], dtype=numpy.int64)
 
         for i in range(0, num_exchanges, 2):
             idx_1 = numpy.unravel_index(patch_indices[i], (num_patches, num_patches))
-            idx_2 = numpy.unravel_index(patch_indices[i + 1], (num_patches, num_patches))
+            idx_2 = numpy.unravel_index(
+                patch_indices[i + 1], (num_patches, num_patches)
+            )
 
-            patch_1 = image[patch_size * idx_1[0]:patch_size * (idx_1[0] + 1),
-                            patch_size * idx_1[1]:patch_size * (idx_1[1] + 1)]
+            patch_1 = image[
+                patch_size * idx_1[0] : patch_size * (idx_1[0] + 1),
+                patch_size * idx_1[1] : patch_size * (idx_1[1] + 1),
+            ]
 
-            patch_2 = image[patch_size * idx_2[0]:patch_size * (idx_2[0] + 1),
-                            patch_size * idx_2[1]:patch_size * (idx_2[1] + 1)]
+            patch_2 = image[
+                patch_size * idx_2[0] : patch_size * (idx_2[0] + 1),
+                patch_size * idx_2[1] : patch_size * (idx_2[1] + 1),
+            ]
 
-            exchanged_image[patch_size * idx_1[0]:patch_size * (idx_1[0] + 1),
-                            patch_size * idx_1[1]:patch_size * (idx_1[1] + 1)] = patch_2
+            exchanged_image[
+                patch_size * idx_1[0] : patch_size * (idx_1[0] + 1),
+                patch_size * idx_1[1] : patch_size * (idx_1[1] + 1),
+            ] = patch_2
 
-            exchanged_image[patch_size * idx_2[0]:patch_size * (idx_2[0] + 1),
-                            patch_size * idx_2[1]:patch_size * (idx_2[1] + 1)] = patch_1
+            exchanged_image[
+                patch_size * idx_2[0] : patch_size * (idx_2[0] + 1),
+                patch_size * idx_2[1] : patch_size * (idx_2[1] + 1),
+            ] = patch_1
 
-            inconsistency = (labels[patch_size * idx_1[0]:patch_size * (idx_1[0] + 1),
-                                  patch_size * idx_1[1]:patch_size * (idx_1[1] + 1)] !=
-                             labels[patch_size * idx_2[0]:patch_size * (idx_2[0] + 1),
-                                  patch_size * idx_2[1]:patch_size * (idx_2[1] + 1)]).astype(numpy.int64)
+            inconsistency = (
+                labels[
+                    patch_size * idx_1[0] : patch_size * (idx_1[0] + 1),
+                    patch_size * idx_1[1] : patch_size * (idx_1[1] + 1),
+                ]
+                != labels[
+                    patch_size * idx_2[0] : patch_size * (idx_2[0] + 1),
+                    patch_size * idx_2[1] : patch_size * (idx_2[1] + 1),
+                ]
+            ).astype(numpy.int64)
 
-            change_map[patch_size * idx_1[0]:patch_size * (idx_1[0] + 1),
-                       patch_size * idx_1[1]:patch_size * (idx_1[1] + 1)] = inconsistency
+            change_map[
+                patch_size * idx_1[0] : patch_size * (idx_1[0] + 1),
+                patch_size * idx_1[1] : patch_size * (idx_1[1] + 1),
+            ] = inconsistency
 
-            change_map[patch_size * idx_2[0]:patch_size * (idx_2[0] + 1),
-                       patch_size * idx_2[1]:patch_size * (idx_2[1] + 1)] = inconsistency
+            change_map[
+                patch_size * idx_2[0] : patch_size * (idx_2[0] + 1),
+                patch_size * idx_2[1] : patch_size * (idx_2[1] + 1),
+            ] = inconsistency
 
         return exchanged_image, change_map
 
@@ -202,7 +249,7 @@ class I3PEDataset(BaseSyntheticDataset):
         img_2: Union[numpy.ndarray, torch.Tensor],
         object_1: numpy.ndarray,
         object_2: numpy.ndarray,
-        patch_sz: int
+        patch_sz: int,
     ):
         """
         Performs inter-image patch exchange based on object-level clustering and patch size.
@@ -232,22 +279,22 @@ class I3PEDataset(BaseSyntheticDataset):
 
         # Perform clustering using the perform_clustering method
         clustered_map = self._perform_clustering(concat_img, segments=concat_object)
-        assert clustered_map.shape == (img_1.shape[0]+img_2.shape[0], img_1.shape[1])
+        assert clustered_map.shape == (img_1.shape[0] + img_2.shape[0], img_1.shape[1])
 
         # Separate labels for the two images
-        label_1 = clustered_map[:img_1.shape[0], :]
-        label_2 = clustered_map[img_1.shape[0]:, :]
+        label_1 = clustered_map[: img_1.shape[0], :]
+        label_2 = clustered_map[img_1.shape[0] :, :]
 
         # Identify change regions
         change_label = (label_1 != label_2).astype(numpy.int64)
 
         # Determine number of patches in rows and columns
         patch_num_in_raw = img_1.shape[0] // patch_sz
-        patch_idx = numpy.arange(patch_num_in_raw ** 2)
+        patch_idx = numpy.arange(patch_num_in_raw**2)
         numpy.random.shuffle(patch_idx)
 
         # Determine number of patches to exchange
-        exchange_patch_num = int(self.exchange_ratio * (patch_num_in_raw ** 2))
+        exchange_patch_num = int(self.exchange_ratio * (patch_num_in_raw**2))
         exchange_patch_idx = patch_idx[:exchange_patch_num]
 
         # Initialize output images
@@ -261,12 +308,18 @@ class I3PEDataset(BaseSyntheticDataset):
             col_start = patch_sz * patch_idx[1]
 
             # Perform patch exchange
-            exchange_img[row_start:row_start + patch_sz, col_start:col_start + patch_sz] = \
-                img_2[row_start:row_start + patch_sz, col_start:col_start + patch_sz]
+            exchange_img[
+                row_start : row_start + patch_sz, col_start : col_start + patch_sz
+            ] = img_2[
+                row_start : row_start + patch_sz, col_start : col_start + patch_sz
+            ]
 
             # Update change label for the exchanged region
-            exchange_change_label[row_start:row_start + patch_sz, col_start:col_start + patch_sz] = \
-                change_label[row_start:row_start + patch_sz, col_start:col_start + patch_sz]
+            exchange_change_label[
+                row_start : row_start + patch_sz, col_start : col_start + patch_sz
+            ] = change_label[
+                row_start : row_start + patch_sz, col_start : col_start + patch_sz
+            ]
 
         return exchange_img, exchange_change_label, label_1, label_2
 
@@ -275,7 +328,7 @@ class I3PEDataset(BaseSyntheticDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Minimal display_datapoint implementation for synthetic datasets.
 

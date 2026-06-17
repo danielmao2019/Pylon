@@ -6,7 +6,13 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from models.change_detection.cdx_former.modules.vision_lstm_util import interpolate_sincos, to_ntuple, VitPatchEmbed, VitPosEmbed2d, DropPath
+from models.change_detection.cdx_former.modules.vision_lstm_util import (
+    DropPath,
+    VitPatchEmbed,
+    VitPosEmbed2d,
+    interpolate_sincos,
+    to_ntuple,
+)
 
 
 class SequenceTraversal(Enum):
@@ -14,9 +20,13 @@ class SequenceTraversal(Enum):
     ROWWISE_FROM_BOT_RIGHT = "rowwise_from_bot_right"
 
 
-def bias_linspace_init_(param: torch.Tensor, start: float = 3.4, end: float = 6.0) -> torch.Tensor:
+def bias_linspace_init_(
+    param: torch.Tensor, start: float = 3.4, end: float = 6.0
+) -> torch.Tensor:
     """Linearly spaced bias init across dimensions."""
-    assert param.dim() == 1, f"param must be 1-dimensional (typically a bias), got {param.dim()}"
+    assert (
+        param.dim() == 1
+    ), f"param must be 1-dimensional (typically a bias), got {param.dim()}"
     n_dims = param.shape[0]
     init_vals = torch.linspace(start, end, n_dims)
     with torch.no_grad():
@@ -36,21 +46,21 @@ def small_init_(param: torch.Tensor, dim: int) -> torch.Tensor:
 
 
 def wang_init_(param: torch.Tensor, dim: int, num_blocks: int):
-    """ Adopted from https://github.com/EleutherAI/gpt-neox/blob/main/megatron/model/init_functions.py. """
+    """Adopted from https://github.com/EleutherAI/gpt-neox/blob/main/megatron/model/init_functions.py."""
     std = 2 / num_blocks / math.sqrt(dim)
     torch.nn.init.normal_(param, mean=0.0, std=std)
     return param
 
 
 def parallel_stabilized_simple(
-        queries: torch.Tensor,
-        keys: torch.Tensor,
-        values: torch.Tensor,
-        igate_preact: torch.Tensor,
-        fgate_preact: torch.Tensor,
-        lower_triangular_matrix: torch.Tensor = None,
-        stabilize_rowwise: bool = True,
-        eps: float = 1e-6,
+    queries: torch.Tensor,
+    keys: torch.Tensor,
+    values: torch.Tensor,
+    igate_preact: torch.Tensor,
+    fgate_preact: torch.Tensor,
+    lower_triangular_matrix: torch.Tensor = None,
+    stabilize_rowwise: bool = True,
+    eps: float = 1e-6,
 ) -> torch.Tensor:
     """
     This is the mLSTM cell in parallel form.
@@ -81,7 +91,9 @@ def parallel_stabilized_simple(
         ltr = torch.tril(torch.ones((S, S), dtype=torch.bool, device=_device))
     else:
         ltr = lower_triangular_matrix
-    assert ltr.dtype == torch.bool, f"lower_triangular_matrix must be of dtype bool, got {ltr.dtype}"
+    assert (
+        ltr.dtype == torch.bool
+    ), f"lower_triangular_matrix must be of dtype bool, got {ltr.dtype}"
 
     log_fgates_cumsum = torch.cat(
         [
@@ -93,13 +105,19 @@ def parallel_stabilized_simple(
     # for each batch/head this is a matrix of shape (S+1, S+1) containing the cumsum of the log forget gate values
     # in the second dimension (colum dimension). Each row has the same is a copy of the first row.
     # First entry of each row is zero.
-    rep_log_fgates_cumsum = log_fgates_cumsum.repeat(1, 1, 1, S + 1)  # (B, NH, S+1, S+1)
+    rep_log_fgates_cumsum = log_fgates_cumsum.repeat(
+        1, 1, 1, S + 1
+    )  # (B, NH, S+1, S+1)
     # Now in each row cut off / subtract the forgetgate values of the later timesteps
     # where col j > row i
-    _log_fg_matrix = rep_log_fgates_cumsum - rep_log_fgates_cumsum.transpose(-2, -1)  # (B, NH, S+1, S+1)
+    _log_fg_matrix = rep_log_fgates_cumsum - rep_log_fgates_cumsum.transpose(
+        -2, -1
+    )  # (B, NH, S+1, S+1)
     # Causal masking & selection of the correct submatrix, such that forgetgate at timestep t is not applied
     # to the input at timestep t
-    log_fg_matrix = torch.where(ltr, _log_fg_matrix[:, :, 1:, 1:], -float("inf"))  # (B, NH, S, S)
+    log_fg_matrix = torch.where(
+        ltr, _log_fg_matrix[:, :, 1:, 1:], -float("inf")
+    )  # (B, NH, S, S)
 
     # gate decay matrix D (combination of forget gate and input gate)
     log_D_matrix = log_fg_matrix + igate_preact.transpose(-2, -1)  # (B, NH, S, S)
@@ -107,7 +125,9 @@ def parallel_stabilized_simple(
     if stabilize_rowwise:
         max_log_D, _ = torch.max(log_D_matrix, dim=-1, keepdim=True)  # (B, NH, S, 1)
     else:
-        max_log_D = torch.max(log_D_matrix.view(B, NH, -1), dim=-1, keepdim=True)[0].unsqueeze(-1)
+        max_log_D = torch.max(log_D_matrix.view(B, NH, -1), dim=-1, keepdim=True)[
+            0
+        ].unsqueeze(-1)
         # (B, NH, 1, 1)
     log_D_matrix_stabilized = log_D_matrix - max_log_D  # (B, NH, S, S)
     D_matrix = torch.exp(log_D_matrix_stabilized)  # (B, NH, S, S)
@@ -117,7 +137,9 @@ def parallel_stabilized_simple(
     # combination matrix C
     qk_matrix = queries @ keys_scaled.transpose(-2, -1)  # (B, NH, S, S)
     C_matrix = qk_matrix * D_matrix  # (B, NH, S, S)
-    normalizer = torch.maximum(C_matrix.sum(dim=-1, keepdim=True).abs(), torch.exp(-max_log_D))  # (B, NH, S, 1)
+    normalizer = torch.maximum(
+        C_matrix.sum(dim=-1, keepdim=True).abs(), torch.exp(-max_log_D)
+    )  # (B, NH, S, 1)
     # (B, NH, S, S)
     C_matrix_normalized = C_matrix / (normalizer + eps)
 
@@ -148,7 +170,9 @@ class LinearHeadwiseExpand(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.normal_(self.weight.data, mean=0.0, std=math.sqrt(2 / 5 / self.weight.shape[-1]))
+        nn.init.normal_(
+            self.weight.data, mean=0.0, std=math.sqrt(2 / 5 / self.weight.shape[-1])
+        )
         if self.bias is not None:
             nn.init.zeros_(self.bias.data)
 
@@ -212,22 +236,22 @@ class CausalConv1d(nn.Module):
         x = einops.rearrange(x, "b l d -> b d l")
         # causal conv1d
         x = self.conv(x)
-        x = x[:, :, :-self.pad]
+        x = x[:, :, : -self.pad]
         # back to dim last
         x = einops.rearrange(x, "b d l -> b l d")
         return x
 
 
 class LayerNorm(nn.Module):
-    """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False. """
+    """LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False."""
 
     def __init__(
-            self,
-            ndim: int = -1,
-            weight: bool = True,
-            bias: bool = False,
-            eps: float = 1e-5,
-            residual_weight: bool = True,
+        self,
+        ndim: int = -1,
+        weight: bool = True,
+        bias: bool = False,
+        eps: float = 1e-5,
+        residual_weight: bool = True,
     ):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(ndim)) if weight else None
@@ -296,7 +320,9 @@ class MatrixLSTMCell(nn.Module):
         self.causal_mask_cache = {}
         self.reset_parameters()
 
-    def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
+    ) -> torch.Tensor:
         B, S, _ = q.shape  # (B, S, H)
 
         if_gate_input = torch.cat([q, k, v], dim=-1)
@@ -318,7 +344,9 @@ class MatrixLSTMCell(nn.Module):
         if S in self.causal_mask_cache:
             causal_mask = self.causal_mask_cache[(S, str(q.device))]
         else:
-            causal_mask = torch.tril(torch.ones(S, S, dtype=torch.bool, device=q.device))
+            causal_mask = torch.tril(
+                torch.ones(S, S, dtype=torch.bool, device=q.device)
+            )
             self.causal_mask_cache[(S, str(q.device))] = causal_mask
 
         h_state = parallel_stabilized_simple(
@@ -331,7 +359,9 @@ class MatrixLSTMCell(nn.Module):
         )  # (B, NH, S, DH)
 
         h_state_norm = self.outnorm(h_state)  # (B, NH, S, DH)
-        h_state_norm = h_state_norm.transpose(1, 2).reshape(B, S, -1)  # (B, NH, S, DH) -> (B, S, NH, DH) -> (B, S, H)
+        h_state_norm = h_state_norm.transpose(1, 2).reshape(
+            B, S, -1
+        )  # (B, NH, S, DH) -> (B, S, NH, DH) -> (B, S, H)
 
         return h_state_norm
 
@@ -347,18 +377,18 @@ class MatrixLSTMCell(nn.Module):
 
 class ViLLayer(nn.Module):
     def __init__(
-            self,
-            dim,
-            direction,
-            expansion=2,
-            qkv_block_size=4,
-            proj_bias=False,
-            conv_bias=True,
-            kernel_size=4,
+        self,
+        dim,
+        direction,
+        expansion=2,
+        qkv_block_size=4,
+        proj_bias=False,
+        conv_bias=True,
+        kernel_size=4,
     ):
         super().__init__()
         if dim % qkv_block_size != 0:
-            qkv_block_size=2
+            qkv_block_size = 2
         # assert dim % qkv_block_size == 0
         self.dim = dim
         self.direction = direction
@@ -505,19 +535,19 @@ class ViLBlock(nn.Module):
 
 class VisionLSTM(nn.Module):
     def __init__(
-            self,
-            dim=192,
-            input_shape=(3, 224, 224),
-            patch_size=16,
-            depth=24,
-            output_shape=(1000,),
-            mode="classifier",
-            pooling="bilateral_avg",
-            drop_path_rate=0.0,
-            stride=None,
-            alternation="bidirectional",
-            drop_path_decay=False,
-            legacy_norm=False,
+        self,
+        dim=192,
+        input_shape=(3, 224, 224),
+        patch_size=16,
+        depth=24,
+        output_shape=(1000,),
+        mode="classifier",
+        pooling="bilateral_avg",
+        drop_path_rate=0.0,
+        stride=None,
+        alternation="bidirectional",
+        drop_path_decay=False,
+        legacy_norm=False,
     ):
         super().__init__()
         self.input_shape = input_shape
@@ -546,7 +576,7 @@ class VisionLSTM(nn.Module):
         self.pos_embed = VitPosEmbed2d(seqlens=self.patch_embed.seqlens, dim=dim)
 
         # calculate stochastic depth per block
-        if drop_path_decay and drop_path_rate > 0.:
+        if drop_path_decay and drop_path_rate > 0.0:
             dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
         else:
             dpr = [drop_path_rate] * depth
@@ -589,8 +619,9 @@ class VisionLSTM(nn.Module):
             self.output_shape = (self.patch_embed.num_patches, dim)
         elif mode == "classifier":
             # linear classification head
-            assert self.output_shape is not None and len(self.output_shape) == 1, \
-                f"define number of classes via output_shape=(num_classes,) (e.g. output_shape=(1000,) for ImageNet-1K"
+            assert (
+                self.output_shape is not None and len(self.output_shape) == 1
+            ), f"define number of classes via output_shape=(num_classes,) (e.g. output_shape=(1000,) for ImageNet-1K"
             self.head = nn.Linear(dim, self.output_shape[0])
             # following MAE https://github.com/facebookresearch/mae/blob/main/main_finetune.py#L257
             nn.init.trunc_normal_(self.head.weight, std=2e-5)
@@ -602,7 +633,9 @@ class VisionLSTM(nn.Module):
         # interpolate pos_embed for different resolution (e.g. for fine-tuning on higher-resolution)
         old_pos_embed = state_dict["pos_embed.embed"]
         if old_pos_embed.shape != self.pos_embed.embed.shape:
-            state_dict["pos_embed.embed"] = interpolate_sincos(embed=old_pos_embed, seqlens=self.pos_embed.seqlens)
+            state_dict["pos_embed.embed"] = interpolate_sincos(
+                embed=old_pos_embed, seqlens=self.pos_embed.seqlens
+            )
         return super().load_state_dict(state_dict=state_dict, strict=strict)
 
     @torch.jit.ignore

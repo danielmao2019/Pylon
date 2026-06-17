@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from criteria.vision_2d.change_detection.srcnet_criterion import SRCNetCriterion
 
 
@@ -11,13 +12,19 @@ def sample_data():
     height, width = 32, 32
 
     # Create prediction tensors
-    prediction = torch.randn(batch_size, 2, height, width, device=device, requires_grad=True)  # 2 classes
+    prediction = torch.randn(
+        batch_size, 2, height, width, device=device, requires_grad=True
+    )  # 2 classes
     Dis = torch.randn(batch_size, 2, height, width, device=device, requires_grad=True)
     dif = torch.tensor(0.1, device=device, requires_grad=True)
-    sigma = torch.tensor([1.0, 1.0, 1.0], device=device, requires_grad=True)  # 3 sigmas for the 3 losses
+    sigma = torch.tensor(
+        [1.0, 1.0, 1.0], device=device, requires_grad=True
+    )  # 3 sigmas for the 3 losses
 
     # Create ground truth change map
-    change_map = torch.randint(0, 2, (batch_size, height, width), device=device, requires_grad=False)
+    change_map = torch.randint(
+        0, 2, (batch_size, height, width), device=device, requires_grad=False
+    )
 
     return (prediction, Dis, dif, sigma), {'change_map': change_map}
 

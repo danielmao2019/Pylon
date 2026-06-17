@@ -1,5 +1,7 @@
-from typing import Sequence, Dict, Union, Optional, Callable, Any
+from typing import Any, Callable, Dict, Optional, Sequence, Union
+
 import torch
+
 from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.builders import build_from_config
@@ -22,7 +24,9 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
         self.reduction = reduction
         # Build criterion as submodule
         criterion = build_from_config(config=criterion_cfg)
-        assert criterion.use_buffer is False, "The core criterion of AuxiliaryOutputsCriterion should not use buffer."
+        assert (
+            criterion.use_buffer is False
+        ), "The core criterion of AuxiliaryOutputsCriterion should not use buffer."
         self.register_module('criterion', criterion)
         assert isinstance(self.criterion, BaseCriterion)
 
@@ -35,12 +39,17 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
         if type(y_pred) == dict:
             y_pred = list(y_pred.values())
         assert isinstance(y_pred, (tuple, list)), f"{type(y_pred)=}"
-        assert all(isinstance(elem, torch.Tensor) for elem in y_pred), \
-            f"{[type(elem) for elem in y_pred]}"
+        assert all(
+            isinstance(elem, torch.Tensor) for elem in y_pred
+        ), f"{[type(elem) for elem in y_pred]}"
         # compute losses
-        losses: torch.Tensor = torch.stack([
-            self.criterion(y_pred=each_y_pred, y_true=y_true) for each_y_pred in y_pred
-        ], dim=0)
+        losses: torch.Tensor = torch.stack(
+            [
+                self.criterion(y_pred=each_y_pred, y_true=y_true)
+                for each_y_pred in y_pred
+            ],
+            dim=0,
+        )
         if self.reduction == 'sum':
             loss = losses.sum()
         else:

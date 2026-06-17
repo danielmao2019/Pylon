@@ -16,7 +16,7 @@ __all__ = [
     'CallbackContext',
     'execute_replication_callbacks',
     'DataParallelWithCallback',
-    'patch_replication_callback'
+    'patch_replication_callback',
 ]
 
 

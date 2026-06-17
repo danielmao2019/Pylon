@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from data.transforms.vision_3d.clamp import Clamp
 
 
@@ -117,12 +118,15 @@ def test_clamp_string_representation():
     assert "500" in str_repr
 
 
-@pytest.mark.parametrize("max_points,input_points", [
-    (100, 200),    # Clamp to half
-    (500, 1000),   # Clamp to half
-    (1, 100),      # Clamp to single point
-    (999, 1000),   # Clamp to almost all points
-])
+@pytest.mark.parametrize(
+    "max_points,input_points",
+    [
+        (100, 200),  # Clamp to half
+        (500, 1000),  # Clamp to half
+        (1, 100),  # Clamp to single point
+        (999, 1000),  # Clamp to almost all points
+    ],
+)
 def test_clamp_various_sizes(max_points, input_points, create_pc_factory):
     """Test Clamp transform with various input and output sizes."""
     pc = create_pc_factory(num_points=input_points)

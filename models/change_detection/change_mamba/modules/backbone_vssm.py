@@ -1,15 +1,18 @@
 import torch
 import torch.nn as nn
+
 from models.change_detection.change_mamba.modules.vmamba import VSSM, LayerNorm2d
 
 
 class Backbone_VSSM(VSSM):
 
-    def __init__(self, out_indices=(0, 1, 2, 3), pretrained=None, norm_layer='ln2d', **kwargs):
+    def __init__(
+        self, out_indices=(0, 1, 2, 3), pretrained=None, norm_layer='ln2d', **kwargs
+    ):
         # norm_layer='ln'
         kwargs.update(norm_layer=norm_layer)
         super().__init__(**kwargs)
-        self.channel_first = (norm_layer.lower() in ["bn", "ln2d"])
+        self.channel_first = norm_layer.lower() in ["bn", "ln2d"]
         _NORMLAYERS = dict(
             ln=nn.LayerNorm,
             ln2d=LayerNorm2d,
@@ -47,7 +50,7 @@ class Backbone_VSSM(VSSM):
         x = self.patch_embed(x)
         outs = []
         for i, layer in enumerate(self.layers):
-            o, x = layer_forward(layer, x) # (B, H, W, C)
+            o, x = layer_forward(layer, x)  # (B, H, W, C)
             if i in self.out_indices:
                 norm_layer = getattr(self, f'outnorm{i}')
                 out = norm_layer(o)

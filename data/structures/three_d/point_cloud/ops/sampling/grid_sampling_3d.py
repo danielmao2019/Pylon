@@ -1,5 +1,7 @@
 from typing import Dict, Optional, Tuple
+
 import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
@@ -210,7 +212,10 @@ class GridSampling3D:
         cluster, unique_pos_indices = consecutive_cluster(cluster)
 
         return group_data(
-            pc=pc, cluster=cluster, unique_pos_indices=unique_pos_indices, mode=self._mode
+            pc=pc,
+            cluster=cluster,
+            unique_pos_indices=unique_pos_indices,
+            mode=self._mode,
         )
 
     def __repr__(self) -> str:

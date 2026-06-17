@@ -1,19 +1,44 @@
 import math
+
 import torch
-from models.change_detection.ftn.modules.patch.patch_expand import PatchExpand
+
+from models.change_detection.ftn.modules.attention.attention import DFE, ppattention_wan
+from models.change_detection.ftn.modules.attention.channel_attention import (
+    ChannelAttention,
+)
 from models.change_detection.ftn.modules.basic_layer_up import BasicLayer_up
-from models.change_detection.ftn.modules.patch.patch_expand import FinalPatchExpand_X4, FinalPatchExpand_X4_1
-from models.change_detection.ftn.modules.attention.attention import ppattention_wan, DFE
-from models.change_detection.ftn.modules.attention.channel_attention import ChannelAttention
+from models.change_detection.ftn.modules.patch.patch_expand import (
+    FinalPatchExpand_X4,
+    FinalPatchExpand_X4_1,
+    PatchExpand,
+)
 
 
 class SwinTransDecoder(torch.nn.Module):
-    def __init__(self, img_size=224, patch_size=4, in_chans=3, num_classes=2,
-                 embed_dim=128, depths=[4, 4, 4, 4], depths_decoder=[2, 2, 2, 2], num_heads=[4, 8, 16, 32],
-                 window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
-                 drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                 norm_layer=torch.nn.LayerNorm, ape=False, patch_norm=True,
-                 use_checkpoint=False, final_upsample="expand_first", **kwargs):
+    def __init__(
+        self,
+        img_size=224,
+        patch_size=4,
+        in_chans=3,
+        num_classes=2,
+        embed_dim=128,
+        depths=[4, 4, 4, 4],
+        depths_decoder=[2, 2, 2, 2],
+        num_heads=[4, 8, 16, 32],
+        window_size=7,
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        qk_scale=None,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        drop_path_rate=0.1,
+        norm_layer=torch.nn.LayerNorm,
+        ape=False,
+        patch_norm=True,
+        use_checkpoint=False,
+        final_upsample="expand_first",
+        **kwargs
+    ):
         super().__init__()
 
         self.num_classes = num_classes
@@ -41,45 +66,97 @@ class SwinTransDecoder(torch.nn.Module):
         self.layers_up = torch.nn.ModuleList()
         self.concat_back_dim = torch.nn.ModuleList()
         for i_layer in range(self.num_layers):
-            concat_linear = torch.nn.Linear(int(embed_dim * 2 ** (self.num_layers - 1 - i_layer)),
-                                      int(embed_dim * 2 ** (
-                                                  self.num_layers - 1 - i_layer))) if i_layer > 0 else torch.nn.Identity()
+            concat_linear = (
+                torch.nn.Linear(
+                    int(embed_dim * 2 ** (self.num_layers - 1 - i_layer)),
+                    int(embed_dim * 2 ** (self.num_layers - 1 - i_layer)),
+                )
+                if i_layer > 0
+                else torch.nn.Identity()
+            )
             if i_layer == 0:
                 layer_up = PatchExpand(
-                    input_resolution=(self.patches_resolution[0] // (2 ** (self.num_layers - 1 - i_layer)),
-                                      self.patches_resolution[1] // (2 ** (self.num_layers - 1 - i_layer))),
-                    dim=int(embed_dim * 2 ** (self.num_layers - 1 - i_layer)), dim_scale=2, norm_layer=norm_layer)
+                    input_resolution=(
+                        self.patches_resolution[0]
+                        // (2 ** (self.num_layers - 1 - i_layer)),
+                        self.patches_resolution[1]
+                        // (2 ** (self.num_layers - 1 - i_layer)),
+                    ),
+                    dim=int(embed_dim * 2 ** (self.num_layers - 1 - i_layer)),
+                    dim_scale=2,
+                    norm_layer=norm_layer,
+                )
             else:
-                layer_up = BasicLayer_up(dim=int(embed_dim * 2 ** (self.num_layers - 1 - i_layer)),
-                                         input_resolution=(
-                                         self.patches_resolution[0] // (2 ** (self.num_layers - 1 - i_layer)),
-                                         self.patches_resolution[1] // (2 ** (self.num_layers - 1 - i_layer))),
-                                         depth=depths[(self.num_layers - 1 - i_layer)],
-                                         num_heads=num_heads[(self.num_layers - 1 - i_layer)],
-                                         window_size=window_size,
-                                         mlp_ratio=self.mlp_ratio,
-                                         qkv_bias=qkv_bias, qk_scale=qk_scale,
-                                         drop=drop_rate, attn_drop=attn_drop_rate,
-                                         drop_path=dpr[sum(depths[:(self.num_layers - 1 - i_layer)]):sum(
-                                             depths[:(self.num_layers - 1 - i_layer) + 1])],
-                                         norm_layer=norm_layer,
-                                         upsample=PatchExpand if (i_layer < self.num_layers - 1) else None,
-                                         use_checkpoint=use_checkpoint)
+                layer_up = BasicLayer_up(
+                    dim=int(embed_dim * 2 ** (self.num_layers - 1 - i_layer)),
+                    input_resolution=(
+                        self.patches_resolution[0]
+                        // (2 ** (self.num_layers - 1 - i_layer)),
+                        self.patches_resolution[1]
+                        // (2 ** (self.num_layers - 1 - i_layer)),
+                    ),
+                    depth=depths[(self.num_layers - 1 - i_layer)],
+                    num_heads=num_heads[(self.num_layers - 1 - i_layer)],
+                    window_size=window_size,
+                    mlp_ratio=self.mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    qk_scale=qk_scale,
+                    drop=drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[
+                        sum(depths[: (self.num_layers - 1 - i_layer)]) : sum(
+                            depths[: (self.num_layers - 1 - i_layer) + 1]
+                        )
+                    ],
+                    norm_layer=norm_layer,
+                    upsample=PatchExpand if (i_layer < self.num_layers - 1) else None,
+                    use_checkpoint=use_checkpoint,
+                )
             self.layers_up.append(layer_up)
             self.concat_back_dim.append(concat_linear)
 
         self.norm_up = norm_layer(self.embed_dim)
         if self.final_upsample == "expand_first":
             # print("---final upsample expand_first---")
-            self.up = FinalPatchExpand_X4(input_resolution=(img_size // patch_size, img_size // patch_size),
-                                          dim_scale=4, dim=embed_dim, patchsize=patch_size)
-            self.up_0 = FinalPatchExpand_X4_1(input_resolution=(56, 56), dim_scale=1, dim=128, patchsize=1)
-            self.up_1 = FinalPatchExpand_X4_1(input_resolution=(28, 28), dim_scale=1, dim=256, patchsize=1)
-            self.up_2 = FinalPatchExpand_X4_1(input_resolution=(14, 14), dim_scale=1, dim=512, patchsize=1)
-            self.output = torch.nn.Conv2d(in_channels=embed_dim, out_channels=self.num_classes, kernel_size=1, bias=False)
-            self.output_0 = torch.nn.Conv2d(in_channels=128, out_channels=self.num_classes, kernel_size=1, bias=False)
-            self.output_1 = torch.nn.Conv2d(in_channels=256, out_channels=self.num_classes, kernel_size=1, bias=False)
-            self.output_2 = torch.nn.Conv2d(in_channels=512, out_channels=self.num_classes, kernel_size=1, bias=False)
+            self.up = FinalPatchExpand_X4(
+                input_resolution=(img_size // patch_size, img_size // patch_size),
+                dim_scale=4,
+                dim=embed_dim,
+                patchsize=patch_size,
+            )
+            self.up_0 = FinalPatchExpand_X4_1(
+                input_resolution=(56, 56), dim_scale=1, dim=128, patchsize=1
+            )
+            self.up_1 = FinalPatchExpand_X4_1(
+                input_resolution=(28, 28), dim_scale=1, dim=256, patchsize=1
+            )
+            self.up_2 = FinalPatchExpand_X4_1(
+                input_resolution=(14, 14), dim_scale=1, dim=512, patchsize=1
+            )
+            self.output = torch.nn.Conv2d(
+                in_channels=embed_dim,
+                out_channels=self.num_classes,
+                kernel_size=1,
+                bias=False,
+            )
+            self.output_0 = torch.nn.Conv2d(
+                in_channels=128,
+                out_channels=self.num_classes,
+                kernel_size=1,
+                bias=False,
+            )
+            self.output_1 = torch.nn.Conv2d(
+                in_channels=256,
+                out_channels=self.num_classes,
+                kernel_size=1,
+                bias=False,
+            )
+            self.output_2 = torch.nn.Conv2d(
+                in_channels=512,
+                out_channels=self.num_classes,
+                kernel_size=1,
+                bias=False,
+            )
 
         self.ppattention = torch.nn.ModuleList()
         self.ppattention.append(ppattention_wan(1024))
@@ -115,7 +192,9 @@ class SwinTransDecoder(torch.nn.Module):
         x = x.transpose(1, 2)
         return x
 
-    def forward_up_features(self, x_mid, x_downsample1, x_downsample2):  # 1/4,1/8,1/16,1/32,     1/32
+    def forward_up_features(
+        self, x_mid, x_downsample1, x_downsample2
+    ):  # 1/4,1/8,1/16,1/32,     1/32
         x_upsample = []
         for inx, layer_up in enumerate(self.layers_up):
             if inx == 0:

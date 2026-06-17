@@ -1,17 +1,19 @@
 from typing import Dict
-from einops import rearrange
+
+import kornia.geometry.conversions as Convert
 import numpy as np
+import open3d as o3d
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import open3d as o3d
+from einops import rearrange
+
 import models.point_cloud_registration.buffer.patchnet as pn
-from models.point_cloud_registration.buffer.point_learner import EFCNN, DetNet
 from models.point_cloud_registration.buffer.patch_embedder import MiniSpinNet
-from models.point_cloud_registration.buffer.utils.SE3 import *
-from models.point_cloud_registration.buffer.utils.common import make_open3d_point_cloud
-import kornia.geometry.conversions as Convert
+from models.point_cloud_registration.buffer.point_learner import EFCNN, DetNet
 from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils as pnt2
+from models.point_cloud_registration.buffer.utils.common import make_open3d_point_cloud
+from models.point_cloud_registration.buffer.utils.SE3 import *
 
 
 class EquiMatch(nn.Module):
@@ -21,7 +23,9 @@ class EquiMatch(nn.Module):
         init_index = np.arange(self.azi_n)
         index_list = []
         for i in range(self.azi_n):
-            cur_index = np.concatenate([init_index[self.azi_n - i:], init_index[:self.azi_n - i]])
+            cur_index = np.concatenate(
+                [init_index[self.azi_n - i :], init_index[: self.azi_n - i]]
+            )
             index_list.append(cur_index)
         self.index_list = np.array(index_list)
 
@@ -29,7 +33,8 @@ class EquiMatch(nn.Module):
         [B, C, K, L] = Des1.shape
         index_list = torch.from_numpy(self.index_list).to(Des1.device)
         Des1 = Des1[:, :, :, torch.reshape(index_list, [-1])].reshape(
-            [Des1.shape[0], Des1.shape[1], Des1.shape[2], self.azi_n, self.azi_n])
+            [Des1.shape[0], Des1.shape[1], Des1.shape[2], self.azi_n, self.azi_n]
+        )
         Des1 = rearrange(Des1, 'b c k n l -> b c n k l').reshape([B, C, -1, K * L])
         Des2 = Des2.reshape([B, C, K * L])
         cor = torch.einsum('bfag,bfg->ba', Des1, Des2)
@@ -43,7 +48,9 @@ class CostVolume(nn.Module):
         init_index = np.arange(self.azi_n)
         index_list = []
         for i in range(self.azi_n):
-            cur_index = np.concatenate([init_index[self.azi_n - i:], init_index[:self.azi_n - i]])
+            cur_index = np.concatenate(
+                [init_index[self.azi_n - i :], init_index[: self.azi_n - i]]
+            )
             index_list.append(cur_index)
         self.index_list = np.array(index_list)
         self.conv = pn.CostNet(inchan=32, dim=20)
@@ -58,13 +65,16 @@ class CostVolume(nn.Module):
         """
         index_list = torch.from_numpy(self.index_list).to(Des1.device)
         Des1 = Des1[:, :, :, torch.reshape(index_list, [-1])].reshape(
-            [Des1.shape[0], Des1.shape[1], Des1.shape[2], self.azi_n, self.azi_n])
+            [Des1.shape[0], Des1.shape[1], Des1.shape[2], self.azi_n, self.azi_n]
+        )
         Des1 = rearrange(Des1, 'b c k n l -> b c n k l')
         Des2 = Des2.unsqueeze(2)
         cost = Des1 - Des2
         cost = self.conv(cost).squeeze()
         prob = F.softmax(cost, dim=-1)
-        ind = torch.sum(prob * torch.arange(0, self.azi_n)[None].to(prob.device), dim=-1)
+        ind = torch.sum(
+            prob * torch.arange(0, self.azi_n)[None].to(prob.device), dim=-1
+        )
         return ind
 
 
@@ -81,24 +91,42 @@ class BUFFER(nn.Module):
         self.equi_match = EquiMatch(config)
 
     def cal_so2_gt(self, src, tgt, gt_trans, integer=True, aug_rotation=None):
-        src_des, src_equi, s_rand_axis, s_R, s_patches = src['desc'], src['equi'], src['rand_axis'], src['R'], src[
-            'patches']
-        tgt_des, tgt_equi, _, t_R, t_patches = tgt['desc'], tgt['equi'], tgt['rand_axis'], tgt['R'], tgt[
-            'patches']
+        src_des, src_equi, s_rand_axis, s_R, s_patches = (
+            src['desc'],
+            src['equi'],
+            src['rand_axis'],
+            src['R'],
+            src['patches'],
+        )
+        tgt_des, tgt_equi, _, t_R, t_patches = (
+            tgt['desc'],
+            tgt['equi'],
+            tgt['rand_axis'],
+            tgt['R'],
+            tgt['patches'],
+        )
         # calculate gt lable in SO(2)
-        t_rand_axis = torch.matmul(s_rand_axis[:, None], gt_trans[:3, :3].transpose(-1, -2))
+        t_rand_axis = torch.matmul(
+            s_rand_axis[:, None], gt_trans[:3, :3].transpose(-1, -2)
+        )
         s_rand_axis = torch.matmul(s_rand_axis[:, None], s_R)
         t_rand_axis = torch.matmul(t_rand_axis, t_R)
         if aug_rotation is not None:
             t_rand_axis = t_rand_axis @ aug_rotation.transpose(-1, -2)
         z_axis = torch.zeros_like(t_rand_axis)
         z_axis[:, :, -1] = 1
-        proj_t = F.normalize(t_rand_axis - torch.sum(t_rand_axis * z_axis, dim=-1, keepdim=True) * z_axis, p=2,
-                             dim=-1)
+        proj_t = F.normalize(
+            t_rand_axis
+            - torch.sum(t_rand_axis * z_axis, dim=-1, keepdim=True) * z_axis,
+            p=2,
+            dim=-1,
+        )
         s_rand_axis = s_rand_axis.squeeze()
         proj_t = proj_t.squeeze()
         z_axis = z_axis.squeeze()
-        dev_angle = torch.acos(F.cosine_similarity(s_rand_axis, proj_t).clamp(min=-1, max=1))
+        dev_angle = torch.acos(
+            F.cosine_similarity(s_rand_axis, proj_t).clamp(min=-1, max=1)
+        )
         sign = torch.sum(torch.cross(s_rand_axis, proj_t) * z_axis, dim=-1) < 0
         dev_angle[sign] = 2 * np.pi - dev_angle[sign]
         if integer:
@@ -129,12 +157,17 @@ class BUFFER(nn.Module):
             -
         """
         src_pts, tgt_pts = data_source['src_pcd'], data_source['tgt_pcd']
-        src_pcd_raw, tgt_pcd_raw = data_source['src_pcd_raw'], data_source['tgt_pcd_raw']
+        src_pcd_raw, tgt_pcd_raw = (
+            data_source['src_pcd_raw'],
+            data_source['tgt_pcd_raw'],
+        )
         len_src_f = data_source['stack_lengths'][0][0]
 
         # find positive correspondences
         gt_trans = data_source['relt_pose']
-        match_inds = self.get_matching_indices(src_pts, tgt_pts, gt_trans, self.config.data.voxel_size_0)
+        match_inds = self.get_matching_indices(
+            src_pts, tgt_pts, gt_trans, self.config.data.voxel_size_0
+        )
 
         #######################
         # training ref axis
@@ -170,7 +203,9 @@ class BUFFER(nn.Module):
 
         # randomly sample some positive pairs to speed up the training
         if match_inds.shape[0] > self.config.train.pos_num:
-            rand_ind = np.random.choice(range(match_inds.shape[0]), self.config.train.pos_num, replace=False)
+            rand_ind = np.random.choice(
+                range(match_inds.shape[0]), self.config.train.pos_num, replace=False
+            )
             match_inds = match_inds[rand_ind]
             src_axis = src_axis[rand_ind]
             tgt_axis = tgt_axis[rand_ind]
@@ -226,10 +261,14 @@ class BUFFER(nn.Module):
         #######################
         # predict index of SO(2) rotation
         # only consider part of elements along the elevation to speed up
-        pred_ind = self.Inlier(src['equi'][:, :, 1:self.config.patch.ele_n - 1],
-                                tgt['equi'][:, :, 1:self.config.patch.ele_n - 1])
+        pred_ind = self.Inlier(
+            src['equi'][:, :, 1 : self.config.patch.ele_n - 1],
+            tgt['equi'][:, :, 1 : self.config.patch.ele_n - 1],
+        )
         # calculate gt lable in SO(2)
-        lable = self.cal_so2_gt(src, tgt, gt_trans, False, aug_rotation=tgt['aug_rotation'])
+        lable = self.cal_so2_gt(
+            src, tgt, gt_trans, False, aug_rotation=tgt['aug_rotation']
+        )
 
         if self.config.stage == 'Inlier':
             return {
@@ -239,7 +278,10 @@ class BUFFER(nn.Module):
 
     def forward_eval(self, data_source) -> Dict[str, torch.Tensor]:
         src_pts, tgt_pts = data_source['src_pcd'], data_source['tgt_pcd']
-        src_pcd_raw, tgt_pcd_raw = data_source['src_pcd_raw'], data_source['tgt_pcd_raw']
+        src_pcd_raw, tgt_pcd_raw = (
+            data_source['src_pcd_raw'],
+            data_source['tgt_pcd_raw'],
+        )
         len_src_f = data_source['stack_lengths'][0][0]
 
         axis, eps, branch = self.Ref(data_source)
@@ -258,22 +300,39 @@ class BUFFER(nn.Module):
 
         # select keypts by detection scores
         src_s, tgt_s = src_s[:, 0], tgt_s[:, 0]
-        s_det_idx, t_det_idx = torch.where(src_s > self.config.point.keypts_th), torch.where(
-            tgt_s > self.config.point.keypts_th)
+        s_det_idx, t_det_idx = torch.where(
+            src_s > self.config.point.keypts_th
+        ), torch.where(tgt_s > self.config.point.keypts_th)
         src_pts, tgt_pts = src_pts[s_det_idx[0]], tgt_pts[t_det_idx[0]]
         s_axis, t_axis = src_axis[s_det_idx[0]], tgt_axis[t_det_idx[0]]
-        
+
         # fps
         s_pts_flipped = src_pts[None].transpose(1, 2).contiguous()
         t_pts_flipped = tgt_pts[None].transpose(1, 2).contiguous()
         s_axis_flipped = s_axis[None].transpose(1, 2).contiguous()
         t_axis_flipped = t_axis[None].transpose(1, 2).contiguous()
-        s_fps_idx = pnt2.furthest_point_sample(src_pts[None], self.config.point.num_keypts)
-        t_fps_idx = pnt2.furthest_point_sample(tgt_pts[None], self.config.point.num_keypts)
-        kpts1 = pnt2.gather_operation(s_pts_flipped, s_fps_idx).transpose(1, 2).contiguous()
-        kpts2 = pnt2.gather_operation(t_pts_flipped, t_fps_idx).transpose(1, 2).contiguous()
-        k_axis1 = pnt2.gather_operation(s_axis_flipped, s_fps_idx).transpose(1, 2).contiguous()
-        k_axis2 = pnt2.gather_operation(t_axis_flipped, t_fps_idx).transpose(1, 2).contiguous()
+        s_fps_idx = pnt2.furthest_point_sample(
+            src_pts[None], self.config.point.num_keypts
+        )
+        t_fps_idx = pnt2.furthest_point_sample(
+            tgt_pts[None], self.config.point.num_keypts
+        )
+        kpts1 = (
+            pnt2.gather_operation(s_pts_flipped, s_fps_idx).transpose(1, 2).contiguous()
+        )
+        kpts2 = (
+            pnt2.gather_operation(t_pts_flipped, t_fps_idx).transpose(1, 2).contiguous()
+        )
+        k_axis1 = (
+            pnt2.gather_operation(s_axis_flipped, s_fps_idx)
+            .transpose(1, 2)
+            .contiguous()
+        )
+        k_axis2 = (
+            pnt2.gather_operation(t_axis_flipped, t_fps_idx)
+            .transpose(1, 2)
+            .contiguous()
+        )
 
         # calculate descriptor
         src = self.Desc(src_pcd_raw[None], kpts1, k_axis1)
@@ -291,8 +350,10 @@ class BUFFER(nn.Module):
         tt_equi = tgt_equi[t_mids]
         tt_R = t_R[t_mids]
 
-        ind = self.Inlier(ss_equi[:, :, 1:self.config.patch.ele_n - 1],
-                            tt_equi[:, :, 1:self.config.patch.ele_n - 1])
+        ind = self.Inlier(
+            ss_equi[:, :, 1 : self.config.patch.ele_n - 1],
+            tt_equi[:, :, 1 : self.config.patch.ele_n - 1],
+        )
 
         # recover pose
         angle = ind * 2 * np.pi / self.config.patch.azi_n + 1e-6
@@ -306,8 +367,12 @@ class BUFFER(nn.Module):
         # find the best R, t
         tss_kpts = ss_kpts[None] @ R.transpose(-1, -2) + t[:, None]
         diffs = torch.sqrt(torch.sum((tss_kpts - tt_kpts[None]) ** 2, dim=-1))
-        thr = torch.sqrt(
-            torch.sum(ss_kpts ** 2, dim=-1)) * np.pi / self.config.patch.azi_n * self.config.match.inlier_th
+        thr = (
+            torch.sqrt(torch.sum(ss_kpts**2, dim=-1))
+            * np.pi
+            / self.config.patch.azi_n
+            * self.config.match.inlier_th
+        )
         sign = diffs < thr[None]
         inlier_num = torch.sum(sign, dim=-1)
         best_ind = torch.argmax(inlier_num)
@@ -315,25 +380,39 @@ class BUFFER(nn.Module):
 
         # use RANSAC to calculate pose
         pcd0 = make_open3d_point_cloud(ss_kpts.detach().cpu().numpy(), [1, 0.706, 0])
-        pcd1 = make_open3d_point_cloud(tt_kpts.detach().cpu().numpy(), [0, 0.651, 0.929])
+        pcd1 = make_open3d_point_cloud(
+            tt_kpts.detach().cpu().numpy(), [0, 0.651, 0.929]
+        )
         corr = o3d.utility.Vector2iVector(np.array([inlier_ind, inlier_ind]).T)
 
         result = o3d.pipelines.registration.registration_ransac_based_on_correspondence(
-            pcd0, pcd1, corr, self.config.match.dist_th,
-            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+            pcd0,
+            pcd1,
+            corr,
+            self.config.match.dist_th,
+            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(
+                False
+            ),
             ransac_n=3,
             checkers=[
-                o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(self.config.match.similar_th),
-                o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(self.config.match.dist_th),
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(
+                    self.config.match.similar_th
+                ),
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
+                    self.config.match.dist_th
+                ),
             ],
             criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(
-                self.config.match.iter_n, self.config.match.confidence,
+                self.config.match.iter_n,
+                self.config.match.confidence,
             ),
         )
 
         init_pose = result.transformation
         if self.config.test.pose_refine is True:
-            pose = self.post_refinement(torch.FloatTensor(init_pose[None]).cuda(), ss_kpts[None], tt_kpts[None])
+            pose = self.post_refinement(
+                torch.FloatTensor(init_pose[None]).cuda(), ss_kpts[None], tt_kpts[None]
+            )
             pose = pose[0].detach().cpu().numpy()
         else:
             pose = init_pose
@@ -354,6 +433,7 @@ class BUFFER(nn.Module):
             - t_mids:    [B]
         """
         from knn_cuda import KNN
+
         # mutual knn
         ref = tgt_des.unsqueeze(0)
         query = src_des.unsqueeze(0)
@@ -366,7 +446,9 @@ class BUFFER(nn.Module):
         targetNNidx = t_idx[0, :, 0].detach().cpu().numpy()
 
         # find mutual correspondences
-        s_mids = np.where((targetNNidx[sourceNNidx] - np.arange(sourceNNidx.shape[0])) == 0)[0]
+        s_mids = np.where(
+            (targetNNidx[sourceNNidx] - np.arange(sourceNNidx.shape[0])) == 0
+        )[0]
         t_mids = sourceNNidx[s_mids]
 
         return s_mids, t_mids
@@ -385,9 +467,12 @@ class BUFFER(nn.Module):
         ref = target.unsqueeze(0)
         query = source.unsqueeze(0)
         from knn_cuda import KNN
+
         s_dis, s_idx = KNN(k=1, transpose_mode=True)(ref, query)
         sourceNNidx = s_idx[0]
-        min_ind = torch.cat([torch.arange(source.shape[0])[:, None].cuda(), sourceNNidx], dim=-1)
+        min_ind = torch.cat(
+            [torch.arange(source.shape[0])[:, None].cuda(), sourceNNidx], dim=-1
+        )
         min_val = s_dis.view(-1)
         match_inds = min_ind[min_val < search_voxel_size]
 
@@ -453,9 +538,11 @@ def rigid_transform_3d(A, B, weights=None, weight_threshold=0):
 
     # find mean of point cloud
     centroid_A = torch.sum(A * weights[:, :, None], dim=1, keepdim=True) / (
-            torch.sum(weights, dim=1, keepdim=True)[:, :, None] + 1e-6)
+        torch.sum(weights, dim=1, keepdim=True)[:, :, None] + 1e-6
+    )
     centroid_B = torch.sum(B * weights[:, :, None], dim=1, keepdim=True) / (
-            torch.sum(weights, dim=1, keepdim=True)[:, :, None] + 1e-6)
+        torch.sum(weights, dim=1, keepdim=True)[:, :, None] + 1e-6
+    )
 
     # subtract mean
     Am = A - centroid_A

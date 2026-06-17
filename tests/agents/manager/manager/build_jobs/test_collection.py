@@ -1,9 +1,8 @@
 import os
 import tempfile
 
-from agents.manager.default_job import DefaultJob
+from agents.manager.default_job import DefaultJob, DefaultJobProgressInfo
 from agents.manager.manager import Manager
-from agents.manager.default_job import DefaultJobProgressInfo
 
 
 def test_get_all_job_status_returns_mapping(

@@ -16,7 +16,11 @@ class PEMultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None):
         super(PEMultiHeadAttention, self).__init__()
         if d_model % num_heads != 0:
-            raise ValueError('`d_model` ({}) must be a multiple of `num_head` ({}).'.format(d_model, num_heads))
+            raise ValueError(
+                '`d_model` ({}) must be a multiple of `num_head` ({}).'.format(
+                    d_model, num_heads
+                )
+            )
 
         self.d_model = d_model
         self.num_heads = num_heads
@@ -54,15 +58,27 @@ class PEMultiHeadAttention(nn.Module):
             hidden_states: torch.Tensor (B, C, N)
             attention_scores: torch.Tensor (B, H, N, M)
         """
-        q = rearrange(self.proj_q(input_q) + self.proj_p(embed_q), 'b n (h c) -> b h n c', h=self.num_heads)
-        k = rearrange(self.proj_k(input_k) + self.proj_p(embed_k), 'b m (h c) -> b h m c', h=self.num_heads)
+        q = rearrange(
+            self.proj_q(input_q) + self.proj_p(embed_q),
+            'b n (h c) -> b h n c',
+            h=self.num_heads,
+        )
+        k = rearrange(
+            self.proj_k(input_k) + self.proj_p(embed_k),
+            'b m (h c) -> b h m c',
+            h=self.num_heads,
+        )
         v = rearrange(self.proj_v(input_v), 'b m (h c) -> b h m c', h=self.num_heads)
 
-        attention_scores = torch.einsum('bhnc,bhmc->bhnm', q, k) / self.d_model_per_head ** 0.5
+        attention_scores = (
+            torch.einsum('bhnc,bhmc->bhnm', q, k) / self.d_model_per_head**0.5
+        )
         if attention_factors is not None:
             attention_scores = attention_factors.unsqueeze(1) * attention_scores
         if key_masks is not None:
-            attention_scores = attention_scores.masked_fill(key_masks.unsqueeze(1).unsqueeze(1), float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                key_masks.unsqueeze(1).unsqueeze(1), float('-inf')
+            )
         attention_scores = F.softmax(attention_scores, dim=-1)
         attention_scores = self.dropout(attention_scores)
 
@@ -109,7 +125,9 @@ class PETransformerLayer(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None, activation_fn='ReLU'):
         super(PETransformerLayer, self).__init__()
         self.attention = PEAttentionLayer(d_model, num_heads, dropout=dropout)
-        self.output = AttentionOutput(d_model, dropout=dropout, activation_fn=activation_fn)
+        self.output = AttentionOutput(
+            d_model, dropout=dropout, activation_fn=activation_fn
+        )
 
     def forward(
         self,

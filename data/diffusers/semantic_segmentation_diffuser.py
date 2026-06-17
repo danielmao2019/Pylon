@@ -1,7 +1,10 @@
-from .base_diffuser import BaseDiffuser
-from typing import Tuple, List
+from typing import List, Tuple
+
 import torch
+
 from utils.semantic_segmentation import to_one_hot
+
+from .base_diffuser import BaseDiffuser
 
 
 class SemanticSegmentationDiffuser(BaseDiffuser):
@@ -15,7 +18,9 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         ignore_value: int,
         scale: float,
     ):
-        super(SemanticSegmentationDiffuser, self).__init__(dataset=dataset, num_steps=num_steps, keys=keys)
+        super(SemanticSegmentationDiffuser, self).__init__(
+            dataset=dataset, num_steps=num_steps, keys=keys
+        )
         assert type(num_classes) == int, f"{type(num_classes)=}"
         self.num_classes = num_classes
         assert type(ignore_value) == int, f"{type(ignore_value)=}"
@@ -23,7 +28,9 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         assert type(scale) == float, f"{type(scale)=}"
         self.scale = scale
 
-    def forward_diffusion(self, mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward_diffusion(
+        self, mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""Forward diffusion for semantic segmentation annotations.
         This method does not utilize `BaseDiffuser.forward_diffusion` because semantic segmentation is classification task in nature.
 
@@ -41,15 +48,23 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         # sample time step
         time = torch.randint(low=0, high=self.num_steps, size=(), dtype=torch.int64)
         # initialize probability distribution from mask
-        probs = to_one_hot(mask, num_classes=self.num_classes, ignore_value=self.ignore_value)
+        probs = to_one_hot(
+            mask, num_classes=self.num_classes, ignore_value=self.ignore_value
+        )
         # diffuse probability distribution
         alpha_cumprod = self.alphas_cumprod[time]
         probs = alpha_cumprod * probs + (1 - alpha_cumprod) / self.num_classes
         # sample from diffused probability distribution
         probs = probs.permute(1, 2, 0)
-        sample = torch.distributions.one_hot_categorical.OneHotCategorical(probs=probs).sample()
+        sample = torch.distributions.one_hot_categorical.OneHotCategorical(
+            probs=probs
+        ).sample()
         sample = sample.permute(2, 0, 1).type(torch.int64)
         # sanity check
-        assert sample.shape == (self.num_classes, mask.shape[0], mask.shape[1]), f"{sample.shape=}, {mask.shape=}"
+        assert sample.shape == (
+            self.num_classes,
+            mask.shape[0],
+            mask.shape[1],
+        ), f"{sample.shape=}, {mask.shape=}"
         assert sample.dtype == torch.int64, f"{sample.dtype=}, {mask.dtype=}"
         return sample, time

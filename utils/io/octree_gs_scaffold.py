@@ -6,6 +6,7 @@ from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Union
+
 import numpy as np
 import torch
 import torch.nn as nn

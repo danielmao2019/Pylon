@@ -1,12 +1,12 @@
+from .functional import global_avgpool, maxpool, nearest_upsample
 from .kpconv import KPConv
 from .modules import (
     ConvBlock,
-    ResidualBlock,
-    UnaryBlock,
-    LastUnaryBlock,
+    GlobalAvgPool,
     GroupNorm,
     KNNInterpolate,
-    GlobalAvgPool,
+    LastUnaryBlock,
     MaxPool,
+    ResidualBlock,
+    UnaryBlock,
 )
-from .functional import nearest_upsample, global_avgpool, maxpool

@@ -1,7 +1,7 @@
-from typing import List, Dict, Optional, Any
 import os
 import re
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 
 class AgentLogParser:
@@ -36,9 +36,7 @@ class AgentLogParser:
             'ssh_launch': re.compile(
                 r'ssh.*?python main\.py --config-filepath ([^\s\']+)'
             ),
-            'timestamp': re.compile(
-                r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'
-            )
+            'timestamp': re.compile(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'),
         }
 
     def extract_key_events_since_yesterday(self) -> List[Dict[str, Any]]:
@@ -86,7 +84,7 @@ class AgentLogParser:
                 'timestamp': timestamp,
                 'message': f"Stuck processes removed: {stuck_match.group(1)}",
                 'details': self._parse_stuck_processes(stuck_match.group(1)),
-                'line_number': line_num
+                'line_number': line_num,
             }
 
         # Check for outdated cleanup
@@ -102,9 +100,9 @@ class AgentLogParser:
                 'details': {
                     'days_threshold': days,
                     'cleaned_folders': cleaned_folders,
-                    'folder_count': len(cleaned_folders)
+                    'folder_count': len(cleaned_folders),
                 },
-                'line_number': line_num
+                'line_number': line_num,
             }
 
         # Check for error messages
@@ -118,9 +116,11 @@ class AgentLogParser:
                 'message': f"Experiment failed: {config_file}",
                 'details': {
                     'config_file': config_file,
-                    'error_log': error_log[:200] + '...' if len(error_log) > 200 else error_log
+                    'error_log': (
+                        error_log[:200] + '...' if len(error_log) > 200 else error_log
+                    ),
                 },
-                'line_number': line_num
+                'line_number': line_num,
             }
 
         # Check for SSH job launches
@@ -132,19 +132,27 @@ class AgentLogParser:
                 'timestamp': timestamp,
                 'message': f"Launched experiment: {os.path.basename(config_path)}",
                 'details': {'config_path': config_path},
-                'line_number': line_num
+                'line_number': line_num,
             }
 
         # Check for critical system errors (SSH failures, crashes, etc.)
-        critical_keywords = ['ssh.*connection failed', 'SystemMonitor.*disconnected', 'Agent.*crash', 'disk.*full', 'permission.*denied']
+        critical_keywords = [
+            'ssh.*connection failed',
+            'SystemMonitor.*disconnected',
+            'Agent.*crash',
+            'disk.*full',
+            'permission.*denied',
+        ]
         for keyword_pattern in critical_keywords:
             if re.search(keyword_pattern, line, re.IGNORECASE):
                 return {
                     'type': 'critical_error',
                     'timestamp': timestamp,
                     'message': f"Critical system error detected",
-                    'details': {'error_line': line[:300] + '...' if len(line) > 300 else line},
-                    'line_number': line_num
+                    'details': {
+                        'error_line': line[:300] + '...' if len(line) > 300 else line
+                    },
+                    'line_number': line_num,
                 }
 
         return None
@@ -195,15 +203,9 @@ class AgentLogParser:
         # If no processes were parsed successfully, return fallback info
         if len(processes) == 0:
             # For exhaustive reporting, return the full information without truncation
-            return {
-                'process_count': 0,
-                'raw_info': processes_str
-            }
+            return {'process_count': 0, 'raw_info': processes_str}
 
-        return {
-            'process_count': len(processes),
-            'processes': processes
-        }
+        return {'process_count': len(processes), 'processes': processes}
 
     def get_event_summary_since_yesterday(self) -> Dict[str, Any]:
         """Get a summary of events that occurred since yesterday.
@@ -218,10 +220,7 @@ class AgentLogParser:
             'event_counts': {},
             'critical_issues': 0,
             'experiments_affected': set(),
-            'time_range': {
-                'start': None,
-                'end': None
-            }
+            'time_range': {'start': None, 'end': None},
         }
 
         if not events:
@@ -231,7 +230,9 @@ class AgentLogParser:
         # Count events by type
         for event in events:
             event_type = event['type']
-            summary['event_counts'][event_type] = summary['event_counts'].get(event_type, 0) + 1
+            summary['event_counts'][event_type] = (
+                summary['event_counts'].get(event_type, 0) + 1
+            )
 
             # Track critical issues
             if event_type in ['critical_error', 'experiment_error']:

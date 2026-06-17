@@ -4,6 +4,7 @@ Tests for the SiameseKPConv model.
 This module contains tests for verifying the functionality of the SiameseKPConv model
 for 3D point cloud change detection.
 """
+
 import numpy as np
 import pytest
 import torch
@@ -59,10 +60,7 @@ def test_batch():
         'change': torch.randint(0, 2, (num_points * batch_size,), dtype=torch.long)
     }
 
-    return {
-        'inputs': inputs,
-        'labels': labels
-    }
+    return {'inputs': inputs, 'labels': labels}
 
 
 def test_SiameseKPConv_construction():
@@ -72,7 +70,7 @@ def test_SiameseKPConv_construction():
         out_channels=2,
         down_channels=[16],
         up_channels=[16],
-        conv_type='simple'
+        conv_type='simple',
     )
 
     # Check model has the expected modules
@@ -92,7 +90,7 @@ def test_minimal_forward_pass(test_batch):
         point_influence=0.1,
         bn_momentum=0.1,
         dropout=0.0,  # No dropout for deterministic testing
-        conv_type='simple'
+        conv_type='simple',
     )
     model.eval()
 
@@ -117,7 +115,7 @@ def model_config():
         'up_channels': [8],  # Very minimal for testing
         'bn_momentum': 0.1,
         'dropout': 0.0,  # No dropout for deterministic testing
-        'conv_type': 'simple'
+        'conv_type': 'simple',
     }
 
 

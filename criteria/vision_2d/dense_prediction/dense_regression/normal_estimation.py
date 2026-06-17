@@ -1,5 +1,8 @@
 import torch
-from criteria.vision_2d.dense_prediction.dense_regression.base import DenseRegressionCriterion
+
+from criteria.vision_2d.dense_prediction.dense_regression.base import (
+    DenseRegressionCriterion,
+)
 from utils.input_checks import check_normal_estimation
 
 
@@ -62,10 +65,7 @@ class NormalEstimationCriterion(DenseRegressionCriterion):
         return norms > 0
 
     def _compute_unreduced_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute cosine similarity loss for each sample in the batch.

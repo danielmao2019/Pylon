@@ -60,7 +60,8 @@ def test_point_cloud_segmentation_validation() -> None:
     logits = torch.randn(6, 4, dtype=torch.float32)
     labels = torch.randint(low=0, high=4, size=(6,), dtype=torch.int64)
     validated_logits, validated_labels = check_point_cloud_segmentation(
-        y_pred=logits, y_true=labels,
+        y_pred=logits,
+        y_true=labels,
     )
     assert validated_logits is logits
     assert validated_labels is labels

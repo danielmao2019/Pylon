@@ -1,9 +1,11 @@
-import os
 import json
-import xxhash
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
 import torch
-from typing import List, Dict, Any, Optional, Tuple
+import xxhash
 from dash import html
+
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 from data.dataloaders.base_dataloader import BaseDataLoader
 from data.datasets.index_dataset import IndexDataset
@@ -20,7 +22,9 @@ class PCRCachedCollator:
         self.device = device
 
     def _cache_filepath(self, key: int) -> str:
-        assert hasattr(self.cache, 'version_dir'), "Cache must expose version_dir for PCR caching"
+        assert hasattr(
+            self.cache, 'version_dir'
+        ), "Cache must expose version_dir for PCR caching"
         return os.path.join(self.cache.version_dir, f"{key}.pt")
 
     def __call__(self, datapoints: List[int]):
@@ -32,7 +36,9 @@ class PCRCachedCollator:
         cache_filepath = self._cache_filepath(key)
         cached_result = self.cache.get(cache_filepath=cache_filepath)
         if cached_result is not None:
-            return apply_tensor_op(func=lambda x: x.to(self.device), inputs=cached_result)
+            return apply_tensor_op(
+                func=lambda x: x.to(self.device), inputs=cached_result
+            )
         else:
             actual_datapoints = [self.original_dataset[idx] for idx in datapoints]
             batched_datapoints = self.collator(actual_datapoints)
@@ -66,8 +72,15 @@ class PCRDataloader(BaseDataLoader):
         if self.cache is not None:
             # Using index dataset avoids loading datapoint in case a batched datapoint is already cached
             index_dataset = IndexDataset(size=len(dataset))
-            cached_collator = PCRCachedCollator(original_dataset=dataset, collator=collator, cache=self.cache, device=device)
-            super().__init__(dataset=index_dataset, collate_fn=cached_collator, **kwargs)
+            cached_collator = PCRCachedCollator(
+                original_dataset=dataset,
+                collator=collator,
+                cache=self.cache,
+                device=device,
+            )
+            super().__init__(
+                dataset=index_dataset, collate_fn=cached_collator, **kwargs
+            )
         else:
             super().__init__(dataset=dataset, collate_fn=collator, **kwargs)
 
@@ -83,7 +96,9 @@ class PCRDataloader(BaseDataLoader):
     ) -> None:
         assert isinstance(use_cpu_cache, bool), f"{type(use_cpu_cache)=}"
         assert isinstance(use_disk_cache, bool), f"{type(use_disk_cache)=}"
-        assert isinstance(max_cache_memory_percent, float), f"{type(max_cache_memory_percent)=}"
+        assert isinstance(
+            max_cache_memory_percent, float
+        ), f"{type(max_cache_memory_percent)=}"
         assert 0.0 <= max_cache_memory_percent <= 100.0, f"{max_cache_memory_percent=}"
 
         if use_cpu_cache or use_disk_cache:
@@ -139,7 +154,9 @@ class PCRDataloader(BaseDataLoader):
         return xxhash.xxh64(hash_str.encode()).hexdigest()[:16]
 
     @staticmethod
-    def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def split_points_by_lengths(
+        points: torch.Tensor, lengths: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Split concatenated points into source and target using lengths.
 
         Args:
@@ -150,8 +167,8 @@ class PCRDataloader(BaseDataLoader):
             Tuple of (source_points, target_points)
         """
         total_length = lengths[0]
-        src_points = points[:total_length//2]
-        tgt_points = points[total_length//2:total_length]
+        src_points = points[: total_length // 2]
+        tgt_points = points[total_length // 2 : total_length]
         return src_points, tgt_points
 
     @staticmethod
@@ -162,7 +179,7 @@ class PCRDataloader(BaseDataLoader):
         camera_state: Optional[Dict[str, Any]] = None,
         sym_diff_radius: float = 0.05,
         lod_type: str = "continuous",
-        density_percentage: int = 100
+        density_percentage: int = 100,
     ) -> html.Div:
         """Display a batched point cloud registration datapoint.
 
@@ -178,10 +195,17 @@ class PCRDataloader(BaseDataLoader):
             html.Div containing the visualization
         """
         from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
-        from data.viewer.utils.structure_validation import validate_pcr_structure
-        from data.viewer.utils.displays.points.dash.core_points_display import create_point_cloud_display, build_point_cloud_id
-        from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
         from data.structures.three_d.point_cloud.point_cloud import PointCloud
+        from data.viewer.utils.display_utils import (
+            DisplayStyles,
+            ParallelFigureCreator,
+            create_figure_grid,
+        )
+        from data.viewer.utils.displays.points.dash.core_points_display import (
+            build_point_cloud_id,
+            create_point_cloud_display,
+        )
+        from data.viewer.utils.structure_validation import validate_pcr_structure
 
         # Validate structure and inputs (includes all basic validation)
         validate_pcr_structure(datapoint)
@@ -193,19 +217,27 @@ class PCRDataloader(BaseDataLoader):
         for level in range(len(inputs['points'])):
             # Split points into source and target
             src_points, tgt_points = PCRDataloader.split_points_by_lengths(
-                inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
+                inputs['points'][level],
+                inputs.get('lengths', inputs['stack_lengths'])[level],
             )
 
             # For top level (level 0), show all visualizations
             if level == 0:
                 # Get transform and apply it to source points
-                assert 'labels' in datapoint, "datapoint must have 'labels' for transformation"
-                assert 'transform' in datapoint['labels'], "datapoint['labels'] must have 'transform' for transformation"
+                assert (
+                    'labels' in datapoint
+                ), "datapoint must have 'labels' for transformation"
+                assert (
+                    'transform' in datapoint['labels']
+                ), "datapoint['labels'] must have 'transform' for transformation"
                 transform = datapoint['labels']['transform']
-                assert isinstance(transform, torch.Tensor), f"transform must be torch.Tensor, got {type(transform)}"
+                assert isinstance(
+                    transform, torch.Tensor
+                ), f"transform must be torch.Tensor, got {type(transform)}"
 
                 # Transform source points
                 from data.structures.three_d.point_cloud.ops import apply_transform
+
                 src_points_transformed = apply_transform(src_points, transform)
 
                 figure_tasks = [
@@ -219,7 +251,9 @@ class PCRDataloader(BaseDataLoader):
                         camera_state=camera_state,
                         lod_type=lod_type,
                         density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
+                        point_cloud_id=build_point_cloud_id(
+                            datapoint, f"source_batch_{lvl}"
+                        ),
                     ),
                     lambda tgt=tgt_points, lvl=level: create_point_cloud_display(
                         pc=PointCloud(xyz=tgt),
@@ -231,7 +265,9 @@ class PCRDataloader(BaseDataLoader):
                         camera_state=camera_state,
                         lod_type=lod_type,
                         density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
+                        point_cloud_id=build_point_cloud_id(
+                            datapoint, f"target_batch_{lvl}"
+                        ),
                     ),
                     lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level: BasePCRDataset.create_union_visualization(
                         src_points=src_transformed,  # Use transformed source points
@@ -242,7 +278,9 @@ class PCRDataloader(BaseDataLoader):
                         camera_state=camera_state,
                         lod_type=lod_type,
                         density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"union_batch_{lvl}")
+                        point_cloud_id=build_point_cloud_id(
+                            datapoint, f"union_batch_{lvl}"
+                        ),
                     ),
                     lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level: BasePCRDataset.create_symmetric_difference_visualization(
                         src_points=src_transformed,  # Use transformed source points
@@ -254,7 +292,9 @@ class PCRDataloader(BaseDataLoader):
                         camera_state=camera_state,
                         lod_type=lod_type,
                         density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"sym_diff_batch_{lvl}")
+                        point_cloud_id=build_point_cloud_id(
+                            datapoint, f"sym_diff_batch_{lvl}"
+                        ),
                     ),
                 ]
 
@@ -262,9 +302,15 @@ class PCRDataloader(BaseDataLoader):
                 if 'correspondences' in inputs:
                     correspondences = inputs['correspondences']
                     # Validate correspondences format
-                    assert isinstance(correspondences, torch.Tensor), f"correspondences must be torch.Tensor, got {type(correspondences)}"
-                    assert correspondences.ndim == 2, f"correspondences must be 2D tensor, got {correspondences.ndim}D"
-                    assert correspondences.shape[1] == 2, f"correspondences must have shape (N, 2), got shape {correspondences.shape}"
+                    assert isinstance(
+                        correspondences, torch.Tensor
+                    ), f"correspondences must be torch.Tensor, got {type(correspondences)}"
+                    assert (
+                        correspondences.ndim == 2
+                    ), f"correspondences must be 2D tensor, got {correspondences.ndim}D"
+                    assert (
+                        correspondences.shape[1] == 2
+                    ), f"correspondences must have shape (N, 2), got shape {correspondences.shape}"
 
                     figure_tasks.append(
                         lambda src_transformed=src_points_transformed, tgt=tgt_points, lvl=level, corr=correspondences: BasePCRDataset.create_correspondence_visualization(
@@ -276,49 +322,65 @@ class PCRDataloader(BaseDataLoader):
                             camera_state=camera_state,
                             lod_type=lod_type,
                             density_percentage=density_percentage,
-                            point_cloud_id=build_point_cloud_id(datapoint, f"correspondences_batch_{lvl}"),
+                            point_cloud_id=build_point_cloud_id(
+                                datapoint, f"correspondences_batch_{lvl}"
+                            ),
                             title=f"Point Cloud Correspondences (Level {lvl})",
                         )
                     )
 
                 # Create figures in parallel using centralized utility
-                figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+                figure_creator = ParallelFigureCreator(
+                    max_workers=4, enable_timing=False
+                )
                 level_figures = figure_creator.create_figures_parallel(figure_tasks)
                 all_figures.extend(level_figures)
             else:
                 # For lower levels, only show source and target
-                all_figures.extend([
-                    create_point_cloud_display(
-                        pc=PointCloud(xyz=src_points),
-                        color_key=None,
-                        highlight_indices=None,
-                        title=f"Source Point Cloud (Level {level})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
-                    ),
-                    create_point_cloud_display(
-                        pc=PointCloud(xyz=tgt_points),
-                        color_key=None,
-                        highlight_indices=None,
-                        title=f"Target Point Cloud (Level {level})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        density_percentage=density_percentage,
-                        point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{level}"),
-                    )
-                ])
+                all_figures.extend(
+                    [
+                        create_point_cloud_display(
+                            pc=PointCloud(xyz=src_points),
+                            color_key=None,
+                            highlight_indices=None,
+                            title=f"Source Point Cloud (Level {level})",
+                            point_size=point_size,
+                            point_opacity=point_opacity,
+                            camera_state=camera_state,
+                            lod_type=lod_type,
+                            density_percentage=density_percentage,
+                            point_cloud_id=build_point_cloud_id(
+                                datapoint, f"source_batch_{level}"
+                            ),
+                        ),
+                        create_point_cloud_display(
+                            pc=PointCloud(xyz=tgt_points),
+                            color_key=None,
+                            highlight_indices=None,
+                            title=f"Target Point Cloud (Level {level})",
+                            point_size=point_size,
+                            point_opacity=point_opacity,
+                            camera_state=camera_state,
+                            lod_type=lod_type,
+                            density_percentage=density_percentage,
+                            point_cloud_id=build_point_cloud_id(
+                                datapoint, f"target_batch_{level}"
+                            ),
+                        ),
+                    ]
+                )
 
         # Create grid layout using centralized utilities
-        grid_items = create_figure_grid(all_figures, width_style="50%", height_style="520px")
+        grid_items = create_figure_grid(
+            all_figures, width_style="50%", height_style="520px"
+        )
 
-        return html.Div([
-            html.H3("Point Cloud Registration Visualization (Hierarchical)"),
-            html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
-            BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
-        ])
+        return html.Div(
+            [
+                html.H3("Point Cloud Registration Visualization (Hierarchical)"),
+                html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
+                BasePCRDataset._create_meta_info_section(
+                    datapoint.get('meta_info', {})
+                ),
+            ]
+        )

@@ -1,5 +1,7 @@
 from typing import List
-import torch 
+
+import torch
+
 from models.change_detection.cdmaskformer.seaformer import SeaFormer_L
 
 

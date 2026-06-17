@@ -1,11 +1,19 @@
-from typing import Dict, Any, Union, List, Optional
 from itertools import filterfalse as ifilterfalse
+from typing import Any, Dict, List, Optional, Union
+
 import torch
+
 from criteria.vision_2d import SemanticSegmentationCriterion
 from criteria.wrappers import SingleTaskCriterion
 
 
-def lovasz_softmax(probas: torch.Tensor, labels: torch.Tensor, classes: Union[str, List[int]] = 'present', per_image: bool = False, ignore: Optional[int] = None) -> torch.Tensor:
+def lovasz_softmax(
+    probas: torch.Tensor,
+    labels: torch.Tensor,
+    classes: Union[str, List[int]] = 'present',
+    per_image: bool = False,
+    ignore: Optional[int] = None,
+) -> torch.Tensor:
     """
     Multi-class Lovasz-Softmax loss
       probas: [B, C, H, W] Variable, class probabilities at each prediction (between 0 and 1).
@@ -16,14 +24,25 @@ def lovasz_softmax(probas: torch.Tensor, labels: torch.Tensor, classes: Union[st
       ignore: void class labels
     """
     if per_image:
-        loss = mean(lovasz_softmax_flat(*flatten_probas(prob.unsqueeze(0), lab.unsqueeze(0), ignore), classes=classes)
-                          for prob, lab in zip(probas, labels, strict=True))
+        loss = mean(
+            lovasz_softmax_flat(
+                *flatten_probas(prob.unsqueeze(0), lab.unsqueeze(0), ignore),
+                classes=classes
+            )
+            for prob, lab in zip(probas, labels, strict=True)
+        )
     else:
-        loss = lovasz_softmax_flat(*flatten_probas(probas, labels, ignore), classes=classes)
+        loss = lovasz_softmax_flat(
+            *flatten_probas(probas, labels, ignore), classes=classes
+        )
     return loss
 
 
-def lovasz_softmax_flat(probas: torch.Tensor, labels: torch.Tensor, classes: Union[str, List[int]] = 'present') -> torch.Tensor:
+def lovasz_softmax_flat(
+    probas: torch.Tensor,
+    labels: torch.Tensor,
+    classes: Union[str, List[int]] = 'present',
+) -> torch.Tensor:
     """
     Multi-class Lovasz-Softmax loss
       probas: [P, C] Variable, class probabilities at each prediction (between 0 and 1)
@@ -32,13 +51,13 @@ def lovasz_softmax_flat(probas: torch.Tensor, labels: torch.Tensor, classes: Uni
     """
     if probas.numel() == 0:
         # only void pixels, the gradients should be 0
-        return probas * 0.
+        return probas * 0.0
     C = probas.size(1)
     losses = []
     class_to_sum = list(range(C)) if classes in ['all', 'present'] else classes
     for c in class_to_sum:
-        fg = (labels == c).float() # foreground for class c
-        if (classes == 'present' and fg.sum() == 0):
+        fg = (labels == c).float()  # foreground for class c
+        if classes == 'present' and fg.sum() == 0:
             continue
         if C == 1:
             if len(classes) > 1:
@@ -63,13 +82,15 @@ def lovasz_grad(gt_sorted: torch.Tensor) -> torch.Tensor:
     gts = gt_sorted.sum()
     intersection = gts - gt_sorted.float().cumsum(0)
     union = gts + (1 - gt_sorted).float().cumsum(0)
-    jaccard = 1. - intersection / union
-    if p > 1: # cover 1-pixel case
+    jaccard = 1.0 - intersection / union
+    if p > 1:  # cover 1-pixel case
         jaccard[1:p] = jaccard[1:p] - jaccard[0:-1]
     return jaccard
 
 
-def flatten_probas(probas: torch.Tensor, labels: torch.Tensor, ignore: Optional[int] = None) -> tuple[torch.Tensor, torch.Tensor]:
+def flatten_probas(
+    probas: torch.Tensor, labels: torch.Tensor, ignore: Optional[int] = None
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Flattens predictions in the batch
     """
@@ -82,13 +103,15 @@ def flatten_probas(probas: torch.Tensor, labels: torch.Tensor, ignore: Optional[
     labels = labels.view(-1)
     if ignore is None:
         return probas, labels
-    valid = (labels != ignore)
+    valid = labels != ignore
     vprobas = probas[valid.nonzero().squeeze()]
     vlabels = labels[valid]
     return vprobas, vlabels
 
 
-def mean(l: Any, ignore_nan: bool = False, empty: Union[int, str] = 0) -> Union[float, int]:
+def mean(
+    l: Any, ignore_nan: bool = False, empty: Union[int, str] = 0
+) -> Union[float, int]:
     """
     nanmean compatible with generators.
     """
@@ -119,12 +142,16 @@ class STMambaBCDCriterion(SingleTaskCriterion):
         super(STMambaBCDCriterion, self).__init__(**kwargs)
         self.ce_loss = SemanticSegmentationCriterion(ignore_value=255)
 
-    def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def __call__(
+        self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
         assert isinstance(y_pred, torch.Tensor)
         assert isinstance(y_true, dict)
         assert set(y_true.keys()) == {'change_map'}
         ce_loss = self.ce_loss(y_pred, y_true['change_map'])
-        lovasz_loss = lovasz_softmax(torch.nn.functional.softmax(y_pred, dim=1), y_true['change_map'], ignore=255)
+        lovasz_loss = lovasz_softmax(
+            torch.nn.functional.softmax(y_pred, dim=1), y_true['change_map'], ignore=255
+        )
         total_loss = ce_loss + 0.75 * lovasz_loss
         self.add_to_buffer(total_loss)
         return total_loss

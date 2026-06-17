@@ -1,5 +1,6 @@
-from typing import Tuple, List, Sequence, Dict, Callable, Union, Any, Optional
 import copy
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+
 from data.transforms.base_transform import BaseTransform
 
 

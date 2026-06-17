@@ -1,10 +1,19 @@
 import torch
 import torch.nn as nn
 
-from models.point_cloud_registration.parenet.pareconv.modules.loss import WeightedCircleLoss
-from models.point_cloud_registration.parenet.pareconv.modules.ops.transformation import apply_transform
-from models.point_cloud_registration.parenet.pareconv.modules.registration.metrics import isotropic_transform_error, relative_rotation_error
-from models.point_cloud_registration.parenet.pareconv.modules.ops.pairwise_distance import pairwise_distance
+from models.point_cloud_registration.parenet.pareconv.modules.loss import (
+    WeightedCircleLoss,
+)
+from models.point_cloud_registration.parenet.pareconv.modules.ops.pairwise_distance import (
+    pairwise_distance,
+)
+from models.point_cloud_registration.parenet.pareconv.modules.ops.transformation import (
+    apply_transform,
+)
+from models.point_cloud_registration.parenet.pareconv.modules.registration.metrics import (
+    isotropic_transform_error,
+    relative_rotation_error,
+)
 
 
 class _CoarseMatchingLoss(nn.Module):
@@ -27,10 +36,14 @@ class _CoarseMatchingLoss(nn.Module):
         gt_ref_node_corr_indices = gt_node_corr_indices[:, 0]
         gt_src_node_corr_indices = gt_node_corr_indices[:, 1]
 
-        feat_dists = torch.sqrt(pairwise_distance(ref_feats, src_feats, normalized=True))
+        feat_dists = torch.sqrt(
+            pairwise_distance(ref_feats, src_feats, normalized=True)
+        )
 
         overlaps = torch.zeros_like(feat_dists)
-        overlaps[gt_ref_node_corr_indices, gt_src_node_corr_indices] = gt_node_corr_overlaps
+        overlaps[gt_ref_node_corr_indices, gt_src_node_corr_indices] = (
+            gt_node_corr_overlaps
+        )
         pos_masks = torch.gt(overlaps, self.positive_overlap)
         neg_masks = torch.eq(overlaps, 0)
         pos_scales = torch.sqrt(overlaps * pos_masks.float())
@@ -39,7 +52,8 @@ class _CoarseMatchingLoss(nn.Module):
 
         return loss
 
-class _FineMatchingLoss(nn.Module): # for fine dual matching
+
+class _FineMatchingLoss(nn.Module):  # for fine dual matching
     def __init__(self, cfg):
         super(_FineMatchingLoss, self).__init__()
         self.positive_radius = cfg.fine_loss.positive_radius
@@ -58,20 +72,30 @@ class _FineMatchingLoss(nn.Module): # for fine dual matching
         matching_scores = output_dict['matching_scores']
         transform = data_dict['transform']
         src_node_corr_knn_points = apply_transform(src_node_corr_knn_points, transform)
-        dists = pairwise_distance(ref_node_corr_knn_points, src_node_corr_knn_points)  # (B, N, M)
-        gt_masks = torch.logical_and(ref_node_corr_knn_masks.unsqueeze(2), src_node_corr_knn_masks.unsqueeze(1))
-        gt_corr_map = torch.lt(dists, self.positive_radius ** 2)
+        dists = pairwise_distance(
+            ref_node_corr_knn_points, src_node_corr_knn_points
+        )  # (B, N, M)
+        gt_masks = torch.logical_and(
+            ref_node_corr_knn_masks.unsqueeze(2), src_node_corr_knn_masks.unsqueeze(1)
+        )
+        gt_corr_map = torch.lt(dists, self.positive_radius**2)
         gt_corr_map = torch.logical_and(gt_corr_map, gt_masks)
-        slack_row_labels = torch.logical_and(torch.eq(gt_corr_map.sum(2), 0), ref_node_corr_knn_masks)
-        slack_col_labels = torch.logical_and(torch.eq(gt_corr_map.sum(1), 0), src_node_corr_knn_masks)
+        slack_row_labels = torch.logical_and(
+            torch.eq(gt_corr_map.sum(2), 0), ref_node_corr_knn_masks
+        )
+        slack_col_labels = torch.logical_and(
+            torch.eq(gt_corr_map.sum(1), 0), src_node_corr_knn_masks
+        )
 
         # compute matching loss of rotation invariant features
-        fine_ri_loss = - (matching_scores[gt_corr_map].log().mean()
-                  + 0.5 * (1 - ref_node_corr_knn_scores)[slack_row_labels].log().mean()
-                  + 0.5 * (1 - src_node_corr_knn_scores)[slack_col_labels].log().mean())
+        fine_ri_loss = -(
+            matching_scores[gt_corr_map].log().mean()
+            + 0.5 * (1 - ref_node_corr_knn_scores)[slack_row_labels].log().mean()
+            + 0.5 * (1 - src_node_corr_knn_scores)[slack_col_labels].log().mean()
+        )
 
         # compute loss of rotation equivariant features
-        neg_map = torch.gt(dists, self.negative_radius ** 2)
+        neg_map = torch.gt(dists, self.negative_radius**2)
         neg_map = torch.logical_and(neg_map, gt_masks)
         fine_re_loss = self.fine_re_loss(output_dict, gt_corr_map, neg_map, transform)
 
@@ -80,21 +104,28 @@ class _FineMatchingLoss(nn.Module): # for fine dual matching
     def fine_re_loss(self, out_dict, gt_corr_map, neg_map, gt_trans):
         ref_feats = out_dict['re_ref_node_corr_knn_feats']
         src_feats = out_dict['re_src_node_corr_knn_feats']
-        batch_indices, ref_indices, src_indices = torch.nonzero(gt_corr_map, as_tuple=True)
+        batch_indices, ref_indices, src_indices = torch.nonzero(
+            gt_corr_map, as_tuple=True
+        )
         if batch_indices.shape[0] == 0:
             return torch.tensor(0.0, device=ref_feats.device)
         ref_feats_rot = ref_feats[batch_indices, ref_indices]
         src_feats_rot = src_feats[batch_indices, src_indices]
         src_feats_rot = torch.einsum('bck, lk -> bcl', src_feats_rot, gt_trans[:3, :3])
-        pos_loss = torch.relu(torch.norm(src_feats_rot - ref_feats_rot, 2, -1) - self.positive_margin).mean()
+        pos_loss = torch.relu(
+            torch.norm(src_feats_rot - ref_feats_rot, 2, -1) - self.positive_margin
+        ).mean()
 
         batch_indices, ref_indices, src_indices = torch.nonzero(neg_map, as_tuple=True)
         ref_feats_rot = ref_feats[batch_indices, ref_indices]
         src_feats_rot = src_feats[batch_indices, src_indices]
         src_feats_rot = torch.einsum('bck, lk -> bcl', src_feats_rot, gt_trans[:3, :3])
-        neg_loss = torch.relu(self.negative_margin - torch.norm(src_feats_rot - ref_feats_rot, 2, -1)).mean()
+        neg_loss = torch.relu(
+            self.negative_margin - torch.norm(src_feats_rot - ref_feats_rot, 2, -1)
+        ).mean()
         re_loss = pos_loss + neg_loss
         return re_loss
+
 
 class _OverallLoss(nn.Module):
     def __init__(self, cfg):
@@ -108,7 +139,11 @@ class _OverallLoss(nn.Module):
     def forward(self, output_dict, data_dict):
         coarse_loss = self.coarse_loss(output_dict)
         fine_ri_loss, fine_re_loss = self.fine_loss(output_dict, data_dict)
-        loss = self.weight_coarse_loss * coarse_loss + self.weight_fine_ri_loss * fine_ri_loss + self.weight_fine_re_loss * fine_re_loss
+        loss = (
+            self.weight_coarse_loss * coarse_loss
+            + self.weight_fine_ri_loss * fine_ri_loss
+            + self.weight_fine_re_loss * fine_re_loss
+        )
         return {
             'loss': loss,
             'c_loss': coarse_loss,
@@ -133,9 +168,15 @@ class _Evaluator(nn.Module):
         gt_node_corr_indices = output_dict['gt_node_corr_indices']
 
         # Critical bounds checking to prevent IndexError
-        assert ref_length_c > 0, f"ref_points_c is empty: shape {output_dict['ref_points_c'].shape}"
-        assert src_length_c > 0, f"src_points_c is empty: shape {output_dict['src_points_c'].shape}"
-        assert gt_node_corr_indices.numel() > 0, f"gt_node_corr_indices is empty: shape {gt_node_corr_indices.shape}"
+        assert (
+            ref_length_c > 0
+        ), f"ref_points_c is empty: shape {output_dict['ref_points_c'].shape}"
+        assert (
+            src_length_c > 0
+        ), f"src_points_c is empty: shape {output_dict['src_points_c'].shape}"
+        assert (
+            gt_node_corr_indices.numel() > 0
+        ), f"gt_node_corr_indices is empty: shape {gt_node_corr_indices.shape}"
 
         masks = torch.gt(gt_node_corr_overlaps, self.acceptance_overlap)
         gt_node_corr_indices = gt_node_corr_indices[masks]
@@ -147,7 +188,9 @@ class _Evaluator(nn.Module):
         ref_node_corr_indices = output_dict['ref_node_corr_indices']
         src_node_corr_indices = output_dict['src_node_corr_indices']
 
-        precision = gt_node_corr_map[ref_node_corr_indices, src_node_corr_indices].mean()
+        precision = gt_node_corr_map[
+            ref_node_corr_indices, src_node_corr_indices
+        ].mean()
 
         return precision
 
@@ -164,6 +207,7 @@ class _Evaluator(nn.Module):
         mask = torch.lt(corr_distances, self.acceptance_radius)
         precision = mask.float().mean()
         return precision
+
     @torch.no_grad()
     def evaluate_registration(self, output_dict, data_dict):
         transform = data_dict['transform']

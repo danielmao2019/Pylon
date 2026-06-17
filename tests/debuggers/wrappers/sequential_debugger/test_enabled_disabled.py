@@ -1,8 +1,9 @@
 import pytest
 import torch
 import torch.nn as nn
-from debuggers.wrappers.sequential_debugger import SequentialDebugger
+
 from debuggers.base_debugger import BaseDebugger
+from debuggers.wrappers.sequential_debugger import SequentialDebugger
 
 
 class MockDebugger(BaseDebugger):
@@ -30,24 +31,19 @@ def test_debugger_returns_empty_when_disabled():
     debuggers_config = [
         {
             'name': 'test_debugger',
-            'debugger_config': {
-                'class': MockDebugger,
-                'args': {}
-            }
+            'debugger_config': {'class': MockDebugger, 'args': {}},
         }
     ]
 
     debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=model,
-        page_size_mb=1
+        debuggers_config=debuggers_config, model=model, page_size_mb=1
     )
 
     # Create test datapoint
     datapoint = {
         'inputs': torch.randn(1, 10, dtype=torch.float32),
         'outputs': torch.randn(1, 5, dtype=torch.float32),
-        'meta_info': {'idx': [0]}
+        'meta_info': {'idx': [0]},
     }
 
     # Test disabled state
@@ -69,17 +65,12 @@ def test_debugger_enabled_disabled_state_management():
     debuggers_config = [
         {
             'name': 'test_debugger',
-            'debugger_config': {
-                'class': MockDebugger,
-                'args': {}
-            }
+            'debugger_config': {'class': MockDebugger, 'args': {}},
         }
     ]
 
     debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=model,
-        page_size_mb=1
+        debuggers_config=debuggers_config, model=model, page_size_mb=1
     )
 
     # Default state should be disabled
@@ -101,23 +92,18 @@ def test_debugger_buffer_not_filled_when_disabled():
     debuggers_config = [
         {
             'name': 'test_debugger',
-            'debugger_config': {
-                'class': MockDebugger,
-                'args': {}
-            }
+            'debugger_config': {'class': MockDebugger, 'args': {}},
         }
     ]
 
     debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=model,
-        page_size_mb=1
+        debuggers_config=debuggers_config, model=model, page_size_mb=1
     )
 
     datapoint = {
         'inputs': torch.randn(1, 10, dtype=torch.float32),
         'outputs': torch.randn(1, 5, dtype=torch.float32),
-        'meta_info': {'idx': [0]}
+        'meta_info': {'idx': [0]},
     }
 
     # Ensure disabled

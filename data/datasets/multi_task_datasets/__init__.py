@@ -1,2 +1,1 @@
-"""Intentionally blank.
-"""
+"""Intentionally blank."""

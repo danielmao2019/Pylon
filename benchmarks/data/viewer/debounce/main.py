@@ -37,38 +37,35 @@ Examples:
   # Smaller dataset for quick testing
   python -m benchmarks.data.viewer.debounce.main --datapoints 20 --points 1000
 
-        """
+        """,
     )
 
     parser.add_argument(
         '--scenarios',
         nargs='+',
         choices=['navigation', '3d_settings', 'mixed', 'stress', 'buttons', 'camera'],
-        help='Scenarios to benchmark (default: all scenarios)'
+        help='Scenarios to benchmark (default: all scenarios)',
     )
 
     parser.add_argument(
         '--datapoints',
         type=int,
         default=100,
-        help='Number of datapoints in synthetic dataset (default: 100)'
+        help='Number of datapoints in synthetic dataset (default: 100)',
     )
 
     parser.add_argument(
         '--points',
         type=int,
         default=5000,
-        help='Number of points per point cloud (default: 5000)'
+        help='Number of points per point cloud (default: 5000)',
     )
-
 
     parser.add_argument(
         '--quick',
         action='store_true',
-        help='Quick test mode (20 datapoints, 1000 points)'
+        help='Quick test mode (20 datapoints, 1000 points)',
     )
-
-
 
     return parser.parse_args()
 
@@ -113,9 +110,7 @@ def main():
 
     # Run benchmark suite
     results = runner.run_full_benchmark(
-        scenarios=args.scenarios,
-        num_datapoints=args.datapoints,
-        num_points=args.points
+        scenarios=args.scenarios, num_datapoints=args.datapoints, num_points=args.points
     )
 
     # Save results

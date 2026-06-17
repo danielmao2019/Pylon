@@ -1,9 +1,11 @@
-from typing import List, Optional
-import os
 import glob
-import time
-import torch
+import os
 import threading
+import time
+from typing import List, Optional
+
+import torch
+
 from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.builders import build_from_config
 from utils.io.json import save_json
@@ -17,36 +19,58 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
 
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
-        if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
-            train_dataset: torch.utils.data.Dataset = build_from_config(self.config['train_dataset'])
+        if self.config.get('train_dataset', None) and self.config.get(
+            'train_dataloader', None
+        ):
+            train_dataset: torch.utils.data.Dataset = build_from_config(
+                self.config['train_dataset']
+            )
             self.train_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=train_dataset, shuffle=True, config=self.config['train_dataloader'],
+                dataset=train_dataset,
+                shuffle=True,
+                config=self.config['train_dataloader'],
             )
         else:
             self.train_dataloader = None
         # initialize validation dataloader
-        if self.config.get('val_datasets', None) and self.config.get('val_dataloaders', None):
+        if self.config.get('val_datasets', None) and self.config.get(
+            'val_dataloaders', None
+        ):
             assert type(self.config['val_datasets']) == list
             assert type(self.config['val_dataloaders']) == list
-            assert len(self.config['val_datasets']) == len(self.config['val_dataloaders'])
+            assert len(self.config['val_datasets']) == len(
+                self.config['val_dataloaders']
+            )
             self.val_dataloaders = []
-            for val_dataset_cfg, val_dataloader_cfg in zip(self.config['val_datasets'], self.config['val_dataloaders'], strict=True):
-                val_dataset: torch.utils.data.Dataset = build_from_config(val_dataset_cfg)
+            for val_dataset_cfg, val_dataloader_cfg in zip(
+                self.config['val_datasets'], self.config['val_dataloaders'], strict=True
+            ):
+                val_dataset: torch.utils.data.Dataset = build_from_config(
+                    val_dataset_cfg
+                )
                 if 'batch_size' not in val_dataloader_cfg['args']:
                     val_dataloader_cfg['args']['batch_size'] = 1
                 val_dataloader: torch.utils.data.DataLoader = build_from_config(
-                    dataset=val_dataset, shuffle=False, config=val_dataloader_cfg,
+                    dataset=val_dataset,
+                    shuffle=False,
+                    config=val_dataloader_cfg,
                 )
                 self.val_dataloaders.append(val_dataloader)
         else:
             self.val_dataloaders = None
         # initialize test dataloader
-        if self.config.get('test_dataset', None) and self.config.get('test_dataloader', None):
-            test_dataset: torch.utils.data.Dataset = build_from_config(self.config['test_dataset'])
+        if self.config.get('test_dataset', None) and self.config.get(
+            'test_dataloader', None
+        ):
+            test_dataset: torch.utils.data.Dataset = build_from_config(
+                self.config['test_dataset']
+            )
             if 'batch_size' not in self.config['test_dataloader']['args']:
                 self.config['test_dataloader']['args']['batch_size'] = 1
             self.test_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=test_dataset, shuffle=False, config=self.config['test_dataloader'],
+                dataset=test_dataset,
+                shuffle=False,
+                config=self.config['test_dataloader'],
             )
         else:
             self.test_dataloader = None
@@ -70,12 +94,18 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             self.metric.reset_buffer()
             for idx, dp in enumerate(val_dataloader):
                 self._eval_step_(dp=dp)
-                self.logger.flush(prefix=f"Validation on {val_dataloader.dataset.__class__.__name__} [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(val_dataloader)}].")
-            results[val_dataloader.dataset.__class__.__name__] = self.metric.summarize(output_path=None)
+                self.logger.flush(
+                    prefix=f"Validation on {val_dataloader.dataset.__class__.__name__} [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(val_dataloader)}]."
+                )
+            results[val_dataloader.dataset.__class__.__name__] = self.metric.summarize(
+                output_path=None
+            )
 
         # after validation loop
         self._after_val_loop_(results)
-        self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
+        self.logger.info(
+            f"Validation epoch time: {round(time.time() - start_time, 2)} seconds."
+        )
 
     def _before_val_loop_(self) -> None:
         self.model.eval()
@@ -93,7 +123,9 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             os.makedirs(epoch_root, exist_ok=True)
 
             # save validation scores to disk
-            save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
+            save_json(
+                obj=results, filepath=os.path.join(epoch_root, "validation_scores.json")
+            )
 
             # set best checkpoint
             best_checkpoint: Optional[str] = None
@@ -102,7 +134,16 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
                 soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
                 if os.path.isfile(soft_link):
                     os.system(' '.join(["rm", soft_link]))
-                os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
+                os.system(
+                    ' '.join(
+                        [
+                            "ln",
+                            "-s",
+                            os.path.relpath(path=best_checkpoint, start=self.work_dir),
+                            soft_link,
+                        ]
+                    )
+                )
             except:
                 best_checkpoint = None
 
@@ -117,4 +158,6 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
         self.after_val_thread.start()
 
     def _find_best_checkpoint_(self) -> str:
-        raise NotImplementedError("Don't know how to compare checkpoints for MultiValDatasetTrainer yet.")
+        raise NotImplementedError(
+            "Don't know how to compare checkpoints for MultiValDatasetTrainer yet."
+        )

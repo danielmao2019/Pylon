@@ -1,26 +1,31 @@
-from typing import List, Dict, Any, Optional
-from abc import ABC, abstractmethod
 import copy
-import os
 import glob
-import time
 import json
+import os
+import threading
+import time
+from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional
+
 import jsbeautifier
 import torch
-import threading
+
 import criteria
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from utils.builders import build_from_config
-from utils.determinism import set_determinism, set_seed
-from utils.io.json import serialize_tensor
-from utils.io.json import save_json
 from agents.manager.training_job import TrainingJob
 from agents.monitor.system_monitor import SystemMonitor
+from runners.model_comparison import (
+    compare_scores,
+    get_metric_directions,
+    reduce_scores_to_scalar,
+)
+from utils.builders import build_from_config
+from utils.determinism import set_determinism, set_seed
 from utils.dynamic_executor import create_dynamic_executor
-from utils.logging.text_logger import TextLogger
-from utils.logging.screen_logger import ScreenLogger
+from utils.io.json import save_json, serialize_tensor
 from utils.logging import echo_page_break, log_losses, log_scores
-from runners.model_comparison import compare_scores, get_metric_directions, reduce_scores_to_scalar
+from utils.logging.screen_logger import ScreenLogger
+from utils.logging.text_logger import TextLogger
 
 
 class BaseTrainer(ABC):
@@ -83,7 +88,7 @@ class BaseTrainer(ABC):
             "completed_epochs": self.cum_epochs,
             "progress_percentage": (self.cum_epochs / self.tot_epochs) * 100,
             "early_stopped": early_stopped,
-            "early_stopped_at_epoch": early_stopped_at_epoch
+            "early_stopped_at_epoch": early_stopped_at_epoch,
         }
 
         progress_file = os.path.join(self.work_dir, "progress.json")
@@ -108,14 +113,20 @@ class BaseTrainer(ABC):
 
         # Try to initialize screen logger, fall back to traditional logger if it fails
         try:
-            self.logger = ScreenLogger(max_iterations=10, filepath=log_filepath, layout="train")
+            self.logger = ScreenLogger(
+                max_iterations=10, filepath=log_filepath, layout="train"
+            )
         except Exception as e:
-            print(f"Failed to initialize screen logger: {e}. Falling back to traditional logger.")
+            print(
+                f"Failed to initialize screen logger: {e}. Falling back to traditional logger."
+            )
             self.logger = TextLogger(filepath=log_filepath)
 
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
-            f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
+            f.write(
+                jsbeautifier.beautify(str(self.config), jsbeautifier.default_options())
+            )
 
         # Initialize system monitor (CPU + GPU)
         self.system_monitor = SystemMonitor()
@@ -134,7 +145,9 @@ class BaseTrainer(ABC):
         train_seeds = self.config['train_seeds']
         assert isinstance(train_seeds, list), f"{type(train_seeds)=}"
         assert all(isinstance(seed, int) for seed in train_seeds), f"{train_seeds=}"
-        assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
+        assert (
+            len(train_seeds) == self.tot_epochs
+        ), f"{len(train_seeds)=}, {self.tot_epochs=}"
         self.train_seeds = train_seeds
 
         # Get validation seeds
@@ -142,7 +155,9 @@ class BaseTrainer(ABC):
         val_seeds = self.config['val_seeds']
         assert isinstance(val_seeds, list), f"{type(val_seeds)=}"
         assert all(isinstance(seed, int) for seed in val_seeds), f"{val_seeds=}"
-        assert len(val_seeds) == self.tot_epochs, f"{len(val_seeds)=}, {self.tot_epochs=}"
+        assert (
+            len(val_seeds) == self.tot_epochs
+        ), f"{len(val_seeds)=}, {self.tot_epochs=}"
         self.val_seeds = val_seeds
 
         # Get test seed
@@ -182,7 +197,7 @@ class BaseTrainer(ABC):
             tot_epochs=self.tot_epochs,
             metric=self.metric,
             expected_files=self.expected_files,
-            logger=self.logger
+            logger=self.logger,
         )
 
         # Update with any existing scores
@@ -214,7 +229,9 @@ class BaseTrainer(ABC):
             checkpoint_method = self.config.get('checkpoint_method', 'latest')
             if isinstance(checkpoint_method, int) and checkpoint_method > 0:
                 if idx in self.checkpoint_indices:
-                    epoch_finished = epoch_finished and os.path.isfile(os.path.join(epoch_dir, "checkpoint.pt"))
+                    epoch_finished = epoch_finished and os.path.isfile(
+                        os.path.join(epoch_dir, "checkpoint.pt")
+                    )
 
             if not epoch_finished:
                 break
@@ -237,30 +254,48 @@ class BaseTrainer(ABC):
 
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
-        if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
-            train_dataset: torch.utils.data.Dataset = build_from_config(self.config['train_dataset'])
+        if self.config.get('train_dataset', None) and self.config.get(
+            'train_dataloader', None
+        ):
+            train_dataset: torch.utils.data.Dataset = build_from_config(
+                self.config['train_dataset']
+            )
             self.train_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=train_dataset, shuffle=True, config=self.config['train_dataloader'],
+                dataset=train_dataset,
+                shuffle=True,
+                config=self.config['train_dataloader'],
             )
         else:
             self.train_dataloader = None
         # initialize validation dataloader
-        if self.config.get('val_dataset', None) and self.config.get('val_dataloader', None):
-            val_dataset: torch.utils.data.Dataset = build_from_config(self.config['val_dataset'])
+        if self.config.get('val_dataset', None) and self.config.get(
+            'val_dataloader', None
+        ):
+            val_dataset: torch.utils.data.Dataset = build_from_config(
+                self.config['val_dataset']
+            )
             if 'batch_size' not in self.config['val_dataloader']['args']:
                 self.config['val_dataloader']['args']['batch_size'] = 1
             self.val_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=val_dataset, shuffle=False, config=self.config['val_dataloader'],
+                dataset=val_dataset,
+                shuffle=False,
+                config=self.config['val_dataloader'],
             )
         else:
             self.val_dataloader = None
         # initialize test dataloader
-        if self.config.get('test_dataset', None) and self.config.get('test_dataloader', None):
-            test_dataset: torch.utils.data.Dataset = build_from_config(self.config['test_dataset'])
+        if self.config.get('test_dataset', None) and self.config.get(
+            'test_dataloader', None
+        ):
+            test_dataset: torch.utils.data.Dataset = build_from_config(
+                self.config['test_dataset']
+            )
             if 'batch_size' not in self.config['test_dataloader']['args']:
                 self.config['test_dataloader']['args']['batch_size'] = 1
             self.test_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=test_dataset, shuffle=False, config=self.config['test_dataloader'],
+                dataset=test_dataset,
+                shuffle=False,
+                config=self.config['test_dataloader'],
             )
         else:
             self.test_dataloader = None
@@ -273,7 +308,9 @@ class BaseTrainer(ABC):
         self.logger.info("Initializing criterion...")
         if self.config.get('criterion', None):
             criterion = build_from_config(self.config['criterion'])
-            assert isinstance(criterion, criteria.BaseCriterion) and isinstance(criterion, torch.nn.Module), f"{type(criterion)=}"
+            assert isinstance(criterion, criteria.BaseCriterion) and isinstance(
+                criterion, torch.nn.Module
+            ), f"{type(criterion)=}"
             criterion = criterion.to(self.device)
             self.criterion = criterion
         else:
@@ -305,16 +342,22 @@ class BaseTrainer(ABC):
 
     @abstractmethod
     def _init_optimizer(self) -> None:
-        raise NotImplementedError("Abstract method BaseTrainer._init_optimizer not implemented.")
+        raise NotImplementedError(
+            "Abstract method BaseTrainer._init_optimizer not implemented."
+        )
 
     @abstractmethod
     def _init_scheduler(self) -> None:
-        raise NotImplementedError("Abstract method BaseTrainer._init_scheduler not implemented.")
+        raise NotImplementedError(
+            "Abstract method BaseTrainer._init_scheduler not implemented."
+        )
 
     def _load_checkpoint(self) -> None:
         if self.cum_epochs == 0:
             return
-        checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{self.cum_epochs-1}", "checkpoint.pt")
+        checkpoint_filepath = os.path.join(
+            self.work_dir, f"epoch_{self.cum_epochs-1}", "checkpoint.pt"
+        )
         self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
         checkpoint = torch.load(checkpoint_filepath)
         assert type(checkpoint) == dict, f"{type(checkpoint)=}"
@@ -336,7 +379,9 @@ class BaseTrainer(ABC):
         else:
             # Interval-based: every N epochs
             assert isinstance(checkpoint_method, int) and checkpoint_method > 0
-            self.checkpoint_indices = list(range(checkpoint_method-1, self.tot_epochs, checkpoint_method))
+            self.checkpoint_indices = list(
+                range(checkpoint_method - 1, self.tot_epochs, checkpoint_method)
+            )
             # Always include the last epoch
             if self.tot_epochs - 1 not in self.checkpoint_indices:
                 self.checkpoint_indices.append(self.tot_epochs - 1)
@@ -356,7 +401,9 @@ class BaseTrainer(ABC):
 
     @abstractmethod
     def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
-        raise NotImplementedError("Abstract method BaseTrainer._set_gradients_ not implemented .")
+        raise NotImplementedError(
+            "Abstract method BaseTrainer._set_gradients_ not implemented ."
+        )
 
     def _train_step(self, dp: Dict[str, Dict[str, Any]]) -> None:
         r"""
@@ -383,9 +430,13 @@ class BaseTrainer(ABC):
         self.system_monitor.log_stats(self.logger)
 
         # log time
-        self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+        self.logger.update_buffer(
+            {"iteration_time": round(time.time() - start_time, 2)}
+        )
 
-    def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None) -> None:
+    def _eval_step(
+        self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None
+    ) -> None:
         r"""
         Args:
             dp (Dict[str, Dict[str, Any]]): a dictionary containing inputs, labels, and meta info.
@@ -409,7 +460,9 @@ class BaseTrainer(ABC):
         self.system_monitor.log_stats(self.logger)
 
         # Log time
-        self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+        self.logger.update_buffer(
+            {"iteration_time": round(time.time() - start_time, 2)}
+        )
 
         # Log progress if flush_prefix is provided
         if flush_prefix is not None:
@@ -423,12 +476,18 @@ class BaseTrainer(ABC):
         if not (self.train_dataloader and self.model):
             self.logger.info("Skipped training epoch.")
             return
-        if os.path.isfile(os.path.join(self.work_dir, f"epoch_{self.cum_epochs}", "checkpoint.pt")):
-            checkpoint = torch.load(os.path.join(self.work_dir, f"epoch_{self.cum_epochs}", "checkpoint.pt"))
+        if os.path.isfile(
+            os.path.join(self.work_dir, f"epoch_{self.cum_epochs}", "checkpoint.pt")
+        ):
+            checkpoint = torch.load(
+                os.path.join(self.work_dir, f"epoch_{self.cum_epochs}", "checkpoint.pt")
+            )
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-            self.logger.info(f"Found trained checkpoint at {os.path.join(self.work_dir, f'epoch_{self.cum_epochs}', 'checkpoint.pt')}.")
+            self.logger.info(
+                f"Found trained checkpoint at {os.path.join(self.work_dir, f'epoch_{self.cum_epochs}', 'checkpoint.pt')}."
+            )
             self.logger.info(f"Skipping training epoch {self.cum_epochs}.")
             return
 
@@ -443,11 +502,15 @@ class BaseTrainer(ABC):
         # training loop
         for idx, dp in enumerate(self.train_dataloader):
             self._train_step(dp=dp)
-            self.logger.flush(prefix=f"Training [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.train_dataloader)}].")
+            self.logger.flush(
+                prefix=f"Training [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.train_dataloader)}]."
+            )
 
         # after training loop
         self._after_train_loop_()
-        self.logger.info(f"Training epoch time: {round(time.time() - start_time, 2)} seconds.")
+        self.logger.info(
+            f"Training epoch time: {round(time.time() - start_time, 2)} seconds."
+        )
 
     def _before_train_loop(self) -> None:
         self.model.train()
@@ -462,11 +525,14 @@ class BaseTrainer(ABC):
         Args:
             output_path (str): the file path to which the checkpoint will be saved.
         """
-        torch.save(obj={
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-        }, f=output_path)
+        torch.save(
+            obj={
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
+                'scheduler_state_dict': self.scheduler.state_dict(),
+            },
+            f=output_path,
+        )
 
     def _after_train_loop_(self) -> None:
         if self.work_dir is None:
@@ -479,11 +545,15 @@ class BaseTrainer(ABC):
 
             # save criterion buffer to disk
             with self.buffer_lock:
-                self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
+                self.criterion.summarize(
+                    output_path=os.path.join(epoch_root, "training_losses.pt")
+                )
             _ = torch.load(os.path.join(epoch_root, "training_losses.pt"))
 
             # save optimizer buffer to disk
-            self.optimizer.summarize(output_path=os.path.join(epoch_root, "optimizer_buffer.json"))
+            self.optimizer.summarize(
+                output_path=os.path.join(epoch_root, "optimizer_buffer.json")
+            )
             with open(os.path.join(epoch_root, "optimizer_buffer.json"), mode='r') as f:
                 _ = json.load(f)
 
@@ -495,7 +565,16 @@ class BaseTrainer(ABC):
             soft_link: str = os.path.join(self.work_dir, "checkpoint_latest.pt")
             if os.path.islink(soft_link):
                 os.system(' '.join(["rm", soft_link]))
-            os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
+            os.system(
+                ' '.join(
+                    [
+                        "ln",
+                        "-s",
+                        os.path.relpath(path=latest_checkpoint, start=self.work_dir),
+                        soft_link,
+                    ]
+                )
+            )
 
         # Start after-train operations in a separate thread
         self.after_train_thread = threading.Thread(target=after_train_ops)
@@ -518,24 +597,35 @@ class BaseTrainer(ABC):
         if self.eval_n_jobs == 1:
             self.logger.info("Running validation sequentially...")
             for idx, dp in enumerate(self.val_dataloader):
-                self._eval_step(dp, flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
+                self._eval_step(
+                    dp,
+                    flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].",
+                )
         else:
             # Use adaptive executor that dynamically adjusts worker count based on system resources
             max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
             executor = create_dynamic_executor(max_workers=max_workers, min_workers=1)
-            self.logger.info(f"Using dynamic parallel validation (max {executor._max_workers} workers, current {executor._current_workers})")
+            self.logger.info(
+                f"Using dynamic parallel validation (max {executor._max_workers} workers, current {executor._current_workers})"
+            )
 
             with executor:
-                future_to_args = {executor.submit(
-                    self._eval_step, dp,
-                    flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].",
-                ): (idx, dp) for idx, dp in enumerate(self.val_dataloader)}
+                future_to_args = {
+                    executor.submit(
+                        self._eval_step,
+                        dp,
+                        flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].",
+                    ): (idx, dp)
+                    for idx, dp in enumerate(self.val_dataloader)
+                }
                 for future in as_completed(future_to_args):
                     future.result()
 
         # after validation loop
         self._after_val_loop_()
-        self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
+        self.logger.info(
+            f"Validation epoch time: {round(time.time() - start_time, 2)} seconds."
+        )
 
     def _before_val_loop(self) -> None:
         self.model.eval()
@@ -562,8 +652,12 @@ class BaseTrainer(ABC):
 
             # save validation scores to disk
             with self.buffer_lock:
-                self.metric.summarize(output_path=os.path.join(epoch_root, "validation_scores.json"))
-            with open(os.path.join(epoch_root, "validation_scores.json"), mode='r') as f:
+                self.metric.summarize(
+                    output_path=os.path.join(epoch_root, "validation_scores.json")
+                )
+            with open(
+                os.path.join(epoch_root, "validation_scores.json"), mode='r'
+            ) as f:
                 _ = json.load(f)
 
             # update early stopping with new scores
@@ -576,7 +670,16 @@ class BaseTrainer(ABC):
                 soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
                 if os.path.isfile(soft_link):
                     os.system(' '.join(["rm", soft_link]))
-                os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
+                os.system(
+                    ' '.join(
+                        [
+                            "ln",
+                            "-s",
+                            os.path.relpath(path=best_checkpoint, start=self.work_dir),
+                            soft_link,
+                        ]
+                    )
+                )
             except:
                 best_checkpoint = None
 
@@ -602,7 +705,9 @@ class BaseTrainer(ABC):
         """
         # Get metric directions and order configuration
         metric_directions = get_metric_directions(self.metric)
-        order_config = self.config.get('order', False)  # Default to False (vector comparison)
+        order_config = self.config.get(
+            'order', False
+        )  # Default to False (vector comparison)
 
         # Find best checkpoint by going through completed epochs
         best_epoch_dir = None
@@ -614,8 +719,7 @@ class BaseTrainer(ABC):
 
             # Check if epoch is completed
             if not TrainingJob._check_epoch_finished(
-                epoch_dir=epoch_dir,
-                expected_files=self.expected_files
+                epoch_dir=epoch_dir, expected_files=self.expected_files
             ):
                 break
 
@@ -626,7 +730,9 @@ class BaseTrainer(ABC):
 
             # Extract aggregated scores for comparison
             current_scores = validation_scores.get('aggregated', {})
-            assert current_scores, f"Missing 'aggregated' scores in {scores_path} - this should not happen"
+            assert (
+                current_scores
+            ), f"Missing 'aggregated' scores in {scores_path} - this should not happen"
 
             # Compare with current best
             if best_scores is None:
@@ -639,7 +745,7 @@ class BaseTrainer(ABC):
                     current_scores=current_scores,
                     best_scores=best_scores,
                     order_config=order_config,
-                    metric_directions=metric_directions
+                    metric_directions=metric_directions,
                 )
 
                 if is_better:
@@ -656,7 +762,9 @@ class BaseTrainer(ABC):
         assert os.path.isfile(best_checkpoint), f"{best_checkpoint=}"
         return best_checkpoint
 
-    def _clean_checkpoints(self, latest_checkpoint: str, best_checkpoint: Optional[str] = None) -> None:
+    def _clean_checkpoints(
+        self, latest_checkpoint: str, best_checkpoint: Optional[str] = None
+    ) -> None:
         """Clean up old checkpoints based on the configured checkpoint method.
 
         Args:
@@ -677,13 +785,17 @@ class BaseTrainer(ABC):
             keep_checkpoints.append(best_checkpoint)
 
         # Add checkpoints from precomputed indices
-        keep_checkpoints.extend([
-            os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")
-            for idx in self.checkpoint_indices
-        ])
+        keep_checkpoints.extend(
+            [
+                os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")
+                for idx in self.checkpoint_indices
+            ]
+        )
 
         # Remove all checkpoints except the ones we want to keep
-        existing_checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
+        existing_checkpoints: List[str] = glob.glob(
+            os.path.join(self.work_dir, "epoch_*", "checkpoint.pt")
+        )
 
         def clean_single_checkpoint(checkpoint: str) -> None:
             if checkpoint in keep_checkpoints:
@@ -719,11 +831,16 @@ class BaseTrainer(ABC):
         best_checkpoint: str = self._before_test_loop_()
         # test loop
         for idx, dp in enumerate(self.test_dataloader):
-            self._eval_step(dp=dp, flush_prefix=f"Test epoch [Iteration {idx}/{len(self.test_dataloader)}].")
+            self._eval_step(
+                dp=dp,
+                flush_prefix=f"Test epoch [Iteration {idx}/{len(self.test_dataloader)}].",
+            )
         # after test loop
         self._after_test_loop_(best_checkpoint=best_checkpoint)
         # log time
-        self.logger.info(f"Test epoch time: {round(time.time() - start_time, 2)} seconds.")
+        self.logger.info(
+            f"Test epoch time: {round(time.time() - start_time, 2)} seconds."
+        )
 
     def _before_test_loop_(self) -> str:
         checkpoint_filepath = self._find_best_checkpoint()
@@ -746,7 +863,11 @@ class BaseTrainer(ABC):
             'checkpoint_filepath': best_checkpoint,
         }
         with open(os.path.join(test_root, "test_results.json"), mode='w') as f:
-            f.write(jsbeautifier.beautify(json.dumps(results), jsbeautifier.default_options()))
+            f.write(
+                jsbeautifier.beautify(
+                    json.dumps(results), jsbeautifier.default_options()
+                )
+            )
 
     # ====================================================================================================
     # ====================================================================================================

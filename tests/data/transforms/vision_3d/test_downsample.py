@@ -123,7 +123,13 @@ def test_downsample_empty_point_cloud():
 
 def test_downsample_single_point():
     # Test with a single point
-    single_point_pc = PointCloud(data={'xyz': torch.randn(1, 3), 'rgb': torch.rand(1, 3), 'intensity': torch.rand(1)})
+    single_point_pc = PointCloud(
+        data={
+            'xyz': torch.randn(1, 3),
+            'rgb': torch.rand(1, 3),
+            'intensity': torch.rand(1),
+        }
+    )
 
     downsample = DownSample(voxel_size=0.1)
     result = downsample(single_point_pc)
@@ -157,15 +163,18 @@ def test_downsample_multiple_point_clouds(multiple_point_clouds):
         assert result_pc.xyz.dtype == original_pc.xyz.dtype
 
 
-@pytest.mark.parametrize("invalid_voxel_size", [
-    0,      # Zero voxel size
-    -1,     # Negative voxel size
-    -0.1,   # Negative float voxel size
-    "0.1",  # String instead of number
-    None,   # None value
-    [],     # Empty list
-    {},     # Empty dict
-])
+@pytest.mark.parametrize(
+    "invalid_voxel_size",
+    [
+        0,  # Zero voxel size
+        -1,  # Negative voxel size
+        -0.1,  # Negative float voxel size
+        "0.1",  # String instead of number
+        None,  # None value
+        [],  # Empty list
+        {},  # Empty dict
+    ],
+)
 def test_downsample_invalid_voxel_size(invalid_voxel_size):
     # Test with invalid voxel size
     with pytest.raises(AssertionError):

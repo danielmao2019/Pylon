@@ -2,7 +2,7 @@ import torch
 
 
 class PatchMerging(torch.nn.Module):
-    r""" Patch Merging Layer.
+    r"""Patch Merging Layer.
 
     Args:
         input_resolution (tuple[int]): Resolution of input feature.

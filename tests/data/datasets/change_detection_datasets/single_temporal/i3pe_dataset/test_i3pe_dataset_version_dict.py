@@ -1,10 +1,16 @@
 """Test version dict implementation for I3PEDataset."""
 
-import pytest
-import tempfile
 import os
-from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
-from data.datasets.random_datasets.classification_random_dataset import ClassificationRandomDataset
+import tempfile
+
+import pytest
+
+from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import (
+    I3PEDataset,
+)
+from data.datasets.random_datasets.classification_random_dataset import (
+    ClassificationRandomDataset,
+)
 
 
 def test_i3pe_dataset_has_version_dict_method():
@@ -13,6 +19,7 @@ def test_i3pe_dataset_has_version_dict_method():
 
     # Check method signature
     import inspect
+
     method = getattr(I3PEDataset, '_get_cache_version_dict')
     signature = inspect.signature(method)
 
@@ -21,9 +28,13 @@ def test_i3pe_dataset_has_version_dict_method():
     assert params == ['self']
 
     # Should return Dict[str, Any]
-    from typing import Dict, Any
+    from typing import Any, Dict
+
     return_annotation = signature.return_annotation
-    assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    assert (
+        return_annotation == Dict[str, Any]
+        or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    )
 
 
 def test_i3pe_dataset_version_dict_functionality():
@@ -31,17 +42,10 @@ def test_i3pe_dataset_version_dict_functionality():
 
     # Create a simple source dataset
     source = ClassificationRandomDataset(
-        num_examples=10,
-        num_classes=5,
-        image_res=(64, 64),
-        base_seed=42
+        num_examples=10, num_classes=5, image_res=(64, 64), base_seed=42
     )
 
-    dataset = I3PEDataset(
-        source=source,
-        dataset_size=10,
-        exchange_ratio=0.75
-    )
+    dataset = I3PEDataset(source=source, dataset_size=10, exchange_ratio=0.75)
     version_dict = dataset._get_cache_version_dict()
 
     # Should return a dictionary

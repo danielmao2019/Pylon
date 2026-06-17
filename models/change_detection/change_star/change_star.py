@@ -1,11 +1,18 @@
-from typing import Tuple, Dict, Union
+from typing import Dict, Tuple, Union
+
 import torch
+
 from .drop_connect import DropConnect
 
 
 class ChangeStar(torch.nn.Module):
 
-    def __init__(self, encoder: torch.nn.Module, change_decoder_cfg: dict, semantic_decoder_cfg: dict) -> None:
+    def __init__(
+        self,
+        encoder: torch.nn.Module,
+        change_decoder_cfg: dict,
+        semantic_decoder_cfg: dict,
+    ) -> None:
         super(ChangeStar, self).__init__()
         self.encoder = encoder
         self.change_decoder = self._build_change_decoder(**change_decoder_cfg)
@@ -28,14 +35,17 @@ class ChangeStar(torch.nn.Module):
             torch.nn.Conv2d(in_channels, mid_channels, 3, 1, 1),
             torch.nn.ReLU(True),
             torch.nn.BatchNorm2d(mid_channels),
-            DropConnect(drop_rate) if drop_rate > 0. else torch.nn.Identity()
+            DropConnect(drop_rate) if drop_rate > 0.0 else torch.nn.Identity(),
         )
-        mid_layers = [torch.nn.Sequential(
-            torch.nn.Conv2d(mid_channels, mid_channels, 3, 1, 1),
-            torch.nn.ReLU(True),
-            torch.nn.BatchNorm2d(mid_channels),
-            DropConnect(drop_rate) if drop_rate > 0. else torch.nn.Identity()
-        ) for _ in range(num_convs - 1)]
+        mid_layers = [
+            torch.nn.Sequential(
+                torch.nn.Conv2d(mid_channels, mid_channels, 3, 1, 1),
+                torch.nn.ReLU(True),
+                torch.nn.BatchNorm2d(mid_channels),
+                DropConnect(drop_rate) if drop_rate > 0.0 else torch.nn.Identity(),
+            )
+            for _ in range(num_convs - 1)
+        ]
         out_layer = torch.nn.Sequential(
             torch.nn.Conv2d(mid_channels, out_channels, 3, 1, 1),
             torch.nn.UpsamplingBilinear2d(scale_factor=scale_factor),
@@ -66,7 +76,9 @@ class ChangeStar(torch.nn.Module):
         else:
             return self._forward_eval(feat_1, feat_2)
 
-    def _forward_train(self, feat_1: torch.Tensor, feat_2: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _forward_train(
+        self, feat_1: torch.Tensor, feat_2: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         change_12 = self.change_decoder(torch.cat([feat_1, feat_2], dim=1))
         change_21 = self.change_decoder(torch.cat([feat_2, feat_1], dim=1))
         semantic = self.semantic_decoder(feat_1)
@@ -76,7 +88,9 @@ class ChangeStar(torch.nn.Module):
             'semantic': semantic,
         }
 
-    def _forward_eval(self, feat_1: torch.Tensor, feat_2: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _forward_eval(
+        self, feat_1: torch.Tensor, feat_2: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         change = self.change_decoder(torch.cat([feat_1, feat_2], dim=1))
         semantic_1 = self.semantic_decoder(feat_1)
         semantic_2 = self.semantic_decoder(feat_2)

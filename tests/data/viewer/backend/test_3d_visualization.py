@@ -5,15 +5,17 @@ REQUIRES_3D_CLASSES functionality using real dataset classes.
 """
 
 import os
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
 
 import pytest
 import torch
 
 from data.datasets.base_dataset import BaseDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
-from data.datasets.semantic_segmentation_datasets.coco_stuff_164k_dataset import COCOStuff164KDataset
-from data.viewer.dataset.backend.backend import ViewerBackend, REQUIRES_3D_CLASSES
+from data.datasets.semantic_segmentation_datasets.coco_stuff_164k_dataset import (
+    COCOStuff164KDataset,
+)
+from data.viewer.dataset.backend.backend import REQUIRES_3D_CLASSES, ViewerBackend
 
 
 @pytest.fixture
@@ -26,9 +28,7 @@ def backend():
 def kitti_dataset(kitti_data_root):
     """Create a KITTI dataset instance. Ensures real data exists and fails fast if not."""
     return KITTIDataset(
-        data_root=kitti_data_root,
-        split="val",
-        device=torch.device("cpu")
+        data_root=kitti_data_root, split="val", device=torch.device("cpu")
     )
 
 
@@ -40,18 +40,24 @@ def random_dataset():
     # Simple generator configuration
     gen_func_config = {
         'inputs': {
-            'image': (lambda **kwargs: torch.randn(3, 224, 224, dtype=torch.float32), {})
+            'image': (
+                lambda **kwargs: torch.randn(3, 224, 224, dtype=torch.float32),
+                {},
+            )
         },
         'labels': {
-            'label': (lambda **kwargs: torch.randint(0, 10, (1,), dtype=torch.int64), {})
-        }
+            'label': (
+                lambda **kwargs: torch.randint(0, 10, (1,), dtype=torch.int64),
+                {},
+            )
+        },
     }
 
     dataset = BaseRandomDataset(
         num_examples=5,
         gen_func_config=gen_func_config,
         split="all",
-        device=torch.device("cpu")
+        device=torch.device("cpu"),
     )
     return dataset
 
@@ -60,16 +66,16 @@ def random_dataset():
 def coco_stuff_dataset(coco_stuff_164k_data_root):
     """Create a COCO Stuff dataset instance. Ensures real data exists and fails fast if not."""
     return COCOStuff164KDataset(
-        data_root=coco_stuff_164k_data_root,
-        split="val2017",
-        device=torch.device("cpu")
+        data_root=coco_stuff_164k_data_root, split="val2017", device=torch.device("cpu")
     )
 
 
 def test_requires_3d_classes_constant_structure():
     """Test REQUIRES_3D_CLASSES constant has expected structure."""
     assert isinstance(REQUIRES_3D_CLASSES, list)
-    assert len(REQUIRES_3D_CLASSES) > 0, "Should contain at least some 3D dataset classes"
+    assert (
+        len(REQUIRES_3D_CLASSES) > 0
+    ), "Should contain at least some 3D dataset classes"
 
     # Test that all entries are strings
     for class_name in REQUIRES_3D_CLASSES:
@@ -93,7 +99,9 @@ def test_requires_3d_classes_contains_expected_classes():
     ]
 
     for expected_class in expected_3d_classes:
-        assert expected_class in REQUIRES_3D_CLASSES, f"{expected_class} should be in REQUIRES_3D_CLASSES"
+        assert (
+            expected_class in REQUIRES_3D_CLASSES
+        ), f"{expected_class} should be in REQUIRES_3D_CLASSES"
 
 
 def test_requires_3d_visualization_with_kitti_dataset(backend, kitti_dataset):
@@ -127,7 +135,9 @@ def test_requires_3d_visualization_with_2d_dataset(backend, coco_stuff_dataset):
 
     # Should NOT require 3D visualization
     requires_3d = backend._requires_3d_visualization(coco_stuff_dataset)
-    assert requires_3d is False, "COCOStuff164KDataset should not require 3D visualization"
+    assert (
+        requires_3d is False
+    ), "COCOStuff164KDataset should not require 3D visualization"
 
 
 def test_requires_3d_visualization_exact_name_matching(backend):
@@ -142,13 +152,17 @@ def test_requires_3d_visualization_exact_name_matching(backend):
         def _init_annotations(self) -> None:
             self.annotations = [{"id": 0}]
 
-        def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        def _load_datapoint(
+            self, idx: int
+        ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
             data = torch.randn(10, dtype=torch.float32)
             label = torch.tensor(1, dtype=torch.int64)
             return {"data": data}, {"label": label}, {"sample_idx": idx}
 
         @staticmethod
-        def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
+        def display_datapoint(
+            datapoint, class_labels=None, camera_state=None, settings_3d=None
+        ):
             """Display method."""
             return None
 
@@ -159,13 +173,22 @@ def test_requires_3d_visualization_exact_name_matching(backend):
     assert requires_3d is False, "CustomDataset should not require 3D visualization"
 
 
-@pytest.mark.parametrize("class_name", [
-    'Base3DCDDataset', 'BasePCRDataset', 'Buffer3DDataset',
-    'KITTIDataset', 'ThreeDMatchDataset', 'URB3DCDDataset'
-])
+@pytest.mark.parametrize(
+    "class_name",
+    [
+        'Base3DCDDataset',
+        'BasePCRDataset',
+        'Buffer3DDataset',
+        'KITTIDataset',
+        'ThreeDMatchDataset',
+        'URB3DCDDataset',
+    ],
+)
 def test_requires_3d_classes_individual_entries(class_name):
     """Test that individual entries in REQUIRES_3D_CLASSES are valid."""
-    assert class_name in REQUIRES_3D_CLASSES, f"{class_name} should be in REQUIRES_3D_CLASSES"
+    assert (
+        class_name in REQUIRES_3D_CLASSES
+    ), f"{class_name} should be in REQUIRES_3D_CLASSES"
     assert isinstance(class_name, str), f"{class_name} should be string"
     assert class_name.endswith('Dataset'), f"{class_name} should end with 'Dataset'"
 
@@ -185,7 +208,9 @@ def test_3d_detection_consistency_with_dataset_groups():
 
     # All dataset group keys should be in our categorization
     for group_key in dataset_group_keys:
-        assert group_key in all_groups, f"Dataset group {group_key} should be categorized as 2D or 3D"
+        assert (
+            group_key in all_groups
+        ), f"Dataset group {group_key} should be categorized as 2D or 3D"
 
 
 def test_requires_3d_visualization_with_base_classes(backend):
@@ -202,11 +227,15 @@ def test_requires_3d_visualization_with_base_classes(backend):
         def _init_annotations(self) -> None:
             self.annotations = []
 
-        def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        def _load_datapoint(
+            self, idx: int
+        ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
             raise IndexError("Empty dataset")
 
         @staticmethod
-        def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
+        def display_datapoint(
+            datapoint, class_labels=None, camera_state=None, settings_3d=None
+        ):
             return None
 
     dataset = TestDataset(split="test", device=torch.device("cpu"))
@@ -219,6 +248,7 @@ def test_requires_3d_visualization_with_base_classes(backend):
 # ============================================================================
 # EDGE CASES
 # ============================================================================
+
 
 def test_requires_3d_visualization_with_none_dataset(backend):
     """Test _requires_3d_visualization with None dataset."""

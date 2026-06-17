@@ -6,8 +6,11 @@ Tests PARENet evaluation metrics instantiation and computation.
 
 import pytest
 import torch
+
+from configs.common.metrics.point_cloud_registration.parenet_metric_cfg import (
+    metric_cfg,
+)
 from utils.builders import build_from_config
-from configs.common.metrics.point_cloud_registration.parenet_metric_cfg import metric_cfg
 
 
 def test_parenet_metric_instantiation():
@@ -17,8 +20,15 @@ def test_parenet_metric_instantiation():
     assert hasattr(metric, 'DIRECTIONS')
 
     # Check DIRECTIONS is properly set
-    expected_directions = ['rotation_error', 'translation_error', 'inlier_ratio',
-                          'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
+    expected_directions = [
+        'rotation_error',
+        'translation_error',
+        'inlier_ratio',
+        'point_inlier_ratio',
+        'fine_precision',
+        'rmse',
+        'registration_recall',
+    ]
     for direction_key in expected_directions:
         assert direction_key in metric.DIRECTIONS
         assert metric.DIRECTIONS[direction_key] in [1, -1]
@@ -63,7 +73,7 @@ def test_parenet_metric_computation():
         },
         'meta_info': {
             'idx': 0,
-        }
+        },
     }
 
     # Call metric to compute metrics - this should work without errors
@@ -74,11 +84,20 @@ def test_parenet_metric_computation():
     assert len(result) > 0, "Metric result should contain computed metrics"
 
     # Check for expected metric keys
-    expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio',
-                       'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
+    expected_metrics = [
+        'rotation_error',
+        'translation_error',
+        'inlier_ratio',
+        'point_inlier_ratio',
+        'fine_precision',
+        'rmse',
+        'registration_recall',
+    ]
     for metric_name in expected_metrics:
         assert metric_name in result, f"Missing expected metric: {metric_name}"
-        assert isinstance(result[metric_name], torch.Tensor), f"Metric {metric_name} must be a tensor"
+        assert isinstance(
+            result[metric_name], torch.Tensor
+        ), f"Metric {metric_name} must be a tensor"
 
 
 def test_parenet_metric_multiple_calls():
@@ -106,7 +125,7 @@ def test_parenet_metric_multiple_calls():
         },
         'meta_info': {
             'idx': 0,
-        }
+        },
     }
 
     dummy_datapoint2 = {
@@ -129,7 +148,7 @@ def test_parenet_metric_multiple_calls():
         },
         'meta_info': {
             'idx': 1,
-        }
+        },
     }
 
     # Test multiple metric calls
@@ -139,11 +158,20 @@ def test_parenet_metric_multiple_calls():
     # Verify both results have expected structure
     for result in [result1, result2]:
         assert isinstance(result, dict), "Metric result must be a dictionary"
-        expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio',
-                           'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
+        expected_metrics = [
+            'rotation_error',
+            'translation_error',
+            'inlier_ratio',
+            'point_inlier_ratio',
+            'fine_precision',
+            'rmse',
+            'registration_recall',
+        ]
         for metric_name in expected_metrics:
             assert metric_name in result, f"Missing metric: {metric_name}"
-            assert isinstance(result[metric_name], torch.Tensor), f"Metric {metric_name} must be a tensor"
+            assert isinstance(
+                result[metric_name], torch.Tensor
+            ), f"Metric {metric_name} must be a tensor"
 
 
 def test_parenet_metric_batch_dimensions():
@@ -171,7 +199,7 @@ def test_parenet_metric_batch_dimensions():
         },
         'meta_info': {
             'idx': 0,
-        }
+        },
     }
 
     # Should handle batch dimensions correctly
@@ -179,11 +207,20 @@ def test_parenet_metric_batch_dimensions():
 
     # Verify result structure
     assert isinstance(result, dict), "Metric result must be a dictionary"
-    expected_metrics = ['rotation_error', 'translation_error', 'inlier_ratio',
-                       'point_inlier_ratio', 'fine_precision', 'rmse', 'registration_recall']
+    expected_metrics = [
+        'rotation_error',
+        'translation_error',
+        'inlier_ratio',
+        'point_inlier_ratio',
+        'fine_precision',
+        'rmse',
+        'registration_recall',
+    ]
     for metric_name in expected_metrics:
         assert metric_name in result, f"Missing metric: {metric_name}"
-        assert isinstance(result[metric_name], torch.Tensor), f"Metric {metric_name} must be a tensor"
+        assert isinstance(
+            result[metric_name], torch.Tensor
+        ), f"Metric {metric_name} must be a tensor"
 
 
 def test_parenet_metric_component_metrics():

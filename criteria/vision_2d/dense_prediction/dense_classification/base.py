@@ -1,7 +1,9 @@
-from typing import Optional
 from abc import abstractmethod
+from typing import Optional
+
 import numpy
 import torch
+
 from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
 from utils.semantic_segmentation.one_hot_encoding import to_one_hot
 
@@ -53,7 +55,9 @@ class DenseClassificationCriterion(DensePredictionCriterion):
 
             # Check shape
             if class_weights.ndim != 1:
-                raise ValueError(f"class_weights must be 1-dimensional, got shape {class_weights.shape}")
+                raise ValueError(
+                    f"class_weights must be 1-dimensional, got shape {class_weights.shape}"
+                )
 
             # Check values
             if torch.any(class_weights < 0):
@@ -68,10 +72,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
             self.register_buffer('class_weights', None)
 
     def _compute_unreduced_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute the loss for each sample in the batch before reduction.
@@ -101,11 +102,18 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)
 
         # Compute per-class losses
-        per_class_loss = self._compute_per_class_loss(y_pred, y_true, valid_mask)  # (N, C)
+        per_class_loss = self._compute_per_class_loss(
+            y_pred, y_true, valid_mask
+        )  # (N, C)
         # Define class weights tensor - use provided weights or uniform weighting
         num_classes = per_class_loss.size(1)
-        class_weights = self.class_weights if self.class_weights is not None else \
-            torch.full((num_classes,), 1.0/num_classes, device=per_class_loss.device)
+        class_weights = (
+            self.class_weights
+            if self.class_weights is not None
+            else torch.full(
+                (num_classes,), 1.0 / num_classes, device=per_class_loss.device
+            )
+        )
 
         # Apply class weights
         per_class_loss = per_class_loss * class_weights.view(1, -1)

@@ -1,21 +1,25 @@
+from functools import partial
+
 import torch
 from torch import nn
 from torch.cuda.amp import autocast
-from models.change_detection.cdx_former.modules.vision_lstm import ViLBlock, SequenceTraversal
 from torch.nn import functional as F
-from functools import partial
+
+from models.change_detection.cdx_former.modules.vision_lstm import (
+    SequenceTraversal,
+    ViLBlock,
+)
 
 
 class ViLLayer(nn.Module):
-    def __init__(self, dim, d_state = 16, d_conv = 4, expand = 2):
+    def __init__(self, dim, d_state=16, d_conv=4, expand=2):
         super().__init__()
         self.dim = dim
         self.norm = nn.LayerNorm(dim)
         self.vil = ViLBlock(
-            dim= self.dim,
-            direction=SequenceTraversal.ROWWISE_FROM_TOP_LEFT
+            dim=self.dim, direction=SequenceTraversal.ROWWISE_FROM_TOP_LEFT
         )
-    
+
     @autocast(enabled=False)
     def forward(self, x):
         if x.dtype == torch.float16:
@@ -30,32 +34,49 @@ class ViLLayer(nn.Module):
 
         return out
 
+
 def dsconv_3x3(in_channel, out_channel):
     return nn.Sequential(
-        nn.Conv2d(in_channel, in_channel, kernel_size=3, stride=1, padding=1, groups=in_channel),
-        nn.Conv2d(in_channel, out_channel, kernel_size=1, stride=1, padding=0, groups=1),
+        nn.Conv2d(
+            in_channel,
+            in_channel,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            groups=in_channel,
+        ),
+        nn.Conv2d(
+            in_channel, out_channel, kernel_size=1, stride=1, padding=0, groups=1
+        ),
         nn.BatchNorm2d(out_channel),
-        nn.ReLU(inplace=True)
+        nn.ReLU(inplace=True),
     )
+
 
 def conv_1x1(in_channel, out_channel):
     return nn.Sequential(
-        nn.Conv2d(in_channel, out_channel, kernel_size=1, stride=1, padding=0, bias=False),
+        nn.Conv2d(
+            in_channel, out_channel, kernel_size=1, stride=1, padding=0, bias=False
+        ),
         nn.BatchNorm2d(out_channel),
-        nn.ReLU(inplace=True)
+        nn.ReLU(inplace=True),
     )
+
 
 class SqueezeAxialPositionalEmbedding(nn.Module):
     def __init__(self, dim, shape):
         super().__init__()
-        
+
         self.pos_embed = nn.Parameter(torch.randn([1, dim, shape]))
 
     def forward(self, x):
         B, C, N = x.shape
-        x = x + F.interpolate(self.pos_embed, size=(N), mode='linear', align_corners=False)
-        
+        x = x + F.interpolate(
+            self.pos_embed, size=(N), mode='linear', align_corners=False
+        )
+
         return x
+
 
 class XLSTM_axial(nn.Module):
     def __init__(self, in_channel, out_channel):
@@ -66,19 +87,23 @@ class XLSTM_axial(nn.Module):
         self.convA = nn.Conv2d(in_channel, 1, 1)
         self.convB = nn.Conv2d(in_channel, 1, 1)
         self.sigmoid = nn.Sigmoid()
-        self.xlstm_h = ViLLayer(dim = in_channel)
-        self.xlstm_w = ViLLayer(dim = in_channel)
+        self.xlstm_h = ViLLayer(dim=in_channel)
+        self.xlstm_w = ViLLayer(dim=in_channel)
         self.xlstm_conv = conv_1x1(in_channel, in_channel)
         self.pos_emb_h = SqueezeAxialPositionalEmbedding(in_channel, 16)
         self.pos_emb_w = SqueezeAxialPositionalEmbedding(in_channel, 16)
 
     def forward(self, xA, xB):
         x_diff = xA - xB
-        B,C,H,W = x_diff.shape
+        B, C, H, W = x_diff.shape
         pos_h = self.pos_emb_h(x_diff.mean(-1))
         pos_w = self.pos_emb_w(x_diff.mean(-2))
-        x_xlstm_h = (self.xlstm_h(pos_h) + self.xlstm_h(pos_h.flip([-1])).flip([-1])).reshape(B, C, H, -1)
-        x_xlstm_w = (self.xlstm_w(pos_w) + self.xlstm_w(pos_w.flip([-1])).flip([-1])).reshape(B, C, -1, W)
+        x_xlstm_h = (
+            self.xlstm_h(pos_h) + self.xlstm_h(pos_h.flip([-1])).flip([-1])
+        ).reshape(B, C, H, -1)
+        x_xlstm_w = (
+            self.xlstm_w(pos_w) + self.xlstm_w(pos_w.flip([-1])).flip([-1])
+        ).reshape(B, C, -1, W)
         x_xlstm = self.sigmoid(self.xlstm_conv(x_diff.add(x_xlstm_h.add(x_xlstm_w))))
 
         x_diffA = self.catconvA(torch.cat([x_diff, xA], dim=1))
@@ -94,6 +119,7 @@ class XLSTM_axial(nn.Module):
 
         return x
 
+
 class XLSTM_atten(nn.Module):
     def __init__(self, in_channel, out_channel):
         super().__init__()
@@ -103,12 +129,12 @@ class XLSTM_atten(nn.Module):
         self.convA = nn.Conv2d(in_channel, 1, 1)
         self.convB = nn.Conv2d(in_channel, 1, 1)
         self.sigmoid = nn.Sigmoid()
-        self.xlstm = ViLLayer(dim = in_channel)
+        self.xlstm = ViLLayer(dim=in_channel)
 
     def forward(self, xA, xB):
         x_diff = xA - xB
-        B,C,H,W = x_diff.shape
-        x_xlstm = (self.xlstm(x_diff) + self.xlstm(x_diff.flip([-1, -2])).flip([-1, -2]))
+        B, C, H, W = x_diff.shape
+        x_xlstm = self.xlstm(x_diff) + self.xlstm(x_diff.flip([-1, -2])).flip([-1, -2])
 
         x_diffA = self.catconvA(torch.cat([x_diff, xA], dim=1))
         x_diffB = self.catconvB(torch.cat([x_diff, xB], dim=1))
@@ -123,13 +149,26 @@ class XLSTM_atten(nn.Module):
 
         return x
 
+
 class Mlp(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.,channels_first=True):
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        drop=0.0,
+        channels_first=True,
+    ):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
 
-        Linear = partial(nn.Conv2d, kernel_size=1, padding=0) if channels_first else nn.Linear
+        Linear = (
+            partial(nn.Conv2d, kernel_size=1, padding=0)
+            if channels_first
+            else nn.Linear
+        )
         self.fc1 = Linear(in_features, hidden_features)
         self.act = act_layer()
         self.fc2 = Linear(hidden_features, out_features)
@@ -142,7 +181,8 @@ class Mlp(nn.Module):
         x = self.fc2(x)
         x = self.drop(x)
         return x
-    
+
+
 class LHBlock(nn.Module):
     def __init__(self, channels_l, channels_h):
         super().__init__()
@@ -152,12 +192,12 @@ class LHBlock(nn.Module):
         self.cross_kv = nn.Sequential(
             nn.BatchNorm2d(channels_l),
             nn.AdaptiveMaxPool2d(output_size=(self.cross_size, self.cross_size)),
-            nn.Conv2d(channels_l, 2 * channels_h, 1, 1, 0)
+            nn.Conv2d(channels_l, 2 * channels_h, 1, 1, 0),
         )
 
         self.conv = conv_1x1(channels_l, channels_h)
         self.norm = nn.BatchNorm2d(channels_h)
-        
+
         self.mlp_l = Mlp(in_features=channels_l, out_features=channels_l)
         self.mlp_h = Mlp(in_features=channels_h, out_features=channels_h)
 
@@ -168,18 +208,21 @@ class LHBlock(nn.Module):
         x = F.softmax(x, dim=1)
         x = x.reshape([1, -1, H, W])
         return x
-    
+
     def attn_h(self, x_h, cross_k, cross_v):
         B, _, H, W = x_h.shape
         x_h = self.norm(x_h)
         x_h = x_h.reshape([1, -1, H, W])  # n,c_in,h,w -> 1,n*c_in,h,w
-        x_h = F.conv2d(x_h, cross_k, bias=None, stride=1, padding=0,
-                        groups=B)  # 1,n*c_in,h,w -> 1,n*144,h,w  (group=B)
+        x_h = F.conv2d(
+            x_h, cross_k, bias=None, stride=1, padding=0, groups=B
+        )  # 1,n*c_in,h,w -> 1,n*144,h,w  (group=B)
         x_h = self._act_sn(x_h)
-        x_h = F.conv2d(x_h, cross_v, bias=None, stride=1, padding=0,
-                        groups=B)  # 1,n*144,h,w -> 1, n*c_in,h,w  (group=B)
-        x_h = x_h.reshape([-1, self.channels_h, H,
-                        W])  # 1, n*c_in,h,w -> n,c_in,h,w  (c_in = c_out)
+        x_h = F.conv2d(
+            x_h, cross_v, bias=None, stride=1, padding=0, groups=B
+        )  # 1,n*144,h,w -> 1, n*c_in,h,w  (group=B)
+        x_h = x_h.reshape(
+            [-1, self.channels_h, H, W]
+        )  # 1, n*c_in,h,w -> n,c_in,h,w  (c_in = c_out)
 
         return x_h
 
@@ -190,10 +233,14 @@ class LHBlock(nn.Module):
 
         cross_kv = self.cross_kv(x_l)
         cross_k, cross_v = cross_kv.split(self.channels_h, 1)
-        cross_k = cross_k.permute(0, 2, 3, 1).reshape([-1, self.channels_h, 1, 1])  # n*144,channels_h,1,1
-        cross_v = cross_v.reshape([-1, self.cross_size * self.cross_size, 1, 1])  # n*channels_h,144,1,1
+        cross_k = cross_k.permute(0, 2, 3, 1).reshape(
+            [-1, self.channels_h, 1, 1]
+        )  # n*144,channels_h,1,1
+        cross_v = cross_v.reshape(
+            [-1, self.cross_size * self.cross_size, 1, 1]
+        )  # n*channels_h,144,1,1
 
-        x_h = x_h + self.attn_h(x_h, cross_k, cross_v) # [4, 40, 128, 128]
+        x_h = x_h + self.attn_h(x_h, cross_k, cross_v)  # [4, 40, 128, 128]
         x_h = x_h + self.mlp_h(x_h)
 
         return x_h
@@ -220,15 +267,15 @@ class CDXLSTM(nn.Module):
         featuresA, featuresB = inputs
         # fA_0, fA_1, fA_2, fA_3 = featuresA
         # fB_0, fB_1, fB_2, fB_3 = featuresB
-        x_diff_0 = self.fusion0(featuresA[0], featuresB[0]) # [4, 40, 128, 128]
-        x_diff_1 = self.fusion1(featuresA[1], featuresB[1]) # [4, 80, 64, 64]
+        x_diff_0 = self.fusion0(featuresA[0], featuresB[0])  # [4, 40, 128, 128]
+        x_diff_1 = self.fusion1(featuresA[1], featuresB[1])  # [4, 80, 64, 64]
         # x_diff_2 = featuresA[2] -  featuresB[2]
         # x_diff_3 = featuresA[3] -  featuresB[3]
-        x_diff_2 = self.fusion2(featuresA[2], featuresB[2]) # [4, 192, 32, 32]
-        x_diff_3 = self.fusion3(featuresA[3], featuresB[3]) # [4, 384, 16, 16]
-        
+        x_diff_2 = self.fusion2(featuresA[2], featuresB[2])  # [4, 192, 32, 32]
+        x_diff_3 = self.fusion3(featuresA[3], featuresB[3])  # [4, 384, 16, 16]
+
         x_h = x_diff_0
-        x_h = self.LHBlock1(x_diff_1, x_h) # [4, 40, 128, 128]
+        x_h = self.LHBlock1(x_diff_1, x_h)  # [4, 40, 128, 128]
         x_h = self.LHBlock2(x_diff_2, x_h)
         x_h = self.LHBlock3(x_diff_3, x_h)
 

@@ -33,21 +33,35 @@ def validate_labels(labels: Dict[str, Any]) -> None:
     assert set(labels.keys()) == set(xView2Dataset.LABEL_NAMES)
     lbl_1 = labels['lbl_1']
     lbl_2 = labels['lbl_2']
-    assert type(lbl_1) == torch.Tensor and lbl_1.ndim == 2 and lbl_1.dtype == torch.int64
-    assert type(lbl_2) == torch.Tensor and lbl_2.ndim == 2 and lbl_2.dtype == torch.int64
-    assert set(torch.unique(lbl_1).tolist()).issubset(set([0, 1, 2, 3, 4])), f"{torch.unique(lbl_1)=}"
-    assert set(torch.unique(lbl_2).tolist()).issubset(set([0, 1, 2, 3, 4])), f"{torch.unique(lbl_2)=}"
+    assert (
+        type(lbl_1) == torch.Tensor and lbl_1.ndim == 2 and lbl_1.dtype == torch.int64
+    )
+    assert (
+        type(lbl_2) == torch.Tensor and lbl_2.ndim == 2 and lbl_2.dtype == torch.int64
+    )
+    assert set(torch.unique(lbl_1).tolist()).issubset(
+        set([0, 1, 2, 3, 4])
+    ), f"{torch.unique(lbl_1)=}"
+    assert set(torch.unique(lbl_2).tolist()).issubset(
+        set([0, 1, 2, 3, 4])
+    ), f"{torch.unique(lbl_2)=}"
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     """Validate the meta_info of a datapoint."""
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert (
+        'idx' in meta_info
+    ), f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert (
+        meta_info['idx'] == datapoint_idx
+    ), f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
 @pytest.mark.parametrize('dataset_config', ['train', 'test', 'hold'], indirect=True)
-def test_xview2(dataset_config, patched_xview2_dataset_size, max_samples, get_samples_to_test) -> None:
+def test_xview2(
+    dataset_config, patched_xview2_dataset_size, max_samples, get_samples_to_test
+) -> None:
     with patched_xview2_dataset_size():
         dataset = build_from_config(dataset_config)
         assert isinstance(dataset, torch.utils.data.Dataset)

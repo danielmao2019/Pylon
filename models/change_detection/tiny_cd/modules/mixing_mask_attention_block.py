@@ -1,5 +1,7 @@
 from typing import List
+
 import torch
+
 from models.change_detection.tiny_cd.modules.mixing_block import MixingBlock
 from models.change_detection.tiny_cd.modules.pixelwise_linear import PixelwiseLinear
 
@@ -18,7 +20,9 @@ class MixingMaskAttentionBlock(torch.nn.Module):
         super(MixingMaskAttentionBlock, self).__init__()
         self._mixing = MixingBlock(ch_in, ch_out)
         self._linear = PixelwiseLinear(fin, fout)
-        self._final_normalization = torch.nn.InstanceNorm2d(ch_out) if generate_masked else None
+        self._final_normalization = (
+            torch.nn.InstanceNorm2d(ch_out) if generate_masked else None
+        )
         self._mixing_out = MixingBlock(ch_in, ch_out) if generate_masked else None
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:

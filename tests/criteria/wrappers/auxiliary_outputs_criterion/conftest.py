@@ -1,6 +1,7 @@
 import pytest
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.auxiliary_outputs_criterion import AuxiliaryOutputsCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 @pytest.fixture

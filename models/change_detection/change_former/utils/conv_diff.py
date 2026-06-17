@@ -7,5 +7,5 @@ def conv_diff(in_channels, out_channels):
         torch.nn.ReLU(),
         torch.nn.BatchNorm2d(out_channels),
         torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-        torch.nn.ReLU()
+        torch.nn.ReLU(),
     )

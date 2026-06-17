@@ -1,23 +1,31 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 # Modified by Bowen Cheng from: https://github.com/facebookresearch/detr/blob/master/models/detr.py
-import fvcore.nn.weight_init as weight_init
+import math
+import os
 from typing import Optional
+
+import fvcore.nn.weight_init as weight_init
+import matplotlib.pyplot as plt
 import torch
-from torch import nn, Tensor
+from PIL import Image
+from torch import Tensor, nn
 from torch.nn import functional as F
 
-from models.change_detection.cdmaskformer.transformer_decoder.position_encoding import PositionEmbeddingSine
-from models.change_detection.cdmaskformer.transformer_decoder.DEACA import DEACA_attention, DEACA_attention_v3, rcda_rebuild
+from models.change_detection.cdmaskformer.transformer_decoder.DEACA import (
+    DEACA_attention,
+    DEACA_attention_v3,
+    rcda_rebuild,
+)
+from models.change_detection.cdmaskformer.transformer_decoder.position_encoding import (
+    PositionEmbeddingSine,
+)
 
-import math
-import matplotlib.pyplot as plt
-import os
-from PIL import Image
 
 class SelfAttentionLayer(nn.Module):
 
-    def __init__(self, d_model, nhead, dropout=0.0,
-                 activation="relu", normalize_before=False):
+    def __init__(
+        self, d_model, nhead, dropout=0.0, activation="relu", normalize_before=False
+    ):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
 
@@ -28,7 +36,7 @@ class SelfAttentionLayer(nn.Module):
         self.normalize_before = normalize_before
 
         self._reset_parameters()
-    
+
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -37,45 +45,55 @@ class SelfAttentionLayer(nn.Module):
     def with_pos_embed(self, tensor, pos: Optional[Tensor]):
         return tensor if pos is None else tensor + pos
 
-    def forward_post(self, tgt,
-                     tgt_mask: Optional[Tensor] = None,
-                     tgt_key_padding_mask: Optional[Tensor] = None,
-                     query_pos: Optional[Tensor] = None):
+    def forward_post(
+        self,
+        tgt,
+        tgt_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         q = k = self.with_pos_embed(tgt, query_pos)
-        tgt2 = self.self_attn(q, k, value=tgt, attn_mask=tgt_mask,
-                              key_padding_mask=tgt_key_padding_mask)[0]
+        tgt2 = self.self_attn(
+            q, k, value=tgt, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask
+        )[0]
         tgt = tgt + self.dropout(tgt2)
         tgt = self.norm(tgt)
 
         return tgt
 
-    def forward_pre(self, tgt,
-                    tgt_mask: Optional[Tensor] = None,
-                    tgt_key_padding_mask: Optional[Tensor] = None,
-                    query_pos: Optional[Tensor] = None):
+    def forward_pre(
+        self,
+        tgt,
+        tgt_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         tgt2 = self.norm(tgt)
         q = k = self.with_pos_embed(tgt2, query_pos)
-        tgt2 = self.self_attn(q, k, value=tgt2, attn_mask=tgt_mask,
-                              key_padding_mask=tgt_key_padding_mask)[0]
+        tgt2 = self.self_attn(
+            q, k, value=tgt2, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask
+        )[0]
         tgt = tgt + self.dropout(tgt2)
-        
+
         return tgt
 
-    def forward(self, tgt,
-                tgt_mask: Optional[Tensor] = None,
-                tgt_key_padding_mask: Optional[Tensor] = None,
-                query_pos: Optional[Tensor] = None):
+    def forward(
+        self,
+        tgt,
+        tgt_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         if self.normalize_before:
-            return self.forward_pre(tgt, tgt_mask,
-                                    tgt_key_padding_mask, query_pos)
-        return self.forward_post(tgt, tgt_mask,
-                                 tgt_key_padding_mask, query_pos)
+            return self.forward_pre(tgt, tgt_mask, tgt_key_padding_mask, query_pos)
+        return self.forward_post(tgt, tgt_mask, tgt_key_padding_mask, query_pos)
 
 
 class CrossAttentionLayer(nn.Module):
 
-    def __init__(self, d_model, nhead, dropout=0.0,
-                 activation="relu", normalize_before=False):
+    def __init__(
+        self, d_model, nhead, dropout=0.0, activation="relu", normalize_before=False
+    ):
         super().__init__()
         self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
 
@@ -86,7 +104,7 @@ class CrossAttentionLayer(nn.Module):
         self.normalize_before = normalize_before
 
         self._reset_parameters()
-    
+
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -95,50 +113,76 @@ class CrossAttentionLayer(nn.Module):
     def with_pos_embed(self, tensor, pos: Optional[Tensor]):
         return tensor if pos is None else tensor + pos
 
-    def forward_post(self, tgt, memory,
-                     memory_mask: Optional[Tensor] = None,
-                     memory_key_padding_mask: Optional[Tensor] = None,
-                     pos: Optional[Tensor] = None,
-                     query_pos: Optional[Tensor] = None):
-        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt, query_pos),
-                                   key=self.with_pos_embed(memory, pos),
-                                   value=memory, attn_mask=memory_mask,
-                                   key_padding_mask=memory_key_padding_mask)[0]
+    def forward_post(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
+        tgt2 = self.multihead_attn(
+            query=self.with_pos_embed(tgt, query_pos),
+            key=self.with_pos_embed(memory, pos),
+            value=memory,
+            attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask,
+        )[0]
         tgt = tgt + self.dropout(tgt2)
         tgt = self.norm(tgt)
-        
+
         return tgt
 
-    def forward_pre(self, tgt, memory,
-                    memory_mask: Optional[Tensor] = None,
-                    memory_key_padding_mask: Optional[Tensor] = None,
-                    pos: Optional[Tensor] = None,
-                    query_pos: Optional[Tensor] = None):
+    def forward_pre(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         tgt2 = self.norm(tgt)
-        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt2, query_pos),
-                                   key=self.with_pos_embed(memory, pos),
-                                   value=memory, attn_mask=memory_mask,
-                                   key_padding_mask=memory_key_padding_mask)[0]
+        tgt2 = self.multihead_attn(
+            query=self.with_pos_embed(tgt2, query_pos),
+            key=self.with_pos_embed(memory, pos),
+            value=memory,
+            attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask,
+        )[0]
         tgt = tgt + self.dropout(tgt2)
 
         return tgt
 
-    def forward(self, tgt, memory,
-                memory_mask: Optional[Tensor] = None,
-                memory_key_padding_mask: Optional[Tensor] = None,
-                pos: Optional[Tensor] = None,
-                query_pos: Optional[Tensor] = None):
+    def forward(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         if self.normalize_before:
-            return self.forward_pre(tgt, memory, memory_mask,
-                                    memory_key_padding_mask, pos, query_pos)
-        return self.forward_post(tgt, memory, memory_mask,
-                                 memory_key_padding_mask, pos, query_pos)
+            return self.forward_pre(
+                tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+            )
+        return self.forward_post(
+            tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+        )
 
 
 class FFNLayer(nn.Module):
 
-    def __init__(self, d_model, dim_feedforward=2048, dropout=0.0,
-                 activation="relu", normalize_before=False):
+    def __init__(
+        self,
+        d_model,
+        dim_feedforward=2048,
+        dropout=0.0,
+        activation="relu",
+        normalize_before=False,
+    ):
         super().__init__()
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -151,7 +195,7 @@ class FFNLayer(nn.Module):
         self.normalize_before = normalize_before
 
         self._reset_parameters()
-    
+
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -190,13 +234,15 @@ def _get_activation_fn(activation):
 
 
 class MLP(nn.Module):
-    """ Very simple multi-layer perceptron (also called FFN)"""
+    """Very simple multi-layer perceptron (also called FFN)"""
 
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
-        self.layers = nn.ModuleList(nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+        self.layers = nn.ModuleList(
+            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim])
+        )
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
@@ -209,7 +255,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         self,
         in_channels,
         num_classes,
-        mask_classification=True,  
+        mask_classification=True,
         hidden_dim=256,
         num_queries=100,
         nheads=8,
@@ -217,7 +263,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         dec_layers=10,
         pre_norm=False,
         mask_dim=256,
-        enforce_input_project=False
+        enforce_input_project=False,
     ):
         super().__init__()
 
@@ -227,7 +273,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         # positional encoding
         N_steps = hidden_dim // 2
         self.pe_layer = PositionEmbeddingSine(N_steps, normalize=True)
-        
+
         # define Transformer decoder here
         self.num_heads = nheads
         self.num_layers = dec_layers
@@ -277,7 +323,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         self.input_proj = nn.ModuleList()
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -287,7 +335,7 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
         self.mask_embed = MLP(hidden_dim, hidden_dim, mask_dim, 3)
 
-    def forward(self, x, mask_features, mask = None):
+    def forward(self, x, mask_features, mask=None):
         # x is a list of multi-scale feature
         assert len(x) == self.num_feature_levels
         src = []
@@ -300,7 +348,10 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         for i in range(self.num_feature_levels):
             size_list.append(x[i].shape[-2:])
             pos.append(self.pe_layer(x[i], None).flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
@@ -316,7 +367,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(
+            output, mask_features, attn_mask_target_size=size_list[0]
+        )
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
 
@@ -328,24 +381,26 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
             output = self.transformer_cross_attention_layers[i](
-                output, src[level_index],
+                output,
+                src[level_index],
                 memory_mask=attn_mask,
                 memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                pos=pos[level_index], query_pos=query_embed
+                pos=pos[level_index],
+                query_pos=query_embed,
             )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
-            )
-            
-            # FFN
-            output = self.transformer_ffn_layers[i](
-                output
+                output, tgt_mask=None, tgt_key_padding_mask=None, query_pos=query_embed
             )
 
-            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            # FFN
+            output = self.transformer_ffn_layers[i](output)
+
+            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
@@ -355,8 +410,9 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out
 
@@ -369,11 +425,23 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
-        attn_mask = (attn_mask.sigmoid().flatten(2).unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.5).bool()
-        attn_mask[:,:] = False
+        attn_mask = (
+            attn_mask.sigmoid()
+            .flatten(2)
+            .unsqueeze(1)
+            .repeat(1, self.num_heads, 1, 1)
+            .flatten(0, 1)
+            < 0.5
+        ).bool()
+        attn_mask[:, :] = False
         attn_mask = attn_mask.detach()
 
         return outputs_class, outputs_mask, attn_mask
@@ -397,16 +465,16 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         self,
         in_channels,
         num_classes,
-        mask_classification=True,  
+        mask_classification=True,
         hidden_dim=256,
         num_queries=100,
-        gt_queries = 100,
+        gt_queries=100,
         nheads=8,
         dim_feedforward=2048,
         dec_layers=10,
         pre_norm=False,
         mask_dim=256,
-        enforce_input_project=False
+        enforce_input_project=False,
     ):
         super().__init__()
 
@@ -417,7 +485,7 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         # positional encoding
         N_steps = hidden_dim // 2
         self.pe_layer = PositionEmbeddingSine(N_steps, normalize=True)
-        
+
         # define Transformer decoder here
         self.num_heads = nheads
         self.num_layers = dec_layers
@@ -469,7 +537,9 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         self.input_proj = nn.ModuleList()
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -496,26 +566,45 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         dn_args_['max_num'] = max_num
         dn_args_['pad_size'] = pad_size
 
-        padding = torch.zeros([bs, pad_size, self.query_feat.weight.shape[-1]]).to(device=mask_features.device)
-        padding_mask = torch.ones([bs, pad_size, size_list[0][0]*size_list[0][1]]).to(device=mask_features.device).bool()
-        masks = torch.cat([F.interpolate(targets[i]['masks'].float().unsqueeze(1), size=size_list[0], mode="area").flatten(1)<=1e-8
-                 for i in range(len(targets)) if len(targets[i]['masks'])>0]).repeat(scalar, 1)
+        padding = torch.zeros([bs, pad_size, self.query_feat.weight.shape[-1]]).to(
+            device=mask_features.device
+        )
+        padding_mask = (
+            torch.ones([bs, pad_size, size_list[0][0] * size_list[0][1]])
+            .to(device=mask_features.device)
+            .bool()
+        )
+        masks = torch.cat(
+            [
+                F.interpolate(
+                    targets[i]['masks'].float().unsqueeze(1),
+                    size=size_list[0],
+                    mode="area",
+                ).flatten(1)
+                <= 1e-8
+                for i in range(len(targets))
+                if len(targets[i]['masks']) > 0
+            ]
+        ).repeat(scalar, 1)
         if head_dn:
             masks = masks[:, None].repeat(1, 8, 1)
             areas = (~masks).sum(2)
             noise_ratio = areas * noise_scale / (size_list[0][0] * size_list[0][1])
-            delta_mask = torch.rand_like(masks, dtype=torch.float) < noise_ratio[:,:, None]
-            masks = torch.logical_xor(masks, delta_mask) #[q,h,h*w]
+            delta_mask = (
+                torch.rand_like(masks, dtype=torch.float) < noise_ratio[:, :, None]
+            )
+            masks = torch.logical_xor(masks, delta_mask)  # [q,h,h*w]
         else:
-            areas= (~masks).sum(1)
-            noise_ratio=areas*noise_scale/(size_list[0][0]*size_list[0][1])
-            delta_mask=torch.rand_like(masks,dtype=torch.float)<noise_ratio[:,None]
-            masks=torch.logical_xor(masks,delta_mask)
-
+            areas = (~masks).sum(1)
+            noise_ratio = areas * noise_scale / (size_list[0][0] * size_list[0][1])
+            delta_mask = (
+                torch.rand_like(masks, dtype=torch.float) < noise_ratio[:, None]
+            )
+            masks = torch.logical_xor(masks, delta_mask)
 
         # torch.sum(dim=)
 
-        labels=torch.cat([t['labels'] for t in targets])
+        labels = torch.cat([t['labels'] for t in targets])
         known_labels = labels.repeat(scalar, 1).view(-1)
         # known_labels = self.label_enc(known_labels)
 
@@ -533,34 +622,45 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         # noised_known_features = known_labels
         noised_known_features = known_labels
 
-
-        batch_idx = torch.cat([torch.full_like(t['labels'].long(), i) for i, t in enumerate(targets)])
+        batch_idx = torch.cat(
+            [torch.full_like(t['labels'].long(), i) for i, t in enumerate(targets)]
+        )
         known_bid = batch_idx.repeat(scalar, 1).view(-1)
         # map_known_indice = torch.tensor([]).to('cuda')
         # import pdb;pdb.set_trace()
-        map_known_indices = torch.cat([torch.tensor(range(num)) for num in [len(t['labels']) for t in targets]])  # [1,2, 1,2,3]
+        map_known_indices = torch.cat(
+            [torch.tensor(range(num)) for num in [len(t['labels']) for t in targets]]
+        )  # [1,2, 1,2,3]
         # print(map_known_indices)
         # print(boxes)
-        map_known_indices = torch.cat([map_known_indices + single_pad * i for i in range(scalar)]).long().to(device=mask_features.device)
+        map_known_indices = (
+            torch.cat([map_known_indices + single_pad * i for i in range(scalar)])
+            .long()
+            .to(device=mask_features.device)
+        )
 
         # for i in range(bs):
         padding[(known_bid, map_known_indices)] = noised_known_features
         if head_dn:
-            padding_mask=padding_mask.unsqueeze(2).repeat([1,1,8,1]) #[bs,q,h,h*w]
+            padding_mask = padding_mask.unsqueeze(2).repeat(
+                [1, 1, 8, 1]
+            )  # [bs,q,h,h*w]
             padding_mask[(known_bid, map_known_indices)] = masks
-            padding_mask=padding_mask.transpose(1,2)
+            padding_mask = padding_mask.transpose(1, 2)
         else:
-            padding_mask[(known_bid, map_known_indices)]=masks
-            padding_mask=padding_mask.unsqueeze(1).repeat([1,8,1,1])
+            padding_mask[(known_bid, map_known_indices)] = masks
+            padding_mask = padding_mask.unsqueeze(1).repeat([1, 8, 1, 1])
 
         res = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1)
         res = torch.cat([padding.transpose(0, 1), res], dim=0)
         ###################
 
-        outputs_class, outputs_mask, attn_mask_ = self.forward_prediction_heads(res, mask_features,attn_mask_target_size=size_list[0])
-        attn_mask_=attn_mask_.view([bs,8,-1,attn_mask_.shape[-1]])
-        attn_mask_[:,:,:-self.num_queries]=padding_mask
-        attn_mask_=attn_mask_.flatten(0,1)
+        outputs_class, outputs_mask, attn_mask_ = self.forward_prediction_heads(
+            res, mask_features, attn_mask_target_size=size_list[0]
+        )
+        attn_mask_ = attn_mask_.view([bs, 8, -1, attn_mask_.shape[-1]])
+        attn_mask_[:, :, : -self.num_queries] = padding_mask
+        attn_mask_ = attn_mask_.flatten(0, 1)
         #####################
 
         tgt_size = pad_size + self.num_queries
@@ -570,16 +670,28 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         attn_mask[pad_size:, :pad_size] = True
         # reconstruct cannot see each other
         for i in range(scalar):
-            attn_mask[single_pad * i:single_pad * (i + 1), single_pad * (i + 1):pad_size] = True
-            attn_mask[single_pad * i:single_pad * (i + 1), :single_pad * i] = True
-        return (known_bid,map_known_indices), res, attn_mask, dn_args_,outputs_class, outputs_mask, attn_mask_
+            attn_mask[
+                single_pad * i : single_pad * (i + 1), single_pad * (i + 1) : pad_size
+            ] = True
+            attn_mask[single_pad * i : single_pad * (i + 1), : single_pad * i] = True
+        return (
+            (known_bid, map_known_indices),
+            res,
+            attn_mask,
+            dn_args_,
+            outputs_class,
+            outputs_mask,
+            attn_mask_,
+        )
 
-    def gen_mask_dn(self,size_list,known_bid,map_known_indices, targets, bs, mask_features):
+    def gen_mask_dn(
+        self, size_list, known_bid, map_known_indices, targets, bs, mask_features
+    ):
         l = [t['labels'] for t in targets]
         num = [len(b) for b in l]
         if max(num) == 0:
             return None
-        
+
         scalar, noise_scale = 1, 0.2
         max_num = self.gt_queries
 
@@ -589,40 +701,67 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         dn_args_['max_num'] = max_num
         dn_args_['pad_size'] = pad_size
 
-        padding_mask = torch.ones([bs, pad_size, size_list[0]*size_list[1]]).to(device=mask_features.device).bool()
-        masks = torch.cat([F.interpolate(targets[i]['masks'].float().unsqueeze(1), size=size_list[0], mode="area").flatten(1)<=1e-8
-                 for i in range(len(targets)) if len(targets[i]['masks'])>0]).repeat(scalar, 1)
+        padding_mask = (
+            torch.ones([bs, pad_size, size_list[0] * size_list[1]])
+            .to(device=mask_features.device)
+            .bool()
+        )
+        masks = torch.cat(
+            [
+                F.interpolate(
+                    targets[i]['masks'].float().unsqueeze(1),
+                    size=size_list[0],
+                    mode="area",
+                ).flatten(1)
+                <= 1e-8
+                for i in range(len(targets))
+                if len(targets[i]['masks']) > 0
+            ]
+        ).repeat(scalar, 1)
         if head_dn:
             masks = masks[:, None].repeat(1, 8, 1)
             areas = (~masks).sum(2)
             noise_ratio = areas * noise_scale / (size_list[0] * size_list[1])
-            delta_mask = torch.rand_like(masks, dtype=torch.float) < noise_ratio[:,:, None]
-            masks = torch.logical_xor(masks, delta_mask) #[q,h,h*w]
+            delta_mask = (
+                torch.rand_like(masks, dtype=torch.float) < noise_ratio[:, :, None]
+            )
+            masks = torch.logical_xor(masks, delta_mask)  # [q,h,h*w]
         else:
-            areas= (~masks).sum(1)
-            noise_ratio=areas*noise_scale/(size_list[0]*size_list[1])
-            delta_mask=torch.rand_like(masks,dtype=torch.float)<noise_ratio[:,None]
-            masks=torch.logical_xor(masks,delta_mask)
+            areas = (~masks).sum(1)
+            noise_ratio = areas * noise_scale / (size_list[0] * size_list[1])
+            delta_mask = (
+                torch.rand_like(masks, dtype=torch.float) < noise_ratio[:, None]
+            )
+            masks = torch.logical_xor(masks, delta_mask)
 
         if head_dn:
-            padding_mask=padding_mask.unsqueeze(2).repeat([1,1,8,1]) #[bs,q,h,h*w]
+            padding_mask = padding_mask.unsqueeze(2).repeat(
+                [1, 1, 8, 1]
+            )  # [bs,q,h,h*w]
             padding_mask[(known_bid, map_known_indices)] = masks
-            padding_mask=padding_mask.transpose(1,2)
+            padding_mask = padding_mask.transpose(1, 2)
         else:
-            padding_mask[(known_bid, map_known_indices)]=masks
-            padding_mask=padding_mask.unsqueeze(1).repeat([1,8,1,1])
+            padding_mask[(known_bid, map_known_indices)] = masks
+            padding_mask = padding_mask.unsqueeze(1).repeat([1, 8, 1, 1])
 
         return padding_mask
-    
+
     def postprocess_for_dn(self, predictions_class, predictions_mask):
         n_lys = len(predictions_class)
-        dn_predictions_class, predictions_class = [predictions_class[i][:, :-self.num_queries] for i in range(n_lys)], \
-                                                  [predictions_class[i][:, -self.num_queries:] for i in range(n_lys)]
-        dn_predictions_mask, predictions_mask = [predictions_mask[i][:, :-self.num_queries] for i in range(n_lys)], \
-                                                [predictions_mask[i][:, -self.num_queries:] for i in range(n_lys)]
-        return predictions_class, predictions_mask, dn_predictions_class, dn_predictions_mask
-    
-    def forward(self, x, mask_features, targets, mask = None):
+        dn_predictions_class, predictions_class = [
+            predictions_class[i][:, : -self.num_queries] for i in range(n_lys)
+        ], [predictions_class[i][:, -self.num_queries :] for i in range(n_lys)]
+        dn_predictions_mask, predictions_mask = [
+            predictions_mask[i][:, : -self.num_queries] for i in range(n_lys)
+        ], [predictions_mask[i][:, -self.num_queries :] for i in range(n_lys)]
+        return (
+            predictions_class,
+            predictions_mask,
+            dn_predictions_class,
+            dn_predictions_mask,
+        )
+
+    def forward(self, x, mask_features, targets, mask=None):
         # x is a list of multi-scale feature
         assert len(x) == self.num_feature_levels
         src = []
@@ -635,7 +774,10 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         for i in range(self.num_feature_levels):
             size_list.append(x[i].shape[-2:])
             pos.append(self.pe_layer(x[i], None).flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
@@ -644,24 +786,39 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         _, bs, _ = src[0].shape
 
         if not targets == None:
-            res= self.prepare_for_dn_v5(mask_features, size_list, targets, bs)
+            res = self.prepare_for_dn_v5(mask_features, size_list, targets, bs)
             if res == None:
                 query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
                 tgt_mask = None
                 output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1)
-                outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features,
-                                                                                    attn_mask_target_size=size_list[0])
+                outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(
+                    output, mask_features, attn_mask_target_size=size_list[0]
+                )
             else:
-                query_embed, output, tgt_mask, dn_args_,outputs_class, outputs_mask, attn_mask=res
-                known_bid,map_known_indices=query_embed
-                query_embed=torch.cat([self.gt_query_embed.weight.unsqueeze(1).repeat(1, bs, 1), 
-                                       self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)], dim=0) 
+                (
+                    query_embed,
+                    output,
+                    tgt_mask,
+                    dn_args_,
+                    outputs_class,
+                    outputs_mask,
+                    attn_mask,
+                ) = res
+                known_bid, map_known_indices = query_embed
+                query_embed = torch.cat(
+                    [
+                        self.gt_query_embed.weight.unsqueeze(1).repeat(1, bs, 1),
+                        self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1),
+                    ],
+                    dim=0,
+                )
         else:
             query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
             tgt_mask = None
             output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1)
-            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features,
-                                                                                attn_mask_target_size=size_list[0])
+            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(
+                output, mask_features, attn_mask_target_size=size_list[0]
+            )
         # QxNxC
         # query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
         # output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1)
@@ -684,60 +841,77 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
             attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
             output = self.transformer_cross_attention_layers[i](
-                output, src[level_index],
+                output,
+                src[level_index],
                 memory_mask=attn_mask,
                 memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                pos=pos[level_index], query_pos=query_embed
+                pos=pos[level_index],
+                query_pos=query_embed,
             )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=tgt_mask,
+                output,
+                tgt_mask=tgt_mask,
                 tgt_key_padding_mask=None,
-                query_pos=query_embed
-            )
-            
-            # FFN
-            output = self.transformer_ffn_layers[i](
-                output
+                query_pos=query_embed,
             )
 
-            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            # FFN
+            output = self.transformer_ffn_layers[i](output)
+
+            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
 
             if (not targets == None) and (not tgt_mask == None):
-                padding_mask=self.gen_mask_dn(size_list=size_list[(i + 1) % self.num_feature_levels],known_bid=known_bid,map_known_indices=map_known_indices, targets=targets, bs=bs, mask_features=mask_features)
+                padding_mask = self.gen_mask_dn(
+                    size_list=size_list[(i + 1) % self.num_feature_levels],
+                    known_bid=known_bid,
+                    map_known_indices=map_known_indices,
+                    targets=targets,
+                    bs=bs,
+                    mask_features=mask_features,
+                )
                 attn_mask = attn_mask.view([bs, 8, -1, attn_mask.shape[-1]])
-                attn_mask[:, :, :-self.num_queries] = padding_mask
+                attn_mask[:, :, : -self.num_queries] = padding_mask
                 attn_mask = attn_mask.flatten(0, 1)
-        
+
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
         assert len(predictions_class) == self.num_layers + 1
 
         if not (tgt_mask is None):
-            predictions_class, predictions_mask, dn_predictions_class, dn_predictions_mask = \
-                self.postprocess_for_dn(predictions_class, predictions_mask)
+            (
+                predictions_class,
+                predictions_mask,
+                dn_predictions_class,
+                dn_predictions_mask,
+            ) = self.postprocess_for_dn(predictions_class, predictions_mask)
 
             dn_out = {
                 'pred_logits': dn_predictions_class[-1],
                 'pred_masks': dn_predictions_mask[-1],
                 'aux_outputs': self._set_aux_loss(
-                    dn_predictions_class if self.mask_classification else None, dn_predictions_mask
+                    dn_predictions_class if self.mask_classification else None,
+                    dn_predictions_mask,
                 ),
-                'dn_args': dn_args_
-
+                'dn_args': dn_args_,
             }
         else:
             dn_out = None
-            predictions_class[-1]+=self.label_enc.weight[0,0]*0.0
+            predictions_class[-1] += self.label_enc.weight[0, 0] * 0.0
 
         out = {
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
             ),
-            'dn_out': dn_out
+            'dn_out': dn_out,
         }
         return out
 
@@ -750,11 +924,23 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
-        attn_mask = (attn_mask.sigmoid().flatten(2).unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.5).bool()
-        attn_mask[:,:] = False
+        attn_mask = (
+            attn_mask.sigmoid()
+            .flatten(2)
+            .unsqueeze(1)
+            .repeat(1, self.num_heads, 1, 1)
+            .flatten(0, 1)
+            < 0.5
+        ).bool()
+        attn_mask[:, :] = False
         attn_mask = attn_mask.detach()
 
         return outputs_class, outputs_mask, attn_mask
@@ -772,10 +958,12 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
         else:
             return [{"pred_masks": b} for b in outputs_seg_masks[:-1]]
 
+
 class CrossAttentionLayerFASeg(nn.Module):
 
-    def __init__(self, d_model, nhead, dropout=0.0,
-                 activation="relu", normalize_before=False):
+    def __init__(
+        self, d_model, nhead, dropout=0.0, activation="relu", normalize_before=False
+    ):
         super().__init__()
         self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
 
@@ -795,47 +983,68 @@ class CrossAttentionLayerFASeg(nn.Module):
     def with_pos_embed(self, tensor, pos: Optional[Tensor]):
         return tensor if pos is None else tensor + pos
 
-    def forward_post(self, tgt, memory,
-                     memory_mask: Optional[Tensor] = None,
-                     memory_key_padding_mask: Optional[Tensor] = None,
-                     pos: Optional[Tensor] = None,
-                     query_pos: Optional[Tensor] = None):
+    def forward_post(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
 
         # We return the generated attention map
-        tgt2, attn = self.multihead_attn(query=self.with_pos_embed(tgt, query_pos),
-                                   key=self.with_pos_embed(memory, pos),
-                                   value=memory, attn_mask=memory_mask,
-                                   key_padding_mask=memory_key_padding_mask)
+        tgt2, attn = self.multihead_attn(
+            query=self.with_pos_embed(tgt, query_pos),
+            key=self.with_pos_embed(memory, pos),
+            value=memory,
+            attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask,
+        )
 
         tgt = tgt + self.dropout(tgt2)
         tgt = self.norm(tgt)
 
         return tgt, attn
 
-    def forward_pre(self, tgt, memory,
-                    memory_mask: Optional[Tensor] = None,
-                    memory_key_padding_mask: Optional[Tensor] = None,
-                    pos: Optional[Tensor] = None,
-                    query_pos: Optional[Tensor] = None):
+    def forward_pre(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         tgt2 = self.norm(tgt)
-        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt2, query_pos),
-                                   key=self.with_pos_embed(memory, pos),
-                                   value=memory, attn_mask=memory_mask,
-                                   key_padding_mask=memory_key_padding_mask)[0]
+        tgt2 = self.multihead_attn(
+            query=self.with_pos_embed(tgt2, query_pos),
+            key=self.with_pos_embed(memory, pos),
+            value=memory,
+            attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask,
+        )[0]
         tgt = tgt + self.dropout(tgt2)
 
         return tgt
 
-    def forward(self, tgt, memory,
-                memory_mask: Optional[Tensor] = None,
-                memory_key_padding_mask: Optional[Tensor] = None,
-                pos: Optional[Tensor] = None,
-                query_pos: Optional[Tensor] = None):
+    def forward(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         if self.normalize_before:
-            return self.forward_pre(tgt, memory, memory_mask,
-                                    memory_key_padding_mask, pos, query_pos)
-        return self.forward_post(tgt, memory, memory_mask,
-                                 memory_key_padding_mask, pos, query_pos)
+            return self.forward_pre(
+                tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+            )
+        return self.forward_post(
+            tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+        )
+
 
 def window_partition(x, window_size):
     """
@@ -852,25 +1061,28 @@ def window_partition(x, window_size):
         x = x.view(B, C, H // window_size, window_size, W // window_size, window_size)
     except:
         print('hey')
-    windows = x.permute(0, 2, 4, 3, 5, 1).contiguous().view(-1, window_size, window_size, C)
+    windows = (
+        x.permute(0, 2, 4, 3, 5, 1).contiguous().view(-1, window_size, window_size, C)
+    )
 
     return windows
 
+
 class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            num_classes,
-            mask_classification=True,
-            hidden_dim=256,
-            num_queries=100,
-            nheads=8,
-            dim_feedforward=2048,
-            dec_layers=10,
-            pre_norm=False,
-            mask_dim=256,
-            enforce_input_project=False,
-            omega_rate=32
+        self,
+        in_channels,
+        num_classes,
+        mask_classification=True,
+        hidden_dim=256,
+        num_queries=100,
+        nheads=8,
+        dim_feedforward=2048,
+        dec_layers=10,
+        pre_norm=False,
+        mask_dim=256,
+        enforce_input_project=False,
+        omega_rate=32,
     ):
         """
         NOTE: this interface is experimental.
@@ -949,7 +1161,9 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
 
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -988,13 +1202,19 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
             pos_2d.append(pos_encoding)
 
             pos.append(pos_encoding.flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        fg_src = self.input_proj[-1](x[-1]) + self.level_embed.weight[-1][None, :, None, None]
+        fg_src = (
+            self.input_proj[-1](x[-1])
+            + self.level_embed.weight[-1][None, :, None, None]
+        )
         fg_pos = pos_2d[-1]
 
         n, bs, c = src[0].shape
@@ -1007,16 +1227,20 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask, pooling_mask = self.forward_prediction_heads(output, mask_features,
-                                                                               attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask, pooling_mask = (
+            self.forward_prediction_heads(
+                output, mask_features, attn_mask_target_size=size_list[0]
+            )
+        )
 
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
 
         # We generate dynamic positional queries for the first layer based on the predicted
         # positions of the first prediction head in Mask2former
-        query_embed = (pooling_mask.permute(1, 2, 0).unsqueeze(-1) * pos[0].unsqueeze(0)).sum(1) / \
-                     (pooling_mask.sum(-1).permute(1,0)[..., None] + 1e-6)
+        query_embed = (
+            pooling_mask.permute(1, 2, 0).unsqueeze(-1) * pos[0].unsqueeze(0)
+        ).sum(1) / (pooling_mask.sum(-1).permute(1, 0)[..., None] + 1e-6)
 
         query_embed = self.adapt_pos2d(query_embed + query_embed_params)
 
@@ -1032,10 +1256,12 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
 
                 # Keep the attention in the first cross-attention layer
                 output, attn = self.transformer_cross_attention_layers[i](
-                    output, src[level_index],
+                    output,
+                    src[level_index],
                     memory_mask=attn_mask,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=pos[level_index], query_pos=query_embed,
+                    pos=pos[level_index],
+                    query_pos=query_embed,
                 )
 
                 cg_attn = attn
@@ -1044,61 +1270,81 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
 
                 # Select top-k areas in high-resolution attention maps
                 _, indexes = cg_attn.sum(1).sort(dim=-1, descending=True)
-                window_size = int((fg_src.shape[-1] * fg_src.shape[-2] // src[0].shape[0]) ** 0.5)
-                fg_src_windows = window_partition(fg_src, window_size).view(bs, -1, window_size ** 2, c)
-                fg_pos_windows = window_partition(fg_pos, window_size).view(bs, -1, window_size ** 2, c)
+                window_size = int(
+                    (fg_src.shape[-1] * fg_src.shape[-2] // src[0].shape[0]) ** 0.5
+                )
+                fg_src_windows = window_partition(fg_src, window_size).view(
+                    bs, -1, window_size**2, c
+                )
+                fg_pos_windows = window_partition(fg_pos, window_size).view(
+                    bs, -1, window_size**2, c
+                )
 
-                fg_src_windows = torch.gather(fg_src_windows, 1,
-                                              indexes[..., :n // self.omega_rate][..., None, None].expand(-1, -1,
-                                                                                             window_size ** 2,
-                                                                                             c)).view(bs,
-                                                                                                      -1,
-                                                                                                      c).permute(1, 0,
-                                                                                                                 2)
-                fg_pos_windows = torch.gather(fg_pos_windows, 1,
-                                              indexes[..., :n // self.omega_rate][..., None, None].expand(-1, -1,
-                                                                                             window_size ** 2,
-                                                                                             c)).view(bs,
-                                                                                                      -1,
-                                                                                                      c).permute(1, 0,
-                                                                                                                 2)
+                fg_src_windows = (
+                    torch.gather(
+                        fg_src_windows,
+                        1,
+                        indexes[..., : n // self.omega_rate][..., None, None].expand(
+                            -1, -1, window_size**2, c
+                        ),
+                    )
+                    .view(bs, -1, c)
+                    .permute(1, 0, 2)
+                )
+                fg_pos_windows = (
+                    torch.gather(
+                        fg_pos_windows,
+                        1,
+                        indexes[..., : n // self.omega_rate][..., None, None].expand(
+                            -1, -1, window_size**2, c
+                        ),
+                    )
+                    .view(bs, -1, c)
+                    .permute(1, 0, 2)
+                )
 
                 # We do not use the dynamic positional queries in the sparse high-resolution branch
                 output, _ = self.transformer_cross_attention_layers[i](
-                    output, fg_src_windows,
+                    output,
+                    fg_src_windows,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=fg_pos_windows, query_pos=query_embed_params
+                    pos=fg_pos_windows,
+                    query_pos=query_embed_params,
                 )
 
             else:
                 output, attn = self.transformer_cross_attention_layers[i](
-                    output, src[level_index],
+                    output,
+                    src[level_index],
                     memory_mask=attn_mask,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=pos[level_index], query_pos=query_embed,
+                    pos=pos[level_index],
+                    query_pos=query_embed,
                 )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
+                output, tgt_mask=None, tgt_key_padding_mask=None, query_pos=query_embed
             )
 
             # FFN
-            output = self.transformer_ffn_layers[i](
-                output
-            )
+            output = self.transformer_ffn_layers[i](output)
 
-            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(output, mask_features,
-                                                                                   attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
             # Core code block for generating the dynamic positional queries
             attn = attn.flatten(2)
             if i % 4 != 3:
-                query_embed = (attn.permute(1, 2, 0).unsqueeze(-1) * pos[i % self.num_feature_levels].unsqueeze(0)).sum(1)
+                query_embed = (
+                    attn.permute(1, 2, 0).unsqueeze(-1)
+                    * pos[i % self.num_feature_levels].unsqueeze(0)
+                ).sum(1)
                 query_embed = self.adapt_pos2d(query_embed + query_embed_params)
 
         assert len(predictions_class) == self.num_layers + 1
@@ -1107,8 +1353,9 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out
 
@@ -1121,14 +1368,21 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
         attn_mask = attn_mask.sigmoid().flatten(2)
         pooling_mask = (attn_mask < 0.5).int()
 
         # We release the previous threshold for generating attention mask in Mask2former to 0.15
-        final_attn_mask = (attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15).bool()
+        final_attn_mask = (
+            attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15
+        ).bool()
         final_attn_mask = final_attn_mask.detach()
 
         return outputs_class, outputs_mask, final_attn_mask, pooling_mask
@@ -1149,19 +1403,19 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
 
 class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            num_classes,
-            mask_classification=True,
-            hidden_dim=256,
-            num_queries=100,
-            nheads=8,
-            dim_feedforward=2048,
-            dec_layers=10,
-            pre_norm=False,
-            mask_dim=256,
-            enforce_input_project=False,
-            omega_rate=32
+        self,
+        in_channels,
+        num_classes,
+        mask_classification=True,
+        hidden_dim=256,
+        num_queries=100,
+        nheads=8,
+        dim_feedforward=2048,
+        dec_layers=10,
+        pre_norm=False,
+        mask_dim=256,
+        enforce_input_project=False,
+        omega_rate=32,
     ):
         """
         NOTE: this interface is experimental.
@@ -1240,7 +1494,9 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
 
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -1279,13 +1535,19 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
             pos_2d.append(pos_encoding)
 
             pos.append(pos_encoding.flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        fg_src = self.input_proj[-1](x[-1]) + self.level_embed.weight[-1][None, :, None, None]
+        fg_src = (
+            self.input_proj[-1](x[-1])
+            + self.level_embed.weight[-1][None, :, None, None]
+        )
         fg_pos = pos_2d[-1]
 
         n, bs, c = src[0].shape
@@ -1298,16 +1560,20 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask, pooling_mask = self.forward_prediction_heads(output, mask_features,
-                                                                               attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask, pooling_mask = (
+            self.forward_prediction_heads(
+                output, mask_features, attn_mask_target_size=size_list[0]
+            )
+        )
 
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
 
         # We generate dynamic positional queries for the first layer based on the predicted
         # positions of the first prediction head in Mask2former
-        query_embed = (pooling_mask.permute(1, 2, 0).unsqueeze(-1) * pos[0].unsqueeze(0)).sum(1) / \
-                     (pooling_mask.sum(-1).permute(1,0)[..., None] + 1e-6)
+        query_embed = (
+            pooling_mask.permute(1, 2, 0).unsqueeze(-1) * pos[0].unsqueeze(0)
+        ).sum(1) / (pooling_mask.sum(-1).permute(1, 0)[..., None] + 1e-6)
 
         query_embed = self.adapt_pos2d(query_embed + query_embed_params)
 
@@ -1319,32 +1585,36 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
             attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
             output, attn = self.transformer_cross_attention_layers[i](
-                output, src[level_index],
+                output,
+                src[level_index],
                 memory_mask=attn_mask,
                 memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                pos=pos[level_index], query_pos=query_embed,
+                pos=pos[level_index],
+                query_pos=query_embed,
             )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
+                output, tgt_mask=None, tgt_key_padding_mask=None, query_pos=query_embed
             )
 
             # FFN
-            output = self.transformer_ffn_layers[i](
-                output
-            )
+            output = self.transformer_ffn_layers[i](output)
 
-            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(output, mask_features,
-                                                                                   attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
             # Core code block for generating the dynamic positional queries
             attn = attn.flatten(2)
 
-            query_embed = (attn.permute(1, 2, 0).unsqueeze(-1) * pos[i % self.num_feature_levels].unsqueeze(0)).sum(1)
+            query_embed = (
+                attn.permute(1, 2, 0).unsqueeze(-1)
+                * pos[i % self.num_feature_levels].unsqueeze(0)
+            ).sum(1)
             query_embed = self.adapt_pos2d(query_embed + query_embed_params)
 
         assert len(predictions_class) == self.num_layers + 1
@@ -1353,8 +1623,9 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out
 
@@ -1367,14 +1638,21 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
         attn_mask = attn_mask.sigmoid().flatten(2)
         pooling_mask = (attn_mask < 0.5).int()
 
         # We release the previous threshold for generating attention mask in Mask2former to 0.15
-        final_attn_mask = (attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15).bool()
+        final_attn_mask = (
+            attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15
+        ).bool()
         final_attn_mask = final_attn_mask.detach()
 
         return outputs_class, outputs_mask, final_attn_mask, pooling_mask
@@ -1391,22 +1669,23 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
             ]
         else:
             return [{"pred_masks": b} for b in outputs_seg_masks[:-1]]
-        
+
+
 class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            num_classes,
-            mask_classification=True,
-            hidden_dim=256,
-            num_queries=100,
-            nheads=8,
-            dim_feedforward=2048,
-            dec_layers=10,
-            pre_norm=False,
-            mask_dim=256,
-            enforce_input_project=False,
-            omega_rate=32
+        self,
+        in_channels,
+        num_classes,
+        mask_classification=True,
+        hidden_dim=256,
+        num_queries=100,
+        nheads=8,
+        dim_feedforward=2048,
+        dec_layers=10,
+        pre_norm=False,
+        mask_dim=256,
+        enforce_input_project=False,
+        omega_rate=32,
     ):
         """
         NOTE: this interface is experimental.
@@ -1485,7 +1764,9 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
 
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -1524,13 +1805,19 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
             pos_2d.append(pos_encoding)
 
             pos.append(pos_encoding.flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        fg_src = self.input_proj[-1](x[-1]) + self.level_embed.weight[-1][None, :, None, None]
+        fg_src = (
+            self.input_proj[-1](x[-1])
+            + self.level_embed.weight[-1][None, :, None, None]
+        )
         fg_pos = pos_2d[-1]
 
         n, bs, c = src[0].shape
@@ -1543,8 +1830,11 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask, pooling_mask = self.forward_prediction_heads(output, mask_features,
-                                                                               attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask, pooling_mask = (
+            self.forward_prediction_heads(
+                output, mask_features, attn_mask_target_size=size_list[0]
+            )
+        )
 
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
@@ -1568,10 +1858,12 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
 
                 # Keep the attention in the first cross-attention layer
                 output, attn = self.transformer_cross_attention_layers[i](
-                    output, src[level_index],
+                    output,
+                    src[level_index],
                     memory_mask=attn_mask,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=pos[level_index], query_pos=query_embed,
+                    pos=pos[level_index],
+                    query_pos=query_embed,
                 )
 
                 cg_attn = attn
@@ -1580,54 +1872,71 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
 
                 # Select top-k areas in high-resolution attention maps
                 _, indexes = cg_attn.sum(1).sort(dim=-1, descending=True)
-                window_size = int((fg_src.shape[-1] * fg_src.shape[-2] // src[0].shape[0]) ** 0.5)
-                fg_src_windows = window_partition(fg_src, window_size).view(bs, -1, window_size ** 2, c)
-                fg_pos_windows = window_partition(fg_pos, window_size).view(bs, -1, window_size ** 2, c)
+                window_size = int(
+                    (fg_src.shape[-1] * fg_src.shape[-2] // src[0].shape[0]) ** 0.5
+                )
+                fg_src_windows = window_partition(fg_src, window_size).view(
+                    bs, -1, window_size**2, c
+                )
+                fg_pos_windows = window_partition(fg_pos, window_size).view(
+                    bs, -1, window_size**2, c
+                )
 
-                fg_src_windows = torch.gather(fg_src_windows, 1,
-                                              indexes[..., :n // self.omega_rate][..., None, None].expand(-1, -1,
-                                                                                             window_size ** 2,
-                                                                                             c)).view(bs,
-                                                                                                      -1,
-                                                                                                      c).permute(1, 0,
-                                                                                                                 2)
-                fg_pos_windows = torch.gather(fg_pos_windows, 1,
-                                              indexes[..., :n // self.omega_rate][..., None, None].expand(-1, -1,
-                                                                                             window_size ** 2,
-                                                                                             c)).view(bs,
-                                                                                                      -1,
-                                                                                                      c).permute(1, 0,
-                                                                                                                 2)
+                fg_src_windows = (
+                    torch.gather(
+                        fg_src_windows,
+                        1,
+                        indexes[..., : n // self.omega_rate][..., None, None].expand(
+                            -1, -1, window_size**2, c
+                        ),
+                    )
+                    .view(bs, -1, c)
+                    .permute(1, 0, 2)
+                )
+                fg_pos_windows = (
+                    torch.gather(
+                        fg_pos_windows,
+                        1,
+                        indexes[..., : n // self.omega_rate][..., None, None].expand(
+                            -1, -1, window_size**2, c
+                        ),
+                    )
+                    .view(bs, -1, c)
+                    .permute(1, 0, 2)
+                )
 
                 # We do not use the dynamic positional queries in the sparse high-resolution branch
                 output, _ = self.transformer_cross_attention_layers[i](
-                    output, fg_src_windows,
+                    output,
+                    fg_src_windows,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=fg_pos_windows, query_pos=query_embed
+                    pos=fg_pos_windows,
+                    query_pos=query_embed,
                 )
 
             else:
                 output, attn = self.transformer_cross_attention_layers[i](
-                    output, src[level_index],
+                    output,
+                    src[level_index],
                     memory_mask=attn_mask,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=pos[level_index], query_pos=query_embed,
+                    pos=pos[level_index],
+                    query_pos=query_embed,
                 )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
+                output, tgt_mask=None, tgt_key_padding_mask=None, query_pos=query_embed
             )
 
             # FFN
-            output = self.transformer_ffn_layers[i](
-                output
-            )
+            output = self.transformer_ffn_layers[i](output)
 
-            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(output, mask_features,
-                                                                                   attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
@@ -1643,8 +1952,9 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out
 
@@ -1657,14 +1967,21 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
         attn_mask = attn_mask.sigmoid().flatten(2)
         pooling_mask = (attn_mask < 0.5).int()
 
         # We release the previous threshold for generating attention mask in Mask2former to 0.15
-        final_attn_mask = (attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15).bool()
+        final_attn_mask = (
+            attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15
+        ).bool()
         final_attn_mask = final_attn_mask.detach()
 
         return outputs_class, outputs_mask, final_attn_mask, pooling_mask
@@ -1682,21 +1999,22 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
         else:
             return [{"pred_masks": b} for b in outputs_seg_masks[:-1]]
 
+
 class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            num_classes,
-            mask_classification=True,
-            hidden_dim=256,
-            num_queries=100,
-            nheads=8,
-            dim_feedforward=2048,
-            dec_layers=10,
-            pre_norm=False,
-            mask_dim=256,
-            enforce_input_project=False,
-            omega_rate=32
+        self,
+        in_channels,
+        num_classes,
+        mask_classification=True,
+        hidden_dim=256,
+        num_queries=100,
+        nheads=8,
+        dim_feedforward=2048,
+        dec_layers=10,
+        pre_norm=False,
+        mask_dim=256,
+        enforce_input_project=False,
+        omega_rate=32,
     ):
         """
         NOTE: this interface is experimental.
@@ -1774,7 +2092,9 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
 
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -1813,13 +2133,19 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
             pos_2d.append(pos_encoding)
 
             pos.append(pos_encoding.flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        fg_src = self.input_proj[-1](x[-1]) + self.level_embed.weight[-1][None, :, None, None]
+        fg_src = (
+            self.input_proj[-1](x[-1])
+            + self.level_embed.weight[-1][None, :, None, None]
+        )
         fg_pos = pos_2d[-1]
 
         n, bs, c = src[0].shape
@@ -1832,8 +2158,11 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask, pooling_mask = self.forward_prediction_heads(output, mask_features,
-                                                                               attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask, pooling_mask = (
+            self.forward_prediction_heads(
+                output, mask_features, attn_mask_target_size=size_list[0]
+            )
+        )
 
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
@@ -1843,7 +2172,7 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
         # query_embed = (pooling_mask.permute(1, 2, 0).unsqueeze(-1) * pos[0].unsqueeze(0)).sum(1) / \
         #              (pooling_mask.sum(-1).permute(1,0)[..., None] + 1e-6)
 
-        # query_embed = self.adapt_pos2d(query_embed + query_embed_params)            
+        # query_embed = self.adapt_pos2d(query_embed + query_embed_params)
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
@@ -1855,25 +2184,26 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
 
             # Keep the attention in the first cross-attention layer
             output, _ = self.transformer_cross_attention_layers[i](
-                output, src[level_index],
+                output,
+                src[level_index],
                 memory_mask=attn_mask,
                 memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                pos=pos[level_index], query_pos=query_embed,
+                pos=pos[level_index],
+                query_pos=query_embed,
             )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
+                output, tgt_mask=None, tgt_key_padding_mask=None, query_pos=query_embed
             )
 
             # FFN
-            output = self.transformer_ffn_layers[i](
-                output
-            )
+            output = self.transformer_ffn_layers[i](output)
 
-            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(output, mask_features,
-                                                                                   attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
@@ -1889,8 +2219,9 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out
 
@@ -1903,14 +2234,21 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
         attn_mask = attn_mask.sigmoid().flatten(2)
         pooling_mask = (attn_mask < 0.5).int()
 
         # We release the previous threshold for generating attention mask in Mask2former to 0.15
-        final_attn_mask = (attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15).bool()
+        final_attn_mask = (
+            attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15
+        ).bool()
         final_attn_mask = final_attn_mask.detach()
 
         return outputs_class, outputs_mask, final_attn_mask, pooling_mask
@@ -1927,11 +2265,13 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
             ]
         else:
             return [{"pred_masks": b} for b in outputs_seg_masks[:-1]]
-        
+
+
 class CrossAttentionLayerRCDA_v4(nn.Module):
 
-    def __init__(self, d_model, nhead, dropout=0.0,
-                 activation="relu", normalize_before=False):
+    def __init__(
+        self, d_model, nhead, dropout=0.0, activation="relu", normalize_before=False
+    ):
         super().__init__()
         self.multihead_attn = DEACA_attention(d_model, nhead)
 
@@ -1960,14 +2300,16 @@ class CrossAttentionLayerRCDA_v4(nn.Module):
         dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=pos.device)
         dim_t = temperature ** (2 * (dim_t // 2) / num_pos_feats)
         pos_x = pos[..., None] / dim_t
-        posemb = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1).flatten(-2)
+        posemb = torch.stack(
+            (pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1
+        ).flatten(-2)
         return posemb
 
     def with_query_pos_embed(self, tensor, pos: Optional[Tensor], ax):
         if pos is None:
             return tensor
-        tensor = tensor.permute(1,0,2)
-        pos = pos.permute(1,0,2)
+        tensor = tensor.permute(1, 0, 2)
+        pos = pos.permute(1, 0, 2)
         pos = self.adapt_pos1d(self.pos2posemb1d(pos[..., ax]))
         return tensor + pos
 
@@ -1975,8 +2317,8 @@ class CrossAttentionLayerRCDA_v4(nn.Module):
         if pos is None:
             return tensor
         b, e, h, w = tensor.shape[0], tensor.shape[1], tensor.shape[2], tensor.shape[3]
-        tensor = tensor.permute(0,2,3,1)
-        pos = pos.permute(0,2,3,1)
+        tensor = tensor.permute(0, 2, 3, 1)
+        pos = pos.permute(0, 2, 3, 1)
         if ax == 0:
             pos = pos.mean(1).unsqueeze(1).repeat(1, h, 1, 1)
         else:
@@ -1984,66 +2326,85 @@ class CrossAttentionLayerRCDA_v4(nn.Module):
         return tensor + pos
 
     # query[5,4,256] memory[4,256,128,128]
-    def forward_post(self, tgt, memory,
-                     memory_mask: Optional[Tensor] = None,
-                     memory_key_padding_mask: Optional[Tensor] = None,
-                     pos: Optional[Tensor] = None,
-                     query_pos: Optional[Tensor] = None):
+    def forward_post(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
 
         # We return the generated attention map
-        tgt2 = self.multihead_attn(self.with_query_pos_embed(tgt, query_pos, 0),
-                                self.with_query_pos_embed(tgt, query_pos, 1),
-                                self.with_pos_embed(memory, pos, 0), 
-                                self.with_pos_embed(memory, pos, 1),
-                                memory.permute(0,2,3,1))
+        tgt2 = self.multihead_attn(
+            self.with_query_pos_embed(tgt, query_pos, 0),
+            self.with_query_pos_embed(tgt, query_pos, 1),
+            self.with_pos_embed(memory, pos, 0),
+            self.with_pos_embed(memory, pos, 1),
+            memory.permute(0, 2, 3, 1),
+        )
 
         tgt = tgt + self.dropout(tgt2)
         tgt = self.norm(tgt)
 
         return tgt
 
-    def forward_pre(self, tgt, memory,
-                    memory_mask: Optional[Tensor] = None,
-                    memory_key_padding_mask: Optional[Tensor] = None,
-                    pos: Optional[Tensor] = None,
-                    query_pos: Optional[Tensor] = None):
+    def forward_pre(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         tgt2 = self.norm(tgt)
-        tgt2 = self.multihead_attn(self.with_query_pos_embed(tgt, query_pos),
-                                self.with_query_pos_embed(tgt, query_pos),
-                                self.with_pos_embed(memory, pos, 0), 
-                                self.with_pos_embed(memory, pos, 1),
-                                memory.permute(0,2,3,1))
-        
+        tgt2 = self.multihead_attn(
+            self.with_query_pos_embed(tgt, query_pos),
+            self.with_query_pos_embed(tgt, query_pos),
+            self.with_pos_embed(memory, pos, 0),
+            self.with_pos_embed(memory, pos, 1),
+            memory.permute(0, 2, 3, 1),
+        )
+
         tgt = tgt + self.dropout(tgt2)
 
         return tgt
 
-    def forward(self, tgt, memory,
-                memory_mask: Optional[Tensor] = None,
-                memory_key_padding_mask: Optional[Tensor] = None,
-                pos: Optional[Tensor] = None,
-                query_pos: Optional[Tensor] = None):
+    def forward(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         if self.normalize_before:
-            return self.forward_pre(tgt, memory, memory_mask,
-                                    memory_key_padding_mask, pos, query_pos)
-        return self.forward_post(tgt, memory, memory_mask,
-                                 memory_key_padding_mask, pos, query_pos)
-    
+            return self.forward_pre(
+                tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+            )
+        return self.forward_post(
+            tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+        )
+
+
 class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            num_classes,
-            mask_classification=True,
-            hidden_dim=256,
-            num_queries=100,
-            nheads=8,
-            dim_feedforward=2048,
-            dec_layers=10,
-            pre_norm=False,
-            mask_dim=256,
-            enforce_input_project=False,
-            omega_rate=32
+        self,
+        in_channels,
+        num_classes,
+        mask_classification=True,
+        hidden_dim=256,
+        num_queries=100,
+        nheads=8,
+        dim_feedforward=2048,
+        dec_layers=10,
+        pre_norm=False,
+        mask_dim=256,
+        enforce_input_project=False,
+        omega_rate=32,
     ):
         """
         NOTE: this interface is experimental.
@@ -2132,7 +2493,9 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
 
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -2161,13 +2524,19 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
             pos_2d.append(pos_encoding)
 
             pos.append(pos_encoding.flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        fg_src = self.input_proj[-1](x[-1]) + self.level_embed.weight[-1][None, :, None, None]
+        fg_src = (
+            self.input_proj[-1](x[-1])
+            + self.level_embed.weight[-1][None, :, None, None]
+        )
         fg_pos = pos_2d[-1]
 
         n, bs, c = src[0].shape
@@ -2182,8 +2551,11 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask, pooling_mask = self.forward_prediction_heads(output, mask_features,
-                                                                               attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask, pooling_mask = (
+            self.forward_prediction_heads(
+                output, mask_features, attn_mask_target_size=size_list[0]
+            )
+        )
 
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
@@ -2193,7 +2565,7 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
         # query_embed = (pooling_mask.permute(1, 2, 0).unsqueeze(-1) * pos[0].unsqueeze(0)).sum(1) / \
         #              (pooling_mask.sum(-1).permute(1,0)[..., None] + 1e-6)
 
-        # query_embed = self.adapt_pos2d(query_embed + query_embed_params)            
+        # query_embed = self.adapt_pos2d(query_embed + query_embed_params)
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
@@ -2205,32 +2577,36 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
 
             if i % 4 == 3:
                 output = self.transformer_cross_attention_layers[i](
-                    output, fg_src,
+                    output,
+                    fg_src,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=fg_pos, query_pos=query_pos_embed)
+                    pos=fg_pos,
+                    query_pos=query_pos_embed,
+                )
 
             else:
                 output, _ = self.transformer_cross_attention_layers[i](
-                    output, src[level_index],
+                    output,
+                    src[level_index],
                     memory_mask=attn_mask,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=pos[level_index], query_pos=query_embed,
+                    pos=pos[level_index],
+                    query_pos=query_embed,
                 )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
+                output, tgt_mask=None, tgt_key_padding_mask=None, query_pos=query_embed
             )
 
             # FFN
-            output = self.transformer_ffn_layers[i](
-                output
-            )
+            output = self.transformer_ffn_layers[i](output)
 
-            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(output, mask_features,
-                                                                                   attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
@@ -2240,8 +2616,9 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out
 
@@ -2254,14 +2631,21 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
         attn_mask = attn_mask.sigmoid().flatten(2)
         pooling_mask = (attn_mask < 0.5).int()
 
         # We release the previous threshold for generating attention mask in Mask2former to 0.15
-        final_attn_mask = (attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15).bool()
+        final_attn_mask = (
+            attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15
+        ).bool()
         final_attn_mask = final_attn_mask.detach()
 
         return outputs_class, outputs_mask, final_attn_mask, pooling_mask
@@ -2282,8 +2666,9 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
 
 class CrossAttentionLayerRCDA_v5(nn.Module):
 
-    def __init__(self, d_model, nhead, dropout=0.0,
-                 activation="relu", normalize_before=False):
+    def __init__(
+        self, d_model, nhead, dropout=0.0, activation="relu", normalize_before=False
+    ):
         super().__init__()
         self.multihead_attn = rcda_rebuild(d_model, nhead)
 
@@ -2312,14 +2697,16 @@ class CrossAttentionLayerRCDA_v5(nn.Module):
         dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=pos.device)
         dim_t = temperature ** (2 * (dim_t // 2) / num_pos_feats)
         pos_x = pos[..., None] / dim_t
-        posemb = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1).flatten(-2)
+        posemb = torch.stack(
+            (pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1
+        ).flatten(-2)
         return posemb
 
     def with_query_pos_embed(self, tensor, pos: Optional[Tensor], ax):
         if pos is None:
             return tensor
-        tensor = tensor.permute(1,0,2)
-        pos = pos.permute(1,0,2)
+        tensor = tensor.permute(1, 0, 2)
+        pos = pos.permute(1, 0, 2)
         pos = self.adapt_pos1d(self.pos2posemb1d(pos[..., ax]))
         return tensor + pos
 
@@ -2327,8 +2714,8 @@ class CrossAttentionLayerRCDA_v5(nn.Module):
         if pos is None:
             return tensor
         b, e, h, w = tensor.shape[0], tensor.shape[1], tensor.shape[2], tensor.shape[3]
-        tensor = tensor.permute(0,2,3,1)
-        pos = pos.permute(0,2,3,1)
+        tensor = tensor.permute(0, 2, 3, 1)
+        pos = pos.permute(0, 2, 3, 1)
         if ax == 0:
             pos = pos.mean(1).unsqueeze(1).repeat(1, h, 1, 1)
         else:
@@ -2336,66 +2723,85 @@ class CrossAttentionLayerRCDA_v5(nn.Module):
         return tensor + pos
 
     # query[5,4,256] memory[4,256,128,128]
-    def forward_post(self, tgt, memory,
-                     memory_mask: Optional[Tensor] = None,
-                     memory_key_padding_mask: Optional[Tensor] = None,
-                     pos: Optional[Tensor] = None,
-                     query_pos: Optional[Tensor] = None):
+    def forward_post(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
 
         # We return the generated attention map
-        tgt2, attn = self.multihead_attn(self.with_query_pos_embed(tgt, query_pos, 0),
-                                self.with_query_pos_embed(tgt, query_pos, 1),
-                                self.with_pos_embed(memory, pos, 0), 
-                                self.with_pos_embed(memory, pos, 1),
-                                memory.permute(0,2,3,1))
+        tgt2, attn = self.multihead_attn(
+            self.with_query_pos_embed(tgt, query_pos, 0),
+            self.with_query_pos_embed(tgt, query_pos, 1),
+            self.with_pos_embed(memory, pos, 0),
+            self.with_pos_embed(memory, pos, 1),
+            memory.permute(0, 2, 3, 1),
+        )
 
         tgt = tgt + self.dropout(tgt2)
         tgt = self.norm(tgt)
 
         return tgt, attn
 
-    def forward_pre(self, tgt, memory,
-                    memory_mask: Optional[Tensor] = None,
-                    memory_key_padding_mask: Optional[Tensor] = None,
-                    pos: Optional[Tensor] = None,
-                    query_pos: Optional[Tensor] = None):
+    def forward_pre(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         tgt2 = self.norm(tgt)
-        tgt2 = self.multihead_attn(self.with_query_pos_embed(tgt, query_pos),
-                                self.with_query_pos_embed(tgt, query_pos),
-                                self.with_pos_embed(memory, pos, 0), 
-                                self.with_pos_embed(memory, pos, 1),
-                                memory.permute(0,2,3,1))
-        
+        tgt2 = self.multihead_attn(
+            self.with_query_pos_embed(tgt, query_pos),
+            self.with_query_pos_embed(tgt, query_pos),
+            self.with_pos_embed(memory, pos, 0),
+            self.with_pos_embed(memory, pos, 1),
+            memory.permute(0, 2, 3, 1),
+        )
+
         tgt = tgt + self.dropout(tgt2)
 
         return tgt
 
-    def forward(self, tgt, memory,
-                memory_mask: Optional[Tensor] = None,
-                memory_key_padding_mask: Optional[Tensor] = None,
-                pos: Optional[Tensor] = None,
-                query_pos: Optional[Tensor] = None):
+    def forward(
+        self,
+        tgt,
+        memory,
+        memory_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
         if self.normalize_before:
-            return self.forward_pre(tgt, memory, memory_mask,
-                                    memory_key_padding_mask, pos, query_pos)
-        return self.forward_post(tgt, memory, memory_mask,
-                                 memory_key_padding_mask, pos, query_pos)
-    
+            return self.forward_pre(
+                tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+            )
+        return self.forward_post(
+            tgt, memory, memory_mask, memory_key_padding_mask, pos, query_pos
+        )
+
+
 class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            num_classes,
-            mask_classification=True,
-            hidden_dim=256,
-            num_queries=100,
-            nheads=8,
-            dim_feedforward=2048,
-            dec_layers=10,
-            pre_norm=False,
-            mask_dim=256,
-            enforce_input_project=False,
-            omega_rate=32
+        self,
+        in_channels,
+        num_classes,
+        mask_classification=True,
+        hidden_dim=256,
+        num_queries=100,
+        nheads=8,
+        dim_feedforward=2048,
+        dec_layers=10,
+        pre_norm=False,
+        mask_dim=256,
+        enforce_input_project=False,
+        omega_rate=32,
     ):
         """
         NOTE: this interface is experimental.
@@ -2484,7 +2890,9 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
 
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
-                self.input_proj.append(nn.Conv2d(in_channels, hidden_dim, kernel_size=1))
+                self.input_proj.append(
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1)
+                )
                 weight_init.c2_xavier_fill(self.input_proj[-1])
             else:
                 self.input_proj.append(nn.Sequential())
@@ -2513,13 +2921,19 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
             pos_2d.append(pos_encoding)
 
             pos.append(pos_encoding.flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
             src[-1] = src[-1].permute(2, 0, 1)
 
-        fg_src = self.input_proj[-1](x[-1]) + self.level_embed.weight[-1][None, :, None, None]
+        fg_src = (
+            self.input_proj[-1](x[-1])
+            + self.level_embed.weight[-1][None, :, None, None]
+        )
         fg_pos = pos_2d[-1]
 
         n, bs, c = src[0].shape
@@ -2534,8 +2948,11 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask, pooling_mask = self.forward_prediction_heads(0, output, mask_features,
-                                                                               attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask, pooling_mask = (
+            self.forward_prediction_heads(
+                0, output, mask_features, attn_mask_target_size=size_list[0]
+            )
+        )
 
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
@@ -2545,7 +2962,7 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
         # query_embed = (pooling_mask.permute(1, 2, 0).unsqueeze(-1) * pos[0].unsqueeze(0)).sum(1) / \
         #              (pooling_mask.sum(-1).permute(1,0)[..., None] + 1e-6)
 
-        # query_embed = self.adapt_pos2d(query_embed + query_embed_params)            
+        # query_embed = self.adapt_pos2d(query_embed + query_embed_params)
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
@@ -2557,33 +2974,37 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
 
             if i % 4 == 3:
                 output, _ = self.transformer_cross_attention_layers[i](
-                    output, fg_src,
+                    output,
+                    fg_src,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=fg_pos, query_pos=query_pos_embed)
-                    
-            else:
-                output, attn = self.transformer_cross_attention_layers[i](
-                    output, src[level_index],
-                    memory_mask=attn_mask,
-                    memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=pos[level_index], query_pos=query_embed,
+                    pos=fg_pos,
+                    query_pos=query_pos_embed,
                 )
 
+            else:
+                output, attn = self.transformer_cross_attention_layers[i](
+                    output,
+                    src[level_index],
+                    memory_mask=attn_mask,
+                    memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                    pos=pos[level_index],
+                    query_pos=query_embed,
+                )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=query_embed
+                output, tgt_mask=None, tgt_key_padding_mask=None, query_pos=query_embed
             )
 
             # FFN
-            output = self.transformer_ffn_layers[i](
-                output
-            )
+            output = self.transformer_ffn_layers[i](output)
 
-            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(i, output, mask_features,
-                                                                                   attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            outputs_class, outputs_mask, attn_mask, _ = self.forward_prediction_heads(
+                i,
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
@@ -2593,12 +3014,15 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out
 
-    def forward_prediction_heads(self, idx, output, mask_features, attn_mask_target_size):
+    def forward_prediction_heads(
+        self, idx, output, mask_features, attn_mask_target_size
+    ):
         decoder_output = self.decoder_norm(output)
         decoder_output = decoder_output.transpose(0, 1)
         outputs_class = self.class_embed(decoder_output)
@@ -2631,14 +3055,21 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
 
         # NOTE: prediction is of higher-resolution
         # [B, Q, H, W] -> [B, Q, H*W] -> [B, h, Q, H*W] -> [B*h, Q, HW]
-        attn_mask = F.interpolate(outputs_mask, size=attn_mask_target_size, mode="bilinear", align_corners=False)
+        attn_mask = F.interpolate(
+            outputs_mask,
+            size=attn_mask_target_size,
+            mode="bilinear",
+            align_corners=False,
+        )
         # must use bool type
         # If a BoolTensor is provided, positions with ``True`` are not allowed to attend while ``False`` values will be unchanged.
         attn_mask = attn_mask.sigmoid().flatten(2)
         pooling_mask = (attn_mask < 0.5).int()
 
         # We release the previous threshold for generating attention mask in Mask2former to 0.15
-        final_attn_mask = (attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15).bool()
+        final_attn_mask = (
+            attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1).flatten(0, 1) < 0.15
+        ).bool()
         final_attn_mask = final_attn_mask.detach()
 
         return outputs_class, outputs_mask, final_attn_mask, pooling_mask

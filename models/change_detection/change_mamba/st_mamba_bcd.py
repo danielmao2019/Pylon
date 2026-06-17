@@ -1,9 +1,11 @@
 from typing import Dict
+
 import torch
 import torch.nn.functional as F
+
 from models.change_detection.change_mamba.modules.backbone_vssm import Backbone_VSSM
-from models.change_detection.change_mamba.modules.vmamba import LayerNorm2d
 from models.change_detection.change_mamba.modules.change_decoder import ChangeDecoder
+from models.change_detection.change_mamba.modules.vmamba import LayerNorm2d
 
 
 class STMambaBCD(torch.nn.Module):
@@ -28,7 +30,9 @@ class STMambaBCD(torch.nn.Module):
 
     def __init__(self, pretrained, **kwargs):
         super(STMambaBCD, self).__init__()
-        self.encoder = Backbone_VSSM(out_indices=(0, 1, 2, 3), pretrained=pretrained, **kwargs)
+        self.encoder = Backbone_VSSM(
+            out_indices=(0, 1, 2, 3), pretrained=pretrained, **kwargs
+        )
 
         _NORMLAYERS = dict(
             ln=torch.nn.LayerNorm,
@@ -43,12 +47,22 @@ class STMambaBCD(torch.nn.Module):
             sigmoid=torch.nn.Sigmoid,
         )
 
-        norm_layer: torch.nn.Module = _NORMLAYERS.get(kwargs['norm_layer'].lower(), None)
-        ssm_act_layer: torch.nn.Module = _ACTLAYERS.get(kwargs['ssm_act_layer'].lower(), None)
-        mlp_act_layer: torch.nn.Module = _ACTLAYERS.get(kwargs['mlp_act_layer'].lower(), None)
+        norm_layer: torch.nn.Module = _NORMLAYERS.get(
+            kwargs['norm_layer'].lower(), None
+        )
+        ssm_act_layer: torch.nn.Module = _ACTLAYERS.get(
+            kwargs['ssm_act_layer'].lower(), None
+        )
+        mlp_act_layer: torch.nn.Module = _ACTLAYERS.get(
+            kwargs['mlp_act_layer'].lower(), None
+        )
 
         # Remove the explicitly passed args from kwargs to avoid "got multiple values" error
-        clean_kwargs = {k: v for k, v in kwargs.items() if k not in ['norm_layer', 'ssm_act_layer', 'mlp_act_layer']}
+        clean_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k not in ['norm_layer', 'ssm_act_layer', 'mlp_act_layer']
+        }
         self.decoder = ChangeDecoder(
             encoder_dims=self.encoder.dims,
             channel_first=self.encoder.channel_first,

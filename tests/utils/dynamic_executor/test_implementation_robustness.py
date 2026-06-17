@@ -1,5 +1,7 @@
-import pytest
 import time
+
+import pytest
+
 from utils.dynamic_executor import DynamicThreadPoolExecutor
 
 

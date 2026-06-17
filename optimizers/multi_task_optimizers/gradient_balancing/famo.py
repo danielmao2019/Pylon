@@ -1,4 +1,5 @@
-from typing import Tuple, Dict, Union
+from typing import Dict, Tuple, Union
+
 import torch
 
 from ._base_ import GradientBalancingBaseOptimizer
@@ -34,7 +35,8 @@ class FAMOOptimizer(GradientBalancingBaseOptimizer):
                 z = torch.nn.Softmax(dim=0)(self.weights)
                 delta = torch.matmul(
                     torch.diag(z) - torch.outer(z, z),
-                    torch.log(self.prev_losses + self.epsilon) - torch.log(losses_tensor + self.epsilon)
+                    torch.log(self.prev_losses + self.epsilon)
+                    - torch.log(losses_tensor + self.epsilon),
                 )
                 assert len(delta.shape) == 1, f"{delta.shape=}"
                 self.weights = self.weights - beta * (delta + gamma * self.weights)
@@ -54,7 +56,9 @@ class FAMOOptimizer(GradientBalancingBaseOptimizer):
         Returns:
             total_loss: the reweighed version of the losses based on self.weights.
         """
-        assert self.weights.shape == losses.shape, f"{self.weights.shape=}, {losses.shape=}"
+        assert (
+            self.weights.shape == losses.shape
+        ), f"{self.weights.shape=}, {losses.shape=}"
         with torch.no_grad():
             z = torch.nn.Softmax(dim=0)(self.weights)
             odiv = z / (losses + self.epsilon)

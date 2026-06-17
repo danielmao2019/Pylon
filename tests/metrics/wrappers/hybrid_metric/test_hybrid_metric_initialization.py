@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
@@ -21,9 +22,9 @@ def test_inheritance(dummy_metric):
     """Test that HybridMetric properly inherits from SingleTaskMetric."""
     from metrics.wrappers.single_task_metric import SingleTaskMetric
 
-    hybrid_metric = HybridMetric(metrics_cfg=[
-        {'class': dummy_metric.__class__, 'args': {'metric_name': 'test'}}
-    ])
+    hybrid_metric = HybridMetric(
+        metrics_cfg=[{'class': dummy_metric.__class__, 'args': {'metric_name': 'test'}}]
+    )
 
     assert isinstance(hybrid_metric, SingleTaskMetric)
     # Test that it has the inherited methods from SingleTaskMetric
@@ -35,9 +36,9 @@ def test_base_metric_inheritance(dummy_metric):
     """Test that HybridMetric inherits from BaseMetric."""
     from metrics.base_metric import BaseMetric
 
-    hybrid_metric = HybridMetric(metrics_cfg=[
-        {'class': dummy_metric.__class__, 'args': {'metric_name': 'test'}}
-    ])
+    hybrid_metric = HybridMetric(
+        metrics_cfg=[{'class': dummy_metric.__class__, 'args': {'metric_name': 'test'}}]
+    )
 
     assert isinstance(hybrid_metric, BaseMetric)
     # Test that it has the base metric attributes and methods

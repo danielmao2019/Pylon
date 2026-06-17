@@ -2,10 +2,10 @@ import os
 import shlex
 from dataclasses import dataclass
 
-from agents.manager.base_progress_info import BaseProgressInfo
 from agents.manager.base_job import BaseJob
-from agents.manager.runtime import JobRuntimeParams
+from agents.manager.base_progress_info import BaseProgressInfo
 from agents.manager.job_types import RunnerKind
+from agents.manager.runtime import JobRuntimeParams
 
 
 @dataclass

@@ -45,7 +45,14 @@ def create_random_transform():
 
 def create_point_cloud(points: torch.Tensor) -> PointCloud:
     """Create a PointCloud with a feature field."""
-    return PointCloud(xyz=points, data={'feat': torch.ones((points.shape[0], 1), dtype=points.dtype, device=points.device)})
+    return PointCloud(
+        xyz=points,
+        data={
+            'feat': torch.ones(
+                (points.shape[0], 1), dtype=points.dtype, device=points.device
+            )
+        },
+    )
 
 
 @pytest.mark.parametrize("num_points", [100, 1000, 5000])
@@ -72,23 +79,28 @@ def test_pcr_translation(num_points):
 
     # 1. Check that only translation happened (no rotation or scaling or non-rigid deformation)
     src_translation = new_src_pc.xyz - src_points
-    assert torch.allclose(src_translation[0], src_translation[1:], atol=1e-6), \
-        f"Source translation is not uniform across points. First point translation: {src_translation[0]}, others: {src_translation[1:]}"
+    assert torch.allclose(
+        src_translation[0], src_translation[1:], atol=1e-6
+    ), f"Source translation is not uniform across points. First point translation: {src_translation[0]}, others: {src_translation[1:]}"
     tgt_translation = new_tgt_pc.xyz - tgt_points
-    assert torch.allclose(tgt_translation[0], tgt_translation[1:], atol=1e-6), \
-        f"Target translation is not uniform across points. First point translation: {tgt_translation[0]}, others: {tgt_translation[1:]}"
+    assert torch.allclose(
+        tgt_translation[0], tgt_translation[1:], atol=1e-6
+    ), f"Target translation is not uniform across points. First point translation: {tgt_translation[0]}, others: {tgt_translation[1:]}"
 
     # 2. Check that the translations are consistent
-    assert torch.allclose(src_translation[0], tgt_translation[0], atol=1e-6), \
-        f"Source and target translations are not consistent. Source: {src_translation[0]}, Target: {tgt_translation[0]}"
+    assert torch.allclose(
+        src_translation[0], tgt_translation[0], atol=1e-6
+    ), f"Source and target translations are not consistent. Source: {src_translation[0]}, Target: {tgt_translation[0]}"
 
     # 3. Check that the mean of the union of the new point clouds is close to zero
     union_points = torch.cat([new_src_pc.xyz, new_tgt_pc.xyz], dim=0)
     mean = union_points.mean(dim=0)
-    assert torch.allclose(mean, torch.zeros(3, dtype=torch.float32), atol=1e-2), \
-        f"Union mean is not close to zero. Mean: {mean}"
+    assert torch.allclose(
+        mean, torch.zeros(3, dtype=torch.float32), atol=1e-2
+    ), f"Union mean is not close to zero. Mean: {mean}"
 
     # 4. Check validity of the output transform matrix
     transformed_src = apply_transform(new_src_pc.xyz, new_transform)
-    assert torch.allclose(transformed_src, new_tgt_pc.xyz, atol=1e-6), \
-        f"Transform is not valid. Max difference: {(transformed_src - new_tgt_pc.xyz).abs().max()}"
+    assert torch.allclose(
+        transformed_src, new_tgt_pc.xyz, atol=1e-6
+    ), f"Transform is not valid. Max difference: {(transformed_src - new_tgt_pc.xyz).abs().max()}"

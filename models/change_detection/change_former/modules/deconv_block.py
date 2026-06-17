@@ -3,9 +3,21 @@ import torch
 
 class DeconvBlock(torch.nn.Module):
 
-    def __init__(self, input_size, output_size, kernel_size=4, stride=2, padding=1, bias=True, activation='prelu', norm=None):
+    def __init__(
+        self,
+        input_size,
+        output_size,
+        kernel_size=4,
+        stride=2,
+        padding=1,
+        bias=True,
+        activation='prelu',
+        norm=None,
+    ):
         super(DeconvBlock, self).__init__()
-        self.deconv = torch.nn.ConvTranspose2d(input_size, output_size, kernel_size, stride, padding, bias=bias)
+        self.deconv = torch.nn.ConvTranspose2d(
+            input_size, output_size, kernel_size, stride, padding, bias=bias
+        )
 
         self.norm = norm
         if self.norm == 'batch':

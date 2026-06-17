@@ -47,9 +47,7 @@ def estimate_rotations(
     edge_vec = verts[edge_vertex_indices[:, 0]] - verts[edge_vertex_indices[:, 1]]
     outer = edge_vec.unsqueeze(2) * reference_edge_vectors.unsqueeze(1)
     weighted_outer = weights[:, None, None] * outer
-    cov = torch.zeros(
-        (num_verts, 3, 3), device=verts.device, dtype=verts.dtype
-    )
+    cov = torch.zeros((num_verts, 3, 3), device=verts.device, dtype=verts.dtype)
     cov.index_add_(0, edge_vertex_indices[:, 0], weighted_outer)
     cov.index_add_(0, edge_vertex_indices[:, 1], weighted_outer)
     u, _, v = torch.linalg.svd(cov)

@@ -15,7 +15,7 @@ class LeNet5(torch.nn.Module):
             torch.nn.Sigmoid(),
             torch.nn.AvgPool2d(kernel_size=2, stride=2),
         )
-        
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.layer1(x)
         x = self.layer2(x)

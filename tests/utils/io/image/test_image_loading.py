@@ -1,14 +1,16 @@
 import os
 import tempfile
+
 import numpy as np
+import pytest
 import torch
 from PIL import Image
-import pytest
+
 from utils.io.image import (
-    load_image,
     _load_image,
     _load_multispectral_image,
     _normalize,
+    load_image,
 )
 
 

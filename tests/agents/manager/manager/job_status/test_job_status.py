@@ -9,14 +9,15 @@ Following CLAUDE.md testing patterns:
 - Unit testing for specific functions
 """
 
-from typing import Dict
 import os
 import tempfile
-import pytest
-from agents.monitor.process_info import ProcessInfo
-from agents.manager.training_job import TrainingJob
-from agents.manager.runtime import JobRuntimeParams
+from typing import Dict
 
+import pytest
+
+from agents.manager.runtime import JobRuntimeParams
+from agents.manager.training_job import TrainingJob
+from agents.monitor.process_info import ProcessInfo
 
 # ============================================================================
 # TESTS FOR BaseJob.populate (REALISTIC - MINIMAL MOCKING)

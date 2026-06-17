@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from .utils import DR
+
 
 class Decoder(nn.Module):
     def __init__(self, fc, BatchNorm):
@@ -11,14 +13,15 @@ class Decoder(nn.Module):
         self.dr3 = DR(128, 96)
         self.dr4 = DR(256, 96)
         self.dr5 = DR(512, 96)
-        self.last_conv = nn.Sequential(nn.Conv2d(384, 256, kernel_size=3, stride=1, padding=1, bias=False),
-                                       BatchNorm(256),
-                                       nn.ReLU(),
-                                       nn.Dropout(0.5),
-                                       nn.Conv2d(256, self.fc, kernel_size=1, stride=1, padding=0, bias=False),
-                                       BatchNorm(self.fc),
-                                       nn.ReLU(),
-                                       )
+        self.last_conv = nn.Sequential(
+            nn.Conv2d(384, 256, kernel_size=3, stride=1, padding=1, bias=False),
+            BatchNorm(256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Conv2d(256, self.fc, kernel_size=1, stride=1, padding=0, bias=False),
+            BatchNorm(self.fc),
+            nn.ReLU(),
+        )
         self._init_weight()
 
     def forward(self, x, low_level_feat2, low_level_feat3, low_level_feat4):
@@ -45,6 +48,7 @@ class Decoder(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
+
 
 def build_decoder(fc, BatchNorm):
     return Decoder(fc, BatchNorm)

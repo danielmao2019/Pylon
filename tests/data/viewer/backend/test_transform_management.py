@@ -5,7 +5,7 @@ get_available_transforms functionality using real transforms and datasets.
 """
 
 import tempfile
-from typing import Dict, Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pytest
 import torch
@@ -13,8 +13,8 @@ import torch
 from data.datasets.random_datasets.base_random_dataset import BaseRandomDataset
 from data.transforms.base_transform import BaseTransform
 from data.transforms.compose import Compose
-from data.transforms.random_noise import RandomNoise
 from data.transforms.identity import Identity
+from data.transforms.random_noise import RandomNoise
 from data.viewer.dataset.backend.backend import ViewerBackend
 
 
@@ -30,18 +30,24 @@ def random_dataset():
     # Simple generator configuration for images and labels
     gen_func_config = {
         'inputs': {
-            'image': (lambda **kwargs: torch.randn(3, 224, 224, dtype=torch.float32), {})
+            'image': (
+                lambda **kwargs: torch.randn(3, 224, 224, dtype=torch.float32),
+                {},
+            )
         },
         'labels': {
-            'label': (lambda **kwargs: torch.randint(0, 10, (1,), dtype=torch.int64), {})
-        }
+            'label': (
+                lambda **kwargs: torch.randint(0, 10, (1,), dtype=torch.int64),
+                {},
+            )
+        },
     }
 
     dataset = BaseRandomDataset(
         num_examples=5,
         gen_func_config=gen_func_config,
         split="all",
-        device=torch.device("cpu")
+        device=torch.device("cpu"),
     )
     return dataset
 
@@ -63,13 +69,13 @@ def test_clear_transforms_with_existing_transforms(backend):
         {
             'op': Identity(),
             'input_names': [('inputs', 'image')],
-            'output_names': [('inputs', 'image')]
+            'output_names': [('inputs', 'image')],
         },
         {
             'op': RandomNoise(std=0.1),
             'input_names': [('inputs', 'image')],
-            'output_names': [('inputs', 'image')]
-        }
+            'output_names': [('inputs', 'image')],
+        },
     ]
 
     for transform in transforms:
@@ -90,7 +96,7 @@ def test_register_transform_single_transform(backend):
     transform_dict = {
         'op': Identity(),
         'input_names': [('inputs', 'image')],
-        'output_names': [('inputs', 'image')]
+        'output_names': [('inputs', 'image')],
     }
 
     backend._register_transform(transform_dict)
@@ -106,13 +112,13 @@ def test_register_transform_multiple_transforms(backend):
         {
             'op': Identity(),
             'input_names': [('inputs', 'image')],
-            'output_names': [('inputs', 'image')]
+            'output_names': [('inputs', 'image')],
         },
         {
             'op': RandomNoise(std=0.3),
             'input_names': [('inputs', 'image')],
-            'output_names': [('inputs', 'image')]
-        }
+            'output_names': [('inputs', 'image')],
+        },
     ]
 
     for transform in transforms:
@@ -138,13 +144,13 @@ def test_get_available_transforms_with_real_transforms(backend):
         {
             'op': Identity(),
             'input_names': [('inputs', 'image')],
-            'output_names': [('inputs', 'image')]
+            'output_names': [('inputs', 'image')],
         },
         {
             'op': RandomNoise(std=0.1),
             'input_names': [('inputs', 'image')],
-            'output_names': [('inputs', 'image')]
-        }
+            'output_names': [('inputs', 'image')],
+        },
     ]
 
     for transform in transforms:
@@ -176,12 +182,9 @@ def test_get_available_transforms_config_based_transforms(backend):
     """Test get_available_transforms with config-based transform definitions."""
     # Test with config-style transform definition
     transform_dict = {
-        'op': {
-            'class': RandomNoise,
-            'args': {'std': 0.3}
-        },
+        'op': {'class': RandomNoise, 'args': {'std': 0.3}},
         'input_names': [('inputs', 'image')],
-        'output_names': [('inputs', 'image')]
+        'output_names': [('inputs', 'image')],
     }
 
     backend._register_transform(transform_dict)
@@ -201,7 +204,7 @@ def test_apply_transforms_empty_list(backend):
     datapoint = {
         'inputs': {'image': torch.randn(3, 224, 224, dtype=torch.float32)},
         'labels': {'label': torch.tensor(1, dtype=torch.int64)},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Apply empty transform list
@@ -217,16 +220,19 @@ def test_apply_transforms_empty_list(backend):
 
 def test_apply_transforms_with_identity_transform(backend):
     """Test _apply_transforms with identity transform."""
+
     # Create a simple identity transform
     class IdentityTransform(BaseTransform):
-        def _call_single(self, inputs: Dict[str, torch.Tensor], **kwargs) -> Dict[str, torch.Tensor]:
+        def _call_single(
+            self, inputs: Dict[str, torch.Tensor], **kwargs
+        ) -> Dict[str, torch.Tensor]:
             return inputs
 
     # Register transform
     transform_dict = {
         'op': IdentityTransform(),
         'input_names': [('inputs', 'image')],
-        'output_names': [('inputs', 'image')]
+        'output_names': [('inputs', 'image')],
     }
     backend._register_transform(transform_dict)
 
@@ -235,7 +241,7 @@ def test_apply_transforms_with_identity_transform(backend):
     datapoint = {
         'inputs': {'image': original_image.clone()},
         'labels': {'label': torch.tensor(1, dtype=torch.int64)},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Apply transform
@@ -250,7 +256,7 @@ def test_transform_workflow_integration_with_dataset(backend, random_dataset):
     # Create real transforms for image data
     transforms = [
         (Identity(), [('inputs', 'image')]),
-        (RandomNoise(std=0.0), [('inputs', 'image')])  # 0 std = no noise
+        (RandomNoise(std=0.0), [('inputs', 'image')]),  # 0 std = no noise
     ]
 
     # Create Compose with transforms
@@ -285,12 +291,14 @@ def test_apply_transforms_deterministic_seeding(backend):
     transform_dict = {
         'op': Identity(),
         'input_names': [('inputs', 'image')],
-        'output_names': [('inputs', 'image')]
+        'output_names': [('inputs', 'image')],
     }
     backend._register_transform(transform_dict)
 
     # Create test datapoint on CPU to match device
-    original_image = torch.randn(3, 224, 224, dtype=torch.float32, device=torch.device('cpu'))
+    original_image = torch.randn(
+        3, 224, 224, dtype=torch.float32, device=torch.device('cpu')
+    )
 
     # Apply transform multiple times with same seed
     results = []
@@ -298,7 +306,7 @@ def test_apply_transforms_deterministic_seeding(backend):
         datapoint = {
             'inputs': {'image': original_image.clone()},
             'labels': {'label': torch.tensor(1, dtype=torch.int64)},
-            'meta_info': {'idx': 0}
+            'meta_info': {'idx': 0},
         }
         result = backend._apply_transforms(datapoint, [0], 42)  # Same seed
         # Result should be the same datapoint (Identity transform)
@@ -323,13 +331,14 @@ def test_apply_transforms_deterministic_seeding(backend):
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
+
 def test_apply_transforms_invalid_transform_index(backend):
     """Test _apply_transforms with invalid transform index."""
     # Register one transform
     transform_dict = {
         'op': Identity(),
         'input_names': [('inputs', 'image')],
-        'output_names': [('inputs', 'image')]
+        'output_names': [('inputs', 'image')],
     }
     backend._register_transform(transform_dict)
 
@@ -337,7 +346,7 @@ def test_apply_transforms_invalid_transform_index(backend):
     datapoint = {
         'inputs': {'image': torch.randn(3, 224, 224, dtype=torch.float32)},
         'labels': {'label': torch.tensor(1, dtype=torch.int64)},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Try to apply transform with invalid index
@@ -354,7 +363,7 @@ def test_apply_transforms_out_of_bounds_indices(backend):
     transform_dict = {
         'op': Identity(),
         'input_names': [('inputs', 'image')],
-        'output_names': [('inputs', 'image')]
+        'output_names': [('inputs', 'image')],
     }
     backend._register_transform(transform_dict)
 
@@ -362,7 +371,7 @@ def test_apply_transforms_out_of_bounds_indices(backend):
     datapoint = {
         'inputs': {'image': torch.randn(3, 224, 224, dtype=torch.float32)},
         'labels': {'label': torch.tensor(1, dtype=torch.int64)},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Test with index beyond available transforms
@@ -379,7 +388,7 @@ def test_apply_transforms_negative_index(backend):
     transform_dict = {
         'op': Identity(),
         'input_names': [('inputs', 'image')],
-        'output_names': [('inputs', 'image')]
+        'output_names': [('inputs', 'image')],
     }
     backend._register_transform(transform_dict)
 
@@ -387,7 +396,7 @@ def test_apply_transforms_negative_index(backend):
     datapoint = {
         'inputs': {'image': torch.randn(3, 224, 224, dtype=torch.float32)},
         'labels': {'label': torch.tensor(1, dtype=torch.int64)},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Negative indices should work (Python list indexing)

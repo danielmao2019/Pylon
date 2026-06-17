@@ -1,6 +1,8 @@
-from typing import List, Dict, Any, Optional
 from abc import ABC
+from typing import Any, Dict, List, Optional
+
 import torch
+
 from data.datasets import BaseDataset
 
 
@@ -34,8 +36,7 @@ class BaseSyntheticDataset(BaseDataset, ABC):
         self.DATASET_SIZE = dataset_size
 
     def _init_annotations(self) -> None:
-        """This abstract method is not needed but must be implemented.
-        """
+        """This abstract method is not needed but must be implemented."""
         pass
 
     def __len__(self) -> int:
@@ -44,9 +45,11 @@ class BaseSyntheticDataset(BaseDataset, ABC):
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'source_class': self.source.__class__.__name__,
-            'source_version_hash': self.source.get_cache_version_hash(),
-            'dataset_size': self.DATASET_SIZE,
-        })
+        version_dict.update(
+            {
+                'source_class': self.source.__class__.__name__,
+                'source_version_hash': self.source.get_cache_version_hash(),
+                'dataset_size': self.DATASET_SIZE,
+            }
+        )
         return version_dict

@@ -1,7 +1,10 @@
 """Shared fixtures and helper functions for SLPCCD dataset tests."""
 
 import pytest
-from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
+
+from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import (
+    SLPCCDDataset,
+)
 
 
 @pytest.fixture
@@ -18,8 +21,8 @@ def slpccd_dataset_train_config(slpccd_data_root, use_cpu_device, get_device):
             'hierarchy_levels': 3,
             'knn_size': 16,
             'cross_knn_size': 16,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
@@ -38,6 +41,6 @@ def dataset_config(request, slpccd_data_root, use_cpu_device, get_device):
             'hierarchy_levels': 3,
             'knn_size': 16,
             'cross_knn_size': 16,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }

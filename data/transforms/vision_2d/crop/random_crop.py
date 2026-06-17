@@ -1,5 +1,7 @@
-from typing import Tuple, List, Union, Optional, Any
+from typing import Any, List, Optional, Tuple, Union
+
 import torch
+
 from data.transforms.base_transform import BaseTransform
 from data.transforms.vision_2d.crop.crop import Crop
 
@@ -23,14 +25,22 @@ class RandomCrop(BaseTransform):
         Raises:
             ValueError: If size is not a valid tuple of two positive integers.
         """
-        if not (isinstance(size, tuple) and len(size) == 2 and all(isinstance(i, int) and i > 0 for i in size)):
-            raise ValueError(f"size must be a tuple of two positive integers, but got {size}")
+        if not (
+            isinstance(size, tuple)
+            and len(size) == 2
+            and all(isinstance(i, int) and i > 0 for i in size)
+        ):
+            raise ValueError(
+                f"size must be a tuple of two positive integers, but got {size}"
+            )
 
         self.size = size
         self.resize = resize
         self.interpolation = interpolation
 
-    def __call__(self, *args, seed: Optional[Any] = None) -> Union[torch.Tensor, List[torch.Tensor]]:
+    def __call__(
+        self, *args, seed: Optional[Any] = None
+    ) -> Union[torch.Tensor, List[torch.Tensor]]:
         """
         Randomly crops a region from the input tensor(s).
 
@@ -54,7 +64,9 @@ class RandomCrop(BaseTransform):
 
         # Validate that crop size does not exceed input dimensions
         if crop_width > img_width or crop_height > img_height:
-            raise ValueError(f"Crop size {self.size} exceeds tensor dimensions {img_width, img_height}.")
+            raise ValueError(
+                f"Crop size {self.size} exceeds tensor dimensions {img_width, img_height}."
+            )
 
         # Sample a random top-left corner for cropping using the generator
         generator = self._get_generator(g_type='random', seed=seed)
@@ -62,7 +74,12 @@ class RandomCrop(BaseTransform):
         y_start = generator.randint(0, img_height - crop_height)
 
         # Apply the Crop transform to all inputs
-        transform = Crop(loc=(x_start, y_start), size=self.size, resize=self.resize, interpolation=self.interpolation)
+        transform = Crop(
+            loc=(x_start, y_start),
+            size=self.size,
+            resize=self.resize,
+            interpolation=self.interpolation,
+        )
         result = [transform(tensor) for tensor in args]
 
         # If only one tensor is passed, return it directly (not as a list)

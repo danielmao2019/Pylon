@@ -1,6 +1,9 @@
-import torch
 import pytest
-from metrics.vision_3d.point_cloud_registration.point_inlier_ratio import PointInlierRatio
+import torch
+
+from metrics.vision_3d.point_cloud_registration.point_inlier_ratio import (
+    PointInlierRatio,
+)
 
 
 def create_datapoint(outputs, labels, idx=0):
@@ -9,7 +12,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -25,8 +28,12 @@ def test_point_inlier_ratio_initialization():
 
 def test_point_inlier_ratio_perfect_match(metric):
     # Create predicted correspondence points
-    pred_src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    pred_tgt_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
+    pred_src_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    pred_tgt_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
 
     # Perfect correspondences
     pred_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
@@ -35,7 +42,7 @@ def test_point_inlier_ratio_perfect_match(metric):
     outputs = {
         'src_pc': pred_src_points,
         'tgt_pc': pred_tgt_points,
-        'correspondences': pred_correspondences
+        'correspondences': pred_correspondences,
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
@@ -47,8 +54,12 @@ def test_point_inlier_ratio_perfect_match(metric):
 
 def test_point_inlier_ratio_partial_match(metric):
     # Create predicted correspondence points
-    pred_src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    pred_tgt_points = torch.tensor([[0.0, 0.0, 0.0], [2.0, 2.0, 2.0], [1.0, 1.0, 1.0]], dtype=torch.float32)
+    pred_src_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    pred_tgt_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [2.0, 2.0, 2.0], [1.0, 1.0, 1.0]], dtype=torch.float32
+    )
 
     # Some correct, some incorrect correspondences
     pred_correspondences = torch.tensor([[0, 0], [1, 2], [2, 1]], dtype=torch.long)
@@ -57,7 +68,7 @@ def test_point_inlier_ratio_partial_match(metric):
     outputs = {
         'src_pc': pred_src_points,
         'tgt_pc': pred_tgt_points,
-        'correspondences': pred_correspondences
+        'correspondences': pred_correspondences,
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
@@ -65,13 +76,17 @@ def test_point_inlier_ratio_partial_match(metric):
     result = metric(datapoint)
     assert 'point_inlier_ratio' in result
     # Only the first correspondence is correct
-    assert torch.isclose(result['point_inlier_ratio'], torch.tensor(1/3))
+    assert torch.isclose(result['point_inlier_ratio'], torch.tensor(1 / 3))
 
 
 def test_point_inlier_ratio_no_match(metric):
     # Create predicted correspondence points
-    pred_src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    pred_tgt_points = torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [0.0, 0.0, 0.0]], dtype=torch.float32)
+    pred_src_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    pred_tgt_points = torch.tensor(
+        [[1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [0.0, 0.0, 0.0]], dtype=torch.float32
+    )
 
     # All incorrect correspondences
     pred_correspondences = torch.tensor([[0, 1], [1, 2], [2, 0]], dtype=torch.long)
@@ -80,7 +95,7 @@ def test_point_inlier_ratio_no_match(metric):
     outputs = {
         'src_pc': pred_src_points,
         'tgt_pc': pred_tgt_points,
-        'correspondences': pred_correspondences
+        'correspondences': pred_correspondences,
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
@@ -100,7 +115,7 @@ def test_point_inlier_ratio_invalid_inputs(metric):
     outputs = {
         'src_pc': pred_src_points,
         'tgt_pc': pred_tgt_points,
-        'correspondences': pred_correspondences
+        'correspondences': pred_correspondences,
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
@@ -116,7 +131,7 @@ def test_point_inlier_ratio_invalid_inputs(metric):
     outputs = {
         'src_pc': pred_src_points,
         'tgt_pc': pred_tgt_points,
-        'correspondences': pred_correspondences
+        'correspondences': pred_correspondences,
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)

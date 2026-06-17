@@ -1,7 +1,9 @@
-from typing import Optional, Union
 from abc import abstractmethod
+from typing import Optional, Union
+
 import torch
 import torchvision.transforms.functional as F
+
 from criteria.wrappers import SingleTaskCriterion
 
 
@@ -43,17 +45,23 @@ class DensePredictionCriterion(SingleTaskCriterion):
 
         # Validate and set ignore_value
         if ignore_value is None:
-            raise ValueError("Child classes must provide a default ignore_value if None is passed")
+            raise ValueError(
+                "Child classes must provide a default ignore_value if None is passed"
+            )
         if not isinstance(ignore_value, (int, float)):
             raise ValueError(f"ignore_value must be a number, got {type(ignore_value)}")
         self.ignore_value = ignore_value
 
         # Validate and set reduction
         if reduction not in self.REDUCTION_OPTIONS:
-            raise ValueError(f"reduction must be one of {self.REDUCTION_OPTIONS}, got {reduction}")
+            raise ValueError(
+                f"reduction must be one of {self.REDUCTION_OPTIONS}, got {reduction}"
+            )
         self.reduction = reduction
 
-    def _match_resolution(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _match_resolution(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> torch.Tensor:
         """
         Match the spatial resolution of ground truth to prediction if needed.
 
@@ -67,7 +75,11 @@ class DensePredictionCriterion(SingleTaskCriterion):
         if y_pred.shape[-2:] != y_true.shape[-2:]:
             # Choose interpolation mode based on data type
             mode = 'nearest' if y_true.dtype == torch.int64 else 'bilinear'
-            y_true = F.resize(y_true, size=y_pred.shape[-2:], interpolation=getattr(F.InterpolationMode, mode.upper()))
+            y_true = F.resize(
+                y_true,
+                size=y_pred.shape[-2:],
+                interpolation=getattr(F.InterpolationMode, mode.upper()),
+            )
 
         return y_true
 
@@ -100,10 +112,7 @@ class DensePredictionCriterion(SingleTaskCriterion):
 
     @abstractmethod
     def _compute_unreduced_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute the loss for each sample in the batch before reduction.
@@ -140,18 +149,24 @@ class DensePredictionCriterion(SingleTaskCriterion):
 
         # Match resolution
         y_true = self._match_resolution(y_pred, y_true)
-        assert y_pred.shape[0] == y_true.shape[0], f"Batch size mismatch: y_pred {y_pred.shape[0]}, y_true {y_true.shape[0]}"
-        assert y_pred.shape[-2:] == y_true.shape[-2:], f"Spatial dimensions mismatch: y_pred {y_pred.shape[-2:]}, y_true {y_true.shape[-2:]}"
+        assert (
+            y_pred.shape[0] == y_true.shape[0]
+        ), f"Batch size mismatch: y_pred {y_pred.shape[0]}, y_true {y_true.shape[0]}"
+        assert (
+            y_pred.shape[-2:] == y_true.shape[-2:]
+        ), f"Spatial dimensions mismatch: y_pred {y_pred.shape[-2:]}, y_true {y_true.shape[-2:]}"
 
         # Get valid mask
         valid_mask = self._get_valid_mask(y_true)
-        assert valid_mask.shape == y_true.shape[0:1] + y_true.shape[-2:], \
-            f"Invalid mask shape: expected {y_true.shape[0:1] + y_true.shape[-2:]}, got {valid_mask.shape}"
+        assert (
+            valid_mask.shape == y_true.shape[0:1] + y_true.shape[-2:]
+        ), f"Invalid mask shape: expected {y_true.shape[0:1] + y_true.shape[-2:]}, got {valid_mask.shape}"
 
         # Compute unreduced loss (per sample)
         unreduced_loss = self._compute_unreduced_loss(y_pred, y_true, valid_mask)
-        assert unreduced_loss.shape == (y_pred.shape[0],), \
-            f"Unreduced loss should have shape ({y_pred.shape[0]},), got {unreduced_loss.shape}"
+        assert unreduced_loss.shape == (
+            y_pred.shape[0],
+        ), f"Unreduced loss should have shape ({y_pred.shape[0]},), got {unreduced_loss.shape}"
 
         # Apply reduction
         if self.reduction == 'mean':

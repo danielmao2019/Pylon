@@ -1,7 +1,8 @@
 import pytest
 import torch
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.hybrid_criterion import HybridCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 from utils.builders import build_from_config
 
 
@@ -14,14 +15,14 @@ def test_build_from_config_integration(dummy_criterion):
             'criteria_cfg': [
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False},
                 },
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
-                }
-            ]
-        }
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False},
+                },
+            ],
+        },
     }
 
     # Build criterion from config
@@ -52,10 +53,10 @@ def test_build_from_config_with_buffer_disabled(dummy_criterion):
             'criteria_cfg': [
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False},
                 }
-            ]
-        }
+            ],
+        },
     }
 
     criterion = build_from_config(hybrid_config)
@@ -78,18 +79,18 @@ def test_nested_config_building(dummy_criterion):
                     'class': PyTorchCriterionWrapper,
                     'args': {
                         'criterion': dummy_criterion,
-                        'use_buffer': False  # Component criteria should not use buffer
-                    }
+                        'use_buffer': False,  # Component criteria should not use buffer
+                    },
                 },
                 {
                     'class': PyTorchCriterionWrapper,
                     'args': {
                         'criterion': dummy_criterion,
-                        'use_buffer': False  # Component criteria should not use buffer
-                    }
-                }
-            ]
-        }
+                        'use_buffer': False,  # Component criteria should not use buffer
+                    },
+                },
+            ],
+        },
     }
 
     criterion = build_from_config(complex_config)
@@ -110,10 +111,10 @@ def test_config_parameter_merging(dummy_criterion):
             'criteria_cfg': [
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False},
                 }
-            ]
-        }
+            ],
+        },
     }
 
     # Test building with additional kwargs
@@ -128,7 +129,7 @@ def test_recursive_building_preservation(dummy_criterion):
     # Create config with shared references
     shared_criterion_config = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     # Use the same config reference in multiple places
@@ -136,8 +137,8 @@ def test_recursive_building_preservation(dummy_criterion):
         'class': HybridCriterion,
         'args': {
             'combine': 'sum',
-            'criteria_cfg': [shared_criterion_config, shared_criterion_config]
-        }
+            'criteria_cfg': [shared_criterion_config, shared_criterion_config],
+        },
     }
 
     # This should create two separate instances, not share the same instance
@@ -160,19 +161,17 @@ def test_error_handling_in_build_process(dummy_criterion):
             'criteria_cfg': [
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {}  # Missing required criterion
+                    'args': {},  # Missing required criterion
                 }
-            ]
-        }
+            ],
+        },
     }
 
     with pytest.raises(Exception):  # Should fail during component building
         build_from_config(malformed_config)
 
     # Test with completely invalid config structure
-    invalid_config = {
-        'invalid_key': 'invalid_value'
-    }
+    invalid_config = {'invalid_key': 'invalid_value'}
 
     # This should return the config as-is since it doesn't match expected structure
     result = build_from_config(invalid_config)

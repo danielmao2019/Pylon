@@ -101,9 +101,7 @@ def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh:
     _validate_inputs()
 
     open3d_mesh = o3d.geometry.TriangleMesh()
-    open3d_mesh.vertices = o3d.utility.Vector3dVector(
-        mesh.verts.detach().cpu().numpy()
-    )
+    open3d_mesh.vertices = o3d.utility.Vector3dVector(mesh.verts.detach().cpu().numpy())
     open3d_mesh.triangles = o3d.utility.Vector3iVector(
         mesh.faces.detach().cpu().numpy()
     )
@@ -283,9 +281,11 @@ def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -
             faces=np.asarray(mesh.faces),
             verts_uvs=np.asarray(mesh.visual.uv),
         )
-        canonical_verts_uvs, canonical_faces_uvs = shift_seam_crossing_faces_to_seam_safe(
-            verts_uvs=verts_uvs,
-            faces_uvs=faces_uvs,
+        canonical_verts_uvs, canonical_faces_uvs = (
+            shift_seam_crossing_faces_to_seam_safe(
+                verts_uvs=verts_uvs,
+                faces_uvs=faces_uvs,
+            )
         )
         texture_image = _texture_image_from_trimesh(image=mesh.visual.material.image)
         return Mesh(
@@ -345,9 +345,7 @@ def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
             "Expected the OBJ-convention mesh to keep a UV-texture-map texture. "
             f"{type(obj_mesh.texture)=}"
         )
-        expanded_verts, expanded_faces, expanded_uv = _uv_mesh_to_trimesh(
-            mesh=obj_mesh
-        )
+        expanded_verts, expanded_faces, expanded_uv = _uv_mesh_to_trimesh(mesh=obj_mesh)
         texture_image = _texture_image_to_trimesh(
             uv_texture_map=obj_mesh.texture.uv_texture_map
         )
@@ -575,9 +573,7 @@ def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
     )
     expanded_verts = mesh.verts.detach().cpu()[face_verts.reshape(-1)].numpy()
     expanded_uv = obj_verts_uvs[obj_faces_uvs.reshape(-1)].numpy()
-    expanded_faces = np.arange(expanded_verts.shape[0], dtype=np.int64).reshape(
-        -1, 3
-    )
+    expanded_faces = np.arange(expanded_verts.shape[0], dtype=np.int64).reshape(-1, 3)
     return expanded_verts, expanded_faces, expanded_uv
 
 

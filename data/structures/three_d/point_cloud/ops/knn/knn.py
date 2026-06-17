@@ -1,10 +1,12 @@
-from typing import Tuple, Optional, Union
-import torch
+from typing import Optional, Tuple, Union
+
 import numpy as np
+import torch
+
 from data.structures.three_d.point_cloud.ops.knn.knn_faiss import _knn_faiss
 from data.structures.three_d.point_cloud.ops.knn.knn_pytorch3d import _knn_pytorch3d
-from data.structures.three_d.point_cloud.ops.knn.knn_torch import _knn_torch
 from data.structures.three_d.point_cloud.ops.knn.knn_scipy import _knn_scipy
+from data.structures.three_d.point_cloud.ops.knn.knn_torch import _knn_torch
 
 
 def knn(

@@ -1,15 +1,30 @@
-from typing import Optional
 import copy
+from typing import Optional
+
 import torch
+
 from models.change_detection.ftn.modules.swin.swin_trans_encoder import SwinTransEncoder
 
 
 class encoder1(torch.nn.Module):
-    def __init__(self, pretrained_path: Optional[str] = "./models/change_detection/ftn/swin_pretrain_224.pth"):
+    def __init__(
+        self,
+        pretrained_path: Optional[
+            str
+        ] = "./models/change_detection/ftn/swin_pretrain_224.pth",
+    ):
         super(encoder1, self).__init__()
-        self.encoder1 = SwinTransEncoder(img_size=224, patch_size=4, in_chans=3, num_classes=2, embed_dim=128,
-                                         depths=[2, 2, 18, 2], depths_decoder=[4, 4, 4, 4], num_heads=[4, 8, 16, 32],
-                                         window_size=7)
+        self.encoder1 = SwinTransEncoder(
+            img_size=224,
+            patch_size=4,
+            in_chans=3,
+            num_classes=2,
+            embed_dim=128,
+            depths=[2, 2, 18, 2],
+            depths_decoder=[4, 4, 4, 4],
+            num_heads=[4, 8, 16, 32],
+            window_size=7,
+        )
         self.pretrained_path = pretrained_path
         self.load_from()
 
@@ -42,7 +57,11 @@ class encoder1(torch.nn.Module):
                 if k in model_dict:
                     # print(1)
                     if full_dict[k].shape != model_dict[k].shape:
-                        print("delete:{};shape pretrain:{};shape model:{}".format(k, v.shape, model_dict[k].shape))
+                        print(
+                            "delete:{};shape pretrain:{};shape model:{}".format(
+                                k, v.shape, model_dict[k].shape
+                            )
+                        )
                         del full_dict[k]
 
             msg = self.encoder1.load_state_dict(full_dict, strict=False)

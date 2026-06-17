@@ -2,14 +2,14 @@ import glob
 import os
 import time
 from abc import ABC
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
 
 from agents.manager.base_job import BaseJob
 from agents.manager.base_progress_info import BaseProgressInfo
-from utils.io.config import load_config
 from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
+from utils.io.config import load_config
 
 
 @dataclass

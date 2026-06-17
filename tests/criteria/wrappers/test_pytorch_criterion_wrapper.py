@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 

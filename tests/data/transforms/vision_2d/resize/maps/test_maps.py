@@ -1,6 +1,8 @@
-import pytest
 import os
+
+import pytest
 import torch
+
 from data.transforms.vision_2d.resize.maps import ResizeMaps
 from utils.io.image import _load_image, _load_multispectral_image
 
@@ -16,18 +18,18 @@ def test_image_2d() -> torch.Tensor:
     filepath = "./tests/data/transforms/vision_2d/resize/maps/assets/test_png.png"
 
     # Ensure the file exists
-    assert os.path.isfile(filepath), (
-        f"Test image not found at {filepath}. Ensure the file is available for testing."
-    )
+    assert os.path.isfile(
+        filepath
+    ), f"Test image not found at {filepath}. Ensure the file is available for testing."
 
     # Load the image
     image: torch.Tensor = _load_image(filepath)
 
     # Validate the image shape
     expected_shape = (1024, 1024)
-    assert image.shape == expected_shape, (
-        f"Unexpected image shape: {image.shape}, expected {expected_shape}."
-    )
+    assert (
+        image.shape == expected_shape
+    ), f"Unexpected image shape: {image.shape}, expected {expected_shape}."
     return image
 
 
@@ -45,18 +47,20 @@ def test_image_3d() -> torch.Tensor:
     ]
 
     # Ensure all files exist
-    assert all(os.path.isfile(fp) for fp in filepaths), (
-        f"Test images not found at {filepaths}. Ensure the files are available for testing."
-    )
+    assert all(
+        os.path.isfile(fp) for fp in filepaths
+    ), f"Test images not found at {filepaths}. Ensure the files are available for testing."
 
     # Load the multispectral images
-    image: torch.Tensor = _load_multispectral_image(filepaths=filepaths, height=512, width=512)
+    image: torch.Tensor = _load_multispectral_image(
+        filepaths=filepaths, height=512, width=512
+    )
 
     # Validate the image shape
     expected_shape = (2, 512, 512)
-    assert image.shape == expected_shape, (
-        f"Unexpected image shape: {image.shape}, expected {expected_shape}."
-    )
+    assert (
+        image.shape == expected_shape
+    ), f"Unexpected image shape: {image.shape}, expected {expected_shape}."
     return image
 
 
@@ -71,18 +75,18 @@ def test_image_bmp() -> torch.Tensor:
     filepath = "./tests/data/transforms/vision_2d/resize/maps/assets/1_A.bmp"
 
     # Ensure the file exists
-    assert os.path.isfile(filepath), (
-        f"Test BMP image not found at {filepath}. Ensure the file is available for testing."
-    )
+    assert os.path.isfile(
+        filepath
+    ), f"Test BMP image not found at {filepath}. Ensure the file is available for testing."
 
     # Load the BMP image
     image: torch.Tensor = _load_image(filepath)
 
     # Validate the image shape
     expected_shape = (3, 1000, 1900)
-    assert image.shape == expected_shape, (
-        f"Unexpected BMP image shape: {image.shape}, expected {expected_shape}."
-    )
+    assert (
+        image.shape == expected_shape
+    ), f"Unexpected BMP image shape: {image.shape}, expected {expected_shape}."
     return image
 
 
@@ -104,9 +108,10 @@ def test_resize_maps_2d(test_image_2d: torch.Tensor) -> None:
     resized_image = resize_op(test_image_2d)
 
     # Assert the resized tensor's shape is as expected
-    assert resized_image.shape == (new_height, new_width), (
-        f"Unexpected resized shape: {resized_image.shape}, expected {(new_height, new_width)}."
-    )
+    assert resized_image.shape == (
+        new_height,
+        new_width,
+    ), f"Unexpected resized shape: {resized_image.shape}, expected {(new_height, new_width)}."
 
 
 def test_resize_maps_3d(test_image_3d: torch.Tensor) -> None:
@@ -128,9 +133,9 @@ def test_resize_maps_3d(test_image_3d: torch.Tensor) -> None:
 
     # Assert the resized tensor's shape is as expected
     expected_shape = (2, new_height, new_width)
-    assert resized_image.shape == expected_shape, (
-        f"Unexpected resized shape: {resized_image.shape}, expected {expected_shape}."
-    )
+    assert (
+        resized_image.shape == expected_shape
+    ), f"Unexpected resized shape: {resized_image.shape}, expected {expected_shape}."
 
 
 def test_resize_maps_bmp(test_image_bmp: torch.Tensor) -> None:
@@ -152,6 +157,6 @@ def test_resize_maps_bmp(test_image_bmp: torch.Tensor) -> None:
 
     # Assert the resized tensor's shape is as expected
     expected_shape = (3, new_height, new_width)
-    assert resized_image.shape == expected_shape, (
-        f"Unexpected resized shape: {resized_image.shape}, expected {expected_shape}."
-    )
+    assert (
+        resized_image.shape == expected_shape
+    ), f"Unexpected resized shape: {resized_image.shape}, expected {expected_shape}."

@@ -1,8 +1,10 @@
-from typing import Any, Dict, Tuple, Optional, List
+import glob
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
 import pytest
 import torch
-import os
-import glob
+
 from data.datasets.base_dataset import BaseDataset
 from data.transforms.compose import Compose
 from data.transforms.random_noise import RandomNoise
@@ -15,13 +17,13 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         type=int,
-        help="Maximum number of datapoints to test per dataset (default: test full dataset)"
+        help="Maximum number of datapoints to test per dataset (default: test full dataset)",
     )
     parser.addoption(
         "--cpu",
         action="store_true",
         default=False,
-        help="Use CPU device for datasets instead of GPU (default: use GPU)"
+        help="Use CPU device for datasets instead of GPU (default: use GPU)",
     )
 
 
@@ -42,6 +44,7 @@ def get_samples_to_test():
     """
     Fixture that provides helper function to determine how many samples to test.
     """
+
     def _get_samples_to_test(dataset_length: int, max_samples: int = None) -> int:
         """
         Helper function to determine how many samples to test based on command line args.
@@ -57,6 +60,7 @@ def get_samples_to_test():
             return min(dataset_length, max_samples)
         else:
             return dataset_length
+
     return _get_samples_to_test
 
 
@@ -65,6 +69,7 @@ def get_device():
     """
     Fixture that provides helper function to determine device based on command line flag.
     """
+
     def _get_device(use_cpu: bool = False) -> str:
         """
         Helper function to determine device based on command line args.
@@ -79,31 +84,50 @@ def get_device():
             return 'cpu'
         else:
             return 'cuda'
+
     return _get_device
 
 
 @pytest.fixture
 def SampleDataset():
     """A minimal dataset implementation for testing BaseDataset functionality."""
+
     class _SampleDataset(BaseDataset):
         SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
-        DATASET_SIZE = {'train': 80, 'val': 10, 'test': 10, 'weird': 0}  # Class attribute for predefined splits
+        DATASET_SIZE = {
+            'train': 80,
+            'val': 10,
+            'test': 10,
+            'weird': 0,
+        }  # Class attribute for predefined splits
         INPUT_NAMES = ['input']
         LABEL_NAMES = ['label']
 
-        def __init__(self, data_root=None, split=None, split_percentages=None, **kwargs):
+        def __init__(
+            self, data_root=None, split=None, split_percentages=None, **kwargs
+        ):
             # This dataset has predefined splits, so split=None is not allowed
             if split is None:
-                raise ValueError("SampleDataset has predefined splits - split=None is not allowed. Use SampleDatasetWithoutPredefinedSplits instead.")
+                raise ValueError(
+                    "SampleDataset has predefined splits - split=None is not allowed. Use SampleDatasetWithoutPredefinedSplits instead."
+                )
 
-            super().__init__(data_root=data_root, split=split, split_percentages=split_percentages, **kwargs)
+            super().__init__(
+                data_root=data_root,
+                split=split,
+                split_percentages=split_percentages,
+                **kwargs,
+            )
 
         def _init_annotations(self) -> None:
             # BaseDataset split logic:
             # 1. If split_percentages provided: load ALL data, BaseDataset will apply split after
             # 2. If no split_percentages: load only the specific split's data
 
-            if hasattr(self, 'split_percentages') and self.split_percentages is not None:
+            if (
+                hasattr(self, 'split_percentages')
+                and self.split_percentages is not None
+            ):
                 # Load ALL data - BaseDataset will apply percentage split after this
                 self.annotations = list(range(100))  # 0-99
             elif self.split == 'train':
@@ -118,7 +142,9 @@ def SampleDataset():
                 raise ValueError(f"Unknown split: {self.split}")
 
         def _load_datapoint(self, idx: int) -> Tuple[
-            Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+            Dict[str, torch.Tensor],
+            Dict[str, torch.Tensor],
+            Dict[str, Any],
         ]:
             # Create a random tensor for testing transforms
             # Use the annotation index as the random seed for reproducibility
@@ -131,7 +157,7 @@ def SampleDataset():
             datapoint: Dict[str, Any],
             class_labels: Optional[Dict[str, List[str]]] = None,
             camera_state: Optional[Dict[str, Any]] = None,
-            settings_3d: Optional[Dict[str, Any]] = None
+            settings_3d: Optional[Dict[str, Any]] = None,
         ) -> Optional['html.Div']:
             """Return None to use default display functions."""
             return None
@@ -142,25 +168,35 @@ def SampleDataset():
 @pytest.fixture
 def SampleDatasetWithoutPredefinedSplits():
     """A dataset implementation without predefined splits for testing split_percentages functionality."""
+
     class _SampleDatasetWithoutPredefinedSplits(BaseDataset):
         SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
         INPUT_NAMES = ['input']
         LABEL_NAMES = ['label']
 
-        def __init__(self, data_root=None, split=None, split_percentages=None, **kwargs):
+        def __init__(
+            self, data_root=None, split=None, split_percentages=None, **kwargs
+        ):
             # Set DATASET_SIZE only when using split_percentages (total size before splitting)
             if split_percentages is not None:
                 self.DATASET_SIZE = 100  # Total size for percentage-based splitting
             # For split=None, don't set DATASET_SIZE (allows loading everything)
 
-            super().__init__(data_root=data_root, split=split, split_percentages=split_percentages, **kwargs)
+            super().__init__(
+                data_root=data_root,
+                split=split,
+                split_percentages=split_percentages,
+                **kwargs,
+            )
 
         def _init_annotations(self) -> None:
             # Always load everything - splitting is handled by BaseDataset or user specifies split=None
             self.annotations = list(range(100))  # 0-99
 
         def _load_datapoint(self, idx: int) -> Tuple[
-            Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+            Dict[str, torch.Tensor],
+            Dict[str, torch.Tensor],
+            Dict[str, Any],
         ]:
             # Create a random tensor for testing transforms
             # Use the annotation index as the random seed for reproducibility
@@ -173,7 +209,7 @@ def SampleDatasetWithoutPredefinedSplits():
             datapoint: Dict[str, Any],
             class_labels: Optional[Dict[str, List[str]]] = None,
             camera_state: Optional[Dict[str, Any]] = None,
-            settings_3d: Optional[Dict[str, Any]] = None
+            settings_3d: Optional[Dict[str, Any]] = None,
         ) -> Optional['html.Div']:
             """Return None to use default display functions."""
             return None
@@ -192,7 +228,7 @@ def random_transforms():
             'transforms': [
                 (noise, [('inputs', 'input')]),
             ]
-        }
+        },
     }
 
 
@@ -204,11 +240,7 @@ def cleanup_test_cache_files():
     # Clean up any test cache files
     cache_dir = "./data/cache"
     if os.path.exists(cache_dir):
-        test_cache_patterns = [
-            "test_*.json",
-            "*_test.json",
-            "temp_*.json"
-        ]
+        test_cache_patterns = ["test_*.json", "*_test.json", "temp_*.json"]
 
         for pattern in test_cache_patterns:
             cache_files = glob.glob(os.path.join(cache_dir, pattern))

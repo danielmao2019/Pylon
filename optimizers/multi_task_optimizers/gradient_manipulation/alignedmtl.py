@@ -1,8 +1,10 @@
 from typing import List, Optional
+
 import torch
 
-from ._base_ import GradientManipulationBaseOptimizer
 import utils
+
+from ._base_ import GradientManipulationBaseOptimizer
 
 
 class AlignedMTLOptimizer(GradientManipulationBaseOptimizer):
@@ -22,7 +24,9 @@ class AlignedMTLOptimizer(GradientManipulationBaseOptimizer):
             result (torch.Tensor): the 1D manipulated gradient tensor.
         """
         # input checks
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         # compute Gram matrix
         gram_matrix = utils.gradients.get_gram_matrix(grads_list)
         # compute eigenvalues and eigenvectors
@@ -33,7 +37,9 @@ class AlignedMTLOptimizer(GradientManipulationBaseOptimizer):
         V = V.real
         # compute balance matrix
         sigma_min = L.min().sqrt()
-        balance_matrix = sigma_min * torch.matmul(V, torch.matmul(torch.diag(1/L.sqrt()), V.t()))
+        balance_matrix = sigma_min * torch.matmul(
+            V, torch.matmul(torch.diag(1 / L.sqrt()), V.t())
+        )
         # compute final gradient
         alpha = balance_matrix.mean(dim=1)
         assert alpha.shape == (self.num_tasks,), f"{alpha.shape=}"

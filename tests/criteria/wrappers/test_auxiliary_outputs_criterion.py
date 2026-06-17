@@ -1,7 +1,8 @@
 import pytest
 import torch
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.auxiliary_outputs_criterion import AuxiliaryOutputsCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 @pytest.fixture
@@ -60,11 +61,15 @@ def test_call_with_dict_input(criterion, sample_tensor_dict, sample_tensor):
 def test_reduction_options(criterion_cfg, sample_tensors, sample_tensor):
     """Test different reduction options."""
     # Test with 'mean' reduction
-    criterion_mean = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg, reduction='mean')
+    criterion_mean = AuxiliaryOutputsCriterion(
+        criterion_cfg=criterion_cfg, reduction='mean'
+    )
     loss_mean = criterion_mean(y_pred=sample_tensors, y_true=sample_tensor)
 
     # Test with 'sum' reduction
-    criterion_sum = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg, reduction='sum')
+    criterion_sum = AuxiliaryOutputsCriterion(
+        criterion_cfg=criterion_cfg, reduction='sum'
+    )
     loss_sum = criterion_sum(y_pred=sample_tensors, y_true=sample_tensor)
 
     # The mean loss should be half of the sum loss

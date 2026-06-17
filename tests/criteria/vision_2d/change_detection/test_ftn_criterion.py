@@ -1,9 +1,11 @@
 from typing import Tuple
+
 import pytest
 import torch
+
+from criteria.vision_2d import IoULoss, SemanticSegmentationCriterion, SSIMLoss
 from criteria.vision_2d.change_detection.ftn_criterion import FTNCriterion
 from criteria.wrappers import AuxiliaryOutputsCriterion
-from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
 
 
 def test_ftn_criterion_initialization():
@@ -47,7 +49,9 @@ def test_ftn_criterion_forward():
 
     # Create dummy ground truth
     y_true = {
-        'change_map': torch.randint(0, num_classes, (batch_size, height, width), dtype=torch.int64)
+        'change_map': torch.randint(
+            0, num_classes, (batch_size, height, width), dtype=torch.int64
+        )
     }
 
     criterion = FTNCriterion()
@@ -77,20 +81,34 @@ def test_ftn_criterion_invalid_inputs():
 
     # Test with wrong number of predictions
     with pytest.raises(AssertionError, match="type\\(y_pred\\)=|len\\(y_pred\\)="):
-        y_pred = tuple(torch.randn(batch_size, 2, height, width) for _ in range(3))  # 3 instead of 4
-        y_true = {'change_map': torch.randint(0, 2, (batch_size, height, width), dtype=torch.int64)}
+        y_pred = tuple(
+            torch.randn(batch_size, 2, height, width) for _ in range(3)
+        )  # 3 instead of 4
+        y_true = {
+            'change_map': torch.randint(
+                0, 2, (batch_size, height, width), dtype=torch.int64
+            )
+        }
         criterion(y_pred, y_true)
 
     # Test with wrong type for predictions
     with pytest.raises(AssertionError, match="type\\(y_pred\\)="):
         y_pred = torch.randn(batch_size, 2, height, width)  # tensor instead of tuple
-        y_true = {'change_map': torch.randint(0, 2, (batch_size, height, width), dtype=torch.int64)}
+        y_true = {
+            'change_map': torch.randint(
+                0, 2, (batch_size, height, width), dtype=torch.int64
+            )
+        }
         criterion(y_pred, y_true)
 
     # Test with missing 'change_map' key
     with pytest.raises(AssertionError):
         y_pred = tuple(torch.randn(batch_size, 2, height, width) for _ in range(4))
-        y_true = {'wrong_key': torch.randint(0, 2, (batch_size, height, width), dtype=torch.int64)}
+        y_true = {
+            'wrong_key': torch.randint(
+                0, 2, (batch_size, height, width), dtype=torch.int64
+            )
+        }
         criterion(y_pred, y_true)
 
 
@@ -107,7 +125,9 @@ def test_ftn_criterion_gradient_flow():
     )
 
     y_true = {
-        'change_map': torch.randint(0, num_classes, (batch_size, height, width), dtype=torch.int64)
+        'change_map': torch.randint(
+            0, num_classes, (batch_size, height, width), dtype=torch.int64
+        )
     }
 
     criterion = FTNCriterion()
@@ -136,12 +156,11 @@ def test_ftn_criterion_buffer_accumulation():
     # Make multiple forward passes
     num_iterations = 5
     for _ in range(num_iterations):
-        y_pred = tuple(
-            torch.randn(batch_size, 2, height, width)
-            for _ in range(4)
-        )
+        y_pred = tuple(torch.randn(batch_size, 2, height, width) for _ in range(4))
         y_true = {
-            'change_map': torch.randint(0, 2, (batch_size, height, width), dtype=torch.int64)
+            'change_map': torch.randint(
+                0, 2, (batch_size, height, width), dtype=torch.int64
+            )
         }
         loss = criterion(y_pred, y_true)
 

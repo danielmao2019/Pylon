@@ -29,7 +29,9 @@ def build_layout(
     assert isinstance(
         progress_text, str
     ), f"progress_text must be str, got {type(progress_text)}"
-    assert isinstance(table_data, list), f"table_data must be list, got {type(table_data)}"
+    assert isinstance(
+        table_data, list
+    ), f"table_data must be list, got {type(table_data)}"
     assert isinstance(
         table_style, list
     ), f"table_style must be list, got {type(table_style)}"

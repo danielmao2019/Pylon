@@ -1,10 +1,11 @@
-import pytest
-import tempfile
 import json
-import numpy as np
 import os
+import tempfile
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+import numpy as np
+import pytest
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def sample_scores_dict():
         'aggregated': {
             'metric1': 0.75,
             'metric2': 0.85,
-            'multi_metric': [0.8, 0.7, 0.9]
+            'multi_metric': [0.8, 0.7, 0.9],
         },
         'per_datapoint': {
             'metric1': [0.7, 0.8, 0.75, 0.72, 0.78],
@@ -31,9 +32,9 @@ def sample_scores_dict():
                 [0.75, 0.72, 0.85],
                 [0.82, 0.68, 0.92],
                 [0.78, 0.74, 0.88],
-                [0.85, 0.71, 0.91]
-            ]
-        }
+                [0.85, 0.71, 0.91],
+            ],
+        },
     }
 
 
@@ -50,23 +51,11 @@ def validation_scores_file(temp_log_dir, sample_scores_dict):
 def sample_score_maps():
     """Create sample score maps for testing overlaid functionality."""
     # Create 3 score maps of size 3x3 with known values
-    map1 = np.array([
-        [0.1, 0.2, 0.3],
-        [0.4, 0.5, 0.6],
-        [0.7, 0.8, np.nan]
-    ])
+    map1 = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, np.nan]])
 
-    map2 = np.array([
-        [0.15, 0.25, 0.35],
-        [0.45, 0.55, 0.65],
-        [0.75, 0.85, np.nan]
-    ])
+    map2 = np.array([[0.15, 0.25, 0.35], [0.45, 0.55, 0.65], [0.75, 0.85, np.nan]])
 
-    map3 = np.array([
-        [0.05, 0.15, 0.25],
-        [0.35, 0.45, 0.55],
-        [0.65, 0.75, np.nan]
-    ])
+    map3 = np.array([[0.05, 0.15, 0.25], [0.35, 0.45, 0.55], [0.65, 0.75, np.nan]])
 
     return [map1, map2, map3]
 

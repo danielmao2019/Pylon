@@ -1,8 +1,14 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import torch
 import torch.nn.functional as F
-from criteria.vision_2d.change_detection.cdmaskformer_criterion.criterion import SetCriterion
-from criteria.vision_2d.change_detection.cdmaskformer_criterion.matcher import HungarianMatcher
+
+from criteria.vision_2d.change_detection.cdmaskformer_criterion.criterion import (
+    SetCriterion,
+)
+from criteria.vision_2d.change_detection.cdmaskformer_criterion.matcher import (
+    HungarianMatcher,
+)
 from criteria.wrappers import SingleTaskCriterion
 
 
@@ -14,9 +20,9 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         dice_weight=5.0,
         mask_weight=5.0,
         no_object_weight=0.1,
-        dec_layers = 10,
-        num_classes = 1,
-        device = torch.device("cuda"),
+        dec_layers=10,
+        num_classes=1,
+        device=torch.device("cuda"),
     ) -> None:
         super(CDMaskFormerCriterion, self).__init__()
         self.class_weight = class_weight
@@ -33,7 +39,11 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             num_points=12544,
         )
 
-        weight_dict = {"loss_ce": self.class_weight, "loss_mask": self.mask_weight, "loss_dice": self.dice_weight}
+        weight_dict = {
+            "loss_ce": self.class_weight,
+            "loss_mask": self.mask_weight,
+            "loss_dice": self.dice_weight,
+        }
         aux_weight_dict = {}
         for i in range(self.dec_layers - 1):
             aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
@@ -58,7 +68,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         assert isinstance(y_true, dict)
         assert y_true.keys() == {'change_map'}
 
-        y_pred["pred_masks"]= F.interpolate(
+        y_pred["pred_masks"] = F.interpolate(
             y_pred["pred_masks"],
             scale_factor=(4, 4),
             mode="bilinear",
@@ -67,11 +77,11 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
 
         for v in y_pred['aux_outputs']:
             v['pred_masks'] = F.interpolate(
-            v["pred_masks"],
-            scale_factor=(4, 4),
-            mode="bilinear",
-            align_corners=False,
-        )
+                v["pred_masks"],
+                scale_factor=(4, 4),
+                mode="bilinear",
+                align_corners=False,
+            )
 
         losses = self.criterion(y_pred, y_true['change_map'])
         weight_dict = self.criterion.weight_dict

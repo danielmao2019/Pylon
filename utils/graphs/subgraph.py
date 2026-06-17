@@ -11,13 +11,13 @@ def collect_induced_edge_weights(
     # Input validations
     assert isinstance(subset_node_ids, list), f"{type(subset_node_ids)=}"
     assert subset_node_ids, "subset_node_ids must be non-empty"
-    assert all(isinstance(node_id, int) for node_id in subset_node_ids), (
-        f"{subset_node_ids=}"
-    )
+    assert all(
+        isinstance(node_id, int) for node_id in subset_node_ids
+    ), f"{subset_node_ids=}"
     assert isinstance(adjacency, dict), f"{type(adjacency)=}"
-    assert all(node_id in adjacency for node_id in subset_node_ids), (
-        "adjacency missing subset nodes"
-    )
+    assert all(
+        node_id in adjacency for node_id in subset_node_ids
+    ), "adjacency missing subset nodes"
 
     subset_node_id_set = set(subset_node_ids)
     induced_edge_weights: List[int] = []
@@ -40,13 +40,15 @@ def build_induced_edge_subset(
     # Input validations
     assert isinstance(num_nodes, int), f"{type(num_nodes)=}"
     assert isinstance(edges, torch.Tensor), f"{type(edges)=}"
-    assert isinstance(subset_node_indices, torch.Tensor), f"{type(subset_node_indices)=}"
-    assert edge_weights is None or isinstance(edge_weights, torch.Tensor), (
-        f"{type(edge_weights)=}"
-    )
-    assert edge_vectors is None or isinstance(edge_vectors, torch.Tensor), (
-        f"{type(edge_vectors)=}"
-    )
+    assert isinstance(
+        subset_node_indices, torch.Tensor
+    ), f"{type(subset_node_indices)=}"
+    assert edge_weights is None or isinstance(
+        edge_weights, torch.Tensor
+    ), f"{type(edge_weights)=}"
+    assert edge_vectors is None or isinstance(
+        edge_vectors, torch.Tensor
+    ), f"{type(edge_vectors)=}"
     assert num_nodes > 0, f"{num_nodes=}"
     assert edges.ndim == 2, f"{edges.shape=}"
     assert int(edges.shape[1]) == 2, f"{edges.shape=}"
@@ -55,9 +57,9 @@ def build_induced_edge_subset(
     assert subset_node_indices.dtype == torch.long, f"{subset_node_indices.dtype=}"
     assert int(subset_node_indices.numel()) > 0, f"{subset_node_indices.shape=}"
     assert int(subset_node_indices.min().item()) >= 0, f"{subset_node_indices.min()=}"
-    assert int(subset_node_indices.max().item()) < num_nodes, (
-        f"{subset_node_indices.max()=}, {num_nodes=}"
-    )
+    assert (
+        int(subset_node_indices.max().item()) < num_nodes
+    ), f"{subset_node_indices.max()=}, {num_nodes=}"
     assert edge_weights is None or (
         edge_weights.ndim == 1 and int(edge_weights.shape[0]) == int(edges.shape[0])
     ), f"{edge_weights.shape=}, {edges.shape=}"

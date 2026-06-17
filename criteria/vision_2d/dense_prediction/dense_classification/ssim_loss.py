@@ -1,7 +1,11 @@
 from typing import Optional
+
 import torch
 import torch.nn.functional as F
-from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_classification.base import (
+    DenseClassificationCriterion,
+)
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -69,7 +73,10 @@ class SSIMLoss(DenseClassificationCriterion):
         # Create 1D Gaussian window
         sigma = 1.5
         gauss = torch.exp(
-            -torch.pow(torch.linspace(-(window_size//2), window_size//2, window_size), 2.0) / (2.0 * sigma * sigma)
+            -torch.pow(
+                torch.linspace(-(window_size // 2), window_size // 2, window_size), 2.0
+            )
+            / (2.0 * sigma * sigma)
         )
         gauss = gauss / gauss.sum()
 
@@ -105,7 +112,7 @@ class SSIMLoss(DenseClassificationCriterion):
         Raises:
             ValueError: If all pixels in target are ignored
         """
-        valid_mask = (y_true != self.ignore_value)
+        valid_mask = y_true != self.ignore_value
         if valid_mask.sum() == 0:
             raise ValueError("All pixels in target are ignored. Cannot compute loss.")
         return valid_mask  # (N, H, W)
@@ -132,35 +139,68 @@ class SSIMLoss(DenseClassificationCriterion):
         y_true = y_true * valid_mask
 
         # Compute means
-        mu_pred = F.conv2d(y_pred, self.window.expand(y_pred.size(1), -1, -1, -1),
-                          padding=self.window.size(-1)//2, groups=y_pred.size(1))  # (N, C, H, W)
-        mu_true = F.conv2d(y_true, self.window.expand(y_true.size(1), -1, -1, -1),
-                          padding=self.window.size(-1)//2, groups=y_true.size(1))  # (N, C, H, W)
+        mu_pred = F.conv2d(
+            y_pred,
+            self.window.expand(y_pred.size(1), -1, -1, -1),
+            padding=self.window.size(-1) // 2,
+            groups=y_pred.size(1),
+        )  # (N, C, H, W)
+        mu_true = F.conv2d(
+            y_true,
+            self.window.expand(y_true.size(1), -1, -1, -1),
+            padding=self.window.size(-1) // 2,
+            groups=y_true.size(1),
+        )  # (N, C, H, W)
 
         # Compute variances and covariance
         mu_pred_sq = mu_pred.pow(2)
         mu_true_sq = mu_true.pow(2)
         mu_pred_true = mu_pred * mu_true
 
-        sigma_pred_sq = F.conv2d(y_pred * y_pred, self.window.expand(y_pred.size(1), -1, -1, -1),
-                                padding=self.window.size(-1)//2, groups=y_pred.size(1)) - mu_pred_sq
-        sigma_true_sq = F.conv2d(y_true * y_true, self.window.expand(y_true.size(1), -1, -1, -1),
-                                padding=self.window.size(-1)//2, groups=y_true.size(1)) - mu_true_sq
-        sigma_pred_true = F.conv2d(y_pred * y_true, self.window.expand(y_pred.size(1), -1, -1, -1),
-                                  padding=self.window.size(-1)//2, groups=y_pred.size(1)) - mu_pred_true
+        sigma_pred_sq = (
+            F.conv2d(
+                y_pred * y_pred,
+                self.window.expand(y_pred.size(1), -1, -1, -1),
+                padding=self.window.size(-1) // 2,
+                groups=y_pred.size(1),
+            )
+            - mu_pred_sq
+        )
+        sigma_true_sq = (
+            F.conv2d(
+                y_true * y_true,
+                self.window.expand(y_true.size(1), -1, -1, -1),
+                padding=self.window.size(-1) // 2,
+                groups=y_true.size(1),
+            )
+            - mu_true_sq
+        )
+        sigma_pred_true = (
+            F.conv2d(
+                y_pred * y_true,
+                self.window.expand(y_pred.size(1), -1, -1, -1),
+                padding=self.window.size(-1) // 2,
+                groups=y_pred.size(1),
+            )
+            - mu_pred_true
+        )
 
         # Constants for numerical stability
-        C1 = 0.01 ** 2
-        C2 = 0.03 ** 2
+        C1 = 0.01**2
+        C2 = 0.03**2
 
         # Compute SSIM
         numerator = (2 * mu_pred_true + C1) * (2 * sigma_pred_true + C2)
-        denominator = (mu_pred_sq + mu_true_sq + C1) * (sigma_pred_sq + sigma_true_sq + C2)
+        denominator = (mu_pred_sq + mu_true_sq + C1) * (
+            sigma_pred_sq + sigma_true_sq + C2
+        )
         ssim_map = numerator / denominator  # (N, C, H, W)
 
         # Average over spatial dimensions for valid pixels only
         valid_pixels = valid_mask.sum(dim=(2, 3))  # (N, 1)
-        ssim_per_class = (ssim_map * valid_mask).sum(dim=(2, 3)) / (valid_pixels + 1e-8)  # (N, C)
+        ssim_per_class = (ssim_map * valid_mask).sum(dim=(2, 3)) / (
+            valid_pixels + 1e-8
+        )  # (N, C)
 
         # Return SSIM loss
         return 1 - ssim_per_class

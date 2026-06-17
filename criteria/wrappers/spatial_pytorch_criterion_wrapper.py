@@ -1,5 +1,7 @@
 from typing import Callable
+
 import torch
+
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
@@ -44,7 +46,9 @@ class SpatialPyTorchCriterionWrapper(SingleTaskCriterion):
 
         # Match resolution if needed
         if y_pred.shape[-2:] != y_true.shape[-2:]:
-            y_true = torch.nn.functional.interpolate(y_true, size=y_pred.shape[-2:], mode='nearest')
+            y_true = torch.nn.functional.interpolate(
+                y_true, size=y_pred.shape[-2:], mode='nearest'
+            )
 
         # Apply the criterion
         return self.criterion(input=y_pred, target=y_true)

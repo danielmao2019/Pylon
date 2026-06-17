@@ -4,5 +4,4 @@ UTILS.MEMORY API
 
 from utils.memory.tensor_memory import get_pc_dict_memory, get_pc_memory
 
-
 __all__ = ('get_pc_dict_memory', 'get_pc_memory')

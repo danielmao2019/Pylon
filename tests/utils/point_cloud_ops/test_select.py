@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select

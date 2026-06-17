@@ -1,11 +1,13 @@
-import os
 import json
+import os
 import tempfile
-import torch
+from dataclasses import dataclass
+from datetime import datetime
+
 import numpy as np
 import pytest
-from datetime import datetime
-from dataclasses import dataclass
+import torch
+
 from utils.io.json import load_json
 
 

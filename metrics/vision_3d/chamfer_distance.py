@@ -1,5 +1,7 @@
 from typing import Dict
+
 import torch
+
 from metrics.vision_3d.point_cloud_metric import PointCloudMetric
 
 
@@ -24,7 +26,9 @@ class ChamferDistance(PointCloudMetric):
         super(ChamferDistance, self).__init__()
         self.bidirectional = bidirectional
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """
         Compute Chamfer Distance between two point clouds.
 
@@ -39,7 +43,9 @@ class ChamferDistance(PointCloudMetric):
         y_pred, y_true, N, M = self._validate_and_prepare_inputs(y_pred, y_true)
 
         # Compute distance matrix and find nearest neighbors
-        dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(y_pred, y_true)
+        dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(
+            y_pred, y_true
+        )
 
         if self.bidirectional:
             # Compute distances from y_true to y_pred

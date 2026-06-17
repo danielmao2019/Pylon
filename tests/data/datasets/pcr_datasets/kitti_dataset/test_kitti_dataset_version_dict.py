@@ -1,9 +1,8 @@
 """Tests for KITTIDataset version dict functionality."""
 
 import pytest
+
 from utils.builders.builder import build_from_config
-
-
 
 
 @pytest.mark.parametrize('kitti_dataset_config', ['train'], indirect=True)

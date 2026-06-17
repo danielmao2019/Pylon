@@ -1,10 +1,11 @@
-from typing import Dict, List, Optional, Any
-from agents.connector.pool import _ssh_pool
+from typing import Any, Dict, List, Optional
+
 from agents.connector.error import SSHCommandError
-from agents.monitor.gpu_monitor import GPUMonitor
+from agents.connector.pool import _ssh_pool
 from agents.monitor.cpu_monitor import CPUMonitor
-from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.cpu_status import CPUStatus
+from agents.monitor.gpu_monitor import GPUMonitor
+from agents.monitor.gpu_status import GPUStatus
 
 
 class SystemMonitor:

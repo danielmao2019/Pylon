@@ -1,8 +1,12 @@
-from typing import List, Dict
+from typing import Dict, List
+
 import torch
+
 from models.change_detection.tiny_cd.modules.mixing_block import MixingBlock
+from models.change_detection.tiny_cd.modules.mixing_mask_attention_block import (
+    MixingMaskAttentionBlock,
+)
 from models.change_detection.tiny_cd.modules.pixelwise_linear import PixelwiseLinear
-from models.change_detection.tiny_cd.modules.mixing_mask_attention_block import MixingMaskAttentionBlock
 from models.change_detection.tiny_cd.modules.up_mask import UpMask
 from models.change_detection.tiny_cd.utils import get_backbone
 

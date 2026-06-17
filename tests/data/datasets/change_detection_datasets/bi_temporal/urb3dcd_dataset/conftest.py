@@ -1,7 +1,10 @@
 """Shared fixtures and helper functions for Urb3DCD dataset tests."""
 
 import pytest
-from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
+
+from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import (
+    Urb3DCDDataset,
+)
 
 
 @pytest.fixture
@@ -17,8 +20,8 @@ def urb3dcd_dataset_train_config(urb3dcd_data_root, use_cpu_device, get_device):
             'sample_per_epoch': 128,
             'fix_samples': False,
             'radius': 50,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
@@ -36,6 +39,6 @@ def dataset_config(request, urb3dcd_data_root, use_cpu_device, get_device):
             'sample_per_epoch': 128,
             'fix_samples': False,
             'radius': 50,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }

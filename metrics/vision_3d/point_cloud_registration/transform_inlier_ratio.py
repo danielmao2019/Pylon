@@ -1,10 +1,12 @@
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 import torch
+
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from metrics.base_metric import BaseMetric
 from utils.input_checks.check_path import check_write_file
 from utils.io.json import save_json
 from utils.ops.dict_as_tensor import transpose_buffer
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class TransformInlierRatio(BaseMetric):
@@ -22,9 +24,7 @@ class TransformInlierRatio(BaseMetric):
         threshold: Distance threshold for considering a point as inlier
     """
 
-    DIRECTIONS = {
-        'inlier_ratio': +1  # Higher is better
-    }
+    DIRECTIONS = {'inlier_ratio': +1}  # Higher is better
 
     def __init__(self, threshold: float = 0.1, use_buffer: bool = True) -> None:
         """Initialize the TransformInlierRatio metric.

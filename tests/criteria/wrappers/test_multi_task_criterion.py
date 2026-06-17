@@ -1,7 +1,8 @@
 import pytest
 import torch
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.multi_task_criterion import MultiTaskCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 @pytest.fixture
@@ -10,16 +11,12 @@ def criterion_cfgs(dummy_criterion):
     return {
         'task1': {
             'class': PyTorchCriterionWrapper,
-            'args': {
-                'criterion': dummy_criterion
-            }
+            'args': {'criterion': dummy_criterion},
         },
         'task2': {
             'class': PyTorchCriterionWrapper,
-            'args': {
-                'criterion': dummy_criterion
-            }
-        }
+            'args': {'criterion': dummy_criterion},
+        },
     }
 
 
@@ -53,7 +50,10 @@ def test_reset_buffer(criterion, sample_multi_task_tensors):
     assert not hasattr(criterion, 'buffer')
     assert hasattr(criterion, 'task_criteria')
     assert isinstance(criterion.task_criteria, torch.nn.ModuleDict)
-    assert all(hasattr(task_criterion, 'buffer') for task_criterion in criterion.task_criteria.values())
+    assert all(
+        hasattr(task_criterion, 'buffer')
+        for task_criterion in criterion.task_criteria.values()
+    )
 
     # Check that each task criterion's buffer has been reset
     for task_criterion in criterion.task_criteria.values():
@@ -78,7 +78,9 @@ def test_reset_buffer(criterion, sample_multi_task_tensors):
 def test_call(criterion, sample_multi_task_tensors):
     """Test calling the criterion."""
     # Call the criterion
-    losses = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
+    losses = criterion(
+        y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors
+    )
 
     # Check that losses is a dictionary with the correct keys
     assert isinstance(losses, dict)
@@ -129,7 +131,9 @@ def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
         assert len(task_criterion.buffer) == 0
 
     # Compute loss on CPU
-    cpu_losses = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
+    cpu_losses = criterion(
+        y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors
+    )
     for task_criterion in criterion.task_criteria.values():
         task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 1
@@ -160,7 +164,9 @@ def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
         assert len(task_criterion.buffer) == 2
 
     # Compute loss on CPU again
-    cpu_losses2 = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
+    cpu_losses2 = criterion(
+        y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors
+    )
     for task_criterion in criterion.task_criteria.values():
         task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 3

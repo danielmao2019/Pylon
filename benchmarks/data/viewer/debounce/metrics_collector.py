@@ -1,16 +1,18 @@
 """Collect and analyze performance metrics during benchmark execution."""
 
-import time
-import threading
-import psutil
 import os
-from typing import Dict, List, Any, Optional
+import threading
+import time
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 
 @dataclass
 class ExecutionMetrics:
     """Performance metrics for a single execution."""
+
     total_events: int = 0
     executed_events: int = 0
     prevented_events: int = 0
@@ -56,7 +58,9 @@ class MetricsCollector:
         self.memory_samples.clear()
         self.start_time = time.time()
 
-        self.collection_thread = threading.Thread(target=self._collection_worker, daemon=True)
+        self.collection_thread = threading.Thread(
+            target=self._collection_worker, daemon=True
+        )
         self.collection_thread.start()
 
     def stop_collection(self) -> Dict[str, List[float]]:
@@ -72,7 +76,7 @@ class MetricsCollector:
 
         return {
             'cpu_usage': self.cpu_samples.copy(),
-            'memory_usage': self.memory_samples.copy()
+            'memory_usage': self.memory_samples.copy(),
         }
 
     def _collection_worker(self):
@@ -93,7 +97,9 @@ class MetricsCollector:
 
             time.sleep(self.sample_interval)
 
-    def analyze_execution_results(self, execution_results: Dict[str, Any]) -> ExecutionMetrics:
+    def analyze_execution_results(
+        self, execution_results: Dict[str, Any]
+    ) -> ExecutionMetrics:
         """Analyze execution results and compute performance metrics.
 
         Args:
@@ -116,10 +122,14 @@ class MetricsCollector:
 
         # Throughput
         if metrics.total_time > 0:
-            metrics.throughput_events_per_sec = metrics.total_events / metrics.total_time
+            metrics.throughput_events_per_sec = (
+                metrics.total_events / metrics.total_time
+            )
 
         # Execution timing analysis
-        executed_events = [e for e in execution_results['events'] if e.get('executed', False)]
+        executed_events = [
+            e for e in execution_results['events'] if e.get('executed', False)
+        ]
 
         if executed_events:
             execution_times = [e['execution_time'] for e in executed_events]
@@ -141,8 +151,9 @@ class MetricsCollector:
 
         return metrics
 
-    def compute_comparative_metrics(self, with_debounce: ExecutionMetrics,
-                                   without_debounce: ExecutionMetrics) -> Dict[str, Any]:
+    def compute_comparative_metrics(
+        self, with_debounce: ExecutionMetrics, without_debounce: ExecutionMetrics
+    ) -> Dict[str, Any]:
         """Compare metrics between debounced and non-debounced execution.
 
         Args:
@@ -158,12 +169,17 @@ class MetricsCollector:
         comparison['execution_reduction'] = {
             'executed_events_with': with_debounce.executed_events,
             'executed_events_without': without_debounce.executed_events,
-            'reduction_count': without_debounce.executed_events - with_debounce.executed_events,
-            'reduction_percentage': 0.0
+            'reduction_count': without_debounce.executed_events
+            - with_debounce.executed_events,
+            'reduction_percentage': 0.0,
         }
 
         if without_debounce.executed_events > 0:
-            reduction_pct = (without_debounce.executed_events - with_debounce.executed_events) / without_debounce.executed_events * 100
+            reduction_pct = (
+                (without_debounce.executed_events - with_debounce.executed_events)
+                / without_debounce.executed_events
+                * 100
+            )
             comparison['execution_reduction']['reduction_percentage'] = reduction_pct
 
         # Time savings
@@ -171,40 +187,62 @@ class MetricsCollector:
             'total_time_with': with_debounce.total_time,
             'total_time_without': without_debounce.total_time,
             'time_saved': without_debounce.total_time - with_debounce.total_time,
-            'time_saved_percentage': 0.0
+            'time_saved_percentage': 0.0,
         }
 
         if without_debounce.total_time > 0:
-            time_saved_pct = (without_debounce.total_time - with_debounce.total_time) / without_debounce.total_time * 100
+            time_saved_pct = (
+                (without_debounce.total_time - with_debounce.total_time)
+                / without_debounce.total_time
+                * 100
+            )
             comparison['time_savings']['time_saved_percentage'] = time_saved_pct
 
         # CPU usage comparison
         if with_debounce.cpu_usage_samples and without_debounce.cpu_usage_samples:
-            avg_cpu_with = sum(with_debounce.cpu_usage_samples) / len(with_debounce.cpu_usage_samples)
-            avg_cpu_without = sum(without_debounce.cpu_usage_samples) / len(without_debounce.cpu_usage_samples)
+            avg_cpu_with = sum(with_debounce.cpu_usage_samples) / len(
+                with_debounce.cpu_usage_samples
+            )
+            avg_cpu_without = sum(without_debounce.cpu_usage_samples) / len(
+                without_debounce.cpu_usage_samples
+            )
 
             comparison['cpu_usage'] = {
                 'avg_cpu_with_debounce': avg_cpu_with,
                 'avg_cpu_without_debounce': avg_cpu_without,
                 'cpu_reduction': avg_cpu_without - avg_cpu_with,
-                'cpu_reduction_percentage': (avg_cpu_without - avg_cpu_with) / avg_cpu_without * 100 if avg_cpu_without > 0 else 0
+                'cpu_reduction_percentage': (
+                    (avg_cpu_without - avg_cpu_with) / avg_cpu_without * 100
+                    if avg_cpu_without > 0
+                    else 0
+                ),
             }
 
         # Memory usage comparison
         if with_debounce.memory_usage_samples and without_debounce.memory_usage_samples:
-            avg_mem_with = sum(with_debounce.memory_usage_samples) / len(with_debounce.memory_usage_samples)
-            avg_mem_without = sum(without_debounce.memory_usage_samples) / len(without_debounce.memory_usage_samples)
+            avg_mem_with = sum(with_debounce.memory_usage_samples) / len(
+                with_debounce.memory_usage_samples
+            )
+            avg_mem_without = sum(without_debounce.memory_usage_samples) / len(
+                without_debounce.memory_usage_samples
+            )
 
             comparison['memory_usage'] = {
                 'avg_memory_with_debounce': avg_mem_with,
                 'avg_memory_without_debounce': avg_mem_without,
                 'memory_reduction': avg_mem_without - avg_mem_with,
-                'memory_reduction_percentage': (avg_mem_without - avg_mem_with) / avg_mem_without * 100 if avg_mem_without > 0 else 0
+                'memory_reduction_percentage': (
+                    (avg_mem_without - avg_mem_with) / avg_mem_without * 100
+                    if avg_mem_without > 0
+                    else 0
+                ),
             }
 
         # Callback-specific timing comparison
         callback_comparison = {}
-        all_callbacks = set(with_debounce.callback_timings.keys()) | set(without_debounce.callback_timings.keys())
+        all_callbacks = set(with_debounce.callback_timings.keys()) | set(
+            without_debounce.callback_timings.keys()
+        )
 
         for callback_name in all_callbacks:
             timings_with = with_debounce.callback_timings.get(callback_name, [])
@@ -220,7 +258,13 @@ class MetricsCollector:
                     'avg_time_with': avg_with,
                     'avg_time_without': avg_without,
                     'execution_reduction': len(timings_without) - len(timings_with),
-                    'execution_reduction_pct': (len(timings_without) - len(timings_with)) / len(timings_without) * 100 if len(timings_without) > 0 else 0
+                    'execution_reduction_pct': (
+                        (len(timings_without) - len(timings_with))
+                        / len(timings_without)
+                        * 100
+                        if len(timings_without) > 0
+                        else 0
+                    ),
                 }
 
         comparison['callback_analysis'] = callback_comparison
@@ -276,7 +320,9 @@ def format_metrics_summary(metrics: ExecutionMetrics, title: str) -> str:
         lines.append("\nCallback Execution Summary:")
         for callback_name, timings in metrics.callback_timings.items():
             avg_time = sum(timings) / len(timings)
-            lines.append(f"  {callback_name}: {len(timings)} calls, avg {avg_time:.4f}s")
+            lines.append(
+                f"  {callback_name}: {len(timings)} calls, avg {avg_time:.4f}s"
+            )
 
     return "\n".join(lines)
 
@@ -297,29 +343,43 @@ def format_comparison_summary(comparison: Dict[str, Any]) -> str:
     lines.append(f"\nExecution Reduction:")
     lines.append(f"  Without debouncing: {exec_data['executed_events_without']} events")
     lines.append(f"  With debouncing: {exec_data['executed_events_with']} events")
-    lines.append(f"  Reduction: {exec_data['reduction_count']} events ({exec_data['reduction_percentage']:.1f}%)")
+    lines.append(
+        f"  Reduction: {exec_data['reduction_count']} events ({exec_data['reduction_percentage']:.1f}%)"
+    )
 
     # Time savings
     time_data = comparison['time_savings']
     lines.append(f"\nTime Savings:")
     lines.append(f"  Without debouncing: {time_data['total_time_without']:.2f}s")
     lines.append(f"  With debouncing: {time_data['total_time_with']:.2f}s")
-    lines.append(f"  Time saved: {time_data['time_saved']:.2f}s ({time_data['time_saved_percentage']:.1f}%)")
+    lines.append(
+        f"  Time saved: {time_data['time_saved']:.2f}s ({time_data['time_saved_percentage']:.1f}%)"
+    )
 
     # Resource usage
     if 'cpu_usage' in comparison:
         cpu_data = comparison['cpu_usage']
         lines.append(f"\nCPU Usage:")
-        lines.append(f"  Without debouncing: {cpu_data['avg_cpu_without_debounce']:.1f}%")
+        lines.append(
+            f"  Without debouncing: {cpu_data['avg_cpu_without_debounce']:.1f}%"
+        )
         lines.append(f"  With debouncing: {cpu_data['avg_cpu_with_debounce']:.1f}%")
-        lines.append(f"  CPU reduction: {cpu_data['cpu_reduction']:.1f}% ({cpu_data['cpu_reduction_percentage']:.1f}%)")
+        lines.append(
+            f"  CPU reduction: {cpu_data['cpu_reduction']:.1f}% ({cpu_data['cpu_reduction_percentage']:.1f}%)"
+        )
 
     if 'memory_usage' in comparison:
         mem_data = comparison['memory_usage']
         lines.append(f"\nMemory Usage:")
-        lines.append(f"  Without debouncing: {mem_data['avg_memory_without_debounce']:.1f} MB")
-        lines.append(f"  With debouncing: {mem_data['avg_memory_with_debounce']:.1f} MB")
-        lines.append(f"  Memory reduction: {mem_data['memory_reduction']:.1f} MB ({mem_data['memory_reduction_percentage']:.1f}%)")
+        lines.append(
+            f"  Without debouncing: {mem_data['avg_memory_without_debounce']:.1f} MB"
+        )
+        lines.append(
+            f"  With debouncing: {mem_data['avg_memory_with_debounce']:.1f} MB"
+        )
+        lines.append(
+            f"  Memory reduction: {mem_data['memory_reduction']:.1f} MB ({mem_data['memory_reduction_percentage']:.1f}%)"
+        )
 
     # Performance score
     lines.append(f"\nOverall Performance Score: {comparison['performance_score']:.1f}")

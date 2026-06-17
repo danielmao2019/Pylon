@@ -3,8 +3,10 @@ Tests for TorchvisionWrapper with multiple different torchvision transforms.
 
 Tests various torchvision transforms to ensure the wrapper works generically.
 """
+
 import torch
 import torchvision.transforms as T
+
 from data.transforms.torchvision_wrapper import TorchvisionWrapper
 
 
@@ -23,7 +25,9 @@ def test_color_jitter_wrapper():
     result1 = wrapper._call_single(sample_image.clone(), gen1)
     result2 = wrapper._call_single(sample_image.clone(), gen2)
 
-    assert torch.allclose(result1, result2), "ColorJitter wrapper should be deterministic"
+    assert torch.allclose(
+        result1, result2
+    ), "ColorJitter wrapper should be deterministic"
 
 
 def test_random_affine_wrapper():
@@ -41,7 +45,9 @@ def test_random_affine_wrapper():
     result1 = wrapper._call_single(sample_image.clone(), gen1)
     result2 = wrapper._call_single(sample_image.clone(), gen2)
 
-    assert torch.allclose(result1, result2), "RandomAffine wrapper should be deterministic"
+    assert torch.allclose(
+        result1, result2
+    ), "RandomAffine wrapper should be deterministic"
 
 
 def test_random_rotation_wrapper():
@@ -59,7 +65,9 @@ def test_random_rotation_wrapper():
     result1 = wrapper._call_single(sample_image.clone(), gen1)
     result2 = wrapper._call_single(sample_image.clone(), gen2)
 
-    assert torch.allclose(result1, result2), "RandomRotation wrapper should be deterministic"
+    assert torch.allclose(
+        result1, result2
+    ), "RandomRotation wrapper should be deterministic"
 
 
 def test_random_horizontal_flip_wrapper():
@@ -77,7 +85,9 @@ def test_random_horizontal_flip_wrapper():
     result1 = wrapper._call_single(sample_image.clone(), gen1)
     result2 = wrapper._call_single(sample_image.clone(), gen2)
 
-    assert torch.allclose(result1, result2), "RandomHorizontalFlip wrapper should be deterministic"
+    assert torch.allclose(
+        result1, result2
+    ), "RandomHorizontalFlip wrapper should be deterministic"
 
 
 def test_different_transforms_different_results():
@@ -97,4 +107,6 @@ def test_different_transforms_different_results():
     result2 = wrapper2._call_single(sample_image.clone(), gen2)
 
     # Different transforms should produce different results even with same seed
-    assert not torch.allclose(result1, result2), "Different transforms should produce different results"
+    assert not torch.allclose(
+        result1, result2
+    ), "Different transforms should produce different results"

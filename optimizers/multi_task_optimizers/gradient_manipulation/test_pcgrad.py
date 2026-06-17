@@ -1,9 +1,12 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+import torch
+
+from utils.models import get_flattened_grads, get_flattened_params
+from utils.ops import apply_tensor_op, buffer_close
+
 from .pcgrad import PCGradOptimizer
 from .test_common.initialize import initialize
-import torch
-from utils.models import get_flattened_params, get_flattened_grads
-from utils.ops import apply_tensor_op, buffer_close
 
 
 def test_pcgrad_optimizer():

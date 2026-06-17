@@ -2,14 +2,14 @@
 Integration test for Manager.build_jobs with lightweight setup.
 """
 
+import json
 import os
 import tempfile
-import json
 
-from agents.manager.manager import Manager
 from agents.manager.default_job import DefaultJob
-from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
+from agents.manager.manager import Manager
+from agents.manager.training_job import TrainingJob
 
 
 def test_build_jobs_minimal_integration(monkeypatch):

@@ -1,6 +1,7 @@
 import pytest
 import torch
 import torch.nn as nn
+
 from debuggers.forward_debugger import ForwardDebugger
 
 
@@ -16,9 +17,9 @@ class FeatureMapDebugger(ForwardDebugger):
                     'std': float(output.std()),
                     'min': float(output.min()),
                     'max': float(output.max()),
-                    'shape': list(output.shape)
+                    'shape': list(output.shape),
                 },
-                'layer_name': self.layer_name
+                'layer_name': self.layer_name,
             }
         return {'error': 'Output is not a tensor'}
 
@@ -43,14 +44,22 @@ class ActivationStatsDebugger(ForwardDebugger):
                 'saturation_high': float((activation >= 1).float().mean()),
             }
             if len(activation.shape) >= 3:
-                channel_means = activation.mean(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.mean(dim=0)
+                channel_means = (
+                    activation.mean(dim=(0, 2, 3))
+                    if len(activation.shape) == 4
+                    else activation.mean(dim=0)
+                )
                 stats['channel_means'] = channel_means.tolist()
-                stats['channel_stds'] = (activation.std(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.std(dim=0)).tolist()
+                stats['channel_stds'] = (
+                    activation.std(dim=(0, 2, 3))
+                    if len(activation.shape) == 4
+                    else activation.std(dim=0)
+                ).tolist()
             return {
                 'layer_name': self.layer_name,
                 'module_type': type(module).__name__,
                 'activation_stats': stats,
-                'sample_values': activation.flatten()[:100].tolist()
+                'sample_values': activation.flatten()[:100].tolist(),
             }
         return {'error': 'Output is not a tensor'}
 
@@ -67,9 +76,13 @@ class LayerOutputDebugger(ForwardDebugger):
             output_cpu = output.detach().cpu()
             if len(output_cpu.shape) >= 3 and self.downsample_factor > 1:
                 if len(output_cpu.shape) == 4:
-                    downsampled = torch.nn.functional.avg_pool2d(output_cpu, self.downsample_factor)
+                    downsampled = torch.nn.functional.avg_pool2d(
+                        output_cpu, self.downsample_factor
+                    )
                 elif len(output_cpu.shape) == 3:
-                    downsampled = torch.nn.functional.avg_pool2d(output_cpu.unsqueeze(0), self.downsample_factor).squeeze(0)
+                    downsampled = torch.nn.functional.avg_pool2d(
+                        output_cpu.unsqueeze(0), self.downsample_factor
+                    ).squeeze(0)
                 else:
                     downsampled = output_cpu
             else:
@@ -79,7 +92,7 @@ class LayerOutputDebugger(ForwardDebugger):
                 'original_shape': list(output_cpu.shape),
                 'output': downsampled,
                 'downsampled': self.downsample_factor > 1,
-                'downsample_factor': self.downsample_factor
+                'downsample_factor': self.downsample_factor,
             }
         return {'error': 'Output is not a tensor'}
 
@@ -92,11 +105,10 @@ def test_feature_map_debugger_initialization(layer_name):
     assert debugger.last_capture is None
 
 
-@pytest.mark.parametrize("batch_size,channels,height,width", [
-    (1, 16, 32, 32),
-    (2, 32, 64, 64),
-    (4, 64, 16, 16)
-])
+@pytest.mark.parametrize(
+    "batch_size,channels,height,width",
+    [(1, 16, 32, 32), (2, 32, 64, 64), (4, 64, 16, 16)],
+)
 def test_feature_map_debugger_process_forward(batch_size, channels, height, width):
     """Test FeatureMapDebugger process_forward with different tensor sizes."""
     debugger = FeatureMapDebugger(layer_name="test_layer")
@@ -195,20 +207,22 @@ def test_activation_stats_debugger_process_forward():
 @pytest.mark.parametrize("downsample_factor", [1, 2, 4])
 def test_layer_output_debugger_initialization(downsample_factor):
     """Test LayerOutputDebugger initialization with different downsample factors."""
-    debugger = LayerOutputDebugger(layer_name="conv2", downsample_factor=downsample_factor)
+    debugger = LayerOutputDebugger(
+        layer_name="conv2", downsample_factor=downsample_factor
+    )
     assert debugger.layer_name == "conv2"
     assert debugger.downsample_factor == downsample_factor
     assert debugger.last_capture is None
 
 
-@pytest.mark.parametrize("downsample_factor,expected_downsampled", [
-    (1, False),
-    (2, True),
-    (4, True)
-])
+@pytest.mark.parametrize(
+    "downsample_factor,expected_downsampled", [(1, False), (2, True), (4, True)]
+)
 def test_layer_output_debugger_process_forward(downsample_factor, expected_downsampled):
     """Test LayerOutputDebugger process_forward with different downsample factors."""
-    debugger = LayerOutputDebugger(layer_name="conv2", downsample_factor=downsample_factor)
+    debugger = LayerOutputDebugger(
+        layer_name="conv2", downsample_factor=downsample_factor
+    )
 
     # Create mock data
     mock_module = nn.Conv2d(16, 32, 3)
@@ -220,7 +234,13 @@ def test_layer_output_debugger_process_forward(downsample_factor, expected_downs
 
     # Check result structure
     assert isinstance(result, dict)
-    required_keys = ['layer_name', 'original_shape', 'output', 'downsampled', 'downsample_factor']
+    required_keys = [
+        'layer_name',
+        'original_shape',
+        'output',
+        'downsampled',
+        'downsample_factor',
+    ]
     for key in required_keys:
         assert key in result
 

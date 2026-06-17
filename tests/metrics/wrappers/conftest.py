@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.base_metric import BaseMetric
 
 
@@ -87,12 +88,12 @@ def metrics_cfg():
             'class': DummyMetric,
             'args': {
                 'metric_name': 'metric1',
-            }
+            },
         },
         {
             'class': AnotherDummyMetric,
             'args': {
                 'metric_name': 'metric2',
-            }
-        }
+            },
+        },
     ]

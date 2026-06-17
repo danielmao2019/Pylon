@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from mmseg.models.backbones import ResNet
+
 from models.change_detection.changer.modules.interaction_layer import TwoIdentity
 from utils.builders.builder import build_from_config
 
@@ -10,7 +11,7 @@ class IA_ResNet(ResNet):
 
     Args:
         interaction_cfg (Sequence[dict]): Interaction strategies for the stages.
-            The length should be the same as `num_stages`. The details can be 
+            The length should be the same as `num_stages`. The details can be
             found in `opencd/models/utils/interaction_layer.py`.
             Default: (None, None, None, None).
         depth (int): Depth of resnet, from {18, 34, 50, 101, 152}.
@@ -82,12 +83,12 @@ class IA_ResNet(ResNet):
         (1, 512, 2, 2)
         (1, 1024, 1, 1)
     """
-    def __init__(self, 
-                 interaction_cfg=(None, None, None, None), 
-                 **kwargs):
+
+    def __init__(self, interaction_cfg=(None, None, None, None), **kwargs):
         super().__init__(**kwargs)
-        assert self.num_stages == len(interaction_cfg), \
-            'The length of the `interaction_cfg` should be same as the `num_stages`.'
+        assert self.num_stages == len(
+            interaction_cfg
+        ), 'The length of the `interaction_cfg` should be same as the `num_stages`.'
         # cross-correlation
         self.ccs = []
         for ia_cfg in interaction_cfg:
@@ -95,9 +96,10 @@ class IA_ResNet(ResNet):
                 ia_cfg = {'class': TwoIdentity, 'args': {}}
             self.ccs.append(build_from_config(ia_cfg))
         self.ccs = nn.ModuleList(self.ccs)
-    
+
     def forward(self, x1, x2):
         """Forward function."""
+
         def _stem_forward(x):
             if self.deep_stem:
                 x = self.stem(x)
@@ -107,7 +109,7 @@ class IA_ResNet(ResNet):
                 x = self.relu(x)
             x = self.maxpool(x)
             return x
-            
+
         x1 = _stem_forward(x1)
         x2 = _stem_forward(x2)
         outs = []
@@ -131,8 +133,7 @@ class IA_ResNetV1c(IA_ResNet):
     """
 
     def __init__(self, **kwargs):
-        super(IA_ResNetV1c, self).__init__(
-            deep_stem=True, avg_down=False, **kwargs)
+        super(IA_ResNetV1c, self).__init__(deep_stem=True, avg_down=False, **kwargs)
 
 
 class IA_ResNetV1d(IA_ResNet):
@@ -143,5 +144,4 @@ class IA_ResNetV1d(IA_ResNet):
     """
 
     def __init__(self, **kwargs):
-        super(IA_ResNetV1d, self).__init__(
-            deep_stem=True, avg_down=True, **kwargs)
+        super(IA_ResNetV1d, self).__init__(deep_stem=True, avg_down=True, **kwargs)

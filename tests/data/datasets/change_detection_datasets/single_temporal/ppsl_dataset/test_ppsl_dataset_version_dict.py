@@ -1,8 +1,13 @@
 """Test version dict implementation for PPSLDataset."""
 
 import pytest
-from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
-from data.datasets.random_datasets.semantic_segmentation_random_dataset import SemanticSegmentationRandomDataset
+
+from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import (
+    PPSLDataset,
+)
+from data.datasets.random_datasets.semantic_segmentation_random_dataset import (
+    SemanticSegmentationRandomDataset,
+)
 
 
 def test_ppsl_dataset_has_version_dict_method():
@@ -11,6 +16,7 @@ def test_ppsl_dataset_has_version_dict_method():
 
     # Check method signature
     import inspect
+
     method = getattr(PPSLDataset, '_get_cache_version_dict')
     signature = inspect.signature(method)
 
@@ -19,9 +25,13 @@ def test_ppsl_dataset_has_version_dict_method():
     assert params == ['self']
 
     # Should return Dict[str, Any]
-    from typing import Dict, Any
+    from typing import Any, Dict
+
     return_annotation = signature.return_annotation
-    assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    assert (
+        return_annotation == Dict[str, Any]
+        or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    )
 
 
 def test_ppsl_dataset_version_dict_functionality():
@@ -29,9 +39,7 @@ def test_ppsl_dataset_version_dict_functionality():
 
     # Create a semantic segmentation source dataset
     source = SemanticSegmentationRandomDataset(
-        num_examples=10,
-        num_classes=5,
-        base_seed=42
+        num_examples=10, num_classes=5, base_seed=42
     )
 
     dataset = PPSLDataset(source=source, dataset_size=10)

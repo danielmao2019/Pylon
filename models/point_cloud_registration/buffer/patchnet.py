@@ -1,8 +1,9 @@
 import torch.nn as nn
+
 from models.point_cloud_registration.buffer.utils.common import *
 
 
-class BaseNet (nn.Module):
+class BaseNet(nn.Module):
 
     def forward_one(self, x):
         raise NotImplementedError()
@@ -33,30 +34,44 @@ class Cyclindrical_ConvNet(BaseNet):
         d = self.dilation * dilation
         self.dilation *= stride
         self.ops.append(nn.Conv2d(self.curchan, outd, kernel_size=(k, k), dilation=d))
-        if bn and self.bn: self.ops.append( self._make_bn_2d(outd) )
-        if relu: self.ops.append( nn.ReLU(inplace=True) )
+        if bn and self.bn:
+            self.ops.append(self._make_bn_2d(outd))
+        if relu:
+            self.ops.append(nn.ReLU(inplace=True))
         self.curchan = outd
 
     def _add_conv_3d(self, outd, k, stride=1, dilation=1, bn=True, relu=True):
         d = self.dilation * dilation
         self.dilation *= stride
-        self.ops.append(nn.Conv3d(self.curchan, outd, kernel_size=(k[0], k[1], k[2]), dilation=d))
-        if bn and self.bn: self.ops.append( self._make_bn_3d(outd) )
-        if relu: self.ops.append( nn.ReLU(inplace=True) )
+        self.ops.append(
+            nn.Conv3d(self.curchan, outd, kernel_size=(k[0], k[1], k[2]), dilation=d)
+        )
+        if bn and self.bn:
+            self.ops.append(self._make_bn_3d(outd))
+        if relu:
+            self.ops.append(nn.ReLU(inplace=True))
         self.curchan = outd
 
     def forward_one(self, x):
         assert self.ops, "You need to add convolutions first"
-        for n,op in enumerate(self.ops):
+        for n, op in enumerate(self.ops):
             k_exist = hasattr(op, 'kernel_size')
             if k_exist:
                 if len(op.kernel_size) == 3:
-                    x = pad_image_3d(x, op.kernel_size[1] + (op.kernel_size[1]-1)*(op.dilation[0]-1))
+                    x = pad_image_3d(
+                        x,
+                        op.kernel_size[1]
+                        + (op.kernel_size[1] - 1) * (op.dilation[0] - 1),
+                    )
                 else:
                     if len(x.shape) == 5:
                         x = x.squeeze(2)
                         mid_feat = x
-                    x = pad_image(x, op.kernel_size[0] + (op.kernel_size[0]-1)*(op.dilation[0]-1))
+                    x = pad_image(
+                        x,
+                        op.kernel_size[0]
+                        + (op.kernel_size[0] - 1) * (op.dilation[0] - 1),
+                    )
             x = op(x)
         try:
             mid_feat
@@ -66,11 +81,12 @@ class Cyclindrical_ConvNet(BaseNet):
             return x, mid_feat
 
 
-class Cylindrical_Net (Cyclindrical_ConvNet):
+class Cylindrical_Net(Cyclindrical_ConvNet):
     """
     Compute a 32D descriptor for cylindrical feature maps
     """
-    def __init__(self, inchan=16, dim=32, **kw ):
+
+    def __init__(self, inchan=16, dim=32, **kw):
         Cyclindrical_ConvNet.__init__(self, inchan=inchan, **kw)
         add_conv_2d = lambda n, **kw: self._add_conv_2d(n, **kw)
         add_conv_3d = lambda n, **kw: self._add_conv_3d(n, **kw)
@@ -106,21 +122,27 @@ class CostBlock(BaseNet):
         d = self.dilation * dilation
         self.dilation *= stride
         self.ops.append(nn.Conv2d(self.curchan, outd, kernel_size=(k, k), dilation=d))
-        if bn and self.bn: self.ops.append( self._make_bn_2d(outd) )
-        if relu: self.ops.append( nn.ReLU(inplace=True) )
+        if bn and self.bn:
+            self.ops.append(self._make_bn_2d(outd))
+        if relu:
+            self.ops.append(nn.ReLU(inplace=True))
         self.curchan = outd
 
     def _add_conv_3d(self, outd, k, stride=1, dilation=1, bn=True, relu=True):
         d = self.dilation * dilation
         self.dilation *= stride
-        self.ops.append(nn.Conv3d(self.curchan, outd, kernel_size=(k[0], k[1], k[2]), dilation=d))
-        if bn and self.bn: self.ops.append( self._make_bn_3d(outd) )
-        if relu: self.ops.append( nn.ReLU(inplace=True) )
+        self.ops.append(
+            nn.Conv3d(self.curchan, outd, kernel_size=(k[0], k[1], k[2]), dilation=d)
+        )
+        if bn and self.bn:
+            self.ops.append(self._make_bn_3d(outd))
+        if relu:
+            self.ops.append(nn.ReLU(inplace=True))
         self.curchan = outd
 
     def forward_one(self, x):
         assert self.ops, "You need to add convolutions first"
-        for n,op in enumerate(self.ops):
+        for n, op in enumerate(self.ops):
             x = op(x)
 
         return x
@@ -130,7 +152,8 @@ class CostNet(CostBlock):
     """
     Cost aggregation
     """
-    def __init__(self, inchan=32, dim=1, **kw ):
+
+    def __init__(self, inchan=32, dim=1, **kw):
         CostBlock.__init__(self, inchan=inchan, **kw)
         add_conv_2d = lambda n, **kw: self._add_conv_2d(n, **kw)
         add_conv_3d = lambda n, **kw: self._add_conv_3d(n, **kw)

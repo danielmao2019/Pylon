@@ -1,4 +1,5 @@
-from typing import Tuple, Dict, Union
+from typing import Dict, Tuple, Union
+
 import torch
 
 from ._base_ import GradientBalancingBaseOptimizer
@@ -25,10 +26,14 @@ class UncertaintyOptimizer(GradientBalancingBaseOptimizer):
         if self.first_iter:
             self.logvars = torch.ones_like(losses_tensor)
             self.optimizer.add_param_group({'params': self.logvars})
-            assert len(self.optimizer.param_groups) == 2, f"{len(self.optimizer.param_groups)=}"
+            assert (
+                len(self.optimizer.param_groups) == 2
+            ), f"{len(self.optimizer.param_groups)=}"
             self.first_iter = False
         # reweigh losses
-        total_loss = (1 / (2 * torch.exp(self.logvars)) * losses_tensor + self.logvars / 2).sum()
+        total_loss = (
+            1 / (2 * torch.exp(self.logvars)) * losses_tensor + self.logvars / 2
+        ).sum()
         # populate gradients
         self.optimizer.zero_grad(set_to_none=True)
         total_loss.backward()

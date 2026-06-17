@@ -1,10 +1,12 @@
 from typing import List, Optional
+
 import numpy
 import torch
 from scipy.optimize import minimize
 
-from ._base_ import GradientManipulationBaseOptimizer
 import utils
+
+from ._base_ import GradientManipulationBaseOptimizer
 
 
 class CAGradOptimizer(GradientManipulationBaseOptimizer):
@@ -33,27 +35,42 @@ class CAGradOptimizer(GradientManipulationBaseOptimizer):
             result (torch.Tensor): the 1D manipulated gradient tensor.
         """
         # input checks
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         # initialization
         A = utils.gradients.get_gram_matrix(grads_list).cpu().numpy()
         assert A.shape[:] == (self.num_tasks, self.num_tasks), f"{A.shape=}"
         sqrt_phi: float = self.c * numpy.sqrt(A.mean() + 1e-8).item() + 1e-8
         # solve optimization sub-problem
         x0 = numpy.ones(self.num_tasks) / self.num_tasks
-        bounds = tuple((0,1) for _ in range(self.num_tasks))
-        constraints=({'type': 'eq', 'fun': lambda x: 1-sum(x)})
+        bounds = tuple((0, 1) for _ in range(self.num_tasks))
+        constraints = {'type': 'eq', 'fun': lambda x: 1 - sum(x)}
+
         def fun(x):
             wTGTG = x.reshape(1, self.num_tasks).dot(A)
             term1 = wTGTG.dot(numpy.ones((self.num_tasks, 1)) / self.num_tasks)
-            term2 = sqrt_phi * numpy.sqrt(wTGTG.dot(x.reshape(self.num_tasks, 1)) + 1e-8)
+            term2 = sqrt_phi * numpy.sqrt(
+                wTGTG.dot(x.reshape(self.num_tasks, 1)) + 1e-8
+            )
             obj = (term1 + term2).item()
             return obj
-        solution: numpy.ndarray = minimize(fun=fun, x0=x0, bounds=bounds, constraints=constraints).x
+
+        solution: numpy.ndarray = minimize(
+            fun=fun, x0=x0, bounds=bounds, constraints=constraints
+        ).x
         # compute final gradient
         avg_grad = sum(grads_list) / len(grads_list)
         weights_list: List[float] = solution.tolist()
-        weighed_grad = sum([weight * grad for (weight, grad) in zip(weights_list, grads_list, strict=True)])
+        weighed_grad = sum(
+            [
+                weight * grad
+                for (weight, grad) in zip(weights_list, grads_list, strict=True)
+            ]
+        )
         lmbda = sqrt_phi / (weighed_grad.norm() + 1e-8)
         final_grad = avg_grad + lmbda * weighed_grad
-        assert final_grad.shape == grads_list[0].shape, f"{final_grad.shape=}, {grads_list[0].shape=}"
+        assert (
+            final_grad.shape == grads_list[0].shape
+        ), f"{final_grad.shape=}, {grads_list[0].shape=}"
         return final_grad

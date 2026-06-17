@@ -30,9 +30,9 @@ def _find_latest_iteration(model_path: Path) -> int:
         ply_path = iteration_dir / "point_cloud.ply"
         if ply_path.is_file():
             candidates.append(iteration_value)
-    assert candidates, (
-        "OctreeGS point_cloud directory must include point_cloud.ply under an iteration_* directory"
-    )
+    assert (
+        candidates
+    ), "OctreeGS point_cloud directory must include point_cloud.ply under an iteration_* directory"
     return max(candidates)
 
 

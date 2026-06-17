@@ -4,6 +4,7 @@ Runner detection invalid cases for Manager._detect_runner_type.
 
 import os
 import tempfile
+
 import pytest
 
 from agents.manager.manager import Manager

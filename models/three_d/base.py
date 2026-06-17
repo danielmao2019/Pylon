@@ -5,15 +5,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import dash
-from dash import html
 import torch
 import xxhash
+from dash import html
 
 from data.cache import CombinedDatasetCache
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.render_camera import render_camera
 from models.three_d import styles as three_d_styles
 from utils.ops import apply_tensor_op
-from data.structures.three_d.camera.render_camera import render_camera
 
 
 class BaseSceneModel(ABC):
@@ -154,7 +154,11 @@ class BaseSceneModel(ABC):
         return clone
 
     def build_static_container(
-        self, dataset_name: str, scene_name: str, method_name: str, debugger_enabled: bool
+        self,
+        dataset_name: str,
+        scene_name: str,
+        method_name: str,
+        debugger_enabled: bool,
     ) -> html.Div:
         assert isinstance(dataset_name, str), f"{type(dataset_name)=}"
         assert isinstance(scene_name, str), f"{type(scene_name)=}"

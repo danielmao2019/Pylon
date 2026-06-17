@@ -1,11 +1,19 @@
 from typing import Dict
+
 import torch
 import torch.nn as nn
 from easydict import EasyDict
-from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.circle_loss import WeightedCircleLoss
-from models.point_cloud_registration.geotransformer.transformation import apply_transform
-from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
+
+from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.circle_loss import (
+    WeightedCircleLoss,
+)
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
+from models.point_cloud_registration.geotransformer.pairwise_distance import (
+    pairwise_distance,
+)
+from models.point_cloud_registration.geotransformer.transformation import (
+    apply_transform,
+)
 
 
 class CoarseMatchingLoss(nn.Module):
@@ -28,10 +36,14 @@ class CoarseMatchingLoss(nn.Module):
         gt_ref_node_corr_indices = gt_node_corr_indices[:, 0]
         gt_src_node_corr_indices = gt_node_corr_indices[:, 1]
 
-        feat_dists = torch.sqrt(pairwise_distance(ref_feats, src_feats, normalized=True)).float()
+        feat_dists = torch.sqrt(
+            pairwise_distance(ref_feats, src_feats, normalized=True)
+        ).float()
 
         overlaps = torch.zeros_like(feat_dists)
-        overlaps[gt_ref_node_corr_indices, gt_src_node_corr_indices] = gt_node_corr_overlaps
+        overlaps[gt_ref_node_corr_indices, gt_src_node_corr_indices] = (
+            gt_node_corr_overlaps
+        )
         pos_masks = torch.gt(overlaps, self.positive_overlap)
         neg_masks = torch.eq(overlaps, 0)
         pos_scales = torch.sqrt(overlaps * pos_masks.float())
@@ -46,7 +58,9 @@ class FineMatchingLoss(nn.Module):
         super(FineMatchingLoss, self).__init__()
         self.positive_radius = cfg.fine_loss.positive_radius
 
-    def forward(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(
+        self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
         ref_node_corr_knn_points = y_pred['ref_node_corr_knn_points']
         src_node_corr_knn_points = y_pred['src_node_corr_knn_points']
         ref_node_corr_knn_masks = y_pred['ref_node_corr_knn_masks']
@@ -55,12 +69,20 @@ class FineMatchingLoss(nn.Module):
         transform = y_true['transform']
 
         src_node_corr_knn_points = apply_transform(src_node_corr_knn_points, transform)
-        dists = pairwise_distance(ref_node_corr_knn_points, src_node_corr_knn_points)  # (B, N, M)
-        gt_masks = torch.logical_and(ref_node_corr_knn_masks.unsqueeze(2), src_node_corr_knn_masks.unsqueeze(1))
-        gt_corr_map = torch.lt(dists, self.positive_radius ** 2)
+        dists = pairwise_distance(
+            ref_node_corr_knn_points, src_node_corr_knn_points
+        )  # (B, N, M)
+        gt_masks = torch.logical_and(
+            ref_node_corr_knn_masks.unsqueeze(2), src_node_corr_knn_masks.unsqueeze(1)
+        )
+        gt_corr_map = torch.lt(dists, self.positive_radius**2)
         gt_corr_map = torch.logical_and(gt_corr_map, gt_masks)
-        slack_row_labels = torch.logical_and(torch.eq(gt_corr_map.sum(2), 0), ref_node_corr_knn_masks)
-        slack_col_labels = torch.logical_and(torch.eq(gt_corr_map.sum(1), 0), src_node_corr_knn_masks)
+        slack_row_labels = torch.logical_and(
+            torch.eq(gt_corr_map.sum(2), 0), ref_node_corr_knn_masks
+        )
+        slack_col_labels = torch.logical_and(
+            torch.eq(gt_corr_map.sum(1), 0), src_node_corr_knn_masks
+        )
 
         labels = torch.zeros_like(matching_scores, dtype=torch.bool)
         labels[:, :-1, :-1] = gt_corr_map
@@ -82,7 +104,9 @@ class GeoTransformerCriterion(SingleTaskCriterion):
         self.weight_coarse_loss = cfg.loss.weight_coarse_loss
         self.weight_fine_loss = cfg.loss.weight_fine_loss
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def __call__(
+        self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
         coarse_loss = self.coarse_loss(y_pred)
         fine_loss = self.fine_loss(y_pred, y_true)
         loss = self.weight_coarse_loss * coarse_loss + self.weight_fine_loss * fine_loss

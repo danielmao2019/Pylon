@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from models.change_detection.hanet.HANet import HANet
 
 
@@ -18,7 +19,11 @@ def test_hanet_256():
     # Run forward pass
     output = model(inputs)
     # Verify output shape
-    assert output.shape == (batch_size, 2, *input_size), f"Expected output shape (batch_size, 2, {input_size}), got {output.shape}."
+    assert output.shape == (
+        batch_size,
+        2,
+        *input_size,
+    ), f"Expected output shape (batch_size, 2, {input_size}), got {output.shape}."
     assert not torch.isnan(output).any(), "Output contains NaNs"
 
 

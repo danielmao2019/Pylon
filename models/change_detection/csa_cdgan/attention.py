@@ -1,20 +1,20 @@
 import torch
 
-   
+
 class csa_layer(torch.nn.Module):
-        
+
     def __init__(self, channel):
         super(csa_layer, self).__init__()
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.query_conv = torch.nn.Sequential(
             torch.nn.Conv1d(in_channels=channel, out_channels=channel, kernel_size=1),
-            )
+        )
         self.key_conv = torch.nn.Sequential(
             torch.nn.Conv1d(in_channels=channel, out_channels=channel, kernel_size=1),
-            )
+        )
         self.value_conv = torch.nn.Sequential(
             torch.nn.Conv1d(in_channels=channel, out_channels=channel, kernel_size=1),
-            )
+        )
         self.tanh = torch.nn.Tanh()
         self.sigmoid = torch.nn.Sigmoid()
         self.sm = torch.nn.Softmax(-1)

@@ -3,8 +3,10 @@ Validation tests for TorchvisionWrapper.
 
 Tests that valid inputs are accepted and processed correctly.
 """
+
 import torch
 import torchvision.transforms as T
+
 from data.transforms.torchvision_wrapper import TorchvisionWrapper
 
 
@@ -47,7 +49,9 @@ def test_valid_transform_parameters():
     # Test ColorJitter with various parameter combinations
     wrapper1 = TorchvisionWrapper(T.ColorJitter, brightness=0.5)
     wrapper2 = TorchvisionWrapper(T.ColorJitter, brightness=0.2, contrast=0.3)
-    wrapper3 = TorchvisionWrapper(T.ColorJitter, brightness=(0.8, 1.2), contrast=(0.8, 1.2))
+    wrapper3 = TorchvisionWrapper(
+        T.ColorJitter, brightness=(0.8, 1.2), contrast=(0.8, 1.2)
+    )
 
     # Test RandomAffine with complex parameters
     wrapper4 = TorchvisionWrapper(
@@ -55,7 +59,7 @@ def test_valid_transform_parameters():
         degrees=(-15, 15),
         translate=(0.1, 0.2),
         scale=(0.9, 1.1),
-        shear=(-10, 10)
+        shear=(-10, 10),
     )
 
     # Test RandomRotation with different parameter types

@@ -5,8 +5,8 @@ Aligned to Manager._detect_runner_type API.
 """
 
 import pytest
-from agents.manager.manager import Manager
 
+from agents.manager.manager import Manager
 
 # ============================================================================
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)

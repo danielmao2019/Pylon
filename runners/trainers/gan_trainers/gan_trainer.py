@@ -1,8 +1,10 @@
-from typing import Dict, Any
 import time
+from typing import Any, Dict
+
 import torch
-from runners.trainers.gan_trainers import GAN_BaseTrainer
+
 import utils
+from runners.trainers.gan_trainers import GAN_BaseTrainer
 
 
 class GANTrainer(GAN_BaseTrainer):
@@ -13,10 +15,16 @@ class GANTrainer(GAN_BaseTrainer):
         # do computation
         image = dp['labels']['image']
         fake_tensor = torch.zeros(
-            size=(image.size(0),), dtype=torch.float32, device=image.device, requires_grad=False,
+            size=(image.size(0),),
+            dtype=torch.float32,
+            device=image.device,
+            requires_grad=False,
         )
         real_tensor = torch.ones(
-            size=(image.size(0),), dtype=torch.float32, device=image.device, requires_grad=False,
+            size=(image.size(0),),
+            dtype=torch.float32,
+            device=image.device,
+            requires_grad=False,
         )
         gen_image = self.model.generator(dp['inputs'])
 
@@ -29,8 +37,8 @@ class GANTrainer(GAN_BaseTrainer):
 
         # update discriminator
         D_loss = (
-            self.criterion(self.model.discriminator(image), real_tensor) +
-            self.criterion(self.model.discriminator(gen_image), fake_tensor)
+            self.criterion(self.model.discriminator(image), real_tensor)
+            + self.criterion(self.model.discriminator(gen_image), fake_tensor)
         ) / 2
         self.optimizer.optimizers['discriminator'].zero_grad()
         D_loss.backward(retain_graph=False)
@@ -38,11 +46,22 @@ class GANTrainer(GAN_BaseTrainer):
         self.scheduler.schedulers['discriminator'].step()
 
         # update logger
-        self.logger.update_buffer({"learning_rate": {
-            'G': self.scheduler.schedulers['generator'].get_last_lr(),
-            'D': self.scheduler.schedulers['discriminator'].get_last_lr(),
-        }})
-        self.logger.update_buffer(utils.logging.log_losses(losses={
-            'G': G_loss, 'D': D_loss,
-        }))
-        self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+        self.logger.update_buffer(
+            {
+                "learning_rate": {
+                    'G': self.scheduler.schedulers['generator'].get_last_lr(),
+                    'D': self.scheduler.schedulers['discriminator'].get_last_lr(),
+                }
+            }
+        )
+        self.logger.update_buffer(
+            utils.logging.log_losses(
+                losses={
+                    'G': G_loss,
+                    'D': D_loss,
+                }
+            )
+        )
+        self.logger.update_buffer(
+            {"iteration_time": round(time.time() - start_time, 2)}
+        )

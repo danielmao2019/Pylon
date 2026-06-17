@@ -8,7 +8,6 @@ from metrics.vision_3d.point_cloud_registration.geotransformer_metric.pointcloud
     get_rotation_translation_from_transform,
 )
 
-
 # Metrics
 
 
@@ -31,7 +30,9 @@ def compute_relative_rotation_error(gt_rotation: np.ndarray, est_rotation: np.nd
     return rre
 
 
-def compute_relative_translation_error(gt_translation: np.ndarray, est_translation: np.ndarray):
+def compute_relative_translation_error(
+    gt_translation: np.ndarray, est_translation: np.ndarray
+):
     r"""Compute the isotropic Relative Translation Error.
 
     RTE = \lVert t - \bar{t} \rVert_2
@@ -58,7 +59,9 @@ def compute_registration_error(gt_transform: np.ndarray, est_transform: np.ndarr
         rte (float): relative translation error.
     """
     gt_rotation, gt_translation = get_rotation_translation_from_transform(gt_transform)
-    est_rotation, est_translation = get_rotation_translation_from_transform(est_transform)
+    est_rotation, est_translation = get_rotation_translation_from_transform(
+        est_transform
+    )
     rre = compute_relative_rotation_error(gt_rotation, est_rotation)
     rte = compute_relative_translation_error(gt_translation, est_translation)
     return rre, rte
@@ -66,14 +69,20 @@ def compute_registration_error(gt_transform: np.ndarray, est_transform: np.ndarr
 
 def compute_rotation_mse_and_mae(gt_rotation: np.ndarray, est_rotation: np.ndarray):
     r"""Compute anisotropic rotation error (MSE and MAE)."""
-    gt_euler_angles = Rotation.from_dcm(gt_rotation).as_euler('xyz', degrees=True)  # (3,)
-    est_euler_angles = Rotation.from_dcm(est_rotation).as_euler('xyz', degrees=True)  # (3,)
+    gt_euler_angles = Rotation.from_dcm(gt_rotation).as_euler(
+        'xyz', degrees=True
+    )  # (3,)
+    est_euler_angles = Rotation.from_dcm(est_rotation).as_euler(
+        'xyz', degrees=True
+    )  # (3,)
     mse = np.mean((gt_euler_angles - est_euler_angles) ** 2)
     mae = np.mean(np.abs(gt_euler_angles - est_euler_angles))
     return mse, mae
 
 
-def compute_translation_mse_and_mae(gt_translation: np.ndarray, est_translation: np.ndarray):
+def compute_translation_mse_and_mae(
+    gt_translation: np.ndarray, est_translation: np.ndarray
+):
     r"""Compute anisotropic translation error (MSE and MAE)."""
     mse = np.mean((gt_translation - est_translation) ** 2)
     mae = np.mean(np.abs(gt_translation - est_translation))
@@ -83,13 +92,17 @@ def compute_translation_mse_and_mae(gt_translation: np.ndarray, est_translation:
 def compute_transform_mse_and_mae(gt_transform: np.ndarray, est_transform: np.ndarray):
     r"""Compute anisotropic rotation and translation error (MSE and MAE)."""
     gt_rotation, gt_translation = get_rotation_translation_from_transform(gt_transform)
-    est_rotation, est_translation = get_rotation_translation_from_transform(est_transform)
+    est_rotation, est_translation = get_rotation_translation_from_transform(
+        est_transform
+    )
     r_mse, r_mae = compute_rotation_mse_and_mae(gt_rotation, est_rotation)
     t_mse, t_mae = compute_translation_mse_and_mae(gt_translation, est_translation)
     return r_mse, r_mae, t_mse, t_mae
 
 
-def compute_registration_rmse(src_points: np.ndarray, gt_transform: np.ndarray, est_transform: np.ndarray):
+def compute_registration_rmse(
+    src_points: np.ndarray, gt_transform: np.ndarray, est_transform: np.ndarray
+):
     r"""Compute re-alignment error (approximated RMSE in 3DMatch).
 
     Used in Rotated 3DMatch.
@@ -136,7 +149,9 @@ def compute_correspondence_residual(ref_corr_points, src_corr_points, transform)
     return mean_residual
 
 
-def compute_inlier_ratio(ref_corr_points, src_corr_points, transform, positive_radius=0.1):
+def compute_inlier_ratio(
+    ref_corr_points, src_corr_points, transform, positive_radius=0.1
+):
     r"""Computing the inlier ratio between a set of correspondences."""
     src_corr_points = apply_transform(src_corr_points, transform)
     residuals = np.sqrt(((ref_corr_points - src_corr_points) ** 2).sum(1))
@@ -194,7 +209,9 @@ def extract_corr_indices_from_feats(
     """
     ref_nn_indices = get_nearest_neighbor(ref_feats, src_feats, return_index=True)[1]
     if mutual or bilateral:
-        src_nn_indices = get_nearest_neighbor(src_feats, ref_feats, return_index=True)[1]
+        src_nn_indices = get_nearest_neighbor(src_feats, ref_feats, return_index=True)[
+            1
+        ]
         ref_indices = np.arange(ref_feats.shape[0])
         if mutual:
             ref_masks = np.equal(src_nn_indices[ref_nn_indices], ref_indices)
@@ -219,7 +236,9 @@ def extract_correspondences_from_feats(
     return_feat_dist: bool = False,
 ):
     r"""Extract correspondences from features."""
-    ref_corr_indices, src_corr_indices = extract_corr_indices_from_feats(ref_feats, src_feats, mutual=mutual)
+    ref_corr_indices, src_corr_indices = extract_corr_indices_from_feats(
+        ref_feats, src_feats, mutual=mutual
+    )
 
     ref_corr_points = ref_points[ref_corr_indices]
     src_corr_points = src_points[src_corr_indices]
@@ -236,8 +255,12 @@ def extract_correspondences_from_feats(
 
 
 def evaluate_correspondences(ref_points, src_points, transform, positive_radius=0.1):
-    overlap = compute_overlap(ref_points, src_points, transform, positive_radius=positive_radius)
-    inlier_ratio = compute_inlier_ratio(ref_points, src_points, transform, positive_radius=positive_radius)
+    overlap = compute_overlap(
+        ref_points, src_points, transform, positive_radius=positive_radius
+    )
+    inlier_ratio = compute_inlier_ratio(
+        ref_points, src_points, transform, positive_radius=positive_radius
+    )
     residual = compute_correspondence_residual(ref_points, src_points, transform)
 
     return {
@@ -248,7 +271,9 @@ def evaluate_correspondences(ref_points, src_points, transform, positive_radius=
     }
 
 
-def evaluate_sparse_correspondences(ref_points, src_points, ref_corr_indices, src_corr_indices, gt_corr_indices):
+def evaluate_sparse_correspondences(
+    ref_points, src_points, ref_corr_indices, src_corr_indices, gt_corr_indices
+):
     ref_gt_corr_indices = gt_corr_indices[:, 0]
     src_gt_corr_indices = gt_corr_indices[:, 1]
 
@@ -268,8 +293,12 @@ def evaluate_sparse_correspondences(ref_points, src_points, ref_corr_indices, sr
 
     pos_corr_mat = pos_corr_mat > 0
     gt_corr_mat = gt_corr_mat > 0
-    ref_hit_ratio = np.any(pos_corr_mat, axis=1).sum() / (np.any(gt_corr_mat, axis=1).sum() + 1e-12)
-    src_hit_ratio = np.any(pos_corr_mat, axis=0).sum() / (np.any(gt_corr_mat, axis=0).sum() + 1e-12)
+    ref_hit_ratio = np.any(pos_corr_mat, axis=1).sum() / (
+        np.any(gt_corr_mat, axis=1).sum() + 1e-12
+    )
+    src_hit_ratio = np.any(pos_corr_mat, axis=0).sum() / (
+        np.any(gt_corr_mat, axis=0).sum() + 1e-12
+    )
     hit_ratio = 0.5 * (ref_hit_ratio + src_hit_ratio)
 
     return {

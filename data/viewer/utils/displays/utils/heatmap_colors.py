@@ -23,8 +23,8 @@ def map_scalars_to_rgb(scalars: torch.Tensor) -> torch.Tensor:
     assert isinstance(scalars, torch.Tensor), (
         "Scalars must be a torch.Tensor. scalars=%r" % scalars
     )
-    assert scalars.numel() > 0, (
-        "Scalars tensor must be non-empty. scalars.shape=%r" % (scalars.shape,)
+    assert scalars.numel() > 0, "Scalars tensor must be non-empty. scalars.shape=%r" % (
+        scalars.shape,
     )
     assert bool((scalars >= 0).all()), (
         "Scalars must be non-negative. scalars.min()=%r" % scalars.min().item()
@@ -56,12 +56,14 @@ def map_scalars_to_rgb(scalars: torch.Tensor) -> torch.Tensor:
     left_stop = stops[segment_index]
     right_stop = stops[segment_index + 1]
     segment_extent = (right_stop - left_stop).clamp(min=1e-12)
-    segment_fraction = (
-        (normalized - left_stop) / segment_extent
-    ).clamp(min=0.0, max=1.0)
+    segment_fraction = ((normalized - left_stop) / segment_extent).clamp(
+        min=0.0, max=1.0
+    )
     left_color = palette[segment_index]
     right_color = palette[segment_index + 1]
-    interpolated = left_color + (right_color - left_color) * segment_fraction.unsqueeze(-1)
+    interpolated = left_color + (right_color - left_color) * segment_fraction.unsqueeze(
+        -1
+    )
 
     rgb_uint8 = interpolated.round().clamp(min=0.0, max=255.0).to(torch.uint8)
     return rgb_uint8.reshape(*scalars.shape, 3)

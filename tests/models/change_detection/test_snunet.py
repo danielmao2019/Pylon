@@ -1,6 +1,8 @@
 import pytest
-from models.change_detection.snunet.snunet import SNUNet_ECAM
 import torch
+
+from models.change_detection.snunet.snunet import SNUNet_ECAM
+
 
 def test_snunet() -> None:
     model = SNUNet_ECAM()

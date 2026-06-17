@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from criteria.wrappers.hybrid_criterion import HybridCriterion
 
 
@@ -38,7 +39,9 @@ def test_buffer_behavior(criteria_cfg, sample_tensor):
 def test_disabled_buffer_initialization(criteria_cfg, sample_tensor):
     """Test HybridCriterion with disabled buffer."""
     # Create a criterion with disabled buffer
-    criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg, use_buffer=False)
+    criterion = HybridCriterion(
+        combine='sum', criteria_cfg=criteria_cfg, use_buffer=False
+    )
 
     # Test initialization
     assert criterion.use_buffer is False

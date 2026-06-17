@@ -1,6 +1,7 @@
 import pytest
-from data.transforms.vision_2d.flip import Flip
 import torch
+
+from data.transforms.vision_2d.flip import Flip
 
 
 @pytest.mark.parametrize(
@@ -8,22 +9,26 @@ import torch
     [
         # Test flipping along the last axis (columns)
         (torch.tensor([[1, 2, 3], [4, 5, 6]]), 1, torch.tensor([[3, 2, 1], [6, 5, 4]])),
-
         # Test flipping along the first axis (rows)
-        (torch.tensor([[1, 2], [3, 4], [5, 6]]), 0, torch.tensor([[5, 6], [3, 4], [1, 2]])),
-
+        (
+            torch.tensor([[1, 2], [3, 4], [5, 6]]),
+            0,
+            torch.tensor([[5, 6], [3, 4], [1, 2]]),
+        ),
         # Test flipping along a 3D tensor (depth)
         (
             torch.arange(2 * 2 * 2).view(2, 2, 2),
             2,
-            torch.tensor([[[1, 0], [3, 2]], [[5, 4], [7, 6]]])
+            torch.tensor([[[1, 0], [3, 2]], [[5, 4], [7, 6]]]),
         ),
-
         # Test flipping a 1D tensor
         (torch.tensor([1, 2, 3, 4]), 0, torch.tensor([4, 3, 2, 1])),
-
         # Test flipping along negative axis (-1 means last axis)
-        (torch.tensor([[1, 2, 3], [4, 5, 6]]), -1, torch.tensor([[3, 2, 1], [6, 5, 4]])),
+        (
+            torch.tensor([[1, 2, 3], [4, 5, 6]]),
+            -1,
+            torch.tensor([[3, 2, 1], [6, 5, 4]]),
+        ),
     ],
 )
 def test_flip(tensor, axis, expected):

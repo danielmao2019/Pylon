@@ -1,8 +1,8 @@
 from typing import Dict, List, Union
 
-import torch
 import numpy as np
 import open3d as o3d
+import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 

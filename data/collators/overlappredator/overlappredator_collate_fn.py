@@ -1,69 +1,90 @@
 import torch
-import data.collators.overlappredator.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
+
 import data.collators.overlappredator.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
+import data.collators.overlappredator.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
 from data.collators.pcr_collator import pcr_collate_fn
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
-def batch_grid_subsampling_kpconv(points, batches_len, sampleDl, features=None, labels=None, max_p=0, verbose=0, random_grid_orient=True):
+def batch_grid_subsampling_kpconv(
+    points,
+    batches_len,
+    sampleDl,
+    features=None,
+    labels=None,
+    max_p=0,
+    verbose=0,
+    random_grid_orient=True,
+):
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
     device = points.device
 
     if (features is None) and (labels is None):
-        s_points, s_len = cpp_subsampling.subsample_batch(points.cpu(),
-                                                          batches_len.cpu(),
-                                                          sampleDl=sampleDl,
-                                                          max_p=max_p,
-                                                          verbose=verbose)
-        return (
-            torch.from_numpy(s_points).to(device),
-            torch.from_numpy(s_len).to(device)
+        s_points, s_len = cpp_subsampling.subsample_batch(
+            points.cpu(),
+            batches_len.cpu(),
+            sampleDl=sampleDl,
+            max_p=max_p,
+            verbose=verbose,
         )
-
-    elif (labels is None):
-        s_points, s_len, s_features = cpp_subsampling.subsample_batch(points.cpu(),
-                                                                      batches_len.cpu(),
-                                                                      features=features,
-                                                                      sampleDl=sampleDl,
-                                                                      max_p=max_p,
-                                                                      verbose=verbose)
         return (
             torch.from_numpy(s_points).to(device),
             torch.from_numpy(s_len).to(device),
-            torch.from_numpy(s_features).to(device)
         )
 
-    elif (features is None):
-        s_points, s_len, s_labels = cpp_subsampling.subsample_batch(points.cpu(),
-                                                                    batches_len.cpu(),
-                                                                    classes=labels,
-                                                                    sampleDl=sampleDl,
-                                                                    max_p=max_p,
-                                                                    verbose=verbose)
-        return (
-            torch.from_numpy(s_points).to(device),
-            torch.from_numpy(s_len).to(device),
-            torch.from_numpy(s_labels).to(device)
+    elif labels is None:
+        s_points, s_len, s_features = cpp_subsampling.subsample_batch(
+            points.cpu(),
+            batches_len.cpu(),
+            features=features,
+            sampleDl=sampleDl,
+            max_p=max_p,
+            verbose=verbose,
         )
-
-    else:
-        s_points, s_len, s_features, s_labels = cpp_subsampling.subsample_batch(points.cpu(),
-                                                                              batches_len.cpu(),
-                                                                              features=features,
-                                                                              classes=labels,
-                                                                              sampleDl=sampleDl,
-                                                                              max_p=max_p,
-                                                                              verbose=verbose)
         return (
             torch.from_numpy(s_points).to(device),
             torch.from_numpy(s_len).to(device),
             torch.from_numpy(s_features).to(device),
-            torch.from_numpy(s_labels).to(device)
         )
 
-def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_neighbors):
+    elif features is None:
+        s_points, s_len, s_labels = cpp_subsampling.subsample_batch(
+            points.cpu(),
+            batches_len.cpu(),
+            classes=labels,
+            sampleDl=sampleDl,
+            max_p=max_p,
+            verbose=verbose,
+        )
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_labels).to(device),
+        )
+
+    else:
+        s_points, s_len, s_features, s_labels = cpp_subsampling.subsample_batch(
+            points.cpu(),
+            batches_len.cpu(),
+            features=features,
+            classes=labels,
+            sampleDl=sampleDl,
+            max_p=max_p,
+            verbose=verbose,
+        )
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_features).to(device),
+            torch.from_numpy(s_labels).to(device),
+        )
+
+
+def batch_neighbors_kpconv(
+    queries, supports, q_batches, s_batches, radius, max_neighbors
+):
     """
     Computes neighbors for a batch of queries and supports, apply radius search
     :param queries: (N1, 3) the query points
@@ -75,11 +96,14 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     """
     device = queries.device
 
-    neighbors = cpp_neighbors.batch_query(queries.cpu(), supports.cpu(), q_batches.cpu(), s_batches.cpu(), radius=radius)
+    neighbors = cpp_neighbors.batch_query(
+        queries.cpu(), supports.cpu(), q_batches.cpu(), s_batches.cpu(), radius=radius
+    )
     if max_neighbors > 0:
         return torch.from_numpy(neighbors[:, :max_neighbors]).to(device)
     else:
         return torch.from_numpy(neighbors).to(device)
+
 
 def unpack_overlappredator_data(data):
     """Unpack data to get points and features."""
@@ -101,7 +125,11 @@ def unpack_overlappredator_data(data):
 
     # Prepare batched data
     batched_features = torch.cat([src_feats, tgt_feats], dim=0)
-    batched_lengths = torch.tensor([src_pc.num_points, tgt_pc.num_points], dtype=torch.int64, device=batched_features.device)
+    batched_lengths = torch.tensor(
+        [src_pc.num_points, tgt_pc.num_points],
+        dtype=torch.int64,
+        device=batched_features.device,
+    )
 
     return {
         'src_points': src_pcd,
@@ -134,7 +162,9 @@ def create_overlappredator_architecture(config, neighborhood_limits):
         # Get all blocks of the layer
         if not ('pool' in block or 'strided' in block):
             layer_blocks += [block]
-            if block_i < len(config.architecture) - 1 and not ('upsample' in config.architecture[block_i + 1]):
+            if block_i < len(config.architecture) - 1 and not (
+                'upsample' in config.architecture[block_i + 1]
+            ):
                 continue
 
         # Define neighbor radius
@@ -150,17 +180,19 @@ def create_overlappredator_architecture(config, neighborhood_limits):
             downsample_radius = r_normal
 
         # Add block to architecture
-        architecture.append({
-            'neighbor': layer_blocks,
-            'neighbor_radius': neighbor_radius,
-            'neighbor_neighborhood_limit': neighborhood_limits[layer],
-            'downsample': 'pool' in block or 'strided' in block,
-            'sample_dl': 2 * r_normal / config.conv_radius,
-            'downsample_radius': downsample_radius,
-            'downsample_neighborhood_limit': neighborhood_limits[layer],
-            'upsample_radius': 2 * downsample_radius,
-            'upsample_neighborhood_limit': neighborhood_limits[layer],
-        })
+        architecture.append(
+            {
+                'neighbor': layer_blocks,
+                'neighbor_radius': neighbor_radius,
+                'neighbor_neighborhood_limit': neighborhood_limits[layer],
+                'downsample': 'pool' in block or 'strided' in block,
+                'sample_dl': 2 * r_normal / config.conv_radius,
+                'downsample_radius': downsample_radius,
+                'downsample_neighborhood_limit': neighborhood_limits[layer],
+                'upsample_radius': 2 * downsample_radius,
+                'upsample_neighborhood_limit': neighborhood_limits[layer],
+            }
+        )
 
         r_normal *= 2
         layer += 1

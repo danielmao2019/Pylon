@@ -1,12 +1,15 @@
 import torch
 import torch.nn.functional as F
-from models.change_detection.change_former.modules.upsample_conv_layer import UpsampleConvLayer
+
 from models.change_detection.change_former.modules.residual_block import ResidualBlock
+from models.change_detection.change_former.modules.upsample_conv_layer import (
+    UpsampleConvLayer,
+)
 
 
 class convprojection_base(torch.nn.Module):
     def __init__(self, path=None, **kwargs):
-        super(convprojection_base,self).__init__()
+        super(convprojection_base, self).__init__()
 
         # self.convd32x = UpsampleConvLayer(512, 512, kernel_size=4, stride=2)
         self.convd16x = UpsampleConvLayer(512, 320, kernel_size=4, stride=2)
@@ -19,19 +22,19 @@ class convprojection_base(torch.nn.Module):
         self.dense_1 = torch.nn.Sequential(ResidualBlock(16))
         self.convd1x = UpsampleConvLayer(16, 8, kernel_size=4, stride=2)
 
-    def forward(self,x1):
+    def forward(self, x1):
 
         res16x = self.convd16x(x1[3])
 
         if x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
-            p2d = (0,-1,0,-1)
-            res16x = F.pad(res16x,p2d,"constant",0)
+            p2d = (0, -1, 0, -1)
+            res16x = F.pad(res16x, p2d, "constant", 0)
         elif x1[2].shape[3] != res16x.shape[3] and x1[2].shape[2] == res16x.shape[2]:
-            p2d = (0,-1,0,0)
-            res16x = F.pad(res16x,p2d,"constant",0)
+            p2d = (0, -1, 0, 0)
+            res16x = F.pad(res16x, p2d, "constant", 0)
         elif x1[2].shape[3] == res16x.shape[3] and x1[2].shape[2] != res16x.shape[2]:
-            p2d = (0,0,0,-1)
-            res16x = F.pad(res16x,p2d,"constant",0)
+            p2d = (0, 0, 0, -1)
+            res16x = F.pad(res16x, p2d, "constant", 0)
 
         res8x = self.dense_4(res16x) + x1[2]
         res8x = self.convd8x(res8x)

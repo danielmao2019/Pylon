@@ -1,7 +1,8 @@
 """Test cases for determinism utilities."""
 
 import torch
-from utils.determinism import set_seed, set_determinism
+
+from utils.determinism import set_determinism, set_seed
 
 
 def test_set_seed():

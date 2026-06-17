@@ -1,7 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-import numpy as np
 
 
 class PositionEmbeddingLearned(nn.Module):
@@ -27,20 +27,30 @@ class PositionEmbeddingLearned(nn.Module):
         j = torch.arange(h, device=x.device)
         x_emb = self.col_embed(i)
         y_emb = self.row_embed(j)
-        pos = torch.cat([
-            x_emb.unsqueeze(0).repeat(h, 1, 1),
-            y_emb.unsqueeze(1).repeat(1, w, 1),
-        ], dim=-1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1).view(x.shape[0], h * w, -1)
+        pos = (
+            torch.cat(
+                [
+                    x_emb.unsqueeze(0).repeat(h, 1, 1),
+                    y_emb.unsqueeze(1).repeat(1, w, 1),
+                ],
+                dim=-1,
+            )
+            .unsqueeze(0)
+            .repeat(x.shape[0], 1, 1, 1)
+            .view(x.shape[0], h * w, -1)
+        )
         return pos
 
 
 class SpatialEncoding(nn.Module):
-    def __init__(self,
-                 in_dim,
-                 out_dim,
-                 sigma=6,
-                 cat_input=True,
-                 require_grad=False, ):
+    def __init__(
+        self,
+        in_dim,
+        out_dim,
+        sigma=6,
+        cat_input=True,
+        require_grad=False,
+    ):
 
         super().__init__()
         assert out_dim % (2 * in_dim) == 0, "dimension must be dividable"
@@ -70,8 +80,7 @@ class SpatialEncoding(nn.Module):
 
 
 def make_coord(shape, ranges=None, flatten=True):
-    """ Make coordinates at grid centers.
-    """
+    """Make coordinates at grid centers."""
     coord_seqs = []
     for i, n in enumerate(shape):
         if ranges is None:
@@ -94,7 +103,13 @@ def ifa_feat(res, size, stride=1, local=False):
     coords = coords.unsqueeze(0).expand(bs, *coords.shape)
     coords = (coords * 2 - 1).flip(-1)
 
-    feat_coords = make_coord((hh, ww), flatten=False).cuda().permute(2, 0, 1).unsqueeze(0).expand(res.shape[0], 2,                                                                                              *(hh, ww))
+    feat_coords = (
+        make_coord((hh, ww), flatten=False)
+        .cuda()
+        .permute(2, 0, 1)
+        .unsqueeze(0)
+        .expand(res.shape[0], 2, *(hh, ww))
+    )
 
     if local:
         vx_list = [-1, 1]
@@ -114,10 +129,15 @@ def ifa_feat(res, size, stride=1, local=False):
             coords_[:, :, 0] += vx * rx + eps_shift
             coords_[:, :, 1] += vy * ry + eps_shift
             coords_.clamp_(-1 + 1e-6, 1 - 1e-6)
-            q_feat = F.grid_sample(res, coords_.flip(-1).unsqueeze(1), mode='nearest', align_corners=False)[:, :, 0,
-                     :].permute(0, 2, 1)
-            q_coord = F.grid_sample(feat_coords, coords_.flip(-1).unsqueeze(1), mode='nearest', align_corners=False)[:,
-                      :, 0, :].permute(0, 2, 1)
+            q_feat = F.grid_sample(
+                res, coords_.flip(-1).unsqueeze(1), mode='nearest', align_corners=False
+            )[:, :, 0, :].permute(0, 2, 1)
+            q_coord = F.grid_sample(
+                feat_coords,
+                coords_.flip(-1).unsqueeze(1),
+                mode='nearest',
+                align_corners=False,
+            )[:, :, 0, :].permute(0, 2, 1)
             rel_coord = coords - q_coord
             rel_coord[:, :, 0] *= hh  # res.shape[-2]
             rel_coord[:, :, 1] *= ww  # res.shape[-1]
@@ -132,13 +152,25 @@ def ifa_feat(res, size, stride=1, local=False):
     else:
         return rel_coord_list, q_feat_list, area_list
 
+
 def get_syncbn():
     return nn.BatchNorm2d
 
 
 class ifa_simfpn(nn.Module):
-    def __init__(self, ultra_pe=False, pos_dim=40, sync_bn=False, num_classes=19, local=False, unfold=False, stride=1,
-                 learn_pe=False, require_grad=False, num_layer=2):
+    def __init__(
+        self,
+        ultra_pe=False,
+        pos_dim=40,
+        sync_bn=False,
+        num_classes=19,
+        local=False,
+        unfold=False,
+        stride=1,
+        learn_pe=False,
+        require_grad=False,
+        num_layer=2,
+    ):
 
         super(ifa_simfpn, self).__init__()
         self.pos_dim = pos_dim
@@ -169,22 +201,36 @@ class ifa_simfpn(nn.Module):
 
         if num_layer == 2:
             self.imnet = nn.Sequential(
-                nn.Conv1d(in_dim, 512, 1), norm_layer(512), nn.ReLU(),
-                nn.Conv1d(512, 256, 1), norm_layer(256), nn.ReLU(),
-                nn.Conv1d(256, 256, 1), norm_layer(256), nn.ReLU(),
-                nn.Conv1d(256, num_classes, 1)
+                nn.Conv1d(in_dim, 512, 1),
+                norm_layer(512),
+                nn.ReLU(),
+                nn.Conv1d(512, 256, 1),
+                norm_layer(256),
+                nn.ReLU(),
+                nn.Conv1d(256, 256, 1),
+                norm_layer(256),
+                nn.ReLU(),
+                nn.Conv1d(256, num_classes, 1),
             )
         elif num_layer == 0:
             self.imnet = nn.Sequential(
-                nn.Conv1d(in_dim, 128, 1), norm_layer(128), nn.ReLU(),
-                nn.Conv1d(128, 128, 1), norm_layer(128), nn.ReLU(),
-                nn.Conv1d(128, num_classes, 1)
+                nn.Conv1d(in_dim, 128, 1),
+                norm_layer(128),
+                nn.ReLU(),
+                nn.Conv1d(128, 128, 1),
+                norm_layer(128),
+                nn.ReLU(),
+                nn.Conv1d(128, num_classes, 1),
             )
         else:
             self.imnet = nn.Sequential(
-                nn.Conv1d(in_dim, 512, 1), norm_layer(512), nn.ReLU(),
-                nn.Conv1d(512, 256, 1), norm_layer(256), nn.ReLU(),
-                nn.Conv1d(256, num_classes, 1)
+                nn.Conv1d(in_dim, 512, 1),
+                norm_layer(512),
+                nn.ReLU(),
+                nn.Conv1d(512, 256, 1),
+                norm_layer(256),
+                nn.ReLU(),
+                nn.Conv1d(256, num_classes, 1),
             )
 
     def forward(self, x, size, level=0, after_cat=False):
@@ -192,7 +238,9 @@ class ifa_simfpn(nn.Module):
         if not after_cat:
             if not self.local:
                 if self.unfold:
-                    x = F.unfold(x, 3, padding=1).view(x.shape[0], x.shape[1] * 9, x.shape[2], x.shape[3])
+                    x = F.unfold(x, 3, padding=1).view(
+                        x.shape[0], x.shape[1] * 9, x.shape[2], x.shape[3]
+                    )
                 rel_coord, q_feat = ifa_feat(x, [h, w])
                 if self.ultra_pe or self.learn_pe:
                     buff = eval('self.pos' + str(level))
@@ -200,20 +248,26 @@ class ifa_simfpn(nn.Module):
                 x = torch.cat([rel_coord, q_feat], dim=-1)
             else:
                 if self.unfold:
-                    x = F.unfold(x, 3, padding=1).view(x.shape[0], x.shape[1] * 9, x.shape[2], x.shape[3])
-                rel_coord_list, q_feat_list, area_list = ifa_feat(x, [h, w], local=True, stride=self.stride)
+                    x = F.unfold(x, 3, padding=1).view(
+                        x.shape[0], x.shape[1] * 9, x.shape[2], x.shape[3]
+                    )
+                rel_coord_list, q_feat_list, area_list = ifa_feat(
+                    x, [h, w], local=True, stride=self.stride
+                )
                 total_area = torch.stack(area_list).sum(dim=0)
                 context_list = []
-                for rel_coord, q_feat, area in zip(rel_coord_list, q_feat_list, area_list):
+                for rel_coord, q_feat, area in zip(
+                    rel_coord_list, q_feat_list, area_list
+                ):
                     if self.ultra_pe or self.learn_pe:
                         rel_coord = eval('self.pos' + str(level))(rel_coord)
                     context_list.append(torch.cat([rel_coord, q_feat], dim=-1))
                 ret = 0
-                t = area_list[0];
-                area_list[0] = area_list[3];
+                t = area_list[0]
+                area_list[0] = area_list[3]
                 area_list[3] = t
-                t = area_list[1];
-                area_list[1] = area_list[2];
+                t = area_list[1]
+                area_list[1] = area_list[2]
                 area_list[2] = t
                 for conte, area in zip(context_list, area_list):
                     x = ret + conte * ((area / total_area).unsqueeze(-1))

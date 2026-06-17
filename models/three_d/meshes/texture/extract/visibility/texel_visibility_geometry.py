@@ -222,9 +222,7 @@ def _compute_pair_positive_area_overlap_mask(
             "Expected `second_polygon_verts` to match `first_polygon_verts`. "
             f"Got {second_polygon_verts.shape=} {first_polygon_verts.shape=}."
         )
-        assert first_polygon_vertex_counts.shape == (
-            first_polygon_verts.shape[0],
-        ), (
+        assert first_polygon_vertex_counts.shape == (first_polygon_verts.shape[0],), (
             "Expected `first_polygon_vertex_counts` to have shape `[P]`. "
             f"Got {first_polygon_vertex_counts.shape=} {first_polygon_verts.shape=}."
         )
@@ -447,8 +445,7 @@ def _compute_triangle_pixel_square_positive_area_overlap_mask(
             None.
         """
         assert isinstance(triangle_verts, torch.Tensor), (
-            "Expected `triangle_verts` to be a tensor. "
-            f"Got {type(triangle_verts)=}."
+            "Expected `triangle_verts` to be a tensor. " f"Got {type(triangle_verts)=}."
         )
         assert isinstance(pixel_x, torch.Tensor), (
             "Expected `pixel_x` to be a tensor. " f"Got {type(pixel_x)=}."
@@ -822,8 +819,7 @@ def build_visible_face_pixel_polygons(
     )
     visible_polygon_face_indices_chunks.append(multi_face_visible_polygon_face_indices)
     max_visible_polygon_vertex_capacity = max(
-        polygon_verts.shape[1]
-        for polygon_verts in visible_polygon_verts_chunks
+        polygon_verts.shape[1] for polygon_verts in visible_polygon_verts_chunks
     )
     visible_polygon_verts_chunks = [
         (
@@ -1077,8 +1073,7 @@ def _build_visible_multi_face_pixel_polygons(
         visible_polygon_face_indices_chunks.append(chunk_visible_polygon_face_indices)
 
     max_visible_polygon_vertex_capacity = max(
-        polygon_verts.shape[1]
-        for polygon_verts in visible_polygon_verts_chunks
+        polygon_verts.shape[1] for polygon_verts in visible_polygon_verts_chunks
     )
     visible_polygon_verts_chunks = [
         (
@@ -1528,8 +1523,7 @@ def _build_batched_pixel_cell_polygons(
         ).reshape(1, -1) < active_cell_polygon_vertex_counts.reshape(-1, 1)
         active_line_values = (
             line_coefficients[:, 0].unsqueeze(1) * active_cell_polygon_verts[:, :, 0]
-            + line_coefficients[:, 1].unsqueeze(1)
-            * active_cell_polygon_verts[:, :, 1]
+            + line_coefficients[:, 1].unsqueeze(1) * active_cell_polygon_verts[:, :, 1]
             + line_coefficients[:, 2].unsqueeze(1)
         )
         has_positive_vertex = torch.any(
@@ -1573,9 +1567,7 @@ def _build_batched_pixel_cell_polygons(
                 dtype=torch.bool,
             )
         )
-        candidate_cell_polygon_verts = active_cell_polygon_verts[
-            candidate_split_mask
-        ]
+        candidate_cell_polygon_verts = active_cell_polygon_verts[candidate_split_mask]
         candidate_padded_cell_polygon_verts = active_padded_cell_polygon_verts[
             candidate_split_mask
         ]
@@ -1659,9 +1651,7 @@ def _build_batched_pixel_cell_polygons(
                 ]
             )
 
-        cell_polygon_verts = torch.cat(
-            next_cell_polygon_verts, dim=0
-        ).contiguous()
+        cell_polygon_verts = torch.cat(next_cell_polygon_verts, dim=0).contiguous()
         cell_polygon_vertex_counts = torch.cat(
             next_cell_polygon_vertex_counts,
             dim=0,
@@ -1946,9 +1936,7 @@ def _pack_face_pixel_polygons_by_pixel(
         device=clipped_polygon_verts.device,
         dtype=torch.long,
     )
-    pixel_polygon_verts[group_indices, within_group_indices] = (
-        sorted_polygon_verts
-    )
+    pixel_polygon_verts[group_indices, within_group_indices] = sorted_polygon_verts
     pixel_polygon_vertex_counts[group_indices, within_group_indices] = (
         sorted_polygon_vertex_counts
     )
@@ -2148,8 +2136,7 @@ def _compute_convex_polygon_bounds(
             None.
         """
         assert isinstance(polygon_verts, torch.Tensor), (
-            "Expected `polygon_verts` to be a tensor. "
-            f"Got {type(polygon_verts)=}."
+            "Expected `polygon_verts` to be a tensor. " f"Got {type(polygon_verts)=}."
         )
         assert isinstance(polygon_vertex_counts, torch.Tensor), (
             "Expected `polygon_vertex_counts` to be a tensor. "
@@ -2246,8 +2233,7 @@ def _compute_points_near_convex_polygon_boundaries(
             "Expected `points` to be a tensor. " f"Got {type(points)=}."
         )
         assert isinstance(polygon_verts, torch.Tensor), (
-            "Expected `polygon_verts` to be a tensor. "
-            f"Got {type(polygon_verts)=}."
+            "Expected `polygon_verts` to be a tensor. " f"Got {type(polygon_verts)=}."
         )
         assert isinstance(polygon_vertex_counts, torch.Tensor), (
             "Expected `polygon_vertex_counts` to be a tensor. "
@@ -2704,8 +2690,7 @@ def _clip_triangle_polygons_to_pixel_squares(
         """
         # Input validations
         assert isinstance(triangle_verts, torch.Tensor), (
-            "Expected `triangle_verts` to be a tensor. "
-            f"Got {type(triangle_verts)=}."
+            "Expected `triangle_verts` to be a tensor. " f"Got {type(triangle_verts)=}."
         )
         assert isinstance(pixel_x, torch.Tensor), (
             "Expected `pixel_x` to be a tensor. " f"Got {type(pixel_x)=}."
@@ -3093,9 +3078,7 @@ def _compute_points_in_triangles(
         """
         # Input validations
         assert isinstance(points, torch.Tensor), f"{type(points)=}"
-        assert isinstance(
-            triangle_verts, torch.Tensor
-        ), f"{type(triangle_verts)=}"
+        assert isinstance(triangle_verts, torch.Tensor), f"{type(triangle_verts)=}"
         assert points.ndim == 3, f"{points.shape=}"
         assert points.shape[2] == 2, f"{points.shape=}"
         assert triangle_verts.ndim == 3, f"{triangle_verts.shape=}"
@@ -3202,9 +3185,7 @@ def duplicate_wrapped_uv_polygons(
     polygon_extends_right = polygon_x_max > 1.0
     polygon_extends_left = polygon_x_min < 0.0
     if torch.any(polygon_extends_right):
-        shifted_right = uv_polygon_verts[polygon_extends_right].to(
-            dtype=torch.float32
-        )
+        shifted_right = uv_polygon_verts[polygon_extends_right].to(dtype=torch.float32)
         shifted_right = shifted_right.clone()
         shifted_right[:, :, 0] = shifted_right[:, :, 0] - 1.0
         wrapped_polygon_vertex_chunks.append(shifted_right.contiguous())
@@ -3286,9 +3267,7 @@ def build_uv_polygon_texel_intersections(
             dtype=torch.long,
         )
 
-    polygon_texel_verts = uv_polygon_verts.to(dtype=torch.float32) * float(
-        texture_size
-    )
+    polygon_texel_verts = uv_polygon_verts.to(dtype=torch.float32) * float(texture_size)
     polygon_x_min, polygon_x_max, polygon_y_min, polygon_y_max = (
         _compute_convex_polygon_bounds(
             polygon_verts=polygon_texel_verts,
@@ -3405,9 +3384,7 @@ def build_uv_polygon_texel_intersections(
         boundary_candidate_mask = near_boundary_mask
         accepted_mask = interior_mask & (~near_boundary_mask)
         if torch.any(boundary_candidate_mask):
-            boundary_polygon_verts = candidate_polygon_verts[
-                boundary_candidate_mask
-            ]
+            boundary_polygon_verts = candidate_polygon_verts[boundary_candidate_mask]
             boundary_polygon_vertex_counts = candidate_polygon_vertex_counts[
                 boundary_candidate_mask
             ]
@@ -3624,11 +3601,9 @@ def build_uv_triangle_texel_intersections_v2(
             triangle_verts[:, :, 0] * next_triangle_verts[:, :, 1]
             - next_triangle_verts[:, :, 0] * triangle_verts[:, :, 1]
         )
-        triangle_double_area = (
-            triangle_verts[:, 1, 0] - triangle_verts[:, 0, 0]
-        ) * (triangle_verts[:, 2, 1] - triangle_verts[:, 0, 1]) - (
-            triangle_verts[:, 1, 1] - triangle_verts[:, 0, 1]
-        ) * (
+        triangle_double_area = (triangle_verts[:, 1, 0] - triangle_verts[:, 0, 0]) * (
+            triangle_verts[:, 2, 1] - triangle_verts[:, 0, 1]
+        ) - (triangle_verts[:, 1, 1] - triangle_verts[:, 0, 1]) * (
             triangle_verts[:, 2, 0] - triangle_verts[:, 0, 0]
         )
         triangle_orientation = torch.where(

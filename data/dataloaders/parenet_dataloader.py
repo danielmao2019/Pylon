@@ -1,5 +1,6 @@
-from typing import Any, Optional, List, Dict
 from functools import partial
+from typing import Any, Dict, List, Optional
+
 from data.collators.parenet.parenet_collator_wrapper import parenet_collate_fn
 from data.dataloaders.pcr_dataloader import PCRDataloader
 
@@ -45,8 +46,9 @@ class PARENetDataloader(PCRDataloader):
         # Initialize default neighbor counts if not provided
         if num_neighbors is None:
             num_neighbors = [32, 32, 32, 32][:num_stages]
-        assert len(num_neighbors) == num_stages, \
-            f"num_neighbors length ({len(num_neighbors)}) must match num_stages ({num_stages})"
+        assert (
+            len(num_neighbors) == num_stages
+        ), f"num_neighbors length ({len(num_neighbors)}) must match num_stages ({num_stages})"
 
         # Store parameters for cache versioning
         self.num_stages = num_stages
@@ -75,11 +77,13 @@ class PARENetDataloader(PCRDataloader):
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for PARENet dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)
-        version_dict.update({
-            'num_stages': self.num_stages,
-            'voxel_size': self.voxel_size,
-            'subsample_ratio': self.subsample_ratio,
-            'num_neighbors': self.num_neighbors,
-            'precompute_data': self.precompute_data
-        })
+        version_dict.update(
+            {
+                'num_stages': self.num_stages,
+                'voxel_size': self.voxel_size,
+                'subsample_ratio': self.subsample_ratio,
+                'num_neighbors': self.num_neighbors,
+                'precompute_data': self.precompute_data,
+            }
+        )
         return version_dict

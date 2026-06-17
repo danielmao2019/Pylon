@@ -6,15 +6,16 @@ processes/threads accessing progress files simultaneously without corruption
 or race conditions.
 """
 
+import os
 import tempfile
 import time
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from agents.manager.training_job import TrainingJob
-from agents.manager.runtime import JobRuntimeParams
+
+from agents.manager.default_job import DefaultJobProgressInfo
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.manager import Manager
-from agents.manager.default_job import DefaultJobProgressInfo
+from agents.manager.runtime import JobRuntimeParams
+from agents.manager.training_job import TrainingJob
 from utils.io.json import load_json, save_json
 
 # ============================================================================

@@ -1,12 +1,16 @@
 """Tests for COCOStuff164KDataset cache version discrimination."""
 
-import pytest
-import tempfile
 import os
-import numpy as np
+import tempfile
 from contextlib import contextmanager
+
+import numpy as np
+import pytest
 from PIL import Image
-from data.datasets.semantic_segmentation_datasets.coco_stuff_164k_dataset import COCOStuff164KDataset
+
+from data.datasets.semantic_segmentation_datasets.coco_stuff_164k_dataset import (
+    COCOStuff164KDataset,
+)
 
 
 @contextmanager
@@ -45,7 +49,9 @@ def create_dummy_cocostuff_structure(data_root: str) -> None:
     val_ids = ['000000000004', '000000000005']
 
     # Create curated file lists
-    with open(os.path.join(curated_train_dir, 'Coco164kFull_Stuff_Coarse.txt'), 'w') as f:
+    with open(
+        os.path.join(curated_train_dir, 'Coco164kFull_Stuff_Coarse.txt'), 'w'
+    ) as f:
         for img_id in train_ids:
             f.write(f"{img_id}\n")
 
@@ -61,7 +67,9 @@ def create_dummy_cocostuff_structure(data_root: str) -> None:
 
         # Create segmentation label (values 0-181 for fine labels)
         label = np.random.randint(0, 182, (256, 256), dtype=np.uint8)
-        Image.fromarray(label).save(os.path.join(annotations_train_dir, f"{img_id}.png"))
+        Image.fromarray(label).save(
+            os.path.join(annotations_train_dir, f"{img_id}.png")
+        )
 
     for img_id in val_ids:
         # Create RGB image
@@ -81,24 +89,24 @@ def test_cocostuff164k_dataset_version_discrimination():
         with patched_dataset_size():
             # Same parameters should have same hash
             dataset1a = COCOStuff164KDataset(
-                data_root=temp_dir,
-                split='train2017',
-                semantic_granularity='coarse'
+                data_root=temp_dir, split='train2017', semantic_granularity='coarse'
             )
             dataset1b = COCOStuff164KDataset(
-                data_root=temp_dir,
-                split='train2017',
-                semantic_granularity='coarse'
+                data_root=temp_dir, split='train2017', semantic_granularity='coarse'
             )
-            assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
+            assert (
+                dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
+            )
 
             # Different split should have different hash
             dataset2 = COCOStuff164KDataset(
                 data_root=temp_dir,
                 split='val2017',  # Different
-                semantic_granularity='coarse'
+                semantic_granularity='coarse',
             )
-            assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
+            assert (
+                dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
+            )
 
             # Note: semantic_granularity doesn't affect cache version hash as it's
             # considered a processing parameter, not a content parameter
@@ -109,9 +117,12 @@ def test_cocostuff164k_dataset_version_discrimination():
                 dataset4 = COCOStuff164KDataset(
                     data_root=temp_dir2,  # Different
                     split='train2017',
-                    semantic_granularity='coarse'
+                    semantic_granularity='coarse',
                 )
-                assert dataset1a.get_cache_version_hash() == dataset4.get_cache_version_hash()
+                assert (
+                    dataset1a.get_cache_version_hash()
+                    == dataset4.get_cache_version_hash()
+                )
 
 
 def test_split_variants():
@@ -125,16 +136,15 @@ def test_split_variants():
             datasets = []
             for split in split_variants:
                 dataset = COCOStuff164KDataset(
-                    data_root=temp_dir,
-                    split=split,
-                    semantic_granularity='coarse'
+                    data_root=temp_dir, split=split, semantic_granularity='coarse'
                 )
                 datasets.append(dataset)
 
             # All should have different hashes
             hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-            assert len(hashes) == len(set(hashes)), \
-                f"All split variants should produce different hashes, got: {hashes}"
+            assert len(hashes) == len(
+                set(hashes)
+            ), f"All split variants should produce different hashes, got: {hashes}"
 
 
 def test_semantic_granularity_variants():
@@ -145,18 +155,17 @@ def test_semantic_granularity_variants():
         with patched_dataset_size():
             # Both granularities should have same cache version hash since it's a processing parameter
             dataset_fine = COCOStuff164KDataset(
-                data_root=temp_dir,
-                split='train2017',
-                semantic_granularity='fine'
+                data_root=temp_dir, split='train2017', semantic_granularity='fine'
             )
             dataset_coarse = COCOStuff164KDataset(
-                data_root=temp_dir,
-                split='train2017',
-                semantic_granularity='coarse'
+                data_root=temp_dir, split='train2017', semantic_granularity='coarse'
             )
 
             # Should have same hash since semantic_granularity is processing-only
-            assert dataset_fine.get_cache_version_hash() == dataset_coarse.get_cache_version_hash()
+            assert (
+                dataset_fine.get_cache_version_hash()
+                == dataset_coarse.get_cache_version_hash()
+            )
 
             # But they should have different NUM_CLASSES
             assert dataset_fine.NUM_CLASSES != dataset_coarse.NUM_CLASSES
@@ -173,20 +182,27 @@ def test_comprehensive_no_hash_collisions():
             # Generate different dataset configurations
             # Note: data_root is excluded from versioning, so we only vary split
             for split in ['train2017', 'val2017']:
-                datasets.append(COCOStuff164KDataset(
-                    data_root=temp_dir,
-                    split=split,
-                    semantic_granularity='coarse'  # Keep this constant
-                ))
+                datasets.append(
+                    COCOStuff164KDataset(
+                        data_root=temp_dir,
+                        split=split,
+                        semantic_granularity='coarse',  # Keep this constant
+                    )
+                )
 
             # Collect all hashes
             hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
             # Ensure all hashes are unique (no collisions)
-            assert len(hashes) == len(set(hashes)), \
-                f"Hash collision detected! Duplicate hashes found in: {hashes}"
+            assert len(hashes) == len(
+                set(hashes)
+            ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
             # Ensure all hashes are properly formatted
             for hash_val in hashes:
-                assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-                assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
+                assert isinstance(
+                    hash_val, str
+                ), f"Hash must be string, got {type(hash_val)}"
+                assert (
+                    len(hash_val) == 16
+                ), f"Hash must be 16 characters, got {len(hash_val)}"

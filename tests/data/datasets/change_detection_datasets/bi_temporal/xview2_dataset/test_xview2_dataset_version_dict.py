@@ -25,7 +25,10 @@ def test_xview2_dataset_has_version_dict_method():
 
     # Should return Dict[str, Any]
     return_annotation = signature.return_annotation
-    assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    assert (
+        return_annotation == Dict[str, Any]
+        or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    )
 
 
 def test_xview2_dataset_version_dict_with_train_config(xview2_dataset_train_config):

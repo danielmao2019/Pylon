@@ -3,11 +3,13 @@ import warnings
 
 import torch
 
-from .pairwise_distance import pairwise_distance
 from .index_select import index_select
+from .pairwise_distance import pairwise_distance
 
 
-def get_point_to_node_indices(points: torch.Tensor, nodes: torch.Tensor, return_counts: bool = False):
+def get_point_to_node_indices(
+    points: torch.Tensor, nodes: torch.Tensor, return_counts: bool = False
+):
     r"""Compute Point-to-Node partition indices of the point cloud.
 
     Distribute points to the nearest node. Each point is distributed to only one node.
@@ -33,7 +35,9 @@ def get_point_to_node_indices(points: torch.Tensor, nodes: torch.Tensor, return_
 
 
 @torch.no_grad()
-def knn_partition(points: torch.Tensor, nodes: torch.Tensor, k: int, return_distance: bool = False):
+def knn_partition(
+    points: torch.Tensor, nodes: torch.Tensor, k: int, return_distance: bool = False
+):
     r"""k-NN partition of the point cloud.
 
     Find the k nearest points for each node.
@@ -94,9 +98,15 @@ def point_to_node_partition(
     matching_masks[point_to_node, point_indices] = True  # (M, N)
     sq_dist_mat.masked_fill_(~matching_masks, 1e12)  # (M, N)
 
-    node_knn_indices = sq_dist_mat.topk(k=point_limit, dim=1, largest=False)[1]  # (M, K)
-    node_knn_node_indices = index_select(point_to_node, node_knn_indices, dim=0)  # (M, K)
-    node_indices = torch.arange(nodes.shape[0]).cuda().unsqueeze(1).expand(-1, point_limit)  # (M, K)
+    node_knn_indices = sq_dist_mat.topk(k=point_limit, dim=1, largest=False)[
+        1
+    ]  # (M, K)
+    node_knn_node_indices = index_select(
+        point_to_node, node_knn_indices, dim=0
+    )  # (M, K)
+    node_indices = (
+        torch.arange(nodes.shape[0]).cuda().unsqueeze(1).expand(-1, point_limit)
+    )  # (M, K)
     node_knn_masks = torch.eq(node_knn_node_indices, node_indices)  # (M, K)
     node_knn_indices.masked_fill_(~node_knn_masks, points.shape[0])
 
@@ -117,10 +127,14 @@ def ball_query_partition(
     point_limit: int,
     return_count: bool = False,
 ):
-    node_knn_distances, node_knn_indices = knn_partition(points, nodes, point_limit, return_distance=True)
+    node_knn_distances, node_knn_indices = knn_partition(
+        points, nodes, point_limit, return_distance=True
+    )
     node_knn_masks = torch.lt(node_knn_distances, radius)  # (N, k)
     sentinel_indices = torch.full_like(node_knn_indices, points.shape[0])  # (N, k)
-    node_knn_indices = torch.where(node_knn_masks, node_knn_indices, sentinel_indices)  # (N, k)
+    node_knn_indices = torch.where(
+        node_knn_masks, node_knn_indices, sentinel_indices
+    )  # (N, k)
     node_masks = node_knn_masks.sum(-1) > 0
     if return_count:
         node_sizes = node_knn_masks.sum(1)  # (N,)
@@ -155,16 +169,24 @@ def point_to_node_partition_bug(
         node_knn_indices (LongTensor): (M, K)
         node_knn_masks (BoolTensor) (M, K)
     """
-    warnings.warn('There is a bug in this implementation. Use `point_to_node_partition` instead.')
+    warnings.warn(
+        'There is a bug in this implementation. Use `point_to_node_partition` instead.'
+    )
     sq_dist_mat = pairwise_distance(nodes, points)  # (M, N)
 
     point_to_node = sq_dist_mat.min(dim=0)[1]  # (N,)
     node_masks = torch.zeros(nodes.shape[0], dtype=torch.bool).cuda()  # (M,)
     node_masks.index_fill_(0, point_to_node, True)
 
-    node_knn_indices = sq_dist_mat.topk(k=point_limit, dim=1, largest=False)[1]  # (M, K)
-    node_knn_node_indices = index_select(point_to_node, node_knn_indices, dim=0)  # (M, K)
-    node_indices = torch.arange(nodes.shape[0]).cuda().unsqueeze(1).expand(-1, point_limit)  # (M, K)
+    node_knn_indices = sq_dist_mat.topk(k=point_limit, dim=1, largest=False)[
+        1
+    ]  # (M, K)
+    node_knn_node_indices = index_select(
+        point_to_node, node_knn_indices, dim=0
+    )  # (M, K)
+    node_indices = (
+        torch.arange(nodes.shape[0]).cuda().unsqueeze(1).expand(-1, point_limit)
+    )  # (M, K)
     node_knn_masks = torch.eq(node_knn_node_indices, node_indices)  # (M, K)
     node_knn_indices.masked_fill_(~node_knn_masks, points.shape[0])
 

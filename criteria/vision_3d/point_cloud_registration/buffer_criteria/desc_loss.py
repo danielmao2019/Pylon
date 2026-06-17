@@ -6,7 +6,7 @@ from sklearn.metrics import precision_recall_fscore_support
 
 
 def all_diffs(a, b):
-    """ Returns a tensor of all combinations of a - b.
+    """Returns a tensor of all combinations of a - b.
 
     Args:
         a (2D tensor): A batch of vectors shaped (B1, F).
@@ -45,18 +45,21 @@ def cdist(a, b, metric='euclidean'):
 
     diffs = all_diffs(a, b)
     if metric == 'sqeuclidean':
-        return torch.sum(diffs ** 2, dim=-1)
+        return torch.sum(diffs**2, dim=-1)
     elif metric == 'euclidean':
-        return torch.sqrt(torch.sum(diffs ** 2, dim=-1) + 1e-12)
+        return torch.sqrt(torch.sum(diffs**2, dim=-1) + 1e-12)
     elif metric == 'cityblock':
         return torch.sum(torch.abs(diffs), dim=-1)
     else:
         raise NotImplementedError(
-            'The following metric is not implemented by `cdist` yet: {}'.format(metric))
+            'The following metric is not implemented by `cdist` yet: {}'.format(metric)
+        )
 
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, pos_margin=0.1, neg_margin=1.4, metric='euclidean', safe_radius=0.10):
+    def __init__(
+        self, pos_margin=0.1, neg_margin=1.4, metric='euclidean', safe_radius=0.10
+    ):
         super(ContrastiveLoss, self).__init__()
         self.pos_margin = pos_margin
         self.neg_margin = neg_margin
@@ -67,7 +70,9 @@ class ContrastiveLoss(nn.Module):
         pids = torch.FloatTensor(np.arange(len(anchor))).to(anchor.device)
         if dist.nelement() == 0:
             dist = cdist(anchor, positive, metric=self.metric)
-        dist_keypts = np.eye(dist_keypts.shape[0]) * 10 + dist_keypts.detach().cpu().numpy()
+        dist_keypts = (
+            np.eye(dist_keypts.shape[0]) * 10 + dist_keypts.detach().cpu().numpy()
+        )
         add_matrix = torch.zeros_like(dist)
         add_matrix[np.where(dist_keypts < self.safe_radius)] += 10
         dist = dist + add_matrix
@@ -90,7 +95,9 @@ class ContrastiveLoss(nn.Module):
         # generate the mask that mask[i, j] reprensent whether i th and j th are from the same identity.
         # torch.equal is to check whether two tensors have the same size and elements
         # torch.eq is to computes element-wise equality
-        same_identity_mask = torch.eq(torch.unsqueeze(pids, dim=1), torch.unsqueeze(pids, dim=0))
+        same_identity_mask = torch.eq(
+            torch.unsqueeze(pids, dim=1), torch.unsqueeze(pids, dim=0)
+        )
         # negative_mask = np.logical_not(same_identity_mask)
 
         # dists * same_identity_mask get the distance of each valid anchor-positive pair.
@@ -101,14 +108,21 @@ class ContrastiveLoss(nn.Module):
         # closest_negative = torch.min(closest_negative_col, closest_negative_row)
         diff = furthest_positive - closest_negative
         accuracy = (diff < 0).sum() * 100.0 / diff.shape[0]
-        loss = torch.max(furthest_positive - self.pos_margin, torch.zeros_like(diff)) + torch.max(
-            self.neg_margin - closest_negative, torch.zeros_like(diff))
+        loss = torch.max(
+            furthest_positive - self.pos_margin, torch.zeros_like(diff)
+        ) + torch.max(self.neg_margin - closest_negative, torch.zeros_like(diff))
 
-        return torch.mean(loss), closest_negative / (furthest_positive+1e-6), accuracy #
+        return (
+            torch.mean(loss),
+            closest_negative / (furthest_positive + 1e-6),
+            accuracy,
+        )  #
 
 
 class Hardest_ContrastiveLoss(nn.Module):
-    def __init__(self, pos_margin=0.1, neg_margin=1.4, metric='euclidean', safe_radius=0.10):
+    def __init__(
+        self, pos_margin=0.1, neg_margin=1.4, metric='euclidean', safe_radius=0.10
+    ):
         super(Hardest_ContrastiveLoss, self).__init__()
         self.pos_margin = pos_margin
         self.neg_margin = neg_margin
@@ -118,7 +132,9 @@ class Hardest_ContrastiveLoss(nn.Module):
     def forward(self, anchor, positive, dist_keypts):
         pids = torch.FloatTensor(np.arange(len(anchor))).to(anchor.device)
         dist = cdist(anchor, positive, metric=self.metric)
-        dist_keypts = np.eye(dist_keypts.shape[0]) * 10 + dist_keypts.detach().cpu().numpy()
+        dist_keypts = (
+            np.eye(dist_keypts.shape[0]) * 10 + dist_keypts.detach().cpu().numpy()
+        )
         add_matrix = torch.zeros_like(dist)
         add_matrix[np.where(dist_keypts < self.safe_radius)] += 10
         dist = dist + add_matrix
@@ -138,7 +154,9 @@ class Hardest_ContrastiveLoss(nn.Module):
         Returns:
             A 1D tensor of shape (B,) containing the loss value for each sample.
         """
-        same_identity_mask = torch.eq(torch.unsqueeze(pids, dim=1), torch.unsqueeze(pids, dim=0))
+        same_identity_mask = torch.eq(
+            torch.unsqueeze(pids, dim=1), torch.unsqueeze(pids, dim=0)
+        )
 
         # dists * same_identity_mask get the distance of each valid anchor-positive pair.
         furthest_positive, _ = torch.max(dists * same_identity_mask.float(), dim=1)
@@ -149,9 +167,11 @@ class Hardest_ContrastiveLoss(nn.Module):
         diff = furthest_positive - closest_negative
         accuracy = (diff < 0).sum() * 100.0 / diff.shape[0]
 
-        loss = F.relu(furthest_positive.pow(2) - self.pos_margin) + \
-               0.5 * F.relu(self.neg_margin - closest_neg_col[0]).pow(2) + \
-               0.5 * F.relu(self.neg_margin - closest_neg_row[0]).pow(2)
+        loss = (
+            F.relu(furthest_positive.pow(2) - self.pos_margin)
+            + 0.5 * F.relu(self.neg_margin - closest_neg_col[0]).pow(2)
+            + 0.5 * F.relu(self.neg_margin - closest_neg_row[0]).pow(2)
+        )
 
         return torch.mean(loss), accuracy
 
@@ -181,12 +201,15 @@ class ClassificationLoss(nn.Module):
         """
 
         loss = nn.BCELoss(
-            reduction='none')  # Binary Cross Entropy loss, expects that the input was passed through the sigmoid
+            reduction='none'
+        )  # Binary Cross Entropy loss, expects that the input was passed through the sigmoid
         sigmoid = nn.Sigmoid()
 
         predicted_labels = sigmoid(predicted).flatten().to(self.device)
 
-        class_loss = loss(predicted_labels, target.flatten()).reshape(predicted.shape[0], -1)
+        class_loss = loss(predicted_labels, target.flatten()).reshape(
+            predicted.shape[0], -1
+        )
 
         # Computing weights for compensating the class imbalance
 
@@ -220,19 +243,22 @@ class ClassificationLoss(nn.Module):
 
         class_loss = self.class_loss(predicted, target)
 
-        loss = torch.tensor([0.]).to(self.device)
+        loss = torch.tensor([0.0]).to(self.device)
 
         if self.w_class > 0:
             loss += torch.mean(self.w_class * class_loss)
 
         if self.compute_stats:
-            assert scores != None, "If precision and recall should be computed, scores cannot be None!"
+            assert (
+                scores != None
+            ), "If precision and recall should be computed, scores cannot be None!"
 
             y_predicted = scores.detach().cpu().numpy().reshape(-1)
             y_gt = target.detach().cpu().numpy().reshape(-1)
 
-            precision, recall, f_measure, _ = precision_recall_fscore_support(y_gt, y_predicted.round(),
-                                                                              average='binary')
+            precision, recall, f_measure, _ = precision_recall_fscore_support(
+                y_gt, y_predicted.round(), average='binary'
+            )
 
             return loss, precision, recall
 
@@ -279,27 +305,52 @@ class TransformationLoss(nn.Module):
         """
         if self.trans_loss_type == 0:
 
-            x2_reconstruct = torch.matmul(rot_est, x_in[:, 0, :, 0:3].transpose(1, 2)) + trans_est
+            x2_reconstruct = (
+                torch.matmul(rot_est, x_in[:, 0, :, 0:3].transpose(1, 2)) + trans_est
+            )
             r_loss = torch.mean(
-                torch.mean(torch.norm(x2_reconstruct.transpose(1, 2) - x_in[:, :, :, 3:6], dim=(1)), dim=1))
+                torch.mean(
+                    torch.norm(
+                        x2_reconstruct.transpose(1, 2) - x_in[:, :, :, 3:6], dim=(1)
+                    ),
+                    dim=1,
+                )
+            )
             t_loss = torch.zeros_like(r_loss)
 
         elif self.trans_loss_type == 1:
             r_loss = torch.norm(gt_rot_mat - rot_est, dim=(1, 2))
-            t_loss = torch.norm(trans_est - gt_t_vec, dim=1)  # Torch norm already does sqrt (p=1 for no sqrt)
+            t_loss = torch.norm(
+                trans_est - gt_t_vec, dim=1
+            )  # Torch norm already does sqrt (p=1 for no sqrt)
 
         elif self.trans_loss_type == 2:
-            x2_reconstruct_estimated = torch.matmul(rot_est, x_in[:, 0, :, 0:3].transpose(1, 2)) + trans_est
-            x2_reconstruct_gt = torch.matmul(gt_rot_mat, x_in[:, 0, :, 0:3].transpose(1, 2)) + gt_t_vec
+            x2_reconstruct_estimated = (
+                torch.matmul(rot_est, x_in[:, 0, :, 0:3].transpose(1, 2)) + trans_est
+            )
+            x2_reconstruct_gt = (
+                torch.matmul(gt_rot_mat, x_in[:, 0, :, 0:3].transpose(1, 2)) + gt_t_vec
+            )
 
-            r_loss = torch.mean(torch.norm(x2_reconstruct_estimated - x2_reconstruct_gt, dim=1), dim=1)
+            r_loss = torch.mean(
+                torch.norm(x2_reconstruct_estimated - x2_reconstruct_gt, dim=1), dim=1
+            )
             t_loss = torch.zeros_like(r_loss)
 
         elif self.trans_loss_type == 3:
-            x2_reconstruct_estimated = torch.matmul(rot_est, x_in[:, 0, :, 0:3].transpose(1, 2)) + trans_est
-            x2_reconstruct_gt = torch.matmul(gt_rot_mat, x_in[:, 0, :, 0:3].transpose(1, 2)) + gt_t_vec
+            x2_reconstruct_estimated = (
+                torch.matmul(rot_est, x_in[:, 0, :, 0:3].transpose(1, 2)) + trans_est
+            )
+            x2_reconstruct_gt = (
+                torch.matmul(gt_rot_mat, x_in[:, 0, :, 0:3].transpose(1, 2)) + gt_t_vec
+            )
 
-            r_loss = torch.mean(torch.sum(torch.abs(x2_reconstruct_estimated - x2_reconstruct_gt), dim=1), dim=1)
+            r_loss = torch.mean(
+                torch.sum(
+                    torch.abs(x2_reconstruct_estimated - x2_reconstruct_gt), dim=1
+                ),
+                dim=1,
+            )
             t_loss = torch.zeros_like(r_loss)
 
         return r_loss, t_loss
@@ -320,7 +371,11 @@ class TransformationLoss(nn.Module):
         """
 
         # Extract the current data
-        x_in, gt_R, gt_t = data['xs'].to(self.device), data['R'].to(self.device), data['t'].to(self.device)
+        x_in, gt_R, gt_t = (
+            data['xs'].to(self.device),
+            data['R'].to(self.device),
+            data['t'].to(self.device),
+        )
         gt_inlier_ratio = data['inlier_ratio'].to(self.device)
 
         # Compute the transformation loss
@@ -331,16 +386,24 @@ class TransformationLoss(nn.Module):
         inlier_ratio_mask = torch.zeros_like(r_loss)
         inlier_ratio_mask[idx_inlier_ratio] = 1
 
-        loss_raw = torch.tensor([0.]).to(self.device)
+        loss_raw = torch.tensor([0.0]).to(self.device)
 
         if self.w_trans > 0:
             r_loss *= inlier_ratio_mask
             t_loss *= inlier_ratio_mask
 
             loss_raw += torch.mean(
-                torch.min(self.w_trans * (r_loss + t_loss), self.trans_loss_margin * torch.ones_like(t_loss)))
+                torch.min(
+                    self.w_trans * (r_loss + t_loss),
+                    self.trans_loss_margin * torch.ones_like(t_loss),
+                )
+            )
 
         # Check global_step and add essential loss
-        loss = loss_raw if global_step >= self.trans_loss_iter else torch.tensor([0.]).to(self.device)
+        loss = (
+            loss_raw
+            if global_step >= self.trans_loss_iter
+            else torch.tensor([0.0]).to(self.device)
+        )
 
         return loss, loss_raw

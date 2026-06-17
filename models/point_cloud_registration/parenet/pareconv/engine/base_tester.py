@@ -1,21 +1,27 @@
+import abc
+import argparse
+import json
+import os.path as osp
 import pdb
 import sys
-import argparse
-import os.path as osp
 import time
-import json
-import abc
-import torch
+
 import ipdb
+import torch
 
 from ..utils.torch import initialize
 from .logger import Logger
+
 
 def inject_default_parser(parser=None):
     if parser is None:
         parser = argparse.ArgumentParser()
     # parser.add_argument('--snapshot', default='../../pretrain/kitti.pth.tar', help='load from snapshot')
-    parser.add_argument('--snapshot', default='../../pretrain/3dmatch.pth.tar', help='load from snapshot')
+    parser.add_argument(
+        '--snapshot',
+        default='../../pretrain/3dmatch.pth.tar',
+        help='load from snapshot',
+    )
 
     return parser
 
@@ -26,7 +32,9 @@ class BaseTester(abc.ABC):
         parser = inject_default_parser(parser)
         self.args = parser.parse_args()
         # logger
-        log_file = osp.join(cfg.log_dir, 'test-{}.log'.format(time.strftime('%Y%m%d-%H%M%S')))
+        log_file = osp.join(
+            cfg.log_dir, 'test-{}.log'.format(time.strftime('%Y%m%d-%H%M%S'))
+        )
         self.logger = Logger(log_file=log_file)
         self.cfg = cfg
         # command executed

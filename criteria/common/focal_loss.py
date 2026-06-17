@@ -1,6 +1,8 @@
 from typing import Optional, Union
+
 import numpy as np
 import torch
+
 from criteria.wrappers import SingleTaskCriterion
 from utils.input_checks import check_classification
 
@@ -30,7 +32,9 @@ class FocalLoss(SingleTaskCriterion):
         super(FocalLoss, self).__init__(**kwargs)
 
         # Initialize gamma
-        assert isinstance(gamma, (int, float)) and gamma >= 0, "gamma must be a non-negative number"
+        assert (
+            isinstance(gamma, (int, float)) and gamma >= 0
+        ), "gamma must be a non-negative number"
         self.gamma = gamma
 
         # Initialize class weights
@@ -39,7 +43,9 @@ class FocalLoss(SingleTaskCriterion):
                 class_weights = torch.tensor(class_weights)
             elif isinstance(class_weights, np.ndarray):
                 class_weights = torch.from_numpy(class_weights)
-            assert isinstance(class_weights, torch.Tensor), "class_weights must be convertible to torch.Tensor"
+            assert isinstance(
+                class_weights, torch.Tensor
+            ), "class_weights must be convertible to torch.Tensor"
             assert class_weights.ndim == 1, "class_weights must be 1D"
             self.register_buffer('class_weights', class_weights)
         else:
@@ -118,8 +124,9 @@ class FocalLoss(SingleTaskCriterion):
         # Get class weights if available
         if self.class_weights is not None:
             # Ensure class_weights matches number of classes
-            assert self.class_weights.size(0) == y_pred.size(1), \
-                f"class_weights length ({self.class_weights.size(0)}) must match number of classes ({y_pred.size(1)})"
+            assert self.class_weights.size(0) == y_pred.size(
+                1
+            ), f"class_weights length ({self.class_weights.size(0)}) must match number of classes ({y_pred.size(1)})"
             weights = self.class_weights[y_true]
         else:
             weights = 1 / y_pred.size(1)

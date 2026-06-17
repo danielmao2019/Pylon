@@ -45,63 +45,113 @@ def transforms_cfg() -> Dict[str, Any]:
 
 def validate_inputs(inputs: Dict[str, Any]) -> tuple[PointCloud, PointCloud]:
     assert isinstance(inputs, dict), f"{type(inputs)=}"
-    assert inputs.keys() >= {'src_pc', 'tgt_pc'}, f"inputs missing required keys: {inputs.keys()=}"
+    assert inputs.keys() >= {
+        'src_pc',
+        'tgt_pc',
+    }, f"inputs missing required keys: {inputs.keys()=}"
 
     src_pc = inputs['src_pc']
     tgt_pc = inputs['tgt_pc']
     for pc_name, pc in [('src_pc', src_pc), ('tgt_pc', tgt_pc)]:
-        assert isinstance(pc, PointCloud), f"{pc_name} should be a PointCloud: {type(pc)=}"
+        assert isinstance(
+            pc, PointCloud
+        ), f"{pc_name} should be a PointCloud: {type(pc)=}"
 
         xyz = pc.xyz
-        assert isinstance(xyz, torch.Tensor), f"{pc_name}.xyz should be a torch.Tensor: {type(xyz)=}"
+        assert isinstance(
+            xyz, torch.Tensor
+        ), f"{pc_name}.xyz should be a torch.Tensor: {type(xyz)=}"
         assert xyz.dim() == 2, f"{pc_name}.xyz should be 2-dimensional: {xyz.shape=}"
-        assert xyz.size(1) == 3, f"{pc_name}.xyz should have 3 coordinates: {xyz.shape=}"
-        assert xyz.dtype == torch.float32, f"{pc_name}.xyz dtype incorrect: {xyz.dtype=}"
+        assert (
+            xyz.size(1) == 3
+        ), f"{pc_name}.xyz should have 3 coordinates: {xyz.shape=}"
+        assert (
+            xyz.dtype == torch.float32
+        ), f"{pc_name}.xyz dtype incorrect: {xyz.dtype=}"
         assert not torch.isnan(xyz).any(), f"{pc_name}.xyz contains NaN values"
 
         # Check that point clouds have reasonable number of points (after cropping)
         num_points = xyz.shape[0]
-        assert num_points > 50, f"{pc_name} has too few points after cropping: {num_points}"
+        assert (
+            num_points > 50
+        ), f"{pc_name} has too few points after cropping: {num_points}"
         assert num_points < 50000, f"{pc_name} has too many points: {num_points}"
 
         if hasattr(pc, 'feat'):
             feat = pc.feat
-            assert isinstance(feat, torch.Tensor), f"{pc_name}.feat should be torch.Tensor: {type(feat)=}"
-            assert feat.ndim == 2, f"{pc_name}.feat should be 2-dimensional: {feat.shape=}"
-            assert feat.shape[0] == num_points, f"{pc_name}.feat length mismatch: {feat.shape=}, {num_points=}"
-            assert feat.dtype == torch.float32, f"{pc_name}.feat dtype incorrect: {feat.dtype=}"
+            assert isinstance(
+                feat, torch.Tensor
+            ), f"{pc_name}.feat should be torch.Tensor: {type(feat)=}"
+            assert (
+                feat.ndim == 2
+            ), f"{pc_name}.feat should be 2-dimensional: {feat.shape=}"
+            assert (
+                feat.shape[0] == num_points
+            ), f"{pc_name}.feat length mismatch: {feat.shape=}, {num_points=}"
+            assert (
+                feat.dtype == torch.float32
+            ), f"{pc_name}.feat dtype incorrect: {feat.dtype=}"
 
     # For ModelNet40 (self-registration), source and target should have different number of points
     # since source is cropped but target is not
     src_points = src_pc.num_points
     tgt_points = tgt_pc.num_points
-    assert src_points <= tgt_points, f"Source should have fewer or equal points than target: {src_points} vs {tgt_points}"
+    assert (
+        src_points <= tgt_points
+    ), f"Source should have fewer or equal points than target: {src_points} vs {tgt_points}"
 
     # Check correspondences if present
     if 'correspondences' in inputs:
         corr = inputs['correspondences']
-        assert isinstance(corr, torch.Tensor), f"correspondences should be a torch.Tensor: {type(corr)=}"
-        assert corr.dim() == 2, f"correspondences should be 2-dimensional: {corr.shape=}"
-        assert corr.size(1) == 2, f"correspondences should have 2 columns: {corr.shape=}"
-        assert corr.dtype == torch.int64, f"correspondences dtype incorrect: {corr.dtype=}"
+        assert isinstance(
+            corr, torch.Tensor
+        ), f"correspondences should be a torch.Tensor: {type(corr)=}"
+        assert (
+            corr.dim() == 2
+        ), f"correspondences should be 2-dimensional: {corr.shape=}"
+        assert (
+            corr.size(1) == 2
+        ), f"correspondences should have 2 columns: {corr.shape=}"
+        assert (
+            corr.dtype == torch.int64
+        ), f"correspondences dtype incorrect: {corr.dtype=}"
 
         # Check correspondence indices are valid
         max_src_idx = corr[:, 0].max()
         max_tgt_idx = corr[:, 1].max()
-        assert max_src_idx < src_points, f"Invalid source correspondence index: {max_src_idx} >= {src_points}"
-        assert max_tgt_idx < tgt_points, f"Invalid target correspondence index: {max_tgt_idx} >= {tgt_points}"
+        assert (
+            max_src_idx < src_points
+        ), f"Invalid source correspondence index: {max_src_idx} >= {src_points}"
+        assert (
+            max_tgt_idx < tgt_points
+        ), f"Invalid target correspondence index: {max_tgt_idx} >= {tgt_points}"
 
     return src_pc, tgt_pc
 
 
-def validate_labels(labels: Dict[str, Any], src_pc: PointCloud, tgt_pc: PointCloud, gt_overlap: float, matching_radius: float, rot_mag: float, trans_mag: float) -> None:
+def validate_labels(
+    labels: Dict[str, Any],
+    src_pc: PointCloud,
+    tgt_pc: PointCloud,
+    gt_overlap: float,
+    matching_radius: float,
+    rot_mag: float,
+    trans_mag: float,
+) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert 'transform' in labels, f"labels missing 'transform' key: {labels.keys()=}"
 
     transform = labels['transform']
-    assert isinstance(transform, torch.Tensor), f"transform should be a torch.Tensor: {type(transform)=}"
-    assert transform.shape == (4, 4), f"transform should be a 4x4 matrix: {transform.shape=}"
-    assert transform.dtype == torch.float32, f"transform dtype incorrect: {transform.dtype=}"
+    assert isinstance(
+        transform, torch.Tensor
+    ), f"transform should be a torch.Tensor: {type(transform)=}"
+    assert transform.shape == (
+        4,
+        4,
+    ), f"transform should be a 4x4 matrix: {transform.shape=}"
+    assert (
+        transform.dtype == torch.float32
+    ), f"transform dtype incorrect: {transform.dtype=}"
     assert not torch.isnan(transform).any(), "transform contains NaN values"
 
     # Validate transformation matrix
@@ -109,19 +159,23 @@ def validate_labels(labels: Dict[str, Any], src_pc: PointCloud, tgt_pc: PointClo
     t = transform[:3, 3]
 
     # Check rotation matrix properties
-    assert torch.allclose(R @ R.T, torch.eye(3, device=R.device), atol=1e-6), \
-        "Invalid rotation matrix: not orthogonal"
-    assert torch.abs(torch.det(R) - 1.0) < 1e-6, \
-        "Invalid rotation matrix: determinant not 1"
+    assert torch.allclose(
+        R @ R.T, torch.eye(3, device=R.device), atol=1e-6
+    ), "Invalid rotation matrix: not orthogonal"
+    assert (
+        torch.abs(torch.det(R) - 1.0) < 1e-6
+    ), "Invalid rotation matrix: determinant not 1"
 
     # Check rotation magnitude
     rot_angle = torch.acos(torch.clamp((torch.trace(R) - 1) / 2, -1, 1))
-    assert torch.abs(rot_angle) <= np.radians(rot_mag), \
-        f"Rotation angle exceeds specified limit: {torch.abs(rot_angle)=}, {np.radians(rot_mag)=}"
+    assert torch.abs(rot_angle) <= np.radians(
+        rot_mag
+    ), f"Rotation angle exceeds specified limit: {torch.abs(rot_angle)=}, {np.radians(rot_mag)=}"
 
     # Check translation magnitude
-    assert torch.norm(t) <= trans_mag, \
-        f"Translation magnitude exceeds specified limit: {torch.norm(t)=}, {trans_mag=}"
+    assert (
+        torch.norm(t) <= trans_mag
+    ), f"Translation magnitude exceeds specified limit: {torch.norm(t)=}, {trans_mag=}"
 
     # Recompute overlap and validate against stored overlap
     gt_transform = labels['transform']
@@ -134,18 +188,20 @@ def validate_labels(labels: Dict[str, Any], src_pc: PointCloud, tgt_pc: PointClo
         ref_points=tgt_pc.xyz,
         src_points=src_pc.xyz,
         transform=gt_transform,
-        positive_radius=positive_radius
+        positive_radius=positive_radius,
     )
 
     # Test 1: PCR relationship - overlap should be reasonably high (> 0.2)
-    assert recomputed_overlap > 0.2, \
-        f"PCR relationship broken: overlap={recomputed_overlap:.4f} too low"
+    assert (
+        recomputed_overlap > 0.2
+    ), f"PCR relationship broken: overlap={recomputed_overlap:.4f} too low"
 
     # Test 2: Overlap consistency - recomputed should match stored (within tolerance)
     overlap_diff = abs(recomputed_overlap - gt_overlap)
-    assert overlap_diff < 0.01, \
-        f"Overlap inconsistency: stored={gt_overlap:.4f}, " \
+    assert overlap_diff < 0.01, (
+        f"Overlap inconsistency: stored={gt_overlap:.4f}, "
         f"recomputed={recomputed_overlap:.4f}, diff={overlap_diff:.4f}"
+    )
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
@@ -153,51 +209,69 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
     # Check for expected meta_info keys from SyntheticTransformPCRDataset
     expected_keys = {'file_idx', 'transform_idx', 'transform_params', 'overlap'}
-    assert meta_info.keys() >= expected_keys, \
-        f"meta_info missing required keys: expected {expected_keys}, got {meta_info.keys()}"
+    assert (
+        meta_info.keys() >= expected_keys
+    ), f"meta_info missing required keys: expected {expected_keys}, got {meta_info.keys()}"
 
     # Validate meta_info values
-    assert isinstance(meta_info['file_idx'], int), f"file_idx should be int: {type(meta_info['file_idx'])}"
-    assert isinstance(meta_info['transform_idx'], int), f"transform_idx should be int: {type(meta_info['transform_idx'])}"
-    assert isinstance(meta_info['overlap'], float), f"overlap should be float: {type(meta_info['overlap'])}"
+    assert isinstance(
+        meta_info['file_idx'], int
+    ), f"file_idx should be int: {type(meta_info['file_idx'])}"
+    assert isinstance(
+        meta_info['transform_idx'], int
+    ), f"transform_idx should be int: {type(meta_info['transform_idx'])}"
+    assert isinstance(
+        meta_info['overlap'], float
+    ), f"overlap should be float: {type(meta_info['overlap'])}"
     # Validate transform_params structure
     transform_params = meta_info['transform_params']
-    assert isinstance(transform_params, dict), f"transform_params should be dict: {type(transform_params)}"
+    assert isinstance(
+        transform_params, dict
+    ), f"transform_params should be dict: {type(transform_params)}"
     required_config_keys = {'rotation_angles', 'translation', 'seed'}
-    assert transform_params.keys() >= required_config_keys, \
-        f"transform_params missing keys: expected {required_config_keys}, got {transform_params.keys()}"
+    assert (
+        transform_params.keys() >= required_config_keys
+    ), f"transform_params missing keys: expected {required_config_keys}, got {transform_params.keys()}"
 
     # keep_ratio may be present in transform_params for crop transforms
     if 'keep_ratio' in transform_params:
-        assert isinstance(transform_params['keep_ratio'], float), \
-            f"keep_ratio should be float: {type(transform_params['keep_ratio'])}"
-        assert 0.0 < transform_params['keep_ratio'] <= 1.0, \
-            f"keep_ratio should be in (0, 1]: {transform_params['keep_ratio']}"
+        assert isinstance(
+            transform_params['keep_ratio'], float
+        ), f"keep_ratio should be float: {type(transform_params['keep_ratio'])}"
+        assert (
+            0.0 < transform_params['keep_ratio'] <= 1.0
+        ), f"keep_ratio should be in (0, 1]: {transform_params['keep_ratio']}"
 
 
-@pytest.mark.parametrize('modelnet40_dataset_config', [
-    {
-        'split': 'train',
-        'dataset_size': 100,
-        'overlap_range': (0.0, 1.0),
-        'matching_radius': 0.05,
-        'rotation_mag': 45.0,
-        'translation_mag': 0.5,
-        'keep_ratio': 0.7,
-        'transforms_cfg': transforms_cfg(),
-    },
-    {
-        'split': 'test',
-        'dataset_size': 100,
-        'overlap_range': (0.0, 1.0),
-        'matching_radius': 0.03,
-        'rotation_mag': 30.0,
-        'translation_mag': 0.3,
-        'keep_ratio': 0.7,
-        'transforms_cfg': transforms_cfg(),
-    },
-], indirect=True)
-def test_modelnet40_dataset(modelnet40_dataset_config, max_samples, get_samples_to_test):
+@pytest.mark.parametrize(
+    'modelnet40_dataset_config',
+    [
+        {
+            'split': 'train',
+            'dataset_size': 100,
+            'overlap_range': (0.0, 1.0),
+            'matching_radius': 0.05,
+            'rotation_mag': 45.0,
+            'translation_mag': 0.5,
+            'keep_ratio': 0.7,
+            'transforms_cfg': transforms_cfg(),
+        },
+        {
+            'split': 'test',
+            'dataset_size': 100,
+            'overlap_range': (0.0, 1.0),
+            'matching_radius': 0.03,
+            'rotation_mag': 30.0,
+            'translation_mag': 0.3,
+            'keep_ratio': 0.7,
+            'transforms_cfg': transforms_cfg(),
+        },
+    ],
+    indirect=True,
+)
+def test_modelnet40_dataset(
+    modelnet40_dataset_config, max_samples, get_samples_to_test
+):
     """Test basic functionality of ModelNet40Dataset."""
     dataset = build_from_config(modelnet40_dataset_config)
 
@@ -207,14 +281,16 @@ def test_modelnet40_dataset(modelnet40_dataset_config, max_samples, get_samples_
 
     # Basic dataset checks
     assert len(dataset) > 0, "Dataset should not be empty"
-    assert hasattr(dataset, 'file_pair_annotations'), "Dataset should have file_pair_annotations"
+    assert hasattr(
+        dataset, 'file_pair_annotations'
+    ), "Dataset should have file_pair_annotations"
 
     # Check that file pairs are correctly set up for single-temporal (self-registration)
     for annotation in dataset.file_pair_annotations[:5]:  # Check first 5
-        assert annotation['src_filepath'] == annotation['tgt_filepath'], \
-            "ModelNet40 should use same file for source and target"
-        assert annotation['src_filepath'].endswith('.off'), \
-            "Files should be OFF format"
+        assert (
+            annotation['src_filepath'] == annotation['tgt_filepath']
+        ), "ModelNet40 should use same file for source and target"
+        assert annotation['src_filepath'].endswith('.off'), "Files should be OFF format"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
@@ -228,7 +304,7 @@ def test_modelnet40_dataset(modelnet40_dataset_config, max_samples, get_samples_
             gt_overlap=datapoint['meta_info']['overlap'],
             matching_radius=dataset.matching_radius,
             rot_mag=rot_mag,
-            trans_mag=trans_mag
+            trans_mag=trans_mag,
         )
         validate_meta_info(datapoint['meta_info'], idx)
 
@@ -247,7 +323,9 @@ def test_modelnet40_categories():
     asymmetric_categories = data.datasets.ModelNet40Dataset.ASYMMETRIC_CATEGORIES
 
     # Check category count
-    assert len(categories) == 40, f"ModelNet40 should have 40 categories, got {len(categories)}"
+    assert (
+        len(categories) == 40
+    ), f"ModelNet40 should have 40 categories, got {len(categories)}"
 
     # Check asymmetric categories are subset of all categories
     for cat in asymmetric_categories:
@@ -273,9 +351,15 @@ def test_modelnet40_category_extraction(modelnet40_data_root):
 
     for path, expected in zip(test_paths, expected_categories, strict=True):
         # Create a mock instance just for this method call
-        dataset = type('MockDataset', (), {'get_category_from_path': ModelNet40Dataset.get_category_from_path})()
+        dataset = type(
+            'MockDataset',
+            (),
+            {'get_category_from_path': ModelNet40Dataset.get_category_from_path},
+        )()
         category = dataset.get_category_from_path(path)
-        assert category == expected, f"Expected {expected}, got {category} for path {path}"
+        assert (
+            category == expected
+        ), f"Expected {expected}, got {category} for path {path}"
 
 
 def test_modelnet40_split_handling(modelnet40_data_root):
@@ -300,7 +384,9 @@ def test_modelnet40_split_handling(modelnet40_data_root):
 
     assert len(train_files) > 0, "Should find training files"
     assert len(test_files) > 0, "Should find test files"
-    assert len(set(train_files) & set(test_files)) == 0, "Train and test files should be different"
+    assert (
+        len(set(train_files) & set(test_files)) == 0
+    ), "Train and test files should be different"
 
 
 @pytest.mark.parametrize('crop_type', ['plane', 'point'])

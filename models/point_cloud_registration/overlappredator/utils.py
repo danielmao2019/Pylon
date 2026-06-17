@@ -1,11 +1,16 @@
-import re, yaml, random, torch, pickle
+import pickle
+import random
+import re
+
 import numpy as np
+import torch
+import yaml
 
 
 class Logger:
     def __init__(self, path):
         self.path = path
-        self.fw = open(self.path+'/log','a')
+        self.fw = open(self.path + '/log', 'a')
 
     def write(self, text):
         self.fw.write(text)
@@ -14,12 +19,14 @@ class Logger:
     def close(self):
         self.fw.close()
 
-def save_obj(obj, path ):
+
+def save_obj(obj, path):
     """
     save a dictionary to a pickle file
     """
     with open(path, 'wb') as f:
         pickle.dump(obj, f)
+
 
 def load_obj(path):
     """
@@ -28,6 +35,7 @@ def load_obj(path):
     with open(path, 'rb') as f:
         return pickle.load(f)
 
+
 def load_config(path):
     """
     Loads config file:
@@ -35,16 +43,16 @@ def load_config(path):
     Args:
         path (str): path to the config file
 
-    Returns: 
+    Returns:
         config (dict): dictionary of the configuration parameters, merge sub_dicts
 
     """
-    with open(path,'r') as f:
+    with open(path, 'r') as f:
         cfg = yaml.safe_load(f)
-    
+
     config = dict()
     for key, value in cfg.items():
-        for k,v in value.items():
+        for k, v in value.items():
             config[k] = v
 
     return config
@@ -60,7 +68,8 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def square_distance(src, dst, normalised = False):
+
+def square_distance(src, dst, normalised=False):
     """
     Calculate Euclid distance between each two points.
     Args:
@@ -72,15 +81,15 @@ def square_distance(src, dst, normalised = False):
     B, N, _ = src.shape
     _, M, _ = dst.shape
     dist = -2 * torch.matmul(src, dst.permute(0, 2, 1))
-    if(normalised):
+    if normalised:
         dist += 2
     else:
-        dist += torch.sum(src ** 2, dim=-1)[:, :, None]
-        dist += torch.sum(dst ** 2, dim=-1)[:, None, :]
+        dist += torch.sum(src**2, dim=-1)[:, :, None]
+        dist += torch.sum(dst**2, dim=-1)[:, None, :]
 
     dist = torch.clamp(dist, min=1e-12, max=None)
     return dist
-    
+
 
 def validate_gradient(model):
     """

@@ -5,16 +5,18 @@ Copied or moved from tests/utils/automation/conftest.py to keep
 manager tests self-contained.
 """
 
-from typing import Optional, Dict, List
-import os
 import json
+import os
+from typing import Dict, List, Optional
+from unittest.mock import Mock
+
 import pytest
 import torch
-from unittest.mock import Mock
-from agents.monitor.gpu_status import GPUStatus
+
 from agents.monitor.cpu_status import CPUStatus
-from agents.monitor.system_monitor import SystemMonitor
+from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
+from agents.monitor.system_monitor import SystemMonitor
 from utils.io.json import save_json
 
 
@@ -138,9 +140,7 @@ def create_minimal_system_monitor_with_processes():
             'cpu_processes': cpu_processes,
             'gpu_processes': gpu_processes,
         }.items():
-            assert isinstance(items, list), (
-                f"{label} must be list, got {type(items)}"
-            )
+            assert isinstance(items, list), f"{label} must be list, got {type(items)}"
             for i, process in enumerate(items):
                 if not isinstance(process, ProcessInfo):
                     raise TypeError(

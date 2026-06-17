@@ -1,12 +1,13 @@
-from typing import Dict, Optional, Tuple, Union
 from itertools import product
-from scipy.spatial import cKDTree
+from typing import Dict, Optional, Tuple, Union
+
 import numpy as np
 import torch
+from scipy.spatial import cKDTree
 
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.structures.three_d.point_cloud.ops.knn.knn import knn
 from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
+from data.structures.three_d.point_cloud.ops.knn.knn import knn
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -> int:
@@ -304,7 +305,9 @@ def pc_intersection(
     tgt_tensor = tgt_points.xyz
     assert isinstance(radius, (int, float)), f"{type(radius)=}"
     assert radius > 0, f"{radius=}"
-    assert chunk_factor is None or isinstance(chunk_factor, int), f"{type(chunk_factor)=}"
+    assert chunk_factor is None or isinstance(
+        chunk_factor, int
+    ), f"{type(chunk_factor)=}"
     return _tensor_intersection_recursive(
         src_points=src_tensor,
         tgt_points=tgt_tensor,
@@ -366,8 +369,12 @@ def get_nearest_neighbor_distances(
     Returns:
         Distances to nearest neighbors, shape (N,)
     """
-    assert isinstance(query_points, (PointCloud, torch.Tensor)), f"{type(query_points)=}"
-    assert isinstance(support_points, (PointCloud, torch.Tensor)), f"{type(support_points)=}"
+    assert isinstance(
+        query_points, (PointCloud, torch.Tensor)
+    ), f"{type(query_points)=}"
+    assert isinstance(
+        support_points, (PointCloud, torch.Tensor)
+    ), f"{type(support_points)=}"
     if not isinstance(query_points, PointCloud):
         assert isinstance(query_points, torch.Tensor), f"{type(query_points)=}"
         query_points = PointCloud(xyz=query_points)

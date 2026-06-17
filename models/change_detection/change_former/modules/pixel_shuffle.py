@@ -1,4 +1,5 @@
 import math
+
 import torch
 
 
@@ -7,12 +8,12 @@ def icnr(x, scale=2, init=torch.nn.init.kaiming_normal_):
     Checkerboard artifact free sub-pixel convolution
     https://arxiv.org/abs/1707.02937
     """
-    ni,nf,h,w = x.shape
-    ni2 = int(ni/(scale**2))
-    k = init(torch.zeros([ni2,nf,h,w])).transpose(0, 1)
+    ni, nf, h, w = x.shape
+    ni2 = int(ni / (scale**2))
+    k = init(torch.zeros([ni2, nf, h, w])).transpose(0, 1)
     k = k.contiguous().view(ni2, nf, -1)
     k = k.repeat(1, 1, scale**2)
-    k = k.contiguous().view([nf,ni,h,w]).transpose(0, 1)
+    k = k.contiguous().view([nf, ni, h, w]).transpose(0, 1)
     x.data.copy_(k)
 
 
@@ -21,14 +22,15 @@ class PixelShuffle(torch.nn.Module):
     Real-Time Single Image and Video Super-Resolution
     https://arxiv.org/abs/1609.05158
     """
+
     def __init__(self, n_channels, scale):
         super(PixelShuffle, self).__init__()
-        self.conv = torch.nn.Conv2d(n_channels, n_channels*(scale**2), kernel_size=1)
+        self.conv = torch.nn.Conv2d(n_channels, n_channels * (scale**2), kernel_size=1)
         icnr(self.conv.weight)
         self.shuf = torch.nn.PixelShuffle(scale)
         self.relu = torch.nn.ReLU(inplace=True)
 
-    def forward(self,x):
+    def forward(self, x):
         x = self.shuf(self.relu(self.conv(x)))
         return x
 

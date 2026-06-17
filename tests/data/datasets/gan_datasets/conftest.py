@@ -2,6 +2,7 @@
 
 import pytest
 import torch
+
 from data.datasets import MNISTDataset
 from data.datasets.gan_datasets.gan_dataset import GANDataset
 from utils.builders.builder import build_from_config
@@ -16,7 +17,9 @@ def gan_dataset_config(request, mnist_data_root):
     # Device handling - fail fast if CUDA requested but not available
     device = torch.device(device_str)
     if device_str == "cuda":
-        assert torch.cuda.is_available(), f"CUDA device requested but not available on this system"
+        assert (
+            torch.cuda.is_available()
+        ), f"CUDA device requested but not available on this system"
 
     # Create source dataset config
     source_config = {
@@ -24,8 +27,10 @@ def gan_dataset_config(request, mnist_data_root):
         'args': {
             'data_root': mnist_data_root,
             'split': split,
-            'device': torch.device('cpu')  # Source should always be CPU for BaseSyntheticDataset
-        }
+            'device': torch.device(
+                'cpu'
+            ),  # Source should always be CPU for BaseSyntheticDataset
+        },
     }
 
     # Build source dataset
@@ -37,6 +42,6 @@ def gan_dataset_config(request, mnist_data_root):
             'source': source,
             'dataset_size': len(source),
             'latent_dim': latent_dim,
-            'device': device
-        }
+            'device': device,
+        },
     }

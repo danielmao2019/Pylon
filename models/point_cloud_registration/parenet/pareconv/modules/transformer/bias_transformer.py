@@ -4,6 +4,7 @@ Relative positional embedding is further projected in each multi-head attention 
 
 The shape of input tensor should be (B, N, C). Implemented with `nn.Linear` and `nn.LayerNorm` (with affine).
 """
+
 import pdb
 
 import torch
@@ -20,7 +21,11 @@ class RPEMultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None):
         super(RPEMultiHeadAttention, self).__init__()
         if d_model % num_heads != 0:
-            raise ValueError('`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(d_model, num_heads))
+            raise ValueError(
+                '`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(
+                    d_model, num_heads
+                )
+            )
 
         self.d_model = d_model
         self.num_heads = num_heads
@@ -32,7 +37,16 @@ class RPEMultiHeadAttention(nn.Module):
 
         self.dropout = build_dropout_layer(dropout)
 
-    def forward(self, input_q, input_k, input_v, embed_qk, key_weights=None, key_masks=None, attention_factors=None):
+    def forward(
+        self,
+        input_q,
+        input_k,
+        input_v,
+        embed_qk,
+        key_weights=None,
+        key_masks=None,
+        attention_factors=None,
+    ):
         r"""Scaled Dot-Product Attention with Pre-computed Relative Positional Embedding (forward)
 
         Args:
@@ -54,13 +68,15 @@ class RPEMultiHeadAttention(nn.Module):
         embed_qk = rearrange(embed_qk, 'b m n h -> b h m n')
 
         attention_scores_e = torch.einsum('bhnc,bhmc->bhnm', q, k)
-        attention_scores = attention_scores_e / self.d_model_per_head ** 0.5 + embed_qk
+        attention_scores = attention_scores_e / self.d_model_per_head**0.5 + embed_qk
         if attention_factors is not None:
             attention_scores = attention_factors.unsqueeze(1) * attention_scores
         if key_weights is not None:
             attention_scores = attention_scores * key_weights.unsqueeze(1).unsqueeze(1)
         if key_masks is not None:
-            attention_scores = attention_scores.masked_fill(key_masks.unsqueeze(1).unsqueeze(1), float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                key_masks.unsqueeze(1).unsqueeze(1), float('-inf')
+            )
         attention_scores = F.softmax(attention_scores, dim=-1)
         attention_scores = self.dropout(attention_scores)
 
@@ -107,7 +123,9 @@ class BiasTransformerLayer(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None, activation_fn='ReLU'):
         super(BiasTransformerLayer, self).__init__()
         self.attention = RPEAttentionLayer(d_model, num_heads, dropout=dropout)
-        self.output = AttentionOutput(d_model, dropout=dropout, activation_fn=activation_fn)
+        self.output = AttentionOutput(
+            d_model, dropout=dropout, activation_fn=activation_fn
+        )
 
     def forward(
         self,

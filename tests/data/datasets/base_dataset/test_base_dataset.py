@@ -8,7 +8,7 @@ def test_base_dataset_split_none(SampleDatasetWithoutPredefinedSplits) -> None:
         split=None,
         device=torch.device('cpu'),
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
 
     # Verify dataset attributes
@@ -35,10 +35,14 @@ def test_base_dataset_split_none(SampleDatasetWithoutPredefinedSplits) -> None:
         expected_tensor = torch.randn(3, 32, 32)
         assert torch.allclose(input_tensor, expected_tensor)
 
-    assert all_labels == set(range(100)), f"Missing labels: {set(range(100)) - all_labels}"
+    assert all_labels == set(
+        range(100)
+    ), f"Missing labels: {set(range(100)) - all_labels}"
 
 
-def test_base_dataset_split_none_with_indices(SampleDatasetWithoutPredefinedSplits) -> None:
+def test_base_dataset_split_none_with_indices(
+    SampleDatasetWithoutPredefinedSplits,
+) -> None:
     """Test BaseDataset with split=None and custom indices."""
     indices = [10, 20, 30, 40, 50]
     dataset = SampleDatasetWithoutPredefinedSplits(
@@ -46,7 +50,7 @@ def test_base_dataset_split_none_with_indices(SampleDatasetWithoutPredefinedSpli
         indices=indices,
         device=torch.device('cpu'),
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
 
     # Verify dataset attributes
@@ -68,13 +72,15 @@ def test_base_dataset_predefined_splits(SampleDataset) -> None:
         split='train',
         device=torch.device('cpu'),
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
     assert train_dataset.split == 'train'
     assert len(train_dataset) == 80
 
     # Verify train data range (0-79)
-    train_labels = {train_dataset[i]['labels']['label'] for i in range(len(train_dataset))}
+    train_labels = {
+        train_dataset[i]['labels']['label'] for i in range(len(train_dataset))
+    }
     assert train_labels == set(range(80))
 
     # Test val split
@@ -82,7 +88,7 @@ def test_base_dataset_predefined_splits(SampleDataset) -> None:
         split='val',
         device=torch.device('cpu'),
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
     assert val_dataset.split == 'val'
     assert len(val_dataset) == 10
@@ -96,7 +102,7 @@ def test_base_dataset_predefined_splits(SampleDataset) -> None:
         split='test',
         device=torch.device('cpu'),
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
     assert test_dataset.split == 'test'
     assert len(test_dataset) == 10
@@ -110,7 +116,7 @@ def test_base_dataset_predefined_splits(SampleDataset) -> None:
         split='weird',
         device=torch.device('cpu'),
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
     assert weird_dataset.split == 'weird'
     assert len(weird_dataset) == 0
@@ -124,7 +130,7 @@ def test_base_dataset_predefined_splits_with_indices(SampleDataset) -> None:
         indices=indices,
         device=torch.device('cpu'),
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
 
     assert train_dataset.split == 'train'
@@ -147,7 +153,7 @@ def test_base_dataset_split_percentages(SampleDatasetWithoutPredefinedSplits) ->
         device=torch.device('cpu'),
         use_cpu_cache=False,
         use_disk_cache=False,
-        base_seed=42  # Fixed seed for reproducibility
+        base_seed=42,  # Fixed seed for reproducibility
     )
 
     assert train_dataset.split == 'train'
@@ -161,16 +167,20 @@ def test_base_dataset_split_percentages(SampleDatasetWithoutPredefinedSplits) ->
         device=torch.device('cpu'),
         use_cpu_cache=False,
         use_disk_cache=False,
-        base_seed=42  # Same seed should produce same splits
+        base_seed=42,  # Same seed should produce same splits
     )
 
     assert val_dataset.split == 'val'
     assert len(val_dataset) == 10  # 10% of 100
 
     # Verify splits are disjoint (no overlap in labels)
-    train_labels = {train_dataset[i]['labels']['label'] for i in range(len(train_dataset))}
+    train_labels = {
+        train_dataset[i]['labels']['label'] for i in range(len(train_dataset))
+    }
     val_labels = {val_dataset[i]['labels']['label'] for i in range(len(val_dataset))}
-    assert train_labels.isdisjoint(val_labels), "Train and val splits should not overlap"
+    assert train_labels.isdisjoint(
+        val_labels
+    ), "Train and val splits should not overlap"
 
     # Test different seed produces different splits
     train_dataset_diff_seed = SampleDatasetWithoutPredefinedSplits(
@@ -179,14 +189,21 @@ def test_base_dataset_split_percentages(SampleDatasetWithoutPredefinedSplits) ->
         device=torch.device('cpu'),
         use_cpu_cache=False,
         use_disk_cache=False,
-        base_seed=123  # Different seed
+        base_seed=123,  # Different seed
     )
 
-    train_labels_diff_seed = {train_dataset_diff_seed[i]['labels']['label'] for i in range(len(train_dataset_diff_seed))}
-    assert train_labels != train_labels_diff_seed, "Different seeds should produce different splits"
+    train_labels_diff_seed = {
+        train_dataset_diff_seed[i]['labels']['label']
+        for i in range(len(train_dataset_diff_seed))
+    }
+    assert (
+        train_labels != train_labels_diff_seed
+    ), "Different seeds should produce different splits"
 
 
-def test_base_dataset_split_percentages_with_indices(SampleDatasetWithoutPredefinedSplits) -> None:
+def test_base_dataset_split_percentages_with_indices(
+    SampleDatasetWithoutPredefinedSplits,
+) -> None:
     """Test BaseDataset with split_percentages and custom indices."""
     indices = [0, 2, 4, 6]  # Select specific indices after split
     train_dataset = SampleDatasetWithoutPredefinedSplits(
@@ -196,7 +213,7 @@ def test_base_dataset_split_percentages_with_indices(SampleDatasetWithoutPredefi
         device=torch.device('cpu'),
         use_cpu_cache=False,
         use_disk_cache=False,
-        base_seed=42
+        base_seed=42,
     )
 
     assert train_dataset.split == 'train'
@@ -204,17 +221,21 @@ def test_base_dataset_split_percentages_with_indices(SampleDatasetWithoutPredefi
     assert len(train_dataset) == len(indices)
 
 
-def test_base_dataset_invalid_configurations(SampleDataset, SampleDatasetWithoutPredefinedSplits) -> None:
+def test_base_dataset_invalid_configurations(
+    SampleDataset, SampleDatasetWithoutPredefinedSplits
+) -> None:
     """Test invalid BaseDataset configurations."""
 
     # Test split=None with split_percentages should fail
-    with pytest.raises(AssertionError, match="Cannot use split_percentages when split=None"):
+    with pytest.raises(
+        AssertionError, match="Cannot use split_percentages when split=None"
+    ):
         SampleDatasetWithoutPredefinedSplits(
             split=None,
             split_percentages=(0.8, 0.1, 0.1, 0.0),
             device=torch.device('cpu'),
             use_cpu_cache=False,
-            use_disk_cache=False
+            use_disk_cache=False,
         )
 
     # Test invalid split name should fail
@@ -223,7 +244,7 @@ def test_base_dataset_invalid_configurations(SampleDataset, SampleDatasetWithout
             split='invalid',
             device=torch.device('cpu'),
             use_cpu_cache=False,
-            use_disk_cache=False
+            use_disk_cache=False,
         )
 
     # Test split_percentages that don't sum to 1.0 should fail
@@ -233,7 +254,7 @@ def test_base_dataset_invalid_configurations(SampleDataset, SampleDatasetWithout
             split_percentages=(0.5, 0.3, 0.1, 0.05),  # Sums to 0.95
             device=torch.device('cpu'),
             use_cpu_cache=False,
-            use_disk_cache=False
+            use_disk_cache=False,
         )
 
     # Test wrong number of percentages should fail
@@ -243,5 +264,5 @@ def test_base_dataset_invalid_configurations(SampleDataset, SampleDatasetWithout
             split_percentages=(0.8, 0.2),  # Only 2 values for 4 splits
             device=torch.device('cpu'),
             use_cpu_cache=False,
-            use_disk_cache=False
+            use_disk_cache=False,
         )

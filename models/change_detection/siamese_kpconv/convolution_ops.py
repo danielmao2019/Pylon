@@ -10,58 +10,68 @@ organized as follows:
 4. KPConv Layer - Core KPConv implementation
 5. Convolution Blocks - Wrapper blocks for KPConv (SimpleBlock, ResnetBBlock, KPDualBlock)
 
-All convolution operations follow the PARTIAL_DENSE format from the original 
+All convolution operations follow the PARTIAL_DENSE format from the original
 torch-points3d-SiameseKPConv implementation.
 """
-import torch
-import torch.nn as nn
-import numpy as np
-from typing import List, Tuple, Union, Optional
 
 from enum import Enum, auto
+from typing import List, Optional, Tuple, Union
 
-from models.change_detection.siamese_kpconv.kernel_utils import radius_gaussian, load_kernels, kernel_point_optimization_debug
-from models.change_detection.siamese_kpconv.utils import add_ones, knn, gather
+import numpy as np
+import torch
+import torch.nn as nn
 
+from models.change_detection.siamese_kpconv.kernel_utils import (
+    kernel_point_optimization_debug,
+    load_kernels,
+    radius_gaussian,
+)
+from models.change_detection.siamese_kpconv.utils import add_ones, gather, knn
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # 1. Convolution Formats
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
 
 class ConvolutionFormat(Enum):
     """Different types of convolution formats"""
+
     PARTIAL_DENSE = auto()  # Dense tensor operations with shadow points
-    MESSAGE_PASSING = auto() # Graph-based message passing
+    MESSAGE_PASSING = auto()  # Graph-based message passing
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # 2. Base Classes
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
 
 class BasePartialDenseConvolution(nn.Module):
     """
     Base class for PARTIAL_DENSE convolution format.
-    
+
     This format uses dense tensor operations with shadow points for non-existent neighbors.
     It's the core format used in KPConv.
-    
+
     Attributes:
         CONV_TYPE: String identifier for the convolution type
     """
+
     CONV_TYPE = ConvolutionFormat.PARTIAL_DENSE.value
-    
+
     def __init__(self):
         super(BasePartialDenseConvolution, self).__init__()
-        
-    def conv(self, x, pos, x_neighbour, pos_centered_neighbour, idx_neighbour, idx_sampler):
+
+    def conv(
+        self, x, pos, x_neighbour, pos_centered_neighbour, idx_neighbour, idx_sampler
+    ):
         """Generic convolution for partial dense data - to be implemented by subclasses"""
         raise NotImplementedError(
             "BasePartialDenseConvolution is an abstract class. Implement conv in a subclass."
         )
-    
+
     def forward(self, x, pos, batch_x, pos_target, batch_target, k=16):
         """Forward pass for partial dense convolution
-        
+
         Args:
             x: Input features
             pos: Input positions
@@ -69,33 +79,39 @@ class BasePartialDenseConvolution(nn.Module):
             pos_target: Target positions
             batch_target: Target batch indices
             k: Number of neighbors
-        
+
         Returns:
             Convolved features
         """
         # Get neighbors
         row_idx, col_idx = knn(pos, pos_target, k, batch_x, batch_target)
-        
+
         # Apply convolution
         x_out = self.conv(pos_target, pos, col_idx, x)
-        
+
         return x_out
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # 3. Batch Normalization
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
 
 class FastBatchNorm1d(nn.BatchNorm1d):
     """
     Batch normalization for 1D data (B, C) or (B, C, L)
     """
-    
-    def __init__(self, num_features, momentum=0.1, affine=True, track_running_stats=True):
+
+    def __init__(
+        self, num_features, momentum=0.1, affine=True, track_running_stats=True
+    ):
         super(FastBatchNorm1d, self).__init__(
-            num_features, momentum=momentum, affine=affine, track_running_stats=track_running_stats
+            num_features,
+            momentum=momentum,
+            affine=affine,
+            track_running_stats=track_running_stats,
         )
-    
+
     def forward(self, x):
         if x.dim() == 2:
             return super(FastBatchNorm1d, self).forward(x)
@@ -107,21 +123,23 @@ class FastBatchNorm1d(nn.BatchNorm1d):
             return flatten_output.reshape(shape[0], shape[2], shape[1]).transpose(1, 2)
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # 4. KPConv Layer
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+
 
 class KPConvLayer(BasePartialDenseConvolution):
     """
     Apply kernel point convolution on a point cloud.
-    
+
     This implements the core KPConv operation using the PARTIAL_DENSE format.
     It defines convolution kernels as sets of points in space and uses these
     to compute convolution operations on point clouds.
-    
+
     Attributes:
         _INFLUENCE_TO_RADIUS: Ratio between point influence and kernel radius
     """
+
     _INFLUENCE_TO_RADIUS = 1.5
 
     def __init__(
@@ -155,24 +173,28 @@ class KPConvLayer(BasePartialDenseConvolution):
         )
 
         self.K_points = nn.Parameter(
-            torch.from_numpy(K_points_numpy.reshape((n_kernel_points, dimension))).to(torch.float),
+            torch.from_numpy(K_points_numpy.reshape((n_kernel_points, dimension))).to(
+                torch.float
+            ),
             requires_grad=False,
         )
 
-        weights = torch.empty([n_kernel_points, self.num_inputs, num_outputs], dtype=torch.float)
+        weights = torch.empty(
+            [n_kernel_points, self.num_inputs, num_outputs], dtype=torch.float
+        )
         nn.init.xavier_normal_(weights)
         self.weight = nn.Parameter(weights)
 
     def conv(self, query_points, support_points, neighbors, x):
         """
         Kernel Point Convolution - implementation of BasePartialDenseConvolution's conv method
-        
+
         Args:
             query_points: Target points where features will be computed [N, 3]
             support_points: Source points providing features [N0, 3]
             neighbors: Indices of neighbors from support to query [N, M]
             x: Features of support points [N0, C]
-            
+
         Returns:
             Output features of size [N, C']
         """
@@ -198,7 +220,9 @@ class KPConvLayer(BasePartialDenseConvolution):
             all_weights = torch.ones_like(sq_distances)
             all_weights = all_weights.transpose(2, 1)
         elif self.KP_influence == "linear":
-            all_weights = torch.clamp(1 - torch.sqrt(sq_distances) / self.point_influence, min=0.0)
+            all_weights = torch.clamp(
+                1 - torch.sqrt(sq_distances) / self.point_influence, min=0.0
+            )
             all_weights = all_weights.transpose(2, 1)
         elif self.KP_influence == "gaussian":
             sigma = self.point_influence * 0.3
@@ -210,7 +234,9 @@ class KPConvLayer(BasePartialDenseConvolution):
         # In case of closest mode, only the closest KP can influence each point
         if self.aggregation_mode == "closest":
             neighbors_1nn = torch.argmin(sq_distances, dim=-1)
-            all_weights *= torch.transpose(nn.functional.one_hot(neighbors_1nn, self.K_points.shape[0]), 1, 2)
+            all_weights *= torch.transpose(
+                nn.functional.one_hot(neighbors_1nn, self.K_points.shape[0]), 1, 2
+            )
         elif self.aggregation_mode != "sum":
             raise ValueError("Unknown convolution mode. Should be 'closest' or 'sum'")
 
@@ -221,7 +247,9 @@ class KPConvLayer(BasePartialDenseConvolution):
         neighborhood_features = features[neighbors]
 
         # Apply distance weights [n_points, n_kpoints, in_fdim]
-        all_weights = all_weights / (torch.sum(all_weights, dim=2, keepdim=True) + 1e-10)
+        all_weights = all_weights / (
+            torch.sum(all_weights, dim=2, keepdim=True) + 1e-10
+        )
         weighted_features = torch.matmul(all_weights, neighborhood_features)
 
         # Apply network weights [n_kpoints, n_points, out_fdim]
@@ -232,7 +260,7 @@ class KPConvLayer(BasePartialDenseConvolution):
         output_features = torch.sum(kernel_outputs, dim=0)
 
         return output_features
-        
+
     # For backward compatibility with direct calls
     forward = conv
 
@@ -240,7 +268,7 @@ class KPConvLayer(BasePartialDenseConvolution):
 class SimpleBlock(BasePartialDenseConvolution):
     """
     Simple block with KPConv convolution -> activation -> BN
-    
+
     This block implements a simple KPConv layer followed by batch normalization
     and activation, using the PARTIAL_DENSE convolution format.
     """
@@ -276,31 +304,31 @@ class SimpleBlock(BasePartialDenseConvolution):
     def conv(self, query_points, support_points, neighbors, x):
         """
         Convolution method implementation for BasePartialDenseConvolution
-        
+
         Args:
             query_points: Target points where features will be computed
             support_points: Source points providing features
             neighbors: Indices of neighbors from support to query points
             x: Features of support points
-            
+
         Returns:
             Processed features with convolution, BN and activation
         """
         # Apply KPConv
         x_out = self.kp_conv(query_points, support_points, neighbors, x)
-        
+
         # Apply batch norm and activation
         if self.bn:
             x_out = self.bn(x_out)
         x_out = self.activation(x_out)
-        
+
         return x_out
 
 
 class ResnetBBlock(BasePartialDenseConvolution):
     """
     Bottleneck Resnet block for KPConv
-    
+
     This implements a ResNet bottleneck block with KPConv as the convolution operation.
     It follows the PARTIAL_DENSE convolution format.
     """
@@ -318,87 +346,84 @@ class ResnetBBlock(BasePartialDenseConvolution):
     ):
         super(ResnetBBlock, self).__init__()
         assert len(down_conv_nn) == 2
-        
+
         num_inputs, num_outputs = down_conv_nn
-        
+
         if has_bottleneck:
             # Create a bottleneck architecture
             bottleneck_features = num_outputs // 4
             self.mlp_in = nn.Sequential(
                 nn.Linear(num_inputs, bottleneck_features, bias=False),
                 bn(bottleneck_features, momentum=bn_momentum),
-                activation
+                activation,
             )
             self.kp_conv = KPConvLayer(
-                bottleneck_features, bottleneck_features, 
-                point_influence=point_influence, 
-                **kwargs
+                bottleneck_features,
+                bottleneck_features,
+                point_influence=point_influence,
+                **kwargs,
             )
             self.mlp_out = nn.Sequential(
                 nn.Linear(bottleneck_features, num_outputs, bias=False),
-                bn(num_outputs, momentum=bn_momentum)
+                bn(num_outputs, momentum=bn_momentum),
             )
         else:
             # No bottleneck
             self.mlp_in = nn.Identity()
             self.kp_conv = KPConvLayer(
-                num_inputs, num_outputs, 
-                point_influence=point_influence, 
-                **kwargs
+                num_inputs, num_outputs, point_influence=point_influence, **kwargs
             )
-            self.mlp_out = nn.Sequential(
-                bn(num_outputs, momentum=bn_momentum)
-            )
-        
+            self.mlp_out = nn.Sequential(bn(num_outputs, momentum=bn_momentum))
+
         # Shortcut
         if num_inputs != num_outputs:
             self.shortcut = nn.Sequential(
                 nn.Linear(num_inputs, num_outputs, bias=False),
-                bn(num_outputs, momentum=bn_momentum)
+                bn(num_outputs, momentum=bn_momentum),
             )
         else:
             self.shortcut = nn.Identity()
-        
+
         self.activation = activation
 
     def conv(self, query_points, support_points, neighbors, x):
         """
         Convolution method implementation for BasePartialDenseConvolution
-        
+
         Args:
             query_points: Target points where features will be computed
             support_points: Source points providing features
             neighbors: Indices of neighbors from support to query points
             x: Features of support points
-            
+
         Returns:
             Processed features with bottleneck convolution and residual connection
         """
         # Shortcut
         shortcut = self.shortcut(x)
-        
+
         # Apply MLP in
         x = self.mlp_in(x)
-        
+
         # Apply KPConv
         x = self.kp_conv(query_points, support_points, neighbors, x)
-        
+
         # Apply MLP out
         x = self.mlp_out(x)
-        
+
         # Add shortcut
         x = x + shortcut
-        
+
         # Apply activation
         x = self.activation(x)
-        
+
         return x
 
 
 class KPDualBlock(BasePartialDenseConvolution):
     """
     Dual KPConv block (typically a combination of blocks, e.g., SimpleBlock + ResnetBBlock)
-    
+
     This implements a sequence of KPConv blocks that are applied one after another.
     It follows the PARTIAL_DENSE convolution format.
     """
@@ -415,10 +440,10 @@ class KPDualBlock(BasePartialDenseConvolution):
         **kwargs,
     ):
         super(KPDualBlock, self).__init__()
-        
+
         assert len(block_names) == len(down_conv_nn)
         self.blocks = nn.ModuleList()
-        
+
         for i, class_name in enumerate(block_names):
             # Get the appropriate block class
             if class_name == "SimpleBlock":
@@ -427,11 +452,11 @@ class KPDualBlock(BasePartialDenseConvolution):
                 block_cls = ResnetBBlock
             else:
                 raise ValueError(f"Unknown block name: {class_name}")
-            
+
             # Create the block
             has_bn = has_bottleneck[i] if has_bottleneck is not None else True
             deform = deformable[i] if isinstance(deformable, list) else deformable
-            
+
             block = block_cls(
                 down_conv_nn=down_conv_nn[i],
                 point_influence=point_influence,
@@ -445,13 +470,13 @@ class KPDualBlock(BasePartialDenseConvolution):
     def conv(self, query_points, support_points, neighbors, x):
         """
         Convolution method implementation for BasePartialDenseConvolution
-        
+
         Args:
             query_points: Target points where features will be computed
             support_points: Source points providing features
             neighbors: Indices of neighbors from support to query points
             x: Features of support points
-            
+
         Returns:
             Processed features after passing through the sequence of blocks
         """

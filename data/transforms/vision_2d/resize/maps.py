@@ -1,6 +1,8 @@
 from typing import Optional
+
 import torch
 import torchvision
+
 from data.transforms.base_transform import BaseTransform
 
 
@@ -47,11 +49,17 @@ class ResizeMaps(BaseTransform):
             if kwargs['interpolation'] is None:
                 pass
             elif kwargs['interpolation'] == "bilinear":
-                kwargs['interpolation'] = torchvision.transforms.functional.InterpolationMode.BILINEAR
+                kwargs['interpolation'] = (
+                    torchvision.transforms.functional.InterpolationMode.BILINEAR
+                )
             elif kwargs['interpolation'] == "nearest":
-                kwargs['interpolation'] = torchvision.transforms.functional.InterpolationMode.NEAREST
+                kwargs['interpolation'] = (
+                    torchvision.transforms.functional.InterpolationMode.NEAREST
+                )
             else:
-                raise ValueError(f"Unsupported interpolation mode: {kwargs['interpolation']}")
+                raise ValueError(
+                    f"Unsupported interpolation mode: {kwargs['interpolation']}"
+                )
         if kwargs.get('interpolation', None):
             self.resize_op = torchvision.transforms.Resize(**kwargs)
         else:
@@ -79,14 +87,16 @@ class ResizeMaps(BaseTransform):
             ValueError: If the input tensor has fewer than 2 dimensions.
         """
         if x.ndim < 2:
-            raise ValueError(f"Unsupported tensor dimensions: {x.ndim}. Expected at least 2D tensors.")
+            raise ValueError(
+                f"Unsupported tensor dimensions: {x.ndim}. Expected at least 2D tensors."
+            )
 
         # Get resize operation
         if not self.resize_op:
             interpolation = (
                 torchvision.transforms.functional.InterpolationMode.BILINEAR
-                if torch.is_floating_point(x) else
-                torchvision.transforms.functional.InterpolationMode.NEAREST
+                if torch.is_floating_point(x)
+                else torchvision.transforms.functional.InterpolationMode.NEAREST
             )
             self.kwargs['interpolation'] = interpolation
             resize_op = torchvision.transforms.Resize(**self.kwargs)
@@ -94,14 +104,19 @@ class ResizeMaps(BaseTransform):
             resize_op = self.resize_op
 
         # Use ignore-value-aware resizing only for bilinear interpolation with ignore_value specified
-        if (self.ignore_value is not None and
-            resize_op.interpolation == torchvision.transforms.functional.InterpolationMode.BILINEAR):
+        if (
+            self.ignore_value is not None
+            and resize_op.interpolation
+            == torchvision.transforms.functional.InterpolationMode.BILINEAR
+        ):
             return self._ignore_aware_resize(x, resize_op)
         else:
             # Standard resizing for: no ignore_value, nearest neighbor, or other interpolation modes
             return self._standard_resize(x, resize_op)
 
-    def _standard_resize(self, x: torch.Tensor, resize_op: torchvision.transforms.Resize) -> torch.Tensor:
+    def _standard_resize(
+        self, x: torch.Tensor, resize_op: torchvision.transforms.Resize
+    ) -> torch.Tensor:
         """Apply standard resizing without ignore value handling."""
         x = x.unsqueeze(-3)
         x = resize_op(x)
@@ -112,11 +127,15 @@ class ResizeMaps(BaseTransform):
         assert len(resize_op.size) == 2
         assert all(isinstance(s, int) for s in resize_op.size)
         expected_shape = (*x.shape[:-2], *resize_op.size)  # (..., target_H, target_W)
-        assert x.shape == expected_shape, f"Resized tensor shape mismatch: expected {expected_shape}, got {x.shape}"
+        assert (
+            x.shape == expected_shape
+        ), f"Resized tensor shape mismatch: expected {expected_shape}, got {x.shape}"
 
         return x
 
-    def _ignore_aware_resize(self, x: torch.Tensor, resize_op: torchvision.transforms.Resize) -> torch.Tensor:
+    def _ignore_aware_resize(
+        self, x: torch.Tensor, resize_op: torchvision.transforms.Resize
+    ) -> torch.Tensor:
         """
         Apply resizing with ignore value protection for bilinear interpolation.
 
@@ -128,6 +147,7 @@ class ResizeMaps(BaseTransform):
         """
         # Create valid pixel mask using tolerance for floating-point comparison
         import math
+
         if math.isnan(self.ignore_value):
             valid_mask = ~torch.isnan(x)
         else:
@@ -173,7 +193,12 @@ class ResizeMaps(BaseTransform):
         assert isinstance(resize_op.size, tuple)
         assert len(resize_op.size) == 2
         assert all(isinstance(s, int) for s in resize_op.size)
-        expected_shape = (*x_resized.shape[:-2], *resize_op.size)  # (..., target_H, target_W)
-        assert x_resized.shape == expected_shape, f"Resized tensor shape mismatch: expected {expected_shape}, got {x_resized.shape}"
+        expected_shape = (
+            *x_resized.shape[:-2],
+            *resize_op.size,
+        )  # (..., target_H, target_W)
+        assert (
+            x_resized.shape == expected_shape
+        ), f"Resized tensor shape mismatch: expected {expected_shape}, got {x_resized.shape}"
 
         return x_resized

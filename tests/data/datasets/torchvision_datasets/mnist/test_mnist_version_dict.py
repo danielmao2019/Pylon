@@ -1,7 +1,9 @@
 """Tests for MNISTDataset version dict functionality."""
 
-import pytest
 import tempfile
+
+import pytest
+
 from data.datasets.torchvision_datasets.mnist import MNISTDataset
 
 
@@ -41,5 +43,3 @@ def test_mnist_dataset_version_dict_consistency():
         version_dict2 = dataset._get_cache_version_dict()
 
         assert version_dict1 == version_dict2
-
-

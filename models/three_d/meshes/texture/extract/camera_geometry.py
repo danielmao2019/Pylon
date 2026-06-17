@@ -188,9 +188,7 @@ def _verts_world_to_camera(
         inplace=False,
     )
     assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
-    assert (
-        verts_camera.shape == verts.shape
-    ), f"{verts_camera.shape=} {verts.shape=}"
+    assert verts_camera.shape == verts.shape, f"{verts_camera.shape=} {verts.shape=}"
     return verts_camera
 
 

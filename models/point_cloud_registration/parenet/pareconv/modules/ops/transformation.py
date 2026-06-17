@@ -4,7 +4,11 @@ import torch
 import torch.nn.functional as F
 
 
-def apply_transform(points: torch.Tensor, transform: torch.Tensor, normals: Optional[torch.Tensor] = None):
+def apply_transform(
+    points: torch.Tensor,
+    transform: torch.Tensor,
+    normals: Optional[torch.Tensor] = None,
+):
     r"""Rigid transform to points and normals (optional).
 
     Given a point cloud P(3, N), normals V(3, N) and a transform matrix T in the form of
@@ -60,7 +64,9 @@ def apply_transform(points: torch.Tensor, transform: torch.Tensor, normals: Opti
         return points
 
 
-def apply_rotation(points: torch.Tensor, rotation: torch.Tensor, normals: Optional[torch.Tensor] = None):
+def apply_rotation(
+    points: torch.Tensor, rotation: torch.Tensor, normals: Optional[torch.Tensor] = None
+):
     r"""Rotate points and normals (optional) along the origin.
 
     Given a point cloud P(3, N), normals V(3, N) and a rotation matrix R, the output point cloud Q = RP, V' = RV.
@@ -99,7 +105,9 @@ def apply_rotation(points: torch.Tensor, rotation: torch.Tensor, normals: Option
             normals = torch.matmul(normals, rotation.transpose(-1, -2))
     else:
         raise ValueError(
-            'Incompatible shapes between points {} and rotation{}.'.format(tuple(points.shape), tuple(rotation.shape))
+            'Incompatible shapes between points {} and rotation{}.'.format(
+                tuple(points.shape), tuple(rotation.shape)
+            )
         )
     if normals is not None:
         return points, normals
@@ -152,10 +160,16 @@ def inverse_transform(transform):
     Return:
         inv_transform (Tensor): (*, 4, 4)
     """
-    rotation, translation = get_rotation_translation_from_transform(transform)  # (*, 3, 3), (*, 3)
+    rotation, translation = get_rotation_translation_from_transform(
+        transform
+    )  # (*, 3, 3), (*, 3)
     inv_rotation = rotation.transpose(-1, -2)  # (*, 3, 3)
-    inv_translation = -torch.matmul(inv_rotation, translation.unsqueeze(-1)).squeeze(-1)  # (*, 3)
-    inv_transform = get_transform_from_rotation_translation(inv_rotation, inv_translation)  # (*, 4, 4)
+    inv_translation = -torch.matmul(inv_rotation, translation.unsqueeze(-1)).squeeze(
+        -1
+    )  # (*, 3)
+    inv_transform = get_transform_from_rotation_translation(
+        inv_rotation, inv_translation
+    )  # (*, 4, 4)
     return inv_transform
 
 
@@ -205,7 +219,9 @@ def rodrigues_rotation_matrix(axes, angles):
     sin_values = torch.sin(angles).view(-1, 1, 1)  # (B,)
     cos_values = torch.cos(angles).view(-1, 1, 1)  # (B,)
     eyes = torch.eye(3).cuda().unsqueeze(0).expand_as(skews)  # (B, 3, 3)
-    rotations = eyes + sin_values * skews + (1.0 - cos_values) * torch.matmul(skews, skews)
+    rotations = (
+        eyes + sin_values * skews + (1.0 - cos_values) * torch.matmul(skews, skews)
+    )
     output_shape = input_shape[:-1] + (3, 3)
     rotations = rotations.view(*output_shape)
     return rotations
@@ -239,7 +255,9 @@ def rodrigues_alignment_matrix(src_vectors, tgt_vectors):
     eyes = torch.eye(3).cuda().unsqueeze(0).expand_as(skews)  # (B, 3, 3)
     sin_values = sin_values.view(-1, 1, 1)
     cos_values = cos_values.view(-1, 1, 1)
-    rotations = eyes + sin_values * skews + (1.0 - cos_values) * torch.matmul(skews, skews)
+    rotations = (
+        eyes + sin_values * skews + (1.0 - cos_values) * torch.matmul(skews, skews)
+    )
 
     # handle opposite direction
     sin_values = sin_values.view(-1)

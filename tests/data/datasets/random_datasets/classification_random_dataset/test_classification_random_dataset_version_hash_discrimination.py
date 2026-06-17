@@ -1,8 +1,12 @@
 """Tests for ClassificationRandomDataset cache version discrimination."""
 
-import pytest
 import tempfile
-from data.datasets.random_datasets.classification_random_dataset import ClassificationRandomDataset
+
+import pytest
+
+from data.datasets.random_datasets.classification_random_dataset import (
+    ClassificationRandomDataset,
+)
 
 
 def test_classification_random_dataset_version_discrimination():
@@ -92,8 +96,9 @@ def test_all_parameters_affect_version_hash():
             modified_args[param_name] = new_value
             dataset2 = ClassificationRandomDataset(**modified_args)
 
-            assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-                f"Parameter {param_name} should affect cache version hash"
+            assert (
+                dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+            ), f"Parameter {param_name} should affect cache version hash"
 
 
 def test_none_vs_specified_initial_seed():
@@ -141,8 +146,9 @@ def test_image_resolution_variants():
 
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        assert len(hashes) == len(set(hashes)), \
-            f"All image resolution variants should produce different hashes, got: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"All image resolution variants should produce different hashes, got: {hashes}"
 
 
 def test_num_classes_variants():
@@ -163,8 +169,9 @@ def test_num_classes_variants():
 
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        assert len(hashes) == len(set(hashes)), \
-            f"All num_classes variants should produce different hashes, got: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"All num_classes variants should produce different hashes, got: {hashes}"
 
 
 def test_comprehensive_no_hash_collisions():
@@ -178,23 +185,28 @@ def test_comprehensive_no_hash_collisions():
             for num_examples in [50, 100, 200]:
                 for image_res in [(224, 224), (256, 256), (128, 128)]:
                     for base_seed_val in [None, 42, 123]:
-                        datasets.append(ClassificationRandomDataset(
-                            num_classes=num_classes,
-                            num_examples=num_examples,
-                            image_res=image_res,
-                            base_seed=base_seed_val,
-                                                ))
+                        datasets.append(
+                            ClassificationRandomDataset(
+                                num_classes=num_classes,
+                                num_examples=num_examples,
+                                image_res=image_res,
+                                base_seed=base_seed_val,
+                            )
+                        )
 
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
         # Ensure all hashes are unique (no collisions)
-        assert len(hashes) == len(set(hashes)), \
-            f"Hash collision detected! Duplicate hashes found in: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
-            assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-            assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
-
-
+            assert isinstance(
+                hash_val, str
+            ), f"Hash must be string, got {type(hash_val)}"
+            assert (
+                len(hash_val) == 16
+            ), f"Hash must be 16 characters, got {len(hash_val)}"

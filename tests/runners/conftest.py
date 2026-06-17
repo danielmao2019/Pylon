@@ -1,10 +1,12 @@
-import pytest
-from typing import Dict, List, Any
-import tempfile
 import shutil
+import tempfile
+from typing import Any, Dict, List
+
+import pytest
 import torch
-from metrics.wrappers.single_task_metric import SingleTaskMetric
+
 from data.collators.base_collator import BaseCollator
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
 class SimpleMetric(SingleTaskMetric):
@@ -12,10 +14,16 @@ class SimpleMetric(SingleTaskMetric):
 
     DIRECTIONS = {"mse": -1}  # Lower is better for MSE (loss metric)
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """Compute MSE score."""
-        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
-        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
+        assert isinstance(
+            y_pred, torch.Tensor
+        ), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(
+            y_true, torch.Tensor
+        ), f"Expected torch.Tensor, got {type(y_true)}"
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
 
@@ -36,7 +44,7 @@ class SimpleDataset(torch.utils.data.Dataset):
         return {
             'inputs': {'data': self.data[idx]},  # Structure inputs properly
             'labels': {'target': self.labels[idx]},  # Structure labels properly
-            'meta_info': {'idx': idx}  # Keep idx as int
+            'meta_info': {'idx': idx},  # Keep idx as int
         }
 
     def set_base_seed(self, seed: int) -> None:
@@ -80,23 +88,22 @@ def dataset(device):
 @pytest.fixture
 def dataloader(dataset):
     """Create a dataloader for testing."""
-    return torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True, collate_fn=BaseCollator())
+    return torch.utils.data.DataLoader(
+        dataset, batch_size=32, shuffle=True, collate_fn=BaseCollator()
+    )
 
 
 @pytest.fixture
 def trainer_cfg(dataloader, device):
     """Create a configuration for testing."""
     return {
-        'model': {
-            'class': SimpleModel,
-            'args': {}
-        },
+        'model': {'class': SimpleModel, 'args': {}},
         'train_dataset': None,
         'train_dataloader': None,
         'criterion': None,
         'val_dataset': {
             'class': SimpleDataset,
-            'args': {'size': 100, 'device': device}
+            'args': {'size': 100, 'device': device},
         },
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
@@ -107,19 +114,16 @@ def trainer_cfg(dataloader, device):
                     'class': BaseCollator,
                     'args': {},
                 },
-            }
+            },
         },
-        'metric': {
-            'class': SimpleMetric,
-            'args': {}
-        },
+        'metric': {'class': SimpleMetric, 'args': {}},
         'optimizer': None,
         'scheduler': None,
         'epochs': 1,
         'init_seed': 42,
         'train_seeds': [42],
         'val_seeds': [42],
-        'test_seed': 42
+        'test_seed': 42,
     }
 
 
@@ -127,13 +131,10 @@ def trainer_cfg(dataloader, device):
 def evaluator_cfg(dataloader, device):
     """Create a configuration for evaluation testing."""
     return {
-        'model': {
-            'class': SimpleModel,
-            'args': {}
-        },
+        'model': {'class': SimpleModel, 'args': {}},
         'eval_dataset': {
             'class': SimpleDataset,
-            'args': {'size': 100, 'device': device}
+            'args': {'size': 100, 'device': device},
         },
         'eval_dataloader': {
             'class': torch.utils.data.DataLoader,
@@ -144,11 +145,8 @@ def evaluator_cfg(dataloader, device):
                     'class': BaseCollator,
                     'args': {},
                 },
-            }
+            },
         },
-        'metric': {
-            'class': SimpleMetric,
-            'args': {}
-        },
-        'seed': 42
+        'metric': {'class': SimpleMetric, 'args': {}},
+        'seed': 42,
     }

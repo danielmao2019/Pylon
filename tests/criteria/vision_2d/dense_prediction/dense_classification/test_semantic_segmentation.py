@@ -1,6 +1,9 @@
 import pytest
 import torch
-from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import (
+    SemanticSegmentationCriterion,
+)
 
 
 @pytest.fixture
@@ -50,7 +53,9 @@ def test_semantic_segmentation_perfect_predictions(sample_data):
     # Create perfect predictions (one-hot encoded with high confidence)
     y_pred_perfect = torch.zeros_like(y_pred)
     for b in range(y_true.size(0)):
-        y_pred_perfect[b].scatter_(0, y_true[b].unsqueeze(0), 100.0)  # High confidence for correct class
+        y_pred_perfect[b].scatter_(
+            0, y_true[b].unsqueeze(0), 100.0
+        )  # High confidence for correct class
 
     # Initialize criterion
     criterion = SemanticSegmentationCriterion().to(device)
@@ -59,7 +64,9 @@ def test_semantic_segmentation_perfect_predictions(sample_data):
     loss = criterion(y_pred_perfect, y_true)
 
     # Loss should be close to 0 for perfect predictions
-    assert loss.item() < 0.1, f"Loss should be close to 0 for perfect predictions, got {loss.item()}"
+    assert (
+        loss.item() < 0.1
+    ), f"Loss should be close to 0 for perfect predictions, got {loss.item()}"
 
 
 def test_semantic_segmentation_with_class_weights(sample_data):
@@ -153,8 +160,7 @@ def test_semantic_segmentation_with_weights_and_ignore(sample_data):
 
     # Initialize criterion with weights and ignore_value
     criterion = SemanticSegmentationCriterion(
-        class_weights=class_weights,
-        ignore_value=ignore_value
+        class_weights=class_weights, ignore_value=ignore_value
     ).to(device)
 
     # Compute loss
@@ -184,7 +190,13 @@ def test_semantic_segmentation_input_validation(sample_data):
 
     # Test mismatched batch size
     with pytest.raises(AssertionError):
-        invalid_pred = torch.randn(y_pred.shape[0] + 1, y_pred.shape[1], y_pred.shape[2], y_pred.shape[3], device=device)
+        invalid_pred = torch.randn(
+            y_pred.shape[0] + 1,
+            y_pred.shape[1],
+            y_pred.shape[2],
+            y_pred.shape[3],
+            device=device,
+        )
         criterion(invalid_pred, y_true)
 
     # Test out-of-range values in y_true

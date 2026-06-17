@@ -1,9 +1,11 @@
-from typing import Optional, Union, Sequence
+from typing import Optional, Sequence, Union
+
 import numpy as np
 import torch
-from data.transforms.base_transform import BaseTransform
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
+from data.transforms.base_transform import BaseTransform
 
 
 class RandomPlaneCrop(BaseTransform):
@@ -16,15 +18,25 @@ class RandomPlaneCrop(BaseTransform):
     - Preserves object topology better than point-based cropping
     """
 
-    def __init__(self, keep_ratio: float = 0.7, plane_normal: Optional[Union[Sequence[Union[int, float]], np.ndarray, torch.Tensor]] = None):
+    def __init__(
+        self,
+        keep_ratio: float = 0.7,
+        plane_normal: Optional[
+            Union[Sequence[Union[int, float]], np.ndarray, torch.Tensor]
+        ] = None,
+    ):
         """Initialize RandomPlaneCrop transform.
 
         Args:
             keep_ratio: Fraction of points to keep after cropping (0.0 to 1.0)
             plane_normal: Optional fixed plane normal (3,). If None, random normal is generated.
         """
-        assert isinstance(keep_ratio, (int, float)), f"keep_ratio must be numeric, got {type(keep_ratio)}"
-        assert 0.0 < keep_ratio <= 1.0, f"keep_ratio must be in (0, 1], got {keep_ratio}"
+        assert isinstance(
+            keep_ratio, (int, float)
+        ), f"keep_ratio must be numeric, got {type(keep_ratio)}"
+        assert (
+            0.0 < keep_ratio <= 1.0
+        ), f"keep_ratio must be in (0, 1], got {keep_ratio}"
 
         self.keep_ratio = float(keep_ratio)
 
@@ -37,15 +49,17 @@ class RandomPlaneCrop(BaseTransform):
             elif isinstance(plane_normal, torch.Tensor):
                 plane_normal = plane_normal.float()
             else:
-                raise TypeError(f"plane_normal must be Sequence, np.ndarray, or torch.Tensor, got {type(plane_normal)}")
+                raise TypeError(
+                    f"plane_normal must be Sequence, np.ndarray, or torch.Tensor, got {type(plane_normal)}"
+                )
 
-            assert plane_normal.shape == (3,), f"plane_normal must have shape (3,), got {plane_normal.shape}"
+            assert plane_normal.shape == (
+                3,
+            ), f"plane_normal must have shape (3,), got {plane_normal.shape}"
 
         self.plane_normal = plane_normal
 
-    def _call_single(
-        self, pc: PointCloud, generator: torch.Generator
-    ) -> PointCloud:
+    def _call_single(self, pc: PointCloud, generator: torch.Generator) -> PointCloud:
         """Apply random plane cropping to point cloud.
 
         Args:
@@ -59,10 +73,14 @@ class RandomPlaneCrop(BaseTransform):
 
         positions = pc.xyz  # Shape: (N, 3)
         num_points = positions.shape[0]
-        num_samples = int(torch.floor(torch.tensor(num_points * self.keep_ratio + 0.5)).item())
+        num_samples = int(
+            torch.floor(torch.tensor(num_points * self.keep_ratio + 0.5)).item()
+        )
 
         # Assert generator and positions are on same device type
-        assert positions.device.type == generator.device.type, f"positions device type {positions.device.type} != generator device type {generator.device.type}"
+        assert (
+            positions.device.type == generator.device.type
+        ), f"positions device type {positions.device.type} != generator device type {generator.device.type}"
 
         # Generate or use provided plane normal
         if self.plane_normal is None:
@@ -95,8 +113,12 @@ class RandomPlaneCrop(BaseTransform):
             Random unit normal vector, shape (3,) on same device as generator
         """
         # Generate random spherical coordinates on generator's device
-        phi = torch.rand(1, generator=generator, device=generator.device) * 2 * torch.pi  # longitude [0, 2π]
-        theta = torch.rand(1, generator=generator, device=generator.device) * torch.pi     # latitude [0, π]
+        phi = (
+            torch.rand(1, generator=generator, device=generator.device) * 2 * torch.pi
+        )  # longitude [0, 2π]
+        theta = (
+            torch.rand(1, generator=generator, device=generator.device) * torch.pi
+        )  # latitude [0, π]
 
         # Convert spherical to Cartesian coordinates
         x = torch.sin(theta) * torch.cos(phi)

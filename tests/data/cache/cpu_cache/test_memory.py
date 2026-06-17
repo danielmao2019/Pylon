@@ -19,10 +19,13 @@ def test_cache_memory_management(three_item_cache, make_datapoint, cache_key_fac
 
     # Verify eviction
     assert len(cache.cache) == 3, "Cache should maintain 3 items"
-    assert cache_key_factory(0) not in cache.cache, "First item should have been evicted"
+    assert (
+        cache_key_factory(0) not in cache.cache
+    ), "First item should have been evicted"
     assert cache_key_factory(3) in cache.cache, "New item should be present"
 
     # Cleanup
     del tensors
     import gc
+
     gc.collect()

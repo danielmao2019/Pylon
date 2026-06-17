@@ -1,4 +1,5 @@
-from typing import Tuple, Dict, Union
+from typing import Dict, Tuple, Union
+
 import torch
 
 from ._base_ import GradientBalancingBaseOptimizer
@@ -18,7 +19,7 @@ class GLSOptimizer(GradientBalancingBaseOptimizer):
         # initialization
         losses_tensor = torch.stack(list(losses.values()))
         # compute geometric loss
-        geo_loss = torch.pow(losses_tensor, 1/self.num_tasks).prod()
+        geo_loss = torch.pow(losses_tensor, 1 / self.num_tasks).prod()
         # populate gradients
         self.optimizer.zero_grad(set_to_none=True)
         geo_loss.backward()

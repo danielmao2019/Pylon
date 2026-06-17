@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from criteria.vision_2d.dense_prediction.dense_classification.iou_loss import IoULoss
 
 
@@ -50,7 +51,9 @@ def test_iou_loss_perfect_predictions(sample_data):
     # Create perfect predictions (one-hot encoded with high confidence)
     y_pred_perfect = torch.zeros_like(y_pred)
     for b in range(y_true.size(0)):
-        y_pred_perfect[b].scatter_(0, y_true[b].unsqueeze(0), 100.0)  # High confidence for correct class
+        y_pred_perfect[b].scatter_(
+            0, y_true[b].unsqueeze(0), 100.0
+        )  # High confidence for correct class
 
     # Initialize criterion
     criterion = IoULoss().to(device)
@@ -59,7 +62,9 @@ def test_iou_loss_perfect_predictions(sample_data):
     loss = criterion(y_pred_perfect, y_true)
 
     # Loss should be close to 0 for perfect predictions
-    assert loss.item() < 0.1, f"Loss should be close to 0 for perfect predictions, got {loss.item()}"
+    assert (
+        loss.item() < 0.1
+    ), f"Loss should be close to 0 for perfect predictions, got {loss.item()}"
 
 
 def test_iou_loss_with_class_weights(sample_data):
@@ -152,10 +157,9 @@ def test_iou_loss_with_weights_and_ignore(sample_data):
     y_true_ignored[0, 0, 0] = ignore_value
 
     # Initialize criterion with weights and ignore_value
-    criterion = IoULoss(
-        class_weights=class_weights,
-        ignore_value=ignore_value
-    ).to(device)
+    criterion = IoULoss(class_weights=class_weights, ignore_value=ignore_value).to(
+        device
+    )
 
     # Compute loss
     loss = criterion(y_pred, y_true_ignored)
@@ -184,7 +188,13 @@ def test_iou_loss_input_validation(sample_data):
 
     # Test mismatched batch size
     with pytest.raises(AssertionError):
-        invalid_pred = torch.randn(y_pred.shape[0] + 1, y_pred.shape[1], y_pred.shape[2], y_pred.shape[3], device=device)
+        invalid_pred = torch.randn(
+            y_pred.shape[0] + 1,
+            y_pred.shape[1],
+            y_pred.shape[2],
+            y_pred.shape[3],
+            device=device,
+        )
         criterion(invalid_pred, y_true)
 
     # Test out-of-range values in y_true

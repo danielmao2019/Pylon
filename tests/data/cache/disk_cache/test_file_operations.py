@@ -1,10 +1,12 @@
 """Test disk cache file system operations and atomic writes."""
 
-import pytest
-import tempfile
 import os
-import torch
+import tempfile
 from unittest.mock import patch
+
+import pytest
+import torch
+
 from data.cache.disk_dataset_cache import DiskDatasetCache
 
 
@@ -19,27 +21,16 @@ def temp_cache_dir():
 def sample_datapoint():
     """Create a sample datapoint for testing."""
     return {
-        'inputs': {
-            'image': torch.randn(3, 64, 64),
-            'features': torch.randn(256)
-        },
-        'labels': {
-            'mask': torch.randint(0, 2, (64, 64))
-        },
-        'meta_info': {
-            'path': '/test/image.jpg',
-            'index': 42,
-            'dataset': 'test'
-        }
+        'inputs': {'image': torch.randn(3, 64, 64), 'features': torch.randn(256)},
+        'labels': {'mask': torch.randint(0, 2, (64, 64))},
+        'meta_info': {'path': '/test/image.jpg', 'index': 42, 'dataset': 'test'},
     }
 
 
 def test_atomic_write_operations(temp_cache_dir, sample_datapoint):
     """Test atomic write operations using temporary files - fails fast and loud."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="atomic_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="atomic_test", enable_validation=False
     )
 
     # Mock os.rename to simulate failure during atomic write
@@ -51,8 +42,12 @@ def test_atomic_write_operations(temp_cache_dir, sample_datapoint):
         return original_rename(src, dst)
 
     with patch('os.rename', side_effect=failing_rename):
-        with pytest.raises(RuntimeError, match="Error saving torch file.*Simulated rename failure"):
-            cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, "0.pt"))
+        with pytest.raises(
+            RuntimeError, match="Error saving torch file.*Simulated rename failure"
+        ):
+            cache.put(
+                sample_datapoint, cache_filepath=os.path.join(cache.version_dir, "0.pt")
+            )
 
     # Verify no partial files remain
     cache_file = os.path.join(cache.version_dir, "0.pt")
@@ -64,15 +59,15 @@ def test_atomic_write_operations(temp_cache_dir, sample_datapoint):
 def test_atomic_write_cleanup_on_exception(temp_cache_dir, sample_datapoint):
     """Test that temporary files are cleaned up when exceptions occur."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="cleanup_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="cleanup_test", enable_validation=False
     )
 
     # Mock torch.save to simulate failure during save
     with patch('torch.save', side_effect=RuntimeError("Save failed")):
         with pytest.raises(RuntimeError, match="Save failed"):
-            cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, "0.pt"))
+            cache.put(
+                sample_datapoint, cache_filepath=os.path.join(cache.version_dir, "0.pt")
+            )
 
     # Verify no temporary files remain
     cache_file = os.path.join(cache.version_dir, "0.pt")
@@ -84,9 +79,7 @@ def test_atomic_write_cleanup_on_exception(temp_cache_dir, sample_datapoint):
 def test_disk_space_usage_tracking(temp_cache_dir, sample_datapoint):
     """Test disk space usage tracking."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="space_test",
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash="space_test", enable_validation=True
     )
 
     # Add item and measure disk usage
@@ -105,19 +98,25 @@ def test_multiple_files_disk_usage(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="multi_space_test",
-        enable_validation=True
+        enable_validation=True,
     )
 
     # Test multiple files
-    total_size_before = sum(
-        os.path.getsize(os.path.join(cache.version_dir, f))
-        for f in os.listdir(cache.version_dir)
-        if f.endswith('.pt')
-    ) if os.path.exists(cache.version_dir) else 0
+    total_size_before = (
+        sum(
+            os.path.getsize(os.path.join(cache.version_dir, f))
+            for f in os.listdir(cache.version_dir)
+            if f.endswith('.pt')
+        )
+        if os.path.exists(cache.version_dir)
+        else 0
+    )
 
     # Add multiple items
     for i in range(5):
-        cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt"))
+        cache.put(
+            sample_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt")
+        )
 
     total_size_after = sum(
         os.path.getsize(os.path.join(cache.version_dir, f))
@@ -134,7 +133,7 @@ def test_file_corruption_during_read(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="read_corruption_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     # Store valid item
@@ -146,7 +145,9 @@ def test_file_corruption_during_read(temp_cache_dir, sample_datapoint):
         f.write(b'\x80\x02}q\x00X\x06\x00\x00\x00')  # Partial pickle data
 
     # Should fail fast and loud - RuntimeError raised immediately
-    with pytest.raises(RuntimeError, match="Error loading torch file.*pickle data was truncated"):
+    with pytest.raises(
+        RuntimeError, match="Error loading torch file.*pickle data was truncated"
+    ):
         cache.get(cache_filepath=cache_file)
 
     # File should still exist - we don't mask errors by removing files
@@ -158,7 +159,7 @@ def test_concurrent_file_access_safety(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="concurrent_file_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     import threading
@@ -170,7 +171,10 @@ def test_concurrent_file_access_safety(temp_cache_dir, sample_datapoint):
         """Worker that writes to cache."""
         try:
             for i in range(10):
-                cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt"))
+                cache.put(
+                    sample_datapoint,
+                    cache_filepath=os.path.join(cache.version_dir, f"{i}.pt"),
+                )
                 time.sleep(0.001)  # Small delay
             results['writer'] = 'success'
         except Exception as e:
@@ -181,7 +185,9 @@ def test_concurrent_file_access_safety(temp_cache_dir, sample_datapoint):
         try:
             successful_reads = 0
             for i in range(20):
-                result = cache.get(cache_filepath=os.path.join(cache.version_dir, f"{i % 10}.pt"))
+                result = cache.get(
+                    cache_filepath=os.path.join(cache.version_dir, f"{i % 10}.pt")
+                )
                 if result is not None:
                     successful_reads += 1
                 time.sleep(0.001)  # Small delay
@@ -209,9 +215,7 @@ def test_directory_creation_permissions(temp_cache_dir):
     """Test that cache directories are created with proper permissions."""
     version_hash = "permissions_test"
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash=version_hash,
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash=version_hash, enable_validation=False
     )
 
     # Check version directory permissions
@@ -230,7 +234,7 @@ def test_file_loading_with_different_map_locations(temp_cache_dir, sample_datapo
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="map_location_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     # Store data
@@ -257,9 +261,7 @@ def test_file_loading_with_different_map_locations(temp_cache_dir, sample_datapo
 def test_cache_file_format_validation(temp_cache_dir, sample_datapoint):
     """Test that cache files have the expected format."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="format_test",
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash="format_test", enable_validation=True
     )
 
     # Store data

@@ -1,7 +1,6 @@
-from typing import Union, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 import torch.nn as nn
-
 
 NORM_LAYERS = {
     'BatchNorm1d': nn.BatchNorm1d,

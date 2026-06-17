@@ -1,9 +1,11 @@
-import pytest
-import tempfile
-import torch
 import copy
 import os
-from typing import Dict, Any
+import tempfile
+from typing import Any, Dict
+
+import pytest
+import torch
+
 from data.cache.combined_dataset_cache import CombinedDatasetCache
 
 
@@ -11,10 +13,7 @@ from data.cache.combined_dataset_cache import CombinedDatasetCache
 def temp_cache_setup():
     """Create temporary directory setup for combined cache testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        yield {
-            'data_root': temp_dir,
-            'version_hash': 'test_combined_cache_v123'
-        }
+        yield {'data_root': temp_dir, 'version_hash': 'test_combined_cache_v123'}
 
 
 @pytest.fixture
@@ -23,17 +22,17 @@ def sample_datapoint():
     return {
         'inputs': {
             'image': torch.randn(3, 64, 64, dtype=torch.float32),
-            'features': torch.randn(256, dtype=torch.float32)
+            'features': torch.randn(256, dtype=torch.float32),
         },
         'labels': {
             'mask': torch.randint(0, 2, (64, 64), dtype=torch.long),
-            'class_id': torch.tensor([1], dtype=torch.long)
+            'class_id': torch.tensor([1], dtype=torch.long),
         },
         'meta_info': {
             'path': '/test/sample.jpg',
             'index': 0,
-            'dataset': 'test_dataset'
-        }
+            'dataset': 'test_dataset',
+        },
     }
 
 
@@ -42,24 +41,26 @@ def different_datapoint():
     """Create a different datapoint for testing cache hierarchy."""
     return {
         'inputs': {
-            'image': torch.randn(3, 64, 64, dtype=torch.float32) + 10.0,  # Different values
-            'features': torch.randn(256, dtype=torch.float32) + 5.0
+            'image': torch.randn(3, 64, 64, dtype=torch.float32)
+            + 10.0,  # Different values
+            'features': torch.randn(256, dtype=torch.float32) + 5.0,
         },
         'labels': {
             'mask': torch.randint(0, 2, (64, 64), dtype=torch.long),
-            'class_id': torch.tensor([2], dtype=torch.long)  # Different class
+            'class_id': torch.tensor([2], dtype=torch.long),  # Different class
         },
         'meta_info': {
             'path': '/test/different.jpg',
             'index': 1,
-            'dataset': 'test_dataset'
-        }
+            'dataset': 'test_dataset',
+        },
     }
 
 
 @pytest.fixture
 def cache_config_factory(temp_cache_setup):
     """Factory fixture for creating caches with different configurations."""
+
     def _create_cache(
         use_cpu_cache: bool = True,
         use_disk_cache: bool = True,
@@ -67,7 +68,7 @@ def cache_config_factory(temp_cache_setup):
         enable_cpu_validation: bool = False,
         enable_disk_validation: bool = False,
         dataset_class_name: str = 'TestDataset',
-        version_dict: Dict[str, Any] = None
+        version_dict: Dict[str, Any] = None,
     ):
         return CombinedDatasetCache(
             data_root=temp_cache_setup['data_root'],
@@ -78,8 +79,9 @@ def cache_config_factory(temp_cache_setup):
             enable_cpu_validation=enable_cpu_validation,
             enable_disk_validation=enable_disk_validation,
             dataset_class_name=dataset_class_name,
-            version_dict=version_dict or {'test_param': 'test_value'}
+            version_dict=version_dict or {'test_param': 'test_value'},
         )
+
     return _create_cache
 
 
@@ -91,49 +93,40 @@ def all_cache_configurations(cache_config_factory):
         (True, True, 'both_enabled'),
         (True, False, 'cpu_only'),
         (False, True, 'disk_only'),
-        (False, False, 'both_disabled')
+        (False, False, 'both_disabled'),
     ]
 
 
 @pytest.fixture
 def cache_with_both_enabled(cache_config_factory):
     """Create a cache with both CPU and disk enabled for standard testing."""
-    return cache_config_factory(
-        use_cpu_cache=True,
-        use_disk_cache=True
-    )
+    return cache_config_factory(use_cpu_cache=True, use_disk_cache=True)
 
 
 @pytest.fixture
 def cache_cpu_only(cache_config_factory):
     """Create a cache with only CPU enabled."""
-    return cache_config_factory(
-        use_cpu_cache=True,
-        use_disk_cache=False
-    )
+    return cache_config_factory(use_cpu_cache=True, use_disk_cache=False)
 
 
 @pytest.fixture
 def cache_disk_only(cache_config_factory):
     """Create a cache with only disk enabled."""
-    return cache_config_factory(
-        use_cpu_cache=False,
-        use_disk_cache=True
-    )
+    return cache_config_factory(use_cpu_cache=False, use_disk_cache=True)
 
 
 @pytest.fixture
 def cache_both_disabled(cache_config_factory):
     """Create a cache with both CPU and disk disabled."""
-    return cache_config_factory(
-        use_cpu_cache=False,
-        use_disk_cache=False
-    )
+    return cache_config_factory(use_cpu_cache=False, use_disk_cache=False)
 
 
 @pytest.fixture
-def hierarchical_test_setup(cache_config_factory, sample_datapoint, different_datapoint):
+def hierarchical_test_setup(
+    cache_config_factory, sample_datapoint, different_datapoint
+):
     """Setup for testing hierarchical cache behavior with pre-populated data."""
+
     def _setup_hierarchy(cpu_data_idx=None, disk_data_idx=None):
         cache = cache_config_factory(use_cpu_cache=True, use_disk_cache=True)
 
@@ -163,30 +156,33 @@ def device_test_scenarios():
     return [
         None,  # Default (no device specified)
         'cpu',
-        'cuda' if torch.cuda.is_available() else 'cpu',  # Use CUDA if available, fallback to CPU
+        (
+            'cuda' if torch.cuda.is_available() else 'cpu'
+        ),  # Use CUDA if available, fallback to CPU
     ]
 
 
 @pytest.fixture
 def make_datapoint_factory():
     """Factory to create unique datapoints for testing."""
+
     def _make_datapoint(idx: int, add_variation: bool = True):
         base_value = float(idx) if add_variation else 0.0
 
         return {
             'inputs': {
                 'image': torch.randn(3, 64, 64, dtype=torch.float32) + base_value,
-                'features': torch.randn(256, dtype=torch.float32) + base_value
+                'features': torch.randn(256, dtype=torch.float32) + base_value,
             },
             'labels': {
                 'mask': torch.randint(0, 2, (64, 64), dtype=torch.long),
-                'class_id': torch.tensor([idx % 10], dtype=torch.long)
+                'class_id': torch.tensor([idx % 10], dtype=torch.long),
             },
             'meta_info': {
                 'path': f'/test/sample_{idx}.jpg',
                 'index': idx,
-                'dataset': 'test_dataset'
-            }
+                'dataset': 'test_dataset',
+            },
         }
 
     return _make_datapoint
@@ -198,17 +194,19 @@ def large_datapoint():
     return {
         'inputs': {
             'image': torch.randn(3, 512, 512, dtype=torch.float32),  # Larger image
-            'features': torch.randn(2048, dtype=torch.float32),       # Larger feature vector
-            'extra_data': torch.randn(1000, 1000, dtype=torch.float32)  # Additional large tensor
+            'features': torch.randn(2048, dtype=torch.float32),  # Larger feature vector
+            'extra_data': torch.randn(
+                1000, 1000, dtype=torch.float32
+            ),  # Additional large tensor
         },
         'labels': {
             'mask': torch.randint(0, 10, (512, 512), dtype=torch.long),
-            'class_id': torch.tensor([5], dtype=torch.long)
+            'class_id': torch.tensor([5], dtype=torch.long),
         },
         'meta_info': {
             'path': '/test/large_sample.jpg',
             'index': 999,
             'dataset': 'large_test_dataset',
-            'additional_info': 'This is a large datapoint for testing'
-        }
+            'additional_info': 'This is a large datapoint for testing',
+        },
     }

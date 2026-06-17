@@ -11,7 +11,9 @@ from models.point_cloud_registration.buffer.point_learner import architecture
 def buffer_collate_fn_gt(list_data, config, neighborhood_limits):
     batched_points_list = []
     batched_lengths_list = []
-    batched_features_list = []# = np.ones_like(input_points[0][:, :0]).astype(np.float32)
+    batched_features_list = (
+        []
+    )  # = np.ones_like(input_points[0][:, :0]).astype(np.float32)
     assert len(list_data) == 1
     list_data = list_data[0]
 
@@ -39,7 +41,9 @@ def buffer_collate_fn_gt(list_data, config, neighborhood_limits):
 
     batched_points = torch.cat(batched_points_list, dim=0)
     batched_features = torch.cat(batched_features_list, dim=0)
-    batched_lengths = torch.tensor(batched_lengths_list, dtype=torch.int64, device=batched_points.device)
+    batched_lengths = torch.tensor(
+        batched_lengths_list, dtype=torch.int64, device=batched_points.device
+    )
 
     # Starting radius of convolutions
     r_normal = config.data.voxel_size_0 * config.point.conv_radius
@@ -64,7 +68,9 @@ def buffer_collate_fn_gt(list_data, config, neighborhood_limits):
         # Get all blocks of the layer
         if not ('pool' in block or 'strided' in block):
             layer_blocks += [block]
-            if block_i < len(architecture) - 1 and not ('upsample' in architecture[block_i + 1]):
+            if block_i < len(architecture) - 1 and not (
+                'upsample' in architecture[block_i + 1]
+            ):
                 continue
 
         # Convolution neighbors indices
@@ -73,8 +79,14 @@ def buffer_collate_fn_gt(list_data, config, neighborhood_limits):
         if layer_blocks:
             # Convolutions are done in this layer, compute the neighbors with the good radius
             r = r_normal
-            conv_i = batch_neighbors_kpconv(batched_points, batched_points, batched_lengths, batched_lengths, r,
-                                            neighborhood_limits[layer])
+            conv_i = batch_neighbors_kpconv(
+                batched_points,
+                batched_points,
+                batched_lengths,
+                batched_lengths,
+                r,
+                neighborhood_limits[layer],
+            )
 
         else:
             # This layer only perform pooling, no neighbors required
@@ -90,18 +102,32 @@ def buffer_collate_fn_gt(list_data, config, neighborhood_limits):
             dl = 2 * r_normal / config.point.conv_radius
 
             # Subsampled points
-            pool_p, pool_b = batch_grid_subsampling_kpconv(batched_points, batched_lengths, sampleDl=dl)
+            pool_p, pool_b = batch_grid_subsampling_kpconv(
+                batched_points, batched_lengths, sampleDl=dl
+            )
 
             # Radius of pooled neighbors
             r = r_normal
 
             # Subsample indices
-            pool_i = batch_neighbors_kpconv(pool_p, batched_points, pool_b, batched_lengths, r,
-                                            neighborhood_limits[layer])
+            pool_i = batch_neighbors_kpconv(
+                pool_p,
+                batched_points,
+                pool_b,
+                batched_lengths,
+                r,
+                neighborhood_limits[layer],
+            )
 
             # Upsample indices (with the radius of the next layer to keep wanted density)
-            up_i = batch_neighbors_kpconv(batched_points, pool_p, batched_lengths, pool_b, 2 * r,
-                                          neighborhood_limits[layer])
+            up_i = batch_neighbors_kpconv(
+                batched_points,
+                pool_p,
+                batched_lengths,
+                pool_b,
+                2 * r,
+                neighborhood_limits[layer],
+            )
 
         else:
             # No pooling in the end of this layer, no pooling indices required

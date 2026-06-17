@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.transforms.vision_3d.scale import Scale
 
@@ -49,7 +50,7 @@ def test_scale_call(sample_pc):
     assert result.field_names() == ('xyz', 'feat', 'normal')
 
     # Check if shapes are consistent
-    expected_num_points = int(sample_pc.num_points * (0.5 ** 3))
+    expected_num_points = int(sample_pc.num_points * (0.5**3))
     assert result.xyz.shape == (expected_num_points, 3)
     assert result.feat.shape == (expected_num_points, 4)
     assert result.normal.shape == (expected_num_points, 3)
@@ -57,7 +58,9 @@ def test_scale_call(sample_pc):
     # Get expected indices for deterministic comparison
     generator = torch.Generator(device=sample_pc.xyz.device)
     generator.manual_seed(42)
-    indices = torch.randperm(sample_pc.num_points, device=sample_pc.xyz.device, generator=generator)[:expected_num_points]
+    indices = torch.randperm(
+        sample_pc.num_points, device=sample_pc.xyz.device, generator=generator
+    )[:expected_num_points]
 
     # Check if XYZ coordinates are scaled
     assert torch.allclose(result.xyz, sample_pc.xyz[indices] * 0.5)

@@ -1,9 +1,11 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
+import pytest
 import torch
 import torch.nn as nn
-import pytest
-from optimizers.wrappers.multi_part_optimizer import MultiPartOptimizer
+
 from optimizers.single_task_optimizer import SingleTaskOptimizer
+from optimizers.wrappers.multi_part_optimizer import MultiPartOptimizer
 
 
 def test_multi_part_optimizer_initialization(multi_part_optimizer_configs):
@@ -17,7 +19,9 @@ def test_multi_part_optimizer_initialization(multi_part_optimizer_configs):
     assert isinstance(optimizer.optimizers['decoder'], SingleTaskOptimizer)
 
 
-def test_multi_part_optimizer_state_dict_save_load(simple_model, multi_part_optimizer_configs):
+def test_multi_part_optimizer_state_dict_save_load(
+    simple_model, multi_part_optimizer_configs
+):
     """Test that MultiPartOptimizer correctly saves and loads state dicts."""
     # Create MultiPartOptimizer
     optimizer = MultiPartOptimizer(multi_part_optimizer_configs)
@@ -77,7 +81,7 @@ def test_multi_part_optimizer_state_dict_save_load(simple_model, multi_part_opti
             if 'momentum_buffer' in orig_state[param_id]:
                 assert torch.allclose(
                     orig_state[param_id]['momentum_buffer'],
-                    new_state[param_id]['momentum_buffer']
+                    new_state[param_id]['momentum_buffer'],
                 )
 
 

@@ -1,10 +1,12 @@
-from typing import Dict, Optional, Any, List
 import os
+from typing import Any, Dict, List, Optional
+
 import torch
+
+from agents.connector.pool import SSHConnectionPool
 from agents.monitor.base_monitor import BaseMonitor
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo, get_all_processes
-from agents.connector.pool import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
@@ -26,22 +28,32 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
 
     def _initialize_state(self) -> None:
         if self.server == 'localhost' and self.index is None:
-            assert torch.cuda.is_available(), "CUDA must be available when monitoring localhost GPU"
+            assert (
+                torch.cuda.is_available()
+            ), "CUDA must be available when monitoring localhost GPU"
             device_index = torch.cuda.current_device()
             cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
             if cuda_visible_devices:
-                visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
+                visible_devices = [
+                    int(d.strip()) for d in cuda_visible_devices.split(',')
+                ]
                 physical_device_index = visible_devices[device_index]
             else:
                 physical_device_index = device_index
             self.index = physical_device_index
-        self.status = GPUStatus(server=self.server, index=self.index, connected=False, window_size=None)
+        self.status = GPUStatus(
+            server=self.server, index=self.index, connected=False, window_size=None
+        )
 
     def _update_resource(self) -> None:
-        info = self._collect_gpu_info(self.server, self.index, self.ssh_pool, timeout=self.timeout)
+        info = self._collect_gpu_info(
+            self.server, self.index, self.ssh_pool, timeout=self.timeout
+        )
 
         if not info['connected']:
-            self.status = GPUStatus(server=self.server, index=self.index, connected=False, window_size=None)
+            self.status = GPUStatus(
+                server=self.server, index=self.index, connected=False, window_size=None
+            )
             assert self.status.window_size is None
             return
 
@@ -58,11 +70,13 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
         status.memory_window.append(info['current_memory'])
         status.util_window.append(info['current_util'])
 
-        assert status.window_size is not None, "window_size must be set when GPU is connected"
+        assert (
+            status.window_size is not None
+        ), "window_size must be set when GPU is connected"
         if len(status.memory_window) > status.window_size:
-            status.memory_window = status.memory_window[-status.window_size:]
+            status.memory_window = status.memory_window[-status.window_size :]
         if len(status.util_window) > status.window_size:
-            status.util_window = status.util_window[-status.window_size:]
+            status.util_window = status.util_window[-status.window_size :]
 
         status.memory_stats = {
             'min': min(status.memory_window),
@@ -118,14 +132,23 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
         index: int,
         pool: SSHConnectionPool,
     ) -> List[ProcessInfo]:
-        uuid_cmd = ['nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader', f'--id={index}']
+        uuid_cmd = [
+            'nvidia-smi',
+            '--query-gpu=index,gpu_uuid',
+            '--format=csv,noheader',
+            f'--id={index}',
+        ]
         uuid_output = pool.execute(server, uuid_cmd).strip()
         parts = uuid_output.split(', ')
         if len(parts) != 2:
             return []
         gpu_uuid = parts[1]
 
-        pids_cmd = ['nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader']
+        pids_cmd = [
+            'nvidia-smi',
+            '--query-compute-apps=gpu_uuid,pid',
+            '--format=csv,noheader',
+        ]
         pids_output = pool.execute(server, pids_cmd)
 
         pids: List[str] = []
@@ -161,7 +184,9 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
         try:
             return _query()
         except Exception as exc:  # noqa: BLE001
-            print(f"ERROR: Failed to get GPU info for server {server}, GPU {index}: {exc}")
+            print(
+                f"ERROR: Failed to get GPU info for server {server}, GPU {index}: {exc}"
+            )
             return {
                 'server': server,
                 'index': index,

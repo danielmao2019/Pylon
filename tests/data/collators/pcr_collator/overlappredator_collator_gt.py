@@ -41,7 +41,9 @@ def overlappredator_collate_fn_gt(list_data, config, neighborhood_limits):
 
     batched_features = torch.cat(batched_features_list, dim=0)
     batched_points = torch.cat(batched_points_list, dim=0)
-    batched_lengths = torch.tensor(batched_lengths_list, dtype=torch.int64, device=batched_points.device)
+    batched_lengths = torch.tensor(
+        batched_lengths_list, dtype=torch.int64, device=batched_points.device
+    )
 
     # Starting radius of convolutions
     r_normal = config.first_subsampling_dl * config.conv_radius
@@ -66,7 +68,9 @@ def overlappredator_collate_fn_gt(list_data, config, neighborhood_limits):
         # Get all blocks of the layer
         if not ('pool' in block or 'strided' in block):
             layer_blocks += [block]
-            if block_i < len(config.architecture) - 1 and not ('upsample' in config.architecture[block_i + 1]):
+            if block_i < len(config.architecture) - 1 and not (
+                'upsample' in config.architecture[block_i + 1]
+            ):
                 continue
 
         # Convolution neighbors indices
@@ -78,7 +82,14 @@ def overlappredator_collate_fn_gt(list_data, config, neighborhood_limits):
                 r = r_normal * config.deform_radius / config.conv_radius
             else:
                 r = r_normal
-            conv_i = batch_neighbors_kpconv(batched_points, batched_points, batched_lengths, batched_lengths, r, neighborhood_limits[layer])
+            conv_i = batch_neighbors_kpconv(
+                batched_points,
+                batched_points,
+                batched_lengths,
+                batched_lengths,
+                r,
+                neighborhood_limits[layer],
+            )
 
         else:
             # This layer only perform pooling, no neighbors required
@@ -94,7 +105,9 @@ def overlappredator_collate_fn_gt(list_data, config, neighborhood_limits):
             dl = 2 * r_normal / config.conv_radius
 
             # Subsampled points
-            pool_p, pool_b = batch_grid_subsampling_kpconv(batched_points, batched_lengths, sampleDl=dl)
+            pool_p, pool_b = batch_grid_subsampling_kpconv(
+                batched_points, batched_lengths, sampleDl=dl
+            )
 
             # Radius of pooled neighbors
             if 'deformable' in block:
@@ -103,10 +116,24 @@ def overlappredator_collate_fn_gt(list_data, config, neighborhood_limits):
                 r = r_normal
 
             # Subsample indices
-            pool_i = batch_neighbors_kpconv(pool_p, batched_points, pool_b, batched_lengths, r, neighborhood_limits[layer])
+            pool_i = batch_neighbors_kpconv(
+                pool_p,
+                batched_points,
+                pool_b,
+                batched_lengths,
+                r,
+                neighborhood_limits[layer],
+            )
 
             # Upsample indices (with the radius of the next layer to keep wanted density)
-            up_i = batch_neighbors_kpconv(batched_points, pool_p, batched_lengths, pool_b, 2 * r, neighborhood_limits[layer])
+            up_i = batch_neighbors_kpconv(
+                batched_points,
+                pool_p,
+                batched_lengths,
+                pool_b,
+                2 * r,
+                neighborhood_limits[layer],
+            )
 
         else:
             # No pooling in the end of this layer, no pooling indices required

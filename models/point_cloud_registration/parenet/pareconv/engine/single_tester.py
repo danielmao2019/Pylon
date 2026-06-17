@@ -1,16 +1,16 @@
 import pdb
 from typing import Dict
 
-import torch
 import ipdb
+import torch
 from tqdm import tqdm
 
-from .base_tester import BaseTester
+from ..utils.common import get_log_string
+from ..utils.data import precompute_neibors
 from ..utils.summary_board import SummaryBoard
 from ..utils.timer import Timer
-from ..utils.common import get_log_string
 from ..utils.torch import release_cuda, to_cuda
-from ..utils.data import precompute_neibors
+from .base_tester import BaseTester
 
 
 class SingleTester(BaseTester):
@@ -54,10 +54,12 @@ class SingleTester(BaseTester):
             timer.add_prepare_time()
             self.iteration = iteration + 1
             data_dict = to_cuda(data_dict)
-            data = precompute_neibors(data_dict['points'], data_dict['lengths'],
-                                              self.cfg.backbone.num_stages,
-                                              self.cfg.backbone.num_neighbors,
-                                              )
+            data = precompute_neibors(
+                data_dict['points'],
+                data_dict['lengths'],
+                self.cfg.backbone.num_stages,
+                self.cfg.backbone.num_neighbors,
+            )
             data_dict.update(data)
             self.before_test_step(self.iteration, data_dict)
             # test step
@@ -73,7 +75,9 @@ class SingleTester(BaseTester):
             # logging
             result_dict = release_cuda(result_dict)
             summary_board.update_from_result_dict(result_dict)
-            message = self.summary_string(self.iteration, data_dict, output_dict, result_dict)
+            message = self.summary_string(
+                self.iteration, data_dict, output_dict, result_dict
+            )
             message += f', {timer.tostring()}'
             # pbar.set_description(message)
             self.logger.critical(message)

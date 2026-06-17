@@ -1,9 +1,16 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
-from models.point_cloud_registration.geotransformer.positional_embedding import SinusoidalPositionalEmbedding
-from models.point_cloud_registration.geotransformer.conditional_transformer import RPEConditionalTransformer
+
+from models.point_cloud_registration.geotransformer.conditional_transformer import (
+    RPEConditionalTransformer,
+)
+from models.point_cloud_registration.geotransformer.pairwise_distance import (
+    pairwise_distance,
+)
+from models.point_cloud_registration.geotransformer.positional_embedding import (
+    SinusoidalPositionalEmbedding,
+)
 
 
 class GeometricStructureEmbedding(nn.Module):
@@ -39,15 +46,29 @@ class GeometricStructureEmbedding(nn.Module):
         d_indices = dist_map / self.sigma_d
 
         k = self.angle_k
-        knn_indices = dist_map.topk(k=k + 1, dim=2, largest=False)[1][:, :, 1:]  # (B, N, k)
-        knn_indices = knn_indices.unsqueeze(3).expand(batch_size, num_point, k, 3)  # (B, N, k, 3)
-        expanded_points = points.unsqueeze(1).expand(batch_size, num_point, num_point, 3)  # (B, N, N, 3)
-        knn_points = torch.gather(expanded_points, dim=2, index=knn_indices)  # (B, N, k, 3)
+        knn_indices = dist_map.topk(k=k + 1, dim=2, largest=False)[1][
+            :, :, 1:
+        ]  # (B, N, k)
+        knn_indices = knn_indices.unsqueeze(3).expand(
+            batch_size, num_point, k, 3
+        )  # (B, N, k, 3)
+        expanded_points = points.unsqueeze(1).expand(
+            batch_size, num_point, num_point, 3
+        )  # (B, N, N, 3)
+        knn_points = torch.gather(
+            expanded_points, dim=2, index=knn_indices
+        )  # (B, N, k, 3)
         ref_vectors = knn_points - points.unsqueeze(2)  # (B, N, k, 3)
         anc_vectors = points.unsqueeze(1) - points.unsqueeze(2)  # (B, N, N, 3)
-        ref_vectors = ref_vectors.unsqueeze(2).expand(batch_size, num_point, num_point, k, 3)  # (B, N, N, k, 3)
-        anc_vectors = anc_vectors.unsqueeze(3).expand(batch_size, num_point, num_point, k, 3)  # (B, N, N, k, 3)
-        sin_values = torch.linalg.norm(torch.cross(ref_vectors, anc_vectors, dim=-1), dim=-1)  # (B, N, N, k)
+        ref_vectors = ref_vectors.unsqueeze(2).expand(
+            batch_size, num_point, num_point, k, 3
+        )  # (B, N, N, k, 3)
+        anc_vectors = anc_vectors.unsqueeze(3).expand(
+            batch_size, num_point, num_point, k, 3
+        )  # (B, N, N, k, 3)
+        sin_values = torch.linalg.norm(
+            torch.cross(ref_vectors, anc_vectors, dim=-1), dim=-1
+        )  # (B, N, N, k)
         cos_values = torch.sum(ref_vectors * anc_vectors, dim=-1)  # (B, N, N, k)
         angles = torch.atan2(sin_values, cos_values)  # (B, N, N, k)
         a_indices = angles * self.factor_a
@@ -103,7 +124,9 @@ class GeometricTransformer(nn.Module):
         """
         super(GeometricTransformer, self).__init__()
 
-        self.embedding = GeometricStructureEmbedding(hidden_dim, sigma_d, sigma_a, angle_k, reduction_a=reduction_a)
+        self.embedding = GeometricStructureEmbedding(
+            hidden_dim, sigma_d, sigma_a, angle_k, reduction_a=reduction_a
+        )
 
         self.in_proj = nn.Linear(input_dim, hidden_dim)
         self.transformer = RPEConditionalTransformer(

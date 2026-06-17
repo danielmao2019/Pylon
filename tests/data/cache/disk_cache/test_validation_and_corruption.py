@@ -1,9 +1,11 @@
 """Test disk cache validation and corruption detection."""
 
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
 import torch
+
 from data.cache.disk_dataset_cache import DiskDatasetCache
 
 
@@ -18,27 +20,16 @@ def temp_cache_dir():
 def sample_datapoint():
     """Create a sample datapoint for testing."""
     return {
-        'inputs': {
-            'image': torch.randn(3, 64, 64),
-            'features': torch.randn(256)
-        },
-        'labels': {
-            'mask': torch.randint(0, 2, (64, 64))
-        },
-        'meta_info': {
-            'path': '/test/image.jpg',
-            'index': 42,
-            'dataset': 'test'
-        }
+        'inputs': {'image': torch.randn(3, 64, 64), 'features': torch.randn(256)},
+        'labels': {'mask': torch.randint(0, 2, (64, 64))},
+        'meta_info': {'path': '/test/image.jpg', 'index': 42, 'dataset': 'test'},
     }
 
 
 def test_checksum_validation_enabled(temp_cache_dir, sample_datapoint):
     """Test checksum validation when enabled."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="validation_test",
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash="validation_test", enable_validation=True
     )
 
     cache_file = os.path.join(cache.version_dir, "0.pt")
@@ -59,7 +50,7 @@ def test_checksum_validation_disabled(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="no_validation_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     cache_file = os.path.join(cache.version_dir, "0.pt")
@@ -77,9 +68,7 @@ def test_checksum_validation_disabled(temp_cache_dir, sample_datapoint):
 def test_corruption_detection_and_removal(temp_cache_dir, sample_datapoint):
     """Test detection and handling of corrupted cache files - fails fast and loud."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="corruption_test",
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash="corruption_test", enable_validation=True
     )
 
     cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, "0.pt"))
@@ -101,9 +90,7 @@ def test_corruption_detection_and_removal(temp_cache_dir, sample_datapoint):
 def test_validation_session_tracking(temp_cache_dir, sample_datapoint):
     """Test that validation only happens once per session."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="session_test",
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash="session_test", enable_validation=True
     )
 
     cache_file = os.path.join(cache.version_dir, "0.pt")
@@ -117,7 +104,10 @@ def test_validation_session_tracking(temp_cache_dir, sample_datapoint):
 
     # Mock the validation method to track calls
     from unittest.mock import patch
-    with patch.object(cache, '_validate_item', wraps=cache._validate_item) as mock_validate:
+
+    with patch.object(
+        cache, '_validate_item', wraps=cache._validate_item
+    ) as mock_validate:
         # Second access should skip validation
         result2 = cache.get(cache_filepath=cache_file)
         assert result2 is not None
@@ -127,9 +117,7 @@ def test_validation_session_tracking(temp_cache_dir, sample_datapoint):
 def test_checksum_computation_consistency(temp_cache_dir, sample_datapoint):
     """Test that checksum computation is consistent."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="checksum_test",
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash="checksum_test", enable_validation=True
     )
 
     # Compute checksum multiple times for same data
@@ -147,17 +135,17 @@ def test_different_data_different_checksums(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="diff_checksum_test",
-        enable_validation=True
+        enable_validation=True,
     )
 
     # Create modified datapoint
     modified_datapoint = {
         'inputs': {
             'image': sample_datapoint['inputs']['image'] + 0.1,  # Slight modification
-            'features': sample_datapoint['inputs']['features']
+            'features': sample_datapoint['inputs']['features'],
         },
         'labels': sample_datapoint['labels'],
-        'meta_info': sample_datapoint['meta_info']
+        'meta_info': sample_datapoint['meta_info'],
     }
 
     # Compute checksums
@@ -173,7 +161,7 @@ def test_validation_with_corrupted_checksum(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="corrupted_checksum_test",
-        enable_validation=True
+        enable_validation=True,
     )
 
     cache_file = os.path.join(cache.version_dir, "0.pt")
@@ -198,9 +186,7 @@ def test_validation_reset_on_cache_restart(temp_cache_dir, sample_datapoint):
 
     # Create first cache instance
     cache1 = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash=version_hash,
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash=version_hash, enable_validation=True
     )
 
     cache_file = os.path.join(cache1.version_dir, "0.pt")
@@ -211,9 +197,7 @@ def test_validation_reset_on_cache_restart(temp_cache_dir, sample_datapoint):
 
     # Create new cache instance (simulating restart)
     cache2 = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash=version_hash,
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash=version_hash, enable_validation=True
     )
 
     # Validation tracking should be reset

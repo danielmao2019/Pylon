@@ -1,8 +1,10 @@
 import os
 import tempfile
-import torch
+
 import pytest
-from utils.io.torch import save_torch, load_torch
+import torch
+
+from utils.io.torch import load_torch, save_torch
 
 
 @pytest.fixture

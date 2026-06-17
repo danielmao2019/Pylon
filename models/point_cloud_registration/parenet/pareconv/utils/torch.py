@@ -1,14 +1,13 @@
 import math
 import random
-from typing import Callable
 from collections import OrderedDict
+from typing import Callable
 
 import numpy as np
 import torch
+import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.utils.data
-import torch.backends.cudnn as cudnn
-
 
 # Distributed Data Parallel Utilities
 
@@ -28,7 +27,10 @@ def all_reduce_tensors(x, world_size=1):
     elif isinstance(x, tuple):
         x = (all_reduce_tensors(item, world_size=world_size) for item in x)
     elif isinstance(x, dict):
-        x = {key: all_reduce_tensors(value, world_size=world_size) for key, value in x.items()}
+        x = {
+            key: all_reduce_tensors(value, world_size=world_size)
+            for key, value in x.items()
+        }
     elif isinstance(x, torch.Tensor):
         x = all_reduce_tensor(x, world_size=world_size)
     return x
@@ -39,7 +41,7 @@ def all_reduce_tensors(x, world_size=1):
 
 def reset_seed_worker_init_fn(worker_id):
     r"""Reset seed for data loader worker."""
-    seed = torch.initial_seed() % (2 ** 32)
+    seed = torch.initial_seed() % (2**32)
     # print(worker_id, seed)
     np.random.seed(seed)
     random.seed(seed)
@@ -147,7 +149,9 @@ class CosineAnnealingFunction(Callable):
 
     def __call__(self, last_epoch):
         next_epoch = last_epoch + 1
-        return self.eta_min + 0.5 * (1.0 - self.eta_min) * (1.0 + math.cos(math.pi * next_epoch / self.max_epoch))
+        return self.eta_min + 0.5 * (1.0 - self.eta_min) * (
+            1.0 + math.cos(math.pi * next_epoch / self.max_epoch)
+        )
 
 
 class WarmUpCosineAnnealingFunction(Callable):
@@ -167,12 +171,18 @@ class WarmUpCosineAnnealingFunction(Callable):
             if next_step > self.total_steps:
                 return self.eta_min
             next_step -= self.warmup_steps
-            return self.eta_min + 0.5 * (1.0 - self.eta_min) * (1 + np.cos(np.pi * next_step / self.normal_steps))
+            return self.eta_min + 0.5 * (1.0 - self.eta_min) * (
+                1 + np.cos(np.pi * next_step / self.normal_steps)
+            )
 
 
-def build_warmup_cosine_lr_scheduler(optimizer, total_steps, warmup_steps, eta_init=0.1, eta_min=0.1, grad_acc_steps=1):
+def build_warmup_cosine_lr_scheduler(
+    optimizer, total_steps, warmup_steps, eta_init=0.1, eta_min=0.1, grad_acc_steps=1
+):
     total_steps //= grad_acc_steps
     warmup_steps //= grad_acc_steps
-    cosine_func = WarmUpCosineAnnealingFunction(total_steps, warmup_steps, eta_init=eta_init, eta_min=eta_min)
+    cosine_func = WarmUpCosineAnnealingFunction(
+        total_steps, warmup_steps, eta_init=eta_init, eta_min=eta_min
+    )
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, cosine_func)
     return scheduler

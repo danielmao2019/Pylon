@@ -1,7 +1,8 @@
 from datetime import datetime
-import pytest
-from agents.logger import AgentLogParser
 
+import pytest
+
+from agents.logger import AgentLogParser
 
 # ============================================================================
 # LOG PARSING TESTS

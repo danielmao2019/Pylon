@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 
 
 def rotation_matrix(num_axis, augment_rotation):
@@ -12,22 +12,35 @@ def rotation_matrix(num_axis, augment_rotation):
         - R: [3, 3] rotation matrix
     """
     assert num_axis == 1 or num_axis == 3 or num_axis == 0
-    if  num_axis == 0:
+    if num_axis == 0:
         return np.eye(3)
     angles = np.random.rand(3) * 2 * np.pi * augment_rotation
-    Rx = np.array([[1, 0, 0],
-                   [0, np.cos(angles[0]), -np.sin(angles[0])],
-                   [0, np.sin(angles[0]), np.cos(angles[0])]])
-    Ry = np.array([[np.cos(angles[1]), 0, np.sin(angles[1])],
-                   [0, 1, 0],
-                   [-np.sin(angles[1]), 0, np.cos(angles[1])]])
-    Rz = np.array([[np.cos(angles[2]), -np.sin(angles[2]), 0],
-                   [np.sin(angles[2]), np.cos(angles[2]), 0],
-                   [0, 0, 1]])
+    Rx = np.array(
+        [
+            [1, 0, 0],
+            [0, np.cos(angles[0]), -np.sin(angles[0])],
+            [0, np.sin(angles[0]), np.cos(angles[0])],
+        ]
+    )
+    Ry = np.array(
+        [
+            [np.cos(angles[1]), 0, np.sin(angles[1])],
+            [0, 1, 0],
+            [-np.sin(angles[1]), 0, np.cos(angles[1])],
+        ]
+    )
+    Rz = np.array(
+        [
+            [np.cos(angles[2]), -np.sin(angles[2]), 0],
+            [np.sin(angles[2]), np.cos(angles[2]), 0],
+            [0, 0, 1],
+        ]
+    )
     # R = Rx @ Ry @ Rz
     if num_axis == 1:
         return Rz
     return Rx @ Ry @ Rz
+
 
 def translation_matrix(augment_translation):
     """
@@ -39,7 +52,8 @@ def translation_matrix(augment_translation):
     """
     T = np.random.rand(3) * augment_translation
     return T.reshape(3, 1)
-    
+
+
 def transform(pts, trans):
     """
     Applies the SE3 transformations, support torch.Tensor and np.ndarry.  Equation: trans_pts = R @ pts + t
@@ -50,11 +64,12 @@ def transform(pts, trans):
         - pts: [num_pts, 3] or [bs, num_pts, 3] transformed pts
     """
     if len(pts.shape) == 3:
-        trans_pts = trans[:, :3, :3] @ pts.permute(0,2,1) + trans[:, :3, 3:4]
-        return trans_pts.permute(0,2,1)
+        trans_pts = trans[:, :3, :3] @ pts.permute(0, 2, 1) + trans[:, :3, 3:4]
+        return trans_pts.permute(0, 2, 1)
     else:
         trans_pts = trans[:3, :3] @ pts.T + trans[:3, 3:4]
         return trans_pts.T
+
 
 def decompose_trans(trans):
     """
@@ -69,7 +84,8 @@ def decompose_trans(trans):
         return trans[:, :3, :3], trans[:, :3, 3:4]
     else:
         return trans[:3, :3], trans[:3, 3:4]
-    
+
+
 def integrate_trans(R, t):
     """
     Integrate SE3 transformations from R and t, support torch.Tensor and np.ndarry.
@@ -95,6 +111,7 @@ def integrate_trans(R, t):
         trans[:3, 3:4] = t
     return trans
 
+
 def concatenate(trans1, trans2):
     """
     Concatenate two SE3 transformations, support torch.Tensor and np.ndarry.
@@ -103,7 +120,7 @@ def concatenate(trans1, trans2):
         - trans2: [4, 4] or [bs, 4, 4], SE3 transformation matrix
     Output:
         - trans1 @ trans2
-    """    
+    """
     R1, t1 = decompose_trans(trans1)
     R2, t2 = decompose_trans(trans2)
     R_cat = R1 @ R2

@@ -1,26 +1,35 @@
-from typing import List, Any, Callable, Dict
 from functools import partial
+from typing import Any, Callable, Dict, List
+
 import numpy as np
 import torch
+
 from data.collators.buffer.buffer_collate_fn import buffer_collate_fn
 from data.dataloaders.pcr_dataloader import PCRDataloader
 from models.point_cloud_registration.buffer.point_learner import architecture
 
-
 num_layer = 1
 for block_i, block in enumerate(architecture):
-    if ('pool' in block or 'strided' in block):
+    if 'pool' in block or 'strided' in block:
         num_layer = num_layer + 1
 
 
-def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ratio: float = 0.8, samples_threshold: int = 2000) -> List[int]:
+def calibrate_neighbors(
+    dataset: Any,
+    config: Any,
+    collate_fn: Callable,
+    keep_ratio: float = 0.8,
+    samples_threshold: int = 2000,
+) -> List[int]:
     # From config parameter, compute higher bound of neighbors number in a neighborhood
     hist_n = int(np.ceil(4 / 3 * np.pi * (config.point.conv_radius) ** 3))
     neighb_hists = np.zeros((num_layer, hist_n), dtype=np.int32)
 
     # Get histogram of neighborhood sizes i in 1 epoch max.
     for i in range(len(dataset)):
-        batched_input = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * 5)
+        batched_input = collate_fn(
+            [dataset[i]], config, neighborhood_limits=[hist_n] * 5
+        )
 
         # update histogram
         counts = [
@@ -66,8 +75,10 @@ class BufferDataloader(PCRDataloader):
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for Buffer dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)
-        version_dict.update({
-            'config_conv_radius': self.config.point.conv_radius,
-            'neighbor_limits': self.neighbor_limits
-        })
+        version_dict.update(
+            {
+                'config_conv_radius': self.config.point.conv_radius,
+                'neighbor_limits': self.neighbor_limits,
+            }
+        )
         return version_dict

@@ -1,31 +1,29 @@
-import pytest
-import numpy as np
 import json
 import os
 import tempfile
+
+import numpy as np
+import pytest
+
 from runners.viewers.eval_viewer.backend.initialization import (
-    get_score_map_epoch_metric,
+    LogDirInfo,
+    compute_per_metric_color_scales,
+    get_epoch_dirs,
+    get_evaluator_score_map,
     get_metric_names_aggregated,
     get_metric_names_per_datapoint,
     get_score_map_epoch,
-    get_evaluator_score_map,
-    get_epoch_dirs,
-    compute_per_metric_color_scales,
-    LogDirInfo
+    get_score_map_epoch_metric,
 )
-
 
 # ==========================================
 # Tests for get_metric_names_aggregated
 # ==========================================
 
+
 def test_get_metric_names_aggregated_simple_metrics():
     """Test get_metric_names_aggregated with simple scalar metrics."""
-    scores_dict = {
-        'metric1': 0.75,
-        'metric2': 0.85,
-        'metric3': 0.92
-    }
+    scores_dict = {'metric1': 0.75, 'metric2': 0.85, 'metric3': 0.92}
 
     result = get_metric_names_aggregated(scores_dict)
 
@@ -38,27 +36,36 @@ def test_get_metric_names_aggregated_list_metrics():
     scores_dict = {
         'scalar_metric': 0.8,
         'class_metric': [0.7, 0.8, 0.9],
-        'another_scalar': 0.6
+        'another_scalar': 0.6,
     }
 
     result = get_metric_names_aggregated(scores_dict)
 
     # Should expand list metrics with indices and sort
-    expected = ['another_scalar', 'class_metric[0]', 'class_metric[1]', 'class_metric[2]', 'scalar_metric']
+    expected = [
+        'another_scalar',
+        'class_metric[0]',
+        'class_metric[1]',
+        'class_metric[2]',
+        'scalar_metric',
+    ]
     assert result == expected
 
 
 def test_get_metric_names_aggregated_mixed_types():
     """Test get_metric_names_aggregated with mixed metric types."""
-    scores_dict = {
-        'single': 0.5,
-        'multi': [0.1, 0.2, 0.3, 0.4],
-        'another_single': 0.9
-    }
+    scores_dict = {'single': 0.5, 'multi': [0.1, 0.2, 0.3, 0.4], 'another_single': 0.9}
 
     result = get_metric_names_aggregated(scores_dict)
 
-    expected = ['another_single', 'multi[0]', 'multi[1]', 'multi[2]', 'multi[3]', 'single']
+    expected = [
+        'another_single',
+        'multi[0]',
+        'multi[1]',
+        'multi[2]',
+        'multi[3]',
+        'single',
+    ]
     assert result == expected
 
 
@@ -72,7 +79,7 @@ def test_get_metric_names_aggregated_invalid_type():
     """Test get_metric_names_aggregated fails with invalid metric type."""
     scores_dict = {
         'valid_metric': 0.8,
-        'invalid_metric': 'string_value'  # Invalid type
+        'invalid_metric': 'string_value',  # Invalid type
     }
 
     with pytest.raises(AssertionError, match="Invalid sample type for metric"):
@@ -83,12 +90,10 @@ def test_get_metric_names_aggregated_invalid_type():
 # Tests for get_metric_names_per_datapoint
 # ==========================================
 
+
 def test_get_metric_names_per_datapoint_simple_metrics():
     """Test get_metric_names_per_datapoint with simple scalar metrics."""
-    scores_dict = {
-        'metric1': [0.7, 0.8, 0.75],
-        'metric2': [0.9, 0.85, 0.87]
-    }
+    scores_dict = {'metric1': [0.7, 0.8, 0.75], 'metric2': [0.9, 0.85, 0.87]}
 
     result = get_metric_names_per_datapoint(scores_dict)
 
@@ -99,25 +104,23 @@ def test_get_metric_names_per_datapoint_list_metrics():
     """Test get_metric_names_per_datapoint with list-valued metrics."""
     scores_dict = {
         'scalar_metric': [0.8, 0.75, 0.82],
-        'class_metric': [
-            [0.7, 0.8, 0.9],
-            [0.75, 0.85, 0.95],
-            [0.72, 0.82, 0.92]
-        ]
+        'class_metric': [[0.7, 0.8, 0.9], [0.75, 0.85, 0.95], [0.72, 0.82, 0.92]],
     }
 
     result = get_metric_names_per_datapoint(scores_dict)
 
-    expected = ['class_metric[0]', 'class_metric[1]', 'class_metric[2]', 'scalar_metric']
+    expected = [
+        'class_metric[0]',
+        'class_metric[1]',
+        'class_metric[2]',
+        'scalar_metric',
+    ]
     assert result == expected
 
 
 def test_get_metric_names_per_datapoint_invalid_format():
     """Test get_metric_names_per_datapoint fails with invalid format."""
-    scores_dict = {
-        'metric1': [0.8, 0.9],
-        'invalid_metric': 0.8  # Should be list
-    }
+    scores_dict = {'metric1': [0.8, 0.9], 'invalid_metric': 0.8}  # Should be list
 
     with pytest.raises(AssertionError, match="Invalid scores format"):
         get_metric_names_per_datapoint(scores_dict)
@@ -127,7 +130,7 @@ def test_get_metric_names_per_datapoint_invalid_sample_type():
     """Test get_metric_names_per_datapoint fails with invalid sample type."""
     scores_dict = {
         'valid_metric': [0.8, 0.9],
-        'invalid_metric': ['string', 'values']  # Invalid sample type
+        'invalid_metric': ['string', 'values'],  # Invalid sample type
     }
 
     with pytest.raises(AssertionError, match="Invalid sample type for metric"):
@@ -137,6 +140,7 @@ def test_get_metric_names_per_datapoint_invalid_sample_type():
 # ==========================================
 # Tests for get_score_map_epoch_metric
 # ==========================================
+
 
 def test_get_score_map_epoch_metric_simple_metric(validation_scores_file):
     """Test get_score_map_epoch_metric with simple scalar metric."""
@@ -193,6 +197,7 @@ def test_get_score_map_epoch_metric_invalid_index(validation_scores_file):
 # Tests for get_score_map_epoch
 # ==========================================
 
+
 def test_get_score_map_epoch(validation_scores_file):
     """Test get_score_map_epoch with complete scores file."""
     metric_names, num_datapoints, score_map, aggregated_scores = get_score_map_epoch(
@@ -201,7 +206,9 @@ def test_get_score_map_epoch(validation_scores_file):
 
     # Check basic structure
     assert isinstance(metric_names, list)
-    assert len(metric_names) == 5  # metric1, metric2, multi_metric[0], multi_metric[1], multi_metric[2]
+    assert (
+        len(metric_names) == 5
+    )  # metric1, metric2, multi_metric[0], multi_metric[1], multi_metric[2]
     assert num_datapoints == 5
 
     # Check score_map shape: (metrics, height, width)
@@ -211,7 +218,13 @@ def test_get_score_map_epoch(validation_scores_file):
     assert aggregated_scores.shape == (5,)
 
     # Verify metric names are sorted correctly
-    expected_metrics = ['metric1', 'metric2', 'multi_metric[0]', 'multi_metric[1]', 'multi_metric[2]']
+    expected_metrics = [
+        'metric1',
+        'metric2',
+        'multi_metric[0]',
+        'multi_metric[1]',
+        'multi_metric[2]',
+    ]
     assert metric_names == expected_metrics
 
 
@@ -232,10 +245,11 @@ def test_get_score_map_epoch_invalid_file():
 # Tests for get_evaluator_score_map
 # ==========================================
 
+
 def test_get_evaluator_score_map(validation_scores_file):
     """Test get_evaluator_score_map with evaluator scores file."""
-    metric_names, num_datapoints, score_map, aggregated_scores = get_evaluator_score_map(
-        validation_scores_file
+    metric_names, num_datapoints, score_map, aggregated_scores = (
+        get_evaluator_score_map(validation_scores_file)
     )
 
     # Check basic structure (same as trainer but different shape)
@@ -254,6 +268,7 @@ def test_get_evaluator_score_map(validation_scores_file):
 # Tests for get_epoch_dirs
 # ==========================================
 
+
 def test_get_epoch_dirs(trainer_log_structure):
     """Test get_epoch_dirs with valid trainer log structure."""
     log_dir = os.path.dirname(trainer_log_structure[0])
@@ -270,7 +285,9 @@ def test_get_epoch_dirs(trainer_log_structure):
 
 def test_get_epoch_dirs_no_epochs(temp_log_dir):
     """Test get_epoch_dirs fails when no epoch directories exist."""
-    with pytest.raises(ValueError, match="No epoch directories with validation scores found"):
+    with pytest.raises(
+        ValueError, match="No epoch directories with validation scores found"
+    ):
         get_epoch_dirs(temp_log_dir)
 
 
@@ -299,6 +316,7 @@ def test_get_epoch_dirs_missing_scores(temp_log_dir):
 # Tests for compute_per_metric_color_scales
 # ==========================================
 
+
 def test_compute_per_metric_color_scales_trainer_data():
     """Test compute_per_metric_color_scales with trainer data."""
     # Create mock LogDirInfo objects for trainers
@@ -306,16 +324,20 @@ def test_compute_per_metric_color_scales_trainer_data():
         num_epochs=2,
         metric_names=['metric1', 'metric2'],
         num_datapoints=4,
-        score_map=np.array([  # Shape: (N=2, C=2, H=2, W=2)
-            [[0.1, 0.2], [0.3, 0.4]],  # Epoch 0, metric 0
-            [[0.5, 0.6], [0.7, 0.8]]   # Epoch 0, metric 1
-        ]).reshape(1, 2, 2, 2),  # Reshape to (1, 2, 2, 2) for single epoch
+        score_map=np.array(
+            [  # Shape: (N=2, C=2, H=2, W=2)
+                [[0.1, 0.2], [0.3, 0.4]],  # Epoch 0, metric 0
+                [[0.5, 0.6], [0.7, 0.8]],  # Epoch 0, metric 1
+            ]
+        ).reshape(
+            1, 2, 2, 2
+        ),  # Reshape to (1, 2, 2, 2) for single epoch
         aggregated_scores=np.array([[0.25, 0.65]]),
         dataset_class='TestDataset',
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='trainer'
+        runner_type='trainer',
     )
 
     # Stack to create 2 epochs
@@ -346,13 +368,15 @@ def test_compute_per_metric_color_scales_evaluator_data():
         num_epochs=1,
         metric_names=['metric1'],
         num_datapoints=4,
-        score_map=np.array([[0.2, 0.4], [0.6, 0.8]]).reshape(1, 2, 2),  # Shape: (C=1, H=2, W=2)
+        score_map=np.array([[0.2, 0.4], [0.6, 0.8]]).reshape(
+            1, 2, 2
+        ),  # Shape: (C=1, H=2, W=2)
         aggregated_scores=np.array([0.5]),
         dataset_class='TestDataset',
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='evaluator'
+        runner_type='evaluator',
     )
 
     log_dir_infos = {'log1': info1}
@@ -380,7 +404,7 @@ def test_compute_per_metric_color_scales_with_nans():
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='evaluator'
+        runner_type='evaluator',
     )
 
     log_dir_infos = {'log1': info1}
@@ -413,7 +437,7 @@ def test_compute_per_metric_color_scales_all_nans():
         dataset_type='semseg',
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type='evaluator'
+        runner_type='evaluator',
     )
 
     log_dir_infos = {'log1': info1}

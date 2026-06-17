@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
@@ -17,10 +18,16 @@ def test_cache_put_and_get(sample_datapoint, cache_key_factory):
     # Test get
     retrieved = cache.get(cache_filepath=key0)
     assert retrieved is not None
-    assert retrieved['inputs']['image'].shape == sample_datapoint['inputs']['image'].shape
-    assert torch.all(retrieved['inputs']['image'] == sample_datapoint['inputs']['image'])
+    assert (
+        retrieved['inputs']['image'].shape == sample_datapoint['inputs']['image'].shape
+    )
+    assert torch.all(
+        retrieved['inputs']['image'] == sample_datapoint['inputs']['image']
+    )
     assert retrieved['labels']['class'] == sample_datapoint['labels']['class']
-    assert retrieved['meta_info']['filename'] == sample_datapoint['meta_info']['filename']
+    assert (
+        retrieved['meta_info']['filename'] == sample_datapoint['meta_info']['filename']
+    )
 
     # Test get with non-existent key
     assert cache.get(cache_filepath=key1) is None
@@ -37,7 +44,9 @@ def test_cache_deep_copy_isolation(sample_datapoint, cache_key_factory):
     sample_datapoint['meta_info']['filename'] = 'modified.jpg'
 
     cached = cache.get(cache_filepath=key0)
-    assert not torch.all(cached['inputs']['image'] == sample_datapoint['inputs']['image'])
+    assert not torch.all(
+        cached['inputs']['image'] == sample_datapoint['inputs']['image']
+    )
     assert cached['meta_info']['filename'] == 'test.jpg'
 
     # Test 2: Modifying retrieved data
@@ -46,7 +55,9 @@ def test_cache_deep_copy_isolation(sample_datapoint, cache_key_factory):
     retrieved['meta_info']['filename'] = 'modified2.jpg'
 
     cached_again = cache.get(cache_filepath=key0)
-    assert not torch.all(cached_again['inputs']['image'] == retrieved['inputs']['image'])
+    assert not torch.all(
+        cached_again['inputs']['image'] == retrieved['inputs']['image']
+    )
     assert cached_again['meta_info']['filename'] == 'test.jpg'
 
 
@@ -65,7 +76,10 @@ def test_cache_validation_data_corruption(sample_datapoint, cache_key_factory):
     # Clear validated keys to force validation on next access
     cache.validated_keys.clear()
 
-    with pytest.raises(ValueError, match=f"Cache validation failed for key {key0} - data corruption detected"):
+    with pytest.raises(
+        ValueError,
+        match=f"Cache validation failed for key {key0} - data corruption detected",
+    ):
         cache.get(cache_filepath=key0)  # Should raise ValueError due to data corruption
 
 
@@ -84,5 +98,10 @@ def test_cache_validation_checksum_corruption(sample_datapoint, cache_key_factor
     # Clear validated keys to force validation on next access
     cache.validated_keys.clear()
 
-    with pytest.raises(ValueError, match=f"Cache validation failed for key {key0} - data corruption detected"):
-        cache.get(cache_filepath=key0)  # Should raise ValueError due to checksum mismatch
+    with pytest.raises(
+        ValueError,
+        match=f"Cache validation failed for key {key0} - data corruption detected",
+    ):
+        cache.get(
+            cache_filepath=key0
+        )  # Should raise ValueError due to checksum mismatch

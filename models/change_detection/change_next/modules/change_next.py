@@ -7,12 +7,14 @@ from timm.models.layers import DropPath, to_2tuple
 
 
 class Mlp(nn.Module):
-    def __init__(self,
-                 in_features,
-                 hidden_features=None,
-                 out_features=None,
-                 act_layer=nn.GELU,
-                 drop=0.):
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        drop=0.0,
+    ):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
@@ -34,25 +36,30 @@ class Mlp(nn.Module):
         return x
 
 
-def resize(input,
-           size=None,
-           scale_factor=None,
-           mode='nearest',
-           align_corners=None,
-           warning=True):
+def resize(
+    input,
+    size=None,
+    scale_factor=None,
+    mode='nearest',
+    align_corners=None,
+    warning=True,
+):
     if warning:
         if size is not None and align_corners:
             input_h, input_w = tuple(int(x) for x in input.shape[2:])
             output_h, output_w = tuple(int(x) for x in size)
             if output_h > input_h or output_w > output_h:
-                if ((output_h > 1 and output_w > 1 and input_h > 1
-                     and input_w > 1) and (output_h - 1) % (input_h - 1)
-                        and (output_w - 1) % (input_w - 1)):
+                if (
+                    (output_h > 1 and output_w > 1 and input_h > 1 and input_w > 1)
+                    and (output_h - 1) % (input_h - 1)
+                    and (output_w - 1) % (input_w - 1)
+                ):
                     warnings.warn(
                         f'When align_corners={align_corners}, '
                         'the output would more aligned if '
                         f'input size {(input_h, input_w)} is `x+1` and '
-                        f'out size {(output_h, output_w)} is `nx+1`')
+                        f'out size {(output_h, output_w)} is `nx+1`'
+                    )
     return F.interpolate(input, size, scale_factor, mode, align_corners)
 
 
@@ -61,18 +68,22 @@ class StemConv(nn.Module):
         super(StemConv, self).__init__()
 
         self.proj = nn.Sequential(
-            nn.Conv2d(in_channels,
-                      out_channels // 2,
-                      kernel_size=(3, 3),
-                      stride=(2, 2),
-                      padding=(1, 1)),
+            nn.Conv2d(
+                in_channels,
+                out_channels // 2,
+                kernel_size=(3, 3),
+                stride=(2, 2),
+                padding=(1, 1),
+            ),
             nn.BatchNorm2d(out_channels // 2),
             nn.GELU(),
-            nn.Conv2d(out_channels // 2,
-                      out_channels,
-                      kernel_size=(3, 3),
-                      stride=(2, 2),
-                      padding=(1, 1)),
+            nn.Conv2d(
+                out_channels // 2,
+                out_channels,
+                kernel_size=(3, 3),
+                stride=(2, 2),
+                padding=(1, 1),
+            ),
             nn.BatchNorm2d(out_channels),
         )
 
@@ -89,7 +100,9 @@ class Partial_conv3(nn.Module):
         super().__init__()
         self.dim_conv3 = dim // n_div
         self.dim_untouched = dim - self.dim_conv3
-        self.partial_conv3 = nn.Conv2d(self.dim_conv3, self.dim_conv3, 3, 1, 1, bias=False)
+        self.partial_conv3 = nn.Conv2d(
+            self.dim_conv3, self.dim_conv3, 3, 1, 1, bias=False
+        )
 
         if forward == 'slicing':
             self.forward = self.forward_slicing
@@ -100,8 +113,10 @@ class Partial_conv3(nn.Module):
 
     def forward_slicing(self, x: torch.Tensor) -> torch.Tensor:
         # only for inference
-        x = x.clone()  # !!! Keep the original input intact for the residual connection later
-        x[:, :self.dim_conv3, :, :] = self.partial_conv3(x[:, :self.dim_conv3, :, :])
+        x = (
+            x.clone()
+        )  # !!! Keep the original input intact for the residual connection later
+        x[:, : self.dim_conv3, :, :] = self.partial_conv3(x[:, : self.dim_conv3, :, :])
 
         return x
 
@@ -131,14 +146,8 @@ class AttentionModule(nn.Module):
         self.conv2_1 = nn.Conv2d(dim, dim, (1, 11), padding=(0, 5), groups=dim)
         self.conv2_2 = nn.Conv2d(dim, dim, (11, 1), padding=(5, 0), groups=dim)
 
-        self.conv3_1 = nn.Conv2d(dim,
-                                 dim, (1, 21),
-                                 padding=(0, 10),
-                                 groups=dim)
-        self.conv3_2 = nn.Conv2d(dim,
-                                 dim, (21, 1),
-                                 padding=(10, 0),
-                                 groups=dim)
+        self.conv3_1 = nn.Conv2d(dim, dim, (1, 21), padding=(0, 10), groups=dim)
+        self.conv3_2 = nn.Conv2d(dim, dim, (21, 1), padding=(10, 0), groups=dim)
 
         self.conv4 = nn.Conv2d(dim, dim, 1)
 
@@ -162,10 +171,12 @@ class AttentionModule(nn.Module):
 
     def upsample_mask(self, mask, scale):
         assert len(mask.shape) == 2
-        p = int(mask.shape[1] ** .5)
-        return mask.reshape(-1, p, p). \
-            repeat_interleave(scale, axis=1). \
-            repeat_interleave(scale, axis=2)
+        p = int(mask.shape[1] ** 0.5)
+        return (
+            mask.reshape(-1, p, p)
+            .repeat_interleave(scale, axis=1)
+            .repeat_interleave(scale, axis=2)
+        )
 
     def frequency_mask(self, x, scale):
 
@@ -193,8 +204,12 @@ class AttentionModule(nn.Module):
         weight_real = self.freq_conv_weight_real.repeat(groups, 1, 1, 1)
         weight_imag = self.freq_conv_weight_imag.repeat(groups, 1, 1, 1)
 
-        x_freq_real = F.conv2d(x_freq.real, weight_real, self.freq_conv_bias, groups=groups)
-        x_freq_imag = F.conv2d(x_freq.imag, weight_imag, self.freq_conv_bias, groups=groups)
+        x_freq_real = F.conv2d(
+            x_freq.real, weight_real, self.freq_conv_bias, groups=groups
+        )
+        x_freq_imag = F.conv2d(
+            x_freq.imag, weight_imag, self.freq_conv_bias, groups=groups
+        )
 
         x_freq_processed = torch.complex(x_freq_real, x_freq_imag)
         return x_freq_processed
@@ -221,16 +236,18 @@ class AttentionModule(nn.Module):
 
     def gaussian_weight(self, dist, scale):
         base_sigma = 0.1
-        sigma = base_sigma * (2 ** scale)
+        sigma = base_sigma * (2**scale)
         if sigma == 0:
             return 1
-        return math.exp(-dist ** 2 / (2 * sigma ** 2))
+        return math.exp(-(dist**2) / (2 * sigma**2))
 
     def forward(self, x):
         u = x.clone()
         attn = self.conv0(x)
 
-        masks = [self.frequency_mask(x, scale) for scale in range(0, self.num_scales + 1)]
+        masks = [
+            self.frequency_mask(x, scale) for scale in range(0, self.num_scales + 1)
+        ]
         freq_mask = sum(masks) / self.num_scales
 
         freq_mask = self.freq_adapt_conv(freq_mask)
@@ -273,56 +290,54 @@ class SpatialAttention(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self,
-                 dim,
-                 mlp_ratio=4.,
-                 drop=0.,
-                 drop_path=0.,
-
-                 act_layer=nn.GELU):
+    def __init__(self, dim, mlp_ratio=4.0, drop=0.0, drop_path=0.0, act_layer=nn.GELU):
         super().__init__()
         self.norm1 = nn.BatchNorm2d(dim)
         self.attn = SpatialAttention(dim)
-        self.drop_path = DropPath(
-            drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = nn.BatchNorm2d(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim,
-                       hidden_features=mlp_hidden_dim,
-                       act_layer=act_layer,
-                       drop=drop)
+        self.mlp = Mlp(
+            in_features=dim,
+            hidden_features=mlp_hidden_dim,
+            act_layer=act_layer,
+            drop=drop,
+        )
         layer_scale_init_value = 1e-2
         self.layer_scale_1 = nn.Parameter(
-            layer_scale_init_value * torch.ones((dim)), requires_grad=True)
+            layer_scale_init_value * torch.ones((dim)), requires_grad=True
+        )
         self.layer_scale_2 = nn.Parameter(
-            layer_scale_init_value * torch.ones((dim)), requires_grad=True)
+            layer_scale_init_value * torch.ones((dim)), requires_grad=True
+        )
 
     def forward(self, x, H, W):
         B, N, C = x.shape
         x = x.permute(0, 2, 1).view(B, C, H, W)
         x = x + self.drop_path(
-            self.layer_scale_1.unsqueeze(-1).unsqueeze(-1) *
-            self.attn(self.norm1(x)))
+            self.layer_scale_1.unsqueeze(-1).unsqueeze(-1) * self.attn(self.norm1(x))
+        )
         x = x + self.drop_path(
-            self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) *
-            self.mlp(self.norm2(x)))
+            self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) * self.mlp(self.norm2(x))
+        )
         x = x.view(B, C, N).permute(0, 2, 1)
         return x
 
 
 class OverlapPatchEmbed(nn.Module):
-    """ Image to Patch Embedding
-    """
+    """Image to Patch Embedding"""
 
     def __init__(self, patch_size=7, stride=4, in_chans=3, embed_dim=768):
         super().__init__()
         patch_size = to_2tuple(patch_size)
 
-        self.proj = nn.Conv2d(in_chans,
-                              embed_dim,
-                              kernel_size=patch_size,
-                              stride=stride,
-                              padding=(patch_size[0] // 2, patch_size[1] // 2))
+        self.proj = nn.Conv2d(
+            in_chans,
+            embed_dim,
+            kernel_size=patch_size,
+            stride=stride,
+            padding=(patch_size[0] // 2, patch_size[1] // 2),
+        )
         self.norm = nn.BatchNorm2d(embed_dim)
 
     def forward(self, x):
@@ -346,21 +361,24 @@ class DWConv(nn.Module):
 
 
 class MSCAN(nn.Module):
-    def __init__(self,
-                 in_chans=3,
-                 embed_dims=[64, 128, 256, 512],
-                 mlp_ratios=[4, 4, 4, 4],
-                 drop_rate=0.,
-                 drop_path_rate=0.,
-                 depths=[3, 4, 6, 3],
-                 num_stages=4):
+    def __init__(
+        self,
+        in_chans=3,
+        embed_dims=[64, 128, 256, 512],
+        mlp_ratios=[4, 4, 4, 4],
+        drop_rate=0.0,
+        drop_path_rate=0.0,
+        depths=[3, 4, 6, 3],
+        num_stages=4,
+    ):
         super(MSCAN, self).__init__()
 
         self.depths = depths
         self.num_stages = num_stages
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))
-               ]  # stochastic depth decay rule
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))
+        ]  # stochastic depth decay rule
         cur = 0
 
         for i in range(num_stages):
@@ -371,14 +389,20 @@ class MSCAN(nn.Module):
                     patch_size=7 if i == 0 else 3,
                     stride=4 if i == 0 else 2,
                     in_chans=in_chans if i == 0 else embed_dims[i - 1],
-                    embed_dim=embed_dims[i])
+                    embed_dim=embed_dims[i],
+                )
 
-            block = nn.ModuleList([
-                Block(dim=embed_dims[i],
-                      mlp_ratio=mlp_ratios[i],
-                      drop=drop_rate,
-                      drop_path=dpr[cur + j]) for j in range(depths[i])
-            ])
+            block = nn.ModuleList(
+                [
+                    Block(
+                        dim=embed_dims[i],
+                        mlp_ratio=mlp_ratios[i],
+                        drop=drop_rate,
+                        drop_path=dpr[cur + j],
+                    )
+                    for j in range(depths[i])
+                ]
+            )
             norm = nn.LayerNorm(embed_dims[i])
             cur += depths[i]
 
@@ -390,17 +414,13 @@ class MSCAN(nn.Module):
         if pretrained is None:
             for m in self.modules():
                 if isinstance(m, nn.Linear):
-                    nn.init.trunc_normal_(m, std=.02, bias=0.)
+                    nn.init.trunc_normal_(m, std=0.02, bias=0.0)
                 elif isinstance(m, nn.LayerNorm):
-                    nn.init.constant_(m, val=1.0, bias=0.)
+                    nn.init.constant_(m, val=1.0, bias=0.0)
                 elif isinstance(m, nn.Conv2d):
-                    fan_out = m.kernel_size[0] * m.kernel_size[
-                        1] * m.out_channels
+                    fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                     fan_out //= m.groups
-                    nn.init.normal_(m,
-                                    mean=0,
-                                    std=math.sqrt(2.0 / fan_out),
-                                    bias=0)
+                    nn.init.normal_(m, mean=0, std=math.sqrt(2.0 / fan_out), bias=0)
         elif isinstance(pretrained, str):
             self.load_parameters(torch.load(pretrained))
 

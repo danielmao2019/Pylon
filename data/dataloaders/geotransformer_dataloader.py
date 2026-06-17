@@ -1,8 +1,12 @@
-from typing import List, Any, Callable, Dict
-from functools import partial
 import math
+from functools import partial
+from typing import Any, Callable, Dict, List
+
 import torch
-from data.collators.geotransformer.geotransformer_collate_fn import geotransformer_collate_fn
+
+from data.collators.geotransformer.geotransformer_collate_fn import (
+    geotransformer_collate_fn,
+)
 from data.dataloaders.pcr_dataloader import PCRDataloader
 
 
@@ -17,13 +21,20 @@ def calibrate_neighbors_stack_mode(
 ) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
     hist_n = math.ceil(4 / 3 * math.pi * (search_radius / voxel_size + 1) ** 3)
-    neighbor_hists = torch.zeros((num_stages, hist_n), dtype=torch.int64, device=dataset.device)
+    neighbor_hists = torch.zeros(
+        (num_stages, hist_n), dtype=torch.int64, device=dataset.device
+    )
     max_neighbor_limits = [hist_n] * num_stages
 
     # Get histogram of neighborhood sizes i in 1 epoch max.
     for i in range(len(dataset)):
         data_dict = collate_fn(
-            [dataset[i]], num_stages, voxel_size, search_radius, max_neighbor_limits, precompute_data=True
+            [dataset[i]],
+            num_stages,
+            voxel_size,
+            search_radius,
+            max_neighbor_limits,
+            precompute_data=True,
         )
 
         # update histogram
@@ -31,10 +42,7 @@ def calibrate_neighbors_stack_mode(
             torch.sum(neighbors < neighbors.shape[0], dim=1)
             for neighbors in data_dict['inputs']['neighbors']
         ]
-        hists = [
-            torch.bincount(c, minlength=hist_n)[:hist_n]
-            for c in counts
-        ]
+        hists = [torch.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighbor_hists += torch.stack(hists)
 
         if torch.min(torch.sum(neighbor_hists, dim=1)) > sample_threshold:
@@ -42,7 +50,9 @@ def calibrate_neighbors_stack_mode(
 
     # Calculate neighbor limits using PyTorch operations
     cum_sum = torch.cumsum(neighbor_hists.t(), dim=0)  # (hist_n, num_stages)
-    neighbor_limits = torch.sum((cum_sum < (keep_ratio * cum_sum[hist_n - 1, :])).to(torch.int64), dim=0)  # (num_stages,)
+    neighbor_limits = torch.sum(
+        (cum_sum < (keep_ratio * cum_sum[hist_n - 1, :])).to(torch.int64), dim=0
+    )  # (num_stages,)
     assert torch.all(neighbor_limits > 0), f"{neighbor_limits=}, {cum_sum=}"
     neighbor_limits = neighbor_limits.tolist()
     return neighbor_limits
@@ -90,10 +100,12 @@ class GeoTransformerDataloader(PCRDataloader):
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for GeoTransformer dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)
-        version_dict.update({
-            'num_stages': self.num_stages,
-            'voxel_size': self.voxel_size,
-            'search_radius': self.search_radius,
-            'neighbor_limits': self.neighbor_limits
-        })
+        version_dict.update(
+            {
+                'num_stages': self.num_stages,
+                'voxel_size': self.voxel_size,
+                'search_radius': self.search_radius,
+                'neighbor_limits': self.neighbor_limits,
+            }
+        )
         return version_dict

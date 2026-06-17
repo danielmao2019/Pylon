@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from criteria.wrappers.hybrid_criterion import HybridCriterion
 
 

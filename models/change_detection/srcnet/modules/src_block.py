@@ -1,7 +1,8 @@
 import torch
-from models.change_detection.srcnet.modules.layer_norm import LayerNorm
+
 from models.change_detection.srcnet.modules.drop_path import DropPath
 from models.change_detection.srcnet.modules.grn import GRN
+from models.change_detection.srcnet.modules.layer_norm import LayerNorm
 
 
 class SRCBlock(torch.nn.Module):
@@ -10,8 +11,12 @@ class SRCBlock(torch.nn.Module):
         super().__init__()
 
         self.depthconv1 = torch.nn.Conv2d(dim, dim, kernel_size=1, groups=dim)
-        self.depthconv2 = torch.nn.Conv2d(dim, dim, kernel_size=3, padding=1, groups=dim)
-        self.depthconv3 = torch.nn.Conv2d(dim, dim, kernel_size=5, padding=2, groups=dim)
+        self.depthconv2 = torch.nn.Conv2d(
+            dim, dim, kernel_size=3, padding=1, groups=dim
+        )
+        self.depthconv3 = torch.nn.Conv2d(
+            dim, dim, kernel_size=5, padding=2, groups=dim
+        )
 
         if mode == "BN":
             self.norm = torch.nn.BatchNorm2d(dim)

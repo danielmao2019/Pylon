@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class DummyPCRDataset(BaseDataset):
     """Dummy dataset that mimics SynthPCRDataset's data structure with random data."""
+
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = {'train': 10, 'val': 10, 'test': 10}  # Fixed size for all splits
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
@@ -39,7 +40,9 @@ class DummyPCRDataset(BaseDataset):
         # Create a fixed number of dummy samples
         self.annotations = list(range(10))  # 10 dummy samples
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Generate dummy data with uniformly distributed points."""
         # Generate random points and features using uniform distribution
         # Points are generated in a unit cube [-1, 1]^3
@@ -49,7 +52,9 @@ class DummyPCRDataset(BaseDataset):
         tgt_feats = torch.rand(self.num_points, 1, device=self.device)
 
         # Generate random correspondences (just random pairs of indices)
-        correspondences = torch.randint(0, self.num_points, (2, self.num_points), device=self.device)
+        correspondences = torch.randint(
+            0, self.num_points, (2, self.num_points), device=self.device
+        )
 
         # Generate random transform (just a random 4x4 matrix)
         transform = torch.randn(4, 4, device=self.device)
@@ -89,7 +94,7 @@ def test_geotransformer_forward():
         search_radius=0.0625,  # Fixed value
         batch_size=1,
         num_workers=0,
-        keep_ratio=0.8  # Fixed value
+        keep_ratio=0.8,  # Fixed value
     )
 
     # Get one batch
@@ -145,41 +150,68 @@ def test_geotransformer_forward():
     assert output_dict['src_points'].shape[1] == 3
 
     # 2. Check feature shapes
-    assert output_dict['ref_feats_c'].shape[1] == model_cfg['args']['backbone']['output_dim']
-    assert output_dict['src_feats_c'].shape[1] == model_cfg['args']['backbone']['output_dim']
-    assert output_dict['ref_feats_f'].shape[1] == model_cfg['args']['backbone']['output_dim']
-    assert output_dict['src_feats_f'].shape[1] == model_cfg['args']['backbone']['output_dim']
+    assert (
+        output_dict['ref_feats_c'].shape[1]
+        == model_cfg['args']['backbone']['output_dim']
+    )
+    assert (
+        output_dict['src_feats_c'].shape[1]
+        == model_cfg['args']['backbone']['output_dim']
+    )
+    assert (
+        output_dict['ref_feats_f'].shape[1]
+        == model_cfg['args']['backbone']['output_dim']
+    )
+    assert (
+        output_dict['src_feats_f'].shape[1]
+        == model_cfg['args']['backbone']['output_dim']
+    )
 
     # 3. Check transform shape
     assert output_dict['estimated_transform'].shape == (1, 4, 4)
 
 
-@pytest.mark.parametrize('num_points,bounds', [
-    (256, {
-        'total': 48,     # Actual ~43.27MB + 10% buffer
-        'model': 41.5,   # Actual ~37.51MB + 10% buffer
-        'data': 0.31,    # Actual ~0.28MB + 10% buffer
-        'forward': 6.1   # Actual ~5.48MB + 10% buffer
-    }),
-    (512, {
-        'total': 49,     # Actual ~44.53MB + 10% buffer
-        'model': 41.5,   # Actual ~37.51MB + 10% buffer
-        'data': 0.76,    # Actual ~0.69MB + 10% buffer
-        'forward': 7     # Actual ~6.33MB + 10% buffer
-    }),
-    (1024, {
-        'total': 52.5,   # Actual ~47.70MB + 10% buffer
-        'model': 41.5,   # Actual ~37.51MB + 10% buffer
-        'data': 1.96,    # Actual ~1.78MB + 10% buffer
-        'forward': 9.3   # Actual ~8.41MB + 10% buffer
-    }),
-    (2048, {
-        'total': 58,     # Actual ~52.70MB + 10% buffer
-        'model': 41.5,   # Actual ~37.51MB + 10% buffer
-        'data': 4.83,    # Actual ~4.39MB + 10% buffer
-        'forward': 11.9  # Actual ~10.80MB + 10% buffer
-    })
-])
+@pytest.mark.parametrize(
+    'num_points,bounds',
+    [
+        (
+            256,
+            {
+                'total': 48,  # Actual ~43.27MB + 10% buffer
+                'model': 41.5,  # Actual ~37.51MB + 10% buffer
+                'data': 0.31,  # Actual ~0.28MB + 10% buffer
+                'forward': 6.1,  # Actual ~5.48MB + 10% buffer
+            },
+        ),
+        (
+            512,
+            {
+                'total': 49,  # Actual ~44.53MB + 10% buffer
+                'model': 41.5,  # Actual ~37.51MB + 10% buffer
+                'data': 0.76,  # Actual ~0.69MB + 10% buffer
+                'forward': 7,  # Actual ~6.33MB + 10% buffer
+            },
+        ),
+        (
+            1024,
+            {
+                'total': 52.5,  # Actual ~47.70MB + 10% buffer
+                'model': 41.5,  # Actual ~37.51MB + 10% buffer
+                'data': 1.96,  # Actual ~1.78MB + 10% buffer
+                'forward': 9.3,  # Actual ~8.41MB + 10% buffer
+            },
+        ),
+        (
+            2048,
+            {
+                'total': 58,  # Actual ~52.70MB + 10% buffer
+                'model': 41.5,  # Actual ~37.51MB + 10% buffer
+                'data': 4.83,  # Actual ~4.39MB + 10% buffer
+                'forward': 11.9,  # Actual ~10.80MB + 10% buffer
+            },
+        ),
+    ],
+)
 def test_geotransformer_memory_growth(num_points, bounds):
     """Test that GPU memory usage stays within expected bounds for different point cloud sizes.
 
@@ -216,7 +248,7 @@ def test_geotransformer_memory_growth(num_points, bounds):
         search_radius=0.0625,  # Fixed value
         batch_size=1,
         num_workers=0,
-        keep_ratio=0.8  # Fixed value
+        keep_ratio=0.8,  # Fixed value
     )
 
     # Get one batch from dataloader
@@ -249,45 +281,69 @@ def test_geotransformer_memory_growth(num_points, bounds):
         'forward': forward_memory / 1024**2,
         'total': total_memory / 1024**2,
         'per_point': memory_per_point / 1024**2,
-        'reserved': final_reserved / 1024**2
+        'reserved': final_reserved / 1024**2,
     }
 
     # Log memory usage statistics with thresholds
-    logger.info("\n" + "="*70)
+    logger.info("\n" + "=" * 70)
     logger.info(f"MEMORY USAGE FOR {num_points} POINTS")
-    logger.info("="*70)
+    logger.info("=" * 70)
     logger.info(f"{'Initial memory:':<25} {memory_stats['initial']:>10.2f} MB")
-    logger.info(f"{'Model memory:':<25} {memory_stats['model']:>10.2f} MB (threshold: {bounds['model']} MB)")
-    logger.info(f"{'Data memory:':<25} {memory_stats['data']:>10.2f} MB (threshold: {bounds['data']} MB)")
-    logger.info(f"{'Forward pass memory:':<25} {memory_stats['forward']:>10.2f} MB (threshold: {bounds['forward']} MB)")
-    logger.info(f"{'Total memory:':<25} {memory_stats['total']:>10.2f} MB (threshold: {bounds['total']} MB)")
-    logger.info(f"{'Memory per point:':<25} {memory_stats['per_point']:>10.2f} MB/point")
+    logger.info(
+        f"{'Model memory:':<25} {memory_stats['model']:>10.2f} MB (threshold: {bounds['model']} MB)"
+    )
+    logger.info(
+        f"{'Data memory:':<25} {memory_stats['data']:>10.2f} MB (threshold: {bounds['data']} MB)"
+    )
+    logger.info(
+        f"{'Forward pass memory:':<25} {memory_stats['forward']:>10.2f} MB (threshold: {bounds['forward']} MB)"
+    )
+    logger.info(
+        f"{'Total memory:':<25} {memory_stats['total']:>10.2f} MB (threshold: {bounds['total']} MB)"
+    )
+    logger.info(
+        f"{'Memory per point:':<25} {memory_stats['per_point']:>10.2f} MB/point"
+    )
     logger.info(f"{'Reserved memory:':<25} {memory_stats['reserved']:>10.2f} MB")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
     # Log memory usage percentages relative to thresholds
     logger.info("\nMEMORY USAGE RELATIVE TO THRESHOLDS:")
-    logger.info("-"*70)
+    logger.info("-" * 70)
     for component in ['model', 'data', 'forward', 'total']:
         usage_percent = (memory_stats[component] / bounds[component]) * 100
-        logger.info(f"{component.capitalize():<10} memory: {usage_percent:>6.1f}% of threshold")
-    logger.info("="*70)
+        logger.info(
+            f"{component.capitalize():<10} memory: {usage_percent:>6.1f}% of threshold"
+        )
+    logger.info("=" * 70)
 
     # Log suggested new bounds based on actual usage
     logger.info("\nSUGGESTED NEW BOUNDS:")
-    logger.info("-"*70)
-    logger.info(f"{'Model:':<10} {max(memory_stats['model'] * 1.2, bounds['model']):>6.1f} MB")
-    logger.info(f"{'Data:':<10} {max(memory_stats['data'] * 1.2, bounds['data']):>6.1f} MB")
-    logger.info(f"{'Forward:':<10} {max(memory_stats['forward'] * 1.2, bounds['forward']):>6.1f} MB")
-    logger.info(f"{'Total:':<10} {max(memory_stats['total'] * 1.2, bounds['total']):>6.1f} MB")
-    logger.info("="*70)
+    logger.info("-" * 70)
+    logger.info(
+        f"{'Model:':<10} {max(memory_stats['model'] * 1.2, bounds['model']):>6.1f} MB"
+    )
+    logger.info(
+        f"{'Data:':<10} {max(memory_stats['data'] * 1.2, bounds['data']):>6.1f} MB"
+    )
+    logger.info(
+        f"{'Forward:':<10} {max(memory_stats['forward'] * 1.2, bounds['forward']):>6.1f} MB"
+    )
+    logger.info(
+        f"{'Total:':<10} {max(memory_stats['total'] * 1.2, bounds['total']):>6.1f} MB"
+    )
+    logger.info("=" * 70)
 
     # Assert memory usage is within thresholds
-    assert memory_stats['total'] <= bounds['total'], \
-        f"Total memory usage ({memory_stats['total']:.2f} MB) exceeds threshold ({bounds['total']} MB) for {num_points} points"
-    assert memory_stats['model'] <= bounds['model'], \
-        f"Model memory usage ({memory_stats['model']:.2f} MB) exceeds threshold ({bounds['model']} MB) for {num_points} points"
-    assert memory_stats['data'] <= bounds['data'], \
-        f"Data memory usage ({memory_stats['data']:.2f} MB) exceeds threshold ({bounds['data']} MB) for {num_points} points"
-    assert memory_stats['forward'] <= bounds['forward'], \
-        f"Forward pass memory usage ({memory_stats['forward']:.2f} MB) exceeds threshold ({bounds['forward']} MB) for {num_points} points"
+    assert (
+        memory_stats['total'] <= bounds['total']
+    ), f"Total memory usage ({memory_stats['total']:.2f} MB) exceeds threshold ({bounds['total']} MB) for {num_points} points"
+    assert (
+        memory_stats['model'] <= bounds['model']
+    ), f"Model memory usage ({memory_stats['model']:.2f} MB) exceeds threshold ({bounds['model']} MB) for {num_points} points"
+    assert (
+        memory_stats['data'] <= bounds['data']
+    ), f"Data memory usage ({memory_stats['data']:.2f} MB) exceeds threshold ({bounds['data']} MB) for {num_points} points"
+    assert (
+        memory_stats['forward'] <= bounds['forward']
+    ), f"Forward pass memory usage ({memory_stats['forward']:.2f} MB) exceeds threshold ({bounds['forward']} MB) for {num_points} points"

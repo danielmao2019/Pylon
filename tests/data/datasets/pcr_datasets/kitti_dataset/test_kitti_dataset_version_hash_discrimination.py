@@ -1,7 +1,9 @@
 """Tests for KITTIDataset cache version discrimination."""
 
-import pytest
 import copy
+
+import pytest
+
 from utils.builders.builder import build_from_config
 
 
@@ -37,8 +39,9 @@ def test_split_variants(kitti_dataset_config):
 
     # All should have different hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    assert len(hashes) == len(set(hashes)), \
-        f"All split variants should produce different hashes, got: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"All split variants should produce different hashes, got: {hashes}"
 
 
 @pytest.mark.parametrize('kitti_dataset_config', ['train'], indirect=True)
@@ -56,8 +59,9 @@ def test_inherited_parameters_affect_version_hash(kitti_dataset_config):
         modified_config['args'][param_name] = new_value
         dataset2 = build_from_config(modified_config)
 
-        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-            f"Inherited parameter {param_name} should affect cache version hash"
+        assert (
+            dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        ), f"Inherited parameter {param_name} should affect cache version hash"
 
 
 @pytest.mark.parametrize('kitti_dataset_config', ['train'], indirect=True)
@@ -80,8 +84,9 @@ def test_comprehensive_no_hash_collisions(kitti_dataset_config):
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
     # Ensure all hashes are unique (no collisions)
-    assert len(hashes) == len(set(hashes)), \
-        f"Hash collision detected! Duplicate hashes found in: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
     # Ensure all hashes are properly formatted
     for hash_val in hashes:

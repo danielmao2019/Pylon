@@ -41,15 +41,19 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
         self.rng = np.random.RandomState(seed)
         torch.manual_seed(seed)
 
-    def _generate_sphere(self, num_points: int, spatial_size: float, density_factor: float) -> torch.Tensor:
+    def _generate_sphere(
+        self, num_points: int, spatial_size: float, density_factor: float
+    ) -> torch.Tensor:
         """Generate points in a spherical distribution."""
         points = torch.randn(num_points, 3)
         points = points / torch.norm(points, dim=1, keepdim=True)
-        radii = torch.pow(torch.rand(num_points), 1/3) * density_factor
+        radii = torch.pow(torch.rand(num_points), 1 / 3) * density_factor
         points = points * radii.unsqueeze(1)
         return points * spatial_size
 
-    def _generate_cube(self, num_points: int, spatial_size: float, density_factor: float) -> torch.Tensor:
+    def _generate_cube(
+        self, num_points: int, spatial_size: float, density_factor: float
+    ) -> torch.Tensor:
         """Generate points in a cubic distribution."""
         points = (torch.rand(num_points, 3) - 0.5) * 2 * spatial_size
         if density_factor != 1.0:
@@ -57,25 +61,33 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
             keep_mask = torch.rand(num_points) < center_weight
             points = points[keep_mask]
             if len(points) < num_points:
-                extra = (torch.rand(num_points - len(points), 3) - 0.5) * 2 * spatial_size
+                extra = (
+                    (torch.rand(num_points - len(points), 3) - 0.5) * 2 * spatial_size
+                )
                 points = torch.cat([points, extra])
             else:
                 points = points[:num_points]
         return points
 
-    def _generate_gaussian(self, num_points: int, spatial_size: float, density_factor: float) -> torch.Tensor:
+    def _generate_gaussian(
+        self, num_points: int, spatial_size: float, density_factor: float
+    ) -> torch.Tensor:
         """Generate points in a Gaussian distribution."""
         std = spatial_size * density_factor
         return torch.randn(num_points, 3) * std
 
-    def _generate_plane(self, num_points: int, spatial_size: float, density_factor: float) -> torch.Tensor:
+    def _generate_plane(
+        self, num_points: int, spatial_size: float, density_factor: float
+    ) -> torch.Tensor:
         """Generate points on a plane with some thickness."""
         points = torch.zeros(num_points, 3)
         points[:, :2] = (torch.rand(num_points, 2) - 0.5) * 2 * spatial_size
         points[:, 2] = torch.randn(num_points) * spatial_size * 0.1 * density_factor
         return points
 
-    def _generate_point_count_with_variance(self, target_count: int, variance: float = 0.15) -> int:
+    def _generate_point_count_with_variance(
+        self, target_count: int, variance: float = 0.15
+    ) -> int:
         """Generate point count with realistic variance within a group."""
         min_points = int(target_count * (1 - variance))
         max_points = int(target_count * (1 + variance))
@@ -86,12 +98,7 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
         configs = []
 
         # Define realistic point count groups with variance (±15%)
-        point_count_groups = {
-            '1e3': 1000,
-            '1e4': 10000,
-            '1e5': 100000,
-            '1e6': 1000000
-        }
+        point_count_groups = {'1e3': 1000, '1e4': 10000, '1e5': 100000, '1e6': 1000000}
 
         # Generate multiple samples per group to simulate realistic variance
         shapes = ['sphere', 'cube', 'gaussian', 'plane']
@@ -101,23 +108,29 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
             for shape in shapes:
                 for sample_id in range(samples_per_group):
                     # Generate actual point count with ±15% variance
-                    actual_count = self._generate_point_count_with_variance(target_count)
+                    actual_count = self._generate_point_count_with_variance(
+                        target_count
+                    )
 
-                    configs.append({
-                        'num_points': actual_count,
-                        'spatial_size': 10.0,
-                        'shape': shape,
-                        'density_factor': 1.0,
-                        'name': f'{group_name}_{shape}_{sample_id}',
-                        'category': group_name,
-                        'dataset': group_name,  # This is our "dataset" for synthetic data
-                        'target_count': target_count,
-                        'sample_id': sample_id
-                    })
+                    configs.append(
+                        {
+                            'num_points': actual_count,
+                            'spatial_size': 10.0,
+                            'shape': shape,
+                            'density_factor': 1.0,
+                            'name': f'{group_name}_{shape}_{sample_id}',
+                            'category': group_name,
+                            'dataset': group_name,  # This is our "dataset" for synthetic data
+                            'target_count': target_count,
+                            'sample_id': sample_id,
+                        }
+                    )
 
         return configs
 
-    def stream_point_clouds(self, num_samples: int = None) -> Iterator[PointCloudSample]:
+    def stream_point_clouds(
+        self, num_samples: int = None
+    ) -> Iterator[PointCloudSample]:
         """Stream synthetic point cloud samples."""
         configs = self.create_test_configurations()
 
@@ -128,14 +141,12 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
             'sphere': self._generate_sphere,
             'cube': self._generate_cube,
             'gaussian': self._generate_gaussian,
-            'plane': self._generate_plane
+            'plane': self._generate_plane,
         }
 
         for config in configs:
             points = generators[config['shape']](
-                config['num_points'],
-                config['spatial_size'],
-                config['density_factor']
+                config['num_points'], config['spatial_size'], config['density_factor']
             )
             colors = torch.rand(config['num_points'], 3)
 
@@ -144,7 +155,7 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
                 points=points,
                 colors=colors,
                 source='synthetic',
-                metadata=config
+                metadata=config,
             )
 
 
@@ -156,7 +167,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         self.data_roots = {
             'urb3dcd': './data/datasets/soft_links/Urb3DCD',
             'slpccd': './data/datasets/soft_links/SLPCCD',
-            'kitti': './data/datasets/soft_links/KITTI'
+            'kitti': './data/datasets/soft_links/KITTI',
         }
         self.seed = seed
         random.seed(seed)
@@ -169,11 +180,13 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
             data_root=self.data_roots['urb3dcd'],
             split='train',
             patched=False,
-            radius=20  # Required when patched=False
+            radius=20,  # Required when patched=False
         )
 
         total_samples = min(len(dataset), num_samples * 5)
-        sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+        sample_indices = random.sample(
+            range(total_samples), min(total_samples, num_samples)
+        )
 
         samples = []
         for idx in sample_indices:
@@ -185,29 +198,47 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
             pc_1 = inputs['pc_1']
             pc_2 = inputs['pc_2']
 
-            colors_1 = torch.ones(pc_1.num_points, 3, dtype=torch.float32, device=pc_1.device)
-            colors_2 = torch.ones(pc_2.num_points, 3, dtype=torch.float32, device=pc_2.device)
+            colors_1 = torch.ones(
+                pc_1.num_points, 3, dtype=torch.float32, device=pc_1.device
+            )
+            colors_2 = torch.ones(
+                pc_2.num_points, 3, dtype=torch.float32, device=pc_2.device
+            )
 
-            samples.extend([
-                PointCloudSample(f'urb3dcd_dp{idx}_pc1', pc_1.xyz, colors_1, 'urb3dcd', {'datapoint': idx, 'pc_type': 'pc1'}),
-                PointCloudSample(f'urb3dcd_dp{idx}_pc2', pc_2.xyz, colors_2, 'urb3dcd', {'datapoint': idx, 'pc_type': 'pc2'})
-            ])
+            samples.extend(
+                [
+                    PointCloudSample(
+                        f'urb3dcd_dp{idx}_pc1',
+                        pc_1.xyz,
+                        colors_1,
+                        'urb3dcd',
+                        {'datapoint': idx, 'pc_type': 'pc1'},
+                    ),
+                    PointCloudSample(
+                        f'urb3dcd_dp{idx}_pc2',
+                        pc_2.xyz,
+                        colors_2,
+                        'urb3dcd',
+                        {'datapoint': idx, 'pc_type': 'pc2'},
+                    ),
+                ]
+            )
 
             if len(samples) >= num_samples * 2:
                 break
 
-        return samples[:num_samples * 2]
+        return samples[: num_samples * 2]
 
     def _load_slpccd_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from SLPCCD dataset."""
         dataset = SLPCCDDataset(
-            data_root=self.data_roots['slpccd'],
-            split='train',
-            use_hierarchy=False
+            data_root=self.data_roots['slpccd'], split='train', use_hierarchy=False
         )
 
         total_samples = min(len(dataset), num_samples * 5)
-        sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+        sample_indices = random.sample(
+            range(total_samples), min(total_samples, num_samples)
+        )
 
         samples = []
         for idx in sample_indices:
@@ -223,36 +254,57 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
                 colors_1 = pc_1.feat[:, :3]
                 colors_2 = pc_2.feat[:, :3]
             else:
-                colors_1 = torch.ones(pc_1.num_points, 3, dtype=torch.float32, device=pc_1.device)
-                colors_2 = torch.ones(pc_2.num_points, 3, dtype=torch.float32, device=pc_2.device)
+                colors_1 = torch.ones(
+                    pc_1.num_points, 3, dtype=torch.float32, device=pc_1.device
+                )
+                colors_2 = torch.ones(
+                    pc_2.num_points, 3, dtype=torch.float32, device=pc_2.device
+                )
 
-            samples.extend([
-                PointCloudSample(f'slpccd_dp{idx}_pc1', pc_1.xyz, colors_1, 'slpccd', {'datapoint': idx, 'pc_type': 'pc1'}),
-                PointCloudSample(f'slpccd_dp{idx}_pc2', pc_2.xyz, colors_2, 'slpccd', {'datapoint': idx, 'pc_type': 'pc2'})
-            ])
+            samples.extend(
+                [
+                    PointCloudSample(
+                        f'slpccd_dp{idx}_pc1',
+                        pc_1.xyz,
+                        colors_1,
+                        'slpccd',
+                        {'datapoint': idx, 'pc_type': 'pc1'},
+                    ),
+                    PointCloudSample(
+                        f'slpccd_dp{idx}_pc2',
+                        pc_2.xyz,
+                        colors_2,
+                        'slpccd',
+                        {'datapoint': idx, 'pc_type': 'pc2'},
+                    ),
+                ]
+            )
 
             if len(samples) >= num_samples * 2:
                 break
 
-        return samples[:num_samples * 2]
+        return samples[: num_samples * 2]
 
     def _load_kitti_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from KITTI dataset."""
-        dataset = KITTIDataset(
-            data_root=self.data_roots['kitti'],
-            split='train'
-        )
+        dataset = KITTIDataset(data_root=self.data_roots['kitti'], split='train')
 
         total_samples = min(len(dataset), num_samples * 5)
-        sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+        sample_indices = random.sample(
+            range(total_samples), min(total_samples, num_samples)
+        )
 
         samples = []
         for idx in sample_indices:
             datapoint = dataset[idx]
             inputs = datapoint['inputs']
 
-            assert isinstance(inputs['src_pc'], PointCloud), f"{type(inputs['src_pc'])=}"
-            assert isinstance(inputs['tgt_pc'], PointCloud), f"{type(inputs['tgt_pc'])=}"
+            assert isinstance(
+                inputs['src_pc'], PointCloud
+            ), f"{type(inputs['src_pc'])=}"
+            assert isinstance(
+                inputs['tgt_pc'], PointCloud
+            ), f"{type(inputs['tgt_pc'])=}"
             src_pc = inputs['src_pc']
             tgt_pc = inputs['tgt_pc']
 
@@ -260,18 +312,36 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
                 colors_src = src_pc.reflectance.repeat(1, 3)
                 colors_tgt = tgt_pc.reflectance.repeat(1, 3)
             else:
-                colors_src = torch.ones(src_pc.num_points, 3, dtype=torch.float32, device=src_pc.device)
-                colors_tgt = torch.ones(tgt_pc.num_points, 3, dtype=torch.float32, device=tgt_pc.device)
+                colors_src = torch.ones(
+                    src_pc.num_points, 3, dtype=torch.float32, device=src_pc.device
+                )
+                colors_tgt = torch.ones(
+                    tgt_pc.num_points, 3, dtype=torch.float32, device=tgt_pc.device
+                )
 
-            samples.extend([
-                PointCloudSample(f'kitti_dp{idx}_src', src_pc.xyz, colors_src, 'kitti', {'datapoint': idx, 'pc_type': 'src'}),
-                PointCloudSample(f'kitti_dp{idx}_tgt', tgt_pc.xyz, colors_tgt, 'kitti', {'datapoint': idx, 'pc_type': 'tgt'})
-            ])
+            samples.extend(
+                [
+                    PointCloudSample(
+                        f'kitti_dp{idx}_src',
+                        src_pc.xyz,
+                        colors_src,
+                        'kitti',
+                        {'datapoint': idx, 'pc_type': 'src'},
+                    ),
+                    PointCloudSample(
+                        f'kitti_dp{idx}_tgt',
+                        tgt_pc.xyz,
+                        colors_tgt,
+                        'kitti',
+                        {'datapoint': idx, 'pc_type': 'tgt'},
+                    ),
+                ]
+            )
 
             if len(samples) >= num_samples * 2:
                 break
 
-        return samples[:num_samples * 2]
+        return samples[: num_samples * 2]
 
     def stream_point_clouds(self, num_samples: int) -> Iterator[PointCloudSample]:
         """Stream real dataset point cloud samples."""
@@ -279,7 +349,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         loaders = {
             'urb3dcd': self._load_urb3dcd_samples,
             'slpccd': self._load_slpccd_samples,
-            'kitti': self._load_kitti_samples
+            'kitti': self._load_kitti_samples,
         }
 
         for dataset_name in datasets:

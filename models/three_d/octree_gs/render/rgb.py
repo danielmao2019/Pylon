@@ -535,7 +535,9 @@ def render_rgb_from_octree_gs(
         if return_info:
             dist = (
                 torch.sqrt(
-                    torch.sum((model.get_anchor - octree_gs_camera.camera_center) ** 2, dim=1)
+                    torch.sum(
+                        (model.get_anchor - octree_gs_camera.camera_center) ** 2, dim=1
+                    )
                 )
                 * resolution_scale
             )

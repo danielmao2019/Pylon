@@ -4,7 +4,8 @@ D3Feat Model Wrapper for Pylon API Compatibility.
 This module provides a Pylon-compatible wrapper around the original D3Feat KPFCNN model.
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 import torch
 import torch.nn as nn
 from easydict import EasyDict
@@ -14,11 +15,11 @@ from models.point_cloud_registration.d3feat.architectures import _KPFCNN
 
 class D3FeatModel(nn.Module):
     """Pylon API wrapper for D3Feat KPFCNN model.
-    
+
     This wrapper adapts the original D3Feat model to work with Pylon's point cloud
     dictionary format and training infrastructure.
     """
-    
+
     def __init__(
         self,
         num_layers: int = 5,
@@ -40,7 +41,7 @@ class D3FeatModel(nn.Module):
         **kwargs
     ):
         """Initialize D3Feat model wrapper.
-        
+
         Args:
             num_layers: Number of network layers
             in_points_dim: Input point dimension (3 for xyz)
@@ -48,7 +49,7 @@ class D3FeatModel(nn.Module):
             first_subsampling_dl: First subsampling grid size
             in_features_dim: Input feature dimension
             conv_radius: Convolution radius
-            deform_radius: Deformable convolution radius  
+            deform_radius: Deformable convolution radius
             num_kernel_points: Number of kernel points
             KP_extent: Kernel point extent
             KP_influence: Kernel point influence type
@@ -60,7 +61,7 @@ class D3FeatModel(nn.Module):
             modulated: Whether to use modulated convolutions
         """
         super(D3FeatModel, self).__init__()
-        
+
         # Build D3Feat configuration
         config = EasyDict()
         config.num_layers = num_layers
@@ -79,26 +80,26 @@ class D3FeatModel(nn.Module):
         config.batch_norm_momentum = batch_norm_momentum
         config.deformable = deformable
         config.modulated = modulated
-        
+
         # Build network architecture configuration
         config.architecture = ['simple', 'resnetb']
-        for i in range(config.num_layers-1):
+        for i in range(config.num_layers - 1):
             config.architecture.append('resnetb_strided')
             config.architecture.append('resnetb')
             config.architecture.append('resnetb')
-        for i in range(config.num_layers-2):
+        for i in range(config.num_layers - 2):
             config.architecture.append('nearest_upsample')
             config.architecture.append('unary')
         config.architecture.append('nearest_upsample')
         config.architecture.append('last_unary')
-        
+
         # Initialize the original D3Feat model
         self.d3feat_model = _KPFCNN(config)
         self.config = config
-        
+
     def forward(self, inputs: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         """Forward pass with collated batch inputs.
-        
+
         Args:
             inputs: Dictionary containing collated batch data:
                 - points: List of point tensors per layer
@@ -109,7 +110,7 @@ class D3FeatModel(nn.Module):
                 - stack_lengths: List of stack lengths per layer
                 - corr: Correspondence tensor
                 - dist_keypts: Distance keypoints tensor
-                
+
         Returns:
             Dictionary with:
                 - descriptors: Combined descriptors [N_total, feature_dim]
@@ -117,9 +118,9 @@ class D3FeatModel(nn.Module):
         """
         # Run original D3Feat model with collated inputs
         features, scores = self.d3feat_model(inputs)
-        
+
         return {
-            'descriptors': features,        # [N_total, feature_dim] 
-            'scores': scores,               # [N_total, 1]
+            'descriptors': features,  # [N_total, feature_dim]
+            'scores': scores,  # [N_total, 1]
             'stack_lengths': inputs['stack_lengths'],  # Pass through for criterion
         }

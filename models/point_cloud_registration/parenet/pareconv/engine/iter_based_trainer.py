@@ -1,17 +1,17 @@
 import os
 import os.path as osp
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 import ipdb
 import torch
 import tqdm
 from IPython import embed
 
-from .base_trainer import BaseTrainer
-from ..utils.torch import to_cuda
+from ..utils.common import get_log_string
 from ..utils.summary_board import SummaryBoard
 from ..utils.timer import Timer
-from ..utils.common import get_log_string
+from ..utils.torch import to_cuda
+from .base_trainer import BaseTrainer
 
 
 class CycleLoader(object):
@@ -118,7 +118,9 @@ class IterBasedTrainer(BaseTrainer):
             timer.add_prepare_time()
             output_dict, result_dict = self.val_step(self.inner_iteration, data_dict)
             timer.add_process_time()
-            self.after_val_step(self.inner_iteration, data_dict, output_dict, result_dict)
+            self.after_val_step(
+                self.inner_iteration, data_dict, output_dict, result_dict
+            )
             result_dict = self.release_tensors(result_dict)
             summary_board.update_from_result_dict(result_dict)
             message = get_log_string(
@@ -131,7 +133,9 @@ class IterBasedTrainer(BaseTrainer):
             torch.cuda.empty_cache()
         self.after_val()
         summary_dict = summary_board.summary()
-        message = '[Val] ' + get_log_string(summary_dict, iteration=self.iteration, timer=timer)
+        message = '[Val] ' + get_log_string(
+            summary_dict, iteration=self.iteration, timer=timer
+        )
         self.logger.critical(message)
         self.write_event('val', summary_dict, self.iteration // self.snapshot_steps)
         self.set_train_mode()
@@ -187,7 +191,9 @@ class IterBasedTrainer(BaseTrainer):
                 self.epoch = train_loader.last_epoch
                 self.save_snapshot(f'iter-{self.iteration}.pth.tar')
                 if not self.save_all_snapshots:
-                    last_snapshot = f'iter_{self.iteration - self.snapshot_steps}.pth.tar'
+                    last_snapshot = (
+                        f'iter_{self.iteration - self.snapshot_steps}.pth.tar'
+                    )
                     if osp.exists(last_snapshot):
                         os.remove(last_snapshot)
                 self.inference()

@@ -7,6 +7,7 @@ then launches the eval viewer app to test the mixed result type functionality.
 Usage:
     python tests/runners/eval_viewer/test_eval_viewer_app.py
 """
+
 import json
 import os
 import sys

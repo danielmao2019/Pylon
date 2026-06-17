@@ -1,4 +1,5 @@
 from typing import Dict, List, Union
+
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -11,18 +12,24 @@ class Select:
 
     def _materialize_indices(self, device: torch.device) -> torch.Tensor:
         if isinstance(self.indices, list):
-            indices_tensor = torch.tensor(self.indices, dtype=torch.int64, device=device)
+            indices_tensor = torch.tensor(
+                self.indices, dtype=torch.int64, device=device
+            )
         else:
             assert self.indices.dtype == torch.int64, f"{self.indices.dtype=}"
             assert self.indices.device == device, f"{self.indices.device=}, {device=}"
             indices_tensor = self.indices
-        assert torch.all(indices_tensor >= 0), f"Negative indices not allowed: {indices_tensor}"
+        assert torch.all(
+            indices_tensor >= 0
+        ), f"Negative indices not allowed: {indices_tensor}"
         return indices_tensor
 
     def __call__(self, pc: PointCloud) -> PointCloud:
         assert isinstance(pc, PointCloud), f"{type(pc)=}"
         indices = self._materialize_indices(device=pc.xyz.device)
-        assert torch.all(indices < pc.num_points), f"indices exceed length {pc.num_points}: {indices=}"
+        assert torch.all(
+            indices < pc.num_points
+        ), f"indices exceed length {pc.num_points}: {indices=}"
 
         data: Dict[str, torch.Tensor] = {'xyz': pc.xyz[indices]}
         if hasattr(pc, 'indices'):

@@ -23,8 +23,12 @@ def test_parenet_collator_call():
     dummy_datapoints = [
         {
             'inputs': {
-                'src_pc': PointCloud(xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}),
-                'tgt_pc': PointCloud(xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}),
+                'src_pc': PointCloud(
+                    xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}
+                ),
+                'tgt_pc': PointCloud(
+                    xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}
+                ),
             },
             'labels': {
                 'transform': torch.eye(4),
@@ -32,12 +36,16 @@ def test_parenet_collator_call():
             'meta_info': {
                 'idx': 0,
                 'dataset_name': 'test',
-            }
+            },
         },
         {
             'inputs': {
-                'src_pc': PointCloud(xyz=torch.randn(120, 3), data={'feat': torch.ones(120, 1)}),
-                'tgt_pc': PointCloud(xyz=torch.randn(120, 3), data={'feat': torch.ones(120, 1)}),
+                'src_pc': PointCloud(
+                    xyz=torch.randn(120, 3), data={'feat': torch.ones(120, 1)}
+                ),
+                'tgt_pc': PointCloud(
+                    xyz=torch.randn(120, 3), data={'feat': torch.ones(120, 1)}
+                ),
             },
             'labels': {
                 'transform': torch.eye(4),
@@ -45,8 +53,8 @@ def test_parenet_collator_call():
             'meta_info': {
                 'idx': 1,
                 'dataset_name': 'test',
-            }
-        }
+            },
+        },
     ]
 
     batch = parenet_collate_fn(
@@ -54,7 +62,7 @@ def test_parenet_collator_call():
         num_stages=4,
         voxel_size=0.3,
         num_neighbors=[16, 16, 16, 16],
-        subsample_ratio=0.25
+        subsample_ratio=0.25,
     )
 
     # Verify batch structure matches PARENet expectations
@@ -72,8 +80,12 @@ def test_parenet_collator_call():
         assert key in inputs, f"Missing required key in inputs: {key}"
 
     # Verify tensor shapes and types
-    assert isinstance(inputs['points'], list), "Points must be a list of tensors for stack mode"
-    assert isinstance(inputs['lengths'], list), "Lengths must be a list of tensors for stack mode"
+    assert isinstance(
+        inputs['points'], list
+    ), "Points must be a list of tensors for stack mode"
+    assert isinstance(
+        inputs['lengths'], list
+    ), "Lengths must be a list of tensors for stack mode"
     assert isinstance(inputs['features'], torch.Tensor), "Features must be a tensor"
     assert isinstance(inputs['batch_size'], int), "Batch size must be an integer"
 
@@ -92,8 +104,12 @@ def test_parenet_collator_single_datapoint():
 
     dummy_datapoint = {
         'inputs': {
-            'src_pc': PointCloud(xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}),
-            'tgt_pc': PointCloud(xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}),
+            'src_pc': PointCloud(
+                xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}
+            ),
+            'tgt_pc': PointCloud(
+                xyz=torch.randn(100, 3), data={'feat': torch.ones(100, 1)}
+            ),
         },
         'labels': {
             'transform': torch.eye(4),
@@ -101,7 +117,7 @@ def test_parenet_collator_single_datapoint():
         'meta_info': {
             'idx': 0,
             'dataset_name': 'test',
-        }
+        },
     }
 
     batch = parenet_collate_fn(
@@ -109,7 +125,7 @@ def test_parenet_collator_single_datapoint():
         num_stages=4,
         voxel_size=0.3,
         num_neighbors=[16, 16, 16, 16],
-        subsample_ratio=0.25
+        subsample_ratio=0.25,
     )
 
     # Verify single datapoint batch structure
@@ -126,6 +142,10 @@ def test_parenet_collator_single_datapoint():
     # Check that first level contains the raw points for both src and tgt
     first_level_points = inputs['points'][0]
     first_level_lengths = inputs['lengths'][0]
-    assert first_level_points.shape[0] == 200, "First level should have 200 total points (100 + 100)"
+    assert (
+        first_level_points.shape[0] == 200
+    ), "First level should have 200 total points (100 + 100)"
     assert first_level_lengths.shape[0] == 2, "First level should have 2 length entries"
-    assert torch.equal(first_level_lengths, torch.tensor([100, 100])), "Lengths should be [100, 100]"
+    assert torch.equal(
+        first_level_lengths, torch.tensor([100, 100])
+    ), "Lengths should be [100, 100]"

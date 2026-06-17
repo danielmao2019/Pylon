@@ -1,11 +1,15 @@
 from typing import Dict, Tuple, Union
+
 import torch
+
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
 class BatchBalancedContrastiveLoss:
-    def __init__(self, margin: Union[int, float] = 2.0, ignore_value: int = 255, **kwargs) -> None:
+    def __init__(
+        self, margin: Union[int, float] = 2.0, ignore_value: int = 255, **kwargs
+    ) -> None:
         self.margin = margin
         self.ignore_value = ignore_value
         super(BatchBalancedContrastiveLoss, self).__init__(**kwargs)
@@ -36,11 +40,19 @@ class DSAMNetCriterion(SingleTaskCriterion):
         self.batch_balanced_contrastive_loss = BatchBalancedContrastiveLoss()
         self.dice_loss = DiceLoss()
 
-    def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
-        assert isinstance(y_pred, tuple) and len(y_pred) == 3, "y_pred must be a tuple of 3 tensors"
-        assert all(isinstance(t, torch.Tensor) for t in y_pred), "y_pred must be a tuple of tensors"
+    def __call__(
+        self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
+        assert (
+            isinstance(y_pred, tuple) and len(y_pred) == 3
+        ), "y_pred must be a tuple of 3 tensors"
+        assert all(
+            isinstance(t, torch.Tensor) for t in y_pred
+        ), "y_pred must be a tuple of tensors"
         assert isinstance(y_true, dict), "y_true must be a dictionary"
-        assert y_true.keys() == {'change_map'}, "dictionary keys of y_true must be exactly 'change_map'"
+        assert y_true.keys() == {
+            'change_map'
+        }, "dictionary keys of y_true must be exactly 'change_map'"
 
         # Extract tensors from y_pred
         prob, ds2, ds3 = y_pred

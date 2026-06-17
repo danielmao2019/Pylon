@@ -4,6 +4,7 @@ Command line interface for the dataset viewer.
 
 This script provides a simple command-line entry point to launch the dataset viewer.
 """
+
 import argparse
 import os
 import sys
@@ -20,7 +21,9 @@ from data.viewer.dataset.viewer import DatasetViewer
 def main() -> None:
     """Run the dataset viewer application."""
     parser = argparse.ArgumentParser(description="Dataset Viewer CLI")
-    parser.add_argument("--debug", action="store_true", default=False, help="Run in debug mode")
+    parser.add_argument(
+        "--debug", action="store_true", default=False, help="Run in debug mode"
+    )
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8050, help="Port to bind to")
 

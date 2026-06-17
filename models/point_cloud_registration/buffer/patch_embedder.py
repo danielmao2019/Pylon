@@ -1,10 +1,11 @@
+import kornia.geometry.conversions as Convert
 import torch.nn as nn
 import torch.nn.functional as F
+
 import models.point_cloud_registration.buffer.patchnet as pn
+from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils as pnt2
 from models.point_cloud_registration.buffer.utils.common import *
 from models.point_cloud_registration.buffer.utils.SE3 import *
-from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils as pnt2
-import kornia.geometry.conversions as Convert
 
 
 class MiniSpinNet(nn.Module):
@@ -40,7 +41,9 @@ class MiniSpinNet(nn.Module):
     def forward(self, pts, kpts, z_axis=None, is_aug=False):
 
         # extract patches
-        init_patch = self.select_patches(pts, kpts, vicinity=self.des_r, patch_sample=self.patch_sample)
+        init_patch = self.select_patches(
+            pts, kpts, vicinity=self.des_r, patch_sample=self.patch_sample
+        )
         init_patch = init_patch.squeeze(0)
 
         # align with reference axis
@@ -64,9 +67,13 @@ class MiniSpinNet(nn.Module):
         inv_patches = self.SPT(patches, 1, self.delta / self.rad_n)
 
         # Vanilla SpinNet
-        new_points = inv_patches.permute(0, 3, 1, 2)  # (B, C_in, npoint, nsample+1), input features
+        new_points = inv_patches.permute(
+            0, 3, 1, 2
+        )  # (B, C_in, npoint, nsample+1), input features
         x = self.pnt_layer(new_points)
-        x = F.max_pool2d(x, kernel_size=(1, x.shape[-1])).squeeze(3)  # (B, C_in, npoint)
+        x = F.max_pool2d(x, kernel_size=(1, x.shape[-1])).squeeze(
+            3
+        )  # (B, C_in, npoint)
         del new_points
         x = x.view(x.shape[0], x.shape[1], self.rad_n, self.ele_n, self.azi_n)
         x, mid = self.conv_net(x)
@@ -76,12 +83,14 @@ class MiniSpinNet(nn.Module):
         f = F.normalize(f.view(f.shape[0], -1), p=2, dim=1)
         x = F.normalize(x, p=2, dim=1)
 
-        return {'desc': f,
-                'equi': x,
-                'rand_axis': rand_axis,
-                'R': R,
-                'patches': patches,
-                'aug_rotation': aug_rotation}
+        return {
+            'desc': f,
+            'equi': x,
+            'rand_axis': rand_axis,
+            'R': R,
+            'patches': patches,
+            'aug_rotation': aug_rotation,
+        }
 
     def select_patches(self, pts, refer_pts, vicinity, patch_sample=1024):
         B, N, C = pts.shape
@@ -92,9 +101,7 @@ class MiniSpinNet(nn.Module):
 
         group_idx = pnt2.ball_query(vicinity, patch_sample, pts, refer_pts)
         pts_trans = pts.transpose(1, 2).contiguous()
-        new_points = pnt2.grouping_operation(
-            pts_trans, group_idx
-        )
+        new_points = pnt2.grouping_operation(pts_trans, group_idx)
         new_points = new_points.permute([0, 2, 3, 1])
         mask = group_idx[:, :, 0].unsqueeze(2).repeat(1, 1, patch_sample)
         mask = (group_idx == mask).float()
@@ -115,7 +122,9 @@ class MiniSpinNet(nn.Module):
 
     def axis_align(self, input, dataset, z_axis=None):
         center = input[:, -1, :3]
-        delta_x = input[:, :, :3] - center.unsqueeze(1)  # (B, npoint, 3), normalized coordinates
+        delta_x = input[:, :, :3] - center.unsqueeze(
+            1
+        )  # (B, npoint, 3), normalized coordinates
 
         if dataset == '3DMatch' or dataset == '3DLoMatch':
             if z_axis is None:
@@ -123,8 +132,7 @@ class MiniSpinNet(nn.Module):
                 z_axis = l2_norm(z_axis, axis=1)
             else:
                 z_axis = z_axis[0]
-            R = RodsRotatFormula(z_axis,
-                                              torch.FloatTensor([0, 0, 1]).expand_as(z_axis))
+            R = RodsRotatFormula(z_axis, torch.FloatTensor([0, 0, 1]).expand_as(z_axis))
             delta_x = torch.matmul(delta_x, R)
 
             # for calculate gt lable
@@ -144,15 +152,17 @@ class MiniSpinNet(nn.Module):
     def SPT(self, delta_x, des_r, voxel_r):
 
         # partition the local surface along elevator, azimuth, radial dimensions
-        S2_xyz = torch.FloatTensor(get_voxel_coordinate(radius=des_r,
-                                                                     rad_n=self.rad_n,
-                                                                     azi_n=self.azi_n,
-                                                                     ele_n=self.ele_n))
+        S2_xyz = torch.FloatTensor(
+            get_voxel_coordinate(
+                radius=des_r, rad_n=self.rad_n, azi_n=self.azi_n, ele_n=self.ele_n
+            )
+        )
 
         pts_xyz = S2_xyz.view(1, -1, 3).repeat([delta_x.shape[0], 1, 1]).cuda()
         # query points in sphere
-        new_points = sphere_query(delta_x, pts_xyz, radius=voxel_r,
-                                               nsample=self.voxel_sample)
+        new_points = sphere_query(
+            delta_x, pts_xyz, radius=voxel_r, nsample=self.voxel_sample
+        )
         # transform rotation-variant coords into rotation-invariant coords
         new_points = var_to_invar(new_points, self.rad_n, self.azi_n, self.ele_n)
 

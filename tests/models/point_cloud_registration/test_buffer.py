@@ -1,5 +1,7 @@
+from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import (
+    data_cfg,
+)
 from configs.common.models.point_cloud_registration.buffer_cfg import model_cfg
-from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg
 from utils.builders import build_from_config
 
 

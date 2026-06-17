@@ -1,7 +1,8 @@
 """Mask rendering from point clouds using projection methods."""
 
-import torch
 from typing import Tuple
+
+import torch
 
 
 def render_mask_from_rendering_points(

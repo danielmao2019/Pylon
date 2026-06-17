@@ -76,7 +76,7 @@ def test_d3feat_collator_initialization():
         num_layers=3,
         first_subsampling_dl=0.05,
         conv_radius=3.0,
-        neighborhood_limits=[15, 15, 15]
+        neighborhood_limits=[15, 15, 15],
     )
     assert collator.num_layers == 3
     assert collator.first_subsampling_dl == 0.05
@@ -106,7 +106,7 @@ def test_d3feat_collator_single_item():
         },
         'meta_info': {
             'idx': 0,
-        }
+        },
     }
 
     # Collate single item
@@ -158,7 +158,7 @@ def test_d3feat_collator_multiple_items():
             },
             'meta_info': {
                 'idx': i,
-            }
+            },
         }
         batch_data.append(datapoint)
 
@@ -195,7 +195,7 @@ def test_d3feat_collator_empty_correspondences():
         },
         'meta_info': {
             'idx': 0,
-        }
+        },
     }
 
     # Should handle empty correspondences gracefully
@@ -246,7 +246,7 @@ def test_d3feat_collator_tensor_types():
         'labels': {
             'transform': torch.eye(4, dtype=torch.float32),
         },
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     batch = collator([datapoint])

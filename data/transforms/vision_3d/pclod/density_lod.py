@@ -1,10 +1,12 @@
 """Density-based Level of Detail system with percentage-based subsampling."""
+
+import logging
 from typing import Dict
+
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.random_select import RandomSelect
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +33,7 @@ class DensityLOD:
         self.seed = seed
 
     def subsample(
-        self,
-        point_cloud: PointCloud,
-        density_percentage: int,
-        point_cloud_id: str
+        self, point_cloud: PointCloud, density_percentage: int, point_cloud_id: str
     ) -> PointCloud:
         """Subsample point cloud to specified density percentage.
 
@@ -48,9 +47,15 @@ class DensityLOD:
             Subsampled point cloud at specified density
         """
         assert isinstance(point_cloud, PointCloud), f"{type(point_cloud)=}"
-        assert isinstance(density_percentage, int), f"density_percentage must be int, got {type(density_percentage)}"
-        assert isinstance(point_cloud_id, str), f"point_cloud_id must be str, got {type(point_cloud_id)}"
-        assert 1 <= density_percentage <= 100, f"density_percentage must be 1-100, got {density_percentage}"
+        assert isinstance(
+            density_percentage, int
+        ), f"density_percentage must be int, got {type(density_percentage)}"
+        assert isinstance(
+            point_cloud_id, str
+        ), f"point_cloud_id must be str, got {type(point_cloud_id)}"
+        assert (
+            1 <= density_percentage <= 100
+        ), f"density_percentage must be 1-100, got {density_percentage}"
 
         # If density is 100%, return original point cloud without caching overhead
         if density_percentage == 100:
@@ -64,9 +69,13 @@ class DensityLOD:
             _global_density_original_cache[point_cloud_id] = point_cloud
 
         # Check if this density percentage is already cached
-        if (point_cloud_id in _global_density_cache and
-            density_percentage in _global_density_cache[point_cloud_id]):
-            logger.info(f"Density cache hit: ID={point_cloud_id}, Density={density_percentage}%")
+        if (
+            point_cloud_id in _global_density_cache
+            and density_percentage in _global_density_cache[point_cloud_id]
+        ):
+            logger.info(
+                f"Density cache hit: ID={point_cloud_id}, Density={density_percentage}%"
+            )
             return _global_density_cache[point_cloud_id][density_percentage]
 
         # Compute subsampled point cloud
@@ -81,14 +90,14 @@ class DensityLOD:
         # Log density information
         original_count = original_pc.num_points
         subsampled_count = subsampled_pc.num_points
-        logger.info(f"Density LOD: ID={point_cloud_id}, Density={density_percentage}%, Points={subsampled_count}/{original_count}")
+        logger.info(
+            f"Density LOD: ID={point_cloud_id}, Density={density_percentage}%, Points={subsampled_count}/{original_count}"
+        )
 
         return subsampled_pc
 
     def _subsample_point_cloud(
-        self,
-        point_cloud: PointCloud,
-        density_percentage: int
+        self, point_cloud: PointCloud, density_percentage: int
     ) -> PointCloud:
         """Subsample point cloud to target density percentage.
 

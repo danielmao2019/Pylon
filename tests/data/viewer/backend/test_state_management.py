@@ -3,7 +3,7 @@
 This module tests state updates, retrieval, and consistency of the ViewerBackend class.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
 
@@ -25,8 +25,13 @@ def test_get_state_returns_complete_state(backend):
 
     # Test all expected keys are present
     expected_keys = [
-        'current_dataset', 'current_index', 'point_size', 'point_opacity',
-        'sym_diff_radius', 'corr_radius', 'lod_type'
+        'current_dataset',
+        'current_index',
+        'point_size',
+        'point_opacity',
+        'sym_diff_radius',
+        'corr_radius',
+        'lod_type',
     ]
     for key in expected_keys:
         assert key in state, f"State should contain key: {key}"
@@ -67,7 +72,7 @@ def test_update_state_multiple_values(backend):
         'point_opacity': 0.9,
         'sym_diff_radius': 0.05,
         'corr_radius': 0.15,
-        'lod_type': 'ADAPTIVE'
+        'lod_type': 'ADAPTIVE',
     }
 
     backend.update_state(**updates)
@@ -79,7 +84,9 @@ def test_update_state_multiple_values(backend):
     # Verify get_state reflects the changes
     state = backend.get_state()
     for key, expected_value in updates.items():
-        assert state[key] == expected_value, f"get_state() doesn't reflect update to {key}"
+        assert (
+            state[key] == expected_value
+        ), f"get_state() doesn't reflect update to {key}"
 
 
 def test_update_state_with_dataset_name(backend):
@@ -142,7 +149,7 @@ def test_update_state_preserves_other_values(backend):
         'point_opacity': 0.7,
         'sym_diff_radius': 0.08,
         'corr_radius': 0.12,
-        'lod_type': 'ADAPTIVE'
+        'lod_type': 'ADAPTIVE',
     }
     backend.update_state(**initial_updates)
 
@@ -163,11 +170,7 @@ def test_update_state_preserves_other_values(backend):
 def test_state_consistency_across_calls(backend):
     """Test that state remains consistent across multiple get_state calls."""
     # Set some state
-    backend.update_state(
-        current_index=20,
-        point_size=4.5,
-        point_opacity=0.6
-    )
+    backend.update_state(current_index=20, point_size=4.5, point_opacity=0.6)
 
     # Get state multiple times
     state1 = backend.get_state()
@@ -205,7 +208,7 @@ def test_update_state_with_mixed_types(backend):
         point_opacity=0.85,
         sym_diff_radius=0.03,
         corr_radius=0.18,
-        lod_type="FIXED"
+        lod_type="FIXED",
     )
 
     # Verify types are preserved
@@ -222,14 +225,14 @@ def test_update_state_with_mixed_types(backend):
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
+
 def test_update_state_ignores_nonexistent_attributes(backend):
     """Test that update_state ignores attributes that don't exist."""
     # This should not raise an error, but should not update anything
     initial_state = backend.get_state()
 
     backend.update_state(
-        nonexistent_attribute="should_be_ignored",
-        another_fake_attr=123
+        nonexistent_attribute="should_be_ignored", another_fake_attr=123
     )
 
     # State should be unchanged

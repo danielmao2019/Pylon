@@ -1,7 +1,10 @@
 import pytest
 import torch
+
 from criteria.common.focal_loss import FocalLoss
-from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import (
+    SemanticSegmentationCriterion,
+)
 
 
 @pytest.fixture
@@ -14,9 +17,13 @@ def sample_data():
     height, width = 32, 32
 
     # Create predicted logits with shape (N, C, H, W) and enable gradients
-    y_pred = torch.randn(batch_size, num_classes, height, width, device=device, requires_grad=True)
+    y_pred = torch.randn(
+        batch_size, num_classes, height, width, device=device, requires_grad=True
+    )
     # Create ground truth with shape (N, H, W) with values in [0, num_classes) and disable gradients
-    y_true = torch.randint(0, num_classes, (batch_size, height, width), device=device, requires_grad=False)
+    y_true = torch.randint(
+        0, num_classes, (batch_size, height, width), device=device, requires_grad=False
+    )
 
     return y_pred, y_true
 
@@ -41,11 +48,14 @@ def test_focal_loss_initialization():
         FocalLoss(class_weights=torch.randn(2, 2))  # 2D tensor instead of 1D
 
 
-@pytest.mark.parametrize("input_shape", [
-    (4, 2),  # 2D input (classification)
-    (4, 2, 8),  # 3D input (single image)
-    (2, 2, 4, 4),  # 4D input (batched images)
-])
+@pytest.mark.parametrize(
+    "input_shape",
+    [
+        (4, 2),  # 2D input (classification)
+        (4, 2, 8),  # 3D input (single image)
+        (2, 2, 4, 4),  # 4D input (batched images)
+    ],
+)
 def test_focal_loss_input_shapes(input_shape):
     """
     Test FocalLoss with different input shapes.
@@ -84,10 +94,14 @@ def test_focal_loss_perfect_predictions(sample_data):
     loss_fn = FocalLoss()
 
     # Test binary classification case
-    y_pred = torch.tensor([[100.0, -100.0],  # Very confident prediction for class 0
-                          [-100.0, 100.0],   # Very confident prediction for class 1
-                          [100.0, -100.0],
-                          [-100.0, 100.0]])
+    y_pred = torch.tensor(
+        [
+            [100.0, -100.0],  # Very confident prediction for class 0
+            [-100.0, 100.0],  # Very confident prediction for class 1
+            [100.0, -100.0],
+            [-100.0, 100.0],
+        ]
+    )
     y_true = torch.tensor([0, 1, 0, 1])
     loss = loss_fn(y_pred=y_pred, y_true=y_true)
     assert loss.item() < 0.01  # Loss should be very small for perfect predictions
@@ -103,18 +117,32 @@ def test_focal_loss_perfect_predictions(sample_data):
 
 def test_focal_loss_class_weights_effect():
     """Test how different class weights and gamma values affect the loss."""
-    y_pred = torch.tensor([[2.0, -2.0],   # Strong prediction for class 0
-                          [-2.0, 2.0],    # Strong prediction for class 1
-                          [0.5, -0.5],    # Weak prediction for class 0
-                          [-0.5, 0.5]])   # Weak prediction for class 1
+    y_pred = torch.tensor(
+        [
+            [2.0, -2.0],  # Strong prediction for class 0
+            [-2.0, 2.0],  # Strong prediction for class 1
+            [0.5, -0.5],  # Weak prediction for class 0
+            [-0.5, 0.5],
+        ]
+    )  # Weak prediction for class 1
     y_true = torch.tensor([1, 1, 0, 0])  # Some correct, some incorrect predictions
 
     # Test class weights effect
-    loss1 = FocalLoss(class_weights=torch.tensor([1.0, 1.0]), gamma=2.0)(y_pred=y_pred, y_true=y_true)
-    loss2 = FocalLoss(class_weights=torch.tensor([0.5, 0.5]), gamma=2.0)(y_pred=y_pred, y_true=y_true)
-    loss3 = FocalLoss(class_weights=torch.tensor([2.0, 2.0]), gamma=2.0)(y_pred=y_pred, y_true=y_true)
-    assert torch.isclose(loss1, 2 * loss2, rtol=1e-6)  # weights=[1,1] should be 2x weights=[0.5,0.5]
-    assert torch.isclose(loss3, 4 * loss2, rtol=1e-6)  # weights=[2,2] should be 4x weights=[0.5,0.5]
+    loss1 = FocalLoss(class_weights=torch.tensor([1.0, 1.0]), gamma=2.0)(
+        y_pred=y_pred, y_true=y_true
+    )
+    loss2 = FocalLoss(class_weights=torch.tensor([0.5, 0.5]), gamma=2.0)(
+        y_pred=y_pred, y_true=y_true
+    )
+    loss3 = FocalLoss(class_weights=torch.tensor([2.0, 2.0]), gamma=2.0)(
+        y_pred=y_pred, y_true=y_true
+    )
+    assert torch.isclose(
+        loss1, 2 * loss2, rtol=1e-6
+    )  # weights=[1,1] should be 2x weights=[0.5,0.5]
+    assert torch.isclose(
+        loss3, 4 * loss2, rtol=1e-6
+    )  # weights=[2,2] should be 4x weights=[0.5,0.5]
 
 
 def test_focal_loss_gamma_effect():
@@ -172,8 +200,12 @@ def test_focal_loss_ignore_value():
     # Create sample data with shape (N, C, H, W)
     batch_size, num_classes = 2, 3
     height, width = 4, 4
-    y_pred = torch.randn(batch_size, num_classes, height, width, device=device, requires_grad=True)
-    y_true = torch.randint(0, num_classes, (batch_size, height, width), device=device, requires_grad=False)
+    y_pred = torch.randn(
+        batch_size, num_classes, height, width, device=device, requires_grad=True
+    )
+    y_true = torch.randint(
+        0, num_classes, (batch_size, height, width), device=device, requires_grad=False
+    )
 
     # Create a mask with some ignored values
     ignore_mask = torch.zeros_like(y_true, dtype=torch.bool)
@@ -203,6 +235,8 @@ def test_focal_loss_ignore_value():
     # Broadcast ignore_mask to match y_pred's shape (N, C, H, W)
     ignore_mask_broadcasted = ignore_mask.unsqueeze(1).expand_as(y_pred)
     # Fill ignored locations with random noise
-    y_pred_modified[ignore_mask_broadcasted] = torch.randn_like(y_pred_modified[ignore_mask_broadcasted])
+    y_pred_modified[ignore_mask_broadcasted] = torch.randn_like(
+        y_pred_modified[ignore_mask_broadcasted]
+    )
     loss_modified = criterion(y_pred=y_pred_modified, y_true=y_true)
     assert torch.isclose(loss, loss_modified, rtol=1e-6, atol=1e-6)

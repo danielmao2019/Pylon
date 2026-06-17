@@ -5,7 +5,6 @@ import threading
 from typing import Any, Dict, Tuple
 from urllib.parse import urlparse
 
-
 COLLECTOR_EVENTS_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "collector_events.json"
 )

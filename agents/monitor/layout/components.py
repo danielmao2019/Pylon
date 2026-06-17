@@ -47,9 +47,7 @@ def build_layout(
                 style_header=TABLE_HEADER_STYLE,
                 style_data=TABLE_DATA_STYLE,
             ),
-            dcc.Interval(
-                id="refresh-interval", interval=interval_ms, n_intervals=0
-            ),
+            dcc.Interval(id="refresh-interval", interval=interval_ms, n_intervals=0),
         ],
         style=CONTAINER_STYLE,
     )

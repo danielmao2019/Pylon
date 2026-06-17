@@ -1,11 +1,14 @@
-import pytest
-import numpy as np
 import json
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pytest
 
 from runners.viewers.eval_viewer.backend.initialization import initialize_log_dirs
-from runners.viewers.eval_viewer.backend.repetition_discovery import discover_experiment_groups
+from runners.viewers.eval_viewer.backend.repetition_discovery import (
+    discover_experiment_groups,
+)
 
 
 @patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
@@ -27,7 +30,7 @@ def test_repetition_discovery_integration_basic(mock_extract, temp_log_dir):
 
         scores = {
             "per_datapoint": {"metric1": [0.5, 0.6, 0.7]},
-            "aggregated": {"metric1": 0.6}
+            "aggregated": {"metric1": 0.6},
         }
         with open(os.path.join(run_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(scores, f)
@@ -56,7 +59,7 @@ def test_repetition_integration_with_initialize_log_dirs(mock_normpath, temp_log
     # Create config.json
     config_data = {
         "eval_dataset": {"class": "KITTIDataset", "args": {}},
-        "eval_dataloader": {"batch_size": 1}
+        "eval_dataloader": {"batch_size": 1},
     }
     with open(os.path.join(log_dir, "config.json"), 'w') as f:
         json.dump(config_data, f)
@@ -64,7 +67,7 @@ def test_repetition_integration_with_initialize_log_dirs(mock_normpath, temp_log
     # Create evaluation_scores.json
     scores = {
         "per_datapoint": {"metric1": [0.5, 0.6, 0.7]},
-        "aggregated": {"metric1": 0.6}
+        "aggregated": {"metric1": 0.6},
     }
     with open(os.path.join(log_dir, "evaluation_scores.json"), 'w') as f:
         json.dump(scores, f)
@@ -76,7 +79,9 @@ def test_repetition_integration_with_initialize_log_dirs(mock_normpath, temp_log
         f.write(f'config = {config_data}')
 
     # Create dataset config
-    dataset_config_dir = os.path.join(temp_log_dir, "configs", "common", "datasets", "point_cloud_registration", "val")
+    dataset_config_dir = os.path.join(
+        temp_log_dir, "configs", "common", "datasets", "point_cloud_registration", "val"
+    )
     os.makedirs(dataset_config_dir, exist_ok=True)
     kitti_config = os.path.join(dataset_config_dir, "kitti_data_cfg.py")
     with open(kitti_config, 'w') as f:
@@ -84,8 +89,15 @@ def test_repetition_integration_with_initialize_log_dirs(mock_normpath, temp_log
 
     try:
         # This should work without errors, even if it only finds one repetition
-        max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, color_scales = \
-            initialize_log_dirs([log_dir], force_reload=True)
+        (
+            max_epochs,
+            metric_names,
+            num_datapoints,
+            dataset_cfg,
+            dataset_type,
+            log_dir_infos,
+            color_scales,
+        ) = initialize_log_dirs([log_dir], force_reload=True)
 
         assert len(log_dir_infos) == 1
         assert "TestExp" in log_dir_infos
@@ -99,8 +111,10 @@ def test_repetition_integration_with_initialize_log_dirs(mock_normpath, temp_log
 
 def test_experiment_group_aggregation_mathematical_correctness():
     """Test that aggregation produces mathematically correct results."""
-    from runners.viewers.eval_viewer.backend.repetition_discovery import aggregate_log_dir_infos
     from runners.viewers.eval_viewer.backend.initialization import LogDirInfo
+    from runners.viewers.eval_viewer.backend.repetition_discovery import (
+        aggregate_log_dir_infos,
+    )
 
     # Create LogDirInfo objects with known values
     infos = []
@@ -120,7 +134,7 @@ def test_experiment_group_aggregation_mathematical_correctness():
             dataset_type="pcr",
             dataset_cfg={},
             dataloader_cfg={},
-            runner_type="evaluator"
+            runner_type="evaluator",
         )
         infos.append(info)
 

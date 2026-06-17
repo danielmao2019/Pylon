@@ -1,7 +1,10 @@
 import pytest
 import torch
+
 from criteria.base_criterion import BaseCriterion
-from criteria.wrappers.spatial_pytorch_criterion_wrapper import SpatialPyTorchCriterionWrapper
+from criteria.wrappers.spatial_pytorch_criterion_wrapper import (
+    SpatialPyTorchCriterionWrapper,
+)
 
 
 @pytest.fixture
@@ -60,7 +63,9 @@ def test_compute_loss_different_resolution(criterion, base_criterion, sample_ten
 
     # The wrapper should resize y_true to match y_pred's resolution
     # Compute expected loss with resized y_true
-    resized_y_true = torch.nn.functional.interpolate(y_true, size=(4, 4), mode='nearest')
+    resized_y_true = torch.nn.functional.interpolate(
+        y_true, size=(4, 4), mode='nearest'
+    )
     expected_loss = base_criterion(input=sample_tensor, target=resized_y_true)
 
     # Check that the losses match

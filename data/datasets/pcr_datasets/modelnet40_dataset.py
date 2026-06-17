@@ -1,10 +1,14 @@
-from typing import Tuple, Dict, Any
-import os
 import glob
+import os
+from typing import Any, Dict, Tuple
+
 import torch
-from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
-from data.transforms.vision_3d.random_point_crop import RandomPointCrop
+
+from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import (
+    SyntheticTransformPCRDataset,
+)
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 
 
 class ModelNet40Dataset(SyntheticTransformPCRDataset):
@@ -26,20 +30,81 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
 
     # ModelNet40 object categories
     CATEGORIES = [
-        'airplane', 'bathtub', 'bed', 'bench', 'bookshelf', 'bottle', 'bowl', 'car',
-        'chair', 'cone', 'cup', 'curtain', 'desk', 'door', 'dresser', 'flower_pot',
-        'glass_box', 'guitar', 'keyboard', 'lamp', 'laptop', 'mantel', 'monitor',
-        'night_stand', 'person', 'piano', 'plant', 'radio', 'range_hood', 'sink',
-        'sofa', 'stairs', 'stool', 'table', 'tent', 'toilet', 'tv_stand', 'vase',
-        'wardrobe', 'xbox'
+        'airplane',
+        'bathtub',
+        'bed',
+        'bench',
+        'bookshelf',
+        'bottle',
+        'bowl',
+        'car',
+        'chair',
+        'cone',
+        'cup',
+        'curtain',
+        'desk',
+        'door',
+        'dresser',
+        'flower_pot',
+        'glass_box',
+        'guitar',
+        'keyboard',
+        'lamp',
+        'laptop',
+        'mantel',
+        'monitor',
+        'night_stand',
+        'person',
+        'piano',
+        'plant',
+        'radio',
+        'range_hood',
+        'sink',
+        'sofa',
+        'stairs',
+        'stool',
+        'table',
+        'tent',
+        'toilet',
+        'tv_stand',
+        'vase',
+        'wardrobe',
+        'xbox',
     ]
 
     # Asymmetric categories (have distinct orientations)
     ASYMMETRIC_CATEGORIES = [
-        'airplane', 'bathtub', 'bed', 'bench', 'car', 'chair', 'curtain', 'desk',
-        'door', 'dresser', 'guitar', 'keyboard', 'lamp', 'laptop', 'mantel',
-        'monitor', 'person', 'piano', 'plant', 'radio', 'range_hood', 'sink',
-        'sofa', 'stairs', 'stool', 'table', 'tent', 'toilet', 'tv_stand', 'wardrobe', 'xbox'
+        'airplane',
+        'bathtub',
+        'bed',
+        'bench',
+        'car',
+        'chair',
+        'curtain',
+        'desk',
+        'door',
+        'dresser',
+        'guitar',
+        'keyboard',
+        'lamp',
+        'laptop',
+        'mantel',
+        'monitor',
+        'person',
+        'piano',
+        'plant',
+        'radio',
+        'range_hood',
+        'sink',
+        'sofa',
+        'stairs',
+        'stool',
+        'table',
+        'tent',
+        'toilet',
+        'tv_stand',
+        'wardrobe',
+        'xbox',
     ]
 
     def __init__(
@@ -103,9 +168,11 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'keep_ratio': self.keep_ratio,
-        })
+        version_dict.update(
+            {
+                'keep_ratio': self.keep_ratio,
+            }
+        )
         return version_dict
 
     def get_category_from_path(self, file_path: str) -> str:
@@ -142,7 +209,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         crop_transform = RandomPointCrop(
             keep_ratio=self.keep_ratio,
             viewpoint=None,  # Random viewpoint
-            limit=500.0  # Default limit
+            limit=500.0,  # Default limit
         )
 
         # Use deterministic seeding - combine base_seed with idx for variation

@@ -1,8 +1,8 @@
-from typing import Tuple
-import torch
-import os
 import json
+import os
+from typing import Tuple
 
+import torch
 
 torch.manual_seed(0)
 gt = torch.rand(size=(2, 2), dtype=torch.float32)
@@ -30,9 +30,13 @@ def run_pytorch() -> None:
     torch.use_deterministic_algorithms(True, warn_only=True)
     torch.manual_seed(0)
     train_dataset = Dataset()
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=8)
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=4, shuffle=True, num_workers=8
+    )
     val_dataset = Dataset()
-    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8)
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset, batch_size=1, shuffle=False, num_workers=8
+    )
     criterion = torch.nn.MSELoss(reduction='mean')
     metric = torch.nn.MSELoss(reduction='mean')
     model = torch.nn.Linear(in_features=2, out_features=2)
@@ -86,6 +90,10 @@ def test_compare_pytorch() -> None:
         losses1 = torch.load(os.path.join(dir1, f"epoch_{idx}", "training_losses.pt"))
         losses2 = torch.load(os.path.join(dir2, f"epoch_{idx}", "training_losses.pt"))
         assert torch.allclose(losses1, losses2), f"{idx} - losses"
-        scores1 = json.load(open(os.path.join(dir1, f"epoch_{idx}", "validation_scores.json")))
-        scores2 = json.load(open(os.path.join(dir2, f"epoch_{idx}", "validation_scores.json")))
+        scores1 = json.load(
+            open(os.path.join(dir1, f"epoch_{idx}", "validation_scores.json"))
+        )
+        scores2 = json.load(
+            open(os.path.join(dir2, f"epoch_{idx}", "validation_scores.json"))
+        )
         assert scores1 == scores2, f"{idx} - scores"

@@ -1,5 +1,8 @@
 import torch
-from models.point_cloud_registration.parenet.pareconv.extensions.pointops.functions import pointops
+
+from models.point_cloud_registration.parenet.pareconv.extensions.pointops.functions import (
+    pointops,
+)
 
 
 def radius_search(q_points, s_points, q_lengths, s_lengths, num_neighbors):
@@ -19,19 +22,19 @@ def radius_search(q_points, s_points, q_lengths, s_lengths, num_neighbors):
     """
     # Store original device
     original_device = q_points.device
-    
+
     # Move to CUDA if not already (C++ extension requires CUDA)
     if not q_points.is_cuda:
         q_points = q_points.cuda()
         s_points = s_points.cuda()
         q_lengths = q_lengths.cuda()
         s_lengths = s_lengths.cuda()
-    
-    q_pcd1 = q_points[:q_lengths[0]].unsqueeze(0)
-    q_pcd2 = q_points[q_lengths[0]:].unsqueeze(0)
 
-    s_pcd1 = s_points[:s_lengths[0]].unsqueeze(0)
-    s_pcd2 = s_points[s_lengths[0]:].unsqueeze(0)
+    q_pcd1 = q_points[: q_lengths[0]].unsqueeze(0)
+    q_pcd2 = q_points[q_lengths[0] :].unsqueeze(0)
+
+    s_pcd1 = s_points[: s_lengths[0]].unsqueeze(0)
+    s_pcd2 = s_points[s_lengths[0] :].unsqueeze(0)
 
     ind_local1 = pointops.knnquery_heap(num_neighbors, s_pcd1, q_pcd1)
     ind_local2 = pointops.knnquery_heap(num_neighbors, s_pcd2, q_pcd2)
@@ -39,9 +42,9 @@ def radius_search(q_points, s_points, q_lengths, s_lengths, num_neighbors):
     ind_local2 = ind_local2 + s_lengths[0]
     index = torch.cat([ind_local1, ind_local2], 1)
     result = index.squeeze(0)
-    
+
     # Move back to original device
     if not original_device.type == 'cuda':
         result = result.to(original_device)
-    
+
     return result

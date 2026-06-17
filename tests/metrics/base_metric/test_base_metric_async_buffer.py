@@ -1,8 +1,10 @@
+import threading
+import time
+from typing import Any, Dict, List, Optional
+
 import pytest
 import torch
-import time
-import threading
-from typing import Dict, Any, Optional, List
+
 from metrics.base_metric import BaseMetric
 
 
@@ -17,7 +19,7 @@ class DummyMetric(BaseMetric):
         # Compute metric
         metric_data = {
             'error': torch.abs(y_pred - y_true).mean(),
-            'squared_error': torch.pow(y_pred - y_true, 2).mean()
+            'squared_error': torch.pow(y_pred - y_true, 2).mean(),
         }
 
         # Add to buffer if enabled
@@ -26,7 +28,7 @@ class DummyMetric(BaseMetric):
 
         return {
             'error': metric_data['error'].item(),
-            'squared_error': metric_data['squared_error'].item()
+            'squared_error': metric_data['squared_error'].item(),
         }
 
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, Any]:
@@ -41,7 +43,7 @@ class DummyMetric(BaseMetric):
         result = {
             'mean_error': torch.stack(errors).mean().item(),
             'mean_squared_error': torch.stack(squared_errors).mean().item(),
-            'count': len(buffer_list)
+            'count': len(buffer_list),
         }
 
         if output_path:
@@ -78,7 +80,10 @@ class FailingMetric(BaseMetric):
 
             # Normal processing that would fail due to injected error
             from utils.ops.apply import apply_tensor_op
-            processed_data = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=data)
+
+            processed_data = apply_tensor_op(
+                func=lambda x: x.detach().cpu(), inputs=data
+            )
 
             with self._buffer_lock:
                 self.buffer[idx] = processed_data
@@ -96,36 +101,20 @@ def dummy_metric():
 def sample_datapoint():
     """Fixture providing a sample datapoint."""
     return {
-        'inputs': {
-            'data': torch.randn(2, 3)
-        },
-        'labels': {
-            'target': torch.randn(2, 3)
-        },
-        'outputs': {
-            'prediction': torch.randn(2, 3)
-        },
-        'meta_info': {
-            'idx': 0
-        }
+        'inputs': {'data': torch.randn(2, 3)},
+        'labels': {'target': torch.randn(2, 3)},
+        'outputs': {'prediction': torch.randn(2, 3)},
+        'meta_info': {'idx': 0},
     }
 
 
 def create_datapoint(idx: int) -> Dict[str, Dict[str, Any]]:
     """Helper function to create datapoint with specific index."""
     return {
-        'inputs': {
-            'data': torch.randn(2, 3)
-        },
-        'labels': {
-            'target': torch.ones(2, 3) * idx
-        },
-        'outputs': {
-            'prediction': torch.ones(2, 3) * (idx + 0.1)
-        },
-        'meta_info': {
-            'idx': idx
-        }
+        'inputs': {'data': torch.randn(2, 3)},
+        'labels': {'target': torch.ones(2, 3) * idx},
+        'outputs': {'prediction': torch.ones(2, 3) * (idx + 0.1)},
+        'meta_info': {'idx': idx},
     }
 
 
@@ -158,6 +147,7 @@ def test_high_frequency_metric_operations(dummy_metric):
 
 def test_concurrent_metric_access(dummy_metric):
     """Test thread safety with multiple threads processing metrics."""
+
     def process_metrics_worker(start_idx: int, count: int):
         """Worker function to process metrics from multiple threads."""
         for i in range(count):
@@ -173,8 +163,7 @@ def test_concurrent_metric_access(dummy_metric):
     for thread_id in range(num_threads):
         start_idx = thread_id * items_per_thread
         thread = threading.Thread(
-            target=process_metrics_worker,
-            args=(start_idx, items_per_thread)
+            target=process_metrics_worker, args=(start_idx, items_per_thread)
         )
         threads.append(thread)
 
@@ -239,21 +228,19 @@ def test_memory_pressure_with_complex_data(dummy_metric):
         datapoint = {
             'inputs': {
                 'images': torch.randn(3, 32, 32, requires_grad=True),
-                'metadata': torch.tensor([i, i+1, i+2], dtype=torch.float32)
+                'metadata': torch.tensor([i, i + 1, i + 2], dtype=torch.float32),
             },
             'labels': {
                 'target': torch.randn(32, 32),  # Match DummyMetric expectation
                 'segmentation': torch.randint(0, 5, (32, 32)),
-                'classification': torch.tensor(i % 3)
+                'classification': torch.tensor(i % 3),
             },
             'outputs': {
                 'prediction': torch.randn(32, 32),  # Match DummyMetric expectation
                 'seg_pred': torch.randn(5, 32, 32),
-                'cls_pred': torch.randn(3)
+                'cls_pred': torch.randn(3),
             },
-            'meta_info': {
-                'idx': i
-            }
+            'meta_info': {'idx': i},
         }
         complex_datapoints.append(datapoint)
 
@@ -415,11 +402,14 @@ def test_buffer_state_consistency_metrics(dummy_metric):
     assert len(buffer_after_reset) == 0
 
 
-@pytest.mark.parametrize("idx_format,idx_value", [
-    ("tensor", torch.tensor([0], dtype=torch.int64)),
-    ("list", [0]),
-    ("int", 0),
-])
+@pytest.mark.parametrize(
+    "idx_format,idx_value",
+    [
+        ("tensor", torch.tensor([0], dtype=torch.int64)),
+        ("list", [0]),
+        ("int", 0),
+    ],
+)
 def test_parametrized_index_formats(idx_format, idx_value):
     """Parametrized test for different index formats."""
     # Create fresh metric for each test to ensure clean state
@@ -478,26 +468,26 @@ def test_invalid_index_format_handling():
         {
             'outputs': {'prediction': torch.randn(2, 3)},
             'labels': {'target': torch.randn(2, 3)},
-            'meta_info': {'idx': "invalid_string"}
+            'meta_info': {'idx': "invalid_string"},
         },
         # Float index
         {
             'outputs': {'prediction': torch.randn(2, 3)},
             'labels': {'target': torch.randn(2, 3)},
-            'meta_info': {'idx': 3.14}
+            'meta_info': {'idx': 3.14},
         },
         # Dictionary index
         {
             'outputs': {'prediction': torch.randn(2, 3)},
             'labels': {'target': torch.randn(2, 3)},
-            'meta_info': {'idx': {'nested': 1}}
+            'meta_info': {'idx': {'nested': 1}},
         },
         # None index
         {
             'outputs': {'prediction': torch.randn(2, 3)},
             'labels': {'target': torch.randn(2, 3)},
-            'meta_info': {'idx': None}
-        }
+            'meta_info': {'idx': None},
+        },
     ]
 
     for i, invalid_datapoint in enumerate(invalid_datapoints):
@@ -511,7 +501,9 @@ def test_malformed_tensor_index_assertions():
 
     # Test wrong tensor shape (multiple elements)
     datapoint_multi_element = create_datapoint(0)
-    datapoint_multi_element['meta_info']['idx'] = torch.tensor([1, 2, 3], dtype=torch.int64)
+    datapoint_multi_element['meta_info']['idx'] = torch.tensor(
+        [1, 2, 3], dtype=torch.int64
+    )
     with pytest.raises(AssertionError, match="Expected single element tensor"):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_multi_element)
 
@@ -582,7 +574,7 @@ def test_missing_meta_info_assertions():
     # Test completely missing meta_info
     datapoint_no_meta = {
         'outputs': {'prediction': torch.randn(2, 3)},
-        'labels': {'target': torch.randn(2, 3)}
+        'labels': {'target': torch.randn(2, 3)},
         # Missing 'meta_info'
     }
     with pytest.raises(AssertionError):
@@ -592,7 +584,7 @@ def test_missing_meta_info_assertions():
     datapoint_no_idx = {
         'outputs': {'prediction': torch.randn(2, 3)},
         'labels': {'target': torch.randn(2, 3)},
-        'meta_info': {'other_field': 'value'}  # Missing 'idx'
+        'meta_info': {'other_field': 'value'},  # Missing 'idx'
     }
     with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_no_idx)
@@ -601,7 +593,7 @@ def test_missing_meta_info_assertions():
     datapoint_none_meta = {
         'outputs': {'prediction': torch.randn(2, 3)},
         'labels': {'target': torch.randn(2, 3)},
-        'meta_info': None
+        'meta_info': None,
     }
     with pytest.raises(TypeError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_none_meta)
@@ -610,7 +602,7 @@ def test_missing_meta_info_assertions():
     datapoint_list_meta = {
         'outputs': {'prediction': torch.randn(2, 3)},
         'labels': {'target': torch.randn(2, 3)},
-        'meta_info': ['not', 'a', 'dict']
+        'meta_info': ['not', 'a', 'dict'],
     }
     with pytest.raises(AssertionError):
         metric.add_to_buffer({'test': torch.tensor(1.0)}, datapoint_list_meta)
@@ -663,6 +655,7 @@ def test_non_contiguous_index_scenarios():
 
     # Process in random order
     import random
+
     shuffled_indices = indices_to_process.copy()
     random.shuffle(shuffled_indices)
 
@@ -759,8 +752,7 @@ def test_extreme_lock_contention_metrics():
 
     for worker_id in range(num_threads):
         thread = threading.Thread(
-            target=contention_worker,
-            args=(worker_id, iterations_per_thread)
+            target=contention_worker, args=(worker_id, iterations_per_thread)
         )
         threads.append(thread)
 
@@ -781,10 +773,14 @@ def test_extreme_lock_contention_metrics():
     # Verify system survived extreme contention
     total_expected = num_threads * iterations_per_thread
     buffer = metric.get_buffer()
-    assert len(buffer) == total_expected, f"Lost data under contention: {len(buffer)}/{total_expected}"
+    assert (
+        len(buffer) == total_expected
+    ), f"Lost data under contention: {len(buffer)}/{total_expected}"
 
     # Verify no deadlocks occurred
-    assert contention_time < 30.0, f"Potential deadlock detected: {contention_time:.2f}s"
+    assert (
+        contention_time < 30.0
+    ), f"Potential deadlock detected: {contention_time:.2f}s"
 
     # Verify buffer order preservation under contention
     for i, buffered_item in enumerate(buffer):

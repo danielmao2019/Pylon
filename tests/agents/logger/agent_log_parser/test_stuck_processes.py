@@ -1,6 +1,6 @@
 import pytest
-from agents.logger import AgentLogParser
 
+from agents.logger import AgentLogParser
 
 # ============================================================================
 # STUCK PROCESSES PARSING TESTS

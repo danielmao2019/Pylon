@@ -1,22 +1,25 @@
-import pytest
 import tempfile
+
+import pytest
 import torch
+
 from data.datasets.multi_task_datasets.multi_mnist_dataset import MultiMNISTDataset
 
 
-@pytest.mark.parametrize("selected_labels,expected_keys", [
-    (['left'], ['left']),
-    (['right'], ['right']),
-    (['left', 'right'], ['left', 'right']),
-    (None, ['left', 'right']),  # Default case
-])
+@pytest.mark.parametrize(
+    "selected_labels,expected_keys",
+    [
+        (['left'], ['left']),
+        (['right'], ['right']),
+        (['left', 'right'], ['left', 'right']),
+        (None, ['left', 'right']),  # Default case
+    ],
+)
 def test_selective_label_loading(selected_labels, expected_keys):
     """Test that only selected labels are loaded."""
     with tempfile.TemporaryDirectory() as temp_dir:
         dataset = MultiMNISTDataset(
-            data_root=temp_dir,
-            split="train",
-            labels=selected_labels
+            data_root=temp_dir, split="train", labels=selected_labels
         )
 
         # Check selected_labels attribute
@@ -45,16 +48,11 @@ def test_selective_loading_preserves_values():
     """Test that selective loading produces same values as full loading."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Load all labels
-        dataset_full = MultiMNISTDataset(
-            data_root=temp_dir,
-            split="train"
-        )
+        dataset_full = MultiMNISTDataset(data_root=temp_dir, split="train")
 
         # Load only left label
         dataset_left = MultiMNISTDataset(
-            data_root=temp_dir,
-            split="train",
-            labels=["left"]
+            data_root=temp_dir, split="train", labels=["left"]
         )
 
         # Same index should produce same values
@@ -81,22 +79,14 @@ def test_cache_version_discrimination():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Different labels should have DIFFERENT cache versions since we now
         # avoid disk I/O by loading only selected labels
-        dataset1 = MultiMNISTDataset(
-            data_root=temp_dir,
-            split="train",
-            labels=["left"]
-        )
+        dataset1 = MultiMNISTDataset(data_root=temp_dir, split="train", labels=["left"])
 
         dataset2 = MultiMNISTDataset(
-            data_root=temp_dir,
-            split="train",
-            labels=["right"]
+            data_root=temp_dir, split="train", labels=["right"]
         )
 
         dataset3 = MultiMNISTDataset(
-            data_root=temp_dir,
-            split="train",
-            labels=["left", "right"]
+            data_root=temp_dir, split="train", labels=["left", "right"]
         )
 
         # All should have different cache version hashes
@@ -113,14 +103,13 @@ def test_cache_version_discrimination():
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
 
+
 def test_invalid_labels_not_in_label_names():
     """Test that invalid label names raise AssertionError."""
     with tempfile.TemporaryDirectory() as temp_dir:
         with pytest.raises(AssertionError) as exc_info:
             MultiMNISTDataset(
-                data_root=temp_dir,
-                split="train",
-                labels=["invalid_label"]
+                data_root=temp_dir, split="train", labels=["invalid_label"]
             )
         assert "not in LABEL_NAMES" in str(exc_info.value)
 
@@ -129,11 +118,7 @@ def test_empty_labels_list():
     """Test that empty labels list raises AssertionError."""
     with tempfile.TemporaryDirectory() as temp_dir:
         with pytest.raises(AssertionError) as exc_info:
-            MultiMNISTDataset(
-                data_root=temp_dir,
-                split="train",
-                labels=[]
-            )
+            MultiMNISTDataset(data_root=temp_dir, split="train", labels=[])
         assert "labels list must not be empty" in str(exc_info.value)
 
 
@@ -144,7 +129,7 @@ def test_non_list_labels():
             MultiMNISTDataset(
                 data_root=temp_dir,
                 split="train",
-                labels="left"  # String instead of list
+                labels="left",  # String instead of list
             )
         assert "labels must be list" in str(exc_info.value)
 
@@ -156,6 +141,6 @@ def test_non_string_elements_in_labels():
             MultiMNISTDataset(
                 data_root=temp_dir,
                 split="train",
-                labels=[1, 2]  # Integers instead of strings
+                labels=[1, 2],  # Integers instead of strings
             )
         assert "All labels must be strings" in str(exc_info.value)

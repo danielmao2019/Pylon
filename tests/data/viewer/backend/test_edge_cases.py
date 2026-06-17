@@ -4,7 +4,7 @@ This module tests error conditions, input validation, and edge cases
 using pytest.raises patterns following Pylon testing philosophy.
 """
 
-from typing import Dict, Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pytest
 import torch
@@ -31,13 +31,17 @@ def mock_dataset():
         def _init_annotations(self) -> None:
             self.annotations = [{"id": 0}, {"id": 1}]
 
-        def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        def _load_datapoint(
+            self, idx: int
+        ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
             data = torch.randn(10, dtype=torch.float32)
             label = torch.randint(0, 5, (1,), dtype=torch.int64)
             return {"data": data}, {"label": label}, {"sample_idx": idx}
 
         @staticmethod
-        def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
+        def display_datapoint(
+            datapoint, class_labels=None, camera_state=None, settings_3d=None
+        ):
             """Mock display method."""
             return None
 
@@ -47,6 +51,7 @@ def mock_dataset():
 # ============================================================================
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
+
 
 def test_get_dataset_instance_invalid_input_types(backend):
     """Test get_dataset_instance with invalid input types."""
@@ -146,7 +151,6 @@ def test_get_datapoint_nonexistent_dataset(backend):
     assert "Dataset not loaded: nonexistent/dataset" in str(exc_info.value)
 
 
-
 def test_get_datapoint_invalid_transform_index(backend, mock_dataset):
     """Test get_datapoint with invalid transform index."""
     # Store dataset in backend
@@ -174,14 +178,17 @@ def test_load_dataset_invalid_config_path(backend):
     backend._configs["test/invalid"] = {
         'path': '/nonexistent/path/invalid_config.py',
         'type': 'test',
-        'name': 'invalid'
+        'name': 'invalid',
     }
 
     with pytest.raises((ValueError, FileNotFoundError)) as exc_info:
         backend.load_dataset("test/invalid")
     # Either FileNotFoundError or ValueError with appropriate message
     error_message = str(exc_info.value)
-    assert "Cannot load config from path" in error_message or "No such file or directory" in error_message
+    assert (
+        "Cannot load config from path" in error_message
+        or "No such file or directory" in error_message
+    )
 
 
 def test_get_dataset_type_unloaded_dataset(backend):
@@ -237,7 +244,7 @@ def test_apply_transforms_out_of_bounds_indices(backend):
     transform_dict = {
         'op': lambda x: x,  # Simple identity transform
         'input_names': [('inputs', 'data')],
-        'output_names': [('inputs', 'data')]
+        'output_names': [('inputs', 'data')],
     }
     backend._register_transform(transform_dict)
 
@@ -245,7 +252,7 @@ def test_apply_transforms_out_of_bounds_indices(backend):
     datapoint = {
         'inputs': {'data': torch.tensor([1.0], dtype=torch.float32)},
         'labels': {'label': torch.tensor(1, dtype=torch.int64)},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Test with index beyond available transforms
@@ -263,7 +270,7 @@ def test_hierarchical_datasets_invalid_config_format(backend):
         'invalid_config_name_without_slash': {
             'path': '/fake/path',
             'type': 'semseg',
-            'name': 'test'
+            'name': 'test',
         }
     }
 
@@ -274,8 +281,8 @@ def test_hierarchical_datasets_invalid_config_format(backend):
 
 def test_load_dataset_corrupted_config_module(backend):
     """Test load_dataset with config that can't be executed."""
-    import tempfile
     import os
+    import tempfile
 
     # Create a temporary corrupted config file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -289,7 +296,7 @@ def test_load_dataset_corrupted_config_module(backend):
         backend._configs["test/corrupted"] = {
             'path': corrupted_path,
             'type': 'test',
-            'name': 'corrupted'
+            'name': 'corrupted',
         }
 
         # Should raise an error when trying to load
@@ -304,8 +311,8 @@ def test_load_dataset_corrupted_config_module(backend):
 
 def test_load_dataset_config_missing_data_cfg(backend):
     """Test load_dataset with config missing data_cfg attribute."""
-    import tempfile
     import os
+    import tempfile
 
     # Create a config file without data_cfg
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -318,7 +325,7 @@ def test_load_dataset_config_missing_data_cfg(backend):
         backend._configs["test/missing_data_cfg"] = {
             'path': config_path,
             'type': 'test',
-            'name': 'missing_data_cfg'
+            'name': 'missing_data_cfg',
         }
 
         # Should raise AttributeError when trying to access data_cfg
@@ -333,8 +340,8 @@ def test_load_dataset_config_missing_data_cfg(backend):
 
 def test_load_dataset_config_invalid_data_cfg_structure(backend):
     """Test load_dataset with config having invalid data_cfg structure."""
-    import tempfile
     import os
+    import tempfile
 
     # Create a config file with invalid data_cfg structure
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -347,7 +354,7 @@ def test_load_dataset_config_invalid_data_cfg_structure(backend):
         backend._configs["test/invalid_structure"] = {
             'path': config_path,
             'type': 'test',
-            'name': 'invalid_structure'
+            'name': 'invalid_structure',
         }
 
         # Should raise error when trying to access train_dataset
@@ -362,6 +369,7 @@ def test_load_dataset_config_invalid_data_cfg_structure(backend):
 
 # Edge case tests for boundary conditions
 
+
 def test_empty_dataset_handling(backend):
     """Test backend behavior with empty dataset."""
 
@@ -373,12 +381,16 @@ def test_empty_dataset_handling(backend):
         def _init_annotations(self) -> None:
             self.annotations = []  # Empty dataset
 
-        def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        def _load_datapoint(
+            self, idx: int
+        ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
             # This should never be called for empty dataset
             raise IndexError("Dataset is empty")
 
         @staticmethod
-        def display_datapoint(datapoint, class_labels=None, camera_state=None, settings_3d=None):
+        def display_datapoint(
+            datapoint, class_labels=None, camera_state=None, settings_3d=None
+        ):
             """Mock display method."""
             return None
 
@@ -401,7 +413,7 @@ def test_very_large_transform_indices_list(backend, mock_dataset):
         transform_dict = {
             'op': lambda x, i=i: x,  # Identity transform
             'input_names': [('inputs', 'data')],
-            'output_names': [('inputs', 'data')]
+            'output_names': [('inputs', 'data')],
         }
         backend._register_transform(transform_dict)
 
@@ -423,7 +435,7 @@ def test_negative_transform_indices(backend, mock_dataset):
         transform_dict = {
             'op': lambda x, i=i: x,  # Identity transform
             'input_names': [('inputs', 'data')],
-            'output_names': [('inputs', 'data')]
+            'output_names': [('inputs', 'data')],
         }
         backend._register_transform(transform_dict)
 
@@ -446,7 +458,7 @@ def test_update_state_with_very_large_values(backend):
         point_size=1e10,
         point_opacity=1e10,
         sym_diff_radius=1e10,
-        corr_radius=1e10
+        corr_radius=1e10,
     )
 
     # Should accept these values (no validation in current implementation)

@@ -1,7 +1,9 @@
 """Tests for MultiMNISTDataset version dict functionality."""
 
-import pytest
 import tempfile
+
+import pytest
+
 from data.datasets.multi_task_datasets.multi_mnist_dataset import MultiMNISTDataset
 
 

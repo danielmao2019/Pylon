@@ -2,9 +2,9 @@
 Runner detection valid cases for Manager._detect_runner_type.
 """
 
+import json
 import os
 import tempfile
-import json
 
 from agents.manager.manager import Manager
 from utils.io import config as config_loader

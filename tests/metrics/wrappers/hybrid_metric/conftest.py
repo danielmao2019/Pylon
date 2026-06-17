@@ -1,4 +1,5 @@
 import pytest
+
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 

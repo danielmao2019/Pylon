@@ -1,7 +1,9 @@
 from typing import Any, Tuple
+
 import torch
-from data.transforms.base_transform import BaseTransform
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.transforms.base_transform import BaseTransform
 
 
 class PCRTranslation(BaseTransform):
@@ -17,10 +19,18 @@ class PCRTranslation(BaseTransform):
         assert isinstance(tgt_pc, PointCloud), f"{type(tgt_pc)=}"
         assert isinstance(transform, torch.Tensor), f"{type(transform)=}"
         assert transform.shape == (4, 4), f"{transform.shape=}"
-        assert transform.device == src_pc.xyz.device, f"{transform.device=}, {src_pc.xyz.device=}"
-        assert transform.dtype == src_pc.xyz.dtype, f"{transform.dtype=}, {src_pc.xyz.dtype=}"
-        assert tgt_pc.xyz.device == src_pc.xyz.device, f"{tgt_pc.xyz.device=}, {src_pc.xyz.device=}"
-        assert tgt_pc.xyz.dtype == src_pc.xyz.dtype, f"{tgt_pc.xyz.dtype=}, {src_pc.xyz.dtype=}"
+        assert (
+            transform.device == src_pc.xyz.device
+        ), f"{transform.device=}, {src_pc.xyz.device=}"
+        assert (
+            transform.dtype == src_pc.xyz.dtype
+        ), f"{transform.dtype=}, {src_pc.xyz.dtype=}"
+        assert (
+            tgt_pc.xyz.device == src_pc.xyz.device
+        ), f"{tgt_pc.xyz.device=}, {src_pc.xyz.device=}"
+        assert (
+            tgt_pc.xyz.dtype == src_pc.xyz.dtype
+        ), f"{tgt_pc.xyz.dtype=}, {src_pc.xyz.dtype=}"
 
         # Calculate the mean of the union of both point clouds
         # First, concatenate the points

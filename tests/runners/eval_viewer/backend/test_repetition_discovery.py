@@ -1,23 +1,24 @@
-import pytest
-import numpy as np
 import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from runners.viewers.eval_viewer.backend.repetition_discovery import (
-    discover_experiment_groups,
-    aggregate_log_dir_infos,
-    _extract_base_path,
-    _discover_repetitions,
-    ExperimentGroup
-)
+import numpy as np
+import pytest
+
 from runners.viewers.eval_viewer.backend.initialization import LogDirInfo
-
+from runners.viewers.eval_viewer.backend.repetition_discovery import (
+    ExperimentGroup,
+    _discover_repetitions,
+    _extract_base_path,
+    aggregate_log_dir_infos,
+    discover_experiment_groups,
+)
 
 # ==========================================
 # Tests for _extract_base_path
 # ==========================================
+
 
 def test_extract_base_path_with_run_suffix():
     """Test _extract_base_path with _run_x suffix."""
@@ -58,6 +59,7 @@ def test_extract_base_path_edge_cases():
 # Tests for aggregate_log_dir_infos
 # ==========================================
 
+
 def test_aggregate_log_dir_infos_single_repetition():
     """Test aggregate_log_dir_infos with single repetition returns original."""
     info = LogDirInfo(
@@ -70,7 +72,7 @@ def test_aggregate_log_dir_infos_single_repetition():
         dataset_type="pcr",
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type="evaluator"
+        runner_type="evaluator",
     )
 
     result = aggregate_log_dir_infos([info])
@@ -103,7 +105,7 @@ def test_aggregate_log_dir_infos_multiple_repetitions():
             dataset_type="pcr",
             dataset_cfg={},
             dataloader_cfg={},
-            runner_type="evaluator"
+            runner_type="evaluator",
         )
         infos.append(info)
 
@@ -130,7 +132,9 @@ def test_aggregate_log_dir_infos_multiple_repetitions():
     expected_std_aggregated = base_aggregated * expected_std
     expected_std_score_map = base_score_map * expected_std
 
-    assert np.allclose(result.aggregated_scores_std, expected_std_aggregated, rtol=1e-10)
+    assert np.allclose(
+        result.aggregated_scores_std, expected_std_aggregated, rtol=1e-10
+    )
     assert np.allclose(result.score_map_std, expected_std_score_map, rtol=1e-10)
 
 
@@ -158,7 +162,7 @@ def test_aggregate_log_dir_infos_consistency_validation():
         dataset_type="pcr",
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type="evaluator"
+        runner_type="evaluator",
     )
 
     info2 = LogDirInfo(
@@ -171,7 +175,7 @@ def test_aggregate_log_dir_infos_consistency_validation():
         dataset_type="pcr",
         dataset_cfg={},
         dataloader_cfg={},
-        runner_type="evaluator"
+        runner_type="evaluator",
     )
 
     with pytest.raises(AssertionError, match="Inconsistent metric_names"):
@@ -181,6 +185,7 @@ def test_aggregate_log_dir_infos_consistency_validation():
 # ==========================================
 # Tests for discover_experiment_groups
 # ==========================================
+
 
 @pytest.fixture
 def mock_repetition_setup(temp_log_dir):
@@ -192,14 +197,17 @@ def mock_repetition_setup(temp_log_dir):
         os.makedirs(run_dir)
 
         # Create config.json
-        config_data = {"model": {"class": "ICP"}, "eval_dataset": {"class": "KITTIDataset"}}
+        config_data = {
+            "model": {"class": "ICP"},
+            "eval_dataset": {"class": "KITTIDataset"},
+        }
         with open(os.path.join(run_dir, "config.json"), 'w') as f:
             json.dump(config_data, f)
 
         # Create evaluation_scores.json
         scores = {
             "per_datapoint": {"metric1": [0.5, 0.6, 0.7]},
-            "aggregated": {"metric1": 0.6}
+            "aggregated": {"metric1": 0.6},
         }
         with open(os.path.join(run_dir, "evaluation_scores.json"), 'w') as f:
             json.dump(scores, f)
@@ -210,7 +218,9 @@ def mock_repetition_setup(temp_log_dir):
 
 
 @patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
-def test_discover_experiment_groups_single_experiment(mock_extract, mock_repetition_setup):
+def test_discover_experiment_groups_single_experiment(
+    mock_extract, mock_repetition_setup
+):
     """Test discover_experiment_groups with single experiment."""
     # Mock extract_log_dir_info to return valid LogDirInfo
     mock_info = MagicMock()
@@ -245,6 +255,7 @@ def test_discover_experiment_groups_input_validation(mock_extract):
 # Tests for ExperimentGroup
 # ==========================================
 
+
 @pytest.fixture
 def sample_experiment_group(temp_log_dir):
     """Create sample ExperimentGroup for testing."""
@@ -269,7 +280,7 @@ def sample_experiment_group(temp_log_dir):
         base_path=base_path,
         experiment_name="TestExp",
         repetition_paths=repetition_paths,
-        num_repetitions=2
+        num_repetitions=2,
     )
 
 
@@ -293,7 +304,9 @@ def test_experiment_group_get_log_dir_infos(mock_extract, sample_experiment_grou
 
 
 @patch('runners.viewers.eval_viewer.backend.repetition_discovery.extract_log_dir_info')
-def test_experiment_group_handles_extraction_errors(mock_extract, sample_experiment_group):
+def test_experiment_group_handles_extraction_errors(
+    mock_extract, sample_experiment_group
+):
     """Test ExperimentGroup handles extraction errors gracefully."""
     # Make second extraction fail
     mock_extract.side_effect = [MagicMock(), Exception("Test error")]

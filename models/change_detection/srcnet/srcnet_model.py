@@ -1,9 +1,11 @@
-from typing import Tuple, Dict, Union
+from typing import Dict, Tuple, Union
+
 import torch
-from models.change_detection.srcnet.modules.patch_emb import PatchEmb
+
 from models.change_detection.srcnet.modules.festage import FEStage
-from models.change_detection.srcnet.modules.repatch import Repatch
+from models.change_detection.srcnet.modules.patch_emb import PatchEmb
 from models.change_detection.srcnet.modules.pmffm import PMFFM
+from models.change_detection.srcnet.modules.repatch import Repatch
 from models.change_detection.srcnet.modules.src_block import SRCBlock
 
 
@@ -33,7 +35,9 @@ class SRCNet(torch.nn.Module):
         # Loss
         self.sigma = torch.nn.Parameter(torch.ones(3))
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[Tuple[torch.Tensor, ...], torch.Tensor]:
+    def forward(
+        self, inputs: Dict[str, torch.Tensor]
+    ) -> Union[Tuple[torch.Tensor, ...], torch.Tensor]:
         a, b = inputs['img_1'], inputs['img_2']
         if self.training:
             a, b = self.randomAB(a, b)

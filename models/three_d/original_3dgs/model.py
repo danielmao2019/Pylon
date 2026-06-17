@@ -297,5 +297,3 @@ class GaussianModel:
         ), "GaussianModel should not have pretrained_exposures when moving devices"
 
         return self
-
-

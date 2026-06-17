@@ -1,9 +1,15 @@
 """Shared utilities for Level of Detail implementations."""
-from typing import Dict, Any
+
+from typing import Any, Dict
+
 import torch
 
 
-def get_camera_position(camera_state: Dict[str, Any], device: torch.device = None, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+def get_camera_position(
+    camera_state: Dict[str, Any],
+    device: torch.device = None,
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
     """Extract camera position from camera state.
 
     Args:
@@ -18,7 +24,9 @@ def get_camera_position(camera_state: Dict[str, Any], device: torch.device = Non
     return torch.tensor([eye['x'], eye['y'], eye['z']], device=device, dtype=dtype)
 
 
-def apply_point_constraints(current_points: int, target_points: int, min_points: int, max_reduction: float) -> int:
+def apply_point_constraints(
+    current_points: int, target_points: int, min_points: int, max_reduction: float
+) -> int:
     """Apply minimum points and maximum reduction constraints.
 
     Args:

@@ -1,5 +1,6 @@
 """UI components for dataset navigation."""
-from dash import html, dcc
+
+from dash import dcc, html
 
 
 def create_navigation_controls(datapoint_index=0, min_index=0, max_index=10):
@@ -26,49 +27,75 @@ def create_navigation_controls(datapoint_index=0, min_index=0, max_index=10):
         # Always include the last index
         marks[max_index] = str(max_index)
 
-    return html.Div([
-        html.Div([
-            html.Label("Navigate Datapoints:"),
-            html.Div([
-                dcc.Slider(
-                    id='datapoint-index-slider',
-                    min=min_index,
-                    max=max_index,
-                    value=datapoint_index,
-                    marks=marks,
-                    step=1,
-                    updatemode='drag'
-                ),
-            ], style={'flex': 1, 'margin-right': '20px'}),
-        ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
-
-        html.Div([
-            html.Button("⏮ Prev",
-                id='prev-btn',
-                n_clicks=0,
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Label("Navigate Datapoints:"),
+                    html.Div(
+                        [
+                            dcc.Slider(
+                                id='datapoint-index-slider',
+                                min=min_index,
+                                max=max_index,
+                                value=datapoint_index,
+                                marks=marks,
+                                step=1,
+                                updatemode='drag',
+                            ),
+                        ],
+                        style={'flex': 1, 'margin-right': '20px'},
+                    ),
+                ],
                 style={
-                    'background-color': '#e7e7e7',
-                    'border': 'none',
-                    'padding': '10px 20px',
-                    'margin-right': '10px',
-                    'border-radius': '5px',
-                    'cursor': 'pointer'
-                }
+                    'display': 'flex',
+                    'align-items': 'center',
+                    'margin-bottom': '10px',
+                },
             ),
-            html.Button("Next ⏭",
-                id='next-btn',
-                n_clicks=0,
+            html.Div(
+                [
+                    html.Button(
+                        "⏮ Prev",
+                        id='prev-btn',
+                        n_clicks=0,
+                        style={
+                            'background-color': '#e7e7e7',
+                            'border': 'none',
+                            'padding': '10px 20px',
+                            'margin-right': '10px',
+                            'border-radius': '5px',
+                            'cursor': 'pointer',
+                        },
+                    ),
+                    html.Button(
+                        "Next ⏭",
+                        id='next-btn',
+                        n_clicks=0,
+                        style={
+                            'background-color': '#e7e7e7',
+                            'border': 'none',
+                            'padding': '10px 20px',
+                            'border-radius': '5px',
+                            'cursor': 'pointer',
+                        },
+                    ),
+                    html.Div(
+                        id='current-index-display',
+                        children=f"Index: {datapoint_index} / {max_index}",
+                        style={
+                            'display': 'inline-block',
+                            'margin-left': '20px',
+                            'font-weight': 'bold',
+                        },
+                    ),
+                ],
                 style={
-                    'background-color': '#e7e7e7',
-                    'border': 'none',
-                    'padding': '10px 20px',
-                    'border-radius': '5px',
-                    'cursor': 'pointer'
-                }
+                    'display': 'flex',
+                    'align-items': 'center',
+                    'justify-content': 'flex-start',
+                },
             ),
-            html.Div(id='current-index-display',
-                children=f"Index: {datapoint_index} / {max_index}",
-                style={'display': 'inline-block', 'margin-left': '20px', 'font-weight': 'bold'}
-            ),
-        ], style={'display': 'flex', 'align-items': 'center', 'justify-content': 'flex-start'}),
-    ], style={'margin-top': '20px', 'padding': '10px 0'})
+        ],
+        style={'margin-top': '20px', 'padding': '10px 0'},
+    )

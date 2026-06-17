@@ -71,7 +71,9 @@ def test_clamp_inconsistent_point_counts():
     pc1 = PointCloud(data=data1)
     pc2 = PointCloud(data=data2)
 
-    with pytest.raises(ValueError, match="All point clouds must have the same number of points"):
+    with pytest.raises(
+        ValueError, match="All point clouds must have the same number of points"
+    ):
         clamp(pc1, pc2, seed=42)
 
 
@@ -99,10 +101,16 @@ def test_clamp_wrong_xyz_dimensions():
     clamp = Clamp(max_points=100)
 
     with pytest.raises(AssertionError):
-        PointCloud(xyz=torch.randn(10, dtype=torch.float32), data={'feat': torch.randn(10, 4, dtype=torch.float32)})
+        PointCloud(
+            xyz=torch.randn(10, dtype=torch.float32),
+            data={'feat': torch.randn(10, 4, dtype=torch.float32)},
+        )
 
     with pytest.raises(AssertionError):
-        PointCloud(xyz=torch.randn(10, 2, dtype=torch.float32), data={'feat': torch.randn(10, 4, dtype=torch.float32)})
+        PointCloud(
+            xyz=torch.randn(10, 2, dtype=torch.float32),
+            data={'feat': torch.randn(10, 4, dtype=torch.float32)},
+        )
 
 
 def test_clamp_inconsistent_shapes_within_pc():
@@ -110,7 +118,10 @@ def test_clamp_inconsistent_shapes_within_pc():
     clamp = Clamp(max_points=100)
 
     with pytest.raises(AssertionError):
-        PointCloud(xyz=torch.randn(10, 3, dtype=torch.float32), data={'feat': torch.randn(8, 4, dtype=torch.float32)})
+        PointCloud(
+            xyz=torch.randn(10, 3, dtype=torch.float32),
+            data={'feat': torch.randn(8, 4, dtype=torch.float32)},
+        )
 
 
 def test_clamp_wrong_tensor_type():
@@ -118,17 +129,23 @@ def test_clamp_wrong_tensor_type():
     clamp = Clamp(max_points=100)
 
     with pytest.raises(AssertionError):
-        PointCloud(xyz=[[1, 2, 3], [4, 5, 6]], data={'feat': torch.randn(2, 4, dtype=torch.float32)})
+        PointCloud(
+            xyz=[[1, 2, 3], [4, 5, 6]],
+            data={'feat': torch.randn(2, 4, dtype=torch.float32)},
+        )
 
 
-@pytest.mark.parametrize("invalid_input", [
-    None,
-    [],
-    (),
-    42,
-    "string",
-    torch.tensor([1, 2, 3]),
-])
+@pytest.mark.parametrize(
+    "invalid_input",
+    [
+        None,
+        [],
+        (),
+        42,
+        "string",
+        torch.tensor([1, 2, 3]),
+    ],
+)
 def test_clamp_various_invalid_inputs(invalid_input):
     """Test Clamp transform with various invalid input types."""
     clamp = Clamp(max_points=100)
@@ -141,29 +158,39 @@ def test_clamp_mixed_valid_invalid_multi_args():
     """Test multi-arg Clamp with mix of valid and invalid point clouds."""
     clamp = Clamp(max_points=50)
 
-    valid_pc = PointCloud(data={
-        'xyz': torch.randn(100, 3, dtype=torch.float32, device='cuda'),
-        'feat': torch.randn(100, 4, dtype=torch.float32, device='cuda'),
-    })
+    valid_pc = PointCloud(
+        data={
+            'xyz': torch.randn(100, 3, dtype=torch.float32, device='cuda'),
+            'feat': torch.randn(100, 4, dtype=torch.float32, device='cuda'),
+        }
+    )
 
     with pytest.raises(AssertionError):
-        clamp(valid_pc, torch.randn(100, 2, dtype=torch.float32, device='cuda'), seed=42)
+        clamp(
+            valid_pc, torch.randn(100, 2, dtype=torch.float32, device='cuda'), seed=42
+        )
 
 
 def test_clamp_multi_args_different_point_counts():
     """Test multi-arg Clamp where point clouds have different point counts."""
     clamp = Clamp(max_points=50)
 
-    pc1 = PointCloud(data={
-        'xyz': torch.randn(100, 3, dtype=torch.float32, device='cuda'),
-        'feat': torch.randn(100, 4, dtype=torch.float32, device='cuda'),
-    })
+    pc1 = PointCloud(
+        data={
+            'xyz': torch.randn(100, 3, dtype=torch.float32, device='cuda'),
+            'feat': torch.randn(100, 4, dtype=torch.float32, device='cuda'),
+        }
+    )
 
-    pc2 = PointCloud(data={
-        'xyz': torch.randn(200, 3, dtype=torch.float32, device='cuda'),
-        'feat': torch.randn(200, 4, dtype=torch.float32, device='cuda'),
-    })
+    pc2 = PointCloud(
+        data={
+            'xyz': torch.randn(200, 3, dtype=torch.float32, device='cuda'),
+            'feat': torch.randn(200, 4, dtype=torch.float32, device='cuda'),
+        }
+    )
 
     # This should fail due to different point counts (100 vs 200)
-    with pytest.raises(ValueError, match="All point clouds must have the same number of points"):
+    with pytest.raises(
+        ValueError, match="All point clouds must have the same number of points"
+    ):
         clamp(pc1, pc2, seed=42)

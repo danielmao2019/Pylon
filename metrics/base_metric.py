@@ -19,14 +19,18 @@ class BaseMetric(ABC):
         if self.use_buffer:
             self._buffer_lock = threading.Lock()
             self._buffer_queue = queue.Queue()
-            self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
+            self._buffer_thread = threading.Thread(
+                target=self._buffer_worker, daemon=True
+            )
             self._buffer_thread.start()
         self.reset_buffer()
 
     def reset_buffer(self) -> None:
         """Reset the buffer."""
         if self.use_buffer:
-            assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
+            assert (
+                self._buffer_queue.empty()
+            ), "Buffer queue is not empty when resetting buffer"
             with self._buffer_lock:
                 self.buffer = {}  # Now a dict mapping indices to data
         else:
@@ -37,7 +41,9 @@ class BaseMetric(ABC):
         while True:
             item = self._buffer_queue.get()
             data, idx = item['data'], item['idx']
-            processed_data = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=data)
+            processed_data = apply_tensor_op(
+                func=lambda x: x.detach().cpu(), inputs=data
+            )
 
             with self._buffer_lock:
                 # Store data by index for order preservation
@@ -45,7 +51,9 @@ class BaseMetric(ABC):
 
             self._buffer_queue.task_done()
 
-    def add_to_buffer(self, data: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]) -> None:
+    def add_to_buffer(
+        self, data: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]
+    ) -> None:
         """
         Add data to the buffer.
 
@@ -64,7 +72,9 @@ class BaseMetric(ABC):
             # Handle different idx formats (similar to BaseEvaluator)
             if isinstance(idx_raw, torch.Tensor):
                 # Handle tensor format from DataLoader collation
-                assert idx_raw.shape == (1,), f"Expected single element tensor, got {idx_raw}"
+                assert idx_raw.shape == (
+                    1,
+                ), f"Expected single element tensor, got {idx_raw}"
                 assert idx_raw.dtype == torch.int64
                 idx = idx_raw.item()
             elif isinstance(idx_raw, list):
@@ -76,7 +86,9 @@ class BaseMetric(ABC):
                 # Handle direct int format
                 idx = idx_raw
             else:
-                raise ValueError(f"Unsupported idx format: {type(idx_raw)} with value {idx_raw}")
+                raise ValueError(
+                    f"Unsupported idx format: {type(idx_raw)} with value {idx_raw}"
+                )
 
             self._buffer_queue.put({'data': data, 'idx': idx})
         else:
@@ -90,7 +102,10 @@ class BaseMetric(ABC):
                 if not self.buffer:
                     return []
                 sorted_indices = sorted(self.buffer.keys())
-                assert sorted_indices[0] == 0 and sorted_indices[-1] == len(self.buffer) - 1, f"{sorted_indices=}"
+                assert (
+                    sorted_indices[0] == 0
+                    and sorted_indices[-1] == len(self.buffer) - 1
+                ), f"{sorted_indices=}"
                 return [self.buffer[idx] for idx in sorted_indices]
         raise RuntimeError("Buffer is not enabled")
 
@@ -109,8 +124,12 @@ class BaseMetric(ABC):
         Returns:
             Dictionary of computed metrics
         """
-        raise NotImplementedError("Abstract method BaseMetric.__call__ not implemented.")
+        raise NotImplementedError(
+            "Abstract method BaseMetric.__call__ not implemented."
+        )
 
     @abstractmethod
     def summarize(self, output_path: Optional[str] = None) -> Any:
-        raise NotImplementedError("Abstract method BaseMetric.summarize not implemented.")
+        raise NotImplementedError(
+            "Abstract method BaseMetric.summarize not implemented."
+        )

@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
@@ -9,7 +10,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 

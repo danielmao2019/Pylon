@@ -1,6 +1,8 @@
-import pytest
-import tempfile
 import shutil
+import tempfile
+
+import pytest
+
 from debuggers.wrappers.sequential_debugger import SequentialDebugger
 
 
@@ -10,7 +12,7 @@ def sequential_debugger_basic(debuggers_config, dummy_model):
     return SequentialDebugger(
         debuggers_config=debuggers_config,
         model=dummy_model,
-        page_size_mb=1  # Small page size for testing
+        page_size_mb=1,  # Small page size for testing
     )
 
 
@@ -18,9 +20,7 @@ def sequential_debugger_basic(debuggers_config, dummy_model):
 def sequential_debugger_empty(empty_debuggers_config, dummy_model):
     """Create a SequentialDebugger with no debuggers."""
     return SequentialDebugger(
-        debuggers_config=empty_debuggers_config,
-        model=dummy_model,
-        page_size_mb=1
+        debuggers_config=empty_debuggers_config, model=dummy_model, page_size_mb=1
     )
 
 
@@ -28,9 +28,7 @@ def sequential_debugger_empty(empty_debuggers_config, dummy_model):
 def sequential_debugger_forward_hooks(mixed_debuggers_config, dummy_model):
     """Create a SequentialDebugger with forward hooks."""
     return SequentialDebugger(
-        debuggers_config=mixed_debuggers_config,
-        model=dummy_model,
-        page_size_mb=1
+        debuggers_config=mixed_debuggers_config, model=dummy_model, page_size_mb=1
     )
 
 

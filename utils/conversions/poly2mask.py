@@ -1,4 +1,5 @@
-from typing import List, Dict, Union, Any
+from typing import Any, Dict, List, Union
+
 import numpy as np
 import pycocotools.mask as maskUtils
 

@@ -1,6 +1,6 @@
-from typing import Dict, Any, Optional, Set
 import copy
 from collections import OrderedDict
+from typing import Any, Dict, Optional, Set
 
 import psutil
 import torch

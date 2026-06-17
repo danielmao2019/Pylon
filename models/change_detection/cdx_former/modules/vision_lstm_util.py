@@ -38,7 +38,15 @@ def interpolate_sincos(embed, seqlens, mode="bicubic"):
 
 # from kappamodules.vit import VitPatchEmbed
 class VitPatchEmbed(nn.Module):
-    def __init__(self, dim, num_channels, resolution, patch_size, stride=None, init_weights="xavier_uniform"):
+    def __init__(
+        self,
+        dim,
+        num_channels,
+        resolution,
+        patch_size,
+        stride=None,
+        init_weights="xavier_uniform",
+    ):
         super().__init__()
         self.resolution = resolution
         self.init_weights = init_weights
@@ -49,8 +57,9 @@ class VitPatchEmbed(nn.Module):
         else:
             self.stride = to_ntuple(stride, n=self.ndim)
         for i in range(self.ndim):
-            assert resolution[i] % self.patch_size[i] == 0, \
-                f"resolution[{i}] % patch_size[{i}] != 0 (resolution={resolution} patch_size={patch_size})"
+            assert (
+                resolution[i] % self.patch_size[i] == 0
+            ), f"resolution[{i}] % patch_size[{i}] != 0 (resolution={resolution} patch_size={patch_size})"
         self.seqlens = [resolution[i] // self.patch_size[i] for i in range(self.ndim)]
         if self.patch_size == self.stride:
             # use primitive type as np.prod gives np.int which is not compatible with all serialization/logging
@@ -79,7 +88,9 @@ class VitPatchEmbed(nn.Module):
         else:
             raise NotImplementedError
 
-        self.proj = conv_ctor(num_channels, dim, kernel_size=self.patch_size, stride=self.stride)
+        self.proj = conv_ctor(
+            num_channels, dim, kernel_size=self.patch_size, stride=self.stride
+        )
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -94,8 +105,9 @@ class VitPatchEmbed(nn.Module):
             raise NotImplementedError
 
     def forward(self, x):
-        assert all(x.size(i + 2) % self.patch_size[i] == 0 for i in range(self.ndim)), \
-            f"x.shape={x.shape} incompatible with patch_size={self.patch_size}"
+        assert all(
+            x.size(i + 2) % self.patch_size[i] == 0 for i in range(self.ndim)
+        ), f"x.shape={x.shape} incompatible with patch_size={self.patch_size}"
         x = self.proj(x)
         _, _, H, W, L = x.shape
         x = einops.rearrange(x, "b c ... -> b ... c")
@@ -117,7 +129,7 @@ class VitPosEmbed2d(nn.Module):
         return len(self.seqlens) + 2
 
     def reset_parameters(self):
-        nn.init.trunc_normal_(self.embed, std=.02)
+        nn.init.trunc_normal_(self.embed, std=0.02)
 
     def forward(self, x):
         assert x.ndim == self._expected_x_ndim
@@ -145,9 +157,15 @@ class DropPath(nn.Sequential):
         >>> y = standalone_droppath(torch.randn(10, 4), standalone_layer)
     """
 
-    def __init__(self, *args, drop_prob: float = 0., scale_by_keep: bool = True, stochastic_drop_prob: bool = False):
+    def __init__(
+        self,
+        *args,
+        drop_prob: float = 0.0,
+        scale_by_keep: bool = True,
+        stochastic_drop_prob: bool = False,
+    ):
         super().__init__(*args)
-        assert 0. <= drop_prob < 1.
+        assert 0.0 <= drop_prob < 1.0
         self._drop_prob = drop_prob
         self.scale_by_keep = scale_by_keep
         self.stochastic_drop_prob = stochastic_drop_prob
@@ -158,17 +176,17 @@ class DropPath(nn.Sequential):
 
     @drop_prob.setter
     def drop_prob(self, value):
-        assert 0. <= value < 1.
+        assert 0.0 <= value < 1.0
         self._drop_prob = value
 
     @property
     def keep_prob(self):
-        return 1. - self.drop_prob
+        return 1.0 - self.drop_prob
 
     def forward(self, x, residual_path=None, residual_path_kwargs=None):
         assert (len(self) == 0) ^ (residual_path is None)
         residual_path_kwargs = residual_path_kwargs or {}
-        if self.drop_prob == 0. or not self.training:
+        if self.drop_prob == 0.0 or not self.training:
             if residual_path is None:
                 return x + super().forward(x, **residual_path_kwargs)
             else:
@@ -176,7 +194,12 @@ class DropPath(nn.Sequential):
         # generate indices to keep (propagated through transform path)
         bs = len(x)
         if self.stochastic_drop_prob:
-            perm = torch.empty(bs, device=x.device).bernoulli_(self.keep_prob).nonzero().squeeze(1)
+            perm = (
+                torch.empty(bs, device=x.device)
+                .bernoulli_(self.keep_prob)
+                .nonzero()
+                .squeeze(1)
+            )
             scale = 1 / self.keep_prob
         else:
             keep_count = max(int(bs * self.keep_prob), 1)
@@ -187,7 +210,7 @@ class DropPath(nn.Sequential):
         if self.scale_by_keep:
             alpha = scale
         else:
-            alpha = 1.
+            alpha = 1.0
         # reduce kwargs (e.g. used for DiT block where scale/shift/gate is passed and also has to be reduced)
         residual_path_kwargs = {
             key: value[perm] if torch.is_tensor(value) else value

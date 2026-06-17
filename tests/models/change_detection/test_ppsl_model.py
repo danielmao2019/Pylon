@@ -1,5 +1,6 @@
-from models.change_detection.ppsl.ppsl_model import PPSLModel
 import torch
+
+from models.change_detection.ppsl.ppsl_model import PPSLModel
 
 
 def test_ppsl_model() -> None:

@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
-import pytest
-from agents.logger import AgentLogParser
 
+import pytest
+
+from agents.logger import AgentLogParser
 
 # ============================================================================
 # TIME FILTERING TESTS

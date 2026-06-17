@@ -1,8 +1,9 @@
 from typing import Tuple, Union
 
 import torch
-from metrics.wrappers.single_task_metric import SingleTaskMetric
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
 class PointCloudMetric(SingleTaskMetric):
@@ -14,7 +15,9 @@ class PointCloudMetric(SingleTaskMetric):
     """
 
     def _validate_and_prepare_inputs(
-        self, y_pred: Union[torch.Tensor, PointCloud], y_true: Union[torch.Tensor, PointCloud]
+        self,
+        y_pred: Union[torch.Tensor, PointCloud],
+        y_true: Union[torch.Tensor, PointCloud],
     ) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
         """
         Validate and prepare inputs for point cloud metrics.
@@ -68,7 +71,9 @@ class PointCloudMetric(SingleTaskMetric):
         y_true_expanded = y_true.unsqueeze(0)  # (1, M, 3)
 
         # Compute distance matrix
-        dist_matrix = torch.sqrt(((y_pred_expanded - y_true_expanded) ** 2).sum(dim=2))  # (N, M)
+        dist_matrix = torch.sqrt(
+            ((y_pred_expanded - y_true_expanded) ** 2).sum(dim=2)
+        )  # (N, M)
 
         # Find nearest neighbors
         min_distances, nearest_indices = torch.min(dist_matrix, dim=1)  # (N,), (N,)

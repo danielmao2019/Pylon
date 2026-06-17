@@ -1,11 +1,14 @@
 import pytest
 import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.transforms.vision_3d.clamp import Clamp
 
 
 def clone_point_cloud(pc: PointCloud) -> PointCloud:
-    data = {name: getattr(pc, name).clone() for name in pc.field_names() if name != 'xyz'}
+    data = {
+        name: getattr(pc, name).clone() for name in pc.field_names() if name != 'xyz'
+    }
     return PointCloud(xyz=pc.xyz.clone(), data=data)
 
 
@@ -54,7 +57,9 @@ def test_clamp_multiple_args_different_data(create_pc_factory):
     device = pc1.device
     generator = torch.Generator(device=device)
     generator.manual_seed(42)
-    expected_indices = torch.randperm(num_points, generator=generator, device=device)[:max_points]
+    expected_indices = torch.randperm(num_points, generator=generator, device=device)[
+        :max_points
+    ]
 
     # Check if correct indices were applied
     assert torch.equal(result1.xyz, pc1.xyz[expected_indices])
@@ -103,7 +108,9 @@ def test_clamp_three_args_consistency(create_pc_factory):
     device = pc1.device
     generator = torch.Generator(device=device)
     generator.manual_seed(42)
-    expected_indices = torch.randperm(num_points, generator=generator, device=device)[:max_points]
+    expected_indices = torch.randperm(num_points, generator=generator, device=device)[
+        :max_points
+    ]
 
     # Check if correct indices were applied to all point clouds
     assert torch.equal(result1.xyz, pc1.xyz[expected_indices])
@@ -197,7 +204,9 @@ def test_clamp_multi_args_cpu_device(create_pc_factory):
     # Check consistent selection
     generator = torch.Generator(device='cpu')
     generator.manual_seed(42)
-    expected_indices = torch.randperm(num_points, generator=generator, device='cpu')[:max_points]
+    expected_indices = torch.randperm(num_points, generator=generator, device='cpu')[
+        :max_points
+    ]
 
     assert torch.equal(result1.xyz, pc1.xyz[expected_indices])
     assert torch.equal(result2.xyz, pc2.xyz[expected_indices])

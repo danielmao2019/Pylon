@@ -1,18 +1,20 @@
-from typing import List, Optional, Dict, Any
 import copy
-import os
 import glob
-import time
 import json
+import os
+import time
+from concurrent.futures import as_completed
+from typing import Any, Dict, List, Optional
+
 import jsbeautifier
 import torch
-from concurrent.futures import as_completed
+
+from agents.monitor.system_monitor import SystemMonitor
 from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
-from agents.monitor.system_monitor import SystemMonitor
 from utils.dynamic_executor import create_dynamic_executor
-from utils.logging.text_logger import TextLogger
 from utils.logging import echo_page_break, log_scores
+from utils.logging.text_logger import TextLogger
 
 
 class BaseEvaluator:
@@ -62,12 +64,12 @@ class BaseEvaluator:
 
         # evaluation log
         log_filepath = os.path.join(self.work_dir, f"eval_{session_idx}.log")
-        self.logger = TextLogger(
-            filepath=log_filepath
-        )
+        self.logger = TextLogger(filepath=log_filepath)
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
-            f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
+            f.write(
+                jsbeautifier.beautify(str(self.config), jsbeautifier.default_options())
+            )
 
         # Initialize system monitor (CPU + GPU)
         self.system_monitor = SystemMonitor()
@@ -91,12 +93,18 @@ class BaseEvaluator:
 
         self.logger.info("Initializing dataloaders...")
         # initialize validation dataloader
-        if self.config.get('eval_dataset', None) and self.config.get('eval_dataloader', None):
-            eval_dataset: torch.utils.data.Dataset = build_from_config(self.config['eval_dataset'])
+        if self.config.get('eval_dataset', None) and self.config.get(
+            'eval_dataloader', None
+        ):
+            eval_dataset: torch.utils.data.Dataset = build_from_config(
+                self.config['eval_dataset']
+            )
             if 'batch_size' not in self.config['eval_dataloader']['args']:
                 self.config['eval_dataloader']['args']['batch_size'] = 1
             self.eval_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=eval_dataset, shuffle=False, config=self.config['eval_dataloader'],
+                dataset=eval_dataset,
+                shuffle=False,
+                config=self.config['eval_dataloader'],
             )
         else:
             self.eval_dataloader = None
@@ -142,7 +150,9 @@ class BaseEvaluator:
     # iteration-level methods
     # ====================================================================================================
 
-    def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None):
+    def _eval_step(
+        self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None
+    ):
         """
         Args:
             dp (Dict[str, Dict[str, Any]]): a dictionary containing the batch data.
@@ -166,7 +176,9 @@ class BaseEvaluator:
         self.system_monitor.log_stats(self.logger)
 
         # Log time
-        self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+        self.logger.update_buffer(
+            {"iteration_time": round(time.time() - start_time, 2)}
+        )
 
         # Log progress if flush_prefix is provided
         if flush_prefix is not None:
@@ -191,19 +203,28 @@ class BaseEvaluator:
         if self.eval_n_jobs == 1:
             self.logger.info("Running evaluation sequentially...")
             for idx, dp in enumerate(self.eval_dataloader):
-                self._eval_step(dp, flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
+                self._eval_step(
+                    dp,
+                    flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
+                )
         else:
             # Use adaptive executor that dynamically adjusts worker count based on system resources
             max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
             executor = create_dynamic_executor(max_workers=max_workers, min_workers=1)
-            self.logger.info(f"Using dynamic parallel evaluation (max {executor._max_workers} workers, current {executor._current_workers})")
+            self.logger.info(
+                f"Using dynamic parallel evaluation (max {executor._max_workers} workers, current {executor._current_workers})"
+            )
 
             with executor:
                 # Submit all tasks with regular _eval_step - order will be preserved by indexed buffer
-                future_to_args = {executor.submit(
-                    self._eval_step, dp,
-                    flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
-                ): (idx, dp) for idx, dp in enumerate(self.eval_dataloader)}
+                future_to_args = {
+                    executor.submit(
+                        self._eval_step,
+                        dp,
+                        flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
+                    ): (idx, dp)
+                    for idx, dp in enumerate(self.eval_dataloader)
+                }
 
                 # Wait for all tasks to complete (order doesn't matter since buffer is indexed)
                 for future in as_completed(future_to_args):
@@ -212,13 +233,17 @@ class BaseEvaluator:
         # after validation loop
         self._after_eval_loop_()
         # log time
-        self.logger.info(f"Evaluation time: {round(time.time() - start_time, 2)} seconds.")
+        self.logger.info(
+            f"Evaluation time: {round(time.time() - start_time, 2)} seconds."
+        )
 
     def _after_eval_loop_(self) -> None:
         if self.work_dir is None:
             return
         # save validation scores to disk
-        self.metric.summarize(output_path=os.path.join(self.work_dir, "evaluation_scores.json"))
+        self.metric.summarize(
+            output_path=os.path.join(self.work_dir, "evaluation_scores.json")
+        )
         with open(os.path.join(self.work_dir, "evaluation_scores.json"), mode='r') as f:
             _ = json.load(f)
 

@@ -3,7 +3,8 @@ as an any immutable object indexed tensor, of any data type. For now, we name di
 view as 'buffer'. A buffer could be tuple, list, dict, numpy.ndarray, and torch.Tensor.
 """
 
-from typing import Tuple, List, Sequence, Set, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+
 import numpy
 import torch
 

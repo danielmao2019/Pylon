@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from .functional import maxpool, nearest_upsample, global_avgpool, knn_interpolate
+from .functional import global_avgpool, knn_interpolate, maxpool, nearest_upsample
 from .kpconv import KPConv
 
 
@@ -15,7 +15,9 @@ class KNNInterpolate(nn.Module):
         if self.k == 1:
             return nearest_upsample(s_feats, neighbor_indices)
         else:
-            return knn_interpolate(s_feats, q_points, s_points, neighbor_indices, self.k, eps=self.eps)
+            return knn_interpolate(
+                s_feats, q_points, s_points, neighbor_indices, self.k, eps=self.eps
+            )
 
 
 class MaxPool(nn.Module):
@@ -51,7 +53,15 @@ class GroupNorm(nn.Module):
 
 
 class UnaryBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, group_norm, has_relu=True, bias=True, layer_norm=False):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        group_norm,
+        has_relu=True,
+        bias=True,
+        layer_norm=False,
+    ):
         r"""Initialize a standard unary block with GroupNorm and LeakyReLU.
 
         Args:
@@ -132,7 +142,9 @@ class ConvBlock(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        self.KPConv = KPConv(in_channels, out_channels, kernel_size, radius, sigma, bias=bias)
+        self.KPConv = KPConv(
+            in_channels, out_channels, kernel_size, radius, sigma, bias=bias
+        )
         if layer_norm:
             self.norm = nn.LayerNorm(out_channels)
         else:
@@ -181,23 +193,37 @@ class ResidualBlock(nn.Module):
         mid_channels = out_channels // 4
 
         if in_channels != mid_channels:
-            self.unary1 = UnaryBlock(in_channels, mid_channels, group_norm, bias=bias, layer_norm=layer_norm)
+            self.unary1 = UnaryBlock(
+                in_channels, mid_channels, group_norm, bias=bias, layer_norm=layer_norm
+            )
         else:
             self.unary1 = nn.Identity()
 
-        self.KPConv = KPConv(mid_channels, mid_channels, kernel_size, radius, sigma, bias=bias)
+        self.KPConv = KPConv(
+            mid_channels, mid_channels, kernel_size, radius, sigma, bias=bias
+        )
         if layer_norm:
             self.norm_conv = nn.LayerNorm(mid_channels)
         else:
             self.norm_conv = GroupNorm(group_norm, mid_channels)
 
         self.unary2 = UnaryBlock(
-            mid_channels, out_channels, group_norm, has_relu=False, bias=bias, layer_norm=layer_norm
+            mid_channels,
+            out_channels,
+            group_norm,
+            has_relu=False,
+            bias=bias,
+            layer_norm=layer_norm,
         )
 
         if in_channels != out_channels:
             self.unary_shortcut = UnaryBlock(
-                in_channels, out_channels, group_norm, has_relu=False, bias=bias, layer_norm=layer_norm
+                in_channels,
+                out_channels,
+                group_norm,
+                has_relu=False,
+                bias=bias,
+                layer_norm=layer_norm,
             )
         else:
             self.unary_shortcut = nn.Identity()

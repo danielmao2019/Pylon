@@ -14,9 +14,10 @@
 #      Hugues THOMAS - 06/03/2020
 #
 
-from models.point_cloud_registration.d3feat.blocks import *
-import torch.nn.functional as F
 import numpy as np
+import torch.nn.functional as F
+
+from models.point_cloud_registration.d3feat.blocks import *
 
 
 def p2p_fitting_regularizer(net):
@@ -33,7 +34,7 @@ def p2p_fitting_regularizer(net):
             ##############
 
             # Get the distance to closest input point and normalize to be independant from layers
-            KP_min_d2 = m.min_d2 / (m.KP_extent ** 2)
+            KP_min_d2 = m.min_d2 / (m.KP_extent**2)
 
             # Loss will be the square distance to closest input point. We use L1 because dist is already squared
             fitting_loss += net.l1(KP_min_d2, torch.zeros_like(KP_min_d2))
@@ -47,9 +48,15 @@ def p2p_fitting_regularizer(net):
 
             # Point should not be close to each other
             for i in range(net.K):
-                other_KP = torch.cat([KP_locs[:, :i, :], KP_locs[:, i + 1:, :]], dim=1).detach()
-                distances = torch.sqrt(torch.sum((other_KP - KP_locs[:, i:i + 1, :]) ** 2, dim=2))
-                rep_loss = torch.sum(torch.clamp_max(distances - net.repulse_extent, max=0.0) ** 2, dim=1)
+                other_KP = torch.cat(
+                    [KP_locs[:, :i, :], KP_locs[:, i + 1 :, :]], dim=1
+                ).detach()
+                distances = torch.sqrt(
+                    torch.sum((other_KP - KP_locs[:, i : i + 1, :]) ** 2, dim=2)
+                )
+                rep_loss = torch.sum(
+                    torch.clamp_max(distances - net.repulse_extent, max=0.0) ** 2, dim=1
+                )
                 repulsive_loss += net.l1(rep_loss, torch.zeros_like(rep_loss)) / net.K
 
     return net.deform_fitting_power * (2 * fitting_loss + repulsive_loss)
@@ -83,20 +90,18 @@ class _KPCNN(nn.Module):
 
             # Check equivariance
             if ('equivariant' in block) and (not out_dim % 3 == 0):
-                raise ValueError('Equivariant block but features dimension is not a factor of 3')
+                raise ValueError(
+                    'Equivariant block but features dimension is not a factor of 3'
+                )
 
             # Detect upsampling block to stop
             if 'upsample' in block:
                 break
 
             # Apply the good block function defining tf ops
-            self.block_ops.append(block_decider(block,
-                                                r,
-                                                in_dim,
-                                                out_dim,
-                                                layer,
-                                                config))
-
+            self.block_ops.append(
+                block_decider(block, r, in_dim, out_dim, layer, config)
+            )
 
             # Index of block in this layer
             block_in_layer += 1
@@ -106,7 +111,6 @@ class _KPCNN(nn.Module):
                 in_dim = out_dim // 2
             else:
                 in_dim = out_dim
-
 
             # Detect change to a subsampled layer
             if 'pool' in block or 'strided' in block:
@@ -220,10 +224,14 @@ class _KPFCNN(nn.Module):
 
             # Check equivariance
             if ('equivariant' in block) and (not out_dim % 3 == 0):
-                raise ValueError('Equivariant block but features dimension is not a factor of 3')
+                raise ValueError(
+                    'Equivariant block but features dimension is not a factor of 3'
+                )
 
             # Detect change to next layer for skip connection
-            if np.any([tmp in block for tmp in ['pool', 'strided', 'upsample', 'global']]):
+            if np.any(
+                [tmp in block for tmp in ['pool', 'strided', 'upsample', 'global']]
+            ):
                 self.encoder_skips.append(block_i)
                 self.encoder_skip_dims.append(in_dim)
 
@@ -232,12 +240,9 @@ class _KPFCNN(nn.Module):
                 break
 
             # Apply the good block function defining tf ops
-            self.encoder_blocks.append(block_decider(block,
-                                                    r,
-                                                    in_dim,
-                                                    out_dim,
-                                                    layer,
-                                                    config))
+            self.encoder_blocks.append(
+                block_decider(block, r, in_dim, out_dim, layer, config)
+            )
 
             # Update dimension of input from output
             if 'simple' in block:
@@ -276,12 +281,9 @@ class _KPFCNN(nn.Module):
                 self.decoder_concats.append(block_i)
 
             # Apply the good block function defining tf ops
-            self.decoder_blocks.append(block_decider(block,
-                                                    r,
-                                                    in_dim,
-                                                    out_dim,
-                                                    layer,
-                                                    config))
+            self.decoder_blocks.append(
+                block_decider(block, r, in_dim, out_dim, layer, config)
+            )
 
             # Update dimension of input from output
             in_dim = out_dim
@@ -299,7 +301,7 @@ class _KPFCNN(nn.Module):
     def forward(self, batch):
 
         # Get input features
-        
+
         x = batch['features'].clone().detach()
 
         # Loop over consecutive blocks
@@ -324,12 +326,16 @@ class _KPFCNN(nn.Module):
         first_pcd_length, second_pcd_length = inputs['stack_lengths'][0]
 
         first_pcd_indices = torch.arange(first_pcd_length)
-        second_pcd_indices = torch.arange(first_pcd_length, first_pcd_length+second_pcd_length)
+        second_pcd_indices = torch.arange(
+            first_pcd_length, first_pcd_length + second_pcd_length
+        )
 
         # add a fake point in the last row for shadow neighbors
         shadow_features = torch.zeros_like(features[:1, :])
         features = torch.cat([features, shadow_features], dim=0)
-        shadow_neighbor = torch.ones_like(neighbor[:1, :]) * (first_pcd_length + second_pcd_length)
+        shadow_neighbor = torch.ones_like(neighbor[:1, :]) * (
+            first_pcd_length + second_pcd_length
+        )
         neighbor = torch.cat([neighbor, shadow_neighbor], dim=0)
 
         # #  normalize the feature to avoid overflow
@@ -342,11 +348,17 @@ class _KPFCNN(nn.Module):
         features = features / (torch.max(features) + 1e-6)
 
         # local max score (saliency score)
-        neighbor_features = features[neighbor, :] # [n_points, n_neighbors, 64]
-        neighbor_features_sum = torch.sum(neighbor_features, dim=-1)  # [n_points, n_neighbors]
-        neighbor_num = (neighbor_features_sum != 0).sum(dim=-1, keepdims=True)  # [n_points, 1]
+        neighbor_features = features[neighbor, :]  # [n_points, n_neighbors, 64]
+        neighbor_features_sum = torch.sum(
+            neighbor_features, dim=-1
+        )  # [n_points, n_neighbors]
+        neighbor_num = (neighbor_features_sum != 0).sum(
+            dim=-1, keepdims=True
+        )  # [n_points, 1]
         neighbor_num = torch.max(neighbor_num, torch.ones_like(neighbor_num))
-        mean_features = torch.sum(neighbor_features, dim=1) / neighbor_num  # [n_points, 64]
+        mean_features = (
+            torch.sum(neighbor_features, dim=1) / neighbor_num
+        )  # [n_points, 64]
         local_max_score = F.softplus(features - mean_features)  # [n_points, 64]
 
         # calculate the depth-wise max score
@@ -354,32 +366,15 @@ class _KPFCNN(nn.Module):
         depth_wise_max_score = features / (1e-6 + depth_wise_max)  # [n_points, 64]
 
         all_scores = local_max_score * depth_wise_max_score
-        # use the max score among channel to be the score of a single point. 
+        # use the max score among channel to be the score of a single point.
         scores = torch.max(all_scores, dim=1, keepdims=True)[0]  # [n_points, 1]
 
         # hard selection (used during test)
         if self.training is False:
             local_max = torch.max(neighbor_features, dim=1)[0]
-            is_local_max = (features == local_max)
+            is_local_max = features == local_max
             # print(f"Local Max Num: {float(is_local_max.sum().detach().cpu())}")
             detected = torch.max(is_local_max.float(), dim=1, keepdims=True)[0]
             scores = scores * detected
 
         return scores[:-1, :]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

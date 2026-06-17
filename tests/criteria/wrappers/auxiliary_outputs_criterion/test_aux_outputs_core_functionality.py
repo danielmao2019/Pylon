@@ -1,6 +1,7 @@
 import torch
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.auxiliary_outputs_criterion import AuxiliaryOutputsCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 def test_call_with_list_input(aux_criterion, sample_tensors, sample_tensor):
@@ -26,11 +27,15 @@ def test_call_with_dict_input(aux_criterion, sample_tensor_dict, sample_tensor):
 def test_reduction_options(criterion_cfg, sample_tensors, sample_tensor):
     """Test different reduction options."""
     # Test with 'mean' reduction
-    criterion_mean = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg, reduction='mean')
+    criterion_mean = AuxiliaryOutputsCriterion(
+        criterion_cfg=criterion_cfg, reduction='mean'
+    )
     loss_mean = criterion_mean(y_pred=sample_tensors, y_true=sample_tensor)
 
     # Test with 'sum' reduction
-    criterion_sum = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg, reduction='sum')
+    criterion_sum = AuxiliaryOutputsCriterion(
+        criterion_cfg=criterion_cfg, reduction='sum'
+    )
     loss_sum = criterion_sum(y_pred=sample_tensors, y_true=sample_tensor)
 
     # The mean loss should be half of the sum loss
@@ -57,7 +62,7 @@ def test_single_output_input(dummy_criterion, sample_tensor):
     """Test with single output (edge case)."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
@@ -76,7 +81,7 @@ def test_many_outputs_input(dummy_criterion, sample_tensor):
     """Test with many outputs."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
@@ -95,7 +100,7 @@ def test_dict_to_list_conversion(dummy_criterion, sample_tensor_dict, sample_ten
     """Test conversion from dict to list of predictions."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
@@ -111,19 +116,25 @@ def test_dict_to_list_conversion(dummy_criterion, sample_tensor_dict, sample_ten
     assert torch.allclose(loss_dict, loss_list)
 
 
-def test_reduction_mathematical_correctness(dummy_criterion, sample_tensors, sample_tensor):
+def test_reduction_mathematical_correctness(
+    dummy_criterion, sample_tensors, sample_tensor
+):
     """Test that reduction options work mathematically correctly."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     # Test sum reduction
-    criterion_sum = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg, reduction='sum')
+    criterion_sum = AuxiliaryOutputsCriterion(
+        criterion_cfg=criterion_cfg, reduction='sum'
+    )
     loss_sum = criterion_sum(y_pred=sample_tensors, y_true=sample_tensor)
 
     # Test mean reduction
-    criterion_mean = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg, reduction='mean')
+    criterion_mean = AuxiliaryOutputsCriterion(
+        criterion_cfg=criterion_cfg, reduction='mean'
+    )
     loss_mean = criterion_mean(y_pred=sample_tensors, y_true=sample_tensor)
 
     # Calculate expected individual losses
@@ -145,7 +156,7 @@ def test_gradient_flow(dummy_criterion, sample_tensors, sample_tensor):
     """Test that gradients flow properly through the auxiliary outputs criterion."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
@@ -163,14 +174,16 @@ def test_gradient_flow(dummy_criterion, sample_tensors, sample_tensor):
     # Check that gradients were computed for all inputs
     for input_tensor in input_tensors:
         assert input_tensor.grad is not None
-        assert not torch.allclose(input_tensor.grad, torch.zeros_like(input_tensor.grad))
+        assert not torch.allclose(
+            input_tensor.grad, torch.zeros_like(input_tensor.grad)
+        )
 
 
 def test_deterministic_computation(dummy_criterion, sample_tensors, sample_tensor):
     """Test that computation is deterministic with same inputs."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
@@ -180,4 +193,6 @@ def test_deterministic_computation(dummy_criterion, sample_tensors, sample_tenso
     loss2 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
 
     # Should be identical
-    assert torch.equal(loss1, loss2), f"Non-deterministic computation: {loss1} != {loss2}"
+    assert torch.equal(
+        loss1, loss2
+    ), f"Non-deterministic computation: {loss1} != {loss2}"

@@ -1,8 +1,9 @@
+import warnings
+from typing import *
+
 import torch
 import torch.nn as nn
-import warnings
 from torch.autograd import Function
-from typing import *
 
 import models.point_cloud_registration.buffer.pointnet2_ops._ext as _ext
 

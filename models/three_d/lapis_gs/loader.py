@@ -6,7 +6,8 @@ The finest model (res1) contains all gaussians from all levels in first-slice or
 """
 
 from pathlib import Path
-from typing import Union, Dict
+from typing import Dict, Union
+
 import torch
 
 from models.three_d.original_3dgs.loader import (

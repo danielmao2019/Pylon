@@ -3,8 +3,8 @@
 This module combines dataset management, transforms, and state management
 into a single simplified backend.
 """
-from data.viewer.dataset.backend.backend import ViewerBackend
 
+from data.viewer.dataset.backend.backend import ViewerBackend
 
 __all__ = [
     'ViewerBackend',

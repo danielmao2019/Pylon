@@ -1,6 +1,10 @@
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 import torch
-from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_classification.base import (
+    DenseClassificationCriterion,
+)
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -51,10 +55,7 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
 
     @torch.no_grad()
     def _compute_class_weights(
-        self,
-        y_true: torch.Tensor,
-        num_classes: int,
-        valid_mask: torch.Tensor
+        self, y_true: torch.Tensor, num_classes: int, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute class weights based on the frequency of each class in the ground truth.
@@ -67,7 +68,9 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
         Returns:
             Tensor of class weights
         """
-        class_counts = torch.bincount(y_true[valid_mask].view(-1), minlength=num_classes).float()
+        class_counts = torch.bincount(
+            y_true[valid_mask].view(-1), minlength=num_classes
+        ).float()
         total_pixels = valid_mask.sum()
         # Compute inverse frequency weights
         weights = (total_pixels - class_counts) / total_pixels
@@ -78,10 +81,7 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
         return weights
 
     def _compute_per_class_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute cross-entropy loss for each class and sample in the batch.
@@ -103,13 +103,15 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
 
         # Normalize by number of valid pixels per sample
         valid_pixels_per_sample = valid_mask.squeeze(1).sum(dim=(1, 2))  # (N,)
-        ce_per_class = ce_per_class / valid_pixels_per_sample.unsqueeze(1).clamp(min=1)  # (N, C)
+        ce_per_class = ce_per_class / valid_pixels_per_sample.unsqueeze(1).clamp(
+            min=1
+        )  # (N, C)
 
         # Update class weights dynamically based on current batch
         class_weights = self._compute_class_weights(
             y_true.argmax(dim=1),  # Convert one-hot back to class indices
             y_pred.shape[1],  # num_classes
-            valid_mask.squeeze(1)
+            valid_mask.squeeze(1),
         )
         self.register_buffer('class_weights', class_weights)
 

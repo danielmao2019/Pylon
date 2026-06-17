@@ -11,16 +11,22 @@ class UpSamplingBlock(nn.Module):
         super().__init__()
         self.scale_factor = scale_factor
         self._conv_bn_layer1 = nn.Sequential(
-            create_conv_layer_with_kaiming_init(input_dims, hidden_dims, kernel_size=3, stride=1, padding=1),
+            create_conv_layer_with_kaiming_init(
+                input_dims, hidden_dims, kernel_size=3, stride=1, padding=1
+            ),
             create_batch_norm_layer_with_custom_init(hidden_dims),
         )
         self._conv_bn_layer2 = nn.Sequential(
-            create_conv_layer_with_kaiming_init(hidden_dims, output_dims, kernel_size=3, stride=1, padding=1),
+            create_conv_layer_with_kaiming_init(
+                hidden_dims, output_dims, kernel_size=3, stride=1, padding=1
+            ),
             create_batch_norm_layer_with_custom_init(output_dims),
         )
 
     def forward(self, x):
-        x = F.interpolate(x, scale_factor=self.scale_factor, mode="bilinear", align_corners=True)
+        x = F.interpolate(
+            x, scale_factor=self.scale_factor, mode="bilinear", align_corners=True
+        )
         x = self._conv_bn_layer1(x)
         x = F.gelu(x)
         x = self._conv_bn_layer2(x)
@@ -29,7 +35,9 @@ class UpSamplingBlock(nn.Module):
 
 
 class DimReductionBlock(nn.Module):
-    def __init__(self, list_of_input_output_tuples, rearrange_before=None, rearrange_after=None):
+    def __init__(
+        self, list_of_input_output_tuples, rearrange_before=None, rearrange_after=None
+    ):
         super().__init__()
         layers = []
         if rearrange_before is not None:
@@ -50,12 +58,18 @@ class SCSEModule(nn.Module):
         super().__init__()
         self.cSE = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
-            create_conv_layer_with_kaiming_init(in_channels, in_channels // reduction, 1),
+            create_conv_layer_with_kaiming_init(
+                in_channels, in_channels // reduction, 1
+            ),
             nn.ReLU(inplace=True),
-            create_conv_layer_with_kaiming_init(in_channels // reduction, in_channels, 1),
+            create_conv_layer_with_kaiming_init(
+                in_channels // reduction, in_channels, 1
+            ),
             nn.Sigmoid(),
         )
-        self.sSE = nn.Sequential(create_conv_layer_with_kaiming_init(in_channels, 1, 1), nn.Sigmoid())
+        self.sSE = nn.Sequential(
+            create_conv_layer_with_kaiming_init(in_channels, 1, 1), nn.Sigmoid()
+        )
 
     def forward(self, x):
         return x * self.cSE(x) + x * self.sSE(x)
@@ -74,7 +88,9 @@ class Sequence2SpatialBlock(nn.Module):
         x = self.norm(x)
         tokens = self.seq_to_spatial(x[:, 1:])
         if self.keep_cls:
-            cls = repeat(x[:, 0], "b c -> b h w c", h=tokens.shape[1], w=tokens.shape[2])
+            cls = repeat(
+                x[:, 0], "b c -> b h w c", h=tokens.shape[1], w=tokens.shape[2]
+            )
             tokens = rearrange([tokens, cls], "two b h w c -> b h w (two c)")
         return rearrange(tokens, "b h w c -> b c h w")
 
@@ -84,17 +100,22 @@ class FeatureFusionBlock(nn.Module):
         super().__init__()
         self.out_res = output_resolution
         self._conv_bn_layer1 = nn.Sequential(
-            create_conv_layer_with_kaiming_init(input_dims, hidden_dims, kernel_size=3, stride=1, padding=1),
+            create_conv_layer_with_kaiming_init(
+                input_dims, hidden_dims, kernel_size=3, stride=1, padding=1
+            ),
             create_batch_norm_layer_with_custom_init(hidden_dims),
         )
         self._conv_bn_layer2 = nn.Sequential(
-            create_conv_layer_with_kaiming_init(hidden_dims, output_dims, kernel_size=3, stride=1, padding=1),
+            create_conv_layer_with_kaiming_init(
+                hidden_dims, output_dims, kernel_size=3, stride=1, padding=1
+            ),
             create_batch_norm_layer_with_custom_init(output_dims),
         )
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         bicubic_resize = torchvision.transforms.Resize(
-            size=y.shape[-2:], interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
+            size=y.shape[-2:],
+            interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
         )
         x = bicubic_resize(x)
         xy = torch.cat([x, y], dim=1)
@@ -103,7 +124,8 @@ class FeatureFusionBlock(nn.Module):
         xy = self._conv_bn_layer2(xy)
         xy = F.gelu(xy)
         bicubic_resize = torchvision.transforms.Resize(
-            size=self.out_res, interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
+            size=self.out_res,
+            interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
         )
         return bicubic_resize(xy)
 
@@ -111,8 +133,12 @@ class FeatureFusionBlock(nn.Module):
 class ResidualConvBock(nn.Module):
     def __init__(self, channels):
         super().__init__()
-        self.conv1 = create_conv_layer_with_kaiming_init(channels, channels, kernel_size=3, stride=1, padding=1, bias=True)
-        self.conv2 = create_conv_layer_with_kaiming_init(channels, channels, kernel_size=3, stride=1, padding=1, bias=True)
+        self.conv1 = create_conv_layer_with_kaiming_init(
+            channels, channels, kernel_size=3, stride=1, padding=1, bias=True
+        )
+        self.conv2 = create_conv_layer_with_kaiming_init(
+            channels, channels, kernel_size=3, stride=1, padding=1, bias=True
+        )
 
     def forward(self, x):
         out = F.gelu(x)
@@ -126,19 +152,29 @@ class DownSamplingBlock(nn.Module):
     def __init__(self, in_channels, out_channels, downsample=True):
         super().__init__()
         if downsample:
-            self.conv1 = create_conv_layer_with_kaiming_init(in_channels, out_channels, kernel_size=3, stride=2, padding=1)
+            self.conv1 = create_conv_layer_with_kaiming_init(
+                in_channels, out_channels, kernel_size=3, stride=2, padding=1
+            )
             self.shortcut = nn.Sequential(
-                create_conv_layer_with_kaiming_init(in_channels, out_channels, kernel_size=1, stride=2),
+                create_conv_layer_with_kaiming_init(
+                    in_channels, out_channels, kernel_size=1, stride=2
+                ),
                 create_batch_norm_layer_with_custom_init(out_channels),
             )
         else:
-            self.conv1 = create_conv_layer_with_kaiming_init(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+            self.conv1 = create_conv_layer_with_kaiming_init(
+                in_channels, out_channels, kernel_size=3, stride=1, padding=1
+            )
             self.shortcut = nn.Sequential(
-                create_conv_layer_with_kaiming_init(in_channels, out_channels, kernel_size=1, stride=1),
+                create_conv_layer_with_kaiming_init(
+                    in_channels, out_channels, kernel_size=1, stride=1
+                ),
                 create_batch_norm_layer_with_custom_init(out_channels),
             )
 
-        self.conv2 = create_conv_layer_with_kaiming_init(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.conv2 = create_conv_layer_with_kaiming_init(
+            out_channels, out_channels, kernel_size=3, stride=1, padding=1
+        )
         self.bn1 = create_batch_norm_layer_with_custom_init(out_channels)
         self.bn2 = create_batch_norm_layer_with_custom_init(out_channels)
 

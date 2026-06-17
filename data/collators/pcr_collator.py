@@ -1,4 +1,5 @@
-from typing import List, Dict, Callable, Any
+from typing import Any, Callable, Dict, List
+
 import torch
 
 
@@ -7,23 +8,36 @@ def pcr_collate_fn(
     tgt_points: torch.Tensor,
     architecture: List[Dict[str, Any]],
     downsample_fn: Callable,
-    neighbor_fn: Callable
+    neighbor_fn: Callable,
 ) -> Dict[str, List[torch.Tensor]]:
     assert isinstance(src_points, torch.Tensor)
     assert isinstance(tgt_points, torch.Tensor)
     assert isinstance(architecture, list)
     assert all(isinstance(block, dict) for block in architecture)
-    assert all(block.keys() == {
-        'neighbor', 'neighbor_radius', 'neighbor_neighborhood_limit',
-        'downsample', 'sample_dl',
-        'downsample_radius', 'downsample_neighborhood_limit',
-        'upsample_radius', 'upsample_neighborhood_limit',
-    } for block in architecture)
+    assert all(
+        block.keys()
+        == {
+            'neighbor',
+            'neighbor_radius',
+            'neighbor_neighborhood_limit',
+            'downsample',
+            'sample_dl',
+            'downsample_radius',
+            'downsample_neighborhood_limit',
+            'upsample_radius',
+            'upsample_neighborhood_limit',
+        }
+        for block in architecture
+    )
     assert isinstance(downsample_fn, Callable)
     assert isinstance(neighbor_fn, Callable)
 
     batched_points = torch.cat([src_points, tgt_points], dim=0)
-    batched_lengths = torch.tensor([len(src_points), len(tgt_points)], dtype=torch.int64, device=batched_points.device)
+    batched_lengths = torch.tensor(
+        [len(src_points), len(tgt_points)],
+        dtype=torch.int64,
+        device=batched_points.device,
+    )
 
     # Lists of inputs
     input_points = []
@@ -40,8 +54,12 @@ def pcr_collate_fn(
         # Compute neighbor indices for convolution
         if block['neighbor']:
             neighbor_indices = neighbor_fn(
-                batched_points, batched_points, batched_lengths, batched_lengths,
-                block['neighbor_radius'], block['neighbor_neighborhood_limit'],
+                batched_points,
+                batched_points,
+                batched_lengths,
+                batched_lengths,
+                block['neighbor_radius'],
+                block['neighbor_neighborhood_limit'],
             )
         else:
             neighbor_indices = torch.zeros((0, 1), dtype=torch.int64)
@@ -53,16 +71,25 @@ def pcr_collate_fn(
         # If the current block is a pooling operation, compute downsampling and upsampling indices
         if block['downsample']:
             downsample_points, downsample_lengths = downsample_fn(
-                batched_points, batched_lengths,
+                batched_points,
+                batched_lengths,
                 block['sample_dl'],
             )
             downsample_indices = neighbor_fn(
-                downsample_points, batched_points, downsample_lengths, batched_lengths,
-                block['downsample_radius'], block['downsample_neighborhood_limit'],
+                downsample_points,
+                batched_points,
+                downsample_lengths,
+                batched_lengths,
+                block['downsample_radius'],
+                block['downsample_neighborhood_limit'],
             )
             upsample_indices = neighbor_fn(
-                batched_points, downsample_points, batched_lengths, downsample_lengths,
-                block['upsample_radius'], block['upsample_neighborhood_limit'],
+                batched_points,
+                downsample_points,
+                batched_lengths,
+                downsample_lengths,
+                block['upsample_radius'],
+                block['upsample_neighborhood_limit'],
             )
         else:
             downsample_points = torch.zeros((0, 3), dtype=torch.float32)

@@ -9,7 +9,9 @@ class PMFFM(torch.nn.Module):
         self.m = m
         self.prob = torch.nn.Linear(dim // k, m)
         self.softmax = torch.nn.Softmax(dim=4)
-        self.result = torch.nn.Conv2d(dim // k * m, dim // k * m, kernel_size=1, groups=m)
+        self.result = torch.nn.Conv2d(
+            dim // k * m, dim // k * m, kernel_size=1, groups=m
+        )
         self.d1line = torch.tensor(
             [1] * (self.m // 2) + [1] * (self.m // 4) + [-1] * (self.m // 4),
             device=torch.device("cuda"),

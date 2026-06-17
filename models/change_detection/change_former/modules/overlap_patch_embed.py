@@ -5,8 +5,7 @@ from timm.models.layers import to_2tuple, trunc_normal_
 
 
 class OverlapPatchEmbed(torch.nn.Module):
-    """ Image to Patch Embedding
-    """
+    """Image to Patch Embedding"""
 
     def __init__(self, img_size=224, patch_size=7, stride=4, in_chans=3, embed_dim=768):
         super().__init__()
@@ -17,15 +16,20 @@ class OverlapPatchEmbed(torch.nn.Module):
         self.patch_size = patch_size
         # self.H, self.W = img_size[0] // patch_size[0], img_size[1] // patch_size[1]
         # self.num_patches = self.H * self.W
-        self.proj = torch.nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride,
-                              padding=(patch_size[0] // 2, patch_size[1] // 2))
+        self.proj = torch.nn.Conv2d(
+            in_chans,
+            embed_dim,
+            kernel_size=patch_size,
+            stride=stride,
+            padding=(patch_size[0] // 2, patch_size[1] // 2),
+        )
         self.norm = torch.nn.LayerNorm(embed_dim)
 
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, torch.nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, torch.nn.Linear) and m.bias is not None:
                 torch.nn.init.constant_(m.bias, 0)
         elif isinstance(m, torch.nn.LayerNorm):

@@ -2,9 +2,11 @@
 """Analyze overlap distributions for GeoTransformer and OverlapPredator datasets."""
 
 import pickle
-import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 def load_pickle_file(filepath):
     """Load a pickle file and return its contents."""
@@ -16,12 +18,14 @@ def load_pickle_file(filepath):
         print(f"Error loading {filepath}: {e}")
         return None
 
+
 def extract_overlaps_geotransformer(data):
     """Extract overlap values from GeoTransformer format (list of dicts)."""
     if isinstance(data, list):
         overlaps = [entry['overlap'] for entry in data if 'overlap' in entry]
         return np.array(overlaps)
     return None
+
 
 def extract_overlaps_overlappredator(data):
     """Extract overlap values from OverlapPredator format (dict of lists/arrays)."""
@@ -32,6 +36,7 @@ def extract_overlaps_overlappredator(data):
         elif isinstance(overlap_data, list):
             return np.array(overlap_data)
     return None
+
 
 def analyze_overlap_distribution(overlaps, title, ax):
     """Analyze and plot overlap distribution."""
@@ -71,11 +76,24 @@ def analyze_overlap_distribution(overlaps, title, ax):
     stats_text = f'> 0.3: {high_overlap} ({high_overlap/total*100:.1f}%)\n'
     stats_text += f'0.1-0.3: {low_overlap} ({low_overlap/total*100:.1f}%)\n'
     stats_text += f'≤ 0.1: {very_low_overlap} ({very_low_overlap/total*100:.1f}%)'
-    ax.text(0.98, 0.97, stats_text, transform=ax.transAxes,
-            fontsize=9, verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    ax.text(
+        0.98,
+        0.97,
+        stats_text,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment='top',
+        horizontalalignment='right',
+        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
+    )
 
-    return {'high': high_overlap, 'low': low_overlap, 'very_low': very_low_overlap, 'total': total}
+    return {
+        'high': high_overlap,
+        'low': low_overlap,
+        'very_low': very_low_overlap,
+        'total': total,
+    }
+
 
 def main():
     """Main analysis function."""
@@ -97,7 +115,11 @@ def main():
 
     # Create figure with subplots
     fig, axes = plt.subplots(4, 2, figsize=(14, 16))
-    fig.suptitle('Overlap Distribution Comparison: GeoTransformer vs OverlapPredator', fontsize=16, fontweight='bold')
+    fig.suptitle(
+        'Overlap Distribution Comparison: GeoTransformer vs OverlapPredator',
+        fontsize=16,
+        fontweight='bold',
+    )
 
     print("=" * 80)
     print("GEOTRANSFORMER OVERLAP ANALYSIS")
@@ -108,7 +130,9 @@ def main():
         data = load_pickle_file(filepath)
         if data is not None:
             overlaps = extract_overlaps_geotransformer(data)
-            analyze_overlap_distribution(overlaps, f"GeoTransformer - {name}", axes[idx, 0])
+            analyze_overlap_distribution(
+                overlaps, f"GeoTransformer - {name}", axes[idx, 0]
+            )
 
     print("\n" + "=" * 80)
     print("OVERLAPPREDATOR OVERLAP ANALYSIS")
@@ -119,7 +143,9 @@ def main():
         data = load_pickle_file(filepath)
         if data is not None:
             overlaps = extract_overlaps_overlappredator(data)
-            analyze_overlap_distribution(overlaps, f"OverlapPredator - {name}", axes[idx, 1])
+            analyze_overlap_distribution(
+                overlaps, f"OverlapPredator - {name}", axes[idx, 1]
+            )
 
     # Adjust layout and save
     plt.tight_layout()
@@ -134,7 +160,9 @@ def main():
     print("=" * 80)
 
     print("\n" + "-" * 80)
-    print(f"{'Dataset':<30} {'Total':<10} {'High (>0.3)':<20} {'Low (0.1-0.3)':<20} {'Very Low (≤0.1)':<20}")
+    print(
+        f"{'Dataset':<30} {'Total':<10} {'High (>0.3)':<20} {'Low (0.1-0.3)':<20} {'Very Low (≤0.1)':<20}"
+    )
     print("-" * 80)
 
     # Re-analyze for summary table
@@ -148,7 +176,9 @@ def main():
                 low = np.sum((geo_overlaps > 0.1) & (geo_overlaps <= 0.3))
                 very_low = np.sum(geo_overlaps <= 0.1)
                 total = len(geo_overlaps)
-                print(f"{'GeoTransformer ' + name:<30} {total:<10} {f'{high} ({high/total*100:.1f}%)':<20} {f'{low} ({low/total*100:.1f}%)':<20} {f'{very_low} ({very_low/total*100:.1f}%)':<20}")
+                print(
+                    f"{'GeoTransformer ' + name:<30} {total:<10} {f'{high} ({high/total*100:.1f}%)':<20} {f'{low} ({low/total*100:.1f}%)':<20} {f'{very_low} ({very_low/total*100:.1f}%)':<20}"
+                )
 
         # OverlapPredator
         overlap_data = load_pickle_file(overlap_files[name])
@@ -159,9 +189,12 @@ def main():
                 low = np.sum((overlap_overlaps > 0.1) & (overlap_overlaps <= 0.3))
                 very_low = np.sum(overlap_overlaps <= 0.1)
                 total = len(overlap_overlaps)
-                print(f"{'OverlapPredator ' + name:<30} {total:<10} {f'{high} ({high/total*100:.1f}%)':<20} {f'{low} ({low/total*100:.1f}%)':<20} {f'{very_low} ({very_low/total*100:.1f}%)':<20}")
+                print(
+                    f"{'OverlapPredator ' + name:<30} {total:<10} {f'{high} ({high/total*100:.1f}%)':<20} {f'{low} ({low/total*100:.1f}%)':<20} {f'{very_low} ({very_low/total*100:.1f}%)':<20}"
+                )
 
     print("-" * 80)
+
 
 if __name__ == "__main__":
     main()

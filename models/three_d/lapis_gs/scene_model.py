@@ -13,8 +13,8 @@ from models.three_d.lapis_gs import states as lapis_gs_states
 from models.three_d.lapis_gs import styles
 from models.three_d.lapis_gs.layout import build_display
 from models.three_d.lapis_gs.loader import load_lapis_gs
-from models.three_d.original_3dgs.loader import GaussianModel
 from models.three_d.lapis_gs.render.display import render_display
+from models.three_d.original_3dgs.loader import GaussianModel
 
 
 class LapisGSSceneModel(BaseSceneModel):

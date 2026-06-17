@@ -4,11 +4,13 @@ Tests for the Siam3DCDNet model.
 This module contains tests for verifying the functionality of the Siam3DCDNet model
 for 3D point cloud change detection based on the 3DCDNet paper.
 """
+
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-import numpy as np
-from typing import Dict, List, Tuple, Any
 
 from models.change_detection.siam3dcdnet.siam3dcdnet_model import Siam3DCDNet
 
@@ -48,7 +50,9 @@ def test_batch():
     neighbor_idx_list = []
     for level_points in point_counts:
         # Random indices for k nearest neighbors at each point
-        neighbors = torch.randint(0, level_points, (batch_size, level_points, k_neighbors))
+        neighbors = torch.randint(
+            0, level_points, (batch_size, level_points, k_neighbors)
+        )
         neighbor_idx_list.append(neighbors)
 
     # Create pooling indices between levels
@@ -56,8 +60,9 @@ def test_batch():
     for i in range(len(point_counts) - 1):
         # Indices for pooling from level i to level i+1
         # Each point in level i+1 has k_neighbors corresponding points in level i
-        pool_idx = torch.randint(0, point_counts[i],
-                                  (batch_size, point_counts[i+1], k_neighbors))
+        pool_idx = torch.randint(
+            0, point_counts[i], (batch_size, point_counts[i + 1], k_neighbors)
+        )
         pool_idx_list.append(pool_idx)
 
     # Create upsampling indices between levels
@@ -65,14 +70,19 @@ def test_batch():
     for i in range(len(point_counts) - 1):
         # Indices for upsampling from level i+1 to level i
         # Each point in level i has a corresponding point in level i+1
-        unsam_idx = torch.randint(0, point_counts[i+1],
-                                   (batch_size, point_counts[i], 1))
+        unsam_idx = torch.randint(
+            0, point_counts[i + 1], (batch_size, point_counts[i], 1)
+        )
         unsam_idx_list.append(unsam_idx)
 
     # Create cross-cloud KNN indices
     # These are indices of k nearest points in the other point cloud
-    knearest_idx_0_to_1 = torch.randint(0, num_points, (batch_size, num_points, k_neighbors))
-    knearest_idx_1_to_0 = torch.randint(0, num_points, (batch_size, num_points, k_neighbors))
+    knearest_idx_0_to_1 = torch.randint(
+        0, num_points, (batch_size, num_points, k_neighbors)
+    )
+    knearest_idx_1_to_0 = torch.randint(
+        0, num_points, (batch_size, num_points, k_neighbors)
+    )
 
     # Assemble the data dict for point cloud 0
     pc_0 = {
@@ -80,7 +90,7 @@ def test_batch():
         'neighbors_idx': neighbor_idx_list,
         'pool_idx': pool_idx_list,
         'unsam_idx': unsam_idx_list,
-        'knearst_idx_in_another_pc': knearest_idx_0_to_1
+        'knearst_idx_in_another_pc': knearest_idx_0_to_1,
     }
 
     # Assemble the data dict for point cloud 1
@@ -89,14 +99,11 @@ def test_batch():
         'neighbors_idx': neighbor_idx_list.copy(),
         'pool_idx': pool_idx_list.copy(),
         'unsam_idx': unsam_idx_list.copy(),
-        'knearst_idx_in_another_pc': knearest_idx_1_to_0
+        'knearst_idx_in_another_pc': knearest_idx_1_to_0,
     }
 
     # Final data dict
-    data_dict = {
-        'pc_0': pc_0,
-        'pc_1': pc_1
-    }
+    data_dict = {'pc_0': pc_0, 'pc_1': pc_1}
 
     return data_dict
 
@@ -183,24 +190,29 @@ def test_c3dnet_feature_extraction():
     for i in range(5):  # 5 levels
         level_points = xyz_list[i].shape[1]
         # Ensure we have at least 1 point to select from
-        neighbors = torch.randint(0, max(1, level_points),
-                               (batch_size, level_points, k_neighbors))
+        neighbors = torch.randint(
+            0, max(1, level_points), (batch_size, level_points, k_neighbors)
+        )
         neighbor_idx_list.append(neighbors)
 
     # Create pooling indices
     pool_idx_list = []
     for i in range(4):  # 4 transitions between levels
         # Ensure we have at least 1 point to select from
-        pool_idx = torch.randint(0, max(1, xyz_list[i].shape[1]),
-                              (batch_size, xyz_list[i+1].shape[1], k_neighbors))
+        pool_idx = torch.randint(
+            0,
+            max(1, xyz_list[i].shape[1]),
+            (batch_size, xyz_list[i + 1].shape[1], k_neighbors),
+        )
         pool_idx_list.append(pool_idx)
 
     # Create upsampling indices
     unsam_idx_list = []
     for i in range(4):  # 4 transitions between levels
         # Ensure we have at least 1 point to select from
-        unsam_idx = torch.randint(0, max(1, xyz_list[i+1].shape[1]),
-                               (batch_size, xyz_list[i].shape[1], 1))
+        unsam_idx = torch.randint(
+            0, max(1, xyz_list[i + 1].shape[1]), (batch_size, xyz_list[i].shape[1], 1)
+        )
         unsam_idx_list.append(unsam_idx)
 
     # Assemble the input for C3Dnet
@@ -208,6 +220,7 @@ def test_c3dnet_feature_extraction():
 
     # Create and test the C3Dnet
     from models.change_detection.siam3dcdnet.siam3dcdnet_model import C3Dnet
+
     model = C3Dnet(in_d=3, out_d=64)
 
     with torch.no_grad():

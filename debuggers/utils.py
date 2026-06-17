@@ -3,7 +3,9 @@ from typing import Optional
 import torch
 
 
-def get_layer_by_name(model: torch.nn.Module, layer_name: str) -> Optional[torch.nn.Module]:
+def get_layer_by_name(
+    model: torch.nn.Module, layer_name: str
+) -> Optional[torch.nn.Module]:
     """Get a layer from the model by its name/path.
 
     Args:

@@ -1,10 +1,15 @@
 """Performance and scalability tests for eval_viewer components."""
 
-import pytest
-import numpy as np
 import gc
 from concurrent.futures import ThreadPoolExecutor
-from runners.viewers.eval_viewer.backend.visualization import create_score_map_grid, create_overlaid_score_map
+
+import numpy as np
+import pytest
+
+from runners.viewers.eval_viewer.backend.visualization import (
+    create_overlaid_score_map,
+    create_score_map_grid,
+)
 
 
 def test_large_dataset_handling():

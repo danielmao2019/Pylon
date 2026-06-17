@@ -3,7 +3,9 @@
 import pytest
 import torch
 
-from criteria.vision_3d.point_cloud_registration.d3feat_criteria.d3feat_criterion import D3FeatCriterion
+from criteria.vision_3d.point_cloud_registration.d3feat_criteria.d3feat_criterion import (
+    D3FeatCriterion,
+)
 
 
 def test_circle_loss_initialization():
@@ -21,7 +23,7 @@ def test_circle_loss_initialization():
         pos_margin=0.2,
         neg_margin=1.5,
         desc_loss_weight=2.0,
-        det_loss_weight=0.5
+        det_loss_weight=0.5,
     )
     assert criterion.desc_loss_weight == 2.0
     assert criterion.det_loss_weight == 0.5
@@ -41,12 +43,16 @@ def test_circle_loss_forward():
     descriptors = torch.randn(2 * num_points, feature_dim)
     # Normalize descriptors
     descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
-    scores = torch.abs(torch.randn(2 * num_points, 1))  # Positive scores like D3Feat detection_scores
+    scores = torch.abs(
+        torch.randn(2 * num_points, 1)
+    )  # Positive scores like D3Feat detection_scores
 
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
-        'stack_lengths': [torch.tensor([num_points, num_points], dtype=torch.int32)],  # Equal src/tgt splits
+        'stack_lengths': [
+            torch.tensor([num_points, num_points], dtype=torch.int32)
+        ],  # Equal src/tgt splits
     }
 
     # Ground truth
@@ -74,12 +80,16 @@ def test_circle_loss_no_correspondences():
     # Create predictions
     descriptors = torch.randn(100, 32)
     descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
-    scores = torch.abs(torch.randn(100, 1))  # Positive scores like D3Feat detection_scores
+    scores = torch.abs(
+        torch.randn(100, 1)
+    )  # Positive scores like D3Feat detection_scores
 
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
-        'stack_lengths': [torch.tensor([50, 50], dtype=torch.int32)],  # Equal src/tgt splits for 100 total
+        'stack_lengths': [
+            torch.tensor([50, 50], dtype=torch.int32)
+        ],  # Equal src/tgt splits for 100 total
     }
 
     # Empty correspondences
@@ -109,7 +119,7 @@ def test_contrastive_loss_initialization():
         pos_margin=0.05,
         neg_margin=1.2,
         metric='cosine',
-        safe_radius=0.3
+        safe_radius=0.3,
     )
     assert criterion.descriptor_loss.pos_margin == 0.05
     assert criterion.descriptor_loss.neg_margin == 1.2
@@ -126,12 +136,16 @@ def test_contrastive_loss_forward():
 
     descriptors = torch.randn(2 * num_points, feature_dim)
     descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
-    scores = torch.abs(torch.randn(2 * num_points, 1))  # Positive scores like D3Feat detection_scores
+    scores = torch.abs(
+        torch.randn(2 * num_points, 1)
+    )  # Positive scores like D3Feat detection_scores
 
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
-        'stack_lengths': [torch.tensor([num_points, num_points], dtype=torch.int32)],  # Equal src/tgt splits
+        'stack_lengths': [
+            torch.tensor([num_points, num_points], dtype=torch.int32)
+        ],  # Equal src/tgt splits
     }
 
     correspondences = torch.randint(0, num_points, (num_corr, 2), dtype=torch.long)
@@ -168,7 +182,9 @@ def test_loss_gradient_flow():
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
-        'stack_lengths': [torch.tensor([num_points, num_points], dtype=torch.int32)],  # Equal src/tgt splits
+        'stack_lengths': [
+            torch.tensor([num_points, num_points], dtype=torch.int32)
+        ],  # Equal src/tgt splits
     }
 
     correspondences = torch.randint(0, num_points, (num_corr, 2), dtype=torch.long)
@@ -196,12 +212,16 @@ def test_loss_with_different_metrics():
     # Create test data
     descriptors = torch.randn(100, 32)
     descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
-    scores = torch.abs(torch.randn(100, 1))  # Positive scores like D3Feat detection_scores
+    scores = torch.abs(
+        torch.randn(100, 1)
+    )  # Positive scores like D3Feat detection_scores
 
     y_pred = {
         'descriptors': descriptors,
         'scores': scores,
-        'stack_lengths': [torch.tensor([50, 50], dtype=torch.int32)],  # Equal src/tgt splits for 100 total
+        'stack_lengths': [
+            torch.tensor([50, 50], dtype=torch.int32)
+        ],  # Equal src/tgt splits for 100 total
     }
 
     correspondences = torch.randint(0, 50, (10, 2), dtype=torch.long)

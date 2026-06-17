@@ -1,13 +1,26 @@
 import torch
 
+
 class ConvBlock(torch.nn.Module):
 
-    def __init__(self, input_size, output_size, kernel_size=3, stride=1, padding=1, bias=True, activation='prelu', norm=None):
+    def __init__(
+        self,
+        input_size,
+        output_size,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=True,
+        activation='prelu',
+        norm=None,
+    ):
         super(ConvBlock, self).__init__()
-        self.conv = torch.nn.Conv2d(input_size, output_size, kernel_size, stride, padding, bias=bias)
+        self.conv = torch.nn.Conv2d(
+            input_size, output_size, kernel_size, stride, padding, bias=bias
+        )
 
         self.norm = norm
-        if self.norm =='batch':
+        if self.norm == 'batch':
             self.bn = torch.nn.BatchNorm2d(output_size)
         elif self.norm == 'instance':
             self.bn = torch.nn.InstanceNorm2d(output_size)

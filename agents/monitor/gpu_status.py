@@ -1,11 +1,13 @@
-from typing import List, Dict, Optional
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
+from typing import Dict, List, Optional
+
 from agents.monitor.process_info import ProcessInfo
 
 
 @dataclass
 class GPUStatus:
     """Status information for a GPU."""
+
     server: str
     index: int
     window_size: Optional[int]

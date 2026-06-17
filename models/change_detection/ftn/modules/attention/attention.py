@@ -1,4 +1,5 @@
 import torch
+
 from models.change_detection.ftn.modules.conv import CrossConv
 
 
@@ -9,9 +10,11 @@ class ppattention_wan(torch.nn.Module):
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.max_pool = torch.nn.AdaptiveMaxPool2d(1)
         # b,h,w,c   ---  n*c   #n,,c,h,w   ---- n*c
-        self.fc = torch.nn.Sequential(torch.nn.Conv2d(in_planes, in_planes // ratio, 1, bias=False),
-                                torch.nn.SiLU(),
-                                torch.nn.Conv2d(in_planes // ratio, in_planes, 1, bias=False))
+        self.fc = torch.nn.Sequential(
+            torch.nn.Conv2d(in_planes, in_planes // ratio, 1, bias=False),
+            torch.nn.SiLU(),
+            torch.nn.Conv2d(in_planes // ratio, in_planes, 1, bias=False),
+        )
         self.fc2 = torch.nn.Conv2d(1, 1, 1, bias=False)
         self.sigmoid = torch.nn.Sigmoid()
         self.bnnorm = torch.nn.BatchNorm2d(in_planes)
@@ -32,9 +35,11 @@ class ppattention_wan(torch.nn.Module):
 class DFE(torch.nn.Module):
     def __init__(self, in_planes):
         super().__init__()
-        self.fc = torch.nn.Sequential(torch.nn.Conv2d(in_planes, in_planes // 2, 1, bias=False),
-                                torch.nn.BatchNorm2d(in_planes // 2),
-                                torch.nn.SiLU())
+        self.fc = torch.nn.Sequential(
+            torch.nn.Conv2d(in_planes, in_planes // 2, 1, bias=False),
+            torch.nn.BatchNorm2d(in_planes // 2),
+            torch.nn.SiLU(),
+        )
 
     def forward(self, x):
         result = self.fc(x)

@@ -1,9 +1,11 @@
-from typing import Dict, Any
-import pytest
-import random
-import torch
 import os
+import random
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict
+
+import pytest
+import torch
+
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
 from utils.builders.builder import build_from_config
 
@@ -16,7 +18,9 @@ def validate_inputs(inputs: Dict[str, Any], image_resolution: tuple) -> None:
     assert image.ndim == 3 and image.shape[0] == 3, f"{image.shape=}"
     assert image.dtype == torch.float32, f"{image.dtype=}"
     assert -1 <= image.min() <= image.max() <= +1, f"{image.min()=}, {image.max()=}"
-    assert image.shape[-2:] == image_resolution, f"{image.shape[-2:]=}, {image_resolution=}"
+    assert (
+        image.shape[-2:] == image_resolution
+    ), f"{image.shape[-2:]=}, {image_resolution=}"
 
 
 def validate_labels(labels: Dict[str, Any], dataset: CelebADataset) -> None:
@@ -24,14 +28,20 @@ def validate_labels(labels: Dict[str, Any], dataset: CelebADataset) -> None:
     assert labels.keys() == set(CelebADataset.LABEL_NAMES) - set(['landmarks'])
 
 
-def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: CelebADataset) -> None:
+def validate_meta_info(
+    meta_info: Dict[str, Any], datapoint_idx: int, dataset: CelebADataset
+) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
     assert meta_info.keys() == {'idx', 'image_filepath', 'image_resolution'}
-    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert (
+        meta_info['idx'] == datapoint_idx
+    ), f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
     image_filepath = meta_info['image_filepath']
     assert isinstance(image_filepath, str), f"{type(image_filepath)=}"
-    assert os.path.isfile(os.path.join(dataset.data_root, image_filepath)), f"File does not exist: {os.path.join(dataset.data_root, image_filepath)}"
+    assert os.path.isfile(
+        os.path.join(dataset.data_root, image_filepath)
+    ), f"File does not exist: {os.path.join(dataset.data_root, image_filepath)}"
 
     image_resolution = meta_info['image_resolution']
     assert isinstance(image_resolution, tuple), f"{type(image_resolution)=}"
@@ -40,15 +50,19 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
     assert all(x > 0 for x in image_resolution), f"{image_resolution=}"
 
 
-@pytest.mark.parametrize('celeb_a_dataset_config', [
-    {
-        'split': 'train',
-    },
-    {
-        'split': 'train',
-        'indices': [0, 2, 4, 6, 8],
-    },
-], indirect=True)
+@pytest.mark.parametrize(
+    'celeb_a_dataset_config',
+    [
+        {
+            'split': 'train',
+        },
+        {
+            'split': 'train',
+            'indices': [0, 2, 4, 6, 8],
+        },
+    ],
+    indirect=True,
+)
 def test_celeb_a(celeb_a_dataset_config, max_samples, get_samples_to_test) -> None:
     dataset = build_from_config(celeb_a_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)

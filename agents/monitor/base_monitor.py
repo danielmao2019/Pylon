@@ -1,8 +1,8 @@
-from typing import Optional, Generic, TypeVar
 import threading
 from abc import ABC, abstractmethod
-from agents.connector.pool import _ssh_pool, SSHConnectionPool
+from typing import Generic, Optional, TypeVar
 
+from agents.connector.pool import SSHConnectionPool, _ssh_pool
 
 T = TypeVar('T')  # Type variable for status objects
 

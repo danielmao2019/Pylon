@@ -5,30 +5,51 @@ across all dataset types, avoiding code duplication and complex fixture manageme
 """
 
 import pytest
-from utils.builders.builder import build_from_config
 
 # Dataset imports - only verified working datasets
-from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
+from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import (
+    AirChangeDataset,
+)
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
-from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
+from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import (
+    LevirCdDataset,
+)
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
-from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
-from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
-from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
-from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
-from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
-from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
+from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import (
+    SLPCCDDataset,
+)
+from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import (
+    SYSU_CD_Dataset,
+)
+from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import (
+    Urb3DCDDataset,
+)
+from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import (
+    xView2Dataset,
+)
+from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import (
+    I3PEDataset,
+)
+from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import (
+    PPSLDataset,
+)
+from data.datasets.gan_datasets.gan_dataset import GANDataset
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
-from data.datasets.torchvision_datasets.mnist import MNISTDataset
-from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
-from data.datasets.torchvision_datasets.mnist import MNISTDataset
-from data.datasets.random_datasets.classification_random_dataset import ClassificationRandomDataset
-from data.datasets.random_datasets.semantic_segmentation_random_dataset import SemanticSegmentationRandomDataset
-from data.datasets.gan_datasets.gan_dataset import GANDataset
+from data.datasets.pcr_datasets.threedmatch_dataset import (
+    ThreeDLoMatchDataset,
+    ThreeDMatchDataset,
+)
+from data.datasets.random_datasets.classification_random_dataset import (
+    ClassificationRandomDataset,
+)
+from data.datasets.random_datasets.semantic_segmentation_random_dataset import (
+    SemanticSegmentationRandomDataset,
+)
 from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
-
+from data.datasets.torchvision_datasets.mnist import MNISTDataset
+from utils.builders.builder import build_from_config
 
 # =============================================================================
 # Dataset Configuration Registry - Using Fixtures for Data Roots
@@ -42,10 +63,7 @@ DATASET_CONFIGS = {
         'class': AirChangeDataset,
         'fixture': 'air_change_data_root',
         'splits': ['train', 'test'],
-        'parameter_variations': [
-            {'split': 'train'},
-            {'split': 'test'}
-        ]
+        'parameter_variations': [{'split': 'train'}, {'split': 'test'}],
     },
     'cdd': {
         'class': CDDDataset,
@@ -54,8 +72,8 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'split': 'test'}
-        ]
+            {'split': 'test'},
+        ],
     },
     'levir_cd': {
         'class': LevirCdDataset,
@@ -64,8 +82,8 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'split': 'test'}
-        ]
+            {'split': 'test'},
+        ],
     },
     'oscd': {
         'class': OSCDDataset,
@@ -75,8 +93,8 @@ DATASET_CONFIGS = {
             {'split': 'train'},
             {'split': 'test'},
             {'bands': '13ch'},
-            {'split': 'test', 'bands': '13ch'}
-        ]
+            {'split': 'test', 'bands': '13ch'},
+        ],
     },
     'slpccd': {
         'class': SLPCCDDataset,
@@ -85,8 +103,8 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'split': 'test'}
-        ]
+            {'split': 'test'},
+        ],
     },
     'sysu_cd': {
         'class': SYSU_CD_Dataset,
@@ -95,10 +113,9 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'split': 'test'}
-        ]
+            {'split': 'test'},
+        ],
     },
-
     # =============================================================================
     # Multi-task Datasets (verified working)
     # =============================================================================
@@ -110,19 +127,15 @@ DATASET_CONFIGS = {
             {'split': 'train'},
             {'split': 'val'},
             {'use_landmarks': True},
-            {'split': 'val', 'use_landmarks': True}
-        ]
+            {'split': 'val', 'use_landmarks': True},
+        ],
     },
     'mnist': {
         'class': MNISTDataset,
         'fixture': 'mnist_data_root',
         'splits': ['train', 'test'],
-        'parameter_variations': [
-            {'split': 'train'},
-            {'split': 'test'}
-        ]
+        'parameter_variations': [{'split': 'train'}, {'split': 'test'}],
     },
-
     # =============================================================================
     # PCR Datasets (verified working)
     # =============================================================================
@@ -133,8 +146,8 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'split': 'test'}
-        ]
+            {'split': 'test'},
+        ],
     },
     '3dlomatch': {
         'class': ThreeDLoMatchDataset,
@@ -143,8 +156,8 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'split': 'test'}
-        ]
+            {'split': 'test'},
+        ],
     },
     'modelnet40': {
         'class': ModelNet40Dataset,
@@ -155,7 +168,7 @@ DATASET_CONFIGS = {
             {'split': 'train'},
             {'split': 'test'},
             {'rotation_mag': 30.0, 'translation_mag': 0.3},
-            {'keep_ratio': 0.8, 'matching_radius': 0.03}
+            {'keep_ratio': 0.8, 'matching_radius': 0.03},
         ],
         'extra_args': {
             'dataset_size': 50,
@@ -163,10 +176,9 @@ DATASET_CONFIGS = {
             'matching_radius': 0.05,
             'rotation_mag': 45.0,
             'translation_mag': 0.5,
-            'keep_ratio': 0.7
-        }
+            'keep_ratio': 0.7,
+        },
     },
-
     # =============================================================================
     # Semantic Segmentation Datasets (verified working)
     # =============================================================================
@@ -177,10 +189,9 @@ DATASET_CONFIGS = {
         'parameter_variations': [
             {'split': 'train'},
             {'split': 'val'},
-            {'split': 'test'}
-        ]
+            {'split': 'test'},
+        ],
     },
-
     # =============================================================================
     # Synthetic Datasets (verified working)
     # =============================================================================
@@ -192,13 +203,9 @@ DATASET_CONFIGS = {
             {'num_classes': 20},
             {'num_examples': 100},
             {'image_res': (64, 64)},
-            {'num_classes': 20, 'num_examples': 100}
+            {'num_classes': 20, 'num_examples': 100},
         ],
-        'extra_args': {
-            'num_examples': 50,
-            'num_classes': 10,
-            'image_res': (32, 32)
-        }
+        'extra_args': {'num_examples': 50, 'num_classes': 10, 'image_res': (32, 32)},
     },
     'semantic_segmentation_random': {
         'class': SemanticSegmentationRandomDataset,
@@ -208,12 +215,9 @@ DATASET_CONFIGS = {
             {'num_classes': 151},
             {'num_examples': 100},
             {'base_seed': 42},
-            {'num_classes': 151, 'num_examples': 100}
+            {'num_classes': 151, 'num_examples': 100},
         ],
-        'extra_args': {
-            'num_examples': 50,
-            'num_classes': 21
-        }
+        'extra_args': {'num_examples': 50, 'num_classes': 21},
     },
 }
 
@@ -221,6 +225,7 @@ DATASET_CONFIGS = {
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def create_dataset_instance(dataset_name: str, request, **kwargs):
     """Create a dataset instance using build_from_config with fixtures."""
@@ -244,10 +249,7 @@ def create_dataset_instance(dataset_name: str, request, **kwargs):
     # Override with any provided kwargs
     args.update(kwargs)
 
-    dataset_config = {
-        'class': config['class'],
-        'args': args
-    }
+    dataset_config = {'class': config['class'], 'args': args}
     return build_from_config(dataset_config)
 
 
@@ -265,7 +267,9 @@ def validate_hash_format(hash_val: str) -> None:
     """Validate that hash is in correct format."""
     assert isinstance(hash_val, str), f"Hash should be string, got {type(hash_val)}"
     assert len(hash_val) == 16, f"Hash should be 16 characters, got {len(hash_val)}"
-    assert all(c in '0123456789abcdef' for c in hash_val.lower()), f"Hash should be hexadecimal: {hash_val}"
+    assert all(
+        c in '0123456789abcdef' for c in hash_val.lower()
+    ), f"Hash should be hexadecimal: {hash_val}"
 
 
 def has_splits(dataset_name: str) -> bool:
@@ -282,6 +286,7 @@ def is_multi_split_dataset(dataset_name: str) -> bool:
 # Common Test Functions - Core Hash Behavior
 # =============================================================================
 
+
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
 def test_same_parameters_same_hash(dataset_name, request):
     """Test that identical parameters produce identical hashes."""
@@ -295,7 +300,9 @@ def test_same_parameters_same_hash(dataset_name, request):
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
 
-    assert hash1 == hash2, f"{dataset_name}: Same parameters should produce same hash: {hash1} != {hash2}"
+    assert (
+        hash1 == hash2
+    ), f"{dataset_name}: Same parameters should produce same hash: {hash1} != {hash2}"
 
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
@@ -323,14 +330,20 @@ def test_data_root_excluded_from_hash(dataset_name, request):
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
 
-    assert hash1 == hash2, f"{dataset_name}: Same data roots should produce same hashes: {hash1} != {hash2}"
+    assert (
+        hash1 == hash2
+    ), f"{dataset_name}: Same data roots should produce same hashes: {hash1} != {hash2}"
 
 
 # =============================================================================
 # Hash Discrimination Tests - Split-based (for datasets with splits)
 # =============================================================================
 
-@pytest.mark.parametrize('dataset_name', [name for name in DATASET_CONFIGS.keys() if is_multi_split_dataset(name)])
+
+@pytest.mark.parametrize(
+    'dataset_name',
+    [name for name in DATASET_CONFIGS.keys() if is_multi_split_dataset(name)],
+)
 def test_different_split_different_hash(dataset_name, request):
     """Test that different splits produce different hashes."""
     splits = get_dataset_splits(dataset_name)
@@ -342,10 +355,14 @@ def test_different_split_different_hash(dataset_name, request):
     hash1 = dataset1.get_cache_version_hash()
     hash2 = dataset2.get_cache_version_hash()
 
-    assert hash1 != hash2, f"{dataset_name}: Different splits should produce different hashes: {hash1} == {hash2}"
+    assert (
+        hash1 != hash2
+    ), f"{dataset_name}: Different splits should produce different hashes: {hash1} == {hash2}"
 
 
-@pytest.mark.parametrize('dataset_name', [name for name in DATASET_CONFIGS.keys() if has_splits(name)])
+@pytest.mark.parametrize(
+    'dataset_name', [name for name in DATASET_CONFIGS.keys() if has_splits(name)]
+)
 def test_split_based_hash_collisions(dataset_name, request):
     """Test that all splits produce unique hashes (no collisions)."""
     splits = get_dataset_splits(dataset_name)
@@ -356,17 +373,22 @@ def test_split_based_hash_collisions(dataset_name, request):
         hash_val = dataset.get_cache_version_hash()
 
         # Check for collision
-        assert hash_val not in hashes, f"{dataset_name}: Hash collision detected for split {split}: hash {hash_val} already exists"
+        assert (
+            hash_val not in hashes
+        ), f"{dataset_name}: Hash collision detected for split {split}: hash {hash_val} already exists"
         hashes.append(hash_val)
 
     # Verify we generated the expected number of unique hashes
     expected_count = len(splits)
-    assert len(hashes) == expected_count, f"{dataset_name}: Expected {expected_count} unique hashes, got {len(hashes)}"
+    assert (
+        len(hashes) == expected_count
+    ), f"{dataset_name}: Expected {expected_count} unique hashes, got {len(hashes)}"
 
 
 # =============================================================================
 # Hash Discrimination Tests - Parameter-based (comprehensive variations)
 # =============================================================================
+
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
 def test_parameter_variations_hash_discrimination(dataset_name, request):
@@ -374,7 +396,9 @@ def test_parameter_variations_hash_discrimination(dataset_name, request):
     variations = get_parameter_variations(dataset_name)
 
     if len(variations) < 2:
-        pytest.skip(f"Dataset {dataset_name} has insufficient parameter variations for discrimination testing")
+        pytest.skip(
+            f"Dataset {dataset_name} has insufficient parameter variations for discrimination testing"
+        )
 
     hashes = []
     for i, params in enumerate(variations):
@@ -382,12 +406,16 @@ def test_parameter_variations_hash_discrimination(dataset_name, request):
         hash_val = dataset.get_cache_version_hash()
 
         # Check for collision
-        assert hash_val not in hashes, f"{dataset_name}: Hash collision detected for variation {i} {params}: hash {hash_val} already exists"
+        assert (
+            hash_val not in hashes
+        ), f"{dataset_name}: Hash collision detected for variation {i} {params}: hash {hash_val} already exists"
         hashes.append(hash_val)
 
     # Verify we generated the expected number of unique hashes
     expected_count = len(variations)
-    assert len(hashes) == expected_count, f"{dataset_name}: Expected {expected_count} unique hashes, got {len(hashes)}"
+    assert (
+        len(hashes) == expected_count
+    ), f"{dataset_name}: Expected {expected_count} unique hashes, got {len(hashes)}"
 
 
 @pytest.mark.parametrize('dataset_name', list(DATASET_CONFIGS.keys()))
@@ -406,13 +434,17 @@ def test_comprehensive_no_hash_collisions(dataset_name, request):
     seen_hashes = {}
     for hash_val, params in all_hashes:
         if hash_val in seen_hashes:
-            pytest.fail(f"{dataset_name}: Hash collision detected!\n"
-                       f"Hash {hash_val} appears for both:\n"
-                       f"1. {seen_hashes[hash_val]}\n"
-                       f"2. {params}")
+            pytest.fail(
+                f"{dataset_name}: Hash collision detected!\n"
+                f"Hash {hash_val} appears for both:\n"
+                f"1. {seen_hashes[hash_val]}\n"
+                f"2. {params}"
+            )
         seen_hashes[hash_val] = params
 
     # Verify we have the expected number of unique hashes
     expected_count = len(variations)
     actual_count = len(seen_hashes)
-    assert actual_count == expected_count, f"{dataset_name}: Expected {expected_count} unique hashes, got {actual_count}"
+    assert (
+        actual_count == expected_count
+    ), f"{dataset_name}: Expected {expected_count} unique hashes, got {actual_count}"

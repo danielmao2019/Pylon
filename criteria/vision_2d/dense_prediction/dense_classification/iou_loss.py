@@ -1,7 +1,11 @@
 from typing import Optional
+
 import torch
 import torch.nn.functional as F
-from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_classification.base import (
+    DenseClassificationCriterion,
+)
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -69,16 +73,13 @@ class IoULoss(DenseClassificationCriterion):
         Returns:
             Boolean tensor of shape (N, H, W), True for valid pixels
         """
-        valid_mask = (y_true != self.ignore_value)
+        valid_mask = y_true != self.ignore_value
         if valid_mask.sum() == 0:
             raise ValueError("All pixels in target are ignored. Cannot compute loss.")
         return valid_mask
 
     def _compute_per_class_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute IoU loss for each class and sample in the batch.
@@ -93,7 +94,9 @@ class IoULoss(DenseClassificationCriterion):
         """
         # Compute intersection and union
         intersection = torch.sum(y_pred * y_true * valid_mask, dim=(2, 3))  # (N, C)
-        union = torch.sum((y_pred + y_true - y_pred * y_true) * valid_mask, dim=(2, 3))  # (N, C)
+        union = torch.sum(
+            (y_pred + y_true - y_pred * y_true) * valid_mask, dim=(2, 3)
+        )  # (N, C)
 
         # Compute IoU
         iou = intersection / union.clamp(min=1e-6)

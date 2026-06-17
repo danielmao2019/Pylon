@@ -1,8 +1,12 @@
-from typing import Tuple, Dict, Any
 import os
+from typing import Any, Dict, Tuple
+
 import torch
 import torchvision
-from data.datasets.image_classification_datasets.base_imgcls_dataset import BaseImgClsDataset
+
+from data.datasets.image_classification_datasets.base_imgcls_dataset import (
+    BaseImgClsDataset,
+)
 
 
 class MNISTDataset(BaseImgClsDataset):
@@ -18,11 +22,13 @@ class MNISTDataset(BaseImgClsDataset):
     def _init_annotations(self) -> None:
         self.annotations = torchvision.datasets.MNIST(
             root=self.data_root,
-            train=self.split=='train',
+            train=self.split == 'train',
             download=True,
-            transform=torchvision.transforms.Compose([
-                torchvision.transforms.ToTensor(),  # Convert to tensor
-            ])
+            transform=torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.ToTensor(),  # Convert to tensor
+                ]
+            ),
         )
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
@@ -31,7 +37,9 @@ class MNISTDataset(BaseImgClsDataset):
         return super()._get_cache_version_dict()
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         image, label = self.annotations[idx]
 
@@ -41,6 +49,5 @@ class MNISTDataset(BaseImgClsDataset):
         labels = {
             'label': torch.tensor(label, dtype=torch.int64),
         }
-        meta_info = {
-        }
+        meta_info = {}
         return inputs, labels, meta_info

@@ -1,6 +1,9 @@
-import torch
 import pytest
-from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import TransformInlierRatio
+import torch
+
+from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import (
+    TransformInlierRatio,
+)
 
 
 def create_datapoint(src_pc, tgt_pc, transform, idx=0):
@@ -12,13 +15,10 @@ def create_datapoint(src_pc, tgt_pc, transform, idx=0):
         transform: Predicted transformation matrix
     """
     return {
-        'inputs': {
-            'src_pc': src_pc,
-            'tgt_pc': tgt_pc
-        },
+        'inputs': {'src_pc': src_pc, 'tgt_pc': tgt_pc},
         'outputs': {'transform': transform},
         'labels': {},  # Not used by this metric
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -36,8 +36,12 @@ def test_transform_inlier_ratio_initialization():
 def test_transform_inlier_ratio_perfect_match(metric):
     """Test with identity transform - all points should be inliers."""
     # Create source and target point clouds that are identical
-    src_pc = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    tgt_pc = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
+    src_pc = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    tgt_pc = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
     transform = torch.eye(4, dtype=torch.float32)  # Identity transform
 
     datapoint = create_datapoint(src_pc, tgt_pc, transform)
@@ -50,10 +54,15 @@ def test_transform_inlier_ratio_perfect_match(metric):
 def test_transform_inlier_ratio_partial_match(metric):
     """Test with some inliers and some outliers."""
     # Source points
-    src_pc = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
+    src_pc = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
 
     # Target points: first two close to source after transform, third far away
-    tgt_pc = torch.tensor([[0.05, 0.05, 0.05], [1.05, 1.05, 1.05], [10.0, 10.0, 10.0]], dtype=torch.float32)
+    tgt_pc = torch.tensor(
+        [[0.05, 0.05, 0.05], [1.05, 1.05, 1.05], [10.0, 10.0, 10.0]],
+        dtype=torch.float32,
+    )
 
     transform = torch.eye(4, dtype=torch.float32)  # Identity transform
 
@@ -63,16 +72,20 @@ def test_transform_inlier_ratio_partial_match(metric):
     assert 'inlier_ratio' in result
     # First two points should be inliers (distance ~0.087 < threshold 0.1)
     # Third point should be outlier (distance ~13.86 > threshold 0.1)
-    assert torch.isclose(result['inlier_ratio'], torch.tensor(2/3), atol=1e-3)
+    assert torch.isclose(result['inlier_ratio'], torch.tensor(2 / 3), atol=1e-3)
 
 
 def test_transform_inlier_ratio_with_translation(metric):
     """Test with translation transform."""
     # Source points
-    src_pc = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
+    src_pc = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
 
     # Target points: source points translated by [1, 1, 1]
-    tgt_pc = torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [3.0, 3.0, 3.0]], dtype=torch.float32)
+    tgt_pc = torch.tensor(
+        [[1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [3.0, 3.0, 3.0]], dtype=torch.float32
+    )
 
     # Translation transform by [1, 1, 1]
     transform = torch.eye(4, dtype=torch.float32)
@@ -138,10 +151,12 @@ def test_transform_inlier_ratio_invalid_inputs(metric):
     # Test with missing required keys
     with pytest.raises(AssertionError):
         datapoint = {
-            'inputs': {'src_pc': torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)},  # Missing tgt_pc
+            'inputs': {
+                'src_pc': torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
+            },  # Missing tgt_pc
             'outputs': {'transform': torch.eye(4, dtype=torch.float32)},
             'labels': {},
-            'meta_info': {'idx': 0}
+            'meta_info': {'idx': 0},
         }
         metric(datapoint)
 
@@ -151,14 +166,19 @@ def test_transform_inlier_ratio_different_point_counts():
     metric = TransformInlierRatio(threshold=0.1)
 
     # 3 source points, 5 target points
-    src_pc = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    tgt_pc = torch.tensor([
-        [0.05, 0.05, 0.05],   # Close to src[0]
-        [1.05, 1.05, 1.05],   # Close to src[1]
-        [2.05, 2.05, 2.05],   # Close to src[2]
-        [10.0, 10.0, 10.0],   # Far from all
-        [20.0, 20.0, 20.0]    # Far from all
-    ], dtype=torch.float32)
+    src_pc = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    tgt_pc = torch.tensor(
+        [
+            [0.05, 0.05, 0.05],  # Close to src[0]
+            [1.05, 1.05, 1.05],  # Close to src[1]
+            [2.05, 2.05, 2.05],  # Close to src[2]
+            [10.0, 10.0, 10.0],  # Far from all
+            [20.0, 20.0, 20.0],  # Far from all
+        ],
+        dtype=torch.float32,
+    )
 
     transform = torch.eye(4, dtype=torch.float32)
 

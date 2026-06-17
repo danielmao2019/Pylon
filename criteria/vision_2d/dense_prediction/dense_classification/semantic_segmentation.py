@@ -1,7 +1,11 @@
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 import torch
 import torch.nn.functional as F
-from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_classification.base import (
+    DenseClassificationCriterion,
+)
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -76,10 +80,7 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
         return valid_mask
 
     def _compute_per_class_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute cross-entropy loss for each class and sample in the batch.
@@ -93,10 +94,14 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
             Loss tensor of shape (N, C) containing per-class losses for each sample
         """
         # Compute cross entropy loss per class
-        ce_per_class = -torch.sum(y_true * torch.log(y_pred.clamp(min=1e-6)) * valid_mask, dim=(2, 3))  # (N, C)
+        ce_per_class = -torch.sum(
+            y_true * torch.log(y_pred.clamp(min=1e-6)) * valid_mask, dim=(2, 3)
+        )  # (N, C)
 
         # Normalize by number of valid pixels per sample
         valid_pixels_per_sample = valid_mask.squeeze(1).sum(dim=(1, 2))  # (N,)
-        ce_per_class = ce_per_class / valid_pixels_per_sample.unsqueeze(1).clamp(min=1)  # (N, C)
+        ce_per_class = ce_per_class / valid_pixels_per_sample.unsqueeze(1).clamp(
+            min=1
+        )  # (N, C)
 
         return ce_per_class

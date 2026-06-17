@@ -10,6 +10,7 @@ class MLP(torch.nn.Module):
     """
     Linear Embedding
     """
+
     def __init__(self, input_dim=2048, embed_dim=768):
         super().__init__()
         self.proj = torch.nn.Linear(input_dim, embed_dim)
@@ -21,7 +22,14 @@ class MLP(torch.nn.Module):
 
 
 class Mlp(torch.nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=torch.nn.GELU, drop=0.):
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=torch.nn.GELU,
+        drop=0.0,
+    ):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
@@ -35,7 +43,7 @@ class Mlp(torch.nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, torch.nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, torch.nn.Linear) and m.bias is not None:
                 torch.nn.init.constant_(m.bias, 0)
         elif isinstance(m, torch.nn.LayerNorm):

@@ -1,7 +1,7 @@
 """Manager fixtures shared across tests."""
 
-import os
 import json
+import os
 import tempfile
 import time
 from typing import List, Optional
@@ -9,12 +9,11 @@ from typing import List, Optional
 import pytest
 import torch
 
-
-from utils.io.json import save_json
-from agents.monitor.system_monitor import SystemMonitor
-from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.cpu_status import CPUStatus
+from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
+from agents.monitor.system_monitor import SystemMonitor
+from utils.io.json import save_json
 
 
 def make_command(config_path: str) -> str:
@@ -255,19 +254,23 @@ def create_system_monitor_with_processes():
                     connected=True,
                 )
             ]
-            self._connected_cpu = CPUStatus(
-                server=server,
-                window_size=self.window_size,
-                max_memory=0,
-                processes=cpu_processes,
-                memory_window=[],
-                cpu_window=[],
-                load_window=[],
-                memory_stats=None,
-                cpu_stats=None,
-                load_stats=None,
-                connected=bool(cpu_processes),
-            ) if cpu_processes else None
+            self._connected_cpu = (
+                CPUStatus(
+                    server=server,
+                    window_size=self.window_size,
+                    max_memory=0,
+                    processes=cpu_processes,
+                    memory_window=[],
+                    cpu_window=[],
+                    load_window=[],
+                    memory_stats=None,
+                    cpu_stats=None,
+                    load_stats=None,
+                    connected=bool(cpu_processes),
+                )
+                if cpu_processes
+                else None
+            )
 
         @property
         def connected_gpus(self) -> List[GPUStatus]:

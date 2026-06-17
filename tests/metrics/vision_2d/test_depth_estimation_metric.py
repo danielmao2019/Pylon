@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.vision_2d.depth_estimation_metric import DepthEstimationMetric
 
 
@@ -9,22 +10,37 @@ def create_datapoint(y_pred, y_true, idx=0):
         'inputs': {},  # Empty for these tests
         'outputs': y_pred,
         'labels': y_true,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
-@pytest.mark.parametrize("y_pred, y_true", [
-    (
-        torch.tensor([[
-            [[1.0], [2.0]],
-            [[3.0], [4.0]],
-        ]], dtype=torch.float32).permute(0, 3, 1, 2),  # [1, 1, 2, 2]
-        torch.tensor([[
-            [1.0, 2.0],
-            [3.0, 4.0],
-        ]], dtype=torch.float32),  # [1, 2, 2]
-    ),
-])
+@pytest.mark.parametrize(
+    "y_pred, y_true",
+    [
+        (
+            torch.tensor(
+                [
+                    [
+                        [[1.0], [2.0]],
+                        [[3.0], [4.0]],
+                    ]
+                ],
+                dtype=torch.float32,
+            ).permute(
+                0, 3, 1, 2
+            ),  # [1, 1, 2, 2]
+            torch.tensor(
+                [
+                    [
+                        [1.0, 2.0],
+                        [3.0, 4.0],
+                    ]
+                ],
+                dtype=torch.float32,
+            ),  # [1, 2, 2]
+        ),
+    ],
+)
 def test_depth_estimation_metric_call(y_pred, y_true):
     """Tests depth estimation metric computation for a single datapoint."""
     metric = DepthEstimationMetric()
@@ -37,30 +53,57 @@ def test_depth_estimation_metric_call(y_pred, y_true):
     assert score['l1'].ndim == 0  # Scalar tensor
 
 
-@pytest.mark.parametrize("y_preds, y_trues", [
-    (
-        [
-            torch.tensor([[
-                [[1.0], [2.0]],
-                [[3.0], [4.0]],
-            ]], dtype=torch.float32).permute(0, 3, 1, 2),  # [1, 1, 2, 2]
-            torch.tensor([[
-                [[1.0], [2.0]],
-                [[3.0], [4.0]],
-            ]], dtype=torch.float32).permute(0, 3, 1, 2),  # [1, 1, 2, 2]
-        ],
-        [
-            torch.tensor([[
-                [1.0, 2.0],
-                [3.0, 4.0],
-            ]], dtype=torch.float32),  # [1, 2, 2]
-            torch.tensor([[
-                [1.0, 2.0],
-                [3.0, 4.0],
-            ]], dtype=torch.float32),  # [1, 2, 2]
-        ],
-    ),
-])
+@pytest.mark.parametrize(
+    "y_preds, y_trues",
+    [
+        (
+            [
+                torch.tensor(
+                    [
+                        [
+                            [[1.0], [2.0]],
+                            [[3.0], [4.0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ).permute(
+                    0, 3, 1, 2
+                ),  # [1, 1, 2, 2]
+                torch.tensor(
+                    [
+                        [
+                            [[1.0], [2.0]],
+                            [[3.0], [4.0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ).permute(
+                    0, 3, 1, 2
+                ),  # [1, 1, 2, 2]
+            ],
+            [
+                torch.tensor(
+                    [
+                        [
+                            [1.0, 2.0],
+                            [3.0, 4.0],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),  # [1, 2, 2]
+                torch.tensor(
+                    [
+                        [
+                            [1.0, 2.0],
+                            [3.0, 4.0],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),  # [1, 2, 2]
+            ],
+        ),
+    ],
+)
 def test_depth_estimation_metric_summarize(y_preds, y_trues):
     """Tests depth estimation metric summarization across multiple datapoints."""
     metric = DepthEstimationMetric()

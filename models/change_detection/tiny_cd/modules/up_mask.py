@@ -1,4 +1,5 @@
 from typing import Optional
+
 import torch
 
 
@@ -23,7 +24,9 @@ class UpMask(torch.nn.Module):
             torch.nn.InstanceNorm2d(nout),
         )
 
-    def forward(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, y: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         x = self._upsample(x)
         if y is not None:
             x = x * y

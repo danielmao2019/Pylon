@@ -1,8 +1,9 @@
+import math
 from typing import Dict
+
 import torch
 import torch.nn as nn
 from torch.nn import Softmax
-import math
 
 
 class CAM_Module(nn.Module):
@@ -20,9 +21,13 @@ class CAM_Module(nn.Module):
         # Project to query and key with scaling
         scale = 1.0 / math.sqrt(height * width)
         proj_query = x.view(m_batchsize, C, -1) * math.sqrt(scale)  # Scale before bmm
-        proj_key = x.view(m_batchsize, C, -1).permute(0, 2, 1) * math.sqrt(scale)  # Scale before bmm
+        proj_key = x.view(m_batchsize, C, -1).permute(0, 2, 1) * math.sqrt(
+            scale
+        )  # Scale before bmm
 
-        energy = torch.bmm(proj_query, proj_key)  # Already scaled because inputs are scaled
+        energy = torch.bmm(
+            proj_query, proj_key
+        )  # Already scaled because inputs are scaled
         max_energy = torch.max(energy, -1, keepdim=True)[0]
         energy_new = max_energy.expand_as(energy) - energy
         attention = self.softmax(energy_new)
@@ -44,7 +49,7 @@ class Conv_CAM_Layer(nn.Module):
             CAM_Module(32),
             nn.Conv2d(32, out_in, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_in),
-            nn.PReLU()
+            nn.PReLU(),
         )
 
     def forward(self, x):
@@ -53,6 +58,7 @@ class Conv_CAM_Layer(nn.Module):
 
 class FEC(nn.Module):
     """Feature extraction cell"""
+
     def __init__(self, in_ch, mid_ch, out_ch):
         super(FEC, self).__init__()
         self.activation = nn.ReLU(inplace=True)
@@ -86,9 +92,15 @@ class RowAttention(nn.Module):
         super(RowAttention, self).__init__()
         self.in_dim = in_dim
         self.q_k_dim = q_k_dim
-        self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1)
-        self.key_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1)
-        self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.in_dim, kernel_size=1)
+        self.query_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1
+        )
+        self.key_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1
+        )
+        self.value_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=self.in_dim, kernel_size=1
+        )
         self.softmax = Softmax(dim=2)
         self.gamma = nn.Parameter(torch.zeros(1))
 
@@ -105,13 +117,17 @@ class RowAttention(nn.Module):
         K = self.key_conv(x)  # size = (b, c2, h, w)
         V = self.value_conv(x)  # size = (b, c1,h,w)
 
-        Q = Q.permute(0, 2, 1, 3).contiguous().view(b * h, -1, w).permute(0, 2, 1)  # size = (b*h,w,c2)
+        Q = (
+            Q.permute(0, 2, 1, 3).contiguous().view(b * h, -1, w).permute(0, 2, 1)
+        )  # size = (b*h,w,c2)
         K = K.permute(0, 2, 1, 3).contiguous().view(b * h, -1, w)  # size = (b*h,c2,w)
         V = V.permute(0, 2, 1, 3).contiguous().view(b * h, -1, w)  # size = (b*h, c1,w)
 
         # size = (b*h,w,w) [:,i,j] represents the product of all channel values of Q at position Wi of all h with all channel values of K at position Wj of all h
         row_attn = torch.bmm(Q, K)
-        row_attn = self.softmax(row_attn)  # softmax along columns, sum of all columns in a row equals 1
+        row_attn = self.softmax(
+            row_attn
+        )  # softmax along columns, sum of all columns in a row equals 1
 
         # size = (b*h,c1,w) transpose row_attn to make sum of all rows in a column equals 1
         out = torch.bmm(V, row_attn.permute(0, 2, 1))
@@ -134,9 +150,15 @@ class ColAttention(nn.Module):
         super(ColAttention, self).__init__()
         self.in_dim = in_dim
         self.q_k_dim = q_k_dim
-        self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1)
-        self.key_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1)
-        self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.in_dim, kernel_size=1)
+        self.query_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1
+        )
+        self.key_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=self.q_k_dim, kernel_size=1
+        )
+        self.value_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=self.in_dim, kernel_size=1
+        )
         self.softmax = Softmax(dim=2)
         self.gamma = nn.Parameter(torch.zeros(1))
 
@@ -153,13 +175,17 @@ class ColAttention(nn.Module):
         K = self.key_conv(x)  # size = (b, c2, h, w)
         V = self.value_conv(x)  # size = (b, c1,h,w)
 
-        Q = Q.permute(0, 3, 1, 2).contiguous().view(b * w, -1, h).permute(0, 2, 1)  # size = (b*w,h,c2)
+        Q = (
+            Q.permute(0, 3, 1, 2).contiguous().view(b * w, -1, h).permute(0, 2, 1)
+        )  # size = (b*w,h,c2)
         K = K.permute(0, 3, 1, 2).contiguous().view(b * w, -1, h)  # size = (b*w,c2,h)
         V = V.permute(0, 3, 1, 2).contiguous().view(b * w, -1, h)  # size = (b*w,c1,h)
 
         # size = (b*w,h,h) [:,i,j] represents the product of all channel values of Q at position Hi of all W with all channel values of K at position Hj of all W
         col_attn = torch.bmm(Q, K)
-        col_attn = self.softmax(col_attn)  # softmax along columns, sum of all columns in a row equals 1
+        col_attn = self.softmax(
+            col_attn
+        )  # softmax along columns, sum of all columns in a row equals 1
 
         # size = (b*w,c1,h) transpose col_attn to make sum of all rows in a column equals 1
         out = torch.bmm(V, col_attn.permute(0, 2, 1))
@@ -170,6 +196,7 @@ class ColAttention(nn.Module):
 
 class HANet(nn.Module):
     """HANet"""
+
     def __init__(self, in_ch=3, ou_ch=2):
         super(HANet, self).__init__()
         torch.nn.Module.dump_patches = True
@@ -184,28 +211,140 @@ class HANet(nn.Module):
         self.conv6 = nn.Conv2d(600, filters[1], kernel_size=1, stride=1)
         self.conv7 = nn.Conv2d(filters[1], ou_ch, kernel_size=3, padding=1, bias=False)
 
-        self.conv6_1_1 = nn.Conv2d(filters[0] * 2, filters[0], padding=1, kernel_size=3, groups=filters[0] // 2, dilation=1)
-        self.conv6_1_2 = nn.Conv2d(filters[0] * 2, filters[0], padding=2, kernel_size=3, groups=filters[0] // 2, dilation=2)
-        self.conv6_1_3 = nn.Conv2d(filters[0] * 2, filters[0], padding=3, kernel_size=3, groups=filters[0] // 2, dilation=3)
-        self.conv6_1_4 = nn.Conv2d(filters[0] * 2, filters[0], padding=4, kernel_size=3, groups=filters[0] // 2, dilation=4)
+        self.conv6_1_1 = nn.Conv2d(
+            filters[0] * 2,
+            filters[0],
+            padding=1,
+            kernel_size=3,
+            groups=filters[0] // 2,
+            dilation=1,
+        )
+        self.conv6_1_2 = nn.Conv2d(
+            filters[0] * 2,
+            filters[0],
+            padding=2,
+            kernel_size=3,
+            groups=filters[0] // 2,
+            dilation=2,
+        )
+        self.conv6_1_3 = nn.Conv2d(
+            filters[0] * 2,
+            filters[0],
+            padding=3,
+            kernel_size=3,
+            groups=filters[0] // 2,
+            dilation=3,
+        )
+        self.conv6_1_4 = nn.Conv2d(
+            filters[0] * 2,
+            filters[0],
+            padding=4,
+            kernel_size=3,
+            groups=filters[0] // 2,
+            dilation=4,
+        )
         self.conv1_1 = nn.Conv2d(filters[0] * 4, filters[0], kernel_size=1, stride=1)
 
-        self.conv6_2_1 = nn.Conv2d(filters[1] * 2, filters[1], padding=1, kernel_size=3, groups=filters[1] // 2, dilation=1)
-        self.conv6_2_2 = nn.Conv2d(filters[1] * 2, filters[1], padding=2, kernel_size=3, groups=filters[1] // 2, dilation=2)
-        self.conv6_2_3 = nn.Conv2d(filters[1] * 2, filters[1], padding=3, kernel_size=3, groups=filters[1] // 2, dilation=3)
-        self.conv6_2_4 = nn.Conv2d(filters[1] * 2, filters[1], padding=4, kernel_size=3, groups=filters[1] // 2, dilation=4)
+        self.conv6_2_1 = nn.Conv2d(
+            filters[1] * 2,
+            filters[1],
+            padding=1,
+            kernel_size=3,
+            groups=filters[1] // 2,
+            dilation=1,
+        )
+        self.conv6_2_2 = nn.Conv2d(
+            filters[1] * 2,
+            filters[1],
+            padding=2,
+            kernel_size=3,
+            groups=filters[1] // 2,
+            dilation=2,
+        )
+        self.conv6_2_3 = nn.Conv2d(
+            filters[1] * 2,
+            filters[1],
+            padding=3,
+            kernel_size=3,
+            groups=filters[1] // 2,
+            dilation=3,
+        )
+        self.conv6_2_4 = nn.Conv2d(
+            filters[1] * 2,
+            filters[1],
+            padding=4,
+            kernel_size=3,
+            groups=filters[1] // 2,
+            dilation=4,
+        )
         self.conv2_1 = nn.Conv2d(filters[1] * 4, filters[1], kernel_size=1, stride=1)
 
-        self.conv6_3_1 = nn.Conv2d(filters[2] * 2, filters[2], padding=1, kernel_size=3, groups=filters[2] // 2, dilation=1)
-        self.conv6_3_2 = nn.Conv2d(filters[2] * 2, filters[2], padding=2, kernel_size=3, groups=filters[2] // 2, dilation=2)
-        self.conv6_3_3 = nn.Conv2d(filters[2] * 2, filters[2], padding=3, kernel_size=3, groups=filters[2] // 2, dilation=3)
-        self.conv6_3_4 = nn.Conv2d(filters[2] * 2, filters[2], padding=4, kernel_size=3, groups=filters[2] // 2, dilation=4)
+        self.conv6_3_1 = nn.Conv2d(
+            filters[2] * 2,
+            filters[2],
+            padding=1,
+            kernel_size=3,
+            groups=filters[2] // 2,
+            dilation=1,
+        )
+        self.conv6_3_2 = nn.Conv2d(
+            filters[2] * 2,
+            filters[2],
+            padding=2,
+            kernel_size=3,
+            groups=filters[2] // 2,
+            dilation=2,
+        )
+        self.conv6_3_3 = nn.Conv2d(
+            filters[2] * 2,
+            filters[2],
+            padding=3,
+            kernel_size=3,
+            groups=filters[2] // 2,
+            dilation=3,
+        )
+        self.conv6_3_4 = nn.Conv2d(
+            filters[2] * 2,
+            filters[2],
+            padding=4,
+            kernel_size=3,
+            groups=filters[2] // 2,
+            dilation=4,
+        )
         self.conv3_1 = nn.Conv2d(filters[2] * 4, filters[2], kernel_size=1, stride=1)
 
-        self.conv6_4_1 = nn.Conv2d(filters[3] * 2, filters[3], padding=1, kernel_size=3, groups=filters[3] // 2, dilation=1)
-        self.conv6_4_2 = nn.Conv2d(filters[3] * 2, filters[3], padding=2, kernel_size=3, groups=filters[3] // 2, dilation=2)
-        self.conv6_4_3 = nn.Conv2d(filters[3] * 2, filters[3], padding=3, kernel_size=3, groups=filters[3] // 2, dilation=3)
-        self.conv6_4_4 = nn.Conv2d(filters[3] * 2, filters[3], padding=4, kernel_size=3, groups=filters[3] // 2, dilation=4)
+        self.conv6_4_1 = nn.Conv2d(
+            filters[3] * 2,
+            filters[3],
+            padding=1,
+            kernel_size=3,
+            groups=filters[3] // 2,
+            dilation=1,
+        )
+        self.conv6_4_2 = nn.Conv2d(
+            filters[3] * 2,
+            filters[3],
+            padding=2,
+            kernel_size=3,
+            groups=filters[3] // 2,
+            dilation=2,
+        )
+        self.conv6_4_3 = nn.Conv2d(
+            filters[3] * 2,
+            filters[3],
+            padding=3,
+            kernel_size=3,
+            groups=filters[3] // 2,
+            dilation=3,
+        )
+        self.conv6_4_4 = nn.Conv2d(
+            filters[3] * 2,
+            filters[3],
+            padding=4,
+            kernel_size=3,
+            groups=filters[3] // 2,
+            dilation=4,
+        )
         self.conv4_1 = nn.Conv2d(filters[3] * 4, filters[3], kernel_size=1, stride=1)
 
         # SA
@@ -262,24 +401,85 @@ class HANet(nn.Module):
 
         print('Current module: HANet-WHU-Fixed15-Epo50')
         c4_1 = self.conv4_1(
-            torch.cat([self.conv6_4_1(torch.cat([A_F4, A_F8], 1)), self.conv6_4_2(torch.cat([A_F4, A_F8], 1)),
-                      self.conv6_4_3(torch.cat([A_F4, A_F8], 1)), self.conv6_4_4(torch.cat([A_F4, A_F8], 1))], 1))
-        c4 = self.cam_attention_4(c4_1) + self.row_attention_4(self.col_attention_4(c4_1))
+            torch.cat(
+                [
+                    self.conv6_4_1(torch.cat([A_F4, A_F8], 1)),
+                    self.conv6_4_2(torch.cat([A_F4, A_F8], 1)),
+                    self.conv6_4_3(torch.cat([A_F4, A_F8], 1)),
+                    self.conv6_4_4(torch.cat([A_F4, A_F8], 1)),
+                ],
+                1,
+            )
+        )
+        c4 = self.cam_attention_4(c4_1) + self.row_attention_4(
+            self.col_attention_4(c4_1)
+        )
 
-        c3_1 = (self.conv3_1(torch.cat(
-            [self.conv6_3_1(torch.cat([x4, x6], 1)), self.conv6_3_2(torch.cat([x4, x6], 1)),
-             self.conv6_3_3(torch.cat([x4, x6], 1)), self.conv6_3_4(torch.cat([x4, x6], 1))], 1)))
-        c3 = torch.cat([(self.cam_attention_3(c3_1) + self.row_attention_3(self.col_attention_3(c3_1))), self.Up1(c4)], 1)
+        c3_1 = self.conv3_1(
+            torch.cat(
+                [
+                    self.conv6_3_1(torch.cat([x4, x6], 1)),
+                    self.conv6_3_2(torch.cat([x4, x6], 1)),
+                    self.conv6_3_3(torch.cat([x4, x6], 1)),
+                    self.conv6_3_4(torch.cat([x4, x6], 1)),
+                ],
+                1,
+            )
+        )
+        c3 = torch.cat(
+            [
+                (
+                    self.cam_attention_3(c3_1)
+                    + self.row_attention_3(self.col_attention_3(c3_1))
+                ),
+                self.Up1(c4),
+            ],
+            1,
+        )
 
-        c2_1 = (self.conv2_1(torch.cat(
-            [self.conv6_2_1(torch.cat([x3, x5], 1)), self.conv6_2_2(torch.cat([x3, x5], 1)),
-             self.conv6_2_3(torch.cat([x3, x5], 1)), self.conv6_2_4(torch.cat([x3, x5], 1))], 1)))
-        c2 = torch.cat([(self.cam_attention_2(c2_1) + self.row_attention_2(self.col_attention_2(c2_1))), self.Up1(c3)], 1)
+        c2_1 = self.conv2_1(
+            torch.cat(
+                [
+                    self.conv6_2_1(torch.cat([x3, x5], 1)),
+                    self.conv6_2_2(torch.cat([x3, x5], 1)),
+                    self.conv6_2_3(torch.cat([x3, x5], 1)),
+                    self.conv6_2_4(torch.cat([x3, x5], 1)),
+                ],
+                1,
+            )
+        )
+        c2 = torch.cat(
+            [
+                (
+                    self.cam_attention_2(c2_1)
+                    + self.row_attention_2(self.col_attention_2(c2_1))
+                ),
+                self.Up1(c3),
+            ],
+            1,
+        )
 
-        c1_1 = (self.conv1_1(torch.cat(
-            [self.conv6_1_1(torch.cat([x1, x2], 1)), self.conv6_1_2(torch.cat([x1, x2], 1)),
-             self.conv6_1_3(torch.cat([x1, x2], 1)), self.conv6_1_4(torch.cat([x1, x2], 1))], 1)))
-        c1 = torch.cat([(self.cam_attention_1(c1_1) + self.row_attention_1(self.col_attention_1(c1_1))), self.Up1(c2)], 1)
+        c1_1 = self.conv1_1(
+            torch.cat(
+                [
+                    self.conv6_1_1(torch.cat([x1, x2], 1)),
+                    self.conv6_1_2(torch.cat([x1, x2], 1)),
+                    self.conv6_1_3(torch.cat([x1, x2], 1)),
+                    self.conv6_1_4(torch.cat([x1, x2], 1)),
+                ],
+                1,
+            )
+        )
+        c1 = torch.cat(
+            [
+                (
+                    self.cam_attention_1(c1_1)
+                    + self.row_attention_1(self.col_attention_1(c1_1))
+                ),
+                self.Up1(c2),
+            ],
+            1,
+        )
 
         c1 = self.conv6(c1)
         out1 = self.conv7(c1)

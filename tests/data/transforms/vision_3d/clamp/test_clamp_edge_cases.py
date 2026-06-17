@@ -32,10 +32,14 @@ def test_clamp_single_point():
     """Test Clamp transform with single point (edge case for small point clouds)."""
     clamp = Clamp(max_points=1)
 
-    pc = PointCloud(data={
-        'xyz': torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.float32, device='cuda'),
-        'feat': torch.tensor([[0.5, 0.6, 0.7, 0.8]], dtype=torch.float32, device='cuda'),
-    })
+    pc = PointCloud(
+        data={
+            'xyz': torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.float32, device='cuda'),
+            'feat': torch.tensor(
+                [[0.5, 0.6, 0.7, 0.8]], dtype=torch.float32, device='cuda'
+            ),
+        }
+    )
 
     # Single point should pass through unchanged (1 <= max_points)
     result = clamp(pc, seed=42)
@@ -91,10 +95,12 @@ def test_clamp_different_dtypes(dtype, create_pc_factory):
     """Test Clamp transform with different float dtypes (both should be accepted)."""
     clamp = Clamp(max_points=100)
 
-    pc = PointCloud(data={
-        'xyz': torch.randn(200, 3, dtype=dtype, device='cuda'),
-        'feat': torch.randn(200, 4, dtype=torch.float32, device='cuda'),
-    })
+    pc = PointCloud(
+        data={
+            'xyz': torch.randn(200, 3, dtype=dtype, device='cuda'),
+            'feat': torch.randn(200, 4, dtype=torch.float32, device='cuda'),
+        }
+    )
 
     result = clamp(pc, seed=42)
 

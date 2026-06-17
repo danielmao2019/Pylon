@@ -6,22 +6,36 @@ This ensures that:
 - Cache is stable regardless of where dataset is stored on disk
 """
 
-import pytest
-import tempfile
 import os
 import shutil
+import tempfile
+
+import pytest
 
 # Import all bi-temporal change detection datasets
-from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
+from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import (
+    AirChangeDataset,
+)
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
-from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
-from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
+from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import (
+    KC3DDataset,
+)
+from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import (
+    LevirCdDataset,
+)
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
-from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
-from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
-from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
-from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
-
+from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import (
+    SLPCCDDataset,
+)
+from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import (
+    SYSU_CD_Dataset,
+)
+from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import (
+    Urb3DCDDataset,
+)
+from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import (
+    xView2Dataset,
+)
 
 # Define test cases with dataset class and soft link name
 BI_TEMPORAL_DATASETS = [
@@ -37,7 +51,9 @@ BI_TEMPORAL_DATASETS = [
 ]
 
 
-def create_soft_link_to_dataset(original_path: str, link_name: str, temp_dir: str) -> str:
+def create_soft_link_to_dataset(
+    original_path: str, link_name: str, temp_dir: str
+) -> str:
     """Create a soft link in temp directory pointing to the original dataset."""
     link_path = os.path.join(temp_dir, link_name)
 
@@ -50,8 +66,12 @@ def create_soft_link_to_dataset(original_path: str, link_name: str, temp_dir: st
     return link_path
 
 
-@pytest.mark.parametrize("dataset_class,soft_link_name,extra_args", BI_TEMPORAL_DATASETS)
-def test_bi_temporal_dataset_soft_link_hash_stability(dataset_class, soft_link_name, extra_args):
+@pytest.mark.parametrize(
+    "dataset_class,soft_link_name,extra_args", BI_TEMPORAL_DATASETS
+)
+def test_bi_temporal_dataset_soft_link_hash_stability(
+    dataset_class, soft_link_name, extra_args
+):
     """Test that bi-temporal datasets produce same hash when accessed through different soft links."""
 
     # Original dataset path
@@ -64,12 +84,16 @@ def test_bi_temporal_dataset_soft_link_hash_stability(dataset_class, soft_link_n
     # Create two different soft links pointing to the same data
     with tempfile.TemporaryDirectory() as temp_dir:
         # First alternative soft link
-        link_path_1 = create_soft_link_to_dataset(original_path, f"{soft_link_name}_alt1", temp_dir)
+        link_path_1 = create_soft_link_to_dataset(
+            original_path, f"{soft_link_name}_alt1", temp_dir
+        )
         dataset2 = dataset_class(data_root=link_path_1, **extra_args)
         hash2 = dataset2.get_cache_version_hash()
 
         # Second alternative soft link (simulating dataset moved to different location)
-        link_path_2 = create_soft_link_to_dataset(original_path, f"{soft_link_name}_moved", temp_dir)
+        link_path_2 = create_soft_link_to_dataset(
+            original_path, f"{soft_link_name}_moved", temp_dir
+        )
         dataset3 = dataset_class(data_root=link_path_2, **extra_args)
         hash3 = dataset3.get_cache_version_hash()
 
@@ -102,13 +126,19 @@ def test_comprehensive_soft_link_scenario():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Simulate different scenarios:
         # 1. Dataset on local disk
-        local_link = create_soft_link_to_dataset(original_path, "local_datasets/levir", temp_dir)
+        local_link = create_soft_link_to_dataset(
+            original_path, "local_datasets/levir", temp_dir
+        )
 
         # 2. Dataset on network mount
-        network_link = create_soft_link_to_dataset(original_path, "mnt/nas/datasets/levir", temp_dir)
+        network_link = create_soft_link_to_dataset(
+            original_path, "mnt/nas/datasets/levir", temp_dir
+        )
 
         # 3. Dataset on external drive
-        external_link = create_soft_link_to_dataset(original_path, "media/usb/ml_data/levir", temp_dir)
+        external_link = create_soft_link_to_dataset(
+            original_path, "media/usb/ml_data/levir", temp_dir
+        )
 
         # Create datasets from all paths
         dataset_original = LevirCdDataset(data_root=original_path, split='train')

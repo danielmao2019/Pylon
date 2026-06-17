@@ -3,16 +3,20 @@
 """
 Modules to compute the matching cost and solve the corresponding LSAP.
 """
+
 from typing import Dict, List, Tuple
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy.optimize import linear_sum_assignment
 from torch import nn
 from torch.cuda.amp import autocast
 
-from criteria.vision_2d.change_detection.cdmaskformer_criterion.point_features import point_sample
+from criteria.vision_2d.change_detection.cdmaskformer_criterion.point_features import (
+    point_sample,
+)
 
-import numpy as np
 
 def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     """
@@ -52,12 +56,16 @@ def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor) -> torch.
         inputs, torch.zeros_like(inputs), reduction="none"
     )
 
-    loss = torch.einsum("nc,mc->nm", pos, targets) + torch.einsum("nc,mc->nm", neg, (1 - targets)
+    loss = torch.einsum("nc,mc->nm", pos, targets) + torch.einsum(
+        "nc,mc->nm", neg, (1 - targets)
     )
 
     return loss / hw
 
-def batch_sigmoid_focal_loss(inputs: torch.Tensor, targets: torch.Tensor, alpha: float = 0.25, gamma: float = 2) -> torch.Tensor:
+
+def batch_sigmoid_focal_loss(
+    inputs: torch.Tensor, targets: torch.Tensor, alpha: float = 0.25, gamma: float = 2
+) -> torch.Tensor:
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
     Args:
@@ -79,14 +87,16 @@ def batch_sigmoid_focal_loss(inputs: torch.Tensor, targets: torch.Tensor, alpha:
     focal_pos = ((1 - prob) ** gamma) * F.binary_cross_entropy_with_logits(
         inputs, torch.ones_like(inputs), reduction="none"
     )
-    focal_neg = (prob ** gamma) * F.binary_cross_entropy_with_logits(
+    focal_neg = (prob**gamma) * F.binary_cross_entropy_with_logits(
         inputs, torch.zeros_like(inputs), reduction="none"
     )
     if alpha >= 0:
         focal_pos = focal_pos * alpha
         focal_neg = focal_neg * (1 - alpha)
 
-    loss = torch.einsum("nc,mc->nm", focal_pos, targets) + torch.einsum("nc,mc->nm", focal_neg, (1 - targets))
+    loss = torch.einsum("nc,mc->nm", focal_pos, targets) + torch.einsum(
+        "nc,mc->nm", focal_neg, (1 - targets)
+    )
 
     return loss / hw
 
@@ -98,7 +108,13 @@ class HungarianMatcher(nn.Module):
     while the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self, cost_class: float = 1, cost_mask: float = 1, cost_dice: float = 1, num_points: int = 0):
+    def __init__(
+        self,
+        cost_class: float = 1,
+        cost_mask: float = 1,
+        cost_dice: float = 1,
+        num_points: int = 0,
+    ):
         """Creates the matcher
 
         Params:
@@ -111,12 +127,16 @@ class HungarianMatcher(nn.Module):
         self.cost_mask = cost_mask
         self.cost_dice = cost_dice
 
-        assert cost_class != 0 or cost_mask != 0 or cost_dice != 0, "all costs cant be 0"
+        assert (
+            cost_class != 0 or cost_mask != 0 or cost_dice != 0
+        ), "all costs cant be 0"
 
         self.num_points = num_points
 
     @torch.no_grad()
-    def memory_efficient_forward(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+    def memory_efficient_forward(
+        self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """More memory-friendly matching"""
         bs, num_queries = outputs["pred_logits"].shape[:2]
 
@@ -124,18 +144,20 @@ class HungarianMatcher(nn.Module):
 
         # Iterate through batch size
         for b in range(bs):
-            out_prob = outputs["pred_logits"][b].softmax(-1)  # [num_queries, num_classes+1]
+            out_prob = outputs["pred_logits"][b].softmax(
+                -1
+            )  # [num_queries, num_classes+1]
             out_mask = outputs["pred_masks"][b]  # [num_queries, H_pred, W_pred]
 
-            tgt_ids = targets[b]["labels"] # [1,2,3, ……]
-            tgt_mask = targets[b]["masks"].to(out_mask) # [c, h, w] c = len(tgt_ids)
+            tgt_ids = targets[b]["labels"]  # [1,2,3, ……]
+            tgt_mask = targets[b]["masks"].to(out_mask)  # [c, h, w] c = len(tgt_ids)
 
             # Compute the classification cost. Contrary to the loss, we don't use the NLL,
             # but approximate it in 1 - proba[target class].
             # The 1 is a constant that doesn't change the matching, it can be ommitted.
-            cost_class = -out_prob[:, tgt_ids] # [num_queries, num_total_targets]
+            cost_class = -out_prob[:, tgt_ids]  # [num_queries, num_total_targets]
 
-            #===========================Mask2Former方式====================================#
+            # ===========================Mask2Former方式====================================#
             # out_mask = out_mask[:, None] # [num_queries, 1, H_pred, W_pred]
             # tgt_mask = tgt_mask[:, None] # [c, 1, h, w]
 
@@ -153,9 +175,9 @@ class HungarianMatcher(nn.Module):
             #     point_coords.repeat(out_mask.shape[0], 1, 1),
             #     align_corners=False,
             # ).squeeze(1) # [num_queries, self.num_points]
-            #===========================end====================================#
+            # ===========================end====================================#
 
-            #===========================MaskFormer方式====================================#
+            # ===========================MaskFormer方式====================================#
             # Flatten spatial dimension
             out_mask = out_mask.flatten(1)  # [num_queries, H*W]
             tgt_mask = tgt_mask.flatten(1)  # [num_total_targets, H*W]
@@ -175,19 +197,24 @@ class HungarianMatcher(nn.Module):
                 + self.cost_class * cost_class
                 + self.cost_dice * cost_dice
             )
-            C = C.reshape(num_queries, -1).cpu() # [num_queries, num_total_targets]
+            C = C.reshape(num_queries, -1).cpu()  # [num_queries, num_total_targets]
 
-            C=np.nan_to_num(C)
+            C = np.nan_to_num(C)
 
             indices.append(linear_sum_assignment(C))
 
         return [
-            (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
+            (
+                torch.as_tensor(i, dtype=torch.int64),
+                torch.as_tensor(j, dtype=torch.int64),
+            )
             for i, j in indices
         ]
 
     @torch.no_grad()
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+    def forward(
+        self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """Performs the matching
 
         Params:

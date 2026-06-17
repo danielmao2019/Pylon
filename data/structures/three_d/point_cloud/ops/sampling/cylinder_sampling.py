@@ -1,7 +1,9 @@
-from typing import Dict, Any, Optional, Union
-import torch
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
+import torch
 from sklearn.neighbors import KDTree
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
@@ -33,9 +35,7 @@ class CylinderSampling:
         self._center = torch.as_tensor(center, device=device).view(1, -1)
         self._align_origin = align_origin
 
-    def __call__(
-        self, kdtree: KDTree, pc: PointCloud
-    ) -> PointCloud:
+    def __call__(self, kdtree: KDTree, pc: PointCloud) -> PointCloud:
         """Sample points within the cylinder.
 
         Args:
@@ -57,9 +57,7 @@ class CylinderSampling:
         print(f"  Center: {self._center}")
         print(f"  Radius: {self._radius}")
         print(f"  Input points shape: {pc.xyz.shape}")
-        print(
-            f"  Input points bounds: min={pc.xyz.min(0)[0]}, max={pc.xyz.max(0)[0]}"
-        )
+        print(f"  Input points bounds: min={pc.xyz.min(0)[0]}, max={pc.xyz.max(0)[0]}")
 
         # Query points within radius - still need to convert to numpy for scikit-learn KDTree
         indices = torch.LongTensor(

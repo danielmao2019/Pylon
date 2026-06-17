@@ -1,7 +1,8 @@
+import threading
+import time
+
 import pytest
 import torch
-import time
-import threading
 
 
 def test_buffer_worker_threading_setup(sequential_debugger_basic):
@@ -29,7 +30,7 @@ def test_buffer_add_and_processing(sequential_debugger_basic, sample_datapoint):
     debug_outputs = {
         'test_debugger': {
             'tensor_data': torch.randn(3, 32, 32),
-            'stats': {'mean': 0.5, 'std': 1.0}
+            'stats': {'mean': 0.5, 'std': 1.0},
         }
     }
 
@@ -49,12 +50,17 @@ def test_buffer_add_and_processing(sequential_debugger_basic, sample_datapoint):
         assert stored_data['test_debugger']['tensor_data'].device.type == 'cpu'
 
 
-@pytest.mark.parametrize("idx_format,expected_idx", [
-    ([0], 0),  # List format
-    (torch.tensor([1], dtype=torch.int64), 1),  # Tensor format
-    (2, 2),  # Direct int format
-])
-def test_buffer_idx_format_handling(sequential_debugger_basic, idx_format, expected_idx):
+@pytest.mark.parametrize(
+    "idx_format,expected_idx",
+    [
+        ([0], 0),  # List format
+        (torch.tensor([1], dtype=torch.int64), 1),  # Tensor format
+        (2, 2),  # Direct int format
+    ],
+)
+def test_buffer_idx_format_handling(
+    sequential_debugger_basic, idx_format, expected_idx
+):
     """Test buffer handles different idx formats correctly."""
     debugger = sequential_debugger_basic
     debugger.enabled = True
@@ -63,7 +69,7 @@ def test_buffer_idx_format_handling(sequential_debugger_basic, idx_format, expec
     datapoint = {
         'inputs': torch.randn(1, 3, 32, 32, dtype=torch.float32),
         'outputs': torch.randn(1, 10, dtype=torch.float32),
-        'meta_info': {'idx': idx_format}
+        'meta_info': {'idx': idx_format},
     }
 
     debug_outputs = {'test': {'data': torch.randn(3, 3)}}
@@ -88,7 +94,7 @@ def test_buffer_multiple_datapoints(sequential_debugger_basic, multiple_datapoin
             'test_debugger': {
                 'datapoint_id': i,
                 'tensor': torch.randn(10, 10),
-                'metadata': {'processed_at': time.time()}
+                'metadata': {'processed_at': time.time()},
             }
         }
         debugger.add_to_buffer(debug_outputs, datapoint)
@@ -134,10 +140,7 @@ def test_buffer_memory_size_calculation(sequential_debugger_basic, sample_datapo
     # Create debug outputs with known size
     large_tensor = torch.randn(100, 100)  # Relatively large tensor
     debug_outputs = {
-        'test_debugger': {
-            'large_tensor': large_tensor,
-            'small_data': {'count': 1}
-        }
+        'test_debugger': {'large_tensor': large_tensor, 'small_data': {'count': 1}}
     }
 
     initial_page_size = debugger.current_page_size
@@ -152,7 +155,9 @@ def test_buffer_memory_size_calculation(sequential_debugger_basic, sample_datapo
         assert debugger.current_page_size > 0
 
 
-def test_buffer_apply_tensor_op_cpu_conversion(sequential_debugger_basic, sample_datapoint):
+def test_buffer_apply_tensor_op_cpu_conversion(
+    sequential_debugger_basic, sample_datapoint
+):
     """Test that apply_tensor_op correctly moves tensors to CPU."""
     debugger = sequential_debugger_basic
     debugger.enabled = True
@@ -164,20 +169,22 @@ def test_buffer_apply_tensor_op_cpu_conversion(sequential_debugger_basic, sample
             'test_debugger': {
                 'gpu_tensor': gpu_tensor,
                 'cpu_tensor': torch.randn(3, 3),  # Already on CPU
-                'nested': {'inner_gpu': torch.randn(2, 2).cuda()}
+                'nested': {'inner_gpu': torch.randn(2, 2).cuda()},
             }
         }
 
         # Verify tensors start on GPU
         assert debug_outputs['test_debugger']['gpu_tensor'].device.type == 'cuda'
-        assert debug_outputs['test_debugger']['nested']['inner_gpu'].device.type == 'cuda'
+        assert (
+            debug_outputs['test_debugger']['nested']['inner_gpu'].device.type == 'cuda'
+        )
     else:
         # Fallback for CPU-only testing
         debug_outputs = {
             'test_debugger': {
                 'cpu_tensor1': torch.randn(5, 5),
                 'cpu_tensor2': torch.randn(3, 3),
-                'nested': {'inner_cpu': torch.randn(2, 2)}
+                'nested': {'inner_cpu': torch.randn(2, 2)},
             }
         }
 
@@ -196,7 +203,9 @@ def test_buffer_apply_tensor_op_cpu_conversion(sequential_debugger_basic, sample
             elif isinstance(value, dict):
                 for nested_key, nested_value in value.items():
                     if isinstance(nested_value, torch.Tensor):
-                        assert nested_value.device.type == 'cpu', f"Nested tensor {nested_key} not moved to CPU"
+                        assert (
+                            nested_value.device.type == 'cpu'
+                        ), f"Nested tensor {nested_key} not moved to CPU"
 
 
 def test_buffer_thread_safety_concurrent_access(sequential_debugger_basic):
@@ -215,13 +224,13 @@ def test_buffer_thread_safety_concurrent_access(sequential_debugger_basic):
             datapoint = {
                 'inputs': torch.randn(1, 3, 32, 32, dtype=torch.float32),
                 'outputs': torch.randn(1, 10, dtype=torch.float32),
-                'meta_info': {'idx': thread_id * items_per_thread + i}
+                'meta_info': {'idx': thread_id * items_per_thread + i},
             }
             debug_outputs = {
                 'test_debugger': {
                     'thread_id': thread_id,
                     'item_id': i,
-                    'data': torch.randn(3, 3)
+                    'data': torch.randn(3, 3),
                 }
             }
             debugger.add_to_buffer(debug_outputs, datapoint)

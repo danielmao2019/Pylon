@@ -1,7 +1,8 @@
-from agents.manager.evaluation_job import EvaluationJob
-from agents.manager.runtime import JobRuntimeParams
 import os
 import time
+
+from agents.manager.evaluation_job import EvaluationJob
+from agents.manager.runtime import JobRuntimeParams
 
 
 def test_status_evaluator_finished(temp_manager_root, write_config, write_eval_scores):

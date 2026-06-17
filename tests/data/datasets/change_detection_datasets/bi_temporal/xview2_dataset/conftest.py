@@ -1,12 +1,16 @@
 """Shared fixtures and helper functions for xView2 dataset tests."""
 
-import pytest
 import os
 import tempfile
-import numpy as np
 from contextlib import contextmanager
+
+import numpy as np
+import pytest
 from PIL import Image
-from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
+
+from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import (
+    xView2Dataset,
+)
 
 
 @pytest.fixture
@@ -17,22 +21,23 @@ def xview2_dataset_train_config(xview2_temp_data_root, use_cpu_device, get_devic
         'args': {
             'data_root': xview2_temp_data_root,
             'split': 'train',
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
 @pytest.fixture
 def create_dummy_xview2_data():
     """Fixture that creates dummy xView2 dataset structure."""
+
     def _create_dummy_data(data_root: str) -> None:
         """Create dummy xView2 dataset files."""
         # Create directory structure for all splits
         splits_structure = {
-            'tier1': 5,    # 5 samples for tier1 (part of train)
-            'tier3': 3,    # 3 samples for tier3 (part of train)
-            'test': 4,     # 4 samples for test
-            'hold': 4,     # 4 samples for hold
+            'tier1': 5,  # 5 samples for tier1 (part of train)
+            'tier3': 3,  # 3 samples for tier3 (part of train)
+            'test': 4,  # 4 samples for test
+            'hold': 4,  # 4 samples for hold
         }
 
         # Create dummy RGB image (3 channels, 256x256)
@@ -53,13 +58,19 @@ def create_dummy_xview2_data():
 
                 # Create pre and post disaster images
                 pre_img_path = os.path.join(images_dir, f"{sample_id}_pre_disaster.png")
-                post_img_path = os.path.join(images_dir, f"{sample_id}_post_disaster.png")
+                post_img_path = os.path.join(
+                    images_dir, f"{sample_id}_post_disaster.png"
+                )
                 Image.fromarray(dummy_rgb, mode='RGB').save(pre_img_path)
                 Image.fromarray(dummy_rgb, mode='RGB').save(post_img_path)
 
                 # Create corresponding label files (note the _target suffix)
-                pre_lbl_path = os.path.join(targets_dir, f"{sample_id}_pre_disaster_target.png")
-                post_lbl_path = os.path.join(targets_dir, f"{sample_id}_post_disaster_target.png")
+                pre_lbl_path = os.path.join(
+                    targets_dir, f"{sample_id}_pre_disaster_target.png"
+                )
+                post_lbl_path = os.path.join(
+                    targets_dir, f"{sample_id}_post_disaster_target.png"
+                )
                 Image.fromarray(dummy_label, mode='L').save(pre_lbl_path)
                 Image.fromarray(dummy_label, mode='L').save(post_lbl_path)
 
@@ -69,15 +80,16 @@ def create_dummy_xview2_data():
 @pytest.fixture
 def patched_xview2_dataset_size():
     """Fixture that patches xView2 DATASET_SIZE for testing."""
+
     @contextmanager
     def _patch():
         """Context manager to temporarily patch DATASET_SIZE for testing."""
         original_dataset_size = xView2Dataset.DATASET_SIZE
         # Update sizes to match our dummy data
         xView2Dataset.DATASET_SIZE = {
-            'train': 8,    # tier1 (5) + tier3 (3) = 8 samples
-            'test': 4,     # 4 samples for test
-            'hold': 4,     # 4 samples for hold
+            'train': 8,  # tier1 (5) + tier3 (3) = 8 samples
+            'test': 4,  # 4 samples for test
+            'hold': 4,  # 4 samples for hold
         }
         try:
             yield
@@ -105,6 +117,6 @@ def dataset_config(request, xview2_temp_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': xview2_temp_data_root,
             'split': split,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }

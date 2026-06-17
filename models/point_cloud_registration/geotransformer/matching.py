@@ -1,9 +1,17 @@
 from typing import Optional
+
 import torch
+
 from models.point_cloud_registration.geotransformer.index_select import index_select
-from models.point_cloud_registration.geotransformer.transformation import apply_transform
-from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
-from models.point_cloud_registration.geotransformer.pointcloud_partition import get_point_to_node_indices
+from models.point_cloud_registration.geotransformer.pairwise_distance import (
+    pairwise_distance,
+)
+from models.point_cloud_registration.geotransformer.pointcloud_partition import (
+    get_point_to_node_indices,
+)
+from models.point_cloud_registration.geotransformer.transformation import (
+    apply_transform,
+)
 
 
 @torch.no_grad()
@@ -67,7 +75,10 @@ def extract_correspondences_from_scores(
 
 @torch.no_grad()
 def extract_correspondences_from_scores_threshold(
-    scores_mat: torch.Tensor, threshold: float, has_dustbin: bool = False, return_score: bool = False
+    scores_mat: torch.Tensor,
+    threshold: float,
+    has_dustbin: bool = False,
+    return_score: bool = False,
 ):
     r"""Extract the indices of correspondences from matching scores matrix (thresholding selection).
 
@@ -97,7 +108,11 @@ def extract_correspondences_from_scores_threshold(
 
 @torch.no_grad()
 def extract_correspondences_from_scores_topk(
-    scores_mat: torch.Tensor, k: int, has_dustbin: bool = False, largest: bool = True, return_score: bool = False
+    scores_mat: torch.Tensor,
+    k: int,
+    has_dustbin: bool = False,
+    largest: bool = True,
+    return_score: bool = False,
 ):
     r"""Extract the indices of correspondences from matching scores matrix (global top-k selection).
 
@@ -202,19 +217,29 @@ def dense_correspondences_to_node_correspondences(
         node_corr_counts (LongTensor): (C,)
         node_corr_scores (Tensor): (C,)
     """
-    ref_point_to_node, ref_node_sizes = get_point_to_node_indices(ref_points, ref_nodes, return_counts=True)
-    src_point_to_node, src_node_sizes = get_point_to_node_indices(src_points, src_nodes, return_counts=True)
+    ref_point_to_node, ref_node_sizes = get_point_to_node_indices(
+        ref_points, ref_nodes, return_counts=True
+    )
+    src_point_to_node, src_node_sizes = get_point_to_node_indices(
+        src_points, src_nodes, return_counts=True
+    )
 
     ref_corr_indices = corr_indices[:, 0]
     src_corr_indices = corr_indices[:, 1]
     ref_node_corr_indices = ref_point_to_node[ref_corr_indices]
     src_node_corr_indices = src_point_to_node[src_corr_indices]
 
-    node_corr_indices = ref_node_corr_indices * src_nodes.shape[0] + src_node_corr_indices
-    node_corr_indices, node_corr_counts = torch.unique(node_corr_indices, return_counts=True)
+    node_corr_indices = (
+        ref_node_corr_indices * src_nodes.shape[0] + src_node_corr_indices
+    )
+    node_corr_indices, node_corr_counts = torch.unique(
+        node_corr_indices, return_counts=True
+    )
     ref_node_corr_indices = node_corr_indices // src_nodes.shape[0]
     src_node_corr_indices = node_corr_indices % src_nodes.shape[0]
-    node_corr_indices = torch.stack([ref_node_corr_indices, src_node_corr_indices], dim=1)
+    node_corr_indices = torch.stack(
+        [ref_node_corr_indices, src_node_corr_indices], dim=1
+    )
 
     if return_score:
         ref_node_corr_scores = node_corr_counts / ref_node_sizes[ref_node_corr_indices]
@@ -275,21 +300,34 @@ def get_node_correspondences(
     if src_masks is None:
         src_masks = torch.ones(size=(src_nodes.shape[0],), dtype=torch.bool).cuda()
     if ref_knn_masks is None:
-        ref_knn_masks = torch.ones(size=(ref_knn_points.shape[0], ref_knn_points.shape[1]), dtype=torch.bool).cuda()
+        ref_knn_masks = torch.ones(
+            size=(ref_knn_points.shape[0], ref_knn_points.shape[1]), dtype=torch.bool
+        ).cuda()
     if src_knn_masks is None:
-        src_knn_masks = torch.ones(size=(src_knn_points.shape[0], src_knn_points.shape[1]), dtype=torch.bool).cuda()
+        src_knn_masks = torch.ones(
+            size=(src_knn_points.shape[0], src_knn_points.shape[1]), dtype=torch.bool
+        ).cuda()
 
-    node_mask_mat = torch.logical_and(ref_masks.unsqueeze(1), src_masks.unsqueeze(0))  # (M, N)
+    node_mask_mat = torch.logical_and(
+        ref_masks.unsqueeze(1), src_masks.unsqueeze(0)
+    )  # (M, N)
 
     # filter out non-overlapping patches using enclosing sphere
-    ref_knn_dists = torch.linalg.norm(ref_knn_points - ref_nodes.unsqueeze(1), dim=-1)  # (M, K)
+    ref_knn_dists = torch.linalg.norm(
+        ref_knn_points - ref_nodes.unsqueeze(1), dim=-1
+    )  # (M, K)
     ref_knn_dists.masked_fill_(~ref_knn_masks, 0.0)
     ref_max_dists = ref_knn_dists.max(1)[0]  # (M,)
-    src_knn_dists = torch.linalg.norm(src_knn_points - src_nodes.unsqueeze(1), dim=-1)  # (N, K)
+    src_knn_dists = torch.linalg.norm(
+        src_knn_points - src_nodes.unsqueeze(1), dim=-1
+    )  # (N, K)
     src_knn_dists.masked_fill_(~src_knn_masks, 0.0)
     src_max_dists = src_knn_dists.max(1)[0]  # (N,)
     dist_mat = torch.sqrt(pairwise_distance(ref_nodes, src_nodes))  # (M, N)
-    intersect_mat = torch.gt(ref_max_dists.unsqueeze(1) + src_max_dists.unsqueeze(0) + pos_radius - dist_mat, 0)
+    intersect_mat = torch.gt(
+        ref_max_dists.unsqueeze(1) + src_max_dists.unsqueeze(0) + pos_radius - dist_mat,
+        0,
+    )
     intersect_mat = torch.logical_and(intersect_mat, node_mask_mat)
     sel_ref_indices, sel_src_indices = torch.nonzero(intersect_mat, as_tuple=True)
 
@@ -299,14 +337,20 @@ def get_node_correspondences(
     ref_knn_points = ref_knn_points[sel_ref_indices]  # (B, K, 3)
     src_knn_points = src_knn_points[sel_src_indices]  # (B, K, 3)
 
-    point_mask_mat = torch.logical_and(ref_knn_masks.unsqueeze(2), src_knn_masks.unsqueeze(1))  # (B, K, K)
+    point_mask_mat = torch.logical_and(
+        ref_knn_masks.unsqueeze(2), src_knn_masks.unsqueeze(1)
+    )  # (B, K, K)
 
     # compute overlaps
     dist_mat = pairwise_distance(ref_knn_points, src_knn_points)  # (B, K, K)
     dist_mat.masked_fill_(~point_mask_mat, 1e12)
-    point_overlap_mat = torch.lt(dist_mat, pos_radius ** 2)  # (B, K, K)
-    ref_overlap_counts = torch.count_nonzero(point_overlap_mat.sum(-1), dim=-1).float()  # (B,)
-    src_overlap_counts = torch.count_nonzero(point_overlap_mat.sum(-2), dim=-1).float()  # (B,)
+    point_overlap_mat = torch.lt(dist_mat, pos_radius**2)  # (B, K, K)
+    ref_overlap_counts = torch.count_nonzero(
+        point_overlap_mat.sum(-1), dim=-1
+    ).float()  # (B,)
+    src_overlap_counts = torch.count_nonzero(
+        point_overlap_mat.sum(-2), dim=-1
+    ).float()  # (B,)
     ref_overlaps = ref_overlap_counts / ref_knn_masks.sum(-1).float()  # (B,)
     src_overlaps = src_overlap_counts / src_knn_masks.sum(-1).float()  # (B,)
     overlaps = (ref_overlaps + src_overlaps) / 2  # (B,)
@@ -347,11 +391,17 @@ def node_correspondences_to_dense_correspondences(
     src_node_corr_knn_points = src_knn_points[src_node_corr_indices]  # (P, K, 3)
     ref_node_corr_knn_masks = ref_knn_masks[ref_node_corr_indices]  # (P, K)
     src_node_corr_knn_masks = src_knn_masks[src_node_corr_indices]  # (P, K)
-    dist_mat = torch.sqrt(pairwise_distance(ref_node_corr_knn_points, src_node_corr_knn_points))  # (P, K, K)
+    dist_mat = torch.sqrt(
+        pairwise_distance(ref_node_corr_knn_points, src_node_corr_knn_points)
+    )  # (P, K, K)
     corr_mat = torch.lt(dist_mat, matching_radius)
-    mask_mat = torch.logical_and(ref_node_corr_knn_masks.unsqueeze(2), src_node_corr_knn_masks.unsqueeze(1))
+    mask_mat = torch.logical_and(
+        ref_node_corr_knn_masks.unsqueeze(2), src_node_corr_knn_masks.unsqueeze(1)
+    )
     corr_mat = torch.logical_and(corr_mat, mask_mat)  # (P, K, K)
-    batch_indices, row_indices, col_indices = torch.nonzero(corr_mat, as_tuple=True)  # (C,) (C,) (C,)
+    batch_indices, row_indices, col_indices = torch.nonzero(
+        corr_mat, as_tuple=True
+    )  # (C,) (C,) (C,)
     ref_corr_indices = ref_node_corr_knn_indices[batch_indices, row_indices]
     src_corr_indices = src_node_corr_knn_indices[batch_indices, col_indices]
     corr_indices = torch.stack([ref_corr_indices, src_corr_indices], dim=1)
@@ -390,14 +440,26 @@ def get_node_overlap_ratios(
     )
     unique_ref_corr_indices = torch.unique(corr_indices[:, 0])
     unique_src_corr_indices = torch.unique(corr_indices[:, 1])
-    ref_overlap_masks = torch.zeros(ref_points.shape[0] + 1).cuda()  # pad for following indexing
-    src_overlap_masks = torch.zeros(src_points.shape[0] + 1).cuda()  # pad for following indexing
+    ref_overlap_masks = torch.zeros(
+        ref_points.shape[0] + 1
+    ).cuda()  # pad for following indexing
+    src_overlap_masks = torch.zeros(
+        src_points.shape[0] + 1
+    ).cuda()  # pad for following indexing
     ref_overlap_masks.index_fill_(0, unique_ref_corr_indices, 1.0)
     src_overlap_masks.index_fill_(0, unique_src_corr_indices, 1.0)
-    ref_knn_overlap_masks = index_select(ref_overlap_masks, ref_knn_indices, dim=0)  # (N', K)
-    src_knn_overlap_masks = index_select(src_overlap_masks, src_knn_indices, dim=0)  # (M', K)
-    ref_knn_overlap_ratios = (ref_knn_overlap_masks * ref_knn_masks).sum(1) / (ref_knn_masks.sum(1) + eps)
-    src_knn_overlap_ratios = (src_knn_overlap_masks * src_knn_masks).sum(1) / (src_knn_masks.sum(1) + eps)
+    ref_knn_overlap_masks = index_select(
+        ref_overlap_masks, ref_knn_indices, dim=0
+    )  # (N', K)
+    src_knn_overlap_masks = index_select(
+        src_overlap_masks, src_knn_indices, dim=0
+    )  # (M', K)
+    ref_knn_overlap_ratios = (ref_knn_overlap_masks * ref_knn_masks).sum(1) / (
+        ref_knn_masks.sum(1) + eps
+    )
+    src_knn_overlap_ratios = (src_knn_overlap_masks * src_knn_masks).sum(1) / (
+        src_knn_masks.sum(1) + eps
+    )
     return ref_knn_overlap_ratios, src_knn_overlap_ratios
 
 

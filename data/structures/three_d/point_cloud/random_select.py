@@ -1,4 +1,5 @@
 from typing import Any, Optional, Union
+
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -10,7 +11,9 @@ class RandomSelect:
     def __init__(
         self, percentage: Optional[float] = None, count: Optional[int] = None
     ) -> None:
-        assert (percentage is not None) ^ (count is not None), f"{percentage=}, {count=}"
+        assert (percentage is not None) ^ (
+            count is not None
+        ), f"{percentage=}, {count=}"
         if percentage is not None:
             assert isinstance(percentage, (int, float)), f"{type(percentage)=}"
             assert 0 < percentage <= 1, f"{percentage=}"
@@ -35,7 +38,9 @@ class RandomSelect:
         num_points = pc.num_points
 
         if generator is not None:
-            assert generator.device.type == device.type, f"{generator.device.type=}, {device.type=}"
+            assert (
+                generator.device.type == device.type
+            ), f"{generator.device.type=}, {device.type=}"
             gen = generator
         else:
             gen = torch.Generator(device=device)

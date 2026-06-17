@@ -22,33 +22,35 @@
 #
 
 
-# Basic libs
-import numpy as np
 import sys
 
+# Basic libs
+import numpy as np
+
 # Define PLY types
-ply_dtypes = dict([
-    (b'int8', 'i1'),
-    (b'char', 'i1'),
-    (b'uint8', 'u1'),
-    (b'uchar', 'u1'),
-    (b'int16', 'i2'),
-    (b'short', 'i2'),
-    (b'uint16', 'u2'),
-    (b'ushort', 'u2'),
-    (b'int32', 'i4'),
-    (b'int', 'i4'),
-    (b'uint32', 'u4'),
-    (b'uint', 'u4'),
-    (b'float32', 'f4'),
-    (b'float', 'f4'),
-    (b'float64', 'f8'),
-    (b'double', 'f8')
-])
+ply_dtypes = dict(
+    [
+        (b'int8', 'i1'),
+        (b'char', 'i1'),
+        (b'uint8', 'u1'),
+        (b'uchar', 'u1'),
+        (b'int16', 'i2'),
+        (b'short', 'i2'),
+        (b'uint16', 'u2'),
+        (b'ushort', 'u2'),
+        (b'int32', 'i4'),
+        (b'int', 'i4'),
+        (b'uint32', 'u4'),
+        (b'uint', 'u4'),
+        (b'float32', 'f4'),
+        (b'float', 'f4'),
+        (b'float64', 'f8'),
+        (b'double', 'f8'),
+    ]
+)
 
 # Numpy reader format
-valid_formats = {'ascii': '', 'binary_big_endian': '>',
-                 'binary_little_endian': '<'}
+valid_formats = {'ascii': '', 'binary_big_endian': '>', 'binary_little_endian': '<'}
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -172,10 +174,12 @@ def read_ply(filename, triangular_mesh=False):
             vertex_data = np.fromfile(plyfile, dtype=properties, count=num_points)
 
             # Get face data
-            face_properties = [('k', ext + 'u1'),
-                               ('v1', ext + 'i4'),
-                               ('v2', ext + 'i4'),
-                               ('v3', ext + 'i4')]
+            face_properties = [
+                ('k', ext + 'u1'),
+                ('v1', ext + 'i4'),
+                ('v2', ext + 'i4'),
+                ('v3', ext + 'i4'),
+            ]
             faces_data = np.fromfile(plyfile, dtype=face_properties, count=num_faces)
 
             # Return vertex data and concatenated faces
@@ -244,7 +248,11 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
     """
 
     # Format list input to the right form
-    field_list = list(field_list) if (type(field_list) == list or type(field_list) == tuple) else list((field_list,))
+    field_list = (
+        list(field_list)
+        if (type(field_list) == list or type(field_list) == tuple)
+        else list((field_list,))
+    )
     for i, field in enumerate(field_list):
         if field.ndim < 2:
             field_list[i] = field.reshape(-1, 1)
@@ -260,7 +268,7 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
 
         # Check if field_names and field_list have same nb of column
     n_fields = np.sum([field.shape[1] for field in field_list])
-    if (n_fields != len(field_names)):
+    if n_fields != len(field_names):
         print('wrong number of field names')
         return False
 
@@ -325,7 +333,7 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
 
 
 def describe_element(name, df):
-    """ Takes the columns of the dataframe and builds a ply-like description
+    """Takes the columns of the dataframe and builds a ply-like description
 
     Parameters
     ----------
@@ -349,4 +357,3 @@ def describe_element(name, df):
             element.append('property ' + f + ' ' + df.columns.values[i])
 
     return element
-

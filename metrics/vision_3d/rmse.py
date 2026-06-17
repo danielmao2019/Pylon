@@ -1,5 +1,7 @@
 from typing import Dict
+
 import torch
+
 from metrics.vision_3d.point_cloud_metric import PointCloudMetric
 
 
@@ -14,7 +16,9 @@ class RMSE(PointCloudMetric):
 
     DIRECTIONS = {"rmse": -1}  # Lower is better
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """
         Compute the Root Mean Square Error between two point clouds and find correspondences.
 
@@ -31,12 +35,11 @@ class RMSE(PointCloudMetric):
         y_pred, y_true, N, M = self._validate_and_prepare_inputs(y_pred, y_true)
 
         # Compute distance matrix and find nearest neighbors
-        dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(y_pred, y_true)
+        dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(
+            y_pred, y_true
+        )
 
         # Compute RMSE
-        rmse = torch.sqrt(torch.mean(min_distances ** 2))
+        rmse = torch.sqrt(torch.mean(min_distances**2))
 
-        return {
-            "rmse": rmse,
-            "correspondences": nearest_indices
-        }
+        return {"rmse": rmse, "correspondences": nearest_indices}

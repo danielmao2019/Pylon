@@ -1,5 +1,8 @@
 import torch
-from criteria.vision_2d.dense_prediction.dense_regression.base import DenseRegressionCriterion
+
+from criteria.vision_2d.dense_prediction.dense_regression.base import (
+    DenseRegressionCriterion,
+)
 from utils.input_checks import check_instance_segmentation
 
 
@@ -70,10 +73,7 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
         return valid_mask
 
     def _compute_unreduced_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute L1 loss for each sample in the batch.

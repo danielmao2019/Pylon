@@ -1,13 +1,17 @@
-"""Implementation largely based on https://github.com/pytorch/vision/blob/release/0.15/torchvision/models/resnet.py
-"""
+"""Implementation largely based on https://github.com/pytorch/vision/blob/release/0.15/torchvision/models/resnet.py"""
+
 from typing import Any, List, Optional, Type, Union
+
 import torch
 import torchvision
-from torchvision.models.resnet import (
-    BasicBlock, Bottleneck,
-    ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
-)
 from torchvision.models._utils import _ovewrite_named_param
+from torchvision.models.resnet import (
+    BasicBlock,
+    Bottleneck,
+    ResNet18_Weights,
+    ResNet34_Weights,
+    ResNet50_Weights,
+)
 
 from models.multi_task_learning.backbones.resnet.resnet_dilated import ResNetDilated
 
@@ -22,8 +26,7 @@ except:
 class ResNet(torchvision.models.ResNet):
 
     def _forward_impl(self, x: torch.Tensor) -> torch.Tensor:
-        r"""The calls to avgpool, flatten, and fc are intentionally commented out.
-        """
+        r"""The calls to avgpool, flatten, and fc are intentionally commented out."""
         # See note [TorchScript super()]
         x = self.conv1(x)
         x = self.bn1(x)
@@ -60,7 +63,9 @@ def _resnet(
     return model
 
 
-def resnet18(*, weights: Optional[ResNet18_Weights] = None, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnet18(
+    *, weights: Optional[ResNet18_Weights] = None, progress: bool = True, **kwargs: Any
+) -> ResNet:
     """ResNet-18 from `Deep Residual Learning for Image Recognition <https://arxiv.org/pdf/1512.03385.pdf>`__.
 
     Args:
@@ -84,7 +89,9 @@ def resnet18(*, weights: Optional[ResNet18_Weights] = None, progress: bool = Tru
     return _resnet(BasicBlock, [2, 2, 2, 2], weights, progress, **kwargs)
 
 
-def resnet34(*, weights: Optional[ResNet34_Weights] = None, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnet34(
+    *, weights: Optional[ResNet34_Weights] = None, progress: bool = True, **kwargs: Any
+) -> ResNet:
     """ResNet-34 from `Deep Residual Learning for Image Recognition <https://arxiv.org/pdf/1512.03385.pdf>`__.
 
     Args:
@@ -108,7 +115,9 @@ def resnet34(*, weights: Optional[ResNet34_Weights] = None, progress: bool = Tru
     return _resnet(BasicBlock, [3, 4, 6, 3], weights, progress, **kwargs)
 
 
-def resnet50(*, weights: Optional[ResNet50_Weights] = None, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnet50(
+    *, weights: Optional[ResNet50_Weights] = None, progress: bool = True, **kwargs: Any
+) -> ResNet:
     """ResNet-50 from `Deep Residual Learning for Image Recognition <https://arxiv.org/pdf/1512.03385.pdf>`__.
 
     .. note::

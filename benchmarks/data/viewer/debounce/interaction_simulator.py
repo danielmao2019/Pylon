@@ -1,13 +1,14 @@
 """Simulate various user interaction patterns for benchmarking."""
 
 import time
-from typing import List, Dict, Any, Callable
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List
 
 
 @dataclass
 class InteractionEvent:
     """Represents a single user interaction event."""
+
     timestamp: float  # Time offset from scenario start (seconds)
     callback_name: str  # Name of callback to invoke
     args: tuple  # Positional arguments
@@ -33,9 +34,13 @@ class InteractionSimulator:
             event = InteractionEvent(
                 timestamp=i * 0.02,  # 20ms between events = 50 events per second
                 callback_name='update_datapoint_from_navigation',
-                args=(i, self.app.ui_state['3d_settings'].copy(), self.app.ui_state['camera_state'].copy()),
+                args=(
+                    i,
+                    self.app.ui_state['3d_settings'].copy(),
+                    self.app.ui_state['camera_state'].copy(),
+                ),
                 kwargs={},
-                event_type='slider_drag'
+                event_type='slider_drag',
             )
             events.append(event)
 
@@ -47,7 +52,9 @@ class InteractionSimulator:
         base_time = 0.0
 
         # Point size adjustment: 3.0 -> 8.0 (in 0.5 steps)
-        for i, point_size in enumerate([3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0]):
+        for i, point_size in enumerate(
+            [3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0]
+        ):
             event = InteractionEvent(
                 timestamp=base_time + i * 0.03,  # 30ms intervals
                 callback_name='update_3d_settings',
@@ -55,12 +62,12 @@ class InteractionSimulator:
                     point_size,
                     0.8,  # opacity
                     0.1,  # sym_diff_radius
-                    0.05, # corr_radius
+                    0.05,  # corr_radius
                     'continuous',  # lod_type
-                    80    # density
+                    80,  # density
                 ),
                 kwargs={},
-                event_type='slider_drag'
+                event_type='slider_drag',
             )
             events.append(event)
 
@@ -73,7 +80,7 @@ class InteractionSimulator:
                 callback_name='update_3d_settings',
                 args=(8.0, opacity, 0.1, 0.05, 'continuous', 80),
                 kwargs={},
-                event_type='slider_drag'
+                event_type='slider_drag',
             )
             events.append(event)
 
@@ -86,58 +93,74 @@ class InteractionSimulator:
         # Start with navigation to index 10
         nav_events = []
         for i in range(11):
-            nav_events.append(InteractionEvent(
-                timestamp=i * 0.025,
-                callback_name='update_datapoint_from_navigation',
-                args=(i, self.app.ui_state['3d_settings'].copy(), self.app.ui_state['camera_state'].copy()),
-                kwargs={},
-                event_type='slider_drag'
-            ))
+            nav_events.append(
+                InteractionEvent(
+                    timestamp=i * 0.025,
+                    callback_name='update_datapoint_from_navigation',
+                    args=(
+                        i,
+                        self.app.ui_state['3d_settings'].copy(),
+                        self.app.ui_state['camera_state'].copy(),
+                    ),
+                    kwargs={},
+                    event_type='slider_drag',
+                )
+            )
         events.extend(nav_events)
 
         # Short pause, then adjust point size
         base_time = 0.3
         for i, point_size in enumerate([3.0, 4.0, 5.0, 6.0]):
-            events.append(InteractionEvent(
-                timestamp=base_time + i * 0.05,
-                callback_name='update_3d_settings',
-                args=(point_size, 0.8, 0.1, 0.05, 'continuous', 80),
-                kwargs={},
-                event_type='slider_drag'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=base_time + i * 0.05,
+                    callback_name='update_3d_settings',
+                    args=(point_size, 0.8, 0.1, 0.05, 'continuous', 80),
+                    kwargs={},
+                    event_type='slider_drag',
+                )
+            )
 
         # Toggle some transforms
         base_time = 0.6
         transform_sequences = [
-            [[0]],      # Identity only
-            [[0, 1]],   # Identity + noise 0.01
-            [[0, 1, 2]], # Identity + noise 0.01 + noise 0.05
+            [[0]],  # Identity only
+            [[0, 1]],  # Identity + noise 0.01
+            [[0, 1, 2]],  # Identity + noise 0.01 + noise 0.05
         ]
 
         for i, transform_values in enumerate(transform_sequences):
-            events.append(InteractionEvent(
-                timestamp=base_time + i * 0.1,
-                callback_name='update_datapoint_from_transforms',
-                args=(
-                    transform_values,
-                    self.app.ui_state['3d_settings'].copy(),
-                    self.app.ui_state['camera_state'].copy(),
-                    10  # current datapoint index
-                ),
-                kwargs={},
-                event_type='checkbox_toggle'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=base_time + i * 0.1,
+                    callback_name='update_datapoint_from_transforms',
+                    args=(
+                        transform_values,
+                        self.app.ui_state['3d_settings'].copy(),
+                        self.app.ui_state['camera_state'].copy(),
+                        10,  # current datapoint index
+                    ),
+                    kwargs={},
+                    event_type='checkbox_toggle',
+                )
+            )
 
         # Navigate to another index
         base_time = 1.0
         for i in range(10, 21):  # Navigate from 10 to 20
-            events.append(InteractionEvent(
-                timestamp=base_time + (i-10) * 0.03,
-                callback_name='update_datapoint_from_navigation',
-                args=(i, self.app.ui_state['3d_settings'].copy(), self.app.ui_state['camera_state'].copy()),
-                kwargs={},
-                event_type='slider_drag'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=base_time + (i - 10) * 0.03,
+                    callback_name='update_datapoint_from_navigation',
+                    args=(
+                        i,
+                        self.app.ui_state['3d_settings'].copy(),
+                        self.app.ui_state['camera_state'].copy(),
+                    ),
+                    kwargs={},
+                    event_type='slider_drag',
+                )
+            )
 
         return events
 
@@ -147,38 +170,56 @@ class InteractionSimulator:
 
         # Rapid navigation slider dragging (100 events in 1 second)
         for i in range(100):
-            events.append(InteractionEvent(
-                timestamp=i * 0.01,  # 10ms intervals = 100 events/second
-                callback_name='update_datapoint_from_navigation',
-                args=(i % 50, self.app.ui_state['3d_settings'].copy(), self.app.ui_state['camera_state'].copy()),
-                kwargs={},
-                event_type='slider_drag'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=i * 0.01,  # 10ms intervals = 100 events/second
+                    callback_name='update_datapoint_from_navigation',
+                    args=(
+                        i % 50,
+                        self.app.ui_state['3d_settings'].copy(),
+                        self.app.ui_state['camera_state'].copy(),
+                    ),
+                    kwargs={},
+                    event_type='slider_drag',
+                )
+            )
 
         # Concurrent 3D settings changes
         for i in range(50):
-            events.append(InteractionEvent(
-                timestamp=i * 0.02 + 0.005,  # Offset by 5ms from navigation events
-                callback_name='update_3d_settings',
-                args=(
-                    3.0 + (i % 10) * 0.5,  # Point size cycling
-                    0.5 + (i % 5) * 0.1,   # Opacity cycling
-                    0.1, 0.05, 'continuous', 80
-                ),
-                kwargs={},
-                event_type='slider_drag'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=i * 0.02 + 0.005,  # Offset by 5ms from navigation events
+                    callback_name='update_3d_settings',
+                    args=(
+                        3.0 + (i % 10) * 0.5,  # Point size cycling
+                        0.5 + (i % 5) * 0.1,  # Opacity cycling
+                        0.1,
+                        0.05,
+                        'continuous',
+                        80,
+                    ),
+                    kwargs={},
+                    event_type='slider_drag',
+                )
+            )
 
         # Rapid transform toggles
         for i in range(25):
             transform_idx = i % 5
-            events.append(InteractionEvent(
-                timestamp=i * 0.04 + 0.01,
-                callback_name='update_datapoint_from_transforms',
-                args=([[transform_idx]], self.app.ui_state['3d_settings'].copy(), self.app.ui_state['camera_state'].copy(), i % 10),
-                kwargs={},
-                event_type='checkbox_toggle'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=i * 0.04 + 0.01,
+                    callback_name='update_datapoint_from_transforms',
+                    args=(
+                        [[transform_idx]],
+                        self.app.ui_state['3d_settings'].copy(),
+                        self.app.ui_state['camera_state'].copy(),
+                        i % 10,
+                    ),
+                    kwargs={},
+                    event_type='checkbox_toggle',
+                )
+            )
 
         return events
 
@@ -188,24 +229,36 @@ class InteractionSimulator:
 
         # Rapid next button clicks (10 clicks in 0.5 seconds)
         for i in range(10):
-            events.append(InteractionEvent(
-                timestamp=i * 0.05,
-                callback_name='update_index_from_buttons',
-                args=(None, i+1, i),  # prev_clicks=None, next_clicks=i+1, current_value=i
-                kwargs={},
-                event_type='button_click'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=i * 0.05,
+                    callback_name='update_index_from_buttons',
+                    args=(
+                        None,
+                        i + 1,
+                        i,
+                    ),  # prev_clicks=None, next_clicks=i+1, current_value=i
+                    kwargs={},
+                    event_type='button_click',
+                )
+            )
 
         # Short pause, then rapid prev button clicks
         base_time = 0.6
         for i in range(10):
-            events.append(InteractionEvent(
-                timestamp=base_time + i * 0.05,
-                callback_name='update_index_from_buttons',
-                args=(i+1, None, 10-i),  # prev_clicks=i+1, next_clicks=None, current_value=10-i
-                kwargs={},
-                event_type='button_click'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=base_time + i * 0.05,
+                    callback_name='update_index_from_buttons',
+                    args=(
+                        i + 1,
+                        None,
+                        10 - i,
+                    ),  # prev_clicks=i+1, next_clicks=None, current_value=10-i
+                    kwargs={},
+                    event_type='button_click',
+                )
+            )
 
         return events
 
@@ -220,8 +273,8 @@ class InteractionSimulator:
             # Rotate camera around the scene
             angle = i * 0.2  # Incremental rotation
             eye_x = 1.5 + 0.5 * (i % 10 - 5) / 5  # Vary x position
-            eye_y = 1.5 + 0.3 * (i % 7 - 3) / 3   # Vary y position
-            eye_z = 1.5 + 0.2 * (i % 5 - 2) / 2   # Vary z position
+            eye_y = 1.5 + 0.3 * (i % 7 - 3) / 3  # Vary y position
+            eye_z = 1.5 + 0.2 * (i % 5 - 2) / 2  # Vary z position
 
             new_camera = base_camera.copy()
             new_camera['eye'] = {'x': eye_x, 'y': eye_y, 'z': eye_z}
@@ -235,16 +288,18 @@ class InteractionSimulator:
             mock_figures = [
                 {'data': [], 'layout': {'scene': {'camera': base_camera}}},
                 {'data': [], 'layout': {'scene': {'camera': base_camera}}},
-                {'data': [], 'layout': {'scene': {'camera': base_camera}}}
+                {'data': [], 'layout': {'scene': {'camera': base_camera}}},
             ]
 
-            events.append(InteractionEvent(
-                timestamp=i * 0.03,  # 30ms intervals
-                callback_name='sync_camera_state',
-                args=(relayout_data, mock_figures),
-                kwargs={},
-                event_type='camera_drag'
-            ))
+            events.append(
+                InteractionEvent(
+                    timestamp=i * 0.03,  # 30ms intervals
+                    callback_name='sync_camera_state',
+                    args=(relayout_data, mock_figures),
+                    kwargs={},
+                    event_type='camera_drag',
+                )
+            )
 
         return events
 
@@ -271,25 +326,29 @@ class InteractionSimulator:
                 result = callback(*event.args, **event.kwargs)
                 exec_end = time.time()
 
-                execution_results.append({
-                    'event_type': event.event_type,
-                    'callback_name': event.callback_name,
-                    'executed': True,
-                    'execution_time': exec_end - exec_start,
-                    'timestamp': exec_start - start_time,
-                    'result_size': len(str(result)) if result else 0
-                })
+                execution_results.append(
+                    {
+                        'event_type': event.event_type,
+                        'callback_name': event.callback_name,
+                        'executed': True,
+                        'execution_time': exec_end - exec_start,
+                        'timestamp': exec_start - start_time,
+                        'result_size': len(str(result)) if result else 0,
+                    }
+                )
                 self.events_executed += 1
 
             except Exception as e:
                 # Handle PreventUpdate and other exceptions
-                execution_results.append({
-                    'event_type': event.event_type,
-                    'callback_name': event.callback_name,
-                    'executed': False,
-                    'exception': str(type(e).__name__),
-                    'timestamp': time.time() - start_time
-                })
+                execution_results.append(
+                    {
+                        'event_type': event.event_type,
+                        'callback_name': event.callback_name,
+                        'executed': False,
+                        'exception': str(type(e).__name__),
+                        'timestamp': time.time() - start_time,
+                    }
+                )
                 self.events_prevented += 1
 
         # Wait a bit for any delayed executions
@@ -303,7 +362,7 @@ class InteractionSimulator:
             'executed_events': self.events_executed,
             'prevented_events': self.events_prevented,
             'total_scenario_time': total_time,
-            'events_per_second': len(events) / (events[-1].timestamp if events else 1)
+            'events_per_second': len(events) / (events[-1].timestamp if events else 1),
         }
 
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Script to analyze and compare metadata files from GeoTransformer and OverlapPredator."""
 
-import pickle
 import json
 import os
-from typing import Dict, Any, List
+import pickle
+from typing import Any, Dict, List
+
 import numpy as np
+
 
 def load_pickle_file(filepath: str) -> Any:
     """Load a pickle file and return its contents."""
@@ -17,7 +19,10 @@ def load_pickle_file(filepath: str) -> Any:
         print(f"Error loading {filepath}: {e}")
         return None
 
-def analyze_structure(data: Any, name: str = "root", max_depth: int = 3, current_depth: int = 0) -> Dict[str, Any]:
+
+def analyze_structure(
+    data: Any, name: str = "root", max_depth: int = 3, current_depth: int = 0
+) -> Dict[str, Any]:
     """Analyze the structure of data."""
     if current_depth >= max_depth:
         return {"type": str(type(data).__name__), "truncated": True}
@@ -30,16 +35,23 @@ def analyze_structure(data: Any, name: str = "root", max_depth: int = 3, current
         if len(data) > 0:
             analysis["sample_values"] = {}
             for key in list(data.keys())[:3]:  # Analyze first 3 keys
-                analysis["sample_values"][key] = analyze_structure(data[key], f"{name}.{key}", max_depth, current_depth + 1)
+                analysis["sample_values"][key] = analyze_structure(
+                    data[key], f"{name}.{key}", max_depth, current_depth + 1
+                )
 
     elif isinstance(data, (list, tuple)):
         analysis["length"] = len(data)
         if len(data) > 0:
-            analysis["first_element"] = analyze_structure(data[0], f"{name}[0]", max_depth, current_depth + 1)
+            analysis["first_element"] = analyze_structure(
+                data[0], f"{name}[0]", max_depth, current_depth + 1
+            )
             if len(data) > 1 and isinstance(data[0], dict):
                 # Check if all elements have same structure
                 first_keys = set(data[0].keys()) if isinstance(data[0], dict) else None
-                if first_keys and all(isinstance(d, dict) and set(d.keys()) == first_keys for d in data[:min(10, len(data))]):
+                if first_keys and all(
+                    isinstance(d, dict) and set(d.keys()) == first_keys
+                    for d in data[: min(10, len(data))]
+                ):
                     analysis["consistent_structure"] = True
                     analysis["common_keys"] = list(first_keys)
 
@@ -52,6 +64,7 @@ def analyze_structure(data: Any, name: str = "root", max_depth: int = 3, current
             analysis["value"] = data
 
     return analysis
+
 
 def compare_files():
     """Compare metadata files from both repositories."""
@@ -120,8 +133,22 @@ def compare_files():
             print(f"OverlapPredator: {len(overlap_3dmatch)} entries")
 
             if len(geo_3dmatch) > 0 and len(overlap_3dmatch) > 0:
-                print("\nGeoTransformer first entry keys:", list(geo_3dmatch[0].keys()) if isinstance(geo_3dmatch[0], dict) else "Not a dict")
-                print("OverlapPredator first entry keys:", list(overlap_3dmatch[0].keys()) if isinstance(overlap_3dmatch[0], dict) else "Not a dict")
+                print(
+                    "\nGeoTransformer first entry keys:",
+                    (
+                        list(geo_3dmatch[0].keys())
+                        if isinstance(geo_3dmatch[0], dict)
+                        else "Not a dict"
+                    ),
+                )
+                print(
+                    "OverlapPredator first entry keys:",
+                    (
+                        list(overlap_3dmatch[0].keys())
+                        if isinstance(overlap_3dmatch[0], dict)
+                        else "Not a dict"
+                    ),
+                )
 
     # Compare train files
     if "train.pkl" in geo_data and "train_info.pkl" in overlap_data:
@@ -140,6 +167,7 @@ def compare_files():
                 print(f"Sample keys: {list(overlap_train[0].keys())}")
 
     return results
+
 
 if __name__ == "__main__":
     compare_files()

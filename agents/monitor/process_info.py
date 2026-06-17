@@ -1,11 +1,13 @@
+from dataclasses import asdict, dataclass
 from typing import Dict
-from dataclasses import dataclass, asdict
+
 from agents.connector.pool import SSHConnectionPool
 
 
 @dataclass
 class ProcessInfo:
     """Information about a running process."""
+
     pid: str
     user: str
     cmd: str
@@ -30,6 +32,6 @@ def get_all_processes(server: str, pool: SSHConnectionPool) -> Dict[str, Process
                 pid=parts[0],
                 user=parts[1],
                 start_time=' '.join(parts[2:7]),
-                cmd=' '.join(parts[7:])
+                cmd=' '.join(parts[7:]),
             )
     return result_dict

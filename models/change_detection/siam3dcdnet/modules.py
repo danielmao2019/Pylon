@@ -7,18 +7,19 @@ This file includes the modules from the original 3DCDNet implementation:
 - Utility functions (gather_neighbour)
 """
 
+from typing import Any, List, Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import List, Tuple, Optional, Any
 
 
 class _BNBase(nn.Sequential):
     """Base class for BatchNorm modules."""
-    
+
     def __init__(self, in_size: int, batch_norm: Any = None, name: str = ""):
         """Initialize _BNBase.
-        
+
         Args:
             in_size: Input dimension
             batch_norm: Batch normalization module to use
@@ -26,17 +27,17 @@ class _BNBase(nn.Sequential):
         """
         super().__init__()
         self.add_module(name + "bn", batch_norm(in_size, eps=1e-6, momentum=0.99))
-        
+
         nn.init.constant_(self[0].weight, 1.0)
         nn.init.constant_(self[0].bias, 0)
 
 
 class BatchNorm1d(_BNBase):
     """1D batch normalization module."""
-    
+
     def __init__(self, in_size: int, *, name: str = ""):
         """Initialize BatchNorm1d.
-        
+
         Args:
             in_size: Input dimension
             name: Optional name prefix for the layers
@@ -46,10 +47,10 @@ class BatchNorm1d(_BNBase):
 
 class BatchNorm2d(_BNBase):
     """2D batch normalization module."""
-    
+
     def __init__(self, in_size: int, name: str = ""):
         """Initialize BatchNorm2d.
-        
+
         Args:
             in_size: Input dimension
             name: Optional name prefix for the layers
@@ -59,27 +60,27 @@ class BatchNorm2d(_BNBase):
 
 class _ConvBase(nn.Sequential):
     """Base class for convolution modules."""
-    
+
     def __init__(
-            self,
-            in_size: int,
-            out_size: int,
-            kernel_size: Any,
-            stride: Any,
-            padding: Any,
-            activation: Any,
-            bn: bool,
-            init: Any,
-            conv: Any = None,
-            batch_norm: Any = None,
-            bias: bool = True,
-            preact: bool = False,
-            name: str = "",
-            instance_norm: bool = False,
-            instance_norm_func: Any = None
+        self,
+        in_size: int,
+        out_size: int,
+        kernel_size: Any,
+        stride: Any,
+        padding: Any,
+        activation: Any,
+        bn: bool,
+        init: Any,
+        conv: Any = None,
+        batch_norm: Any = None,
+        bias: bool = True,
+        preact: bool = False,
+        name: str = "",
+        instance_norm: bool = False,
+        instance_norm_func: Any = None,
     ):
         """Initialize _ConvBase.
-        
+
         Args:
             in_size: Input dimension
             out_size: Output dimension
@@ -98,7 +99,7 @@ class _ConvBase(nn.Sequential):
             instance_norm_func: Instance normalization module to use
         """
         super().__init__()
-        
+
         bias = bias and (not bn)
         conv_unit = conv(
             in_size,
@@ -106,12 +107,12 @@ class _ConvBase(nn.Sequential):
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
-            bias=bias
+            bias=bias,
         )
         init(conv_unit.weight)
         if bias:
             nn.init.constant_(conv_unit.bias, 0)
-            
+
         if bn:
             if not preact:
                 bn_unit = batch_norm(out_size)
@@ -119,54 +120,58 @@ class _ConvBase(nn.Sequential):
                 bn_unit = batch_norm(in_size)
         if instance_norm:
             if not preact:
-                in_unit = instance_norm_func(out_size, affine=False, track_running_stats=False)
+                in_unit = instance_norm_func(
+                    out_size, affine=False, track_running_stats=False
+                )
             else:
-                in_unit = instance_norm_func(in_size, affine=False, track_running_stats=False)
-                
+                in_unit = instance_norm_func(
+                    in_size, affine=False, track_running_stats=False
+                )
+
         if preact:
             if bn:
                 self.add_module(name + 'bn', bn_unit)
-                
+
             if activation is not None:
                 self.add_module(name + 'activation', activation)
-                
+
             if not bn and instance_norm:
                 self.add_module(name + 'in', in_unit)
-                
+
         self.add_module(name + 'conv', conv_unit)
-        
+
         if not preact:
             if bn:
                 self.add_module(name + 'bn', bn_unit)
-                
+
             if activation is not None:
                 self.add_module(name + 'activation', activation)
-                
+
             if not bn and instance_norm:
                 self.add_module(name + 'in', in_unit)
 
 
 class Conv1d(_ConvBase):
     """1D convolution with batch normalization and activation."""
-    
+
     def __init__(
-            self,
-            in_size: int,
-            out_size: int,
-            *,
-            kernel_size: int = 1,
-            stride: int = 1,
-            padding: int = 0,
-            activation=nn.LeakyReLU(negative_slope=0.2, inplace=True),
-            bn: bool = False,
-            init=nn.init.kaiming_normal_,
-            bias: bool = True,
-            preact: bool = False,
-            name: str = "",
-            instance_norm: bool = False
+        self,
+        in_size: int,
+        out_size: int,
+        *,
+        kernel_size: int = 1,
+        stride: int = 1,
+        padding: int = 0,
+        activation=nn.LeakyReLU(negative_slope=0.2, inplace=True),
+        bn: bool = False,
+        init=nn.init.kaiming_normal_,
+        bias: bool = True,
+        preact: bool = False,
+        name: str = "",
+        instance_norm: bool = False
     ):
         """Initialize Conv1d.
-        
+
         Args:
             in_size: Input dimension
             out_size: Output dimension
@@ -196,31 +201,31 @@ class Conv1d(_ConvBase):
             preact=preact,
             name=name,
             instance_norm=instance_norm,
-            instance_norm_func=nn.InstanceNorm1d
+            instance_norm_func=nn.InstanceNorm1d,
         )
 
 
 class Conv2d(_ConvBase):
     """2D convolution with batch normalization and activation."""
-    
+
     def __init__(
-            self,
-            in_size: int,
-            out_size: int,
-            *,
-            kernel_size: Tuple[int, int] = (1, 1),
-            stride: Tuple[int, int] = (1, 1),
-            padding: Tuple[int, int] = (0, 0),
-            activation=nn.LeakyReLU(negative_slope=0.2, inplace=True),
-            bn: bool = False,
-            init=nn.init.kaiming_normal_,
-            bias: bool = True,
-            preact: bool = False,
-            name: str = "",
-            instance_norm: bool = False
+        self,
+        in_size: int,
+        out_size: int,
+        *,
+        kernel_size: Tuple[int, int] = (1, 1),
+        stride: Tuple[int, int] = (1, 1),
+        padding: Tuple[int, int] = (0, 0),
+        activation=nn.LeakyReLU(negative_slope=0.2, inplace=True),
+        bn: bool = False,
+        init=nn.init.kaiming_normal_,
+        bias: bool = True,
+        preact: bool = False,
+        name: str = "",
+        instance_norm: bool = False
     ):
         """Initialize Conv2d.
-        
+
         Args:
             in_size: Input dimension
             out_size: Output dimension
@@ -250,17 +255,17 @@ class Conv2d(_ConvBase):
             preact=preact,
             name=name,
             instance_norm=instance_norm,
-            instance_norm_func=nn.InstanceNorm2d
+            instance_norm_func=nn.InstanceNorm2d,
         )
 
 
 def gather_neighbour(pc: torch.Tensor, neighbor_idx: torch.Tensor) -> torch.Tensor:
     """Gather the coordinates or features of neighboring points.
-    
+
     Args:
         pc: Point cloud features of shape [B, C, N, 1]
         neighbor_idx: Neighbor indices of shape [B, N, K]
-        
+
     Returns:
         Gathered features of shape [B, C, N, K]
     """
@@ -269,32 +274,36 @@ def gather_neighbour(pc: torch.Tensor, neighbor_idx: torch.Tensor) -> torch.Tens
     num_points = pc.shape[1]
     d = pc.shape[2]
     index_input = neighbor_idx.reshape(batch_size, -1)  # B, N*K
-    features = torch.gather(pc, 1, index_input.unsqueeze(-1).repeat(1, 1, pc.shape[2]))  # B, N*K, C
-    features = features.reshape(batch_size, num_points, neighbor_idx.shape[-1], d)  # B, N, K, C
+    features = torch.gather(
+        pc, 1, index_input.unsqueeze(-1).repeat(1, 1, pc.shape[2])
+    )  # B, N*K, C
+    features = features.reshape(
+        batch_size, num_points, neighbor_idx.shape[-1], d
+    )  # B, N, K, C
     features = features.permute(0, 3, 1, 2)  # B, C, N, K
     return features
 
 
 class SPE(nn.Module):
     """Spatial Points Encoding module from 3DCDNet."""
-    
+
     def __init__(self, d_in: int, d_out: int):
         """Initialize SPE module.
-        
+
         Args:
             d_in: Input dimension
             d_out: Output dimension
         """
         super().__init__()
         self.mlp2 = Conv2d(d_in, d_out, kernel_size=(1, 1), bn=True)
-        
+
     def forward(self, feature: torch.Tensor, neigh_idx: torch.Tensor) -> torch.Tensor:
         """Forward pass of SPE module.
-        
+
         Args:
             feature: Feature tensor of shape [B, C, N, 1]
             neigh_idx: Neighbor indices of shape [B, N, K]
-            
+
         Returns:
             Output features of shape [B, C_out, N, 1]
         """
@@ -307,10 +316,10 @@ class SPE(nn.Module):
 
 class LFE(nn.Module):
     """Local Feature Extraction module from 3DCDNet."""
-    
+
     def __init__(self, d_in: int, d_out: int):
         """Initialize LFE module.
-        
+
         Args:
             d_in: Input dimension
             d_out: Output dimension
@@ -319,14 +328,14 @@ class LFE(nn.Module):
         self.mlp1 = Conv2d(d_in, d_in, kernel_size=(1, 1), bn=True)
         self.mlp2 = Conv2d(d_in, d_out, kernel_size=(1, 1), bn=True)
         self.mlp3 = Conv2d(d_in, d_out, kernel_size=(1, 1), bn=True)
-   
+
     def forward(self, feature: torch.Tensor, neigh_idx: torch.Tensor) -> torch.Tensor:
         """Forward pass of LFE module.
-        
+
         Args:
             feature: Feature tensor of shape [B, C, N, 1]
             neigh_idx: Neighbor indices of shape [B, N, K]
-            
+
         Returns:
             Output features of shape [B, C_out, N, 1]
         """
@@ -341,10 +350,10 @@ class LFE(nn.Module):
 
 class LFA(nn.Module):
     """Local Feature Aggregation module from 3DCDNet."""
-    
+
     def __init__(self, d_in: int, d_out: int):
         """Initialize LFA module.
-        
+
         Args:
             d_in: Input dimension
             d_out: Output dimension
@@ -353,14 +362,14 @@ class LFA(nn.Module):
         self.spe = SPE(d_in, d_out)
         self.lfe = LFE(d_in, d_out)
         self.mlp = Conv2d(d_out, d_out, kernel_size=(1, 1), bn=True)
-     
+
     def forward(self, feature: torch.Tensor, neigh_idx: torch.Tensor) -> torch.Tensor:
         """Forward pass of LFA module.
-        
+
         Args:
             feature: Feature tensor of shape [B, C, N, 1]
             neigh_idx: Neighbor indices of shape [B, N, K]
-            
+
         Returns:
             Output features of shape [B, C_out, N, 1]
         """

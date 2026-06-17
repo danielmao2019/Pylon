@@ -13,21 +13,21 @@ def compute_subset_connectivity_log1p(
     # Input validations
     assert isinstance(candidate_node_ids, list), f"{type(candidate_node_ids)=}"
     assert candidate_node_ids, "candidate_node_ids must be non-empty"
-    assert all(isinstance(node_id, int) for node_id in candidate_node_ids), (
-        f"{candidate_node_ids=}"
-    )
+    assert all(
+        isinstance(node_id, int) for node_id in candidate_node_ids
+    ), f"{candidate_node_ids=}"
     assert isinstance(subset_node_ids, list), f"{type(subset_node_ids)=}"
     assert subset_node_ids, "subset_node_ids must be non-empty"
-    assert all(isinstance(node_id, int) for node_id in subset_node_ids), (
-        f"{subset_node_ids=}"
-    )
+    assert all(
+        isinstance(node_id, int) for node_id in subset_node_ids
+    ), f"{subset_node_ids=}"
     assert isinstance(adjacency, dict), f"{type(adjacency)=}"
-    assert all(node_id in adjacency for node_id in candidate_node_ids), (
-        "adjacency missing candidate nodes"
-    )
-    assert all(node_id in adjacency for node_id in subset_node_ids), (
-        "adjacency missing subset nodes"
-    )
+    assert all(
+        node_id in adjacency for node_id in candidate_node_ids
+    ), "adjacency missing candidate nodes"
+    assert all(
+        node_id in adjacency for node_id in subset_node_ids
+    ), "adjacency missing subset nodes"
 
     subset_node_id_set = set(subset_node_ids)
     subset_neighbor_counts: Dict[int, int] = {}
@@ -57,22 +57,22 @@ def compute_subset_connectivity(
     # Input validations
     assert isinstance(candidate_node_ids, list), f"{type(candidate_node_ids)=}"
     assert candidate_node_ids, "candidate_node_ids must be non-empty"
-    assert all(isinstance(node_id, int) for node_id in candidate_node_ids), (
-        f"{candidate_node_ids=}"
-    )
+    assert all(
+        isinstance(node_id, int) for node_id in candidate_node_ids
+    ), f"{candidate_node_ids=}"
     assert isinstance(subset_node_ids, list), f"{type(subset_node_ids)=}"
     assert subset_node_ids, "subset_node_ids must be non-empty"
-    assert all(isinstance(node_id, int) for node_id in subset_node_ids), (
-        f"{subset_node_ids=}"
-    )
+    assert all(
+        isinstance(node_id, int) for node_id in subset_node_ids
+    ), f"{subset_node_ids=}"
     assert isinstance(adjacency, dict), f"{type(adjacency)=}"
     assert callable(edge_weight_transform), f"{type(edge_weight_transform)=}"
-    assert all(node_id in adjacency for node_id in candidate_node_ids), (
-        "adjacency missing candidate nodes"
-    )
-    assert all(node_id in adjacency for node_id in subset_node_ids), (
-        "adjacency missing subset nodes"
-    )
+    assert all(
+        node_id in adjacency for node_id in candidate_node_ids
+    ), "adjacency missing candidate nodes"
+    assert all(
+        node_id in adjacency for node_id in subset_node_ids
+    ), "adjacency missing subset nodes"
 
     subset_node_id_set = set(subset_node_ids)
     subset_neighbor_counts: Dict[int, int] = {}
@@ -87,7 +87,9 @@ def compute_subset_connectivity(
             if neighbor_id in subset_node_id_set:
                 candidate_subset_neighbor_count += 1
                 transformed_weight = edge_weight_transform(edge_weight)
-                assert isinstance(transformed_weight, Real), f"{type(transformed_weight)=}"
+                assert isinstance(
+                    transformed_weight, Real
+                ), f"{type(transformed_weight)=}"
                 candidate_subset_weight_sum += transformed_weight
         subset_neighbor_counts[candidate_node_id] = candidate_subset_neighbor_count
         subset_weight_sums[candidate_node_id] = candidate_subset_weight_sum
@@ -107,18 +109,18 @@ def count_non_subset_nodes_with_min_subset_neighbors(
     assert all(isinstance(node_id, int) for node_id in node_ids), f"{node_ids=}"
     assert isinstance(subset_node_ids, list), f"{type(subset_node_ids)=}"
     assert subset_node_ids, "subset_node_ids must be non-empty"
-    assert all(isinstance(node_id, int) for node_id in subset_node_ids), (
-        f"{subset_node_ids=}"
-    )
+    assert all(
+        isinstance(node_id, int) for node_id in subset_node_ids
+    ), f"{subset_node_ids=}"
     assert isinstance(adjacency, dict), f"{type(adjacency)=}"
     assert isinstance(min_neighbors, int), f"{type(min_neighbors)=}"
     assert min_neighbors >= 0, f"{min_neighbors=}"
-    assert all(node_id in adjacency for node_id in node_ids), (
-        "adjacency missing node_ids entries"
-    )
-    assert all(node_id in adjacency for node_id in subset_node_ids), (
-        "adjacency missing subset_node_ids entries"
-    )
+    assert all(
+        node_id in adjacency for node_id in node_ids
+    ), "adjacency missing node_ids entries"
+    assert all(
+        node_id in adjacency for node_id in subset_node_ids
+    ), "adjacency missing subset_node_ids entries"
 
     subset_node_id_set = set(subset_node_ids)
     total_non_subset_nodes = len(node_ids) - len(subset_node_id_set)

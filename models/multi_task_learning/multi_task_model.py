@@ -1,15 +1,16 @@
 from typing import Dict, Optional
+
 import torch
 
 
 class MultiTaskBaseModel(torch.nn.Module):
     """
     Base class for multi-task learning models with shared backbone and task-specific decoders.
-    
+
     This flexible architecture allows for various multi-task learning approaches by combining
     a shared feature extractor (backbone) with task-specific decoders. It optionally supports
     attention mechanisms for task-specific feature refinement.
-    
+
     For multi-task learning documentation, see the dataset-specific documentation files:
     - docs/datasets/multi_task/celeb_a.md
     - docs/datasets/multi_task/city_scapes.md
@@ -40,22 +41,43 @@ class MultiTaskBaseModel(torch.nn.Module):
         self.return_shared_rep = return_shared_rep
         if use_attention:
             assert attn_in is not None
-            self.attention_modules = torch.nn.ModuleDict({
-                name: torch.nn.Sequential(
-                    torch.nn.Conv2d(
-                        in_channels=attn_in, out_channels=attn_in,
-                        kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True,
-                    ),
-                    torch.nn.Conv2d(
-                        in_channels=attn_in, out_channels=attn_in,
-                        kernel_size=3, stride=1, padding=1, dilation=1, groups=attn_in, bias=True,
-                    ),
-                    torch.nn.Conv2d(
-                        in_channels=attn_in, out_channels=attn_in,
-                        kernel_size=1, stride=1, padding=0, dilation=1, groups=1, bias=True,
+            self.attention_modules = torch.nn.ModuleDict(
+                {
+                    name: torch.nn.Sequential(
+                        torch.nn.Conv2d(
+                            in_channels=attn_in,
+                            out_channels=attn_in,
+                            kernel_size=3,
+                            stride=1,
+                            padding=1,
+                            dilation=1,
+                            groups=1,
+                            bias=True,
+                        ),
+                        torch.nn.Conv2d(
+                            in_channels=attn_in,
+                            out_channels=attn_in,
+                            kernel_size=3,
+                            stride=1,
+                            padding=1,
+                            dilation=1,
+                            groups=attn_in,
+                            bias=True,
+                        ),
+                        torch.nn.Conv2d(
+                            in_channels=attn_in,
+                            out_channels=attn_in,
+                            kernel_size=1,
+                            stride=1,
+                            padding=0,
+                            dilation=1,
+                            groups=1,
+                            bias=True,
+                        ),
                     )
-                ) for name in decoders
-            })
+                    for name in decoders
+                }
+            )
         else:
             self.attention_modules = None
 
@@ -75,7 +97,9 @@ class MultiTaskBaseModel(torch.nn.Module):
                 attention_masks[name] = mask.detach().clone()
             else:
                 task_output = self.decoders[name](shared_rep)
-            outputs[name] = torch.nn.functional.upsample(task_output, size=(h, w), mode='bilinear')
+            outputs[name] = torch.nn.functional.upsample(
+                task_output, size=(h, w), mode='bilinear'
+            )
         if self.return_shared_rep:
             outputs['shared_rep'] = shared_rep
         if self.attention_modules:

@@ -1,8 +1,9 @@
-import pytest
-import tempfile
 import os
 import shutil
-from typing import Dict, Any
+import tempfile
+from typing import Any, Dict
+
+import pytest
 
 
 @pytest.fixture
@@ -24,9 +25,10 @@ def small_page_size():
 def large_debug_outputs():
     """Large debug outputs to trigger page management."""
     import torch
+
     return {
         'large_tensor': torch.randn(1000, 1000),  # Large tensor to trigger page saving
-        'metadata': {'size': 1000000}
+        'metadata': {'size': 1000000},
     }
 
 
@@ -44,7 +46,7 @@ def multiple_datapoints():
             'meta_info': {
                 'idx': [i],
                 'image_path': [f'/path/to/image_{i}.jpg'],
-            }
+            },
         }
         datapoints.append(datapoint)
 

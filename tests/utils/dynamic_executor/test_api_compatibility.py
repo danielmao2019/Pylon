@@ -1,8 +1,10 @@
-from typing import List, Dict, Any
-import pytest
 import time
+from typing import Any, Dict, List
+
 import numpy as np
-from utils.dynamic_executor import create_dynamic_executor, DynamicThreadPoolExecutor
+import pytest
+
+from utils.dynamic_executor import DynamicThreadPoolExecutor, create_dynamic_executor
 
 
 def simple_function(x: int) -> int:

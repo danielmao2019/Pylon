@@ -1,9 +1,9 @@
 import numpy as np
+import shapely.geometry
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
 from pytorch3d.transforms import matrix_to_quaternion
-import shapely.geometry
 
 
 def get_index_grid(height, width, batch=None, type_as=None):
@@ -103,7 +103,9 @@ def convert_image_coordinates_to_world(image_coords, depth, K_inv, Rt):
     # multiply by the inverse of camera extrinsics
     points_in_world = torch.einsum("bij,bnj->bni", Rt, points_in_4d)
     # convert 4d -> 3d
-    points_in_world = safe_division(points_in_world[:, :, :3], repeat(points_in_world[:, :, 3], "... -> ... n", n=3))
+    points_in_world = safe_division(
+        points_in_world[:, :, :3], repeat(points_in_world[:, :, 3], "... -> ... n", n=3)
+    )
     return points_in_world
 
 
@@ -117,10 +119,14 @@ def convert_world_to_image_coordinates(world_points, K_inv, Rt, keep_depth):
     # compute camera projection matrix
     homogenous_intrinsics = torch.zeros((b, 3, 4)).type_as(K_inv)
     homogenous_intrinsics[:, :, :3] = torch.linalg.inv(K_inv)
-    camera_projection_matrix = torch.einsum("bij,bjk->bik", homogenous_intrinsics, torch.linalg.inv(Rt))  # shape: bx3x4
+    camera_projection_matrix = torch.einsum(
+        "bij,bjk->bik", homogenous_intrinsics, torch.linalg.inv(Rt)
+    )  # shape: bx3x4
     # project world points onto the image plane
     homogenous_coords = F.pad(world_points, (0, 1), value=1)
-    camera_ref_coords_with_depth = torch.einsum("bij,bnj->bni", camera_projection_matrix, homogenous_coords)
+    camera_ref_coords_with_depth = torch.einsum(
+        "bij,bnj->bni", camera_projection_matrix, homogenous_coords
+    )
     if keep_depth:
         return camera_ref_coords_with_depth
     # convert 3d -> 2d
@@ -148,11 +154,13 @@ def estimate_linear_warp(X, Y):
     M = torch.stack(M)
     return M
 
+
 def setup_canonical_cameras(batch_size, tensor_to_infer_type_from):
     b = batch_size
     K_inv = torch.eye(3).unsqueeze(0).repeat(b, 1, 1).type_as(tensor_to_infer_type_from)
     Rt = torch.eye(4).unsqueeze(0).repeat(b, 1, 1).type_as(tensor_to_infer_type_from)
     return K_inv, Rt
+
 
 def construct_Rt_matrix(rotation, translation):
     Rt = torch.eye(4).type_as(rotation)
@@ -162,7 +170,13 @@ def construct_Rt_matrix(rotation, translation):
     return Rt
 
 
-def get_relative_pose(rotation_before, rotation_after, position_before, position_after, as_single_matrix=False):
+def get_relative_pose(
+    rotation_before,
+    rotation_after,
+    position_before,
+    position_after,
+    as_single_matrix=False,
+):
     Rt_before = construct_Rt_matrix(rotation_before, position_before)
     Rt_after = construct_Rt_matrix(rotation_after, position_after)
     Rt_1_to_2 = torch.einsum("bij,bjk->bik", torch.linalg.inv(Rt_after), Rt_before)
@@ -247,6 +261,7 @@ def sample_depth_for_given_points(depth_map, points):
     )
     return rearrange(depth_of_points, "b 1 1 n -> b n")
 
+
 def remove_bboxes_with_area_less_than(bboxes_as_np_array, threshold):
     bboxes = []
     for bbox in bboxes_as_np_array:
@@ -256,7 +271,16 @@ def remove_bboxes_with_area_less_than(bboxes_as_np_array, threshold):
     bboxes = np.array(bboxes)
     return bboxes
 
-def keep_matching_bboxes(batch, image_index, left_predictions, right_predictions, left_scores, right_scores, confidence_threshold=0.2):
+
+def keep_matching_bboxes(
+    batch,
+    image_index,
+    left_predictions,
+    right_predictions,
+    left_scores,
+    right_scores,
+    confidence_threshold=0.2,
+):
     """
     The idea is that each change bbox must have a corresponding bbox in the other image.
     However, the model itself doesn't enforce this directly. In this post-processing function
@@ -264,48 +288,80 @@ def keep_matching_bboxes(batch, image_index, left_predictions, right_predictions
     The process of finding "corresponding bounding boxes" is a bit naive for now.
     """
     left_high_confidence_bboxes = left_predictions[left_scores > confidence_threshold]
-    right_high_confidence_bboxes = right_predictions[right_scores > confidence_threshold]
-    left_centers = torch.tensor((left_high_confidence_bboxes[:, :2] + left_high_confidence_bboxes[:, 2:4]) / 2) / 224
-    right_centers = torch.tensor((right_high_confidence_bboxes[:, :2] + right_high_confidence_bboxes[:, 2:4]) / 2) / 224
+    right_high_confidence_bboxes = right_predictions[
+        right_scores > confidence_threshold
+    ]
+    left_centers = (
+        torch.tensor(
+            (left_high_confidence_bboxes[:, :2] + left_high_confidence_bboxes[:, 2:4])
+            / 2
+        )
+        / 224
+    )
+    right_centers = (
+        torch.tensor(
+            (right_high_confidence_bboxes[:, :2] + right_high_confidence_bboxes[:, 2:4])
+            / 2
+        )
+        / 224
+    )
 
-    left_centers_in_right = batch["transform_points_1_to_2"](left_centers, image_index) * 224
-    right_centers_in_left = batch["transform_points_2_to_1"](right_centers, image_index) * 224
-    
+    left_centers_in_right = (
+        batch["transform_points_1_to_2"](left_centers, image_index) * 224
+    )
+    right_centers_in_left = (
+        batch["transform_points_2_to_1"](right_centers, image_index) * 224
+    )
+
     left_bboxes_to_keep = []
     right_bboxes_to_keep = []
     for j, left_in_right in enumerate(left_centers_in_right):
         candidate_bbox = None
         minimum_dist = None
-        for right_bbox in right_predictions[:,:4]:
-            if shapely.geometry.box(*right_bbox).contains(shapely.geometry.Point(*left_in_right)):
+        for right_bbox in right_predictions[:, :4]:
+            if shapely.geometry.box(*right_bbox).contains(
+                shapely.geometry.Point(*left_in_right)
+            ):
                 if candidate_bbox is None:
                     candidate_bbox = right_bbox
-                    minimum_dist = torch.norm(left_in_right - torch.tensor((right_bbox[:2] + right_bbox[2:4]) / 2))
+                    minimum_dist = torch.norm(
+                        left_in_right
+                        - torch.tensor((right_bbox[:2] + right_bbox[2:4]) / 2)
+                    )
                     continue
-                dist = torch.norm(left_in_right - torch.tensor((right_bbox[:2] + right_bbox[2:4]) / 2))
+                dist = torch.norm(
+                    left_in_right - torch.tensor((right_bbox[:2] + right_bbox[2:4]) / 2)
+                )
                 if dist < minimum_dist:
                     candidate_bbox = right_bbox
                     minimum_dist = dist
         if candidate_bbox is not None:
             right_bboxes_to_keep.append(candidate_bbox[:4].tolist())
-            left_bboxes_to_keep.append(left_high_confidence_bboxes[j,:4].tolist())
+            left_bboxes_to_keep.append(left_high_confidence_bboxes[j, :4].tolist())
 
     for j, right_in_left in enumerate(right_centers_in_left):
         candidate_bbox = None
         minimum_dist = None
-        for left_bbox in left_predictions[:,:4]:
-            if shapely.geometry.box(*left_bbox).contains(shapely.geometry.Point(*right_in_left)):
+        for left_bbox in left_predictions[:, :4]:
+            if shapely.geometry.box(*left_bbox).contains(
+                shapely.geometry.Point(*right_in_left)
+            ):
                 if candidate_bbox is None:
                     candidate_bbox = left_bbox
-                    minimum_dist = torch.norm(right_in_left - torch.tensor((left_bbox[:2] + left_bbox[2:4]) / 2))
+                    minimum_dist = torch.norm(
+                        right_in_left
+                        - torch.tensor((left_bbox[:2] + left_bbox[2:4]) / 2)
+                    )
                     continue
-                dist = torch.norm(right_in_left - torch.tensor((left_bbox[:2] + left_bbox[2:4]) / 2))
+                dist = torch.norm(
+                    right_in_left - torch.tensor((left_bbox[:2] + left_bbox[2:4]) / 2)
+                )
                 if dist < minimum_dist:
                     candidate_bbox = left_bbox
                     minimum_dist = dist
-                
+
         if candidate_bbox is not None:
             left_bboxes_to_keep.append(candidate_bbox[:4].tolist())
-            right_bboxes_to_keep.append(right_high_confidence_bboxes[j,:4].tolist())
+            right_bboxes_to_keep.append(right_high_confidence_bboxes[j, :4].tolist())
 
     return np.array(left_bboxes_to_keep), np.array(right_bboxes_to_keep)

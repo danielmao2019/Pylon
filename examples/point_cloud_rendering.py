@@ -28,7 +28,7 @@ def save_mask(mask_tensor: torch.Tensor, filepath: Path) -> None:
     """Save a rendered mask/segmentation tensor ([H, W], bool or int) as a PNG."""
     mask = mask_tensor.detach().cpu()
     if mask.dtype == torch.bool:
-        array = (mask.numpy().astype(np.uint8) * 255)
+        array = mask.numpy().astype(np.uint8) * 255
         Image.fromarray(array, mode="L").save(filepath)
     else:
         array = mask.to(torch.int64).numpy().astype(np.int32)

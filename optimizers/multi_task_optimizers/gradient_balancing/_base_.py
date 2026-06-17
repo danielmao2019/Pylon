@@ -1,6 +1,8 @@
-from typing import Tuple, Dict, Union
 from abc import ABC, abstractmethod
+from typing import Dict, Tuple, Union
+
 import torch
+
 from optimizers.multi_task_optimizers.mtl_optimizer import MTLOptimizer
 
 

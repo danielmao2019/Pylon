@@ -1,14 +1,16 @@
-import os
 import copy
+import os
+
+import matplotlib.cm as cm
+import matplotlib.colors
+import matplotlib.pyplot as plt
 import numpy as np
+import open3d
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch_batch_svd import svd
-import open3d
-import matplotlib.colors
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+
 from models.point_cloud_registration.buffer.pointnet2_ops import pointnet2_utils as pnt2
 from models.point_cloud_registration.buffer.utils.SE3 import *
 
@@ -21,7 +23,7 @@ def plot(x, text=None, normalize=False):
         x = x[..., 0]
 
     nch = x.size(0)
-    is_rgb = (nch == 3)
+    is_rgb = nch == 3
 
     if normalize:
         x = x - x.view(nch, -1).mean(-1).view(nch, 1, 1)
@@ -38,11 +40,16 @@ def plot(x, text=None, normalize=False):
     plt.axis("off")
 
     if text is not None:
-        plt.text(0.5, 0.5, text,
-                 horizontalalignment='center',
-                 verticalalignment='center',
-                 transform=plt.gca().transAxes,
-                 color='white', fontsize=150)
+        plt.text(
+            0.5,
+            0.5,
+            text,
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform=plt.gca().transAxes,
+            color='white',
+            fontsize=150,
+        )
 
 
 def ensure_dir(path):
@@ -59,9 +66,7 @@ def select_patches(pts, refer_pts, vicinity, patch_sample=1024):
 
     group_idx = pnt2.ball_query(vicinity, patch_sample, pts, refer_pts)
     pts_trans = pts.transpose(1, 2).contiguous()
-    new_points = pnt2.grouping_operation(
-        pts_trans, group_idx
-    )
+    new_points = pnt2.grouping_operation(pts_trans, group_idx)
     new_points = new_points.permute([0, 2, 3, 1])
     mask = group_idx[:, :, 0].unsqueeze(2).repeat(1, 1, patch_sample)
     mask = (group_idx == mask).float()
@@ -113,15 +118,27 @@ def l2_norm(input, axis=1):
 
 
 def angles2rotation_matrix(angles):
-    Rx = np.array([[1, 0, 0],
-                   [0, np.cos(angles[0]), -np.sin(angles[0])],
-                   [0, np.sin(angles[0]), np.cos(angles[0])]])
-    Ry = np.array([[np.cos(angles[1]), 0, np.sin(angles[1])],
-                   [0, 1, 0],
-                   [-np.sin(angles[1]), 0, np.cos(angles[1])]])
-    Rz = np.array([[np.cos(angles[2]), -np.sin(angles[2]), 0],
-                   [np.sin(angles[2]), np.cos(angles[2]), 0],
-                   [0, 0, 1]])
+    Rx = np.array(
+        [
+            [1, 0, 0],
+            [0, np.cos(angles[0]), -np.sin(angles[0])],
+            [0, np.sin(angles[0]), np.cos(angles[0])],
+        ]
+    )
+    Ry = np.array(
+        [
+            [np.cos(angles[1]), 0, np.sin(angles[1])],
+            [0, 1, 0],
+            [-np.sin(angles[1]), 0, np.cos(angles[1])],
+        ]
+    )
+    Rz = np.array(
+        [
+            [np.cos(angles[2]), -np.sin(angles[2]), 0],
+            [np.sin(angles[2]), np.cos(angles[2]), 0],
+            [0, 0, 1],
+        ]
+    )
     R = np.dot(Rz, np.dot(Ry, Rx))
     return R
 
@@ -155,7 +172,9 @@ def pc_rotate_translate_torch(data, angles, translates=None):
     R = torch.FloatTensor(R).to(device)
 
     if not translates is None:
-        rotated_data = torch.matmul(data, R.transpose(-1, -2)) + torch.FloatTensor(translates).unsqueeze(1).to(device)
+        rotated_data = torch.matmul(data, R.transpose(-1, -2)) + torch.FloatTensor(
+            translates
+        ).unsqueeze(1).to(device)
         return rotated_data
     else:
         rotated_data = torch.matmul(data, R.transpose(-1, -2))
@@ -205,11 +224,11 @@ def vec_rotate_torch(data, angles):
 
 
 def rotate_perturbation_point_cloud(data, angle_sigma=0.01, angle_clip=0.05):
-    """ Randomly perturb the point clouds by small rotations
-        Input:
-          Nx3 array, original point clouds
-        Return:
-          Nx3 array, rotated point clouds
+    """Randomly perturb the point clouds by small rotations
+    Input:
+      Nx3 array, original point clouds
+    Return:
+      Nx3 array, rotated point clouds
     """
     # truncated Gaussian sampling
     angles = np.clip(angle_sigma * np.random.randn(3), -angle_clip, angle_clip)
@@ -219,14 +238,14 @@ def rotate_perturbation_point_cloud(data, angle_sigma=0.01, angle_clip=0.05):
 
 
 def jitter_point_cloud(data, sigma=0.01, clip=0.05):
-    """ Randomly jitter points. jittering is per point.
-        Input:
-          BxNx3 array, original point clouds
-        Return:
-          BxNx3 array, jittered point clouds
+    """Randomly jitter points. jittering is per point.
+    Input:
+      BxNx3 array, original point clouds
+    Return:
+      BxNx3 array, jittered point clouds
     """
     B, N, C = data.shape
-    assert (clip > 0)
+    assert clip > 0
     jittered_data = np.clip(sigma * np.random.randn(B, N, C), -1 * clip, clip)
     jittered_data += data
     return jittered_data
@@ -250,9 +269,15 @@ def s2_grid(n_alpha, n_beta):
     '''
     # beta = np.linspace(start=0, stop=np.pi, num=n_beta+2, endpoint=False) + np.pi / n_beta / 2
     # beta = beta[1:-1]
-    beta = np.linspace(start=0, stop=np.pi, num=n_beta, endpoint=False) + np.pi / n_beta / 2
+    beta = (
+        np.linspace(start=0, stop=np.pi, num=n_beta, endpoint=False)
+        + np.pi / n_beta / 2
+    )
 
-    alpha = np.linspace(start=0, stop=2 * np.pi, num=n_alpha, endpoint=False) + np.pi / n_alpha
+    alpha = (
+        np.linspace(start=0, stop=2 * np.pi, num=n_alpha, endpoint=False)
+        + np.pi / n_alpha
+    )
     B, A = np.meshgrid(beta, alpha, indexing='ij')
     B = B.flatten()
     A = A.flatten()
@@ -271,13 +296,17 @@ def pad_image(input, kernel_size):
     if kernel_size % 2 == 0:
         pad_size = kernel_size // 2
         output = torch.cat([input, input[:, :, :, 0:pad_size]], dim=3)
-        zeros_pad = torch.zeros([output.shape[0], output.shape[1], pad_size, output.shape[3]]).to(device)
+        zeros_pad = torch.zeros(
+            [output.shape[0], output.shape[1], pad_size, output.shape[3]]
+        ).to(device)
         output = torch.cat([output, zeros_pad], dim=2)
     else:
         pad_size = (kernel_size - 1) // 2
         output = torch.cat([input, input[:, :, :, 0:pad_size]], dim=3)
         output = torch.cat([input[:, :, :, -pad_size:], output], dim=3)
-        zeros_pad = torch.zeros([output.shape[0], output.shape[1], pad_size, output.shape[3]]).to(device)
+        zeros_pad = torch.zeros(
+            [output.shape[0], output.shape[1], pad_size, output.shape[3]]
+        ).to(device)
         output = torch.cat([output, zeros_pad], dim=2)
         output = torch.cat([zeros_pad, output], dim=2)
     return output
@@ -294,15 +323,29 @@ def pad_image_3d(input, kernel_size):
     if kernel_size % 2 == 0:
         pad_size = kernel_size // 2
         output = torch.cat([input, input[:, :, :, :, 0:pad_size]], dim=4)
-        zeros_pad = torch.zeros([output.shape[0], output.shape[1], output.shape[2], pad_size, output.shape[4]]).to(
-            device)
+        zeros_pad = torch.zeros(
+            [
+                output.shape[0],
+                output.shape[1],
+                output.shape[2],
+                pad_size,
+                output.shape[4],
+            ]
+        ).to(device)
         output = torch.cat([output, zeros_pad], dim=3)
     else:
         pad_size = (kernel_size - 1) // 2
         output = torch.cat([input, input[:, :, :, :, 0:pad_size]], dim=4)
         output = torch.cat([input[:, :, :, :, -pad_size:], output], dim=4)
-        zeros_pad = torch.zeros([output.shape[0], output.shape[1], output.shape[2], pad_size, output.shape[4]]).to(
-            device)
+        zeros_pad = torch.zeros(
+            [
+                output.shape[0],
+                output.shape[1],
+                output.shape[2],
+                pad_size,
+                output.shape[4],
+            ]
+        ).to(device)
         output = torch.cat([output, zeros_pad], dim=3)
         output = torch.cat([zeros_pad, output], dim=3)
     return output
@@ -327,7 +370,15 @@ def pad_image_3d_(input, *kernel_size):
 
     pad_size = (H - 1) // 2
     if pad_size != 0:
-        zeros_pad = torch.zeros([output.shape[0], output.shape[1], output.shape[2], pad_size, output.shape[4]]).to(device)
+        zeros_pad = torch.zeros(
+            [
+                output.shape[0],
+                output.shape[1],
+                output.shape[2],
+                pad_size,
+                output.shape[4],
+            ]
+        ).to(device)
         output = torch.cat([output, zeros_pad], dim=3)
         output = torch.cat([zeros_pad, output], dim=3)
     return output
@@ -437,13 +488,15 @@ def sphere_query(pts, new_pts, radius, nsample):
     B, N, C = pts.shape
     pts = pts.contiguous()
     new_pts = new_pts.contiguous()
-    group_idx = pnt2.ball_query(radius, nsample, pts[:, :, :3].contiguous(), new_pts[:, :, :3].contiguous())
+    group_idx = pnt2.ball_query(
+        radius, nsample, pts[:, :, :3].contiguous(), new_pts[:, :, :3].contiguous()
+    )
     mask = group_idx[:, :, 0].unsqueeze(2).repeat(1, 1, nsample)
     mask = (group_idx == mask).float()
     mask[:, :, 0] = 0
 
-    mask1 = (group_idx[:,:,0] == 0).unsqueeze(2).float()
-    mask1 = torch.cat([mask1, torch.zeros_like(mask)[:,:,:-1]], dim=2)
+    mask1 = (group_idx[:, :, 0] == 0).unsqueeze(2).float()
+    mask1 = torch.cat([mask1, torch.zeros_like(mask)[:, :, :-1]], dim=2)
     mask = mask + mask1
 
     # C implementation
@@ -455,7 +508,7 @@ def sphere_query(pts, new_pts, radius, nsample):
 
     # replace the wrong points using new_pts
     mask = mask.unsqueeze(3).repeat([1, 1, 1, C])
-    n_points = new_points*(1-mask).float()
+    n_points = new_points * (1 - mask).float()
 
     del mask
     del new_points
@@ -516,10 +569,19 @@ def RodsRotatFormula(a, b):
     a32 = c[:, 0].unsqueeze(1).unsqueeze(2)
     a33 = zero
     Rx = torch.cat(
-        (torch.cat((a11, a12, a13), dim=2), torch.cat((a21, a22, a23), dim=2), torch.cat((a31, a32, a33), dim=2)),
-        dim=1)
+        (
+            torch.cat((a11, a12, a13), dim=2),
+            torch.cat((a21, a22, a23), dim=2),
+            torch.cat((a31, a32, a33), dim=2),
+        ),
+        dim=1,
+    )
     I = torch.eye(3).to(device)
-    R = I.unsqueeze(0).repeat(B, 1, 1) + torch.sin(theta) * Rx + (1 - torch.cos(theta)) * torch.matmul(Rx, Rx)
+    R = (
+        I.unsqueeze(0).repeat(B, 1, 1)
+        + torch.sin(theta) * Rx
+        + (1 - torch.cos(theta)) * torch.matmul(Rx, Rx)
+    )
     return R.transpose(-1, -2)
 
 
@@ -540,7 +602,9 @@ def vec_to_vec_rot_matrix(a, b):
     rotate_axis = F.normalize(rotate_axis, p=2, dim=1)
     third_axis = torch.cross(a, rotate_axis)
     third_axis = F.normalize(third_axis, p=2, dim=1)
-    LRF = torch.cat((rotate_axis.unsqueeze(2), third_axis.unsqueeze(2), a.unsqueeze(2)), dim=2)
+    LRF = torch.cat(
+        (rotate_axis.unsqueeze(2), third_axis.unsqueeze(2), a.unsqueeze(2)), dim=2
+    )
     trans_cord = torch.matmul(LRF.transpose(-1, -2), b.unsqueeze(2))
     # sin = trans_cord[:, 1, :]
     # cos = trans_cord[:, 2, :]
@@ -556,8 +620,13 @@ def vec_to_vec_rot_matrix(a, b):
     a32 = torch.sin(theta)
     a33 = torch.cos(theta)
     Rx = torch.cat(
-        (torch.cat((a11, a12, a13), dim=2), torch.cat((a21, a22, a23), dim=2), torch.cat((a31, a32, a33), dim=2)),
-        dim=1)
+        (
+            torch.cat((a11, a12, a13), dim=2),
+            torch.cat((a21, a22, a23), dim=2),
+            torch.cat((a31, a32, a33), dim=2),
+        ),
+        dim=1,
+    )
     # I = torch.eye(3).to(device)
     # R = I.unsqueeze(0).repeat(B,1,1) + torch.sin(theta)*Rx + (1-torch.cos(theta))*Rx*Rx
 
@@ -607,7 +676,7 @@ def plot_corres(sraw, traw, skpts, tkpts, trans, thr, align=False):
     '''
     len = skpts.shape[0]
     t_skpts = transform(skpts, trans)
-    mask = (np.sum((t_skpts - tkpts) ** 2, axis=-1) < thr ** 2)
+    mask = np.sum((t_skpts - tkpts) ** 2, axis=-1) < thr**2
     inlier_rate = mask.sum() / len
     colors = np.zeros((len, 3))
     colors[mask] = [0, 1, 0]
@@ -620,7 +689,7 @@ def plot_corres(sraw, traw, skpts, tkpts, trans, thr, align=False):
     if align is True:
         sraw = transform(sraw, trans)
         skpts = transform(skpts, trans)
-    sraw_pcd = make_open3d_point_cloud(sraw, [227/255, 207/255, 87/255])
+    sraw_pcd = make_open3d_point_cloud(sraw, [227 / 255, 207 / 255, 87 / 255])
     # sraw_pcd = mesh_sphere(sraw_pcd, voxel_size=0.3)
     sraw_pcd.estimate_normals()
     traw_pcd = make_open3d_point_cloud(traw + offset, [0, 0.651, 0.929])
@@ -628,7 +697,9 @@ def plot_corres(sraw, traw, skpts, tkpts, trans, thr, align=False):
     traw_pcd.estimate_normals()
 
     vertice = np.concatenate([skpts, tkpts + offset], axis=0)
-    line = np.concatenate([np.arange(0, len)[:, None], np.arange(0, len)[:, None] + len], axis=-1)
+    line = np.concatenate(
+        [np.arange(0, len)[:, None], np.arange(0, len)[:, None] + len], axis=-1
+    )
     lines_pcd = plot_correspondences(vertice, line, colors)
 
     open3d.visualization.draw_geometries([sraw_pcd, traw_pcd, lines_pcd])
@@ -654,14 +725,15 @@ def plot_correspondences(points, lines, color):
 
     return lines_pcd
 
+
 # convert data
 def convert_data(data, color, ind=None):
     data = data.squeeze()
     if isinstance(data, torch.Tensor):
         data = data.detach().cpu().numpy()
     color = color * 0.5
-    min = 0#np.array(data).min() #
-    max = 1.0#np.array(data).max() #
+    min = 0  # np.array(data).min() #
+    max = 1.0  # np.array(data).max() #
     data[data > max] = max
     data[data < min] = min
 
@@ -674,7 +746,7 @@ def convert_data(data, color, ind=None):
     cb.ax.tick_params(labelsize=14)
     plt.show()
 
-    norm = matplotlib.colors.Normalize(vmin = min, vmax=max, clip=True)
+    norm = matplotlib.colors.Normalize(vmin=min, vmax=max, clip=True)
     mapper = cm.ScalarMappable(norm=norm, cmap=cm.rainbow)
     rgba = mapper.to_rgba(data)
 
@@ -707,17 +779,27 @@ def render_pc(pc, score):
 def cal_Z_axis(local_cor, local_weight=None, ref_point=None, disambigutiy='normal'):
     device = local_cor.device
     B, N, _ = local_cor.shape
-    cov_matrix = torch.matmul(local_cor.transpose(-1, -2), local_cor) if local_weight is None \
-        else Variable(torch.matmul(local_cor.transpose(-1, -2), local_cor * local_weight), requires_grad=True)
+    cov_matrix = (
+        torch.matmul(local_cor.transpose(-1, -2), local_cor)
+        if local_weight is None
+        else Variable(
+            torch.matmul(local_cor.transpose(-1, -2), local_cor * local_weight),
+            requires_grad=True,
+        )
+    )
     # Z_axis = torch.symeig(cov_matrix, eigenvectors=True)[1][:, :, 0]
     u, s, v = svd(cov_matrix)
-    Z_axis = u[:,:,-1]
+    Z_axis = u[:, :, -1]
     if disambigutiy == 'normal':
         mask = (torch.sum(-Z_axis * ref_point, dim=1) < 0).float().unsqueeze(1)
     else:
         temp = torch.zeros_like(Z_axis)
         temp[:, -1] = 1
-        mask = (F.cosine_similarity(torch.sum(local_cor, dim=1), temp) < 0).float().unsqueeze(1)
+        mask = (
+            (F.cosine_similarity(torch.sum(local_cor, dim=1), temp) < 0)
+            .float()
+            .unsqueeze(1)
+        )
 
     Z_axis = Z_axis * (1 - mask) - Z_axis * mask
 

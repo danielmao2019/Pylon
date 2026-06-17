@@ -8,11 +8,16 @@ Original code repository:
 https://github.com/wangle53/3DCDNet
 """
 
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 import torch
 import torch.nn as nn
+
 from models.change_detection.siam3dcdnet.modules import (
-    Conv1d, Conv2d, LFA, gather_neighbour
+    LFA,
+    Conv1d,
+    Conv2d,
+    gather_neighbour,
 )
 
 
@@ -47,10 +52,10 @@ class C3Dnet(nn.Module):
         self.dt = Conv2d(1024, 1024, kernel_size=(1, 1), bn=True)
 
         # Decoder blocks with skip connections
-        self.d4 = Conv2d(1024*2, 512, kernel_size=(1, 1), bn=True)
-        self.d3 = Conv2d(512*2, 256, kernel_size=(1, 1), bn=True)
-        self.d2 = Conv2d(256*2, 128, kernel_size=(1, 1), bn=True)
-        self.d1 = Conv2d(128*2, 64, kernel_size=(1, 1), bn=True)
+        self.d4 = Conv2d(1024 * 2, 512, kernel_size=(1, 1), bn=True)
+        self.d3 = Conv2d(512 * 2, 256, kernel_size=(1, 1), bn=True)
+        self.d2 = Conv2d(256 * 2, 128, kernel_size=(1, 1), bn=True)
+        self.d1 = Conv2d(128 * 2, 64, kernel_size=(1, 1), bn=True)
 
         # Final output layer
         self.d0 = Conv2d(64, self.out_d, kernel_size=(1, 1), bn=True)
@@ -129,13 +134,19 @@ class C3Dnet(nn.Module):
         d = feature.shape[1]
         batch_size = pool_idx.shape[0]
         pool_idx = pool_idx.reshape(batch_size, -1)  # batch*(npoints*nsamples)
-        pool_features = torch.gather(feature, 2, pool_idx.unsqueeze(1).repeat(1, feature.shape[1], 1))
+        pool_features = torch.gather(
+            feature, 2, pool_idx.unsqueeze(1).repeat(1, feature.shape[1], 1)
+        )
         pool_features = pool_features.reshape(batch_size, d, -1, k)
-        pool_features = pool_features.max(dim=3, keepdim=True)[0]  # batch*channel*npoints*1
+        pool_features = pool_features.max(dim=3, keepdim=True)[
+            0
+        ]  # batch*channel*npoints*1
         return pool_features
 
     @staticmethod
-    def nearest_interpolation(feature: torch.Tensor, interp_idx: torch.Tensor) -> torch.Tensor:
+    def nearest_interpolation(
+        feature: torch.Tensor, interp_idx: torch.Tensor
+    ) -> torch.Tensor:
         """Interpolate features based on upsampling indices.
 
         Args:
@@ -149,8 +160,12 @@ class C3Dnet(nn.Module):
         batch_size = interp_idx.shape[0]
         up_num_points = interp_idx.shape[1]
         interp_idx = interp_idx.reshape(batch_size, up_num_points)
-        interpolated_features = torch.gather(feature, 2, interp_idx.unsqueeze(1).repeat(1, feature.shape[1], 1))
-        interpolated_features = interpolated_features.unsqueeze(3)  # batch*channel*npoints*1
+        interpolated_features = torch.gather(
+            feature, 2, interp_idx.unsqueeze(1).repeat(1, feature.shape[1], 1)
+        )
+        interpolated_features = interpolated_features.unsqueeze(
+            3
+        )  # batch*channel*npoints*1
         return interpolated_features
 
 
@@ -169,7 +184,7 @@ class Siam3DCDNet(nn.Module):
         feature_dims: List[int] = [64, 128, 256],
         dropout: float = 0.1,
         k_neighbors: int = 16,
-        sub_sampling_ratio: List[int] = [4, 4, 4, 4]
+        sub_sampling_ratio: List[int] = [4, 4, 4, 4],
     ):
         """Initialize Siam3DCDNet model.
 
@@ -194,11 +209,14 @@ class Siam3DCDNet(nn.Module):
 
         # Change detection head
         self.mlp1 = Conv1d(64, 32, kernel_size=1, bn=True)
-        self.mlp2 = Conv1d(32, num_classes, kernel_size=1, bias=False, bn=False, activation=None)
+        self.mlp2 = Conv1d(
+            32, num_classes, kernel_size=1, bias=False, bn=False, activation=None
+        )
 
     @staticmethod
-    def nearest_feature_difference(raw: torch.Tensor, query: torch.Tensor,
-                                   nearest_idx: torch.Tensor) -> torch.Tensor:
+    def nearest_feature_difference(
+        raw: torch.Tensor, query: torch.Tensor, nearest_idx: torch.Tensor
+    ) -> torch.Tensor:
         """Compute feature differences between point clouds.
 
         Args:
@@ -240,20 +258,20 @@ class Siam3DCDNet(nn.Module):
             pc_0['xyz'],
             pc_0['neighbors_idx'],
             pc_0['pool_idx'],
-            pc_0['unsam_idx']
+            pc_0['unsam_idx'],
         ]
 
         end_points1 = [
             pc_1['xyz'],
             pc_1['neighbors_idx'],
             pc_1['pool_idx'],
-            pc_1['unsam_idx']
+            pc_1['unsam_idx'],
         ]
 
         # Get cross-cloud KNN indices
         knearest_idx = [
             pc_0['knearst_idx_in_another_pc'],
-            pc_1['knearst_idx_in_another_pc']
+            pc_1['knearst_idx_in_another_pc'],
         ]
 
         # Forward pass through the network for each point cloud
@@ -279,10 +297,7 @@ class Siam3DCDNet(nn.Module):
         logits_0 = fout0.transpose(2, 1)  # B, N, nc
         logits_1 = fout1.transpose(2, 1)  # B, N, nc
 
-        return {
-            'logits_0': logits_0,
-            'logits_1': logits_1
-        }
+        return {'logits_0': logits_0, 'logits_1': logits_1}
 
 
 # Factory function for creating model
@@ -296,4 +311,4 @@ def get_model(num_classes: int = 2, **kwargs) -> Siam3DCDNet:
     Returns:
         Siam3DCDNet model instance
     """
-    return Siam3DCDNet(num_classes=num_classes, **kwargs) 
+    return Siam3DCDNet(num_classes=num_classes, **kwargs)

@@ -1,8 +1,10 @@
-from typing import Dict, Any
 import os
+from typing import Any, Dict
+
 import numpy as np
 import torch
 from plyfile import PlyData, PlyElement
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 

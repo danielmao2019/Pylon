@@ -1,8 +1,9 @@
-import torch
 import pytest
+import torch
+
 from data.structures.three_d.point_cloud.ops.set_ops.symmetric_difference import (
-    pc_symmetric_difference,
     _normalize_points,
+    pc_symmetric_difference,
 )
 
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Detailed analysis of metadata files."""
 
-import pickle
 import os
+import pickle
+
 import numpy as np
+
 
 def load_pickle_file(filepath: str):
     """Load a pickle file and return its contents."""
@@ -15,6 +17,7 @@ def load_pickle_file(filepath: str):
         print(f"Error loading {filepath}: {e}")
         return None
 
+
 def print_detailed_info():
     """Print detailed information about the metadata files."""
 
@@ -24,7 +27,9 @@ def print_detailed_info():
     print("=" * 80)
 
     # Load 3DMatch.pkl from GeoTransformer
-    geo_3dmatch = load_pickle_file("/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/3DMatch.pkl")
+    geo_3dmatch = load_pickle_file(
+        "/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/3DMatch.pkl"
+    )
     if geo_3dmatch and len(geo_3dmatch) > 0:
         print("\n### GeoTransformer 3DMatch.pkl structure:")
         print(f"Total entries: {len(geo_3dmatch)}")
@@ -35,14 +40,18 @@ def print_detailed_info():
             entry = geo_3dmatch[0]
             for key, value in entry.items():
                 if isinstance(value, np.ndarray):
-                    print(f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}")
+                    print(
+                        f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}"
+                    )
                 elif isinstance(value, str):
                     print(f"  {key}: '{value[:100]}...' (string)")
                 else:
                     print(f"  {key}: {value} ({type(value).__name__})")
 
     # Load train.pkl from GeoTransformer
-    geo_train = load_pickle_file("/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/train.pkl")
+    geo_train = load_pickle_file(
+        "/home/daniel/repos/pcr-repos/GeoTransformer/data/3DMatch/metadata/train.pkl"
+    )
     if geo_train and len(geo_train) > 0:
         print("\n### GeoTransformer train.pkl structure:")
         print(f"Total entries: {len(geo_train)}")
@@ -55,7 +64,9 @@ def print_detailed_info():
     print("=" * 80)
 
     # Load 3DMatch.pkl from OverlapPredator
-    overlap_3dmatch = load_pickle_file("/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/3DMatch.pkl")
+    overlap_3dmatch = load_pickle_file(
+        "/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/3DMatch.pkl"
+    )
     if overlap_3dmatch:
         print("\n### OverlapPredator 3DMatch.pkl structure:")
         print(f"Type: {type(overlap_3dmatch)}")
@@ -66,18 +77,24 @@ def print_detailed_info():
                     print(f"  {key}: list of {len(value)} items")
                     if len(value) > 0:
                         if isinstance(value[0], np.ndarray):
-                            print(f"    First item: numpy array with shape {value[0].shape}, dtype {value[0].dtype}")
+                            print(
+                                f"    First item: numpy array with shape {value[0].shape}, dtype {value[0].dtype}"
+                            )
                         else:
                             print(f"    First item type: {type(value[0])}")
                             if isinstance(value[0], str):
                                 print(f"    Sample: '{value[0][:100]}...'")
                 elif isinstance(value, np.ndarray):
-                    print(f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}")
+                    print(
+                        f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}"
+                    )
                 else:
                     print(f"  {key}: {type(value).__name__}")
 
     # Load train_info.pkl from OverlapPredator
-    overlap_train = load_pickle_file("/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/train_info.pkl")
+    overlap_train = load_pickle_file(
+        "/home/daniel/repos/pcr-repos/OverlapPredator/configs/indoor/train_info.pkl"
+    )
     if overlap_train:
         print("\n### OverlapPredator train_info.pkl structure:")
         print(f"Type: {type(overlap_train)}")
@@ -87,9 +104,13 @@ def print_detailed_info():
                 if isinstance(value, list):
                     print(f"  {key}: list of {len(value)} items")
                     if len(value) > 0 and not isinstance(value[0], np.ndarray):
-                        print(f"    First item: {value[0][:100] if isinstance(value[0], str) else value[0]}")
+                        print(
+                            f"    First item: {value[0][:100] if isinstance(value[0], str) else value[0]}"
+                        )
                 elif isinstance(value, np.ndarray):
-                    print(f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}")
+                    print(
+                        f"  {key}: numpy array with shape {value.shape}, dtype {value.dtype}"
+                    )
 
     # Compare paths
     print("\n" + "=" * 80)
@@ -113,6 +134,7 @@ def print_detailed_info():
                 print("\nOverlapPredator sample paths:")
                 print(f"  src: {src_list[0]}")
                 print(f"  tgt: {tgt_list[0]}")
+
 
 if __name__ == "__main__":
     print_detailed_info()

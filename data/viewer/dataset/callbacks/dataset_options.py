@@ -14,9 +14,7 @@ if TYPE_CHECKING:
 # =========================================================================
 
 
-def register_dataset_options_callbacks(
-    app: dash.Dash, viewer: "DatasetViewer"
-) -> None:
+def register_dataset_options_callbacks(app: dash.Dash, viewer: "DatasetViewer") -> None:
     # Input validations
     assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"
     assert hasattr(viewer, "backend"), f"viewer must expose backend, got {type(viewer)}"

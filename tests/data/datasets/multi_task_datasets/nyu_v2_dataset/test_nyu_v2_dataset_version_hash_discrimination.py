@@ -1,6 +1,7 @@
 """Tests for NYUv2Dataset cache version discrimination."""
 
 import pytest
+
 from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
 
 
@@ -8,14 +9,10 @@ def test_nyuv2_dataset_version_discrimination(nyu_v2_data_root):
     """Test that NYUv2Dataset instances with different parameters have different hashes."""
     # Same parameters should have same hash
     dataset1a = NYUv2Dataset(
-        data_root=nyu_v2_data_root,
-        split='train',
-        semantic_granularity='coarse'
+        data_root=nyu_v2_data_root, split='train', semantic_granularity='coarse'
     )
     dataset1b = NYUv2Dataset(
-        data_root=nyu_v2_data_root,
-        split='train',
-        semantic_granularity='coarse'
+        data_root=nyu_v2_data_root, split='train', semantic_granularity='coarse'
     )
     assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
 
@@ -23,7 +20,7 @@ def test_nyuv2_dataset_version_discrimination(nyu_v2_data_root):
     dataset2 = NYUv2Dataset(
         data_root=nyu_v2_data_root,
         split='val',  # Different
-        semantic_granularity='coarse'
+        semantic_granularity='coarse',
     )
     assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -31,7 +28,7 @@ def test_nyuv2_dataset_version_discrimination(nyu_v2_data_root):
     dataset3 = NYUv2Dataset(
         data_root=nyu_v2_data_root,
         split='train',
-        semantic_granularity='fine'  # Different
+        semantic_granularity='fine',  # Different
     )
     assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
@@ -43,16 +40,15 @@ def test_split_variants(nyu_v2_data_root):
     datasets = []
     for split in split_variants:
         dataset = NYUv2Dataset(
-            data_root=nyu_v2_data_root,
-            split=split,
-            semantic_granularity='coarse'
+            data_root=nyu_v2_data_root, split=split, semantic_granularity='coarse'
         )
         datasets.append(dataset)
 
     # All should have different hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    assert len(hashes) == len(set(hashes)), \
-        f"All split variants should produce different hashes, got: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"All split variants should produce different hashes, got: {hashes}"
 
 
 def test_semantic_granularity_variants(nyu_v2_data_root):
@@ -62,16 +58,15 @@ def test_semantic_granularity_variants(nyu_v2_data_root):
     datasets = []
     for granularity in granularity_variants:
         dataset = NYUv2Dataset(
-            data_root=nyu_v2_data_root,
-            split='train',
-            semantic_granularity=granularity
+            data_root=nyu_v2_data_root, split='train', semantic_granularity=granularity
         )
         datasets.append(dataset)
 
     # All should have different hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    assert len(hashes) == len(set(hashes)), \
-        f"All granularity variants should produce different hashes, got: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"All granularity variants should produce different hashes, got: {hashes}"
 
 
 def test_inherited_parameters_affect_version_hash(nyu_v2_data_root):
@@ -94,8 +89,9 @@ def test_inherited_parameters_affect_version_hash(nyu_v2_data_root):
         modified_args[param_name] = new_value
         dataset2 = NYUv2Dataset(**modified_args)
 
-        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-            f"Inherited parameter {param_name} should affect cache version hash"
+        assert (
+            dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        ), f"Inherited parameter {param_name} should affect cache version hash"
 
 
 def test_comprehensive_no_hash_collisions(nyu_v2_data_root):
@@ -106,19 +102,22 @@ def test_comprehensive_no_hash_collisions(nyu_v2_data_root):
     for split in ['train', 'val']:
         for granularity in ['fine', 'coarse']:
             for base_seed_val in [None, 42, 123]:
-                datasets.append(NYUv2Dataset(
-                    data_root=nyu_v2_data_root,
-                    split=split,
-                    semantic_granularity=granularity,
-                    base_seed=base_seed_val
-                ))
+                datasets.append(
+                    NYUv2Dataset(
+                        data_root=nyu_v2_data_root,
+                        split=split,
+                        semantic_granularity=granularity,
+                        base_seed=base_seed_val,
+                    )
+                )
 
     # Collect all hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
     # Ensure all hashes are unique (no collisions)
-    assert len(hashes) == len(set(hashes)), \
-        f"Hash collision detected! Duplicate hashes found in: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
     # Ensure all hashes are properly formatted
     for hash_val in hashes:

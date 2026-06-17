@@ -1,12 +1,13 @@
 """Continuous Level of Detail system for point cloud visualization."""
 
+import logging
 from typing import Any, Dict, Tuple
+
 import torch
 
-from data.transforms.vision_3d.pclod.lod_utils import get_camera_position
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
-import logging
+from data.transforms.vision_3d.pclod.lod_utils import get_camera_position
 
 logger = logging.getLogger(__name__)
 

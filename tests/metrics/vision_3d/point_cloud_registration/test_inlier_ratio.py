@@ -1,5 +1,6 @@
-import torch
 import pytest
+import torch
+
 from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
 
 
@@ -15,10 +16,10 @@ def create_datapoint(src_points, tgt_points, gt_transform, idx=0):
         'inputs': {},  # Not used by InlierRatio
         'outputs': {
             'src_pc': src_points,  # Predicted source correspondences
-            'tgt_pc': tgt_points   # Predicted target correspondences
+            'tgt_pc': tgt_points,  # Predicted target correspondences
         },
         'labels': {'transform': gt_transform},  # Ground truth transform
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -35,8 +36,12 @@ def test_inlier_ratio_initialization():
 
 def test_inlier_ratio_perfect_match(metric):
     # Create perfect correspondences: when GT transform is applied to src, they exactly match tgt
-    src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    tgt_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
+    src_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    tgt_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
     gt_transform = torch.eye(4).unsqueeze(0)  # Identity transform
 
     datapoint = create_datapoint(src_points, tgt_points, gt_transform)
@@ -51,15 +56,19 @@ def test_inlier_ratio_partial_match(metric):
     # [0,0,0] -> [0,0,0] (distance 0.0, within threshold 0.1) ✓
     # [1,1,1] -> [1.05,1.05,1.05] (distance ~0.087, within threshold 0.1) ✓
     # [2,2,2] -> [3,3,3] (distance ~1.73, beyond threshold 0.1) ✗
-    src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    tgt_points = torch.tensor([[0.0, 0.0, 0.0], [1.05, 1.05, 1.05], [3.0, 3.0, 3.0]], dtype=torch.float32)
+    src_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    tgt_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.05, 1.05, 1.05], [3.0, 3.0, 3.0]], dtype=torch.float32
+    )
     gt_transform = torch.eye(4).unsqueeze(0)  # Identity transform
 
     datapoint = create_datapoint(src_points, tgt_points, gt_transform)
     result = metric(datapoint)
     assert 'inlier_ratio' in result
     # Two out of three correspondences should be inliers
-    assert torch.isclose(result['inlier_ratio'], torch.tensor(2/3))
+    assert torch.isclose(result['inlier_ratio'], torch.tensor(2 / 3))
 
 
 def test_inlier_ratio_with_transform(metric):
@@ -68,8 +77,12 @@ def test_inlier_ratio_with_transform(metric):
     # src [0,0,0] + [1,1,1] = [1,1,1] should match tgt [1,1,1] ✓
     # src [1,1,1] + [1,1,1] = [2,2,2] should match tgt [2,2,2] ✓
     # src [2,2,2] + [1,1,1] = [3,3,3] should match tgt [3,3,3] ✓
-    src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    tgt_points = torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [3.0, 3.0, 3.0]], dtype=torch.float32)
+    src_points = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32
+    )
+    tgt_points = torch.tensor(
+        [[1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [3.0, 3.0, 3.0]], dtype=torch.float32
+    )
 
     # Translation transform by [1,1,1]
     gt_transform = torch.eye(4).unsqueeze(0)
@@ -93,7 +106,9 @@ def test_inlier_ratio_invalid_inputs(metric):
 
     # Test with mismatched correspondence counts
     with pytest.raises(AssertionError):
-        src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=torch.float32)  # 2 points
+        src_points = torch.tensor(
+            [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=torch.float32
+        )  # 2 points
         tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)  # 1 point
         gt_transform = torch.eye(4).unsqueeze(0)
 

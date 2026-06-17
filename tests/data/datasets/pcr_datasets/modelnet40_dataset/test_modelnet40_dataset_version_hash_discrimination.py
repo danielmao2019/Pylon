@@ -1,8 +1,10 @@
 """Tests for ModelNet40Dataset cache version discrimination."""
 
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
+
 from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
 
 
@@ -21,7 +23,9 @@ def create_dummy_modelnet40_structure(data_root: str) -> None:
                 off_file = os.path.join(category_dir, f'{category}_{i:04d}.off')
                 with open(off_file, 'w') as f:
                     # Dummy OFF content
-                    f.write('OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n')
+                    f.write(
+                        'OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n'
+                    )
 
 
 def test_modelnet40_dataset_version_discrimination():
@@ -36,7 +40,7 @@ def test_modelnet40_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         dataset1b = ModelNet40Dataset(
             data_root=temp_dir,
@@ -44,7 +48,7 @@ def test_modelnet40_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
 
@@ -55,7 +59,7 @@ def test_modelnet40_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -66,7 +70,7 @@ def test_modelnet40_dataset_version_discrimination():
             rotation_mag=30.0,  # Different
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
@@ -77,7 +81,7 @@ def test_modelnet40_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.05,
-            split='test'  # Different
+            split='test',  # Different
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
 
@@ -110,8 +114,9 @@ def test_inherited_parameters_affect_version_hash():
             modified_args[param_name] = new_value
             dataset2 = ModelNet40Dataset(**modified_args)
 
-            assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-                f"Inherited parameter {param_name} should affect cache version hash"
+            assert (
+                dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+            ), f"Inherited parameter {param_name} should affect cache version hash"
 
 
 def test_modelnet40_specific_parameters():
@@ -128,7 +133,9 @@ def test_modelnet40_specific_parameters():
                 os.makedirs(category_dir, exist_ok=True)
                 off_file = os.path.join(category_dir, f'{category}_0001.off')
                 with open(off_file, 'w') as f:
-                    f.write('OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n')
+                    f.write(
+                        'OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n'
+                    )
 
         # Structure 2 - with additional category
         for category in categories_set2:
@@ -137,18 +144,20 @@ def test_modelnet40_specific_parameters():
                 os.makedirs(category_dir, exist_ok=True)
                 off_file = os.path.join(category_dir, f'{category}_0001.off')
                 with open(off_file, 'w') as f:
-                    f.write('OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n')
+                    f.write(
+                        'OFF\n3 1 0\n0.0 0.0 0.0\n1.0 0.0 0.0\n0.0 1.0 0.0\n3 0 1 2\n'
+                    )
 
         # Same parameters but different data_root (different available categories)
         dataset1 = ModelNet40Dataset(
             data_root=os.path.join(temp_dir, 'structure1'),
             dataset_size=100,
-            split='train'
+            split='train',
         )
         dataset2 = ModelNet40Dataset(
             data_root=os.path.join(temp_dir, 'structure2'),
             dataset_size=100,
-            split='train'
+            split='train',
         )
 
         # Should have different hashes due to different available categories affecting file_pair_annotations
@@ -168,14 +177,15 @@ def test_keep_ratio_variants():
                 data_root=temp_dir,
                 dataset_size=100,
                 split='train',
-                keep_ratio=keep_ratio
+                keep_ratio=keep_ratio,
             )
             datasets.append(dataset)
 
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        assert len(hashes) == len(set(hashes)), \
-            f"All keep_ratio variants should produce different hashes, got: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"All keep_ratio variants should produce different hashes, got: {hashes}"
 
 
 def test_comprehensive_no_hash_collisions():
@@ -190,24 +200,29 @@ def test_comprehensive_no_hash_collisions():
             for rotation_mag in [30.0, 45.0, 60.0]:
                 for translation_mag in [0.3, 0.5, 0.7]:
                     for split in ['train', 'test']:
-                        datasets.append(ModelNet40Dataset(
-                            data_root=temp_dir,
-                            dataset_size=dataset_size,
-                            rotation_mag=rotation_mag,
-                            translation_mag=translation_mag,
-                            split=split
-                        ))
+                        datasets.append(
+                            ModelNet40Dataset(
+                                data_root=temp_dir,
+                                dataset_size=dataset_size,
+                                rotation_mag=rotation_mag,
+                                translation_mag=translation_mag,
+                                split=split,
+                            )
+                        )
 
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
         # Ensure all hashes are unique (no collisions)
-        assert len(hashes) == len(set(hashes)), \
-            f"Hash collision detected! Duplicate hashes found in: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
-            assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-            assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
-
-
+            assert isinstance(
+                hash_val, str
+            ), f"Hash must be string, got {type(hash_val)}"
+            assert (
+                len(hash_val) == 16
+            ), f"Hash must be 16 characters, got {len(hash_val)}"

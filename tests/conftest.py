@@ -19,6 +19,7 @@ import pytest
 # Change Detection Datasets (Bi-temporal)
 # --------------------------------------------------------------------------------
 
+
 @pytest.fixture
 def air_change_data_root():
     """Fixture that provides AirChange dataset path."""
@@ -77,6 +78,7 @@ def xview2_data_root():
 # Change Detection Datasets (Single-temporal)
 # --------------------------------------------------------------------------------
 
+
 @pytest.fixture
 def ppsl_data_root():
     """Fixture that provides PPSL dataset path."""
@@ -92,6 +94,7 @@ def i3pe_data_root():
 # --------------------------------------------------------------------------------
 # Multi-task Datasets
 # --------------------------------------------------------------------------------
+
 
 @pytest.fixture
 def ade20k_data_root():
@@ -133,6 +136,7 @@ def pascal_context_data_root():
 # Point Cloud Registration (PCR) Datasets
 # --------------------------------------------------------------------------------
 
+
 @pytest.fixture
 def kitti_data_root():
     """Fixture that provides KITTI dataset path."""
@@ -155,6 +159,7 @@ def threedmatch_data_root():
 # Semantic Segmentation Datasets
 # --------------------------------------------------------------------------------
 
+
 @pytest.fixture
 def coco_stuff_164k_data_root():
     """Fixture that provides COCOStuff164K dataset path."""
@@ -171,6 +176,7 @@ def whu_bd_data_root():
 # Torchvision Datasets
 # --------------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mnist_data_root():
     """Fixture that provides MNIST data path."""
@@ -180,6 +186,7 @@ def mnist_data_root():
 # --------------------------------------------------------------------------------
 # Cache Directory Fixtures
 # --------------------------------------------------------------------------------
+
 
 @pytest.fixture
 def cache_dir():

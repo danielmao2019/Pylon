@@ -19,8 +19,17 @@ class DisplayStyles:
     GRID_ITEM_VERTICAL = {'display': 'inline-block', 'vertical-align': 'top'}
 
     # Grid layout styles with margin
-    GRID_ITEM_48_MARGIN = {'width': '48%', 'display': 'inline-block', 'vertical-align': 'top', 'margin-right': '2%'}
-    GRID_ITEM_48_NO_MARGIN = {'width': '48%', 'display': 'inline-block', 'vertical-align': 'top'}
+    GRID_ITEM_48_MARGIN = {
+        'width': '48%',
+        'display': 'inline-block',
+        'vertical-align': 'top',
+        'margin-right': '2%',
+    }
+    GRID_ITEM_48_NO_MARGIN = {
+        'width': '48%',
+        'display': 'inline-block',
+        'vertical-align': 'top',
+    }
 
     # Flex layout styles
     FLEX_WRAP = {'display': 'flex', 'flex-wrap': 'wrap'}
@@ -36,14 +45,14 @@ class DisplayStyles:
         'padding': '10px',
         'max-height': '200px',
         'overflow-y': 'auto',
-        'border-radius': '5px'
+        'border-radius': '5px',
     }
 
     # Statistics styles
     STATS_CONTAINER = {
         'width': '33%',
         'display': 'inline-block',
-        'vertical-align': 'top'
+        'vertical-align': 'top',
     }
 
 
@@ -68,7 +77,7 @@ class ParallelFigureCreator:
     def create_figures_parallel(
         self,
         figure_tasks: List[Callable[[], Any]],
-        context_name: str = "Figure Creation"
+        context_name: str = "Figure Creation",
     ) -> List[Any]:
         """Create figures in parallel using ThreadPoolExecutor.
 
@@ -81,9 +90,9 @@ class ParallelFigureCreator:
         """
         # Input validations
         assert isinstance(figure_tasks, list), f"{type(figure_tasks)=}"
-        assert all(callable(task_func) for task_func in figure_tasks), (
-            f"{figure_tasks=}"
-        )
+        assert all(
+            callable(task_func) for task_func in figure_tasks
+        ), f"{figure_tasks=}"
         assert isinstance(context_name, str), f"{type(context_name)=}"
 
         if self.enable_timing:
@@ -91,7 +100,9 @@ class ParallelFigureCreator:
 
         figures = [None] * len(figure_tasks)
 
-        with ThreadPoolExecutor(max_workers=min(len(figure_tasks), self.max_workers)) as executor:
+        with ThreadPoolExecutor(
+            max_workers=min(len(figure_tasks), self.max_workers)
+        ) as executor:
             # Submit all tasks
             future_to_index = {
                 executor.submit(task_func): idx
@@ -127,10 +138,7 @@ def create_metadata_display(meta_info: Dict[str, Any]) -> List[html.Div]:
 
     return [
         html.H4("Metadata:"),
-        html.Pre(
-            format_value(meta_info),
-            style=DisplayStyles.METADATA_CONTAINER
-        )
+        html.Pre(format_value(meta_info), style=DisplayStyles.METADATA_CONTAINER),
     ]
 
 
@@ -144,9 +152,9 @@ def create_debug_display(debug_outputs: Optional[Dict[str, Any]]) -> List[html.D
         List of HTML components for debug display
     """
     # Input validations
-    assert debug_outputs is None or isinstance(debug_outputs, dict), (
-        f"{type(debug_outputs)=}"
-    )
+    assert debug_outputs is None or isinstance(
+        debug_outputs, dict
+    ), f"{type(debug_outputs)=}"
 
     if not debug_outputs:
         return []
@@ -155,9 +163,7 @@ def create_debug_display(debug_outputs: Optional[Dict[str, Any]]) -> List[html.D
 
 
 def create_statistics_display(
-    stats_data: List[Dict[str, Any]],
-    titles: List[str],
-    width_style: str = "33%"
+    stats_data: List[Dict[str, Any]], titles: List[str], width_style: str = "33%"
 ) -> List[html.Div]:
     """Create standardized statistics display.
 
@@ -194,10 +200,7 @@ def create_statistics_display(
                 list_items.append(html.Li(f"{k}: {v}"))
 
         components.append(
-            html.Div([
-                html.H4(f"{title}:"),
-                html.Ul(list_items)
-            ], style=style)
+            html.Div([html.H4(f"{title}:"), html.Ul(list_items)], style=style)
         )
 
     return components
@@ -207,7 +210,7 @@ def create_figure_grid(
     figures: List[Any],
     width_style: str = "50%",
     height_style: str = "400px",
-    graph_id_prefix: str = "point-cloud-graph"
+    graph_id_prefix: str = "point-cloud-graph",
 ) -> List[html.Div]:
     """Create a grid of figures with consistent styling.
 
@@ -233,39 +236,43 @@ def create_figure_grid(
         if isinstance(fig, html.Div):
             # Just add the div directly with consistent styling
             grid_items.append(
-                html.Div([
-                    fig  # Use the div as-is (empty placeholder)
-                ], style={
-                    'width': width_style,
-                    'display': 'inline-block',
-                    'vertical-align': 'top',
-                    'max-height': height_style,
-                    'overflow': 'hidden',
-                    'box-sizing': 'border-box'
-                })
+                html.Div(
+                    [fig],  # Use the div as-is (empty placeholder)
+                    style={
+                        'width': width_style,
+                        'display': 'inline-block',
+                        'vertical-align': 'top',
+                        'max-height': height_style,
+                        'overflow': 'hidden',
+                        'box-sizing': 'border-box',
+                    },
+                )
             )
         else:
             # Normal figure - wrap in dcc.Graph
             grid_items.append(
-                html.Div([
-                    dcc.Graph(
-                        id={'type': graph_id_prefix, 'index': i},
-                        figure=fig,
-                        style={
-                            'height': height_style,
-                            'width': '100%',
-                            'max-height': height_style,
-                            'overflow': 'hidden'
-                        }
-                    )
-                ], style={
-                    'width': width_style,
-                    'display': 'inline-block',
-                    'vertical-align': 'top',
-                    'max-height': height_style,
-                    'overflow': 'hidden',
-                    'box-sizing': 'border-box'
-                })
+                html.Div(
+                    [
+                        dcc.Graph(
+                            id={'type': graph_id_prefix, 'index': i},
+                            figure=fig,
+                            style={
+                                'height': height_style,
+                                'width': '100%',
+                                'max-height': height_style,
+                                'overflow': 'hidden',
+                            },
+                        )
+                    ],
+                    style={
+                        'width': width_style,
+                        'display': 'inline-block',
+                        'vertical-align': 'top',
+                        'max-height': height_style,
+                        'overflow': 'hidden',
+                        'box-sizing': 'border-box',
+                    },
+                )
             )
 
     return grid_items
@@ -275,7 +282,7 @@ def create_standard_datapoint_layout(
     figure_components: List[html.Div],
     stats_components: List[html.Div],
     meta_info: Dict[str, Any],
-    debug_outputs: Optional[Dict[str, Any]] = None
+    debug_outputs: Optional[Dict[str, Any]] = None,
 ) -> html.Div:
     """Create a standardized datapoint layout.
 
@@ -292,9 +299,9 @@ def create_standard_datapoint_layout(
     assert isinstance(figure_components, list), f"{type(figure_components)=}"
     assert isinstance(stats_components, list), f"{type(stats_components)=}"
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert debug_outputs is None or isinstance(debug_outputs, dict), (
-        f"{type(debug_outputs)=}"
-    )
+    assert debug_outputs is None or isinstance(
+        debug_outputs, dict
+    ), f"{type(debug_outputs)=}"
 
     # Create metadata display
     meta_display = create_metadata_display(meta_info)
@@ -306,12 +313,14 @@ def create_standard_datapoint_layout(
     layout_components = [
         # Figure displays
         html.Div(figure_components),
-
         # Info section
-        html.Div([
-            html.Div(stats_components),
-            html.Div(meta_display, style=DisplayStyles.MARGIN_TOP_20)
-        ], style=DisplayStyles.MARGIN_TOP_20)
+        html.Div(
+            [
+                html.Div(stats_components),
+                html.Div(meta_display, style=DisplayStyles.MARGIN_TOP_20),
+            ],
+            style=DisplayStyles.MARGIN_TOP_20,
+        ),
     ]
 
     # Add debug section if present

@@ -3,7 +3,7 @@ import warnings
 import torch
 import torch.nn as nn
 
-from .factory import build_conv_layer, build_norm_layer, build_act_layer
+from .factory import build_act_layer, build_conv_layer, build_norm_layer
 
 
 class ConvBlock(nn.Module):
@@ -47,7 +47,9 @@ class ConvBlock(nn.Module):
         if not self.act_before_norm:
             # conv-norm-act
             norm_type = norm_cfg['type']
-            if norm_type.startswith('BatchNorm') or norm_type.startswith('InstanceNorm'):
+            if norm_type.startswith('BatchNorm') or norm_type.startswith(
+                'InstanceNorm'
+            ):
                 bias = False
         if conv_cfg == 'Linear':
             layer_cfg = {
@@ -58,7 +60,9 @@ class ConvBlock(nn.Module):
             }
         elif conv_cfg.startswith('SeparableConv'):
             if groups != 1:
-                warnings.warn(f'`groups={groups}` is ignored when building {conv_cfg} layer.')
+                warnings.warn(
+                    f'`groups={groups}` is ignored when building {conv_cfg} layer.'
+                )
             layer_cfg = {
                 'type': conv_cfg,
                 'in_channels': in_channels,
@@ -73,7 +77,9 @@ class ConvBlock(nn.Module):
             }
         else:
             if depth_multiplier is not None:
-                warnings.warn(f'`depth_multiplier={depth_multiplier}` is ignored when building {conv_cfg} layer.')
+                warnings.warn(
+                    f'`depth_multiplier={depth_multiplier}` is ignored when building {conv_cfg} layer.'
+                )
             layer_cfg = {
                 'type': conv_cfg,
                 'in_channels': in_channels,

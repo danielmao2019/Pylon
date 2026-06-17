@@ -9,15 +9,16 @@ Following CLAUDE.md testing patterns:
 - Determinism testing
 """
 
+import json
 import os
 import tempfile
-import json
+
 import pytest
 import torch
 
-from agents.manager.training_job import TrainingJob
-from agents.manager.runtime import JobRuntimeParams
 from agents.manager.default_job import DefaultJobProgressInfo
+from agents.manager.runtime import JobRuntimeParams
+from agents.manager.training_job import TrainingJob
 
 # ============================================================================
 # TESTS FOR get_session_progress (NO MOCKS - PURE FUNCTIONS)

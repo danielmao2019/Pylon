@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.vision_2d.instance_segmentation_metric import InstanceSegmentationMetric
 
 
@@ -9,22 +10,35 @@ def create_datapoint(y_pred, y_true, idx=0):
         'inputs': {},  # Empty for these tests
         'outputs': y_pred,
         'labels': y_true,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
-@pytest.mark.parametrize("y_pred, y_true", [
-    (
-        torch.tensor([[
-            [[1, 0], [0, 1]],
-            [[0, 1], [1, 0]],
-        ]], dtype=torch.float32),
-        torch.tensor([[
-            [[1, 0], [0, 1]],
-            [[0, 1], [1, 0]],
-        ]], dtype=torch.float32),
-    ),
-])
+@pytest.mark.parametrize(
+    "y_pred, y_true",
+    [
+        (
+            torch.tensor(
+                [
+                    [
+                        [[1, 0], [0, 1]],
+                        [[0, 1], [1, 0]],
+                    ]
+                ],
+                dtype=torch.float32,
+            ),
+            torch.tensor(
+                [
+                    [
+                        [[1, 0], [0, 1]],
+                        [[0, 1], [1, 0]],
+                    ]
+                ],
+                dtype=torch.float32,
+            ),
+        ),
+    ],
+)
 def test_instance_segmentation_metric_call(y_pred, y_true):
     """Tests instance segmentation metric computation for a single datapoint."""
     metric = InstanceSegmentationMetric(ignore_index=-1)
@@ -37,30 +51,53 @@ def test_instance_segmentation_metric_call(y_pred, y_true):
     assert score['l1'].ndim == 0  # Scalar tensor
 
 
-@pytest.mark.parametrize("y_preds, y_trues", [
-    (
-        [
-            torch.tensor([[
-                [[1, 0], [0, 1]],
-                [[0, 1], [1, 0]],
-            ]], dtype=torch.float32),
-            torch.tensor([[
-                [[1, 0], [0, 1]],
-                [[0, 1], [1, 0]],
-            ]], dtype=torch.float32),
-        ],
-        [
-            torch.tensor([[
-                [[1, 0], [0, 1]],
-                [[0, 1], [1, 0]],
-            ]], dtype=torch.float32),
-            torch.tensor([[
-                [[1, 0], [0, 1]],
-                [[0, 1], [1, 0]],
-            ]], dtype=torch.float32),
-        ],
-    ),
-])
+@pytest.mark.parametrize(
+    "y_preds, y_trues",
+    [
+        (
+            [
+                torch.tensor(
+                    [
+                        [
+                            [[1, 0], [0, 1]],
+                            [[0, 1], [1, 0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),
+                torch.tensor(
+                    [
+                        [
+                            [[1, 0], [0, 1]],
+                            [[0, 1], [1, 0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),
+            ],
+            [
+                torch.tensor(
+                    [
+                        [
+                            [[1, 0], [0, 1]],
+                            [[0, 1], [1, 0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),
+                torch.tensor(
+                    [
+                        [
+                            [[1, 0], [0, 1]],
+                            [[0, 1], [1, 0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),
+            ],
+        ),
+    ],
+)
 def test_instance_segmentation_metric_summarize(y_preds, y_trues):
     """Tests instance segmentation metric summarization across multiple datapoints."""
     metric = InstanceSegmentationMetric(ignore_index=-1)

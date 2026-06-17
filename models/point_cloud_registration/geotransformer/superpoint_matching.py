@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 
-from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
+from models.point_cloud_registration.geotransformer.pairwise_distance import (
+    pairwise_distance,
+)
 
 
 class SuperPointMatching(nn.Module):
@@ -34,13 +36,21 @@ class SuperPointMatching(nn.Module):
         ref_feats = ref_feats[ref_indices]
         src_feats = src_feats[src_indices]
         # select top-k proposals
-        matching_scores = torch.exp(-pairwise_distance(ref_feats, src_feats, normalized=True))
+        matching_scores = torch.exp(
+            -pairwise_distance(ref_feats, src_feats, normalized=True)
+        )
         if self.dual_normalization:
-            ref_matching_scores = matching_scores / matching_scores.sum(dim=1, keepdim=True)
-            src_matching_scores = matching_scores / matching_scores.sum(dim=0, keepdim=True)
+            ref_matching_scores = matching_scores / matching_scores.sum(
+                dim=1, keepdim=True
+            )
+            src_matching_scores = matching_scores / matching_scores.sum(
+                dim=0, keepdim=True
+            )
             matching_scores = ref_matching_scores * src_matching_scores
         num_correspondences = min(self.num_correspondences, matching_scores.numel())
-        corr_scores, corr_indices = matching_scores.view(-1).topk(k=num_correspondences, largest=True)
+        corr_scores, corr_indices = matching_scores.view(-1).topk(
+            k=num_correspondences, largest=True
+        )
         ref_sel_indices = corr_indices // matching_scores.shape[1]
         src_sel_indices = corr_indices % matching_scores.shape[1]
         # recover original indices

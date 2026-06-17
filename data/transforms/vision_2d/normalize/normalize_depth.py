@@ -1,7 +1,8 @@
-"""Code borrowed from Yifan Wu.
-"""
+"""Code borrowed from Yifan Wu."""
+
 import numpy
 import torch
+
 from data.transforms.base_transform import BaseTransform
 
 

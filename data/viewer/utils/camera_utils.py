@@ -9,7 +9,7 @@ import dash
 def update_figures_parallel(
     figures: List[Dict[str, Any]],
     update_func: Callable[[int, Dict[str, Any]], Any],
-    max_workers: int = 4
+    max_workers: int = 4,
 ) -> List[Any]:
     """Update multiple figures in parallel using a given update function.
 
@@ -50,7 +50,9 @@ def update_figures_parallel(
     return updated_figures
 
 
-def update_figure_camera(triggered_index: int, new_camera: Dict[str, Any]) -> Callable[[int, Dict[str, Any]], Dict[str, Any]]:
+def update_figure_camera(
+    triggered_index: int, new_camera: Dict[str, Any]
+) -> Callable[[int, Dict[str, Any]], Dict[str, Any]]:
     """Create a function to update a figure's camera state.
 
     Args:
@@ -92,6 +94,7 @@ def reset_figure_camera() -> Callable[[int, Dict[str, Any]], Dict[str, Any]]:
     Returns:
         Function that resets a figure's camera state by removing manual camera
     """
+
     def reset_func(i: int, figure: Dict[str, Any]) -> Dict[str, Any]:
         # Input validations
         assert isinstance(i, int), f"{type(i)=}"

@@ -43,7 +43,15 @@ def get_format_strings(kv_pairs):
     return log_strings
 
 
-def get_log_string(result_dict, epoch=None, max_epoch=None, iteration=None, max_iteration=None, lr=None, timer=None):
+def get_log_string(
+    result_dict,
+    epoch=None,
+    max_epoch=None,
+    iteration=None,
+    max_iteration=None,
+    lr=None,
+    timer=None,
+):
     log_strings = []
     if epoch is not None:
         epoch_string = f'Epoch: {epoch}'
@@ -69,11 +77,16 @@ def get_log_string(result_dict, epoch=None, max_epoch=None, iteration=None, max_
         log_strings.append(timer.tostring())
     message = ', '.join(log_strings)
     return message
+
+
 def print_model_parameters(model):
     total = sum([param.nelement() for param in model.parameters()])
 
-    backbone_parameters = 0.
+    backbone_parameters = 0.0
     for name, param in model.named_parameters():
         if 'backbone' in name:
             backbone_parameters += param.nelement()
-    print("Total number of parameters: %.2fM, backbone: %.2fM" % (total / 1e6, backbone_parameters / 1e6))
+    print(
+        "Total number of parameters: %.2fM, backbone: %.2fM"
+        % (total / 1e6, backbone_parameters / 1e6)
+    )

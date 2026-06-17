@@ -1,8 +1,11 @@
-from typing import Tuple, List
 import random
+from typing import List, Tuple
+
 import torch
+
+from utils.object_detection import bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh
+
 from .base_diffuser import BaseDiffuser
-from utils.object_detection import bbox_xyxy_to_cxcywh, bbox_cxcywh_to_xyxy
 
 
 class ObjectDetectionDiffuser(BaseDiffuser):
@@ -15,13 +18,17 @@ class ObjectDetectionDiffuser(BaseDiffuser):
         num_bboxes: int,
         scale: float,
     ):
-        super(ObjectDetectionDiffuser, self).__init__(dataset=dataset, num_steps=num_steps, keys=keys)
+        super(ObjectDetectionDiffuser, self).__init__(
+            dataset=dataset, num_steps=num_steps, keys=keys
+        )
         assert type(num_bboxes) == int, f"{type(num_bboxes)=}"
         self.num_bboxes = num_bboxes
         assert type(scale) == float, f"{type(scale)=}"
         self.scale = scale
 
-    def forward_diffusion(self, bboxes: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward_diffusion(
+        self, bboxes: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""Forward diffusion for bounding box annotations in a single scene.
         This method overrides and calls `BaseDiffuser.forward_diffusion`.
 
@@ -37,11 +44,11 @@ class ObjectDetectionDiffuser(BaseDiffuser):
         assert len(bboxes.shape) == 2 and bboxes.shape[1] == 4, f"{bboxes.shape=}"
         bboxes = bbox_xyxy_to_cxcywh(bboxes)
         if len(bboxes) < self.num_bboxes:
-            padding = torch.randn(size=(self.num_bboxes-len(bboxes), 4)) / 6. + 0.5
+            padding = torch.randn(size=(self.num_bboxes - len(bboxes), 4)) / 6.0 + 0.5
             padding[:, 2:] = torch.clamp(padding[:, 2:], min=1e-4)
             bboxes = torch.cat([bboxes, padding], dim=0)
         elif len(bboxes) > self.num_bboxes:
-            mask = [True] * self.num_bboxes + [False] * (len(bboxes)-self.num_bboxes)
+            mask = [True] * self.num_bboxes + [False] * (len(bboxes) - self.num_bboxes)
             random.shuffle(mask)
             bboxes = bboxes[mask]
         else:

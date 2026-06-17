@@ -1,5 +1,5 @@
-from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
+from agents.manager.training_job import TrainingJob
 
 
 def test_status_trainer_running_with_recent_log(

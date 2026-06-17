@@ -1,19 +1,21 @@
-import os
 import json
-import tempfile
+import os
 import shutil
+import tempfile
 import time
 from datetime import datetime
 from unittest.mock import Mock
+
 import pytest
+
 from agents.logger import LogsSnapshot
-from agents.monitor.system_monitor import SystemMonitor
 from agents.manager import Manager
 from agents.manager.base_job import BaseJob
 from agents.manager.base_progress_info import BaseProgressInfo
 from agents.manager.default_job import DefaultJobProgressInfo
-from agents.monitor.process_info import ProcessInfo
 from agents.monitor.gpu_status import GPUStatus
+from agents.monitor.process_info import ProcessInfo
+from agents.monitor.system_monitor import SystemMonitor
 from utils.io.json import serialize_object
 
 BASE_COMMAND = 'python main.py --config-filepath configs/exp/baseline.py'
@@ -24,7 +26,9 @@ SAMPLE_COMMANDS = [
 ]
 
 
-def _build_dummy_job(command: str, progress: BaseProgressInfo, process_info: ProcessInfo) -> BaseJob:
+def _build_dummy_job(
+    command: str, progress: BaseProgressInfo, process_info: ProcessInfo
+) -> BaseJob:
     class _DummyJob(BaseJob):
         def derive_work_dir(self) -> str:
             return './logs/baseline_run'
@@ -174,7 +178,13 @@ def test_logs_snapshot_initialization_validation():
 # ============================================================================
 
 
-def test_create_snapshot(sample_config_files, mock_system_monitor, monkeypatch, sample_progress_info, sample_process_info):
+def test_create_snapshot(
+    sample_config_files,
+    mock_system_monitor,
+    monkeypatch,
+    sample_progress_info,
+    sample_process_info,
+):
     """Test snapshot creation."""
 
     # Mock Manager.build_jobs to return test data

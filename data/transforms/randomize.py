@@ -1,6 +1,8 @@
-from typing import List, Union, Callable, Optional, Any
 import random
+from typing import Any, Callable, List, Optional, Union
+
 import torch
+
 from data.transforms import BaseTransform, Compose
 
 
@@ -14,7 +16,9 @@ class Randomize(BaseTransform):
         assert 0 <= p <= 1, f"{p=}"
         self.p = p
 
-    def __call__(self, *args, seed: Optional[Any] = None) -> Union[torch.Tensor, List[torch.Tensor]]:
+    def __call__(
+        self, *args, seed: Optional[Any] = None
+    ) -> Union[torch.Tensor, List[torch.Tensor]]:
         generator = self._get_generator(g_type='random', seed=seed)
         if generator.uniform(0, 1) < self.p:
             try:

@@ -1,4 +1,5 @@
 import torch
+
 from data.transforms.base_transform import BaseTransform
 
 
@@ -15,7 +16,9 @@ class Flip(BaseTransform):
         """
         # Ensure self.axis is within the valid range of tensor dimensions
         if not (-tensor.ndim <= self.axis < tensor.ndim):
-            raise ValueError(f"Axis {self.axis} is out of bounds for tensor with {tensor.ndim} dimensions")
+            raise ValueError(
+                f"Axis {self.axis} is out of bounds for tensor with {tensor.ndim} dimensions"
+            )
 
         # Perform flipping along the specified axis
         return torch.flip(tensor, dims=[self.axis])

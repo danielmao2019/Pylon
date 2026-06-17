@@ -5,16 +5,18 @@ Misc functions, including distributed helpers.
 
 Mostly copy-paste from torchvision references.
 """
-from typing import List, Optional, Dict, Any, Union, Tuple
-from collections import OrderedDict
-from scipy.io import loadmat
-import numpy as np
+
 import csv
-from PIL import Image
+from collections import OrderedDict
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.distributed as dist
 import torchvision
+from PIL import Image
+from scipy.io import loadmat
 from torch import Tensor
 
 
@@ -25,6 +27,7 @@ def _max_by_axis(the_list: List[List[int]]) -> List[int]:
             maxes[index] = max(maxes[index], item)
     return maxes
 
+
 def get_world_size() -> int:
     if not dist.is_available():
         return 1
@@ -32,7 +35,10 @@ def get_world_size() -> int:
         return 1
     return dist.get_world_size()
 
-def reduce_dict(input_dict: Dict[str, torch.Tensor], average: bool = True) -> Dict[str, torch.Tensor]:
+
+def reduce_dict(
+    input_dict: Dict[str, torch.Tensor], average: bool = True
+) -> Dict[str, torch.Tensor]:
     """
     Args:
         input_dict (dict): all the values will be reduced
@@ -58,6 +64,7 @@ def reduce_dict(input_dict: Dict[str, torch.Tensor], average: bool = True) -> Di
         reduced_dict = {k: v for k, v in zip(names, values)}
     return reduced_dict
 
+
 class NestedTensor(object):
     def __init__(self, tensors, mask: Optional[Tensor]):
         self.tensors = tensors
@@ -79,6 +86,7 @@ class NestedTensor(object):
 
     def __repr__(self) -> str:
         return str(self.tensors)
+
 
 def nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTensor:
     # TODO make this more general
@@ -104,6 +112,7 @@ def nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTensor:
         raise ValueError("not supported")
     return NestedTensor(tensor, mask)
 
+
 # _onnx_nested_tensor_from_tensor_list() is an implementation of
 # nested_tensor_from_tensor_list() that is supported by ONNX tracing.
 @torch.jit.unused
@@ -124,17 +133,22 @@ def _onnx_nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTen
     padded_masks = []
     for img in tensor_list:
         padding = [(s1 - s2) for s1, s2 in zip(max_size, tuple(img.shape))]
-        padded_img = torch.nn.functional.pad(img, (0, padding[2], 0, padding[1], 0, padding[0]))
+        padded_img = torch.nn.functional.pad(
+            img, (0, padding[2], 0, padding[1], 0, padding[0])
+        )
         padded_imgs.append(padded_img)
 
         m = torch.zeros_like(img[0], dtype=torch.int, device=img.device)
-        padded_mask = torch.nn.functional.pad(m, (0, padding[2], 0, padding[1]), "constant", 1)
+        padded_mask = torch.nn.functional.pad(
+            m, (0, padding[2], 0, padding[1]), "constant", 1
+        )
         padded_masks.append(padded_mask.to(torch.bool))
 
     tensor = torch.stack(padded_imgs)
     mask = torch.stack(padded_masks)
 
     return NestedTensor(tensor, mask=mask)
+
 
 def is_dist_avail_and_initialized() -> bool:
     if not dist.is_available():
@@ -143,7 +157,10 @@ def is_dist_avail_and_initialized() -> bool:
         return False
     return True
 
-def load_parallal_model(model: torch.nn.Module, state_dict_: Dict[str, Any]) -> torch.nn.Module:
+
+def load_parallal_model(
+    model: torch.nn.Module, state_dict_: Dict[str, Any]
+) -> torch.nn.Module:
     state_dict = OrderedDict()
     for key in state_dict_:
         if key.startswith('module') and not key.startswith('module_list'):
@@ -156,8 +173,11 @@ def load_parallal_model(model: torch.nn.Module, state_dict_: Dict[str, Any]) -> 
     for key in state_dict:
         if key in model_state_dict:
             if state_dict[key].shape != model_state_dict[key].shape:
-                print('Skip loading parameter {}, required shape{}, loaded shape{}.'.format(
-                    key, model_state_dict[key].shape, state_dict[key].shape))
+                print(
+                    'Skip loading parameter {}, required shape{}, loaded shape{}.'.format(
+                        key, model_state_dict[key].shape, state_dict[key].shape
+                    )
+                )
                 state_dict[key] = model_state_dict[key]
         else:
             print('Drop parameter {}.'.format(key))
@@ -169,6 +189,7 @@ def load_parallal_model(model: torch.nn.Module, state_dict_: Dict[str, Any]) -> 
 
     return model
 
+
 class ADEVisualize(object):
     def __init__(self) -> None:
         self.colors = loadmat('dataset/color150.mat')['colors']
@@ -179,7 +200,13 @@ class ADEVisualize(object):
             for row in reader:
                 self.names[int(row[0])] = row[5].split(";")[0]
 
-    def unique(self, ar: np.ndarray, return_index: bool = False, return_inverse: bool = False, return_counts: bool = False) -> Union[np.ndarray, Tuple[np.ndarray, ...]]:
+    def unique(
+        self,
+        ar: np.ndarray,
+        return_index: bool = False,
+        return_inverse: bool = False,
+        return_counts: bool = False,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, ...]]:
         ar = np.asanyarray(ar).flatten()
 
         optional_indices = return_index or return_inverse
@@ -221,23 +248,28 @@ class ADEVisualize(object):
                 ret += (np.diff(idx),)
         return ret
 
-    def colorEncode(self, labelmap: np.ndarray, colors: np.ndarray, mode: str = 'RGB') -> np.ndarray:
+    def colorEncode(
+        self, labelmap: np.ndarray, colors: np.ndarray, mode: str = 'RGB'
+    ) -> np.ndarray:
         labelmap = labelmap.astype('int')
-        labelmap_rgb = np.zeros((labelmap.shape[0], labelmap.shape[1], 3),
-                                dtype=np.uint8)
+        labelmap_rgb = np.zeros(
+            (labelmap.shape[0], labelmap.shape[1], 3), dtype=np.uint8
+        )
         for label in self.unique(labelmap):
             if label < 0:
                 continue
-            labelmap_rgb += (labelmap == label)[:, :, np.newaxis] * \
-                np.tile(colors[label],
-                        (labelmap.shape[0], labelmap.shape[1], 1))
+            labelmap_rgb += (labelmap == label)[:, :, np.newaxis] * np.tile(
+                colors[label], (labelmap.shape[0], labelmap.shape[1], 1)
+            )
 
         if mode == 'BGR':
             return labelmap_rgb[:, :, ::-1]
         else:
             return labelmap_rgb
 
-    def show_result(self, img: Image.Image, pred: np.ndarray, save_path: Optional[str] = None) -> None:
+    def show_result(
+        self, img: Image.Image, pred: np.ndarray, save_path: Optional[str] = None
+    ) -> None:
         pred = np.int32(pred)
         # colorize prediction
         pred_color = self.colorEncode(pred, self.colors)

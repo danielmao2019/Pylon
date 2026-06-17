@@ -13,9 +13,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.displays.points.dash.core_points_display import create_point_cloud_display
+from data.viewer.utils.displays.points.dash.core_points_display import (
+    create_point_cloud_display,
+)
 
-from .data_types import PointCloudSample, CameraPose, BenchmarkStats
+from .data_types import BenchmarkStats, CameraPose, PointCloudSample
 
 
 class LODBenchmarkRunner:
@@ -24,8 +26,9 @@ class LODBenchmarkRunner:
     def __init__(self, num_runs: int = 3):
         self.num_runs = num_runs
 
-    def benchmark_single_pose(self, point_cloud_sample: PointCloudSample,
-                             camera_pose: CameraPose) -> BenchmarkStats:
+    def benchmark_single_pose(
+        self, point_cloud_sample: PointCloudSample, camera_pose: CameraPose
+    ) -> BenchmarkStats:
         """Run LOD benchmark for a single point cloud and camera pose.
 
         Args:
@@ -55,7 +58,7 @@ class LODBenchmarkRunner:
                 highlight_indices=None,
                 title=f"No LOD {run}",
                 camera_state=camera_pose.camera_state,
-                lod_type=None
+                lod_type=None,
             )
             end_time = time.perf_counter()
 
@@ -77,7 +80,7 @@ class LODBenchmarkRunner:
                 camera_state=camera_pose.camera_state,
                 lod_type="continuous",
                 lod_config={"use_spatial_binning": False},  # Use fast LOD configuration
-                point_cloud_id=f"{point_cloud_sample.name}_{camera_pose.distance_group}_{camera_pose.pose_id}"
+                point_cloud_id=f"{point_cloud_sample.name}_{camera_pose.distance_group}_{camera_pose.pose_id}",
             )
             end_time = time.perf_counter()
 
@@ -116,5 +119,5 @@ class LODBenchmarkRunner:
             no_lod_time=avg_no_lod_time,
             lod_time=avg_lod_time,
             speedup_ratio=speedup_ratio,
-            num_runs=self.num_runs
+            num_runs=self.num_runs,
         )

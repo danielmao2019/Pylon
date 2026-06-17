@@ -1,11 +1,15 @@
 from typing import Dict, Optional
+
 import torch
+
 from models.change_detection.csa_cdgan import attention as at
 
 
 class CSA_CDGAN_Generator(torch.nn.Module):
 
-    def __init__(self, isize, nc, nz, ndf, n_extra_layers=0, num_classes: Optional[int] = 2):
+    def __init__(
+        self, isize, nc, nz, ndf, n_extra_layers=0, num_classes: Optional[int] = 2
+    ):
         super(CSA_CDGAN_Generator, self).__init__()
         assert isize % 16 == 0, "isize has to be a multiple of 16"
         self._init_enc(nc, nz, ndf, n_extra_layers)
@@ -33,40 +37,40 @@ class CSA_CDGAN_Generator(torch.nn.Module):
                 torch.nn.LeakyReLU(0.2, inplace=True),
             )
         self.e2 = torch.nn.Sequential(
-            torch.nn.Conv2d(ndf, ndf*2, 4, 2, 1, bias=False),
-            torch.nn.BatchNorm2d(ndf*2),
+            torch.nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            torch.nn.BatchNorm2d(ndf * 2),
             torch.nn.LeakyReLU(0.2, inplace=True),
         )
         self.e3 = torch.nn.Sequential(
-            torch.nn.Conv2d(ndf*2, ndf*4, 4, 2, 1, bias=False),
-            torch.nn.BatchNorm2d(ndf*4),
+            torch.nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            torch.nn.BatchNorm2d(ndf * 4),
             torch.nn.LeakyReLU(0.2, inplace=True),
         )
         self.e4 = torch.nn.Sequential(
-            torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False),
+            torch.nn.Conv2d(ndf * 4, nz, 3, 1, 1, bias=False),
         )
 
     def _init_dec(self, nz, ndf, n_extra_layers, num_classes: int) -> None:
         self.d4 = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(nz, ndf*4, 3, 1, 1, bias=False),
-            torch.nn.BatchNorm2d(ndf*4),
+            torch.nn.ConvTranspose2d(nz, ndf * 4, 3, 1, 1, bias=False),
+            torch.nn.BatchNorm2d(ndf * 4),
             torch.nn.ReLU(True),
-            )
+        )
         self.d3 = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(ndf*4*2, ndf*2, 4, 2, 1, bias=False),
-            torch.nn.BatchNorm2d(ndf*2),
+            torch.nn.ConvTranspose2d(ndf * 4 * 2, ndf * 2, 4, 2, 1, bias=False),
+            torch.nn.BatchNorm2d(ndf * 2),
             torch.nn.ReLU(True),
-            )
+        )
         self.d2 = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(ndf*4, ndf, 4, 2, 1, bias=False),
+            torch.nn.ConvTranspose2d(ndf * 4, ndf, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf),
             torch.nn.ReLU(True),
-            )
+        )
         self.d_extra_layers = torch.nn.Sequential()
         for t in range(n_extra_layers):
             self.d_extra_layers.add_module(
-                'extra-layers-{0}-{1}-conv'.format(ndf*2, ndf),
-                torch.nn.Conv2d(ndf*2, ndf, 3, 1, 1, bias=False),
+                'extra-layers-{0}-{1}-conv'.format(ndf * 2, ndf),
+                torch.nn.Conv2d(ndf * 2, ndf, 3, 1, 1, bias=False),
             )
             self.d_extra_layers.add_module(
                 'extra-layers-{0}-{1}-batchnorm'.format(ndf, ndf),
@@ -76,7 +80,7 @@ class CSA_CDGAN_Generator(torch.nn.Module):
                 'extra-layers-{0}-{1}-relu'.format(ndf, ndf),
                 torch.nn.ReLU(inplace=True),
             )
-        self.d1 = torch.nn.ConvTranspose2d(ndf*2, num_classes, 4, 2, 1, bias=False)
+        self.d1 = torch.nn.ConvTranspose2d(ndf * 2, num_classes, 4, 2, 1, bias=False)
 
     def _init_att(self) -> None:
         self.at1 = at.csa_layer(1)
@@ -97,19 +101,19 @@ class CSA_CDGAN_Generator(torch.nn.Module):
 
         d4 = self.at4(d4)
 
-        c34 = torch.cat((e3,d4),1)
+        c34 = torch.cat((e3, d4), 1)
         d3 = self.d3(c34)
         d3 = self.at3(d3)
 
-        c23 = torch.cat((e2,d3),1)
+        c23 = torch.cat((e2, d3), 1)
         d2 = self.d2(c23)
         d2 = self.at2(d2)
 
-        cel2 = torch.cat((e_el,d2),1)
+        cel2 = torch.cat((e_el, d2), 1)
         d_el = self.d_extra_layers(cel2)
         e_el = self.at1(d_el)
 
-        c11 = torch.cat((e1,d_el),1)
+        c11 = torch.cat((e1, d_el), 1)
         d1 = self.d1(c11)
 
         return d1

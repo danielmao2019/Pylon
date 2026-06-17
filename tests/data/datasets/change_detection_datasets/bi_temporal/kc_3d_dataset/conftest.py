@@ -1,11 +1,15 @@
 """Shared fixtures and helper functions for KC-3D dataset tests."""
 
-import pytest
 import os
 import pickle
+
 import numpy as np
+import pytest
 from PIL import Image
-from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
+
+from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import (
+    KC3DDataset,
+)
 
 
 @pytest.fixture
@@ -16,8 +20,8 @@ def kc_3d_dataset_train_config(kc_3d_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': kc_3d_data_root,
             'split': 'train',
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
@@ -30,14 +34,15 @@ def dataset_config(request, kc_3d_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': kc_3d_data_root,
             'split': split,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
 @pytest.fixture
 def create_dummy_kc3d_files():
     """Fixture that provides function to create dummy KC-3D dataset files in a directory."""
+
     def _create_dummy_kc3d_files(data_root: str):
         """Create minimal KC-3D dataset structure for testing."""
         # Create directory structure
@@ -46,7 +51,7 @@ def create_dummy_kc3d_files():
         # Create dummy image files (RGB images with alpha channel - KC3D expects 4 channels)
         dummy_image = np.zeros((100, 100, 4), dtype=np.uint8)
         dummy_image[:, :, :3] = 128  # Gray RGB
-        dummy_image[:, :, 3] = 255   # Full alpha
+        dummy_image[:, :, 3] = 255  # Full alpha
 
         # Create dummy mask files (binary masks)
         dummy_mask = np.zeros((100, 100), dtype=np.uint8)
@@ -81,22 +86,20 @@ def create_dummy_kc3d_files():
                 np.save(depth2_path, dummy_depth)
 
         # Create data split annotations
-        annotations = {
-            'train': [],
-            'val': [],
-            'test': []
-        }
+        annotations = {'train': [], 'val': [], 'test': []}
 
         for split in ['train', 'val', 'test']:
             for i in range(3):
-                annotations[split].append({
-                    'image1': f"{split}/sample_{i}_img1.png",
-                    'image2': f"{split}/sample_{i}_img2.png",
-                    'mask1': f"{split}/sample_{i}_mask1.png",
-                    'mask2': f"{split}/sample_{i}_mask2.png",
-                    'depth1': f"{split}/sample_{i}_depth1.npy",
-                    'depth2': f"{split}/sample_{i}_depth2.npy"
-                })
+                annotations[split].append(
+                    {
+                        'image1': f"{split}/sample_{i}_img1.png",
+                        'image2': f"{split}/sample_{i}_img2.png",
+                        'mask1': f"{split}/sample_{i}_mask1.png",
+                        'mask2': f"{split}/sample_{i}_mask2.png",
+                        'depth1': f"{split}/sample_{i}_depth1.npy",
+                        'depth2': f"{split}/sample_{i}_depth2.npy",
+                    }
+                )
 
         # Save data split file
         split_file_path = os.path.join(data_root, "data_split.pkl")
@@ -109,7 +112,7 @@ def create_dummy_kc3d_files():
             'position_before': [0.0, 0.0, 0.0],
             'position_after': [0.1, 0.0, 0.0],
             'rotation_before': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-            'rotation_after': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+            'rotation_after': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
         }
 
         for split in ['train', 'val', 'test']:

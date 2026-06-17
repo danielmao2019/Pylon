@@ -1,7 +1,7 @@
 """Deterministic hashing utilities for Python objects."""
 
-from typing import Any, Union
 import hashlib
+from typing import Any, Union
 
 
 def deterministic_hash(obj: Any) -> int:

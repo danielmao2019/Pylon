@@ -1,14 +1,13 @@
 import pytest
-from debuggers.wrappers.sequential_debugger import SequentialDebugger
+
 from debuggers.forward_debugger import ForwardDebugger
+from debuggers.wrappers.sequential_debugger import SequentialDebugger
 
 
 def test_sequential_debugger_basic_initialization(debuggers_config, dummy_model):
     """Test basic initialization of SequentialDebugger."""
     debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=dummy_model,
-        page_size_mb=100
+        debuggers_config=debuggers_config, model=dummy_model, page_size_mb=100
     )
 
     # Test basic attributes
@@ -30,10 +29,7 @@ def test_sequential_debugger_basic_initialization(debuggers_config, dummy_model)
 
 def test_sequential_debugger_threading_setup(debuggers_config, dummy_model):
     """Test that threading components are properly initialized."""
-    debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=dummy_model
-    )
+    debugger = SequentialDebugger(debuggers_config=debuggers_config, model=dummy_model)
 
     # Test threading attributes
     assert hasattr(debugger, '_buffer_lock')
@@ -48,8 +44,7 @@ def test_sequential_debugger_threading_setup(debuggers_config, dummy_model):
 def test_sequential_debugger_empty_config(empty_debuggers_config, dummy_model):
     """Test initialization with empty debugger config."""
     debugger = SequentialDebugger(
-        debuggers_config=empty_debuggers_config,
-        model=dummy_model
+        debuggers_config=empty_debuggers_config, model=dummy_model
     )
 
     assert len(debugger.debuggers) == 0
@@ -58,10 +53,7 @@ def test_sequential_debugger_empty_config(empty_debuggers_config, dummy_model):
 
 def test_sequential_debugger_debugger_creation(debuggers_config, dummy_model):
     """Test that debuggers are properly created from config."""
-    debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=dummy_model
-    )
+    debugger = SequentialDebugger(debuggers_config=debuggers_config, model=dummy_model)
 
     # Test debuggers dictionary
     assert len(debugger.debuggers) == 2
@@ -76,8 +68,7 @@ def test_sequential_debugger_debugger_creation(debuggers_config, dummy_model):
 def test_sequential_debugger_forward_hook_tracking(mixed_debuggers_config, dummy_model):
     """Test that forward debuggers are properly tracked."""
     debugger = SequentialDebugger(
-        debuggers_config=mixed_debuggers_config,
-        model=dummy_model
+        debuggers_config=mixed_debuggers_config, model=dummy_model
     )
 
     # Should have one forward debugger
@@ -97,24 +88,25 @@ def test_sequential_debugger_duplicate_names_error(dummy_model):
         {
             'name': 'same_name',
             'debugger_config': {
-                'class': type('DummyDebugger', (object,), {'__call__': lambda self, x: {}}),
-                'args': {}
-            }
+                'class': type(
+                    'DummyDebugger', (object,), {'__call__': lambda self, x: {}}
+                ),
+                'args': {},
+            },
         },
         {
             'name': 'same_name',  # Duplicate name
             'debugger_config': {
-                'class': type('AnotherDebugger', (object,), {'__call__': lambda self, x: {}}),
-                'args': {}
-            }
-        }
+                'class': type(
+                    'AnotherDebugger', (object,), {'__call__': lambda self, x: {}}
+                ),
+                'args': {},
+            },
+        },
     ]
 
     with pytest.raises(AssertionError, match="Duplicate debugger name"):
-        SequentialDebugger(
-            debuggers_config=duplicate_config,
-            model=dummy_model
-        )
+        SequentialDebugger(debuggers_config=duplicate_config, model=dummy_model)
 
 
 def test_sequential_debugger_custom_page_size(debuggers_config, dummy_model):
@@ -123,18 +115,19 @@ def test_sequential_debugger_custom_page_size(debuggers_config, dummy_model):
     debugger = SequentialDebugger(
         debuggers_config=debuggers_config,
         model=dummy_model,
-        page_size_mb=custom_page_size
+        page_size_mb=custom_page_size,
     )
 
     assert debugger.page_size == custom_page_size * 1024 * 1024
 
 
-def test_sequential_debugger_model_layer_validation(forward_debugger_config, dummy_model):
+def test_sequential_debugger_model_layer_validation(
+    forward_debugger_config, dummy_model
+):
     """Test validation of model layers for forward debuggers."""
     # This should work - conv2 exists in dummy_model
     debugger = SequentialDebugger(
-        debuggers_config=[forward_debugger_config],
-        model=dummy_model
+        debuggers_config=[forward_debugger_config], model=dummy_model
     )
 
     assert len(debugger.forward_debuggers) == 1
@@ -152,15 +145,12 @@ def test_sequential_debugger_missing_layer_warning(dummy_model, capsys):
         'name': 'missing_layer',
         'debugger_config': {
             'class': TestDebugger,
-            'args': {
-                'layer_name': 'nonexistent_layer'
-            }
-        }
+            'args': {'layer_name': 'nonexistent_layer'},
+        },
     }
 
     debugger = SequentialDebugger(
-        debuggers_config=[missing_layer_config],
-        model=dummy_model
+        debuggers_config=[missing_layer_config], model=dummy_model
     )
 
     # Check that warning was printed
@@ -178,9 +168,6 @@ def test_sequential_debugger_inheritance():
 
 def test_sequential_debugger_output_dir_initialization(debuggers_config, dummy_model):
     """Test that output_dir is initially None."""
-    debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=dummy_model
-    )
+    debugger = SequentialDebugger(debuggers_config=debuggers_config, model=dummy_model)
 
     assert debugger.output_dir is None

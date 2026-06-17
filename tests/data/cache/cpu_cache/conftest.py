@@ -1,26 +1,26 @@
+import copy
+
+import psutil
 import pytest
 import torch
-import psutil
-import copy
+
 from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
 @pytest.fixture
 def cache_key_factory():
     """Create deterministic cache filepaths for testing."""
+
     def _make_key(index: int) -> str:
         return f"/tmp/test_cache_{index}.pt"
+
     return _make_key
 
 
 @pytest.fixture
 def tensor_params():
     """Parameters for creating test tensors."""
-    return {
-        'dim': 1024,
-        'channels': 3,
-        'dtype': torch.float32
-    }
+    return {'dim': 1024, 'channels': 3, 'dtype': torch.float32}
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def sample_tensor(tensor_params):
         tensor_params['channels'],
         tensor_params['dim'],
         tensor_params['dim'],
-        dtype=tensor_params['dtype']
+        dtype=tensor_params['dtype'],
     )
 
 
@@ -40,7 +40,7 @@ def sample_datapoint(sample_tensor):
     return {
         'inputs': {'image': sample_tensor},
         'labels': {'class': torch.tensor([0])},
-        'meta_info': {'filename': 'test.jpg'}
+        'meta_info': {'filename': 'test.jpg'},
     }
 
 
@@ -72,16 +72,18 @@ def cache_with_items(three_item_cache, sample_datapoint, cache_key_factory):
 @pytest.fixture
 def make_datapoint(tensor_params):
     """Factory fixture to create datapoints with unique tensors and metadata."""
+
     def _make_datapoint(index: int):
         tensor = torch.randn(
             tensor_params['channels'],
             tensor_params['dim'],
             tensor_params['dim'],
-            dtype=tensor_params['dtype']
+            dtype=tensor_params['dtype'],
         )
         return {
             'inputs': {'image': tensor},
             'labels': {'class': torch.tensor([index])},
-            'meta_info': {'filename': f'test_{index}.jpg'}
+            'meta_info': {'filename': f'test_{index}.jpg'},
         }
+
     return _make_datapoint

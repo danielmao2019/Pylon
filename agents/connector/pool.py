@@ -1,7 +1,8 @@
-from typing import List, Dict
 import queue
 import threading
-from agents.connector.connector import SSHConnector, LocalhostConnector
+from typing import Dict, List
+
+from agents.connector.connector import LocalhostConnector, SSHConnector
 from agents.connector.error import SSHCommandError
 
 

@@ -1,7 +1,9 @@
+from typing import Any, Dict, List
+
 import pytest
 import torch
 import torch.nn as nn
-from typing import Dict, Any, List
+
 from debuggers.base_debugger import BaseDebugger
 
 
@@ -32,7 +34,9 @@ class DummyDebugger(BaseDebugger):
     def __init__(self, output_key: str = "dummy_stats"):
         self.output_key = output_key
 
-    def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
+    def __call__(
+        self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module
+    ) -> Dict[str, Any]:
         outputs = datapoint['outputs']
         stats = {
             'mean': torch.mean(outputs).item(),
@@ -49,7 +53,9 @@ class AnotherDummyDebugger(BaseDebugger):
     def __init__(self, output_key: str = "another_stats"):
         self.output_key = output_key
 
-    def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
+    def __call__(
+        self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module
+    ) -> Dict[str, Any]:
         inputs = datapoint['inputs']
         # Simple input analysis
         stats = {
@@ -65,13 +71,16 @@ class AnotherDummyDebugger(BaseDebugger):
 # Simple forward debugger for fixture usage only
 from debuggers.forward_debugger import ForwardDebugger
 
+
 class SimpleForwardDebugger(ForwardDebugger):
     """Simple forward debugger for fixture testing purposes only."""
 
     def process_forward(self, module, input, output):
         return {
             'layer_name': self.layer_name,
-            'output_shape': list(output.shape) if isinstance(output, torch.Tensor) else None
+            'output_shape': (
+                list(output.shape) if isinstance(output, torch.Tensor) else None
+            ),
         }
 
 
@@ -92,7 +101,7 @@ def sample_datapoint():
         'meta_info': {
             'idx': [0],  # List format as used in BaseTrainer/BaseEvaluator
             'image_path': ['/path/to/image.jpg'],
-        }
+        },
     }
 
 
@@ -107,7 +116,7 @@ def sample_datapoint_tensor_idx():
         'meta_info': {
             'idx': torch.tensor([0], dtype=torch.int64),  # Tensor format
             'image_path': ['/path/to/image.jpg'],
-        }
+        },
     }
 
 
@@ -122,7 +131,7 @@ def sample_datapoint_int_idx():
         'meta_info': {
             'idx': 0,  # Direct int format
             'image_path': ['/path/to/image.jpg'],
-        }
+        },
     }
 
 
@@ -146,20 +155,16 @@ def debuggers_config():
             'name': 'dummy_stats',
             'debugger_config': {
                 'class': DummyDebugger,
-                'args': {
-                    'output_key': 'dummy_stats'
-                }
-            }
+                'args': {'output_key': 'dummy_stats'},
+            },
         },
         {
             'name': 'input_analysis',
             'debugger_config': {
                 'class': AnotherDummyDebugger,
-                'args': {
-                    'output_key': 'input_analysis'
-                }
-            }
-        }
+                'args': {'output_key': 'input_analysis'},
+            },
+        },
     ]
 
 
@@ -170,10 +175,8 @@ def forward_debugger_config():
         'name': 'conv2_features',
         'debugger_config': {
             'class': SimpleForwardDebugger,
-            'args': {
-                'layer_name': 'conv2'
-            }
-        }
+            'args': {'layer_name': 'conv2'},
+        },
     }
 
 
@@ -185,12 +188,10 @@ def mixed_debuggers_config(forward_debugger_config):
             'name': 'dummy_stats',
             'debugger_config': {
                 'class': DummyDebugger,
-                'args': {
-                    'output_key': 'dummy_stats'
-                }
-            }
+                'args': {'output_key': 'dummy_stats'},
+            },
         },
-        forward_debugger_config
+        forward_debugger_config,
     ]
 
 

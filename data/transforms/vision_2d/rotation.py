@@ -1,6 +1,8 @@
 from typing import Union
+
 import torch
 import torchvision.transforms.functional as TF
+
 from data.transforms.base_transform import BaseTransform
 
 
@@ -20,7 +22,9 @@ class Rotation(BaseTransform):
         Returns:
             torch.Tensor: Rotated tensor.
         """
-        assert tensor.ndim >= 2, f"Tensor must have at least 2 dimensions, but got {tensor.shape=}"
+        assert (
+            tensor.ndim >= 2
+        ), f"Tensor must have at least 2 dimensions, but got {tensor.shape=}"
         if tensor.ndim > 2:
             return TF.rotate(tensor, self.angle)
         else:

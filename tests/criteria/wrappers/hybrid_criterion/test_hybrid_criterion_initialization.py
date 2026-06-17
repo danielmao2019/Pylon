@@ -1,7 +1,8 @@
 import pytest
 import torch
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.hybrid_criterion import HybridCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 def test_basic_initialization(hybrid_criterion):
@@ -22,14 +23,11 @@ def test_basic_initialization(hybrid_criterion):
 
 def test_inheritance_verification(dummy_criterion):
     """Test that HybridCriterion properly inherits from SingleTaskCriterion."""
-    from criteria.wrappers.single_task_criterion import SingleTaskCriterion
     from criteria.base_criterion import BaseCriterion
+    from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
     criteria_cfg = [
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        }
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}}
     ]
 
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
@@ -49,10 +47,7 @@ def test_inheritance_verification(dummy_criterion):
 def test_combine_options_validation(dummy_criterion):
     """Test that combine options are properly validated."""
     criteria_cfg = [
-        {
-            'class': PyTorchCriterionWrapper,
-            'args': {'criterion': dummy_criterion}
-        }
+        {'class': PyTorchCriterionWrapper, 'args': {'criterion': dummy_criterion}}
     ]
 
     # Test valid options

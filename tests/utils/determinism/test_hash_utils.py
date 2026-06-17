@@ -1,6 +1,6 @@
 """Test cases for deterministic hash utilities."""
 
-from utils.determinism.hash_utils import deterministic_hash, convert_to_seed
+from utils.determinism.hash_utils import convert_to_seed, deterministic_hash
 
 
 def test_deterministic_hash_consistency():

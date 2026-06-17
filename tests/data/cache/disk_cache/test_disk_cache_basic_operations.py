@@ -1,11 +1,13 @@
 """Test basic disk cache put/get operations."""
 
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
 import torch
+
 from data.cache.disk_dataset_cache import DiskDatasetCache
-from utils.ops import buffer_equal, buffer_allclose
+from utils.ops import buffer_allclose, buffer_equal
 
 
 def _fp(cache: DiskDatasetCache, idx: int) -> str:
@@ -23,16 +25,11 @@ def temp_cache_dir():
 def sample_datapoint():
     """Create a sample datapoint for testing."""
     return {
-        'inputs': {
-            'image': torch.randn(3, 64, 64),
-            'features': torch.randn(256)
-        },
-        'labels': {
-            'mask': torch.randint(0, 2, (64, 64))
-        },
+        'inputs': {'image': torch.randn(3, 64, 64), 'features': torch.randn(256)},
+        'labels': {'mask': torch.randint(0, 2, (64, 64))},
         'meta_info': {
             'index': 42,
-        }
+        },
     }
 
 
@@ -40,9 +37,7 @@ def test_cache_initialization(temp_cache_dir):
     """Test cache initialization and directory structure."""
     version_hash = "test_version_123"
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash=version_hash,
-        enable_validation=True
+        cache_dir=temp_cache_dir, version_hash=version_hash, enable_validation=True
     )
 
     # Verify cache properties
@@ -59,9 +54,7 @@ def test_cache_initialization(temp_cache_dir):
 def test_cache_miss(temp_cache_dir):
     """Test cache miss behavior."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="miss_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="miss_test", enable_validation=False
     )
 
     # Test cache miss
@@ -75,9 +68,7 @@ def test_cache_miss(temp_cache_dir):
 def test_put_and_get_basic(temp_cache_dir, sample_datapoint):
     """Test basic put and get operations."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="basic_ops_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="basic_ops_test", enable_validation=False
     )
     cache_file_0 = os.path.join(cache.version_dir, "0.pt")
 
@@ -102,9 +93,7 @@ def test_put_and_get_basic(temp_cache_dir, sample_datapoint):
 def test_data_integrity(temp_cache_dir, sample_datapoint):
     """Test that retrieved data matches stored data exactly."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="integrity_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="integrity_test", enable_validation=False
     )
 
     # Store and retrieve data
@@ -114,7 +103,9 @@ def test_data_integrity(temp_cache_dir, sample_datapoint):
 
     # Verify data integrity
     assert torch.equal(result['inputs']['image'], sample_datapoint['inputs']['image'])
-    assert torch.equal(result['inputs']['features'], sample_datapoint['inputs']['features'])
+    assert torch.equal(
+        result['inputs']['features'], sample_datapoint['inputs']['features']
+    )
     assert torch.equal(result['labels']['mask'], sample_datapoint['labels']['mask'])
     assert result['meta_info'] == sample_datapoint['meta_info']
 
@@ -122,9 +113,7 @@ def test_data_integrity(temp_cache_dir, sample_datapoint):
 def test_device_transfer_on_get(temp_cache_dir, sample_datapoint):
     """Test device transfer during get operations."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="device_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="device_test", enable_validation=False
     )
 
     # Store data
@@ -144,9 +133,7 @@ def test_device_transfer_on_get(temp_cache_dir, sample_datapoint):
 def test_multiple_items(temp_cache_dir, sample_datapoint):
     """Test storing and retrieving multiple items."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="multi_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="multi_test", enable_validation=False
     )
 
     # Store multiple items
@@ -156,12 +143,15 @@ def test_multiple_items(temp_cache_dir, sample_datapoint):
         modified_datapoint = {
             'inputs': {
                 'image': sample_datapoint['inputs']['image'] + i * 0.1,
-                'features': sample_datapoint['inputs']['features'] + i * 0.1
+                'features': sample_datapoint['inputs']['features'] + i * 0.1,
             },
             'labels': sample_datapoint['labels'],
-            'meta_info': {**sample_datapoint['meta_info'], 'index': i}
+            'meta_info': {**sample_datapoint['meta_info'], 'index': i},
         }
-        cache.put(modified_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt"))
+        cache.put(
+            modified_datapoint,
+            cache_filepath=os.path.join(cache.version_dir, f"{i}.pt"),
+        )
 
     # Verify all items can be retrieved
     for i in range(num_items):
@@ -177,9 +167,7 @@ def test_multiple_items(temp_cache_dir, sample_datapoint):
 def test_cache_filepath_generation(temp_cache_dir):
     """Test cache file path generation."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="path_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="path_test", enable_validation=False
     )
 
     # Test various indices
@@ -192,14 +180,14 @@ def test_cache_filepath_generation(temp_cache_dir):
 def test_clear_operations(temp_cache_dir, sample_datapoint):
     """Test cache clearing operations."""
     cache = DiskDatasetCache(
-        cache_dir=temp_cache_dir,
-        version_hash="clear_test",
-        enable_validation=False
+        cache_dir=temp_cache_dir, version_hash="clear_test", enable_validation=False
     )
 
     # Add multiple items
     for i in range(5):
-        cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt"))
+        cache.put(
+            sample_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt")
+        )
 
     # Verify all files exist
     for i in range(5):
@@ -226,9 +214,7 @@ def test_nonexistent_cache_directory():
     with tempfile.TemporaryDirectory() as temp_parent:
         cache_dir = os.path.join(temp_parent, "new_cache")
         cache = DiskDatasetCache(
-            cache_dir=cache_dir,
-            version_hash="create_test",
-            enable_validation=False
+            cache_dir=cache_dir, version_hash="create_test", enable_validation=False
         )
 
         assert os.path.exists(cache_dir)
@@ -240,7 +226,7 @@ def test_cache_size_tracking(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="size_tracking_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     # Initial size should be 0
@@ -248,7 +234,9 @@ def test_cache_size_tracking(temp_cache_dir, sample_datapoint):
 
     # Add items and verify size tracking
     for i in range(5):
-        cache.put(sample_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt"))
+        cache.put(
+            sample_datapoint, cache_filepath=os.path.join(cache.version_dir, f"{i}.pt")
+        )
         assert cache.get_size() == i + 1
 
     # Clear cache and verify size resets
@@ -261,7 +249,7 @@ def test_disk_memory_usage_calculation(temp_cache_dir, sample_datapoint):
     cache = DiskDatasetCache(
         cache_dir=temp_cache_dir,
         version_hash="memory_usage_test",
-        enable_validation=False
+        enable_validation=False,
     )
 
     # Add item and verify disk usage
@@ -293,7 +281,9 @@ def test_disk_memory_usage_calculation(temp_cache_dir, sample_datapoint):
     assert cache.get_size() == 2
 
 
-def test_cache_consistency_with_split_percentages(SampleDatasetWithoutPredefinedSplits, temp_cache_dir):
+def test_cache_consistency_with_split_percentages(
+    SampleDatasetWithoutPredefinedSplits, temp_cache_dir
+):
     """Test that cache works consistently with split percentages across multiple instantiations.
 
     This test verifies the fix for the deterministic shuffle issue:
@@ -307,7 +297,7 @@ def test_cache_consistency_with_split_percentages(SampleDatasetWithoutPredefined
         split_percentages=(0.5, 0.5, 0.0, 0.0),
         base_seed=42,
         use_cpu_cache=False,
-        use_disk_cache=True
+        use_disk_cache=True,
     )
     # trigger disk cache
     datapoint = dataset[0]
@@ -318,15 +308,19 @@ def test_cache_consistency_with_split_percentages(SampleDatasetWithoutPredefined
         split_percentages=(0.5, 0.5, 0.0, 0.0),
         base_seed=42,
         use_cpu_cache=False,
-        use_disk_cache=True
+        use_disk_cache=True,
     )
     datapoint = dataset[0]
     expected_datapoint = {
         'inputs': {
-            'input': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
+            'input': torch.tensor(
+                dataset.annotations[0], dtype=torch.float32, device=dataset.device
+            ),
         },
         'labels': {
-            'label': torch.tensor(dataset.annotations[0], dtype=torch.float32, device=dataset.device),
+            'label': torch.tensor(
+                dataset.annotations[0], dtype=torch.float32, device=dataset.device
+            ),
         },
         'meta_info': {
             'idx': 0,

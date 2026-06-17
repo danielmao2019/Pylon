@@ -39,10 +39,12 @@ def create_test_point_cloud(num_points: int, device: torch.device = None) -> Poi
     return PointCloud(xyz=pos, data={'feat': features, 'change_map': change_map})
 
 
-def compare_results(original_result: PointCloud,
-                   optimized_result: PointCloud,
-                   rtol: float = 1e-5,
-                   atol: float = 1e-5) -> None:
+def compare_results(
+    original_result: PointCloud,
+    optimized_result: PointCloud,
+    rtol: float = 1e-5,
+    atol: float = 1e-5,
+) -> None:
     """Compare results from original and optimized implementations.
 
     Args:
@@ -56,7 +58,9 @@ def compare_results(original_result: PointCloud,
     """
     assert isinstance(original_result, PointCloud)
     assert isinstance(optimized_result, PointCloud)
-    assert set(original_result.field_names()) == set(optimized_result.field_names()), "Results have different fields"
+    assert set(original_result.field_names()) == set(
+        optimized_result.field_names()
+    ), "Results have different fields"
 
     for key in original_result.field_names():
         original_val = getattr(original_result, key)
@@ -66,18 +70,28 @@ def compare_results(original_result: PointCloud,
         if original_val is None and optimized_val is None:
             continue
 
-        assert original_val is not None and optimized_val is not None, f"Key '{key}' is None in one implementation but not the other"
+        assert (
+            original_val is not None and optimized_val is not None
+        ), f"Key '{key}' is None in one implementation but not the other"
 
         # Compare tensors
-        if isinstance(original_val, torch.Tensor) and isinstance(optimized_val, torch.Tensor):
+        if isinstance(original_val, torch.Tensor) and isinstance(
+            optimized_val, torch.Tensor
+        ):
             # Check shapes
-            assert original_val.shape == optimized_val.shape, f"Key '{key}' has different shapes: {original_val.shape} vs {optimized_val.shape}"
+            assert (
+                original_val.shape == optimized_val.shape
+            ), f"Key '{key}' has different shapes: {original_val.shape} vs {optimized_val.shape}"
 
             # Check data types
-            assert original_val.dtype == optimized_val.dtype, f"Key '{key}' has different dtypes: {original_val.dtype} vs {optimized_val.dtype}"
+            assert (
+                original_val.dtype == optimized_val.dtype
+            ), f"Key '{key}' has different dtypes: {original_val.dtype} vs {optimized_val.dtype}"
 
             # Compare values
-            assert torch.allclose(original_val, optimized_val, rtol=rtol, atol=atol), f"Key '{key}' values do not match within tolerance"
+            assert torch.allclose(
+                original_val, optimized_val, rtol=rtol, atol=atol
+            ), f"Key '{key}' values do not match within tolerance"
         else:
             # For non-tensor values
             assert original_val == optimized_val, f"Key '{key}' values do not match"
@@ -88,7 +102,7 @@ def benchmark_grid_sampling(
     voxel_sizes: List[float] = [0.1, 0.05, 0.01],
     modes: List[str] = ["mean"],
     device: torch.device = None,
-    num_runs: int = 5
+    num_runs: int = 5,
 ) -> Dict:
     """Benchmark original and optimized grid sampling implementations.
 
@@ -107,11 +121,7 @@ def benchmark_grid_sampling(
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")  # Debug print
 
-    results = {
-        'original': {},
-        'optimized': {},
-        'speedup': {}
-    }
+    results = {'original': {}, 'optimized': {}, 'speedup': {}}
 
     for size in point_cloud_sizes:
         print(f"\nTesting point cloud size: {size}")  # Debug print
@@ -125,8 +135,12 @@ def benchmark_grid_sampling(
                 point_cloud = create_test_point_cloud(size, device)
 
                 # Initialize samplers
-                original_sampler = GridSampling3Dv1(size=voxel_size, mode=mode, device=device)
-                optimized_sampler = GridSampling3Dv2(size=voxel_size, mode=mode, device=device)
+                original_sampler = GridSampling3Dv1(
+                    size=voxel_size, mode=mode, device=device
+                )
+                optimized_sampler = GridSampling3Dv2(
+                    size=voxel_size, mode=mode, device=device
+                )
 
                 # Run benchmarks
                 original_times = []
@@ -190,8 +204,12 @@ def plot_results(results: Dict) -> None:
 
     # Only plot for 'mean' mode
     mode = 'mean'
-    original_times = [results['original'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
-    optimized_times = [results['optimized'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
+    original_times = [
+        results['original'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes
+    ]
+    optimized_times = [
+        results['optimized'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes
+    ]
 
     ax.bar(x, original_times, width, label=f'Original ({mode})')
     ax.bar(x + width, optimized_times, width, label=f'Optimized ({mode})')
@@ -205,7 +223,9 @@ def plot_results(results: Dict) -> None:
 
     # Plot speedup
     ax = axes[1]
-    speedups = [results['speedup'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
+    speedups = [
+        results['speedup'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes
+    ]
     ax.plot(x + width / 2, speedups, 'o-', label=f'Speedup ({mode})')
 
     ax.set_xlabel('Point Cloud Size')
@@ -227,7 +247,7 @@ if __name__ == "__main__":
             point_cloud_sizes=[1000, 10000],  # 10^3 and 10^4
             voxel_sizes=[0.1],
             modes=["mean"],
-            num_runs=2
+            num_runs=2,
         )
 
         print("\nPlotting results...")

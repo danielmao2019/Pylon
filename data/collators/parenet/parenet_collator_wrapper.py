@@ -6,13 +6,19 @@ The wrapper handles the integration between Pylon's collator-based preprocessing
 original trainer-based dynamic neighbor computation.
 """
 
-from typing import List, Any, Dict
-from data.collators.parenet.data import registration_collate_fn_stack_mode, precompute_neibors
-from utils.ops.dict_as_tensor import transpose_buffer
+from typing import Any, Dict, List
+
+from data.collators.parenet.data import (
+    precompute_neibors,
+    registration_collate_fn_stack_mode,
+)
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from utils.ops.dict_as_tensor import transpose_buffer
 
 
-def pylon_to_parenet_adapter(pylon_data_dicts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def pylon_to_parenet_adapter(
+    pylon_data_dicts: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     """Convert Pylon dataset format to PARENet collation format.
 
     Pylon format:
@@ -51,7 +57,7 @@ def parenet_collate_fn(
     voxel_size: float,
     num_neighbors: List[int],
     subsample_ratio: float,
-    precompute_data: bool = True
+    precompute_data: bool = True,
 ) -> Dict[str, Any]:
     """Pylon-compatible PARENet collate function.
 
@@ -64,7 +70,12 @@ def parenet_collate_fn(
 
     # Use original PARENet collation function (only does subsampling)
     collated_dict = registration_collate_fn_stack_mode(
-        parenet_data_dicts, num_stages, voxel_size, num_neighbors, subsample_ratio, precompute_data
+        parenet_data_dicts,
+        num_stages,
+        voxel_size,
+        num_neighbors,
+        subsample_ratio,
+        precompute_data,
     )
 
     # ========================================================================
@@ -94,10 +105,10 @@ def parenet_collate_fn(
         # Call original PARENet neighbor computation function
         # This computes: neighbors (K-NN), subsampling (cross-scale down), upsampling (cross-scale up)
         neighbor_dict = precompute_neibors(
-            collated_dict['points'],    # Multi-scale point hierarchies from subsampling
-            collated_dict['lengths'],   # Batch lengths for each scale
-            num_stages,                 # Number of hierarchical scales (e.g., 4)
-            num_neighbors               # K-NN neighbors per scale (e.g., [32, 32, 32, 32])
+            collated_dict['points'],  # Multi-scale point hierarchies from subsampling
+            collated_dict['lengths'],  # Batch lengths for each scale
+            num_stages,  # Number of hierarchical scales (e.g., 4)
+            num_neighbors,  # K-NN neighbors per scale (e.g., [32, 32, 32, 32])
         )
         # Add neighbor data to collated dictionary
         # Result adds: 'neighbors', 'subsampling', 'upsampling' keys
@@ -106,7 +117,9 @@ def parenet_collate_fn(
     # Extract labels for criterion (keep transform in inputs for model)
     labels = {}
     if 'transform' in collated_dict:
-        labels['transform'] = collated_dict['transform']  # Don't pop, keep in inputs too
+        labels['transform'] = collated_dict[
+            'transform'
+        ]  # Don't pop, keep in inputs too
 
     # Properly collate meta_info using BaseCollator's default collation logic
     # This preserves the 'idx' field that BaseDataset adds to meta_info

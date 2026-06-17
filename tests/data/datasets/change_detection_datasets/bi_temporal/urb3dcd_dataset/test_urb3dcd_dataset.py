@@ -16,14 +16,24 @@ def validate_point_cloud(pc: PointCloud, name: str) -> None:
     """Validate a point cloud."""
     assert isinstance(pc, PointCloud), f"{name} should be PointCloud"
 
-    assert pc.xyz.ndim == 2, f"{name}.xyz should have 2 dimensions (N x 3), got {pc.xyz.ndim}"
-    assert pc.xyz.size(1) == 3, f"{name}.xyz should have 3 features (x,y,z), got {pc.xyz.size(1)}"
+    assert (
+        pc.xyz.ndim == 2
+    ), f"{name}.xyz should have 2 dimensions (N x 3), got {pc.xyz.ndim}"
+    assert (
+        pc.xyz.size(1) == 3
+    ), f"{name}.xyz should have 3 features (x,y,z), got {pc.xyz.size(1)}"
     assert torch.is_floating_point(pc.xyz), f"{name}.xyz should be of dtype torch.float"
 
     assert 'feat' in pc.field_names(), f"{name} should have 'feat' key"
-    assert pc.feat.ndim == 2, f"{name}.feat should have 2 dimensions (N x F), got {pc.feat.ndim}"
-    assert pc.feat.size(1) == 1, f"{name}.feat should have 1 feature (F), got {pc.feat.size(1)}"
-    assert torch.is_floating_point(pc.feat), f"{name}.feat should be of dtype torch.float"
+    assert (
+        pc.feat.ndim == 2
+    ), f"{name}.feat should have 2 dimensions (N x F), got {pc.feat.ndim}"
+    assert (
+        pc.feat.size(1) == 1
+    ), f"{name}.feat should have 1 feature (F), got {pc.feat.size(1)}"
+    assert torch.is_floating_point(
+        pc.feat
+    ), f"{name}.feat should be of dtype torch.float"
 
 
 def validate_change_map(change_map: torch.Tensor) -> None:
@@ -32,15 +42,17 @@ def validate_change_map(change_map: torch.Tensor) -> None:
     assert change_map.ndim == 1, "change_map should have 1 dimension (N,)"
     assert change_map.dtype == torch.long, "change_map should be of dtype torch.long"
     unique_values = torch.unique(change_map)
-    assert all(val in range(Urb3DCDDataset.NUM_CLASSES) for val in unique_values), \
-        f"Unexpected values in change_map: {unique_values}"
+    assert all(
+        val in range(Urb3DCDDataset.NUM_CLASSES) for val in unique_values
+    ), f"Unexpected values in change_map: {unique_values}"
 
 
 def validate_point_count_consistency(pc1: PointCloud, change_map: torch.Tensor) -> None:
     """Validate that pc_1 and change_map have the same number of points."""
-    assert pc1.num_points == change_map.size(0), \
-        f"Number of points in pc_1 ({pc1.num_points}) does not match " \
+    assert pc1.num_points == change_map.size(0), (
+        f"Number of points in pc_1 ({pc1.num_points}) does not match "
         f"number of points in change_map ({change_map.size(0)})"
+    )
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -72,8 +84,12 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert 'pc_2_filepath' in meta_info
     assert isinstance(meta_info['pc_1_filepath'], str)
     assert isinstance(meta_info['pc_2_filepath'], str)
-    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert (
+        'idx' in meta_info
+    ), f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert (
+        meta_info['idx'] == datapoint_idx
+    ), f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
 @pytest.mark.parametrize('dataset_config', ['train', 'val', 'test'], indirect=True)
@@ -85,7 +101,10 @@ def test_urb3dcd_dataset(dataset_config, max_samples, get_samples_to_test) -> No
     # Verify class labels mapping
     assert len(dataset.INV_OBJECT_LABEL) == dataset.NUM_CLASSES
     assert len(dataset.CLASS_LABELS) == dataset.NUM_CLASSES
-    assert all(dataset.CLASS_LABELS[name] == idx for idx, name in dataset.INV_OBJECT_LABEL.items())
+    assert all(
+        dataset.CLASS_LABELS[name] == idx
+        for idx, name in dataset.INV_OBJECT_LABEL.items()
+    )
 
     assert len(dataset) > 0
 
@@ -105,7 +124,9 @@ def test_urb3dcd_dataset(dataset_config, max_samples, get_samples_to_test) -> No
         executor.map(validate_datapoint, indices)
 
 
-def test_urb3dcd_dataset_grid_sampling(urb3dcd_data_root, max_samples, get_samples_to_test) -> None:
+def test_urb3dcd_dataset_grid_sampling(
+    urb3dcd_data_root, max_samples, get_samples_to_test
+) -> None:
     """Test Urb3DCDDataset with grid sampling mode."""
     dataset = Urb3DCDDataset(
         data_root=urb3dcd_data_root,
@@ -114,12 +135,16 @@ def test_urb3dcd_dataset_grid_sampling(urb3dcd_data_root, max_samples, get_sampl
         patched=True,
         sample_per_epoch=0,  # Grid sampling mode
         fix_samples=False,
-        radius=50
+        radius=50,
     )
 
     assert len(dataset) > 0
     num_samples = get_samples_to_test(len(dataset), max_samples)
-    indices = random.sample(range(len(dataset)), num_samples) if num_samples < len(dataset) else list(range(len(dataset)))
+    indices = (
+        random.sample(range(len(dataset)), num_samples)
+        if num_samples < len(dataset)
+        else list(range(len(dataset)))
+    )
 
     def validate_datapoint_grid(idx: int) -> None:
         datapoint = dataset[idx]
@@ -135,7 +160,9 @@ def test_urb3dcd_dataset_grid_sampling(urb3dcd_data_root, max_samples, get_sampl
         executor.map(validate_datapoint_grid, indices)
 
 
-def test_urb3dcd_dataset_fixed_sampling(urb3dcd_data_root, max_samples, get_samples_to_test) -> None:
+def test_urb3dcd_dataset_fixed_sampling(
+    urb3dcd_data_root, max_samples, get_samples_to_test
+) -> None:
     """Test Urb3DCDDataset with fixed sampling mode."""
     dataset = Urb3DCDDataset(
         data_root=urb3dcd_data_root,
@@ -144,12 +171,16 @@ def test_urb3dcd_dataset_fixed_sampling(urb3dcd_data_root, max_samples, get_samp
         patched=True,
         sample_per_epoch=100,  # Use sampling
         fix_samples=True,  # Fixed sampling mode
-        radius=50
+        radius=50,
     )
 
     assert len(dataset) > 0
     num_samples = get_samples_to_test(len(dataset), max_samples)
-    indices = random.sample(range(len(dataset)), num_samples) if num_samples < len(dataset) else list(range(len(dataset)))
+    indices = (
+        random.sample(range(len(dataset)), num_samples)
+        if num_samples < len(dataset)
+        else list(range(len(dataset)))
+    )
 
     def validate_datapoint_fixed(idx: int) -> None:
         datapoint = dataset[idx]
@@ -168,9 +199,7 @@ def test_urb3dcd_dataset_fixed_sampling(urb3dcd_data_root, max_samples, get_samp
 def test_fixed_samples_consistency(urb3dcd_data_root) -> None:
     """Test that fixed sampling mode produces consistent results."""
     dataset = Urb3DCDDataset(
-        data_root=urb3dcd_data_root,
-        sample_per_epoch=100,
-        fix_samples=True
+        data_root=urb3dcd_data_root, sample_per_epoch=100, fix_samples=True
     )
 
     # Sample twice and verify results are the same

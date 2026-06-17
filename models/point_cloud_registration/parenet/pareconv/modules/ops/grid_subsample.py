@@ -1,7 +1,8 @@
 import importlib
 
-
-ext_module = importlib.import_module('models.point_cloud_registration.parenet.pareconv.ext')
+ext_module = importlib.import_module(
+    'models.point_cloud_registration.parenet.pareconv.ext'
+)
 
 
 def grid_subsample(points, lengths, voxel_size):
@@ -20,16 +21,18 @@ def grid_subsample(points, lengths, voxel_size):
     """
     # Store original device
     original_device = points.device
-    
+
     # Move to CPU for C++ extension
     points_cpu = points.cpu()
     lengths_cpu = lengths.cpu()
-    
+
     # Call C++ extension on CPU
-    s_points_cpu, s_lengths_cpu = ext_module.grid_subsampling(points_cpu, lengths_cpu, voxel_size)
-    
+    s_points_cpu, s_lengths_cpu = ext_module.grid_subsampling(
+        points_cpu, lengths_cpu, voxel_size
+    )
+
     # Move back to original device
     s_points = s_points_cpu.to(original_device)
     s_lengths = s_lengths_cpu.to(original_device)
-    
+
     return s_points, s_lengths

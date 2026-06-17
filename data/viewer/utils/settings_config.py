@@ -1,4 +1,5 @@
 """Centralized configuration for viewer settings."""
+
 from typing import Dict, Optional, Union
 
 
@@ -11,26 +12,25 @@ class ViewerSettings:
         'point_opacity': 0.8,
         'sym_diff_radius': 0.05,
         'lod_type': 'none',
-        'density_percentage': 100
+        'density_percentage': 100,
     }
 
     # LOD type options
     LOD_TYPE_OPTIONS = [
         {'label': 'No LOD', 'value': 'none'},
         {'label': 'Continuous LOD (Adaptive)', 'value': 'continuous'},
-        {'label': 'Discrete LOD (Pre-computed)', 'value': 'discrete'}
+        {'label': 'Discrete LOD (Pre-computed)', 'value': 'discrete'},
     ]
 
     # Performance settings
     PERFORMANCE_SETTINGS = {
         'max_thread_workers': 4,
-        'camera_update_debounce': 100  # milliseconds
+        'camera_update_debounce': 100,  # milliseconds
     }
 
     @classmethod
     def get_3d_settings_with_defaults(
-        cls,
-        settings_3d: Optional[Dict[str, Union[str, int, float, bool]]] = None
+        cls, settings_3d: Optional[Dict[str, Union[str, int, float, bool]]] = None
     ) -> Dict[str, Union[float, str]]:
         """Extract 3D settings with proper defaults and validation.
 
@@ -41,9 +41,9 @@ class ViewerSettings:
             Validated 3D settings with defaults applied
         """
         # Input validations
-        assert settings_3d is None or isinstance(settings_3d, dict), (
-            f"{type(settings_3d)=}"
-        )
+        assert settings_3d is None or isinstance(
+            settings_3d, dict
+        ), f"{type(settings_3d)=}"
         assert settings_3d is None or all(
             isinstance(key, str) for key in settings_3d
         ), f"{settings_3d=}"
@@ -74,35 +74,33 @@ class ViewerSettings:
         # Input validations
         assert isinstance(settings, dict), f"{type(settings)=}"
         assert all(isinstance(key, str) for key in settings), f"{settings=}"
-        assert not (set(cls.DEFAULT_3D_SETTINGS.keys()) - set(settings.keys())), (
-            f"{settings=}"
-        )
-        assert isinstance(settings["point_size"], (int, float)), (
-            f"{type(settings['point_size'])=}"
-        )
-        assert isinstance(settings["point_opacity"], (int, float)), (
-            f"{type(settings['point_opacity'])=}"
-        )
-        assert isinstance(settings["sym_diff_radius"], (int, float)), (
-            f"{type(settings['sym_diff_radius'])=}"
-        )
-        assert isinstance(settings["density_percentage"], int), (
-            f"{type(settings['density_percentage'])=}"
-        )
+        assert not (
+            set(cls.DEFAULT_3D_SETTINGS.keys()) - set(settings.keys())
+        ), f"{settings=}"
+        assert isinstance(
+            settings["point_size"], (int, float)
+        ), f"{type(settings['point_size'])=}"
+        assert isinstance(
+            settings["point_opacity"], (int, float)
+        ), f"{type(settings['point_opacity'])=}"
+        assert isinstance(
+            settings["sym_diff_radius"], (int, float)
+        ), f"{type(settings['sym_diff_radius'])=}"
+        assert isinstance(
+            settings["density_percentage"], int
+        ), f"{type(settings['density_percentage'])=}"
         assert isinstance(settings["lod_type"], str), f"{type(settings['lod_type'])=}"
         assert 0.1 <= settings["point_size"] <= 20.0, f"{settings['point_size']=}"
-        assert 0.0 <= settings["point_opacity"] <= 1.0, (
-            f"{settings['point_opacity']=}"
-        )
-        assert 0.0 <= settings["sym_diff_radius"] <= 2.0, (
-            f"{settings['sym_diff_radius']=}"
-        )
-        assert 10 <= settings["density_percentage"] <= 100, (
-            f"{settings['density_percentage']=}"
-        )
-        assert settings["density_percentage"] % 10 == 0, (
-            f"{settings['density_percentage']=}"
-        )
+        assert 0.0 <= settings["point_opacity"] <= 1.0, f"{settings['point_opacity']=}"
+        assert (
+            0.0 <= settings["sym_diff_radius"] <= 2.0
+        ), f"{settings['sym_diff_radius']=}"
+        assert (
+            10 <= settings["density_percentage"] <= 100
+        ), f"{settings['density_percentage']=}"
+        assert (
+            settings["density_percentage"] % 10 == 0
+        ), f"{settings['density_percentage']=}"
         assert settings["lod_type"] in {
             opt["value"] for opt in cls.LOD_TYPE_OPTIONS
         }, f"{settings['lod_type']=}"

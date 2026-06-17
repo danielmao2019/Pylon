@@ -1,7 +1,10 @@
 """Shared fixtures and helper functions for SYSU-CD dataset tests."""
 
 import pytest
-from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
+
+from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import (
+    SYSU_CD_Dataset,
+)
 
 
 @pytest.fixture
@@ -12,8 +15,8 @@ def sysu_cd_dataset_train_config(sysu_cd_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': sysu_cd_data_root,
             'split': 'train',
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }
 
 
@@ -26,6 +29,6 @@ def dataset_config(request, sysu_cd_data_root, use_cpu_device, get_device):
         'args': {
             'data_root': sysu_cd_data_root,
             'split': split,
-            'device': get_device(use_cpu_device)
-        }
+            'device': get_device(use_cpu_device),
+        },
     }

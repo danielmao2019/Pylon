@@ -1,4 +1,5 @@
 import torch
+
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_depth_estimation
 
@@ -7,7 +8,9 @@ class DepthEstimationMetric(SingleTaskMetric):
 
     DIRECTIONS = {"l1": -1}  # Lower L1 distance is better
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> torch.Tensor:
         r"""
         Args:
             y_pred (torch.Tensor)

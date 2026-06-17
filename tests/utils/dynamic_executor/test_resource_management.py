@@ -1,9 +1,11 @@
-from typing import List, Dict, Any
-import pytest
 import time
-import torch
+from typing import Any, Dict, List
 from unittest.mock import patch
-from utils.dynamic_executor import create_dynamic_executor, DynamicThreadPoolExecutor
+
+import pytest
+import torch
+
+from utils.dynamic_executor import DynamicThreadPoolExecutor, create_dynamic_executor
 
 
 def slow_function(x: int, sleep_time: float = 0.01) -> int:
@@ -105,8 +107,9 @@ def test_worker_impact_bounds():
 def test_memory_usage_patterns():
     """Test that executor doesn't leak memory during normal operation."""
     import gc
-    import psutil
     import os
+
+    import psutil
 
     # Get initial memory usage
     process = psutil.Process(os.getpid())

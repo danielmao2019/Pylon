@@ -1,5 +1,7 @@
-from typing import List, Dict, Union, Optional
+from typing import Dict, List, Optional, Union
+
 import torch
+
 from metrics.base_metric import BaseMetric
 from utils.input_checks.check_path import check_write_file
 from utils.io.json import save_json
@@ -10,7 +12,10 @@ class SingleTaskMetric(BaseMetric):
 
     DIRECTIONS: Dict[str, int]
 
-    def __call__(self, datapoint: Dict[str, Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]]) -> Dict[str, torch.Tensor]:
+    def __call__(
+        self,
+        datapoint: Dict[str, Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]],
+    ) -> Dict[str, torch.Tensor]:
         r"""This method assumes `_compute_score` is implemented and both y_pred
         and y_true are either tensors or dictionaries of exactly one key-val pair.
         """
@@ -32,19 +37,22 @@ class SingleTaskMetric(BaseMetric):
         assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
 
         # Compute scores
-        scores: Dict[str, torch.Tensor] = self._compute_score(y_pred=y_pred, y_true=y_true)
+        scores: Dict[str, torch.Tensor] = self._compute_score(
+            y_pred=y_pred, y_true=y_true
+        )
         assert isinstance(scores, dict), f"{type(scores)=}"
-        assert all([isinstance(k, str) for k in scores.keys()]), \
-            f"{{{', '.join([f'{k}: {type(k)}' for k in scores.keys()])}}}"
-        assert all([isinstance(v, torch.Tensor) for v in scores.values()]), \
-            f"{{{', '.join([f'{k}: {type(v)}' for k, v in scores.items()])}}}"
+        assert all(
+            [isinstance(k, str) for k in scores.keys()]
+        ), f"{{{', '.join([f'{k}: {type(k)}' for k in scores.keys()])}}}"
+        assert all(
+            [isinstance(v, torch.Tensor) for v in scores.values()]
+        ), f"{{{', '.join([f'{k}: {type(v)}' for k, v in scores.items()])}}}"
 
         self.add_to_buffer(scores, datapoint)
         return scores
 
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, torch.Tensor]:
-        r"""This method averages scores across all data points in buffer.
-        """
+        r"""This method averages scores across all data points in buffer."""
         assert self.use_buffer and hasattr(self, 'buffer') and self.buffer is not None
         self._buffer_queue.join()  # Wait for all items to be processed
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"

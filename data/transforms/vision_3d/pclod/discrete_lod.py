@@ -1,11 +1,13 @@
 """Discrete Level of Detail system with pre-computed levels."""
+
+import logging
 from typing import Any, Dict, Optional
+
 import torch
 
-from data.transforms.vision_3d.pclod.lod_utils import get_camera_position
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.random_select import RandomSelect
-import logging
+from data.transforms.vision_3d.pclod.lod_utils import get_camera_position
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,9 @@ logger = logging.getLogger(__name__)
 # Global cache that persists across function calls
 _global_lod_cache: Dict[str, Dict[int, PointCloud]] = {}
 _global_original_cache: Dict[str, PointCloud] = {}
-_global_geometry_cache: Dict[str, Dict[str, Any]] = {}  # Cache for bounding box, center, diagonal
+_global_geometry_cache: Dict[str, Dict[str, Any]] = (
+    {}
+)  # Cache for bounding box, center, diagonal
 
 
 class DiscreteLOD:
@@ -26,7 +30,7 @@ class DiscreteLOD:
         self,
         reduction_factor: float = 0.5,
         num_levels: int = 4,
-        distance_thresholds: Optional[Dict[str, float]] = None
+        distance_thresholds: Optional[Dict[str, float]] = None,
     ):
         """Initialize discrete LOD system.
 
@@ -38,16 +42,13 @@ class DiscreteLOD:
         self.reduction_factor = reduction_factor
         self.num_levels = num_levels
         self.distance_thresholds = distance_thresholds or {
-            'close': 0.02,      # Very close - use original (Level 0)
-            'medium_close': 0.04, # Close - light reduction (Level 1)
-            'medium_far': 0.08    # Medium - more reduction (Level 2)
+            'close': 0.02,  # Very close - use original (Level 0)
+            'medium_close': 0.04,  # Close - light reduction (Level 1)
+            'medium_far': 0.08,  # Medium - more reduction (Level 2)
         }
 
     def subsample(
-        self,
-        point_cloud: PointCloud,
-        camera_state: Dict[str, Any],
-        point_cloud_id: str
+        self, point_cloud: PointCloud, camera_state: Dict[str, Any], point_cloud_id: str
     ) -> PointCloud:
         """Subsample point cloud based on camera distance.
 
@@ -61,7 +62,9 @@ class DiscreteLOD:
             Subsampled point cloud at appropriate LOD level
         """
         assert isinstance(point_cloud, PointCloud), f"{type(point_cloud)=}"
-        assert isinstance(point_cloud_id, str), f"point_cloud_id must be str, got {type(point_cloud_id)}"
+        assert isinstance(
+            point_cloud_id, str
+        ), f"point_cloud_id must be str, got {type(point_cloud_id)}"
 
         # Ensure we have the original point cloud cached
         if point_cloud_id not in _global_original_cache:
@@ -82,15 +85,15 @@ class DiscreteLOD:
         # Log LOD information
         original_count = _global_original_cache[point_cloud_id].num_points
         subsampled_count = _global_lod_cache[point_cloud_id][target_level].num_points
-        logger.info(f"Discrete LOD: ID={point_cloud_id}, Level={target_level}, Points={subsampled_count}/{original_count}")
+        logger.info(
+            f"Discrete LOD: ID={point_cloud_id}, Level={target_level}, Points={subsampled_count}/{original_count}"
+        )
 
         # Return precomputed subsampled point cloud
         return _global_lod_cache[point_cloud_id][target_level]
 
     def _precompute_lod_levels(
-        self,
-        point_cloud_id: str,
-        point_cloud: PointCloud
+        self, point_cloud_id: str, point_cloud: PointCloud
     ) -> None:
         """Pre-compute all LOD levels for a point cloud."""
         levels: Dict[int, PointCloud] = {}
@@ -125,13 +128,11 @@ class DiscreteLOD:
             'center_point': center_point,
             'diagonal_size': diagonal_size,
             'device': points.device,
-            'dtype': points.dtype
+            'dtype': points.dtype,
         }
 
     def _downsample_point_cloud(
-        self,
-        point_cloud: PointCloud,
-        target_points: int
+        self, point_cloud: PointCloud, target_points: int
     ) -> PointCloud:
         """Downsample point cloud to target number of points.
 
@@ -148,9 +149,7 @@ class DiscreteLOD:
         return RandomSelect(percentage)(point_cloud)
 
     def _determine_target_level(
-        self,
-        point_cloud_id: str,
-        camera_state: Dict[str, Any]
+        self, point_cloud_id: str, camera_state: Dict[str, Any]
     ) -> int:
         """Determine appropriate LOD level based on camera distance."""
         # Get cached geometry properties (no expensive recomputation)
@@ -165,10 +164,14 @@ class DiscreteLOD:
 
         # Calculate distance to center point relative to diagonal size (fast O(1) operation)
         center_distance = torch.norm(camera_pos - center_point).item()
-        relative_distance = center_distance / diagonal_size if diagonal_size > 0 else 0.0
+        relative_distance = (
+            center_distance / diagonal_size if diagonal_size > 0 else 0.0
+        )
 
         # Log distance calculation details
-        logger.info(f"Distance calculation: center_distance={center_distance:.2f}, diagonal={diagonal_size:.2f}, relative={relative_distance:.2f}")
+        logger.info(
+            f"Distance calculation: center_distance={center_distance:.2f}, diagonal={diagonal_size:.2f}, relative={relative_distance:.2f}"
+        )
 
         # Distance-based level selection using relative thresholds
         thresholds = self.distance_thresholds

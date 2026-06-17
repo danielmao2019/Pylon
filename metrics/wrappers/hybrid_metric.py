@@ -1,5 +1,7 @@
-from typing import List, Dict, Any, Union
+from typing import Any, Dict, List, Union
+
 import torch
+
 from metrics.base_metric import BaseMetric
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.builders import build_from_config
@@ -43,16 +45,26 @@ class HybridMetric(SingleTaskMetric):
         self.metrics = [build_from_config(cfg) for cfg in modified_configs]
         # Validate all metrics
         assert all(isinstance(m, BaseMetric) for m in self.metrics)
-        assert all(not m.use_buffer for m in self.metrics), "Component metrics should not use buffer"
-        assert all(not hasattr(m, 'buffer') for m in self.metrics), "Component metrics should not have buffer attribute"
+        assert all(
+            not m.use_buffer for m in self.metrics
+        ), "Component metrics should not use buffer"
+        assert all(
+            not hasattr(m, 'buffer') for m in self.metrics
+        ), "Component metrics should not have buffer attribute"
 
         # Build DIRECTIONS from component metrics by collecting all their score keys
         self.DIRECTIONS = {}
         for i, component_metric in enumerate(self.metrics):
-            assert hasattr(component_metric, 'DIRECTIONS'), f"Component metric {i} ({type(component_metric)}) must have DIRECTIONS attribute"
+            assert hasattr(
+                component_metric, 'DIRECTIONS'
+            ), f"Component metric {i} ({type(component_metric)}) must have DIRECTIONS attribute"
             # Check for key overlaps to avoid ambiguity in merging
-            overlapping_keys = set(self.DIRECTIONS.keys()) & set(component_metric.DIRECTIONS.keys())
-            assert len(overlapping_keys) == 0, f"DIRECTIONS key overlap detected between component metrics: {overlapping_keys}"
+            overlapping_keys = set(self.DIRECTIONS.keys()) & set(
+                component_metric.DIRECTIONS.keys()
+            )
+            assert (
+                len(overlapping_keys) == 0
+            ), f"DIRECTIONS key overlap detected between component metrics: {overlapping_keys}"
             # Component has explicit DIRECTIONS dict - merge all keys
             self.DIRECTIONS.update(component_metric.DIRECTIONS)
 
@@ -63,7 +75,9 @@ class HybridMetric(SingleTaskMetric):
             scores = metric(datapoint)
             # Assert no key overlaps to avoid ambiguity in merging
             overlapping_keys = set(merged_scores.keys()) & set(scores.keys())
-            assert len(overlapping_keys) == 0, f"Key overlap detected: {overlapping_keys}"
+            assert (
+                len(overlapping_keys) == 0
+            ), f"Key overlap detected: {overlapping_keys}"
             merged_scores.update(scores)
 
         # Add to buffer if this metric uses buffer

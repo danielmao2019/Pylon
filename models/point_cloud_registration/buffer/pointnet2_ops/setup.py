@@ -1,7 +1,8 @@
-from setuptools import setup, Extension
-from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 import glob
 import os.path as osp
+
+from setuptools import Extension, setup
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 _ext_src_root = osp.join(osp.dirname(__file__), "_ext-src")
 _ext_sources = glob.glob(osp.join(_ext_src_root, "src", "*.cpp")) + glob.glob(
@@ -18,8 +19,8 @@ setup(
             include_dirs=[osp.join(_ext_src_root, "include")],
             extra_compile_args={
                 'cxx': ['-O3'],
-                'nvcc': ['-O3', '-Xfatbin', '-compress-all']
-            }
+                'nvcc': ['-O3', '-Xfatbin', '-compress-all'],
+            },
         )
     ],
     cmdclass={'build_ext': BuildExtension},

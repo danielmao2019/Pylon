@@ -149,7 +149,9 @@ def test_cache_with_dataloader(SampleDataset, temp_dir):
 
     # Multiple epochs to verify cache consistency
     for _ in range(3):
-        for batch_cached, batch_uncached in zip(loader_cached, loader_uncached, strict=True):
+        for batch_cached, batch_uncached in zip(
+            loader_cached, loader_uncached, strict=True
+        ):
             assert buffer_equal(batch_cached, batch_uncached)
 
 

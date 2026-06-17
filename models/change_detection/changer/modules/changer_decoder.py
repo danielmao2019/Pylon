@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
-from mmengine.model import BaseModule, Sequential
 from mmcv.cnn import Conv2d, ConvModule, build_activation_layer
 from mmcv.cnn.bricks.drop import build_dropout
+from mmengine.model import BaseModule, Sequential
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 from mmseg.models.utils import resize
+from torch.nn import functional as F
+
 from models.change_detection.changer.modules.feature_fusion import FeatureFusionNeck
 
 
@@ -22,27 +23,36 @@ class FDAF(BaseModule):
             Default: dict(type='ReLU')
     """
 
-    def __init__(self,
-                 in_channels,
-                 conv_cfg=None,
-                 norm_cfg=dict(type='IN'),
-                 act_cfg=dict(type='GELU')):
+    def __init__(
+        self,
+        in_channels,
+        conv_cfg=None,
+        norm_cfg=dict(type='IN'),
+        act_cfg=dict(type='GELU'),
+    ):
         super(FDAF, self).__init__()
         self.in_channels = in_channels
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
         self.act_cfg = act_cfg
         # TODO
-        conv_cfg=None
-        norm_cfg=dict(type='IN')
-        act_cfg=dict(type='GELU')
+        conv_cfg = None
+        norm_cfg = dict(type='IN')
+        act_cfg = dict(type='GELU')
 
         kernel_size = 5
         self.flow_make = Sequential(
-            nn.Conv2d(in_channels*2, in_channels*2, kernel_size=kernel_size, padding=(kernel_size-1)//2, bias=True, groups=in_channels*2),
-            nn.InstanceNorm2d(in_channels*2),
+            nn.Conv2d(
+                in_channels * 2,
+                in_channels * 2,
+                kernel_size=kernel_size,
+                padding=(kernel_size - 1) // 2,
+                bias=True,
+                groups=in_channels * 2,
+            ),
+            nn.InstanceNorm2d(in_channels * 2),
             nn.GELU(),
-            nn.Conv2d(in_channels*2, 4, kernel_size=1, padding=0, bias=False),
+            nn.Conv2d(in_channels * 2, 4, kernel_size=1, padding=0, bias=False),
         )
 
     def forward(self, x1, x2, fusion_policy=None):
@@ -93,13 +103,15 @@ class MixFFN(BaseModule):
             Default: None.
     """
 
-    def __init__(self,
-                 embed_dims,
-                 feedforward_channels,
-                 act_cfg=dict(type='GELU'),
-                 ffn_drop=0.,
-                 dropout_layer=None,
-                 init_cfg=None):
+    def __init__(
+        self,
+        embed_dims,
+        feedforward_channels,
+        act_cfg=dict(type='GELU'),
+        ffn_drop=0.0,
+        dropout_layer=None,
+        init_cfg=None,
+    ):
         super(MixFFN, self).__init__(init_cfg)
 
         self.embed_dims = embed_dims
@@ -113,7 +125,8 @@ class MixFFN(BaseModule):
             out_channels=feedforward_channels,
             kernel_size=1,
             stride=1,
-            bias=True)
+            bias=True,
+        )
         # 3x3 depth wise conv to provide positional encode information
         pe_conv = Conv2d(
             in_channels=feedforward_channels,
@@ -122,18 +135,21 @@ class MixFFN(BaseModule):
             stride=1,
             padding=(3 - 1) // 2,
             bias=True,
-            groups=feedforward_channels)
+            groups=feedforward_channels,
+        )
         fc2 = Conv2d(
             in_channels=feedforward_channels,
             out_channels=in_channels,
             kernel_size=1,
             stride=1,
-            bias=True)
+            bias=True,
+        )
         drop = nn.Dropout(ffn_drop)
         layers = [fc1, pe_conv, self.activate, drop, fc2, drop]
         self.layers = Sequential(*layers)
-        self.dropout_layer = build_dropout(
-            dropout_layer) if dropout_layer else torch.nn.Identity()
+        self.dropout_layer = (
+            build_dropout(dropout_layer) if dropout_layer else torch.nn.Identity()
+        )
 
     def forward(self, x, identity=None):
         out = self.layers(x)
@@ -169,13 +185,16 @@ class ChangerDecoder(BaseDecodeHead):
                     kernel_size=1,
                     stride=1,
                     norm_cfg=self.norm_cfg,
-                    act_cfg=self.act_cfg))
+                    act_cfg=self.act_cfg,
+                )
+            )
 
         self.fusion_conv = ConvModule(
             in_channels=self.channels * num_inputs,
             out_channels=self.channels // 2,
             kernel_size=1,
-            norm_cfg=self.norm_cfg)
+            norm_cfg=self.norm_cfg,
+        )
 
         self.neck_layer = FDAF(in_channels=self.channels // 2)
 
@@ -183,9 +202,10 @@ class ChangerDecoder(BaseDecodeHead):
         self.discriminator = MixFFN(
             embed_dims=self.channels,
             feedforward_channels=self.channels,
-            ffn_drop=0.,
-            dropout_layer=dict(type='DropPath', drop_prob=0.),
-            act_cfg=dict(type='GELU'))
+            ffn_drop=0.0,
+            dropout_layer=dict(type='DropPath', drop_prob=0.0),
+            act_cfg=dict(type='GELU'),
+        )
 
     def base_forward(self, inputs):
         outs = []
@@ -197,7 +217,9 @@ class ChangerDecoder(BaseDecodeHead):
                     input=conv(x),
                     size=inputs[0].shape[2:],
                     mode=self.interpolate_mode,
-                    align_corners=self.align_corners))
+                    align_corners=self.align_corners,
+                )
+            )
 
         out = self.fusion_conv(torch.cat(outs, dim=1))
 

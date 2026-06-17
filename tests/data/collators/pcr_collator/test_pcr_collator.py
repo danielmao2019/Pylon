@@ -35,21 +35,18 @@ def create_dummy_buffer_data():
     # Create dummy transform
     transform = torch.eye(4, device=device)
 
-    return [{
-        'inputs': {
-            'src_pc_fds': src_pc_fds,
-            'tgt_pc_fds': tgt_pc_fds,
-            'src_pc_sds': src_pc_sds,
-            'tgt_pc_sds': tgt_pc_sds,
-        },
-        'labels': {
-            'transform': transform
-        },
-        'meta_info': {
-            'src_file': 'dummy_src.ply',
-            'tgt_file': 'dummy_tgt.ply'
+    return [
+        {
+            'inputs': {
+                'src_pc_fds': src_pc_fds,
+                'tgt_pc_fds': tgt_pc_fds,
+                'src_pc_sds': src_pc_sds,
+                'tgt_pc_sds': tgt_pc_sds,
+            },
+            'labels': {'transform': transform},
+            'meta_info': {'src_file': 'dummy_src.ply', 'tgt_file': 'dummy_tgt.ply'},
         }
-    }]
+    ]
 
 
 def create_dummy_geotransformer_data():
@@ -69,20 +66,17 @@ def create_dummy_geotransformer_data():
     # Create dummy transform
     transform = torch.eye(4, device=device)
 
-    return [{
-        'inputs': {
-            'src_pc': src_pc,
-            'tgt_pc': tgt_pc,
-            'correspondences': torch.randint(0, 100, (50, 2), device=device)
-        },
-        'labels': {
-            'transform': transform
-        },
-        'meta_info': {
-            'src_file': 'dummy_src.ply',
-            'tgt_file': 'dummy_tgt.ply'
+    return [
+        {
+            'inputs': {
+                'src_pc': src_pc,
+                'tgt_pc': tgt_pc,
+                'correspondences': torch.randint(0, 100, (50, 2), device=device),
+            },
+            'labels': {'transform': transform},
+            'meta_info': {'src_file': 'dummy_src.ply', 'tgt_file': 'dummy_tgt.ply'},
         }
-    }]
+    ]
 
 
 def create_dummy_overlappredator_data():
@@ -102,21 +96,22 @@ def create_dummy_overlappredator_data():
     # Create dummy transform
     transform = torch.eye(4, device=device)
 
-    return [{
-        'inputs': {
-            'src_pc': src_pc,
-            'tgt_pc': tgt_pc,
-            'correspondences': torch.randint(0, 100, (50, 2), device=device)
-        },
-        'labels': {
-            'transform': transform
-        },
-        'meta_info': {}
-    }]
+    return [
+        {
+            'inputs': {
+                'src_pc': src_pc,
+                'tgt_pc': tgt_pc,
+                'correspondences': torch.randint(0, 100, (50, 2), device=device),
+            },
+            'labels': {'transform': transform},
+            'meta_info': {},
+        }
+    ]
 
 
 class DummyConfig:
     """Dummy config class for testing."""
+
     def __init__(self):
         self.data = type('Data', (), {'voxel_size_0': 0.1})()
         self.point = type('Point', (), {'conv_radius': 2.5})()
@@ -144,15 +139,21 @@ def test_buffer_collator():
     # Compare each key in inputs
     for key in result_gt['inputs']:
         if isinstance(result_gt['inputs'][key], list):
-            assert len(result_gt['inputs'][key]) == len(result_new['inputs'][key]) == 3, f"{key=}"
-            for idx, (gt_item, new_item) in enumerate(zip(result_gt['inputs'][key], result_new['inputs'][key], strict=True)):
+            assert (
+                len(result_gt['inputs'][key]) == len(result_new['inputs'][key]) == 3
+            ), f"{key=}"
+            for idx, (gt_item, new_item) in enumerate(
+                zip(result_gt['inputs'][key], result_new['inputs'][key], strict=True)
+            ):
                 assert gt_item.shape == new_item.shape, f"{key=}, {idx=}"
                 assert torch.allclose(gt_item, new_item), f"{key=}, {idx=}"
         else:
             assert torch.allclose(result_gt['inputs'][key], result_new['inputs'][key])
 
     # Compare labels and meta_info
-    assert torch.allclose(result_gt['labels']['transform'], result_new['labels']['transform'])
+    assert torch.allclose(
+        result_gt['labels']['transform'], result_new['labels']['transform']
+    )
     assert result_gt['meta_info'] == result_new['meta_info']
 
 
@@ -166,8 +167,12 @@ def test_geotransformer_collator():
     neighbor_limits = [16, 16, 16]
 
     # Get results from both implementations
-    result_gt = geotransformer_collate_fn_gt(list_data, num_stages, voxel_size, search_radius, neighbor_limits)
-    result_new = geotransformer_collate_fn(list_data, num_stages, voxel_size, search_radius, neighbor_limits)
+    result_gt = geotransformer_collate_fn_gt(
+        list_data, num_stages, voxel_size, search_radius, neighbor_limits
+    )
+    result_new = geotransformer_collate_fn(
+        list_data, num_stages, voxel_size, search_radius, neighbor_limits
+    )
 
     # Compare results
     assert result_gt.keys() == result_new.keys()
@@ -177,14 +182,18 @@ def test_geotransformer_collator():
     for key in result_gt['inputs']:
         if isinstance(result_gt['inputs'][key], list):
             assert len(result_gt['inputs'][key]) == len(result_new['inputs'][key])
-            for idx, (gt_item, new_item) in enumerate(zip(result_gt['inputs'][key], result_new['inputs'][key], strict=True)):
+            for idx, (gt_item, new_item) in enumerate(
+                zip(result_gt['inputs'][key], result_new['inputs'][key], strict=True)
+            ):
                 assert gt_item.shape == new_item.shape, f"{key=}, {idx=}"
                 assert torch.allclose(gt_item, new_item), f"{key=}, {idx=}"
         else:
             assert torch.allclose(result_gt['inputs'][key], result_new['inputs'][key])
 
     # Compare labels and meta_info
-    assert torch.allclose(result_gt['labels']['transform'], result_new['labels']['transform'])
+    assert torch.allclose(
+        result_gt['labels']['transform'], result_new['labels']['transform']
+    )
     assert result_gt['meta_info'] == result_new['meta_info']
 
 
@@ -207,7 +216,9 @@ def test_overlappredator_collator():
     for key in result_gt['inputs']:
         if isinstance(result_gt['inputs'][key], list):
             assert len(result_gt['inputs'][key]) == len(result_new['inputs'][key])
-            for idx, (gt_item, new_item) in enumerate(zip(result_gt['inputs'][key], result_new['inputs'][key], strict=True)):
+            for idx, (gt_item, new_item) in enumerate(
+                zip(result_gt['inputs'][key], result_new['inputs'][key], strict=True)
+            ):
                 assert gt_item.shape == new_item.shape, f"{key=}, {idx=}"
                 assert torch.allclose(gt_item, new_item), f"{key=}, {idx=}"
         elif key == 'sample':
@@ -221,5 +232,7 @@ def test_overlappredator_collator():
     assert torch.allclose(result_gt['labels']['trans'], result_new['labels']['trans'])
     assert torch.allclose(result_gt['labels']['src_pc'], result_new['labels']['src_pc'])
     assert torch.allclose(result_gt['labels']['tgt_pc'], result_new['labels']['tgt_pc'])
-    assert torch.allclose(result_gt['labels']['correspondences'], result_new['labels']['correspondences'])
+    assert torch.allclose(
+        result_gt['labels']['correspondences'], result_new['labels']['correspondences']
+    )
     assert result_gt['meta_info'] == result_new['meta_info']

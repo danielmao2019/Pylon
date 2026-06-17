@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class DummyPCRDataset(BaseDataset):
     """Dummy dataset that mimics SynthPCRDataset's data structure with random data."""
+
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = {'train': 10, 'val': 10, 'test': 10}  # Fixed size for all splits
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
@@ -38,7 +39,9 @@ class DummyPCRDataset(BaseDataset):
         # Create a fixed number of dummy samples
         self.annotations = list(range(10))  # 10 dummy samples
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Generate dummy data with uniformly distributed points."""
         # Generate random points and features using uniform distribution
         # Points are generated in a unit cube [-1, 1]^3
@@ -48,7 +51,9 @@ class DummyPCRDataset(BaseDataset):
         tgt_feats = torch.rand(self.num_points, 1, device=self.device)
 
         # Generate random correspondences (just random pairs of indices)
-        correspondences = torch.randint(0, self.num_points, (2, self.num_points), device=self.device)
+        correspondences = torch.randint(
+            0, self.num_points, (2, self.num_points), device=self.device
+        )
 
         # Generate random transform (just a random 4x4 matrix)
         transform = torch.randn(4, 4, device=self.device)
@@ -151,7 +156,7 @@ def test_num_points_impact(num_points):
         batch_size=1,
         num_workers=0,
         keep_ratio=0.8,  # Fixed value
-        sample_threshold=2000  # Fixed value
+        sample_threshold=2000,  # Fixed value
     )
 
     # Memory after dataset/dataloader creation
@@ -172,7 +177,7 @@ def test_num_points_impact(num_points):
         'batch': (batch_allocated - setup_allocated) / 1024**2,
         'total': (batch_allocated - initial_allocated) / 1024**2,
         'per_point': (batch_allocated - initial_allocated) / (num_points * 1024**2),
-        'reserved': batch_reserved / 1024**2
+        'reserved': batch_reserved / 1024**2,
     }
 
     # Log results
@@ -212,7 +217,7 @@ def test_voxel_size_impact(voxel_size):
         search_radius=0.0625,  # Fixed value
         batch_size=1,
         num_workers=0,
-        keep_ratio=0.8  # Fixed value
+        keep_ratio=0.8,  # Fixed value
     )
 
     # Memory after dataset/dataloader creation
@@ -233,7 +238,7 @@ def test_voxel_size_impact(voxel_size):
         'batch': (batch_allocated - setup_allocated) / 1024**2,
         'total': (batch_allocated - initial_allocated) / 1024**2,
         'per_point': (batch_allocated - initial_allocated) / (1024 * 1024**2),
-        'reserved': batch_reserved / 1024**2
+        'reserved': batch_reserved / 1024**2,
     }
 
     # Log results
@@ -273,7 +278,7 @@ def test_search_radius_impact(search_radius):
         search_radius=search_radius,
         batch_size=1,
         num_workers=0,
-        keep_ratio=0.8  # Fixed value
+        keep_ratio=0.8,  # Fixed value
     )
 
     # Memory after dataset/dataloader creation
@@ -294,7 +299,7 @@ def test_search_radius_impact(search_radius):
         'batch': (batch_allocated - setup_allocated) / 1024**2,
         'total': (batch_allocated - initial_allocated) / 1024**2,
         'per_point': (batch_allocated - initial_allocated) / (1024 * 1024**2),
-        'reserved': batch_reserved / 1024**2
+        'reserved': batch_reserved / 1024**2,
     }
 
     # Log results
@@ -334,7 +339,7 @@ def test_keep_ratio_impact(keep_ratio):
         search_radius=0.0625,  # Fixed value
         batch_size=1,
         num_workers=0,
-        keep_ratio=keep_ratio
+        keep_ratio=keep_ratio,
     )
 
     # Memory after dataset/dataloader creation
@@ -355,7 +360,7 @@ def test_keep_ratio_impact(keep_ratio):
         'batch': (batch_allocated - setup_allocated) / 1024**2,
         'total': (batch_allocated - initial_allocated) / 1024**2,
         'per_point': (batch_allocated - initial_allocated) / (1024 * 1024**2),
-        'reserved': batch_reserved / 1024**2
+        'reserved': batch_reserved / 1024**2,
     }
 
     # Log results
@@ -396,7 +401,7 @@ def test_sample_threshold_impact(sample_threshold):
         batch_size=1,
         num_workers=0,
         keep_ratio=0.8,  # Fixed value
-        sample_threshold=sample_threshold
+        sample_threshold=sample_threshold,
     )
 
     # Memory after dataset/dataloader creation
@@ -417,11 +422,13 @@ def test_sample_threshold_impact(sample_threshold):
         'batch': (batch_allocated - setup_allocated) / 1024**2,
         'total': (batch_allocated - initial_allocated) / 1024**2,
         'per_point': (batch_allocated - initial_allocated) / (1024 * 1024**2),
-        'reserved': batch_reserved / 1024**2
+        'reserved': batch_reserved / 1024**2,
     }
 
     # Log results
-    logger.info(f"\nSample Threshold Impact Analysis (sample_threshold={sample_threshold}):")
+    logger.info(
+        f"\nSample Threshold Impact Analysis (sample_threshold={sample_threshold}):"
+    )
     logger.info("-" * 50)
 
     # Log memory statistics

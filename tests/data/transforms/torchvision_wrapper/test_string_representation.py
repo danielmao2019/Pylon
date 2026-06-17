@@ -3,14 +3,18 @@ String representation tests for TorchvisionWrapper.
 
 Tests the __str__ method to ensure proper formatting without wrapper prefix.
 """
+
 import torch
 import torchvision.transforms as T
+
 from data.transforms.torchvision_wrapper import TorchvisionWrapper
 
 
 def test_string_representation_with_parameters():
     """Test string representation with transform parameters."""
-    wrapper = TorchvisionWrapper(T.ColorJitter, brightness=0.5, contrast=0.3, saturation=0.2)
+    wrapper = TorchvisionWrapper(
+        T.ColorJitter, brightness=0.5, contrast=0.3, saturation=0.2
+    )
     str_repr = str(wrapper)
 
     # Should show only the inner transform, not the wrapper
@@ -48,10 +52,7 @@ def test_string_representation_single_parameter():
 def test_string_representation_complex_parameters():
     """Test string representation with complex parameter types."""
     wrapper = TorchvisionWrapper(
-        T.RandomAffine,
-        degrees=(-15, 15),
-        translate=(0.1, 0.2),
-        scale=(0.9, 1.1)
+        T.RandomAffine, degrees=(-15, 15), translate=(0.1, 0.2), scale=(0.9, 1.1)
     )
     str_repr = str(wrapper)
 
@@ -86,8 +87,8 @@ def test_string_representation_format_consistency():
 
     # Should contain properly formatted parameters
     assert ", " in str1  # Multiple parameters separated by comma and space
-    assert "=" in str1   # Parameter assignment format
-    assert "=" in str2   # Parameter assignment format
+    assert "=" in str1  # Parameter assignment format
+    assert "=" in str2  # Parameter assignment format
 
 
 def test_string_representation_different_transforms():
@@ -103,6 +104,8 @@ def test_string_representation_different_transforms():
         wrapper = TorchvisionWrapper(transform_class, **kwargs)
         str_repr = str(wrapper)
 
-        assert str_repr.startswith(expected_name + "("), f"String representation should start with {expected_name}("
+        assert str_repr.startswith(
+            expected_name + "("
+        ), f"String representation should start with {expected_name}("
         assert str_repr.endswith(")"), "String representation should end with )"
         assert "TorchvisionWrapper" not in str_repr, "Should not contain wrapper name"

@@ -1,6 +1,7 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
-from abc import abstractmethod
 import random
+from abc import abstractmethod
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import torch
 
@@ -8,7 +9,9 @@ import torch
 class BaseTransform:
     """Base class for all transforms."""
 
-    def _get_generator(self, g_type: str, seed: Optional[Any] = None) -> Union[random.Random, np.random.Generator, torch.Generator]:
+    def _get_generator(
+        self, g_type: str, seed: Optional[Any] = None
+    ) -> Union[random.Random, np.random.Generator, torch.Generator]:
         r"""Get a generator of the specified type and seed."""
         assert isinstance(g_type, str), f"{type(g_type)=}"
         assert g_type in {'random', 'numpy', 'torch'}, f"{g_type=}"
@@ -17,6 +20,7 @@ class BaseTransform:
             seed = random.randint(0, 2**32 - 1)
         if not isinstance(seed, int):
             from utils.determinism.hash_utils import convert_to_seed
+
             seed = convert_to_seed(seed)
 
         if g_type == 'random':
@@ -25,7 +29,9 @@ class BaseTransform:
         elif g_type == 'numpy':
             generator = np.random.Generator(np.random.PCG64(seed))
         elif g_type == 'torch':
-            generator = torch.Generator(device='cuda' if torch.cuda.is_available() else 'cpu')
+            generator = torch.Generator(
+                device='cuda' if torch.cuda.is_available() else 'cpu'
+            )
             generator.manual_seed(seed)
         else:
             raise NotImplementedError(f"Unsupported generator type: {g_type}")
@@ -58,7 +64,10 @@ class BaseTransform:
         if len(args) == 1:
             return self._call_single_with_generator(*args, generator=generator)
         else:
-            return [self._call_single_with_generator(arg, generator=generator) for arg in args]
+            return [
+                self._call_single_with_generator(arg, generator=generator)
+                for arg in args
+            ]
 
     def __str__(self) -> str:
         """String representation of the transform."""
@@ -67,7 +76,9 @@ class BaseTransform:
         # Try to get constructor parameters if available
         if hasattr(self, '__dict__') and self.__dict__:
             # Filter out private attributes
-            public_attrs = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+            public_attrs = {
+                k: v for k, v in self.__dict__.items() if not k.startswith('_')
+            }
             formatted_params = self.format_params(public_attrs)
 
             if formatted_params:
@@ -101,11 +112,17 @@ class BaseTransform:
                     formatted_params.append(f"{key}=[...{len(value)} items]")
             elif value is None:
                 formatted_params.append(f"{key}=None")
-            elif hasattr(value, '__str__') and hasattr(value, '__class__') and hasattr(value.__class__, '__name__'):
+            elif (
+                hasattr(value, '__str__')
+                and hasattr(value, '__class__')
+                and hasattr(value.__class__, '__name__')
+            ):
                 # For objects with meaningful string representations (like nested transforms)
                 value_str = str(value)
                 # Only use the string representation if it's more informative than just the class name
-                if value_str != value.__class__.__name__ and not value_str.startswith('<'):
+                if value_str != value.__class__.__name__ and not value_str.startswith(
+                    '<'
+                ):
                     formatted_params.append(f"{key}={value_str}")
                 else:
                     formatted_params.append(f"{key}={type(value).__name__}")

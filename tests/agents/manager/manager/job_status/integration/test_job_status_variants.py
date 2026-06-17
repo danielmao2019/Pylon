@@ -7,9 +7,9 @@ Focus: additional stuck/failed variants beyond the core cases.
 import os
 import time
 
-from agents.manager.training_job import TrainingJob
 from agents.manager.evaluation_job import EvaluationJob
 from agents.manager.runtime import JobRuntimeParams
+from agents.manager.training_job import TrainingJob
 from agents.monitor.process_info import ProcessInfo
 
 

@@ -13,9 +13,11 @@ from models.change_detection.bifa.modules.segformer_head import SegFormerHead
 class flowmlp(nn.Module):
     def __init__(self, inplane):
         super(flowmlp, self).__init__()
-        self.dwconv = nn.Conv2d(inplane*4, inplane*4, 3, 1, 1, bias=True, groups=inplane)
-        self.Conv_enlarge = nn.Conv2d(inplane, inplane*4, 1)
-        self.Conv_shrink = nn.Conv2d(inplane*4, inplane, 1)
+        self.dwconv = nn.Conv2d(
+            inplane * 4, inplane * 4, 3, 1, 1, bias=True, groups=inplane
+        )
+        self.Conv_enlarge = nn.Conv2d(inplane, inplane * 4, 1)
+        self.Conv_shrink = nn.Conv2d(inplane * 4, inplane, 1)
         self.gelu = nn.GELU()
 
     def forward(self, x):
@@ -25,6 +27,7 @@ class flowmlp(nn.Module):
         x = self.Conv_shrink(x)
 
         return x
+
 
 class DiffFlowN(nn.Module):
     def __init__(self, inplane, h, w):
@@ -36,7 +39,9 @@ class DiffFlowN(nn.Module):
         super(DiffFlowN, self).__init__()
         self.flowmlp1 = flowmlp(inplane)
         self.flowmlp2 = flowmlp(inplane)
-        self.flow_make1 = nn.Conv2d(inplane *2 , 2, kernel_size=3, padding=1, bias=False)
+        self.flow_make1 = nn.Conv2d(
+            inplane * 2, 2, kernel_size=3, padding=1, bias=False
+        )
 
     def forward(self, x1, x2):
 
@@ -46,8 +51,7 @@ class DiffFlowN(nn.Module):
         size = x1.size()[2:]
         flow1 = self.flow_make1(torch.cat([x1, x2], dim=1))
 
-
-        seg_flow_warp1 = self.flow_warp(x1, flow1, size) #A
+        seg_flow_warp1 = self.flow_warp(x1, flow1, size)  # A
         diff1 = torch.abs(seg_flow_warp1 - x2)
 
         return diff1
@@ -70,7 +74,14 @@ class DiffFlowN(nn.Module):
 
 
 class Mlp(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        drop=0.0,
+    ):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
@@ -84,7 +95,7 @@ class Mlp(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -108,14 +119,25 @@ class Mlp(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., sr_ratio=1):
+    def __init__(
+        self,
+        dim,
+        num_heads=8,
+        qkv_bias=False,
+        qk_scale=None,
+        attn_drop=0.0,
+        proj_drop=0.0,
+        sr_ratio=1,
+    ):
         super().__init__()
-        assert dim % num_heads == 0, f"dim {dim} should be divided by num_heads {num_heads}."
+        assert (
+            dim % num_heads == 0
+        ), f"dim {dim} should be divided by num_heads {num_heads}."
 
         self.dim = dim
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.scale = qk_scale or head_dim ** -0.5
+        self.scale = qk_scale or head_dim**-0.5
 
         self.q = nn.Linear(dim, dim, bias=qkv_bias)
         self.cond = nn.Linear(dim, dim, bias=qkv_bias)
@@ -127,7 +149,6 @@ class Attention(nn.Module):
         self.avgpool = nn.AvgPool2d(kernel_size=sr_ratio, stride=sr_ratio)
         self.avgpoolchannel = nn.AdaptiveAvgPool2d(1)
 
-
         self.sr_ratio = sr_ratio
         if sr_ratio > 1:
             self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
@@ -137,7 +158,7 @@ class Attention(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -155,15 +176,22 @@ class Attention(nn.Module):
         q = self.q(x)
         q = q.reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
 
-
         if self.sr_ratio > 1:
             x_ = x.permute(0, 2, 1).reshape(B, C, H, W)
             x_ = self.sr(x_)
             x_ = x_.reshape(B, C, -1).permute(0, 2, 1)
             x_ = self.norm(x_)
-            kv = self.kv(x_).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+            kv = (
+                self.kv(x_)
+                .reshape(B, -1, 2, self.num_heads, C // self.num_heads)
+                .permute(2, 0, 3, 1, 4)
+            )
         else:
-            kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+            kv = (
+                self.kv(x)
+                .reshape(B, -1, 2, self.num_heads, C // self.num_heads)
+                .permute(2, 0, 3, 1, 4)
+            )
         k, v = kv[0], kv[1]
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
@@ -177,15 +205,27 @@ class Attention(nn.Module):
 
         return x
 
+
 class AttentionRealCrossChannel(nn.Module):
-    def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., sr_ratio=2):
+    def __init__(
+        self,
+        dim,
+        num_heads=8,
+        qkv_bias=False,
+        qk_scale=None,
+        attn_drop=0.0,
+        proj_drop=0.0,
+        sr_ratio=2,
+    ):
         super().__init__()
-        assert dim % num_heads == 0, f"dim {dim} should be divided by num_heads {num_heads}."
+        assert (
+            dim % num_heads == 0
+        ), f"dim {dim} should be divided by num_heads {num_heads}."
 
         self.dim = dim
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.scale = qk_scale or head_dim ** -0.5
+        self.scale = qk_scale or head_dim**-0.5
 
         self.q = nn.Linear(dim, dim, bias=qkv_bias)
         self.cond = nn.Linear(dim, dim, bias=qkv_bias)
@@ -198,7 +238,11 @@ class AttentionRealCrossChannel(nn.Module):
         B, N, C = x.shape
         q = self.q(x)
         q = q.reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 3, 1)
-        kv = self.kv(cond).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 4, 1)
+        kv = (
+            self.kv(cond)
+            .reshape(B, -1, 2, self.num_heads, C // self.num_heads)
+            .permute(2, 0, 3, 4, 1)
+        )
         k, v = kv[0], kv[1]
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
@@ -213,31 +257,58 @@ class AttentionRealCrossChannel(nn.Module):
 
 class Block(nn.Module):
 
-    def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, sr_ratio=1):
+    def __init__(
+        self,
+        dim,
+        num_heads,
+        mlp_ratio=4.0,
+        qkv_bias=False,
+        qk_scale=None,
+        drop=0.0,
+        attn_drop=0.0,
+        drop_path=0.0,
+        act_layer=nn.GELU,
+        norm_layer=nn.LayerNorm,
+        sr_ratio=1,
+    ):
         super().__init__()
         self.sr_ratio = sr_ratio
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
             dim,
-            num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio)
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            qk_scale=qk_scale,
+            attn_drop=attn_drop,
+            proj_drop=drop,
+            sr_ratio=sr_ratio,
+        )
         self.attn_realchannel = AttentionRealCrossChannel(
             dim,
-            num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio)
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            qk_scale=qk_scale,
+            attn_drop=attn_drop,
+            proj_drop=drop,
+            sr_ratio=sr_ratio,
+        )
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+        self.mlp = Mlp(
+            in_features=dim,
+            hidden_features=mlp_hidden_dim,
+            act_layer=act_layer,
+            drop=drop,
+        )
         self.sigmoid = nn.Sigmoid()
 
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -252,14 +323,16 @@ class Block(nn.Module):
 
     def forward(self, x, H, W, cond):
         x = x + self.drop_path(self.attn(self.norm1(x), H, W, cond))
-        x = x + self.drop_path(self.attn_realchannel(self.norm1(x), H, W, self.norm1(cond)))
-        x = x + self.drop_path(self.mlp(self.norm2(x), H, W)) #[B, N, C]
+        x = x + self.drop_path(
+            self.attn_realchannel(self.norm1(x), H, W, self.norm1(cond))
+        )
+        x = x + self.drop_path(self.mlp(self.norm2(x), H, W))  # [B, N, C]
 
         return x
 
+
 class OverlapPatchEmbed(nn.Module):
-    """ Image to Patch Embedding
-    """
+    """Image to Patch Embedding"""
 
     def __init__(self, img_size=256, patch_size=7, stride=4, in_chans=3, embed_dim=768):
         super().__init__()
@@ -270,15 +343,20 @@ class OverlapPatchEmbed(nn.Module):
         self.patch_size = patch_size
         self.H, self.W = img_size[0] // patch_size[0], img_size[1] // patch_size[1]
         self.num_patches = self.H * self.W
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride,
-                              padding=(patch_size[0] // 2, patch_size[1] // 2))
+        self.proj = nn.Conv2d(
+            in_chans,
+            embed_dim,
+            kernel_size=patch_size,
+            stride=stride,
+            padding=(patch_size[0] // 2, patch_size[1] // 2),
+        )
         self.norm = nn.LayerNorm(embed_dim)
 
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -301,63 +379,147 @@ class OverlapPatchEmbed(nn.Module):
 
 
 class MixVisionTransformer(nn.Module):
-    def __init__(self, img_size=256, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
-                 num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
-                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1]):
+    def __init__(
+        self,
+        img_size=256,
+        patch_size=16,
+        in_chans=3,
+        num_classes=1000,
+        embed_dims=[64, 128, 256, 512],
+        num_heads=[1, 2, 4, 8],
+        mlp_ratios=[4, 4, 4, 4],
+        qkv_bias=False,
+        qk_scale=None,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        drop_path_rate=0.0,
+        norm_layer=nn.LayerNorm,
+        depths=[3, 4, 6, 3],
+        sr_ratios=[8, 4, 2, 1],
+    ):
         super().__init__()
         self.num_classes = num_classes
         self.depths = depths
 
         # patch_embed
-        self.patch_embed1 = OverlapPatchEmbed(img_size=img_size, patch_size=7, stride=4, in_chans=in_chans,
-                                              embed_dim=embed_dims[0])
-        self.patch_embed2 = OverlapPatchEmbed(img_size=img_size // 4, patch_size=3, stride=2, in_chans=embed_dims[0],
-                                              embed_dim=embed_dims[1])
-        self.patch_embed3 = OverlapPatchEmbed(img_size=img_size // 8, patch_size=3, stride=2, in_chans=embed_dims[1],
-                                              embed_dim=embed_dims[2])
-        self.patch_embed4 = OverlapPatchEmbed(img_size=img_size // 16, patch_size=3, stride=2, in_chans=embed_dims[2],
-                                              embed_dim=embed_dims[3])
+        self.patch_embed1 = OverlapPatchEmbed(
+            img_size=img_size,
+            patch_size=7,
+            stride=4,
+            in_chans=in_chans,
+            embed_dim=embed_dims[0],
+        )
+        self.patch_embed2 = OverlapPatchEmbed(
+            img_size=img_size // 4,
+            patch_size=3,
+            stride=2,
+            in_chans=embed_dims[0],
+            embed_dim=embed_dims[1],
+        )
+        self.patch_embed3 = OverlapPatchEmbed(
+            img_size=img_size // 8,
+            patch_size=3,
+            stride=2,
+            in_chans=embed_dims[1],
+            embed_dim=embed_dims[2],
+        )
+        self.patch_embed4 = OverlapPatchEmbed(
+            img_size=img_size // 16,
+            patch_size=3,
+            stride=2,
+            in_chans=embed_dims[2],
+            embed_dim=embed_dims[3],
+        )
 
         # transformer encoder
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))
+        ]  # stochastic depth decay rule
         cur = 0
-        self.block1 = nn.ModuleList([Block(
-            dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
-            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=sr_ratios[0])
-            for i in range(depths[0])])
+        self.block1 = nn.ModuleList(
+            [
+                Block(
+                    dim=embed_dims[0],
+                    num_heads=num_heads[0],
+                    mlp_ratio=mlp_ratios[0],
+                    qkv_bias=qkv_bias,
+                    qk_scale=qk_scale,
+                    drop=drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[cur + i],
+                    norm_layer=norm_layer,
+                    sr_ratio=sr_ratios[0],
+                )
+                for i in range(depths[0])
+            ]
+        )
         self.norm1 = norm_layer(embed_dims[0])
 
         cur += depths[0]
-        self.block2 = nn.ModuleList([Block(
-            dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
-            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=sr_ratios[1])
-            for i in range(depths[1])])
+        self.block2 = nn.ModuleList(
+            [
+                Block(
+                    dim=embed_dims[1],
+                    num_heads=num_heads[1],
+                    mlp_ratio=mlp_ratios[1],
+                    qkv_bias=qkv_bias,
+                    qk_scale=qk_scale,
+                    drop=drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[cur + i],
+                    norm_layer=norm_layer,
+                    sr_ratio=sr_ratios[1],
+                )
+                for i in range(depths[1])
+            ]
+        )
         self.norm2 = norm_layer(embed_dims[1])
 
         cur += depths[1]
-        self.block3 = nn.ModuleList([Block(
-            dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
-            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=sr_ratios[2])
-            for i in range(depths[2])])
+        self.block3 = nn.ModuleList(
+            [
+                Block(
+                    dim=embed_dims[2],
+                    num_heads=num_heads[2],
+                    mlp_ratio=mlp_ratios[2],
+                    qkv_bias=qkv_bias,
+                    qk_scale=qk_scale,
+                    drop=drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[cur + i],
+                    norm_layer=norm_layer,
+                    sr_ratio=sr_ratios[2],
+                )
+                for i in range(depths[2])
+            ]
+        )
         self.norm3 = norm_layer(embed_dims[2])
 
         cur += depths[2]
-        self.block4 = nn.ModuleList([Block(
-            dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
-            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=sr_ratios[3])
-            for i in range(depths[3])])
+        self.block4 = nn.ModuleList(
+            [
+                Block(
+                    dim=embed_dims[3],
+                    num_heads=num_heads[3],
+                    mlp_ratio=mlp_ratios[3],
+                    qkv_bias=qkv_bias,
+                    qk_scale=qk_scale,
+                    drop=drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[cur + i],
+                    norm_layer=norm_layer,
+                    sr_ratio=sr_ratios[3],
+                )
+                for i in range(depths[3])
+            ]
+        )
         self.norm4 = norm_layer(embed_dims[3])
 
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -393,14 +555,22 @@ class MixVisionTransformer(nn.Module):
 
     @torch.jit.ignore
     def no_weight_decay(self):
-        return {'pos_embed1', 'pos_embed2', 'pos_embed3', 'pos_embed4', 'cls_token'}  # has pos_embed may be better
+        return {
+            'pos_embed1',
+            'pos_embed2',
+            'pos_embed3',
+            'pos_embed4',
+            'cls_token',
+        }  # has pos_embed may be better
 
     def get_classifier(self):
         return self.head
 
     def reset_classifier(self, num_classes, global_pool=''):
         self.num_classes = num_classes
-        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+        self.head = (
+            nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+        )
 
     def forward_features1(self, x, cond):
         B = x.shape[0]
@@ -470,12 +640,21 @@ class DWConv(nn.Module):
 
         return x
 
+
 class mit_b0(MixVisionTransformer):
     def __init__(self, **kwargs):
         super(mit_b0, self).__init__(
-            patch_size=4, embed_dims=[32, 64, 160, 256], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
-            drop_rate=0.0, drop_path_rate=0.1)
+            patch_size=4,
+            embed_dims=[32, 64, 160, 256],
+            num_heads=[1, 2, 5, 8],
+            mlp_ratios=[4, 4, 4, 4],
+            qkv_bias=True,
+            norm_layer=partial(nn.LayerNorm, eps=1e-6),
+            depths=[2, 2, 2, 2],
+            sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0,
+            drop_path_rate=0.1,
+        )
 
 
 class BiFA(nn.Module):
@@ -483,7 +662,12 @@ class BiFA(nn.Module):
     Segformer checkpoint download: https://pan.baidu.com/s/1zxet_fQy6eZZQS3Ak9ChlQ
     """
 
-    def __init__(self, checkpoint_filepath: Optional[str] = "./models/change_detection/bifa/mit_b0.pth"):
+    def __init__(
+        self,
+        checkpoint_filepath: Optional[
+            str
+        ] = "./models/change_detection/bifa/mit_b0.pth",
+    ):
         super().__init__()
         self.segformer = mit_b0()
         self.ckpt = torch.load(checkpoint_filepath)
@@ -504,7 +688,9 @@ class BiFA(nn.Module):
         self.diffflow2 = DiffFlowN(inplane=64, h=32, w=32)
         self.diffflow3 = DiffFlowN(inplane=160, h=16, w=16)
         self.diffflow4 = DiffFlowN(inplane=256, h=8, w=8)
-        self.ifa = fpn_ifa(in_planes=256, ultra_pe=True, pos_dim=24, no_aspp=True, require_grad=True)
+        self.ifa = fpn_ifa(
+            in_planes=256, ultra_pe=True, pos_dim=24, no_aspp=True, require_grad=True
+        )
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         x1, x2 = inputs['img_1'], inputs['img_2']
@@ -523,7 +709,6 @@ class BiFA(nn.Module):
         x2_2 = self.segformer.forward_features2(x2_1, x1_1)
 
         diff1 = self.diffflow2(x1_2, x2_2)
-
 
         # stage 3
         x1_3 = self.segformer.forward_features3(x1_2, x2_2)

@@ -7,7 +7,9 @@ from data.collators.geotransformer.radius_search import radius_search
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
-def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, neighbor_limits):
+def precompute_data_stack_mode(
+    points, lengths, num_stages, voxel_size, radius, neighbor_limits
+):
     assert num_stages == len(neighbor_limits)
 
     points_list = []
@@ -39,8 +41,9 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
         )
         # Validate neighbor tensor shape
         expected_shape = (cur_points.shape[0], neighbor_limits[i])
-        assert neighbors.shape == expected_shape, \
-            f"Stage {i}: Expected shape {expected_shape} but got {neighbors.shape}"
+        assert (
+            neighbors.shape == expected_shape
+        ), f"Stage {i}: Expected shape {expected_shape} but got {neighbors.shape}"
         neighbors_list.append(neighbors)
 
         if i < num_stages - 1:
@@ -57,8 +60,9 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
             )
             # Validate subsampling tensor shape
             expected_shape = (sub_points.shape[0], neighbor_limits[i])
-            assert subsampling.shape == expected_shape, \
-                f"Stage {i} subsampling: Expected shape {expected_shape} but got {subsampling.shape}"
+            assert (
+                subsampling.shape == expected_shape
+            ), f"Stage {i} subsampling: Expected shape {expected_shape} but got {subsampling.shape}"
             subsampling_list.append(subsampling)
 
             upsampling = radius_search(
@@ -71,8 +75,9 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
             )
             # Validate upsampling tensor shape
             expected_shape = (cur_points.shape[0], neighbor_limits[i + 1])
-            assert upsampling.shape == expected_shape, \
-                f"Stage {i} upsampling: Expected shape {expected_shape} but got {upsampling.shape}"
+            assert (
+                upsampling.shape == expected_shape
+            ), f"Stage {i} upsampling: Expected shape {expected_shape} but got {upsampling.shape}"
             upsampling_list.append(upsampling)
 
         radius *= 2
@@ -87,7 +92,12 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
 
 
 def geotransformer_collate_fn_gt(
-    data_dicts, num_stages, voxel_size, search_radius, neighbor_limits, precompute_data=True
+    data_dicts,
+    num_stages,
+    voxel_size,
+    search_radius,
+    neighbor_limits,
+    precompute_data=True,
 ) -> Dict[str, Dict[str, Any]]:
     r"""Collate function for registration in stack mode.
 
@@ -107,23 +117,34 @@ def geotransformer_collate_fn_gt(
     """
     # Input checks
     assert isinstance(data_dicts, list), 'data_dicts must be a list'
-    assert all(isinstance(data_dict, dict) for data_dict in data_dicts), \
-        'data_dicts must be a list of dictionaries'
-    assert all(data_dict.keys() >= {'inputs', 'labels', 'meta_info'} for data_dict in data_dicts), \
-        'data_dicts must contain the keys inputs, labels, meta_info'
+    assert all(
+        isinstance(data_dict, dict) for data_dict in data_dicts
+    ), 'data_dicts must be a list of dictionaries'
+    assert all(
+        data_dict.keys() >= {'inputs', 'labels', 'meta_info'}
+        for data_dict in data_dicts
+    ), 'data_dicts must contain the keys inputs, labels, meta_info'
     assert isinstance(num_stages, int), 'num_stages must be an integer'
     assert isinstance(voxel_size, (int, float)), 'voxel_size must be a float'
     assert isinstance(search_radius, (int, float)), 'search_radius must be a float'
-    assert isinstance(neighbor_limits, list), f'neighbor_limits must be a list. Got {type(neighbor_limits)}.'
-    assert all(isinstance(limit, int) for limit in neighbor_limits), 'neighbor_limits must be a list of integers'
+    assert isinstance(
+        neighbor_limits, list
+    ), f'neighbor_limits must be a list. Got {type(neighbor_limits)}.'
+    assert all(
+        isinstance(limit, int) for limit in neighbor_limits
+    ), 'neighbor_limits must be a list of integers'
     assert isinstance(precompute_data, bool), 'precompute_data must be a boolean'
 
     # Main logic
     batch_size = len(data_dicts)
     assert batch_size == 1
     for datapoint in data_dicts:
-        assert isinstance(datapoint['inputs']['src_pc'], PointCloud), 'src_pc must be a PointCloud'
-        assert isinstance(datapoint['inputs']['tgt_pc'], PointCloud), 'tgt_pc must be a PointCloud'
+        assert isinstance(
+            datapoint['inputs']['src_pc'], PointCloud
+        ), 'src_pc must be a PointCloud'
+        assert isinstance(
+            datapoint['inputs']['tgt_pc'], PointCloud
+        ), 'tgt_pc must be a PointCloud'
 
     device = data_dicts[0]['inputs']['src_pc'].xyz.device
 
@@ -132,11 +153,15 @@ def geotransformer_collate_fn_gt(
 
     feats = torch.cat([pc.feat for pc in tgt_pcs] + [pc.feat for pc in src_pcs], dim=0)
     points_list = [pc.xyz for pc in tgt_pcs] + [pc.xyz for pc in src_pcs]
-    lengths = torch.tensor([pc.num_points for pc in tgt_pcs + src_pcs], dtype=torch.long, device=device)
+    lengths = torch.tensor(
+        [pc.num_points for pc in tgt_pcs + src_pcs], dtype=torch.long, device=device
+    )
     points = torch.cat(points_list, dim=0)
 
     # Process source and target point clouds separately
-    inputs_dict = precompute_data_stack_mode(points, lengths, num_stages, voxel_size, search_radius, neighbor_limits)
+    inputs_dict = precompute_data_stack_mode(
+        points, lengths, num_stages, voxel_size, search_radius, neighbor_limits
+    )
     inputs_dict['features'] = feats
     inputs_dict['transform'] = data_dicts[0]['labels']['transform']
     meta_info = {
@@ -147,7 +172,9 @@ def geotransformer_collate_fn_gt(
     collated_dict = {
         'inputs': inputs_dict,
         'labels': {
-            'transform': torch.stack([d['labels']['transform'] for d in data_dicts], dim=0),
+            'transform': torch.stack(
+                [d['labels']['transform'] for d in data_dicts], dim=0
+            ),
         },
         'meta_info': meta_info,
     }

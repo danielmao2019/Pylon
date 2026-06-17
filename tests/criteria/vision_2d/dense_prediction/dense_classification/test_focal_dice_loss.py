@@ -1,7 +1,12 @@
 import pytest
 import torch
-from criteria.vision_2d.dense_prediction.dense_classification.focal_dice_loss import FocalDiceLoss
-from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_classification.focal_dice_loss import (
+    FocalDiceLoss,
+)
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import (
+    SemanticSegmentationCriterion,
+)
 
 
 @pytest.fixture
@@ -15,9 +20,13 @@ def sample_data():
     height, width = 32, 32
 
     # Create predicted logits with shape (N, C, H, W) and enable gradients
-    y_pred = torch.randn(batch_size, num_classes, height, width, device=device, requires_grad=True)
+    y_pred = torch.randn(
+        batch_size, num_classes, height, width, device=device, requires_grad=True
+    )
     # Create ground truth with shape (N, H, W) with values in [0, num_classes) and disable gradients
-    y_true = torch.randint(0, num_classes, (batch_size, height, width), device=device, requires_grad=False)
+    y_true = torch.randint(
+        0, num_classes, (batch_size, height, width), device=device, requires_grad=False
+    )
 
     return y_pred, y_true
 
@@ -31,10 +40,7 @@ def test_focal_dice_loss_initialization():
     # Test initialization with custom parameters
     class_weights = torch.ones(2)  # 2 classes
     criterion = FocalDiceLoss(
-        combine='mean',
-        class_weights=class_weights,
-        ignore_value=100,
-        gamma=2.0
+        combine='mean', class_weights=class_weights, ignore_value=100, gamma=2.0
     )
     assert criterion.combine == 'mean'
     assert criterion.criteria[0].gamma == 2.0
@@ -73,7 +79,9 @@ def test_focal_dice_loss_perfect_predictions(sample_data):
     # Create perfect predictions (one-hot encoded with high confidence)
     y_pred_perfect = torch.zeros_like(y_pred)
     for b in range(y_true.size(0)):
-        y_pred_perfect[b].scatter_(0, y_true[b].unsqueeze(0), 100.0)  # High confidence for correct class
+        y_pred_perfect[b].scatter_(
+            0, y_true[b].unsqueeze(0), 100.0
+        )  # High confidence for correct class
 
     # Initialize criterion
     criterion = FocalDiceLoss().to(device)
@@ -82,7 +90,9 @@ def test_focal_dice_loss_perfect_predictions(sample_data):
     loss = criterion(y_pred_perfect, y_true)
 
     # Loss should be close to 0 for perfect predictions
-    assert loss.item() < 0.1, f"Loss should be close to 0 for perfect predictions, got {loss.item()}"
+    assert (
+        loss.item() < 0.1
+    ), f"Loss should be close to 0 for perfect predictions, got {loss.item()}"
 
 
 def test_focal_dice_loss_with_class_weights(sample_data):
@@ -173,7 +183,13 @@ def test_focal_dice_loss_input_validation(sample_data):
 
     # Test mismatched batch size
     with pytest.raises(AssertionError):
-        invalid_pred = torch.randn(y_pred.shape[0] + 1, y_pred.shape[1], y_pred.shape[2], y_pred.shape[3], device=device)
+        invalid_pred = torch.randn(
+            y_pred.shape[0] + 1,
+            y_pred.shape[1],
+            y_pred.shape[2],
+            y_pred.shape[3],
+            device=device,
+        )
         criterion(invalid_pred, y_true)
 
     # Test out-of-range values in y_true

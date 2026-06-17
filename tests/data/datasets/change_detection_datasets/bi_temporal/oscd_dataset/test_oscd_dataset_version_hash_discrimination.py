@@ -1,9 +1,11 @@
 """Test cache version discrimination for OSCDDataset."""
 
+import copy
+
 import pytest
+
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 from utils.builders.builder import build_from_config
-import copy
 
 
 def test_oscd_hash_consistency(oscd_dataset_train_config, oscd_dataset_test_config):
@@ -14,10 +16,16 @@ def test_oscd_hash_consistency(oscd_dataset_train_config, oscd_dataset_test_conf
 
     # Same parameters should produce same hash - create another instance with same params
     dataset_train_copy = build_from_config(oscd_dataset_train_config)
-    assert oscd_dataset_train.get_cache_version_hash() == dataset_train_copy.get_cache_version_hash()
+    assert (
+        oscd_dataset_train.get_cache_version_hash()
+        == dataset_train_copy.get_cache_version_hash()
+    )
 
     # Different split should produce different hash
-    assert oscd_dataset_train.get_cache_version_hash() != oscd_dataset_test.get_cache_version_hash()
+    assert (
+        oscd_dataset_train.get_cache_version_hash()
+        != oscd_dataset_test.get_cache_version_hash()
+    )
 
 
 def test_oscd_unique_hashes(oscd_dataset_train_config, oscd_dataset_test_config):

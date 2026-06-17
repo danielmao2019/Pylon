@@ -1,8 +1,10 @@
-"""Reference: https://github.com/ShoufaChen/DiffusionDet/blob/main/diffusiondet/detector.py
-"""
-from typing import Tuple, List, Dict, Any
+"""Reference: https://github.com/ShoufaChen/DiffusionDet/blob/main/diffusiondet/detector.py"""
+
 import math
+from typing import Any, Dict, List, Tuple
+
 import torch
+
 from utils.builders import build_from_config
 
 
@@ -35,14 +37,17 @@ class BaseDiffuser(torch.utils.data.Dataset, torch.nn.Module):
         self.keys = keys
 
     def _init_noise_schedule_(self, s: float = 8e-3) -> None:
-        r"""cosine schedule as proposed in https://openreview.net/forum?id=-NEXDKk8gZ
-        """
-        t = torch.linspace(start=0, end=self.num_steps, steps=self.num_steps + 1, dtype=torch.float32)
+        r"""cosine schedule as proposed in https://openreview.net/forum?id=-NEXDKk8gZ"""
+        t = torch.linspace(
+            start=0, end=self.num_steps, steps=self.num_steps + 1, dtype=torch.float32
+        )
         f = torch.cos(((t / self.num_steps) + s) / (1 + s) * math.pi * 0.5) ** 2
         alphas_cumprod = f / f[0]
         betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
         alphas = 1 - betas
-        assert torch.allclose(torch.cumprod(alphas, dim=0), alphas_cumprod[1:]), f"{(torch.cumprod(alphas, dim=0)-alphas_cumprod[1:]).abs().max()=}"
+        assert torch.allclose(
+            torch.cumprod(alphas, dim=0), alphas_cumprod[1:]
+        ), f"{(torch.cumprod(alphas, dim=0)-alphas_cumprod[1:]).abs().max()=}"
         alphas_cumprod = alphas_cumprod[1:]
         assert betas.shape == alphas.shape == alphas_cumprod.shape
         # clamp
@@ -52,25 +57,30 @@ class BaseDiffuser(torch.utils.data.Dataset, torch.nn.Module):
         # register buffers
         self.register_buffer(name='alphas', tensor=alphas)
         self.register_buffer(name='alphas_cumprod', tensor=alphas_cumprod)
-        self.register_buffer(name='one_minus_alphas_cumprod', tensor=1-alphas_cumprod)
+        self.register_buffer(name='one_minus_alphas_cumprod', tensor=1 - alphas_cumprod)
 
     def __len__(self) -> int:
         return len(self.dataset)
 
-    def forward_diffusion(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward_diffusion(
+        self, input: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         assert type(input) == torch.Tensor, f"{type(input)=}"
         time = torch.randint(low=0, high=self.num_steps, size=(), dtype=torch.int64)
         noise = torch.randn(size=input.shape, dtype=torch.float32, device=input.device)
-        diffused = self.alphas_cumprod[time].sqrt() * input + self.one_minus_alphas_cumprod[time].sqrt() * noise
+        diffused = (
+            self.alphas_cumprod[time].sqrt() * input
+            + self.one_minus_alphas_cumprod[time].sqrt() * noise
+        )
         return diffused, time
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
         example = self.dataset[idx]
-        for (key1, key2) in self.keys:
+        for key1, key2 in self.keys:
             noisy, time = self.forward_diffusion(example[key1][key2])
-            example['inputs']['diffused_'+key2] = noisy
+            example['inputs']['diffused_' + key2] = noisy
             example['inputs']['time'] = time
-            example['labels']['original_'+key2] = example[key1].pop(key2)
+            example['labels']['original_' + key2] = example[key1].pop(key2)
             for key in example['inputs']:
                 if key2 in key:
                     assert key == f"diffused_{key2}"

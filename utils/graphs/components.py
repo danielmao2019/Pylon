@@ -14,7 +14,9 @@ def build_induced_connected_components(
     # Input validations
     assert isinstance(num_nodes, int), f"{type(num_nodes)=}"
     assert isinstance(edges, torch.Tensor), f"{type(edges)=}"
-    assert isinstance(subset_node_indices, torch.Tensor), f"{type(subset_node_indices)=}"
+    assert isinstance(
+        subset_node_indices, torch.Tensor
+    ), f"{type(subset_node_indices)=}"
     assert num_nodes > 0, f"{num_nodes=}"
     assert edges.ndim == 2, f"{edges.shape=}"
     assert int(edges.shape[1]) == 2, f"{edges.shape=}"
@@ -24,9 +26,9 @@ def build_induced_connected_components(
     assert subset_node_indices.dtype == torch.long, f"{subset_node_indices.dtype=}"
     assert int(subset_node_indices.numel()) > 0, f"{subset_node_indices.shape=}"
     assert int(subset_node_indices.min().item()) >= 0, f"{subset_node_indices.min()=}"
-    assert int(subset_node_indices.max().item()) < num_nodes, (
-        f"{subset_node_indices.max()=}, {num_nodes=}"
-    )
+    assert (
+        int(subset_node_indices.max().item()) < num_nodes
+    ), f"{subset_node_indices.max()=}, {num_nodes=}"
     assert int(edges.min().item()) >= 0, f"{edges.min()=}"
     assert int(edges.max().item()) < num_nodes, f"{edges.max()=}, {num_nodes=}"
     assert torch.equal(
@@ -43,9 +45,7 @@ def build_induced_connected_components(
     induced_edges = edges[induced_edge_mask].detach().cpu()
     subset_node_indices_cpu = subset_node_indices.detach().cpu()
 
-    adjacency = {
-        int(node_index.item()): [] for node_index in subset_node_indices_cpu
-    }
+    adjacency = {int(node_index.item()): [] for node_index in subset_node_indices_cpu}
     for edge in induced_edges:
         node_index_a = int(edge[0].item())
         node_index_b = int(edge[1].item())
@@ -85,9 +85,9 @@ def compute_component_overlap_counts(
     # Input validations
     assert isinstance(connected_components, list), f"{type(connected_components)=}"
     assert len(connected_components) > 0, "connected_components must be non-empty."
-    assert all(isinstance(component, torch.Tensor) for component in connected_components), (
-        f"{connected_components=}"
-    )
+    assert all(
+        isinstance(component, torch.Tensor) for component in connected_components
+    ), f"{connected_components=}"
     assert isinstance(query_node_indices, torch.Tensor), f"{type(query_node_indices)=}"
     assert isinstance(num_nodes, int), f"{type(num_nodes)=}"
     assert num_nodes > 0, f"{num_nodes=}"
@@ -95,20 +95,22 @@ def compute_component_overlap_counts(
     assert query_node_indices.dtype == torch.long, f"{query_node_indices.dtype=}"
     assert int(query_node_indices.numel()) > 0, f"{query_node_indices.shape=}"
     assert int(query_node_indices.min().item()) >= 0, f"{query_node_indices.min()=}"
-    assert int(query_node_indices.max().item()) < num_nodes, (
-        f"{query_node_indices.max()=}, {num_nodes=}"
-    )
-    assert all(component.ndim == 1 for component in connected_components), (
-        f"{connected_components=}"
-    )
-    assert all(component.dtype == torch.long for component in connected_components), (
-        f"{connected_components=}"
-    )
-    assert all(int(component.numel()) > 0 for component in connected_components), (
-        f"{connected_components=}"
-    )
+    assert (
+        int(query_node_indices.max().item()) < num_nodes
+    ), f"{query_node_indices.max()=}, {num_nodes=}"
+    assert all(
+        component.ndim == 1 for component in connected_components
+    ), f"{connected_components=}"
+    assert all(
+        component.dtype == torch.long for component in connected_components
+    ), f"{connected_components=}"
+    assert all(
+        int(component.numel()) > 0 for component in connected_components
+    ), f"{connected_components=}"
 
-    query_mask = torch.zeros(num_nodes, dtype=torch.bool, device=query_node_indices.device)
+    query_mask = torch.zeros(
+        num_nodes, dtype=torch.bool, device=query_node_indices.device
+    )
     query_mask[query_node_indices] = True
 
     overlap_counts: List[int] = []
@@ -116,4 +118,6 @@ def compute_component_overlap_counts(
         overlap_count = int(query_mask[component].sum().item())
         overlap_counts.append(overlap_count)
 
-    return torch.tensor(overlap_counts, dtype=torch.long, device=query_node_indices.device)
+    return torch.tensor(
+        overlap_counts, dtype=torch.long, device=query_node_indices.device
+    )

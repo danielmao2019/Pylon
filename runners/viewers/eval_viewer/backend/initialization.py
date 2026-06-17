@@ -1,16 +1,18 @@
-from typing import List, Dict, Set, Tuple, Any, Literal, Optional
-import importlib.util
-import os
-import json
 import glob
-import numpy as np
-import pickle
-import joblib
-from pathlib import Path
-from dataclasses import dataclass, asdict
-from data.viewer.dataset.backend.backend import DatasetType, DATASET_GROUPS
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import importlib.util
+import json
 import logging
+import os
+import pickle
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple
+
+import joblib
+import numpy as np
+
+from data.viewer.dataset.backend.backend import DATASET_GROUPS, DatasetType
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +31,11 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
 # Use shared runner detection utility for code reuse and consistency
 from agents.tracker.runner_detection import detect_runner_type
 
+
 @dataclass
 class LogDirInfo:
     """Information extracted from a log directory."""
+
     num_epochs: int
     metric_names: List[str]
     num_datapoints: int  # Number of datapoints in the dataset
@@ -41,14 +45,18 @@ class LogDirInfo:
     dataset_type: DatasetType  # 2d_change_detection, 3d_change_detection, point_cloud_registration, etc.
     dataset_cfg: Dict[str, Any]
     dataloader_cfg: Dict[str, Any]
-    runner_type: Literal['trainer', 'evaluator']  # Whether results come from BaseTrainer or BaseEvaluator
+    runner_type: Literal[
+        'trainer', 'evaluator'
+    ]  # Whether results come from BaseTrainer or BaseEvaluator
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
 
-def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray, float]:
+def get_score_map_epoch_metric(
+    scores_file: str, metric_name: str
+) -> Tuple[int, np.ndarray, float]:
     """Get score map for a single epoch and metric.
 
     Args:
@@ -64,18 +72,34 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
     if '[' in metric_name:
         base_metric, idx_str = metric_name.split('[')
         idx = int(idx_str.rstrip(']'))
-        assert base_metric in scores['per_datapoint'], f"Metric {base_metric} not found in scores"
-        assert isinstance(scores['per_datapoint'][base_metric], list), f"Metric {base_metric} is not a list"
-        assert idx < len(scores['per_datapoint'][base_metric]), f"Index {idx} out of range for {base_metric}"
-        per_datapoint_scores = np.array([float(score[idx]) for score in scores['per_datapoint'][base_metric]])
+        assert (
+            base_metric in scores['per_datapoint']
+        ), f"Metric {base_metric} not found in scores"
+        assert isinstance(
+            scores['per_datapoint'][base_metric], list
+        ), f"Metric {base_metric} is not a list"
+        assert idx < len(
+            scores['per_datapoint'][base_metric]
+        ), f"Index {idx} out of range for {base_metric}"
+        per_datapoint_scores = np.array(
+            [float(score[idx]) for score in scores['per_datapoint'][base_metric]]
+        )
         aggregated_score = float(scores['aggregated'][base_metric][idx])
     else:
-        assert metric_name in scores['per_datapoint'], f"Metric {metric_name} not found in scores"
-        per_datapoint_scores = np.array([float(score) for score in scores['per_datapoint'][metric_name]])
+        assert (
+            metric_name in scores['per_datapoint']
+        ), f"Metric {metric_name} not found in scores"
+        per_datapoint_scores = np.array(
+            [float(score) for score in scores['per_datapoint'][metric_name]]
+        )
         aggregated_score = float(scores['aggregated'][metric_name])
 
-    assert per_datapoint_scores.ndim == 1, f"Per-datapoint scores {per_datapoint_scores} is not 1D"
-    assert isinstance(aggregated_score, float), f"Aggregated score {aggregated_score} is not a float"
+    assert (
+        per_datapoint_scores.ndim == 1
+    ), f"Per-datapoint scores {per_datapoint_scores} is not 1D"
+    assert isinstance(
+        aggregated_score, float
+    ), f"Aggregated score {aggregated_score} is not a float"
 
     num_datapoints = len(per_datapoint_scores)
     # Use shared utility to avoid code duplication
@@ -98,7 +122,9 @@ def get_metric_names_aggregated(scores_dict: dict) -> List[str]:
         if isinstance(scores_dict[key], list):
             metrics.update(f"{key}[{i}]" for i in range(len(scores_dict[key])))
         else:
-            assert isinstance(scores_dict[key], (float, int)), f"Invalid sample type for metric {key}"
+            assert isinstance(
+                scores_dict[key], (float, int)
+            ), f"Invalid sample type for metric {key}"
             metrics.add(key)
     metrics = list(sorted(metrics))
     return metrics
@@ -115,18 +141,24 @@ def get_metric_names_per_datapoint(scores_dict: dict) -> List[str]:
     """
     metrics = set()
     for key in scores_dict.keys():
-        assert isinstance(scores_dict[key], list), f"Invalid scores format in {scores_dict}"
+        assert isinstance(
+            scores_dict[key], list
+        ), f"Invalid scores format in {scores_dict}"
         sample = scores_dict[key][0]
         if isinstance(sample, list):
             metrics.update(f"{key}[{i}]" for i in range(len(sample)))
         else:
-            assert isinstance(sample, (float, int)), f"Invalid sample type for metric {key}"
+            assert isinstance(
+                sample, (float, int)
+            ), f"Invalid sample type for metric {key}"
             metrics.add(key)
     metrics = list(sorted(metrics))
     return metrics
 
 
-def get_score_map_epoch(scores_file: str) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
+def get_score_map_epoch(
+    scores_file: str,
+) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
     """Get score map for a single epoch and all metrics.
 
     Args:
@@ -138,7 +170,10 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], int, np.ndarray, n
     with open(scores_file, "r") as f:
         scores = json.load(f)
     assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
-    assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
+    assert scores.keys() == {
+        'aggregated',
+        'per_datapoint',
+    }, f"Invalid keys in {scores_file}"
 
     metric_names = get_metric_names_aggregated(scores['aggregated'])
     assert metric_names == get_metric_names_per_datapoint(scores['per_datapoint'])
@@ -158,16 +193,19 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], int, np.ndarray, n
         [score_map_epoch_metric[0] for score_map_epoch_metric in all_score_maps_epoch],
     ))}"""
 
-    score_map_epoch = np.stack([
-        score_map_epoch_metric[1] for score_map_epoch_metric in all_score_maps_epoch
-    ], axis=0)
-    aggregated_scores_epoch = np.array([
-        score_map_epoch_metric[2] for score_map_epoch_metric in all_score_maps_epoch
-    ])
+    score_map_epoch = np.stack(
+        [score_map_epoch_metric[1] for score_map_epoch_metric in all_score_maps_epoch],
+        axis=0,
+    )
+    aggregated_scores_epoch = np.array(
+        [score_map_epoch_metric[2] for score_map_epoch_metric in all_score_maps_epoch]
+    )
     return metric_names, num_datapoints, score_map_epoch, aggregated_scores_epoch
 
 
-def get_evaluator_score_map(scores_file: str) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
+def get_evaluator_score_map(
+    scores_file: str,
+) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
     """Get score map for BaseEvaluator results (single evaluation).
 
     Args:
@@ -181,7 +219,10 @@ def get_evaluator_score_map(scores_file: str) -> Tuple[List[str], int, np.ndarra
     with open(scores_file, "r") as f:
         scores = json.load(f)
     assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
-    assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
+    assert scores.keys() == {
+        'aggregated',
+        'per_datapoint',
+    }, f"Invalid keys in {scores_file}"
 
     metric_names = get_metric_names_aggregated(scores['aggregated'])
     assert metric_names == get_metric_names_per_datapoint(scores['per_datapoint'])
@@ -202,13 +243,13 @@ def get_evaluator_score_map(scores_file: str) -> Tuple[List[str], int, np.ndarra
     ))}"""
 
     # Create score_map with shape (C, H, W) instead of (N, C, H, W)
-    score_map = np.stack([
-        score_map_metric[1] for score_map_metric in all_score_maps_metric
-    ], axis=0)
+    score_map = np.stack(
+        [score_map_metric[1] for score_map_metric in all_score_maps_metric], axis=0
+    )
     # Create aggregated_scores with shape (C,) instead of (N, C)
-    aggregated_scores = np.array([
-        score_map_metric[2] for score_map_metric in all_score_maps_metric
-    ])
+    aggregated_scores = np.array(
+        [score_map_metric[2] for score_map_metric in all_score_maps_metric]
+    )
 
     return metric_names, num_datapoints, score_map, aggregated_scores
 
@@ -239,12 +280,16 @@ def get_epoch_dirs(log_dir: str) -> List[str]:
         epoch += 1
 
     if not epoch_dirs:
-        raise ValueError(f"No epoch directories with validation scores found in {log_dir}")
+        raise ValueError(
+            f"No epoch directories with validation scores found in {log_dir}"
+        )
 
     return epoch_dirs
 
 
-def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
+def get_score_map(
+    epoch_dirs: List[str],
+) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
     """Get score map array from validation scores files.
 
     Args:
@@ -260,7 +305,9 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], int, np.ndarray, np
     results = {}
     with ThreadPoolExecutor() as executor:
         future_to_idx = {
-            executor.submit(get_score_map_epoch, os.path.join(epoch_dir, "validation_scores.json")): idx
+            executor.submit(
+                get_score_map_epoch, os.path.join(epoch_dir, "validation_scores.json")
+            ): idx
             for idx, epoch_dir in enumerate(epoch_dirs)
         }
         for future in as_completed(future_to_idx):
@@ -272,24 +319,33 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], int, np.ndarray, np
 
     # Validate that all epochs have the same metric names
     metric_names = all_score_maps[0][0]
-    assert all(score_map_epoch[0] == metric_names for score_map_epoch in all_score_maps), \
-        f"Different metrics across epochs: {[score_map_epoch[0] for score_map_epoch in all_score_maps]}"
+    assert all(
+        score_map_epoch[0] == metric_names for score_map_epoch in all_score_maps
+    ), f"Different metrics across epochs: {[score_map_epoch[0] for score_map_epoch in all_score_maps]}"
 
     # Validate that all epochs have the same number of datapoints
     num_datapoints = all_score_maps[0][1]
-    assert all(score_map_epoch[1] == num_datapoints for score_map_epoch in all_score_maps), \
-        f"Different number of datapoints across epochs: {[score_map_epoch[1] for score_map_epoch in all_score_maps]}"
+    assert all(
+        score_map_epoch[1] == num_datapoints for score_map_epoch in all_score_maps
+    ), f"Different number of datapoints across epochs: {[score_map_epoch[1] for score_map_epoch in all_score_maps]}"
 
     # Stack all epoch score maps
-    score_map = np.stack([score_map_epoch[2] for score_map_epoch in all_score_maps], axis=0)
-    aggregated_scores = np.stack([score_map_epoch[3] for score_map_epoch in all_score_maps], axis=0)
-    assert score_map.shape[:2] == aggregated_scores.shape, \
-        f"Score map and aggregated scores have different shapes: {score_map.shape} != {aggregated_scores.shape}"
+    score_map = np.stack(
+        [score_map_epoch[2] for score_map_epoch in all_score_maps], axis=0
+    )
+    aggregated_scores = np.stack(
+        [score_map_epoch[3] for score_map_epoch in all_score_maps], axis=0
+    )
+    assert (
+        score_map.shape[:2] == aggregated_scores.shape
+    ), f"Score map and aggregated scores have different shapes: {score_map.shape} != {aggregated_scores.shape}"
 
     return metric_names, num_datapoints, score_map, aggregated_scores
 
 
-def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[str, Any]]:
+def get_data_info(
+    log_dir: str,
+) -> Tuple[str, DatasetType, Dict[str, Any], Dict[str, Any]]:
     """Get dataset class and type from config file.
 
     Args:
@@ -320,7 +376,9 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
         dataset_cfg = config['eval_dataset']
         dataloader_cfg = config['eval_dataloader']
     else:
-        raise ValueError(f"Config must contain either 'val_dataset' or 'eval_dataset', found keys: {list(config.keys())}")
+        raise ValueError(
+            f"Config must contain either 'val_dataset' or 'eval_dataset', found keys: {list(config.keys())}"
+        )
 
     # Extract dataset class name from the config
     dataset_class = dataset_cfg['class'].__name__
@@ -366,12 +424,16 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     if runner_type == 'trainer':
         # BaseTrainer results: load from epoch folders
         epoch_dirs = get_epoch_dirs(log_dir)
-        metric_names, num_datapoints, score_map, aggregated_scores = get_score_map(epoch_dirs)
+        metric_names, num_datapoints, score_map, aggregated_scores = get_score_map(
+            epoch_dirs
+        )
         num_epochs = len(epoch_dirs)
     elif runner_type == 'evaluator':
         # BaseEvaluator results: load from evaluation_scores.json
         scores_file = os.path.join(log_dir, "evaluation_scores.json")
-        metric_names, num_datapoints, score_map, aggregated_scores = get_evaluator_score_map(scores_file)
+        metric_names, num_datapoints, score_map, aggregated_scores = (
+            get_evaluator_score_map(scores_file)
+        )
         num_epochs = 1  # BaseEvaluator produces only one evaluation result
     else:
         raise ValueError(f"Unknown runner type: {runner_type}")
@@ -442,12 +504,17 @@ def compute_per_metric_color_scales(log_dir_infos: Dict[str, LogDirInfo]) -> np.
             # Default range if no valid scores for this metric
             color_scales[metric_idx] = [0.0, 1.0]
         else:
-            color_scales[metric_idx] = [float(np.min(valid_scores)), float(np.max(valid_scores))]
+            color_scales[metric_idx] = [
+                float(np.min(valid_scores)),
+                float(np.max(valid_scores)),
+            ]
 
     return color_scales
 
 
-def _extract_log_dir_infos_parallel(log_dirs: List[str], force_reload: bool) -> Dict[str, LogDirInfo]:
+def _extract_log_dir_infos_parallel(
+    log_dirs: List[str], force_reload: bool
+) -> Dict[str, LogDirInfo]:
     """Extract information from log directories in parallel while preserving order.
 
     Args:
@@ -492,8 +559,7 @@ def _validate_log_dir_consistency(log_dir_infos: Dict[str, LogDirInfo]) -> None:
 
     # Validate metric names consistency
     assert all(
-        info.metric_names == first_info.metric_names
-        for info in log_dir_infos.values()
+        info.metric_names == first_info.metric_names for info in log_dir_infos.values()
     ), f"Inconsistent metric names across log directories: {[(key, info.metric_names) for key, info in log_dir_infos.items()]}"
 
     # Validate dataset class consistency
@@ -510,8 +576,7 @@ def _validate_log_dir_consistency(log_dir_infos: Dict[str, LogDirInfo]) -> None:
 
     # Validate dataset type consistency
     assert all(
-        info.dataset_type == first_info.dataset_type
-        for info in log_dir_infos.values()
+        info.dataset_type == first_info.dataset_type for info in log_dir_infos.values()
     ), f"Inconsistent dataset types: {[info.dataset_type for info in log_dir_infos.values()]}"
 
 
@@ -538,7 +603,9 @@ def _compute_max_epochs(log_dir_infos: Dict[str, LogDirInfo]) -> int:
     return max_epochs
 
 
-def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[str, Any]:
+def _load_dataset_config(
+    dataset_class: str, dataset_type: DatasetType
+) -> Dict[str, Any]:
     """Load dataset configuration from common config files.
 
     Args:
@@ -563,7 +630,9 @@ def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[
         'general': 'general',
     }
 
-    assert dataset_type in dataset_type_to_dir, f"Unsupported dataset type: {dataset_type}"
+    assert (
+        dataset_type in dataset_type_to_dir
+    ), f"Unsupported dataset type: {dataset_type}"
     config_dir = dataset_type_to_dir[dataset_type]
 
     # Map dataset classes to config file names
@@ -579,8 +648,13 @@ def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[
 
     config_name = dataset_class_to_config.get(dataset_class, dataset_class.lower())
     config_file = os.path.join(
-        repo_root, "configs", "common", "datasets",
-        config_dir, "val", f"{config_name}_data_cfg.py"
+        repo_root,
+        "configs",
+        "common",
+        "datasets",
+        config_dir,
+        "val",
+        f"{config_name}_data_cfg.py",
     )
     assert os.path.isfile(config_file), f"Config file not found: {config_file}"
 
@@ -594,7 +668,9 @@ def _load_dataset_config(dataset_class: str, dataset_type: DatasetType) -> Dict[
     return dataset_cfg
 
 
-def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
+def initialize_log_dirs(
+    log_dirs: List[str], force_reload: bool = False
+) -> Tuple[
     int, List[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], np.ndarray
 ]:
     """Initialize log directories and validate consistency.
@@ -614,15 +690,24 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     assert log_dirs is not None, "log_dirs must not be None"
     assert isinstance(log_dirs, list), f"log_dirs must be list, got {type(log_dirs)}"
     assert len(log_dirs) > 0, f"log_dirs must not be empty"
-    assert all(isinstance(log_dir, str) for log_dir in log_dirs), f"All log_dirs must be strings, got {log_dirs}"
-    assert isinstance(force_reload, bool), f"force_reload must be bool, got {type(force_reload)}"
+    assert all(
+        isinstance(log_dir, str) for log_dir in log_dirs
+    ), f"All log_dirs must be strings, got {log_dirs}"
+    assert isinstance(
+        force_reload, bool
+    ), f"force_reload must be bool, got {type(force_reload)}"
 
     # Import repetition discovery functions
-    from runners.viewers.eval_viewer.backend.repetition_discovery import discover_experiment_groups, aggregate_log_dir_infos
+    from runners.viewers.eval_viewer.backend.repetition_discovery import (
+        aggregate_log_dir_infos,
+        discover_experiment_groups,
+    )
 
     # Step 1: Discover experiment groups and their repetitions
     experiment_groups = discover_experiment_groups(log_dirs=log_dirs)
-    logger.info(f"Discovered {len(experiment_groups)} experiment groups with repetitions")
+    logger.info(
+        f"Discovered {len(experiment_groups)} experiment groups with repetitions"
+    )
 
     # Step 2: Extract and aggregate information for each experiment group
     log_dir_infos = {}
@@ -636,9 +721,13 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
 
             # All experiments are repetition groups, use experiment name as key
             log_dir_infos[group.experiment_name] = aggregated_info
-            logger.info(f"Aggregated {len(repetition_infos)} repetitions for experiment '{group.experiment_name}'")
+            logger.info(
+                f"Aggregated {len(repetition_infos)} repetitions for experiment '{group.experiment_name}'"
+            )
 
-    assert len(log_dir_infos) > 0, f"No valid experiments found from log_dirs: {log_dirs}"
+    assert (
+        len(log_dir_infos) > 0
+    ), f"No valid experiments found from log_dirs: {log_dirs}"
 
     # Step 3: Validate consistency across all experiment groups
     _validate_log_dir_consistency(log_dir_infos=log_dir_infos)
@@ -652,12 +741,24 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     dataset_type = first_info.dataset_type
 
     # Step 5: Load dataset configuration
-    dataset_cfg = _load_dataset_config(dataset_class=dataset_class, dataset_type=dataset_type)
+    dataset_cfg = _load_dataset_config(
+        dataset_class=dataset_class, dataset_type=dataset_type
+    )
 
     # Step 6: Compute per-metric color scales across all data
-    per_metric_color_scales = compute_per_metric_color_scales(log_dir_infos=log_dir_infos)
+    per_metric_color_scales = compute_per_metric_color_scales(
+        log_dir_infos=log_dir_infos
+    )
 
-    return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales
+    return (
+        max_epochs,
+        metric_names,
+        num_datapoints,
+        dataset_cfg,
+        dataset_type,
+        log_dir_infos,
+        per_metric_color_scales,
+    )
 
 
 def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
@@ -680,7 +781,9 @@ def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
         page_data = joblib.load(page_file)  # This is now a dict
         # Assert no overlapping keys between pages
         overlapping_keys = set(all_outputs.keys()).intersection(set(page_data.keys()))
-        assert len(overlapping_keys) == 0, f"Overlapping keys found between pages: {overlapping_keys}"
+        assert (
+            len(overlapping_keys) == 0
+        ), f"Overlapping keys found between pages: {overlapping_keys}"
         all_outputs.update(page_data)  # Merge page dict into all_outputs
 
     return all_outputs

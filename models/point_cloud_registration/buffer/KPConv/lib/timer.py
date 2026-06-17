@@ -19,19 +19,19 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-        self.sq_sum += val ** 2 * n
-        self.var = self.sq_sum / self.count - self.avg ** 2
+        self.sq_sum += val**2 * n
+        self.var = self.sq_sum / self.count - self.avg**2
 
 
 class Timer(object):
     """A simple timer."""
 
     def __init__(self):
-        self.total_time = 0.
+        self.total_time = 0.0
         self.calls = 0
-        self.start_time = 0.
-        self.diff = 0.
-        self.avg = 0.
+        self.start_time = 0.0
+        self.diff = 0.0
+        self.avg = 0.0
 
     def reset(self):
         self.total_time = 0

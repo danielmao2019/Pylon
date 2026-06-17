@@ -1,12 +1,12 @@
+import cv2
 import numpy
 import torch
-import cv2
+
 from data.transforms.base_transform import BaseTransform
 
 
 class NormalizeImage(BaseTransform):
-    """Normalize the RGB and depth image.
-    """
+    """Normalize the RGB and depth image."""
 
     def __init__(self, mean, std, to_rgb=True, depth_norm_type=None):
         """

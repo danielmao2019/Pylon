@@ -44,7 +44,6 @@ from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
 )
 from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 
-
 pytestmark = pytest.mark.skipif(
     not torch.cuda.is_available(),
     reason="build_texel_face_map uses nvdiffrast's CUDA rasterizer",
@@ -80,9 +79,7 @@ def _build_identity_uv_mesh() -> Mesh:
                 dtype=torch.float32,
                 device=_CUDA_DEVICE,
             ),
-            faces_uvs=torch.tensor(
-                [[0, 1, 2]], dtype=torch.int64, device=_CUDA_DEVICE
-            ),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64, device=_CUDA_DEVICE),
             convention="obj",
         ),
     )
@@ -113,9 +110,9 @@ def test_build_texel_face_map_returns_texel_face_index_and_barycentric() -> None
     assert texel_face_index.shape == (8, 8), f"{texel_face_index.shape=}"
     assert texel_face_index.dtype == torch.int64, f"{texel_face_index.dtype=}"
     assert texel_face_barycentric.shape == (8, 8, 3), f"{texel_face_barycentric.shape=}"
-    assert texel_face_barycentric.dtype == torch.float32, (
-        f"{texel_face_barycentric.dtype=}"
-    )
+    assert (
+        texel_face_barycentric.dtype == torch.float32
+    ), f"{texel_face_barycentric.dtype=}"
     assert bool((texel_face_index == -1).any().item()), (
         "Expected at least one unoccupied texel for an identity-UV single-face "
         "mesh at texture_size=8. "
@@ -171,9 +168,7 @@ def test_build_texel_face_map_covers_both_sides_of_cylindrical_seam() -> None:
                 dtype=torch.float32,
                 device=_CUDA_DEVICE,
             ),
-            faces_uvs=torch.tensor(
-                [[0, 1, 2]], dtype=torch.int64, device=_CUDA_DEVICE
-            ),
+            faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64, device=_CUDA_DEVICE),
             convention="obj",
         ),
     )

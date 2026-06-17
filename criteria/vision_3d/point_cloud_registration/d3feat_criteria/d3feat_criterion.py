@@ -5,12 +5,15 @@ This module provides Pylon-compatible wrapper around the original D3Feat loss fu
 """
 
 from typing import Dict, Optional
+
 import torch
 
-from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from criteria.vision_3d.point_cloud_registration.d3feat_criteria.loss import (
-    _CircleLoss, _ContrastiveLoss, _DetLoss
+    _CircleLoss,
+    _ContrastiveLoss,
+    _DetLoss,
 )
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
 class D3FeatCriterion(SingleTaskCriterion):
@@ -32,7 +35,7 @@ class D3FeatCriterion(SingleTaskCriterion):
         # Common parameters
         desc_loss_weight: float = 1.0,
         det_loss_weight: float = 1.0,
-        **kwargs
+        **kwargs,
     ):
         """Initialize D3Feat criterion.
 
@@ -51,7 +54,10 @@ class D3FeatCriterion(SingleTaskCriterion):
         """
         super(D3FeatCriterion, self).__init__(**kwargs)
 
-        assert loss_type in ['circle', 'contrastive'], f"loss_type must be 'circle' or 'contrastive', got {loss_type}"
+        assert loss_type in [
+            'circle',
+            'contrastive',
+        ], f"loss_type must be 'circle' or 'contrastive', got {loss_type}"
 
         self.loss_type = loss_type
         self.desc_loss_weight = desc_loss_weight
@@ -70,7 +76,7 @@ class D3FeatCriterion(SingleTaskCriterion):
                 log_scale=log_scale,
                 safe_radius=safe_radius,
                 pos_margin=pos_margin,
-                neg_margin=neg_margin
+                neg_margin=neg_margin,
             )
             # Override optimal values if provided
             self.descriptor_loss.pos_optimal = pos_optimal
@@ -81,14 +87,12 @@ class D3FeatCriterion(SingleTaskCriterion):
                 pos_margin=pos_margin,
                 neg_margin=neg_margin,
                 metric=metric,
-                safe_radius=safe_radius
+                safe_radius=safe_radius,
             )
             self.det_loss = _DetLoss(metric=metric)
 
     def __call__(
-        self,
-        y_pred: Dict[str, torch.Tensor],
-        y_true: Dict[str, torch.Tensor]
+        self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         """Compute D3Feat losses and add to buffer.
 
@@ -101,14 +105,16 @@ class D3FeatCriterion(SingleTaskCriterion):
         """
         # Extract predictions
         descriptors = y_pred['descriptors']  # [N_total, feature_dim]
-        scores = y_pred['scores']            # [N_total, 1]
+        scores = y_pred['scores']  # [N_total, 1]
 
         # Extract ground truth
         correspondences = y_true['correspondences']  # [K, 2]
         assert len(correspondences) > 0, "No correspondences found"
 
         # Get actual batch lengths from stack_lengths (first layer contains original splits)
-        assert 'stack_lengths' in y_pred, "y_pred must contain 'stack_lengths' from model output"
+        assert (
+            'stack_lengths' in y_pred
+        ), "y_pred must contain 'stack_lengths' from model output"
         assert len(y_pred['stack_lengths']) > 0, "stack_lengths must not be empty"
 
         batch_lengths = y_pred['stack_lengths'][0]  # [N_src, N_tgt]
@@ -116,25 +122,33 @@ class D3FeatCriterion(SingleTaskCriterion):
         N_tgt = int(batch_lengths[1].item())
 
         # Split descriptors and scores
-        desc_src = descriptors[:N_src]     # [N_src, feature_dim]
-        desc_tgt = descriptors[N_src:]     # [N_tgt, feature_dim]
-        scores_src = scores[:N_src]        # [N_src, 1]
-        scores_tgt = scores[N_src:]        # [N_tgt, 1]
+        desc_src = descriptors[:N_src]  # [N_src, feature_dim]
+        desc_tgt = descriptors[N_src:]  # [N_tgt, feature_dim]
+        scores_src = scores[:N_src]  # [N_src, 1]
+        scores_tgt = scores[N_src:]  # [N_tgt, 1]
 
         # Get corresponding descriptors based on correspondences
         corr_src_idx = correspondences[:, 0].long()
         corr_tgt_idx = correspondences[:, 1].long()
 
         # Defensive bounds checking to prevent CUDA assertion errors
-        assert corr_src_idx.max() < N_src, f'Source correspondence index out of bounds: max={corr_src_idx.max()}, N_src={N_src}'
-        assert corr_tgt_idx.max() < N_tgt, f'Target correspondence index out of bounds: max={corr_tgt_idx.max()}, N_tgt={N_tgt}'
-        assert corr_src_idx.min() >= 0, f'Source correspondence index negative: min={corr_src_idx.min()}'
-        assert corr_tgt_idx.min() >= 0, f'Target correspondence index negative: min={corr_tgt_idx.min()}'
+        assert (
+            corr_src_idx.max() < N_src
+        ), f'Source correspondence index out of bounds: max={corr_src_idx.max()}, N_src={N_src}'
+        assert (
+            corr_tgt_idx.max() < N_tgt
+        ), f'Target correspondence index out of bounds: max={corr_tgt_idx.max()}, N_tgt={N_tgt}'
+        assert (
+            corr_src_idx.min() >= 0
+        ), f'Source correspondence index negative: min={corr_src_idx.min()}'
+        assert (
+            corr_tgt_idx.min() >= 0
+        ), f'Target correspondence index negative: min={corr_tgt_idx.min()}'
 
-        anchor_desc = desc_src[corr_src_idx]      # [K, feature_dim]
-        positive_desc = desc_tgt[corr_tgt_idx]    # [K, feature_dim]
+        anchor_desc = desc_src[corr_src_idx]  # [K, feature_dim]
+        positive_desc = desc_tgt[corr_tgt_idx]  # [K, feature_dim]
         anchor_scores = scores_src[corr_src_idx]  # [K, 1]
-        positive_scores = scores_tgt[corr_tgt_idx] # [K, 1]
+        positive_scores = scores_tgt[corr_tgt_idx]  # [K, 1]
 
         # Use the provided dist_keypts from ground truth (like original D3Feat)
         # Note: In actual training, dist_keypts should come from y_true, but for now
@@ -155,8 +169,7 @@ class D3FeatCriterion(SingleTaskCriterion):
         det_loss = self.det_loss(dists, anchor_scores, positive_scores)
 
         # Combined loss
-        total_loss = (self.desc_loss_weight * desc_loss +
-                        self.det_loss_weight * det_loss)
+        total_loss = self.desc_loss_weight * desc_loss + self.det_loss_weight * det_loss
 
         # Add to buffer if enabled
         if self.use_buffer:

@@ -1,7 +1,9 @@
 import os
 import tempfile
-import torch
+
 import pytest
+import torch
+
 from utils.io.torch import load_torch
 
 

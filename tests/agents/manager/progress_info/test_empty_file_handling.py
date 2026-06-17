@@ -6,13 +6,14 @@ Following CLAUDE.md testing patterns:
 - Invalid input testing with specific error verification
 """
 
+import json
 import os
 import tempfile
-import json
+
 import pytest
 
-from agents.manager.training_job import TrainingJob
 from agents.manager.runtime import JobRuntimeParams
+from agents.manager.training_job import TrainingJob
 
 # ============================================================================
 # EDGE CASE TESTS - EMPTY FILE HANDLING

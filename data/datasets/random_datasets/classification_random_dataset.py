@@ -1,5 +1,7 @@
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 import torch
+
 from data.datasets.random_datasets.base_random_dataset import BaseRandomDataset
 
 
@@ -30,10 +32,12 @@ class ClassificationRandomDataset(BaseRandomDataset):
             'labels': {
                 'target': (
                     torch.randint,
-                    {'size': (), 'low': 0, 'high': num_classes, 'dtype': torch.int64}
+                    {'size': (), 'low': 0, 'high': num_classes, 'dtype': torch.int64},
                 ),
             },
         }
         super(ClassificationRandomDataset, self).__init__(
-            num_examples=num_examples, gen_func_config=gen_func_config, **kwargs,
+            num_examples=num_examples,
+            gen_func_config=gen_func_config,
+            **kwargs,
         )

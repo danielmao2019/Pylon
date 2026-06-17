@@ -1,8 +1,10 @@
-from typing import List, Dict, Any
-import pytest
-import time
 import threading
-from utils.dynamic_executor import create_dynamic_executor, DynamicThreadPoolExecutor
+import time
+from typing import Any, Dict, List
+
+import pytest
+
+from utils.dynamic_executor import DynamicThreadPoolExecutor, create_dynamic_executor
 
 
 def slow_function(x: int, sleep_time: float = 0.01) -> int:

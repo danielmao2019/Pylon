@@ -1,16 +1,18 @@
-from typing import Tuple, Dict, Any, Optional, List
-import os
 import glob
+import os
 import random
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import torch
 from sklearn.neighbors import KDTree
-from data.structures.three_d.point_cloud.ops.sampling import (
-    GridSampling3D,
-    CylinderSampling,
-)
+
 from data.datasets.change_detection_datasets.base_3dcd_dataset import Base3DCDDataset
 from data.structures.three_d.point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud.ops.sampling import (
+    CylinderSampling,
+    GridSampling3D,
+)
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 

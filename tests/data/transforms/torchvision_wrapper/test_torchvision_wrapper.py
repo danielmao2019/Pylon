@@ -3,8 +3,10 @@ Core functionality tests for TorchvisionWrapper.
 
 Tests deterministic behavior and basic wrapper functionality.
 """
+
 import torch
 import torchvision.transforms as T
+
 from data.transforms.torchvision_wrapper import TorchvisionWrapper
 
 
@@ -27,7 +29,9 @@ def test_deterministic_behavior():
     result1 = wrapper._call_single(sample_image.clone(), gen1)
     result2 = wrapper._call_single(sample_image.clone(), gen2)
 
-    assert torch.allclose(result1, result2), f"Same seed should produce identical results, max diff: {torch.max(torch.abs(result1 - result2))}"
+    assert torch.allclose(
+        result1, result2
+    ), f"Same seed should produce identical results, max diff: {torch.max(torch.abs(result1 - result2))}"
 
 
 def test_random_behavior_with_different_seeds():
@@ -46,7 +50,9 @@ def test_random_behavior_with_different_seeds():
     result1 = wrapper._call_single(sample_image.clone(), gen1)
     result2 = wrapper._call_single(sample_image.clone(), gen2)
 
-    assert not torch.allclose(result1, result2), "Different seeds should produce different results"
+    assert not torch.allclose(
+        result1, result2
+    ), "Different seeds should produce different results"
 
 
 def test_multiple_calls_same_seed():
@@ -65,7 +71,9 @@ def test_multiple_calls_same_seed():
 
     # All results should be identical
     for i in range(1, len(results)):
-        assert torch.allclose(results[0], results[i]), f"Multiple calls with same seed should be identical, call {i} differs"
+        assert torch.allclose(
+            results[0], results[i]
+        ), f"Multiple calls with same seed should be identical, call {i} differs"
 
 
 def test_no_generator_fallback():

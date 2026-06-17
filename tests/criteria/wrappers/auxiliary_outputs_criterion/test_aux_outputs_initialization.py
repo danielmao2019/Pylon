@@ -1,7 +1,8 @@
 import pytest
 import torch
-from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
+
 from criteria.wrappers.auxiliary_outputs_criterion import AuxiliaryOutputsCriterion
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 
 
 def test_basic_initialization(aux_criterion):
@@ -16,12 +17,12 @@ def test_basic_initialization(aux_criterion):
 
 def test_inheritance_verification(dummy_criterion):
     """Test that AuxiliaryOutputsCriterion properly inherits from SingleTaskCriterion."""
-    from criteria.wrappers.single_task_criterion import SingleTaskCriterion
     from criteria.base_criterion import BaseCriterion
+    from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
@@ -42,12 +43,14 @@ def test_reduction_options_validation(dummy_criterion):
     """Test that reduction options are properly validated."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     # Test valid options
     for valid_option in AuxiliaryOutputsCriterion.REDUCTION_OPTIONS:
-        criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg, reduction=valid_option)
+        criterion = AuxiliaryOutputsCriterion(
+            criterion_cfg=criterion_cfg, reduction=valid_option
+        )
         assert criterion.reduction == valid_option
 
     # Test invalid options
@@ -62,7 +65,10 @@ def test_component_criterion_buffer_assertion(dummy_criterion):
     """Test that component criterion with buffer raises assertion error."""
     criterion_cfg_with_buffer = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': True}  # This should cause error
+        'args': {
+            'criterion': dummy_criterion,
+            'use_buffer': True,
+        },  # This should cause error
     }
 
     with pytest.raises(AssertionError, match="should not use buffer"):
@@ -87,7 +93,7 @@ def test_default_reduction_option(dummy_criterion):
     """Test that default reduction option is 'sum'."""
     criterion_cfg = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion, 'use_buffer': False}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False},
     }
 
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)

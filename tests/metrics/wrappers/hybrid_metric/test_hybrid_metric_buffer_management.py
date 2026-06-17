@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
@@ -9,7 +10,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -70,7 +71,9 @@ def test_disabled_buffer_initialization(metrics_cfg, sample_tensor, sample_targe
         hybrid_metric.summarize()
 
 
-def test_component_metrics_force_disabled_buffer(sample_tensor, sample_target, dummy_metric, another_dummy_metric):
+def test_component_metrics_force_disabled_buffer(
+    sample_tensor, sample_target, dummy_metric, another_dummy_metric
+):
     """Test that component metrics have their buffers forcibly disabled."""
     # Create configs where metrics initially have use_buffer=True
     metrics_cfg_with_buffer = [
@@ -79,15 +82,15 @@ def test_component_metrics_force_disabled_buffer(sample_tensor, sample_target, d
             'args': {
                 'metric_name': 'metric1',
                 'use_buffer': True,  # This should be overridden
-            }
+            },
         },
         {
             'class': another_dummy_metric.__class__,
             'args': {
                 'metric_name': 'metric2',
                 'use_buffer': True,  # This should be overridden
-            }
-        }
+            },
+        },
     ]
 
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg_with_buffer)

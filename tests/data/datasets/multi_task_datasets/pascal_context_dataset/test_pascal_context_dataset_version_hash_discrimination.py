@@ -1,7 +1,10 @@
 """Tests for PASCALContextDataset cache version discrimination."""
 
 import pytest
-from data.datasets.multi_task_datasets.pascal_context_dataset import PASCALContextDataset
+
+from data.datasets.multi_task_datasets.pascal_context_dataset import (
+    PASCALContextDataset,
+)
 
 
 def test_pascal_context_dataset_version_discrimination(pascal_context_data_root):
@@ -11,13 +14,13 @@ def test_pascal_context_dataset_version_discrimination(pascal_context_data_root)
         data_root=pascal_context_data_root,
         split='train',
         num_human_parts=6,
-        area_thres=0
+        area_thres=0,
     )
     dataset1b = PASCALContextDataset(
         data_root=pascal_context_data_root,
         split='train',
         num_human_parts=6,
-        area_thres=0
+        area_thres=0,
     )
     assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
 
@@ -26,7 +29,7 @@ def test_pascal_context_dataset_version_discrimination(pascal_context_data_root)
         data_root=pascal_context_data_root,
         split='val',  # Different
         num_human_parts=6,
-        area_thres=0
+        area_thres=0,
     )
     assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -35,7 +38,7 @@ def test_pascal_context_dataset_version_discrimination(pascal_context_data_root)
         data_root=pascal_context_data_root,
         split='train',
         num_human_parts=14,  # Different (valid values: 1, 4, 6, 14)
-        area_thres=0
+        area_thres=0,
     )
     assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
@@ -44,7 +47,7 @@ def test_pascal_context_dataset_version_discrimination(pascal_context_data_root)
         data_root=pascal_context_data_root,
         split='train',
         num_human_parts=6,
-        area_thres=100  # Different
+        area_thres=100,  # Different
     )
     assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
 
@@ -59,14 +62,15 @@ def test_split_variants(pascal_context_data_root):
             data_root=pascal_context_data_root,
             split=split,
             num_human_parts=6,
-            area_thres=0
+            area_thres=0,
         )
         datasets.append(dataset)
 
     # All should have different hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    assert len(hashes) == len(set(hashes)), \
-        f"All split variants should produce different hashes, got: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"All split variants should produce different hashes, got: {hashes}"
 
 
 def test_num_human_parts_variants(pascal_context_data_root):
@@ -79,14 +83,15 @@ def test_num_human_parts_variants(pascal_context_data_root):
             data_root=pascal_context_data_root,
             split='train',
             num_human_parts=num_parts,
-            area_thres=0
+            area_thres=0,
         )
         datasets.append(dataset)
 
     # All should have different hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    assert len(hashes) == len(set(hashes)), \
-        f"All num_human_parts variants should produce different hashes, got: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"All num_human_parts variants should produce different hashes, got: {hashes}"
 
 
 def test_area_threshold_variants(pascal_context_data_root):
@@ -99,14 +104,15 @@ def test_area_threshold_variants(pascal_context_data_root):
             data_root=pascal_context_data_root,
             split='train',
             num_human_parts=6,
-            area_thres=area_thres
+            area_thres=area_thres,
         )
         datasets.append(dataset)
 
     # All should have different hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-    assert len(hashes) == len(set(hashes)), \
-        f"All area_thres variants should produce different hashes, got: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"All area_thres variants should produce different hashes, got: {hashes}"
 
 
 def test_inherited_parameters_affect_version_hash(pascal_context_data_root):
@@ -130,8 +136,9 @@ def test_inherited_parameters_affect_version_hash(pascal_context_data_root):
         modified_args[param_name] = new_value
         dataset2 = PASCALContextDataset(**modified_args)
 
-        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-            f"Inherited parameter {param_name} should affect cache version hash"
+        assert (
+            dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        ), f"Inherited parameter {param_name} should affect cache version hash"
 
 
 def test_comprehensive_no_hash_collisions(pascal_context_data_root):
@@ -143,20 +150,23 @@ def test_comprehensive_no_hash_collisions(pascal_context_data_root):
         for num_parts in [6, 14]:  # Valid values from HUMAN_PART dictionary
             for area_thres in [0, 50]:
                 for base_seed_val in [None, 42, 123]:
-                    datasets.append(PASCALContextDataset(
-                        data_root=pascal_context_data_root,
-                        split=split,
-                        num_human_parts=num_parts,
-                        area_thres=area_thres,
-                        base_seed=base_seed_val
-                    ))
+                    datasets.append(
+                        PASCALContextDataset(
+                            data_root=pascal_context_data_root,
+                            split=split,
+                            num_human_parts=num_parts,
+                            area_thres=area_thres,
+                            base_seed=base_seed_val,
+                        )
+                    )
 
     # Collect all hashes
     hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
     # Ensure all hashes are unique (no collisions)
-    assert len(hashes) == len(set(hashes)), \
-        f"Hash collision detected! Duplicate hashes found in: {hashes}"
+    assert len(hashes) == len(
+        set(hashes)
+    ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
     # Ensure all hashes are properly formatted
     for hash_val in hashes:

@@ -1,6 +1,8 @@
-from typing import Optional, Union
 from abc import abstractmethod
+from typing import Optional, Union
+
 import torch
+
 from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
 
 
@@ -41,10 +43,7 @@ class DenseRegressionCriterion(DensePredictionCriterion):
         )
 
     def _compute_unreduced_loss(
-        self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute the loss for each sample in the batch before reduction.

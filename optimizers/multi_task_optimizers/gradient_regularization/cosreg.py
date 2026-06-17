@@ -1,8 +1,10 @@
 from typing import List, Optional
+
 import torch
 
-from ._base_ import GradientRegularizationBaseOptimizer
 import utils
+
+from ._base_ import GradientRegularizationBaseOptimizer
 
 
 class CosRegOptimizer(GradientRegularizationBaseOptimizer):
@@ -24,7 +26,11 @@ class CosRegOptimizer(GradientRegularizationBaseOptimizer):
         Returns:
             reg_loss: the regularization term in the loss function.
         """
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         cosine_matrix = utils.gradients.get_cosine_matrix(grads_list)
-        reg_loss = ((cosine_matrix ** 2).sum() - self.num_tasks) / (self.num_tasks ** 2 - self.num_tasks)
+        reg_loss = ((cosine_matrix**2).sum() - self.num_tasks) / (
+            self.num_tasks**2 - self.num_tasks
+        )
         return self.penalty * reg_loss

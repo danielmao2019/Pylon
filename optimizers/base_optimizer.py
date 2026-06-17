@@ -19,7 +19,9 @@ class BaseOptimizer(ABC):
 
     @abstractmethod
     def backward(self, *args, **kwargs) -> Any:
-        raise NotImplementedError("Abstract method BaseOptimizer.backward not implemented.")
+        raise NotImplementedError(
+            "Abstract method BaseOptimizer.backward not implemented."
+        )
 
     # ====================================================================================================
     # ====================================================================================================
@@ -40,8 +42,7 @@ class BaseOptimizer(ABC):
     # ====================================================================================================
 
     def summarize(self, output_path: Optional[str] = None) -> Any:
-        r"""Default summarize method, assuming nothing has been logged to buffer.
-        """
+        r"""Default summarize method, assuming nothing has been logged to buffer."""
         assert len(self.buffer) == 0
         if output_path is not None:
             check_write_file(path=output_path)

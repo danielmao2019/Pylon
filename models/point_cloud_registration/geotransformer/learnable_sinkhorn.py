@@ -35,15 +35,23 @@ class LearnableLogOptimalTransport(nn.Module):
         if col_masks is None:
             col_masks = torch.ones(size=(batch_size, num_col), dtype=torch.bool).cuda()
 
-        padded_row_masks = torch.zeros(size=(batch_size, num_row + 1), dtype=torch.bool).cuda()
+        padded_row_masks = torch.zeros(
+            size=(batch_size, num_row + 1), dtype=torch.bool
+        ).cuda()
         padded_row_masks[:, :num_row] = ~row_masks
-        padded_col_masks = torch.zeros(size=(batch_size, num_col + 1), dtype=torch.bool).cuda()
+        padded_col_masks = torch.zeros(
+            size=(batch_size, num_col + 1), dtype=torch.bool
+        ).cuda()
         padded_col_masks[:, :num_col] = ~col_masks
-        padded_score_masks = torch.logical_or(padded_row_masks.unsqueeze(2), padded_col_masks.unsqueeze(1))
+        padded_score_masks = torch.logical_or(
+            padded_row_masks.unsqueeze(2), padded_col_masks.unsqueeze(1)
+        )
 
         padded_col = self.alpha.expand(batch_size, num_row, 1)
         padded_row = self.alpha.expand(batch_size, 1, num_col + 1)
-        padded_scores = torch.cat([torch.cat([scores, padded_col], dim=-1), padded_row], dim=1)
+        padded_scores = torch.cat(
+            [torch.cat([scores, padded_col], dim=-1), padded_row], dim=1
+        )
         padded_scores.masked_fill_(padded_score_masks, -self.inf)
 
         num_valid_row = row_masks.float().sum(1)
@@ -66,5 +74,7 @@ class LearnableLogOptimalTransport(nn.Module):
         return outputs
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '(num_iterations={})'.format(self.num_iterations)
+        format_string = self.__class__.__name__ + '(num_iterations={})'.format(
+            self.num_iterations
+        )
         return format_string

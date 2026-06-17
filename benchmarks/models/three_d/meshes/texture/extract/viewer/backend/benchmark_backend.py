@@ -18,14 +18,14 @@ from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
+from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 from models.three_d.meshes.texture.extract.extract import (
-    compute_f_normals_weights,
     _project_f_colors,
     _rasterize_face_weights_to_uv,
+    compute_f_normals_weights,
 )
 from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
     compute_f_visibility_mask,
@@ -33,7 +33,9 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
 from models.three_d.meshes.texture.extract.visibility.texel_visibility_v2 import (
     compute_f_visibility_mask_v2,
 )
-from models.three_d.meshes.texture.extract.weights.weights_cfg import normalize_weights_cfg
+from models.three_d.meshes.texture.extract.weights.weights_cfg import (
+    normalize_weights_cfg,
+)
 
 DEFAULT_PROCESSED_GSO_ROOT = Path("/pub0/data/clod_processed/google_scanned_objects")
 DEFAULT_RAW_GSO_ROOT = Path("/pub0/data/clod/google_scanned_objects")
@@ -913,9 +915,11 @@ def _build_cuda_extraction_inputs(
         .unsqueeze(-1)
         .contiguous()
     )
-    face_verts_uvs_cuda = exploded_verts_uvs_cuda[exploded_faces_cuda].to(
-        dtype=torch.float32
-    ).contiguous()
+    face_verts_uvs_cuda = (
+        exploded_verts_uvs_cuda[exploded_faces_cuda]
+        .to(dtype=torch.float32)
+        .contiguous()
+    )
     return {
         "device": device,
         "verts": exploded_verts_cuda,
@@ -1166,11 +1170,7 @@ def _benchmark_open3d_cpu_method(
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(
         o3d.core.Tensor(
-            scene_context["exploded_verts"]
-            .detach()
-            .cpu()
-            .numpy()
-            .astype(np.float32),
+            scene_context["exploded_verts"].detach().cpu().numpy().astype(np.float32),
             dtype=o3d.core.Dtype.Float32,
         ),
         o3d.core.Tensor(

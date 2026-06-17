@@ -1,7 +1,7 @@
-from typing import Dict, Any, Optional
-from abc import ABC, abstractmethod
-import threading
 import logging
+import threading
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
 
 
 class BaseCache(ABC):
@@ -15,7 +15,9 @@ class BaseCache(ABC):
         self.logger = logging.getLogger(__name__)
 
     @abstractmethod
-    def get(self, cache_filepath: str, device: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get(
+        self, cache_filepath: str, device: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Retrieve item from cache.
 
         Args:

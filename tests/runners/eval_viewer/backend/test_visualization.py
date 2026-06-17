@@ -1,15 +1,16 @@
-import pytest
 import numpy as np
-from runners.viewers.eval_viewer.backend.visualization import (
-    create_score_map_grid,
-    create_overlaid_score_map,
-    get_color_for_score
-)
+import pytest
 
+from runners.viewers.eval_viewer.backend.visualization import (
+    create_overlaid_score_map,
+    create_score_map_grid,
+    get_color_for_score,
+)
 
 # ==========================================
 # Tests for create_score_map_grid function
 # ==========================================
+
 
 def test_create_score_map_grid_with_list_input():
     """Test create_score_map_grid with list input."""
@@ -83,15 +84,18 @@ def test_create_score_map_grid_large_array():
     assert np.sum(np.isnan(flattened)) == 64 - 50
 
 
-@pytest.mark.parametrize("scores,expected_shape", [
-    ([1], (1, 1)),
-    ([1, 2], (2, 2)),
-    ([1, 2, 3], (2, 2)),
-    ([1, 2, 3, 4], (2, 2)),
-    ([1, 2, 3, 4, 5], (3, 3)),
-    (list(range(16)), (4, 4)),
-    (list(range(17)), (5, 5)),
-])
+@pytest.mark.parametrize(
+    "scores,expected_shape",
+    [
+        ([1], (1, 1)),
+        ([1, 2], (2, 2)),
+        ([1, 2, 3], (2, 2)),
+        ([1, 2, 3, 4], (2, 2)),
+        ([1, 2, 3, 4, 5], (3, 3)),
+        (list(range(16)), (4, 4)),
+        (list(range(17)), (5, 5)),
+    ],
+)
 def test_create_score_map_grid_shapes(scores, expected_shape):
     """Test create_score_map_grid produces correct shapes for various inputs."""
     result = create_score_map_grid(scores)
@@ -140,6 +144,7 @@ def test_create_score_map_grid_multidimensional_array():
 # Tests for create_overlaid_score_map function
 # ==========================================
 
+
 def test_create_overlaid_score_map_basic(sample_score_maps):
     """Test create_overlaid_score_map with basic functionality."""
     result = create_overlaid_score_map(sample_score_maps, percentile=25)
@@ -177,11 +182,7 @@ def test_create_overlaid_score_map_different_percentiles(sample_score_maps):
 
 def test_create_overlaid_score_map_single_map():
     """Test create_overlaid_score_map with single score map."""
-    single_map = np.array([
-        [0.1, 0.5, 0.9],
-        [0.3, 0.7, 0.2],
-        [0.8, 0.4, np.nan]
-    ])
+    single_map = np.array([[0.1, 0.5, 0.9], [0.3, 0.7, 0.2], [0.8, 0.4, np.nan]])
 
     result = create_overlaid_score_map([single_map], percentile=50)
 
@@ -237,6 +238,7 @@ def test_create_overlaid_score_map_with_nans():
 # Tests for get_color_for_score function
 # ==========================================
 
+
 def test_get_color_for_score_min_score():
     """Test get_color_for_score at minimum score (should be red)."""
     color = get_color_for_score(0.0, 0.0, 1.0)
@@ -280,9 +282,9 @@ def test_get_color_for_score_custom_range():
     color_mid = get_color_for_score(15.0, 10.0, 20.0)
     color_max = get_color_for_score(20.0, 10.0, 20.0)
 
-    assert color_min == 'rgb(255, 0, 0)'    # Red
+    assert color_min == 'rgb(255, 0, 0)'  # Red
     assert color_mid == 'rgb(255, 255, 0)'  # Yellow
-    assert color_max == 'rgb(0, 255, 0)'    # Green
+    assert color_max == 'rgb(0, 255, 0)'  # Green
 
 
 def test_get_color_for_score_negative_range():
@@ -292,9 +294,9 @@ def test_get_color_for_score_negative_range():
     color_mid = get_color_for_score(0.0, -1.0, 1.0)
     color_max = get_color_for_score(1.0, -1.0, 1.0)
 
-    assert color_min == 'rgb(255, 0, 0)'    # Red
+    assert color_min == 'rgb(255, 0, 0)'  # Red
     assert color_mid == 'rgb(255, 255, 0)'  # Yellow
-    assert color_max == 'rgb(0, 255, 0)'    # Green
+    assert color_max == 'rgb(0, 255, 0)'  # Green
 
 
 def test_get_color_for_score_same_min_max():
@@ -305,12 +307,15 @@ def test_get_color_for_score_same_min_max():
         get_color_for_score(5.0, 5.0, 5.0)
 
 
-@pytest.mark.parametrize("score,min_score,max_score,expected_color", [
-    (0.0, 0.0, 1.0, 'rgb(255, 0, 0)'),     # Min -> Red
-    (0.5, 0.0, 1.0, 'rgb(255, 255, 0)'),   # Mid -> Yellow
-    (1.0, 0.0, 1.0, 'rgb(0, 255, 0)'),     # Max -> Green
-    (np.nan, 0.0, 1.0, '#808080'),         # NaN -> Gray
-])
+@pytest.mark.parametrize(
+    "score,min_score,max_score,expected_color",
+    [
+        (0.0, 0.0, 1.0, 'rgb(255, 0, 0)'),  # Min -> Red
+        (0.5, 0.0, 1.0, 'rgb(255, 255, 0)'),  # Mid -> Yellow
+        (1.0, 0.0, 1.0, 'rgb(0, 255, 0)'),  # Max -> Green
+        (np.nan, 0.0, 1.0, '#808080'),  # NaN -> Gray
+    ],
+)
 def test_get_color_for_score_parametrized(score, min_score, max_score, expected_color):
     """Parametrized test for get_color_for_score function."""
     result = get_color_for_score(score, min_score, max_score)

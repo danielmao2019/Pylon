@@ -3,19 +3,24 @@ Error handling and input validation tests for TorchvisionWrapper.
 
 Tests assertion-based input validation following Pylon's design philosophy.
 """
+
+import pytest
 import torch
 import torchvision.transforms as T
-import pytest
+
 from data.transforms.torchvision_wrapper import TorchvisionWrapper
 
 
 def test_non_torchvision_class_assertion():
     """Test that non-torchvision class raises assertion error."""
+
     class NotTorchvisionTransform:
         def __init__(self):
             pass
 
-    with pytest.raises(AssertionError, match="transform_class must be from torchvision"):
+    with pytest.raises(
+        AssertionError, match="transform_class must be from torchvision"
+    ):
         TorchvisionWrapper(NotTorchvisionTransform)
 
 
@@ -30,7 +35,9 @@ def test_non_callable_transform_class_assertion():
     not_callable = "not_a_class"
 
     # The assertion will fail on __module__ check first for string types
-    with pytest.raises(AssertionError, match="transform_class must have __module__ attribute"):
+    with pytest.raises(
+        AssertionError, match="transform_class must have __module__ attribute"
+    ):
         TorchvisionWrapper(not_callable)
 
 

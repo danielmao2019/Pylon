@@ -1,7 +1,8 @@
-from typing import Tuple, Dict, Optional, Any
-from abc import ABC, abstractmethod
 import queue
 import threading
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional, Tuple
+
 from utils.input_checks import check_write_file
 
 

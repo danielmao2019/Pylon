@@ -1,6 +1,7 @@
 import pytest
 import torch
 import torch.nn.functional as F
+
 from criteria.vision_2d.dense_prediction.dense_classification.ssim_loss import SSIMLoss
 from utils.semantic_segmentation.one_hot_encoding import to_one_hot
 
@@ -27,8 +28,9 @@ def test_ssim_loss(reduction, batch_size, num_classes, image_size):
     y_true = y_true.to(device)
 
     # Verify window is on correct device
-    assert loss_fn.window.device.type == device.type, \
-        f"Window should be on the same device as the model: {loss_fn.window.device} != {device}"
+    assert (
+        loss_fn.window.device.type == device.type
+    ), f"Window should be on the same device as the model: {loss_fn.window.device} != {device}"
 
     # Compute loss
     loss = loss_fn(y_pred, y_true)
@@ -57,8 +59,12 @@ def test_ssim_loss_window_size(window_size):
     loss_fn = SSIMLoss(window_size=window_size).to(device)
 
     # Check window dimensions
-    assert loss_fn.window.shape == (1, 1, window_size, window_size), \
-        f"Window shape should be (1, 1, {window_size}, {window_size}), got {loss_fn.window.shape}"
+    assert loss_fn.window.shape == (
+        1,
+        1,
+        window_size,
+        window_size,
+    ), f"Window shape should be (1, 1, {window_size}, {window_size}), got {loss_fn.window.shape}"
 
     # Compute loss
     loss = loss_fn(y_pred, y_true)
@@ -198,12 +204,15 @@ def test_ssim_loss_with_weights_and_ignore():
     loss_only_ignore = loss_fn_only_ignore(y_pred, y_true_ignored)
 
     # The three losses should all be different
-    assert not torch.isclose(loss, loss_only_weights, rtol=1e-4).item(), \
-        f"Loss with weights and ignore ({loss.item()}) should be different from loss with only weights ({loss_only_weights.item()})"
-    assert not torch.isclose(loss, loss_only_ignore, rtol=1e-4).item(), \
-        f"Loss with weights and ignore ({loss.item()}) should be different from loss with only ignore ({loss_only_ignore.item()})"
-    assert not torch.isclose(loss_only_weights, loss_only_ignore, rtol=1e-4).item(), \
-        f"Loss with only weights ({loss_only_weights.item()}) should be different from loss with only ignore ({loss_only_ignore.item()})"
+    assert not torch.isclose(
+        loss, loss_only_weights, rtol=1e-4
+    ).item(), f"Loss with weights and ignore ({loss.item()}) should be different from loss with only weights ({loss_only_weights.item()})"
+    assert not torch.isclose(
+        loss, loss_only_ignore, rtol=1e-4
+    ).item(), f"Loss with weights and ignore ({loss.item()}) should be different from loss with only ignore ({loss_only_ignore.item()})"
+    assert not torch.isclose(
+        loss_only_weights, loss_only_ignore, rtol=1e-4
+    ).item(), f"Loss with only weights ({loss_only_weights.item()}) should be different from loss with only ignore ({loss_only_ignore.item()})"
 
 
 def test_ssim_consistent_across_inputs():
@@ -274,13 +283,21 @@ def test_ssim_sigma_sensitivity():
 
             # Create 1D Gaussian window with specified sigma
             gauss = torch.exp(
-                -torch.pow(torch.linspace(-(window_size//2), window_size//2, window_size), 2.0) / (2.0 * sigma * sigma)
+                -torch.pow(
+                    torch.linspace(-(window_size // 2), window_size // 2, window_size),
+                    2.0,
+                )
+                / (2.0 * sigma * sigma)
             )
             gauss = gauss / gauss.sum()
 
             # Create 2D Gaussian window
-            window = gauss.unsqueeze(0) * gauss.unsqueeze(1)  # (window_size, window_size)
-            window = window.unsqueeze(0).unsqueeze(0)  # (1, 1, window_size, window_size)
+            window = gauss.unsqueeze(0) * gauss.unsqueeze(
+                1
+            )  # (window_size, window_size)
+            window = window.unsqueeze(0).unsqueeze(
+                0
+            )  # (1, 1, window_size, window_size)
 
             return window
 
@@ -295,9 +312,15 @@ def test_ssim_sigma_sensitivity():
     loss3 = loss_fn_sigma3(y_pred, y_true)
 
     # Verify that the losses are different
-    assert not torch.isclose(loss1, loss2, rtol=1e-2).item(), "Losses with sigma=1.0 and sigma=2.0 should be different"
-    assert not torch.isclose(loss1, loss3, rtol=1e-2).item(), "Losses with sigma=1.0 and sigma=3.0 should be different"
-    assert not torch.isclose(loss2, loss3, rtol=1e-2).item(), "Losses with sigma=2.0 and sigma=3.0 should be different"
+    assert not torch.isclose(
+        loss1, loss2, rtol=1e-2
+    ).item(), "Losses with sigma=1.0 and sigma=2.0 should be different"
+    assert not torch.isclose(
+        loss1, loss3, rtol=1e-2
+    ).item(), "Losses with sigma=1.0 and sigma=3.0 should be different"
+    assert not torch.isclose(
+        loss2, loss3, rtol=1e-2
+    ).item(), "Losses with sigma=2.0 and sigma=3.0 should be different"
 
     # Verify that the windows are different
     assert not torch.allclose(loss_fn_sigma1.window, loss_fn_sigma2.window, rtol=1e-3)

@@ -4,13 +4,16 @@ PARENet Criterion Wrapper for Pylon API Compatibility.
 This module provides Pylon-compatible wrapper around the original PARENet loss functions.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 import torch
 import torch.nn as nn
 from easydict import EasyDict
 
+from criteria.vision_3d.point_cloud_registration.parenet_criterion.loss import (
+    _OverallLoss,
+)
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
-from criteria.vision_3d.point_cloud_registration.parenet_criterion.loss import _OverallLoss
 
 
 class PARENetCriterion(SingleTaskCriterion):
@@ -25,19 +28,16 @@ class PARENetCriterion(SingleTaskCriterion):
         coarse_negative_optimal: float = 1.4,
         coarse_log_scale: float = 10.0,
         coarse_positive_overlap: float = 0.1,
-
         # Fine loss parameters
         fine_positive_radius: float = 0.1,
         fine_negative_radius: float = 0.1,
         fine_positive_margin: float = 0.05,
         fine_negative_margin: float = 0.2,
-
         # Loss weights
         weight_coarse_loss: float = 1.0,
         weight_fine_ri_loss: float = 1.0,
         weight_fine_re_loss: float = 1.0,
-
-        **kwargs
+        **kwargs,
     ):
         """Initialize PARENet criterion.
 
@@ -60,10 +60,10 @@ class PARENetCriterion(SingleTaskCriterion):
 
         # All loss components are minimized (lower is better)
         self.DIRECTIONS = {
-            "loss": -1,        # Total loss - lower is better
-            "c_loss": -1,      # Coarse loss - lower is better
-            "f_ri_loss": -1,   # Fine RI loss - lower is better
-            "f_re_loss": -1    # Fine RE loss - lower is better
+            "loss": -1,  # Total loss - lower is better
+            "c_loss": -1,  # Coarse loss - lower is better
+            "f_ri_loss": -1,  # Fine RI loss - lower is better
+            "f_re_loss": -1,  # Fine RE loss - lower is better
         }
 
         # Build PARENet configuration using EasyDict
@@ -96,9 +96,7 @@ class PARENetCriterion(SingleTaskCriterion):
         self.cfg = cfg
 
     def __call__(
-        self,
-        y_pred: Dict[str, torch.Tensor],
-        y_true: Dict[str, torch.Tensor]
+        self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         """Compute PARENet losses and add to buffer.
 
@@ -127,17 +125,29 @@ class PARENetCriterion(SingleTaskCriterion):
 
         # Check required keys in y_pred
         required_pred_keys = [
-            'ref_feats_c', 'src_feats_c', 'gt_node_corr_indices', 'gt_node_corr_overlaps',
-            'matching_scores', 'ref_node_corr_knn_points', 'src_node_corr_knn_points',
-            'ref_node_corr_knn_masks', 'src_node_corr_knn_masks',
-            'ref_node_corr_knn_scores', 'src_node_corr_knn_scores',  # Required by loss
-            're_ref_node_corr_knn_feats', 're_src_node_corr_knn_feats'
+            'ref_feats_c',
+            'src_feats_c',
+            'gt_node_corr_indices',
+            'gt_node_corr_overlaps',
+            'matching_scores',
+            'ref_node_corr_knn_points',
+            'src_node_corr_knn_points',
+            'ref_node_corr_knn_masks',
+            'src_node_corr_knn_masks',
+            'ref_node_corr_knn_scores',
+            'src_node_corr_knn_scores',  # Required by loss
+            're_ref_node_corr_knn_feats',
+            're_src_node_corr_knn_feats',
         ]
         for key in required_pred_keys:
-            assert key in y_pred, f"Missing required key '{key}' in y_pred. Available keys: {list(y_pred.keys())}"
+            assert (
+                key in y_pred
+            ), f"Missing required key '{key}' in y_pred. Available keys: {list(y_pred.keys())}"
 
         # Check required keys in y_true
-        assert 'transform' in y_true, f"Missing required key 'transform' in y_true. Available keys: {list(y_true.keys())}"
+        assert (
+            'transform' in y_true
+        ), f"Missing required key 'transform' in y_true. Available keys: {list(y_true.keys())}"
 
         # Prepare data structures for original PARENet loss
         # The original loss expects output_dict and data_dict
@@ -151,15 +161,17 @@ class PARENetCriterion(SingleTaskCriterion):
             'src_node_corr_knn_points': y_pred['src_node_corr_knn_points'],
             'ref_node_corr_knn_masks': y_pred['ref_node_corr_knn_masks'],
             'src_node_corr_knn_masks': y_pred['src_node_corr_knn_masks'],
-            'ref_node_corr_knn_scores': y_pred['ref_node_corr_knn_scores'],  # Required by loss
-            'src_node_corr_knn_scores': y_pred['src_node_corr_knn_scores'],  # Required by loss
+            'ref_node_corr_knn_scores': y_pred[
+                'ref_node_corr_knn_scores'
+            ],  # Required by loss
+            'src_node_corr_knn_scores': y_pred[
+                'src_node_corr_knn_scores'
+            ],  # Required by loss
             're_ref_node_corr_knn_feats': y_pred['re_ref_node_corr_knn_feats'],
             're_src_node_corr_knn_feats': y_pred['re_src_node_corr_knn_feats'],
         }
 
-        data_dict = {
-            'transform': y_true['transform']
-        }
+        data_dict = {'transform': y_true['transform']}
 
         # Compute loss using original PARENet loss
         loss_dict = self.parenet_loss(output_dict, data_dict)

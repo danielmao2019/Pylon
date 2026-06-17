@@ -1,6 +1,7 @@
-import pytest
 import math
+
 import numpy as np
+import pytest
 import torch
 from scipy.spatial import KDTree
 from scipy.spatial.distance import pdist
@@ -14,7 +15,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -31,24 +32,40 @@ def compute_mae_numpy(source, target):
     return mae
 
 
-@pytest.mark.parametrize("case_name,source,target,expected_mae", [
-    ("perfect_match",
-     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
-     0.0),
-    ("small_offset",
-     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]], dtype=torch.float32),
-     0.17320507764816284),
-])
+@pytest.mark.parametrize(
+    "case_name,source,target,expected_mae",
+    [
+        (
+            "perfect_match",
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32
+            ),
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32
+            ),
+            0.0,
+        ),
+        (
+            "small_offset",
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32
+            ),
+            torch.tensor(
+                [[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]], dtype=torch.float32
+            ),
+            0.17320507764816284,
+        ),
+    ],
+)
 def test_basic_functionality(case_name, source, target, expected_mae):
     """Test basic MAE calculation with simple examples."""
     mae = MAE()
     datapoint = create_datapoint(source, target)
     result = mae(datapoint)
     assert result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {result.keys()}"
-    assert abs(result['mae'].item() - expected_mae) < 1e-5, \
-        f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"
+    assert (
+        abs(result['mae'].item() - expected_mae) < 1e-5
+    ), f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"
 
 
 def test_with_random_point_clouds():
@@ -74,9 +91,12 @@ def test_with_random_point_clouds():
 
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
-    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, \
-        f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
+    assert metric_result.keys() == {
+        'mae'
+    }, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
+    assert (
+        abs(metric_result['mae'].item() - numpy_result) < 1e-5
+    ), f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
 
 
 def test_with_known_mae():
@@ -99,7 +119,9 @@ def test_with_known_mae():
     directions = directions / np.linalg.norm(directions, axis=1, keepdims=True)
 
     # Generate random distances for translation (less than max_translation)
-    distances = np.random.uniform(0, max_translation * 0.99, num_points)  # 99% to be safe
+    distances = np.random.uniform(
+        0, max_translation * 0.99, num_points
+    )  # 99% to be safe
     expected_mae = np.mean(distances)
 
     # Apply translations to create target point cloud
@@ -118,38 +140,57 @@ def test_with_known_mae():
 
     # Check that the results are approximately equal to the expected MAE
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
-    assert abs(metric_result['mae'].item() - expected_mae) < 1e-5, \
-        f"Metric: {metric_result['mae'].item()}, Expected: {expected_mae}"
+    assert metric_result.keys() == {
+        'mae'
+    }, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
+    assert (
+        abs(metric_result['mae'].item() - expected_mae) < 1e-5
+    ), f"Metric: {metric_result['mae'].item()}, Expected: {expected_mae}"
 
 
-@pytest.mark.parametrize("case_name,source,target,expected_mae,raises_error", [
-    ("empty_point_clouds",
-     torch.empty((0, 3), dtype=torch.float32),
-     torch.empty((0, 3), dtype=torch.float32),
-     None,
-     IndexError),
-    ("single_point",
-     torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32),
-     math.sqrt(3),
-     None),
-    ("duplicate_points",
-     torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
-     0.0,
-     None),
-    ("extreme_values",
-     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
-     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
-     0.0,
-     None),
-    ("nan_values",
-     torch.tensor([[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]], dtype=torch.float32),
-     torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32),
-     None,
-     AssertionError),
-])
+@pytest.mark.parametrize(
+    "case_name,source,target,expected_mae,raises_error",
+    [
+        (
+            "empty_point_clouds",
+            torch.empty((0, 3), dtype=torch.float32),
+            torch.empty((0, 3), dtype=torch.float32),
+            None,
+            IndexError,
+        ),
+        (
+            "single_point",
+            torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32),
+            torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32),
+            math.sqrt(3),
+            None,
+        ),
+        (
+            "duplicate_points",
+            torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
+            torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
+            0.0,
+            None,
+        ),
+        (
+            "extreme_values",
+            torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
+            torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
+            0.0,
+            None,
+        ),
+        (
+            "nan_values",
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]],
+                dtype=torch.float32,
+            ),
+            torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32),
+            None,
+            AssertionError,
+        ),
+    ],
+)
 def test_edge_cases(case_name, source, target, expected_mae, raises_error):
     """Test MAE with edge cases."""
     mae = MAE()
@@ -162,5 +203,6 @@ def test_edge_cases(case_name, source, target, expected_mae, raises_error):
         datapoint = create_datapoint(source, target)
         result = mae(datapoint)
         assert result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {result.keys()}"
-        assert abs(result['mae'].item() - expected_mae) < 1e-5, \
-            f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"
+        assert (
+            abs(result['mae'].item() - expected_mae) < 1e-5
+        ), f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"

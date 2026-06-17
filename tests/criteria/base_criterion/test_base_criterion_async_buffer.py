@@ -1,8 +1,10 @@
+import threading
+import time
+from typing import Any, Dict, Optional
+
 import pytest
 import torch
-import time
-import threading
-from typing import Dict, Any, Optional
+
 from criteria.base_criterion import BaseCriterion
 
 
@@ -97,6 +99,7 @@ def test_high_frequency_buffer_operations(dummy_criterion):
 
 def test_concurrent_buffer_access(dummy_criterion):
     """Test thread safety with multiple threads accessing buffer."""
+
     def add_tensors_worker(start_idx: int, count: int):
         """Worker function to add tensors from multiple threads."""
         for i in range(count):
@@ -111,8 +114,7 @@ def test_concurrent_buffer_access(dummy_criterion):
     for thread_id in range(num_threads):
         start_idx = thread_id * items_per_thread
         thread = threading.Thread(
-            target=add_tensors_worker,
-            args=(start_idx, items_per_thread)
+            target=add_tensors_worker, args=(start_idx, items_per_thread)
         )
         threads.append(thread)
 
@@ -302,13 +304,19 @@ def test_buffer_with_different_tensor_types(dummy_criterion):
         assert processed_tensor.device.type == 'cpu'
 
 
-@pytest.mark.parametrize("num_workers,items_per_worker", [
-    (2, 5),
-    (3, 10),
-    (4, 8),
-])
-def test_parametrized_concurrent_operations(dummy_criterion, num_workers, items_per_worker):
+@pytest.mark.parametrize(
+    "num_workers,items_per_worker",
+    [
+        (2, 5),
+        (3, 10),
+        (4, 8),
+    ],
+)
+def test_parametrized_concurrent_operations(
+    dummy_criterion, num_workers, items_per_worker
+):
     """Parametrized test for different concurrency scenarios."""
+
     def worker_function(worker_id: int):
         for i in range(items_per_worker):
             tensor = torch.tensor(float(worker_id * items_per_worker + i))
@@ -368,8 +376,7 @@ def test_extreme_lock_contention_resilience():
 
     for worker_id in range(num_threads):
         thread = threading.Thread(
-            target=contention_worker,
-            args=(worker_id, iterations_per_thread)
+            target=contention_worker, args=(worker_id, iterations_per_thread)
         )
         threads.append(thread)
 
@@ -390,15 +397,21 @@ def test_extreme_lock_contention_resilience():
     # Verify system survived extreme contention
     total_expected = num_threads * iterations_per_thread
     buffer = criterion.get_buffer()
-    assert len(buffer) == total_expected, f"Lost data under contention: {len(buffer)}/{total_expected}"
+    assert (
+        len(buffer) == total_expected
+    ), f"Lost data under contention: {len(buffer)}/{total_expected}"
 
     # Verify no deadlocks occurred (test completed in reasonable time)
-    assert contention_time < 30.0, f"Potential deadlock detected: {contention_time:.2f}s"
+    assert (
+        contention_time < 30.0
+    ), f"Potential deadlock detected: {contention_time:.2f}s"
 
     # Verify buffer integrity after extreme contention
     values = [tensor.item() for tensor in buffer]
     expected_values = list(range(total_expected))
-    assert sorted(values) == sorted(expected_values), "Data corruption under extreme contention"
+    assert sorted(values) == sorted(
+        expected_values
+    ), "Data corruption under extreme contention"
 
 
 def test_check_validity_parameter():

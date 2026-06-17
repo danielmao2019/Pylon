@@ -1,8 +1,10 @@
-import pytest
 from typing import Dict
+
+import pytest
+import torch
+
 from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
 from runners.model_comparison import compare_scores, get_metric_directions
-import torch
 
 
 def create_datapoint(y_pred, y_true, idx=0):
@@ -11,29 +13,35 @@ def create_datapoint(y_pred, y_true, idx=0):
         'inputs': {},  # Empty for these tests
         'outputs': y_pred,
         'labels': y_true,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
-@pytest.mark.parametrize("y_pred, y_true, expected_output", [
-    (
-        torch.tensor([[
-            [[1., 1., 5.], [2., 0., 7.], [8., 1., 7.]],
-            [[1., 4., 4.], [3., 2., 4.], [7., 4., 8.]],
-            [[4., 2., 3.], [2., 9., 1.], [0., 8., 7.]]]], dtype=torch.float32).permute((0, 3, 1, 2)),
-        torch.tensor([[
-            [2, 2, 2],
-            [1, 2, 0],
-            [2, 0, 2]]], dtype=torch.int64),
-        {
-            'class_IoU': torch.tensor([0/4, 1/3, 3/7], dtype=torch.float32),
-            'class_tp': torch.tensor([0, 1, 3], dtype=torch.int64),
-            'class_tn': torch.tensor([5, 6, 2], dtype=torch.int64),
-            'class_fp': torch.tensor([2, 2, 1], dtype=torch.int64),
-            'class_fn': torch.tensor([2, 0, 3], dtype=torch.int64),
-        },
-    ),
-])
+@pytest.mark.parametrize(
+    "y_pred, y_true, expected_output",
+    [
+        (
+            torch.tensor(
+                [
+                    [
+                        [[1.0, 1.0, 5.0], [2.0, 0.0, 7.0], [8.0, 1.0, 7.0]],
+                        [[1.0, 4.0, 4.0], [3.0, 2.0, 4.0], [7.0, 4.0, 8.0]],
+                        [[4.0, 2.0, 3.0], [2.0, 9.0, 1.0], [0.0, 8.0, 7.0]],
+                    ]
+                ],
+                dtype=torch.float32,
+            ).permute((0, 3, 1, 2)),
+            torch.tensor([[[2, 2, 2], [1, 2, 0], [2, 0, 2]]], dtype=torch.int64),
+            {
+                'class_IoU': torch.tensor([0 / 4, 1 / 3, 3 / 7], dtype=torch.float32),
+                'class_tp': torch.tensor([0, 1, 3], dtype=torch.int64),
+                'class_tn': torch.tensor([5, 6, 2], dtype=torch.int64),
+                'class_fp': torch.tensor([2, 2, 1], dtype=torch.int64),
+                'class_fn': torch.tensor([2, 0, 3], dtype=torch.int64),
+            },
+        ),
+    ],
+)
 def test_semantic_segmentation_metric_call(y_pred, y_true, expected_output):
     """Tests IoU computation for multiple classes."""
     metric = SemanticSegmentationMetric(num_classes=len(expected_output['class_IoU']))
@@ -55,30 +63,39 @@ def test_semantic_segmentation_metric_call(y_pred, y_true, expected_output):
         assert torch.equal(score[name], expected_output[name])
 
 
-@pytest.mark.parametrize("y_preds, y_trues", [
-    (
-        [
-            torch.tensor([[
-                [[1., 1., 5.], [2., 0., 7.], [8., 1., 7.]],
-                [[1., 4., 4.], [3., 2., 4.], [7., 4., 8.]],
-                [[4., 2., 3.], [2., 9., 1.], [0., 8., 7.]]]], dtype=torch.float32).permute((0, 3, 1, 2)),
-            torch.tensor([[
-                [[1., 1., 5.], [2., 0., 7.], [8., 1., 7.]],
-                [[1., 4., 4.], [3., 2., 4.], [7., 4., 8.]],
-                [[4., 2., 3.], [2., 9., 1.], [0., 8., 7.]]]], dtype=torch.float32).permute((0, 3, 1, 2)),
-        ],
-        [
-            torch.tensor([[
-                [2, 2, 2],
-                [1, 2, 0],
-                [2, 0, 2]]], dtype=torch.int64),
-            torch.tensor([[
-                [2, 2, 2],
-                [1, 2, 0],
-                [2, 0, 2]]], dtype=torch.int64),
-        ],
-    ),
-])
+@pytest.mark.parametrize(
+    "y_preds, y_trues",
+    [
+        (
+            [
+                torch.tensor(
+                    [
+                        [
+                            [[1.0, 1.0, 5.0], [2.0, 0.0, 7.0], [8.0, 1.0, 7.0]],
+                            [[1.0, 4.0, 4.0], [3.0, 2.0, 4.0], [7.0, 4.0, 8.0]],
+                            [[4.0, 2.0, 3.0], [2.0, 9.0, 1.0], [0.0, 8.0, 7.0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ).permute((0, 3, 1, 2)),
+                torch.tensor(
+                    [
+                        [
+                            [[1.0, 1.0, 5.0], [2.0, 0.0, 7.0], [8.0, 1.0, 7.0]],
+                            [[1.0, 4.0, 4.0], [3.0, 2.0, 4.0], [7.0, 4.0, 8.0]],
+                            [[4.0, 2.0, 3.0], [2.0, 9.0, 1.0], [0.0, 8.0, 7.0]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ).permute((0, 3, 1, 2)),
+            ],
+            [
+                torch.tensor([[[2, 2, 2], [1, 2, 0], [2, 0, 2]]], dtype=torch.int64),
+                torch.tensor([[[2, 2, 2], [1, 2, 0], [2, 0, 2]]], dtype=torch.int64),
+            ],
+        ),
+    ],
+)
 def test_semantic_segmentation_metric_summarize(y_preds, y_trues):
     """Tests semantic segmentation metric summarization across multiple datapoints."""
     metric = SemanticSegmentationMetric(num_classes=3)
@@ -94,17 +111,29 @@ def test_semantic_segmentation_metric_summarize(y_preds, y_trues):
     # Check structure
     assert result.keys() == {'aggregated', 'per_datapoint'}
     expected_keys = {
-        'class_IoU', 'mean_IoU',
-        'class_tp', 'class_tn', 'class_fp', 'class_fn',
-        'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
-        'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
+        'class_IoU',
+        'mean_IoU',
+        'class_tp',
+        'class_tn',
+        'class_fp',
+        'class_fn',
+        'class_accuracy',
+        'class_precision',
+        'class_recall',
+        'class_f1',
+        'accuracy',
+        'mean_precision',
+        'mean_recall',
+        'mean_f1',
     }
     assert result['aggregated'].keys() == expected_keys
     for key in expected_keys:
         assert isinstance(result['aggregated'][key], torch.Tensor)
     assert result['per_datapoint'].keys() == expected_keys
     for key in expected_keys:
-        assert isinstance(result['per_datapoint'][key], list), f"{key=}, {result['per_datapoint'][key]=}"
+        assert isinstance(
+            result['per_datapoint'][key], list
+        ), f"{key=}, {result['per_datapoint'][key]=}"
         assert len(result['per_datapoint'][key]) == len(y_preds)
 
 
@@ -125,7 +154,9 @@ def test_semantic_segmentation_metric_directions():
         'mean_f1': 1,
     }
 
-    assert directions == expected_directions, f"Expected {expected_directions}, got {directions}"
+    assert (
+        directions == expected_directions
+    ), f"Expected {expected_directions}, got {directions}"
 
 
 def test_compare_scores_with_semantic_segmentation_output():
@@ -149,7 +180,7 @@ def test_compare_scores_with_semantic_segmentation_output():
         'accuracy': 0.9614,
         'mean_precision': float('nan'),
         'mean_recall': 0.5,
-        'mean_f1': 0.4902
+        'mean_f1': 0.4902,
     }
 
     # Simulate epoch 99 scores (good performance, similar to real logs)
@@ -167,7 +198,7 @@ def test_compare_scores_with_semantic_segmentation_output():
         'accuracy': 0.9851,
         'mean_precision': 0.9178,
         'mean_recall': 0.9172,
-        'mean_f1': 0.9175
+        'mean_f1': 0.9175,
     }
 
     # Test comparison: epoch 99 should be better than epoch 0
@@ -175,7 +206,7 @@ def test_compare_scores_with_semantic_segmentation_output():
         current_scores=epoch_99_scores,
         best_scores=epoch_0_scores,
         order_config=False,  # Vector comparison
-        metric_directions=directions
+        metric_directions=directions,
     )
 
     assert result is True, "Epoch 99 should be better than epoch 0"
@@ -185,7 +216,7 @@ def test_compare_scores_with_semantic_segmentation_output():
         current_scores=epoch_0_scores,
         best_scores=epoch_99_scores,
         order_config=False,
-        metric_directions=directions
+        metric_directions=directions,
     )
 
     assert result_reverse is False, "Epoch 0 should not be better than epoch 99"
@@ -220,7 +251,7 @@ def test_comparison_ignores_metrics_without_directions():
         current_scores=scores_with_extra_metrics,
         best_scores=baseline_scores,
         order_config=False,
-        metric_directions=directions
+        metric_directions=directions,
     )
 
     assert result is True, "Should be better based on mean_IoU and accuracy only"
@@ -253,7 +284,7 @@ def test_nan_handling_in_scores():
         current_scores=scores_with_nan,
         best_scores=baseline_scores,
         order_config=False,
-        metric_directions=directions
+        metric_directions=directions,
     )
 
     # The result depends on NaN handling in the comparison logic

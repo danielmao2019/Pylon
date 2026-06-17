@@ -19,9 +19,9 @@ class EarlyStopping:
         epochs: int = 10,
         work_dir: str = None,
         tot_epochs: int = None,
-        metric = None,
+        metric=None,
         expected_files: List[str] = None,
-        logger = None
+        logger=None,
     ):
         """
         Initialize early stopping.
@@ -68,8 +68,7 @@ class EarlyStopping:
 
             # Check if epoch is completed
             if not TrainingJob._check_epoch_finished(
-                epoch_dir=epoch_dir,
-                expected_files=self.expected_files
+                epoch_dir=epoch_dir, expected_files=self.expected_files
             ):
                 break
 
@@ -80,7 +79,9 @@ class EarlyStopping:
 
             # Extract aggregated scores
             aggregated_scores = validation_scores.get('aggregated', {})
-            assert aggregated_scores, f"Missing 'aggregated' scores in {scores_path} - this should not happen"
+            assert (
+                aggregated_scores
+            ), f"Missing 'aggregated' scores in {scores_path} - this should not happen"
 
             self.score_history.append(aggregated_scores)
             self._update_early_stopping_state(aggregated_scores)
@@ -106,7 +107,7 @@ class EarlyStopping:
             current_scores=current_scores,
             best_scores=self.best_scores,
             order_config=False,  # Vector comparison
-            metric_directions=metric_directions
+            metric_directions=metric_directions,
         )
 
         if is_better:
@@ -120,7 +121,9 @@ class EarlyStopping:
             if self.epochs_without_improvement >= self.patience:
                 self.should_stop_early = True
                 if self.logger:
-                    self.logger.info(f"Early stopping triggered after {self.patience} epochs without improvement")
+                    self.logger.info(
+                        f"Early stopping triggered after {self.patience} epochs without improvement"
+                    )
 
     def should_stop(self) -> bool:
         """
@@ -155,8 +158,7 @@ class EarlyStopping:
 
             # Check if epoch is complete (includes file existence check)
             if not TrainingJob._check_epoch_finished(
-                epoch_dir=epoch_dir,
-                expected_files=self.expected_files
+                epoch_dir=epoch_dir, expected_files=self.expected_files
             ):
                 # Epochs must be consecutive - if any is incomplete, we can't determine early stopping
                 return False
@@ -164,16 +166,22 @@ class EarlyStopping:
             with open(scores_path, 'r') as f:
                 scores = json.load(f)
                 aggregated = scores.get('aggregated', {})
-                assert aggregated, f"Missing 'aggregated' scores in {scores_path} - this should not happen"
+                assert (
+                    aggregated
+                ), f"Missing 'aggregated' scores in {scores_path} - this should not happen"
                 validation_scores_history.append(aggregated)
 
         # Check if there was no improvement for 'patience' epochs
         if len(validation_scores_history) >= self.patience + 1:
-            return self._would_early_stop_with_history(validation_scores_history, self.patience)
+            return self._would_early_stop_with_history(
+                validation_scores_history, self.patience
+            )
 
         return False
 
-    def _would_early_stop_with_history(self, score_history: List[Dict], patience: int) -> bool:
+    def _would_early_stop_with_history(
+        self, score_history: List[Dict], patience: int
+    ) -> bool:
         """Check if early stopping would have been triggered given the score history."""
         if len(score_history) < patience + 1:
             return False
@@ -192,7 +200,7 @@ class EarlyStopping:
                 current_scores=current_scores,
                 best_scores=best_scores,
                 order_config=False,  # Vector comparison
-                metric_directions=metric_directions
+                metric_directions=metric_directions,
             )
 
             if is_better:

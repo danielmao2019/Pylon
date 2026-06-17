@@ -181,12 +181,10 @@ def _compute_face_front_facing_mask(
             "Expected `faces` to be a tensor. " f"{type(faces)=}"
         )
         assert verts_camera.ndim == 2, (
-            "Expected `verts_camera` to have shape `[V, 3]`. "
-            f"{verts_camera.shape=}"
+            "Expected `verts_camera` to have shape `[V, 3]`. " f"{verts_camera.shape=}"
         )
         assert verts_camera.shape[1] == 3, (
-            "Expected `verts_camera` to have shape `[V, 3]`. "
-            f"{verts_camera.shape=}"
+            "Expected `verts_camera` to have shape `[V, 3]`. " f"{verts_camera.shape=}"
         )
         assert faces.ndim == 2, (
             "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"

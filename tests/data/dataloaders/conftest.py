@@ -35,7 +35,9 @@ class DummyPCRDataset(BasePCRDataset):
             dataset_size = self.DATASET_SIZE
         self.annotations = [{'idx': i} for i in range(dataset_size)]
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load dummy PCR datapoint with deterministic random generation."""
         # Use deterministic seeding based on idx
         generator = torch.Generator()
@@ -48,16 +50,14 @@ class DummyPCRDataset(BasePCRDataset):
         # Generate random transform matrix
         # Create a random rotation matrix and translation vector
         rotation_angles = torch.randn(3, generator=generator) * 0.1  # Small rotations
-        translation = torch.randn(3, generator=generator) * 0.5      # Small translations
+        translation = torch.randn(3, generator=generator) * 0.5  # Small translations
 
         # Simple rotation matrix around z-axis for simplicity
         angle = rotation_angles[2]
         cos_a, sin_a = torch.cos(angle), torch.sin(angle)
-        rotation_matrix = torch.tensor([
-            [cos_a, -sin_a, 0],
-            [sin_a,  cos_a, 0],
-            [0,      0,     1]
-        ], dtype=torch.float32)
+        rotation_matrix = torch.tensor(
+            [[cos_a, -sin_a, 0], [sin_a, cos_a, 0], [0, 0, 1]], dtype=torch.float32
+        )
 
         transform = torch.eye(4, dtype=torch.float32)
         transform[:3, :3] = rotation_matrix
@@ -68,9 +68,7 @@ class DummyPCRDataset(BasePCRDataset):
             'tgt_pc': PointCloud(xyz=tgt_points),
         }
 
-        labels = {
-            'transform': transform
-        }
+        labels = {'transform': transform}
 
         # meta_info is empty as required - base dataset will add 'idx'
         meta_info = {}
@@ -127,7 +125,7 @@ class DummyPCRCollator(BaseCollator):
         return {
             'inputs': downsampled_inputs,
             'labels': labels,
-            'meta_info': [meta_info]  # Collator wraps meta_info in list
+            'meta_info': [meta_info],  # Collator wraps meta_info in list
         }
 
     def get_cache_version_hash(self) -> str:
@@ -142,7 +140,7 @@ class DummyPCRCollator(BaseCollator):
             'collator_class': self.__class__.__name__,
             'downsample_factor': self.downsample_factor,
             'seed': self.seed,
-            'version': 'v1'
+            'version': 'v1',
         }
 
 
@@ -165,7 +163,7 @@ def dummy_pcr_dataset(temp_data_root):
         split='train',
         base_seed=123,
         use_cpu_cache=False,
-        use_disk_cache=False
+        use_disk_cache=False,
     )
 
 

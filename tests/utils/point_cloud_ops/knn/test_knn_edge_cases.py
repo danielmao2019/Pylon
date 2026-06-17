@@ -1,5 +1,6 @@
-import torch
 import pytest
+import torch
+
 from data.structures.three_d.point_cloud.ops.knn.knn import knn
 
 

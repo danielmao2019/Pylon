@@ -1,7 +1,7 @@
 import numpy as np
+
 from models.point_cloud_registration.buffer.KPConv.blocks import *
 from models.point_cloud_registration.buffer.vn_layers import *
-
 
 architecture = [
     'VNN_first',
@@ -46,10 +46,14 @@ class Encoder(nn.Module):
 
             # Check equivariance
             if ('equivariant' in block) and (not self.out_dim % 3 == 0):
-                raise ValueError('Equivariant block but features dimension is not a factor of 3')
+                raise ValueError(
+                    'Equivariant block but features dimension is not a factor of 3'
+                )
 
             # Detect change to next layer for skip connection
-            if np.any([tmp in block for tmp in ['pool', 'strided', 'upsample', 'global']]):
+            if np.any(
+                [tmp in block for tmp in ['pool', 'strided', 'upsample', 'global']]
+            ):
                 self.encoder_skips.append(block_i)
                 self.encoder_skip_dims.append(self.in_dim)
 
@@ -59,12 +63,11 @@ class Encoder(nn.Module):
 
             if need_param:
                 # Apply the good block function defining tf ops
-                self.encoder_blocks.append(block_decider(block,
-                                                         self.r,
-                                                         self.in_dim,
-                                                         self.out_dim,
-                                                         self.layer,
-                                                         self.scale))
+                self.encoder_blocks.append(
+                    block_decider(
+                        block, self.r, self.in_dim, self.out_dim, self.layer, self.scale
+                    )
+                )
 
             # Update dimension of input from output
             self.in_dim = self.out_dim
@@ -104,11 +107,9 @@ class Decoder(Encoder):
                 self.decoder_concats.append(block_i)
 
             # Apply the good block function defining tf ops
-            self.decoder_blocks.append(block_decider(block,
-                                                     self.r,
-                                                     self.in_dim,
-                                                     self.out_dim,
-                                                     self.layer))
+            self.decoder_blocks.append(
+                block_decider(block, self.r, self.in_dim, self.out_dim, self.layer)
+            )
 
             # Update dimension of input from output
             self.in_dim = self.out_dim
@@ -128,7 +129,9 @@ class DetNet(Decoder):
         self.config = config
 
         self.invar_layer = nn.Sequential(
-            VNStdFeature(self.out_dim, dim=4, normalize_frame=False, negative_slope=0.0),
+            VNStdFeature(
+                self.out_dim, dim=4, normalize_frame=False, negative_slope=0.0
+            ),
             nn.Conv1d(self.out_dim * 3, self.out_dim * 2, kernel_size=1),
             nn.InstanceNorm1d(self.out_dim * 2),
             nn.Conv1d(self.out_dim * 2, self.out_dim, kernel_size=1),
@@ -163,13 +166,15 @@ class EFCNN(Decoder):
             VNLinearLeakyReLU(self.out_dim // 2, 1, dim=4),
         )
         self.inv_layer = nn.Sequential(
-            VNStdFeature(self.out_dim, dim=4, normalize_frame=False, negative_slope=0.0),
+            VNStdFeature(
+                self.out_dim, dim=4, normalize_frame=False, negative_slope=0.0
+            ),
             nn.Conv1d(self.out_dim * 3, self.out_dim * 2, kernel_size=1),
             nn.InstanceNorm1d(self.out_dim * 2),
             nn.Conv1d(self.out_dim * 2, self.out_dim, kernel_size=1),
             nn.InstanceNorm1d(self.out_dim),
             nn.Conv1d(self.out_dim, 1, kernel_size=1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, batch):
@@ -202,8 +207,11 @@ class EFCNN(Decoder):
         eps = self.inv_layer(input)
         #################################
 
-        return est_axis[0].transpose(-1, -2), eps[0].transpose(-1, -2), {'skip_feature': skip_feature,
-                                                                         'bottle_feature': bottle_feature}
+        return (
+            est_axis[0].transpose(-1, -2),
+            eps[0].transpose(-1, -2),
+            {'skip_feature': skip_feature, 'bottle_feature': bottle_feature},
+        )
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -212,25 +220,46 @@ class EFCNN(Decoder):
 #       \********************/
 #
 
-def block_decider(block_name,
-                  radius,
-                  in_dim,
-                  out_dim,
-                  layer_ind,
-                  scale=1.0):
+
+def block_decider(block_name, radius, in_dim, out_dim, layer_ind, scale=1.0):
     if block_name == 'VN':
         return VNBlock(in_dim, out_dim)
 
     elif block_name in 'VNN_first':
-        return VNNBlock(block_name, in_dim, out_dim, radius, scale, layer_ind, pooling='mean', mode='6')
+        return VNNBlock(
+            block_name,
+            in_dim,
+            out_dim,
+            radius,
+            scale,
+            layer_ind,
+            pooling='mean',
+            mode='6',
+        )
 
-    elif block_name in ['VNN',
-                        'VNN_strided']:
-        return VNNBlock(block_name, in_dim, out_dim, radius, scale, layer_ind, pooling='mean', mode='1')
+    elif block_name in ['VNN', 'VNN_strided']:
+        return VNNBlock(
+            block_name,
+            in_dim,
+            out_dim,
+            radius,
+            scale,
+            layer_ind,
+            pooling='mean',
+            mode='1',
+        )
 
-    elif block_name in ['VNN_resnetb',
-                        'VNN_resnetb_strided']:
-        return VNNResnetBlock(block_name, in_dim, out_dim, radius, scale, layer_ind, pooling='mean', mode='1')
+    elif block_name in ['VNN_resnetb', 'VNN_resnetb_strided']:
+        return VNNResnetBlock(
+            block_name,
+            in_dim,
+            out_dim,
+            radius,
+            scale,
+            layer_ind,
+            pooling='mean',
+            mode='1',
+        )
 
     elif block_name == 'max_pool' or block_name == 'max_pool_wide':
         return MaxPoolBlock(layer_ind)
@@ -242,7 +271,9 @@ def block_decider(block_name,
         return NearestUpsampleBlock(layer_ind)
 
     else:
-        raise ValueError('Unknown block name in the architecture definition : ' + block_name)
+        raise ValueError(
+            'Unknown block name in the architecture definition : ' + block_name
+        )
 
 
 class VNBlock(nn.Module):
@@ -269,7 +300,17 @@ class VNBlock(nn.Module):
 
 class VNNBlock(nn.Module):
 
-    def __init__(self, block_name, in_dim, out_dim, radius, scale, layer_ind, pooling='mean', mode='0'):
+    def __init__(
+        self,
+        block_name,
+        in_dim,
+        out_dim,
+        radius,
+        scale,
+        layer_ind,
+        pooling='mean',
+        mode='0',
+    ):
         """
         Initialize the first VNN block with its ReLU and BatchNorm.
         :param in_dim: dimension input features
@@ -334,7 +375,7 @@ class VNNBlock(nn.Module):
         neighbors = s_pts[neighb_inds, :]
 
         # Replace the fake points by the corresponding query points
-        mask = (neighbors == 1e6)
+        mask = neighbors == 1e6
         neighbors = mask * q_pts[:, None] + neighbors * (~mask)
 
         # Center every neighborhood
@@ -362,12 +403,14 @@ class VNNBlock(nn.Module):
             N, K, C = neighbors.shape
             # calculate mean
             mean = eqv_neighbors.mean(-2, keepdim=True).repeat([1, K, 1])
-            mean_cor = q_pts.unsqueeze(1) - mean  # neighbors - q_pts.unsqueeze(1).mean(0, keepdim=True) #
+            mean_cor = (
+                q_pts.unsqueeze(1) - mean
+            )  # neighbors - q_pts.unsqueeze(1).mean(0, keepdim=True) #
             # concatenate
             input = torch.cat([neighb_x, eqv_neighbors, mean], dim=-1)
         elif self.mode == '3':
             # calculate projection
-            d = torch.sum(eqv_neighbors ** 2, dim=-1, keepdim=True).sqrt()
+            d = torch.sum(eqv_neighbors**2, dim=-1, keepdim=True).sqrt()
             proj_xyz = self.radius / d * eqv_neighbors
             # replace the nan element by zero
             proj_xyz = torch.nan_to_num(proj_xyz)
@@ -379,7 +422,7 @@ class VNNBlock(nn.Module):
             mean = eqv_neighbors.mean(-2, keepdim=True).repeat([1, K, 1])
             mean_cor = neighbors - mean
             # calculate projection
-            d = torch.sum(eqv_neighbors ** 2, dim=-1, keepdim=True).sqrt()
+            d = torch.sum(eqv_neighbors**2, dim=-1, keepdim=True).sqrt()
             proj_xyz = self.radius / d * eqv_neighbors
             # replace the nan element by zero
             proj_xyz = torch.nan_to_num(proj_xyz)
@@ -400,7 +443,7 @@ class VNNBlock(nn.Module):
             # calculate mean
             mean = eqv_neighbors.mean(-2, keepdim=True).repeat([1, K, 1])
             # calculate projection
-            d = torch.sum(eqv_neighbors ** 2, dim=-1, keepdim=True).sqrt()
+            d = torch.sum(eqv_neighbors**2, dim=-1, keepdim=True).sqrt()
             proj_xyz = self.radius / d * eqv_neighbors
             # replace the nan element by zero
             proj_xyz = torch.nan_to_num(proj_xyz)
@@ -420,7 +463,17 @@ class VNNBlock(nn.Module):
 
 class VNNResnetBlock(nn.Module):
 
-    def __init__(self, block_name, in_dim, out_dim, radius, scale, layer_ind, pooling='mean', mode='0'):
+    def __init__(
+        self,
+        block_name,
+        in_dim,
+        out_dim,
+        radius,
+        scale,
+        layer_ind,
+        pooling='mean',
+        mode='0',
+    ):
         """
         Initialize the first VNN block with its ReLU and BatchNorm.
         :param in_dim: dimension input features
@@ -486,7 +539,7 @@ class VNNResnetBlock(nn.Module):
         neighbors = s_pts[neighb_inds, :]
 
         # Replace the fake points by the corresponding query points
-        mask = (neighbors == 1e6)
+        mask = neighbors == 1e6
         neighbors = mask * q_pts[:, None] + neighbors * (~mask)
 
         # Center every neighborhood
@@ -514,12 +567,14 @@ class VNNResnetBlock(nn.Module):
             N, K, C = neighbors.shape
             # calculate mean
             mean = eqv_neighbors.mean(-2, keepdim=True).repeat([1, K, 1])
-            mean_cor = q_pts.unsqueeze(1) - mean  # neighbors - q_pts.unsqueeze(1).mean(0, keepdim=True) #
+            mean_cor = (
+                q_pts.unsqueeze(1) - mean
+            )  # neighbors - q_pts.unsqueeze(1).mean(0, keepdim=True) #
             # concatenate
             input = torch.cat([neighb_x, eqv_neighbors, mean], dim=-1)
         elif self.mode == '3':
             # calculate projection
-            d = torch.sum(eqv_neighbors ** 2, dim=-1, keepdim=True).sqrt()
+            d = torch.sum(eqv_neighbors**2, dim=-1, keepdim=True).sqrt()
             proj_xyz = self.radius / d * eqv_neighbors
             # replace the nan element by zero
             proj_xyz = torch.nan_to_num(proj_xyz)
@@ -531,7 +586,7 @@ class VNNResnetBlock(nn.Module):
             mean = eqv_neighbors.mean(-2, keepdim=True).repeat([1, K, 1])
             mean_cor = neighbors - mean
             # calculate projection
-            d = torch.sum(eqv_neighbors ** 2, dim=-1, keepdim=True).sqrt()
+            d = torch.sum(eqv_neighbors**2, dim=-1, keepdim=True).sqrt()
             proj_xyz = self.radius / d * eqv_neighbors
             # replace the nan element by zero
             proj_xyz = torch.nan_to_num(proj_xyz)
@@ -552,7 +607,7 @@ class VNNResnetBlock(nn.Module):
             # calculate mean
             mean = eqv_neighbors.mean(-2, keepdim=True).repeat([1, K, 1])
             # calculate projection
-            d = torch.sum(eqv_neighbors ** 2, dim=-1, keepdim=True).sqrt()
+            d = torch.sum(eqv_neighbors**2, dim=-1, keepdim=True).sqrt()
             proj_xyz = self.radius / d * eqv_neighbors
             # replace the nan element by zero
             proj_xyz = torch.nan_to_num(proj_xyz)
@@ -589,6 +644,7 @@ class VNNResnetBlock(nn.Module):
 #           Functions
 #       \********************/
 #
+
 
 def gather(x, idx, method=2):
     """
@@ -631,7 +687,7 @@ def radius_gaussian(sq_r, sig, eps=1e-9):
     :param sig: extents of gaussians [d1, d0] or [d0] or float
     :return: gaussian of sq_r [dn, ..., d1, d0]
     """
-    return torch.exp(-sq_r / (2 * sig ** 2 + eps))
+    return torch.exp(-sq_r / (2 * sig**2 + eps))
 
 
 def closest_pool(x, inds):
@@ -681,7 +737,7 @@ def global_average(x, batch_lengths):
     i0 = 0
     for b_i, length in enumerate(batch_lengths):
         # Average features for each batch cloud
-        averaged_features.append(torch.mean(x[i0:i0 + length], dim=0))
+        averaged_features.append(torch.mean(x[i0 : i0 + length], dim=0))
 
         # Increment for next cloud
         i0 += length

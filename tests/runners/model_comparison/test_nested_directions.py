@@ -4,12 +4,20 @@ Test nested DIRECTIONS functionality with complex metrics.
 Tests the new nested DIRECTIONS design where directions match the exact
 structure of metric outputs.
 """
+
 from typing import Dict
+
 import pytest
 import torch
-from runners.model_comparison import get_metric_directions, compare_scores, _flatten_directions, _flatten_scores
+
 from metrics.vision_2d.change_detection.change_star_metric import ChangeStarMetric
 from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
+from runners.model_comparison import (
+    _flatten_directions,
+    _flatten_scores,
+    compare_scores,
+    get_metric_directions,
+)
 
 
 def test_nested_directions_structure():
@@ -20,17 +28,26 @@ def test_nested_directions_structure():
     # ChangeStarMetric should have nested structure matching its outputs
     expected_structure = {
         'change': {
-            'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1,
-            'mean_recall': 1, 'mean_f1': 1
+            'mean_IoU': 1,
+            'accuracy': 1,
+            'mean_precision': 1,
+            'mean_recall': 1,
+            'mean_f1': 1,
         },
         'semantic_1': {
-            'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1,
-            'mean_recall': 1, 'mean_f1': 1
+            'mean_IoU': 1,
+            'accuracy': 1,
+            'mean_precision': 1,
+            'mean_recall': 1,
+            'mean_f1': 1,
         },
         'semantic_2': {
-            'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1,
-            'mean_recall': 1, 'mean_f1': 1
-        }
+            'mean_IoU': 1,
+            'accuracy': 1,
+            'mean_precision': 1,
+            'mean_recall': 1,
+            'mean_f1': 1,
+        },
     }
 
     assert directions == expected_structure
@@ -39,14 +56,8 @@ def test_nested_directions_structure():
 def test_flatten_directions_nested():
     """Test flattening of nested direction structure."""
     nested_directions = {
-        'change': {
-            'mean_IoU': 1,
-            'accuracy': 1
-        },
-        'semantic_1': {
-            'mean_IoU': 1,
-            'accuracy': 1
-        }
+        'change': {'mean_IoU': 1, 'accuracy': 1},
+        'semantic_1': {'mean_IoU': 1, 'accuracy': 1},
     }
 
     flat = _flatten_directions(nested_directions)
@@ -54,7 +65,7 @@ def test_flatten_directions_nested():
         'change.mean_IoU': 1,
         'change.accuracy': 1,
         'semantic_1.mean_IoU': 1,
-        'semantic_1.accuracy': 1
+        'semantic_1.accuracy': 1,
     }
 
     assert flat == expected
@@ -63,14 +74,8 @@ def test_flatten_directions_nested():
 def test_flatten_scores_nested():
     """Test flattening of nested score structure."""
     nested_scores = {
-        'change': {
-            'mean_IoU': 0.8,
-            'accuracy': 0.9
-        },
-        'semantic_1': {
-            'mean_IoU': 0.7,
-            'accuracy': 0.85
-        }
+        'change': {'mean_IoU': 0.8, 'accuracy': 0.9},
+        'semantic_1': {'mean_IoU': 0.7, 'accuracy': 0.85},
     }
 
     flat = _flatten_scores(nested_scores)
@@ -78,7 +83,7 @@ def test_flatten_scores_nested():
         'change.mean_IoU': 0.8,
         'change.accuracy': 0.9,
         'semantic_1.mean_IoU': 0.7,
-        'semantic_1.accuracy': 0.85
+        'semantic_1.accuracy': 0.85,
     }
 
     assert flat == expected
@@ -88,37 +93,19 @@ def test_compare_scores_with_nested_structure():
     """Test score comparison with nested structure."""
     # Create nested directions
     nested_directions = {
-        'change': {
-            'mean_IoU': 1,
-            'accuracy': 1
-        },
-        'semantic_1': {
-            'mean_IoU': 1,
-            'accuracy': 1
-        }
+        'change': {'mean_IoU': 1, 'accuracy': 1},
+        'semantic_1': {'mean_IoU': 1, 'accuracy': 1},
     }
 
     # Create nested scores (current better than best)
     current_scores = {
-        'change': {
-            'mean_IoU': 0.8,
-            'accuracy': 0.9
-        },
-        'semantic_1': {
-            'mean_IoU': 0.7,
-            'accuracy': 0.85
-        }
+        'change': {'mean_IoU': 0.8, 'accuracy': 0.9},
+        'semantic_1': {'mean_IoU': 0.7, 'accuracy': 0.85},
     }
 
     best_scores = {
-        'change': {
-            'mean_IoU': 0.75,
-            'accuracy': 0.85
-        },
-        'semantic_1': {
-            'mean_IoU': 0.65,
-            'accuracy': 0.8
-        }
+        'change': {'mean_IoU': 0.75, 'accuracy': 0.85},
+        'semantic_1': {'mean_IoU': 0.65, 'accuracy': 0.8},
     }
 
     # Test with True (equal weight average)
@@ -133,37 +120,25 @@ def test_compare_scores_with_nested_structure():
 def test_compare_scores_incomparable_nested():
     """Test score comparison with incomparable nested vectors."""
     nested_directions = {
-        'change': {
-            'mean_IoU': 1,
-            'accuracy': 1
-        },
-        'semantic_1': {
-            'mean_IoU': 1,
-            'accuracy': 1
-        }
+        'change': {'mean_IoU': 1, 'accuracy': 1},
+        'semantic_1': {'mean_IoU': 1, 'accuracy': 1},
     }
 
     # Create incomparable scores (one better in some dimensions, worse in others)
     current_scores = {
-        'change': {
-            'mean_IoU': 0.8,   # Better
-            'accuracy': 0.85   # Worse
-        },
-        'semantic_1': {
-            'mean_IoU': 0.65,  # Worse
-            'accuracy': 0.9    # Better
-        }
+        'change': {'mean_IoU': 0.8, 'accuracy': 0.85},  # Better  # Worse
+        'semantic_1': {'mean_IoU': 0.65, 'accuracy': 0.9},  # Worse  # Better
     }
 
     best_scores = {
         'change': {
             'mean_IoU': 0.75,  # Worse than current
-            'accuracy': 0.9    # Better than current
+            'accuracy': 0.9,  # Better than current
         },
         'semantic_1': {
-            'mean_IoU': 0.7,   # Better than current
-            'accuracy': 0.85   # Worse than current
-        }
+            'mean_IoU': 0.7,  # Better than current
+            'accuracy': 0.85,  # Worse than current
+        },
     }
 
     # Vector comparison should return False (incomparable treated as no improvement)
@@ -203,18 +178,12 @@ def test_mixed_flat_and_nested_scores():
     # Mixed directions: some flat, some nested
     mixed_directions = {
         'overall_score': 1,  # Flat
-        'detailed': {        # Nested
-            'precision': 1,
-            'recall': 1
-        }
+        'detailed': {'precision': 1, 'recall': 1},  # Nested
     }
 
     mixed_scores = {
         'overall_score': 0.85,  # Flat
-        'detailed': {           # Nested
-            'precision': 0.9,
-            'recall': 0.8
-        }
+        'detailed': {'precision': 0.9, 'recall': 0.8},  # Nested
     }
 
     # Should flatten correctly
@@ -224,13 +193,13 @@ def test_mixed_flat_and_nested_scores():
     expected_directions = {
         'overall_score': 1,
         'detailed.precision': 1,
-        'detailed.recall': 1
+        'detailed.recall': 1,
     }
 
     expected_scores = {
         'overall_score': 0.85,
         'detailed.precision': 0.9,
-        'detailed.recall': 0.8
+        'detailed.recall': 0.8,
     }
 
     assert flat_directions == expected_directions

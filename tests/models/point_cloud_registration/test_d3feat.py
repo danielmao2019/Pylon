@@ -27,7 +27,7 @@ class DummyD3FeatDataset(BaseDataset):
         num_points_src: int = 512,
         num_points_tgt: int = 512,
         num_correspondences: int = 50,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Initialize dummy dataset.
 
@@ -45,7 +45,9 @@ class DummyD3FeatDataset(BaseDataset):
         """Initialize dummy annotations."""
         self.annotations = list(range(self.DATASET_SIZE[self.split]))
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load dummy datapoint with random data."""
         # Generate random point clouds (on CPU as per BaseDataset design)
         src_pos = torch.randn(self.num_points_src, 3, dtype=torch.float32)
@@ -83,7 +85,13 @@ class DummyD3FeatDataset(BaseDataset):
         return inputs, labels, meta_info
 
 
-def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_correspondences=30, device=None):
+def get_batched_input(
+    model_config,
+    num_points_src=256,
+    num_points_tgt=256,
+    num_correspondences=30,
+    device=None,
+):
     """Helper function to get properly batched D3Feat input data.
 
     Args:
@@ -105,7 +113,7 @@ def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_
         num_points_tgt=num_points_tgt,
         num_correspondences=num_correspondences,
         split='train',
-        device=device  # Explicitly set device to ensure correct placement
+        device=device,  # Explicitly set device to ensure correct placement
     )
 
     # Create dataloader with model config
@@ -114,7 +122,7 @@ def get_batched_input(model_config, num_points_src=256, num_points_tgt=256, num_
         config=model_config,
         batch_size=1,
         shuffle=False,
-        num_workers=0  # Single-threaded for testing
+        num_workers=0,  # Single-threaded for testing
     )
 
     # Get one batch
@@ -155,7 +163,13 @@ def test_d3feat_model_forward(device):
     model.eval()
 
     # Get batched input using helper function
-    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=0, device=device)
+    batch = get_batched_input(
+        model.config,
+        num_points_src=256,
+        num_points_tgt=256,
+        num_correspondences=0,
+        device=device,
+    )
 
     # Forward pass
     with torch.no_grad():
@@ -188,7 +202,13 @@ def test_d3feat_model_with_correspondences(device):
     model.eval()
 
     # Get batched input with correspondences
-    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=20, device=device)
+    batch = get_batched_input(
+        model.config,
+        num_points_src=256,
+        num_points_tgt=256,
+        num_correspondences=20,
+        device=device,
+    )
 
     # Forward pass
     with torch.no_grad():
@@ -210,7 +230,13 @@ def test_d3feat_gradient_flow(device):
     model.train()
 
     # Get batched input
-    batch = get_batched_input(model.config, num_points_src=128, num_points_tgt=128, num_correspondences=0, device=device)
+    batch = get_batched_input(
+        model.config,
+        num_points_src=128,
+        num_points_tgt=128,
+        num_correspondences=0,
+        device=device,
+    )
 
     # Forward pass
     outputs = model(batch['inputs'])
@@ -227,7 +253,9 @@ def test_d3feat_gradient_flow(device):
             assert param.grad is not None, f"No gradient for {name}"
             assert not torch.isnan(param.grad).any(), f"NaN gradient for {name}"
             # Verify gradients are on correct device
-            assert param.grad.device.type == device.type, f"Gradient device mismatch for {name}"
+            assert (
+                param.grad.device.type == device.type
+            ), f"Gradient device mismatch for {name}"
 
 
 def test_d3feat_with_dataset(device):
@@ -238,7 +266,13 @@ def test_d3feat_with_dataset(device):
     model.eval()
 
     # Get batched input using dataset
-    batch = get_batched_input(model.config, num_points_src=256, num_points_tgt=256, num_correspondences=30, device=device)
+    batch = get_batched_input(
+        model.config,
+        num_points_src=256,
+        num_points_tgt=256,
+        num_correspondences=30,
+        device=device,
+    )
 
     # Forward pass
     with torch.no_grad():
@@ -264,7 +298,7 @@ def test_d3feat_model_config():
             'first_features_dim': 96,
             'conv_radius': 3.0,
             'num_kernel_points': 20,
-        }
+        },
     }
 
     # Build model from config

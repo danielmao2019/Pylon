@@ -1,12 +1,20 @@
-from typing import List, Any, Callable, Dict
-import numpy as np
 from functools import partial
+from typing import Any, Callable, Dict, List
+
+import numpy as np
 import torch
+
 from data.collators import d3feat_collate_fn
 from data.dataloaders.pcr_dataloader import PCRDataloader
 
 
-def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ratio: float = 0.8, samples_threshold: int = 2000) -> List[int]:
+def calibrate_neighbors(
+    dataset: Any,
+    config: Any,
+    collate_fn: Callable,
+    keep_ratio: float = 0.8,
+    samples_threshold: int = 2000,
+) -> List[int]:
 
     # From config parameter, compute higher bound of neighbors number in a neighborhood
     hist_n = int(np.ceil(4 / 3 * np.pi * (config.deform_radius + 1) ** 3))
@@ -14,10 +22,15 @@ def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ra
 
     # Get histogram of neighborhood sizes i in 1 epoch max.
     for i in range(len(dataset)):
-        batched_dp = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * config.num_layers)
+        batched_dp = collate_fn(
+            [dataset[i]], config, neighborhood_limits=[hist_n] * config.num_layers
+        )
 
         # update histogram
-        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).cpu().numpy() for neighb_mat in batched_dp['inputs']['neighbors']]
+        counts = [
+            torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).cpu().numpy()
+            for neighb_mat in batched_dp['inputs']['neighbors']
+        ]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighb_hists += np.vstack(hists)
 
@@ -37,16 +50,17 @@ class D3FeatDataLoader(PCRDataloader):
     def __init__(self, dataset: Any, config: Any, **kwargs: Any) -> None:
         assert isinstance(config, dict), 'config must be a dict'
         from easydict import EasyDict
+
         config = EasyDict(config)
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
 
         # Add architecture configuration like in original D3Feat
         config.architecture = ['simple', 'resnetb']
-        for i in range(config.num_layers-1):
+        for i in range(config.num_layers - 1):
             config.architecture.append('resnetb_strided')
             config.architecture.append('resnetb')
             config.architecture.append('resnetb')
-        for i in range(config.num_layers-2):
+        for i in range(config.num_layers - 2):
             config.architecture.append('nearest_upsample')
             config.architecture.append('unary')
         config.architecture.append('nearest_upsample')
@@ -74,10 +88,12 @@ class D3FeatDataLoader(PCRDataloader):
     def _get_cache_version_dict(self, dataset, collator) -> Dict[str, Any]:
         """Get cache version dict for D3Feat dataloader."""
         version_dict = super()._get_cache_version_dict(dataset, collator)
-        version_dict.update({
-            'config_deform_radius': self.config.deform_radius,
-            'config_num_layers': self.config.num_layers,
-            'neighborhood_limits': self.neighborhood_limits,
-            'architecture': self.config.architecture
-        })
+        version_dict.update(
+            {
+                'config_deform_radius': self.config.deform_radius,
+                'config_num_layers': self.config.num_layers,
+                'neighborhood_limits': self.neighborhood_limits,
+                'architecture': self.config.architecture,
+            }
+        )
         return version_dict

@@ -1,7 +1,6 @@
-from typing import Dict, Any
 import importlib.util
 import threading
-
+from typing import Any, Dict
 
 # Thread-safe config loading with caching
 _config_cache = {}

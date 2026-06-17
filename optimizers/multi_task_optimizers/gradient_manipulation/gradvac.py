@@ -1,5 +1,6 @@
-from typing import List, Dict, Optional
 import random
+from typing import Dict, List, Optional
+
 import torch
 
 from ._base_ import GradientManipulationBaseOptimizer
@@ -11,7 +12,11 @@ class GradVacOptimizer(GradientManipulationBaseOptimizer):
 
     def __init__(self, beta: Optional[float] = 0.1, **kwargs) -> None:
         super(GradVacOptimizer, self).__init__(**kwargs)
-        self.phi: torch.Tensor = torch.zeros(size=(self.num_tasks, self.num_tasks), dtype=torch.float32, device=torch.device('cuda'))
+        self.phi: torch.Tensor = torch.zeros(
+            size=(self.num_tasks, self.num_tasks),
+            dtype=torch.float32,
+            device=torch.device('cuda'),
+        )
         assert type(beta) in [float, int], f"{type(beta)=}"
         assert 0 <= beta <= 1, f"{beta=}"
         self.beta: float = beta
@@ -29,7 +34,9 @@ class GradVacOptimizer(GradientManipulationBaseOptimizer):
             result (torch.Tensor): the 1D manipulated gradient tensor.
         """
         # input checks
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         # compute result
         result = torch.zeros_like(grads_list[0])
         for i in range(len(grads_list)):
@@ -41,10 +48,17 @@ class GradVacOptimizer(GradientManipulationBaseOptimizer):
                 gj = grads_list[j]
                 phi_ij = torch.nn.CosineSimilarity(dim=0)(gi, gj)
                 if phi_ij < self.phi[i, j]:
-                    numerator = torch.linalg.vector_norm(gi) * (self.phi[i, j] * torch.sqrt(1-phi_ij**2) + phi_ij * torch.sqrt(1-self.phi[i, j]**2))
-                    denominator = torch.linalg.vector_norm(gj) * torch.sqrt(1-self.phi[i, j]**2) + 1e-09
+                    numerator = torch.linalg.vector_norm(gi) * (
+                        self.phi[i, j] * torch.sqrt(1 - phi_ij**2)
+                        + phi_ij * torch.sqrt(1 - self.phi[i, j] ** 2)
+                    )
+                    denominator = (
+                        torch.linalg.vector_norm(gj)
+                        * torch.sqrt(1 - self.phi[i, j] ** 2)
+                        + 1e-09
+                    )
                     gi += (numerator / denominator) * gj
-                self.phi[i, j] = (1-self.beta) * self.phi[i, j] + self.beta * phi_ij
+                self.phi[i, j] = (1 - self.beta) * self.phi[i, j] + self.beta * phi_ij
             result += gi
         result /= len(grads_list)
         return result

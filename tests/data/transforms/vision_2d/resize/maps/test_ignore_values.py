@@ -15,6 +15,7 @@ Key test scenarios:
 
 import pytest
 import torch
+
 from data.transforms.vision_2d.resize.maps import ResizeMaps
 
 
@@ -39,21 +40,25 @@ def test_resize_maps_ignore_values_bilinear() -> None:
 
     # Create pattern that will cause interpolation mixing without proper handling
     depth_map = torch.zeros(original_size, dtype=torch.float32)
-    depth_map[::2, ::2] = valid_value      # Valid values at even positions
-    depth_map[1::2, 1::2] = ignore_value   # Ignore values at odd positions
+    depth_map[::2, ::2] = valid_value  # Valid values at even positions
+    depth_map[1::2, 1::2] = ignore_value  # Ignore values at odd positions
 
     # Apply ResizeMaps with bilinear interpolation and ignore value awareness
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear", ignore_value=ignore_value)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="bilinear", ignore_value=ignore_value
+    )
     resized_depth = resize_op(depth_map)
 
     # Verify shape
-    assert resized_depth.shape == target_size, (
-        f"Unexpected resized shape: {resized_depth.shape}, expected {target_size}."
-    )
+    assert (
+        resized_depth.shape == target_size
+    ), f"Unexpected resized shape: {resized_depth.shape}, expected {target_size}."
 
     # CRITICAL: Verify no interpolation corruption of ignore values
     # Values should only be either the ignore_value or valid values, never in between
-    corrupted_pixels = ((resized_depth > ignore_value) & (resized_depth < 0)).sum().item()
+    corrupted_pixels = (
+        ((resized_depth > ignore_value) & (resized_depth < 0)).sum().item()
+    )
     assert corrupted_pixels == 0, (
         f"Found {corrupted_pixels} corrupted pixels with interpolated ignore values. "
         f"Min value: {resized_depth.min():.3f}, Max value: {resized_depth.max():.3f}. "
@@ -64,7 +69,8 @@ def test_resize_maps_ignore_values_bilinear() -> None:
     unique_values = torch.unique(resized_depth)
     # Check for values that are negative but not close to ignore_value (corrupted values)
     invalid_values = unique_values[
-        (unique_values < 0) & (torch.abs(unique_values - ignore_value) >= ResizeMaps.TOLERANCE)
+        (unique_values < 0)
+        & (torch.abs(unique_values - ignore_value) >= ResizeMaps.TOLERANCE)
     ]
     assert len(invalid_values) == 0, (
         f"Found unexpected negative values: {invalid_values}. "
@@ -98,13 +104,15 @@ def test_resize_maps_ignore_values_nearest() -> None:
                 depth_map[i, j] = ignore_value
 
     # Apply ResizeMaps with nearest neighbor interpolation and ignore value awareness
-    resize_op = ResizeMaps(size=target_size, interpolation="nearest", ignore_value=ignore_value)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="nearest", ignore_value=ignore_value
+    )
     resized_depth = resize_op(depth_map)
 
     # Verify shape
-    assert resized_depth.shape == target_size, (
-        f"Unexpected resized shape: {resized_depth.shape}, expected {target_size}."
-    )
+    assert (
+        resized_depth.shape == target_size
+    ), f"Unexpected resized shape: {resized_depth.shape}, expected {target_size}."
 
     # Verify only original values exist (no interpolation)
     unique_values = torch.unique(resized_depth)
@@ -140,26 +148,34 @@ def test_resize_maps_depth_map_realistic() -> None:
     depth_map = torch.rand((height, width), dtype=torch.float32) * 9.5 + 0.5
 
     # Add ignore regions (simulating sensor limitations)
-    depth_map[5:10, 5:10] = ignore_value    # Central ignore region (occlusion)
-    depth_map[0:3, :] = ignore_value        # Top border ignore (out of range)
-    depth_map[:, -2:] = ignore_value        # Right border ignore (sensor edge)
+    depth_map[5:10, 5:10] = ignore_value  # Central ignore region (occlusion)
+    depth_map[0:3, :] = ignore_value  # Top border ignore (out of range)
+    depth_map[:, -2:] = ignore_value  # Right border ignore (sensor edge)
 
-    original_ignore_pixels = (torch.abs(depth_map - ignore_value) < ResizeMaps.TOLERANCE).sum().item()
-    original_valid_pixels = (torch.abs(depth_map - ignore_value) >= ResizeMaps.TOLERANCE).sum().item()
+    original_ignore_pixels = (
+        (torch.abs(depth_map - ignore_value) < ResizeMaps.TOLERANCE).sum().item()
+    )
+    original_valid_pixels = (
+        (torch.abs(depth_map - ignore_value) >= ResizeMaps.TOLERANCE).sum().item()
+    )
 
     # Resize with bilinear interpolation and ignore value awareness (typical for depth maps)
     target_size = (15, 15)
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear", ignore_value=ignore_value)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="bilinear", ignore_value=ignore_value
+    )
     resized_depth = resize_op(depth_map)
 
     # Verify shape
-    assert resized_depth.shape == target_size, (
-        f"Unexpected resized shape: {resized_depth.shape}, expected {target_size}."
-    )
+    assert (
+        resized_depth.shape == target_size
+    ), f"Unexpected resized shape: {resized_depth.shape}, expected {target_size}."
 
     # CRITICAL: Verify no interpolation corruption at ignore boundaries
     # No values should exist between ignore_value and 0 (corrupted ignore values)
-    boundary_corrupted = ((resized_depth > ignore_value) & (resized_depth < 0)).sum().item()
+    boundary_corrupted = (
+        ((resized_depth > ignore_value) & (resized_depth < 0)).sum().item()
+    )
     assert boundary_corrupted == 0, (
         f"Found {boundary_corrupted} pixels with corrupted ignore values at boundaries. "
         f"Range: [{resized_depth.min():.3f}, {resized_depth.max():.3f}]. "
@@ -170,7 +186,9 @@ def test_resize_maps_depth_map_realistic() -> None:
     # Should have some ignore pixels preserved (exact count depends on resize algorithm)
     # but importantly, no corrupted intermediate values
     valid_range_pixels = (resized_depth >= 0.5).sum().item()
-    close_to_ignore_pixels = (torch.abs(resized_depth - ignore_value) < ResizeMaps.TOLERANCE).sum().item()
+    close_to_ignore_pixels = (
+        (torch.abs(resized_depth - ignore_value) < ResizeMaps.TOLERANCE).sum().item()
+    )
     total_expected = valid_range_pixels + close_to_ignore_pixels
 
     assert total_expected == resized_depth.numel(), (
@@ -202,23 +220,27 @@ def test_resize_maps_ignore_values_segmentation_mask() -> None:
     seg_mask = torch.randint(0, 3, (height, width), dtype=torch.uint8)
 
     # Add ignore regions
-    seg_mask[0:2, :] = ignore_class        # Top border ignore
-    seg_mask[:, 0:2] = ignore_class        # Left border ignore
-    seg_mask[6:10, 6:10] = ignore_class    # Central ignore region
+    seg_mask[0:2, :] = ignore_class  # Top border ignore
+    seg_mask[:, 0:2] = ignore_class  # Left border ignore
+    seg_mask[6:10, 6:10] = ignore_class  # Central ignore region
 
-    original_ignore_pixels = (torch.abs(seg_mask.float() - ignore_class) < ResizeMaps.TOLERANCE).sum().item()
+    original_ignore_pixels = (
+        (torch.abs(seg_mask.float() - ignore_class) < ResizeMaps.TOLERANCE).sum().item()
+    )
 
     # Apply ResizeMaps with nearest neighbor (standard for segmentation) and ignore class
-    resize_op = ResizeMaps(size=target_size, interpolation="nearest", ignore_value=ignore_class)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="nearest", ignore_value=ignore_class
+    )
     resized_mask = resize_op(seg_mask.float())  # Convert to float for ResizeMaps
 
     # Convert back to int for class checks
     resized_mask = resized_mask.round().to(torch.uint8)
 
     # Verify shape
-    assert resized_mask.shape == target_size, (
-        f"Unexpected resized shape: {resized_mask.shape}, expected {target_size}."
-    )
+    assert (
+        resized_mask.shape == target_size
+    ), f"Unexpected resized shape: {resized_mask.shape}, expected {target_size}."
 
     # Verify only valid classes and ignore class exist
     unique_classes = torch.unique(resized_mask)
@@ -230,7 +252,9 @@ def test_resize_maps_ignore_values_segmentation_mask() -> None:
     )
 
     # Verify ignore class is preserved
-    resized_ignore_pixels = (torch.abs(resized_mask - ignore_class) < ResizeMaps.TOLERANCE).sum().item()
+    resized_ignore_pixels = (
+        (torch.abs(resized_mask - ignore_class) < ResizeMaps.TOLERANCE).sum().item()
+    )
     assert resized_ignore_pixels > 0, (
         f"Ignore class {ignore_class} should be preserved in resized mask. "
         f"Original: {original_ignore_pixels}, Resized: {resized_ignore_pixels}"
@@ -256,22 +280,27 @@ def test_resize_maps_ignore_nan_values() -> None:
     target_size = (6, 6)
 
     # Create data with valid values
-    data_map = torch.rand(original_size, dtype=torch.float32) * (valid_max - valid_min) + valid_min
+    data_map = (
+        torch.rand(original_size, dtype=torch.float32) * (valid_max - valid_min)
+        + valid_min
+    )
 
     # Add NaN ignore regions
-    data_map[0:2, :] = ignore_value        # Top border ignore
-    data_map[3:5, 3:5] = ignore_value      # Central ignore region
+    data_map[0:2, :] = ignore_value  # Top border ignore
+    data_map[3:5, 3:5] = ignore_value  # Central ignore region
 
     original_nan_pixels = torch.isnan(data_map).sum().item()
 
     # Apply ResizeMaps with NaN ignore value
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear", ignore_value=ignore_value)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="bilinear", ignore_value=ignore_value
+    )
     resized_data = resize_op(data_map)
 
     # Verify shape
-    assert resized_data.shape == target_size, (
-        f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
-    )
+    assert (
+        resized_data.shape == target_size
+    ), f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
 
     # Verify NaN values are preserved
     resized_nan_pixels = torch.isnan(resized_data).sum().item()
@@ -283,12 +312,12 @@ def test_resize_maps_ignore_nan_values() -> None:
     # Verify valid values remain in expected range
     valid_pixels = resized_data[~torch.isnan(resized_data)]
     if len(valid_pixels) > 0:
-        assert valid_pixels.min() >= valid_min - 0.1, (  # Small tolerance for interpolation
-            f"Valid pixels below expected range: min={valid_pixels.min():.3f}, expected>={valid_min}"
-        )
-        assert valid_pixels.max() <= valid_max + 0.1, (  # Small tolerance for interpolation
-            f"Valid pixels above expected range: max={valid_pixels.max():.3f}, expected<={valid_max}"
-        )
+        assert (
+            valid_pixels.min() >= valid_min - 0.1
+        ), f"Valid pixels below expected range: min={valid_pixels.min():.3f}, expected>={valid_min}"  # Small tolerance for interpolation
+        assert (
+            valid_pixels.max() <= valid_max + 0.1
+        ), f"Valid pixels above expected range: max={valid_pixels.max():.3f}, expected<={valid_max}"  # Small tolerance for interpolation
 
 
 def test_resize_maps_no_ignore_value_specified() -> None:
@@ -315,13 +344,15 @@ def test_resize_maps_no_ignore_value_specified() -> None:
     data_map[1::2, 1::2] = potential_ignore_value
 
     # Apply ResizeMaps WITHOUT ignore_value specified (backward compatibility)
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear")  # ignore_value=None (default)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="bilinear"
+    )  # ignore_value=None (default)
     resized_data = resize_op(data_map)
 
     # Verify shape
-    assert resized_data.shape == target_size, (
-        f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
-    )
+    assert (
+        resized_data.shape == target_size
+    ), f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
 
     # Without ignore value handling, interpolation should occur normally
     # This means we might see intermediate values (which is the original "problematic" behavior)
@@ -354,16 +385,20 @@ def test_resize_maps_all_ignore_values() -> None:
     data_map = torch.full(original_size, ignore_value, dtype=torch.float32)
 
     # Apply ResizeMaps with ignore value handling
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear", ignore_value=ignore_value)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="bilinear", ignore_value=ignore_value
+    )
     resized_data = resize_op(data_map)
 
     # Verify shape
-    assert resized_data.shape == target_size, (
-        f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
-    )
+    assert (
+        resized_data.shape == target_size
+    ), f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
 
     # Verify all pixels remain close to ignore values
-    all_close_to_ignore = (torch.abs(resized_data - ignore_value) < ResizeMaps.TOLERANCE).all().item()
+    all_close_to_ignore = (
+        (torch.abs(resized_data - ignore_value) < ResizeMaps.TOLERANCE).all().item()
+    )
     assert all_close_to_ignore, (
         f"All pixels should remain close to ignore value ({ignore_value} ±{ResizeMaps.TOLERANCE}). "
         f"Found range: [{resized_data.min():.6f}, {resized_data.max():.6f}]"
@@ -386,31 +421,39 @@ def test_resize_maps_no_ignore_values_present() -> None:
     target_size = (4, 4)
 
     # Create data with NO ignore values (all valid)
-    data_map = torch.rand(original_size, dtype=torch.float32) * 10.0 + 1.0  # Range [1, 11]
+    data_map = (
+        torch.rand(original_size, dtype=torch.float32) * 10.0 + 1.0
+    )  # Range [1, 11]
 
     # Verify no ignore values are present
-    has_ignore = (torch.abs(data_map - ignore_value) < ResizeMaps.TOLERANCE).any().item()
+    has_ignore = (
+        (torch.abs(data_map - ignore_value) < ResizeMaps.TOLERANCE).any().item()
+    )
     assert not has_ignore, "Test data should not contain ignore values"
 
     # Apply ResizeMaps with ignore value specified (but not present in data)
-    resize_op = ResizeMaps(size=target_size, interpolation="bilinear", ignore_value=ignore_value)
+    resize_op = ResizeMaps(
+        size=target_size, interpolation="bilinear", ignore_value=ignore_value
+    )
     resized_data = resize_op(data_map)
 
     # Verify shape
-    assert resized_data.shape == target_size, (
-        f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
-    )
+    assert (
+        resized_data.shape == target_size
+    ), f"Unexpected resized shape: {resized_data.shape}, expected {target_size}."
 
     # Verify all values remain in valid range
-    assert resized_data.min() >= 1.0, (
-        f"Resized values below expected range: min={resized_data.min():.3f}"
-    )
-    assert resized_data.max() <= 11.0, (
-        f"Resized values above expected range: max={resized_data.max():.3f}"
-    )
+    assert (
+        resized_data.min() >= 1.0
+    ), f"Resized values below expected range: min={resized_data.min():.3f}"
+    assert (
+        resized_data.max() <= 11.0
+    ), f"Resized values above expected range: max={resized_data.max():.3f}"
 
     # Should not have any ignore values in output
-    has_ignore_output = (torch.abs(resized_data - ignore_value) < ResizeMaps.TOLERANCE).any().item()
-    assert not has_ignore_output, (
-        f"Output should not contain ignore values when none were present in input"
+    has_ignore_output = (
+        (torch.abs(resized_data - ignore_value) < ResizeMaps.TOLERANCE).any().item()
     )
+    assert (
+        not has_ignore_output
+    ), f"Output should not contain ignore values when none were present in input"

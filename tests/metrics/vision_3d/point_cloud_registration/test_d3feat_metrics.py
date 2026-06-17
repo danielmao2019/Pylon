@@ -1,12 +1,13 @@
 """Tests for D3Feat metrics."""
 
-
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
 from metrics.vision_3d.point_cloud_registration.d3feat_metrics import (
-    D3FeatAccuracyMetric, D3FeatIoUMetric, D3FeatDescriptorMetric
+    D3FeatAccuracyMetric,
+    D3FeatDescriptorMetric,
+    D3FeatIoUMetric,
 )
 
 
@@ -25,7 +26,7 @@ def test_d3feat_accuracy_metric():
     datapoint = {
         'outputs': {'predictions': y_pred},
         'labels': {'targets': y_true},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Compute score
@@ -56,7 +57,7 @@ def test_d3feat_iou_metric():
     datapoint = {
         'outputs': {'predictions': y_pred},
         'labels': {'targets': y_true},
-        'meta_info': {'idx': 0}
+        'meta_info': {'idx': 0},
     }
 
     # Compute score
@@ -89,23 +90,17 @@ def test_d3feat_descriptor_metric():
     descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
 
     # Simulated correspondences
-    correspondences = torch.randint(0, num_points//2, (num_correspondences, 2))
+    correspondences = torch.randint(0, num_points // 2, (num_correspondences, 2))
 
     y_pred = {
         'descriptors': descriptors,
-        'scores': torch.sigmoid(torch.randn(num_points, 1))
+        'scores': torch.sigmoid(torch.randn(num_points, 1)),
     }
 
-    y_true = {
-        'correspondences': correspondences
-    }
+    y_true = {'correspondences': correspondences}
 
     # Create datapoint in expected format
-    datapoint = {
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': 0}
-    }
+    datapoint = {'outputs': y_pred, 'labels': y_true, 'meta_info': {'idx': 0}}
 
     # Compute scores
     scores = metric(datapoint)
@@ -127,8 +122,8 @@ def test_d3feat_descriptor_metric():
     # Test DIRECTIONS
     assert hasattr(metric, 'DIRECTIONS')
     assert metric.DIRECTIONS['desc_matching_accuracy'] == 1  # Higher is better
-    assert metric.DIRECTIONS['feature_match_recall'] == 1    # Higher is better
-    assert metric.DIRECTIONS['desc_distance'] == -1         # Lower is better
+    assert metric.DIRECTIONS['feature_match_recall'] == 1  # Higher is better
+    assert metric.DIRECTIONS['desc_distance'] == -1  # Lower is better
 
 
 def test_d3feat_descriptor_metric_empty_correspondences():
@@ -144,19 +139,13 @@ def test_d3feat_descriptor_metric_empty_correspondences():
 
     y_pred = {
         'descriptors': descriptors,
-        'scores': torch.sigmoid(torch.randn(num_points, 1))
+        'scores': torch.sigmoid(torch.randn(num_points, 1)),
     }
 
-    y_true = {
-        'correspondences': correspondences
-    }
+    y_true = {'correspondences': correspondences}
 
     # Create datapoint in expected format
-    datapoint = {
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': 0}
-    }
+    datapoint = {'outputs': y_pred, 'labels': y_true, 'meta_info': {'idx': 0}}
 
     # Should handle empty correspondences gracefully
     scores = metric(datapoint)
@@ -178,23 +167,17 @@ def test_d3feat_metrics_gradient_flow():
     descriptors = torch.randn(num_points, feature_dim, requires_grad=True)
     descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
     descriptors.retain_grad()  # Retain gradient for non-leaf tensor
-    correspondences = torch.randint(0, num_points//2, (num_correspondences, 2))
+    correspondences = torch.randint(0, num_points // 2, (num_correspondences, 2))
 
     y_pred = {
         'descriptors': descriptors,
-        'scores': torch.sigmoid(torch.randn(num_points, 1))
+        'scores': torch.sigmoid(torch.randn(num_points, 1)),
     }
 
-    y_true = {
-        'correspondences': correspondences
-    }
+    y_true = {'correspondences': correspondences}
 
     # Create datapoint in expected format
-    datapoint = {
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': 0}
-    }
+    datapoint = {'outputs': y_pred, 'labels': y_true, 'meta_info': {'idx': 0}}
 
     # Compute scores
     scores = metric(datapoint)
@@ -218,17 +201,13 @@ def test_d3feat_metrics_device_consistency():
     num_correspondences = 5
 
     descriptors = torch.randn(num_points, feature_dim)
-    correspondences = torch.randint(0, num_points//2, (num_correspondences, 2))
+    correspondences = torch.randint(0, num_points // 2, (num_correspondences, 2))
 
     y_pred = {'descriptors': descriptors, 'scores': torch.randn(num_points, 1)}
     y_true = {'correspondences': correspondences}
 
     # Create datapoint in expected format
-    datapoint = {
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': 0}
-    }
+    datapoint = {'outputs': y_pred, 'labels': y_true, 'meta_info': {'idx': 0}}
 
     scores_cpu = metric(datapoint)
 

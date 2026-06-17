@@ -5,7 +5,9 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 import dash
 from dash.dependencies import Input, Output, State
 
-from data.viewer.dataset.callbacks.three_d_settings_helpers import _build_3d_settings_payload
+from data.viewer.dataset.callbacks.three_d_settings_helpers import (
+    _build_3d_settings_payload,
+)
 from data.viewer.utils.debounce import debounce
 
 if TYPE_CHECKING:

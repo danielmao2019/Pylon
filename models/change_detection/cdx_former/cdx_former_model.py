@@ -1,7 +1,9 @@
 from typing import Dict
+
 import torch
-from models.change_detection.cdx_former.modules.sea_former import SeaFormer_L
+
 from models.change_detection.cdx_former.modules.cdx_lstm import CDXLSTM
+from models.change_detection.cdx_former.modules.sea_former import SeaFormer_L
 
 
 class CDXFormer(torch.nn.Module):
@@ -15,7 +17,9 @@ class CDXFormer(torch.nn.Module):
         self.decoder = CDXLSTM([64, 128, 192, 256])
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-        return self.decoder([
-            self.encoder(inputs['img_1']),
-            self.encoder(inputs['img_2']),
-        ])
+        return self.decoder(
+            [
+                self.encoder(inputs['img_1']),
+                self.encoder(inputs['img_2']),
+            ]
+        )

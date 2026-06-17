@@ -1,6 +1,9 @@
 import torch.nn as nn
 
-from models.point_cloud_registration.geotransformer.factory import build_act_layer, build_dropout_layer
+from models.point_cloud_registration.geotransformer.factory import (
+    build_act_layer,
+    build_dropout_layer,
+)
 
 
 class AttentionOutput(nn.Module):

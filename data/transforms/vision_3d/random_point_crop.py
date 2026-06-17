@@ -1,9 +1,11 @@
-from typing import Optional, Union, Sequence
+from typing import Optional, Sequence, Union
+
 import numpy as np
 import torch
-from data.transforms.base_transform import BaseTransform
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
+from data.transforms.base_transform import BaseTransform
 
 
 class RandomPointCrop(BaseTransform):
@@ -16,7 +18,14 @@ class RandomPointCrop(BaseTransform):
     - Creates more irregular cropping patterns than plane-based cropping
     """
 
-    def __init__(self, keep_ratio: float = 0.7, viewpoint: Optional[Union[Sequence[Union[int, float]], np.ndarray, torch.Tensor]] = None, limit: float = 500.0):
+    def __init__(
+        self,
+        keep_ratio: float = 0.7,
+        viewpoint: Optional[
+            Union[Sequence[Union[int, float]], np.ndarray, torch.Tensor]
+        ] = None,
+        limit: float = 500.0,
+    ):
         """Initialize RandomPointCrop transform.
 
         Args:
@@ -24,9 +33,15 @@ class RandomPointCrop(BaseTransform):
             viewpoint: Optional fixed viewpoint (3,). If None, random viewpoint is generated.
             limit: Distance limit for random viewpoint generation
         """
-        assert isinstance(keep_ratio, (int, float)), f"keep_ratio must be numeric, got {type(keep_ratio)}"
-        assert 0.0 < keep_ratio <= 1.0, f"keep_ratio must be in (0, 1], got {keep_ratio}"
-        assert isinstance(limit, (int, float)), f"limit must be numeric, got {type(limit)}"
+        assert isinstance(
+            keep_ratio, (int, float)
+        ), f"keep_ratio must be numeric, got {type(keep_ratio)}"
+        assert (
+            0.0 < keep_ratio <= 1.0
+        ), f"keep_ratio must be in (0, 1], got {keep_ratio}"
+        assert isinstance(
+            limit, (int, float)
+        ), f"limit must be numeric, got {type(limit)}"
         assert limit > 0, f"limit must be positive, got {limit}"
 
         self.keep_ratio = float(keep_ratio)
@@ -41,15 +56,17 @@ class RandomPointCrop(BaseTransform):
             elif isinstance(viewpoint, torch.Tensor):
                 viewpoint = viewpoint.float()
             else:
-                raise TypeError(f"viewpoint must be Sequence, np.ndarray, or torch.Tensor, got {type(viewpoint)}")
+                raise TypeError(
+                    f"viewpoint must be Sequence, np.ndarray, or torch.Tensor, got {type(viewpoint)}"
+                )
 
-            assert viewpoint.shape == (3,), f"viewpoint must have shape (3,), got {viewpoint.shape}"
+            assert viewpoint.shape == (
+                3,
+            ), f"viewpoint must have shape (3,), got {viewpoint.shape}"
 
         self.viewpoint = viewpoint
 
-    def _call_single(
-        self, pc: PointCloud, generator: torch.Generator
-    ) -> PointCloud:
+    def _call_single(self, pc: PointCloud, generator: torch.Generator) -> PointCloud:
         """Apply random point-based cropping to point cloud.
 
         Args:
@@ -63,10 +80,14 @@ class RandomPointCrop(BaseTransform):
 
         positions = pc.xyz  # Shape: (N, 3)
         num_points = positions.shape[0]
-        num_samples = int(torch.floor(torch.tensor(num_points * self.keep_ratio + 0.5)).item())
+        num_samples = int(
+            torch.floor(torch.tensor(num_points * self.keep_ratio + 0.5)).item()
+        )
 
         # Assert generator and positions are on same device type
-        assert positions.device.type == generator.device.type, f"positions device type {positions.device.type} != generator device type {generator.device.type}"
+        assert (
+            positions.device.type == generator.device.type
+        ), f"positions device type {positions.device.type} != generator device type {generator.device.type}"
 
         # Generate or use provided viewpoint
         if self.viewpoint is None:
@@ -109,7 +130,11 @@ class RandomPointCrop(BaseTransform):
         signs = torch.where(random_values > 0.5, 1.0, -1.0)
 
         # Create viewpoint following GeoTransformer formula
-        limit_tensor = torch.tensor([self.limit, self.limit, self.limit], device=generator.device, dtype=torch.float32)
+        limit_tensor = torch.tensor(
+            [self.limit, self.limit, self.limit],
+            device=generator.device,
+            dtype=torch.float32,
+        )
         viewpoint = random_offset + limit_tensor * signs
 
         return viewpoint

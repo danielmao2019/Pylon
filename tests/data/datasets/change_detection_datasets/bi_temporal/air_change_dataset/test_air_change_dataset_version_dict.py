@@ -25,7 +25,10 @@ def test_air_change_dataset_has_version_dict_method():
 
     # Should return Dict[str, Any]
     return_annotation = signature.return_annotation
-    assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    assert (
+        return_annotation == Dict[str, Any]
+        or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    )
 
 
 def test_air_change_dataset_version_dict_functionality(air_change_dataset_train_config):
@@ -51,7 +54,9 @@ def test_air_change_dataset_version_dict_functionality(air_change_dataset_train_
     assert 'train_crop_size' in version_dict
 
     # Verify values match class constants
-    assert version_dict['train_crops_per_image'] == AirChangeDataset.TRAIN_CROPS_PER_IMAGE
+    assert (
+        version_dict['train_crops_per_image'] == AirChangeDataset.TRAIN_CROPS_PER_IMAGE
+    )
     assert version_dict['image_size'] == AirChangeDataset.IMAGE_SIZE
     assert version_dict['test_crop_size'] == AirChangeDataset.TEST_CROP_SIZE
     assert version_dict['train_crop_size'] == AirChangeDataset.TRAIN_CROP_SIZE

@@ -1,10 +1,11 @@
 from typing import List, Optional
+
 import numpy
 import torch
 
-from ._base_ import GradientManipulationBaseOptimizer
 import utils
 
+from ._base_ import GradientManipulationBaseOptimizer
 
 NUMERICAL_STABILITY = 1.0e-05
 
@@ -23,10 +24,16 @@ class NashMTLOptimizer(GradientManipulationBaseOptimizer):
     def _init_problem_(self):
         # import here to avoid dependency
         import cvxpy as cp
+
         # define variables
         self.alpha_var = cp.Variable(shape=(self.num_tasks,), nonneg=True)
-        self.alpha = cp.Parameter(shape=(self.num_tasks,), value=numpy.ones(self.num_tasks, dtype=numpy.float32))
-        self.gtg = cp.Parameter(shape=(self.num_tasks, self.num_tasks), value=numpy.eye(self.num_tasks))
+        self.alpha = cp.Parameter(
+            shape=(self.num_tasks,),
+            value=numpy.ones(self.num_tasks, dtype=numpy.float32),
+        )
+        self.gtg = cp.Parameter(
+            shape=(self.num_tasks, self.num_tasks), value=numpy.eye(self.num_tasks)
+        )
         # define constraints
         beta_var = self.gtg @ self.alpha_var
         phi_var = cp.log(self.alpha_var) + cp.log(beta_var)
@@ -47,7 +54,13 @@ class NashMTLOptimizer(GradientManipulationBaseOptimizer):
     def _stopping_criterion_(self):
         return (
             (self.alpha_var.value is None)
-            or (numpy.linalg.norm(self.gtg.value @ self.alpha_var.value - 1 / (self.alpha_var.value + 1e-10)) < 1e-3)
+            or (
+                numpy.linalg.norm(
+                    self.gtg.value @ self.alpha_var.value
+                    - 1 / (self.alpha_var.value + 1e-10)
+                )
+                < 1e-3
+            )
             or (numpy.linalg.norm(self.alpha_var.value - self.alpha.value) < 1e-6)
         )
 
@@ -78,7 +91,9 @@ class NashMTLOptimizer(GradientManipulationBaseOptimizer):
             result (torch.Tensor): the 1D manipulated gradient tensor.
         """
         # input checks
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         # compute weights
         gtg = utils.gradients.get_gram_matrix(grads_list)
         self.gtg.value = gtg.detach().cpu().numpy()
@@ -86,5 +101,7 @@ class NashMTLOptimizer(GradientManipulationBaseOptimizer):
         # normalize
         self.alpha.value /= self.alpha.value.sum()
         # re-weigh gradients
-        result = sum([grads_list[i] * self.alpha.value[i] for i in range(self.num_tasks)])
+        result = sum(
+            [grads_list[i] * self.alpha.value[i] for i in range(self.num_tasks)]
+        )
         return result

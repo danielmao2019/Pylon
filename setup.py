@@ -1,11 +1,23 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="pylon",
     description="A deep learning framework for 3D vision tasks",
     author="Daniel",
-    packages=find_packages(include=["agents*", "criteria*", "data*", "metrics*", "models*",
-                                  "optimizers*", "project*", "runners*", "schedulers*", "utils*"]),
+    packages=find_packages(
+        include=[
+            "agents*",
+            "criteria*",
+            "data*",
+            "metrics*",
+            "models*",
+            "optimizers*",
+            "project*",
+            "runners*",
+            "schedulers*",
+            "utils*",
+        ]
+    ),
     python_requires=">=3.8",
     install_requires=[
         "torch>=2.0.0",

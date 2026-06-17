@@ -1,15 +1,16 @@
 """Real integration tests for eval_viewer using actual trainer and evaluator result files."""
 
-import pytest
 import os
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 
+import pytest
+
 from runners.viewers.eval_viewer.backend.initialization import (
-    initialize_log_dirs,
+    LogDirInfo,
     extract_log_dir_info,
-    LogDirInfo
+    initialize_log_dirs,
 )
 
 
@@ -21,13 +22,23 @@ def real_trainer_log_dir():
     trainer_dir = "./logs/tests/runners/eval_viewer/trainer_integration_test_run_0"
     if not os.path.exists(trainer_dir):
         # Generate test data by running the trainer config
-        result = subprocess.run([
-            "python", "main.py",
-            "--config-filepath", "configs/tests/runners/eval_viewer/trainer_integration_test_run_0.py"
-        ], capture_output=True, text=True)
+        result = subprocess.run(
+            [
+                "python",
+                "main.py",
+                "--config-filepath",
+                "configs/tests/runners/eval_viewer/trainer_integration_test_run_0.py",
+            ],
+            capture_output=True,
+            text=True,
+        )
 
-        assert result.returncode == 0, f"Failed to generate trainer test data: {result.stderr}"
-        assert os.path.exists(trainer_dir), f"Trainer log directory not created: {trainer_dir}"
+        assert (
+            result.returncode == 0
+        ), f"Failed to generate trainer test data: {result.stderr}"
+        assert os.path.exists(
+            trainer_dir
+        ), f"Trainer log directory not created: {trainer_dir}"
 
     return trainer_dir
 
@@ -40,13 +51,23 @@ def real_evaluator_log_dir():
     evaluator_dir = "./logs/tests/runners/eval_viewer/evaluator_integration_test_run_0"
     if not os.path.exists(evaluator_dir):
         # Generate test data by running the evaluator config
-        result = subprocess.run([
-            "python", "main.py",
-            "--config-filepath", "configs/tests/runners/eval_viewer/evaluator_integration_test_run_0.py"
-        ], capture_output=True, text=True)
+        result = subprocess.run(
+            [
+                "python",
+                "main.py",
+                "--config-filepath",
+                "configs/tests/runners/eval_viewer/evaluator_integration_test_run_0.py",
+            ],
+            capture_output=True,
+            text=True,
+        )
 
-        assert result.returncode == 0, f"Failed to generate evaluator test data: {result.stderr}"
-        assert os.path.exists(evaluator_dir), f"Evaluator log directory not created: {evaluator_dir}"
+        assert (
+            result.returncode == 0
+        ), f"Failed to generate evaluator test data: {result.stderr}"
+        assert os.path.exists(
+            evaluator_dir
+        ), f"Evaluator log directory not created: {evaluator_dir}"
 
     return evaluator_dir
 
@@ -64,7 +85,9 @@ def test_real_trainer_workflow_integration(real_trainer_log_dir):
     assert log_dir_info.num_epochs == 3  # From our trainer config
 
     # Verify metrics were extracted from real files
-    assert log_dir_info.metric_names == ['score']  # Single metric from PyTorchMetricWrapper
+    assert log_dir_info.metric_names == [
+        'score'
+    ]  # Single metric from PyTorchMetricWrapper
     assert log_dir_info.num_datapoints == 16  # From our dataset config
 
     # Verify score processing with real data
@@ -73,11 +96,14 @@ def test_real_trainer_workflow_integration(real_trainer_log_dir):
 
     # Verify data quality - scores should be positive and realistic
     assert (log_dir_info.aggregated_scores >= 0).all()
-    assert (log_dir_info.aggregated_scores < 1.0).all()  # MSE scores should be reasonable
+    assert (
+        log_dir_info.aggregated_scores < 1.0
+    ).all()  # MSE scores should be reasonable
 
     # Verify per-datapoint scores are properly gridded
     # First 16 positions should have real values, rest should be NaN
     import numpy as np
+
     score_map_flat = log_dir_info.score_map[0, 0].flatten()  # First epoch, first metric
     assert not any(np.isnan(score_map_flat[:16]))  # First 16 should be valid
     assert all(np.isnan(score_map_flat[16:]))  # Rest should be NaN
@@ -104,7 +130,11 @@ def test_real_evaluator_workflow_integration(real_evaluator_log_dir):
     assert log_dir_info.num_datapoints == 16
 
     # Verify evaluator-specific data shapes (no epoch dimension)
-    assert log_dir_info.score_map.shape == (1, 4, 4)  # 1 metric, 4x4 grid (no epoch dim)
+    assert log_dir_info.score_map.shape == (
+        1,
+        4,
+        4,
+    )  # 1 metric, 4x4 grid (no epoch dim)
     assert log_dir_info.aggregated_scores.shape == (1,)  # 1 metric (no epoch dim)
 
     # Verify data quality with real evaluation scores
@@ -120,7 +150,15 @@ def test_mixed_real_runs_integration(real_trainer_log_dir, real_evaluator_log_di
     # Test complete initialization workflow with real mixed runs using actual config files
     log_dirs = [trainer_log_dir, evaluator_log_dir]
     result = initialize_log_dirs(log_dirs, force_reload=True)
-    max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, color_scales = result
+    (
+        max_epochs,
+        metric_names,
+        num_datapoints,
+        dataset_cfg,
+        dataset_type,
+        log_dir_infos,
+        color_scales,
+    ) = result
 
     # Verify integrated initialization worked with real data
     assert len(log_dir_infos) == 2
@@ -172,8 +210,11 @@ def test_real_cache_integration_workflow(real_trainer_log_dir):
 
     # Verify that complex real data structures are cached correctly
     import numpy as np
+
     np.testing.assert_array_equal(log_dir_info1.score_map, log_dir_info2.score_map)
-    np.testing.assert_array_equal(log_dir_info1.aggregated_scores, log_dir_info2.aggregated_scores)
+    np.testing.assert_array_equal(
+        log_dir_info1.aggregated_scores, log_dir_info2.aggregated_scores
+    )
 
 
 def test_real_error_propagation_integration(real_trainer_log_dir):
@@ -188,10 +229,14 @@ def test_real_error_propagation_integration(real_trainer_log_dir):
         shutil.copytree(real_trainer_log_dir, temp_log_dir)
 
         # Create corresponding config directory structure and copy config
-        config_dir = os.path.join(temp_dir, "configs", "tests", "runners", "eval_viewer")
+        config_dir = os.path.join(
+            temp_dir, "configs", "tests", "runners", "eval_viewer"
+        )
         os.makedirs(config_dir, exist_ok=True)
-        shutil.copy2("configs/tests/runners/eval_viewer/trainer_integration_test_run_0.py",
-                    os.path.join(config_dir, "corrupted_trainer_run_0.py"))
+        shutil.copy2(
+            "configs/tests/runners/eval_viewer/trainer_integration_test_run_0.py",
+            os.path.join(config_dir, "corrupted_trainer_run_0.py"),
+        )
 
         # Corrupt one of the real score files
         corrupt_file = os.path.join(temp_log_dir, "epoch_1", "validation_scores.json")
@@ -204,21 +249,30 @@ def test_real_error_propagation_integration(real_trainer_log_dir):
             os.chdir(temp_dir)
             # Should fail fast and loud with real error (following CLAUDE.md philosophy)
             with pytest.raises(json.JSONDecodeError):
-                extract_log_dir_info("./logs/tests/runners/eval_viewer/corrupted_trainer_run_0", force_reload=True)
+                extract_log_dir_info(
+                    "./logs/tests/runners/eval_viewer/corrupted_trainer_run_0",
+                    force_reload=True,
+                )
         finally:
             os.chdir(original_cwd)
 
 
-def test_real_callback_data_flow_integration(real_trainer_log_dir, real_evaluator_log_dir):
+def test_real_callback_data_flow_integration(
+    real_trainer_log_dir, real_evaluator_log_dir
+):
     """Test that real data flows correctly from backend to callback functions."""
-    from runners.viewers.eval_viewer.callbacks.update_plots import create_aggregated_scores_plot
+    from runners.viewers.eval_viewer.callbacks.update_plots import (
+        create_aggregated_scores_plot,
+    )
 
     # Extract real data from both runs using actual config files
     trainer_info = extract_log_dir_info(real_trainer_log_dir, force_reload=True)
     evaluator_info = extract_log_dir_info(real_evaluator_log_dir, force_reload=True)
 
     # Create epoch scores from real data
-    trainer_epochs = trainer_info.aggregated_scores[:, 0]  # All epochs for 'score' metric
+    trainer_epochs = trainer_info.aggregated_scores[
+        :, 0
+    ]  # All epochs for 'score' metric
     evaluator_single = evaluator_info.aggregated_scores  # Single evaluation result
 
     epoch_scores = [trainer_epochs, evaluator_single]
@@ -227,9 +281,7 @@ def test_real_callback_data_flow_integration(real_trainer_log_dir, real_evaluato
 
     # Test that callback can handle real mixed data from backend integration
     fig = create_aggregated_scores_plot(
-        epoch_scores=epoch_scores,
-        log_dirs=log_dirs,
-        metric_name=metric_name
+        epoch_scores=epoch_scores, log_dirs=log_dirs, metric_name=metric_name
     )
 
     # Verify integration between real backend data and callback visualization
@@ -245,6 +297,7 @@ def test_real_callback_data_flow_integration(real_trainer_log_dir, real_evaluato
 
     # Verify data values are from real results (not mocked)
     import numpy as np
+
     np.testing.assert_array_equal(trainer_trace.y, trainer_epochs)
     np.testing.assert_array_equal(evaluator_trace.y, evaluator_single)
 
@@ -252,6 +305,7 @@ def test_real_callback_data_flow_integration(real_trainer_log_dir, real_evaluato
 def test_performance_with_real_data_integration(real_trainer_log_dir):
     """Test performance characteristics with real data processing."""
     import time
+
     import numpy as np
 
     # Measure performance of real data processing using actual config files

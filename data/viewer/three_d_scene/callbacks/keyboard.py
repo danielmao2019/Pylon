@@ -14,9 +14,7 @@ if TYPE_CHECKING:
     from data.viewer.three_d_scene.three_d_scene_viewer import ThreeDSceneViewer
 
 
-def register_keyboard_callbacks(
-    app: dash.Dash, viewer: "ThreeDSceneViewer"
-) -> None:
+def register_keyboard_callbacks(app: dash.Dash, viewer: "ThreeDSceneViewer") -> None:
     """Handle keyboard navigation and movement."""
     # Input validations
     assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"

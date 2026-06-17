@@ -1,7 +1,10 @@
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from criteria.vision_2d.dense_prediction.dense_regression.depth_estimation import DepthEstimationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_regression.depth_estimation import (
+    DepthEstimationCriterion,
+)
 
 
 def test_depth_estimation_basic():

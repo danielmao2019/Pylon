@@ -1,7 +1,9 @@
-from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict
+
 import pytest
 import torch
-from concurrent.futures import ThreadPoolExecutor
+
 from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
 from utils.builders.builder import build_from_config
 
@@ -22,23 +24,32 @@ def validate_labels(labels: Dict[str, Any]) -> None:
     assert type(semantic_map) == torch.Tensor, f"{type(semantic_map)=}"
     assert semantic_map.ndim == 2, f"{semantic_map.shape=}"
     assert semantic_map.dtype == torch.int64, f"{semantic_map.dtype=}"
-    assert set(torch.unique(semantic_map).tolist()).issubset({0, 1}), f"{torch.unique(semantic_map)=}"
+    assert set(torch.unique(semantic_map).tolist()).issubset(
+        {0, 1}
+    ), f"{torch.unique(semantic_map)=}"
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert (
+        'idx' in meta_info
+    ), f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert (
+        meta_info['idx'] == datapoint_idx
+    ), f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
 def test_whu_bd_sha1sum(whu_bd_data_root) -> None:
     _ = WHU_BD_Dataset(
-        data_root=whu_bd_data_root, split='train',
+        data_root=whu_bd_data_root,
+        split='train',
         check_sha1sum=True,
     )
 
 
-@pytest.mark.parametrize('whu_bd_dataset_config', ['train', 'val', 'test'], indirect=True)
+@pytest.mark.parametrize(
+    'whu_bd_dataset_config', ['train', 'val', 'test'], indirect=True
+)
 def test_whu_bd_dataset(whu_bd_dataset_config, max_samples, get_samples_to_test):
     dataset = build_from_config(whu_bd_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)

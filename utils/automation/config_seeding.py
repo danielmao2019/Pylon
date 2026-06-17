@@ -3,8 +3,9 @@ New seeding utilities that work with config dictionaries directly instead of str
 This replaces the old string-based approach in utils.automation.configs.
 """
 
-from typing import Dict, List, Any, Optional, Union
 import random
+from typing import Any, Dict, List, Optional, Union
+
 from utils.automation.config_to_file import dict_to_config_file
 from utils.builders.builder import semideepcopy
 

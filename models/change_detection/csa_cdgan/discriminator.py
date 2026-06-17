@@ -26,17 +26,17 @@ class CSA_CDGAN_Discriminator(torch.nn.Module):
                 torch.nn.LeakyReLU(0.2, inplace=True),
             )
         self.e2 = torch.nn.Sequential(
-            torch.nn.Conv2d(ndf, ndf*2, 4, 2, 1, bias=False),
-            torch.nn.BatchNorm2d(ndf*2),
+            torch.nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            torch.nn.BatchNorm2d(ndf * 2),
             torch.nn.LeakyReLU(0.2, inplace=True),
         )
         self.e3 = torch.nn.Sequential(
-            torch.nn.Conv2d(ndf*2, ndf*4, 4, 2, 1, bias=False),
-            torch.nn.BatchNorm2d(ndf*4),
+            torch.nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            torch.nn.BatchNorm2d(ndf * 4),
             torch.nn.LeakyReLU(0.2, inplace=True),
         )
         self.toplayer = torch.nn.Sequential(
-            torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False),
+            torch.nn.Conv2d(ndf * 4, nz, 3, 1, 1, bias=False),
             torch.nn.Sigmoid(),
         )
         self.avgpool = torch.torch.nn.AdaptiveAvgPool2d(output_size=1)
@@ -48,5 +48,5 @@ class CSA_CDGAN_Discriminator(torch.nn.Module):
         x = self.e3(x)
         x = self.toplayer(x)
         x = self.avgpool(x)
-        x = x.view(-1,1).squeeze(1)
+        x = x.view(-1, 1).squeeze(1)
         return x

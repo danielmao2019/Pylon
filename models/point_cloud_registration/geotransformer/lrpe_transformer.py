@@ -13,14 +13,18 @@ from einops import rearrange
 
 from models.point_cloud_registration.geotransformer.factory import build_dropout_layer
 from models.point_cloud_registration.geotransformer.output_layer import AttentionOutput
-from models.point_cloud_registration.geotransformer.positional_embedding import LearnablePositionalEmbedding
+from models.point_cloud_registration.geotransformer.positional_embedding import (
+    LearnablePositionalEmbedding,
+)
 
 
 class LRPEMultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, num_embeddings, dropout=None):
         super(LRPEMultiHeadAttention, self).__init__()
         if d_model % num_heads != 0:
-            raise ValueError(f'"d_model" ({d_model}) is not divisible by "num_heads" ({num_heads}).')
+            raise ValueError(
+                f'"d_model" ({d_model}) is not divisible by "num_heads" ({num_heads}).'
+            )
 
         self.d_model = d_model
         self.num_heads = num_heads
@@ -31,7 +35,9 @@ class LRPEMultiHeadAttention(nn.Module):
         self.proj_k = nn.Linear(self.d_model, self.d_model)
         self.proj_v = nn.Linear(self.d_model, self.d_model)
 
-        self.embedding = LearnablePositionalEmbedding(num_embeddings, d_model, dropout=dropout)
+        self.embedding = LearnablePositionalEmbedding(
+            num_embeddings, d_model, dropout=dropout
+        )
 
         self.dropout = build_dropout_layer(dropout)
 
@@ -42,10 +48,16 @@ class LRPEMultiHeadAttention(nn.Module):
 
     def get_embeddings(self, q, emb_indices):
         emb_all_indices = torch.arange(self.num_embeddings).cuda()  # (P,)
-        emb_bank = rearrange(self.embedding(emb_all_indices), 'p (h c) -> h p c', h=self.num_heads)
+        emb_bank = rearrange(
+            self.embedding(emb_all_indices), 'p (h c) -> h p c', h=self.num_heads
+        )
         attention_scores = torch.einsum('bhnc,hpc->bhnp', q, emb_bank)
-        emb_indices = emb_indices.unsqueeze(1).expand(-1, self.num_heads, -1, -1)  # (B, N, M) -> (B, H, N, M)
-        attention_scores = torch.gather(attention_scores, dim=-1, index=emb_indices)  # (B, H, N, P) -> (B, H, N, M)
+        emb_indices = emb_indices.unsqueeze(1).expand(
+            -1, self.num_heads, -1, -1
+        )  # (B, N, M) -> (B, H, N, M)
+        attention_scores = torch.gather(
+            attention_scores, dim=-1, index=emb_indices
+        )  # (B, H, N, P) -> (B, H, N, M)
         return attention_scores
 
     def forward(
@@ -78,11 +90,15 @@ class LRPEMultiHeadAttention(nn.Module):
         attention_scores_p = self.get_embedding_attention(q, emb_indices_qk)
 
         attention_scores_e = torch.einsum('bhnc,bhmc->bhnm', q, k)
-        attention_scores = (attention_scores_e + attention_scores_p) / self.d_model_per_head ** 0.5
+        attention_scores = (
+            attention_scores_e + attention_scores_p
+        ) / self.d_model_per_head**0.5
         if attention_factors is not None:
             attention_scores = attention_factors.unsqueeze(1) * attention_scores
         if key_masks is not None:
-            attention_scores = attention_scores.masked_fill(key_masks.unsqueeze(1).unsqueeze(1), float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                key_masks.unsqueeze(1).unsqueeze(1), float('-inf')
+            )
         attention_scores = F.softmax(attention_scores, dim=-1)
         attention_scores = self.dropout(attention_scores)
 
@@ -96,7 +112,9 @@ class LRPEMultiHeadAttention(nn.Module):
 class LRPEAttentionLayer(nn.Module):
     def __init__(self, d_model, num_heads, rpe_size, dropout=None):
         super(LRPEAttentionLayer, self).__init__()
-        self.attention = LRPEMultiHeadAttention(d_model, num_heads, rpe_size, dropout=dropout)
+        self.attention = LRPEMultiHeadAttention(
+            d_model, num_heads, rpe_size, dropout=dropout
+        )
         self.linear = nn.Linear(d_model, d_model)
         self.dropout = build_dropout_layer(dropout)
         self.norm = nn.LayerNorm(d_model)
@@ -124,10 +142,16 @@ class LRPEAttentionLayer(nn.Module):
 
 
 class LRPETransformerLayer(nn.Module):
-    def __init__(self, d_model, num_heads, rpe_size, dropout=None, activation_fn='ReLU'):
+    def __init__(
+        self, d_model, num_heads, rpe_size, dropout=None, activation_fn='ReLU'
+    ):
         super(LRPETransformerLayer, self).__init__()
-        self.attention = LRPEAttentionLayer(d_model, num_heads, rpe_size, dropout=dropout)
-        self.output = AttentionOutput(d_model, dropout=dropout, activation_fn=activation_fn)
+        self.attention = LRPEAttentionLayer(
+            d_model, num_heads, rpe_size, dropout=dropout
+        )
+        self.output = AttentionOutput(
+            d_model, dropout=dropout, activation_fn=activation_fn
+        )
 
     def forward(
         self,

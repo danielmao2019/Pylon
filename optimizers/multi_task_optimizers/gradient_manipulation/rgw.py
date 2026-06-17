@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 import torch
 
 from ._base_ import GradientManipulationBaseOptimizer
@@ -21,11 +22,18 @@ class RGWOptimizer(GradientManipulationBaseOptimizer):
             result (torch.Tensor): the 1D manipulated gradient tensor.
         """
         # input checks
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         # compute result
-        weights_list: torch.Tensor = torch.nn.Softmax(dim=0)(torch.normal(mean=0, std=1, size=(self.num_tasks,)))
+        weights_list: torch.Tensor = torch.nn.Softmax(dim=0)(
+            torch.normal(mean=0, std=1, size=(self.num_tasks,))
+        )
         weights_list: List[float] = weights_list.tolist()
-        result = sum([
-            weight * grad for (weight, grad) in zip(weights_list, grads_list, strict=True)
-        ])
+        result = sum(
+            [
+                weight * grad
+                for (weight, grad) in zip(weights_list, grads_list, strict=True)
+            ]
+        )
         return result

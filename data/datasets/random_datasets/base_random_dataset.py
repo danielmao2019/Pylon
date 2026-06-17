@@ -1,5 +1,7 @@
-from typing import Tuple, List, Dict, Callable, Any, Union, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import torch
+
 from data.datasets.base_dataset import BaseDataset
 
 
@@ -24,7 +26,9 @@ class BaseRandomDataset(BaseDataset):
         # init transform
         super(BaseRandomDataset, self).__init__(**kwargs)
 
-    def _init_gen_func_config_(self, config: Dict[str, Dict[str, Tuple[Callable, dict]]]) -> None:
+    def _init_gen_func_config_(
+        self, config: Dict[str, Dict[str, Tuple[Callable, dict]]]
+    ) -> None:
         assert isinstance(config, dict), f"{type(config)=}"
         assert set(config.keys()) == set(['inputs', 'labels']), f"{config.keys()=}"
         self.INPUT_NAMES = list(config['inputs'].keys())
@@ -32,10 +36,16 @@ class BaseRandomDataset(BaseDataset):
         for key1 in config:
             assert isinstance(config[key1], dict), f"{type(config[key1])=}"
             for key2 in config[key1]:
-                assert isinstance(config[key1][key2], tuple), f"{type(config[key1][key2])=}"
+                assert isinstance(
+                    config[key1][key2], tuple
+                ), f"{type(config[key1][key2])=}"
                 assert len(config[key1][key2]) == 2, f"{len(config[key1][key2])=}"
-                assert callable(config[key1][key2][0]), f"{type(config[key1][key2][0])=}"
-                assert isinstance(config[key1][key2][1], dict), f"{type(config[key1][key2][1])=}"
+                assert callable(
+                    config[key1][key2][0]
+                ), f"{type(config[key1][key2][0])=}"
+                assert isinstance(
+                    config[key1][key2][1], dict
+                ), f"{type(config[key1][key2][1])=}"
         self.gen_func_config = config
 
     def _init_annotations_all_splits(self) -> None:
@@ -48,18 +58,24 @@ class BaseRandomDataset(BaseDataset):
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'num_examples': self.num_examples,
-            'gen_func_config': str(self.gen_func_config),  # Convert to string for hashing
-            'base_seed': self.base_seed,
-        })
+        version_dict.update(
+            {
+                'num_examples': self.num_examples,
+                'gen_func_config': str(
+                    self.gen_func_config
+                ),  # Convert to string for hashing
+                'base_seed': self.base_seed,
+            }
+        )
         return version_dict
 
     def __len__(self) -> int:
         return self.num_examples
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         # Create generator locally to avoid pickle issues with multiprocessing
         generator = torch.Generator()
@@ -67,13 +83,16 @@ class BaseRandomDataset(BaseDataset):
         generator.manual_seed(seed)
 
         # Always create tensors on CPU - BaseDataset handles device transfer
-        inputs, labels = tuple({
-            key2: self.gen_func_config[key1][key2][0](
-                **self.gen_func_config[key1][key2][1],
-                generator=generator,
-            )
-            for key2 in self.gen_func_config[key1]
-        } for key1 in ['inputs', 'labels'])
+        inputs, labels = tuple(
+            {
+                key2: self.gen_func_config[key1][key2][0](
+                    **self.gen_func_config[key1][key2][1],
+                    generator=generator,
+                )
+                for key2 in self.gen_func_config[key1]
+            }
+            for key1 in ['inputs', 'labels']
+        )
 
         meta_info = {'seed': seed}
         return inputs, labels, meta_info
@@ -83,7 +102,7 @@ class BaseRandomDataset(BaseDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Minimal display_datapoint implementation for random datasets.
 

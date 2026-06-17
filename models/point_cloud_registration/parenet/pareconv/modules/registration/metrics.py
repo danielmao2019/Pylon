@@ -1,11 +1,17 @@
 import numpy as np
 import torch
 
-from ..ops import apply_transform, pairwise_distance, get_rotation_translation_from_transform
 from ...utils.registration import compute_transform_mse_and_mae
+from ..ops import (
+    apply_transform,
+    get_rotation_translation_from_transform,
+    pairwise_distance,
+)
 
 
-def modified_chamfer_distance(raw_points, ref_points, src_points, gt_transform, transform, reduction='mean'):
+def modified_chamfer_distance(
+    raw_points, ref_points, src_points, gt_transform, transform, reduction='mean'
+):
     r"""Compute the modified chamfer distance.
 
     Args:
@@ -23,14 +29,22 @@ def modified_chamfer_distance(raw_points, ref_points, src_points, gt_transform, 
 
     # P_t -> Q_raw
     aligned_src_points = apply_transform(src_points, transform)  # (B, N_src, 3)
-    sq_dist_mat_p_q = pairwise_distance(aligned_src_points, raw_points)  # (B, N_src, N_raw)
+    sq_dist_mat_p_q = pairwise_distance(
+        aligned_src_points, raw_points
+    )  # (B, N_src, N_raw)
     nn_sq_distances_p_q = sq_dist_mat_p_q.min(dim=-1)[0]  # (B, N_src)
     chamfer_distance_p_q = torch.sqrt(nn_sq_distances_p_q).mean(dim=-1)  # (B)
 
     # Q -> P_raw
-    composed_transform = torch.matmul(transform, torch.inverse(gt_transform))  # (B, 4, 4)
-    aligned_raw_points = apply_transform(raw_points, composed_transform)  # (B, N_raw, 3)
-    sq_dist_mat_q_p = pairwise_distance(ref_points, aligned_raw_points)  # (B, N_ref, N_raw)
+    composed_transform = torch.matmul(
+        transform, torch.inverse(gt_transform)
+    )  # (B, 4, 4)
+    aligned_raw_points = apply_transform(
+        raw_points, composed_transform
+    )  # (B, N_raw, 3)
+    sq_dist_mat_q_p = pairwise_distance(
+        ref_points, aligned_raw_points
+    )  # (B, N_ref, N_raw)
     nn_sq_distances_q_p = sq_dist_mat_q_p.min(dim=-1)[0]  # (B, N_ref)
     chamfer_distance_q_p = torch.sqrt(nn_sq_distances_q_p).mean(dim=-1)  # (B)
 
@@ -95,7 +109,9 @@ def isotropic_transform_error(gt_transforms, transforms, reduction='mean'):
     """
     assert reduction in ['mean', 'sum', 'none']
 
-    gt_rotations, gt_translations = get_rotation_translation_from_transform(gt_transforms)
+    gt_rotations, gt_translations = get_rotation_translation_from_transform(
+        gt_transforms
+    )
     rotations, translations = get_rotation_translation_from_transform(transforms)
 
     rre = relative_rotation_error(gt_rotations, rotations)  # (*)
@@ -138,7 +154,9 @@ def anisotropic_transform_error(gt_transforms, transforms, reduction='mean'):
     all_t_mse = []
     all_t_mae = []
     for i in range(batch_size):
-        r_mse, r_mae, t_mse, t_mae = compute_transform_mse_and_mae(gt_transforms_array[i], transforms_array[i])
+        r_mse, r_mae, t_mse, t_mae = compute_transform_mse_and_mae(
+            gt_transforms_array[i], transforms_array[i]
+        )
         all_r_mse.append(r_mse)
         all_r_mae.append(r_mae)
         all_t_mse.append(t_mse)

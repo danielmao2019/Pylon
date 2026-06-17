@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from models.change_detection.rfl_cdnet.rfl_cdnet import RFL_CDNet
 
 
@@ -21,6 +22,9 @@ def test_rfl_cdnet_forward_pass(input_size):
         output = model(inputs)
 
     # Verify output shape
-    assert output.shape == (batch_size, 2, *input_size), \
-        f"Expected output shape (batch_size, 2, {input_size}), got {output.shape}"
+    assert output.shape == (
+        batch_size,
+        2,
+        *input_size,
+    ), f"Expected output shape (batch_size, 2, {input_size}), got {output.shape}"
     assert not torch.isnan(output).any(), "Output contains NaNs"

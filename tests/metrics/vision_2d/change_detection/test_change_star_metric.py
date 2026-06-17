@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.vision_2d.change_detection.change_star_metric import ChangeStarMetric
 
 
@@ -9,42 +10,75 @@ def create_datapoint(y_pred, y_true, idx=0):
         'inputs': {},  # Empty for these tests
         'outputs': y_pred,
         'labels': y_true,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
-@pytest.mark.parametrize("y_pred, y_true", [
-    (
-        {
-            'change': torch.tensor([[
-                [[0.9], [0.1]],
-                [[0.2], [0.8]],
-            ]], dtype=torch.float32),  # [1, 1, 2, 2]
-            'semantic_1': torch.tensor([[
-                [[0.9, 0.1], [0.2, 0.8]],
-                [[0.3, 0.7], [0.6, 0.4]],
-            ]], dtype=torch.float32),  # [1, 2, 2, 2]
-            'semantic_2': torch.tensor([[
-                [[0.8, 0.2], [0.1, 0.9]],
-                [[0.4, 0.6], [0.7, 0.3]],
-            ]], dtype=torch.float32),  # [1, 2, 2, 2]
-        },
-        {
-            'change': torch.tensor([[
-                [1, 0],
-                [0, 1],
-            ]], dtype=torch.int64),  # [1, 2, 2]
-            'semantic_1': torch.tensor([[
-                [1, 0],
-                [0, 1],
-            ]], dtype=torch.int64),  # [1, 2, 2]
-            'semantic_2': torch.tensor([[
-                [1, 0],
-                [0, 1],
-            ]], dtype=torch.int64),  # [1, 2, 2]
-        },
-    ),
-])
+@pytest.mark.parametrize(
+    "y_pred, y_true",
+    [
+        (
+            {
+                'change': torch.tensor(
+                    [
+                        [
+                            [[0.9], [0.1]],
+                            [[0.2], [0.8]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),  # [1, 1, 2, 2]
+                'semantic_1': torch.tensor(
+                    [
+                        [
+                            [[0.9, 0.1], [0.2, 0.8]],
+                            [[0.3, 0.7], [0.6, 0.4]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),  # [1, 2, 2, 2]
+                'semantic_2': torch.tensor(
+                    [
+                        [
+                            [[0.8, 0.2], [0.1, 0.9]],
+                            [[0.4, 0.6], [0.7, 0.3]],
+                        ]
+                    ],
+                    dtype=torch.float32,
+                ),  # [1, 2, 2, 2]
+            },
+            {
+                'change': torch.tensor(
+                    [
+                        [
+                            [1, 0],
+                            [0, 1],
+                        ]
+                    ],
+                    dtype=torch.int64,
+                ),  # [1, 2, 2]
+                'semantic_1': torch.tensor(
+                    [
+                        [
+                            [1, 0],
+                            [0, 1],
+                        ]
+                    ],
+                    dtype=torch.int64,
+                ),  # [1, 2, 2]
+                'semantic_2': torch.tensor(
+                    [
+                        [
+                            [1, 0],
+                            [0, 1],
+                        ]
+                    ],
+                    dtype=torch.int64,
+                ),  # [1, 2, 2]
+            },
+        ),
+    ],
+)
 def test_change_star_metric_call(y_pred, y_true):
     """Tests change star metric computation for a single datapoint."""
     metric = ChangeStarMetric()
@@ -57,10 +91,20 @@ def test_change_star_metric_call(y_pred, y_true):
 
     # Check each category has the expected metrics
     expected_keys = {
-        'class_IoU', 'mean_IoU',
-        'class_tp', 'class_tn', 'class_fp', 'class_fn',
-        'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
-        'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
+        'class_IoU',
+        'mean_IoU',
+        'class_tp',
+        'class_tn',
+        'class_fp',
+        'class_fn',
+        'class_accuracy',
+        'class_precision',
+        'class_recall',
+        'class_f1',
+        'accuracy',
+        'mean_precision',
+        'mean_recall',
+        'mean_f1',
     }
     for category in expected_categories:
         assert score[category].keys() == expected_keys
@@ -68,70 +112,133 @@ def test_change_star_metric_call(y_pred, y_true):
             assert isinstance(score[category][key], torch.Tensor)
 
 
-@pytest.mark.parametrize("y_preds, y_trues", [
-    (
-        [
-            {
-                'change': torch.tensor([[
-                    [[0.9], [0.1]],
-                    [[0.2], [0.8]],
-                ]], dtype=torch.float32),  # [1, 1, 2, 2]
-                'semantic_1': torch.tensor([[
-                    [[0.9, 0.1], [0.2, 0.8]],
-                    [[0.3, 0.7], [0.6, 0.4]],
-                ]], dtype=torch.float32),  # [1, 2, 2, 2]
-                'semantic_2': torch.tensor([[
-                    [[0.8, 0.2], [0.1, 0.9]],
-                    [[0.4, 0.6], [0.7, 0.3]],
-                ]], dtype=torch.float32),  # [1, 2, 2, 2]
-            },
-            {
-                'change': torch.tensor([[
-                    [[0.8], [0.2]],
-                    [[0.3], [0.7]],
-                ]], dtype=torch.float32),  # [1, 1, 2, 2]
-                'semantic_1': torch.tensor([[
-                    [[0.8, 0.2], [0.3, 0.7]],
-                    [[0.4, 0.6], [0.5, 0.5]],
-                ]], dtype=torch.float32),  # [1, 2, 2, 2]
-                'semantic_2': torch.tensor([[
-                    [[0.7, 0.3], [0.2, 0.8]],
-                    [[0.5, 0.5], [0.6, 0.4]],
-                ]], dtype=torch.float32),  # [1, 2, 2, 2]
-            },
-        ],
-        [
-            {
-                'change': torch.tensor([[
-                    [1, 0],
-                    [0, 1],
-                ]], dtype=torch.int64),  # [1, 2, 2]
-                'semantic_1': torch.tensor([[
-                    [1, 0],
-                    [0, 1],
-                ]], dtype=torch.int64),  # [1, 2, 2]
-                'semantic_2': torch.tensor([[
-                    [1, 0],
-                    [0, 1],
-                ]], dtype=torch.int64),  # [1, 2, 2]
-            },
-            {
-                'change': torch.tensor([[
-                    [1, 0],
-                    [0, 1],
-                ]], dtype=torch.int64),  # [1, 2, 2]
-                'semantic_1': torch.tensor([[
-                    [1, 0],
-                    [0, 1],
-                ]], dtype=torch.int64),  # [1, 2, 2]
-                'semantic_2': torch.tensor([[
-                    [1, 0],
-                    [0, 1],
-                ]], dtype=torch.int64),  # [1, 2, 2]
-            },
-        ],
-    ),
-])
+@pytest.mark.parametrize(
+    "y_preds, y_trues",
+    [
+        (
+            [
+                {
+                    'change': torch.tensor(
+                        [
+                            [
+                                [[0.9], [0.1]],
+                                [[0.2], [0.8]],
+                            ]
+                        ],
+                        dtype=torch.float32,
+                    ),  # [1, 1, 2, 2]
+                    'semantic_1': torch.tensor(
+                        [
+                            [
+                                [[0.9, 0.1], [0.2, 0.8]],
+                                [[0.3, 0.7], [0.6, 0.4]],
+                            ]
+                        ],
+                        dtype=torch.float32,
+                    ),  # [1, 2, 2, 2]
+                    'semantic_2': torch.tensor(
+                        [
+                            [
+                                [[0.8, 0.2], [0.1, 0.9]],
+                                [[0.4, 0.6], [0.7, 0.3]],
+                            ]
+                        ],
+                        dtype=torch.float32,
+                    ),  # [1, 2, 2, 2]
+                },
+                {
+                    'change': torch.tensor(
+                        [
+                            [
+                                [[0.8], [0.2]],
+                                [[0.3], [0.7]],
+                            ]
+                        ],
+                        dtype=torch.float32,
+                    ),  # [1, 1, 2, 2]
+                    'semantic_1': torch.tensor(
+                        [
+                            [
+                                [[0.8, 0.2], [0.3, 0.7]],
+                                [[0.4, 0.6], [0.5, 0.5]],
+                            ]
+                        ],
+                        dtype=torch.float32,
+                    ),  # [1, 2, 2, 2]
+                    'semantic_2': torch.tensor(
+                        [
+                            [
+                                [[0.7, 0.3], [0.2, 0.8]],
+                                [[0.5, 0.5], [0.6, 0.4]],
+                            ]
+                        ],
+                        dtype=torch.float32,
+                    ),  # [1, 2, 2, 2]
+                },
+            ],
+            [
+                {
+                    'change': torch.tensor(
+                        [
+                            [
+                                [1, 0],
+                                [0, 1],
+                            ]
+                        ],
+                        dtype=torch.int64,
+                    ),  # [1, 2, 2]
+                    'semantic_1': torch.tensor(
+                        [
+                            [
+                                [1, 0],
+                                [0, 1],
+                            ]
+                        ],
+                        dtype=torch.int64,
+                    ),  # [1, 2, 2]
+                    'semantic_2': torch.tensor(
+                        [
+                            [
+                                [1, 0],
+                                [0, 1],
+                            ]
+                        ],
+                        dtype=torch.int64,
+                    ),  # [1, 2, 2]
+                },
+                {
+                    'change': torch.tensor(
+                        [
+                            [
+                                [1, 0],
+                                [0, 1],
+                            ]
+                        ],
+                        dtype=torch.int64,
+                    ),  # [1, 2, 2]
+                    'semantic_1': torch.tensor(
+                        [
+                            [
+                                [1, 0],
+                                [0, 1],
+                            ]
+                        ],
+                        dtype=torch.int64,
+                    ),  # [1, 2, 2]
+                    'semantic_2': torch.tensor(
+                        [
+                            [
+                                [1, 0],
+                                [0, 1],
+                            ]
+                        ],
+                        dtype=torch.int64,
+                    ),  # [1, 2, 2]
+                },
+            ],
+        ),
+    ],
+)
 def test_change_star_metric_summarize(y_preds, y_trues):
     """Tests change star metric summarization across multiple datapoints."""
     metric = ChangeStarMetric()
@@ -148,10 +255,20 @@ def test_change_star_metric_summarize(y_preds, y_trues):
     assert result.keys() == {'aggregated', 'per_datapoint'}
     expected_categories = {'change', 'semantic_1', 'semantic_2'}
     expected_keys = {
-        'class_IoU', 'mean_IoU',
-        'class_tp', 'class_tn', 'class_fp', 'class_fn',
-        'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
-        'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
+        'class_IoU',
+        'mean_IoU',
+        'class_tp',
+        'class_tn',
+        'class_fp',
+        'class_fn',
+        'class_accuracy',
+        'class_precision',
+        'class_recall',
+        'class_f1',
+        'accuracy',
+        'mean_precision',
+        'mean_recall',
+        'mean_f1',
     }
     for category in expected_categories:
         assert result['aggregated'][category].keys() == expected_keys

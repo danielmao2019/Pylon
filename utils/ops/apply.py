@@ -1,5 +1,6 @@
-from typing import Any, Callable, Dict, List, Optional, Union
 import copy
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import torch
 
 
@@ -33,9 +34,7 @@ def _apply_tensor_func(
         return func(inputs, **func_kwargs)
     if isinstance(inputs, tuple):
         return tuple(
-            _apply_tensor_func(
-                func=func, func_kwargs=func_kwargs, inputs=tuple_elem
-            )
+            _apply_tensor_func(func=func, func_kwargs=func_kwargs, inputs=tuple_elem)
             for tuple_elem in inputs
         )
     if isinstance(inputs, list):

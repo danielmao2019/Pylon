@@ -1,7 +1,9 @@
-"""Implementation largely based on https://github.com/facebookresearch/detectron2/blob/main/detectron2/evaluation/coco_evaluation.py.
-"""
-from typing import Tuple, List, Dict
+"""Implementation largely based on https://github.com/facebookresearch/detectron2/blob/main/detectron2/evaluation/coco_evaluation.py."""
+
+from typing import Dict, List, Tuple
+
 import torch
+
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file
 from utils.io.json import save_json
@@ -27,7 +29,9 @@ class ObjectDetectionMetric(SingleTaskMetric):
     def __init__(self, areas: List[str], limits: List[int]):
         super(ObjectDetectionMetric, self).__init__()
         self.areas = areas
-        assert set(areas).issubset(self.AREA_RANGES.keys()), f"Unknown area ranges: {set(areas) - set(self.AREA_RANGES.keys())}"
+        assert set(areas).issubset(
+            self.AREA_RANGES.keys()
+        ), f"Unknown area ranges: {set(areas) - set(self.AREA_RANGES.keys())}"
         self.limits = limits
         self.thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
 
@@ -41,9 +45,13 @@ class ObjectDetectionMetric(SingleTaskMetric):
     ) -> torch.Tensor:
         # initialization
         assert type(pred_bboxes) == torch.Tensor, f"{type(pred_bboxes)=}"
-        assert len(pred_bboxes.shape) == 2 and pred_bboxes.shape[1] == 4, f"{pred_bboxes.shape=}"
+        assert (
+            len(pred_bboxes.shape) == 2 and pred_bboxes.shape[1] == 4
+        ), f"{pred_bboxes.shape=}"
         assert type(gt_bboxes) == torch.Tensor, f"{type(gt_bboxes)=}"
-        assert len(gt_bboxes.shape) == 2 and gt_bboxes.shape[1] == 4, f"{gt_bboxes.shape=}"
+        assert (
+            len(gt_bboxes.shape) == 2 and gt_bboxes.shape[1] == 4
+        ), f"{gt_bboxes.shape=}"
         assert type(gt_areas) == torch.Tensor, f"{type(gt_areas)=}"
         assert len(gt_areas.shape) == 1 and len(gt_areas) == len(gt_bboxes)
         # filter ground truth bounding boxes based on given area range
@@ -53,7 +61,10 @@ class ObjectDetectionMetric(SingleTaskMetric):
         pred_bboxes = pred_bboxes[:limit]
         # compute score
         overlaps = pairwise_iou(pred_bboxes, gt_bboxes)
-        assert overlaps.shape == (len(pred_bboxes), len(gt_bboxes)), f"{overlaps.shape=}"
+        assert overlaps.shape == (
+            len(pred_bboxes),
+            len(gt_bboxes),
+        ), f"{overlaps.shape=}"
         assert torch.all(overlaps >= 0), f"{overlaps.min()=}, {overlaps.max()=}"
         result = torch.zeros(len(gt_bboxes))
         for j in range(min(len(pred_bboxes), len(gt_bboxes))):
@@ -73,9 +84,13 @@ class ObjectDetectionMetric(SingleTaskMetric):
         return result
 
     @staticmethod
-    def _compute_recalls(overlaps: torch.Tensor, thresholds: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_recalls(
+        overlaps: torch.Tensor, thresholds: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """Compute recalls at different thresholds for a single datapoint."""
-        recalls = torch.tensor([(overlaps >= t).type(torch.float32).mean() for t in thresholds])
+        recalls = torch.tensor(
+            [(overlaps >= t).type(torch.float32).mean() for t in thresholds]
+        )
         return {
             "AR": recalls.mean(),
             "recalls": recalls,
@@ -106,13 +121,23 @@ class ObjectDetectionMetric(SingleTaskMetric):
 
         # input checks
         assert type(y_pred) == dict, f"{type(y_pred)=}"
-        assert set(['labels', 'bboxes', 'objectness']).issubset(set(y_pred.keys())), f"{y_pred.keys()=}"
+        assert set(['labels', 'bboxes', 'objectness']).issubset(
+            set(y_pred.keys())
+        ), f"{y_pred.keys()=}"
         assert len(y_pred['labels'].shape) == 2, f"{y_pred['labels'].shape=}"
-        assert len(y_pred['bboxes'].shape) == 3 and y_pred['bboxes'].shape[2] == 4, f"{y_pred['bboxes'].shape=}"
+        assert (
+            len(y_pred['bboxes'].shape) == 3 and y_pred['bboxes'].shape[2] == 4
+        ), f"{y_pred['bboxes'].shape=}"
         assert len(y_pred['objectness'].shape) == 2, f"{y_pred['objectness'].shape=}"
-        assert y_pred['labels'].shape == y_pred['bboxes'].shape[:2] == y_pred['objectness'].shape
+        assert (
+            y_pred['labels'].shape
+            == y_pred['bboxes'].shape[:2]
+            == y_pred['objectness'].shape
+        )
         assert type(y_true) == dict, f"{type(y_true)=}"
-        assert set(['bboxes', 'areas']).issubset(set(y_true.keys())), f"{y_true.keys()=}"
+        assert set(['bboxes', 'areas']).issubset(
+            set(y_true.keys())
+        ), f"{y_true.keys()=}"
         assert type(y_true['bboxes']) == list, f"{type(y_true['bboxes'])=}"
         assert type(y_true['areas']) == list, f"{type(y_true['areas'])=}"
         # compute scores
@@ -130,8 +155,11 @@ class ObjectDetectionMetric(SingleTaskMetric):
                     key = f"gt_overlaps_{area}@{limit}"
                     # Compute overlaps
                     overlaps = self._call_with_area_limit_(
-                        pred_bboxes=pred_bboxes, gt_bboxes=gt_bboxes, gt_areas=gt_areas,
-                        area_range=self.AREA_RANGES[area], limit=limit,
+                        pred_bboxes=pred_bboxes,
+                        gt_bboxes=gt_bboxes,
+                        gt_areas=gt_areas,
+                        area_range=self.AREA_RANGES[area],
+                        limit=limit,
                     )
                     # Compute recalls
                     recalls_dict = self._compute_recalls(overlaps, self.thresholds)
@@ -160,7 +188,9 @@ class ObjectDetectionMetric(SingleTaskMetric):
             all_batch_items.extend(datapoint_scores)
 
         # Now transpose to group by metric keys
-        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(all_batch_items)
+        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(
+            all_batch_items
+        )
         buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
             key1: transpose_buffer(buffer[key1]) for key1 in buffer.keys()
         }
@@ -168,7 +198,9 @@ class ObjectDetectionMetric(SingleTaskMetric):
         # summarize scores
         result: Dict[str, Dict[str, Dict[str, torch.Tensor]]] = {
             "aggregated": {
-                key1: self._compute_recalls(torch.cat(buffer[key1]['per_bbox'], dim=0), self.thresholds)
+                key1: self._compute_recalls(
+                    torch.cat(buffer[key1]['per_bbox'], dim=0), self.thresholds
+                )
                 for key1 in buffer.keys()
             },
             "per_datapoint": {
@@ -176,7 +208,8 @@ class ObjectDetectionMetric(SingleTaskMetric):
                     key2: torch.stack(buffer[key1][key2], dim=0)
                     for key2 in buffer[key1].keys()
                     if key2 != 'per_bbox'
-                } for key1 in buffer.keys()
+                }
+                for key1 in buffer.keys()
             },
         }
 

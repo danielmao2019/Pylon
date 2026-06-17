@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
@@ -9,7 +10,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -22,7 +23,9 @@ def test_empty_metrics_config():
         HybridMetric(metrics_cfg=None)
 
 
-def test_no_key_overlap_assertion(sample_tensor, sample_target, dummy_metric, another_dummy_metric):
+def test_no_key_overlap_assertion(
+    sample_tensor, sample_target, dummy_metric, another_dummy_metric
+):
     """Test that the metric properly detects key overlaps."""
     # Create metrics with overlapping keys
     overlapping_metrics_cfg = [
@@ -30,14 +33,14 @@ def test_no_key_overlap_assertion(sample_tensor, sample_target, dummy_metric, an
             'class': dummy_metric.__class__,
             'args': {
                 'metric_name': 'same_name',
-            }
+            },
         },
         {
             'class': another_dummy_metric.__class__,
             'args': {
                 'metric_name': 'same_name',  # Same name - should cause overlap
-            }
-        }
+            },
+        },
     ]
 
     # This should raise an assertion error during initialization due to DIRECTIONS key overlap
@@ -48,13 +51,10 @@ def test_no_key_overlap_assertion(sample_tensor, sample_target, dummy_metric, an
 def test_invalid_metric_config():
     """Test that invalid metric configurations raise appropriate errors."""
     # Test with invalid class
-    with pytest.raises(Exception):  # Could be various exception types depending on build_from_config
-        invalid_cfg = [
-            {
-                'class': 'NotAClass',
-                'args': {}
-            }
-        ]
+    with pytest.raises(
+        Exception
+    ):  # Could be various exception types depending on build_from_config
+        invalid_cfg = [{'class': 'NotAClass', 'args': {}}]
         HybridMetric(metrics_cfg=invalid_cfg)
 
 
@@ -65,9 +65,7 @@ def test_metric_build_failure(dummy_metric):
         invalid_cfg = [
             {
                 'class': dummy_metric.__class__,
-                'args': {
-                    'invalid_arg': 'value'  # Missing required metric_name
-                }
+                'args': {'invalid_arg': 'value'},  # Missing required metric_name
             }
         ]
         # This should fail during metric creation
@@ -102,18 +100,12 @@ def test_complex_key_overlap_scenarios(dummy_metric, another_dummy_metric):
     """Test complex scenarios for key overlap detection."""
     # Test partial overlap with multiple metrics
     complex_overlapping_cfg = [
+        {'class': dummy_metric.__class__, 'args': {'metric_name': 'unique1'}},
+        {'class': another_dummy_metric.__class__, 'args': {'metric_name': 'shared'}},
         {
             'class': dummy_metric.__class__,
-            'args': {'metric_name': 'unique1'}
+            'args': {'metric_name': 'shared'},  # This creates overlap
         },
-        {
-            'class': another_dummy_metric.__class__,
-            'args': {'metric_name': 'shared'}
-        },
-        {
-            'class': dummy_metric.__class__,
-            'args': {'metric_name': 'shared'}  # This creates overlap
-        }
     ]
 
     # This should raise an assertion error during initialization due to DIRECTIONS key overlap

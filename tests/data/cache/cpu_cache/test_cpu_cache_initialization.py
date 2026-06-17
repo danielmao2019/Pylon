@@ -1,4 +1,5 @@
 import pytest
+
 from data.cache.cpu_dataset_cache import CPUDatasetCache
 
 
@@ -20,10 +21,13 @@ def test_custom_initialization():
     assert cache.enable_validation is False
 
 
-@pytest.mark.parametrize("invalid_percent,error_msg", [
-    (-1.0, "must be between 0 and 100"),
-    (101.0, "must be between 0 and 100"),
-])
+@pytest.mark.parametrize(
+    "invalid_percent,error_msg",
+    [
+        (-1.0, "must be between 0 and 100"),
+        (101.0, "must be between 0 and 100"),
+    ],
+)
 def test_invalid_initialization(invalid_percent, error_msg):
     """Test initialization with invalid parameters."""
     with pytest.raises(ValueError, match=error_msg):

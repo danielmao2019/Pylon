@@ -1,5 +1,7 @@
-from typing import Set, Optional
+from typing import Optional, Set
+
 import torch
+
 from models.multi_task_learning import MultiTaskBaseModel
 from models.multi_task_learning.heads.ppm_decoder import PyramidPoolingModule
 
@@ -31,11 +33,19 @@ class CityScapes_PSPNet(MultiTaskBaseModel):
         # initialize decoders
         decoders = torch.nn.ModuleDict()
         if "depth_estimation" in tasks:
-            decoders["depth_estimation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=1)
+            decoders["depth_estimation"] = PyramidPoolingModule(
+                in_channels=in_channels, num_classes=1
+            )
         if "semantic_segmentation" in tasks:
-            decoders["semantic_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=num_classes)
+            decoders["semantic_segmentation"] = PyramidPoolingModule(
+                in_channels=in_channels, num_classes=num_classes
+            )
         if "instance_segmentation" in tasks:
-            decoders["instance_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=2)
+            decoders["instance_segmentation"] = PyramidPoolingModule(
+                in_channels=in_channels, num_classes=2
+            )
         super(CityScapes_PSPNet, self).__init__(
-            decoders=decoders, attn_in=in_channels, **kwargs,
+            decoders=decoders,
+            attn_in=in_channels,
+            **kwargs,
         )

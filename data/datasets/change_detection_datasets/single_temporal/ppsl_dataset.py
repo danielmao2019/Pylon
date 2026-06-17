@@ -1,7 +1,9 @@
-from typing import Tuple, Dict, Any, Optional, List
 import random
+from typing import Any, Dict, List, Optional, Tuple
+
 import torch
 import torchvision
+
 from data.datasets import BaseSyntheticDataset
 from data.transforms.torchvision_wrapper import TorchvisionWrapper
 
@@ -17,28 +19,44 @@ class PPSLDataset(BaseSyntheticDataset):
 
     def __init__(self, **kwargs) -> None:
         super(PPSLDataset, self).__init__(**kwargs)
-        self.colorjit = TorchvisionWrapper(torchvision.transforms.ColorJitter, brightness=0.7, contrast=0.7, saturation=0.7, hue=0.2)
-        self.affine = TorchvisionWrapper(torchvision.transforms.RandomAffine, degrees=(-5, 5), scale=(1, 1.02), translate=(0.02, 0.02), shear=(-5, 5))
+        self.colorjit = TorchvisionWrapper(
+            torchvision.transforms.ColorJitter,
+            brightness=0.7,
+            contrast=0.7,
+            saturation=0.7,
+            hue=0.2,
+        )
+        self.affine = TorchvisionWrapper(
+            torchvision.transforms.RandomAffine,
+            degrees=(-5, 5),
+            scale=(1, 1.02),
+            translate=(0.02, 0.02),
+            shear=(-5, 5),
+        )
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
         # PPSLDataset uses ColorJitter and RandomAffine transforms
         # Note: The exact transform parameters are hardcoded in __init__
-        version_dict.update({
-            'colorjit_brightness': 0.7,
-            'colorjit_contrast': 0.7,
-            'colorjit_saturation': 0.7,
-            'colorjit_hue': 0.2,
-            'affine_degrees': (-5, 5),
-            'affine_scale': (1, 1.02),
-            'affine_translate': (0.02, 0.02),
-            'affine_shear': (-5, 5),
-        })
+        version_dict.update(
+            {
+                'colorjit_brightness': 0.7,
+                'colorjit_contrast': 0.7,
+                'colorjit_saturation': 0.7,
+                'colorjit_hue': 0.2,
+                'affine_degrees': (-5, 5),
+                'affine_scale': (1, 1.02),
+                'affine_translate': (0.02, 0.02),
+                'affine_shear': (-5, 5),
+            }
+        )
         return version_dict
 
     def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+        Dict[str, torch.Tensor],
+        Dict[str, torch.Tensor],
+        Dict[str, Any],
     ]:
         # Fetch the primary datapoint
         img_1 = self.source[idx]['inputs']['image']
@@ -48,7 +66,9 @@ class PPSLDataset(BaseSyntheticDataset):
         img_1 = self.colorjit(img_1, seed=(self.base_seed or 0) + idx)
 
         # Select a deterministic second datapoint using proper pseudo-random generation
-        rng = random.Random((self.base_seed or 0) + idx + 500)  # +500 to avoid collision with transforms
+        rng = random.Random(
+            (self.base_seed or 0) + idx + 500
+        )  # +500 to avoid collision with transforms
         idx_2 = rng.choice(range(len(self.source)))
         img_2 = self.source[idx_2]['inputs']['image']
         label_2 = self.source[idx_2]['labels']['semantic_map']
@@ -86,7 +106,7 @@ class PPSLDataset(BaseSyntheticDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Minimal display_datapoint implementation for synthetic datasets.
 

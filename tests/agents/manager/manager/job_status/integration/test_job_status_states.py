@@ -2,10 +2,10 @@
 Job status determination tests using BaseJob utility methods and Manager.populate logic.
 """
 
+import json
 import os
 import tempfile
 import time
-import json
 
 import pytest
 

@@ -151,5 +151,7 @@ def test_build_command_to_process_mapping_deduplicates_gpu_and_cpu_records():
         connected=True,
     )
 
-    with pytest.raises(AssertionError, match="Duplicate process PID '33333' detected on gpu_server"):
+    with pytest.raises(
+        AssertionError, match="Duplicate process PID '33333' detected on gpu_server"
+    ):
         Manager.build_command_to_process_mapping(connected_gpus, [cpu_status])

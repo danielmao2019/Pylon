@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import dash
 import torch
 
+from data.datasets.three_d_scene_dataset import ThreeD_Scene_Dataset
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.rotation.pitch_yaw import (
     matrix_to_pitch_yaw,
@@ -19,7 +20,6 @@ from data.viewer.three_d_scene.layout import (
     MODEL_STORE_CONTAINER_ID,
     build_layout,
 )
-from data.datasets.three_d_scene_dataset import ThreeD_Scene_Dataset
 from models.three_d.base import BaseSceneModel
 
 

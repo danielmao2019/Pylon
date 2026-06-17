@@ -3,20 +3,33 @@
 This module provides the BasePCRDataset class that inherits from BaseDataset
 and includes type-specific display methods for point cloud registration datasets.
 """
-from typing import Dict, Any, Optional, List, Tuple, Union
+
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
+import plotly.graph_objects as go
 import torch
 from dash import html
-import plotly.graph_objects as go
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.structures.three_d.point_cloud.ops import apply_transform
-from data.structures.three_d.point_cloud.ops.set_ops import pc_symmetric_difference
-from data.structures.three_d.point_cloud.ops.set_ops.symmetric_difference import _normalize_points
-from data.structures.three_d.point_cloud.ops.apply_transform import _normalize_transform
-from data.viewer.utils.displays.points.dash.core_points_display import create_point_cloud_display, get_point_cloud_display_stats, build_point_cloud_id
-from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
-from data.viewer.utils.structure_validation import validate_pcr_structure
+
 from data.datasets.base_dataset import BaseDataset
+from data.structures.three_d.point_cloud.ops import apply_transform
+from data.structures.three_d.point_cloud.ops.apply_transform import _normalize_transform
+from data.structures.three_d.point_cloud.ops.set_ops import pc_symmetric_difference
+from data.structures.three_d.point_cloud.ops.set_ops.symmetric_difference import (
+    _normalize_points,
+)
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.viewer.utils.display_utils import (
+    DisplayStyles,
+    ParallelFigureCreator,
+    create_figure_grid,
+)
+from data.viewer.utils.displays.points.dash.core_points_display import (
+    build_point_cloud_id,
+    create_point_cloud_display,
+    get_point_cloud_display_stats,
+)
+from data.viewer.utils.structure_validation import validate_pcr_structure
 
 
 class BasePCRDataset(BaseDataset):
@@ -73,9 +86,13 @@ class BasePCRDataset(BaseDataset):
         union_points = torch.cat([src_points_normalized, tgt_points_normalized], dim=0)
 
         # Create colors for union (red for source, blue for target)
-        src_colors = torch.zeros((len(src_points_normalized), 3), device=src_points_normalized.device)
+        src_colors = torch.zeros(
+            (len(src_points_normalized), 3), device=src_points_normalized.device
+        )
         src_colors[:, 0] = 1.0  # Red for source
-        tgt_colors = torch.zeros((len(tgt_points_normalized), 3), device=tgt_points_normalized.device)
+        tgt_colors = torch.zeros(
+            (len(tgt_points_normalized), 3), device=tgt_points_normalized.device
+        )
         tgt_colors[:, 2] = 1.0  # Blue for target
         union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
@@ -130,7 +147,9 @@ class BasePCRDataset(BaseDataset):
         tgt_points_normalized = _normalize_points(tgt_points)
 
         # Find points in symmetric difference
-        src_indices, tgt_indices = pc_symmetric_difference(src_points_normalized, tgt_points_normalized, radius)
+        src_indices, tgt_indices = pc_symmetric_difference(
+            src_points_normalized, tgt_points_normalized, radius
+        )
 
         if len(src_indices) > 0 or len(tgt_indices) > 0:
             # Extract points in symmetric difference
@@ -182,7 +201,12 @@ class BasePCRDataset(BaseDataset):
     def _compute_transform_info(transform: torch.Tensor) -> Dict[str, Any]:
         """Compute transform information including rotation angle and translation magnitude."""
         # Normalize transform to handle batched case
-        transform_normalized = _normalize_transform(transform, torch.Tensor, target_device=transform.device, target_dtype=transform.dtype)
+        transform_normalized = _normalize_transform(
+            transform,
+            torch.Tensor,
+            target_device=transform.device,
+            target_dtype=transform.dtype,
+        )
 
         # Compute rotation angle and translation magnitude
         rotation_matrix = transform_normalized[:3, :3]
@@ -204,50 +228,75 @@ class BasePCRDataset(BaseDataset):
         return {
             'transform_str': transform_str,
             'rotation_angle': rotation_angle,
-            'translation_magnitude': translation_magnitude
+            'translation_magnitude': translation_magnitude,
         }
 
     @staticmethod
     def _create_transform_info_section(transform_info: Dict[str, Any]) -> html.Div:
         """Create transform information section."""
-        return html.Div([
-            html.H4("Transform Information:"),
-            html.Pre(transform_info['transform_str']),
-            html.P(f"Rotation Angle: {transform_info['rotation_angle']:.2f} degrees"),
-            html.P(f"Translation Magnitude: {transform_info['translation_magnitude']:.4f}")
-        ], style={'margin-top': '20px'})
+        return html.Div(
+            [
+                html.H4("Transform Information:"),
+                html.Pre(transform_info['transform_str']),
+                html.P(
+                    f"Rotation Angle: {transform_info['rotation_angle']:.2f} degrees"
+                ),
+                html.P(
+                    f"Translation Magnitude: {transform_info['translation_magnitude']:.4f}"
+                ),
+            ],
+            style={'margin-top': '20px'},
+        )
 
     @staticmethod
-    def _create_statistics_section(src_stats_children: Any, tgt_stats_children: Any) -> html.Div:
+    def _create_statistics_section(
+        src_stats_children: Any, tgt_stats_children: Any
+    ) -> html.Div:
         """Create point cloud statistics section."""
-        return html.Div([
-            html.Div([
-                html.H4("Source Point Cloud Statistics:"),
-                html.Div(src_stats_children)
-            ], style=DisplayStyles.GRID_ITEM_48_MARGIN),
-
-            html.Div([
-                html.H4("Target Point Cloud Statistics:"),
-                html.Div(tgt_stats_children)
-            ], style=DisplayStyles.GRID_ITEM_48_NO_MARGIN)
-        ], style={'margin-top': '20px'})
+        return html.Div(
+            [
+                html.Div(
+                    [
+                        html.H4("Source Point Cloud Statistics:"),
+                        html.Div(src_stats_children),
+                    ],
+                    style=DisplayStyles.GRID_ITEM_48_MARGIN,
+                ),
+                html.Div(
+                    [
+                        html.H4("Target Point Cloud Statistics:"),
+                        html.Div(tgt_stats_children),
+                    ],
+                    style=DisplayStyles.GRID_ITEM_48_NO_MARGIN,
+                ),
+            ],
+            style={'margin-top': '20px'},
+        )
 
     @staticmethod
     def _create_correspondence_stats_section(correspondences: torch.Tensor) -> html.Div:
         """Create correspondence statistics section."""
         num_correspondences = correspondences.shape[0]
 
-        return html.Div([
-            html.H4("Correspondence Statistics:"),
-            html.Ul([
-                html.Li(f"Number of correspondences: {num_correspondences}")
-            ], style={'margin-left': '20px', 'margin-top': '5px'})
-        ], style={'margin-top': '20px'})
+        return html.Div(
+            [
+                html.H4("Correspondence Statistics:"),
+                html.Ul(
+                    [html.Li(f"Number of correspondences: {num_correspondences}")],
+                    style={'margin-left': '20px', 'margin-top': '5px'},
+                ),
+            ],
+            style={'margin-top': '20px'},
+        )
 
     @staticmethod
     def _format_value(key: str, value: Any) -> str:
         """Format a value for display based on key name and value type."""
-        if isinstance(value, list) and len(value) == 3 and all(isinstance(x, (int, float)) for x in value):
+        if (
+            isinstance(value, list)
+            and len(value) == 3
+            and all(isinstance(x, (int, float)) for x in value)
+        ):
             # Handle 3D vectors with context-specific formatting
             if 'angle' in key.lower():
                 return f"[{value[0]:.2f}°, {value[1]:.2f}°, {value[2]:.2f}°]"
@@ -264,7 +313,11 @@ class BasePCRDataset(BaseDataset):
         items = []
 
         if key_name:
-            items.append(html.H5(f"{key_name}:", style={'margin-top': '15px', 'margin-bottom': '5px'}))
+            items.append(
+                html.H5(
+                    f"{key_name}:", style={'margin-top': '15px', 'margin-bottom': '5px'}
+                )
+            )
 
         list_items = []
         for key, value in data.items():
@@ -277,13 +330,19 @@ class BasePCRDataset(BaseDataset):
 
                 # Special styling for overlap (important PCR metric)
                 if key == 'overlap':
-                    list_items.append(html.Li(f"{key}: {formatted_value}",
-                                            style={'font-weight': 'bold', 'color': '#2E86AB'}))
+                    list_items.append(
+                        html.Li(
+                            f"{key}: {formatted_value}",
+                            style={'font-weight': 'bold', 'color': '#2E86AB'},
+                        )
+                    )
                 else:
                     list_items.append(html.Li(f"{key}: {formatted_value}"))
 
         if list_items:
-            items.append(html.Ul(list_items, style={'margin-left': '20px', 'margin-top': '5px'}))
+            items.append(
+                html.Ul(list_items, style={'margin-left': '20px', 'margin-top': '5px'})
+            )
 
         return html.Div(items)
 
@@ -291,16 +350,22 @@ class BasePCRDataset(BaseDataset):
     def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
         """Create meta information section displaying dataset metadata."""
         if not meta_info:
-            return html.Div([
-                html.H4("Datapoint Meta Information:"),
-                html.P("No meta information available")
-            ], style={'margin-top': '20px'})
+            return html.Div(
+                [
+                    html.H4("Datapoint Meta Information:"),
+                    html.P("No meta information available"),
+                ],
+                style={'margin-top': '20px'},
+            )
 
         # Convert the entire meta_info dict to HTML lists
-        return html.Div([
-            html.H4("Datapoint Meta Information:"),
-            BasePCRDataset._dict_to_html_list(meta_info)
-        ], style={'margin-top': '20px'})
+        return html.Div(
+            [
+                html.H4("Datapoint Meta Information:"),
+                BasePCRDataset._dict_to_html_list(meta_info),
+            ],
+            style={'margin-top': '20px'},
+        )
 
     @staticmethod
     def create_correspondence_visualization(
@@ -344,12 +409,12 @@ class BasePCRDataset(BaseDataset):
         src_bounds = {
             'x': [src_points_np[:, 0].min(), src_points_np[:, 0].max()],
             'y': [src_points_np[:, 1].min(), src_points_np[:, 1].max()],
-            'z': [src_points_np[:, 2].min(), src_points_np[:, 2].max()]
+            'z': [src_points_np[:, 2].min(), src_points_np[:, 2].max()],
         }
         tgt_bounds = {
             'x': [tgt_points_np[:, 0].min(), tgt_points_np[:, 0].max()],
             'y': [tgt_points_np[:, 1].min(), tgt_points_np[:, 1].max()],
-            'z': [tgt_points_np[:, 2].min(), tgt_points_np[:, 2].max()]
+            'z': [tgt_points_np[:, 2].min(), tgt_points_np[:, 2].max()],
         }
 
         # Calculate offset to position target cloud to the right of source cloud
@@ -366,26 +431,30 @@ class BasePCRDataset(BaseDataset):
         fig = go.Figure()
 
         # Add source point cloud (left side)
-        fig.add_trace(go.Scatter3d(
-            x=src_points_np[:, 0],
-            y=src_points_np[:, 1],
-            z=src_points_np[:, 2],
-            mode='markers',
-            marker=dict(size=point_size, color='blue', opacity=point_opacity),
-            name='Source Points',
-            showlegend=True
-        ))
+        fig.add_trace(
+            go.Scatter3d(
+                x=src_points_np[:, 0],
+                y=src_points_np[:, 1],
+                z=src_points_np[:, 2],
+                mode='markers',
+                marker=dict(size=point_size, color='blue', opacity=point_opacity),
+                name='Source Points',
+                showlegend=True,
+            )
+        )
 
         # Add target point cloud (right side, offset)
-        fig.add_trace(go.Scatter3d(
-            x=tgt_points_offset[:, 0],
-            y=tgt_points_offset[:, 1],
-            z=tgt_points_offset[:, 2],
-            mode='markers',
-            marker=dict(size=point_size, color='red', opacity=point_opacity),
-            name='Target Points',
-            showlegend=True
-        ))
+        fig.add_trace(
+            go.Scatter3d(
+                x=tgt_points_offset[:, 0],
+                y=tgt_points_offset[:, 1],
+                z=tgt_points_offset[:, 2],
+                mode='markers',
+                marker=dict(size=point_size, color='red', opacity=point_opacity),
+                name='Target Points',
+                showlegend=True,
+            )
+        )
 
         # Highlight corresponding points with brighter colors and draw connection lines
         if len(correspondences_np) > 0:
@@ -393,7 +462,9 @@ class BasePCRDataset(BaseDataset):
             max_correspondences = 50
             if len(correspondences_np) > max_correspondences:
                 # Sample correspondences for visualization
-                sample_indices = np.random.choice(len(correspondences_np), max_correspondences, replace=False)
+                sample_indices = np.random.choice(
+                    len(correspondences_np), max_correspondences, replace=False
+                )
                 correspondences_display = correspondences_np[sample_indices]
             else:
                 correspondences_display = correspondences_np
@@ -406,40 +477,46 @@ class BasePCRDataset(BaseDataset):
             tgt_corr_points_offset = tgt_points_offset[tgt_corr_indices]
 
             # Add highlighted corresponding points
-            fig.add_trace(go.Scatter3d(
-                x=src_corr_points[:, 0],
-                y=src_corr_points[:, 1],
-                z=src_corr_points[:, 2],
-                mode='markers',
-                marker=dict(size=point_size*1.5, color='cyan', opacity=1.0),
-                name=f'Source Correspondences ({len(correspondences_display)})',
-                showlegend=True
-            ))
+            fig.add_trace(
+                go.Scatter3d(
+                    x=src_corr_points[:, 0],
+                    y=src_corr_points[:, 1],
+                    z=src_corr_points[:, 2],
+                    mode='markers',
+                    marker=dict(size=point_size * 1.5, color='cyan', opacity=1.0),
+                    name=f'Source Correspondences ({len(correspondences_display)})',
+                    showlegend=True,
+                )
+            )
 
-            fig.add_trace(go.Scatter3d(
-                x=tgt_corr_points_offset[:, 0],
-                y=tgt_corr_points_offset[:, 1],
-                z=tgt_corr_points_offset[:, 2],
-                mode='markers',
-                marker=dict(size=point_size*1.5, color='yellow', opacity=1.0),
-                name=f'Target Correspondences ({len(correspondences_display)})',
-                showlegend=True
-            ))
+            fig.add_trace(
+                go.Scatter3d(
+                    x=tgt_corr_points_offset[:, 0],
+                    y=tgt_corr_points_offset[:, 1],
+                    z=tgt_corr_points_offset[:, 2],
+                    mode='markers',
+                    marker=dict(size=point_size * 1.5, color='yellow', opacity=1.0),
+                    name=f'Target Correspondences ({len(correspondences_display)})',
+                    showlegend=True,
+                )
+            )
 
             # Add correspondence lines connecting the two sides
             for i in range(len(correspondences_display)):
                 src_point = src_corr_points[i]
                 tgt_point = tgt_corr_points_offset[i]
 
-                fig.add_trace(go.Scatter3d(
-                    x=[src_point[0], tgt_point[0]],
-                    y=[src_point[1], tgt_point[1]],
-                    z=[src_point[2], tgt_point[2]],
-                    mode='lines',
-                    line=dict(color='green', width=2, dash='dash'),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=[src_point[0], tgt_point[0]],
+                        y=[src_point[1], tgt_point[1]],
+                        z=[src_point[2], tgt_point[2]],
+                        mode='lines',
+                        line=dict(color='green', width=2, dash='dash'),
+                        showlegend=False,
+                        hoverinfo='skip',
+                    )
+                )
 
         # Update layout for proper 3D visualization
         fig.update_layout(
@@ -448,11 +525,11 @@ class BasePCRDataset(BaseDataset):
                 xaxis_title="X",
                 yaxis_title="Y",
                 zaxis_title="Z",
-                aspectmode='data'  # Maintain aspect ratio
+                aspectmode='data',  # Maintain aspect ratio
             ),
             showlegend=True,
             width=1000,  # Wider to accommodate side-by-side layout
-            height=600
+            height=600,
         )
 
         # Apply camera state if provided
@@ -466,7 +543,7 @@ class BasePCRDataset(BaseDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> html.Div:
         """Display a point cloud registration datapoint.
 
@@ -481,7 +558,9 @@ class BasePCRDataset(BaseDataset):
         """
         # Validate inputs
         assert datapoint is not None, "datapoint must not be None"
-        assert isinstance(datapoint, dict), f"datapoint must be dict, got {type(datapoint)}"
+        assert isinstance(
+            datapoint, dict
+        ), f"datapoint must be dict, got {type(datapoint)}"
 
         # Validate structure and inputs (includes all basic validation)
         validate_pcr_structure(datapoint)
@@ -489,10 +568,14 @@ class BasePCRDataset(BaseDataset):
         inputs = datapoint['inputs']
 
         src_pc = inputs['src_pc']
-        assert isinstance(src_pc, PointCloud), f"src_pc must be PointCloud, got {type(src_pc)}"
+        assert isinstance(
+            src_pc, PointCloud
+        ), f"src_pc must be PointCloud, got {type(src_pc)}"
 
         tgt_pc = inputs['tgt_pc']
-        assert isinstance(tgt_pc, PointCloud), f"tgt_pc must be PointCloud, got {type(tgt_pc)}"
+        assert isinstance(
+            tgt_pc, PointCloud
+        ), f"tgt_pc must be PointCloud, got {type(tgt_pc)}"
 
         # Extract visualization settings
         point_size = 2
@@ -503,12 +586,16 @@ class BasePCRDataset(BaseDataset):
 
         # Unpack 3D settings if provided
         if settings_3d is not None:
-            assert isinstance(settings_3d, dict), f"settings_3d must be dict, got {type(settings_3d)}"
+            assert isinstance(
+                settings_3d, dict
+            ), f"settings_3d must be dict, got {type(settings_3d)}"
             point_size = settings_3d.get('point_size', point_size)
             point_opacity = settings_3d.get('point_opacity', point_opacity)
             sym_diff_radius = settings_3d.get('sym_diff_radius', sym_diff_radius)
             lod_type = settings_3d.get('lod_type', lod_type)
-            density_percentage = settings_3d.get('density_percentage', density_percentage)
+            density_percentage = settings_3d.get(
+                'density_percentage', density_percentage
+            )
 
         # Extract point clouds
         src_xyz = src_pc.xyz  # Source point cloud
@@ -542,7 +629,7 @@ class BasePCRDataset(BaseDataset):
         unified_axis_ranges = {
             'x': (x_range_unified[0] - x_pad, x_range_unified[1] + x_pad),
             'y': (y_range_unified[0] - y_pad, y_range_unified[1] + y_pad),
-            'z': (z_range_unified[0] - z_pad, z_range_unified[1] + z_pad)
+            'z': (z_range_unified[0] - z_pad, z_range_unified[1] + z_pad),
         }
 
         # Define figure creation tasks
@@ -632,22 +719,30 @@ class BasePCRDataset(BaseDataset):
         tgt_stats_children = BasePCRDataset._dict_to_html_list(tgt_stats_dict)
 
         # Create layout using centralized utilities
-        grid_items = create_figure_grid(figures, width_style="50%", height_style="520px")
+        grid_items = create_figure_grid(
+            figures, width_style="50%", height_style="520px"
+        )
 
         # Build layout sections
         layout_sections = [
             html.H3("Point Cloud Registration Visualization"),
             html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
             BasePCRDataset._create_transform_info_section(transform_info),
-            BasePCRDataset._create_statistics_section(src_stats_children, tgt_stats_children)
+            BasePCRDataset._create_statistics_section(
+                src_stats_children, tgt_stats_children
+            ),
         ]
 
         # Add correspondence statistics if correspondences are available
         if 'correspondences' in inputs:
             correspondences = inputs['correspondences']
-            layout_sections.append(BasePCRDataset._create_correspondence_stats_section(correspondences))
+            layout_sections.append(
+                BasePCRDataset._create_correspondence_stats_section(correspondences)
+            )
 
         # Add meta info section last
-        layout_sections.append(BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {})))
+        layout_sections.append(
+            BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
+        )
 
         return html.Div(layout_sections)

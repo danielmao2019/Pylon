@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 from sklearn.metrics import confusion_matrix
 
 
@@ -10,7 +10,11 @@ def calculate_acc(predict, labels):
 
 def calculate_iou_single_shape(predict, labels, n_parts):
     pred_labels = torch.max(predict, dim=1)[1]
-    Confs = confusion_matrix(labels.detach().cpu().numpy(), pred_labels.detach().cpu().numpy(), labels=np.arange(n_parts))
+    Confs = confusion_matrix(
+        labels.detach().cpu().numpy(),
+        pred_labels.detach().cpu().numpy(),
+        labels=np.arange(n_parts),
+    )
 
     # Objects IoU
     IoUs = IoU_from_confusions(Confs)
@@ -21,7 +25,11 @@ def calculate_iou(predict, labels, stack_lengths, n_parts):
     start_ind = 0
     iou_list = []
     for length in stack_lengths:
-        iou = calculate_iou_single_shape(predict[start_ind:start_ind + length], labels[start_ind:start_ind + length], n_parts)
+        iou = calculate_iou_single_shape(
+            predict[start_ind : start_ind + length],
+            labels[start_ind : start_ind + length],
+            n_parts,
+        )
         iou_list.append(iou)
         start_ind += length
     iou_list = np.array(iou_list)

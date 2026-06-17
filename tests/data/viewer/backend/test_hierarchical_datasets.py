@@ -4,11 +4,11 @@ This module tests dataset grouping, hierarchical organization, and
 get_available_datasets_hierarchical functionality.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
 
-from data.viewer.dataset.backend.backend import ViewerBackend, DATASET_GROUPS
+from data.viewer.dataset.backend.backend import DATASET_GROUPS, ViewerBackend
 
 
 @pytest.fixture
@@ -27,33 +27,33 @@ def backend_with_mock_configs():
         'semseg/coco_stuff_164k': {
             'path': '/fake/path/coco_stuff_164k_data_cfg.py',
             'type': 'semseg',
-            'name': 'coco_stuff_164k'
+            'name': 'coco_stuff_164k',
         },
         'semseg/whu_bd': {
             'path': '/fake/path/whu_bd_data_cfg.py',
             'type': 'semseg',
-            'name': 'whu_bd'
+            'name': 'whu_bd',
         },
         '2dcd/air_change': {
             'path': '/fake/path/air_change_data_cfg.py',
             'type': '2dcd',
-            'name': 'air_change'
+            'name': 'air_change',
         },
         '2dcd/levir_cd': {
             'path': '/fake/path/levir_cd_data_cfg.py',
             'type': '2dcd',
-            'name': 'levir_cd'
+            'name': 'levir_cd',
         },
         'pcr/kitti': {
             'path': '/fake/path/kitti_data_cfg.py',
             'type': 'pcr',
-            'name': 'kitti'
+            'name': 'kitti',
         },
         'mtl/multi_mnist': {
             'path': '/fake/path/multi_mnist_data_cfg.py',
             'type': 'mtl',
-            'name': 'multi_mnist'
-        }
+            'name': 'multi_mnist',
+        },
     }
 
     backend._configs = mock_configs
@@ -70,8 +70,12 @@ def test_get_available_datasets_hierarchical_structure(backend_with_mock_configs
     # Test expected dataset types are present
     expected_types = ['semseg', '2dcd', 'pcr', 'mtl']
     for dataset_type in expected_types:
-        assert dataset_type in hierarchical, f"Dataset type {dataset_type} should be present"
-        assert isinstance(hierarchical[dataset_type], dict), f"Dataset type {dataset_type} should map to dict"
+        assert (
+            dataset_type in hierarchical
+        ), f"Dataset type {dataset_type} should be present"
+        assert isinstance(
+            hierarchical[dataset_type], dict
+        ), f"Dataset type {dataset_type} should map to dict"
 
 
 def test_get_available_datasets_hierarchical_grouping(backend_with_mock_configs):
@@ -82,7 +86,9 @@ def test_get_available_datasets_hierarchical_grouping(backend_with_mock_configs)
     semseg_datasets = hierarchical.get('semseg', {})
     expected_semseg = ['semseg/coco_stuff_164k', 'semseg/whu_bd']
     for config_name in expected_semseg:
-        assert config_name in semseg_datasets, f"{config_name} should be in semseg group"
+        assert (
+            config_name in semseg_datasets
+        ), f"{config_name} should be in semseg group"
         assert semseg_datasets[config_name] == config_name.split('/')[-1]
 
     # Test 2dcd group
@@ -111,7 +117,9 @@ def test_get_available_datasets_hierarchical_sorting(backend_with_mock_configs):
     for dataset_type, datasets in hierarchical.items():
         dataset_keys = list(datasets.keys())
         sorted_keys = sorted(dataset_keys)
-        assert dataset_keys == sorted_keys, f"Datasets in {dataset_type} should be sorted"
+        assert (
+            dataset_keys == sorted_keys
+        ), f"Datasets in {dataset_type} should be sorted"
 
 
 def test_get_available_datasets_hierarchical_empty_backend(backend):
@@ -138,16 +146,20 @@ def test_get_available_datasets_hierarchical_name_extraction(backend_with_mock_c
         ('2dcd', '2dcd/air_change', 'air_change'),
         ('2dcd', '2dcd/levir_cd', 'levir_cd'),
         ('pcr', 'pcr/kitti', 'kitti'),
-        ('mtl', 'mtl/multi_mnist', 'multi_mnist')
+        ('mtl', 'mtl/multi_mnist', 'multi_mnist'),
     ]
 
     for dataset_type, config_name, expected_name in test_cases:
         if dataset_type in hierarchical and config_name in hierarchical[dataset_type]:
             actual_name = hierarchical[dataset_type][config_name]
-            assert actual_name == expected_name, f"Name extraction failed for {config_name}"
+            assert (
+                actual_name == expected_name
+            ), f"Name extraction failed for {config_name}"
 
 
-def test_get_available_datasets_hierarchical_consistency_with_configs(backend_with_mock_configs):
+def test_get_available_datasets_hierarchical_consistency_with_configs(
+    backend_with_mock_configs,
+):
     """Test that hierarchical view is consistent with internal configs."""
     hierarchical = backend_with_mock_configs.get_available_datasets_hierarchical()
     configs = backend_with_mock_configs._configs
@@ -156,16 +168,24 @@ def test_get_available_datasets_hierarchical_consistency_with_configs(backend_wi
     total_hierarchical = sum(len(datasets) for datasets in hierarchical.values())
     total_configs = len(configs)
 
-    assert total_hierarchical == total_configs, "Hierarchical view should include all configured datasets"
+    assert (
+        total_hierarchical == total_configs
+    ), "Hierarchical view should include all configured datasets"
 
     # Test that every config appears in hierarchical view
     for config_name, config_info in configs.items():
         dataset_type = config_info['type']
         dataset_name = config_info['name']
 
-        assert dataset_type in hierarchical, f"Type {dataset_type} should be in hierarchical view"
-        assert config_name in hierarchical[dataset_type], f"Config {config_name} should be in {dataset_type} group"
-        assert hierarchical[dataset_type][config_name] == dataset_name, f"Name should match for {config_name}"
+        assert (
+            dataset_type in hierarchical
+        ), f"Type {dataset_type} should be in hierarchical view"
+        assert (
+            config_name in hierarchical[dataset_type]
+        ), f"Config {config_name} should be in {dataset_type} group"
+        assert (
+            hierarchical[dataset_type][config_name] == dataset_name
+        ), f"Name should match for {config_name}"
 
 
 def test_dataset_groups_constant_coverage():
@@ -177,12 +197,16 @@ def test_dataset_groups_constant_coverage():
     expected_categories = ['semseg', '2dcd', '3dcd', 'pcr', 'mtl', 'general']
     for category in expected_categories:
         assert category in DATASET_GROUPS, f"DATASET_GROUPS should contain {category}"
-        assert isinstance(DATASET_GROUPS[category], list), f"{category} should map to list"
+        assert isinstance(
+            DATASET_GROUPS[category], list
+        ), f"{category} should map to list"
 
     # Test that all entries are strings
     for category, datasets in DATASET_GROUPS.items():
         for dataset in datasets:
-            assert isinstance(dataset, str), f"Dataset {dataset} in {category} should be string"
+            assert isinstance(
+                dataset, str
+            ), f"Dataset {dataset} in {category} should be string"
 
 
 def test_dataset_groups_semantic_segmentation():
@@ -224,9 +248,15 @@ def test_dataset_groups_multi_task_learning():
     mtl_datasets = DATASET_GROUPS['mtl']
 
     expected_mtl = [
-        'multi_mnist', 'celeb_a', 'multi_task_facial_landmark',
-        'nyu_v2_c', 'nyu_v2_f', 'city_scapes_c', 'city_scapes_f',
-        'pascal_context', 'ade_20k'
+        'multi_mnist',
+        'celeb_a',
+        'multi_task_facial_landmark',
+        'nyu_v2_c',
+        'nyu_v2_f',
+        'city_scapes_c',
+        'city_scapes_f',
+        'pascal_context',
+        'ade_20k',
     ]
     for dataset in expected_mtl:
         assert dataset in mtl_datasets, f"{dataset} should be in mtl group"
@@ -237,12 +267,15 @@ def test_dataset_groups_general():
     general_datasets = DATASET_GROUPS['general']
 
     # Should contain at least BaseRandomDataset for testing
-    assert 'BaseRandomDataset' in general_datasets, "BaseRandomDataset should be in general group"
+    assert (
+        'BaseRandomDataset' in general_datasets
+    ), "BaseRandomDataset should be in general group"
 
 
 # ============================================================================
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
+
 
 def test_get_available_datasets_hierarchical_with_invalid_config_format():
     """Test hierarchical datasets handling with invalid config format."""
@@ -250,11 +283,7 @@ def test_get_available_datasets_hierarchical_with_invalid_config_format():
 
     # Add invalid config (missing '/' in name)
     backend._configs = {
-        'invalid_config_name': {
-            'path': '/fake/path',
-            'type': 'semseg',
-            'name': 'test'
-        }
+        'invalid_config_name': {'path': '/fake/path', 'type': 'semseg', 'name': 'test'}
     }
 
     # Should handle gracefully (either skip or raise clear error)

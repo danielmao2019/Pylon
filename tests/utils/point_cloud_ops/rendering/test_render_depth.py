@@ -2,8 +2,11 @@
 
 import pytest
 import torch
+
+from data.structures.three_d.point_cloud.ops.rendering import (
+    render_depth_from_point_cloud,
+)
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.structures.three_d.point_cloud.ops.rendering import render_depth_from_point_cloud
 
 
 def test_render_depth_basic() -> None:
@@ -249,7 +252,9 @@ def test_render_depth_intrinsics_scaling() -> None:
 
 def test_render_depth_invalid_inputs() -> None:
     """Test various invalid input conditions."""
-    valid_pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
+    valid_pc_data = PointCloud(
+        xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32)
+    )
     valid_intrinsics = torch.tensor(
         [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
         dtype=torch.float32,

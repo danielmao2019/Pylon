@@ -1,8 +1,10 @@
-from typing import Any, Dict, Tuple
 import os
 import pickle
+from typing import Any, Dict, Tuple
+
 import numpy
 import torch
+
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from data.structures.three_d.point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -65,20 +67,26 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
                 metadata_file = os.path.join(metadata_dir, '3DMatch.pkl')
 
         # Assert metadata file exists
-        assert os.path.exists(metadata_file), f"Metadata file not found: {metadata_file}"
+        assert os.path.exists(
+            metadata_file
+        ), f"Metadata file not found: {metadata_file}"
 
         # Load metadata
         with open(metadata_file, 'rb') as f:
             metadata_list = pickle.load(f)
 
         # GeoTransformer format: list of dicts
-        assert isinstance(metadata_list, list), f"Expected list format, got {type(metadata_list)}"
+        assert isinstance(
+            metadata_list, list
+        ), f"Expected list format, got {type(metadata_list)}"
         assert len(metadata_list) > 0, "Metadata list is empty"
 
         # Check required keys in first item
         expected_keys = ['pcd0', 'pcd1', 'rotation', 'translation', 'overlap']
         first_item = metadata_list[0]
-        assert all(key in first_item for key in expected_keys), f"Missing keys in metadata: {list(first_item.keys())}"
+        assert all(
+            key in first_item for key in expected_keys
+        ), f"Missing keys in metadata: {list(first_item.keys())}"
 
         # Filter by overlap threshold and convert to annotations format
         self.annotations = []
@@ -90,7 +98,9 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
                 # Extract scene names and ensure they match
                 src_scene = item['pcd0'].split('/')[0]
                 tgt_scene = item['pcd1'].split('/')[0]
-                assert src_scene == tgt_scene, f"Scene names must match: src={src_scene}, tgt={tgt_scene}"
+                assert (
+                    src_scene == tgt_scene
+                ), f"Scene names must match: src={src_scene}, tgt={tgt_scene}"
 
                 annotation = {
                     'src_path': os.path.join(self.data_root, item['pcd0']),
@@ -98,23 +108,35 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
                     'rotation': item['rotation'],  # (3, 3) numpy array
                     'translation': item['translation'],  # (3,) numpy array
                     'overlap': overlap,
-                    'scene_name': item.get('scene_name', src_scene),  # Use provided or extracted scene name
-                    'frag_id0': item.get('frag_id0', int(item['pcd0'].split('/')[-1].split('_')[-1].split('.')[0])),  # Use provided or extract fragment ID
-                    'frag_id1': item.get('frag_id1', int(item['pcd1'].split('/')[-1].split('_')[-1].split('.')[0])),  # Use provided or extract fragment ID
+                    'scene_name': item.get(
+                        'scene_name', src_scene
+                    ),  # Use provided or extracted scene name
+                    'frag_id0': item.get(
+                        'frag_id0',
+                        int(item['pcd0'].split('/')[-1].split('_')[-1].split('.')[0]),
+                    ),  # Use provided or extract fragment ID
+                    'frag_id1': item.get(
+                        'frag_id1',
+                        int(item['pcd1'].split('/')[-1].split('_')[-1].split('.')[0]),
+                    ),  # Use provided or extract fragment ID
                 }
                 self.annotations.append(annotation)
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""
         version_dict = super()._get_cache_version_dict()
-        version_dict.update({
-            'matching_radius': self.matching_radius,
-            'overlap_min': self.overlap_min,
-            'overlap_max': self.overlap_max,
-        })
+        version_dict.update(
+            {
+                'matching_radius': self.matching_radius,
+                'overlap_min': self.overlap_min,
+                'overlap_max': self.overlap_max,
+            }
+        )
         return version_dict
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a single datapoint from the dataset.
 
         Args:
@@ -129,14 +151,22 @@ class _ThreeDMatchBaseDataset(BasePCRDataset):
         # Load point clouds (returns PointCloud)
         src_pc = load_point_cloud(annotation['src_path'], device=self.device)
         tgt_pc = load_point_cloud(annotation['tgt_path'], device=self.device)
-        src_pc.feat = torch.ones((src_pc.num_points, 1), dtype=torch.float32, device=self.device)
-        tgt_pc.feat = torch.ones((tgt_pc.num_points, 1), dtype=torch.float32, device=self.device)
+        src_pc.feat = torch.ones(
+            (src_pc.num_points, 1), dtype=torch.float32, device=self.device
+        )
+        tgt_pc.feat = torch.ones(
+            (tgt_pc.num_points, 1), dtype=torch.float32, device=self.device
+        )
 
         # Create transformation matrix
         # NOTE: The metadata contains target->source transform, but we need source->target
         # So we create the matrix and then invert it
-        rotation = torch.tensor(annotation['rotation'], dtype=torch.float32, device=self.device)
-        translation = torch.tensor(annotation['translation'], dtype=torch.float32, device=self.device)
+        rotation = torch.tensor(
+            annotation['rotation'], dtype=torch.float32, device=self.device
+        )
+        translation = torch.tensor(
+            annotation['translation'], dtype=torch.float32, device=self.device
+        )
         transform_tgt_to_src = torch.eye(4, dtype=torch.float32, device=self.device)
         transform_tgt_to_src[:3, :3] = rotation
         transform_tgt_to_src[:3, 3] = translation
@@ -172,31 +202,27 @@ class ThreeDMatchDataset(_ThreeDMatchBaseDataset):
 
     DATASET_SIZE = {
         'train': 14313,  # 3DMatch train (overlap > 0.3)
-        'val': 915,      # 3DMatch val (overlap > 0.3)
-        'test': 1520,    # 3DMatch test (uses 3DMatch.pkl, filtered for overlap > 0.3)
+        'val': 915,  # 3DMatch val (overlap > 0.3)
+        'test': 1520,  # 3DMatch test (uses 3DMatch.pkl, filtered for overlap > 0.3)
     }
 
     def __init__(self, **kwargs) -> None:
         """Initialize 3DMatch dataset with overlap > 0.3."""
         super(ThreeDMatchDataset, self).__init__(
-            overlap_min=0.3,
-            overlap_max=1.0,
-            **kwargs
+            overlap_min=0.3, overlap_max=1.0, **kwargs
         )
 
 
 class ThreeDLoMatchDataset(_ThreeDMatchBaseDataset):
 
     DATASET_SIZE = {
-        'train': 6225,   # 3DLoMatch train (0.1 < overlap <= 0.3)
-        'val': 414,      # 3DLoMatch val (0.1 < overlap <= 0.3)
-        'test': 1772,    # 3DLoMatch test (uses 3DLoMatch.pkl, filtered for 0.1 < overlap <= 0.3)
+        'train': 6225,  # 3DLoMatch train (0.1 < overlap <= 0.3)
+        'val': 414,  # 3DLoMatch val (0.1 < overlap <= 0.3)
+        'test': 1772,  # 3DLoMatch test (uses 3DLoMatch.pkl, filtered for 0.1 < overlap <= 0.3)
     }
 
     def __init__(self, **kwargs) -> None:
         """Initialize 3DLoMatch dataset with overlap between 0.1 and 0.3."""
         super(ThreeDLoMatchDataset, self).__init__(
-            overlap_min=0.1,
-            overlap_max=0.3,
-            **kwargs
+            overlap_min=0.1, overlap_max=0.3, **kwargs
         )

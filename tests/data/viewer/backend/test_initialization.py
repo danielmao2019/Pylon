@@ -4,13 +4,17 @@ This module tests the initialization process, default settings configuration,
 and internal state setup of the ViewerBackend class.
 """
 
-import os
 import logging
-from typing import Dict, Any
+import os
+from typing import Any, Dict
 
 import pytest
 
-from data.viewer.dataset.backend.backend import ViewerBackend, DATASET_GROUPS, REQUIRES_3D_CLASSES
+from data.viewer.dataset.backend.backend import (
+    DATASET_GROUPS,
+    REQUIRES_3D_CLASSES,
+    ViewerBackend,
+)
 from data.viewer.utils.settings_config import ViewerSettings
 
 
@@ -87,7 +91,9 @@ def test_dataset_groups_constant():
     # Test that all values are strings
     for dataset_type, datasets in DATASET_GROUPS.items():
         for dataset_name in datasets:
-            assert isinstance(dataset_name, str), f"Dataset name {dataset_name} in {dataset_type} should be string"
+            assert isinstance(
+                dataset_name, str
+            ), f"Dataset name {dataset_name} in {dataset_type} should be string"
 
 
 def test_requires_3d_classes_constant():
@@ -100,11 +106,17 @@ def test_requires_3d_classes_constant():
 
     # Test expected 3D classes are present
     expected_3d_classes = [
-        'Base3DCDDataset', 'BasePCRDataset', 'Buffer3DDataset',
-        'KITTIDataset', 'ThreeDMatchDataset', 'URB3DCDDataset'
+        'Base3DCDDataset',
+        'BasePCRDataset',
+        'Buffer3DDataset',
+        'KITTIDataset',
+        'ThreeDMatchDataset',
+        'URB3DCDDataset',
     ]
     for expected_class in expected_3d_classes:
-        assert expected_class in REQUIRES_3D_CLASSES, f"{expected_class} should be in REQUIRES_3D_CLASSES"
+        assert (
+            expected_class in REQUIRES_3D_CLASSES
+        ), f"{expected_class} should be in REQUIRES_3D_CLASSES"
 
 
 def test_init_dataset_configs_directory_handling():
@@ -116,7 +128,9 @@ def test_init_dataset_configs_directory_handling():
     assert isinstance(backend._configs, dict)
 
     # Test that repo root is calculated correctly
-    repo_root = os.path.normpath(os.path.join(os.path.dirname(backend.__class__.__module__), "../../.."))
+    repo_root = os.path.normpath(
+        os.path.join(os.path.dirname(backend.__class__.__module__), "../../..")
+    )
     # Should be a valid path (even if directories don't exist)
     assert isinstance(repo_root, str)
     assert len(repo_root) > 0
@@ -132,7 +146,9 @@ def test_init_dataset_configs_with_existing_configs():
     # Structure should be correct regardless of whether files exist
     for config_name, config_info in configs.items():
         # Config names should follow 'type/name' format
-        assert '/' in config_name, f"Config name {config_name} should have 'type/name' format"
+        assert (
+            '/' in config_name
+        ), f"Config name {config_name} should have 'type/name' format"
 
         # Config info should have required fields
         assert isinstance(config_info, dict)
@@ -154,9 +170,17 @@ def test_attribute_existence_after_initialization():
 
     # Test all expected attributes are present
     required_attributes = [
-        'logger', '_datasets', '_configs', '_transforms',
-        'current_dataset', 'current_index',
-        'point_size', 'point_opacity', 'sym_diff_radius', 'corr_radius', 'lod_type'
+        'logger',
+        '_datasets',
+        '_configs',
+        '_transforms',
+        'current_dataset',
+        'current_index',
+        'point_size',
+        'point_opacity',
+        'sym_diff_radius',
+        'corr_radius',
+        'lod_type',
     ]
 
     for attr_name in required_attributes:
@@ -164,7 +188,9 @@ def test_attribute_existence_after_initialization():
 
         # Test that attributes are not None (except for current_dataset which starts as None)
         if attr_name != 'current_dataset':
-            assert getattr(backend, attr_name) is not None, f"Attribute {attr_name} should not be None"
+            assert (
+                getattr(backend, attr_name) is not None
+            ), f"Attribute {attr_name} should not be None"
 
 
 def test_initial_state_consistency():
@@ -186,6 +212,7 @@ def test_initial_state_consistency():
 # ============================================================================
 # INVALID TESTS - EXPECTED FAILURES (pytest.raises)
 # ============================================================================
+
 
 def test_settings_immutability_after_init():
     """Test that changing ViewerSettings after init doesn't affect existing backend."""

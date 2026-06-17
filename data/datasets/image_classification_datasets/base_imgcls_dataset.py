@@ -1,8 +1,10 @@
 """Base class for image classification datasets."""
 
-from typing import Dict, Any, Optional, List
-import torch
+from typing import Any, Dict, List, Optional
+
 import numpy as np
+import torch
+
 from data.datasets.base_dataset import BaseDataset
 
 
@@ -26,7 +28,7 @@ class BaseImgClsDataset(BaseDataset):
         datapoint: Dict[str, Any],
         class_labels: Optional[Dict[str, List[str]]] = None,
         camera_state: Optional[Dict[str, Any]] = None,
-        settings_3d: Optional[Dict[str, Any]] = None
+        settings_3d: Optional[Dict[str, Any]] = None,
     ) -> 'html.Div':
         """Display image classification datapoint.
 
@@ -39,8 +41,8 @@ class BaseImgClsDataset(BaseDataset):
         Returns:
             Dash HTML component for visualization
         """
-        import dash.html as html
         import dash.dcc as dcc
+        import dash.html as html
         import plotly.graph_objects as go
         from plotly.subplots import make_subplots
 
@@ -89,7 +91,9 @@ class BaseImgClsDataset(BaseDataset):
 
         # Normalize image to [0, 1] if needed
         if display_image.min() < 0 or display_image.max() > 1:
-            display_image = (display_image - display_image.min()) / (display_image.max() - display_image.min() + 1e-8)
+            display_image = (display_image - display_image.min()) / (
+                display_image.max() - display_image.min() + 1e-8
+            )
 
         # Create figure
         fig = make_subplots(rows=1, cols=1)
@@ -98,19 +102,13 @@ class BaseImgClsDataset(BaseDataset):
         if channels == 1 or display_image.ndim == 2:
             # Grayscale
             fig.add_trace(
-                go.Heatmap(
-                    z=display_image,
-                    colorscale='gray',
-                    showscale=False
-                ),
-                row=1, col=1
+                go.Heatmap(z=display_image, colorscale='gray', showscale=False),
+                row=1,
+                col=1,
             )
         else:
             # Color image
-            fig.add_trace(
-                go.Image(z=display_image * 255),
-                row=1, col=1
-            )
+            fig.add_trace(go.Image(z=display_image * 255), row=1, col=1)
 
         # Update layout
         title_parts = [f"Image ({height}x{width}x{channels})"]
@@ -123,7 +121,11 @@ class BaseImgClsDataset(BaseDataset):
                 label_val = label
 
             # Add class name if available
-            if class_labels and 'label' in class_labels and isinstance(label_val, (int, np.integer)):
+            if (
+                class_labels
+                and 'label' in class_labels
+                and isinstance(label_val, (int, np.integer))
+            ):
                 if 0 <= label_val < len(class_labels['label']):
                     class_name = class_labels['label'][label_val]
                     title_parts.append(f"Class: {class_name} ({label_val})")
@@ -137,12 +139,13 @@ class BaseImgClsDataset(BaseDataset):
             xaxis=dict(showticklabels=False, showgrid=False),
             yaxis=dict(showticklabels=False, showgrid=False, scaleanchor="x"),
             height=600,
-            margin=dict(l=0, r=0, t=40, b=0)
+            margin=dict(l=0, r=0, t=40, b=0),
         )
 
-        return html.Div([
-            dcc.Graph(
-                figure=fig,
-                config={'displayModeBar': True, 'displaylogo': False}
-            )
-        ])
+        return html.Div(
+            [
+                dcc.Graph(
+                    figure=fig, config={'displayModeBar': True, 'displaylogo': False}
+                )
+            ]
+        )

@@ -1,13 +1,15 @@
 """Data structures for LOD benchmark."""
 
-from typing import Dict, Any
-import torch
 from dataclasses import dataclass
+from typing import Any, Dict
+
+import torch
 
 
 @dataclass
 class PointCloudSample:
     """A single point cloud sample with metadata."""
+
     name: str
     points: torch.Tensor
     colors: torch.Tensor
@@ -18,6 +20,7 @@ class PointCloudSample:
 @dataclass
 class CameraPose:
     """A camera pose configuration."""
+
     camera_state: Dict[str, Any]
     distance_group: str  # 'close', 'medium', 'far'
     distance_value: float
@@ -27,6 +30,7 @@ class CameraPose:
 @dataclass
 class BenchmarkStats:
     """Statistics from a single benchmark run."""
+
     point_cloud_name: str
     camera_pose_info: str
     original_points: int

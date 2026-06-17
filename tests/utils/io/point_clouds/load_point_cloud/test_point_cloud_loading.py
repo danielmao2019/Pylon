@@ -1,17 +1,19 @@
 import os
 import tempfile
+
 import numpy as np
-import torch
 import pytest
+import torch
 from plyfile import PlyData, PlyElement
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
 from data.structures.three_d.point_cloud.io.load_point_cloud import (
-    load_point_cloud,
-    _load_from_ply,
-    _load_from_txt,
-    _load_from_pth,
     _load_from_off,
+    _load_from_ply,
+    _load_from_pth,
+    _load_from_txt,
+    load_point_cloud,
 )
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 @pytest.fixture
@@ -328,7 +330,9 @@ def test_uint16_to_int64_conversion(temp_dir):
 
     result = load_point_cloud(filepath=filepath, device='cpu')
 
-    assert result.xyz.dtype == torch.float32  # positions are always converted to float32
+    assert (
+        result.xyz.dtype == torch.float32
+    )  # positions are always converted to float32
     # The conversion happens internally in the loading process
 
 

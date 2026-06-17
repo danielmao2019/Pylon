@@ -23,10 +23,10 @@ def test_parenet_criterion_instantiation():
 
 def test_parenet_criterion_loss_computation():
     """Test PARENet criterion loss computation using actual model outputs."""
-    from utils.builders import build_from_config as build_model
     from configs.common.models.point_cloud_registration.parenet_cfg import model_cfg
-    from data.collators.parenet.parenet_collator_wrapper import parenet_collate_fn
     from data.collators.parenet.data import precompute_neibors as add_parenet_neighbors
+    from data.collators.parenet.parenet_collator_wrapper import parenet_collate_fn
+    from utils.builders import build_from_config as build_model
 
     # Create config with buffer disabled for testing
     test_criterion_cfg = criterion_cfg.copy()
@@ -57,7 +57,7 @@ def test_parenet_criterion_loss_computation():
             'meta_info': {
                 'idx': 0,
                 'dataset_name': 'test',
-            }
+            },
         }
     ]
 
@@ -68,7 +68,7 @@ def test_parenet_criterion_loss_computation():
         voxel_size=0.3,
         num_neighbors=[16, 16, 16, 16],
         subsample_ratio=0.25,
-        precompute_data=True
+        precompute_data=True,
     )
 
     # Step 2: Move to CUDA
@@ -77,12 +77,20 @@ def test_parenet_criterion_loss_computation():
         if isinstance(value, torch.Tensor):
             inputs[key] = value.cuda()
         elif isinstance(value, list):
-            inputs[key] = [v.cuda() if isinstance(v, torch.Tensor) else v for v in value]
+            inputs[key] = [
+                v.cuda() if isinstance(v, torch.Tensor) else v for v in value
+            ]
 
     # Step 3: Verify neighbors were computed by collator
-    assert 'neighbors' in inputs, "Neighbors should be computed by collator when precompute_data=True"
-    assert 'subsampling' in inputs, "Subsampling should be computed by collator when precompute_data=True"
-    assert 'upsampling' in inputs, "Upsampling should be computed by collator when precompute_data=True"
+    assert (
+        'neighbors' in inputs
+    ), "Neighbors should be computed by collator when precompute_data=True"
+    assert (
+        'subsampling' in inputs
+    ), "Subsampling should be computed by collator when precompute_data=True"
+    assert (
+        'upsampling' in inputs
+    ), "Upsampling should be computed by collator when precompute_data=True"
 
     # Step 4: Get model outputs
     with torch.no_grad():

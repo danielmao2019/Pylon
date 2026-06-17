@@ -1,13 +1,14 @@
-from typing import Dict, List, Optional, Tuple
 import logging
 import os
+from typing import Dict, List, Optional, Tuple
+
 import torch
 
 from agents.manager.default_job import DefaultJob, DefaultJobProgressInfo
 from agents.manager.job_types import RunnerKind
 from agents.manager.runtime import JobRuntimeParams
-from utils.io.json import load_json, save_json
 from utils.builders.builder import build_from_config
+from utils.io.json import load_json, save_json
 
 
 class TrainingJob(DefaultJob):

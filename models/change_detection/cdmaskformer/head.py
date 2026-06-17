@@ -1,18 +1,18 @@
 import torch
+from addict import Dict
 from torch import nn
 from torch.nn import functional as F
-from addict import Dict
 
-from models.change_detection.cdmaskformer.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
-from models.change_detection.cdmaskformer.transformer_decoder.mask2former_transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
+from models.change_detection.cdmaskformer.pixel_decoder.msdeformattn import (
+    MSDeformAttnPixelDecoder4ScalesFASeg,
+)
+from models.change_detection.cdmaskformer.transformer_decoder.mask2former_transformer_decoder import (
+    MultiScaleMaskedTransformerDecoder_OurDH_v5,
+)
 
 
 class MaskFormerHead(nn.Module):
-    def __init__(self, input_shape,
-                 num_classes = 1,
-                 num_queries = 10,
-                 dec_layers = 10
-                 ):
+    def __init__(self, input_shape, num_classes=1, num_queries=10, dec_layers=10):
         super().__init__()
         self.num_classes = num_classes
         self.num_queries = num_queries
@@ -21,95 +21,125 @@ class MaskFormerHead(nn.Module):
         self.predictor = self.predictor_init()
 
     def pixel_decoder_init(self, input_shape):
-        common_stride = 4 # cfg.MODEL.SEM_SEG_HEAD.COMMON_STRIDE
-        transformer_dropout = 0 # cfg.MODEL.MASK_FORMER.DROPOUT
-        transformer_nheads = 8 # cfg.MODEL.MASK_FORMER.NHEADS
+        common_stride = 4  # cfg.MODEL.SEM_SEG_HEAD.COMMON_STRIDE
+        transformer_dropout = 0  # cfg.MODEL.MASK_FORMER.DROPOUT
+        transformer_nheads = 8  # cfg.MODEL.MASK_FORMER.NHEADS
         transformer_dim_feedforward = 1024
-        transformer_enc_layers = 4 # cfg.MODEL.SEM_SEG_HEAD.TRANSFORMER_ENC_LAYERS
-        conv_dim = 256 # cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
-        mask_dim = 256 # cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
-        transformer_in_features = ["res3", "res4", "res5"] # cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES # ["res3", "res4", "res5"]
+        transformer_enc_layers = 4  # cfg.MODEL.SEM_SEG_HEAD.TRANSFORMER_ENC_LAYERS
+        conv_dim = 256  # cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
+        mask_dim = 256  # cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
+        transformer_in_features = [
+            "res3",
+            "res4",
+            "res5",
+        ]  # cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES # ["res3", "res4", "res5"]
 
-        pixel_decoder = MSDeformAttnPixelDecoder4ScalesFASeg(input_shape,
-                                                transformer_dropout,
-                                                transformer_nheads,
-                                                transformer_dim_feedforward,
-                                                transformer_enc_layers,
-                                                conv_dim,
-                                                mask_dim,
-                                                transformer_in_features,
-                                                common_stride)
+        pixel_decoder = MSDeformAttnPixelDecoder4ScalesFASeg(
+            input_shape,
+            transformer_dropout,
+            transformer_nheads,
+            transformer_dim_feedforward,
+            transformer_enc_layers,
+            conv_dim,
+            mask_dim,
+            transformer_in_features,
+            common_stride,
+        )
         return pixel_decoder
 
     def predictor_init(self):
-        in_channels = 256 # cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
-        num_classes = self.num_classes # cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES
-        hidden_dim = 256 # cfg.MODEL.MASK_FORMER.HIDDEN_DIM
-        num_queries = self.num_queries # cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES
-        nheads = 8 # cfg.MODEL.MASK_FORMER.NHEADS
-        dim_feedforward = 1024 # cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD
-        dec_layers = self.dec_layers - 1 # cfg.MODEL.MASK_FORMER.DEC_LAYERS - 1
-        pre_norm = False # cfg.MODEL.MASK_FORMER.PRE_NORM
-        mask_dim = 256 # cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
+        in_channels = 256  # cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
+        num_classes = self.num_classes  # cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES
+        hidden_dim = 256  # cfg.MODEL.MASK_FORMER.HIDDEN_DIM
+        num_queries = self.num_queries  # cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES
+        nheads = 8  # cfg.MODEL.MASK_FORMER.NHEADS
+        dim_feedforward = 1024  # cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD
+        dec_layers = self.dec_layers - 1  # cfg.MODEL.MASK_FORMER.DEC_LAYERS - 1
+        pre_norm = False  # cfg.MODEL.MASK_FORMER.PRE_NORM
+        mask_dim = 256  # cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
         enforce_input_project = False
         mask_classification = True
-        predictor = MultiScaleMaskedTransformerDecoder_OurDH_v5(in_channels,
-                                                        num_classes,
-                                                        mask_classification,
-                                                        hidden_dim,
-                                                        num_queries,
-                                                        nheads,
-                                                        dim_feedforward,
-                                                        dec_layers,
-                                                        pre_norm,
-                                                        mask_dim,
-                                                        enforce_input_project)
+        predictor = MultiScaleMaskedTransformerDecoder_OurDH_v5(
+            in_channels,
+            num_classes,
+            mask_classification,
+            hidden_dim,
+            num_queries,
+            nheads,
+            dim_feedforward,
+            dec_layers,
+            pre_norm,
+            mask_dim,
+            enforce_input_project,
+        )
         return predictor
 
     def forward(self, features, mask=None):
-        mask_features, transformer_encoder_features, multi_scale_features, pos_list_2d = self.pixel_decoder.forward_features(features)
-        predictions = self.predictor(multi_scale_features, mask_features, mask, pos_list_2d)
+        (
+            mask_features,
+            transformer_encoder_features,
+            multi_scale_features,
+            pos_list_2d,
+        ) = self.pixel_decoder.forward_features(features)
+        predictions = self.predictor(
+            multi_scale_features, mask_features, mask, pos_list_2d
+        )
         return predictions
+
 
 def dsconv_3x3(in_channel, out_channel):
     return nn.Sequential(
-        nn.Conv2d(in_channel, in_channel, kernel_size=3, stride=1, padding=1, groups=in_channel),
-        nn.Conv2d(in_channel, out_channel, kernel_size=1, stride=1, padding=0, groups=1),
+        nn.Conv2d(
+            in_channel,
+            in_channel,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            groups=in_channel,
+        ),
+        nn.Conv2d(
+            in_channel, out_channel, kernel_size=1, stride=1, padding=0, groups=1
+        ),
         nn.BatchNorm2d(out_channel),
-        nn.ReLU(inplace=True)
+        nn.ReLU(inplace=True),
     )
+
 
 class SaELayer(nn.Module):
     def __init__(self, in_channel, reduction=32):
         super(SaELayer, self).__init__()
-        assert in_channel>=reduction and in_channel%reduction==0,'invalid in_channel in SaElayer'
+        assert (
+            in_channel >= reduction and in_channel % reduction == 0
+        ), 'invalid in_channel in SaElayer'
         self.reduction = reduction
-        self.cardinality=4
+        self.cardinality = 4
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        #cardinality 1
+        # cardinality 1
         self.fc1 = nn.Sequential(
-            nn.Linear(in_channel,in_channel//self.reduction, bias=False),
-            nn.ReLU(inplace=True)
+            nn.Linear(in_channel, in_channel // self.reduction, bias=False),
+            nn.ReLU(inplace=True),
         )
         # cardinality 2
         self.fc2 = nn.Sequential(
             nn.Linear(in_channel, in_channel // self.reduction, bias=False),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
         # cardinality 3
         self.fc3 = nn.Sequential(
             nn.Linear(in_channel, in_channel // self.reduction, bias=False),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
         # cardinality 4
         self.fc4 = nn.Sequential(
             nn.Linear(in_channel, in_channel // self.reduction, bias=False),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(in_channel//self.reduction*self.cardinality, in_channel, bias=False),
-            nn.Sigmoid()
+            nn.Linear(
+                in_channel // self.reduction * self.cardinality, in_channel, bias=False
+            ),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):
@@ -119,10 +149,11 @@ class SaELayer(nn.Module):
         y2 = self.fc2(y)
         y3 = self.fc3(y)
         y4 = self.fc4(y)
-        y_concate = torch.cat([y1,y2,y3,y4],dim=1)
-        y_ex_dim = self.fc(y_concate).view(b,c,1,1)
+        y_concate = torch.cat([y1, y2, y3, y4], dim=1)
+        y_ex_dim = self.fc(y_concate).view(b, c, 1, 1)
 
         return y_ex_dim.expand_as(x)
+
 
 class TFF(nn.Module):
     def __init__(self, in_channel, out_channel):
@@ -152,27 +183,29 @@ class TFF(nn.Module):
 
         return x
 
+
 class CDMaskFormerHead(nn.Module):
-    def __init__(self, channels,
-                 num_classes = 1,
-                 num_queries = 10,
-                 dec_layers = 14):
+    def __init__(self, channels, num_classes=1, num_queries=10, dec_layers=14):
         super().__init__()
         self.channels = channels
         self.backbone_feature_shape = dict()
         for i, channel in enumerate(self.channels):
-            self.backbone_feature_shape[f'res{i+2}'] = Dict({'channel': channel, 'stride': 2**(i+2)})
+            self.backbone_feature_shape[f'res{i+2}'] = Dict(
+                {'channel': channel, 'stride': 2 ** (i + 2)}
+            )
 
         self.tff1 = TFF(self.channels[0], self.channels[0])
         self.tff2 = TFF(self.channels[1], self.channels[1])
         self.tff3 = TFF(self.channels[2], self.channels[2])
         self.tff4 = TFF(self.channels[3], self.channels[3])
 
-        self.sem_seg_head = MaskFormerHead(self.backbone_feature_shape, num_classes, num_queries, dec_layers)
+        self.sem_seg_head = MaskFormerHead(
+            self.backbone_feature_shape, num_classes, num_queries, dec_layers
+        )
 
     def semantic_inference(self, mask_cls, mask_pred):
         # mask_cls = F.softmax(mask_cls, dim=-1)
-        mask_cls = F.softmax(mask_cls, dim=-1)[...,1:]
+        mask_cls = F.softmax(mask_cls, dim=-1)[..., 1:]
         mask_pred = mask_pred.sigmoid()
         semseg = torch.einsum("bqc,bqhw->bchw", mask_cls, mask_pred).detach()
         b, c, h, w = semseg.shape
@@ -184,16 +217,18 @@ class CDMaskFormerHead(nn.Module):
         return semseg
 
     def forward(self, inputs):
-        featuresA, featuresB =inputs
-        features = [self.tff1(featuresA[0], featuresB[0]),
-                self.tff2(featuresA[1], featuresB[1]),
-                self.tff3(featuresA[2], featuresB[2]),
-                self.tff4(featuresA[3], featuresB[3]),]
+        featuresA, featuresB = inputs
+        features = [
+            self.tff1(featuresA[0], featuresB[0]),
+            self.tff2(featuresA[1], featuresB[1]),
+            self.tff3(featuresA[2], featuresB[2]),
+            self.tff4(featuresA[3], featuresB[3]),
+        ]
         features = {
             'res2': features[0],
             'res3': features[1],
             'res4': features[2],
-            'res5': features[3]
+            'res5': features[3],
         }
 
         outputs = self.sem_seg_head(features)
@@ -203,7 +238,7 @@ class CDMaskFormerHead(nn.Module):
 
         mask_pred_results = F.interpolate(
             mask_pred_results,
-            scale_factor=(4,4),
+            scale_factor=(4, 4),
             mode="bilinear",
             align_corners=False,
         )
@@ -212,4 +247,4 @@ class CDMaskFormerHead(nn.Module):
         if self.training:
             return outputs
         else:
-            return torch.cat([1-pred_masks, pred_masks], dim=1)
+            return torch.cat([1 - pred_masks, pred_masks], dim=1)

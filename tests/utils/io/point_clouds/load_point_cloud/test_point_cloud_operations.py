@@ -1,9 +1,11 @@
 import os
 import tempfile
+
 import numpy as np
-import torch
 import pytest
+import torch
 from plyfile import PlyData, PlyElement
+
 from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 

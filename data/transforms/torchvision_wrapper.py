@@ -1,6 +1,8 @@
-from typing import Optional, Any, Type
+from typing import Any, Optional, Type
+
 import torch
 import torchvision.transforms as T
+
 from data.transforms.base_transform import BaseTransform
 
 
@@ -28,9 +30,15 @@ class TorchvisionWrapper(BaseTransform):
         """
         # Input validation with assertions as per CLAUDE.md guidelines
         assert transform_class is not None, "transform_class must not be None"
-        assert hasattr(transform_class, '__module__'), f"transform_class must have __module__ attribute, got {type(transform_class)}"
-        assert 'torchvision' in transform_class.__module__, f"transform_class must be from torchvision, got module: {transform_class.__module__}"
-        assert callable(transform_class), f"transform_class must be callable, got {type(transform_class)}"
+        assert hasattr(
+            transform_class, '__module__'
+        ), f"transform_class must have __module__ attribute, got {type(transform_class)}"
+        assert (
+            'torchvision' in transform_class.__module__
+        ), f"transform_class must be from torchvision, got module: {transform_class.__module__}"
+        assert callable(
+            transform_class
+        ), f"transform_class must be callable, got {type(transform_class)}"
 
         self.transform_class = transform_class
         self.transform_kwargs = kwargs
@@ -38,7 +46,9 @@ class TorchvisionWrapper(BaseTransform):
         # Create the underlying torchvision transform
         self._transform = transform_class(**kwargs)
 
-    def _call_single(self, image: torch.Tensor, generator: Optional[torch.Generator] = None) -> torch.Tensor:
+    def _call_single(
+        self, image: torch.Tensor, generator: Optional[torch.Generator] = None
+    ) -> torch.Tensor:
         """Apply torchvision transform with deterministic seeding.
 
         Args:
@@ -52,7 +62,9 @@ class TorchvisionWrapper(BaseTransform):
             AssertionError: If input validation fails
         """
         # Input validation as per CLAUDE.md guidelines
-        assert isinstance(image, torch.Tensor), f"image must be torch.Tensor, got {type(image)}"
+        assert isinstance(
+            image, torch.Tensor
+        ), f"image must be torch.Tensor, got {type(image)}"
         assert image.numel() > 0, "image tensor must not be empty"
 
         if generator is not None:

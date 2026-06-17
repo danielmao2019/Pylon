@@ -12,7 +12,9 @@ def apply_smoothing(losses: np.ndarray, window_size: int) -> np.ndarray:
         Smoothed loss values (same length as input)
     """
     assert losses is not None, "losses must not be None"
-    assert isinstance(losses, np.ndarray), f"losses must be numpy array, got {type(losses)}"
+    assert isinstance(
+        losses, np.ndarray
+    ), f"losses must be numpy array, got {type(losses)}"
     assert losses.ndim == 1, f"losses must be 1D array, got {losses.ndim}D"
     assert window_size >= 1, f"window_size must be >= 1, got {window_size}"
 

@@ -1,7 +1,9 @@
 from typing import Dict, Tuple, Union
+
 import torch
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
 from data.structures.three_d.point_cloud.ops.knn.knn import knn
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def _normalize_points(points: torch.Tensor) -> torch.Tensor:

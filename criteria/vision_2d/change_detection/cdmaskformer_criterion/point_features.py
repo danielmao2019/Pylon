@@ -1,9 +1,12 @@
-from typing import Tuple, Callable, Any
-from torch.nn import functional as F
+from typing import Any, Callable, Tuple
+
 import torch
+from torch.nn import functional as F
 
 
-def point_sample(input: torch.Tensor, point_coords: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+def point_sample(
+    input: torch.Tensor, point_coords: torch.Tensor, **kwargs: Any
+) -> torch.Tensor:
     """
     A wrapper around :function:`torch.nn.functional.grid_sample` to support 3D point_coords tensors.
     Unlike :function:`torch.nn.functional.grid_sample` it assumes `point_coords` to lie inside
@@ -22,18 +25,21 @@ def point_sample(input: torch.Tensor, point_coords: torch.Tensor, **kwargs: Any)
     add_dim = False
     if point_coords.dim() == 3:
         add_dim = True
-        point_coords = point_coords.unsqueeze(2) # [c, self.num_points, 1, 2]
-    output = F.grid_sample(input, 2.0 * point_coords - 1.0, **kwargs) # [c, 1, self.num_points, 1]
+        point_coords = point_coords.unsqueeze(2)  # [c, self.num_points, 1, 2]
+    output = F.grid_sample(
+        input, 2.0 * point_coords - 1.0, **kwargs
+    )  # [c, 1, self.num_points, 1]
     if add_dim:
         output = output.squeeze(3)
-    return output # [c, 1, self.num_points]
+    return output  # [c, 1, self.num_points]
+
 
 def get_uncertain_point_coords_with_randomness(
     coarse_logits: torch.Tensor,
     uncertainty_func: Callable[[torch.Tensor], torch.Tensor],
     num_points: int,
     oversample_ratio: int,
-    importance_sample_ratio: float
+    importance_sample_ratio: float,
 ) -> torch.Tensor:
     """
     Sample points in [0, 1] x [0, 1] coordinate space based on their uncertainty. The unceratinties
@@ -72,7 +78,9 @@ def get_uncertain_point_coords_with_randomness(
     num_uncertain_points = int(importance_sample_ratio * num_points)
     num_random_points = num_points - num_uncertain_points
     idx = torch.topk(point_uncertainties[:, 0, :], k=num_uncertain_points, dim=1)[1]
-    shift = num_sampled * torch.arange(num_boxes, dtype=torch.long, device=coarse_logits.device)
+    shift = num_sampled * torch.arange(
+        num_boxes, dtype=torch.long, device=coarse_logits.device
+    )
     idx += shift[:, None]
     point_coords = point_coords.view(-1, 2)[idx.view(-1), :].view(
         num_boxes, num_uncertain_points, 2
@@ -81,14 +89,18 @@ def get_uncertain_point_coords_with_randomness(
         point_coords = torch.cat(
             [
                 point_coords,
-                torch.rand(num_boxes, num_random_points, 2, device=coarse_logits.device),
+                torch.rand(
+                    num_boxes, num_random_points, 2, device=coarse_logits.device
+                ),
             ],
             dim=1,
         )
     return point_coords
 
 
-def get_uncertain_point_coords_on_grid(uncertainty_map: torch.Tensor, num_points: int) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_uncertain_point_coords_on_grid(
+    uncertainty_map: torch.Tensor, num_points: int
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Find `num_points` most uncertain points from `uncertainty_map` grid.
 
@@ -109,7 +121,9 @@ def get_uncertain_point_coords_on_grid(uncertainty_map: torch.Tensor, num_points
 
     num_points = min(H * W, num_points)
     point_indices = torch.topk(uncertainty_map.view(R, H * W), k=num_points, dim=1)[1]
-    point_coords = torch.zeros(R, num_points, 2, dtype=torch.float, device=uncertainty_map.device)
+    point_coords = torch.zeros(
+        R, num_points, 2, dtype=torch.float, device=uncertainty_map.device
+    )
     point_coords[:, :, 0] = w_step / 2.0 + (point_indices % W).to(torch.float) * w_step
     point_coords[:, :, 1] = h_step / 2.0 + (point_indices // W).to(torch.float) * h_step
     return point_indices, point_coords

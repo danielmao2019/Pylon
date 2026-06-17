@@ -1,15 +1,17 @@
-import torch
-import tempfile
 import os
-from typing import Dict, Any, Tuple
+import tempfile
+from typing import Any, Dict, Tuple
+
+import torch
+
 from data.datasets.base_dataset import BaseDataset
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.transforms.compose import Compose
-from data.transforms.vision_2d.random_rotation import RandomRotation
 from data.transforms.vision_2d.crop.random_crop import RandomCrop
+from data.transforms.vision_2d.random_rotation import RandomRotation
+from data.transforms.vision_3d.scale import Scale
 from data.transforms.vision_3d.shuffle import Shuffle
 from data.transforms.vision_3d.uniform_pos_noise import UniformPosNoise
-from data.transforms.vision_3d.scale import Scale
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 class DummyDataset(BaseDataset):
@@ -27,7 +29,9 @@ class DummyDataset(BaseDataset):
         # Create a generator for deterministic raw datapoint generation
         self.generator = torch.Generator()
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a dummy datapoint with deterministic generation based on idx."""
         # Set generator seed based on idx for deterministic generation
         self.generator.manual_seed(idx)
@@ -53,7 +57,7 @@ class DummyDataset(BaseDataset):
         datapoint: Dict[str, Any],
         class_labels: Any = None,
         camera_state: Any = None,
-        settings_3d: Any = None
+        settings_3d: Any = None,
     ) -> None:
         """Required implementation of abstract method - returns None for test dataset."""
         return None
@@ -107,7 +111,9 @@ def run() -> list:
             },
         },
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
+    dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=2, shuffle=False, num_workers=0
+    )
 
     train_seeds = [42, 43]
     results = []
@@ -128,14 +134,24 @@ def test_transform_determinism():
     assert len(first_run_results) == len(second_run_results)
     for batch1, batch2 in zip(first_run_results, second_run_results, strict=True):
         assert batch1.keys() == batch2.keys() == {'inputs', 'labels', 'meta_info'}
-        assert batch1['inputs'].keys() == batch2['inputs'].keys() == {'image', 'point_cloud'}
+        assert (
+            batch1['inputs'].keys()
+            == batch2['inputs'].keys()
+            == {'image', 'point_cloud'}
+        )
         assert batch1['labels'].keys() == batch2['labels'].keys() == {'label'}
         assert batch1['meta_info'].keys() == batch2['meta_info'].keys() == {'idx'}
         assert torch.allclose(batch1['inputs']['image'], batch2['inputs']['image'])
         assert isinstance(batch1['inputs']['point_cloud'], list)
         assert isinstance(batch2['inputs']['point_cloud'], list)
-        assert len(batch1['inputs']['point_cloud']) == len(batch2['inputs']['point_cloud'])
-        for pc1, pc2 in zip(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud'], strict=True):
+        assert len(batch1['inputs']['point_cloud']) == len(
+            batch2['inputs']['point_cloud']
+        )
+        for pc1, pc2 in zip(
+            batch1['inputs']['point_cloud'],
+            batch2['inputs']['point_cloud'],
+            strict=True,
+        ):
             assert isinstance(pc1, PointCloud)
             assert isinstance(pc2, PointCloud)
             assert torch.allclose(pc1.xyz, pc2.xyz)

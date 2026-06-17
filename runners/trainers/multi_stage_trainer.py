@@ -1,8 +1,11 @@
-from typing import List, Dict, Any, Optional
 import copy
+from typing import Any, Dict, List, Optional
+
 import torch
-from .base_trainer import BaseTrainer
+
 import utils
+
+from .base_trainer import BaseTrainer
 
 
 class MultiStageTrainer(BaseTrainer):
@@ -26,8 +29,12 @@ class MultiStageTrainer(BaseTrainer):
             device: Device to use for training
         """
         assert len(stage_configs) > 0, "Must provide at least one stage config"
-        assert all('epochs' in config for config in stage_configs), "Each stage config must contain 'epochs' key"
-        assert all(config['epochs'] > 0 for config in stage_configs), "All stage epoch counts must be positive"
+        assert all(
+            'epochs' in config for config in stage_configs
+        ), "Each stage config must contain 'epochs' key"
+        assert all(
+            config['epochs'] > 0 for config in stage_configs
+        ), "All stage epoch counts must be positive"
 
         # Store stage info
         self.stage_configs = stage_configs
@@ -63,9 +70,13 @@ class MultiStageTrainer(BaseTrainer):
             train_seeds = stage_config['train_seeds']
             assert type(train_seeds) == list, f"{type(train_seeds)=}"
             assert all(type(seed) == int for seed in train_seeds), f"{train_seeds=}"
-            assert len(train_seeds) == stage_config['epochs'], f"{len(train_seeds)=}, {stage_config['epochs']=}"
+            assert (
+                len(train_seeds) == stage_config['epochs']
+            ), f"{len(train_seeds)=}, {stage_config['epochs']=}"
             self.train_seeds.extend(train_seeds)
-        assert len(self.train_seeds) == self.tot_epochs, f"{len(self.train_seeds)=}, {self.tot_epochs=}"
+        assert (
+            len(self.train_seeds) == self.tot_epochs
+        ), f"{len(self.train_seeds)=}, {self.tot_epochs=}"
 
         # Get validation seeds
         self.val_seeds = []
@@ -74,9 +85,13 @@ class MultiStageTrainer(BaseTrainer):
             val_seeds = stage_config['val_seeds']
             assert type(val_seeds) == list, f"{type(val_seeds)=}"
             assert all(type(seed) == int for seed in val_seeds), f"{val_seeds=}"
-            assert len(val_seeds) == stage_config['epochs'], f"{len(val_seeds)=}, {stage_config['epochs']=}"
+            assert (
+                len(val_seeds) == stage_config['epochs']
+            ), f"{len(val_seeds)=}, {stage_config['epochs']=}"
             self.val_seeds.extend(val_seeds)
-        assert len(self.val_seeds) == self.tot_epochs, f"{len(self.val_seeds)=}, {self.tot_epochs=}"
+        assert (
+            len(self.val_seeds) == self.tot_epochs
+        ), f"{len(self.val_seeds)=}, {self.tot_epochs=}"
 
         # Get test seed (use test_seed from first stage)
         assert 'test_seed' in self.stage_configs[0].keys()
@@ -117,7 +132,7 @@ class MultiStageTrainer(BaseTrainer):
         """Initialize state and handle resumption."""
         super(MultiStageTrainer, self)._init_state()
         # Determine which stage to resume from
-        self.current_stage = self._get_stage_for_epoch(self.cum_epochs-1)
+        self.current_stage = self._get_stage_for_epoch(self.cum_epochs - 1)
         self._switch_to_stage(self.current_stage)
 
     def run(self):

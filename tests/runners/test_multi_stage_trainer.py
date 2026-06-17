@@ -1,8 +1,10 @@
 """Test cases for MultiStageTrainer comparing with SupervisedSingleTaskTrainer."""
+
 import json
 import os
 
 import torch
+
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from data.collators.base_collator import BaseCollator
 from metrics.wrappers.single_task_metric import SingleTaskMetric
@@ -17,10 +19,16 @@ class SimpleMetric(SingleTaskMetric):
 
     DIRECTIONS = {"mse": -1}  # Lower is better for MSE
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict[str, torch.Tensor]:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
         """Compute MSE score."""
-        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
-        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
+        assert isinstance(
+            y_pred, torch.Tensor
+        ), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(
+            y_true, torch.Tensor
+        ), f"Expected torch.Tensor, got {type(y_true)}"
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
 
@@ -41,12 +49,13 @@ class SimpleDataset(torch.utils.data.Dataset):
         return {
             'inputs': {'data': self.data[idx]},
             'labels': {'target': self.labels[idx]},
-            'meta_info': {'idx': idx}
+            'meta_info': {'idx': idx},
         }
 
     def set_base_seed(self, seed):
         """Set the base seed for the dataset."""
         from utils.determinism.hash_utils import convert_to_seed
+
         self.base_seed = convert_to_seed(seed)
 
 
@@ -64,19 +73,25 @@ class SimpleModel(torch.nn.Module):
 
 class SimpleCriterion(SingleTaskCriterion):
     """A simple criterion for testing."""
+
     def __init__(self):
         super().__init__()
         self.mse = torch.nn.MSELoss()
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """Compute MSE loss."""
-        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
-        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
+        assert isinstance(
+            y_pred, torch.Tensor
+        ), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(
+            y_true, torch.Tensor
+        ), f"Expected torch.Tensor, got {type(y_true)}"
         return self.mse(y_pred, y_true)
 
 
 class SupervisedMultiStageTrainer(SupervisedSingleTaskTrainer, MultiStageTrainer):
     """A concrete trainer class that combines supervised training with multi-stage functionality."""
+
     def __init__(self, stage_configs: list[dict]):
         """Initialize the trainer with a list of stage configurations.
 
@@ -96,10 +111,7 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'val_seeds': [42] * epochs,
         'test_seed': 42,
         'checkpoint_method': 'all',
-        'train_dataset': {
-            'class': dataset,
-            'args': {'size': 100, 'device': 'cuda'}
-        },
+        'train_dataset': {'class': dataset, 'args': {'size': 100, 'device': 'cuda'}},
         'train_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
@@ -111,14 +123,8 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
                 },
             },
         },
-        'criterion': {
-            'class': SimpleCriterion,
-            'args': {}
-        },
-        'val_dataset': {
-            'class': dataset,
-            'args': {'size': 100, 'device': 'cuda'}
-        },
+        'criterion': {'class': SimpleCriterion, 'args': {}},
+        'val_dataset': {'class': dataset, 'args': {'size': 100, 'device': 'cuda'}},
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
@@ -130,14 +136,8 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
                 },
             },
         },
-        'metric': {
-            'class': metric,
-            'args': {}
-        },
-        'model': {
-            'class': model,
-            'args': {}
-        },
+        'metric': {'class': metric, 'args': {}},
+        'model': {'class': model, 'args': {}},
         'optimizer': {
             'class': SingleTaskOptimizer,
             'args': {
@@ -151,10 +151,8 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         },
         'scheduler': {
             'class': torch.optim.lr_scheduler.ConstantLR,
-            'args': {
-                'factor': 1.0
-            }
-        }
+            'args': {'factor': 1.0},
+        },
     }
 
 
@@ -166,7 +164,7 @@ def test_multi_stage_vs_single_stage(test_dir):
         epochs=10,
         model=SimpleModel,
         dataset=SimpleDataset,
-        metric=SimpleMetric
+        metric=SimpleMetric,
     )
 
     # Create two identical stage configs for multi-stage
@@ -175,14 +173,14 @@ def test_multi_stage_vs_single_stage(test_dir):
         epochs=5,
         model=SimpleModel,
         dataset=SimpleDataset,
-        metric=SimpleMetric
+        metric=SimpleMetric,
     )
     stage2_config = create_base_config(
         os.path.join(test_dir, "multi_stage_stage2"),
         epochs=5,
         model=SimpleModel,
         dataset=SimpleDataset,
-        metric=SimpleMetric
+        metric=SimpleMetric,
     )
 
     # Initialize and run single stage trainer first
@@ -193,14 +191,22 @@ def test_multi_stage_vs_single_stage(test_dir):
     del single_trainer
 
     # Then initialize and run multi-stage trainer
-    multi_trainer = SupervisedMultiStageTrainer(stage_configs=[stage1_config, stage2_config])
+    multi_trainer = SupervisedMultiStageTrainer(
+        stage_configs=[stage1_config, stage2_config]
+    )
     multi_trainer.run()
 
     # Compare model parameters at each epoch
     for epoch in range(10):
         # Load checkpoints
-        single_checkpoint = torch.load(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "checkpoint.pt"))
-        multi_checkpoint = torch.load(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "checkpoint.pt"))
+        single_checkpoint = torch.load(
+            os.path.join(
+                single_stage_config['work_dir'], f"epoch_{epoch}", "checkpoint.pt"
+            )
+        )
+        multi_checkpoint = torch.load(
+            os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "checkpoint.pt")
+        )
 
         # Compare model states
         single_model_state = single_checkpoint['model_state_dict']
@@ -210,8 +216,12 @@ def test_multi_stage_vs_single_stage(test_dir):
         for (single_name, single_param), (multi_name, multi_param) in zip(
             single_model_state.items(), multi_model_state.items(), strict=True
         ):
-            assert single_name == multi_name, f"Parameter names don't match: {single_name} vs {multi_name}. {epoch=}"
-            assert torch.allclose(single_param, multi_param), f"Parameters don't match for {single_name}. {epoch=}"
+            assert (
+                single_name == multi_name
+            ), f"Parameter names don't match: {single_name} vs {multi_name}. {epoch=}"
+            assert torch.allclose(
+                single_param, multi_param
+            ), f"Parameters don't match for {single_name}. {epoch=}"
 
         # Compare optimizer states
         single_optim_state = single_checkpoint['optimizer_state_dict']
@@ -221,23 +231,50 @@ def test_multi_stage_vs_single_stage(test_dir):
         for (single_name, single_param), (multi_name, multi_param) in zip(
             single_optim_state.items(), multi_optim_state.items(), strict=True
         ):
-            assert single_name == multi_name, f"Optimizer state names don't match: {single_name} vs {multi_name}"
+            assert (
+                single_name == multi_name
+            ), f"Optimizer state names don't match: {single_name} vs {multi_name}"
             if isinstance(single_param, torch.Tensor):
-                assert torch.allclose(single_param, multi_param), f"Optimizer states don't match for {single_name}"
+                assert torch.allclose(
+                    single_param, multi_param
+                ), f"Optimizer states don't match for {single_name}"
             else:
-                assert single_param == multi_param, f"Optimizer states don't match for {single_name}"
+                assert (
+                    single_param == multi_param
+                ), f"Optimizer states don't match for {single_name}"
 
         # Compare training losses
-        single_losses = torch.load(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "training_losses.pt"))
-        multi_losses = torch.load(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "training_losses.pt"))
-        assert torch.allclose(single_losses, multi_losses), f"Training losses don't match at epoch {epoch}"
+        single_losses = torch.load(
+            os.path.join(
+                single_stage_config['work_dir'], f"epoch_{epoch}", "training_losses.pt"
+            )
+        )
+        multi_losses = torch.load(
+            os.path.join(
+                stage1_config['work_dir'], f"epoch_{epoch}", "training_losses.pt"
+            )
+        )
+        assert torch.allclose(
+            single_losses, multi_losses
+        ), f"Training losses don't match at epoch {epoch}"
 
         # Compare validation scores
-        with open(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
+        with open(
+            os.path.join(
+                single_stage_config['work_dir'],
+                f"epoch_{epoch}",
+                "validation_scores.json",
+            )
+        ) as f:
             single_scores = json.load(f)
-        with open(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
+        with open(
+            os.path.join(
+                stage1_config['work_dir'], f"epoch_{epoch}", "validation_scores.json"
+            )
+        ) as f:
             multi_scores = json.load(f)
 
         # Compare validation scores using buffer_allclose utility
-        assert buffer_allclose(single_scores, multi_scores, rtol=1e-6, atol=1e-6), \
-            f"Validation scores don't match at epoch {epoch}: {single_scores} vs {multi_scores}"
+        assert buffer_allclose(
+            single_scores, multi_scores, rtol=1e-6, atol=1e-6
+        ), f"Validation scores don't match at epoch {epoch}: {single_scores} vs {multi_scores}"

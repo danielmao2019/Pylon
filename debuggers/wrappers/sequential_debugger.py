@@ -1,10 +1,12 @@
-from typing import Dict, Any, List
 import os
-import threading
 import queue
-import joblib
 import sys
+import threading
+from typing import Any, Dict, List
+
+import joblib
 import torch
+
 from debuggers.base_debugger import BaseDebugger
 from debuggers.forward_debugger import ForwardDebugger
 from debuggers.utils import get_layer_by_name
@@ -15,9 +17,12 @@ from utils.ops.apply import apply_tensor_op
 class SequentialDebugger(BaseDebugger):
     """Wrapper that runs multiple debuggers sequentially and manages page-based saving."""
 
-    def __init__(self, debuggers_config: List[Dict[str, Any]],
-                 model: torch.nn.Module,
-                 page_size_mb: int = 100):
+    def __init__(
+        self,
+        debuggers_config: List[Dict[str, Any]],
+        model: torch.nn.Module,
+        page_size_mb: int = 100,
+    ):
         """Initialize sequential debugger.
 
         Args:
@@ -70,11 +75,15 @@ class SequentialDebugger(BaseDebugger):
             if layer is not None:
                 for debugger in debuggers:
                     layer.register_forward_hook(debugger.forward_hook_fn)
-                print(f"Registered {len(debuggers)} forward debugger(s) on layer '{layer_name}'")
+                print(
+                    f"Registered {len(debuggers)} forward debugger(s) on layer '{layer_name}'"
+                )
             else:
                 print(f"Warning: Could not find layer '{layer_name}' for debugger")
 
-    def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
+    def __call__(
+        self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module
+    ) -> Dict[str, Any]:
         """Run all debuggers sequentially on the datapoint.
 
         Args:
@@ -97,7 +106,9 @@ class SequentialDebugger(BaseDebugger):
 
         return debug_outputs
 
-    def add_to_buffer(self, debug_outputs: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]):
+    def add_to_buffer(
+        self, debug_outputs: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]
+    ):
         """Add debug outputs to buffer for async processing.
 
         Args:
@@ -114,7 +125,9 @@ class SequentialDebugger(BaseDebugger):
         # Handle different idx formats (similar to BaseMetric)
         if isinstance(idx_raw, torch.Tensor):
             # Handle tensor format from DataLoader collation
-            assert idx_raw.shape == (1,), f"Expected single element tensor, got {idx_raw}"
+            assert idx_raw.shape == (
+                1,
+            ), f"Expected single element tensor, got {idx_raw}"
             assert idx_raw.dtype == torch.int64
             datapoint_idx = idx_raw.item()
         elif isinstance(idx_raw, list):
@@ -126,17 +139,21 @@ class SequentialDebugger(BaseDebugger):
             # Handle direct int format
             datapoint_idx = idx_raw
         else:
-            raise ValueError(f"Unsupported idx format: {type(idx_raw)} with value {idx_raw}")
+            raise ValueError(
+                f"Unsupported idx format: {type(idx_raw)} with value {idx_raw}"
+            )
 
         # Calculate memory size using sys.getsizeof recursively
         data_size = self._get_deep_size(debug_outputs)
 
         # Add to queue for background processing
-        self._buffer_queue.put({
-            'datapoint_idx': datapoint_idx,
-            'debug_outputs': debug_outputs,
-            'data_size': data_size
-        })
+        self._buffer_queue.put(
+            {
+                'datapoint_idx': datapoint_idx,
+                'debug_outputs': debug_outputs,
+                'data_size': data_size,
+            }
+        )
 
     def _buffer_worker(self) -> None:
         """Background thread to handle buffer updates (following base_metric.py pattern)."""
@@ -148,7 +165,9 @@ class SequentialDebugger(BaseDebugger):
                 data_size = item['data_size']
 
                 # Move tensors to CPU using apply_tensor_op (like base_metric.py)
-                processed_debug_outputs = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=debug_outputs)
+                processed_debug_outputs = apply_tensor_op(
+                    func=lambda x: x.detach().cpu(), inputs=debug_outputs
+                )
 
                 with self._buffer_lock:
                     # Add processed debug outputs to current page
@@ -168,7 +187,9 @@ class SequentialDebugger(BaseDebugger):
         size = sys.getsizeof(obj)
 
         if isinstance(obj, dict):
-            size += sum(self._get_deep_size(k) + self._get_deep_size(v) for k, v in obj.items())
+            size += sum(
+                self._get_deep_size(k) + self._get_deep_size(v) for k, v in obj.items()
+            )
         elif isinstance(obj, (list, tuple, set)):
             size += sum(self._get_deep_size(item) for item in obj)
         elif hasattr(obj, '__dict__'):
@@ -215,7 +236,9 @@ class SequentialDebugger(BaseDebugger):
         self._buffer_queue.join()
 
         # Assert queue is empty (following base_criterion.py and base_metric.py pattern)
-        assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
+        assert (
+            self._buffer_queue.empty()
+        ), "Buffer queue is not empty when resetting buffer"
 
         with self._buffer_lock:
             self.current_page_data = {}

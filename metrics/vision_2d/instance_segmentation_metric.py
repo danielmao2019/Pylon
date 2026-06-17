@@ -1,19 +1,21 @@
 from typing import Dict
+
 import torch
+
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
 class InstanceSegmentationMetric(SingleTaskMetric):
 
-    DIRECTIONS = {
-        'l1': -1  # Lower is better
-    }
+    DIRECTIONS = {'l1': -1}  # Lower is better
 
     def __init__(self, ignore_index: int):
         super().__init__()
         self.ignore_index = ignore_index
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_score(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         r"""
         Args:
             y_pred (torch.Tensor)

@@ -280,15 +280,12 @@ def _map_continuous_uv_coords_to_barycentric_coords(
         assert (
             texel_face_map["texel_face_index"].ndim == 2
         ), f"{texel_face_map['texel_face_index'].shape=}"
-        assert (
-            continuous_uv_coords.device == face_verts_uvs.device
-        ), (
+        assert continuous_uv_coords.device == face_verts_uvs.device, (
             "Expected `continuous_uv_coords` and `face_verts_uvs` to share a "
             f"device. {continuous_uv_coords.device=} {face_verts_uvs.device=}"
         )
         assert (
-            continuous_uv_coords.device
-            == texel_face_map["texel_face_index"].device
+            continuous_uv_coords.device == texel_face_map["texel_face_index"].device
         ), (
             "Expected `continuous_uv_coords` and "
             "`texel_face_map['texel_face_index']` to share a device. "

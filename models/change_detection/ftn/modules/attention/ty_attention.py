@@ -15,7 +15,9 @@ class TYAttention(torch.nn.Module):
         t = int(abs((math.log(self.in_channel, 2) + self.b) / self.gamma))
         k = t if t % 2 else t + 1
         self.conv = torch.nn.Conv1d(2, 2, kernel_size=k, padding=int(k / 2), bias=False)
-        self.conv2 = torch.nn.Conv1d(2, 2, kernel_size=k, padding=int(k / 2), bias=False)
+        self.conv2 = torch.nn.Conv1d(
+            2, 2, kernel_size=k, padding=int(k / 2), bias=False
+        )
 
     def init_weights(self):
         for m in self.modules():

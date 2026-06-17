@@ -1,20 +1,24 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.point_cloud_registration.parenet.pareconv.modules.ops import point_to_node_partition, index_select
-from models.point_cloud_registration.parenet.pareconv.modules.registration import get_node_correspondences
 
-from models.point_cloud_registration.parenet.pareconv.modules.dual_matching import PointDualMatching
-
+from models.point_cloud_registration.parenet.backbone import PAREConvFPN
+from models.point_cloud_registration.parenet.pareconv.modules.dual_matching import (
+    PointDualMatching,
+)
 from models.point_cloud_registration.parenet.pareconv.modules.geotransformer import (
     GeometricTransformer,
     SuperPointMatching,
     SuperPointTargetGenerator,
 )
-
-from models.point_cloud_registration.parenet.pareconv.modules.registration import HypothesisProposer
-
-from models.point_cloud_registration.parenet.backbone import PAREConvFPN
+from models.point_cloud_registration.parenet.pareconv.modules.ops import (
+    index_select,
+    point_to_node_partition,
+)
+from models.point_cloud_registration.parenet.pareconv.modules.registration import (
+    HypothesisProposer,
+    get_node_correspondences,
+)
 
 
 class _PARE_Net(nn.Module):
@@ -30,7 +34,7 @@ class _PARE_Net(nn.Module):
             cfg.backbone.share_nonlinearity,
             cfg.backbone.conv_way,
             cfg.backbone.use_xyz,
-            cfg.fine_matching.use_encoder_re_feats
+            cfg.fine_matching.use_encoder_re_feats,
         )
 
         self.transformer = GeometricTransformer(
@@ -50,7 +54,8 @@ class _PARE_Net(nn.Module):
         )
 
         self.coarse_matching = SuperPointMatching(
-            cfg.coarse_matching.num_correspondences, cfg.coarse_matching.dual_normalization
+            cfg.coarse_matching.num_correspondences,
+            cfg.coarse_matching.dual_normalization,
         )
 
         self.fine_matching = HypothesisProposer(
@@ -90,19 +95,31 @@ class _PARE_Net(nn.Module):
         output_dict['ref_points'] = ref_points
         output_dict['src_points'] = src_points
         # 1. Generate ground truth node correspondences
-        _, ref_node_masks, ref_node_knn_indices, ref_node_knn_masks = point_to_node_partition(
-            ref_points_f, ref_points_c, self.num_points_in_patch
+        _, ref_node_masks, ref_node_knn_indices, ref_node_knn_masks = (
+            point_to_node_partition(
+                ref_points_f, ref_points_c, self.num_points_in_patch
+            )
         )  # ref_N_c,  [ref_N_c, 64],  [ref_N_c, 64],
-        _, src_node_masks, src_node_knn_indices, src_node_knn_masks = point_to_node_partition(
-            src_points_f, src_points_c, self.num_points_in_patch
+        _, src_node_masks, src_node_knn_indices, src_node_knn_masks = (
+            point_to_node_partition(
+                src_points_f, src_points_c, self.num_points_in_patch
+            )
         )
         output_dict['ref_node_knn_indices'] = ref_node_knn_indices
         output_dict['src_node_knn_indices'] = src_node_knn_indices
 
-        ref_padded_points_f = torch.cat([ref_points_f, torch.zeros_like(ref_points_f[:1])], dim=0)# [ref_N_f + 1, 3]
-        src_padded_points_f = torch.cat([src_points_f, torch.zeros_like(src_points_f[:1])], dim=0)
-        ref_node_knn_points = index_select(ref_padded_points_f, ref_node_knn_indices, dim=0) #[ref_N_c, 64, 3]
-        src_node_knn_points = index_select(src_padded_points_f, src_node_knn_indices, dim=0)
+        ref_padded_points_f = torch.cat(
+            [ref_points_f, torch.zeros_like(ref_points_f[:1])], dim=0
+        )  # [ref_N_f + 1, 3]
+        src_padded_points_f = torch.cat(
+            [src_points_f, torch.zeros_like(src_points_f[:1])], dim=0
+        )
+        ref_node_knn_points = index_select(
+            ref_padded_points_f, ref_node_knn_indices, dim=0
+        )  # [ref_N_c, 64, 3]
+        src_node_knn_points = index_select(
+            src_padded_points_f, src_node_knn_indices, dim=0
+        )
 
         gt_node_corr_indices, gt_node_corr_overlaps = get_node_correspondences(
             ref_points_c,
@@ -116,7 +133,6 @@ class _PARE_Net(nn.Module):
             ref_knn_masks=ref_node_knn_masks,
             src_knn_masks=src_node_knn_masks,
         )  # coarse correspondences  gt_node_corr_indices: [N, 2]  gt_node_corr_overlaps : N
-
 
         output_dict['gt_node_corr_indices'] = gt_node_corr_indices
         output_dict['gt_node_corr_overlaps'] = gt_node_corr_overlaps
@@ -139,7 +155,6 @@ class _PARE_Net(nn.Module):
             ref_feats_c.unsqueeze(0),
             src_feats_c.unsqueeze(0),
         )
-
 
         ref_feats_c_norm = F.normalize(ref_feats_c.squeeze(0), p=2, dim=1)
         src_feats_c_norm = F.normalize(src_feats_c.squeeze(0), p=2, dim=1)
@@ -164,59 +179,110 @@ class _PARE_Net(nn.Module):
 
         # 5. Select topk nearest node correspondences
         with torch.no_grad():
-            ref_node_corr_indices, src_node_corr_indices, node_corr_scores = self.coarse_matching(
-                ref_feats_c_norm, src_feats_c_norm, ref_node_masks, src_node_masks
+            ref_node_corr_indices, src_node_corr_indices, node_corr_scores = (
+                self.coarse_matching(
+                    ref_feats_c_norm, src_feats_c_norm, ref_node_masks, src_node_masks
+                )
             )
 
             output_dict['ref_node_corr_indices'] = ref_node_corr_indices
             output_dict['src_node_corr_indices'] = src_node_corr_indices
             # 7 Random select ground truth node correspondences during training
             if self.training:
-                ref_node_corr_indices, src_node_corr_indices, node_corr_scores = self.coarse_target(
-                    gt_node_corr_indices, gt_node_corr_overlaps
+                ref_node_corr_indices, src_node_corr_indices, node_corr_scores = (
+                    self.coarse_target(gt_node_corr_indices, gt_node_corr_overlaps)
                 )
 
         # 6 Generate batched node points & feats
-        ref_node_corr_knn_indices = ref_node_knn_indices[ref_node_corr_indices]  # (P, K)
-        src_node_corr_knn_indices = src_node_knn_indices[src_node_corr_indices]  # (P, K)
+        ref_node_corr_knn_indices = ref_node_knn_indices[
+            ref_node_corr_indices
+        ]  # (P, K)
+        src_node_corr_knn_indices = src_node_knn_indices[
+            src_node_corr_indices
+        ]  # (P, K)
         ref_node_corr_knn_masks = ref_node_knn_masks[ref_node_corr_indices]  # (P, K)
         src_node_corr_knn_masks = src_node_knn_masks[src_node_corr_indices]  # (P, K)
-        ref_node_corr_knn_points = ref_node_knn_points[ref_node_corr_indices]  # (P, K, 3)
-        src_node_corr_knn_points = src_node_knn_points[src_node_corr_indices]  # (P, K, 3)
+        ref_node_corr_knn_points = ref_node_knn_points[
+            ref_node_corr_indices
+        ]  # (P, K, 3)
+        src_node_corr_knn_points = src_node_knn_points[
+            src_node_corr_indices
+        ]  # (P, K, 3)
 
-        ref_padded_feats_f = torch.cat([ref_feats_f, torch.zeros_like(ref_feats_f[:1])], dim=0)
-        src_padded_feats_f = torch.cat([src_feats_f, torch.zeros_like(src_feats_f[:1])], dim=0)
-        ref_node_corr_knn_feats = index_select(ref_padded_feats_f, ref_node_corr_knn_indices, dim=0)  # (P, K, C)
-        src_node_corr_knn_feats = index_select(src_padded_feats_f, src_node_corr_knn_indices, dim=0)  # (P, K, C)
+        ref_padded_feats_f = torch.cat(
+            [ref_feats_f, torch.zeros_like(ref_feats_f[:1])], dim=0
+        )
+        src_padded_feats_f = torch.cat(
+            [src_feats_f, torch.zeros_like(src_feats_f[:1])], dim=0
+        )
+        ref_node_corr_knn_feats = index_select(
+            ref_padded_feats_f, ref_node_corr_knn_indices, dim=0
+        )  # (P, K, C)
+        src_node_corr_knn_feats = index_select(
+            src_padded_feats_f, src_node_corr_knn_indices, dim=0
+        )  # (P, K, C)
 
-        m_ref_padded_scores = torch.cat([m_ref_scores, torch.zeros_like(m_ref_scores[:1])], dim=0)
-        m_src_padded_scores = torch.cat([m_src_scores, torch.zeros_like(m_src_scores[:1])], dim=0)
-        ref_node_corr_knn_scores = index_select(m_ref_padded_scores, ref_node_corr_knn_indices, dim=0)  # (P, K, C)
-        src_node_corr_knn_scores = index_select(m_src_padded_scores, src_node_corr_knn_indices, dim=0)  # (P, K, C)
+        m_ref_padded_scores = torch.cat(
+            [m_ref_scores, torch.zeros_like(m_ref_scores[:1])], dim=0
+        )
+        m_src_padded_scores = torch.cat(
+            [m_src_scores, torch.zeros_like(m_src_scores[:1])], dim=0
+        )
+        ref_node_corr_knn_scores = index_select(
+            m_ref_padded_scores, ref_node_corr_knn_indices, dim=0
+        )  # (P, K, C)
+        src_node_corr_knn_scores = index_select(
+            m_src_padded_scores, src_node_corr_knn_indices, dim=0
+        )  # (P, K, C)
 
-        output_dict['ref_node_corr_knn_points'] = ref_node_corr_knn_points   # 256 64 3
+        output_dict['ref_node_corr_knn_points'] = ref_node_corr_knn_points  # 256 64 3
         output_dict['src_node_corr_knn_points'] = src_node_corr_knn_points
         output_dict['ref_node_corr_knn_masks'] = ref_node_corr_knn_masks
         output_dict['src_node_corr_knn_masks'] = src_node_corr_knn_masks
 
-        re_ref_padded_feats_f = torch.cat([re_ref_feats_f, torch.zeros_like(re_ref_feats_f[:1])], dim=0)
-        re_src_padded_feats_f = torch.cat([re_src_feats_f, torch.zeros_like(re_src_feats_f[:1])], dim=0)
-        re_ref_node_corr_knn_feats = index_select(re_ref_padded_feats_f, ref_node_corr_knn_indices, dim=0)  # (P, K, C)
-        re_src_node_corr_knn_feats = index_select(re_src_padded_feats_f, src_node_corr_knn_indices, dim=0)  # (P, K, C)
+        re_ref_padded_feats_f = torch.cat(
+            [re_ref_feats_f, torch.zeros_like(re_ref_feats_f[:1])], dim=0
+        )
+        re_src_padded_feats_f = torch.cat(
+            [re_src_feats_f, torch.zeros_like(re_src_feats_f[:1])], dim=0
+        )
+        re_ref_node_corr_knn_feats = index_select(
+            re_ref_padded_feats_f, ref_node_corr_knn_indices, dim=0
+        )  # (P, K, C)
+        re_src_node_corr_knn_feats = index_select(
+            re_src_padded_feats_f, src_node_corr_knn_indices, dim=0
+        )  # (P, K, C)
 
-        output_dict['re_ref_node_corr_knn_feats'] = re_ref_node_corr_knn_feats   # 256 64 21 3
+        output_dict['re_ref_node_corr_knn_feats'] = (
+            re_ref_node_corr_knn_feats  # 256 64 21 3
+        )
         output_dict['re_src_node_corr_knn_feats'] = re_src_node_corr_knn_feats
 
         # 7 Match batched points
-        matching_scores = self.point_matching(ref_node_corr_knn_feats, src_node_corr_knn_feats, ref_node_corr_knn_scores, src_node_corr_knn_scores, ref_node_corr_knn_masks, src_node_corr_knn_masks)
+        matching_scores = self.point_matching(
+            ref_node_corr_knn_feats,
+            src_node_corr_knn_feats,
+            ref_node_corr_knn_scores,
+            src_node_corr_knn_scores,
+            ref_node_corr_knn_masks,
+            src_node_corr_knn_masks,
+        )
 
-        output_dict['matching_scores'] = matching_scores   # 256 64 64
+        output_dict['matching_scores'] = matching_scores  # 256 64 64
         output_dict['ref_node_corr_knn_scores'] = ref_node_corr_knn_scores
         output_dict['src_node_corr_knn_scores'] = src_node_corr_knn_scores
 
         # 8 Generate hypotheses and select the best one
         with torch.no_grad():
-            ref_corr_points, src_corr_points, corr_scores, estimated_transform, hypotheses, re_ref_corr_feats, re_src_corr_feats, = self.fine_matching(
+            (
+                ref_corr_points,
+                src_corr_points,
+                corr_scores,
+                estimated_transform,
+                hypotheses,
+                re_ref_corr_feats,
+                re_src_corr_feats,
+            ) = self.fine_matching(
                 ref_node_corr_knn_points,
                 src_node_corr_knn_points,
                 re_ref_node_corr_knn_feats,
@@ -241,6 +307,7 @@ class _PARE_Net(nn.Module):
 def create_model(config):
     model = _PARE_Net(config)
     return model
+
 
 def main():
     from config import make_cfg

@@ -1,9 +1,11 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import numpy as np
-import torch
 import open3d as o3d
-from data.transforms.base_transform import BaseTransform
+import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.transforms.base_transform import BaseTransform
 
 
 class EstimateNormals(BaseTransform):

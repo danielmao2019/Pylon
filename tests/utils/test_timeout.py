@@ -1,7 +1,9 @@
-import time
-import pytest
-from utils.timeout import with_timeout
 import threading
+import time
+
+import pytest
+
+from utils.timeout import with_timeout
 
 
 def test_timeout_success():

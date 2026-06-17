@@ -1,10 +1,11 @@
 """Main benchmark execution logic for KNN methods."""
 
-import torch
-import numpy as np
 from typing import Dict
-from generate_point_clouds import generate_point_clouds
+
+import numpy as np
+import torch
 from benchmark_method import benchmark_knn_method
+from generate_point_clouds import generate_point_clouds
 
 
 def run_benchmark() -> Dict:
@@ -17,11 +18,19 @@ def run_benchmark() -> Dict:
     sizes = [1_000, 10_000, 100_000, 1_000_000]
     size_labels = ["1K", "10K", "100K", "1M"]
     methods = ["faiss", "pytorch3d", "torch", "scipy"]
-    shapes = ["uniform_cube", "gaussian_cluster", "sphere_surface", "line_with_noise", "multiple_clusters"]
+    shapes = [
+        "uniform_cube",
+        "gaussian_cluster",
+        "sphere_surface",
+        "line_with_noise",
+        "multiple_clusters",
+    ]
     k = 10  # Number of nearest neighbors to find
 
     # Check CUDA availability
-    assert torch.cuda.is_available(), "CUDA must be available for GPU-based KNN methods (faiss, pytorch3d)"
+    assert (
+        torch.cuda.is_available()
+    ), "CUDA must be available for GPU-based KNN methods (faiss, pytorch3d)"
     device = torch.device("cuda")
     print(f"Using device: {device}")
 
@@ -31,7 +40,7 @@ def run_benchmark() -> Dict:
         "size_labels": size_labels,
         "methods": methods,
         "shapes": shapes,
-        "times": {}  # method -> list of times for each size
+        "times": {},  # method -> list of times for each size
     }
 
     for method in methods:
@@ -56,15 +65,23 @@ def run_benchmark() -> Dict:
         for method in methods:
             print(f"\nTesting method: {method}")
 
-            for shape_idx, (shape_name, (query, reference)) in enumerate(zip(shapes, point_clouds, strict=True)):
+            for shape_idx, (shape_name, (query, reference)) in enumerate(
+                zip(shapes, point_clouds, strict=True)
+            ):
                 test_count += 3  # 3 repetitions
-                print(f"  Shape {shape_idx+1}/{len(shapes)}: {shape_name} - ", end="", flush=True)
+                print(
+                    f"  Shape {shape_idx+1}/{len(shapes)}: {shape_name} - ",
+                    end="",
+                    flush=True,
+                )
 
                 # Move to CPU for scipy
                 if method == "scipy":
                     query_cpu = query.cpu()
                     reference_cpu = reference.cpu()
-                    avg_time = benchmark_knn_method(query_cpu, reference_cpu, method, k=k)
+                    avg_time = benchmark_knn_method(
+                        query_cpu, reference_cpu, method, k=k
+                    )
                 else:
                     avg_time = benchmark_knn_method(query, reference, method, k=k)
 
@@ -74,7 +91,9 @@ def run_benchmark() -> Dict:
                     print(f"{avg_time:.4f}s")
                     method_times[method].append(avg_time)
 
-                print(f"  Progress: {test_count}/{total_tests} tests completed", end="\r")
+                print(
+                    f"  Progress: {test_count}/{total_tests} tests completed", end="\r"
+                )
 
         # Calculate average time for each method at this size
         for method in methods:

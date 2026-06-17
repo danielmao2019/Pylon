@@ -38,9 +38,7 @@ def _build_texel_face_map_stub(
         assigned to face 0 with centroid barycentrics.
     """
 
-    texel_face_index = torch.zeros(
-        (texture_size, texture_size), dtype=torch.int64
-    )
+    texel_face_index = torch.zeros((texture_size, texture_size), dtype=torch.int64)
     texel_face_barycentric = torch.full(
         (texture_size, texture_size, 3),
         fill_value=1.0 / 3.0,
@@ -342,9 +340,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         verts=verts,
         faces=faces,
         texture=MeshTextureUVTextureMap(
-            uv_texture_map=torch.zeros(
-                (1, 1, 3), dtype=torch.float32, device=device
-            ),
+            uv_texture_map=torch.zeros((1, 1, 3), dtype=torch.float32, device=device),
             verts_uvs=verts_uvs,
             faces_uvs=faces,
             convention="obj",

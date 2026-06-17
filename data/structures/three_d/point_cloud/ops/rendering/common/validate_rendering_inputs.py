@@ -1,6 +1,7 @@
 from typing import Optional, Tuple, Union
 
 import torch
+
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
@@ -32,12 +33,12 @@ def validate_rendering_inputs(
 
     intrinsics = camera.intrinsics
     extrinsics = camera.extrinsics
-    assert intrinsics.device == points.device, (
-        f"points device {points.device} != camera_intrinsics device {intrinsics.device}"
-    )
-    assert extrinsics.device == points.device, (
-        f"points device {points.device} != camera_extrinsics device {extrinsics.device}"
-    )
+    assert (
+        intrinsics.device == points.device
+    ), f"points device {points.device} != camera_intrinsics device {intrinsics.device}"
+    assert (
+        extrinsics.device == points.device
+    ), f"points device {points.device} != camera_extrinsics device {extrinsics.device}"
 
     # Validate resolution and convention
     assert isinstance(

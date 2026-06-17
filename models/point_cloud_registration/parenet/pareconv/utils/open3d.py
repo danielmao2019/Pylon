@@ -1,6 +1,6 @@
+import matplotlib.colors as colors
 import numpy as np
 import open3d as o3d
-import matplotlib.colors as colors
 
 
 def get_color(color_name):
@@ -155,13 +155,19 @@ def registration_with_ransac_from_feats(
         ref_feats,
         True,
         distance_threshold,
-        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(
+            False
+        ),
         ransac_n=ransac_n,
         checkers=[
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
-            o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold),
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
+                distance_threshold
+            ),
         ],
-        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(num_iterations, confidence=0.999),
+        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(
+            num_iterations, confidence=0.999
+        ),
     )
 
     return result.transformation
@@ -191,9 +197,13 @@ def registration_with_ransac_from_correspondences(
         ref_pcd,
         correspondences,
         distance_threshold,
-        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(
+            False
+        ),
         ransac_n=ransac_n,
-        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(num_iterations, num_iterations),
+        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(
+            num_iterations, num_iterations
+        ),
     )
 
     return result.transformation

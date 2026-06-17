@@ -1,9 +1,10 @@
-from typing import List, Union, Optional
+from typing import List, Optional, Union
+
 import torch
 
-from ._base_ import GradientManipulationBaseOptimizer
 import utils
 
+from ._base_ import GradientManipulationBaseOptimizer
 
 NUMERICAL_STABILITY = 1.0e-03
 
@@ -28,12 +29,21 @@ class MGDAOptimizer(GradientManipulationBaseOptimizer):
         Returns:
             result (torch.Tensor): the 1D manipulated gradient tensor.
         """
-        assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
+        assert (
+            len(grads_list) == self.num_tasks
+        ), f"{len(grads_list)=}, {self.num_tasks=}"
         alpha = self._frank_wolfe_solver_(grads_list)
-        result = sum([alpha_i * g_i for alpha_i, g_i in zip(list(alpha), grads_list, strict=True)])
+        result = sum(
+            [
+                alpha_i * g_i
+                for alpha_i, g_i in zip(list(alpha), grads_list, strict=True)
+            ]
+        )
         return result
 
-    def _frank_wolfe_solver_(self, grads_list: List[torch.Tensor], threshold: float = 1.0e-03) -> torch.Tensor:
+    def _frank_wolfe_solver_(
+        self, grads_list: List[torch.Tensor], threshold: float = 1.0e-03
+    ) -> torch.Tensor:
         r"""
         Args:
             threshold (float): serves as the stopping criterion for this sub-problem.
@@ -44,20 +54,35 @@ class MGDAOptimizer(GradientManipulationBaseOptimizer):
         assert type(grads_list) == list, f"{type(grads_list)=}"
         assert type(threshold) in [float, int] and threshold >= 0, f"{threshold=}"
         # initialization
-        alpha = 1 / self.num_tasks * torch.ones(size=(self.num_tasks,), dtype=torch.float32, device=torch.device('cuda'))
+        alpha = (
+            1
+            / self.num_tasks
+            * torch.ones(
+                size=(self.num_tasks,), dtype=torch.float32, device=torch.device('cuda')
+            )
+        )
         GTG = utils.gradients.get_gram_matrix(grads_list)
         # main loop
         for _ in range(self.max_iter):
             t_hat = torch.argmin(torch.matmul(GTG, alpha))
             a = grads_list[t_hat]
-            b = sum([alpha_i * g_i for alpha_i, g_i in zip(list(alpha), grads_list, strict=True)])
+            b = sum(
+                [
+                    alpha_i * g_i
+                    for alpha_i, g_i in zip(list(alpha), grads_list, strict=True)
+                ]
+            )
             gamma_hat = MGDAOptimizer._frank_wolfe_solver_line_(a, b)
-            alpha *= (1 - gamma_hat)
+            alpha *= 1 - gamma_hat
             alpha[t_hat] += gamma_hat
             # sanity check
-            assert torch.all(torch.maximum(alpha - 1, 0 - alpha) < NUMERICAL_STABILITY), f"{alpha=}"
+            assert torch.all(
+                torch.maximum(alpha - 1, 0 - alpha) < NUMERICAL_STABILITY
+            ), f"{alpha=}"
             alpha = torch.clamp(alpha, min=0, max=1)
-            assert abs(alpha.sum() - 1) < NUMERICAL_STABILITY, f"{alpha=}, {alpha.sum()=}"
+            assert (
+                abs(alpha.sum() - 1) < NUMERICAL_STABILITY
+            ), f"{alpha=}, {alpha.sum()=}"
             alpha = alpha / alpha.sum()
             # early stopping
             if gamma_hat < threshold:
@@ -66,7 +91,9 @@ class MGDAOptimizer(GradientManipulationBaseOptimizer):
         return alpha
 
     @staticmethod
-    def _frank_wolfe_solver_line_(a: torch.Tensor, b: torch.Tensor) -> Union[int, torch.Tensor]:
+    def _frank_wolfe_solver_line_(
+        a: torch.Tensor, b: torch.Tensor
+    ) -> Union[int, torch.Tensor]:
         r"""This function returns the solution to
         :math:`\min_{\gamma \in [0, 1]}\|\gamma a + (1-\gamma) b\|_{2}^{2}`.
 
@@ -86,7 +113,7 @@ class MGDAOptimizer(GradientManipulationBaseOptimizer):
         elif ab >= bb:
             result = 0
         else:
-            result = ((bb - ab) / (aa + bb - 2*ab))
+            result = (bb - ab) / (aa + bb - 2 * ab)
             # sanity check
             assert max(result - 1, 0 - result) < NUMERICAL_STABILITY, f"{result=}"
             result = torch.clamp(result, min=0, max=1)

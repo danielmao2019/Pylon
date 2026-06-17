@@ -1,7 +1,8 @@
 import os
-import pytest
-from agents.logger import AgentLogParser
 
+import pytest
+
+from agents.logger import AgentLogParser
 
 # ============================================================================
 # ERROR HANDLING TESTS

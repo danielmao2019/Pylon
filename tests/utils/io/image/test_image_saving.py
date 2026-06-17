@@ -1,8 +1,10 @@
 import os
 import tempfile
+
+import pytest
 import torch
 from PIL import Image
-import pytest
+
 from utils.io.image import save_image
 
 

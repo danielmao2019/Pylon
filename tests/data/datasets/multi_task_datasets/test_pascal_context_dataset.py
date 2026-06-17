@@ -1,9 +1,13 @@
-from typing import Dict, Any
-import pytest
 import random
-import torch
 from concurrent.futures import ThreadPoolExecutor
-from data.datasets.multi_task_datasets.pascal_context_dataset import PASCALContextDataset
+from typing import Any, Dict
+
+import pytest
+import torch
+
+from data.datasets.multi_task_datasets.pascal_context_dataset import (
+    PASCALContextDataset,
+)
 from utils.builders.builder import build_from_config
 
 
@@ -21,8 +25,12 @@ def validate_labels(labels: Dict[str, Any]) -> None:
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert (
+        'idx' in meta_info
+    ), f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert (
+        meta_info['idx'] == datapoint_idx
+    ), f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
 def validate_datapoint(dataset: PASCALContextDataset, idx: int) -> None:
@@ -34,8 +42,12 @@ def validate_datapoint(dataset: PASCALContextDataset, idx: int) -> None:
     validate_meta_info(datapoint['meta_info'], idx)
 
 
-@pytest.mark.parametrize('pascal_context_dataset_config', ['train', 'val'], indirect=True)
-def test_pascal_context_dataset(pascal_context_dataset_config, max_samples, get_samples_to_test) -> None:
+@pytest.mark.parametrize(
+    'pascal_context_dataset_config', ['train', 'val'], indirect=True
+)
+def test_pascal_context_dataset(
+    pascal_context_dataset_config, max_samples, get_samples_to_test
+) -> None:
     dataset = build_from_config(pascal_context_dataset_config)
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
@@ -46,20 +58,35 @@ def test_pascal_context_dataset(pascal_context_dataset_config, max_samples, get_
         executor.map(lambda idx: validate_datapoint(dataset, idx), indices)
 
 
-@pytest.mark.parametrize('selected_labels,expected_keys', [
-    (['semantic_segmentation'], ['semantic_segmentation']),
-    (['parts_target'], ['parts_target']),
-    (['normal_estimation'], ['normal_estimation']),
-    (['saliency_estimation'], ['saliency_estimation']),
-    (['semantic_segmentation', 'normal_estimation'], ['semantic_segmentation', 'normal_estimation']),
-    (['parts_target', 'saliency_estimation'], ['parts_target', 'saliency_estimation']),
-    (['semantic_segmentation', 'parts_target', 'normal_estimation'], ['semantic_segmentation', 'parts_target', 'normal_estimation']),
-    (None, None),  # Default case - will be set to PASCALContextDataset.LABEL_NAMES
-])
-def test_pascal_context_selective_loading(pascal_context_base_config, selected_labels, expected_keys):
+@pytest.mark.parametrize(
+    'selected_labels,expected_keys',
+    [
+        (['semantic_segmentation'], ['semantic_segmentation']),
+        (['parts_target'], ['parts_target']),
+        (['normal_estimation'], ['normal_estimation']),
+        (['saliency_estimation'], ['saliency_estimation']),
+        (
+            ['semantic_segmentation', 'normal_estimation'],
+            ['semantic_segmentation', 'normal_estimation'],
+        ),
+        (
+            ['parts_target', 'saliency_estimation'],
+            ['parts_target', 'saliency_estimation'],
+        ),
+        (
+            ['semantic_segmentation', 'parts_target', 'normal_estimation'],
+            ['semantic_segmentation', 'parts_target', 'normal_estimation'],
+        ),
+        (None, None),  # Default case - will be set to PASCALContextDataset.LABEL_NAMES
+    ],
+)
+def test_pascal_context_selective_loading(
+    pascal_context_base_config, selected_labels, expected_keys
+):
     """Test that PASCAL Context dataset selective loading works correctly."""
     # Copy and modify the base config for selective loading
     import copy
+
     config = copy.deepcopy(pascal_context_base_config)
     config['args']['labels'] = selected_labels
 
@@ -68,7 +95,9 @@ def test_pascal_context_selective_loading(pascal_context_base_config, selected_l
     # Check selected_labels attribute
     if selected_labels is None:
         assert dataset.selected_labels == PASCALContextDataset.LABEL_NAMES
-        expected_keys = PASCALContextDataset.LABEL_NAMES  # Use the actual LABEL_NAMES for default case
+        expected_keys = (
+            PASCALContextDataset.LABEL_NAMES
+        )  # Use the actual LABEL_NAMES for default case
     else:
         assert dataset.selected_labels == selected_labels
 
@@ -95,4 +124,6 @@ def test_pascal_context_selective_loading(pascal_context_base_config, selected_l
     for key, value in labels.items():
         if key in ['parts_target', 'parts_inst_mask'] and value is None:
             continue  # None is acceptable for parts when no human parts are present
-        assert isinstance(value, torch.Tensor), f"Label '{key}' should be tensor, got {type(value)}"
+        assert isinstance(
+            value, torch.Tensor
+        ), f"Label '{key}' should be tensor, got {type(value)}"

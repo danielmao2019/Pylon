@@ -1,9 +1,12 @@
 import pytest
 import torch
+
 from debuggers.wrappers.sequential_debugger import SequentialDebugger
 
 
-def test_sequential_debugger_call_basic(sequential_debugger_basic, sample_datapoint, dummy_model):
+def test_sequential_debugger_call_basic(
+    sequential_debugger_basic, sample_datapoint, dummy_model
+):
     """Test basic __call__ functionality."""
     debugger = sequential_debugger_basic
     debugger.enabled = True
@@ -18,7 +21,9 @@ def test_sequential_debugger_call_basic(sequential_debugger_basic, sample_datapo
     assert 'input_analysis' in result
 
 
-def test_sequential_debugger_call_disabled(sequential_debugger_basic, sample_datapoint, dummy_model):
+def test_sequential_debugger_call_disabled(
+    sequential_debugger_basic, sample_datapoint, dummy_model
+):
     """Test __call__ when debugger is disabled."""
     debugger = sequential_debugger_basic
     debugger.enabled = False
@@ -30,7 +35,9 @@ def test_sequential_debugger_call_disabled(sequential_debugger_basic, sample_dat
     assert result == {}
 
 
-def test_sequential_debugger_call_empty_config(sequential_debugger_empty, sample_datapoint, dummy_model):
+def test_sequential_debugger_call_empty_config(
+    sequential_debugger_empty, sample_datapoint, dummy_model
+):
     """Test __call__ with empty debugger config."""
     debugger = sequential_debugger_empty
     debugger.enabled = True
@@ -42,7 +49,9 @@ def test_sequential_debugger_call_empty_config(sequential_debugger_empty, sample
     assert result == {}
 
 
-def test_sequential_debugger_with_forward_hooks(sequential_debugger_forward_hooks, sample_datapoint, dummy_model):
+def test_sequential_debugger_with_forward_hooks(
+    sequential_debugger_forward_hooks, sample_datapoint, dummy_model
+):
     """Test debugger with forward hook debuggers."""
     debugger = sequential_debugger_forward_hooks
     debugger.enabled = True
@@ -76,24 +85,19 @@ def test_sequential_debugger_model_parameter_passing(debuggers_config, dummy_mod
     config_with_model_check = [
         {
             'name': 'model_checker',
-            'debugger_config': {
-                'class': ModelCheckDebugger,
-                'args': {}
-            }
+            'debugger_config': {'class': ModelCheckDebugger, 'args': {}},
         }
     ]
 
     debugger = SequentialDebugger(
-        debuggers_config=config_with_model_check,
-        model=dummy_model,
-        page_size_mb=1
+        debuggers_config=config_with_model_check, model=dummy_model, page_size_mb=1
     )
     debugger.enabled = True
 
     sample_datapoint = {
         'inputs': torch.randn(1, 3, 32, 32, dtype=torch.float32),
         'outputs': torch.randn(1, 10, dtype=torch.float32),
-        'meta_info': {'idx': [0]}
+        'meta_info': {'idx': [0]},
     }
 
     # Call debugger
@@ -104,7 +108,9 @@ def test_sequential_debugger_model_parameter_passing(debuggers_config, dummy_mod
     assert result['model_checker']['model_type'] == 'DummyModel'
 
 
-def test_sequential_debugger_data_flow_integration(sequential_debugger_basic, sample_datapoint, dummy_model):
+def test_sequential_debugger_data_flow_integration(
+    sequential_debugger_basic, sample_datapoint, dummy_model
+):
     """Test complete data flow from __call__ to buffer."""
     debugger = sequential_debugger_basic
     debugger.enabled = True
@@ -130,12 +136,12 @@ def test_sequential_debugger_data_flow_integration(sequential_debugger_basic, sa
 
 
 @pytest.mark.parametrize("batch_size", [1, 2, 4])
-def test_sequential_debugger_different_batch_sizes(debuggers_config, dummy_model, batch_size):
+def test_sequential_debugger_different_batch_sizes(
+    debuggers_config, dummy_model, batch_size
+):
     """Test debugger works with different batch sizes."""
     debugger = SequentialDebugger(
-        debuggers_config=debuggers_config,
-        model=dummy_model,
-        page_size_mb=1
+        debuggers_config=debuggers_config, model=dummy_model, page_size_mb=1
     )
     debugger.enabled = True
 
@@ -143,7 +149,7 @@ def test_sequential_debugger_different_batch_sizes(debuggers_config, dummy_model
     datapoint = {
         'inputs': torch.randn(batch_size, 3, 32, 32, dtype=torch.float32),
         'outputs': torch.randn(batch_size, 10, dtype=torch.float32),
-        'meta_info': {'idx': [0]}
+        'meta_info': {'idx': [0]},
     }
 
     # Call debugger
@@ -154,7 +160,9 @@ def test_sequential_debugger_different_batch_sizes(debuggers_config, dummy_model
     assert len(result) == 2  # Two debuggers in config
 
 
-def test_sequential_debugger_tensor_device_handling(sequential_debugger_basic, dummy_model):
+def test_sequential_debugger_tensor_device_handling(
+    sequential_debugger_basic, dummy_model
+):
     """Test debugger handles tensors on different devices."""
     debugger = sequential_debugger_basic
     debugger.enabled = True
@@ -167,11 +175,7 @@ def test_sequential_debugger_tensor_device_handling(sequential_debugger_basic, d
         inputs = torch.randn(1, 3, 32, 32, dtype=torch.float32)
         outputs = torch.randn(1, 10, dtype=torch.float32)
 
-    datapoint = {
-        'inputs': inputs,
-        'outputs': outputs,
-        'meta_info': {'idx': [0]}
-    }
+    datapoint = {'inputs': inputs, 'outputs': outputs, 'meta_info': {'idx': [0]}}
 
     # Call debugger
     result = debugger(datapoint, dummy_model)
@@ -208,31 +212,23 @@ def test_sequential_debugger_error_propagation(debuggers_config, dummy_model):
     config_with_error = [
         {
             'name': 'good_debugger',
-            'debugger_config': {
-                'class': GoodDebugger,
-                'args': {}
-            }
+            'debugger_config': {'class': GoodDebugger, 'args': {}},
         },
         {
             'name': 'error_debugger',
-            'debugger_config': {
-                'class': ErrorDebugger,
-                'args': {}
-            }
-        }
+            'debugger_config': {'class': ErrorDebugger, 'args': {}},
+        },
     ]
 
     debugger = SequentialDebugger(
-        debuggers_config=config_with_error,
-        model=dummy_model,
-        page_size_mb=1
+        debuggers_config=config_with_error, model=dummy_model, page_size_mb=1
     )
     debugger.enabled = True
 
     sample_datapoint = {
         'inputs': torch.randn(1, 3, 32, 32, dtype=torch.float32),
         'outputs': torch.randn(1, 10, dtype=torch.float32),
-        'meta_info': {'idx': [0]}
+        'meta_info': {'idx': [0]},
     }
 
     # Should raise the error from the error debugger
@@ -240,7 +236,9 @@ def test_sequential_debugger_error_propagation(debuggers_config, dummy_model):
         debugger(sample_datapoint, dummy_model)
 
 
-def test_sequential_debugger_output_structure_consistency(sequential_debugger_basic, dummy_model):
+def test_sequential_debugger_output_structure_consistency(
+    sequential_debugger_basic, dummy_model
+):
     """Test that output structure is consistent across multiple calls."""
     debugger = sequential_debugger_basic
     debugger.enabled = True
@@ -250,7 +248,7 @@ def test_sequential_debugger_output_structure_consistency(sequential_debugger_ba
         datapoint = {
             'inputs': torch.randn(1, 3, 32, 32, dtype=torch.float32),
             'outputs': torch.randn(1, 10, dtype=torch.float32),
-            'meta_info': {'idx': [i]}
+            'meta_info': {'idx': [i]},
         }
         result = debugger(datapoint, dummy_model)
         results.append(result)
@@ -266,7 +264,9 @@ def test_sequential_debugger_output_structure_consistency(sequential_debugger_ba
             assert isinstance(result[debugger_name], dict)
 
 
-def test_sequential_debugger_integration_with_real_model_forward(sequential_debugger_forward_hooks, dummy_model):
+def test_sequential_debugger_integration_with_real_model_forward(
+    sequential_debugger_forward_hooks, dummy_model
+):
     """Test integration with actual model forward pass."""
     debugger = sequential_debugger_forward_hooks
     debugger.enabled = True
@@ -282,7 +282,7 @@ def test_sequential_debugger_integration_with_real_model_forward(sequential_debu
     datapoint = {
         'inputs': input_data,
         'outputs': model_output,
-        'meta_info': {'idx': [0]}
+        'meta_info': {'idx': [0]},
     }
 
     # Call debugger
@@ -311,6 +311,7 @@ def test_sequential_debugger_inheritance_and_interface(sequential_debugger_basic
 
     # Check method signature
     import inspect
+
     call_signature = inspect.signature(sequential_debugger_basic.__call__)
     params = list(call_signature.parameters.keys())
     assert 'datapoint' in params

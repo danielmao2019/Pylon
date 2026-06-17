@@ -1,6 +1,8 @@
-from typing import Union, Optional
-import pytest
 import copy
+from typing import Optional, Union
+
+import pytest
+
 from utils.builders.builder import build_from_config
 
 

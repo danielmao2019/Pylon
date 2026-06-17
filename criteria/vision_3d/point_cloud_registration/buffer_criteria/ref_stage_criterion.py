@@ -1,13 +1,22 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import torch
+
 from criteria.wrappers import SingleTaskCriterion
 
 
 class BUFFER_RefStageCriterion(SingleTaskCriterion):
 
-    def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def __call__(
+        self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
         assert isinstance(y_pred, dict)
-        assert y_pred.keys() == {'src_ref', 'tgt_ref', 'src_s', 'tgt_s'}, f"{y_pred.keys()=}"
+        assert y_pred.keys() == {
+            'src_ref',
+            'tgt_ref',
+            'src_s',
+            'tgt_s',
+        }, f"{y_pred.keys()=}"
         assert isinstance(y_true, dict)
         assert y_true.keys() == {'transform'}, f"{y_true.keys()=}"
 

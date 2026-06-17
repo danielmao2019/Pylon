@@ -1,7 +1,10 @@
 """Tests for SyntheticTransformPCRDataset cache version discrimination."""
 
 import tempfile
-from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
+
+from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import (
+    SyntheticTransformPCRDataset,
+)
 
 
 # Create a concrete implementation for testing
@@ -11,16 +14,9 @@ class ConcreteSyntheticTransformPCRDataset(SyntheticTransformPCRDataset):
     def _init_annotations(self) -> None:
         """Simple implementation for testing."""
         self.annotations = [
-            {
-                't1_pc_filepath': 'dummy1.ply',
-                't2_pc_filepath': 'dummy1.ply'
-            },
-            {
-                't1_pc_filepath': 'dummy2.ply',
-                't2_pc_filepath': 'dummy2.ply'
-            },
+            {'t1_pc_filepath': 'dummy1.ply', 't2_pc_filepath': 'dummy1.ply'},
+            {'t1_pc_filepath': 'dummy2.ply', 't2_pc_filepath': 'dummy2.ply'},
         ]
-
 
     def _apply_crop(self, idx: int, pc_data: dict) -> dict:
         """Build and apply crop transform for testing."""
@@ -38,7 +34,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         dataset1b = ConcreteSyntheticTransformPCRDataset(
             data_root=temp_dir,
@@ -46,7 +42,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
 
@@ -57,7 +53,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             rotation_mag=30.0,  # Different
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
@@ -68,7 +64,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.3,  # Different
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
@@ -79,7 +75,7 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.1,  # Different
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() != dataset4.get_cache_version_hash()
 
@@ -90,10 +86,9 @@ def test_synthetic_transform_pcr_dataset_version_discrimination():
             rotation_mag=45.0,
             translation_mag=0.5,
             matching_radius=0.05,
-            split='train'
+            split='train',
         )
         assert dataset1a.get_cache_version_hash() != dataset5.get_cache_version_hash()
-
 
 
 def test_all_parameters_affect_version_hash():
@@ -125,8 +120,9 @@ def test_all_parameters_affect_version_hash():
             modified_args[param_name] = new_value
             dataset2 = ConcreteSyntheticTransformPCRDataset(**modified_args)
 
-            assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-                f"Parameter {param_name} should affect cache version hash"
+            assert (
+                dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+            ), f"Parameter {param_name} should affect cache version hash"
 
 
 def test_comprehensive_no_hash_collisions():
@@ -138,25 +134,30 @@ def test_comprehensive_no_hash_collisions():
         for dataset_size in [50, 100, 200]:
             for rotation_mag in [30.0, 45.0, 60.0]:
                 for translation_mag in [0.3, 0.5, 0.7]:
-                    datasets.append(ConcreteSyntheticTransformPCRDataset(
-                        data_root=temp_dir,
-                        dataset_size=dataset_size,
-                        rotation_mag=rotation_mag,
-                        translation_mag=translation_mag,
-                        matching_radius=0.05,
-                        split='train'
-                    ))
+                    datasets.append(
+                        ConcreteSyntheticTransformPCRDataset(
+                            data_root=temp_dir,
+                            dataset_size=dataset_size,
+                            rotation_mag=rotation_mag,
+                            translation_mag=translation_mag,
+                            matching_radius=0.05,
+                            split='train',
+                        )
+                    )
 
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
         # Ensure all hashes are unique (no collisions)
-        assert len(hashes) == len(set(hashes)), \
-            f"Hash collision detected! Duplicate hashes found in: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
-            assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-            assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
-
-
+            assert isinstance(
+                hash_val, str
+            ), f"Hash must be string, got {type(hash_val)}"
+            assert (
+                len(hash_val) == 16
+            ), f"Hash must be 16 characters, got {len(hash_val)}"

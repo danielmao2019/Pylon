@@ -39,7 +39,9 @@ def weighted_procrustes(
     batch_size = src_points.shape[0]
     if weights is None:
         weights = torch.ones_like(src_points[:, :, 0])
-    weights = torch.where(torch.lt(weights, weight_thresh), torch.zeros_like(weights), weights)
+    weights = torch.where(
+        torch.lt(weights, weight_thresh), torch.zeros_like(weights), weights
+    )
     weights = weights / (torch.sum(weights, dim=1, keepdim=True) + eps)
     weights = weights.unsqueeze(2)  # (B, N, 1)
 

@@ -1,19 +1,19 @@
 import os
 import os.path as osp
 import pdb
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 import ipdb
 import torch
 import tqdm
 import wandb
 
-from .base_trainer import BaseTrainer
-from ..utils.torch import to_cuda
-from ..utils.summary_board import SummaryBoard
-from ..utils.timer import Timer
 from ..utils.common import get_log_string
 from ..utils.data import precompute_neibors
+from ..utils.summary_board import SummaryBoard
+from ..utils.timer import Timer
+from ..utils.torch import to_cuda
+from .base_trainer import BaseTrainer
 
 
 class EpochBasedTrainer(BaseTrainer):
@@ -45,10 +45,14 @@ class EpochBasedTrainer(BaseTrainer):
     def before_val_step(self, epoch, iteration, data_dict) -> None:
         pass
 
-    def after_train_step(self, epoch, iteration, data_dict, output_dict, result_dict) -> None:
+    def after_train_step(
+        self, epoch, iteration, data_dict, output_dict, result_dict
+    ) -> None:
         pass
 
-    def after_val_step(self, epoch, iteration, data_dict, output_dict, result_dict) -> None:
+    def after_val_step(
+        self, epoch, iteration, data_dict, output_dict, result_dict
+    ) -> None:
         pass
 
     def before_train_epoch(self, epoch) -> None:
@@ -69,14 +73,18 @@ class EpochBasedTrainer(BaseTrainer):
     def val_step(self, epoch, iteration, data_dict) -> Tuple[Dict, Dict]:
         pass
 
-    def after_backward(self, epoch, iteration, data_dict, output_dict, result_dict) -> None:
+    def after_backward(
+        self, epoch, iteration, data_dict, output_dict, result_dict
+    ) -> None:
         pass
 
     def check_gradients(self, epoch, iteration, data_dict, output_dict, result_dict):
         if not self.run_grad_check:
             return
         if not self.check_invalid_gradients():
-            self.logger.error('Epoch: {}, iter: {}, invalid gradients.'.format(epoch, iteration))
+            self.logger.error(
+                'Epoch: {}, iter: {}, invalid gradients.'.format(epoch, iteration)
+            )
             torch.save(data_dict, 'data.pth')
             torch.save(self.model, 'model.pth')
             self.logger.error('Data_dict and model snapshot saved.')
@@ -93,24 +101,34 @@ class EpochBasedTrainer(BaseTrainer):
             self.inner_iteration = iteration + 1
             self.iteration += 1
             data_dict = to_cuda(data_dict)
-            data = precompute_neibors(data_dict['points'], data_dict['lengths'],
-                                              self.cfg.backbone.num_stages,
-                                              self.cfg.backbone.num_neighbors,
-                                              )
+            data = precompute_neibors(
+                data_dict['points'],
+                data_dict['lengths'],
+                self.cfg.backbone.num_stages,
+                self.cfg.backbone.num_neighbors,
+            )
             data_dict.update(data)
             self.before_train_step(self.epoch, self.inner_iteration, data_dict)
             self.timer.add_prepare_time()
             # forward
-            output_dict, result_dict = self.train_step(self.epoch, self.inner_iteration, data_dict)
+            output_dict, result_dict = self.train_step(
+                self.epoch, self.inner_iteration, data_dict
+            )
             # backward & optimization
             result_dict['loss'].backward()
 
-            self.after_backward(self.epoch, self.inner_iteration, data_dict, output_dict, result_dict)
-            self.check_gradients(self.epoch, self.inner_iteration, data_dict, output_dict, result_dict)
+            self.after_backward(
+                self.epoch, self.inner_iteration, data_dict, output_dict, result_dict
+            )
+            self.check_gradients(
+                self.epoch, self.inner_iteration, data_dict, output_dict, result_dict
+            )
             self.optimizer_step(self.inner_iteration)
             # after training
             self.timer.add_process_time()
-            self.after_train_step(self.epoch, self.inner_iteration, data_dict, output_dict, result_dict)
+            self.after_train_step(
+                self.epoch, self.inner_iteration, data_dict, output_dict, result_dict
+            )
             result_dict = self.release_tensors(result_dict)
             self.summary_board.update_from_result_dict(result_dict)
             # logging
@@ -129,7 +147,9 @@ class EpochBasedTrainer(BaseTrainer):
                 self.write_event('train', summary_dict, self.iteration)
             torch.cuda.empty_cache()
         self.after_train_epoch(self.epoch)
-        message = get_log_string(self.summary_board.summary(), epoch=self.epoch, timer=self.timer)
+        message = get_log_string(
+            self.summary_board.summary(), epoch=self.epoch, timer=self.timer
+        )
         self.logger.critical(message)
         # scheduler
         if self.scheduler is not None:
@@ -151,17 +171,23 @@ class EpochBasedTrainer(BaseTrainer):
         for iteration, data_dict in pbar:
             self.inner_iteration = iteration + 1
             data_dict = to_cuda(data_dict)
-            data = precompute_neibors(data_dict['points'], data_dict['lengths'],
-                                              self.cfg.backbone.num_stages,
-                                              self.cfg.backbone.num_neighbors,
-                                      )
+            data = precompute_neibors(
+                data_dict['points'],
+                data_dict['lengths'],
+                self.cfg.backbone.num_stages,
+                self.cfg.backbone.num_neighbors,
+            )
             data_dict.update(data)
             self.before_val_step(self.epoch, self.inner_iteration, data_dict)
             timer.add_prepare_time()
-            output_dict, result_dict = self.val_step(self.epoch, self.inner_iteration, data_dict)
+            output_dict, result_dict = self.val_step(
+                self.epoch, self.inner_iteration, data_dict
+            )
             torch.cuda.synchronize()
             timer.add_process_time()
-            self.after_val_step(self.epoch, self.inner_iteration, data_dict, output_dict, result_dict)
+            self.after_val_step(
+                self.epoch, self.inner_iteration, data_dict, output_dict, result_dict
+            )
             result_dict = self.release_tensors(result_dict)
             summary_board.update_from_result_dict(result_dict)
             message = get_log_string(

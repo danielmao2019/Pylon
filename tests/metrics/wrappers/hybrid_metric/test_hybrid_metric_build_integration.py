@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from metrics.base_metric import BaseMetric
 from metrics.wrappers.hybrid_metric import HybridMetric
 from utils.builders import build_from_config
@@ -11,7 +12,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -24,14 +25,14 @@ def test_build_from_config_integration(dummy_metric, another_dummy_metric):
             'metrics_cfg': [
                 {
                     'class': dummy_metric.__class__,
-                    'args': {'metric_name': 'config_metric1', 'use_buffer': False}
+                    'args': {'metric_name': 'config_metric1', 'use_buffer': False},
                 },
                 {
                     'class': another_dummy_metric.__class__,
-                    'args': {'metric_name': 'config_metric2', 'use_buffer': False}
-                }
+                    'args': {'metric_name': 'config_metric2', 'use_buffer': False},
+                },
             ]
-        }
+        },
     }
 
     # Build metric from config
@@ -62,10 +63,10 @@ def test_build_from_config_with_buffer_disabled(dummy_metric):
             'metrics_cfg': [
                 {
                     'class': dummy_metric.__class__,
-                    'args': {'metric_name': 'no_buffer_metric', 'use_buffer': False}
+                    'args': {'metric_name': 'no_buffer_metric', 'use_buffer': False},
                 }
-            ]
-        }
+            ],
+        },
     }
 
     hybrid_metric = build_from_config(hybrid_config)
@@ -86,18 +87,18 @@ def test_nested_config_building(dummy_metric, another_dummy_metric):
                     'class': dummy_metric.__class__,
                     'args': {
                         'metric_name': 'nested_metric1',
-                        'use_buffer': False  # Component metrics should not use buffer
-                    }
+                        'use_buffer': False,  # Component metrics should not use buffer
+                    },
                 },
                 {
                     'class': another_dummy_metric.__class__,
                     'args': {
                         'metric_name': 'nested_metric2',
-                        'use_buffer': False  # Component metrics should not use buffer
-                    }
-                }
+                        'use_buffer': False,  # Component metrics should not use buffer
+                    },
+                },
             ]
-        }
+        },
     }
 
     hybrid_metric = build_from_config(complex_config)
@@ -117,10 +118,10 @@ def test_config_parameter_merging(dummy_metric):
             'metrics_cfg': [
                 {
                     'class': dummy_metric.__class__,
-                    'args': {'metric_name': 'merge_test', 'use_buffer': False}
+                    'args': {'metric_name': 'merge_test', 'use_buffer': False},
                 }
             ]
-        }
+        },
     }
 
     # Test building with additional kwargs
@@ -135,20 +136,18 @@ def test_recursive_building_preservation(dummy_metric):
     # Create configs with different metric names to avoid DIRECTIONS overlap
     shared_metric_config_1 = {
         'class': dummy_metric.__class__,
-        'args': {'metric_name': 'shared_1', 'use_buffer': False}
+        'args': {'metric_name': 'shared_1', 'use_buffer': False},
     }
 
     shared_metric_config_2 = {
         'class': dummy_metric.__class__,
-        'args': {'metric_name': 'shared_2', 'use_buffer': False}
+        'args': {'metric_name': 'shared_2', 'use_buffer': False},
     }
 
     # Use different configs to avoid key overlap
     hybrid_config = {
         'class': HybridMetric,
-        'args': {
-            'metrics_cfg': [shared_metric_config_1, shared_metric_config_2]
-        }
+        'args': {'metrics_cfg': [shared_metric_config_1, shared_metric_config_2]},
     }
 
     # This should create two separate instances, not share the same instance
@@ -163,6 +162,7 @@ def test_recursive_building_preservation(dummy_metric):
 
 def test_error_handling_in_build_process(dummy_metric):
     """Test error handling during the build process."""
+
     # Test with malformed config - create a class that requires an argument to force an error
     class RequiredArgMetric(BaseMetric):
         def __init__(self, required_arg, use_buffer=True):
@@ -173,21 +173,16 @@ def test_error_handling_in_build_process(dummy_metric):
         'class': HybridMetric,
         'args': {
             'metrics_cfg': [
-                {
-                    'class': RequiredArgMetric,
-                    'args': {}  # Missing required_arg
-                }
+                {'class': RequiredArgMetric, 'args': {}}  # Missing required_arg
             ]
-        }
+        },
     }
 
     with pytest.raises(Exception):  # Should fail during component building
         build_from_config(malformed_config)
 
     # Test with completely invalid config structure
-    invalid_config = {
-        'invalid_key': 'invalid_value'
-    }
+    invalid_config = {'invalid_key': 'invalid_value'}
 
     # This should return the config as-is since it doesn't match expected structure
     result = build_from_config(invalid_config)

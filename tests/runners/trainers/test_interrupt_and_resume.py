@@ -21,6 +21,7 @@ from configs.examples.linear.config import config as base_config
 from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.ops import buffer_allclose
 
+
 def _prepare_workspace(base: Path) -> Dict[str, str]:
     logs_dir = base / "logs"
     configs_dir = base / "configs"
@@ -50,7 +51,9 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     trainer._init_components_()
 
     # Verify we're starting from the correct epoch
-    assert trainer.cum_epochs == start_epoch, f"Expected to start from epoch {start_epoch}, but got {trainer.cum_epochs}"
+    assert (
+        trainer.cum_epochs == start_epoch
+    ), f"Expected to start from epoch {start_epoch}, but got {trainer.cum_epochs}"
     print(f"Starting training from epoch {trainer.cum_epochs}")
 
     # Create an event to signal the observer thread to stop
@@ -116,19 +119,33 @@ def test_interrupt_and_resume() -> None:
         train_until_epoch(interrupted_cfg, start_epoch=3, end_epoch=6)
 
         for epoch in range(6):
-            interrupted_epoch_dir = os.path.join(interrupted_cfg['work_dir'], f"epoch_{epoch}")
-            reference_epoch_dir = os.path.join(reference_cfg['work_dir'], f"epoch_{epoch}")
+            interrupted_epoch_dir = os.path.join(
+                interrupted_cfg['work_dir'], f"epoch_{epoch}"
+            )
+            reference_epoch_dir = os.path.join(
+                reference_cfg['work_dir'], f"epoch_{epoch}"
+            )
 
-            interrupted_losses = torch.load(os.path.join(interrupted_epoch_dir, "training_losses.pt"))
-            reference_losses = torch.load(os.path.join(reference_epoch_dir, "training_losses.pt"))
-            assert torch.allclose(interrupted_losses, reference_losses, rtol=1e-01, atol=0), \
-                f"Training losses mismatch at epoch {epoch}"
+            interrupted_losses = torch.load(
+                os.path.join(interrupted_epoch_dir, "training_losses.pt")
+            )
+            reference_losses = torch.load(
+                os.path.join(reference_epoch_dir, "training_losses.pt")
+            )
+            assert torch.allclose(
+                interrupted_losses, reference_losses, rtol=1e-01, atol=0
+            ), f"Training losses mismatch at epoch {epoch}"
 
-            with open(os.path.join(interrupted_epoch_dir, "validation_scores.json")) as f:
+            with open(
+                os.path.join(interrupted_epoch_dir, "validation_scores.json")
+            ) as f:
                 interrupted_scores = json.load(f)
             with open(os.path.join(reference_epoch_dir, "validation_scores.json")) as f:
                 reference_scores = json.load(f)
-            assert buffer_allclose(interrupted_scores, reference_scores, rtol=1e-01, atol=0), \
-                f"Validation scores mismatch at epoch {epoch}"
+            assert buffer_allclose(
+                interrupted_scores, reference_scores, rtol=1e-01, atol=0
+            ), f"Validation scores mismatch at epoch {epoch}"
 
-            print(f"Epoch {epoch} files match between interrupted and reference training")
+            print(
+                f"Epoch {epoch} files match between interrupted and reference training"
+            )

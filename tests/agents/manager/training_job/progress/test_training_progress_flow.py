@@ -12,9 +12,9 @@ import tempfile
 
 import torch
 
-from agents.manager.training_job import TrainingJob
-from agents.manager.runtime import JobRuntimeParams
 from agents.manager.default_job import DefaultJobProgressInfo
+from agents.manager.runtime import JobRuntimeParams
+from agents.manager.training_job import TrainingJob
 
 
 def test_trainingjob_fast_path_uses_progress_json(create_progress_json):

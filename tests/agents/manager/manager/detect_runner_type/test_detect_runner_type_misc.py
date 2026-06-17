@@ -2,9 +2,10 @@
 Additional runner detection coverage migrated from legacy file.
 """
 
+import json
 import os
 import tempfile
-import json
+
 import pytest
 
 from agents.manager.manager import Manager

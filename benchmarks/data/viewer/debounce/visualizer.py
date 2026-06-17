@@ -1,10 +1,11 @@
 """Generate visualizations for debouncing benchmark results."""
 
 import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 
 
 class BenchmarkVisualizer:
@@ -49,8 +50,10 @@ class BenchmarkVisualizer:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
         # Left chart: Execution reduction percentages
-        colors = plt.cm.RdYlGn([r/100 for r in reductions])
-        bars1 = ax1.bar(scenarios, reductions, color=colors, alpha=0.8, edgecolor='black')
+        colors = plt.cm.RdYlGn([r / 100 for r in reductions])
+        bars1 = ax1.bar(
+            scenarios, reductions, color=colors, alpha=0.8, edgecolor='black'
+        )
         ax1.set_ylabel('Execution Reduction (%)')
         ax1.set_title('Debouncing Execution Reduction by Scenario')
         ax1.set_ylim(0, 100)
@@ -58,8 +61,14 @@ class BenchmarkVisualizer:
         # Add percentage labels on bars
         for bar, reduction in zip(bars1, reductions, strict=True):
             height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
-                    f'{reduction:.1f}%', ha='center', va='bottom', fontweight='bold')
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 1,
+                f'{reduction:.1f}%',
+                ha='center',
+                va='bottom',
+                fontweight='bold',
+            )
 
         ax1.tick_params(axis='x', rotation=45)
 
@@ -67,10 +76,24 @@ class BenchmarkVisualizer:
         x = np.arange(len(scenarios))
         width = 0.35
 
-        bars2 = ax2.bar(x - width/2, executed_without, width, label='Without Debouncing',
-                       color='lightcoral', alpha=0.8, edgecolor='black')
-        bars3 = ax2.bar(x + width/2, executed_with, width, label='With Debouncing',
-                       color='lightgreen', alpha=0.8, edgecolor='black')
+        bars2 = ax2.bar(
+            x - width / 2,
+            executed_without,
+            width,
+            label='Without Debouncing',
+            color='lightcoral',
+            alpha=0.8,
+            edgecolor='black',
+        )
+        bars3 = ax2.bar(
+            x + width / 2,
+            executed_with,
+            width,
+            label='With Debouncing',
+            color='lightgreen',
+            alpha=0.8,
+            edgecolor='black',
+        )
 
         ax2.set_ylabel('Events Executed')
         ax2.set_title('Events Executed: Before vs After Debouncing')
@@ -82,8 +105,14 @@ class BenchmarkVisualizer:
         for bars, counts in [(bars2, executed_without), (bars3, executed_with)]:
             for bar, count in zip(bars, counts, strict=True):
                 height = bar.get_height()
-                ax2.text(bar.get_x() + bar.get_width()/2., height + 0.5,
-                        f'{count}', ha='center', va='bottom', fontsize=9)
+                ax2.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height + 0.5,
+                    f'{count}',
+                    ha='center',
+                    va='bottom',
+                    fontsize=9,
+                )
 
         plt.tight_layout()
 
@@ -115,8 +144,10 @@ class BenchmarkVisualizer:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
         # Left chart: Time savings percentages
-        colors = plt.cm.RdYlGn([max(0, t/100) for t in time_saved_pct])
-        bars1 = ax1.bar(scenarios, time_saved_pct, color=colors, alpha=0.8, edgecolor='black')
+        colors = plt.cm.RdYlGn([max(0, t / 100) for t in time_saved_pct])
+        bars1 = ax1.bar(
+            scenarios, time_saved_pct, color=colors, alpha=0.8, edgecolor='black'
+        )
         ax1.set_ylabel('Time Saved (%)')
         ax1.set_title('Time Savings by Scenario')
         ax1.axhline(y=0, color='black', linestyle='-', alpha=0.3)
@@ -125,9 +156,14 @@ class BenchmarkVisualizer:
         for bar, savings in zip(bars1, time_saved_pct, strict=True):
             height = bar.get_height()
             label_y = height + 1 if height >= 0 else height - 3
-            ax1.text(bar.get_x() + bar.get_width()/2., label_y,
-                    f'{savings:.1f}%', ha='center', va='bottom' if height >= 0 else 'top',
-                    fontweight='bold')
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                label_y,
+                f'{savings:.1f}%',
+                ha='center',
+                va='bottom' if height >= 0 else 'top',
+                fontweight='bold',
+            )
 
         ax1.tick_params(axis='x', rotation=45)
 
@@ -135,10 +171,24 @@ class BenchmarkVisualizer:
         x = np.arange(len(scenarios))
         width = 0.35
 
-        bars2 = ax2.bar(x - width/2, time_without, width, label='Without Debouncing',
-                       color='lightcoral', alpha=0.8, edgecolor='black')
-        bars3 = ax2.bar(x + width/2, time_with, width, label='With Debouncing',
-                       color='lightgreen', alpha=0.8, edgecolor='black')
+        bars2 = ax2.bar(
+            x - width / 2,
+            time_without,
+            width,
+            label='Without Debouncing',
+            color='lightcoral',
+            alpha=0.8,
+            edgecolor='black',
+        )
+        bars3 = ax2.bar(
+            x + width / 2,
+            time_with,
+            width,
+            label='With Debouncing',
+            color='lightgreen',
+            alpha=0.8,
+            edgecolor='black',
+        )
 
         ax2.set_ylabel('Total Time (seconds)')
         ax2.set_title('Execution Time: Before vs After Debouncing')
@@ -150,8 +200,14 @@ class BenchmarkVisualizer:
         for bars, times in [(bars2, time_without), (bars3, time_with)]:
             for bar, time_val in zip(bars, times, strict=True):
                 height = bar.get_height()
-                ax2.text(bar.get_x() + bar.get_width()/2., height + 0.1,
-                        f'{time_val:.1f}s', ha='center', va='bottom', fontsize=9)
+                ax2.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height + 0.1,
+                    f'{time_val:.1f}s',
+                    ha='center',
+                    va='bottom',
+                    fontsize=9,
+                )
 
         plt.tight_layout()
 
@@ -188,18 +244,33 @@ class BenchmarkVisualizer:
         for bar, score in zip(bars, scores, strict=True):
             height = bar.get_height()
             label_y = height + 1 if height >= 0 else height - 2
-            ax.text(bar.get_x() + bar.get_width()/2., label_y,
-                   f'{score:.1f}', ha='center', va='bottom' if height >= 0 else 'top',
-                   fontweight='bold', fontsize=11)
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                label_y,
+                f'{score:.1f}',
+                ha='center',
+                va='bottom' if height >= 0 else 'top',
+                fontweight='bold',
+                fontsize=11,
+            )
 
         ax.tick_params(axis='x', rotation=45)
 
         # Add average line
         if scores:
             avg_score = sum(scores) / len(scores)
-            ax.axhline(y=avg_score, color='blue', linestyle='--', alpha=0.7, linewidth=2)
-            ax.text(len(scenarios)-1, avg_score + 2, f'Average: {avg_score:.1f}',
-                   ha='right', va='bottom', color='blue', fontweight='bold')
+            ax.axhline(
+                y=avg_score, color='blue', linestyle='--', alpha=0.7, linewidth=2
+            )
+            ax.text(
+                len(scenarios) - 1,
+                avg_score + 2,
+                f'Average: {avg_score:.1f}',
+                ha='right',
+                va='bottom',
+                color='blue',
+                fontweight='bold',
+            )
 
         plt.tight_layout()
 
@@ -228,13 +299,19 @@ class BenchmarkVisualizer:
                         'scenarios': [],
                         'executions_without': [],
                         'executions_with': [],
-                        'reduction_pct': []
+                        'reduction_pct': [],
                     }
 
                 callback_data[callback_name]['scenarios'].append(scenario_name)
-                callback_data[callback_name]['executions_without'].append(callback_stats['executions_without'])
-                callback_data[callback_name]['executions_with'].append(callback_stats['executions_with'])
-                callback_data[callback_name]['reduction_pct'].append(callback_stats['execution_reduction_pct'])
+                callback_data[callback_name]['executions_without'].append(
+                    callback_stats['executions_without']
+                )
+                callback_data[callback_name]['executions_with'].append(
+                    callback_stats['executions_with']
+                )
+                callback_data[callback_name]['reduction_pct'].append(
+                    callback_stats['execution_reduction_pct']
+                )
 
         if not callback_data:
             print("No callback-specific data available for visualization")
@@ -254,10 +331,24 @@ class BenchmarkVisualizer:
             x = np.arange(len(scenarios))
             width = 0.35
 
-            bars1 = ax.bar(x - width/2, data['executions_without'], width,
-                          label='Without Debouncing', color='lightcoral', alpha=0.8, edgecolor='black')
-            bars2 = ax.bar(x + width/2, data['executions_with'], width,
-                          label='With Debouncing', color='lightgreen', alpha=0.8, edgecolor='black')
+            bars1 = ax.bar(
+                x - width / 2,
+                data['executions_without'],
+                width,
+                label='Without Debouncing',
+                color='lightcoral',
+                alpha=0.8,
+                edgecolor='black',
+            )
+            bars2 = ax.bar(
+                x + width / 2,
+                data['executions_with'],
+                width,
+                label='With Debouncing',
+                color='lightgreen',
+                alpha=0.8,
+                edgecolor='black',
+            )
 
             ax.set_ylabel('Executions')
             ax.set_title(f'{callback_name} - Execution Count by Scenario')
@@ -266,17 +357,37 @@ class BenchmarkVisualizer:
             ax.legend()
 
             # Add count labels and reduction percentages
-            for j, (bar1, bar2, reduction) in enumerate(zip(bars1, bars2, data['reduction_pct'], strict=True)):
+            for j, (bar1, bar2, reduction) in enumerate(
+                zip(bars1, bars2, data['reduction_pct'], strict=True)
+            ):
                 # Count labels
-                ax.text(bar1.get_x() + bar1.get_width()/2., bar1.get_height() + 0.5,
-                       f'{data["executions_without"][j]}', ha='center', va='bottom', fontsize=9)
-                ax.text(bar2.get_x() + bar2.get_width()/2., bar2.get_height() + 0.5,
-                       f'{data["executions_with"][j]}', ha='center', va='bottom', fontsize=9)
+                ax.text(
+                    bar1.get_x() + bar1.get_width() / 2.0,
+                    bar1.get_height() + 0.5,
+                    f'{data["executions_without"][j]}',
+                    ha='center',
+                    va='bottom',
+                    fontsize=9,
+                )
+                ax.text(
+                    bar2.get_x() + bar2.get_width() / 2.0,
+                    bar2.get_height() + 0.5,
+                    f'{data["executions_with"][j]}',
+                    ha='center',
+                    va='bottom',
+                    fontsize=9,
+                )
 
                 # Reduction percentage
-                ax.text(j, max(data["executions_without"][j], data["executions_with"][j]) + 2,
-                       f'{reduction:.0f}%↓', ha='center', va='bottom',
-                       fontweight='bold', color='green' if reduction > 0 else 'red')
+                ax.text(
+                    j,
+                    max(data["executions_without"][j], data["executions_with"][j]) + 2,
+                    f'{reduction:.0f}%↓',
+                    ha='center',
+                    va='bottom',
+                    fontweight='bold',
+                    color='green' if reduction > 0 else 'red',
+                )
 
         plt.tight_layout()
 
@@ -309,7 +420,7 @@ class BenchmarkVisualizer:
         values = [
             self.summary.get('average_execution_reduction_pct', 0),
             self.summary.get('average_time_saved_pct', 0),
-            self.summary.get('average_performance_score', 0)
+            self.summary.get('average_performance_score', 0),
         ]
         colors = ['lightgreen', 'lightblue', 'gold']
 
@@ -320,32 +431,57 @@ class BenchmarkVisualizer:
         for bar, value in zip(bars, values, strict=True):
             height = bar.get_height()
             label = f'{value:.1f}%' if bar != bars[2] else f'{value:.1f}'
-            ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
-                    label, ha='center', va='bottom', fontweight='bold', fontsize=11)
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 1,
+                label,
+                ha='center',
+                va='bottom',
+                fontweight='bold',
+                fontsize=11,
+            )
 
         # 2. Execution reduction by scenario (top right)
         ax2 = fig.add_subplot(gs[0, 1])
-        reductions = [self.scenario_results[s]['comparison']['execution_reduction']['reduction_percentage']
-                     for s in scenarios]
-        colors = plt.cm.RdYlGn([r/100 for r in reductions])
+        reductions = [
+            self.scenario_results[s]['comparison']['execution_reduction'][
+                'reduction_percentage'
+            ]
+            for s in scenarios
+        ]
+        colors = plt.cm.RdYlGn([r / 100 for r in reductions])
 
-        bars = ax2.bar(scenarios, reductions, color=colors, alpha=0.8, edgecolor='black')
+        bars = ax2.bar(
+            scenarios, reductions, color=colors, alpha=0.8, edgecolor='black'
+        )
         ax2.set_title('Execution Reduction by Scenario', fontweight='bold')
         ax2.set_ylabel('Reduction (%)')
         ax2.tick_params(axis='x', rotation=45)
 
         for bar, reduction in zip(bars, reductions, strict=True):
             height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width()/2., height + 1,
-                    f'{reduction:.0f}%', ha='center', va='bottom', fontsize=9)
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 1,
+                f'{reduction:.0f}%',
+                ha='center',
+                va='bottom',
+                fontsize=9,
+            )
 
         # 3. Time savings by scenario (middle left)
         ax3 = fig.add_subplot(gs[1, 0])
-        time_savings = [self.scenario_results[s]['comparison']['time_savings']['time_saved_percentage']
-                       for s in scenarios]
-        colors = plt.cm.RdYlGn([max(0, t/100) for t in time_savings])
+        time_savings = [
+            self.scenario_results[s]['comparison']['time_savings'][
+                'time_saved_percentage'
+            ]
+            for s in scenarios
+        ]
+        colors = plt.cm.RdYlGn([max(0, t / 100) for t in time_savings])
 
-        bars = ax3.bar(scenarios, time_savings, color=colors, alpha=0.8, edgecolor='black')
+        bars = ax3.bar(
+            scenarios, time_savings, color=colors, alpha=0.8, edgecolor='black'
+        )
         ax3.set_title('Time Savings by Scenario', fontweight='bold')
         ax3.set_ylabel('Time Saved (%)')
         ax3.tick_params(axis='x', rotation=45)
@@ -354,12 +490,21 @@ class BenchmarkVisualizer:
         for bar, savings in zip(bars, time_savings, strict=True):
             height = bar.get_height()
             label_y = height + 2 if height >= 0 else height - 4
-            ax3.text(bar.get_x() + bar.get_width()/2., label_y,
-                    f'{savings:.0f}%', ha='center', va='bottom' if height >= 0 else 'top', fontsize=9)
+            ax3.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                label_y,
+                f'{savings:.0f}%',
+                ha='center',
+                va='bottom' if height >= 0 else 'top',
+                fontsize=9,
+            )
 
         # 4. Performance scores (middle right)
         ax4 = fig.add_subplot(gs[1, 1])
-        scores = [self.scenario_results[s]['comparison']['performance_score'] for s in scenarios]
+        scores = [
+            self.scenario_results[s]['comparison']['performance_score']
+            for s in scenarios
+        ]
         colors = ['lightgreen' if score >= 0 else 'lightcoral' for score in scores]
 
         bars = ax4.bar(scenarios, scores, color=colors, alpha=0.8, edgecolor='black')
@@ -371,24 +516,52 @@ class BenchmarkVisualizer:
         for bar, score in zip(bars, scores, strict=True):
             height = bar.get_height()
             label_y = height + 1 if height >= 0 else height - 2
-            ax4.text(bar.get_x() + bar.get_width()/2., label_y,
-                    f'{score:.0f}', ha='center', va='bottom' if height >= 0 else 'top', fontsize=9)
+            ax4.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                label_y,
+                f'{score:.0f}',
+                ha='center',
+                va='bottom' if height >= 0 else 'top',
+                fontsize=9,
+            )
 
         # 5. Event execution comparison (bottom span)
         ax5 = fig.add_subplot(gs[2, :])
 
-        executed_without = [self.scenario_results[s]['comparison']['execution_reduction']['executed_events_without']
-                           for s in scenarios]
-        executed_with = [self.scenario_results[s]['comparison']['execution_reduction']['executed_events_with']
-                        for s in scenarios]
+        executed_without = [
+            self.scenario_results[s]['comparison']['execution_reduction'][
+                'executed_events_without'
+            ]
+            for s in scenarios
+        ]
+        executed_with = [
+            self.scenario_results[s]['comparison']['execution_reduction'][
+                'executed_events_with'
+            ]
+            for s in scenarios
+        ]
 
         x = np.arange(len(scenarios))
         width = 0.35
 
-        bars1 = ax5.bar(x - width/2, executed_without, width, label='Without Debouncing',
-                       color='lightcoral', alpha=0.8, edgecolor='black')
-        bars2 = ax5.bar(x + width/2, executed_with, width, label='With Debouncing',
-                       color='lightgreen', alpha=0.8, edgecolor='black')
+        bars1 = ax5.bar(
+            x - width / 2,
+            executed_without,
+            width,
+            label='Without Debouncing',
+            color='lightcoral',
+            alpha=0.8,
+            edgecolor='black',
+        )
+        bars2 = ax5.bar(
+            x + width / 2,
+            executed_with,
+            width,
+            label='With Debouncing',
+            color='lightgreen',
+            alpha=0.8,
+            edgecolor='black',
+        )
 
         ax5.set_title('Event Execution Comparison', fontweight='bold')
         ax5.set_ylabel('Events Executed')
@@ -401,8 +574,14 @@ class BenchmarkVisualizer:
         for bars, counts in [(bars1, executed_without), (bars2, executed_with)]:
             for bar, count in zip(bars, counts, strict=True):
                 height = bar.get_height()
-                ax5.text(bar.get_x() + bar.get_width()/2., height + 1,
-                        f'{count}', ha='center', va='bottom', fontsize=9)
+                ax5.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height + 1,
+                    f'{count}',
+                    ha='center',
+                    va='bottom',
+                    fontsize=9,
+                )
 
         # Add title and config info
         config = self.results.get('config', {})
@@ -442,7 +621,9 @@ class BenchmarkVisualizer:
         self.create_performance_score_chart(output_path / "performance_scores.png")
         plt.close()
 
-        callback_chart = self.create_callback_breakdown_chart(output_path / "callback_breakdown.png")
+        callback_chart = self.create_callback_breakdown_chart(
+            output_path / "callback_breakdown.png"
+        )
         if callback_chart:
             plt.close()
 

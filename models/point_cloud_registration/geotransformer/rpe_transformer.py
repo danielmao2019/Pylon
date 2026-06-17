@@ -18,7 +18,11 @@ class RPEMultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None):
         super(RPEMultiHeadAttention, self).__init__()
         if d_model % num_heads != 0:
-            raise ValueError('`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(d_model, num_heads))
+            raise ValueError(
+                '`d_model` ({}) must be a multiple of `num_heads` ({}).'.format(
+                    d_model, num_heads
+                )
+            )
 
         self.d_model = d_model
         self.num_heads = num_heads
@@ -31,7 +35,16 @@ class RPEMultiHeadAttention(nn.Module):
 
         self.dropout = build_dropout_layer(dropout)
 
-    def forward(self, input_q, input_k, input_v, embed_qk, key_weights=None, key_masks=None, attention_factors=None):
+    def forward(
+        self,
+        input_q,
+        input_k,
+        input_v,
+        embed_qk,
+        key_weights=None,
+        key_masks=None,
+        attention_factors=None,
+    ):
         r"""Scaled Dot-Product Attention with Pre-computed Relative Positional Embedding (forward)
 
         Args:
@@ -50,17 +63,23 @@ class RPEMultiHeadAttention(nn.Module):
         q = rearrange(self.proj_q(input_q), 'b n (h c) -> b h n c', h=self.num_heads)
         k = rearrange(self.proj_k(input_k), 'b m (h c) -> b h m c', h=self.num_heads)
         v = rearrange(self.proj_v(input_v), 'b m (h c) -> b h m c', h=self.num_heads)
-        p = rearrange(self.proj_p(embed_qk), 'b n m (h c) -> b h n m c', h=self.num_heads)
+        p = rearrange(
+            self.proj_p(embed_qk), 'b n m (h c) -> b h n m c', h=self.num_heads
+        )
 
         attention_scores_p = torch.einsum('bhnc,bhnmc->bhnm', q, p)
         attention_scores_e = torch.einsum('bhnc,bhmc->bhnm', q, k)
-        attention_scores = (attention_scores_e + attention_scores_p) / self.d_model_per_head ** 0.5
+        attention_scores = (
+            attention_scores_e + attention_scores_p
+        ) / self.d_model_per_head**0.5
         if attention_factors is not None:
             attention_scores = attention_factors.unsqueeze(1) * attention_scores
         if key_weights is not None:
             attention_scores = attention_scores * key_weights.unsqueeze(1).unsqueeze(1)
         if key_masks is not None:
-            attention_scores = attention_scores.masked_fill(key_masks.unsqueeze(1).unsqueeze(1), float('-inf'))
+            attention_scores = attention_scores.masked_fill(
+                key_masks.unsqueeze(1).unsqueeze(1), float('-inf')
+            )
         attention_scores = F.softmax(attention_scores, dim=-1)
         attention_scores = self.dropout(attention_scores)
 
@@ -107,7 +126,9 @@ class RPETransformerLayer(nn.Module):
     def __init__(self, d_model, num_heads, dropout=None, activation_fn='ReLU'):
         super(RPETransformerLayer, self).__init__()
         self.attention = RPEAttentionLayer(d_model, num_heads, dropout=dropout)
-        self.output = AttentionOutput(d_model, dropout=dropout, activation_fn=activation_fn)
+        self.output = AttentionOutput(
+            d_model, dropout=dropout, activation_fn=activation_fn
+        )
 
     def forward(
         self,

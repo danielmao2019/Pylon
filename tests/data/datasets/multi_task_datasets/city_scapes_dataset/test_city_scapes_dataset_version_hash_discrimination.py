@@ -1,8 +1,8 @@
 """Tests for CityScapesDataset cache version discrimination."""
 
 import pytest
-from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
 
+from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
 
 
 def test_cityscapes_dataset_version_discrimination(city_scapes_data_root):
@@ -12,30 +12,22 @@ def test_cityscapes_dataset_version_discrimination(city_scapes_data_root):
 
     # Same parameters should have same hash
     dataset1a = CityScapesDataset(
-        data_root=data_root,
-        split='train',
-        semantic_granularity='coarse'
+        data_root=data_root, split='train', semantic_granularity='coarse'
     )
     dataset1b = CityScapesDataset(
-        data_root=data_root,
-        split='train',
-        semantic_granularity='coarse'
+        data_root=data_root, split='train', semantic_granularity='coarse'
     )
     assert dataset1a.get_cache_version_hash() == dataset1b.get_cache_version_hash()
 
     # Different split should have different hash
     dataset2 = CityScapesDataset(
-        data_root=data_root,
-        split='val',  # Different
-        semantic_granularity='coarse'
+        data_root=data_root, split='val', semantic_granularity='coarse'  # Different
     )
     assert dataset1a.get_cache_version_hash() != dataset2.get_cache_version_hash()
 
     # Different semantic_granularity should have different hash
     dataset3 = CityScapesDataset(
-        data_root=data_root,
-        split='train',
-        semantic_granularity='fine'  # Different
+        data_root=data_root, split='train', semantic_granularity='fine'  # Different
     )
     assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
@@ -48,16 +40,15 @@ def test_split_variants(city_scapes_data_root):
     datasets = []
     for split in split_variants:
         dataset = CityScapesDataset(
-            data_root=data_root,
-            split=split,
-            semantic_granularity='coarse'
+            data_root=data_root, split=split, semantic_granularity='coarse'
         )
         datasets.append(dataset)
 
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        assert len(hashes) == len(set(hashes)), \
-            f"All split variants should produce different hashes, got: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"All split variants should produce different hashes, got: {hashes}"
 
 
 def test_semantic_granularity_variants(city_scapes_data_root):
@@ -68,17 +59,15 @@ def test_semantic_granularity_variants(city_scapes_data_root):
     datasets = []
     for granularity in granularity_variants:
         dataset = CityScapesDataset(
-            data_root=data_root,
-            split='train',
-            semantic_granularity=granularity
+            data_root=data_root, split='train', semantic_granularity=granularity
         )
         datasets.append(dataset)
 
         # All should have different hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
-        assert len(hashes) == len(set(hashes)), \
-            f"All granularity variants should produce different hashes, got: {hashes}"
-
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"All granularity variants should produce different hashes, got: {hashes}"
 
 
 def test_inherited_parameters_affect_version_hash(city_scapes_data_root):
@@ -102,8 +91,9 @@ def test_inherited_parameters_affect_version_hash(city_scapes_data_root):
         modified_args[param_name] = new_value
         dataset2 = CityScapesDataset(**modified_args)
 
-        assert dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash(), \
-            f"Inherited parameter {param_name} should affect cache version hash"
+        assert (
+            dataset1.get_cache_version_hash() != dataset2.get_cache_version_hash()
+        ), f"Inherited parameter {param_name} should affect cache version hash"
 
 
 def test_comprehensive_no_hash_collisions(city_scapes_data_root):
@@ -115,21 +105,28 @@ def test_comprehensive_no_hash_collisions(city_scapes_data_root):
     for split in ['train', 'val']:
         for granularity in ['fine', 'coarse']:
             for base_seed_val in [None, 42, 123]:
-                datasets.append(CityScapesDataset(
-                    data_root=data_root,
-                    split=split,
-                    semantic_granularity=granularity,
-                    base_seed=base_seed_val
-                ))
+                datasets.append(
+                    CityScapesDataset(
+                        data_root=data_root,
+                        split=split,
+                        semantic_granularity=granularity,
+                        base_seed=base_seed_val,
+                    )
+                )
 
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
         # Ensure all hashes are unique (no collisions)
-        assert len(hashes) == len(set(hashes)), \
-            f"Hash collision detected! Duplicate hashes found in: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
         # Ensure all hashes are properly formatted
         for hash_val in hashes:
-            assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
-            assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
+            assert isinstance(
+                hash_val, str
+            ), f"Hash must be string, got {type(hash_val)}"
+            assert (
+                len(hash_val) == 16
+            ), f"Hash must be 16 characters, got {len(hash_val)}"

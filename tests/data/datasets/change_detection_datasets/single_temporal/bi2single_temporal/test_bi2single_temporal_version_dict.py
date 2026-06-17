@@ -1,9 +1,13 @@
 """Test version dict implementation for Bi2SingleTemporal."""
 
 import pytest
-from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import Bi2SingleTemporal
-from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
 
+from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import (
+    LevirCdDataset,
+)
+from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import (
+    Bi2SingleTemporal,
+)
 
 
 def test_bi2single_temporal_has_version_dict_method():
@@ -12,6 +16,7 @@ def test_bi2single_temporal_has_version_dict_method():
 
     # Check method signature
     import inspect
+
     method = getattr(Bi2SingleTemporal, '_get_cache_version_dict')
     signature = inspect.signature(method)
 
@@ -20,9 +25,13 @@ def test_bi2single_temporal_has_version_dict_method():
     assert params == ['self']
 
     # Should return Dict[str, Any]
-    from typing import Dict, Any
+    from typing import Any, Dict
+
     return_annotation = signature.return_annotation
-    assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    assert (
+        return_annotation == Dict[str, Any]
+        or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    )
 
 
 def test_bi2single_temporal_version_dict_functionality(levir_cd_data_root):

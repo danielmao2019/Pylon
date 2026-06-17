@@ -1,8 +1,9 @@
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
+from agents.connector.pool import SSHConnectionPool
 from agents.monitor.base_monitor import BaseMonitor
 from agents.monitor.cpu_status import CPUStatus
 from agents.monitor.process_info import ProcessInfo, get_all_processes
-from agents.connector.pool import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
@@ -62,13 +63,15 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
 
     @staticmethod
     def _trim_windows(status: CPUStatus) -> None:
-        assert status.window_size is not None, "window_size must be set when CPU is connected"
+        assert (
+            status.window_size is not None
+        ), "window_size must be set when CPU is connected"
         if len(status.memory_window) > status.window_size:
-            status.memory_window = status.memory_window[-status.window_size:]
+            status.memory_window = status.memory_window[-status.window_size :]
         if len(status.cpu_window) > status.window_size:
-            status.cpu_window = status.cpu_window[-status.window_size:]
+            status.cpu_window = status.cpu_window[-status.window_size :]
         if len(status.load_window) > status.window_size:
-            status.load_window = status.load_window[-status.window_size:]
+            status.load_window = status.load_window[-status.window_size :]
 
     @staticmethod
     def _update_stats(status: CPUStatus) -> None:
@@ -160,7 +163,9 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         }
 
     @staticmethod
-    def _collect_cpu_processes(server: str, pool: SSHConnectionPool) -> List[ProcessInfo]:
+    def _collect_cpu_processes(
+        server: str, pool: SSHConnectionPool
+    ) -> List[ProcessInfo]:
         all_processes = get_all_processes(server, pool)
         return list(all_processes.values())
 

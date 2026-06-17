@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 class SnapshotDiff:
@@ -8,27 +8,45 @@ class SnapshotDiff:
     and other metrics between snapshots taken at different times.
     """
 
-    def __init__(self, current_snapshot: Dict[str, Any], previous_snapshot: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        current_snapshot: Dict[str, Any],
+        previous_snapshot: Optional[Dict[str, Any]] = None,
+    ):
         """Initialize snapshot diff analyzer.
 
         Args:
             current_snapshot: Current snapshot data
             previous_snapshot: Previous snapshot data for comparison (may be None)
         """
-        assert isinstance(current_snapshot, dict), f"current_snapshot must be dict, got {type(current_snapshot)}"
-        assert 'job_statuses' in current_snapshot, "current_snapshot must have 'job_statuses' key"
+        assert isinstance(
+            current_snapshot, dict
+        ), f"current_snapshot must be dict, got {type(current_snapshot)}"
+        assert (
+            'job_statuses' in current_snapshot
+        ), "current_snapshot must have 'job_statuses' key"
 
         if previous_snapshot is not None:
-            assert isinstance(previous_snapshot, dict), f"previous_snapshot must be dict, got {type(previous_snapshot)}"
-            assert 'job_statuses' in previous_snapshot, "previous_snapshot must have 'job_statuses' key"
+            assert isinstance(
+                previous_snapshot, dict
+            ), f"previous_snapshot must be dict, got {type(previous_snapshot)}"
+            assert (
+                'job_statuses' in previous_snapshot
+            ), "previous_snapshot must have 'job_statuses' key"
 
         self.current_snapshot = current_snapshot
         self.previous_snapshot = previous_snapshot
         self.current_statuses = current_snapshot['job_statuses']
-        self.previous_statuses = previous_snapshot['job_statuses'] if previous_snapshot else {}
+        self.previous_statuses = (
+            previous_snapshot['job_statuses'] if previous_snapshot else {}
+        )
 
     @classmethod
-    def create_diff(cls, current_snapshot: Dict[str, Any], previous_snapshot: Optional[Dict[str, Any]] = None) -> 'SnapshotDiff':
+    def create_diff(
+        cls,
+        current_snapshot: Dict[str, Any],
+        previous_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> 'SnapshotDiff':
         """Factory method to create a snapshot diff.
 
         Args:
@@ -71,9 +89,11 @@ class SnapshotDiff:
             if current_status['process_info'] and config not in self.previous_statuses:
                 # New experiment with process info
                 started_today.append(config)
-            elif (current_status['process_info'] and
-                  config in self.previous_statuses and
-                  not self.previous_statuses[config]['process_info']):
+            elif (
+                current_status['process_info']
+                and config in self.previous_statuses
+                and not self.previous_statuses[config]['process_info']
+            ):
                 # Experiment gained process info (started running)
                 started_today.append(config)
 
@@ -89,7 +109,9 @@ class SnapshotDiff:
 
         for config, current_status in self.current_statuses.items():
             if config in self.previous_statuses:
-                prev_epochs = self.previous_statuses[config]['progress']['completed_epochs']
+                prev_epochs = self.previous_statuses[config]['progress'][
+                    'completed_epochs'
+                ]
                 curr_epochs = current_status['progress']['completed_epochs']
 
                 if curr_epochs > prev_epochs:
@@ -111,7 +133,10 @@ class SnapshotDiff:
                 reason = "Unknown failure"
 
                 # Check if experiment was running before and stopped
-                if config in self.previous_statuses and self.previous_statuses[config]['status'] == 'running':
+                if (
+                    config in self.previous_statuses
+                    and self.previous_statuses[config]['status'] == 'running'
+                ):
                     reason = "Stopped unexpectedly"
                 elif current_status['progress']['completed_epochs'] == 0:
                     reason = "Failed to start"
@@ -139,13 +164,13 @@ class SnapshotDiff:
                 if previous_state != current_state:
                     status_changes[config] = {
                         'previous_status': previous_state,
-                        'current_status': current_state
+                        'current_status': current_state,
                     }
             else:
                 # New experiment
                 status_changes[config] = {
                     'previous_status': 'not_present',
-                    'current_status': current_state
+                    'current_status': current_state,
                 }
 
         return status_changes
@@ -161,14 +186,16 @@ class SnapshotDiff:
 
         for config, current_status in self.current_statuses.items():
             if config in self.previous_statuses:
-                prev_epochs = self.previous_statuses[config]['progress']['completed_epochs']
+                prev_epochs = self.previous_statuses[config]['progress'][
+                    'completed_epochs'
+                ]
                 curr_epochs = current_status['progress']['completed_epochs']
 
                 if curr_epochs != prev_epochs:
                     progress_changes[config] = {
                         'previous_epochs': prev_epochs,
                         'current_epochs': curr_epochs,
-                        'epochs_gained': curr_epochs - prev_epochs
+                        'epochs_gained': curr_epochs - prev_epochs,
                     }
 
         return progress_changes
@@ -185,7 +212,9 @@ class SnapshotDiff:
         status_changes = self.find_status_changes()
         newly_completed_epochs = self.calculate_newly_completed_epochs()
 
-        total_new_epochs = sum(len(epochs) for epochs in newly_completed_epochs.values())
+        total_new_epochs = sum(
+            len(epochs) for epochs in newly_completed_epochs.values()
+        )
 
         return {
             'experiments_completed_today': len(completed_today),
@@ -196,7 +225,9 @@ class SnapshotDiff:
             'total_new_epochs_completed': total_new_epochs,
             'has_previous_snapshot': self.previous_snapshot is not None,
             'current_active_experiments': len(self.current_statuses),
-            'previous_active_experiments': len(self.previous_statuses) if self.previous_snapshot else 0
+            'previous_active_experiments': (
+                len(self.previous_statuses) if self.previous_snapshot else 0
+            ),
         }
 
     def get_snapshot_metadata_comparison(self) -> Dict[str, Any]:
@@ -206,10 +237,18 @@ class SnapshotDiff:
             Dictionary with metadata comparison information
         """
         current_meta = self.current_snapshot.get('snapshot_metadata', {})
-        previous_meta = self.previous_snapshot.get('snapshot_metadata', {}) if self.previous_snapshot else {}
+        previous_meta = (
+            self.previous_snapshot.get('snapshot_metadata', {})
+            if self.previous_snapshot
+            else {}
+        )
 
         current_timestamp = self.current_snapshot.get('timestamp', 'Unknown')
-        previous_timestamp = self.previous_snapshot.get('timestamp', 'Unknown') if self.previous_snapshot else 'No previous snapshot'
+        previous_timestamp = (
+            self.previous_snapshot.get('timestamp', 'Unknown')
+            if self.previous_snapshot
+            else 'No previous snapshot'
+        )
 
         return {
             'current_timestamp': current_timestamp,
@@ -217,5 +256,5 @@ class SnapshotDiff:
             'current_total_configs': current_meta.get('total_configs', 0),
             'previous_total_configs': previous_meta.get('total_configs', 0),
             'current_active_experiments': len(self.current_statuses),
-            'previous_active_experiments': len(self.previous_statuses)
+            'previous_active_experiments': len(self.previous_statuses),
         }

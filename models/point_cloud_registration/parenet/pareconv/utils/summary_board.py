@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List, Optional
 
 from pareconv.utils.average_meter import AverageMeter
 from pareconv.utils.common import get_print_format
@@ -7,7 +7,12 @@ from pareconv.utils.common import get_print_format
 class SummaryBoard:
     r"""Summary board."""
 
-    def __init__(self, names: Optional[List[str]] = None, last_n: Optional[int] = None, adaptive=False):
+    def __init__(
+        self,
+        names: Optional[List[str]] = None,
+        last_n: Optional[int] = None,
+        adaptive=False,
+    ):
         r"""Instantiate a SummaryBoard.
 
         Args:
@@ -51,7 +56,9 @@ class SummaryBoard:
 
     def update_from_result_dict(self, result_dict):
         if not isinstance(result_dict, dict):
-            raise TypeError('`result_dict` must be a dict: {}.'.format(type(result_dict)))
+            raise TypeError(
+                '`result_dict` must be a dict: {}.'.format(type(result_dict))
+            )
         for key, value in result_dict.items():
             if key not in self.meter_names and self.adaptive:
                 self.register_meter(key)

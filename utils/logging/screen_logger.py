@@ -1,7 +1,9 @@
-from typing import Tuple, Optional, Any
+from typing import Any, Optional, Tuple
+
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
+
 from utils.io.json import serialize_tensor
 from utils.logging.base_logger import BaseLogger
 

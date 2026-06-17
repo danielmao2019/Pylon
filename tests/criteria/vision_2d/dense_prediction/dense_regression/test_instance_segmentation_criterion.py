@@ -1,7 +1,10 @@
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from criteria.vision_2d.dense_prediction.dense_regression.instance_segmentation import InstanceSegmentationCriterion
+
+from criteria.vision_2d.dense_prediction.dense_regression.instance_segmentation import (
+    InstanceSegmentationCriterion,
+)
 
 
 def test_instance_segmentation_init():

@@ -65,7 +65,9 @@ def build_static_grid(
 
     assert viewer.current_dataset in viewer._static_model_layouts
     assert viewer.current_scene in viewer._static_model_layouts[viewer.current_dataset]
-    static_scene = viewer._static_model_layouts[viewer.current_dataset][viewer.current_scene]
+    static_scene = viewer._static_model_layouts[viewer.current_dataset][
+        viewer.current_scene
+    ]
     method_names = viewer.method_order[viewer.current_dataset][viewer.current_scene]
     grid_children: List[Any] = []
     for method_name in method_names:

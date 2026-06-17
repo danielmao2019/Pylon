@@ -10,9 +10,11 @@ class ChannelAttention(torch.nn.Module):
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.max_pool = torch.nn.AdaptiveMaxPool2d(1)
 
-        self.fc = torch.nn.Sequential(torch.nn.Conv2d(in_planes, in_planes // ratio, 1, bias=False),
-                                torch.nn.SiLU(),
-                                torch.nn.Conv2d(in_planes // ratio, in_planes, 1, bias=False))
+        self.fc = torch.nn.Sequential(
+            torch.nn.Conv2d(in_planes, in_planes // ratio, 1, bias=False),
+            torch.nn.SiLU(),
+            torch.nn.Conv2d(in_planes // ratio, in_planes, 1, bias=False),
+        )
         self.sigmoid = torch.nn.Sigmoid()
         self.bnnorm = torch.nn.BatchNorm2d(in_planes)
 
@@ -38,9 +40,11 @@ class ChannelAttention_1(torch.nn.Module):
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.max_pool = torch.nn.AdaptiveMaxPool2d(1)
 
-        self.fc = torch.nn.Sequential(torch.nn.Conv2d(in_planes, in_planes // 16, 1, bias=False),
-                                torch.nn.SiLU(),
-                                torch.nn.Conv2d(in_planes // 16, in_planes, 1, bias=False))
+        self.fc = torch.nn.Sequential(
+            torch.nn.Conv2d(in_planes, in_planes // 16, 1, bias=False),
+            torch.nn.SiLU(),
+            torch.nn.Conv2d(in_planes // 16, in_planes, 1, bias=False),
+        )
         self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x):

@@ -1,8 +1,12 @@
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Tuple
+
 import torch
 import torch.nn.functional as F
+
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
-from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import (
+    SemanticSegmentationCriterion,
+)
 from criteria.wrappers import SingleTaskCriterion
 
 
@@ -14,13 +18,17 @@ class SRCNetCriterion(SingleTaskCriterion):
         self.focal_loss = SemanticSegmentationCriterion()
         self.dice_loss = DiceLoss()
 
-    def calloss(self, prediction: torch.Tensor, target: torch.Tensor, sigmas: torch.Tensor) -> torch.Tensor:
+    def calloss(
+        self, prediction: torch.Tensor, target: torch.Tensor, sigmas: torch.Tensor
+    ) -> torch.Tensor:
         focal = self.focal_loss(prediction, target)
         dice = self.dice_loss(prediction, target)
         edge = self.edge_loss(prediction, target)
         return focal / sigmas[0] + dice / sigmas[1] + edge / sigmas[2]
 
-    def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def __call__(
+        self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
         assert isinstance(y_pred, tuple)
         assert len(y_pred) == 4
         assert all(isinstance(x, torch.Tensor) for x in y_pred)

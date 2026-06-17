@@ -42,7 +42,9 @@ class RandomRigidTransform(BaseTransform):
         self.method = method
         self.num_axis = num_axis
 
-    def _sample_rotation_Rodrigues(self, device: torch.device, generator: torch.Generator) -> torch.Tensor:
+    def _sample_rotation_Rodrigues(
+        self, device: torch.device, generator: torch.Generator
+    ) -> torch.Tensor:
         """
         Sample a random rotation using Rodrigues' formula.
 
@@ -59,7 +61,10 @@ class RandomRigidTransform(BaseTransform):
         axis = axis / torch.norm(axis)  # Normalize to unit vector
 
         # Generate random angle within the specified range
-        angle = torch.rand(1, device=device, generator=generator) * (2 * rot_mag_rad) - rot_mag_rad
+        angle = (
+            torch.rand(1, device=device, generator=generator) * (2 * rot_mag_rad)
+            - rot_mag_rad
+        )
         angle = angle.squeeze()
 
         # Create rotation matrix using rodrigues_to_matrix utility
@@ -67,7 +72,9 @@ class RandomRigidTransform(BaseTransform):
 
         return R
 
-    def _sample_rotation_Euler(self, device: torch.device, generator: torch.Generator) -> torch.Tensor:
+    def _sample_rotation_Euler(
+        self, device: torch.device, generator: torch.Generator
+    ) -> torch.Tensor:
         """
         Sample a random rotation using Euler angles.
 
@@ -81,26 +88,46 @@ class RandomRigidTransform(BaseTransform):
             return torch.eye(3, device=device)
 
         rot_mag_rad = np.radians(self.rot_mag)
-        angles = torch.rand(3, device=device, generator=generator) * (2 * rot_mag_rad) - rot_mag_rad
+        angles = (
+            torch.rand(3, device=device, generator=generator) * (2 * rot_mag_rad)
+            - rot_mag_rad
+        )
 
         # Create rotation matrices for each axis
-        Rx = torch.tensor([[1, 0, 0],
-                          [0, torch.cos(angles[0]), -torch.sin(angles[0])],
-                          [0, torch.sin(angles[0]), torch.cos(angles[0])]], device=device)
+        Rx = torch.tensor(
+            [
+                [1, 0, 0],
+                [0, torch.cos(angles[0]), -torch.sin(angles[0])],
+                [0, torch.sin(angles[0]), torch.cos(angles[0])],
+            ],
+            device=device,
+        )
 
-        Ry = torch.tensor([[torch.cos(angles[1]), 0, torch.sin(angles[1])],
-                          [0, 1, 0],
-                          [-torch.sin(angles[1]), 0, torch.cos(angles[1])]], device=device)
+        Ry = torch.tensor(
+            [
+                [torch.cos(angles[1]), 0, torch.sin(angles[1])],
+                [0, 1, 0],
+                [-torch.sin(angles[1]), 0, torch.cos(angles[1])],
+            ],
+            device=device,
+        )
 
-        Rz = torch.tensor([[torch.cos(angles[2]), -torch.sin(angles[2]), 0],
-                          [torch.sin(angles[2]), torch.cos(angles[2]), 0],
-                          [0, 0, 1]], device=device)
+        Rz = torch.tensor(
+            [
+                [torch.cos(angles[2]), -torch.sin(angles[2]), 0],
+                [torch.sin(angles[2]), torch.cos(angles[2]), 0],
+                [0, 0, 1],
+            ],
+            device=device,
+        )
 
         if self.num_axis == 1:
             return Rz
         return Rx @ Ry @ Rz
 
-    def _sample_rigid_transform(self, device: torch.device, generator: torch.Generator) -> torch.Tensor:
+    def _sample_rigid_transform(
+        self, device: torch.device, generator: torch.Generator
+    ) -> torch.Tensor:
         """
         Sample a random rigid transformation.
 

@@ -1,4 +1,5 @@
 from typing import List, Union
+
 import numpy as np
 import plotly.graph_objects as go
 
@@ -15,11 +16,15 @@ def create_score_map_grid(scores: Union[List[float], np.ndarray]) -> np.ndarray:
     """
     # Input validation following CLAUDE.md fail-fast patterns
     assert scores is not None, "scores must not be None"
-    assert isinstance(scores, (list, np.ndarray)), f"scores must be list or numpy array, got {type(scores)}"
+    assert isinstance(
+        scores, (list, np.ndarray)
+    ), f"scores must be list or numpy array, got {type(scores)}"
 
     if isinstance(scores, list):
         assert len(scores) > 0, f"scores must not be empty"
-        assert all(isinstance(score, (int, float)) for score in scores), f"All scores must be numeric"
+        assert all(
+            isinstance(score, (int, float)) for score in scores
+        ), f"All scores must be numeric"
         scores_array = np.array(scores)
     else:
         assert scores.ndim == 1, f"scores must be 1D array, got shape {scores.shape}"
@@ -38,7 +43,9 @@ def create_score_map_grid(scores: Union[List[float], np.ndarray]) -> np.ndarray:
     return score_map
 
 
-def create_overlaid_score_map(score_maps: List[np.ndarray], percentile: float = 25) -> np.ndarray:
+def create_overlaid_score_map(
+    score_maps: List[np.ndarray], percentile: float = 25
+) -> np.ndarray:
     """
     Returns the normalized overlaid score map (success rate map) as a 2D numpy array.
     Args:

@@ -6,7 +6,7 @@ import torch
 def compare_scores_vector(
     current_scores: Dict[str, Any],
     best_scores: Dict[str, Any],
-    metric_directions: Dict[str, Any]
+    metric_directions: Dict[str, Any],
 ) -> Optional[bool]:
     """
     Compare two score dictionaries using vector comparison (partial order).
@@ -33,7 +33,9 @@ def compare_scores_vector(
 
     # Get common metric keys that have directions defined
     # Only compare metrics that have directions - ignore others
-    common_keys = set(flat_current.keys()) & set(flat_best.keys()) & set(flat_directions.keys())
+    common_keys = (
+        set(flat_current.keys()) & set(flat_best.keys()) & set(flat_directions.keys())
+    )
     if not common_keys:
         return None
 
@@ -77,7 +79,7 @@ def compare_scores_vector(
 def reduce_scores_to_scalar(
     scores: Dict[str, Any],
     order_config: Union[bool, Dict],
-    metric_directions: Dict[str, Any]
+    metric_directions: Dict[str, Any],
 ) -> float:
     """
     Reduce scores to scalar for best checkpoint selection.
@@ -101,7 +103,11 @@ def reduce_scores_to_scalar(
         weights = {key: 1.0 for key in flat_scores.keys()}
     elif isinstance(order_config, dict):
         # Use provided weights - flatten if needed
-        flat_weights = _flatten_scores(order_config) if any(isinstance(v, dict) for v in order_config.values()) else order_config
+        flat_weights = (
+            _flatten_scores(order_config)
+            if any(isinstance(v, dict) for v in order_config.values())
+            else order_config
+        )
         weights = flat_weights.copy()
     else:
         raise ValueError(f"Invalid order_config: {order_config}")
@@ -121,7 +127,9 @@ def reduce_scores_to_scalar(
     if total_weight == 0:
         raise ValueError("All weights are zero")
 
-    normalized_weights = {key: weight / total_weight for key, weight in valid_weights.items()}
+    normalized_weights = {
+        key: weight / total_weight for key, weight in valid_weights.items()
+    }
 
     # Compute weighted average with DIRECTION applied
     weighted_sum = 0.0
@@ -144,7 +152,7 @@ def compare_scores(
     current_scores: Dict[str, Any],
     best_scores: Dict[str, Any],
     order_config: Union[bool, Dict, None],
-    metric_directions: Dict[str, Any]
+    metric_directions: Dict[str, Any],
 ) -> bool:
     """
     Compare two score dictionaries based on order configuration.
@@ -171,7 +179,9 @@ def compare_scores(
         return result
 
     # Scalar comparison using reduction (handles both True and Dict cases)
-    current_scalar = reduce_scores_to_scalar(current_scores, order_config, metric_directions)
+    current_scalar = reduce_scores_to_scalar(
+        current_scores, order_config, metric_directions
+    )
     best_scalar = reduce_scores_to_scalar(best_scores, order_config, metric_directions)
     return current_scalar > best_scalar
 
@@ -196,7 +206,9 @@ def get_metric_directions(metric) -> Dict[str, Any]:
         _validate_directions(directions)
         return directions
     else:
-        raise AttributeError(f"Metric {type(metric)} has no DIRECTIONS attribute. All metrics must define explicit DIRECTIONS = {{'score_key': 1 or -1}}")
+        raise AttributeError(
+            f"Metric {type(metric)} has no DIRECTIONS attribute. All metrics must define explicit DIRECTIONS = {{'score_key': 1 or -1}}"
+        )
 
 
 def _validate_directions(directions: Union[Dict, int], path: str = "") -> None:
@@ -205,12 +217,19 @@ def _validate_directions(directions: Union[Dict, int], path: str = "") -> None:
         for key, value in directions.items():
             _validate_directions(value, f"{path}.{key}" if path else key)
     elif isinstance(directions, int):
-        assert directions in [-1, 1], f"DIRECTION at '{path}' must be -1 or 1, got {directions}"
+        assert directions in [
+            -1,
+            1,
+        ], f"DIRECTION at '{path}' must be -1 or 1, got {directions}"
     else:
-        raise TypeError(f"DIRECTION at '{path}' must be int or dict, got {type(directions)}")
+        raise TypeError(
+            f"DIRECTION at '{path}' must be int or dict, got {type(directions)}"
+        )
 
 
-def _flatten_directions(directions: Union[Dict, int], prefix: str = "") -> Dict[str, int]:
+def _flatten_directions(
+    directions: Union[Dict, int], prefix: str = ""
+) -> Dict[str, int]:
     """Flatten nested direction structure into flat dict with dotted keys."""
     if isinstance(directions, int):
         return {prefix: directions} if prefix else {"__default__": directions}

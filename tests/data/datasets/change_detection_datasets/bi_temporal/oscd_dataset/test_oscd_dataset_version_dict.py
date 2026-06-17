@@ -1,6 +1,7 @@
 """Tests for OSCDDataset version dict functionality."""
 
 import pytest
+
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 from utils.builders.builder import build_from_config
 

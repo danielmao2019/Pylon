@@ -1,11 +1,16 @@
-from typing import List, Dict, Callable, Union, Any, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import torch
+
 from utils.ops import transpose_buffer
 
 
 class BaseCollator:
 
-    def __init__(self, collators: Optional[Dict[str, Dict[str, Callable[[List[Any]], Any]]]] = None) -> None:
+    def __init__(
+        self,
+        collators: Optional[Dict[str, Dict[str, Callable[[List[Any]], Any]]]] = None,
+    ) -> None:
         """
         Initialize the BaseCollator with optional custom collators.
 
@@ -15,7 +20,9 @@ class BaseCollator:
         """
         self.collators = collators or {}
 
-    def __call__(self, datapoints: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+    def __call__(
+        self, datapoints: List[Dict[str, Dict[str, Any]]]
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Processes a batch of datapoints using the defined or default collation logic.
 
@@ -46,7 +53,9 @@ class BaseCollator:
         return datapoints
 
     @staticmethod
-    def _default_collate(values: List[Any], key1: str, key2: str) -> Union[torch.Tensor, List[Any]]:
+    def _default_collate(
+        values: List[Any], key1: str, key2: str
+    ) -> Union[torch.Tensor, List[Any]]:
         """
         Default collation logic for handling common types.
 

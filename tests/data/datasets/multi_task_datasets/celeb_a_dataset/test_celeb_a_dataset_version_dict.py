@@ -1,6 +1,7 @@
 """Test version dict implementation for CelebADataset."""
 
 import pytest
+
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
 
 
@@ -10,6 +11,7 @@ def test_celeb_a_dataset_has_version_dict_method():
 
     # Check method signature
     import inspect
+
     method = getattr(CelebADataset, '_get_cache_version_dict')
     signature = inspect.signature(method)
 
@@ -18,14 +20,20 @@ def test_celeb_a_dataset_has_version_dict_method():
     assert params == ['self']
 
     # Should return Dict[str, Any]
-    from typing import Dict, Any
+    from typing import Any, Dict
+
     return_annotation = signature.return_annotation
-    assert return_annotation == Dict[str, Any] or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    assert (
+        return_annotation == Dict[str, Any]
+        or str(return_annotation) == 'typing.Dict[str, typing.Any]'
+    )
 
 
 def test_celeb_a_dataset_version_dict_functionality(celeb_a_data_root):
     """Test that CelebADataset version dict method works correctly."""
-    dataset = CelebADataset(data_root=celeb_a_data_root, split='train', use_landmarks=True)
+    dataset = CelebADataset(
+        data_root=celeb_a_data_root, split='train', use_landmarks=True
+    )
     version_dict = dataset._get_cache_version_dict()
 
     # Should return a dictionary

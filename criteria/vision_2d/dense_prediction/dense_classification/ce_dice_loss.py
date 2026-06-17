@@ -1,5 +1,7 @@
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
-from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import (
+    SemanticSegmentationCriterion,
+)
 from criteria.wrappers.hybrid_criterion import HybridCriterion
 
 
@@ -23,23 +25,27 @@ class CEDiceLoss(HybridCriterion):
         class_weights (Optional[torch.Tensor]): Optional weights for each class
     """
 
-    def __init__(self, combine='sum', class_weights=None, ignore_value=255, **kwargs) -> None:
+    def __init__(
+        self, combine='sum', class_weights=None, ignore_value=255, **kwargs
+    ) -> None:
         criteria_cfg = [
             {
                 'class': SemanticSegmentationCriterion,
                 'args': {
                     'reduction': 'mean',
                     'class_weights': class_weights,
-                    'ignore_value': ignore_value
-                }
+                    'ignore_value': ignore_value,
+                },
             },
             {
                 'class': DiceLoss,
                 'args': {
                     'reduction': 'mean',
                     'class_weights': class_weights,
-                    'ignore_value': ignore_value
+                    'ignore_value': ignore_value,
                 },
             },
         ]
-        super(CEDiceLoss, self).__init__(combine=combine, criteria_cfg=criteria_cfg, **kwargs)
+        super(CEDiceLoss, self).__init__(
+            combine=combine, criteria_cfg=criteria_cfg, **kwargs
+        )

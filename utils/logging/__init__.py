@@ -3,11 +3,10 @@ UTILS.LOGGING API
 """
 
 from utils.logging.base_logger import BaseLogger
-from utils.logging.text_logger import TextLogger
-from utils.logging.screen_logger import ScreenLogger
 from utils.logging.page_break import echo_page_break
+from utils.logging.screen_logger import ScreenLogger
+from utils.logging.text_logger import TextLogger
 from utils.logging.train_eval_logs import log_losses, log_scores
-
 
 __all__ = (
     'BaseLogger',

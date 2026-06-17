@@ -1,9 +1,11 @@
 from typing import Union
-import torch
+
 import open3d as o3d
-from data.transforms.base_transform import BaseTransform
-from data.structures.three_d.point_cloud.select import Select
+import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.select import Select
+from data.transforms.base_transform import BaseTransform
 
 
 class DownSample(BaseTransform):

@@ -1,6 +1,8 @@
 from typing import Dict
+
 import torch
-from models.multi_task_learning.backbones import UNetEncoder, UNetDecoder
+
+from models.multi_task_learning.backbones import UNetDecoder, UNetEncoder
 
 
 class FullyConvolutionalSiameseNetwork(torch.nn.Module):
@@ -21,11 +23,17 @@ class FullyConvolutionalSiameseNetwork(torch.nn.Module):
 
         if arch == 'FC-Siam-conc':
             # For concatenation, adjust the input features
-            upconv_in_features = [2 * self.encoder.out_features[-1]] + self.encoder.out_features[-2:-5:-1]
-            dec_in_features = list(map(lambda x: 3*x, self.encoder.out_features[-2::-1]))
+            upconv_in_features = [
+                2 * self.encoder.out_features[-1]
+            ] + self.encoder.out_features[-2:-5:-1]
+            dec_in_features = list(
+                map(lambda x: 3 * x, self.encoder.out_features[-2::-1])
+            )
         else:
             upconv_in_features = self.encoder.out_features[-1:-5:-1]
-            dec_in_features = list(map(lambda x: 2*x, self.encoder.out_features[-2::-1]))
+            dec_in_features = list(
+                map(lambda x: 2 * x, self.encoder.out_features[-2::-1])
+            )
 
         self.decoder = UNetDecoder(
             upconv_in_features=upconv_in_features,
@@ -52,16 +60,18 @@ class FullyConvolutionalSiameseNetwork(torch.nn.Module):
     def _forward_FC_Siam_conc(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         x1, x2 = inputs['img_1'], inputs['img_2']
         x1, x2 = self.encoder(x1), self.encoder(x2)
-        conc = list(map(
-            lambda x: torch.cat([x[0], x[1]], dim=1),
-            list(zip(x1, x2)),
-        ))
+        conc = list(
+            map(
+                lambda x: torch.cat([x[0], x[1]], dim=1),
+                list(zip(x1, x2)),
+            )
+        )
         x = self.decoder(conc)
         return x
 
     def _forward_FC_Siam_diff(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         x1, x2 = inputs['img_1'], inputs['img_2']
         x1, x2 = self.encoder(x1), self.encoder(x2)
-        diff = list(map(lambda x: torch.abs(x[0]-x[1]), list(zip(x1, x2))))
+        diff = list(map(lambda x: torch.abs(x[0] - x[1]), list(zip(x1, x2))))
         x = self.decoder(diff)
         return x

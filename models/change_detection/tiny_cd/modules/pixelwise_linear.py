@@ -1,4 +1,5 @@
 from typing import List
+
 import torch
 
 
@@ -17,7 +18,7 @@ class PixelwiseLinear(torch.nn.Module):
             *[
                 torch.nn.Sequential(
                     torch.nn.Conv2d(fin[i], fout[i], kernel_size=1, bias=True),
-                    torch.nn.PReLU()
+                    torch.nn.PReLU(),
                 )
                 for i in range(n)
             ]

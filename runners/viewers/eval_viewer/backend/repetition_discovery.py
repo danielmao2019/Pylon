@@ -1,14 +1,20 @@
 """
 Helper functions for discovering and aggregating experiment repetitions.
 """
-from typing import List, Dict, Set, Tuple, Any, Optional
+
+import logging
 import os
 import re
-import numpy as np
-from pathlib import Path
 from dataclasses import dataclass
-from runners.viewers.eval_viewer.backend.initialization import LogDirInfo, extract_log_dir_info
-import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+import numpy as np
+
+from runners.viewers.eval_viewer.backend.initialization import (
+    LogDirInfo,
+    extract_log_dir_info,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ExperimentGroup:
     """Information about a group of experiment repetitions."""
+
     base_path: str  # Base experiment path without _run_x suffix
     experiment_name: str  # Name of the experiment (e.g., "ICP", "RANSAC_FPFH")
     repetition_paths: List[str]  # List of valid repetition paths
@@ -53,13 +60,15 @@ def _extract_base_path(log_dir: str) -> Tuple[str, Optional[int]]:
     match = re.search(r'_run_(\d+)$', log_dir)
     if match:
         run_number = int(match.group(1))
-        base_path = log_dir[:match.start()]
+        base_path = log_dir[: match.start()]
         return base_path, run_number
     else:
         return log_dir, None
 
 
-def _discover_repetitions(base_path: str, existing_runs: Set[int], max_runs: int = 10) -> List[str]:
+def _discover_repetitions(
+    base_path: str, existing_runs: Set[int], max_runs: int = 10
+) -> List[str]:
     """Discover all valid repetition directories for a given base path.
 
     Args:
@@ -111,7 +120,9 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
     assert log_dirs is not None, "log_dirs must not be None"
     assert isinstance(log_dirs, list), f"log_dirs must be list, got {type(log_dirs)}"
     assert len(log_dirs) > 0, f"log_dirs must not be empty"
-    assert all(isinstance(log_dir, str) for log_dir in log_dirs), f"All log_dirs must be strings, got {log_dirs}"
+    assert all(
+        isinstance(log_dir, str) for log_dir in log_dirs
+    ), f"All log_dirs must be strings, got {log_dirs}"
 
     # Group by base path
     base_path_to_runs = {}
@@ -121,7 +132,9 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
         # Handle case where user provides path without _run_x suffix
         if run_number is None:
             # Treat as a base path and search for repetition directories (_run_x pattern)
-            discovered_repetitions = _discover_repetitions(base_path, set(), max_runs=10)
+            discovered_repetitions = _discover_repetitions(
+                base_path, set(), max_runs=10
+            )
             if discovered_repetitions:
                 # Found repetitions - add them to the repetition group
                 for rep_path in discovered_repetitions:
@@ -129,7 +142,9 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
                     if rep_base_path not in base_path_to_runs:
                         base_path_to_runs[rep_base_path] = set()
                     base_path_to_runs[rep_base_path].add(rep_run_number)
-                logger.info(f"Discovered {len(discovered_repetitions)} repetitions for base path: {base_path}")
+                logger.info(
+                    f"Discovered {len(discovered_repetitions)} repetitions for base path: {base_path}"
+                )
             else:
                 logger.warning(f"No repetitions found for base path: {base_path}")
         else:
@@ -142,7 +157,9 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
     experiment_groups = []
     for base_path, existing_runs in base_path_to_runs.items():
         # Discover all repetitions for this base path
-        discovered_repetitions = _discover_repetitions(base_path, existing_runs, max_runs=10)
+        discovered_repetitions = _discover_repetitions(
+            base_path, existing_runs, max_runs=10
+        )
 
         if discovered_repetitions:
             experiment_name = os.path.basename(base_path)
@@ -150,12 +167,16 @@ def discover_experiment_groups(log_dirs: List[str]) -> List[ExperimentGroup]:
                 base_path=base_path,
                 experiment_name=experiment_name,
                 repetition_paths=discovered_repetitions,
-                num_repetitions=len(discovered_repetitions)
+                num_repetitions=len(discovered_repetitions),
             )
             experiment_groups.append(group)
-            logger.info(f"Created experiment group '{experiment_name}' with {len(discovered_repetitions)} repetitions")
+            logger.info(
+                f"Created experiment group '{experiment_name}' with {len(discovered_repetitions)} repetitions"
+            )
 
-    assert len(experiment_groups) > 0, f"No valid experiment groups discovered from log_dirs: {log_dirs}"
+    assert (
+        len(experiment_groups) > 0
+    ), f"No valid experiment groups discovered from log_dirs: {log_dirs}"
     return experiment_groups
 
 
@@ -173,9 +194,13 @@ def aggregate_log_dir_infos(log_dir_infos: List[LogDirInfo]) -> LogDirInfo:
     """
     # Input validation following CLAUDE.md fail-fast patterns
     assert log_dir_infos is not None, "log_dir_infos must not be None"
-    assert isinstance(log_dir_infos, list), f"log_dir_infos must be list, got {type(log_dir_infos)}"
+    assert isinstance(
+        log_dir_infos, list
+    ), f"log_dir_infos must be list, got {type(log_dir_infos)}"
     assert len(log_dir_infos) > 0, f"log_dir_infos must not be empty"
-    assert all(isinstance(info, LogDirInfo) for info in log_dir_infos), f"All items must be LogDirInfo, got {[type(info) for info in log_dir_infos]}"
+    assert all(
+        isinstance(info, LogDirInfo) for info in log_dir_infos
+    ), f"All items must be LogDirInfo, got {[type(info) for info in log_dir_infos]}"
 
     if len(log_dir_infos) == 1:
         # No aggregation needed for single repetition
@@ -185,29 +210,47 @@ def aggregate_log_dir_infos(log_dir_infos: List[LogDirInfo]) -> LogDirInfo:
     first_info = log_dir_infos[0]
 
     # Check consistent structure
-    assert all(info.num_epochs == first_info.num_epochs for info in log_dir_infos), \
-        f"Inconsistent num_epochs: {[info.num_epochs for info in log_dir_infos]}"
-    assert all(info.metric_names == first_info.metric_names for info in log_dir_infos), \
-        f"Inconsistent metric_names: {[info.metric_names for info in log_dir_infos]}"
-    assert all(info.num_datapoints == first_info.num_datapoints for info in log_dir_infos), \
-        f"Inconsistent num_datapoints: {[info.num_datapoints for info in log_dir_infos]}"
-    assert all(info.dataset_class == first_info.dataset_class for info in log_dir_infos), \
-        f"Inconsistent dataset_class: {[info.dataset_class for info in log_dir_infos]}"
-    assert all(info.dataset_type == first_info.dataset_type for info in log_dir_infos), \
-        f"Inconsistent dataset_type: {[info.dataset_type for info in log_dir_infos]}"
-    assert all(info.runner_type == first_info.runner_type for info in log_dir_infos), \
-        f"Inconsistent runner_type: {[info.runner_type for info in log_dir_infos]}"
+    assert all(
+        info.num_epochs == first_info.num_epochs for info in log_dir_infos
+    ), f"Inconsistent num_epochs: {[info.num_epochs for info in log_dir_infos]}"
+    assert all(
+        info.metric_names == first_info.metric_names for info in log_dir_infos
+    ), f"Inconsistent metric_names: {[info.metric_names for info in log_dir_infos]}"
+    assert all(
+        info.num_datapoints == first_info.num_datapoints for info in log_dir_infos
+    ), f"Inconsistent num_datapoints: {[info.num_datapoints for info in log_dir_infos]}"
+    assert all(
+        info.dataset_class == first_info.dataset_class for info in log_dir_infos
+    ), f"Inconsistent dataset_class: {[info.dataset_class for info in log_dir_infos]}"
+    assert all(
+        info.dataset_type == first_info.dataset_type for info in log_dir_infos
+    ), f"Inconsistent dataset_type: {[info.dataset_type for info in log_dir_infos]}"
+    assert all(
+        info.runner_type == first_info.runner_type for info in log_dir_infos
+    ), f"Inconsistent runner_type: {[info.runner_type for info in log_dir_infos]}"
 
     # Stack score maps and aggregated scores across repetitions
-    score_maps = np.stack([info.score_map for info in log_dir_infos], axis=0)  # Shape: (R, N, C, H, W) or (R, C, H, W)
-    aggregated_scores_array = np.stack([info.aggregated_scores for info in log_dir_infos], axis=0)  # Shape: (R, N, C) or (R, C)
+    score_maps = np.stack(
+        [info.score_map for info in log_dir_infos], axis=0
+    )  # Shape: (R, N, C, H, W) or (R, C, H, W)
+    aggregated_scores_array = np.stack(
+        [info.aggregated_scores for info in log_dir_infos], axis=0
+    )  # Shape: (R, N, C) or (R, C)
 
     # Compute mean and std across repetitions (axis=0)
     score_map_mean = np.mean(score_maps, axis=0)
-    score_map_std = np.std(score_maps, axis=0, ddof=1) if len(log_dir_infos) > 1 else np.zeros_like(score_map_mean)
+    score_map_std = (
+        np.std(score_maps, axis=0, ddof=1)
+        if len(log_dir_infos) > 1
+        else np.zeros_like(score_map_mean)
+    )
 
     aggregated_scores_mean = np.mean(aggregated_scores_array, axis=0)
-    aggregated_scores_std = np.std(aggregated_scores_array, axis=0, ddof=1) if len(log_dir_infos) > 1 else np.zeros_like(aggregated_scores_mean)
+    aggregated_scores_std = (
+        np.std(aggregated_scores_array, axis=0, ddof=1)
+        if len(log_dir_infos) > 1
+        else np.zeros_like(aggregated_scores_mean)
+    )
 
     # Create new LogDirInfo with aggregated data
     # Use the mean values for score_map and aggregated_scores

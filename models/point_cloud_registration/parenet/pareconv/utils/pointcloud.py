@@ -1,9 +1,8 @@
-from typing import Tuple, List, Optional, Union, Any
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.spatial.transform import Rotation
-
 
 # Basic Utilities
 
@@ -40,7 +39,9 @@ def regularize_normals(points, normals, positive=True):
 # Transformation Utilities
 
 
-def apply_transform(points: np.ndarray, transform: np.ndarray, normals: Optional[np.ndarray] = None):
+def apply_transform(
+    points: np.ndarray, transform: np.ndarray, normals: Optional[np.ndarray] = None
+):
     rotation = transform[:3, :3]
     translation = transform[:3, 3]
     points = np.matmul(points, rotation.T) + translation
@@ -62,7 +63,9 @@ def compose_transforms(transforms: List[np.ndarray]) -> np.ndarray:
     return final_transform
 
 
-def get_transform_from_rotation_translation(rotation: np.ndarray, translation: np.ndarray) -> np.ndarray:
+def get_transform_from_rotation_translation(
+    rotation: np.ndarray, translation: np.ndarray
+) -> np.ndarray:
     r"""Get rigid transform matrix from rotation matrix and translation vector.
 
     Args:
@@ -78,7 +81,9 @@ def get_transform_from_rotation_translation(rotation: np.ndarray, translation: n
     return transform
 
 
-def get_rotation_translation_from_transform(transform: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def get_rotation_translation_from_transform(
+    transform: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
     r"""Get rotation matrix and translation vector from rigid transform matrix.
 
     Args:
@@ -102,16 +107,22 @@ def inverse_transform(transform: np.ndarray) -> np.ndarray:
     Return:
         inv_transform (array): (4, 4)
     """
-    rotation, translation = get_rotation_translation_from_transform(transform)  # (3, 3), (3,)
+    rotation, translation = get_rotation_translation_from_transform(
+        transform
+    )  # (3, 3), (3,)
     inv_rotation = rotation.T  # (3, 3)
     inv_translation = -np.matmul(inv_rotation, translation)  # (3,)
-    inv_transform = get_transform_from_rotation_translation(inv_rotation, inv_translation)  # (4, 4)
+    inv_transform = get_transform_from_rotation_translation(
+        inv_rotation, inv_translation
+    )  # (4, 4)
     return inv_transform
 
 
 def random_sample_rotation(rotation_factor: float = 1.0) -> np.ndarray:
     # angle_z, angle_y, angle_x
-    euler = np.random.rand(3) * np.pi * 2 * rotation_factor  # (0, 2 * pi / rotation_range)
+    euler = (
+        np.random.rand(3) * np.pi * 2 * rotation_factor
+    )  # (0, 2 * pi / rotation_range)
     rotation = Rotation.from_euler('zyx', euler).as_matrix()
     return rotation
 
@@ -125,7 +136,9 @@ def random_sample_rotation_v2() -> np.ndarray:
     return rotation.astype(np.float32)
 
 
-def random_sample_transform(rotation_magnitude: float, translation_magnitude: float) -> np.ndarray:
+def random_sample_transform(
+    rotation_magnitude: float, translation_magnitude: float
+) -> np.ndarray:
     euler = np.random.rand(3) * np.pi * rotation_magnitude / 180.0  # (0, rot_mag)
     rotation = Rotation.from_euler('zyx', euler).as_matrix()
     translation = np.random.uniform(-translation_magnitude, translation_magnitude, 3)
@@ -188,7 +201,7 @@ def sample_keypoints_with_nms(
 ) -> Tuple[np.ndarray, np.ndarray]:
     num_points = points.shape[0]
     if num_points > num_keypoints:
-        radius2 = radius ** 2
+        radius2 = radius**2
         masks = np.ones(num_points, dtype=np.bool)
         sorted_indices = np.argsort(scores)[::-1]
         sorted_points = points[sorted_indices]
@@ -200,7 +213,10 @@ def sample_keypoints_with_nms(
                 if len(indices) == num_keypoints:
                     break
                 if i + 1 < num_points:
-                    current_masks = np.sum((sorted_points[i + 1 :] - sorted_points[i]) ** 2, axis=1) < radius2
+                    current_masks = (
+                        np.sum((sorted_points[i + 1 :] - sorted_points[i]) ** 2, axis=1)
+                        < radius2
+                    )
                     masks[i + 1 :] = masks[i + 1 :] & ~current_masks
         points = sorted_points[indices]
         feats = sorted_feats[indices]
@@ -216,7 +232,7 @@ def random_sample_keypoints_with_nms(
 ) -> Tuple[np.ndarray, np.ndarray]:
     num_points = points.shape[0]
     if num_points > num_keypoints:
-        radius2 = radius ** 2
+        radius2 = radius**2
         masks = np.ones(num_points, dtype=np.bool)
         sorted_indices = np.argsort(scores)[::-1]
         sorted_points = points[sorted_indices]
@@ -226,7 +242,10 @@ def random_sample_keypoints_with_nms(
             if masks[i]:
                 indices.append(i)
                 if i + 1 < num_points:
-                    current_masks = np.sum((sorted_points[i + 1 :] - sorted_points[i]) ** 2, axis=1) < radius2
+                    current_masks = (
+                        np.sum((sorted_points[i + 1 :] - sorted_points[i]) ** 2, axis=1)
+                        < radius2
+                    )
                     masks[i + 1 :] = masks[i + 1 :] & ~current_masks
         indices = np.array(indices)
         if len(indices) > num_keypoints:
@@ -237,6 +256,7 @@ def random_sample_keypoints_with_nms(
         points = sorted_points[indices]
         feats = sorted_feats[indices]
     return points, feats
+
 
 def uniform_2_sphere(num: int = None):
     """Uniform sampling on a 2-sphere
@@ -270,7 +290,10 @@ def uniform_2_sphere(num: int = None):
 
 
 def convert_depth_mat_to_points(
-    depth_mat: np.ndarray, intrinsics: np.ndarray, scaling_factor: float = 1000.0, distance_limit: float = 6.0
+    depth_mat: np.ndarray,
+    intrinsics: np.ndarray,
+    scaling_factor: float = 1000.0,
+    distance_limit: float = 6.0,
 ):
     r"""Convert depth image to point cloud.
 

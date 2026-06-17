@@ -1,10 +1,13 @@
 """Tests for BaseDataset cache version discrimination."""
 
-import pytest
 import tempfile
 
+import pytest
 
-def test_base_dataset_version_discrimination(mock_dataset_class, mock_dataset_class_without_predefined_splits):
+
+def test_base_dataset_version_discrimination(
+    mock_dataset_class, mock_dataset_class_without_predefined_splits
+):
     """Test that BaseDataset instances with different configurations have different version hashes."""
     with tempfile.TemporaryDirectory() as temp_dir1, tempfile.TemporaryDirectory() as temp_dir2:
         # Same configuration should have same hash
@@ -21,12 +24,18 @@ def test_base_dataset_version_discrimination(mock_dataset_class, mock_dataset_cl
         assert dataset1a.get_cache_version_hash() != dataset3.get_cache_version_hash()
 
         # Different split_percentages should have different hash (use dataset without predefined splits)
-        dataset4 = mock_dataset_class_without_predefined_splits(data_root=temp_dir1, split='train', split_percentages=(0.7, 0.2, 0.1))
-        dataset5 = mock_dataset_class_without_predefined_splits(data_root=temp_dir1, split='train', split_percentages=(0.8, 0.1, 0.1))
+        dataset4 = mock_dataset_class_without_predefined_splits(
+            data_root=temp_dir1, split='train', split_percentages=(0.7, 0.2, 0.1)
+        )
+        dataset5 = mock_dataset_class_without_predefined_splits(
+            data_root=temp_dir1, split='train', split_percentages=(0.8, 0.1, 0.1)
+        )
         assert dataset4.get_cache_version_hash() != dataset5.get_cache_version_hash()
 
 
-def test_comprehensive_version_discrimination(mock_dataset_class, mock_dataset_class_without_predefined_splits):
+def test_comprehensive_version_discrimination(
+    mock_dataset_class, mock_dataset_class_without_predefined_splits
+):
     """Comprehensive test ensuring no hash collisions across many different configurations."""
     with tempfile.TemporaryDirectory() as temp_dir1, tempfile.TemporaryDirectory() as temp_dir2:
         datasets = []
@@ -37,19 +46,31 @@ def test_comprehensive_version_discrimination(mock_dataset_class, mock_dataset_c
 
         # Test different split percentages (use dataset without predefined splits)
         for split_percentages in [(0.7, 0.2, 0.1), (0.8, 0.1, 0.1), (0.6, 0.3, 0.1)]:
-            datasets.append(mock_dataset_class_without_predefined_splits(data_root=temp_dir1, split='train', split_percentages=split_percentages))
+            datasets.append(
+                mock_dataset_class_without_predefined_splits(
+                    data_root=temp_dir1,
+                    split='train',
+                    split_percentages=split_percentages,
+                )
+            )
 
         # Collect all hashes
         hashes = [dataset.get_cache_version_hash() for dataset in datasets]
 
         # Ensure all hashes are unique (no collisions)
-        assert len(hashes) == len(set(hashes)), f"Hash collision detected! Duplicate hashes found in: {hashes}"
+        assert len(hashes) == len(
+            set(hashes)
+        ), f"Hash collision detected! Duplicate hashes found in: {hashes}"
 
         # Ensure all hashes are non-empty strings
         for hash_val in hashes:
-            assert isinstance(hash_val, str), f"Hash must be string, got {type(hash_val)}"
+            assert isinstance(
+                hash_val, str
+            ), f"Hash must be string, got {type(hash_val)}"
             assert len(hash_val) > 0, "Hash must not be empty"
-            assert len(hash_val) == 16, f"Hash must be 16 characters, got {len(hash_val)}"
+            assert (
+                len(hash_val) == 16
+            ), f"Hash must be 16 characters, got {len(hash_val)}"
 
 
 def test_base_dataset_get_cache_version_hash_method(mock_dataset_class):

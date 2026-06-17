@@ -1,6 +1,8 @@
-from typing import Tuple, Dict
+from typing import Dict, Tuple
+
 import numpy
 import torch
+
 import utils
 
 
@@ -9,6 +11,7 @@ class Generator(torch.nn.Module):
     def __init__(self, latent_dim: int, img_shape: Tuple[int]) -> None:
         super(Generator, self).__init__()
         self.img_shape = img_shape
+
         def block(in_feat, out_feat, normalize=True):
             layers = [torch.nn.Linear(in_feat, out_feat)]
             if normalize:

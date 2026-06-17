@@ -1,7 +1,10 @@
 import pytest
 import torch
 import torch.nn.functional as F
-from criteria.vision_2d.dense_prediction.dense_classification.spatial_cross_entropy import SpatialCrossEntropyCriterion
+
+from criteria.vision_2d.dense_prediction.dense_classification.spatial_cross_entropy import (
+    SpatialCrossEntropyCriterion,
+)
 
 
 @pytest.fixture
@@ -40,13 +43,18 @@ def test_spatial_cross_entropy_basic(sample_data):
     assert loss.item() > 0
 
 
-@pytest.mark.parametrize("use_class_weights,use_ignore_value", [
-    (False, False),  # Basic comparison with PyTorch
-    (True, False),   # With class weights
-    (False, True),   # With ignore_value
-    (True, True),    # With both class weights and ignore_value
-])
-def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_weights, use_ignore_value):
+@pytest.mark.parametrize(
+    "use_class_weights,use_ignore_value",
+    [
+        (False, False),  # Basic comparison with PyTorch
+        (True, False),  # With class weights
+        (False, True),  # With ignore_value
+        (True, True),  # With both class weights and ignore_value
+    ],
+)
+def test_spatial_cross_entropy_vs_pytorch_parametrized(
+    sample_data, use_class_weights, use_ignore_value
+):
     """
     Test that our implementation matches PyTorch's cross entropy with various parameter combinations.
 
@@ -61,7 +69,9 @@ def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_we
     ignore_value = 255 if use_ignore_value else None
 
     # Create class weights if needed
-    class_weights = torch.tensor([0.2, 0.3, 0.5], device=device) if use_class_weights else None
+    class_weights = (
+        torch.tensor([0.2, 0.3, 0.5], device=device) if use_class_weights else None
+    )
 
     # Prepare test data
     if use_ignore_value:
@@ -89,11 +99,14 @@ def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_we
     if ignore_value is not None:
         pytorch_kwargs['ignore_index'] = ignore_value
 
-    pytorch_loss = F.cross_entropy(y_pred, y_true_modified, reduction='mean', **pytorch_kwargs)
+    pytorch_loss = F.cross_entropy(
+        y_pred, y_true_modified, reduction='mean', **pytorch_kwargs
+    )
 
     # Losses should be close
-    assert torch.isclose(our_loss, pytorch_loss / num_classes, rtol=1e-2).item(), \
-        f"Loss mismatch: ours={our_loss.item()}, pytorch={pytorch_loss.item()}, pytorch_normalized={pytorch_loss.item() / num_classes}"
+    assert torch.isclose(
+        our_loss, pytorch_loss / num_classes, rtol=1e-2
+    ).item(), f"Loss mismatch: ours={our_loss.item()}, pytorch={pytorch_loss.item()}, pytorch_normalized={pytorch_loss.item() / num_classes}"
 
     # Add descriptive test message based on parameters
     test_description = "Testing SpatialCrossEntropyCriterion "

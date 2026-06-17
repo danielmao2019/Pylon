@@ -32,6 +32,10 @@ def test_teaserplusplus_forward_pass():
         output = model(inputs)
 
         # Check output shape
-        assert output.shape == (batch_size, 4, 4), f"Iteration {i}: Expected output shape (batch_size, 4, 4), got {output.shape}"
+        assert output.shape == (
+            batch_size,
+            4,
+            4,
+        ), f"Iteration {i}: Expected output shape (batch_size, 4, 4), got {output.shape}"
 
         print(f"Iteration {i+1}/10 completed successfully")

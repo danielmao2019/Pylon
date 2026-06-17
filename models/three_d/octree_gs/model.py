@@ -7,8 +7,8 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 import torch
-from torch import nn
 from plyfile import PlyData
+from torch import nn
 
 
 def inverse_sigmoid(x: torch.Tensor) -> torch.Tensor:
@@ -345,5 +345,3 @@ class OctreeGS_3DGS(BasicModel):
         mask = torch.ones(xyz.shape[0], dtype=torch.bool, device="cuda")
 
         return xyz, color, opacity, scaling, rotation, self.active_sh_degree, mask
-
-

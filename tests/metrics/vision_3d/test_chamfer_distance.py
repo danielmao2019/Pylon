@@ -1,8 +1,9 @@
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from metrics.vision_3d import ChamferDistance
 from scipy.spatial import KDTree
+
+from metrics.vision_3d import ChamferDistance
 
 
 def create_datapoint(outputs, labels, idx=0):
@@ -11,7 +12,7 @@ def create_datapoint(outputs, labels, idx=0):
         'inputs': {},
         'outputs': outputs,
         'labels': labels,
-        'meta_info': {'idx': idx}
+        'meta_info': {'idx': idx},
     }
 
 
@@ -31,24 +32,42 @@ def compute_chamfer_distance_numpy(source, target):
     return chamfer_distance
 
 
-@pytest.mark.parametrize("case_name,source,target,expected_distance", [
-    ("perfect_match",
-     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
-     0.0),
-    ("small_offset",
-     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]], dtype=torch.float32),
-     0.3464101552963257),
-])
+@pytest.mark.parametrize(
+    "case_name,source,target,expected_distance",
+    [
+        (
+            "perfect_match",
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32
+            ),
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32
+            ),
+            0.0,
+        ),
+        (
+            "small_offset",
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32
+            ),
+            torch.tensor(
+                [[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]], dtype=torch.float32
+            ),
+            0.3464101552963257,
+        ),
+    ],
+)
 def test_basic_functionality(case_name, source, target, expected_distance):
     """Test basic Chamfer distance calculation with simple examples."""
     chamfer = ChamferDistance()
     datapoint = create_datapoint(source, target)
     result = chamfer(datapoint)
-    assert result.keys() == {'chamfer_distance'}, f"Expected keys {{'chamfer_distance'}}, got {result.keys()}"
-    assert abs(result['chamfer_distance'].item() - expected_distance) < 1e-5, \
-        f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"
+    assert result.keys() == {
+        'chamfer_distance'
+    }, f"Expected keys {{'chamfer_distance'}}, got {result.keys()}"
+    assert (
+        abs(result['chamfer_distance'].item() - expected_distance) < 1e-5
+    ), f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"
 
 
 def test_with_random_point_clouds():
@@ -74,9 +93,12 @@ def test_with_random_point_clouds():
 
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'chamfer_distance'}, f"Expected keys {{'chamfer_distance'}}, got {metric_result.keys()}"
-    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, \
-        f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
+    assert metric_result.keys() == {
+        'chamfer_distance'
+    }, f"Expected keys {{'chamfer_distance'}}, got {metric_result.keys()}"
+    assert (
+        abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5
+    ), f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
 
 
 def test_with_known_distance():
@@ -110,38 +132,57 @@ def test_with_known_distance():
 
     # Check that the results are approximately equal to the expected distance
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'chamfer_distance'}, f"Expected keys {{'chamfer_distance'}}, got {metric_result.keys()}"
-    assert abs(metric_result['chamfer_distance'].item() - expected_distance) < 1e-3, \
-        f"Metric: {metric_result['chamfer_distance'].item()}, Expected: {expected_distance}"
+    assert metric_result.keys() == {
+        'chamfer_distance'
+    }, f"Expected keys {{'chamfer_distance'}}, got {metric_result.keys()}"
+    assert (
+        abs(metric_result['chamfer_distance'].item() - expected_distance) < 1e-3
+    ), f"Metric: {metric_result['chamfer_distance'].item()}, Expected: {expected_distance}"
 
 
-@pytest.mark.parametrize("case_name,source,target,expected_distance,raises_error", [
-    ("empty_point_clouds",
-     torch.empty((0, 3), dtype=torch.float32),
-     torch.empty((0, 3), dtype=torch.float32),
-     None,
-     IndexError),
-    ("single_point",
-     torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32),
-     3.464101552963257,
-     None),
-    ("duplicate_points",
-     torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
-     torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
-     0.0,
-     None),
-    ("extreme_values",
-     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
-     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
-     0.0,
-     None),
-    ("nan_values",
-     torch.tensor([[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]], dtype=torch.float32),
-     torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32),
-     None,
-     AssertionError),
-])
+@pytest.mark.parametrize(
+    "case_name,source,target,expected_distance,raises_error",
+    [
+        (
+            "empty_point_clouds",
+            torch.empty((0, 3), dtype=torch.float32),
+            torch.empty((0, 3), dtype=torch.float32),
+            None,
+            IndexError,
+        ),
+        (
+            "single_point",
+            torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32),
+            torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32),
+            3.464101552963257,
+            None,
+        ),
+        (
+            "duplicate_points",
+            torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
+            torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32),
+            0.0,
+            None,
+        ),
+        (
+            "extreme_values",
+            torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
+            torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32),
+            0.0,
+            None,
+        ),
+        (
+            "nan_values",
+            torch.tensor(
+                [[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]],
+                dtype=torch.float32,
+            ),
+            torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32),
+            None,
+            AssertionError,
+        ),
+    ],
+)
 def test_edge_cases(case_name, source, target, expected_distance, raises_error):
     """Test Chamfer distance with edge cases."""
     chamfer = ChamferDistance()
@@ -153,6 +194,9 @@ def test_edge_cases(case_name, source, target, expected_distance, raises_error):
     else:
         datapoint = create_datapoint(source, target)
         result = chamfer(datapoint)
-        assert result.keys() == {'chamfer_distance'}, f"Expected keys {{'chamfer_distance'}}, got {result.keys()}"
-        assert abs(result['chamfer_distance'].item() - expected_distance) < 1e-5, \
-            f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"
+        assert result.keys() == {
+            'chamfer_distance'
+        }, f"Expected keys {{'chamfer_distance'}}, got {result.keys()}"
+        assert (
+            abs(result['chamfer_distance'].item() - expected_distance) < 1e-5
+        ), f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"

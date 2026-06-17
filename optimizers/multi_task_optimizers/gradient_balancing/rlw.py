@@ -1,4 +1,5 @@
-from typing import Tuple, Dict, Union
+from typing import Dict, Tuple, Union
+
 import torch
 
 from ._base_ import GradientBalancingBaseOptimizer
@@ -19,7 +20,11 @@ class RLWOptimizer(GradientBalancingBaseOptimizer):
         losses_tensor = torch.stack(list(losses.values()))
         # compute weights
         with torch.no_grad():
-            weights = torch.nn.Softmax(dim=0)(torch.normal(mean=0, std=1, size=(self.num_tasks,), device=torch.device('cuda')))
+            weights = torch.nn.Softmax(dim=0)(
+                torch.normal(
+                    mean=0, std=1, size=(self.num_tasks,), device=torch.device('cuda')
+                )
+            )
         assert not weights.requires_grad
         # reweigh losses
         total_loss = (weights * losses_tensor).sum()
