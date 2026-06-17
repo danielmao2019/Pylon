@@ -198,7 +198,7 @@ layered_display_container.ts
 ├── import * as THREE from "three";
 ├── import type { ElementVNode, VNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
-├── import { createThreeDisplayContainer, createThreeScene, createThreePerspectiveCamera, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
+├── import { createThreeDisplayContainer, createThreeScene, createThreePerspectiveCamera, createThreeWebGLRenderer, startThreeSceneRenderLoop, attachThreeScenePickSeam } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── export type SpatialLayerContributor = (scene: THREE.Scene) => void   # a spatial layer builds its THREE object(s) into its OWN scene; one scene per layer lets the render loop composite layers without Z-fighting coincident geometry
 ├── export type LayerSpec = { id: string; visible: boolean; displayClass: "spatial"; contributeToScene: SpatialLayerContributor } | { id: string; visible: boolean; displayClass: "raster"; node: VNode }   # every layer (base + ALL aux) is passed regardless of visibility — `id` identifies it, `visible` is its current toggle state; the consumer rebuilds this list each render with stable `id`s and updated `visible` flags
@@ -215,6 +215,7 @@ layered_display_container.ts
 │   ├── calls _registerSceneResize({ container, camera, renderer, controls })
 │   ├── calls _publishCameraState({ container, controls })                                        # publish the initial base-camera pose
 │   ├── impls controls.addEventListener("change", () => _publishCameraState({ container, controls }))   # re-publish on change so the consumer can observe and persist this cell's base-camera pose
+│   ├── calls attachThreeScenePickSeam({ container, camera, scenes: auxScenes.map(a => a.scene) })   # augment the returned container with the pickAt base-camera pick seam so a consumer can hit-test the aux layers without owning the camera/renderer/scenes
 │   ├── calls renderLayeredSpatialScene({ container, baseScene, auxScenes, camera, renderer, controls })
 │   └── return LeafVNode keyed by slotId with props { "data-visible-layers": layers.filter(l => l.visible).map(l => l.id).join(",") }   # the reconciler mirrors the visible set onto this attribute every render; the render loop reads it back each frame
 ├── function createLayeredSpatialScene({ layers, initialCameraState }: { layers: readonly LayerSpec[]; initialCameraState: CameraState | null }): { container: HTMLDivElement; baseScene: THREE.Scene; auxScenes: { id: string; scene: THREE.Scene }[]; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
@@ -255,6 +256,7 @@ three_scene_helpers.ts
 ├── import * as THREE from "three";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import { createTrackballCameraControls, DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
+├── export type PickableThreeContainer = HTMLDivElement & { pickAt: (clientX: number, clientY: number) => THREE.Object3D | null }   # any spatial display container augmented with an additive base-camera pick seam: a consumer raycasts a pointer position against the container's scenes via the camera without owning the camera/renderer/scenes; the base HTMLDivElement contract is unchanged
 ├── function createThreeDisplayContainer({ pointerEventsSuppressed }: { pointerEventsSuppressed: boolean }): HTMLDivElement
 │   ├── # Shared display container for every TS atomic spatial display.
 │   ├── impls absolutely-positioned full-bleed HTMLDivElement that owns the Three.js canvas
@@ -275,6 +277,12 @@ three_scene_helpers.ts
 │   ├── # Shared WebGL renderer factory for every TS atomic spatial display.
 │   ├── impls THREE.WebGLRenderer constructed with `alpha: true` and cleared transparent via `setClearColor(0x000000, 0)` so the canvas is transparent by default; consumers that want an opaque backdrop apply a CSS `background-color` to the marker
 │   ├── impls canvas mounted inside the provided container
+│   └── return
+├── function attachThreeScenePickSeam({ container, camera, scenes }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; scenes: readonly THREE.Scene[] }): void
+│   ├── # Installs a base-camera pickAt seam onto any spatial display container so a consumer can hit-test the given scenes via the camera without owning the camera, renderer, or scenes.
+│   ├── impls raycaster = new THREE.Raycaster()
+│   ├── impls pickAt = (clientX, clientY) => NDC from the container rect (null if empty), camera raycast over each scene, return first hit object else null
+│   ├── impls (container as PickableThreeContainer).pickAt = pickAt   # additive seam; base HTMLDivElement contract unchanged
 │   └── return
 └── function startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> | null; onAfterRender?: () => void }): void
     ├── # Shared requestAnimationFrame loop driving one base scene each frame; self-stops and frees its WebGL context once the canvas leaves the DOM, with an optional onAfterRender hook for per-frame caller steps.
