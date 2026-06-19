@@ -1,5 +1,9 @@
 import type { VNode } from "web/reconcile/reconcile";
 import { renderPixelsDisplay } from "./core_pixels_display";
+import {
+  registerRasterLayerRenderer,
+  type RasterLayerRenderer,
+} from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
 import type {
   ColorImageDisplayResponse,
   DepthImageDisplayResponse,
@@ -81,3 +85,12 @@ export function renderInstanceSurrogateImageDisplay({
 }): VNode {
   return renderPixelsDisplay({ displayResponse, imageInterpolation });
 }
+
+// Module-load self-registration of the raster color-image layer renderer. The
+// registry erases the layer's display response to the base DisplayResponse, so
+// the color-image part-B is registered through the registry's renderer type at
+// the erasure boundary.
+registerRasterLayerRenderer({
+  displayKind: "color_image",
+  layerRenderer: renderColorImageDisplay as RasterLayerRenderer,
+});

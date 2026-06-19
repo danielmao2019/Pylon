@@ -2,15 +2,9 @@ import * as THREE from "three";
 import type { LeafVNode, VNode } from "web/reconcile/reconcile";
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 import type { MeshDisplayResponse } from "./types/display_response";
+import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 import {
-  createTrackballCameraControls,
-  type ThreeTrackballCameraControls,
-} from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
-import {
-  createThreeDisplayContainer,
-  createThreePerspectiveCamera,
-  createThreeScene,
-  createThreeWebGLRenderer,
+  createSpatialDisplayScene,
   startThreeSceneRenderLoop,
 } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 
@@ -98,19 +92,12 @@ export function renderMeshDisplay({
     key: displayResponse.url ?? `mesh:${displayResponse.slot_id}`,
     props: {},
     render: () => {
-      const { container, scene, camera, renderer } = createMeshScene({
-        displayResponse,
+      const { container, scene, camera, renderer } = createSpatialDisplayScene({
         initialCameraState,
-        meshColor,
-        meshOpacity,
-        meshSide,
       });
+      const object = createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide });
+      scene.add(object);
       const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState });
-      _registerSceneResize({ container, camera, renderer, controls });
-      _publishCameraState({ container, controls });
-      controls.addEventListener("change", () => {
-        _publishCameraState({ container, controls });
-      });
       renderMeshScene({ scene, camera, renderer, controls });
       return container;
     },
@@ -118,39 +105,29 @@ export function renderMeshDisplay({
   return leaf;
 }
 
-// Compose container, scene, camera, renderer; the mesh payload is loaded
-// asynchronously and the THREE.Mesh joins the scene on resolve.
-export function createMeshScene({
+// Part-B: returns a THREE.Group for the mesh, populated with the THREE.Mesh once
+// the async payload load resolves.
+export function createMeshObject({
   displayResponse,
-  initialCameraState,
   meshColor,
   meshOpacity,
   meshSide,
 }: {
   displayResponse: MeshDisplayResponse;
-  initialCameraState: CameraState | null;
   meshColor?: string;
   meshOpacity?: number;
   meshSide?: THREE.Side;
-}): {
-  container: HTMLDivElement;
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-} {
-  const container = createThreeDisplayContainer({ pointerEventsSuppressed: false });
-  const scene = createThreeScene();
-  const camera = createThreePerspectiveCamera({ initialCameraState });
-  const renderer = createThreeWebGLRenderer({ container });
+}): THREE.Object3D {
+  const group = new THREE.Group();
   loadMeshPayload({ displayResponse })
     .then((payload) =>
-      scene.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })),
+      group.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })),
     )
     .catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
-      container.replaceChildren(_renderMeshStatus(`Failed to load mesh: ${message}`));
+      throw new Error(`unable to load mesh: ${message}`);
     });
-  return { container, scene, camera, renderer };
+  return group;
 }
 
 // Async-load the mesh payload from displayResponse.url; resolve a sparse-heatmap
@@ -574,68 +551,4 @@ function _mapScalarsToRgb(values: Float32Array): Uint8Array {
     rgb[i * 3 + 2] = Math.round(c0[2] + (c1[2] - c0[2]) * fraction);
   }
   return rgb;
-}
-
-// Keep the renderer and camera aspect synced to the container size.
-function _registerSceneResize({
-  container,
-  camera,
-  renderer,
-  controls,
-}: {
-  container: HTMLDivElement;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  controls: ThreeTrackballCameraControls;
-}): void {
-  const resize = (): void => {
-    const width = Math.max(1, container.clientWidth || 1);
-    const height = Math.max(1, container.clientHeight || 1);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(width, height, false);
-    controls.handleResize();
-  };
-  resize();
-  if (typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(resize).observe(container);
-  }
-  window.addEventListener("resize", resize);
-}
-
-// Publish the current trackball camera state onto the container so peers sync.
-function _publishCameraState({
-  container,
-  controls,
-}: {
-  container: HTMLDivElement;
-  controls: ThreeTrackballCameraControls;
-}): void {
-  const cameraState = controls.getCameraState();
-  if (cameraState === null) {
-    return;
-  }
-  container.dataset.cameraState = JSON.stringify(cameraState);
-  container.dispatchEvent(
-    new CustomEvent<CameraState>("camera-pose-change", {
-      bubbles: true,
-      detail: cameraState,
-    }),
-  );
-}
-
-// Render an inline status card for a missing-resource or load-failure mesh display.
-function _renderMeshStatus(message: string): HTMLElement {
-  const status = document.createElement("div");
-  status.className = "mesh-display-scene__status";
-  status.style.display = "flex";
-  status.style.alignItems = "center";
-  status.style.justifyContent = "center";
-  status.style.width = "100%";
-  status.style.height = "100%";
-  status.style.padding = "1rem";
-  status.style.color = "#888";
-  status.style.fontStyle = "italic";
-  status.textContent = message;
-  return status;
 }

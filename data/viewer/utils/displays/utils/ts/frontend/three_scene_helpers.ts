@@ -14,6 +14,40 @@ export type PickableThreeContainer = HTMLDivElement & {
   pickAt: (clientX: number, clientY: number) => THREE.Object3D | null;
 };
 
+// Shared part-A "create scene" step for every spatial display (standalone
+// renderers and the layered container alike): composes the one
+// container/scene/camera/renderer and nothing else; callers create and add their
+// own object(s) separately.
+//
+// Args:
+//   initialCameraState: the single source of initial framing (camera-to-world
+//     extrinsics + intrinsics) overlaid onto the camera; null uses the camera's
+//     default framing.
+//   pointerEventsSuppressed: when true the container suppresses pointer events so
+//     an underlying base spatial display remains the interaction source; defaults
+//     to false.
+//
+// Returns:
+//   The composed container, empty scene, perspective camera, and WebGL renderer.
+export function createSpatialDisplayScene({
+  initialCameraState,
+  pointerEventsSuppressed = false,
+}: {
+  initialCameraState: CameraState | null;
+  pointerEventsSuppressed?: boolean;
+}): {
+  container: HTMLDivElement;
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  renderer: THREE.WebGLRenderer;
+} {
+  const container = createThreeDisplayContainer({ pointerEventsSuppressed });
+  const camera = createThreePerspectiveCamera({ initialCameraState });
+  const renderer = createThreeWebGLRenderer({ container });
+  const scene = createThreeScene();
+  return { container, scene, camera, renderer };
+}
+
 export function createThreeDisplayContainer({
   pointerEventsSuppressed,
 }: {
