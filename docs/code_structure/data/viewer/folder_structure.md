@@ -143,6 +143,27 @@ utils/
 │   │           │   └── display_response.ts # TS Gaussian-display response interfaces: url + meta_info
 │   │           ├── core_gaussians_display.ts # TS Gaussian UI core
 │   │           └── apis.ts          # TS frontend Gaussian-display APIs
+│   ├── aabbs/                       # axis-aligned-box overlay display modality: 3D boxes over point clouds, 2D boxes over images
+│   │   ├── threed/
+│   │   │   └── ts/
+│   │   │       ├── backend/
+│   │   │       │   ├── schemas/
+│   │   │       │   │   └── display_response.py # Aabb3dDisplayResponse: inline 3D boxes + optional per-box scores
+│   │   │       │   └── apis.py      # create_aabb_3d_display_response
+│   │   │       └── frontend/
+│   │   │           ├── types/
+│   │   │           │   └── display_response.ts # Aabb3dDisplayResponse interface
+│   │   │           └── apis.ts      # renderAabb3dDisplay (standalone) + createAabb3dObject (part-B) for the spatial 3D boxes + score labels; self-registers aabb_3d
+│   │   └── twod/
+│   │       └── ts/
+│   │           ├── backend/
+│   │           │   ├── schemas/
+│   │           │   │   └── display_response.py # Aabb2dDisplayResponse: inline 2D boxes + optional per-box scores
+│   │           │   └── apis.py      # create_aabb_2d_display_response
+│   │           └── frontend/
+│   │               ├── types/
+│   │               │   └── display_response.ts # Aabb2dDisplayResponse interface
+│   │               └── apis.ts      # renderAabb2dDisplay: raster overlay of 2D boxes + score labels
 │   └── cameras/                     # camera-vis display modality
 │       ├── dash/
 │       │   └── camera_display.py
