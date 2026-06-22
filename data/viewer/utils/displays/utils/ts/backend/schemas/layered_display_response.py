@@ -17,6 +17,9 @@ RASTER_DISPLAY_KINDS = frozenset(
         "segmentation_image",
         "instance_surrogate_image",
         "video",
+        # 2D axis-aligned boxes overlay a raster image frame (the frontend
+        # registers them as a raster layer renderer).
+        "aabb_2d",
     }
 )
 
@@ -33,6 +36,9 @@ SPATIAL_DISPLAY_KINDS = frozenset(
         "segmentation_mesh",
         "heatmap_mesh",
         "sparse_heatmap_mesh",
+        # 3D axis-aligned boxes overlay a spatial scene (the frontend registers
+        # them as a spatial layer renderer).
+        "aabb_3d",
     }
 )
 
