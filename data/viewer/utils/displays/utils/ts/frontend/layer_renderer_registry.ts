@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 
 // One spatial display response's part-B: build and return the THREE object the
@@ -16,7 +16,7 @@ export type RasterLayerRenderer = ({
   displayResponse,
 }: {
   displayResponse: DisplayResponse;
-}) => VNode;
+}) => LeafVNode;
 
 // display_kind -> spatial part-B; the module's single owner of the spatial
 // registry, mutated only through the functions below.

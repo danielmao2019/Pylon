@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
-import type { VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import { renderMeshDisplay } from "./core_mesh_display";
 import type {
   ColorMeshDisplayResponse,
@@ -21,7 +21,7 @@ export function renderColorMeshDisplay({
   meshColor?: string;
   meshOpacity?: number;
   meshSide?: THREE.Side;
-}): VNode {
+}): LeafVNode {
   return renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide });
 }
 
@@ -38,7 +38,7 @@ export function renderSegmentationMeshDisplay({
   initialCameraState?: CameraState | null;
   meshOpacity?: number;
   meshSide?: THREE.Side;
-}): VNode {
+}): LeafVNode {
   return renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide });
 }
 
@@ -55,7 +55,7 @@ export function renderHeatmapMeshDisplay({
   initialCameraState?: CameraState | null;
   meshOpacity?: number;
   meshSide?: THREE.Side;
-}): VNode {
+}): LeafVNode {
   return renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide });
 }
 
@@ -72,6 +72,6 @@ export function renderSparseHeatmapMeshDisplay({
   initialCameraState?: CameraState | null;
   meshOpacity?: number;
   meshSide?: THREE.Side;
-}): VNode {
+}): LeafVNode {
   return renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide });
 }
