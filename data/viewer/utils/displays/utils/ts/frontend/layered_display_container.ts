@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import type { ElementVNode, LeafVNode, VNode } from "web/reconcile/reconcile";
+import { reconcileInto } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 import type { LayeredDisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/layered_display_response";
 import {
@@ -28,14 +29,14 @@ import { createTrackballCameraControls } from "data/viewer/utils/controls/camera
 //     framing.
 //
 // Returns:
-//   The container VNode for the routed layer class.
+//   The container LeafVNode for the routed layer class.
 export function renderLayeredDisplay({
   layeredDisplayResponse,
   initialCameraState,
 }: {
   layeredDisplayResponse: LayeredDisplayResponse;
   initialCameraState: CameraState | null;
-}): VNode {
+}): LeafVNode {
   if (layeredDisplayResponse.layer_class === "spatial") {
     return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState });
   }
@@ -66,7 +67,7 @@ function renderLayeredSpatialDisplay({
 }: {
   layeredDisplayResponse: LayeredDisplayResponse;
   initialCameraState: CameraState | null;
-}): VNode {
+}): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: layeredDisplayResponse.slot_id,
@@ -83,7 +84,7 @@ function renderLayeredSpatialDisplay({
         renderer,
         initialCameraState,
       });
-      _registerSceneResize({ container, camera, renderer, controls });
+      _alignSpatialFrustum({ container, camera, renderer, controls });
       _syncCameraState({ container, controls });
       attachThreeScenePickSeam({ container, camera, scenes: [scene] });
       renderLayeredSpatialScene({ scene, camera, renderer, controls });
@@ -143,54 +144,81 @@ function renderLayeredSpatialScene({
   startThreeSceneRenderLoop({ scene, camera, renderer, controls });
 }
 
-// Stacks the base + aux raster layer nodes as absolutely-positioned full-bleed
-// elements keyed by layer slot_id, each produced by its registry-resolved raster
-// part-B.
+// Stacks the base + aux raster layers full-bleed in ONE shared coordinate frame
+// as a slot_id-keyed LeafVNode whose render() materializes each layer and gives
+// every aux overlay the base image's natural pixel extent on its load.
 //
 // Args:
 //   layeredDisplayResponse: the layered response whose base + aux layers are each
 //     resolved to a raster part-B by display_kind and stacked full-bleed.
 //
 // Returns:
-//   The relative container ElementVNode whose children are the stacked layers.
+//   A LeafVNode keyed by layeredDisplayResponse.slot_id whose render() returns the
+//   relative full-bleed container holding the stacked layer cells.
 function renderLayeredRasterDisplay({
   layeredDisplayResponse,
 }: {
   layeredDisplayResponse: LayeredDisplayResponse;
-}): VNode {
-  const children: VNode[] = [];
-  for (const layer of [
-    layeredDisplayResponse.base_display_response,
-    ...layeredDisplayResponse.aux_display_responses,
-  ]) {
-    const layerRenderer = getRasterLayerRenderer({ displayKind: layer.display_kind });
-    const cell: ElementVNode = {
-      kind: "element",
-      tag: "div",
-      key: `${layeredDisplayResponse.slot_id}/layer/${layer.slot_id}`,
-      props: {
-        style: { position: "absolute", inset: "0", width: "100%", height: "100%" },
-      },
-      children: [layerRenderer({ displayResponse: layer })],
-    };
-    children.push(cell);
-  }
-  const container: ElementVNode = {
-    kind: "element",
-    tag: "div",
+}): LeafVNode {
+  const leaf: LeafVNode = {
+    kind: "leaf",
     key: layeredDisplayResponse.slot_id,
-    props: {
-      className: "layered-display-container",
-      style: { position: "relative", width: "100%", height: "100%" },
+    props: {},
+    render: () => {
+      const container: HTMLDivElement = document.createElement("div");
+      container.className = "layered-display-container";
+      container.style.position = "relative";
+      container.style.width = "100%";
+      container.style.height = "100%";
+
+      const auxCells: HTMLDivElement[] = [];
+      const layers = [
+        layeredDisplayResponse.base_display_response,
+        ...layeredDisplayResponse.aux_display_responses,
+      ];
+      layers.forEach((layer, layerIndex) => {
+        const layerRenderer = getRasterLayerRenderer({ displayKind: layer.display_kind });
+        const cell: HTMLDivElement = document.createElement("div");
+        cell.style.position = "absolute";
+        cell.style.inset = "0";
+        cell.style.width = "100%";
+        cell.style.height = "100%";
+        reconcileInto({ root: cell, virtualTree: layerRenderer({ displayResponse: layer }) });
+        container.appendChild(cell);
+        if (layerIndex > 0) {
+          auxCells.push(cell);
+        }
+      });
+
+      // On the base raster layer's image load (or immediately if already complete),
+      // give every aux overlay's inner <svg> the base image's natural pixel extent
+      // as its viewBox — the one coordinate grid every aux overlay maps onto.
+      const baseCell: HTMLDivElement = container.firstElementChild as HTMLDivElement;
+      const baseImage = baseCell.querySelector("img");
+      if (baseImage !== null) {
+        const alignAuxOverlays = (): void => {
+          const { width, height } = _alignRasterFrustum({ baseImage });
+          for (const cell of auxCells) {
+            const svg = cell.querySelector("svg");
+            if (svg !== null) {
+              svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+            }
+          }
+        };
+        if (baseImage.complete && baseImage.naturalWidth > 0) {
+          alignAuxOverlays();
+        } else {
+          baseImage.addEventListener("load", alignAuxOverlays);
+        }
+      }
+      return container;
     },
-    children,
   };
-  return container;
+  return leaf;
 }
 
-// Keeps the renderer size + camera aspect synced to the one shared container via a
-// ResizeObserver — the layered container's own copy of the per-display resize
-// helper.
+// Aligns the spatial cell's shared frustum to the cell: sets the renderer size and
+// camera aspect from the container and re-applies on resize via a ResizeObserver.
 //
 // Args:
 //   container: the one shared display container the renderer is sized against.
@@ -200,7 +228,7 @@ function renderLayeredRasterDisplay({
 //
 // Returns:
 //   void.
-function _registerSceneResize({
+function _alignSpatialFrustum({
   container,
   camera,
   renderer,
@@ -276,4 +304,22 @@ function _publishCameraState({
       detail: cameraState,
     }),
   );
+}
+
+// Resolves the raster cell's shared frustum from the base image's intrinsic natural
+// pixel extent — the one coordinate grid every aux overlay maps onto.
+//
+// Args:
+//   baseImage: the base raster layer's <img>, whose natural pixel extent defines the
+//     shared raster frustum.
+//
+// Returns:
+//   The base image's natural extent { width: baseImage.naturalWidth, height:
+//   baseImage.naturalHeight }.
+function _alignRasterFrustum({
+  baseImage,
+}: {
+  baseImage: HTMLImageElement;
+}): { width: number; height: number } {
+  return { width: baseImage.naturalWidth, height: baseImage.naturalHeight };
 }

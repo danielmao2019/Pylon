@@ -196,26 +196,27 @@ layered_display_response.ts
 ```text
 layered_display_container.ts
 ├── import * as THREE from "three";
-├── import type { ElementVNode, VNode } from "web/reconcile/reconcile";
+├── import { reconcileInto } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { LayeredDisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/layered_display_response";
 ├── import { getSpatialLayerRenderer, getRasterLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
 ├── import "data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers";   # side-effect: eager-glob-loads every modality so its self-registration populates the registry before any render
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop, attachThreeScenePickSeam } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
-├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): VNode
+├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): LeafVNode
 │   ├── # Composes one layered display response into a shared spatial WebGL scene or a stacked raster DOM container per cell, routing on the backend-stamped layer_class.
 │   ├── if layeredDisplayResponse.layer_class == "spatial"
 │   │   └── return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState })
 │   └── if layeredDisplayResponse.layer_class == "raster"
 │       └── return renderLayeredRasterDisplay({ layeredDisplayResponse })
-├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): VNode
+├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): LeafVNode
 │   ├── # Renders the base + aux spatial layers into one shared scene/camera as a slot_id-keyed LeafVNode, the shared camera owning the framing and the additive pick seam.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })                                     → { container, scene, camera, renderer }
 │   ├── calls createLayerObjects({ layeredDisplayResponse })                                        → layerObjects
 │   ├── impls layerObjects.forEach(object => scene.add(object))
 │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })    → controls   # the one shared camera owns the controls
-│   ├── calls _registerSceneResize({ container, camera, renderer, controls })
+│   ├── calls _alignSpatialFrustum({ container, camera, renderer, controls })
 │   ├── calls _syncCameraState({ container, controls })                                             # publish this cell's shared-camera pose now and on every change for cross-cell sync
 │   ├── calls attachThreeScenePickSeam({ container, camera, scenes: [scene] })                      # augment the container with the pickAt seam over the one shared scene
 │   ├── calls renderLayeredSpatialScene({ scene, camera, renderer, controls })
@@ -231,15 +232,17 @@ layered_display_container.ts
 │   ├── # Drives the shared layered-scene render loop with the base-camera trackball controls.
 │   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
 │   └── return
-├── function renderLayeredRasterDisplay({ layeredDisplayResponse }: { layeredDisplayResponse: LayeredDisplayResponse }): VNode
-│   ├── # Stacks the base + aux raster layer nodes as absolutely-positioned full-bleed elements keyed by layer slot_id, each produced by its registry-resolved raster part-B.
-│   ├── impls children = []
+├── function renderLayeredRasterDisplay({ layeredDisplayResponse }: { layeredDisplayResponse: LayeredDisplayResponse }): LeafVNode
+│   ├── # Stacks the base + aux raster layers full-bleed in ONE shared coordinate frame as a slot_id-keyed LeafVNode whose render() materializes each layer and gives every aux overlay the base image's natural pixel extent on its load.
+│   ├── impls container = div { className: "layered-display-container", style { position: relative, full-bleed } }
 │   ├── for each layer in [base_display_response, ...aux_display_responses]
 │   │   ├── calls getRasterLayerRenderer({ displayKind: layer.display_kind })   → layerRenderer
-│   │   └── impls children.push(ElementVNode div keyed `${layeredDisplayResponse.slot_id}/layer/${layer.slot_id}`, style { position: absolute, inset: 0 }, children [layerRenderer({ displayResponse: layer })])
-│   └── return ElementVNode keyed by layeredDisplayResponse.slot_id, props { className: "layered-display-container", style { position: relative, full-bleed } }, children
-├── function _registerSceneResize({ container, camera, renderer, controls }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
-│   ├── # Keeps the renderer size + camera aspect synced to the one shared container via a ResizeObserver — the layered container's own copy of the per-display resize helper.
+│   │   ├── impls cell = div { style { position: absolute, inset: 0, full-bleed } }; container.append(cell)
+│   │   └── calls reconcileInto({ root: cell, virtualTree: layerRenderer({ displayResponse: layer }) })   # mount the layer's LeafVNode into its cell
+│   ├── impls on the base raster layer's image load (or immediately if already complete), sets each aux overlay's SVG viewBox to _alignRasterFrustum({ baseImage }) (the base image's natural extent)
+│   └── return LeafVNode keyed by layeredDisplayResponse.slot_id whose render() returns container
+├── function _alignSpatialFrustum({ container, camera, renderer, controls }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
+│   ├── # Aligns the spatial cell's shared frustum to the cell: sets the renderer size and camera aspect from the container and re-applies on resize via a ResizeObserver.
 │   ├── impls resize = () => { camera.aspect = container width/height; camera.updateProjectionMatrix(); renderer.setSize(container width, height, false); controls.handleResize() }
 │   ├── impls resize()
 │   ├── impls new ResizeObserver(resize).observe(container)
@@ -249,13 +252,16 @@ layered_display_container.ts
 │   ├── calls _publishCameraState({ container, controls })                                          # initial pose
 │   ├── impls controls.addEventListener("change", () => _publishCameraState({ container, controls }))   # re-publish on change
 │   └── return
-└── function _publishCameraState({ container, controls }: { container: HTMLDivElement; controls: ReturnType<typeof createTrackballCameraControls> }): void
-    ├── # Publishes the controls' shared-camera state onto the container (dataset.cameraState plus a bubbling camera-pose-change event) so the consumer can persist this cell's camera pose — the layered container's copy of the per-display publish helper.
-    ├── impls cameraState = controls.getCameraState()
-    ├── if cameraState is null
-    │   └── return
-    ├── impls container.dataset.cameraState = JSON.stringify(cameraState)
-    └── impls container.dispatchEvent(new CustomEvent("camera-pose-change", { bubbles: true, detail: cameraState }))
+├── function _publishCameraState({ container, controls }: { container: HTMLDivElement; controls: ReturnType<typeof createTrackballCameraControls> }): void
+│   ├── # Publishes the controls' shared-camera state onto the container (dataset.cameraState plus a bubbling camera-pose-change event) so the consumer can persist this cell's camera pose — the layered container's copy of the per-display publish helper.
+│   ├── impls cameraState = controls.getCameraState()
+│   ├── if cameraState is null
+│   │   └── return
+│   ├── impls container.dataset.cameraState = JSON.stringify(cameraState)
+│   └── impls container.dispatchEvent(new CustomEvent("camera-pose-change", { bubbles: true, detail: cameraState }))
+└── function _alignRasterFrustum({ baseImage }: { baseImage: HTMLImageElement }): { width: number; height: number }
+    ├── # Resolves the raster cell's shared frustum from the base image's intrinsic natural pixel extent { width: baseImage.naturalWidth, height: baseImage.naturalHeight } — the one coordinate grid every aux overlay maps onto.
+    └── return
 ```
 
 `./data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry.ts`
