@@ -8,7 +8,7 @@ import {
   createSpatialDisplayScene,
   startThreeSceneRenderLoop,
 } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { SceneGraphDisplayResponse } from "./types/display_response";
 
 // Heuristic default world-space size for node markers when the caller does not
@@ -65,7 +65,7 @@ export function renderSceneGraphDisplay({
   edgeWidth?: number;
   labelFontSize?: number;
   labelColor?: string;
-}): VNode {
+}): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `scene_graph:${displayResponse.slot_id}`,

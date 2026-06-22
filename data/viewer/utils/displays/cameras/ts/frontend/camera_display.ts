@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 import {
   applyCameraStateToThreeCamera,
@@ -61,7 +61,7 @@ export function renderCameraDisplay({
   initialCameraState?: CameraState | null;
   frustumOpacity?: number;
   onFrameOpacityControl?: (control: CameraFrameOpacityControl) => void;
-}): VNode {
+}): LeafVNode {
   if (Object.keys(displayResponse.meta_info).length !== 0) {
     throw new Error("camera display meta_info must be an empty object");
   }

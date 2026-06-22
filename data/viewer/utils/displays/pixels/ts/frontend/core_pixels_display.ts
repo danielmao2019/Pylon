@@ -1,4 +1,4 @@
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { PixelDisplayResponse } from "./types/display_response";
 
 // Renders a self-contained pixel-image display element from the resolved
@@ -12,7 +12,7 @@ export function renderPixelsDisplay({
 }: {
   displayResponse: PixelDisplayResponse;
   imageInterpolation: string;
-}): VNode {
+}): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `pixels:${displayResponse.slot_id}`,

@@ -1,4 +1,4 @@
-import type { VNode } from "web/reconcile/reconcile";
+import type { ElementVNode, LeafVNode } from "web/reconcile/reconcile";
 import type {
   SelectorResponse,
   SelectionNode,
@@ -19,18 +19,25 @@ export function renderSelectorCascade({
   response: SelectorResponse;
   path: string[];
   onPathChange: (next: string[]) => void;
-}): VNode {
-  return _renderSelectorLevel({
+}): ElementVNode {
+  const selectLeaves: LeafVNode[] = _renderSelectorLevel({
     node: response.root,
     level: 0,
     axisKey,
     path,
     onPathChange,
   });
+  return {
+    kind: "element",
+    tag: "div",
+    key: `${axisKey}-cascade`,
+    props: {},
+    children: selectLeaves,
+  };
 }
 
-// Recursion helper: render a <select> over this node's children, then recurse
-// into the child the path selects, stopping at a leaf.
+// Recursion helper: collect the <select> leaves from this level down; the base
+// case (a node with no children) contributes none.
 function _renderSelectorLevel({
   node,
   level,
@@ -43,63 +50,53 @@ function _renderSelectorLevel({
   axisKey: string;
   path: string[];
   onPathChange: (next: string[]) => void;
-}): VNode {
-  const children: VNode[] = [];
-  if (node.children.length > 0) {
-    const selectedValue: string = path[level] ?? node.children[0].value;
-
-    // The <select> change handler: report the completed root-leaf path to
-    // onPathChange.
-    const _onLevelChange = (event: Event): void => {
-      const value: string = (event.target as HTMLSelectElement).value;
-      onPathChange(
-        completeRootLeafPath({ root: node, path, level, value }),
-      );
-    };
-
-    // The <select> is a reconciler leaf keyed by its option-set identity so a
-    // coarser-level change re-mounts it with this parent's children.
-    const selectLeaf: VNode = {
-      kind: "leaf",
-      key: `${axisKey}-select-${level}-${path[level - 1] ?? "root"}`,
-      props: { selectedValue },
-      render: () => {
-        const select: HTMLSelectElement = document.createElement("select");
-        for (const child of node.children) {
-          const option: HTMLOptionElement = document.createElement("option");
-          option.value = child.value;
-          option.textContent = child.label;
-          select.appendChild(option);
-        }
-        select.value = selectedValue;
-        select.addEventListener("change", _onLevelChange);
-        return select;
-      },
-    };
-    children.push(selectLeaf);
-
-    let selectedChild: SelectionNode = node.children[0];
-    for (const child of node.children) {
-      if (child.value === selectedValue) {
-        selectedChild = child;
-        break;
-      }
-    }
-    children.push(
-      _renderSelectorLevel({
-        node: selectedChild,
-        level: level + 1,
-        axisKey,
-        path,
-        onPathChange,
-      }),
-    );
+}): LeafVNode[] {
+  if (node.children.length === 0) {
+    return [];
   }
-  return {
-    kind: "element",
-    tag: "div",
-    key: `${axisKey}-level-${level}`,
-    props: {},
-    children,
+
+  const selectedValue: string = path[level] ?? node.children[0].value;
+
+  // The <select> change handler: report the completed root-leaf path to
+  // onPathChange.
+  const _onLevelChange = (event: Event): void => {
+    const value: string = (event.target as HTMLSelectElement).value;
+    onPathChange(completeRootLeafPath({ root: node, path, level, value }));
   };
+
+  // The <select> is a reconciler leaf keyed by its option-set identity so a
+  // coarser-level change re-mounts it with this parent's children.
+  const selectLeaf: LeafVNode = {
+    kind: "leaf",
+    key: `${axisKey}-select-${level}-${path[level - 1] ?? "root"}`,
+    props: { selectedValue },
+    render: () => {
+      const select: HTMLSelectElement = document.createElement("select");
+      for (const child of node.children) {
+        const option: HTMLOptionElement = document.createElement("option");
+        option.value = child.value;
+        option.textContent = child.label;
+        select.appendChild(option);
+      }
+      select.value = selectedValue;
+      select.addEventListener("change", _onLevelChange);
+      return select;
+    },
+  };
+
+  let selectedChild: SelectionNode = node.children[0];
+  for (const child of node.children) {
+    if (child.value === selectedValue) {
+      selectedChild = child;
+      break;
+    }
+  }
+  const deeperLeaves: LeafVNode[] = _renderSelectorLevel({
+    node: selectedChild,
+    level: level + 1,
+    axisKey,
+    path,
+    onPathChange,
+  });
+  return [selectLeaf, ...deeperLeaves];
 }

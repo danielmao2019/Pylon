@@ -1,5 +1,5 @@
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
-import type { VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import { renderPointsDisplay, createPointsObject } from "./core_points_display";
 import { registerSpatialLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
 import type {
@@ -17,7 +17,7 @@ export function renderColorPCDisplay({
   initialCameraState?: CameraState | null;
   pointSize?: number;
   pointColor?: string;
-}): VNode {
+}): LeafVNode {
   return renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor });
 }
 
@@ -29,7 +29,7 @@ export function renderSegmentationPCDisplay({
   displayResponse: SegmentationPCDisplayResponse;
   initialCameraState?: CameraState | null;
   pointSize?: number;
-}): VNode {
+}): LeafVNode {
   return renderPointsDisplay({ displayResponse, initialCameraState, pointSize });
 }
 
