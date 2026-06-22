@@ -2,6 +2,8 @@
 
 from typing import List, Literal
 
+from pydantic import SerializeAsAny
+
 from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import (
     DisplayResponse,
 )
@@ -48,8 +50,8 @@ class LayeredDisplayResponse(DisplayResponse):
     """
 
     display_kind: Literal["layered"] = "layered"
-    base_display_response: DisplayResponse
-    aux_display_responses: List[DisplayResponse]
+    base_display_response: SerializeAsAny[DisplayResponse]
+    aux_display_responses: List[SerializeAsAny[DisplayResponse]]
     layer_class: Literal["raster", "spatial"] = "raster"
 
     def _display_class_of(self, layer: DisplayResponse) -> str:

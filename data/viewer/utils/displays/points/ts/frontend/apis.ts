@@ -1,6 +1,7 @@
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 import type { VNode } from "web/reconcile/reconcile";
-import { renderPointsDisplay } from "./core_points_display";
+import { renderPointsDisplay, createPointsObject } from "./core_points_display";
+import { registerSpatialLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
 import type {
   ColorPCDisplayResponse,
   SegmentationPCDisplayResponse,
@@ -31,3 +32,6 @@ export function renderSegmentationPCDisplay({
 }): VNode {
   return renderPointsDisplay({ displayResponse, initialCameraState, pointSize });
 }
+
+// Module-load self-registration of the spatial color-pc layer renderer.
+registerSpatialLayerRenderer({ displayKind: "color_pc", layerRenderer: createPointsObject });
