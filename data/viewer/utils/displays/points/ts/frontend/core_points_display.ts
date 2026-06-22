@@ -8,7 +8,7 @@ import {
   createSpatialDisplayScene,
   startThreeSceneRenderLoop,
 } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { PointDisplayResponse } from "./types/display_response";
 
 // Smallest world-space point size the display falls back to when no explicit
@@ -84,7 +84,7 @@ export function renderPointsDisplay({
   initialCameraState?: CameraState | null;
   pointSize?: number;
   pointColor?: string;
-}): VNode {
+}): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `points:${displayResponse.slot_id}`,

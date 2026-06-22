@@ -1,4 +1,4 @@
-import type { VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import { renderPixelsDisplay } from "./core_pixels_display";
 import {
   registerRasterLayerRenderer,
@@ -32,7 +32,7 @@ export function renderColorImageDisplay({
 }: {
   displayResponse: ColorImageDisplayResponse;
   imageInterpolation?: string;
-}): VNode {
+}): LeafVNode {
   return renderPixelsDisplay({ displayResponse, imageInterpolation });
 }
 
@@ -42,7 +42,7 @@ export function renderDepthImageDisplay({
 }: {
   displayResponse: DepthImageDisplayResponse;
   imageInterpolation?: string;
-}): VNode {
+}): LeafVNode {
   return renderPixelsDisplay({ displayResponse, imageInterpolation });
 }
 
@@ -52,7 +52,7 @@ export function renderEdgeImageDisplay({
 }: {
   displayResponse: EdgeImageDisplayResponse;
   imageInterpolation?: string;
-}): VNode {
+}): LeafVNode {
   return renderPixelsDisplay({ displayResponse, imageInterpolation });
 }
 
@@ -62,7 +62,7 @@ export function renderNormalImageDisplay({
 }: {
   displayResponse: NormalImageDisplayResponse;
   imageInterpolation?: string;
-}): VNode {
+}): LeafVNode {
   return renderPixelsDisplay({ displayResponse, imageInterpolation });
 }
 
@@ -72,7 +72,7 @@ export function renderSegmentationImageDisplay({
 }: {
   displayResponse: SegmentationImageDisplayResponse;
   imageInterpolation?: string;
-}): VNode {
+}): LeafVNode {
   return renderPixelsDisplay({ displayResponse, imageInterpolation });
 }
 
@@ -82,7 +82,7 @@ export function renderInstanceSurrogateImageDisplay({
 }: {
   displayResponse: InstanceSurrogateImageDisplayResponse;
   imageInterpolation?: string;
-}): VNode {
+}): LeafVNode {
   return renderPixelsDisplay({ displayResponse, imageInterpolation });
 }
 

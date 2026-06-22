@@ -269,10 +269,10 @@ layered_display_container.ts
 ```text
 layer_renderer_registry.ts
 ├── import * as THREE from "three";
-├── import type { VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── export type SpatialLayerRenderer = ({ displayResponse }: { displayResponse: DisplayResponse }) => THREE.Object3D   # one spatial display response's part-B: build and return the THREE object the layered container adds to its shared scene
-├── export type RasterLayerRenderer = ({ displayResponse }: { displayResponse: DisplayResponse }) => VNode   # one raster display response's part-B: build and return the full-bleed node the layered container stacks
+├── export type RasterLayerRenderer = ({ displayResponse }: { displayResponse: DisplayResponse }) => LeafVNode   # one raster display response's part-B: build and return the full-bleed node the layered container stacks; the container aligns the aux overlays to the shared raster frustum on the base image's load
 ├── const _spatialLayerRenderers = new Map<string, SpatialLayerRenderer>()   # display_kind -> spatial part-B; the module's single owner of the spatial registry, mutated only through the functions below
 ├── const _rasterLayerRenderers = new Map<string, RasterLayerRenderer>()     # display_kind -> raster part-B; the module's single owner of the raster registry, mutated only through the functions below
 ├── function registerSpatialLayerRenderer({ displayKind, layerRenderer }: { displayKind: string; layerRenderer: SpatialLayerRenderer }): void
@@ -518,16 +518,16 @@ display_response.ts
 
 ```text
 apis.ts
-├── import type { VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { ColorPCDisplayResponse, SegmentationPCDisplayResponse } from "./types/display_response";
 ├── import { renderPointsDisplay, createPointsObject } from "./core_points_display";
 ├── import { registerSpatialLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
-├── function renderColorPCDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: ColorPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): VNode
+├── function renderColorPCDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: ColorPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): LeafVNode
 │   ├── # Renders a color point-cloud display with opt-in pointSize and pointColor overrides.
 │   ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor })
 │   └── return
-├── function renderSegmentationPCDisplay({ displayResponse, initialCameraState, pointSize }: { displayResponse: SegmentationPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number }): VNode
+├── function renderSegmentationPCDisplay({ displayResponse, initialCameraState, pointSize }: { displayResponse: SegmentationPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number }): LeafVNode
 │   ├── # Renders the backend-colorized segmentation display and legend derived from meta_info; per-point colors are already baked in by the backend's class-id → rgb mapping, so no color override is exposed here.
 │   ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize })
 │   └── return
@@ -539,7 +539,7 @@ apis.ts
 ```text
 core_points_display.ts
 ├── import * as THREE from "three";
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { PointDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
@@ -547,7 +547,7 @@ core_points_display.ts
 ├── const DEFAULT_POINT_SIZE_FLOOR = 0.005   # number — absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when pointSize is not supplied
 ├── const DEFAULT_POINT_SIZE_RATIO = 0.002   # number — fraction of geometry bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── const DEFAULT_POINT_COLOR = "#cccccc"    # hex color — uniform fallback used when geometry has no per-point colors AND the caller does not supply pointColor; lib-owned default, overridable
-├── function renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): VNode
+├── function renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): LeafVNode
 │   ├── # Renders a self-contained point-cloud display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createPointsObject({ displayResponse, pointSize, pointColor })   → object
@@ -825,7 +825,7 @@ display_response.ts
 
 ```text
 apis.ts
-├── import type { VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { ColorImageDisplayResponse, DepthImageDisplayResponse, EdgeImageDisplayResponse, InstanceSurrogateImageDisplayResponse, NormalImageDisplayResponse, SegmentationImageDisplayResponse } from "./types/display_response";
 ├── import { renderPixelsDisplay } from "./core_pixels_display";
 ├── import { registerRasterLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
@@ -835,27 +835,27 @@ apis.ts
 ├── const DEFAULT_NORMAL_IMAGE_INTERPOLATION = "nearest"              # normal images: nearest preserves unit-length normal vectors; linear interpolation between normals produces non-unit results
 ├── const DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION = "nearest"        # segmentation images: nearest preserves class-id integrity; linear would invent fractional class ids
 ├── const DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION = "nearest"  # instance-surrogate images: nearest preserves class-id integrity (same reason as segmentation)
-├── function renderColorImageDisplay({ displayResponse, imageInterpolation = DEFAULT_COLOR_IMAGE_INTERPOLATION }: { displayResponse: ColorImageDisplayResponse; imageInterpolation?: string }): VNode
+├── function renderColorImageDisplay({ displayResponse, imageInterpolation = DEFAULT_COLOR_IMAGE_INTERPOLATION }: { displayResponse: ColorImageDisplayResponse; imageInterpolation?: string }): LeafVNode
 │   ├── # Renders a color-image display, defaulting to linear interpolation for natural-image content.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderDepthImageDisplay({ displayResponse, imageInterpolation = DEFAULT_DEPTH_IMAGE_INTERPOLATION }: { displayResponse: DepthImageDisplayResponse; imageInterpolation?: string }): VNode
+├── function renderDepthImageDisplay({ displayResponse, imageInterpolation = DEFAULT_DEPTH_IMAGE_INTERPOLATION }: { displayResponse: DepthImageDisplayResponse; imageInterpolation?: string }): LeafVNode
 │   ├── # Renders a depth-image display, defaulting to nearest interpolation to preserve exact metric depths.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderEdgeImageDisplay({ displayResponse, imageInterpolation = DEFAULT_EDGE_IMAGE_INTERPOLATION }: { displayResponse: EdgeImageDisplayResponse; imageInterpolation?: string }): VNode
+├── function renderEdgeImageDisplay({ displayResponse, imageInterpolation = DEFAULT_EDGE_IMAGE_INTERPOLATION }: { displayResponse: EdgeImageDisplayResponse; imageInterpolation?: string }): LeafVNode
 │   ├── # Renders an edge-image display, defaulting to nearest interpolation to preserve edge crispness.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderNormalImageDisplay({ displayResponse, imageInterpolation = DEFAULT_NORMAL_IMAGE_INTERPOLATION }: { displayResponse: NormalImageDisplayResponse; imageInterpolation?: string }): VNode
+├── function renderNormalImageDisplay({ displayResponse, imageInterpolation = DEFAULT_NORMAL_IMAGE_INTERPOLATION }: { displayResponse: NormalImageDisplayResponse; imageInterpolation?: string }): LeafVNode
 │   ├── # Renders a normal-image display, defaulting to nearest interpolation to preserve unit-length normals.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderSegmentationImageDisplay({ displayResponse, imageInterpolation = DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION }: { displayResponse: SegmentationImageDisplayResponse; imageInterpolation?: string }): VNode
+├── function renderSegmentationImageDisplay({ displayResponse, imageInterpolation = DEFAULT_SEGMENTATION_IMAGE_INTERPOLATION }: { displayResponse: SegmentationImageDisplayResponse; imageInterpolation?: string }): LeafVNode
 │   ├── # Renders the backend-colorized segmentation display and legend derived from meta_info.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-├── function renderInstanceSurrogateImageDisplay({ displayResponse, imageInterpolation = DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION }: { displayResponse: InstanceSurrogateImageDisplayResponse; imageInterpolation?: string }): VNode
+├── function renderInstanceSurrogateImageDisplay({ displayResponse, imageInterpolation = DEFAULT_INSTANCE_SURROGATE_IMAGE_INTERPOLATION }: { displayResponse: InstanceSurrogateImageDisplayResponse; imageInterpolation?: string }): LeafVNode
 │   ├── # Renders the backend-colorized image display and legend derived from meta_info.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
@@ -866,9 +866,9 @@ apis.ts
 
 ```text
 core_pixels_display.ts
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { PixelDisplayResponse } from "./types/display_response";
-└── function renderPixelsDisplay({ displayResponse, imageInterpolation }: { displayResponse: PixelDisplayResponse; imageInterpolation: string }): VNode
+└── function renderPixelsDisplay({ displayResponse, imageInterpolation }: { displayResponse: PixelDisplayResponse; imageInterpolation: string }): LeafVNode
     ├── # Renders a self-contained pixel-image display element from the resolved interpolation choice; modality-agnostic.
     └── return LeafVNode keyed by displayResponse.url
 ```
@@ -923,9 +923,9 @@ display_response.ts
 
 ```text
 placeholder_display.ts
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { PlaceholderDisplayResponse } from "./types/display_response";
-└── function renderPlaceholderDisplay({ displayResponse }: { displayResponse: PlaceholderDisplayResponse }): VNode
+└── function renderPlaceholderDisplay({ displayResponse }: { displayResponse: PlaceholderDisplayResponse }): LeafVNode
     ├── # Renders the missing-result placeholder UI from the response's message.
     ├── impls complete missing-result placeholder UI from PlaceholderDisplayResponse.message
     └── return LeafVNode keyed by displayResponse.url
@@ -1180,7 +1180,7 @@ display_response.ts
 ```text
 scene_graph_display.ts
 ├── import * as THREE from "three";
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { SceneGraphDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
@@ -1190,7 +1190,7 @@ scene_graph_display.ts
 ├── const DEFAULT_EDGE_WIDTH = 1.0            # number — line width fallback for edges when the caller does not supply edgeWidth; lib-owned default, overridable
 ├── const DEFAULT_LABEL_FONT_SIZE = 12        # px — font size fallback for overlay labels when the caller does not supply labelFontSize; lib-owned default, overridable
 ├── const DEFAULT_LABEL_COLOR = "#000000"     # hex color — text color fallback for overlay labels when the caller does not supply labelColor; lib-owned default, overridable
-├── function renderSceneGraphDisplay({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): VNode
+├── function renderSceneGraphDisplay({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): LeafVNode
 │   ├── # Renders a self-contained scene-graph display: baked node/edge geometry plus HTML label overlay projected per frame.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor })   → { object, labels, labelOverlay }
@@ -1499,7 +1499,7 @@ display_response.ts
 ```text
 core_mesh_display.ts
 ├── import * as THREE from "three";
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { MeshDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
@@ -1522,7 +1522,7 @@ core_mesh_display.ts
 │   ├── uvTextureMap: THREE.Texture                                        # the texture image
 │   ├── vertsUvs: Float32Array                                             # [VT, 2] UV coordinates
 │   └── facesUvs: Uint32Array                                              # [F, 3] flattened — per-face UV-vertex indices
-├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
 │   ├── # Renders a self-contained mesh display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide })   → object
@@ -1568,23 +1568,23 @@ core_mesh_display.ts
 ```text
 apis.ts
 ├── import * as THREE from "three";
-├── import type { VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { ColorMeshDisplayResponse, SegmentationMeshDisplayResponse, HeatmapMeshDisplayResponse, SparseHeatmapMeshDisplayResponse } from "./types/display_response";
 ├── import { renderMeshDisplay } from "./core_mesh_display";
-├── function renderColorMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: ColorMeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+├── function renderColorMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: ColorMeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
 │   ├── # Renders a color mesh display with opt-in meshColor, meshOpacity, and meshSide overrides.
 │   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide })
 │   └── return
-├── function renderSegmentationMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SegmentationMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+├── function renderSegmentationMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SegmentationMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
 │   ├── # renders backend-colorized mesh display and legend derived from meta_info; per-element colors are already baked in by the backend's class-id → rgb mapping, so no meshColor override is exposed here.
 │   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
 │   └── return
-├── function renderHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: HeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+├── function renderHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: HeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
 │   ├── # renders backend-colorized mesh display and continuous-palette legend derived from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping, so no meshColor override is exposed here.
 │   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
 │   └── return
-└── function renderSparseHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SparseHeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): VNode
+└── function renderSparseHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SparseHeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
     ├── # renders the sparse heatmap mesh display and continuous-palette legend from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping, so no meshColor override is exposed here.
     ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
     └── return
@@ -1722,15 +1722,15 @@ display_response.ts
 
 ```text
 apis.ts
-├── import type { VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { ColorGSDisplayResponse, SegmentationGSDisplayResponse } from "./types/display_response";
 ├── import { renderGaussiansDisplay } from "./core_gaussians_display";
-├── function renderColorGSDisplay({ displayResponse, initialCameraState }: { displayResponse: ColorGSDisplayResponse; initialCameraState?: CameraState | null }): VNode
+├── function renderColorGSDisplay({ displayResponse, initialCameraState }: { displayResponse: ColorGSDisplayResponse; initialCameraState?: CameraState | null }): LeafVNode
 │   ├── # Renders a color Gaussian-splat display from an already-colorized Gaussian resource.
 │   ├── calls renderGaussiansDisplay({ displayResponse, initialCameraState })
 │   └── return
-└── function renderSegmentationGSDisplay({ displayResponse, initialCameraState }: { displayResponse: SegmentationGSDisplayResponse; initialCameraState?: CameraState | null }): VNode
+└── function renderSegmentationGSDisplay({ displayResponse, initialCameraState }: { displayResponse: SegmentationGSDisplayResponse; initialCameraState?: CameraState | null }): LeafVNode
     ├── # renders backend-colorized segmentation display and legend derived from meta_info
     ├── calls renderGaussiansDisplay({ displayResponse, initialCameraState })
     └── return
@@ -1740,11 +1740,11 @@ apis.ts
 
 ```text
 core_gaussians_display.ts
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { GaussianDisplayResponse } from "./types/display_response";
 ├── import { createThreeDisplayContainer } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-└── function renderGaussiansDisplay({ displayResponse, initialCameraState }: { displayResponse: GaussianDisplayResponse; initialCameraState?: CameraState | null }): VNode
+└── function renderGaussiansDisplay({ displayResponse, initialCameraState }: { displayResponse: GaussianDisplayResponse; initialCameraState?: CameraState | null }): LeafVNode
     ├── # Delegates rendering to the external Gaussian-splat package; the package owns URL loading, scene assembly, camera controls, and the render loop.
     ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: false })                    → container
     ├── impls invoke the external Gaussian-splat package's mount API with { container, url: displayResponse.url, initialCameraState, meta_info: displayResponse.meta_info }
@@ -1835,12 +1835,12 @@ display_response.ts
 ```text
 camera_display.ts
 ├── import * as THREE from "three";
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { CameraDisplayResponse } from "./types/display_response";
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── const DEFAULT_FRUSTUM_OPACITY = 0.5            # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
-├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number }): VNode
+├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number }): LeafVNode
 │   ├── # Builds a non-interactive transparent layer from the camera-vis JSON payload (glyph sizes + colors baked by camera_vis), initialized at initialCameraState.
 │   ├── throw if CameraDisplayResponse.meta_info is not an empty object
 │   ├── calls createSpatialDisplayScene({ initialCameraState, pointerEventsSuppressed: true })
@@ -2161,25 +2161,26 @@ selection_path.ts
 
 ```text
 selector_cascade.ts
-├── import type { VNode } from "web/reconcile/reconcile";
+├── import type { ElementVNode, LeafVNode } from "web/reconcile/reconcile";
 ├── import type { SelectorResponse, SelectionNode } from "data/viewer/utils/controls/selectors/ts/frontend/types/selector_response";
 ├── import { completeRootLeafPath } from "data/viewer/utils/controls/selectors/ts/frontend/selection_path";
-├── function renderSelectorCascade({ axisKey, response, path, onPathChange }: { axisKey: string; response: SelectorResponse; path: string[]; onPathChange: (next: string[]) => void }): VNode
+├── function renderSelectorCascade({ axisKey, response, path, onPathChange }: { axisKey: string; response: SelectorResponse; path: string[]; onPathChange: (next: string[]) => void }): ElementVNode
 │   ├── # Render one selector axis as a cascade of native <select> dropdowns: descend the response's imaginary root along the current path, one dropdown per level to a leaf; the app supplies only the option tree, the current path, and an onPathChange handler.
-│   ├── calls _renderSelectorLevel        # called on the response's imaginary root
-│   └── return            # the dropdown-stack VNode
-└── function _renderSelectorLevel({ node, level, axisKey, path, onPathChange }: { node: SelectionNode; level: number; axisKey: string; path: string[]; onPathChange: (next: string[]) => void }): VNode
-    ├── # Recursion helper: render a <select> over this node's children, then recurse into the child the path selects, stopping at a leaf.
-    ├── if this node has children
-    │   ├── impls the <select> is a reconciler leaf keyed `${axisKey}-select-${level}-${path[level-1] ?? "root"}` (its option-set identity) so a coarser-level change re-mounts it with this parent's children
-    │   ├── impls build a native <select> over the children
-    │   ├── function _onLevelChange [local]
-    │   │   ├── # The <select> change handler: report the completed root-leaf path to onPathChange.
-    │   │   ├── calls completeRootLeafPath
-    │   │   └── calls onPathChange
-    │   ├── calls _onLevelChange           # bound as the <select>'s change listener
-    │   └── calls _renderSelectorLevel     # recurse into the child whose value the path selects at this level
-    └── return            # this level's dropdown plus the deeper stack
+│   ├── calls _renderSelectorLevel        # collect the per-level <select> leaves from the imaginary root down
+│   └── return            # a container ElementVNode wrapping the collected <select> leaves
+└── function _renderSelectorLevel({ node, level, axisKey, path, onPathChange }: { node: SelectionNode; level: number; axisKey: string; path: string[]; onPathChange: (next: string[]) => void }): LeafVNode[]
+    ├── # Recursion helper: collect the <select> leaves from this level down; the base case (a node with no children) contributes none.
+    ├── if node has no children
+    │   └── return            # [] — base case: a leaf level adds no dropdown
+    ├── impls the <select> is a reconciler leaf keyed `${axisKey}-select-${level}-${path[level-1] ?? "root"}` (its option-set identity) so a coarser-level change re-mounts it with this parent's children
+    ├── impls build a native <select> over node's children
+    ├── function _onLevelChange [local]
+    │   ├── # The <select> change handler: report the completed root-leaf path to onPathChange.
+    │   ├── calls completeRootLeafPath
+    │   └── calls onPathChange
+    ├── calls _onLevelChange           # bound as the <select>'s change listener
+    ├── calls _renderSelectorLevel     # recurse into the path-selected child to collect the deeper levels' leaves
+    └── return            # [this level's <select> leaf, ...the deeper levels' leaves]
 ```
 
 `./data/viewer/utils/controls/selectors/dash/selector_cascade.py`

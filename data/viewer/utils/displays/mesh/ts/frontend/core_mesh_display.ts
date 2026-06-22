@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 import type { MeshDisplayResponse } from "./types/display_response";
 import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
@@ -86,7 +86,7 @@ export function renderMeshDisplay({
   meshColor?: string;
   meshOpacity?: number;
   meshSide?: THREE.Side;
-}): VNode {
+}): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `mesh:${displayResponse.slot_id}`,

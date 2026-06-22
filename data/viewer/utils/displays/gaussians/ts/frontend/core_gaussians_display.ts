@@ -1,7 +1,7 @@
 import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 import { createThreeDisplayContainer } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { GaussianDisplayResponse } from "./types/display_response";
 
 // Delegates rendering to the external Gaussian-splat package; the package owns
@@ -12,7 +12,7 @@ export function renderGaussiansDisplay({
 }: {
   displayResponse: GaussianDisplayResponse;
   initialCameraState?: CameraState | null;
-}): VNode {
+}): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `gaussians:${displayResponse.slot_id}`,

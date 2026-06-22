@@ -1,5 +1,5 @@
 import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
-import type { VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import { renderGaussiansDisplay } from "./core_gaussians_display";
 import type {
   ColorGSDisplayResponse,
@@ -12,7 +12,7 @@ export function renderColorGSDisplay({
 }: {
   displayResponse: ColorGSDisplayResponse;
   initialCameraState?: CameraState | null;
-}): VNode {
+}): LeafVNode {
   return renderGaussiansDisplay({ displayResponse, initialCameraState });
 }
 
@@ -22,6 +22,6 @@ export function renderSegmentationGSDisplay({
 }: {
   displayResponse: SegmentationGSDisplayResponse;
   initialCameraState?: CameraState | null;
-}): VNode {
+}): LeafVNode {
   return renderGaussiansDisplay({ displayResponse, initialCameraState });
 }

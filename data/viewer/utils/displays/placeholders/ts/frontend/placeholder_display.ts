@@ -1,4 +1,4 @@
-import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { PlaceholderDisplayResponse } from "./types/display_response";
 
 // Render the missing-result placeholder UI from PlaceholderDisplayResponse.message.
@@ -6,7 +6,7 @@ export function renderPlaceholderDisplay({
   displayResponse,
 }: {
   displayResponse: PlaceholderDisplayResponse;
-}): VNode {
+}): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
     key: displayResponse.url ?? `placeholder:${displayResponse.slot_id}`,
