@@ -2158,7 +2158,8 @@ selector_response.ts
 selection_path.ts
 ├── import type { SelectionNode } from "data/viewer/utils/controls/selectors/ts/frontend/types/selector_response";
 └── function completeRootLeafPath({ root, path, level, value }: { root: SelectionNode; path: string[]; level: number; value: string }): string[]
-    ├── # Complete a selector level change into a full root-leaf path: the prefix up to the chosen level, the chosen value, then each deeper level's first child descended to a leaf — so a non-leaf choice resets every finer level to its first option.
+    ├── # Complete a selector level change into a full root-leaf path, resetting every finer level to its first option.
+    ├── impls start the path with the prefix up to the chosen level plus the chosen value
     ├── for each deeper level until the descended node has no children
     │   └── impls append the descended node's first child's value, then descend into it
     └── return            # the completed root-leaf path
@@ -2172,7 +2173,7 @@ selector_cascade.ts
 ├── import type { SelectorResponse, SelectionNode } from "data/viewer/utils/controls/selectors/ts/frontend/types/selector_response";
 ├── import { completeRootLeafPath } from "data/viewer/utils/controls/selectors/ts/frontend/selection_path";
 ├── function renderSelectorCascade({ axisKey, response, path, onPathChange }: { axisKey: string; response: SelectorResponse; path: string[]; onPathChange: (next: string[]) => void }): ElementVNode
-│   ├── # Render one selector axis as a cascade of native <select> dropdowns: descend the response's imaginary root along the current path, one dropdown per level to a leaf; the app supplies only the option tree, the current path, and an onPathChange handler.
+│   ├── # Render one selector axis as a cascade of native <select> dropdowns, one per level descended from the response's imaginary root down to a leaf.
 │   ├── calls _renderSelectorLevel        # collect the per-level <select> leaves from the imaginary root down
 │   └── return            # a container ElementVNode wrapping the collected <select> leaves
 └── function _renderSelectorLevel({ node, level, axisKey, path, onPathChange }: { node: SelectionNode; level: number; axisKey: string; path: string[]; onPathChange: (next: string[]) => void }): LeafVNode[]
