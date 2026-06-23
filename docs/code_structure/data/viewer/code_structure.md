@@ -242,8 +242,11 @@ layered_display_container.ts
 │   ├── for each layer in [base_display_response, ...aux_display_responses]
 │   │   ├── calls getRasterLayerRenderer({ displayKind: layer.display_kind })   → layerRenderer
 │   │   ├── impls cell = div { style { position: absolute, inset: 0, full-bleed } }; container.append(cell)
-│   │   └── calls reconcileInto({ root: cell, virtualTree: layerRenderer({ displayResponse: layer }) })   # mount the layer's LeafVNode into its cell
+│   │   ├── calls reconcileInto({ root: cell, virtualTree: layerRenderer({ displayResponse: layer }) })   # mount the layer's LeafVNode into its cell
+│   │   └── if layer is an aux overlay (not the base layer)
+│   │       └── impls cell.style.visibility = "hidden"   # hidden until its viewBox aligns to the shared raster frustum
 │   ├── impls on the base raster layer's image load (or immediately if already complete), sets each aux overlay's SVG viewBox to _alignRasterFrustum({ baseImage }) (the base image's natural extent)
+│   ├── impls after setting each aux overlay's viewBox, sets that aux cell's visibility = "visible"   # revealed only once aligned to the shared raster frustum
 │   └── return LeafVNode keyed by layeredDisplayResponse.slot_id whose render() returns container
 ├── function _alignSpatialFrustum({ container, camera, renderer, controls }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Aligns the spatial cell's shared frustum to the cell: sets the renderer size and camera aspect from the container and re-applies on resize via a ResizeObserver.

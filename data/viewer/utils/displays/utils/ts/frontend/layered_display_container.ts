@@ -186,6 +186,9 @@ function renderLayeredRasterDisplay({
         reconcileInto({ root: cell, virtualTree: layerRenderer({ displayResponse: layer }) });
         container.appendChild(cell);
         if (layerIndex > 0) {
+          // Hide each aux cell until alignAuxOverlays has set its <svg> viewBox, so
+          // no overlay ever flashes in the wrong coordinate space before alignment.
+          cell.style.visibility = "hidden";
           auxCells.push(cell);
         }
       });
@@ -203,6 +206,10 @@ function renderLayeredRasterDisplay({
             if (svg !== null) {
               svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
             }
+            // Reveal each aux cell only now that its viewBox is the shared raster
+            // frustum, so the overlay first paints already in the right coordinate
+            // space instead of jumping into it.
+            cell.style.visibility = "visible";
           }
         };
         if (baseImage.complete && baseImage.naturalWidth > 0) {
