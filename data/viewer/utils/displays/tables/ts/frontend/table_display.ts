@@ -1,25 +1,33 @@
+import type { LeafVNode } from "web/reconcile/reconcile";
 import type { TableDisplayResponse } from "./types/display_response";
 
 export function renderTableDisplay({
   displayResponse,
 }: {
   displayResponse: TableDisplayResponse;
-}): HTMLElement {
-  if (displayResponse.url === null) {
-    const placeholder = document.createElement("div");
-    placeholder.className = "placeholder-surface";
-    placeholder.textContent = "Placeholder for a benchmark result that is not materialized yet.";
-    return placeholder;
-  }
+}): LeafVNode {
+  return {
+    kind: "leaf",
+    key: displayResponse.url ?? `table:${displayResponse.slot_id}`,
+    props: {},
+    render: () => {
+      if (displayResponse.url === null) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "placeholder-surface";
+        placeholder.textContent = "Placeholder for a benchmark result that is not materialized yet.";
+        return placeholder;
+      }
 
-  const tableWrap = document.createElement("div");
-  tableWrap.className = "table-wrap";
-  tableWrap.textContent = "Loading table";
-  void loadTableDisplay({
-    tableWrap,
-    displayResponse,
-  });
-  return tableWrap;
+      const tableWrap = document.createElement("div");
+      tableWrap.className = "table-wrap";
+      tableWrap.textContent = "Loading table";
+      void loadTableDisplay({
+        tableWrap,
+        displayResponse,
+      });
+      return tableWrap;
+    },
+  };
 }
 
 async function loadTableDisplay({
