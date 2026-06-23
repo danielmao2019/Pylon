@@ -984,9 +984,9 @@ display_response.ts
 
 ```text
 video_display.ts
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { VideoDisplayResponse } from "./types/display_response";
-└── function renderVideoDisplay({ displayResponse }: { displayResponse: VideoDisplayResponse }): VNode
+└── function renderVideoDisplay({ displayResponse }: { displayResponse: VideoDisplayResponse }): LeafVNode
     ├── # Renders the complete video-display UI from the video resource URL.
     ├── impls complete video-display UI from DisplayResponse url
     └── return LeafVNode keyed by displayResponse.url
@@ -1043,9 +1043,9 @@ display_response.ts
 
 ```text
 text_display.ts
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { TextDisplayResponse } from "./types/display_response";
-└── function renderTextDisplay({ displayResponse }: { displayResponse: TextDisplayResponse }): VNode
+└── function renderTextDisplay({ displayResponse }: { displayResponse: TextDisplayResponse }): LeafVNode
     ├── # Renders the complete text-display UI from the response's text field.
     ├── impls complete text-display UI from TextDisplayResponse.text
     └── return LeafVNode keyed by displayResponse.url
@@ -1100,9 +1100,9 @@ display_response.ts
 
 ```text
 table_display.ts
-├── import type { LeafVNode, VNode } from "web/reconcile/reconcile";
+├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { TableDisplayResponse } from "./types/display_response";
-└── function renderTableDisplay({ displayResponse }: { displayResponse: TableDisplayResponse }): VNode
+└── function renderTableDisplay({ displayResponse }: { displayResponse: TableDisplayResponse }): LeafVNode
     ├── # Renders the complete table-display UI from the table resource URL.
     ├── impls complete table-display UI from DisplayResponse url
     └── return LeafVNode keyed by displayResponse.url
@@ -2328,3 +2328,4 @@ apis.ts
 │   └── return
 └── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })   # module-load self-registration of the raster aabb-2d layer renderer
 ```
+
