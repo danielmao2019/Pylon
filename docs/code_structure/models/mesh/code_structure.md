@@ -55,6 +55,7 @@ extract.py
 ├── def _fuse_vertex_color_observations(observations: List[Dict[str, torch.Tensor]], weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse one-view vertex-color observations into one vertex-color tensor.
 │   ├── if multi_view_robustness == 'none'
+│   │   └── impls accumulate each observation's weighted texture into the running color numerator and weight denominator
 │   ├── else
 │   │   └── calls validate_vertex_color(obj=provisional_vertex_color)
 │   ├── calls validate_vertex_color(obj=vertex_color)
@@ -65,6 +66,7 @@ extract.py
 │   ├── if weights == 'normals'
 │   │   └── calls compute_v_normals_weights(mesh=mesh, camera=camera, weights_cfg=weights_cfg)
 │   ├── else
+│   │   └── impls vertex_weight = visibility_mask
 │   └── calls _project_v_colors(mesh=mesh, image=image, camera=camera, default_color=default_color)
 ├── def _project_v_colors(mesh: Mesh, image: torch.Tensor, camera: Cameras, default_color: float) -> torch.Tensor
 │   ├── # Project one image to verts and sample per-vertex RGB colors.
@@ -78,6 +80,7 @@ extract.py
 ├── def _fuse_uv_texture_observations(observations: List[Dict[str, torch.Tensor]], weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse one-view UV observations into one UV texture map.
 │   ├── if multi_view_robustness == 'none'
+│   │   └── impls accumulate each observation's weighted texture into the running uv numerator and weight denominator
 │   ├── else
 │   │   └── calls _validate_rgb_image(obj=provisional_uv_texture_map)
 │   ├── calls _validate_rgb_image(obj=uv_texture_map)
@@ -92,6 +95,7 @@ extract.py
 │   │   ├── calls compute_f_normals_weights(mesh=mesh, camera=camera, weights_cfg=weights_cfg)
 │   │   └── calls _rasterize_face_weights_to_uv(face_weight=face_normals_weight, texel_face_map=texel_face_map)
 │   ├── else
+│   │   └── impls uv_weight = uv_visibility_mask
 │   └── calls _project_f_colors(mesh=mesh, image=image, camera=camera, texel_face_map=texel_face_map)
 ├── def _project_f_colors(mesh: Mesh, image: torch.Tensor, camera: Cameras, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Project one image into UV space using rasterized UV correspondence.
