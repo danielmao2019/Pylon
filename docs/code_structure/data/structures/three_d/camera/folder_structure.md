@@ -1,6 +1,6 @@
 # Camera Data Structure Folder Structure
 
-## 1. Folder structure trees
+## Code folder structure
 
 `./data/structures/three_d/camera/`
 
@@ -22,4 +22,13 @@ camera/
     ├── quaternion.py  # quaternion rotations
     ├── rodrigues.py   # Rodrigues / axis-angle rotations
     └── zero_roll.py   # zero-roll rotation constraint
+```
+
+## Tests folder structure
+
+```text
+tests/data/structures/three_d/camera/
+├── test_conventions.py
+├── test_io.py
+└── test_rotation_stabilize_validate_compat.py
 ```

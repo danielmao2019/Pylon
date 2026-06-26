@@ -1,6 +1,6 @@
 # Utils IO Folder Structure
 
-## 1. Folder structure trees
+## Code folder structure
 
 `./utils/io/`
 
@@ -17,3 +17,29 @@ io/
 ```
 
 Only `glb.py` is detailed in `code_structure.md`; the sibling modules predate this skeleton and are listed for placement only.
+
+## Tests folder structure
+
+`./tests/utils/io/`
+
+```text
+tests/utils/io/
+├── config/
+│   └── test_config_loading.py
+├── image/
+│   ├── test_image_loading.py
+│   └── test_image_saving.py
+├── json/
+│   ├── test_json_loading.py
+│   └── test_json_saving.py
+├── point_clouds/
+│   ├── load_point_cloud/
+│   │   ├── test_point_cloud_loading.py
+│   │   ├── test_point_cloud_operations.py
+│   │   └── test_precision_handling.py
+│   └── save_point_cloud/
+│       └── test_ply_saving.py
+└── torch/
+    ├── test_torch_loading.py
+    └── test_torch_saving.py
+```
