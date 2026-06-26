@@ -22,3 +22,12 @@ extract/
 ```
 
 The test-folder layout is owned by `tests_structure.md`.
+
+## 1. Folder structure
+
+```text
+tests/models/three_d/meshes/texture/
+├── test_extract.py
+├── test_texel_visibility_v2.py
+└── test_vertex_visibility.py
+```

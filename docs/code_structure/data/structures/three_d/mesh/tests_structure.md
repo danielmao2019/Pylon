@@ -4,19 +4,6 @@ Test skeleton for `tests/data/structures/three_d/mesh/`. Branches mirror the sys
 
 `data/structures/three_d/mesh/` is a pure data-structure library, so there are unit tests only — no end-to-end / running-app tests. For module code structure see `code_structure.md`; for the module folder layout see `folder_structure.md`.
 
-## 1. Folder structure
-
-```text
-tests/data/structures/three_d/mesh/
-├── test_convert.py
-├── test_load_save_roundtrip.py
-└── texture/
-    ├── test_conventions.py
-    ├── test_mesh_texture_uv_texture_map.py
-    ├── test_mesh_texture_vertex_color.py
-    └── test_texel_face_map.py
-```
-
 ## 2. Code structure trees
 
 `tests/data/structures/three_d/mesh/test_convert.py`

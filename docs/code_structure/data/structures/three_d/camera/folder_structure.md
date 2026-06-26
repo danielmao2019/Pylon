@@ -23,3 +23,12 @@ camera/
     ├── rodrigues.py   # Rodrigues / axis-angle rotations
     └── zero_roll.py   # zero-roll rotation constraint
 ```
+
+## 1. Folder structure
+
+```text
+tests/data/structures/three_d/camera/
+├── test_conventions.py
+├── test_io.py
+└── test_rotation_stabilize_validate_compat.py
+```
