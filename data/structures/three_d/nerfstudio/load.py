@@ -1,12 +1,19 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
-from data.structures.three_d.camera.validation import validate_camera_intrinsics
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    CameraIntrinsics,
+    build_camera_intrinsics,
+)
+from data.structures.three_d.camera.intrinsics.validation import (
+    validate_camera_intrinsics_params,
+)
 from data.structures.three_d.nerfstudio.validate import (
     MODALITY_SPECS,
     validate_applied_transform_data,
@@ -35,7 +42,7 @@ def load_camera_model(data: Dict[str, Any]) -> str:
 
 
 def load_intrinsics(
-    data: Dict[str, Any], device: str | torch.device = torch.device("cpu")
+    data: Dict[str, Any], device: Union[str, torch.device] = torch.device("cpu")
 ) -> torch.Tensor:
     intrinsics = torch.tensor(
         [
@@ -54,7 +61,15 @@ def load_intrinsics(
         dtype=torch.float32,
         device=torch.device(device),
     )
-    validate_camera_intrinsics(intrinsics)
+    validate_camera_intrinsics_params(
+        model="pinhole",
+        params={
+            "fx": float(data["fl_x"]),
+            "fy": float(data["fl_y"]),
+            "cx": float(data["cx"]),
+            "cy": float(data["cy"]),
+        },
+    )
     return intrinsics
 
 
@@ -67,31 +82,42 @@ def load_ply_file_path(data: Dict[str, Any]) -> str:
 
 
 def load_cameras(
-    data: Dict[str, Any], device: str | torch.device = torch.device("cpu")
+    data: Dict[str, Any], device: Union[str, torch.device] = torch.device("cpu")
 ) -> Cameras:
     frames: List[Any] = data["frames"]
-    intrinsics = load_intrinsics(data=data, device=device)
-    batched_intrinsics = intrinsics.repeat(len(frames), 1, 1)
-    batched_extrinsics = torch.stack(
-        [
-            torch.tensor(
+    intrinsics_params = {
+        "fx": float(data["fl_x"]),
+        "fy": float(data["fl_y"]),
+        "cx": float(data["cx"]),
+        "cy": float(data["cy"]),
+    }
+    intrinsics: List[CameraIntrinsics] = [
+        build_camera_intrinsics(
+            model="pinhole",
+            params=intrinsics_params,
+            device=device,
+        )
+        for _ in frames
+    ]
+    extrinsics: List[CameraExtrinsics] = [
+        CameraExtrinsics(
+            extrinsics=torch.tensor(
                 frame["transform_matrix"],
                 dtype=torch.float32,
                 device=device,
-            )
-            for frame in frames
-        ],
-        dim=0,
-    )
-    conventions = ["opengl"] * len(frames)
-    names: List[str | None] = [Path(frame["file_path"]).stem for frame in frames]
-    ids: List[int | None] = [
+            ),
+            convention="opengl",
+            device=device,
+        )
+        for frame in frames
+    ]
+    names: List[Optional[str]] = [Path(frame["file_path"]).stem for frame in frames]
+    ids: List[Optional[int]] = [
         frame["colmap_im_id"] if "colmap_im_id" in frame else None for frame in frames
     ]
     return Cameras(
-        intrinsics=batched_intrinsics,
-        extrinsics=batched_extrinsics,
-        conventions=conventions,
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
         names=names,
         ids=ids,
         device=device,

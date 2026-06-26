@@ -2,8 +2,47 @@
 
 import pytest
 import torch
+
+from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    build_camera_intrinsics,
+)
+from data.structures.three_d.point_cloud.ops.rendering import (
+    render_depth_from_point_cloud,
+)
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.structures.three_d.point_cloud.ops.rendering import render_depth_from_point_cloud
+
+
+def _build_camera(focal: float, principal_point: float) -> Camera:
+    """Build an identity-pose OpenGL pinhole camera on the CPU.
+
+    Args:
+        focal: Shared focal length used for both fx and fy.
+        principal_point: Shared principal-point coordinate used for both cx and cy.
+
+    Returns:
+        A Camera whose pinhole intrinsics are (fx, fy, cx, cy) and whose
+        extrinsics are the identity cam2world matrix in the opengl convention.
+    """
+    return Camera(
+        intrinsics=build_camera_intrinsics(
+            model="pinhole",
+            params={
+                "fx": focal,
+                "fy": focal,
+                "cx": principal_point,
+                "cy": principal_point,
+            },
+            device=torch.device("cpu"),
+        ),
+        extrinsics=CameraExtrinsics(
+            extrinsics=torch.eye(4, dtype=torch.float32),
+            convention="opengl",
+            device=torch.device("cpu"),
+        ),
+        device=torch.device("cpu"),
+    )
 
 
 def test_render_depth_basic() -> None:
@@ -20,20 +59,13 @@ def test_render_depth_basic() -> None:
         )
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
     resolution = (100, 100)
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=resolution,
-        convention="opengl",
         return_mask=False,
     )
 
@@ -57,20 +89,13 @@ def test_render_depth_with_mask() -> None:
         )
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
     resolution = (100, 100)
 
     depth_map, valid_mask = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=resolution,
-        convention="opengl",
         return_mask=True,
     )
 
@@ -95,18 +120,12 @@ def test_render_depth_sorting() -> None:
         )
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
     resolution = (100, 100)
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=resolution,
     )
 
@@ -119,18 +138,12 @@ def test_render_depth_custom_ignore_value() -> None:
     """Test using custom ignore value for empty pixels."""
     pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
     custom_ignore = -999.0
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
         ignore_value=custom_ignore,
     )
@@ -151,17 +164,11 @@ def test_render_depth_points_behind_camera() -> None:
         )
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     depth_map, valid_mask = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
         return_mask=True,
     )
@@ -184,21 +191,11 @@ def test_render_depth_multiple_points_per_pixel() -> None:
         )
     )
 
-    camera_intrinsics = torch.tensor(
-        [
-            [1000.0, 0.0, 50.0],
-            [0.0, 1000.0, 50.0],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-    )
-
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=1000.0, principal_point=50.0)
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
     )
 
@@ -220,24 +217,17 @@ def test_render_depth_intrinsics_scaling() -> None:
         )
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     depth_map_small = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(50, 50),
     )
 
     depth_map_large = render_depth_from_point_cloud(
         pc=pc_data,
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(200, 200),
     )
 
@@ -249,41 +239,41 @@ def test_render_depth_intrinsics_scaling() -> None:
 
 def test_render_depth_invalid_inputs() -> None:
     """Test various invalid input conditions."""
-    valid_pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
-    valid_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
+    valid_pc_data = PointCloud(
+        xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32)
     )
-    valid_extrinsics = torch.eye(4, dtype=torch.float32)
+    valid_camera = _build_camera(focal=100.0, principal_point=50.0)
 
     with pytest.raises(AssertionError):
         render_depth_from_point_cloud(
             pc="not a point cloud",
-            camera_intrinsics=valid_intrinsics,
-            camera_extrinsics=valid_extrinsics,
+            camera=valid_camera,
             resolution=(100, 100),
+        )
+
+    # A non-CameraIntrinsics intrinsics is rejected at Camera construction.
+    with pytest.raises(AssertionError):
+        Camera(
+            intrinsics=torch.eye(4, dtype=torch.float32),
+            extrinsics=CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opengl",
+                device=torch.device("cpu"),
+            ),
+            device=torch.device("cpu"),
+        )
+
+    # A malformed (3x3) extrinsics matrix is rejected at CameraExtrinsics construction.
+    with pytest.raises(AssertionError):
+        CameraExtrinsics(
+            extrinsics=torch.eye(3, dtype=torch.float32),
+            convention="opengl",
+            device=torch.device("cpu"),
         )
 
     with pytest.raises(AssertionError):
         render_depth_from_point_cloud(
             pc=valid_pc_data,
-            camera_intrinsics=torch.eye(4),
-            camera_extrinsics=valid_extrinsics,
-            resolution=(100, 100),
-        )
-
-    with pytest.raises(AssertionError):
-        render_depth_from_point_cloud(
-            pc=valid_pc_data,
-            camera_intrinsics=valid_intrinsics,
-            camera_extrinsics=torch.eye(3),
-            resolution=(100, 100),
-        )
-
-    with pytest.raises(AssertionError):
-        render_depth_from_point_cloud(
-            pc=valid_pc_data,
-            camera_intrinsics=valid_intrinsics,
-            camera_extrinsics=valid_extrinsics,
+            camera=valid_camera,
             resolution=(0, 100),
         )

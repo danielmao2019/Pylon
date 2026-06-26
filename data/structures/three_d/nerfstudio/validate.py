@@ -5,7 +5,9 @@ import numpy as np
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
-from data.structures.three_d.camera.validation import validate_camera_intrinsics
+from data.structures.three_d.camera.intrinsics.validation import (
+    validate_camera_intrinsics_params,
+)
 
 MODALITY_SPECS = {
     "image": ("file_path", "images", ".png"),
@@ -136,8 +138,17 @@ def validate_camera_model(camera_model: str) -> None:
 def validate_intrinsics(intrinsics: torch.Tensor) -> None:
     # Input validations
     assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+    assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
 
-    validate_camera_intrinsics(intrinsics)
+    validate_camera_intrinsics_params(
+        model="pinhole",
+        params={
+            "fx": float(intrinsics[0, 0]),
+            "fy": float(intrinsics[1, 1]),
+            "cx": float(intrinsics[0, 2]),
+            "cy": float(intrinsics[1, 2]),
+        },
+    )
 
 
 def validate_applied_transform_data(data: Dict[str, Any]) -> None:

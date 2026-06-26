@@ -11,8 +11,7 @@ from models.three_d.octree_gs.render import (
     render_density_from_octree_gs,
     render_rgb_from_octree_gs,
 )
-from models.three_d.octree_gs.render.rgb import OctreeGSCamera
-from models.three_d.octree_gs.render.rgb import focal2fov
+from models.three_d.octree_gs.render.rgb import OctreeGSCamera, focal2fov
 
 
 def render_display(
@@ -111,8 +110,8 @@ def _compute_debugger_info(
     assert device.type == 'cuda', f"Expected CUDA device, got {device}"
     camera = camera.to(device)
 
-    base_width = int(round(camera.cx * 2.0))
-    base_height = int(round(camera.cy * 2.0))
+    base_width = int(round(camera.intrinsics.cx * 2.0))
+    base_height = int(round(camera.intrinsics.cy * 2.0))
     assert (
         base_width > 0 and base_height > 0
     ), f"Invalid base resolution: {base_height=} {base_width=}"
@@ -133,12 +132,12 @@ def _compute_debugger_info(
     resolution_scale = (scale_x + scale_y) / 2
 
     camera = camera.to(device=device, convention="opencv")
-    w2c = camera.w2c.detach().cpu().numpy()
+    w2c = camera.extrinsics.w2c.detach().cpu().numpy()
     rotation = np.transpose(w2c[:3, :3])
     translation = w2c[:3, 3]
 
-    fov_x = focal2fov(camera.fx, base_width)
-    fov_y = focal2fov(camera.fy, base_height)
+    fov_x = focal2fov(camera.intrinsics.fx, base_width)
+    fov_y = focal2fov(camera.intrinsics.fy, base_height)
 
     dummy_image = torch.zeros(
         size=(3, target_height, target_width), dtype=torch.float32, device=device

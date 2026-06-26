@@ -8,7 +8,9 @@ import math
 
 import torch
 
-from data.structures.three_d.camera.validation import validate_rotation_matrix
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_rotation_matrix,
+)
 
 
 def euler_to_matrix(angles: torch.Tensor) -> torch.Tensor:

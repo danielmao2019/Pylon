@@ -189,8 +189,8 @@ def render_rgb_from_lapis_gs(
     if layers is not None and len(layers) == 0:
         # Infer resolution from intrinsics if not provided
         if resolution is None:
-            base_width = int(round(camera.cx * 2.0))
-            base_height = int(round(camera.cy * 2.0))
+            base_width = int(round(camera.intrinsics.cx * 2.0))
+            base_height = int(round(camera.intrinsics.cy * 2.0))
             if base_width <= 0 or base_height <= 0:
                 raise ValueError(
                     "Unable to infer image resolution from intrinsics; provide explicit resolution"
