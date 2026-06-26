@@ -4,7 +4,7 @@ Test skeleton for `tests/models/three_d/meshes/texture/`, scoped to the `extract
 
 `tests/models/three_d/meshes/texture/` also holds `test_convert.py`, which covers `texture/convert.py` outside the `extract/` scope and is not included here. For module code structure see `code_structure.md`; for the module folder layout see `folder_structure.md`.
 
-## 2. Code structure trees
+## 1. Code structure trees
 
 `tests/models/three_d/meshes/texture/test_extract.py`
 

@@ -1,6 +1,6 @@
 # Mesh Texture Extraction Folder Structure
 
-## 1. Folder structure trees
+## Code folder structure
 
 `./models/three_d/meshes/texture/extract/`
 
@@ -21,9 +21,7 @@ extract/
     └── weights_cfg.py                 # weight-config validation / normalization helpers
 ```
 
-The test-folder layout is owned by `tests_structure.md`.
-
-## 1. Folder structure
+## Tests folder structure
 
 ```text
 tests/models/three_d/meshes/texture/

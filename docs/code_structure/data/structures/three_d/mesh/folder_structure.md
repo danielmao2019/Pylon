@@ -1,6 +1,6 @@
 # Mesh Data Structure Folder Structure
 
-## 1. Folder structure trees
+## Code folder structure
 
 `./data/structures/three_d/mesh/`
 
@@ -34,9 +34,7 @@ mesh/
     └── validate_uv_texture_map.py         # uv-texture-map representation validation (incl. seam-safe layout invariant)
 ```
 
-The test-folder layout is owned by `tests_structure.md`.
-
-## 1. Folder structure
+## Tests folder structure
 
 ```text
 tests/data/structures/three_d/mesh/

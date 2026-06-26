@@ -1,6 +1,6 @@
 # Camera Data Structure Folder Structure
 
-## 1. Folder structure trees
+## Code folder structure
 
 `./data/structures/three_d/camera/`
 
@@ -24,7 +24,7 @@ camera/
     └── zero_roll.py   # zero-roll rotation constraint
 ```
 
-## 1. Folder structure
+## Tests folder structure
 
 ```text
 tests/data/structures/three_d/camera/

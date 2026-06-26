@@ -4,7 +4,7 @@ Test skeleton for `tests/data/structures/three_d/camera/`. Branches mirror the s
 
 `data/structures/three_d/camera/` is a pure data-structure library, so there are unit tests only — no end-to-end / running-app tests. For module code structure see `code_structure.md`; for the module folder layout see `folder_structure.md`.
 
-## 2. Code structure trees
+## 1. Code structure trees
 
 `tests/data/structures/three_d/camera/test_conventions.py`
 

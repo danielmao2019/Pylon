@@ -1,6 +1,6 @@
 # Data Viewer Folder Structure
 
-## 1. Folder structure trees
+## Code folder structure
 
 `./data/viewer/utils/`
 
@@ -215,5 +215,18 @@ utils/
 │               ├── selection_path.ts        # generic root-leaf selection-path helper: complete a level change to a full root-leaf path (chosen value + first-child descent to a leaf)
 │               └── selector_cascade.ts      # reusable cascade renderer: (SelectorResponse, current path, onPathChange) -> the dropdown-stack VNode; each <select> keyed by its option-set identity so a coarser-level change re-mounts it; on change the chosen value is completed to a root-leaf path (via selection_path) before onPathChange
 └── note: unspecified existing data/viewer/utils entries stay untouched; specified entries live only in this tree
+```
+
+## Tests folder structure
+
+`./tests/data/viewer/`
+
+```text
+tests/data/viewer/
+├── backend/            # backend display, state, initialization, transform, and edge-case tests
+├── dataset/            # dataset-app integration tests
+├── fixtures/           # shared mock-dataset fixtures
+├── utils/              # viewer-utils tests + per-display-modality test packages mirroring the displays code modules above
+└── test_debounce.py    # debounce helper test
 ```
 
