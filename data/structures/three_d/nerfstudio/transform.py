@@ -4,7 +4,9 @@ import numpy as np
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
-from data.structures.three_d.camera.validation import validate_rotation_matrix
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_rotation_matrix,
+)
 from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 

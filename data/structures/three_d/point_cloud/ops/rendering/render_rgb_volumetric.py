@@ -14,6 +14,7 @@ from PIL import Image
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
 from data.structures.three_d.point_cloud.ops.rendering.common.prepare_points_for_rendering import (
@@ -36,7 +37,7 @@ def gen_auxiliary_cameras(
 
     center = points.mean(dim=0).to(device=device, dtype=torch.float32)
     camera = camera.to(device=device, convention="standard")
-    extrinsics_standard = camera.extrinsics
+    extrinsics_standard = camera.extrinsics.extrinsics
 
     camera_position = extrinsics_standard[:3, 3]
     distance = torch.linalg.norm(camera_position - center)
@@ -91,10 +92,13 @@ def gen_auxiliary_cameras(
 
         aux_camera = Camera(
             intrinsics=camera.intrinsics,
-            extrinsics=aux_standard,
-            convention="standard",
+            extrinsics=CameraExtrinsics(
+                extrinsics=aux_standard,
+                convention="standard",
+                device=device,
+            ),
             device=device,
-        ).to(convention=camera.convention)
+        ).to(convention=camera.extrinsics.convention)
         auxiliary_cameras.append(aux_camera)
 
     return auxiliary_cameras
@@ -150,22 +154,31 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
     camera_names = [camera.name for camera in cameras]
     assert all(name is not None for name in camera_names), f"{camera_names=}"
 
+    camera_intrinsics = cameras[0].intrinsics
     intrinsic_params = {
-        "fl_x": float(cameras[0].fx),
-        "fl_y": float(cameras[0].fy),
-        "cx": float(cameras[0].cx),
-        "cy": float(cameras[0].cy),
+        "fl_x": float(camera_intrinsics.fx),
+        "fl_y": float(camera_intrinsics.fy),
+        "cx": float(camera_intrinsics.cx),
+        "cy": float(camera_intrinsics.cy),
         "k1": 0.0,
         "k2": 0.0,
         "p1": 0.0,
         "p2": 0.0,
     }
     resolution = (
-        int(round(float(cameras[0].cy * 2.0))),
-        int(round(float(cameras[0].cx * 2.0))),
+        int(round(float(camera_intrinsics.cy * 2.0))),
+        int(round(float(camera_intrinsics.cx * 2.0))),
     )
     camera_model = "OPENCV"
-    intrinsics = cameras[0].intrinsics
+    intrinsics = torch.tensor(
+        [
+            [camera_intrinsics.fx, 0.0, camera_intrinsics.cx],
+            [0.0, camera_intrinsics.fy, camera_intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=cameras[0].device,
+    )
     applied_transform = np.array(
         [
             [1.0, 0.0, 0.0, 0.0],
@@ -177,7 +190,6 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
     nerfstudio_cameras = Cameras(
         intrinsics=[camera.intrinsics for camera in cameras],
         extrinsics=[camera.extrinsics for camera in cameras],
-        conventions=[camera.convention for camera in cameras],
         names=camera_names,
         ids=[camera.id for camera in cameras],
         device=cameras[0].device,
@@ -265,11 +277,10 @@ def render_rgb_from_point_cloud_volumetric(
 
     intrinsics = camera.intrinsics
     extrinsics = camera.extrinsics
-    convention = camera.convention
+    convention = camera.extrinsics.convention
 
-    intrinsics_cpu = intrinsics.detach().cpu().float()
-    native_width = int(round(float(intrinsics_cpu[0, 2].item() * 2.0)))
-    native_height = int(round(float(intrinsics_cpu[1, 2].item() * 2.0)))
+    native_width = int(round(float(intrinsics.cx * 2.0)))
+    native_height = int(round(float(intrinsics.cy * 2.0)))
     assert (
         native_width > 0 and native_height > 0
     ), "Invalid image dimensions inferred from intrinsics"
@@ -300,11 +311,13 @@ def render_rgb_from_point_cloud_volumetric(
         resolution=resolution,
     )
     pc = Select(indices=image_plane_points_indices)(pc)
-    aux_extrinsics = gen_auxiliary_cameras(
+    aux_cameras = gen_auxiliary_cameras(
         points=pc.xyz,
         camera=camera,
     )
-    train_extrinsics = [extrinsics] + aux_extrinsics
+    train_extrinsics = [extrinsics] + [
+        aux_camera.extrinsics for aux_camera in aux_cameras
+    ]
     logging.info(
         "[volumetric] Visibility filtering & auxiliary cameras done in %.2fs (cameras=%d)",
         time.time() - stage_start,
@@ -318,7 +331,6 @@ def render_rgb_from_point_cloud_volumetric(
         render_camera = Camera(
             intrinsics=intrinsics,
             extrinsics=_extrinsics,
-            convention=convention,
             device=pc.device,
         )
         image, mask = render_rgb_from_point_cloud(

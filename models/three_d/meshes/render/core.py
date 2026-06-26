@@ -35,17 +35,17 @@ def _prepare_cameras(
     # - X: left (+X points left)
     # - Y: up (+Y points up)
     # - Z: forward (+Z points from us to scene, out from image plane)
-    rotation_w2c_col = camera_prepared.w2c[:3, :3]
-    translation_w2c_col = camera_prepared.w2c[:3, 3]
+    rotation_w2c_col = camera_prepared.extrinsics.w2c[:3, :3]
+    translation_w2c_col = camera_prepared.extrinsics.w2c[:3, 3]
 
     # PyTorch3D expects row-major world-to-camera: X_cam = X_world @ R + T
     rotation_w2c = rotation_w2c_col.transpose(0, 1)
     translation_w2c = translation_w2c_col
 
-    fx = float(intrinsics[0, 0])
-    fy = float(intrinsics[1, 1])
-    cx = float(intrinsics[0, 2])
-    cy = float(intrinsics[1, 2])
+    fx = intrinsics.fx
+    fy = intrinsics.fy
+    cx = intrinsics.cx
+    cy = intrinsics.cy
 
     image_height, image_width = resolution
 

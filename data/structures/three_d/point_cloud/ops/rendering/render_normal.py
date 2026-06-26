@@ -65,9 +65,19 @@ def render_normal_from_point_cloud_2d(
     )
 
     # Convert depth to normals
+    intrinsics = camera.intrinsics
+    intrinsics_matrix = torch.tensor(
+        [
+            [intrinsics.fx, 0.0, intrinsics.cx],
+            [0.0, intrinsics.fy, intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=intrinsics.device,
+    )
     return depth_to_normals(
         depth_map=depth_map,
-        camera_intrinsics=camera.intrinsics,
+        camera_intrinsics=intrinsics_matrix,
         depth_ignore_value=float('inf'),
         normal_ignore_value=ignore_value,
         return_mask=return_mask,
@@ -117,7 +127,7 @@ def render_normal_from_rendering_points_3d(
 
     # Convert camera extrinsics to OpenCV convention
     camera = camera.to(device=rendering_points.device, convention="opencv")
-    rotation_matrix = camera.w2c[:3, :3]
+    rotation_matrix = camera.extrinsics.w2c[:3, :3]
 
     # Transform normals to camera coordinates (rotation only)
     camera_normals = torch.matmul(visible_world_normals, rotation_matrix.T)

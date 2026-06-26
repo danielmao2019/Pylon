@@ -260,19 +260,19 @@ def _prepare_letsgo_camera(
     height, width = int(resolution[0]), int(resolution[1])
     assert width > 0 and height > 0, f"Resolution must be positive, got {resolution}"
     assert width == int(
-        round(2 * camera.cx)
-    ), f"Width must equal 2*cx; width={width}, cx={camera.cx}"
+        round(2 * camera.intrinsics.cx)
+    ), f"Width must equal 2*cx; width={width}, cx={camera.intrinsics.cx}"
     assert height == int(
-        round(2 * camera.cy)
-    ), f"Height must equal 2*cy; height={height}, cy={camera.cy}"
+        round(2 * camera.intrinsics.cy)
+    ), f"Height must equal 2*cy; height={height}, cy={camera.intrinsics.cy}"
 
     camera = camera.to(device=device, convention="opencv")
-    w2c = camera.w2c.cpu().numpy()
+    w2c = camera.extrinsics.w2c.cpu().numpy()
     R = np.transpose(w2c[:3, :3])
     T = w2c[:3, 3]
 
-    fov_x = focal2fov(camera.fx, width)
-    fov_y = focal2fov(camera.fy, height)
+    fov_x = focal2fov(camera.intrinsics.fx, width)
+    fov_y = focal2fov(camera.intrinsics.fy, height)
 
     world_view_transform = torch.tensor(
         getWorld2View2(R, T), dtype=torch.float32, device=device

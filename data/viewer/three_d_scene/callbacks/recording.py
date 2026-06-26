@@ -8,9 +8,7 @@ if TYPE_CHECKING:
     from data.viewer.three_d_scene.three_d_scene_viewer import ThreeDSceneViewer
 
 
-def register_recording_callbacks(
-    app: dash.Dash, viewer: "ThreeDSceneViewer"
-) -> None:
+def register_recording_callbacks(app: dash.Dash, viewer: "ThreeDSceneViewer") -> None:
     """Register camera recording callback."""
     # Input validations
     assert isinstance(app, dash.Dash), f"app must be Dash, got {type(app)}"
@@ -26,7 +24,7 @@ def register_recording_callbacks(
         assert isinstance(n_clicks, int), f"n_clicks must be int, got {type(n_clicks)}"
 
         camera = viewer.get_camera()
-        viewer.recorded_cameras.append(camera.extrinsics.cpu().tolist())
+        viewer.recorded_cameras.append(camera.extrinsics.extrinsics.cpu().tolist())
 
         with open(viewer.record_cameras_filepath, "w", encoding="utf-8") as handle:
             json.dump(viewer.recorded_cameras, handle, indent=2)

@@ -3,6 +3,10 @@
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    build_camera_intrinsics,
+)
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.texture.extract.visibility.vertex_visibility import (
     compute_v_visibility_mask,
@@ -25,9 +29,20 @@ def _build_one_camera() -> Cameras:
     )
 
     return Cameras(
-        intrinsics=[torch.eye(3, dtype=torch.float32, device="cuda")],
-        extrinsics=[torch.eye(4, dtype=torch.float32, device="cuda")],
-        conventions=["opencv"],
+        intrinsics=[
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cuda",
+            )
+        ],
+        extrinsics=[
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32, device="cuda"),
+                convention="opencv",
+                device="cuda",
+            )
+        ],
         device="cuda",
     )
 

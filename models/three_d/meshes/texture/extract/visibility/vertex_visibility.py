@@ -60,10 +60,20 @@ def compute_v_visibility_mask(
         image_height=image_height,
         image_width=image_width,
     )
+    intrinsics = camera[0].intrinsics
+    intrinsics_matrix = torch.tensor(
+        [
+            [intrinsics.fx, 0.0, intrinsics.cx],
+            [0.0, intrinsics.fy, intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=intrinsics.device,
+    )
     visible_vertex_mask = _compute_rasterized_visible_vertex_mask(
         verts_camera=verts_camera,
         faces=mesh.faces.to(device=mesh.device, dtype=torch.long).contiguous(),
-        intrinsics=camera[0].intrinsics,
+        intrinsics=intrinsics_matrix,
         image_height=image_height,
         image_width=image_width,
     )
@@ -181,12 +191,10 @@ def _compute_face_front_facing_mask(
             "Expected `faces` to be a tensor. " f"{type(faces)=}"
         )
         assert verts_camera.ndim == 2, (
-            "Expected `verts_camera` to have shape `[V, 3]`. "
-            f"{verts_camera.shape=}"
+            "Expected `verts_camera` to have shape `[V, 3]`. " f"{verts_camera.shape=}"
         )
         assert verts_camera.shape[1] == 3, (
-            "Expected `verts_camera` to have shape `[V, 3]`. "
-            f"{verts_camera.shape=}"
+            "Expected `verts_camera` to have shape `[V, 3]`. " f"{verts_camera.shape=}"
         )
         assert faces.ndim == 2, (
             "Expected `faces` to have shape `[F, 3]`. " f"{faces.shape=}"

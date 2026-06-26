@@ -9,7 +9,9 @@ from typing import Tuple
 
 import torch
 
-from data.structures.three_d.camera.validation import validate_rotation_matrix
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_rotation_matrix,
+)
 
 
 def rodrigues_canonical(
