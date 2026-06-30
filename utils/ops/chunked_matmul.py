@@ -96,7 +96,7 @@ def chunked_matmul(
     Args:
         large: Left operand of shape [N, K], any floating dtype.
         small: Right operand of shape [K, K] (square), same dtype and device as large.
-        inplace: When True the product overwrites large and large is returned; requires that neither operand requires grad.
+        inplace: When True the product overwrites large and large is returned; requires that neither operand requires grad. A CUDA-OOM that exhausts max_divide mid-pass leaves large partially transformed (already-written chunks are not rolled back, since that would need the inverse of small); use inplace=False for all-or-nothing semantics.
         max_divide: Maximum number of chunk halvings on CUDA OOM. int >= 0.
         num_divide: Optional fixed number of halvings, with no OOM retry. int >= 0 when set, else None.
 
