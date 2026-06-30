@@ -154,15 +154,17 @@ conventions.py
 canonicalize.py
 ├── def shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart (each face's corners made contiguous: its largest cyclic gap is the wraparound gap), forking any source vt row shared between a shifted and a non-shifted face.
-│   ├── impls for each face, sort its 3 corner-u's and find the largest cyclic gap among the two interior gaps and the wraparound gap (min_u + 1 - max_u)
-│   ├── impls a face is seam-crossing iff its largest cyclic gap is an INTERIOR gap (not the wraparound gap); a wide but non-wrapping face has its largest gap at the wraparound position and needs no shift
-│   ├── impls for each seam-crossing face, shift the corners lying below the largest-gap cut by +1 so the cut moves to the wraparound position and the corners become contiguous (number of shifted corners is per-face, not a fixed 0.5 threshold)
+│   ├── impls for each face, sort its 3 corner-u's
+│   ├── impls find the largest cyclic gap among the two interior gaps and the wraparound gap (min_u + 1 - max_u)  # impls-node-one-step:skip
+│   ├── impls a face is seam-crossing iff its largest cyclic gap is an INTERIOR gap (not the wraparound gap); a wide but non-wrapping face has its largest gap at the wraparound position and needs no shift  # impls-node-one-step:skip
+│   ├── impls for each seam-crossing face, shift the corners lying below the largest-gap cut by +1 so the cut moves to the wraparound position and the corners become contiguous (number of shifted corners is per-face, not a fixed 0.5 threshold)  # impls-node-one-step:skip
 │   ├── impls fork a source vt row into two when one row must be shifted by a seam-crossing face but left in place by another face sharing it (the shifted copy receives +1, the in-place copy stays)
 │   └── return                                              # (verts_uvs_canonical, faces_uvs_canonical) with U' >= U
 └── def collapse_seam_shifted_uv_rows(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
     ├── # Collapses seam-shifted canonical UV rows back to the OBJ-style vt structure (inverse of shift_seam_crossing_faces_to_seam_safe).
-    ├── impls detect canonical sibling pairs at (u, v) and (u - 1, v) within verts_uvs
-    ├── impls emit one OBJ vt entry per pair and repoint both face-corner indices in faces_uvs to that entry
+    ├── impls detect canonical sibling pairs at (u, v) and (u - 1, v) within verts_uvs  # impls-node-one-step:skip
+    ├── impls emit one OBJ vt entry per pair
+    ├── impls repoint both face-corner indices in faces_uvs to that entry
     ├── impls wrap u mod 1 for any canonical row without a sibling
     └── return                                              # (obj_vt_table, obj_faces_uvs) with U_obj <= U_canonical
 ```

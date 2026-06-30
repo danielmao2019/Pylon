@@ -53,7 +53,7 @@ extract.py
 ├── def _fuse_vertex_color_observations(observations: List[Dict[str, torch.Tensor]], weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse one-view vertex-color observations into one vertex-color tensor.
 │   ├── if multi_view_robustness == 'none'
-│   │   └── impls accumulate each observation's weighted texture into the running color numerator and weight denominator
+│   │   └── impls accumulate each observation's weighted texture into the running color numerator and weight denominator  # impls-node-one-step:skip
 │   ├── else
 │   │   └── calls validate_vertex_color(obj=provisional_vertex_color)
 │   ├── calls validate_vertex_color(obj=vertex_color)
@@ -78,7 +78,7 @@ extract.py
 ├── def _fuse_uv_texture_observations(observations: List[Dict[str, torch.Tensor]], weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse one-view UV observations into one UV texture map.
 │   ├── if multi_view_robustness == 'none'
-│   │   └── impls accumulate each observation's weighted texture into the running uv numerator and weight denominator
+│   │   └── impls accumulate each observation's weighted texture into the running uv numerator and weight denominator  # impls-node-one-step:skip
 │   ├── else
 │   │   └── calls _validate_rgb_image(obj=provisional_uv_texture_map)
 │   ├── calls _validate_rgb_image(obj=uv_texture_map)
