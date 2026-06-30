@@ -33,19 +33,19 @@ chunked_matmul.py
 │   └── return  # out, the [N, M] product (large itself when inplace)
 ├── def _validate_inputs(large: torch.Tensor, small: torch.Tensor, inplace: bool, max_divide: int, num_divide: Optional[int]) -> None
 │   ├── # Validates the operands (both 2D, small square, inner dims match, shared dtype and device) and the controls, and when inplace that neither operand requires grad.
-│   ├── asserts large is a torch.Tensor
-│   ├── asserts small is a torch.Tensor
-│   ├── asserts large is 2D
-│   ├── asserts small is 2D
-│   ├── asserts small is square (small.shape[0] == small.shape[1])
-│   ├── asserts large.shape[1] == small.shape[0]
-│   ├── asserts large.device == small.device
-│   ├── asserts large.dtype == small.dtype
-│   ├── asserts inplace is a bool
-│   ├── asserts max_divide is an int >= 0
-│   ├── asserts num_divide is None or an int >= 0
+│   ├── assert isinstance(large, torch.Tensor)
+│   ├── assert isinstance(small, torch.Tensor)
+│   ├── assert large.ndim == 2
+│   ├── assert small.ndim == 2
+│   ├── assert small.shape[0] == small.shape[1]
+│   ├── assert large.shape[1] == small.shape[0]
+│   ├── assert large.device == small.device
+│   ├── assert large.dtype == small.dtype
+│   ├── assert isinstance(inplace, bool)
+│   ├── assert isinstance(max_divide, int) and max_divide >= 0
+│   ├── assert num_divide is None or (isinstance(num_divide, int) and num_divide >= 0)
 │   └── if inplace
-│       └── asserts neither large nor small requires grad
+│       └── assert not large.requires_grad and not small.requires_grad
 └── def _matmul_chunk(large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool) -> None
     ├── # Writes large @ small into out for one row-chunk: direct uses out= with no intermediate (out must not alias large); else a temp-copy assignment that is autograd-safe and the only correct form when out aliases large.
     ├── if direct
