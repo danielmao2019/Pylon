@@ -24,9 +24,12 @@ echo "=== [1/5] Create Pylon conda env ==="
 if ! conda env list | grep -q "^Pylon "; then
     conda create --name Pylon python=3.10 -y
 fi
-set +u
+# Relax both -e and -u around activate: `conda activate` can reference unbound
+# vars and/or return non-zero, either of which would abort the script under
+# `set -euo pipefail` before the pip steps below ever run.
+set +eu
 conda activate Pylon
-set -u
+set -eu
 pip install --upgrade pip
 
 echo "=== [2/5] Pip requirements ==="
@@ -37,6 +40,9 @@ pip install --no-build-isolation \
 # nvdiffrast needs torch and CUDA headers from the active environment.
 pip install --no-build-isolation \
     'git+https://github.com/NVlabs/nvdiffrast.git'
+# KNN_CUDA's upstream repo and 0.2 wheel are gone (404), so install the vendored source under docs/env_setup/vendor/; its CUDA kernel JIT-compiles at import, hence --no-build-isolation.
+pip install --no-build-isolation \
+    "$PYLON_REPO_DIR/docs/env_setup/vendor/KNN_CUDA"
 # Install remaining extras (skip git+ packages handled explicitly or needing custom CUDA)
 grep -v '^git+\|^#\|^$' "$PYLON_REPO_DIR/docs/env_setup/requirements-extras.txt" | \
     pip install -r /dev/stdin \
