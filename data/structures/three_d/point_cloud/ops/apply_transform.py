@@ -1,7 +1,9 @@
-from typing import List, Tuple, Union, Optional
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
+
+from utils.ops.chunked_matmul import chunked_matmul
 
 
 def _normalize_points(
@@ -87,15 +89,31 @@ def _normalize_transform_torch(
 def apply_transform(
     points: Union[np.ndarray, torch.Tensor],
     transform: Union[list, np.ndarray, torch.Tensor],
+    inplace: bool = False,
+    max_divide: int = 0,
+    num_divide: Optional[int] = None,
 ) -> Union[np.ndarray, torch.Tensor]:
-    """Apply 4x4 transformation matrix to points using homogeneous coordinates.
+    """Apply a 4x4 transformation matrix to points using homogeneous coordinates.
 
     Args:
-        points: Points to transform [N, 3] or batched [1, N, 3]
-        transform: 4x4 transformation matrix [4, 4] or batched [1, 4, 4]
+        points: Points to transform, numpy.ndarray or torch.Tensor of shape [N, 3]
+            or batched [1, N, 3], any float dtype. The type, dtype, and (for
+            tensors) device of the output match this input.
+        transform: 4x4 transformation matrix as a list, numpy.ndarray, or
+            torch.Tensor of shape [4, 4] or batched [1, 4, 4]. Normalized to the
+            type, dtype, and device of points.
+        inplace: If True, the transformed coordinates are copied back into points
+            and points is returned; if False, a new array/tensor is returned.
+        max_divide: Maximum number of times the torch matmul may halve its row
+            batch on CUDA OOM (forwarded to chunked_matmul); ignored on the numpy
+            path.
+        num_divide: If not None, the fixed number of halvings for the torch matmul
+            row batch (forwarded to chunked_matmul); ignored on the numpy path.
 
     Returns:
-        Transformed points [N, 3] or [1, N, 3] with the same type as input points
+        Transformed points as the same type as points, numpy.ndarray or
+        torch.Tensor of shape [N, 3] or [1, N, 3]. When inplace, this is the same
+        object as points.
     """
     # Normalize points to unbatched format
     points_normalized, points_was_batched = _normalize_points(points)
@@ -127,16 +145,16 @@ def apply_transform(
         )
         points_h = np.hstack([points_normalized, ones_column])
 
-        # Apply transformation
-        transformed = np.dot(points_h, transform_normalized.T)
-
-        # Remove homogeneous coordinate
-        result = transformed[:, :3]
+        # Apply transformation and remove homogeneous coordinate
+        result = np.dot(points_h, transform_normalized.T)[:, :3]
 
         # Restore batch dimension if needed
         if points_was_batched:
             result = np.expand_dims(result, axis=0)
 
+        if inplace:
+            points[...] = result
+            return points
         return result
     else:  # torch.Tensor
         # Add homogeneous coordinate
@@ -147,14 +165,19 @@ def apply_transform(
         )
         points_h = torch.cat([points_normalized, ones_column], dim=1)
 
-        # Apply transformation
-        transformed = torch.matmul(points_h, transform_normalized.t())
-
-        # Remove homogeneous coordinate
-        result = transformed[:, :3]
+        # Apply transformation and remove homogeneous coordinate
+        result = chunked_matmul(
+            points_h,
+            transform_normalized.t(),
+            max_divide=max_divide,
+            num_divide=num_divide,
+        )[:, :3]
 
         # Restore batch dimension if needed
         if points_was_batched:
             result = result.unsqueeze(0)
 
+        if inplace:
+            points.copy_(result)
+            return points
         return result

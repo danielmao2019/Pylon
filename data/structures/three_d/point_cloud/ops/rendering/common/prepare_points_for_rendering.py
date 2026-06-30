@@ -5,9 +5,6 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
-from data.structures.three_d.point_cloud.camera.transform import (
-    world_to_camera_transform,
-)
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
@@ -75,6 +72,13 @@ def _prepare_points_for_rendering(
     # Operate on the active prefix to keep memory compact.
     valid_count = num_points
     current_points = points_work[:valid_count]
+
+    # Imported at call time to break the point_cloud.ops -> point_cloud.camera
+    # import-time back-edge (the camera.transform -> ops.apply_transform call
+    # graph is acyclic; only eager module-init imports formed a cycle).
+    from data.structures.three_d.point_cloud.camera.transform import (
+        world_to_camera_transform,
+    )
 
     world_to_camera_transform(
         points=current_points, extrinsics=extrinsics, inplace=True, max_divide=2

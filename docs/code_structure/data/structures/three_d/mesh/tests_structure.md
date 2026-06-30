@@ -23,9 +23,9 @@ test_convert.py
 ```text
 test_conventions.py
 ├── def test_identity_when_conventions_match
-│   └── # transform_verts_uvs_convention returns the UV table unchanged when the source and target conventions are equal.
+│   └── # transform_convention returns the UV table unchanged when the source and target conventions are equal.
 └── def test_flips_v_axis_when_conventions_differ
-    └── # transform_verts_uvs_convention flips the V axis (v -> 1 - v) when the source and target conventions differ.
+    └── # transform_convention flips the V axis (v -> 1 - v) when the source and target conventions differ.
 ```
 
 `tests/data/structures/three_d/mesh/texture/test_mesh_texture_vertex_color.py`

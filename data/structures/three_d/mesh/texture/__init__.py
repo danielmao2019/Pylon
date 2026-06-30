@@ -20,8 +20,8 @@ from data.structures.three_d.mesh.texture.texel_face_map import (
     build_texel_face_map,
 )
 from data.structures.three_d.mesh.texture.validate_uv_texture_map import (
+    validate_convention,
     validate_faces_uvs,
-    validate_mesh_uv_convention,
     validate_uv_texture_map,
     validate_uv_texture_map_image,
     validate_verts_uvs,
@@ -38,8 +38,8 @@ __all__ = (
     "collapse_seam_shifted_uv_rows",
     "shift_seam_crossing_faces_to_seam_safe",
     "transform_verts_uvs_convention",
+    "validate_convention",
     "validate_faces_uvs",
-    "validate_mesh_uv_convention",
     "validate_uv_texture_map",
     "validate_uv_texture_map_image",
     "validate_verts_uvs",

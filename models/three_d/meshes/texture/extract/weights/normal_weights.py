@@ -75,8 +75,9 @@ def compute_v_normals_weights(
         camera=camera,
     )
     normals_camera = compute_vertex_normals(
-        base_verts=verts_camera,
+        verts=verts_camera,
         faces=mesh.faces,
+        weights="area",
     ).to(device=mesh.device, dtype=torch.float32)
     normals_camera_norm = torch.linalg.norm(normals_camera, dim=1)
     normals_camera_norm_error = torch.max(torch.abs(normals_camera_norm - 1.0))

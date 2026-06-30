@@ -1190,8 +1190,8 @@ scene_graph_display.ts
 │   ├── # Builds the absolutely-positioned HTML overlay container layered above the canvas; labelFontSize / labelColor apply as the overlay's default font-size and color (per-label inline styles still take precedence).
 │   ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
 │   ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-│   ├── impls create the absolutely-positioned overlay HTMLDivElement layered above the canvas, with default font-size = effectiveLabelFontSize px and color = effectiveLabelColor  # impls-node-one-step:skip
-│   ├── impls append the overlay to the container
+│   ├── impls create the absolutely-positioned HTML overlay container layered above the canvas (default font-size = effectiveLabelFontSize px, color = effectiveLabelColor)
+│   ├── impls mount the container inside the display container
 │   └── return  # the overlay container
 ├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
 │   └── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
@@ -1294,8 +1294,8 @@ core_mesh_display.py
 │   ├── # Builds the Plotly Mesh3d trace for a per-vertex-colored mesh, resolving the effective color.
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
-│   ├── elif mesh has per-vertex rgb
-│   │   └── impls effective_color = mesh.per_vertex_rgb
+│   ├── elif mesh.texture carries per-vertex color
+│   │   └── impls effective_color = mesh.texture.vertex_color
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
@@ -1303,8 +1303,8 @@ core_mesh_display.py
 │   ├── # Builds the Plotly Mesh3d trace for a UV-texture-mapped mesh, resolving the effective color.
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
-│   ├── elif mesh has uv_texture_map
-│   │   └── impls effective_color = sample(mesh.uv_texture_map, mesh.uv)
+│   ├── elif mesh.texture carries a uv_texture_map
+│   │   └── impls effective_color = sample(mesh.texture.uv_texture_map, mesh.texture.verts_uvs)
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
@@ -2040,7 +2040,7 @@ camera_sync.ts
 │   ├── _listeners             # Array<(camera_sync_state: CameraSyncState) => void>
 │   ├── loadCameraSyncState
 │   │   ├── # Common API: seeds one source's CameraSyncState entry from a caller-provided camera state.
-│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: [], camera_state }
+│   │   ├── impls this._state_by_source_id[source_id] = { target_ids: empty, camera_state: the caller-provided CameraState }
 │   │   ├── impls sets this._targets_by_source_id[source_id] to a fresh empty Map
 │   │   └── return
 │   ├── getCameraSyncState
@@ -2063,7 +2063,7 @@ camera_sync.ts
 │   │   └── return
 │   ├── applyCameraSyncStateToTargets
 │   │   ├── # Additional API: applies a caller-owned CameraState to every target registered under one source.
-│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
+│   │   ├── impls this._state_by_source_id[source_id] = { target_ids: the current target_ids, camera_state: the caller-provided CameraState }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
 │   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
@@ -2072,7 +2072,7 @@ camera_sync.ts
 │   │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
 │   │   ├── if source_id not in this._targets_by_source_id
 │   │   │   └── throw
-│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
+│   │   ├── impls this._state_by_source_id[source_id] = { target_ids: the current target_ids, camera_state: the source display CameraState }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   ├── if target_id == source_id
 │   │   │   │   └── continue
@@ -2251,9 +2251,9 @@ apis.ts
 │   ├── # Part-B: builds the inline 3D axis-aligned boxes and optional per-box score labels into a THREE.Group and returns it for the layered container to add.
 │   ├── impls group = new THREE.Group()
 │   ├── impls build the box-edges meshes from displayResponse.aabbs
+│   ├── impls build the score labels from displayResponse.scores
 │   ├── impls add the box-edges meshes to group
-│   ├── impls build the per-box score labels from displayResponse.scores
-│   ├── impls add the per-box score labels to group
+│   ├── impls add the score labels to group
 │   └── return group
 ├── function renderAabb3dScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Drives the 3D-box display render loop with the supplied trackball controls.
@@ -2310,7 +2310,7 @@ apis.ts
 ├── function renderAabb2dDisplay({ displayResponse }: { displayResponse: Aabb2dDisplayResponse }): LeafVNode
 │   ├── # Renders the inline 2D axis-aligned boxes and their optional per-box score labels as a full-bleed raster SVG overlay; the layered container sets its viewBox to the shared frustum on the base image's load.
 │   ├── impls build the full-bleed SVG box overlay (preserveAspectRatio="none") from displayResponse.aabbs
-│   ├── impls build the per-box score labels from displayResponse.scores
+│   ├── impls build the score labels from displayResponse.scores
 │   └── return
 └── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })   # module-load self-registration of the raster aabb-2d layer renderer
 ```

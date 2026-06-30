@@ -113,4 +113,4 @@ def test_to_rejects_non_none_convention() -> None:
     )
 
     with pytest.raises(AssertionError, match="convention"):
-        texture.to(convention="obj")
+        texture.to(verts_uvs_convention="obj")

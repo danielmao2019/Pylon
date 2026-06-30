@@ -31,9 +31,12 @@ mesh.py
     │   ├── from data.structures.three_d.mesh.save import save_mesh   # deferred: save.py imports mesh.py, so mesh.py must not import save.py at module level
     │   └── calls save_mesh
     └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "Mesh"
-        ├── # Returns this mesh on a target device and/or UV-origin convention (self when both already match).
-        ├── calls MeshTexture.to                       # when texture is not None; delegates device + convention
-        └── return Mesh                                # new Mesh wrapping the moved geometry + texture
+        ├── # Returns this mesh on a target device and/or texture UV-origin convention (self when both already match).
+        ├── if device is not None
+        │   └── impls move verts + faces to the target device
+        ├── if self.texture is not None
+        │   └── calls MeshTexture.to                   # forwards device + convention to the texture (device move and/or UV-origin conversion)
+        └── return Mesh                                # new Mesh: geometry + texture on the target device and convention
 ```
 
 ## Geometry and linkage validation
@@ -94,7 +97,7 @@ mesh_texture_vertex_color.py
     ├── @property def device(self) -> torch.device
     │   └── # The device vertex_color lives on.
     └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "MeshTextureVertexColor"
-        ├── # Returns this texture on a target device; convention must be None (vertex color carries no UV convention).
+        ├── # Returns this texture on a target device; convention must be None (vertex color carries no UV-origin convention).
         └── return MeshTextureVertexColor
 ```
 
@@ -104,7 +107,7 @@ mesh_texture_vertex_color.py
 
 ```text
 mesh_texture_uv_texture_map.py
-├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map
 └── class MeshTextureUVTextureMap(MeshTexture)
@@ -127,7 +130,7 @@ mesh_texture_uv_texture_map.py
     │   └── # The device the UV-texture tensors live on.
     └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "MeshTextureUVTextureMap"
         ├── # Returns this texture on a target device and/or UV-origin convention.
-        ├── calls transform_verts_uvs_convention        # when the convention changes
+        ├── calls transform_convention        # when the convention changes
         └── return MeshTextureUVTextureMap
 ```
 
@@ -137,7 +140,7 @@ mesh_texture_uv_texture_map.py
 
 ```text
 conventions.py
-└── def transform_verts_uvs_convention(verts_uvs: torch.Tensor, source_convention: str, target_convention: str) -> torch.Tensor
+└── def transform_convention(verts_uvs: torch.Tensor, source_convention: str, target_convention: str) -> torch.Tensor
     ├── # Transforms a UV table between origin conventions ("obj" = v from bottom, "top_left" = v from top).
     ├── if source_convention == target_convention
     │   └── return verts_uvs
@@ -201,7 +204,7 @@ validate_uv_texture_map.py
 │   ├── calls validate_uv_texture_map_image                  # single-field: uv_texture_map
 │   ├── calls validate_verts_uvs                             # single-field: verts_uvs
 │   ├── calls validate_faces_uvs                             # single-field: faces_uvs
-│   ├── calls validate_mesh_uv_convention                    # single-field: convention
+│   ├── calls validate_convention                    # single-field: convention
 │   └── calls _validate_verts_uvs_faces_uvs_cross_field      # cross-field: (verts_uvs, faces_uvs)
 ├── def validate_uv_texture_map_image(obj: Any) -> None
 │   ├── # Validates a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
@@ -220,7 +223,7 @@ validate_uv_texture_map.py
 │   └── # Validates a UV-coordinate table (float [U,2], finite, non-negative; values may exceed 1 — see the seam contract on MeshTextureUVTextureMap).
 ├── def validate_faces_uvs(obj: Any) -> None
 │   └── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
-├── def validate_mesh_uv_convention(convention: Any) -> str
+├── def validate_convention(obj: Any) -> str
 │   └── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
 └── def _validate_verts_uvs_faces_uvs_cross_field(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> None
     ├── # Validates the cross-field invariants between verts_uvs and faces_uvs.
@@ -275,12 +278,12 @@ texel_face_map.py
 ```text
 __init__.py
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
-├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
-├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_verts_uvs, validate_faces_uvs, validate_mesh_uv_convention
+├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_verts_uvs, validate_faces_uvs, validate_convention
 └── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ```
 
@@ -490,7 +493,7 @@ save.py
 save_obj.py
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
-├── from data.structures.three_d.mesh.texture.conventions import transform_verts_uvs_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def save_obj_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
@@ -514,7 +517,7 @@ save_obj.py
 ├── def _save_uv_texture_map_obj(mesh: Mesh, obj_path: Path) -> None
 │   ├── # Writes the OBJ plus a sibling MTL and texture PNG.
 │   ├── calls _normalize_uv_texture_map_for_png
-│   ├── calls transform_verts_uvs_convention                  # texture convention -> "obj" for the written vt lines
+│   ├── calls transform_convention                  # texture convention -> "obj" for the written vt lines
 │   └── calls collapse_seam_shifted_uv_rows                   # seam-safe canonical -> OBJ vt structure
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
 │   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
@@ -632,7 +635,7 @@ convert.py
 │   │   └── # builds Meshes with a TexturesVertex
 │   ├── elif isinstance(mesh.texture, MeshTextureUVTextureMap)
 │   │   ├── calls collapse_seam_shifted_uv_rows              # seam-safe canonical -> OBJ vt structure for TexturesUV
-│   │   └── # builds Meshes with a TexturesUV (UV forced to "obj" convention)
+│   │   └── # builds Meshes with a TexturesUV (convention forced to "obj")
 │   └── else
 │       └── # builds a geometry-only Meshes
 ├── def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -> Mesh
@@ -661,7 +664,7 @@ convert.py
 ├── def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray
 │   └── # Converts trimesh vertex colors to a repo RGB array (drops opaque alpha).
 ├── def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-│   ├── # Expands an "obj"-convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
+│   ├── # Expands an "obj" convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
 │   └── calls collapse_seam_shifted_uv_rows                  # seam-safe canonical -> OBJ vt structure before per-corner expansion
 ├── def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray
 │   └── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.

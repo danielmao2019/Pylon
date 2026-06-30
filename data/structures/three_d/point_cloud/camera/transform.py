@@ -1,69 +1,8 @@
-import math
 from typing import Optional
 
 import torch
 
-from data.structures.three_d.camera.extrinsics import validate_camera_extrinsics
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from utils.ops.materialize_tensor import materialize_tensor
-
-
-def _world_to_camera_transform(
-    points: torch.Tensor, extrinsics: torch.Tensor, inplace: bool = False
-) -> torch.Tensor:
-    """Transform 3D points from world coordinates into the camera local frame.
-
-    Assumes `extrinsics` is a camera-to-world (pose) 4x4 matrix in the OpenCV
-    convention. Validates inputs, applies the transform, and returns the points
-    in the camera frame.
-
-    Args:
-        points: Tensor of shape [N, 3].
-        extrinsics: Tensor of shape [4, 4] representing camera-to-world transform.
-
-    Returns:
-        points_cam: [N, 3] points in camera local frame (OpenCV: +Z forward).
-    """
-    # Input validation
-    # Validate points as XYZ coordinates
-    assert isinstance(points, torch.Tensor), f"{type(points)=}"
-    assert (
-        points.shape[0] > 0
-    ), f"Expected positive number of points, got {points.shape[0]}"
-    PointCloud.validate_xyz_tensor(xyz=points)
-    validate_camera_extrinsics(extrinsics)
-    # Device compatibility: points and extrinsics must be on same device
-    assert (
-        points.device == extrinsics.device
-    ), f"points device {points.device} != extrinsics device {extrinsics.device}"
-
-    # Convert to world-to-camera by inverting camera-to-world extrinsics
-    world_to_camera = torch.inverse(materialize_tensor(extrinsics))
-
-    # Transform points into camera local frame (OpenCV convention) using addmm
-    out = torch.addmm(world_to_camera[:3, 3], points, world_to_camera[:3, :3].T)
-    if inplace:
-        points.copy_(out)
-        return points
-    return out
-
-
-def _world_to_camera_transform_batched(
-    points: torch.Tensor, extrinsics: torch.Tensor, batch_size: int
-) -> None:
-    """Process points in fixed-size batches, writing results into `points`.
-
-    Always calls `_world_to_camera_transform` with `inplace=True` on slices.
-
-    Args:
-        points: [N,3] tensor to transform, updated in-place.
-        extrinsics: [4,4] camera-to-world transform.
-        batch_size: positive int batch size.
-    """
-    N = points.shape[0]
-    for i in range(0, N, batch_size):
-        j = min(N, i + batch_size)
-        _world_to_camera_transform(points[i:j], extrinsics, inplace=True)
+from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
 
 
 def world_to_camera_transform(
@@ -73,46 +12,55 @@ def world_to_camera_transform(
     max_divide: int = 0,
     num_divide: Optional[int] = None,
 ) -> torch.Tensor:
-    """Divide-and-conquer wrapper for world-to-camera transform to avoid CUDA OOM.
+    """Map world-frame points into the camera local frame.
 
-    Attempts to run `_world_to_camera_transform` on the full tensor. If a CUDA
-    OOM occurs and `max_divide > 0`, iteratively halves the batch and processes
-    chunks, writing results back into `points` (or a clone if not `inplace`).
+    High-level API that builds the world-to-camera 4x4 matrix by inverting the
+    camera-to-world extrinsic and applies it to the points via apply_transform.
 
     Args:
-        points: Float tensor of shape [N, 3].
-        extrinsics: Float tensor of shape [4, 4]. Same device as `points`.
-        inplace: If True, writes results into `points` tensor.
-        max_divide: Max number of times to split the points in half on OOM.
+        points: Float torch.Tensor of shape [N, 3] in world coordinates, on the
+            same device as extrinsics.
+        extrinsics: Float torch.Tensor of shape [4, 4] representing the
+            camera-to-world (pose) transform in the OpenCV convention, on the same
+            device as points.
+        inplace: If True, the camera-frame coordinates are written back into
+            points and points is returned; if False, a new tensor is returned.
+        max_divide: Maximum number of times the matmul may halve its row batch on
+            CUDA OOM (forwarded to apply_transform).
+        num_divide: If not None, the fixed number of halvings for the matmul row
+            batch (forwarded to apply_transform).
 
     Returns:
-        Tensor of shape [N, 3] with camera-frame coordinates.
+        Float torch.Tensor of shape [N, 3] in the camera local frame (OpenCV:
+        +Z forward). The same tensor as points when inplace.
     """
-    # Handle in-place semantics at the wrapper level
-    if not inplace:
-        points = points.clone()
 
-    # If a fixed division is provided, run a single batched pass with that division
-    N = points.shape[0]
-    if num_divide is not None:
-        batch_size = max(1, math.ceil(N / (2**num_divide)))
-        _world_to_camera_transform_batched(points, extrinsics, batch_size)
-        return points
+    def _validate_inputs() -> None:
+        assert isinstance(points, torch.Tensor), (
+            "Expected points to be a torch.Tensor. " f"{type(points)=}"
+        )
+        assert points.ndim == 2 and points.shape[1] == 3, (
+            "Expected points to be a [N, 3] tensor. " f"{points.shape=}"
+        )
+        assert isinstance(extrinsics, torch.Tensor), (
+            "Expected extrinsics to be a torch.Tensor. " f"{type(extrinsics)=}"
+        )
+        assert extrinsics.shape == (4, 4), (
+            "Expected extrinsics to be a [4, 4] matrix. " f"{extrinsics.shape=}"
+        )
+        assert points.device == extrinsics.device, (
+            "Expected points and extrinsics on the same device. "
+            f"{points.device=} {extrinsics.device=}"
+        )
 
-    # Exponential halving strategy controlled by max_divide.
-    n = 0
-    while n <= max_divide:
-        batch_size = max(1, math.ceil(N / (2**n)))
-        try:
-            _world_to_camera_transform_batched(points, extrinsics, batch_size)
-            return points
-        except torch.cuda.OutOfMemoryError:
-            n += 1
-            torch.cuda.empty_cache()
-            continue
-        except Exception:
-            raise
+    _validate_inputs()
 
-    raise torch.cuda.OutOfMemoryError(
-        "CUDA OOM after max_divide reductions in world_to_camera_transform"
+    world_to_camera = torch.inverse(extrinsics)
+
+    return apply_transform(
+        points=points,
+        transform=world_to_camera,
+        inplace=inplace,
+        max_divide=max_divide,
+        num_divide=num_divide,
     )

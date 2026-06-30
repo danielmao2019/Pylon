@@ -298,7 +298,7 @@ def bake_vertex_colors_to_uv_texture_map(
 
     def _normalize_inputs() -> MeshTextureUVTextureMap:
         device = vertex_colored_mesh.device
-        return uv_layout.to(device=device, convention="obj")
+        return uv_layout.to(device=device, verts_uvs_convention="obj")
 
     uv_layout = _normalize_inputs()
 
@@ -317,7 +317,9 @@ def bake_vertex_colors_to_uv_texture_map(
         texture_size=texture_size,
     )
     mean_color = vertex_feature.mean(dim=1, keepdim=True).unsqueeze(1)
-    uv_texture_map = texel_color * mask + mean_color * (1.0 - mask)
+    uv_texture_map = (texel_color * mask + mean_color * (1.0 - mask)).clamp(
+        min=0.0, max=1.0
+    )
     return MeshTextureUVTextureMap(
         uv_texture_map=uv_texture_map.contiguous(),
         verts_uvs=uv_layout.verts_uvs,

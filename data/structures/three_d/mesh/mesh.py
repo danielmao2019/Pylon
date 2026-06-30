@@ -12,7 +12,10 @@ class Mesh:
 
     `verts` / `faces` always hold the geometry domain — the distinct surface
     positions and the faces indexing them. `texture is None` means the mesh is
-    geometry-only.
+    geometry-only. A `Mesh` carries no handedness state: handedness is
+    ill-defined for a general mesh and is never a stored label; the handedness
+    conversion (z-negation of vertices plus face-winding reversal) is owned by
+    the 3DMM template's `to` classmethod.
 
     Args:
         verts: Mesh vertex tensor `[V, 3]`.
@@ -47,7 +50,11 @@ class Mesh:
         """
 
         def _validate_inputs() -> None:
-            validate_mesh_attributes(verts=verts, faces=faces, texture=texture)
+            validate_mesh_attributes(
+                verts=verts,
+                faces=faces,
+                texture=texture,
+            )
 
         _validate_inputs()
 
@@ -96,13 +103,14 @@ class Mesh:
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Optional[str] = None,
+        verts_uvs_convention: Optional[str] = None,
     ) -> "Mesh":
-        """Return this mesh on a target device and/or UV-origin convention.
+        """Return this mesh on a target device and/or texture UV-origin convention.
 
         Args:
             device: Optional target device.
-            convention: Optional target UV-origin convention.
+            verts_uvs_convention: Optional target texture UV-origin convention,
+                forwarded to the texture; valid only for a textured mesh.
 
         Returns:
             This mesh when the device and convention already match, otherwise a
@@ -114,32 +122,33 @@ class Mesh:
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert convention is None or isinstance(convention, str), (
-                "Expected `convention` to be `None` or a string. "
-                f"{type(convention)=}"
+            assert verts_uvs_convention is None or isinstance(
+                verts_uvs_convention, str
+            ), (
+                "Expected `verts_uvs_convention` to be `None` or a string. "
+                f"{type(verts_uvs_convention)=}"
             )
-            if convention is not None:
+            if verts_uvs_convention is not None:
                 assert self.texture is not None, (
                     "Expected only textured meshes to support explicit "
                     "UV-convention conversion. "
-                    f"{self.texture=} {convention=}"
+                    f"{self.texture=} {verts_uvs_convention=}"
                 )
 
         _validate_inputs()
 
         target_device = self.device if device is None else torch.device(device)
-        if self.device == target_device and convention is None:
+        if self.device == target_device and verts_uvs_convention is None:
             return self
 
-        if self.texture is None:
-            return Mesh(
-                verts=self.verts.to(device=target_device),
-                faces=self.faces.to(device=target_device),
-                texture=None,
+        target_texture = None
+        if self.texture is not None:
+            target_texture = self.texture.to(
+                device=target_device, verts_uvs_convention=verts_uvs_convention
             )
 
         return Mesh(
             verts=self.verts.to(device=target_device),
             faces=self.faces.to(device=target_device),
-            texture=self.texture.to(device=target_device, convention=convention),
+            texture=target_texture,
         )

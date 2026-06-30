@@ -292,7 +292,7 @@ def _create_uv_texture_mesh_display(
     _validate_inputs()
 
     def _normalize_inputs() -> Tuple[List[float], List[float], str, Dict[str, object]]:
-        display_mesh = mesh.to(convention="obj")
+        display_mesh = mesh.to(verts_uvs_convention="obj")
         normalized_verts = display_mesh.verts.detach().cpu().numpy()
         normalized_faces = display_mesh.faces.detach().cpu().numpy()
         normalized_verts_uvs = display_mesh.texture.verts_uvs.detach().cpu().numpy()

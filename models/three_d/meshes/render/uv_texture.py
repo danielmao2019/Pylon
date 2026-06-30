@@ -63,7 +63,7 @@ def render_uv_texture_aligned(
     _validate_inputs()
 
     def _normalize_inputs() -> Mesh:
-        return mesh.to(convention="top_left")
+        return mesh.to(verts_uvs_convention="top_left")
 
     mesh = _normalize_inputs()
 

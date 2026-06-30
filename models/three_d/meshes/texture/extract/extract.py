@@ -342,7 +342,9 @@ def extract_texture_from_images(
             return extracted_vertex_color["texture"]
         return extracted_vertex_color
 
-    meshes = [view_mesh.to(device=device, convention="obj") for view_mesh in meshes]
+    meshes = [
+        view_mesh.to(device=device, verts_uvs_convention="obj") for view_mesh in meshes
+    ]
     extracted_uv_texture_map = _extract_uv_texture_map_from_images(
         meshes=meshes,
         images_nchw=images_nchw,
@@ -1131,8 +1133,7 @@ def _extract_uv_texture_map_from_single_image(
             "Expected `weights_cfg` to be a dictionary. " f"{type(weights_cfg)=}"
         )
         assert isinstance(texel_face_map, dict), (
-            "Expected `texel_face_map` to be a dictionary. "
-            f"{type(texel_face_map)=}"
+            "Expected `texel_face_map` to be a dictionary. " f"{type(texel_face_map)=}"
         )
         assert isinstance(texel_visibility_method, str), (
             "Expected `texel_visibility_method` to be a `str`. "
@@ -1189,9 +1190,9 @@ def _extract_uv_texture_map_from_single_image(
     faces_uvs_long = mesh.texture.faces_uvs.to(
         device=mesh.texture.verts_uvs.device, dtype=torch.long
     )
-    face_verts_uvs = mesh.texture.verts_uvs[faces_uvs_long].to(
-        dtype=torch.float32
-    ).contiguous()
+    face_verts_uvs = (
+        mesh.texture.verts_uvs[faces_uvs_long].to(dtype=torch.float32).contiguous()
+    )
 
     if texel_visibility_method == "v1":
         uv_visibility_mask = compute_f_visibility_mask(
@@ -1266,8 +1267,7 @@ def _project_f_colors(
 
     def _validate_inputs() -> None:
         assert isinstance(texel_face_map, dict), (
-            "Expected `texel_face_map` to be a dictionary. "
-            f"{type(texel_face_map)=}"
+            "Expected `texel_face_map` to be a dictionary. " f"{type(texel_face_map)=}"
         )
         assert "texel_face_index" in texel_face_map, (
             "Expected `texel_face_map` to contain `texel_face_index`. "
@@ -1315,9 +1315,9 @@ def _project_f_colors(
         texel_face_barycentric = texel_face_map["texel_face_barycentric"]
         clamped_face_index = texel_face_index.clamp(min=0)
         per_corner_xy = projected_vertex_xy[mesh.faces[clamped_face_index]]
-        interpolated_xy = (
-            per_corner_xy * texel_face_barycentric.unsqueeze(-1)
-        ).sum(dim=-2)
+        interpolated_xy = (per_corner_xy * texel_face_barycentric.unsqueeze(-1)).sum(
+            dim=-2
+        )
         occupied_mask = (texel_face_index >= 0).unsqueeze(-1)
         interpolated_xy = torch.where(
             occupied_mask, interpolated_xy, torch.zeros_like(interpolated_xy)
@@ -1413,8 +1413,7 @@ def _rasterize_face_weights_to_uv(
             "Expected `face_weight` to be a tensor. " f"{type(face_weight)=}"
         )
         assert isinstance(texel_face_map, dict), (
-            "Expected `texel_face_map` to be a dictionary. "
-            f"{type(texel_face_map)=}"
+            "Expected `texel_face_map` to be a dictionary. " f"{type(texel_face_map)=}"
         )
         assert "texel_face_index" in texel_face_map, (
             "Expected `texel_face_map` to contain `texel_face_index`. "
@@ -1439,4 +1438,3 @@ def _rasterize_face_weights_to_uv(
     gathered = face_weight[texel_face_index.clamp(min=0)]
     uv_weight = torch.where(occupied_mask, gathered, torch.zeros_like(gathered))
     return uv_weight.clamp(min=0.0).unsqueeze(0).unsqueeze(-1).contiguous()
-

@@ -160,7 +160,7 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
     _validate_inputs()
 
     def _normalize_inputs() -> List[Mesh]:
-        return [mesh.to(convention="obj") for mesh in mesh_blocks]
+        return [mesh.to(verts_uvs_convention="obj") for mesh in mesh_blocks]
 
     mesh_blocks = _normalize_inputs()
 

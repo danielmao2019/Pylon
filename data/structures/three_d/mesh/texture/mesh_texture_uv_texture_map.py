@@ -23,8 +23,8 @@ class MeshTextureUVTextureMap(MeshTexture):
             uint8 `[0, 255]` or float32 `[0, 1]` values.
         verts_uvs: UV-coordinate table `[U, 2]`.
         faces_uvs: Face-to-UV index tensor `[F, 3]`.
-        convention: UV-origin convention for `verts_uvs`. `obj` means `v=0` is
-            the bottom edge. `top_left` means `v=0` is the top edge.
+        convention: UV-origin convention for `verts_uvs`. `obj` means
+            `v=0` is the bottom edge. `top_left` means `v=0` is the top edge.
 
     Returns:
         None.
@@ -60,7 +60,7 @@ class MeshTextureUVTextureMap(MeshTexture):
                 uv_texture_map=uv_texture_map,
                 verts_uvs=verts_uvs,
                 faces_uvs=faces_uvs,
-                convention=convention,
+                verts_uvs_convention=convention,
             )
 
         _validate_inputs()
@@ -118,13 +118,13 @@ class MeshTextureUVTextureMap(MeshTexture):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Optional[str] = None,
+        verts_uvs_convention: Optional[str] = None,
     ) -> "MeshTextureUVTextureMap":
         """Return this texture on a target device and/or UV-origin convention.
 
         Args:
             device: Optional target device.
-            convention: Optional target UV-origin convention.
+            verts_uvs_convention: Optional target UV-origin convention.
 
         Returns:
             This texture when both the device and convention already match,
@@ -136,15 +136,19 @@ class MeshTextureUVTextureMap(MeshTexture):
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert convention is None or isinstance(convention, str), (
-                "Expected `convention` to be `None` or a string. "
-                f"{type(convention)=}"
+            assert verts_uvs_convention is None or isinstance(
+                verts_uvs_convention, str
+            ), (
+                "Expected `verts_uvs_convention` to be `None` or a string. "
+                f"{type(verts_uvs_convention)=}"
             )
 
         _validate_inputs()
 
         target_device = self.device if device is None else torch.device(device)
-        target_convention = self.convention if convention is None else convention
+        target_convention = (
+            self.convention if verts_uvs_convention is None else verts_uvs_convention
+        )
         if self.device == target_device and self.convention == target_convention:
             return self
 

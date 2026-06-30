@@ -225,7 +225,7 @@ def test_to_converts_uv_convention() -> None:
         convention="obj",
     )
 
-    converted = texture.to(convention="top_left")
+    converted = texture.to(verts_uvs_convention="top_left")
 
     assert converted.convention == "top_left", f"{converted.convention=}"
     assert torch.allclose(
