@@ -177,7 +177,7 @@ camera_intrinsics.py
 │   ├── def fy(self) -> float                                         # @property [abstract]
 │   │   └── # Abstract: the vertical focal length / scale, whose params key differs per model.
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [abstract]
-│   │   └── # Abstract: project camera-space points [..., 3] to image points [..., 2]; the single output buffer is fixed up front (a [..., 2] view into points_camera when inplace, else a fresh [..., 2] clone of its x,y) and one in-place projection writes into it, so inplace overwrites points_camera cols 0,1 (depth col 2 intact) and both paths return a [..., 2].
+│   │   └── # Abstract: map camera-space 3D points [..., 3] to 2D image points [..., 2] under this model.
 │   ├── def scale_intrinsics(self, resolution: Optional[Tuple[int, int]] = None, scale: Optional[Union[Union[int, float], Tuple[Union[int, float], Union[int, float]]]] = None) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics scaled to a resolution or by a factor, scaling the focal and principal-point params.
 │   │   ├── impls resolve the per-axis (sx, sy) scale from resolution (target over current) or from scale
@@ -228,7 +228,7 @@ camera_intrinsics.py
 │   ├── def fy(self) -> float                                         # @property [override]
 │   │   └── # The vertical focal scale params["fy"].
 │   └── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
-│       ├── # Orthographic projection: scale and offset without the perspective divide.
+│       ├── # Orthographic projection with independent fx / fy scales (no perspective divide).
 │       ├── impls out = points_camera[..., :2] when inplace, else a fresh [..., 2] clone of points_camera[..., :2]  # impls-node-one-step:skip
 │       ├── impls in place: out[..., 0] = fx * out[..., 0] + cx  (mul_ / add_)  # impls-node-one-step:skip
 │       ├── impls in place: out[..., 1] = fy * out[..., 1] + cy  (mul_ / add_)  # impls-node-one-step:skip
