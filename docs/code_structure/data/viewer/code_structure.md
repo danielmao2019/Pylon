@@ -1190,8 +1190,9 @@ scene_graph_display.ts
 │   ├── # Builds the absolutely-positioned HTML overlay container layered above the canvas; labelFontSize / labelColor apply as the overlay's default font-size and color (per-label inline styles still take precedence).
 │   ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
 │   ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-│   ├── impls absolutely-positioned HTML overlay container layered above the canvas with default font-size = effectiveLabelFontSize px and color = effectiveLabelColor, returned and mounted inside the display container  # impls-node-one-step:skip
-│   └── return
+│   ├── impls create the absolutely-positioned overlay HTMLDivElement layered above the canvas, with default font-size = effectiveLabelFontSize px and color = effectiveLabelColor  # impls-node-one-step:skip
+│   ├── impls append the overlay to the container
+│   └── return  # the overlay container
 ├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
 │   └── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
 ├── function createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }: { payload: SceneGraphPayload; nodeSize?: number; edgeColor?: string; edgeWidth?: number }): { points: THREE.Points; labels: object[] }
@@ -2039,7 +2040,7 @@ camera_sync.ts
 │   ├── _listeners             # Array<(camera_sync_state: CameraSyncState) => void>
 │   ├── loadCameraSyncState
 │   │   ├── # Common API: seeds one source's CameraSyncState entry from a caller-provided camera state.
-│   │   ├── impls sets this._state_by_source_id[source_id] to a fresh entry with the caller-provided CameraState and empty target_ids  # impls-node-one-step:skip
+│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: [], camera_state }
 │   │   ├── impls sets this._targets_by_source_id[source_id] to a fresh empty Map
 │   │   └── return
 │   ├── getCameraSyncState
@@ -2062,7 +2063,7 @@ camera_sync.ts
 │   │   └── return
 │   ├── applyCameraSyncStateToTargets
 │   │   ├── # Additional API: applies a caller-owned CameraState to every target registered under one source.
-│   │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the caller-provided CameraState  # impls-node-one-step:skip
+│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
 │   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
@@ -2071,7 +2072,7 @@ camera_sync.ts
 │   │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
 │   │   ├── if source_id not in this._targets_by_source_id
 │   │   │   └── throw
-│   │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the source display CameraState  # impls-node-one-step:skip
+│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   ├── if target_id == source_id
 │   │   │   │   └── continue
@@ -2249,8 +2250,10 @@ apis.ts
 ├── function createAabb3dObject({ displayResponse }: { displayResponse: Aabb3dDisplayResponse }): THREE.Object3D
 │   ├── # Part-B: builds the inline 3D axis-aligned boxes and optional per-box score labels into a THREE.Group and returns it for the layered container to add.
 │   ├── impls group = new THREE.Group()
-│   ├── impls build the box-edges meshes and score labels from displayResponse.aabbs and displayResponse.scores  # impls-node-one-step:skip
-│   ├── impls add each to group
+│   ├── impls build the box-edges meshes from displayResponse.aabbs
+│   ├── impls add the box-edges meshes to group
+│   ├── impls build the per-box score labels from displayResponse.scores
+│   ├── impls add the per-box score labels to group
 │   └── return group
 ├── function renderAabb3dScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Drives the 3D-box display render loop with the supplied trackball controls.
