@@ -2,10 +2,8 @@
 
 ## Code folder structure
 
-`./data/structures/three_d/camera/`
-
 ```text
-camera/
+./data/structures/three_d/camera/
 ├── __init__.py        # package API surface (re-exports Camera / Cameras + free functions)
 ├── camera.py          # the Camera class: single-camera intrinsics + extrinsics
 ├── cameras.py         # the Cameras class: an ordered collection / trajectory of Camera instances

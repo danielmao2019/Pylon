@@ -1,7 +1,5 @@
 # Mesh Texture Extraction Code Structure
 
-Code-structure skeleton for `models/three_d/meshes/texture/extract/`. `def` lines carry full prototypes with declaration-level type annotations; `calls` lines carry keyword-form call arguments. `_validate_inputs` / `_normalize_inputs` local helpers are not skeleton nodes — they are a uniform implementation-time pattern — so neither they nor the `calls` confined to them appear. Every cross-file `calls` target is a bare symbol resolving to a named import at the top of its file's block.
-
 ## 1. Code structure trees
 
 `models/three_d/meshes/texture/extract/camera_geometry.py`
@@ -55,7 +53,7 @@ extract.py
 ├── def _fuse_vertex_color_observations(observations: List[Dict[str, torch.Tensor]], weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse one-view vertex-color observations into one vertex-color tensor.
 │   ├── if multi_view_robustness == 'none'
-│   │   └── impls accumulate each observation's weighted texture into the running color numerator and weight denominator
+│   │   └── impls accumulate each observation's weighted texture into the running color numerator and weight denominator  # impls-node-one-step:skip
 │   ├── else
 │   │   └── calls validate_vertex_color(obj=provisional_vertex_color)
 │   ├── calls validate_vertex_color(obj=vertex_color)
@@ -80,7 +78,7 @@ extract.py
 ├── def _fuse_uv_texture_observations(observations: List[Dict[str, torch.Tensor]], weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse one-view UV observations into one UV texture map.
 │   ├── if multi_view_robustness == 'none'
-│   │   └── impls accumulate each observation's weighted texture into the running uv numerator and weight denominator
+│   │   └── impls accumulate each observation's weighted texture into the running uv numerator and weight denominator  # impls-node-one-step:skip
 │   ├── else
 │   │   └── calls _validate_rgb_image(obj=provisional_uv_texture_map)
 │   ├── calls _validate_rgb_image(obj=uv_texture_map)

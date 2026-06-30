@@ -4,8 +4,6 @@
 
 `./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
-Backend modality-specific display response schema files.
-
 ```text
 class DisplayResponse(BaseModel)
 ├── class PointDisplayResponse
@@ -39,8 +37,6 @@ class DisplayResponse(BaseModel)
 
 `./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
 
-Frontend modality-specific display response type files.
-
 ```text
 interface DisplayResponse
 ├── interface PointDisplayResponse
@@ -73,28 +69,6 @@ interface DisplayResponse
 ```
 
 ## 2. Code structure trees
-
-Files below are grouped by folder structure; within a runtime folder, API/caller files appear before core/helper files when call order matters.
-
-The base atomic `DisplayResponse` is owned by `./data/viewer/utils/displays/utils/ts/`; each modality-specific response inherits from that base under the matching `./data/viewer` modality.
-`display_kind` selects the atomic renderer, `url` and typed response fields identify loadable resources, and `meta_info` carries renderer-owned loading hints plus display statistics/details such as class/color metadata.
-`meta_info` must not encode primary display payloads, rendered legends, presentation objects, or artifact availability state such as `available` or `missing`.
-Backend `data.viewer` camera-display code loads the selected camera artifact, interprets camera conventions, and prepares the camera-vis JSON payload exposed through `CameraDisplayResponse.url`.
-`CameraDisplayResponse.meta_info` is empty because the camera-vis JSON payload is the camera display payload.
-That payload is the main-branch camera visualization contract: a camera trajectory list whose entries preserve the `camera_vis()` semantics of `center`, `center_color`, `center_size`, `axes`, and `frustum_lines`, with every line carrying `start`, `end`, and `color`.
-`camera_vis()` owns construction of one camera's visual primitive: `frustum_size` is the world-unit size of the camera frustum glyph's frustum + axis lines, and camera intrinsics shape the frustum.
-Missing intrinsics normalized to an identity matrix naturally produce the default frustum at the same `frustum_size`; no separate intrinsics-provenance field is needed for camera display geometry.
-`cameras_vis()` owns applying that primitive across a `Cameras` collection.
-Backend `data.viewer` camera-display code owns serializing the generic camera-vis payload and exposing it at `CameraDisplayResponse.url`; frontend `data.viewer` owns rendering those centers and line segments.
-Concrete artifact-backed `DisplayResponse` variants represent materialized displays, not unavailable displays with a status flag.
-
-`CameraState`, `CameraSyncState`, and trackball camera controls are generic `data.viewer` contracts: `CameraState` serializes a viewer camera, `CameraSyncState` is the per-source entry storing one source's id, its registered target ids, and its current camera state (multiple sources coexist as independent entries keyed by source_id), and every 3D point-cloud, Gaussian, or mesh display must create trackball camera controls through `create_dash_trackball_camera_controls` in Dash or `createTrackballCameraControls` in TS.
-TypeScript point-cloud displays use a Three.js WebGL point scene with `THREE.PerspectiveCamera` and `THREE.Points`; the point renderer builds the geometry from the selected point resource URL and renderer metadata.
-Trackball controls must map left-button drag to camera rotation, right-button drag to camera panning, and mouse-wheel scroll to camera zoom; the viewer canvas must suppress the default browser context menu so right-button drag remains available for panning.
-The implementation is not split by control-library family.
-The camera-control helper owns renderer-specific control construction and must return controls that expose trackball camera-pose updates.
-Orbit-style target-locked controls are forbidden, and no display may impose camera-pose restrictions through polar angle, azimuth angle, target lock, distance bounds, pan limits, translation limits, or rotation limits.
-It uses the repo's serialized `Camera` contract, including extrinsics, intrinsics, convention, name, and id.
 
 `./data/viewer/utils/displays/utils/class_colors.py`
 
@@ -337,11 +311,12 @@ three_scene_helpers.ts
 │   ├── # Shared PerspectiveCamera factory for every TS atomic spatial display; the consumer-supplied initialCameraState is the single source of initial framing, with no lib-side fit-to-object.
 │   ├── impls THREE.PerspectiveCamera(fov=DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV, ...) at default aspect/near/far/position
 │   ├── if initialCameraState is not null
-│   │   └── impls overlays initialCameraState (every field — both intrinsics and extrinsics) onto the camera so first paint matches the source display
+│   │   └── impls overlays initialCameraState (every field — both intrinsics and extrinsics) onto the camera so first paint matches the source display  # impls-node-one-step:skip
 │   └── return
 ├── function createThreeWebGLRenderer({ container }: { container: HTMLDivElement }): THREE.WebGLRenderer
 │   ├── # Shared WebGL renderer factory for every TS atomic spatial display.
-│   ├── impls THREE.WebGLRenderer constructed with `alpha: true` and cleared transparent via `setClearColor(0x000000, 0)` so the canvas is transparent by default; consumers that want an opaque backdrop apply a CSS `background-color` to the marker
+│   ├── impls renderer = new THREE.WebGLRenderer({ alpha: true })
+│   ├── impls renderer.setClearColor(0x000000, 0)   # transparent canvas by default; an opaque backdrop is the consumer's CSS background-color on the marker
 │   ├── impls canvas mounted inside the provided container
 │   └── return
 ├── function createThreeScene(): THREE.Scene
@@ -1215,8 +1190,9 @@ scene_graph_display.ts
 │   ├── # Builds the absolutely-positioned HTML overlay container layered above the canvas; labelFontSize / labelColor apply as the overlay's default font-size and color (per-label inline styles still take precedence).
 │   ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
 │   ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-│   ├── impls absolutely-positioned HTML overlay container layered above the canvas with default font-size = effectiveLabelFontSize px and color = effectiveLabelColor, returned and mounted inside the display container
-│   └── return
+│   ├── impls create the absolutely-positioned overlay HTMLDivElement layered above the canvas, with default font-size = effectiveLabelFontSize px and color = effectiveLabelColor  # impls-node-one-step:skip
+│   ├── impls append the overlay to the container
+│   └── return  # the overlay container
 ├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
 │   └── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
 ├── function createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }: { payload: SceneGraphPayload; nodeSize?: number; edgeColor?: string; edgeWidth?: number }): { points: THREE.Points; labels: object[] }
@@ -1239,7 +1215,8 @@ scene_graph_display.ts
     ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
     ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
     ├── impls projects each label's world position to NDC via camera, then converts to overlay-pixel coordinates
-    ├── impls updates each label's HTML node position (left/top), font-size = effectiveLabelFontSize px, color = effectiveLabelColor, and culls labels behind the camera or outside the viewport
+    ├── impls updates each label's HTML node position (left/top), font-size = effectiveLabelFontSize px, color = effectiveLabelColor
+    ├── impls culls labels behind the camera or outside the viewport
     └── return
 ```
 
@@ -1406,7 +1383,7 @@ apis.py
 │   └── return
 ├── def create_sparse_heatmap_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> SparseHeatmapMeshDisplayResponse
 │   ├── # Creates a sparse heatmap mesh response; writes the sparse (indices, values) delta resource to output_path.
-│   ├── impls reads the (indices, values) delta and the geometry reference from input_path
+│   ├── impls reads the (indices, values) delta and the geometry reference from input_path  # impls-node-one-step:skip
 │   ├── calls _write_sparse_heatmap_resource(input_path=input_path, output_path=output_path)
 │   ├── calls _build_sparse_heatmap_mesh_meta_info(indices=indices, values=values)
 │   └── return SparseHeatmapMeshDisplayResponse with slot_id, title, url, meta_info from caller-provided args
@@ -1437,7 +1414,7 @@ apis.py
 │   └── return
 └── def _build_sparse_heatmap_mesh_meta_info
     ├── # Builds scalar-range + non-zero-count metadata from the input sparse arrays.
-    ├── impls stores values min/max and number of non-zero entries
+    ├── impls stores values min/max and number of non-zero entries  # impls-node-one-step:skip
     └── return
 ```
 
@@ -1630,7 +1607,7 @@ core_gaussians_display.py
 │   └── return
 ├── def create_dash_gaussians_scene
 │   ├── # Builds the Dash Gaussian-splat display scene from Gaussian data and display metadata.
-│   ├── impls Dash Gaussian-splat display scene from Gaussian data and display metadata
+│   ├── impls Dash Gaussian-splat display scene from Gaussian data and display metadata  # impls-node-one-step:skip
 │   └── return
 └── def create_dash_gaussians_component
     ├── # Assembles the Dash component that hosts the Gaussian-splat scene and its trackball camera controls.
@@ -1801,7 +1778,7 @@ apis.py
 │   └── return
 ├── def _serialize_camera_vis_entry(camera_vis_entry) -> Dict[str, Any]
 │   ├── # Converts one camera-vis entry into the JSON shape consumed by the camera renderer.
-│   ├── impls serializes center, center_color, and center_size
+│   ├── impls serializes center, center_color, and center_size  # impls-node-one-step:skip
 │   ├── for each line in axes
 │   │   └── calls _serialize_camera_vis_line
 │   ├── for each line in frustum_lines
@@ -1809,7 +1786,7 @@ apis.py
 │   └── return
 └── def _serialize_camera_vis_line(camera_vis_line) -> Dict[str, Any]
     ├── # Converts one camera-vis line segment into plain start, end, and color lists.
-    ├── impls serializes start, end, and color
+    ├── impls serializes start, end, and color  # impls-node-one-step:skip
     └── return
 ```
 
@@ -1934,7 +1911,7 @@ trackball_camera_controls.py
 │   └── return
 ├── def create_dash_renderer_trackball_camera_controls
 │   ├── # Constructs the Dash renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
-│   ├── impls Dash renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu
+│   ├── impls Dash renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
 │   └── return
 ├── def assert_dash_trackball_camera_controls
 │   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
@@ -1984,7 +1961,7 @@ trackball_camera_controls.ts
 │   └── return
 ├── function createRendererTrackballCameraControls
 │   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
-│   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu
+│   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
 │   └── return
 ├── function assertTrackballCameraControls
 │   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
@@ -2063,7 +2040,7 @@ camera_sync.ts
 │   ├── _listeners             # Array<(camera_sync_state: CameraSyncState) => void>
 │   ├── loadCameraSyncState
 │   │   ├── # Common API: seeds one source's CameraSyncState entry from a caller-provided camera state.
-│   │   ├── impls sets this._state_by_source_id[source_id] to a fresh entry with the caller-provided CameraState and empty target_ids
+│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: [], camera_state }
 │   │   ├── impls sets this._targets_by_source_id[source_id] to a fresh empty Map
 │   │   └── return
 │   ├── getCameraSyncState
@@ -2086,7 +2063,7 @@ camera_sync.ts
 │   │   └── return
 │   ├── applyCameraSyncStateToTargets
 │   │   ├── # Additional API: applies a caller-owned CameraState to every target registered under one source.
-│   │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the caller-provided CameraState
+│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
 │   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
@@ -2095,7 +2072,7 @@ camera_sync.ts
 │   │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
 │   │   ├── if source_id not in this._targets_by_source_id
 │   │   │   └── throw
-│   │   ├── impls replaces this._state_by_source_id[source_id] with a new entry carrying current target_ids and the source display CameraState
+│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   ├── if target_id == source_id
 │   │   │   │   └── continue
@@ -2272,7 +2249,11 @@ apis.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createAabb3dObject({ displayResponse }: { displayResponse: Aabb3dDisplayResponse }): THREE.Object3D
 │   ├── # Part-B: builds the inline 3D axis-aligned boxes and optional per-box score labels into a THREE.Group and returns it for the layered container to add.
-│   ├── impls group = new THREE.Group(); build the box-edges meshes and score labels from displayResponse.aabbs and displayResponse.scores; add each to group
+│   ├── impls group = new THREE.Group()
+│   ├── impls build the box-edges meshes from displayResponse.aabbs
+│   ├── impls add the box-edges meshes to group
+│   ├── impls build the per-box score labels from displayResponse.scores
+│   ├── impls add the per-box score labels to group
 │   └── return group
 ├── function renderAabb3dScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Drives the 3D-box display render loop with the supplied trackball controls.
@@ -2328,8 +2309,8 @@ apis.ts
 ├── import { registerRasterLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
 ├── function renderAabb2dDisplay({ displayResponse }: { displayResponse: Aabb2dDisplayResponse }): LeafVNode
 │   ├── # Renders the inline 2D axis-aligned boxes and their optional per-box score labels as a full-bleed raster SVG overlay; the layered container sets its viewBox to the shared frustum on the base image's load.
-│   ├── impls build the full-bleed SVG box overlay (preserveAspectRatio="none") and score labels from displayResponse.aabbs and displayResponse.scores
+│   ├── impls build the full-bleed SVG box overlay (preserveAspectRatio="none") from displayResponse.aabbs
+│   ├── impls build the per-box score labels from displayResponse.scores
 │   └── return
 └── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })   # module-load self-registration of the raster aabb-2d layer renderer
 ```
-

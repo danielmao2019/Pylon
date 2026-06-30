@@ -137,13 +137,16 @@ camera.py
 │   │   └── # The camera center extrinsics[:3, 3].
 │   ├── def right(self) -> torch.Tensor                                 # @property
 │   │   ├── # The convention-dispatched right axis.
-│   │   └── impls selects the right axis per convention and asserts unit norm
+│   │   ├── impls selects the right axis per convention
+│   │   └── impls asserts the selected right axis has unit norm
 │   ├── def forward(self) -> torch.Tensor                               # @property
 │   │   ├── # The convention-dispatched forward axis.
-│   │   └── impls selects the forward axis per convention and asserts unit norm
+│   │   ├── impls selects the forward axis per convention
+│   │   └── impls asserts the selected forward axis has unit norm
 │   ├── def up(self) -> torch.Tensor                                    # @property
 │   │   ├── # The convention-dispatched up axis.
-│   │   └── impls selects the up axis per convention and asserts unit norm
+│   │   ├── impls selects the up axis per convention
+│   │   └── impls asserts the selected up axis has unit norm
 │   ├── def to(self, device: Optional[Union[str, torch.device]] = None, convention: Optional[str] = None) -> "Camera"
 │   │   ├── # Return this Camera on a target device / convention (self when unchanged).
 │   │   ├── calls validate_camera_convention                            # when convention is not None
@@ -172,9 +175,14 @@ camera.py
 │       └── calls load_cameras
 └── def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor
     ├── # Project a near-orthogonal (3, 3) rotation onto the nearest proper rotation, in the received dtype (float32 or float64).
-    ├── impls computes the RR^T-vs-I residual and the |det(R) - 1| residual in rotation.dtype
+    ├── impls computes the RR^T-vs-I residual in rotation.dtype
+    ├── impls computes the |det(R) - 1| residual in rotation.dtype
     ├── impls asserts max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
-    ├── impls u, _, v_h = svd(rotation) in rotation.dtype; rotation_fixed = u @ v_h; if det(rotation_fixed) < 0 -> flip u[:, -1] and recompute rotation_fixed
+    ├── impls u, _, v_h = svd(rotation) in rotation.dtype
+    ├── impls rotation_fixed = u @ v_h
+    ├── if det(rotation_fixed) < 0
+    │   ├── impls flip the sign of u's last column u[:, -1]
+    │   └── impls recompute rotation_fixed = u @ v_h
     ├── calls validate_rotation_matrix(rotation_fixed)                   # re-validates at rotation.dtype's atol
     └── return rotation_fixed
 ```
@@ -199,8 +207,8 @@ camera_vis.py
 └── def camera_vis(camera: Camera, frustum_size: Optional[float] = None, frustum_color: Optional[Tuple[int, int, int]] = None, point_size: Optional[float] = None, point_color: Optional[Tuple[int, int, int]] = None) -> Dict[str, Any]
     ├── # The per-camera atomic-display data-layer mapping.
     ├── impls resolves frustum_size / frustum_color / point_size / point_color from None to DEFAULT_FRUSTUM_SIZE / DEFAULT_FRUSTUM_COLOR / DEFAULT_POINT_SIZE / DEFAULT_POINT_COLOR
-    ├── impls computes center, center_color from point_color, and center_size from point_size
-    ├── impls computes axes and frustum lines colored by frustum_color from camera center, right, forward, up, intrinsics, and frustum_size
+    ├── impls computes center, center_color from point_color, and center_size from point_size  # impls-node-one-step:skip
+    ├── impls computes axes and frustum lines colored by frustum_color from camera center, right, forward, up, intrinsics, and frustum_size  # impls-node-one-step:skip
     └── return
 ```
 
@@ -256,22 +264,23 @@ io.py
 ├── def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]
 │   ├── # Map a Cameras to the plural json payload: one dict per camera.
 │   ├── for each camera in cameras
-│   │   └── impls builds that camera's json dict from intrinsics, extrinsics, convention, name, and id
+│   │   └── impls builds that camera's json dict from intrinsics, extrinsics, convention, name, and id  # impls-node-one-step:skip
 │   └── return
 ├── def _deserialize_cameras_json(per_camera_dicts: List[Dict[str, Any]], device: torch.device) -> "Cameras"
 │   ├── # Map the plural json per-camera dicts to a Cameras.
 │   ├── from data.structures.three_d.camera.cameras import Cameras      # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── for each per-camera dict
-│   │   ├── impls asserts the keys match _CAMERA_JSON_KEYS and the convention / name / id field types
+│   │   ├── impls asserts the keys match _CAMERA_JSON_KEYS and the convention / name / id field types  # impls-node-one-step:skip
 │   │   ├── calls validate_camera_convention
-│   │   └── impls decodes intrinsics and extrinsics to tensors on device
+│   │   ├── impls decodes intrinsics to a tensor on device
+│   │   └── impls decodes extrinsics to a tensor on device
 │   ├── calls Cameras                               # constructs and field-validates the batch
 │   └── return
 ├── def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]
 │   ├── # Map a Cameras to the plural batched-array npz payload.
 │   ├── for each camera in cameras
-│   │   └── impls appends that camera's intrinsics, extrinsics, convention, name, and id to the batch
-│   ├── impls stacks the batch into npz arrays with has_name / has_id flag arrays and a -1 id sentinel
+│   │   └── impls appends that camera's intrinsics, extrinsics, convention, name, and id to the batch  # impls-node-one-step:skip
+│   ├── impls stacks the batch into npz arrays with has_name / has_id flag arrays and a -1 id sentinel  # impls-node-one-step:skip
 │   └── return
 ├── def _deserialize_cameras_npz(payload: Dict[str, Any], device: torch.device) -> "Cameras"
 │   ├── # Map the plural batched-array npz payload to a Cameras.
@@ -280,7 +289,7 @@ io.py
 │   ├── calls validate_camera_intrinsics
 │   ├── calls validate_camera_extrinsics
 │   ├── for each batch index
-│   │   ├── impls decodes that index's intrinsics, extrinsics, convention, name, and id (resolving has_name / has_id flags and the -1 id sentinel) to tensors on device
+│   │   ├── impls decodes that index's intrinsics, extrinsics, convention, name, and id (resolving has_name / has_id flags and the -1 id sentinel) to tensors on device  # impls-node-one-step:skip
 │   │   └── calls validate_camera_convention
 │   ├── calls Cameras                               # constructs and field-validates the batch
 │   └── return

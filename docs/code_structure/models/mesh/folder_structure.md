@@ -2,10 +2,8 @@
 
 ## Code folder structure
 
-`./models/three_d/meshes/texture/extract/`
-
 ```text
-extract/
+./models/three_d/meshes/texture/extract/
 ├── __init__.py             # package API surface (re-exports extract / camera_geometry / visibility / weights functions)
 ├── extract.py              # main entry: extract_texture_from_images + per-view UV extraction helpers (consumes data-layer build_texel_face_map)
 ├── camera_geometry.py      # camera-space geometry: world->camera, clip-space, depth- and face-index-buffer rendering

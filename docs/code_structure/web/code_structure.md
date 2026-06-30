@@ -22,7 +22,8 @@ reconcile.ts
 │   └── render: () => HTMLElement
 ├── function createElementVNode(tag: string, props: Record<string, unknown>, children: Array<VNode | string>): ElementVNode
 │   ├── # Constructs an ElementVNode, normalizing the authoring shape into web's strict VNode union so call-sites express a tree rather than literals.
-│   ├── impls lifts `key` from props (defaulting to null) and keeps the remainder as the prop bag
+│   ├── impls lift `key` from props (defaulting to null)
+│   ├── impls keep the remainder as the prop bag
 │   ├── impls normalizes children: a bare string becomes a text leaf VNode, an existing VNode passes through
 │   └── return ElementVNode { kind: "element", tag, key, props, children: normalized }
 └── function reconcileInto({ root, virtualTree }: { root: HTMLElement; virtualTree: VNode }): void
