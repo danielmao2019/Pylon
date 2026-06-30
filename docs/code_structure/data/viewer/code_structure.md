@@ -4,8 +4,6 @@
 
 `./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
-Backend modality-specific display response schema files.
-
 ```text
 class DisplayResponse(BaseModel)
 ├── class PointDisplayResponse
@@ -39,8 +37,6 @@ class DisplayResponse(BaseModel)
 
 `./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
 
-Frontend modality-specific display response type files.
-
 ```text
 interface DisplayResponse
 ├── interface PointDisplayResponse
@@ -73,28 +69,6 @@ interface DisplayResponse
 ```
 
 ## 2. Code structure trees
-
-Files below are grouped by folder structure; within a runtime folder, API/caller files appear before core/helper files when call order matters.
-
-The base atomic `DisplayResponse` is owned by `./data/viewer/utils/displays/utils/ts/`; each modality-specific response inherits from that base under the matching `./data/viewer` modality.
-`display_kind` selects the atomic renderer, `url` and typed response fields identify loadable resources, and `meta_info` carries renderer-owned loading hints plus display statistics/details such as class/color metadata.
-`meta_info` must not encode primary display payloads, rendered legends, presentation objects, or artifact availability state such as `available` or `missing`.
-Backend `data.viewer` camera-display code loads the selected camera artifact, interprets camera conventions, and prepares the camera-vis JSON payload exposed through `CameraDisplayResponse.url`.
-`CameraDisplayResponse.meta_info` is empty because the camera-vis JSON payload is the camera display payload.
-That payload is the main-branch camera visualization contract: a camera trajectory list whose entries preserve the `camera_vis()` semantics of `center`, `center_color`, `center_size`, `axes`, and `frustum_lines`, with every line carrying `start`, `end`, and `color`.
-`camera_vis()` owns construction of one camera's visual primitive: `frustum_size` is the world-unit size of the camera frustum glyph's frustum + axis lines, and camera intrinsics shape the frustum.
-Missing intrinsics normalized to an identity matrix naturally produce the default frustum at the same `frustum_size`; no separate intrinsics-provenance field is needed for camera display geometry.
-`cameras_vis()` owns applying that primitive across a `Cameras` collection.
-Backend `data.viewer` camera-display code owns serializing the generic camera-vis payload and exposing it at `CameraDisplayResponse.url`; frontend `data.viewer` owns rendering those centers and line segments.
-Concrete artifact-backed `DisplayResponse` variants represent materialized displays, not unavailable displays with a status flag.
-
-`CameraState`, `CameraSyncState`, and trackball camera controls are generic `data.viewer` contracts: `CameraState` serializes a viewer camera, `CameraSyncState` is the per-source entry storing one source's id, its registered target ids, and its current camera state (multiple sources coexist as independent entries keyed by source_id), and every 3D point-cloud, Gaussian, or mesh display must create trackball camera controls through `create_dash_trackball_camera_controls` in Dash or `createTrackballCameraControls` in TS.
-TypeScript point-cloud displays use a Three.js WebGL point scene with `THREE.PerspectiveCamera` and `THREE.Points`; the point renderer builds the geometry from the selected point resource URL and renderer metadata.
-Trackball controls must map left-button drag to camera rotation, right-button drag to camera panning, and mouse-wheel scroll to camera zoom; the viewer canvas must suppress the default browser context menu so right-button drag remains available for panning.
-The implementation is not split by control-library family.
-The camera-control helper owns renderer-specific control construction and must return controls that expose trackball camera-pose updates.
-Orbit-style target-locked controls are forbidden, and no display may impose camera-pose restrictions through polar angle, azimuth angle, target lock, distance bounds, pan limits, translation limits, or rotation limits.
-It uses the repo's serialized `Camera` contract, including extrinsics, intrinsics, convention, name, and id.
 
 `./data/viewer/utils/displays/utils/class_colors.py`
 
@@ -2332,4 +2306,3 @@ apis.ts
 │   └── return
 └── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })   # module-load self-registration of the raster aabb-2d layer renderer
 ```
-

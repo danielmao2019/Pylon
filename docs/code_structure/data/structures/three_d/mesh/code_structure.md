@@ -1,7 +1,5 @@
 # Mesh Data Structure Code Structure
 
-Code-structure skeleton for `data/structures/three_d/mesh/`.
-
 ## Mesh class
 
 `data/structures/three_d/mesh/mesh.py`

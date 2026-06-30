@@ -1,9 +1,5 @@
 # Camera Data Structure Tests Structure
 
-Test skeleton for `tests/data/structures/three_d/camera/`. Branches mirror the system-under-test structure declared in `code_structure.md`; leaves are individual pytest test functions with a one-line purpose. The skeleton fixes what each test pins and the phase-3 implementation follows it exactly. Grow leaves as we find regressions, contracts, or spec items worth pinning.
-
-`data/structures/three_d/camera/` is a pure data-structure library, so there are unit tests only — no end-to-end / running-app tests. For module code structure see `code_structure.md`; for the module folder layout see `folder_structure.md`.
-
 ## 1. Code structure trees
 
 `tests/data/structures/three_d/camera/test_conventions.py`

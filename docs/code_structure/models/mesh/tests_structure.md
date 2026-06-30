@@ -1,9 +1,5 @@
 # Mesh Texture Extraction Tests Structure
 
-Test skeleton for `tests/models/three_d/meshes/texture/`, scoped to the `extract/` module. Branches mirror the system-under-test structure declared in `code_structure.md`; leaves are individual pytest test functions with a one-line purpose. `def` lines carry full prototypes with declaration-level type annotations.
-
-`tests/models/three_d/meshes/texture/` also holds `test_convert.py`, which covers `texture/convert.py` outside the `extract/` scope and is not included here. For module code structure see `code_structure.md`; for the module folder layout see `folder_structure.md`.
-
 ## 1. Code structure trees
 
 `tests/models/three_d/meshes/texture/test_extract.py`

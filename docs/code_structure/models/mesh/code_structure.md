@@ -1,7 +1,5 @@
 # Mesh Texture Extraction Code Structure
 
-Code-structure skeleton for `models/three_d/meshes/texture/extract/`. `def` lines carry full prototypes with declaration-level type annotations; `calls` lines carry keyword-form call arguments. `_validate_inputs` / `_normalize_inputs` local helpers are not skeleton nodes — they are a uniform implementation-time pattern — so neither they nor the `calls` confined to them appear. Every cross-file `calls` target is a bare symbol resolving to a named import at the top of its file's block.
-
 ## 1. Code structure trees
 
 `models/three_d/meshes/texture/extract/camera_geometry.py`

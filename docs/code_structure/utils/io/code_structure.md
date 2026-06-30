@@ -1,7 +1,5 @@
 # Utils IO Code Structure
 
-Code-structure skeleton for `utils/io/glb.py` and `utils/io/image.py`.
-
 ## glTF/GLB I/O
 
 `utils/io/glb.py`
@@ -55,5 +53,3 @@ image.py
 └── def encode_image_bytes(image: torch.Tensor, image_format: str) -> bytes
     └── # Encodes an HWC image tensor into encoded image bytes (PNG / JPEG / ...) — in-memory counterpart of the file-based save_image.
 ```
-
-The file-based `load_image` / `save_image` predate this skeleton and are unchanged; only the in-memory byte-codec pair is added, for callers holding encoded bytes rather than a file path.

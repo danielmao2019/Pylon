@@ -2,10 +2,8 @@
 
 ## Code folder structure
 
-`./utils/io/`
-
 ```text
-io/
+./utils/io/
 ├── __init__.py            # io package API surface
 ├── config.py              # config-file I/O
 ├── glb.py                 # generic glTF/GLB I/O — the chunked file, the typed accessor arrays it encodes, and the embedded raw image bytes
@@ -16,14 +14,10 @@ io/
 └── xmp.py                 # XMP metadata I/O
 ```
 
-Only `glb.py` is detailed in `code_structure.md`; the sibling modules predate this skeleton and are listed for placement only.
-
 ## Tests folder structure
 
-`./tests/utils/io/`
-
 ```text
-tests/utils/io/
+./tests/utils/io/
 ├── config/
 │   └── test_config_loading.py
 ├── image/
