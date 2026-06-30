@@ -5,14 +5,19 @@ import torch
 
 
 def _validate_inputs(
-    large: torch.Tensor, small: torch.Tensor, max_divide: int, num_divide: Optional[int]
+    large: torch.Tensor,
+    small: torch.Tensor,
+    inplace: bool,
+    max_divide: int,
+    num_divide: Optional[int],
 ) -> None:
-    """Validate the operands and division controls for chunked matmul.
+    """Validate the operands and controls for chunked matmul.
 
     Args:
         large: Left operand. Must be a 2D torch.Tensor of shape [N, K], any floating dtype.
-        small: Right operand. Must be a 2D torch.Tensor of shape [K, M], any floating dtype.
-        max_divide: Maximum number of halving retries on CUDA OOM. Must be an int >= 0.
+        small: Right operand. Must be a 2D square torch.Tensor of shape [K, K], same dtype and device as large.
+        inplace: Whether the product overwrites large. Must be a bool; when True, neither operand may require grad (an in-place overwrite of large is illegal under autograd).
+        max_divide: Maximum number of chunk halvings on CUDA OOM. Must be an int >= 0.
         num_divide: Optional fixed number of halvings. If not None, must be an int >= 0.
 
     Returns:
@@ -30,6 +35,7 @@ def _validate_inputs(
     assert (
         small.ndim == 2
     ), f"small must be a 2D tensor, got {small.ndim=} with {small.shape=}"
+    assert small.shape[0] == small.shape[1], f"small must be square, got {small.shape=}"
     assert (
         large.shape[1] == small.shape[0]
     ), f"inner dimensions must match for matmul, got {large.shape=} and {small.shape=}"
@@ -39,6 +45,7 @@ def _validate_inputs(
     assert (
         large.dtype == small.dtype
     ), f"operands must share the same dtype, got {large.dtype=} and {small.dtype=}"
+    assert isinstance(inplace, bool), f"inplace must be a bool, got {type(inplace)=}"
     assert isinstance(
         max_divide, int
     ), f"max_divide must be an int, got {type(max_divide)=}"
@@ -49,85 +56,84 @@ def _validate_inputs(
     assert (
         num_divide is None or num_divide >= 0
     ), f"num_divide must be non-negative when set, got {num_divide=}"
+    if inplace:
+        assert (
+            not large.requires_grad and not small.requires_grad
+        ), f"inplace=True overwrites large and is illegal under autograd, got {large.requires_grad=} and {small.requires_grad=}"
 
 
-def _normalize_inputs(large: torch.Tensor, small: torch.Tensor) -> torch.Tensor:
-    """Make the right operand contiguous so chunked matmul writes are well-defined.
-
-    Args:
-        large: Left operand of shape [N, K] (returned unchanged; only validated upstream).
-        small: Right operand of shape [K, M], any floating dtype.
-
-    Returns:
-        small: The right operand made contiguous, shape [K, M], same dtype/device as input.
-    """
-    return small.contiguous()
-
-
-def _chunked_matmul_batched(
-    large: torch.Tensor, small: torch.Tensor, batch_size: int
-) -> torch.Tensor:
-    """Multiply `large` by `small` in row-chunks of `batch_size`.
+def _matmul_chunk(
+    large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool
+) -> None:
+    """Write the product large @ small into out for one row-chunk.
 
     Args:
-        large: Left operand of shape [N, K], any floating dtype, on the device used for the product.
-        small: Right operand of shape [K, M], same dtype/device as `large`.
-        batch_size: Positive int number of rows of `large` processed per chunk.
+        large: Left operand chunk of shape [b, K], any floating dtype.
+        small: Right square operand of shape [K, K], same dtype and device as large.
+        out: Destination chunk of shape [b, K], same dtype and device as large; may alias large's rows only when direct is False.
+        direct: When True the GEMM writes straight into out with no intermediate (out must be a distinct, non-grad buffer); when False a temp-copy assignment is used (autograd-safe, and the only correct form when out aliases large, since a GEMM whose out aliases an operand is undefined behavior).
 
     Returns:
-        result: The [N, M] product, same dtype/device as `large`.
+        None.
     """
-    N = large.shape[0]
-    M = small.shape[1]
-    result = torch.empty((N, M), dtype=large.dtype, device=large.device)
-    for i in range(0, N, batch_size):
-        result[i : i + batch_size] = large[i : i + batch_size] @ small
-    return result
+    if direct:
+        torch.matmul(large, small, out=out)
+    else:
+        out[:] = large @ small
 
 
 def chunked_matmul(
     large: torch.Tensor,
     small: torch.Tensor,
+    inplace: bool = False,
     max_divide: int = 0,
     num_divide: Optional[int] = None,
 ) -> torch.Tensor:
-    """Multiply a large 2D tensor by a small 2D tensor on its right, chunking the large's first dim.
+    """Multiply a large 2D tensor by a small square 2D tensor on its right, chunking the large's first dim.
 
-    When `num_divide` is set, the large's first dim is split into a fixed number of halvings and
-    multiplied in one batched pass. Otherwise the batch is progressively halved on CUDA OOM, up to
-    `max_divide` halvings, releasing cached CUDA memory between attempts.
+    The chunk size is ceil(N / 2 ** num_divide) when num_divide is set, otherwise it starts at N and is halved on each CUDA OOM up to max_divide times, releasing cached CUDA memory between attempts. The loop is resume-safe: a halving continues from the first not-yet-written chunk and never recomputes a completed one, so the in-place path can never double-transform an already-written row. Peak memory follows three paths: inplace overwrites large with no output allocation (only a per-chunk intermediate); the not-inplace no-grad path writes each chunk straight into the output (output only, no intermediate); the not-inplace grad path index-assigns each chunk (output plus a per-chunk intermediate, the autograd-safe minimum).
 
     Args:
         large: Left operand of shape [N, K], any floating dtype.
-        small: Right operand of shape [K, M], same dtype/device as `large`.
-        max_divide: Maximum number of halving retries on CUDA OOM. int >= 0.
-        num_divide: Optional fixed number of halvings. int >= 0 when set, else None.
+        small: Right operand of shape [K, K] (square), same dtype and device as large.
+        inplace: When True the product overwrites large and large is returned; requires that neither operand requires grad.
+        max_divide: Maximum number of chunk halvings on CUDA OOM. int >= 0.
+        num_divide: Optional fixed number of halvings, with no OOM retry. int >= 0 when set, else None.
 
     Returns:
-        The [N, M] product, same dtype/device as `large`.
+        The [N, K] product, same dtype and device as large; the large object itself when inplace.
     """
     _validate_inputs(
-        large=large, small=small, max_divide=max_divide, num_divide=num_divide
+        large=large,
+        small=small,
+        inplace=inplace,
+        max_divide=max_divide,
+        num_divide=num_divide,
     )
-    small = _normalize_inputs(large=large, small=small)
+    small = small.contiguous()
 
     N = large.shape[0]
-    if num_divide is not None:
-        bs = max(1, math.ceil(N / 2**num_divide))
-        return _chunked_matmul_batched(large=large, small=small, batch_size=bs)
+    M = small.shape[1]
+    out = (
+        large
+        if inplace
+        else torch.empty((N, M), dtype=large.dtype, device=large.device)
+    )
+    direct = not inplace and not large.requires_grad and not small.requires_grad
 
-    n = 0
-    while n <= max_divide:
-        bs = max(1, math.ceil(N / 2**n))
+    bs = max(1, math.ceil(N / 2**num_divide)) if num_divide is not None else N
+    i = 0
+    divides = 0
+    while i < N:
+        j = min(N, i + bs)
         try:
-            return _chunked_matmul_batched(large=large, small=small, batch_size=bs)
+            _matmul_chunk(large=large[i:j], small=small, out=out[i:j], direct=direct)
         except torch.cuda.OutOfMemoryError:
-            n += 1
+            if num_divide is not None or divides >= max_divide or bs <= 1:
+                raise
+            divides += 1
+            bs = max(1, bs // 2)
             torch.cuda.empty_cache()
             continue
-        except Exception:
-            raise
-
-    raise torch.cuda.OutOfMemoryError(
-        f"CUDA OOM after {max_divide} halvings in chunked_matmul, with {large.shape=} and {small.shape=}"
-    )
+        i = j
+    return out
