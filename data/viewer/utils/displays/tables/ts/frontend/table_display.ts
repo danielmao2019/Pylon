@@ -104,12 +104,11 @@ function readRowsFromArtifact({
     return text
       .split(/\r?\n/)
       .filter((line) => line.trim().length > 0)
-      .slice(0, 12)
       .map((line) => normalizeRow(JSON.parse(line)));
   }
   const parsed: unknown = JSON.parse(text);
   if (Array.isArray(parsed)) {
-    return parsed.slice(0, 12).map(normalizeRow);
+    return parsed.map(normalizeRow);
   }
   if (isRecord(parsed)) {
     return [normalizeRow(parsed)];
