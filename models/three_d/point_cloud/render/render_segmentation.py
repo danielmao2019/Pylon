@@ -5,19 +5,19 @@ from typing import Tuple, Union
 import torch
 
 from data.structures.three_d.camera.camera import Camera
-from data.structures.three_d.point_cloud.ops.rendering.common.apply_point_size_postprocessing import (
+from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import (
     apply_point_size_postprocessing,
 )
-from data.structures.three_d.point_cloud.ops.rendering.common.prepare_points_for_rendering import (
+from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
-from data.structures.three_d.point_cloud.ops.rendering.common.validate_rendering_inputs import (
+from models.three_d.point_cloud.render.common.validate_rendering_inputs import (
     validate_rendering_inputs,
 )
-from data.structures.three_d.point_cloud.ops.rendering.render_depth import (
+from models.three_d.point_cloud.render.render_depth import (
     render_depth_from_rendering_points,
 )
-from data.structures.three_d.point_cloud.ops.rendering.render_mask import (
+from models.three_d.point_cloud.render.render_mask import (
     render_mask_from_rendering_points,
 )
 from data.structures.three_d.point_cloud.point_cloud import PointCloud

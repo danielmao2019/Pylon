@@ -4,8 +4,9 @@ from typing import Callable, Optional, Tuple
 import torch
 
 from data.structures.three_d.camera.camera import Camera
-from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 
 
 def _frustum_cull(
@@ -26,7 +27,7 @@ def _frustum_cull(
 
 def _prepare_points_for_rendering(
     points: torch.Tensor,
-    intrinsics: torch.Tensor,
+    render_intrinsics: CameraIntrinsics,
     extrinsics: torch.Tensor,
     resolution: Tuple[int, int],
     cull_func: Callable[
@@ -42,7 +43,7 @@ def _prepare_points_for_rendering(
 
     Args:
         points: [N, 3] world-space coordinates
-        intrinsics: [3, 3] camera intrinsics
+        render_intrinsics: CameraIntrinsics carrying the camera-to-image projection
         extrinsics: [4, 4] camera extrinsics
         resolution: (H, W) target image resolution
 
@@ -73,13 +74,6 @@ def _prepare_points_for_rendering(
     valid_count = num_points
     current_points = points_work[:valid_count]
 
-    # Imported at call time to break the point_cloud.ops -> point_cloud.camera
-    # import-time back-edge (the camera.transform -> ops.apply_transform call
-    # graph is acyclic; only eager module-init imports formed a cycle).
-    from data.structures.three_d.point_cloud.camera.transform import (
-        world_to_camera_transform,
-    )
-
     world_to_camera_transform(
         points=current_points, extrinsics=extrinsics, inplace=True, max_divide=2
     )
@@ -104,7 +98,7 @@ def _prepare_points_for_rendering(
     current_points = points_work[:valid_count]
 
     # Project to pixel coordinates in place. Output: [x, y, depth]
-    project_3d_to_2d(points=current_points, intrinsics=intrinsics, inplace=True)
+    render_intrinsics.project(points_camera=current_points, inplace=True)
 
     # No point-size expansion here; keep memory footprint minimal.
 
@@ -149,16 +143,7 @@ def _prepare_points_for_rendering_batched(
 
     Returns (points_2d, indices) after a global back-to-front sort by depth.
     """
-    camera_intrinsics = camera.intrinsics
-    intrinsics = torch.tensor(
-        [
-            [camera_intrinsics.fx, 0.0, camera_intrinsics.cx],
-            [0.0, camera_intrinsics.fy, camera_intrinsics.cy],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-        device=camera_intrinsics.device,
-    )
+    render_intrinsics = camera.intrinsics
     extrinsics = camera.extrinsics.extrinsics
     N = points.shape[0]
     outputs = []
@@ -167,7 +152,7 @@ def _prepare_points_for_rendering_batched(
         j = min(N, i + batch_size)
         pts, idx = _prepare_points_for_rendering(
             points=points[i:j],
-            intrinsics=intrinsics,
+            render_intrinsics=render_intrinsics,
             extrinsics=extrinsics,
             resolution=resolution,
             cull_func=cull_func,
@@ -225,8 +210,6 @@ def prepare_points_for_rendering(
     camera_prepared = camera.to(
         device=points.device, convention="opencv"
     ).scale_intrinsics(resolution=resolution)
-    intrinsics = camera_prepared.intrinsics
-    extrinsics = camera_prepared.extrinsics
 
     # If `num_divide` is set, derive batch size from N / 2**num_divide.
     N = points.shape[0]

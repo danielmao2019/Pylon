@@ -11,6 +11,7 @@ from models.three_d.point_cloud.ops.generate_change_map import (
 from models.three_d.point_cloud.ops.grid_sampling import grid_sampling
 from models.three_d.point_cloud.ops.knn import knn
 from models.three_d.point_cloud.ops.normalization import normalize_point_cloud
+from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 
 __all__ = (
     'sampling',
@@ -21,4 +22,5 @@ __all__ = (
     'grid_sampling',
     'knn',
     'normalize_point_cloud',
+    'world_to_camera_transform',
 )

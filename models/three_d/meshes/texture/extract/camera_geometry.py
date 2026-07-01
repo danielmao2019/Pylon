@@ -6,7 +6,7 @@ import nvdiffrast.torch as dr
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
-from data.structures.three_d.point_cloud.camera.transform import (
+from models.three_d.point_cloud.ops.world_to_camera_transform import (
     world_to_camera_transform,
 )
 

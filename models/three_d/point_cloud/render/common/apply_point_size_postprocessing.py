@@ -1,6 +1,6 @@
 import torch
 from typing import Union
-from data.structures.three_d.point_cloud.ops.rendering.common.create_circular_kernel_offsets import (
+from models.three_d.point_cloud.render.common.create_circular_kernel_offsets import (
     create_circular_kernel_offsets,
 )
 
