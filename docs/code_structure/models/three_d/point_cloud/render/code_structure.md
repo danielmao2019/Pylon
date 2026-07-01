@@ -15,14 +15,16 @@ prepare_points_for_rendering.py
 ├── from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── def prepare_points_for_rendering(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], max_divide: int = 0, num_divide: Optional[int] = None, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Public entry that prepares the camera (opencv convention + resolution-scaled intrinsics) and adaptively batches point preprocessing to mitigate CUDA OOM.
-│   ├── impls camera_prepared = camera.to(device=points.device, convention="opencv") then scale_intrinsics(resolution=resolution)
+│   ├── impls points = pc.xyz  # the [N, 3] world-space point tensor
+│   ├── impls camera_prepared = camera.to(device=points.device, convention="opencv").scale_intrinsics(resolution=resolution)
+│   ├── impls N = points.shape[0]
 │   ├── if num_divide is not None
 │   │   ├── impls batch_size = max(1, math.ceil(N / 2 ** num_divide))
-│   │   ├── calls _prepare_points_for_rendering_batched  # camera=camera_prepared, batch_size fixed from num_divide
+│   │   ├── calls _prepare_points_for_rendering_batched  # points=points, camera=camera_prepared, batch_size fixed from num_divide
 │   │   └── return  # the batched, depth-sorted result
 │   ├── while n <= max_divide
 │   │   ├── try
-│   │   │   ├── calls _prepare_points_for_rendering_batched  # camera=camera_prepared, batch_size = ceil(N / 2 ** n)
+│   │   │   ├── calls _prepare_points_for_rendering_batched  # points=points, camera=camera_prepared, batch_size = ceil(N / 2 ** n)
 │   │   │   └── return  # the batched, depth-sorted result
 │   │   └── except torch.cuda.OutOfMemoryError
 │   │       └── impls increment n to retry with a halved batch
