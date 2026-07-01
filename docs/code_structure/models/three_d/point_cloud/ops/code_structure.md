@@ -1,6 +1,8 @@
-# data/structures/three_d/point_cloud/ops — code structure
+# `models/three_d/point_cloud/ops/` code skeleton
 
-`data/structures/three_d/point_cloud/ops/apply_transform.py`
+## Code implementation structure
+
+`models/three_d/point_cloud/ops/apply_transform.py`
 
 ```text
 apply_transform.py
@@ -54,13 +56,13 @@ apply_transform.py
     └── return  # the torch transform
 ```
 
-`data/structures/three_d/point_cloud/ops/world_to_camera_transform.py`
+`models/three_d/point_cloud/ops/world_to_camera_transform.py`
 
 ```text
 world_to_camera_transform.py
 ├── from typing import Optional
 ├── import torch
-├── from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
+├── from models.three_d.point_cloud.ops.apply_transform import apply_transform
 └── def world_to_camera_transform(points: torch.Tensor, extrinsics: torch.Tensor, inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> torch.Tensor
     ├── # High-level API mapping world-frame points into the camera frame: builds the world-to-camera 4x4 matrix from the inverse camera-to-world extrinsic and applies it via apply_transform.
     ├── impls invert the camera-to-world extrinsics into the world-to-camera 4x4 matrix
