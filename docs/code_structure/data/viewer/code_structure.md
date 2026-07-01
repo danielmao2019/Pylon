@@ -334,7 +334,9 @@ three_scene_helpers.ts
     ├── impls wasConnected = false   # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
     ├── def draw
     │   ├── # The requestAnimationFrame callback: stops and frees the context once the canvas leaves the DOM, otherwise renders one frame and reschedules itself.
-    │   ├── impls connected = renderer.domElement.isConnected; if connected then wasConnected = true
+    │   ├── impls connected = renderer.domElement.isConnected
+    │   ├── if connected
+    │   │   └── impls wasConnected = true
     │   ├── if wasConnected and not connected                                       # canvas detached → the cell was unmounted
     │   │   ├── impls renderer.dispose(); renderer.forceContextLoss()
     │   │   └── return                                                              # stop the loop without rescheduling
@@ -1214,7 +1216,8 @@ scene_graph_display.ts
     ├── # Per-frame step: projects each label's world position into overlay-pixel coordinates, updates the HTML node positions and per-label font-size/color, and culls offscreen labels.
     ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
     ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-    ├── impls projects each label's world position to NDC via camera, then converts to overlay-pixel coordinates
+    ├── impls projects each label's world position to NDC via camera
+    ├── impls converts the NDC position to overlay-pixel coordinates
     ├── impls updates each label's HTML node position (left/top), font-size = effectiveLabelFontSize px, color = effectiveLabelColor
     ├── impls culls labels behind the camera or outside the viewport
     └── return
@@ -1796,7 +1799,8 @@ apis.py
 core_camera_display.py
 └── def create_camera_display_response_core(slot_id: str, title: str, camera_vis_payload: List[Dict[str, Any]], meta_info: Optional[Dict[str, Any]] = None) -> CameraDisplayResponse
     ├── # Creates a camera display response from the already-mapped camera-vis payload, exposing it through a frontend-loadable URL.
-    ├── impls builds the camera-vis data URL from camera_vis_payload (json then base64)
+    ├── impls serializes camera_vis_payload to a json string
+    ├── impls builds the camera-vis data URL by base64-encoding that json string
     ├── impls copies caller-provided meta_info into response metadata (empty object for camera display)
     └── return
 ```
@@ -2138,7 +2142,8 @@ selection_path.ts
     ├── # Complete a selector level change into a full root-leaf path, resetting every finer level to its first option.
     ├── impls start the path with the prefix up to the chosen level plus the chosen value
     ├── for each deeper level until the descended node has no children
-    │   └── impls append the descended node's first child's value, then descend into it
+    │   ├── impls append the descended node's first child's value
+    │   └── impls descend into that first child
     └── return            # the completed root-leaf path
 ```
 
@@ -2186,7 +2191,8 @@ selector_cascade.py
 └── def complete_root_leaf_path(node: SelectionNode, path: List[str])
     ├── # Complete a Dash level change into a full root-leaf path: the chosen value, then each deeper level's first child descended to a leaf.
     ├── for each deeper level until the descended node has no children
-    │   └── impls append the descended node's first child's value, then descend into it
+    │   ├── impls append the descended node's first child's value
+    │   └── impls descend into that first child
     └── return            # the completed root-leaf path
 ```
 
