@@ -4,8 +4,10 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_rotation_matrix,
+)
 from data.structures.three_d.camera.rotation.quaternion import qvec2rotmat, rotmat2qvec
-from data.structures.three_d.camera.validation import validate_rotation_matrix
 
 
 def transform_colmap(

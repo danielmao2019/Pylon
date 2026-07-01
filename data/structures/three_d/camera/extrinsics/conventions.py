@@ -1,25 +1,30 @@
-"""Coordinate system transformation utilities for point cloud rendering.
+"""Coordinate system transformation utilities for camera extrinsics.
 
 This module provides utilities to handle different camera coordinate system conventions
-and transform them to standardized coordinate systems used in point cloud rendering.
+and transform a camera's extrinsics between them, always routing through the standard
+convention.
 """
 
 from typing import TYPE_CHECKING
 
 import torch
 
-from data.structures.three_d.camera.validation import validate_camera_convention
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_camera_convention,
+)
 from utils.ops.materialize_tensor import materialize_tensor
 
 if TYPE_CHECKING:
-    from data.structures.three_d.camera.camera import Camera
+    from data.structures.three_d.camera.extrinsics.camera_extrinsics import (
+        CameraExtrinsics,
+    )
 
 
 def transform_convention(
-    camera: "Camera",
+    camera_extrinsics: "CameraExtrinsics",
     target_convention: str = "standard",
 ) -> torch.Tensor:
-    """Transform camera pose between different coordinate system conventions.
+    """Transform camera extrinsics between different coordinate system conventions.
 
     Supported coordinate conventions:
     - "standard": X=right, Y=forward, Z=up (camera looks down +Y axis)
@@ -29,21 +34,20 @@ def transform_convention(
     - "arkit": X=down, Y=left, Z=forward
 
     Args:
-        camera: Camera containing extrinsics/convention
-        target_convention: Target coordinate convention ("standard", "opengl", "opencv", "pytorch3d", "arkit")
+        camera_extrinsics: CameraExtrinsics carrying the source 4x4 cam2world matrix
+            and its source convention.
+        target_convention: Target coordinate convention ("standard", "opengl",
+            "opencv", "pytorch3d", "arkit").
 
     Returns:
-        Transformed 4x4 camera pose in target convention
-
-    Raises:
-        AssertionError: If unknown coordinate convention is specified
+        Transformed 4x4 camera-to-world extrinsics matrix in the target convention.
     """
     # Input validations
-    validate_camera_convention(camera.convention)
+    validate_camera_convention(camera_extrinsics.convention)
     validate_camera_convention(target_convention)
 
-    source_convention = camera.convention
-    extrinsics = camera.extrinsics
+    source_convention = camera_extrinsics.convention
+    extrinsics = camera_extrinsics.extrinsics
 
     if source_convention == target_convention:
         return extrinsics

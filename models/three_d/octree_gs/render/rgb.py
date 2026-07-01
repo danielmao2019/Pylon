@@ -449,8 +449,8 @@ def render_rgb_from_octree_gs(
         model.get_anchor.device.type == 'cuda'
     ), f"Model must reside on CUDA, got '{model.get_anchor.device}'"
 
-    base_width = int(round(camera.cx * 2.0))
-    base_height = int(round(camera.cy * 2.0))
+    base_width = int(round(camera.intrinsics.cx * 2.0))
+    base_height = int(round(camera.intrinsics.cy * 2.0))
     if base_width <= 0 or base_height <= 0:
         raise ValueError(
             "Unable to infer image resolution from intrinsics; provide explicit resolution"
@@ -482,12 +482,12 @@ def render_rgb_from_octree_gs(
         return background_image
 
     camera = camera.to(device=device, convention="opencv")
-    w2c = camera.w2c.detach().cpu().numpy()
+    w2c = camera.extrinsics.w2c.detach().cpu().numpy()
     rotation = np.transpose(w2c[:3, :3])
     translation = w2c[:3, 3]
 
-    fov_x = focal2fov(camera.fx, base_width)
-    fov_y = focal2fov(camera.fy, base_height)
+    fov_x = focal2fov(camera.intrinsics.fx, base_width)
+    fov_y = focal2fov(camera.intrinsics.fy, base_height)
 
     dummy_image = torch.zeros(
         size=(3, target_height, target_width), dtype=torch.float32, device=device
@@ -535,7 +535,9 @@ def render_rgb_from_octree_gs(
         if return_info:
             dist = (
                 torch.sqrt(
-                    torch.sum((model.get_anchor - octree_gs_camera.camera_center) ** 2, dim=1)
+                    torch.sum(
+                        (model.get_anchor - octree_gs_camera.camera_center) ** 2, dim=1
+                    )
                 )
                 * resolution_scale
             )

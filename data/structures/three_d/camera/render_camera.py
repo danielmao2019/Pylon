@@ -1,12 +1,11 @@
 """Render camera geometry into image space using Bresenham lines."""
 
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.camera_vis import camera_vis
-from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
 from data.structures.three_d.point_cloud.camera.transform import (
     world_to_camera_transform,
 )
@@ -26,7 +25,7 @@ def render_camera(
     assert width > 0
 
     device = render_at_camera.device
-    dtype = render_at_camera.intrinsics.dtype
+    dtype = render_at_camera.extrinsics.extrinsics.dtype
 
     geometry = camera_vis(
         camera=camera.to(device=device),
@@ -40,19 +39,15 @@ def render_camera(
     overlay = torch.zeros(3, height, width, device=device, dtype=dtype)
     mask = torch.zeros(height, width, device=device, dtype=dtype)
 
-    def project(points: torch.Tensor) -> torch.Tensor | None:
+    def project(points: torch.Tensor) -> Optional[torch.Tensor]:
         points_cam = world_to_camera_transform(
             points=points.to(device=device, dtype=dtype),
-            extrinsics=render_extrinsics,
+            extrinsics=render_extrinsics.extrinsics,
             inplace=False,
         )
         if not torch.all(points_cam[:, 2] > 1.0e-4):
             return None
-        pixels = project_3d_to_2d(
-            points=points_cam,
-            intrinsics=render_intrinsics,
-            inplace=False,
-        )
+        pixels = render_intrinsics.project(points_cam)
         in_bounds = (
             (pixels[:, 0] >= 0)
             & (pixels[:, 0] < width)

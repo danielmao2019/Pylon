@@ -93,7 +93,7 @@ def camera_vis(
         `center_color` (a normalized float RGB `[3]` tensor), `center_size` (a plain
         Python float), `axes` (a length-3 list of line dicts), and `frustum_lines`
         (a length-8 list of line dicts). Each line dict has keys `start`, `end`, and
-        `color`, all float tensors on `camera.device` with `camera.center.dtype`.
+        `color`, all float tensors on `camera.device` with `camera.extrinsics.center.dtype`.
     """
     assert isinstance(camera, Camera), f"{type(camera)=}"
     assert frustum_size is None or isinstance(frustum_size, float), (
@@ -119,8 +119,14 @@ def camera_vis(
     if point_color is None:
         point_color = DEFAULT_POINT_COLOR
 
+    extrinsics = camera.extrinsics
+    intrinsics = camera.intrinsics
     device = camera.device
-    dtype = camera.center.dtype
+    center = extrinsics.center
+    right = extrinsics.right
+    forward = extrinsics.forward
+    up = extrinsics.up
+    dtype = center.dtype
 
     def _to_color_tensor(color: Tuple[int, int, int]) -> torch.Tensor:
         return torch.tensor(
@@ -130,7 +136,6 @@ def camera_vis(
         )
 
     # --- Center marker ---
-    center = camera.center
     center_color = _to_color_tensor(color=point_color)
     center_size = float(point_size)
 
@@ -138,18 +143,18 @@ def camera_vis(
     axis_length = 0.6 * frustum_size
     axes = [
         {
-            'start': camera.center,
-            'end': camera.center + camera.right * axis_length,
+            'start': center,
+            'end': center + right * axis_length,
             'color': torch.tensor([1.0, 0.0, 0.0], device=device, dtype=dtype),
         },
         {
-            'start': camera.center,
-            'end': camera.center + camera.forward * axis_length,
+            'start': center,
+            'end': center + forward * axis_length,
             'color': torch.tensor([0.0, 1.0, 0.0], device=device, dtype=dtype),
         },
         {
-            'start': camera.center,
-            'end': camera.center + camera.up * axis_length,
+            'start': center,
+            'end': center + up * axis_length,
             'color': torch.tensor([0.0, 0.0, 1.0], device=device, dtype=dtype),
         },
     ]
@@ -157,29 +162,29 @@ def camera_vis(
     # --- Frustum ---
     frustum_depth = frustum_size
     frustum_line_color = _to_color_tensor(color=frustum_color)
-    fx = camera.fx
-    fy = camera.fy
-    cx = camera.cx
-    cy = camera.cy
+    fx = intrinsics.fx
+    fy = intrinsics.fy
+    cx = intrinsics.cx
+    cy = intrinsics.cy
     if cx > 0.0 and cy > 0.0 and fx > 0.0 and fy > 0.0:
         half_width = frustum_depth * (cx / fx)
         half_height = frustum_depth * (cy / fy)
     else:
         half_width = frustum_depth * 0.5
         half_height = frustum_depth * 0.5
-    frustum_center = camera.center + camera.forward * frustum_depth
+    frustum_center = center + forward * frustum_depth
     frustum_points_world = [
-        frustum_center - camera.right * half_width + camera.up * half_height,
-        frustum_center + camera.right * half_width + camera.up * half_height,
-        frustum_center + camera.right * half_width - camera.up * half_height,
-        frustum_center - camera.right * half_width - camera.up * half_height,
+        frustum_center - right * half_width + up * half_height,
+        frustum_center + right * half_width + up * half_height,
+        frustum_center + right * half_width - up * half_height,
+        frustum_center - right * half_width - up * half_height,
     ]
 
     frustum_lines: List[Dict[str, Any]] = []
     for point in frustum_points_world:
         frustum_lines.append(
             {
-                'start': camera.center,
+                'start': center,
                 'end': point,
                 'color': frustum_line_color,
             }

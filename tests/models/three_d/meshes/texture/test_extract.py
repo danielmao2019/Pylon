@@ -1,12 +1,16 @@
 """Tests for the UV-texture extraction pipeline."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytest
 import torch
 
 import models.three_d.meshes.texture.extract.extract as extract_module
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    build_camera_intrinsics,
+)
 from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
@@ -38,9 +42,7 @@ def _build_texel_face_map_stub(
         assigned to face 0 with centroid barycentrics.
     """
 
-    texel_face_index = torch.zeros(
-        (texture_size, texture_size), dtype=torch.int64
-    )
+    texel_face_index = torch.zeros((texture_size, texture_size), dtype=torch.int64)
     texel_face_barycentric = torch.full(
         (texture_size, texture_size, 3),
         fill_value=1.0 / 3.0,
@@ -82,9 +84,20 @@ def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
         dtype=torch.float32,
     )
     cameras = Cameras(
-        intrinsics=[torch.eye(3, dtype=torch.float32)],
-        extrinsics=[torch.eye(4, dtype=torch.float32)],
-        conventions=["opencv"],
+        intrinsics=[
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            )
+        ],
+        extrinsics=[
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            )
+        ],
         device="cpu",
     )
     texel_face_map = _build_texel_face_map_stub(texture_size=2)
@@ -125,9 +138,20 @@ def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
         dtype=torch.float32,
     )
     cameras = Cameras(
-        intrinsics=[torch.eye(3, dtype=torch.float32)],
-        extrinsics=[torch.eye(4, dtype=torch.float32)],
-        conventions=["opencv"],
+        intrinsics=[
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            )
+        ],
+        extrinsics=[
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            )
+        ],
         device="cpu",
     )
     texel_face_map = _build_texel_face_map_stub(texture_size=2)
@@ -333,18 +357,27 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         dtype=torch.float32,
     )
     cameras = Cameras(
-        intrinsics=[torch.eye(3, device=device, dtype=torch.float32)],
-        extrinsics=[torch.eye(4, device=device, dtype=torch.float32)],
-        conventions=["opencv"],
+        intrinsics=[
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device=device,
+            )
+        ],
+        extrinsics=[
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, device=device, dtype=torch.float32),
+                convention="opencv",
+                device=device,
+            )
+        ],
         device=device,
     )
     mesh = Mesh(
         verts=verts,
         faces=faces,
         texture=MeshTextureUVTextureMap(
-            uv_texture_map=torch.zeros(
-                (1, 1, 3), dtype=torch.float32, device=device
-            ),
+            uv_texture_map=torch.zeros((1, 1, 3), dtype=torch.float32, device=device),
             verts_uvs=verts_uvs,
             faces_uvs=faces,
             convention="obj",
@@ -423,14 +456,29 @@ def test_extract_texture_from_images_reuses_single_mesh_across_views(
     )
     cameras = Cameras(
         intrinsics=[
-            torch.eye(3, dtype=torch.float32),
-            torch.eye(3, dtype=torch.float32),
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            ),
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            ),
         ],
         extrinsics=[
-            torch.eye(4, dtype=torch.float32),
-            torch.eye(4, dtype=torch.float32),
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            ),
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            ),
         ],
-        conventions=["opencv", "opencv"],
         device="cpu",
     )
 
@@ -504,14 +552,29 @@ def test_extract_texture_from_images_uses_per_view_mesh_geometry(
     images = torch.zeros((2, 3, 2, 2), dtype=torch.float32)
     cameras = Cameras(
         intrinsics=[
-            torch.eye(3, dtype=torch.float32),
-            torch.eye(3, dtype=torch.float32),
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            ),
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            ),
         ],
         extrinsics=[
-            torch.eye(4, dtype=torch.float32),
-            torch.eye(4, dtype=torch.float32),
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            ),
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            ),
         ],
-        conventions=["opencv", "opencv"],
         device="cpu",
     )
 
@@ -551,14 +614,29 @@ def test_extract_texture_from_images_rejects_per_view_mesh_count_mismatch() -> N
     images = torch.zeros((2, 3, 2, 2), dtype=torch.float32)
     cameras = Cameras(
         intrinsics=[
-            torch.eye(3, dtype=torch.float32),
-            torch.eye(3, dtype=torch.float32),
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            ),
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            ),
         ],
         extrinsics=[
-            torch.eye(4, dtype=torch.float32),
-            torch.eye(4, dtype=torch.float32),
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            ),
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            ),
         ],
-        conventions=["opencv", "opencv"],
         device="cpu",
     )
 
@@ -726,8 +804,8 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
         camera: Cameras,
         weights_cfg: Dict[str, Any],
         texel_face_map: Dict[str, torch.Tensor],
-        polygon_rast_method: str | None = None,
-        texel_visibility_method: str | None = None,
+        polygon_rast_method: Optional[str] = None,
+        texel_visibility_method: Optional[str] = None,
     ) -> Dict[str, torch.Tensor]:
         assert isinstance(mesh, Mesh), f"{type(mesh)=}"
         assert isinstance(image, torch.Tensor), f"{type(image)=}"
@@ -793,9 +871,20 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
     )
     image = torch.zeros((3, 2, 2), dtype=torch.float32)
     camera = Cameras(
-        intrinsics=[torch.eye(3, dtype=torch.float32)],
-        extrinsics=[torch.eye(4, dtype=torch.float32)],
-        conventions=["opencv"],
+        intrinsics=[
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            )
+        ],
+        extrinsics=[
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            )
+        ],
         device="cpu",
     )
     texel_face_map = _build_texel_face_map_stub(texture_size=2)
@@ -863,8 +952,8 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         camera: Cameras,
         weights_cfg: Dict[str, Any],
         texel_face_map: Dict[str, torch.Tensor],
-        polygon_rast_method: str | None = None,
-        texel_visibility_method: str | None = None,
+        polygon_rast_method: Optional[str] = None,
+        texel_visibility_method: Optional[str] = None,
     ) -> Dict[str, torch.Tensor]:
         assert isinstance(mesh, Mesh), f"{type(mesh)=}"
         assert isinstance(image, torch.Tensor), f"{type(image)=}"
@@ -935,9 +1024,20 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
     )
     images = torch.zeros((1, 3, 2, 2), dtype=torch.float32)
     cameras = Cameras(
-        intrinsics=[torch.eye(3, dtype=torch.float32)],
-        extrinsics=[torch.eye(4, dtype=torch.float32)],
-        conventions=["opencv"],
+        intrinsics=[
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            )
+        ],
+        extrinsics=[
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            )
+        ],
         device="cpu",
     )
 
@@ -984,9 +1084,20 @@ def test_extract_texture_from_images_rejects_out_of_range_float_images() -> None
     )
     images = torch.full((1, 3, 2, 2), fill_value=1.2, dtype=torch.float32)
     cameras = Cameras(
-        intrinsics=[torch.eye(3, dtype=torch.float32)],
-        extrinsics=[torch.eye(4, dtype=torch.float32)],
-        conventions=["opencv"],
+        intrinsics=[
+            build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                device="cpu",
+            )
+        ],
+        extrinsics=[
+            CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opencv",
+                device="cpu",
+            )
+        ],
         device="cpu",
     )
 

@@ -117,7 +117,7 @@ def _build_colmap_images(
             device=torch.device("cpu"),
             convention="opencv",
         )
-        world_to_camera = camera_opencv.w2c.cpu().numpy()
+        world_to_camera = camera_opencv.extrinsics.w2c.cpu().numpy()
         rotation = world_to_camera[:3, :3]
         translation = world_to_camera[:3, 3]
         qvec = rotmat2qvec(rotation)

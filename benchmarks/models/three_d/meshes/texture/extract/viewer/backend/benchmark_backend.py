@@ -1150,10 +1150,17 @@ def _benchmark_open3d_cpu_method(
     source_rgb_float = scene_context["source_rgb"].astype(np.float32) / 255.0
     camera = scene_context["camera"][0]
     intrinsic_matrix = o3d.core.Tensor(
-        camera.intrinsics.detach().cpu().numpy().astype(np.float32)
+        np.array(
+            [
+                [camera.intrinsics.fx, 0.0, camera.intrinsics.cx],
+                [0.0, camera.intrinsics.fy, camera.intrinsics.cy],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=np.float32,
+        )
     )
     extrinsic_matrix = o3d.core.Tensor(
-        camera.extrinsics.detach().cpu().numpy().astype(np.float32)
+        camera.extrinsics.extrinsics.detach().cpu().numpy().astype(np.float32)
     )
     triangle_uvs = (
         scene_context["exploded_verts_uvs"]

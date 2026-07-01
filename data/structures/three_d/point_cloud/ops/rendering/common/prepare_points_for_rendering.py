@@ -145,8 +145,17 @@ def _prepare_points_for_rendering_batched(
 
     Returns (points_2d, indices) after a global back-to-front sort by depth.
     """
-    intrinsics = camera.intrinsics
-    extrinsics = camera.extrinsics
+    camera_intrinsics = camera.intrinsics
+    intrinsics = torch.tensor(
+        [
+            [camera_intrinsics.fx, 0.0, camera_intrinsics.cx],
+            [0.0, camera_intrinsics.fy, camera_intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=camera_intrinsics.device,
+    )
+    extrinsics = camera.extrinsics.extrinsics
     N = points.shape[0]
     outputs = []
     idx_outputs = []

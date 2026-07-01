@@ -8,8 +8,10 @@ conversions to keep behaviour consistent across the codebase.
 
 import torch
 
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_rotation_matrix,
+)
 from data.structures.three_d.camera.rotation.euler import euler_to_matrix
-from data.structures.three_d.camera.validation import validate_rotation_matrix
 
 
 def pitch_yaw_to_matrix(rotation: torch.Tensor) -> torch.Tensor:

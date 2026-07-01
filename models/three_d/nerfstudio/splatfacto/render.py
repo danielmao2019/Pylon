@@ -32,8 +32,8 @@ def render_rgb_from_splatfacto(
     device = model.model.device
     camera = camera.to(device=device, convention="opengl")
 
-    base_cx = camera.cx
-    base_cy = camera.cy
+    base_cx = camera.intrinsics.cx
+    base_cy = camera.intrinsics.cy
     if resolution is None:
         render_height = int(round(base_cy * 2.0))
         render_width = int(round(base_cx * 2.0))
@@ -49,11 +49,11 @@ def render_rgb_from_splatfacto(
 
     # Create camera object with intrinsic and extrinsic parameters
     ns_camera = Cameras(
-        fx=camera_prepared.fx,  # Focal length in X direction
-        fy=camera_prepared.fy,  # Focal length in Y direction
-        cx=camera_prepared.cx,  # Principal point X
-        cy=camera_prepared.cy,  # Principal point Y
-        camera_to_worlds=camera_prepared.extrinsics.unsqueeze(0),
+        fx=camera_prepared.intrinsics.fx,  # Focal length in X direction
+        fy=camera_prepared.intrinsics.fy,  # Focal length in Y direction
+        cx=camera_prepared.intrinsics.cx,  # Principal point X
+        cy=camera_prepared.intrinsics.cy,  # Principal point Y
+        camera_to_worlds=camera_prepared.extrinsics.extrinsics.unsqueeze(0),
         camera_type=CameraType.PERSPECTIVE,
         width=render_width,
         height=render_height,

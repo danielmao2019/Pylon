@@ -3,10 +3,46 @@
 import pytest
 import torch
 
+from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    build_camera_intrinsics,
+)
 from data.structures.three_d.point_cloud.ops.rendering import (
     render_segmentation_from_point_cloud,
 )
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+
+
+def _build_camera(focal: float, principal_point: float) -> Camera:
+    """Build an identity-pose OpenGL pinhole camera on the CPU.
+
+    Args:
+        focal: Shared focal length used for both fx and fy.
+        principal_point: Shared principal-point coordinate used for both cx and cy.
+
+    Returns:
+        A Camera whose pinhole intrinsics are (fx, fy, cx, cy) and whose
+        extrinsics are the identity cam2world matrix in the opengl convention.
+    """
+    return Camera(
+        intrinsics=build_camera_intrinsics(
+            model="pinhole",
+            params={
+                "fx": focal,
+                "fy": focal,
+                "cx": principal_point,
+                "cy": principal_point,
+            },
+            device=torch.device("cpu"),
+        ),
+        extrinsics=CameraExtrinsics(
+            extrinsics=torch.eye(4, dtype=torch.float32),
+            convention="opengl",
+            device=torch.device("cpu"),
+        ),
+        device=torch.device("cpu"),
+    )
 
 
 def test_render_segmentation_basic() -> None:
@@ -24,19 +60,13 @@ def test_render_segmentation_basic() -> None:
         data={'labels': labels},
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     seg_map = render_segmentation_from_point_cloud(
         pc=pc_data,
         key='labels',
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
-        convention="opengl",
         return_mask=False,
     )
 
@@ -59,19 +89,13 @@ def test_render_segmentation_with_mask() -> None:
         data={'labels': labels},
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     seg_map, valid_mask = render_segmentation_from_point_cloud(
         pc=pc_data,
         key='labels',
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
-        convention="opengl",
         return_mask=True,
     )
 
@@ -96,17 +120,12 @@ def test_render_segmentation_depth_sorting() -> None:
         data={'labels': labels},
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     seg_map = render_segmentation_from_point_cloud(
         pc=pc_data,
         key='labels',
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
     )
 
@@ -127,17 +146,12 @@ def test_render_segmentation_points_behind_camera() -> None:
         data={'labels': labels},
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     seg_map, valid_mask = render_segmentation_from_point_cloud(
         pc=pc_data,
         key='labels',
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
         return_mask=True,
     )
@@ -154,18 +168,13 @@ def test_render_segmentation_custom_ignore_value() -> None:
         data={'labels': labels},
     )
 
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     ignore_value = -1
     seg_map = render_segmentation_from_point_cloud(
         pc=pc_data,
         key='labels',
-        camera_intrinsics=camera_intrinsics,
-        camera_extrinsics=camera_extrinsics,
+        camera=camera,
         resolution=(100, 100),
         ignore_value=ignore_value,
     )
@@ -178,18 +187,13 @@ def test_render_segmentation_missing_labels() -> None:
     pc_data = PointCloud(
         xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32),
     )
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    camera = _build_camera(focal=100.0, principal_point=50.0)
 
     with pytest.raises(AssertionError):
         render_segmentation_from_point_cloud(
             pc=pc_data,
             key="labels",
-            camera_intrinsics=camera_intrinsics,
-            camera_extrinsics=camera_extrinsics,
+            camera=camera,
             resolution=(100, 100),
         )
 
@@ -201,44 +205,40 @@ def test_render_segmentation_invalid_inputs() -> None:
         xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32),
         data={'labels': labels},
     )
-    camera_intrinsics = torch.tensor(
-        [[100.0, 0.0, 50.0], [0.0, 100.0, 50.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    camera_extrinsics = torch.eye(4, dtype=torch.float32)
+    valid_camera = _build_camera(focal=100.0, principal_point=50.0)
 
     with pytest.raises(AssertionError):
         render_segmentation_from_point_cloud(
             pc=None,
             key='labels',
-            camera_intrinsics=camera_intrinsics,
-            camera_extrinsics=camera_extrinsics,
+            camera=valid_camera,
             resolution=(100, 100),
+        )
+
+    # A non-CameraIntrinsics intrinsics is rejected at Camera construction.
+    with pytest.raises(AssertionError):
+        Camera(
+            intrinsics=torch.eye(4, dtype=torch.float32),
+            extrinsics=CameraExtrinsics(
+                extrinsics=torch.eye(4, dtype=torch.float32),
+                convention="opengl",
+                device=torch.device("cpu"),
+            ),
+            device=torch.device("cpu"),
+        )
+
+    # A malformed (3x3) extrinsics matrix is rejected at CameraExtrinsics construction.
+    with pytest.raises(AssertionError):
+        CameraExtrinsics(
+            extrinsics=torch.eye(3, dtype=torch.float32),
+            convention="opengl",
+            device=torch.device("cpu"),
         )
 
     with pytest.raises(AssertionError):
         render_segmentation_from_point_cloud(
             pc=pc_data,
             key='labels',
-            camera_intrinsics=torch.eye(4),
-            camera_extrinsics=camera_extrinsics,
-            resolution=(100, 100),
-        )
-
-    with pytest.raises(AssertionError):
-        render_segmentation_from_point_cloud(
-            pc=pc_data,
-            key='labels',
-            camera_intrinsics=camera_intrinsics,
-            camera_extrinsics=torch.eye(3),
-            resolution=(100, 100),
-        )
-
-    with pytest.raises(AssertionError):
-        render_segmentation_from_point_cloud(
-            pc=pc_data,
-            key='labels',
-            camera_intrinsics=camera_intrinsics,
-            camera_extrinsics=camera_extrinsics,
+            camera=valid_camera,
             resolution=(0, 100),
         )

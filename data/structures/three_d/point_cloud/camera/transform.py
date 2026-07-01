@@ -3,7 +3,7 @@ from typing import Optional
 
 import torch
 
-from data.structures.three_d.camera.validation import validate_camera_extrinsics
+from data.structures.three_d.camera.extrinsics import validate_camera_extrinsics
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.ops.materialize_tensor import materialize_tensor
 

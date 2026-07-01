@@ -8,6 +8,12 @@ import torch
 from PIL import Image
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import (
+    CameraExtrinsics,
+)
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    build_camera_intrinsics,
+)
 from data.structures.three_d.point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.ops.rendering.render_rgb import (
     render_rgb_from_point_cloud,
@@ -42,27 +48,28 @@ def demo_rendering() -> None:
     # Point clouds must follow supported formats (.ply/.las/.laz/.off/.txt/.pth) with 'rgb' and
     # segmentation labels so downstream renderers can consume them.
 
-    # Camera intrinsics must be 3x3 pinhole matrices; keep them on the GPU for rendering.
+    # Pinhole camera intrinsics, built from named parameters and kept on the GPU.
     fx, fy, cx, cy = 1100.0, 1100.0, 960.0, 540.0
-    camera_intrinsics = torch.tensor(
-        [
-            [fx, 0.0, cx],
-            [0.0, fy, cy],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
+    camera_intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={"fx": fx, "fy": fy, "cx": cx, "cy": cy},
         device=device,
     )
 
-    # Camera extrinsics are assumed to be camera-to-world in OpenGL convention; keep them on CUDA too.
-    camera_extrinsics = torch.eye(4, dtype=torch.float32, device=device)
-    camera_extrinsics[:3, 3] = torch.tensor([0.0, 0.0, 1.5], device=device)
+    # Camera extrinsics are camera-to-world in OpenGL convention; keep them on CUDA too.
+    extrinsics_matrix = torch.eye(4, dtype=torch.float32, device=device)
+    extrinsics_matrix[:3, 3] = torch.tensor([0.0, 0.0, 1.5], device=device)
+    camera_extrinsics = CameraExtrinsics(
+        extrinsics=extrinsics_matrix,
+        convention="opengl",
+        device=device,
+    )
 
     camera = Camera(
         intrinsics=camera_intrinsics,
         extrinsics=camera_extrinsics,
-        convention="opengl",
         name=None,
+        id=None,
         device=device,
     )
 

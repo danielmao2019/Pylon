@@ -14,7 +14,7 @@ import torch
 from diff_surfel_rasterization import GaussianRasterizationSettings, GaussianRasterizer
 from torch import nn
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.camera import Camera as RepoCamera
 from models.three_d.two_dgs.loader import GaussianModel
 
 
@@ -448,7 +448,7 @@ def render(
 @torch.no_grad()
 def render_rgb_from_2dgs(
     model: Any,
-    camera: Camera,
+    camera: RepoCamera,
     resolution: Optional[Tuple[int, int]] = None,
     background: Tuple[int, int, int] = (0, 0, 0),
     compute_cov3D_python: bool = False,
@@ -472,7 +472,7 @@ def render_rgb_from_2dgs(
     assert hasattr(
         model, "model"
     ), "render_rgb_from_2dgs expects output of load_2dgs_model"
-    assert isinstance(camera, Camera), f"{type(camera)=}"
+    assert isinstance(camera, RepoCamera), f"{type(camera)=}"
     if resolution is not None:
         assert isinstance(
             resolution, tuple
@@ -494,8 +494,8 @@ def render_rgb_from_2dgs(
 
     # resolve input args
     gaussians = model.model
-    base_width = int(round(float(camera.cx) * 2.0))
-    base_height = int(round(float(camera.cy) * 2.0))
+    base_width = int(round(float(camera.intrinsics.cx) * 2.0))
+    base_height = int(round(float(camera.intrinsics.cy) * 2.0))
     if resolution is None:
         target_height = base_height
         target_width = base_width
@@ -513,12 +513,12 @@ def render_rgb_from_2dgs(
     )
 
     # prepare camera intrinsics
-    fov_x = focal2fov(camera.fx, base_width)
-    fov_y = focal2fov(camera.fy, base_height)
+    fov_x = focal2fov(camera.intrinsics.fx, base_width)
+    fov_y = focal2fov(camera.intrinsics.fy, base_height)
 
     # prepare camera extrinsics
     camera = camera.to(device=device, convention="opencv")
-    w2c = camera.w2c.detach().cpu().numpy()
+    w2c = camera.extrinsics.w2c.detach().cpu().numpy()
     rotation = np.transpose(w2c[:3, :3])
     translation = w2c[:3, 3]
 

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -9,7 +9,7 @@ from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS
 
 
-def save_intrinsic_params(params: Dict[str, float | int]) -> Dict[str, Any]:
+def save_intrinsic_params(params: Dict[str, Union[float, int]]) -> Dict[str, Any]:
     keys = ["fl_x", "fl_y", "cx", "cy", "k1", "k2", "p1", "p2"]
     return {key: params[key] for key in keys}
 
@@ -32,7 +32,7 @@ def save_ply_file_path(ply_file_path: str) -> Dict[str, Any]:
 
 
 def save_cameras(
-    cameras: Cameras | List[Camera],
+    cameras: Union[Cameras, List[Camera]],
     filenames: List[str],
     modalities: List[str],
 ) -> Dict[str, Any]:
@@ -41,7 +41,7 @@ def save_cameras(
         assert camera.name is not None, "Camera name required to save transforms.json"
         assert camera.name == filename, f"{camera.name=} {filename=}"
         frame_entry: Dict[str, Any] = {
-            "transform_matrix": camera.extrinsics.detach().cpu().tolist(),
+            "transform_matrix": camera.extrinsics.extrinsics.detach().cpu().tolist(),
         }
         if camera.id is not None:
             frame_entry["colmap_im_id"] = camera.id
@@ -56,9 +56,9 @@ def save_cameras(
 
 
 def save_split_filenames(
-    train: List[str] | None,
-    val: List[str] | None,
-    test: List[str] | None,
+    train: Optional[List[str]],
+    val: Optional[List[str]],
+    test: Optional[List[str]],
 ) -> Dict[str, Any]:
     if train is None:
         return {}
@@ -71,7 +71,7 @@ def save_split_filenames(
 
 def save_nerfstudio_data(
     data: "NerfStudio_Data",
-    filepath: str | Path,
+    filepath: Union[str, Path],
 ) -> None:
     # Input validations
     assert data.__class__.__name__ == "NerfStudio_Data", f"{type(data)=}"

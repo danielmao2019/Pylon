@@ -9,7 +9,7 @@ from diff_gaussian_rasterization import (
 )
 from torch import Tensor
 
-from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.camera import Camera as RepoCamera
 from models.three_d.gspl.helpers import eval_sh
 from models.three_d.gspl.model import GSPLModel
 
@@ -656,28 +656,28 @@ class ViewerRenderer:
 
 
 def _prepare_camera(
-    camera: Camera,
+    camera: RepoCamera,
 ):
     """
     Build a single Camera from intrinsics/extrinsics.
     Assumes CUDA is available.
     """
-    assert isinstance(camera, Camera), f"{type(camera)=}"
+    assert isinstance(camera, RepoCamera), f"{type(camera)=}"
     assert torch.cuda.is_available(), "CUDA is required for rendering."
     device = torch.device("cuda")
     camera = camera.to(device=device, convention="opencv")
-    extrinsics = camera.extrinsics.to(dtype=torch.float32)
+    extrinsics = camera.extrinsics.extrinsics.to(dtype=torch.float32)
     w2c = torch.linalg.inv(extrinsics)
     R = w2c[:3, :3].unsqueeze(0)
     T = w2c[:3, 3].unsqueeze(0)
 
     width = (
-        torch.tensor([camera.cx * 2.0], device=device, dtype=torch.float32)
+        torch.tensor([camera.intrinsics.cx * 2.0], device=device, dtype=torch.float32)
         .round()
         .clamp(min=1.0)
     )
     height = (
-        torch.tensor([camera.cy * 2.0], device=device, dtype=torch.float32)
+        torch.tensor([camera.intrinsics.cy * 2.0], device=device, dtype=torch.float32)
         .round()
         .clamp(min=1.0)
     )
@@ -688,8 +688,8 @@ def _prepare_camera(
     return Cameras(
         R=R,
         T=T,
-        fx=torch.tensor([camera.fx], device=device, dtype=torch.float32),
-        fy=torch.tensor([camera.fy], device=device, dtype=torch.float32),
+        fx=torch.tensor([camera.intrinsics.fx], device=device, dtype=torch.float32),
+        fy=torch.tensor([camera.intrinsics.fy], device=device, dtype=torch.float32),
         cx=width * 0.5,
         cy=height * 0.5,
         width=width,
@@ -704,7 +704,7 @@ def _prepare_camera(
 @torch.no_grad()
 def render_rgb_from_matrices(
     model: GSPLModel,
-    camera: Camera,
+    camera: RepoCamera,
     background_color: Tuple[int, int, int] = (0, 0, 0),
     scaling_modifier: float = 1.0,
 ) -> torch.Tensor:
@@ -714,7 +714,7 @@ def render_rgb_from_matrices(
     """
     assert torch.cuda.is_available(), "CUDA is required for rendering."
     device = torch.device("cuda")
-    assert isinstance(camera, Camera), f"{type(camera)=}"
+    assert isinstance(camera, RepoCamera), f"{type(camera)=}"
 
     renderer = VanillaRenderer().to(device)
     renderer.setup("validation")

@@ -133,7 +133,7 @@ def _create_camera_from_parameters_blender(
         resolution=resolution
     )
     intrinsics = camera_for_resolution.intrinsics
-    extrinsics = camera_for_resolution.extrinsics
+    extrinsics = camera_for_resolution.extrinsics.extrinsics
 
     camera_data = bpy.data.cameras.new(name='mesh_camera_blender')
     camera_obj = bpy.data.objects.new(camera_data.name, camera_data)
@@ -143,15 +143,15 @@ def _create_camera_from_parameters_blender(
     sensor_width = camera_data.sensor_width
     sensor_height = camera_data.sensor_height
 
-    camera_data.lens = camera.fx * sensor_width / float(image_width)
+    camera_data.lens = camera.intrinsics.fx * sensor_width / float(image_width)
 
-    sensor_aspect = (camera.fy * sensor_height / image_height) / (
-        camera.fx * sensor_width / image_width
+    sensor_aspect = (camera.intrinsics.fy * sensor_height / image_height) / (
+        camera.intrinsics.fx * sensor_width / image_width
     )
     camera_data.sensor_fit = 'HORIZONTAL' if sensor_aspect <= 1.0 else 'VERTICAL'
 
-    camera_data.shift_x = (camera.cx - image_width / 2.0) / image_width
-    camera_data.shift_y = (image_height / 2.0 - camera.cy) / image_height
+    camera_data.shift_x = (camera.intrinsics.cx - image_width / 2.0) / image_width
+    camera_data.shift_y = (image_height / 2.0 - camera.intrinsics.cy) / image_height
 
     camera_obj.matrix_world = _torch_to_matrix_blender(extrinsics)
     return camera_obj

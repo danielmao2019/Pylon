@@ -423,15 +423,15 @@ def _prepare_viewpoint_camera(
     resolution: (height, width)
     """
     assert isinstance(camera, Camera), f"{type(camera)=}"
-    base_width = int(camera.cx * 2.0)
-    base_height = int(camera.cy * 2.0)
+    base_width = int(camera.intrinsics.cx * 2.0)
+    base_height = int(camera.intrinsics.cy * 2.0)
 
-    fov_x = focal2fov(camera.fx, base_width)
-    fov_y = focal2fov(camera.fy, base_height)
+    fov_x = focal2fov(camera.intrinsics.fx, base_width)
+    fov_y = focal2fov(camera.intrinsics.fy, base_height)
 
     # Transform extrinsics to opencv convention and split R, T
     camera = camera.to(device=device, convention="opencv")
-    w2c = camera.w2c.detach().cpu().numpy()
+    w2c = camera.extrinsics.w2c.detach().cpu().numpy()
     rotation = np.transpose(w2c[:3, :3])
     translation = w2c[:3, 3]
 
@@ -485,8 +485,8 @@ def render_rgb_from_3dgs_original(
     assert isinstance(model, GaussianModel)
     assert isinstance(camera, Camera), f"{type(camera)=}"
     # Compute base dimensions from intrinsics
-    base_width = int(camera.cx * 2.0)
-    base_height = int(camera.cy * 2.0)
+    base_width = int(camera.intrinsics.cx * 2.0)
+    base_height = int(camera.intrinsics.cy * 2.0)
     # Always determine resolution (height, width)
     if not resolution:
         assert not (
@@ -512,8 +512,17 @@ def render_rgb_from_3dgs_original(
 
     device = model.get_xyz.device
 
+    intrinsics_matrix = torch.tensor(
+        [
+            [camera.intrinsics.fx, 0, camera.intrinsics.cx],
+            [0, camera.intrinsics.fy, camera.intrinsics.cy],
+            [0, 0, 1],
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
     scaling_modifier = _prepare_scaling_modifier(
-        intrinsics=camera.intrinsics, resolution=resolution
+        intrinsics=intrinsics_matrix, resolution=resolution
     )
 
     background_tensor = torch.tensor(background, dtype=torch.float32, device=device)

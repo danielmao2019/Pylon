@@ -16,10 +16,17 @@ def create_camera_state_from_camera(camera: Camera) -> CameraState:
         Serialized camera state preserving intrinsics, extrinsics, convention, name, and id.
     """
     assert isinstance(camera, Camera), "Camera must be a Camera. camera=%r" % camera
+    intrinsics = camera.intrinsics
     return CameraState(
-        intrinsics={"matrix": camera.intrinsics.detach().cpu().tolist()},
-        extrinsics={"matrix": camera.extrinsics.detach().cpu().tolist()},
-        convention=camera.convention,
+        intrinsics={
+            "matrix": [
+                [intrinsics.fx, 0.0, intrinsics.cx],
+                [0.0, intrinsics.fy, intrinsics.cy],
+                [0.0, 0.0, 1.0],
+            ]
+        },
+        extrinsics={"matrix": camera.extrinsics.extrinsics.detach().cpu().tolist()},
+        convention=camera.extrinsics.convention,
         name=camera.name,
         id=None if camera.id is None else str(camera.id),
     )

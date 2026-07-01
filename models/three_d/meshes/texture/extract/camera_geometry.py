@@ -1,5 +1,7 @@
 """Shared camera-space geometry helpers for mesh texture extraction."""
 
+from typing import Tuple
+
 import nvdiffrast.torch as dr
 import torch
 
@@ -184,13 +186,11 @@ def _verts_world_to_camera(
     camera_single = camera[0].to(device=verts.device, convention="opencv")
     verts_camera = world_to_camera_transform(
         points=verts,
-        extrinsics=camera_single.extrinsics,
+        extrinsics=camera_single.extrinsics.extrinsics,
         inplace=False,
     )
     assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
-    assert (
-        verts_camera.shape == verts.shape
-    ), f"{verts_camera.shape=} {verts.shape=}"
+    assert verts_camera.shape == verts.shape, f"{verts_camera.shape=} {verts.shape=}"
     return verts_camera
 
 
@@ -199,7 +199,7 @@ def project_verts_to_image(
     camera: Cameras,
     image_height: int,
     image_width: int,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Project world-space verts to image pixels for one view.
 
     Args:
@@ -246,10 +246,10 @@ def project_verts_to_image(
     )
     depth = verts_camera[:, 2]
 
-    fx = intrinsics[0, 0]
-    fy = intrinsics[1, 1]
-    cx = intrinsics[0, 2]
-    cy = intrinsics[1, 2]
+    fx = intrinsics.fx
+    fy = intrinsics.fy
+    cx = intrinsics.cx
+    cy = intrinsics.cy
     x = fx * (verts_camera[:, 0] / depth) + cx
     y = fy * (verts_camera[:, 1] / depth) + cy
 

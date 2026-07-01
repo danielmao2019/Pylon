@@ -54,7 +54,16 @@ def render_rgb_from_pointcloud_o3d(
     render_height, render_width = resolution
 
     # Step 2: Device and dtype conversions
-    camera_intrinsics = camera.intrinsics.clone()
+    intrinsics = camera.intrinsics
+    camera_intrinsics = torch.tensor(
+        [
+            [intrinsics.fx, 0.0, intrinsics.cx],
+            [0.0, intrinsics.fy, intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=intrinsics.device,
+    )
     camera_extrinsics = camera.extrinsics
 
     # Step 3: Scale camera intrinsics in-place
@@ -119,9 +128,9 @@ def render_rgb_from_pointcloud_o3d(
     )
 
     # Step 7: Do projection - define pos, forward, up, set look_at, and render
-    pos = camera.extrinsics[:3, 3]
-    forward = camera.forward
-    up = camera.up
+    pos = camera.extrinsics.center
+    forward = camera.extrinsics.forward
+    up = camera.extrinsics.up
 
     # Position camera in 3D scene and render
     renderer.scene.camera.look_at(

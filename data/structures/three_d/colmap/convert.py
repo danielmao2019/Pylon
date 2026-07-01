@@ -7,6 +7,11 @@ import numpy as np
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    CameraIntrinsics,
+    build_camera_intrinsics,
+)
 from data.structures.three_d.camera.rotation.quaternion import qvec2rotmat
 from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
@@ -108,18 +113,16 @@ def _extract_cameras_from_colmap(
     assert isinstance(intrinsic_params, dict), f"{type(intrinsic_params)=}"
     assert colmap_images, "No images available in COLMAP model"
 
-    extrinsics_list: List[torch.Tensor] = []
+    intrinsics_params: Dict[str, float] = {
+        "fx": intrinsic_params["fl_x"],
+        "fy": intrinsic_params["fl_y"],
+        "cx": intrinsic_params["cx"],
+        "cy": intrinsic_params["cy"],
+    }
+    intrinsics_list: List[CameraIntrinsics] = []
+    extrinsics_list: List[CameraExtrinsics] = []
     camera_names: List[str] = []
     camera_ids: List[int] = []
-    intrinsics = torch.tensor(
-        [
-            [intrinsic_params["fl_x"], 0.0, intrinsic_params["cx"]],
-            [0.0, intrinsic_params["fl_y"], intrinsic_params["cy"]],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-    )
-    intrinsics_list = [intrinsics for _ in colmap_images]
     for image_id, image in sorted(colmap_images.items()):
         rotation = qvec2rotmat(image.qvec)
         translation = image.tvec.reshape(3, 1)
@@ -129,14 +132,26 @@ def _extract_cameras_from_colmap(
         )
         camera_to_world = np.linalg.inv(world_to_camera)
         extrinsics_opencv = torch.from_numpy(camera_to_world).to(torch.float32)
-        extrinsics_list.append(extrinsics_opencv)
+        intrinsics_list.append(
+            build_camera_intrinsics(
+                model="pinhole",
+                params=intrinsics_params,
+                device=extrinsics_opencv.device,
+            )
+        )
+        extrinsics_list.append(
+            CameraExtrinsics(
+                extrinsics=extrinsics_opencv,
+                convention="opencv",
+                device=extrinsics_opencv.device,
+            )
+        )
         camera_names.append(Path(image.name).stem)
         camera_ids.append(image_id)
     assert extrinsics_list, "No cameras extracted from COLMAP images"
     cameras = Cameras(
         intrinsics=intrinsics_list,
         extrinsics=extrinsics_list,
-        conventions=["opencv" for _ in extrinsics_list],
         names=camera_names,
         ids=camera_ids,
         device=extrinsics_list[0].device,
@@ -226,7 +241,16 @@ def convert_colmap_to_nerfstudio(
     }
     resolution = (intrinsic_params["h"], intrinsic_params["w"])
     camera_model = intrinsic_params["camera_model"]
-    intrinsics = cameras[0].intrinsics
+    camera_intrinsics = cameras[0].intrinsics
+    intrinsics = torch.tensor(
+        [
+            [camera_intrinsics.fx, 0.0, camera_intrinsics.cx],
+            [0.0, camera_intrinsics.fy, camera_intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=cameras[0].device,
+    )
     payload: Dict[str, Any] = {}
     nerfstudio_data = NerfStudio_Data(
         data=payload,

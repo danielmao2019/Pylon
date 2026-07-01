@@ -7,7 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import dash
 import torch
 
+from data.datasets.three_d_scene_dataset import ThreeD_Scene_Dataset
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    build_camera_intrinsics,
+)
 from data.structures.three_d.camera.rotation.pitch_yaw import (
     matrix_to_pitch_yaw,
     pitch_yaw_to_matrix,
@@ -19,7 +24,6 @@ from data.viewer.three_d_scene.layout import (
     MODEL_STORE_CONTAINER_ID,
     build_layout,
 )
-from data.datasets.three_d_scene_dataset import ThreeD_Scene_Dataset
 from models.three_d.base import BaseSceneModel
 
 
@@ -281,7 +285,9 @@ class ThreeDSceneViewer:
         camera_name = Path(file_path).stem
         assert camera_name, f"Empty camera name parsed from '{file_path}'"
         camera = transforms_data.cameras[camera_name]
-        c2w_standard = camera.to(device=self.device, convention="standard").extrinsics
+        c2w_standard = camera.to(
+            device=self.device, convention="standard"
+        ).extrinsics.extrinsics
         self.position = c2w_standard[:3, 3].clone()
         rotation_matrix = c2w_standard[:3, :3]
         pitch_yaw = matrix_to_pitch_yaw(rotation_matrix)
@@ -399,7 +405,7 @@ class ThreeDSceneViewer:
             for file_path in transforms_data.filenames:
                 split_lookup[file_path] = "all"
                 path_lookup[file_path] = file_path
-        current_pose = self.get_camera().extrinsics
+        current_pose = self.get_camera().extrinsics.extrinsics
         for camera_name in transforms_data.filenames:
             assert (
                 camera_name in split_lookup
@@ -407,7 +413,7 @@ class ThreeDSceneViewer:
             candidate_pose = (
                 transforms_data.cameras[camera_name]
                 .to(device=self.device, convention="standard")
-                .extrinsics
+                .extrinsics.extrinsics
             )
             if torch.allclose(candidate_pose, current_pose, atol=1e-4, rtol=1e-4):
                 self._current_camera_selection = self._build_camera_selection(
@@ -556,7 +562,7 @@ class ThreeDSceneViewer:
         assert isinstance(
             transforms_data, NerfStudio_Data
         ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
-        intrinsics = transforms_data.intrinsics.to(self.device)
+        intrinsics_matrix = transforms_data.intrinsics.to(self.device)
         rotation_matrix = pitch_yaw_to_matrix(torch.deg2rad(self.rotation))
         c2w = torch.eye(4, dtype=rotation_matrix.dtype, device=self.device)
         c2w[:3, :3] = rotation_matrix
@@ -569,10 +575,24 @@ class ThreeDSceneViewer:
             camera_name = Path(file_path).stem
             camera = transforms_data.cameras[camera_name]
             camera_id = camera.id
-        return Camera(
-            intrinsics=intrinsics,
+        intrinsics = build_camera_intrinsics(
+            model="pinhole",
+            params={
+                "fx": float(intrinsics_matrix[0, 0]),
+                "fy": float(intrinsics_matrix[1, 1]),
+                "cx": float(intrinsics_matrix[0, 2]),
+                "cy": float(intrinsics_matrix[1, 2]),
+            },
+            device=self.device,
+        )
+        extrinsics = CameraExtrinsics(
             extrinsics=c2w,
             convention="standard",
+            device=self.device,
+        )
+        return Camera(
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
             name=camera_name,
             id=camera_id,
             device=self.device,
@@ -608,7 +628,7 @@ class ThreeDSceneViewer:
 
     def get_camera_info(self) -> Dict[str, Any]:
         camera = self.get_camera()
-        intrinsics = camera.intrinsics.detach().cpu()
+        intrinsics = camera.intrinsics
         reference_annotation = self.get_reference_annotation()
         assert (
             "transforms_data" in reference_annotation
@@ -617,10 +637,10 @@ class ThreeDSceneViewer:
         assert isinstance(
             transforms_data, NerfStudio_Data
         ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
-        fx = float(intrinsics[0, 0])
-        fy = float(intrinsics[1, 1])
-        cx = float(intrinsics[0, 2])
-        cy = float(intrinsics[1, 2])
+        fx = intrinsics.fx
+        fy = intrinsics.fy
+        cx = intrinsics.cx
+        cy = intrinsics.cy
 
         assert (
             fx > 0.0 and fy > 0.0

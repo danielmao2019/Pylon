@@ -280,15 +280,12 @@ def _map_continuous_uv_coords_to_barycentric_coords(
         assert (
             texel_face_map["texel_face_index"].ndim == 2
         ), f"{texel_face_map['texel_face_index'].shape=}"
-        assert (
-            continuous_uv_coords.device == face_verts_uvs.device
-        ), (
+        assert continuous_uv_coords.device == face_verts_uvs.device, (
             "Expected `continuous_uv_coords` and `face_verts_uvs` to share a "
             f"device. {continuous_uv_coords.device=} {face_verts_uvs.device=}"
         )
         assert (
-            continuous_uv_coords.device
-            == texel_face_map["texel_face_index"].device
+            continuous_uv_coords.device == texel_face_map["texel_face_index"].device
         ), (
             "Expected `continuous_uv_coords` and "
             "`texel_face_map['texel_face_index']` to share a device. "
@@ -646,13 +643,23 @@ def _compute_texel_visibility_mask_from_world_coords(
     )
     texel_camera_coords = world_to_camera_transform(
         points=world_coords,
-        extrinsics=camera_single.extrinsics,
+        extrinsics=camera_single.extrinsics.extrinsics,
         inplace=False,
     )
     assert texel_camera_coords.dtype == torch.float32, f"{texel_camera_coords.dtype=}"
+    intrinsics = camera_single.intrinsics
+    intrinsics_matrix = torch.tensor(
+        [
+            [intrinsics.fx, 0.0, intrinsics.cx],
+            [0.0, intrinsics.fy, intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=intrinsics.device,
+    )
     projected_texel_points = project_3d_to_2d(
         points=texel_camera_coords,
-        intrinsics=camera_single.intrinsics,
+        intrinsics=intrinsics_matrix,
         inplace=False,
     )
     assert (
