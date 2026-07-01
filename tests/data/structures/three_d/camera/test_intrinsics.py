@@ -276,6 +276,111 @@ def test_project_not_inplace_preserves_input_and_returns_new_tensor(
     )
 
 
+@pytest.mark.parametrize(
+    "intrinsics",
+    [
+        CameraIntrinsicsSimplePinhole(
+            params={"f": 400.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsPinhole(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsOrtho(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+    ],
+)
+def test_project_supports_batched_leading_dims(
+    intrinsics: CameraIntrinsics,
+) -> None:
+    """project handles [..., 3] leading dims the same as the flattened [N, 3] path.
+
+    Args:
+        intrinsics: A concrete CameraIntrinsics instance to project with.
+
+    Returns:
+        None.
+    """
+    batched = torch.tensor(
+        [
+            [[1.0, 2.0, 4.0], [3.0, -1.0, 8.0], [0.5, 0.5, 2.0]],
+            [[2.0, 1.0, 5.0], [-1.0, 3.0, 10.0], [4.0, 4.0, 4.0]],
+        ],
+        dtype=torch.float32,
+    )
+    expected = intrinsics.project(
+        points_camera=batched.reshape(-1, 3).clone(),
+        inplace=False,
+    ).reshape(2, 3, 2)
+
+    result = intrinsics.project(points_camera=batched.clone(), inplace=False)
+    assert result.shape == (2, 3, 2), (
+        "Expected the not-inplace batched result to keep the leading dims. "
+        f"{result.shape=}"
+    )
+    assert torch.allclose(result, expected), (
+        "Expected the not-inplace batched result to match the flattened projection. "
+        f"{result=} {expected=}"
+    )
+
+    points = batched.clone()
+    reference = points.clone()
+    result_ip = intrinsics.project(points_camera=points, inplace=True)
+    assert torch.allclose(result_ip, expected), (
+        "Expected the inplace batched result to match the flattened projection. "
+        f"{result_ip=} {expected=}"
+    )
+    assert torch.allclose(points[..., :2], expected), (
+        "Expected the first two input columns to be overwritten in place. "
+        f"{points=} {expected=}"
+    )
+    assert torch.allclose(points[..., 2], reference[..., 2]), (
+        "Expected the input depth column to be preserved. " f"{points=} {reference=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "intrinsics",
+    [
+        CameraIntrinsicsSimplePinhole(
+            params={"f": 400.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsPinhole(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsOrtho(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+    ],
+)
+def test_project_rejects_invalid_inputs(
+    intrinsics: CameraIntrinsics,
+) -> None:
+    """project rejects non-tensor inputs, a wrong last dim, and a non-bool inplace.
+
+    Args:
+        intrinsics: A concrete CameraIntrinsics instance to project with.
+
+    Returns:
+        None.
+    """
+    with pytest.raises(AssertionError):
+        intrinsics.project(points_camera=[[1.0, 2.0, 4.0]])
+    with pytest.raises(AssertionError):
+        intrinsics.project(points_camera=torch.zeros(4, 2, dtype=torch.float32))
+    with pytest.raises(AssertionError):
+        intrinsics.project(
+            points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32),
+            inplace=1,
+        )
+
+
 def test_fx_fy_cx_cy_derived_from_params() -> None:
     """The fx / fy accessors and the cx / cy accessors are derived from params.
 
