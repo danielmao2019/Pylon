@@ -1,8 +1,8 @@
 from typing import Optional
 import torch
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
-from data.structures.three_d.point_cloud.ops.knn.knn import knn
+from models.three_d.point_cloud.ops.apply_transform import apply_transform
+from models.three_d.point_cloud.ops.knn.knn import knn
 
 
 def get_correspondences(

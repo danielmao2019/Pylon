@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
+from models.three_d.point_cloud.ops.apply_transform import apply_transform
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 

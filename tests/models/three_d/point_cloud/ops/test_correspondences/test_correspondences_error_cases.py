@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from data.structures.three_d.point_cloud.ops.correspondences import get_correspondences
+from models.three_d.point_cloud.ops.correspondences import get_correspondences
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 

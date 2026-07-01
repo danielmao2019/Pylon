@@ -205,7 +205,7 @@ class PCRDataloader(BaseDataLoader):
                 assert isinstance(transform, torch.Tensor), f"transform must be torch.Tensor, got {type(transform)}"
 
                 # Transform source points
-                from data.structures.three_d.point_cloud.ops import apply_transform
+                from models.three_d.point_cloud.ops import apply_transform
                 src_points_transformed = apply_transform(src_points, transform)
 
                 figure_tasks = [

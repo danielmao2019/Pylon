@@ -1,6 +1,6 @@
 import torch
 import pytest
-from data.structures.three_d.point_cloud.ops.knn.knn import knn
+from models.three_d.point_cloud.ops.knn.knn import knn
 
 
 @pytest.mark.parametrize("method", ["faiss", "pytorch3d", "torch", "scipy"])

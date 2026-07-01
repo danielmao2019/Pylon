@@ -15,7 +15,7 @@ data_cfg = {
                     'transforms': [
                         (
                             {
-                                'class': data.structures.three_d.point_cloud.ops.RandomSelect,
+                                'class': models.three_d.point_cloud.ops.RandomSelect,
                                 'args': {
                                     'count': 5000,
                                 },
@@ -24,7 +24,7 @@ data_cfg = {
                         ),
                         (
                             {
-                                'class': data.structures.three_d.point_cloud.ops.RandomSelect,
+                                'class': models.three_d.point_cloud.ops.RandomSelect,
                                 'args': {
                                     'count': 5000,
                                 },

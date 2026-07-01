@@ -13,7 +13,7 @@ from data.pipelines.colmap.coords.validate import (
 from data.structures.three_d.colmap import COLMAP_Data
 from data.structures.three_d.nerfstudio import NerfStudio_Data
 from data.structures.three_d.point_cloud import load_point_cloud, save_point_cloud
-from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
+from models.three_d.point_cloud.ops.apply_transform import apply_transform
 
 
 class BaseNormalizeCoordsStep(BaseStep, ABC):

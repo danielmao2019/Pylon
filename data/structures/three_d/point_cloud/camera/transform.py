@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from data.structures.three_d.point_cloud.ops.apply_transform import apply_transform
+from models.three_d.point_cloud.ops.apply_transform import apply_transform
 
 
 def world_to_camera_transform(

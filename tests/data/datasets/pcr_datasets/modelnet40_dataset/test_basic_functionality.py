@@ -10,7 +10,7 @@ import torch
 
 import data
 from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
-from data.structures.three_d.point_cloud.ops.set_ops.intersection import (
+from models.three_d.point_cloud.ops.set_ops.intersection import (
     compute_registration_overlap,
 )
 from data.structures.three_d.point_cloud.point_cloud import PointCloud

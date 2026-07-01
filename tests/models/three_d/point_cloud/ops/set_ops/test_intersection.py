@@ -1,6 +1,6 @@
 import torch
 import pytest
-from data.structures.three_d.point_cloud.ops.set_ops.intersection import (
+from models.three_d.point_cloud.ops.set_ops.intersection import (
     pc_intersection,
     compute_pc_iou,
     get_nearest_neighbor_distances,

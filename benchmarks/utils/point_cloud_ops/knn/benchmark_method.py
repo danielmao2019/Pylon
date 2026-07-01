@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-from data.structures.three_d.point_cloud.ops.knn.knn import knn
+from models.three_d.point_cloud.ops.knn.knn import knn
 
 
 def benchmark_knn_method(
