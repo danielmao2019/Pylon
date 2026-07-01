@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 
 from data.structures.three_d.mesh.mesh import Mesh
-from data.structures.three_d.mesh.ops.apply_transform import apply_transform
+from models.three_d.meshes.ops.apply_transform import apply_transform
 
 
 def world_to_camera_transform(

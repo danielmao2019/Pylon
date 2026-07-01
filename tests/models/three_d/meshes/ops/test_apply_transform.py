@@ -5,10 +5,10 @@ import torch
 from torch.testing import assert_close
 
 from data.structures.three_d.mesh.mesh import Mesh
-from data.structures.three_d.mesh.ops.apply_transform import apply_transform
 from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
     MeshTextureVertexColor,
 )
+from models.three_d.meshes.ops.apply_transform import apply_transform
 
 
 def _make_mesh() -> Mesh:
