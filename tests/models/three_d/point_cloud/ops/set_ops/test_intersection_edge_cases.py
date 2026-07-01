@@ -1,5 +1,6 @@
 import torch
 import pytest
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.set_ops.intersection import (
     pc_intersection,
     compute_pc_iou,
@@ -55,14 +56,18 @@ def test_pc_intersection_single_point():
 
     # Close points - should intersect
     radius = 0.5
-    src_indices, tgt_indices = pc_intersection(src_points, tgt_points, radius)
+    src_indices, tgt_indices = pc_intersection(
+        PointCloud(xyz=src_points), PointCloud(xyz=tgt_points), radius
+    )
     expected_single = torch.tensor([0], dtype=torch.long)
     assert torch.equal(src_indices, expected_single)
     assert torch.equal(tgt_indices, expected_single)
 
     # Far points - should not intersect
     tgt_points_far = torch.tensor([[10.0, 0.0, 0.0]], dtype=torch.float32)
-    src_indices, tgt_indices = pc_intersection(src_points, tgt_points_far, radius)
+    src_indices, tgt_indices = pc_intersection(
+        PointCloud(xyz=src_points), PointCloud(xyz=tgt_points_far), radius
+    )
     expected_empty = torch.tensor([], dtype=torch.long)
     assert torch.equal(src_indices, expected_empty)
     assert torch.equal(tgt_indices, expected_empty)
@@ -79,7 +84,9 @@ def test_compute_pc_iou_perfect_overlap():
     )
 
     radius = 0.1
-    iou = compute_pc_iou(identical_pc, identical_pc, radius)
+    iou = compute_pc_iou(
+        PointCloud(xyz=identical_pc), PointCloud(xyz=identical_pc), radius
+    )
     assert iou == 1.0  # All points overlap
 
 
@@ -102,7 +109,7 @@ def test_compute_pc_iou_no_overlap():
     )
 
     radius = 0.1
-    iou = compute_pc_iou(pc1, pc2, radius)
+    iou = compute_pc_iou(PointCloud(xyz=pc1), PointCloud(xyz=pc2), radius)
     assert iou == 0.0  # No points overlap
 
 

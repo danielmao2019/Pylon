@@ -9,12 +9,12 @@ from models.three_d.point_cloud.ops.set_ops.symmetric_difference import (
 def test_normalize_points_invalid_shape():
     """Test _normalize_points with invalid input shapes."""
     # Test 1D input
-    with pytest.raises(ValueError, match="Points must have 2 or 3 dimensions"):
+    with pytest.raises(AssertionError, match="Points must have 2 or 3 dimensions"):
         points_1d = torch.tensor([1.0, 2.0, 3.0])
         _normalize_points(points_1d)
 
     # Test 4D input
-    with pytest.raises(ValueError, match="Points must have 2 or 3 dimensions"):
+    with pytest.raises(AssertionError, match="Points must have 2 or 3 dimensions"):
         points_4d = torch.randn(1, 2, 3, 4)
         _normalize_points(points_4d)
 

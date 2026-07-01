@@ -3,9 +3,16 @@
 import pytest
 import torch
 
-from models.three_d.meshes.texture.convert import build_canonical_bfm_verts_uvs
+from models.three_d.meshes.texture.convert import (
+    CANONICAL_BFM_VERTEX_UV_PATH,
+    build_canonical_bfm_verts_uvs,
+)
 
 
+@pytest.mark.skipif(
+    not CANONICAL_BFM_VERTEX_UV_PATH.exists(),
+    reason="canonical BFM UV asset (project/submodules/HRN) not present",
+)
 def test_build_canonical_bfm_verts_uvs_matches_bfm_topology() -> None:
     """The canonical BFM UV builder should return one UV pair per BFM vertex.
 
@@ -30,6 +37,10 @@ def test_build_canonical_bfm_verts_uvs_matches_bfm_topology() -> None:
     assert float(verts_uvs.max().item()) <= 1.0, f"{float(verts_uvs.max().item())=}"
 
 
+@pytest.mark.skipif(
+    not CANONICAL_BFM_VERTEX_UV_PATH.exists(),
+    reason="canonical BFM UV asset (project/submodules/HRN) not present",
+)
 def test_build_canonical_bfm_verts_uvs_rejects_vertex_count_mismatch() -> None:
     """The canonical BFM UV builder should reject non-BFM vertex counts.
 

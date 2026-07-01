@@ -1,5 +1,6 @@
 import torch
 import pytest
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.set_ops.intersection import (
     pc_intersection,
     compute_pc_iou,
@@ -128,7 +129,9 @@ def test_pc_intersection_basic():
 
     radius = 0.5
 
-    src_indices, tgt_indices = pc_intersection(src_points, tgt_points, radius)
+    src_indices, tgt_indices = pc_intersection(
+        PointCloud(xyz=src_points), PointCloud(xyz=tgt_points), radius
+    )
 
     # Should find src[0,2] and tgt[0,1] in intersection
     expected_src = torch.tensor([0, 2], dtype=torch.long)
@@ -158,7 +161,9 @@ def test_compute_pc_iou():
 
     radius = 0.5
 
-    iou = compute_pc_iou(src_points, tgt_points, radius)
+    iou = compute_pc_iou(
+        PointCloud(xyz=src_points), PointCloud(xyz=tgt_points), radius
+    )
 
     # 2 overlapping points out of 4 total points = 0.5
     expected_iou = 2.0 / 4.0

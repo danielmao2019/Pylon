@@ -6,6 +6,8 @@ from models.three_d.point_cloud.ops.knn.knn import knn
 @pytest.mark.parametrize("method", ["faiss", "pytorch3d", "torch", "scipy"])
 def test_knn_k_larger_than_points(method):
     """Test knn with k larger than number of reference points - should pad with inf/-1."""
+    if method == "faiss":
+        pytest.importorskip("faiss")
     query_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
     reference_points = torch.tensor(
         [
@@ -39,6 +41,8 @@ def test_knn_k_larger_than_points(method):
 @pytest.mark.parametrize("method", ["faiss", "pytorch3d", "torch", "scipy"])
 def test_knn_radius_insufficient_points(method):
     """Test knn with radius where some queries have no points within radius."""
+    if method == "faiss":
+        pytest.importorskip("faiss")
     query_points = torch.tensor(
         [
             [0.0, 0.0, 0.0],  # Has points within radius

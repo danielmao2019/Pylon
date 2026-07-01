@@ -1,4 +1,5 @@
 import torch
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.correspondences import get_correspondences
 
 
@@ -26,7 +27,12 @@ def test_get_correspondences_basic():
     radius = 0.5
 
     # Test without transform
-    correspondences = get_correspondences(src_points, tgt_points, None, radius)
+    correspondences = get_correspondences(
+        source=PointCloud(xyz=src_points),
+        target=PointCloud(xyz=tgt_points),
+        transform=None,
+        radius=radius,
+    )
 
     # Should be [K, 2] format with [src_idx, tgt_idx] pairs
     assert correspondences.ndim == 2, "Correspondences should be 2D"
@@ -74,7 +80,12 @@ def test_get_correspondences_with_transform():
 
     radius = 0.2
 
-    correspondences = get_correspondences(src_points, tgt_points, transform, radius)
+    correspondences = get_correspondences(
+        source=PointCloud(xyz=src_points),
+        target=PointCloud(xyz=tgt_points),
+        transform=transform,
+        radius=radius,
+    )
 
     # Should find 2 correspondences after transformation
     assert (
@@ -109,7 +120,12 @@ def test_get_correspondences_with_dict_source():
     radius = 0.3
 
     # Test with dict source and tensor target
-    correspondences = get_correspondences(src_dict, tgt_points, None, radius)
+    correspondences = get_correspondences(
+        source=PointCloud(data=src_dict),
+        target=PointCloud(xyz=tgt_points),
+        transform=None,
+        radius=radius,
+    )
 
     assert correspondences.ndim == 2, "Correspondences should be 2D"
     assert correspondences.shape[1] == 2, "Each correspondence should have 2 indices"
@@ -148,7 +164,12 @@ def test_get_correspondences_with_dict_target():
     radius = 0.1
 
     # Test with tensor source and dict target
-    correspondences = get_correspondences(src_points, tgt_dict, None, radius)
+    correspondences = get_correspondences(
+        source=PointCloud(xyz=src_points),
+        target=PointCloud(data=tgt_dict),
+        transform=None,
+        radius=radius,
+    )
 
     assert correspondences.ndim == 2, "Correspondences should be 2D"
     assert correspondences.shape[1] == 2, "Each correspondence should have 2 indices"
@@ -190,7 +211,12 @@ def test_get_correspondences_with_both_dict():
     radius = 0.25
 
     # Test with both as dictionaries
-    correspondences = get_correspondences(src_dict, tgt_dict, None, radius)
+    correspondences = get_correspondences(
+        source=PointCloud(data=src_dict),
+        target=PointCloud(data=tgt_dict),
+        transform=None,
+        radius=radius,
+    )
 
     assert correspondences.ndim == 2, "Correspondences should be 2D"
     assert correspondences.shape[1] == 2, "Each correspondence should have 2 indices"
@@ -240,7 +266,12 @@ def test_get_correspondences_dict_with_transform():
 
     radius = 0.1
 
-    correspondences = get_correspondences(src_dict, tgt_dict, transform, radius)
+    correspondences = get_correspondences(
+        source=PointCloud(data=src_dict),
+        target=PointCloud(data=tgt_dict),
+        transform=transform,
+        radius=radius,
+    )
 
     # Should find 2 correspondences after rotation
     assert (

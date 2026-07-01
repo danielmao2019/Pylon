@@ -1,5 +1,6 @@
 import torch
 import pytest
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.set_ops.symmetric_difference import (
     pc_symmetric_difference,
     _normalize_points,
@@ -140,30 +141,28 @@ def test_pc_symmetric_difference_full_overlap():
 
 
 def test_pc_symmetric_difference_batched_input():
-    """Test symmetric difference with batched input [1, N, 3]."""
+    """Test symmetric difference on two-point clouds."""
     src_pc = torch.tensor(
         [
-            [
-                [0.0, 0.0, 0.0],
-                [5.0, 0.0, 0.0],  # Far from tgt points
-            ]
+            [0.0, 0.0, 0.0],
+            [5.0, 0.0, 0.0],  # Far from tgt points
         ],
         dtype=torch.float32,
     )
 
     tgt_pc = torch.tensor(
         [
-            [
-                [0.1, 0.0, 0.0],  # Close to src[0]
-                [10.0, 0.0, 0.0],  # Far from src points
-            ]
+            [0.1, 0.0, 0.0],  # Close to src[0]
+            [10.0, 0.0, 0.0],  # Far from src points
         ],
         dtype=torch.float32,
     )
 
     radius = 0.5
 
-    src_indices, tgt_indices = pc_symmetric_difference(src_pc, tgt_pc, radius)
+    src_indices, tgt_indices = pc_symmetric_difference(
+        PointCloud(xyz=src_pc), PointCloud(xyz=tgt_pc), radius
+    )
 
     # Should find src[1] and tgt[1] in symmetric difference
     expected_src = torch.tensor([1], dtype=torch.long)

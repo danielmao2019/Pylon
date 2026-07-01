@@ -6,6 +6,8 @@ from models.three_d.point_cloud.ops.knn.knn import knn
 @pytest.mark.parametrize("method", ["faiss", "pytorch3d", "torch", "scipy"])
 def test_knn_k_only(method):
     """Test knn with k specified but no radius - should return k nearest neighbors."""
+    if method == "faiss":
+        pytest.importorskip("faiss")
     # Create simple test data
     query_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
     reference_points = torch.tensor(

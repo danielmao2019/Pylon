@@ -1,4 +1,5 @@
 import torch
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.correspondences import get_correspondences
 
 
@@ -22,7 +23,12 @@ def test_get_correspondences_empty():
 
     radius = 0.5
 
-    correspondences = get_correspondences(src_points, tgt_points, None, radius)
+    correspondences = get_correspondences(
+        source=PointCloud(xyz=src_points),
+        target=PointCloud(xyz=tgt_points),
+        transform=None,
+        radius=radius,
+    )
 
     # Should return empty tensor with correct shape
     assert correspondences.shape == (

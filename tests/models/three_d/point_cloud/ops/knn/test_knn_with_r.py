@@ -99,6 +99,8 @@ test_case_2 = {
 @pytest.mark.parametrize("test_case", [test_case_1, test_case_2])
 def test_knn_radius_only(method, test_case):
     """Test knn with k=None but radius specified - should return all points within radius."""
+    if method == "faiss":
+        pytest.importorskip("faiss")
     query_points = test_case["query_points"]
     reference_points = test_case["reference_points"]
     radius = test_case["radius"]
