@@ -130,14 +130,22 @@ class CameraIntrinsics(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def project(self, points_camera: torch.Tensor) -> torch.Tensor:
+    def project(
+        self, points_camera: torch.Tensor, inplace: bool = False
+    ) -> torch.Tensor:
         """Map camera-space 3D points to 2D image points under this model.
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
+            inplace: If True, project in place — write the image points over the
+                first two columns of ``points_camera`` and return a ``[..., 2]``
+                view aliasing that input (its depth column is left intact). If
+                False, return a freshly allocated ``[..., 2]`` and leave
+                ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor.
+            The ``[..., 2]`` image points torch.Tensor (a view into
+            ``points_camera`` when inplace, else a new tensor).
         """
         raise NotImplementedError
 
@@ -220,14 +228,22 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
         """
         return float(self._params["f"])
 
-    def project(self, points_camera: torch.Tensor) -> torch.Tensor:
+    def project(
+        self, points_camera: torch.Tensor, inplace: bool = False
+    ) -> torch.Tensor:
         """Perspective projection with a single shared focal length.
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
+            inplace: If True, project in place — write the image points over the
+                first two columns of ``points_camera`` and return a ``[..., 2]``
+                view aliasing that input (its depth column is left intact). If
+                False, return a freshly allocated ``[..., 2]`` and leave
+                ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor.
+            The ``[..., 2]`` image points torch.Tensor (a view into
+            ``points_camera`` when inplace, else a new tensor).
         """
         assert isinstance(points_camera, torch.Tensor), (
             "Expected points_camera to be a torch.Tensor. " f"{type(points_camera)=}"
@@ -235,14 +251,15 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
         assert points_camera.shape[-1] == 3, (
             "Expected points_camera last dim to be 3. " f"{points_camera.shape=}"
         )
-        points_xy = points_camera[..., :2]
-        points_z = points_camera[..., 2:3]
-        offset = torch.tensor(
-            [self.cx, self.cy],
-            dtype=points_camera.dtype,
-            device=points_camera.device,
+        assert isinstance(inplace, bool), (
+            "Expected inplace to be a bool. " f"{type(inplace)=}"
         )
-        return float(self._params["f"]) * points_xy / points_z + offset
+        out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
+        z = points_camera[..., 2]
+        f, cx, cy = float(self._params["f"]), self.cx, self.cy
+        out[..., 0].div_(z).mul_(f).add_(cx)
+        out[..., 1].div_(z).mul_(f).add_(cy)
+        return out
 
     @property
     def fov(self) -> Tuple[float, float]:
@@ -289,14 +306,22 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
         """
         return float(self._params["fy"])
 
-    def project(self, points_camera: torch.Tensor) -> torch.Tensor:
+    def project(
+        self, points_camera: torch.Tensor, inplace: bool = False
+    ) -> torch.Tensor:
         """Perspective projection with independent fx / fy.
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
+            inplace: If True, project in place — write the image points over the
+                first two columns of ``points_camera`` and return a ``[..., 2]``
+                view aliasing that input (its depth column is left intact). If
+                False, return a freshly allocated ``[..., 2]`` and leave
+                ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor.
+            The ``[..., 2]`` image points torch.Tensor (a view into
+            ``points_camera`` when inplace, else a new tensor).
         """
         assert isinstance(points_camera, torch.Tensor), (
             "Expected points_camera to be a torch.Tensor. " f"{type(points_camera)=}"
@@ -304,19 +329,15 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
         assert points_camera.shape[-1] == 3, (
             "Expected points_camera last dim to be 3. " f"{points_camera.shape=}"
         )
-        points_xy = points_camera[..., :2]
-        points_z = points_camera[..., 2:3]
-        focal = torch.tensor(
-            [self.fx, self.fy],
-            dtype=points_camera.dtype,
-            device=points_camera.device,
+        assert isinstance(inplace, bool), (
+            "Expected inplace to be a bool. " f"{type(inplace)=}"
         )
-        offset = torch.tensor(
-            [self.cx, self.cy],
-            dtype=points_camera.dtype,
-            device=points_camera.device,
-        )
-        return focal * points_xy / points_z + offset
+        out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
+        z = points_camera[..., 2]
+        fx, fy, cx, cy = self.fx, self.fy, self.cx, self.cy
+        out[..., 0].div_(z).mul_(fx).add_(cx)
+        out[..., 1].div_(z).mul_(fy).add_(cy)
+        return out
 
     @property
     def fov(self) -> Tuple[float, float]:
@@ -362,14 +383,22 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
         """
         return float(self._params["fy"])
 
-    def project(self, points_camera: torch.Tensor) -> torch.Tensor:
+    def project(
+        self, points_camera: torch.Tensor, inplace: bool = False
+    ) -> torch.Tensor:
         """Orthographic projection: scale and offset without the perspective divide.
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
+            inplace: If True, project in place — write the image points over the
+                first two columns of ``points_camera`` and return a ``[..., 2]``
+                view aliasing that input (its depth column is left intact). If
+                False, return a freshly allocated ``[..., 2]`` and leave
+                ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor.
+            The ``[..., 2]`` image points torch.Tensor (a view into
+            ``points_camera`` when inplace, else a new tensor).
         """
         assert isinstance(points_camera, torch.Tensor), (
             "Expected points_camera to be a torch.Tensor. " f"{type(points_camera)=}"
@@ -377,18 +406,14 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
         assert points_camera.shape[-1] == 3, (
             "Expected points_camera last dim to be 3. " f"{points_camera.shape=}"
         )
-        points_xy = points_camera[..., :2]
-        focal = torch.tensor(
-            [self.fx, self.fy],
-            dtype=points_camera.dtype,
-            device=points_camera.device,
+        assert isinstance(inplace, bool), (
+            "Expected inplace to be a bool. " f"{type(inplace)=}"
         )
-        offset = torch.tensor(
-            [self.cx, self.cy],
-            dtype=points_camera.dtype,
-            device=points_camera.device,
-        )
-        return focal * points_xy + offset
+        out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
+        fx, fy, cx, cy = self.fx, self.fy, self.cx, self.cy
+        out[..., 0].mul_(fx).add_(cx)
+        out[..., 1].mul_(fy).add_(cy)
+        return out
 
 
 def build_camera_intrinsics(

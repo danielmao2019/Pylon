@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    CameraIntrinsics,
     CameraIntrinsicsOrtho,
     CameraIntrinsicsPinhole,
     CameraIntrinsicsSimplePinhole,
@@ -180,6 +181,98 @@ def test_ortho_project_skips_perspective_divide() -> None:
     assert torch.allclose(image_near, image_far, atol=1.0e-05), (
         "Ortho projection must ignore depth (no perspective divide). "
         f"{image_near=} {image_far=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "intrinsics",
+    [
+        CameraIntrinsicsSimplePinhole(
+            params={"f": 400.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsPinhole(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsOrtho(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+    ],
+)
+def test_project_inplace_overwrites_input_and_matches_not_inplace(
+    intrinsics: CameraIntrinsics,
+) -> None:
+    """project(inplace=True) overwrites the input and matches the not-inplace result.
+
+    Args:
+        intrinsics: A concrete CameraIntrinsics instance to project with.
+
+    Returns:
+        None.
+    """
+    points = torch.tensor([[1.0, 2.0, 4.0], [3.0, -1.0, 8.0]], dtype=torch.float32)
+    reference = points.clone()
+    expected = intrinsics.project(points_camera=points.clone(), inplace=False)
+    result = intrinsics.project(points_camera=points, inplace=True)
+    assert result.data_ptr() == points.data_ptr(), (
+        "Expected the inplace result to alias the input tensor. "
+        f"{result.data_ptr()=} {points.data_ptr()=}"
+    )
+    assert torch.allclose(result, expected), (
+        "Expected the inplace result to match the not-inplace result. "
+        f"{result=} {expected=}"
+    )
+    assert torch.allclose(points[:, :2], expected), (
+        "Expected the first two input columns to be overwritten in place. "
+        f"{points=} {expected=}"
+    )
+    assert torch.allclose(points[:, 2], reference[:, 2]), (
+        "Expected the input depth column to be preserved. " f"{points=} {reference=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "intrinsics",
+    [
+        CameraIntrinsicsSimplePinhole(
+            params={"f": 400.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsPinhole(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+        CameraIntrinsicsOrtho(
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        ),
+    ],
+)
+def test_project_not_inplace_preserves_input_and_returns_new_tensor(
+    intrinsics: CameraIntrinsics,
+) -> None:
+    """project(inplace=False) leaves the input untouched and returns a new tensor.
+
+    Args:
+        intrinsics: A concrete CameraIntrinsics instance to project with.
+
+    Returns:
+        None.
+    """
+    points = torch.tensor([[1.0, 2.0, 4.0], [3.0, -1.0, 8.0]], dtype=torch.float32)
+    reference = points.clone()
+    result = intrinsics.project(points_camera=points, inplace=False)
+    assert result.data_ptr() != points.data_ptr(), (
+        "Expected the not-inplace result to be a freshly allocated tensor. "
+        f"{result.data_ptr()=} {points.data_ptr()=}"
+    )
+    assert result.shape == (2, 2), (
+        "Expected the not-inplace result to be a [..., 2] tensor. " f"{result.shape=}"
+    )
+    assert torch.allclose(points, reference), (
+        "Expected the input tensor to be left unchanged. " f"{points=} {reference=}"
     )
 
 
