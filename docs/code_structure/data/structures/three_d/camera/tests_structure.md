@@ -26,6 +26,10 @@ test_intrinsics.py
 │   └── # project(inplace=True) overwrites points_camera cols 0,1 with the image points (matching inplace=False), preserves the depth col 2, and returns a tensor aliasing the input, across all three models.
 ├── def test_project_not_inplace_preserves_input_and_returns_new_tensor
 │   └── # project(inplace=False) returns a fresh [..., 2] and leaves points_camera unchanged, across all three models.
+├── def test_project_supports_batched_leading_dims
+│   └── # project handles [..., 3] leading dims: a batched input (inplace and not-inplace) matches projecting its flattened [N, 3] view, across all three models.
+├── def test_project_rejects_invalid_inputs
+│   └── # project raises AssertionError on a non-tensor points_camera, a wrong last dim, and a non-bool inplace, across all three models.
 ├── def test_fx_fy_cx_cy_derived_from_params
 │   └── # The per-subclass fx / fy accessors and the base cx / cy accessors are derived from the model params.
 ├── def test_fov_defined_for_perspective_subclasses_only
