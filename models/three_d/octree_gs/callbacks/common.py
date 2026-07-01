@@ -61,9 +61,7 @@ def build_octree_main_figure(
     if modality == "rgb":
         image = render_rgb_from_octree_gs(
             model=scene_data,
-            intrinsics=render_camera.intrinsics,
-            extrinsics=render_camera.extrinsics,
-            convention=render_camera.convention,
+            camera=render_camera,
             resolution=render_resolution,
             levels=selected_levels,
             return_info=False,

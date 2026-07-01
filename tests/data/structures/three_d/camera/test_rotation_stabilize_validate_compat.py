@@ -1,42 +1,11 @@
-import sys
-import types
-from pathlib import Path
-
 import numpy as np
 import pytest
 import torch
 
-
-def _install_namespace_package(package_name: str, package_path: Path) -> None:
-    if package_name in sys.modules:
-        return
-
-    module = types.ModuleType(package_name)
-    module.__file__ = str(package_path / "__init__.py")
-    module.__path__ = [str(package_path)]
-    sys.modules[package_name] = module
-
-
-REPO_ROOT = Path(__file__).resolve().parents[5]
-_install_namespace_package(package_name="utils", package_path=REPO_ROOT / "utils")
-_install_namespace_package(
-    package_name="utils.ops", package_path=REPO_ROOT / "utils" / "ops"
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import (
+    _stabilize_rotation_matrix,
 )
-_install_namespace_package(package_name="data", package_path=REPO_ROOT / "data")
-_install_namespace_package(
-    package_name="data.structures", package_path=REPO_ROOT / "data" / "structures"
-)
-_install_namespace_package(
-    package_name="data.structures.three_d",
-    package_path=REPO_ROOT / "data" / "structures" / "three_d",
-)
-_install_namespace_package(
-    package_name="data.structures.three_d.camera",
-    package_path=REPO_ROOT / "data" / "structures" / "three_d" / "camera",
-)
-
-from data.structures.three_d.camera.camera import _stabilize_rotation_matrix
-from data.structures.three_d.camera.validation import (
+from data.structures.three_d.camera.extrinsics.validation import (
     validate_camera_extrinsics,
     validate_rotation_matrix,
 )

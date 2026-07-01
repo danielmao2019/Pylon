@@ -1,250 +1,97 @@
-from typing import Any, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
-import numpy as np
 import torch
 
-from utils.ops.materialize_tensor import materialize_tensor
-
-_ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32
-
-
-def validate_camera_convention(convention: Any) -> str:
-    # Input validations
-    assert isinstance(convention, str), f"{type(convention)=}"
-    assert convention in [
-        "standard",
-        "opengl",
-        "opencv",
-        "pytorch3d",
-        "arkit",
-    ], f"Unsupported convention: {convention}"
-    return convention
-
-
-def validate_camera_intrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
-    if isinstance(obj, np.ndarray):
-        return _validate_camera_intrinsics_numpy(obj)
-    if isinstance(obj, torch.Tensor):
-        return _validate_camera_intrinsics_torch(obj)
-    raise TypeError(
-        f"Camera intrinsics must be a numpy array or a torch tensor, got {type(obj)}"
+if TYPE_CHECKING:
+    from data.structures.three_d.camera.extrinsics.camera_extrinsics import (
+        CameraExtrinsics,
+    )
+    from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+        CameraIntrinsics,
     )
 
 
-def _validate_camera_intrinsics_numpy(obj: Any) -> np.ndarray:
-    # Input validations
-    assert isinstance(obj, np.ndarray), f"{type(obj)=}"
-    assert obj.ndim >= 2, f"{obj.ndim=}"
-    assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype == np.float32, f"{obj.dtype=}"
+def validate_cameras_attributes(
+    intrinsics: List["CameraIntrinsics"],
+    extrinsics: List["CameraExtrinsics"],
+    names: List[Optional[str]],
+    ids: List[Optional[int]],
+    device: Union[str, torch.device],
+) -> None:
+    """Validate the parallel per-camera lists, names / ids, and device for Cameras.
 
-    fx = obj[..., 0, 0]
-    fy = obj[..., 1, 1]
-    assert np.all(fx > 0), "Focal length element [0, 0] must be positive."
-    assert np.all(fy > 0), "Focal length element [1, 1] must be positive."
-    cx = obj[..., 0, 2]
-    cy = obj[..., 1, 2]
-    assert np.all(cx >= 0), "Principal point element [0, 2] must be non-negative."
-    assert np.all(cy >= 0), "Principal point element [1, 2] must be non-negative."
-    assert np.all(obj[..., 0, 1] == 0), "Skew element [0, 1] must be 0."
-    assert np.all(obj[..., 1, 0] == 0), "Skew element [1, 0] must be 0."
-    expected_last_row = np.array([0, 0, 1], dtype=obj.dtype)
-    assert np.all(
-        obj[..., 2, :] == expected_last_row
-    ), "Camera intrinsics must have [0, 0, 1] in the last row."
-    return obj
+    Single-entry validation for ``Cameras.__init__``; also validates the
+    inter-relationship that all four per-camera lists are equal length.
 
+    Args:
+        intrinsics: Per-camera list of CameraIntrinsics.
+        extrinsics: Per-camera list of CameraExtrinsics.
+        names: Per-camera list of optional names.
+        ids: Per-camera list of optional ids.
+        device: Device the cameras live on, a string or torch.device.
 
-def _validate_camera_intrinsics_torch(obj: Any) -> torch.Tensor:
-    # Input validations
-    assert isinstance(obj, torch.Tensor), f"{type(obj)=}"
-    assert obj.ndim >= 2, f"{obj.ndim=}"
-    assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype == torch.float32, f"{obj.dtype=}"
-
-    fx = obj[..., 0, 0]
-    fy = obj[..., 1, 1]
-    assert torch.all(fx > 0), "Focal length element [0, 0] must be positive."
-    assert torch.all(fy > 0), "Focal length element [1, 1] must be positive."
-    cx = obj[..., 0, 2]
-    cy = obj[..., 1, 2]
-    assert torch.all(cx >= 0), "Principal point element [0, 2] must be non-negative."
-    assert torch.all(cy >= 0), "Principal point element [1, 2] must be non-negative."
-    assert torch.all(obj[..., 0, 1] == 0), "Skew element [0, 1] must be 0."
-    assert torch.all(obj[..., 1, 0] == 0), "Skew element [1, 0] must be 0."
-    expected_last_row = torch.tensor(
-        [0, 0, 1],
-        dtype=obj.dtype,
-        device=obj.device,
+    Returns:
+        None.
+    """
+    assert len(intrinsics) == len(extrinsics) == len(names) == len(ids), (
+        "Expected the per-camera intrinsics / extrinsics / names / ids lists to be "
+        f"equal length. {len(intrinsics)=} {len(extrinsics)=} {len(names)=} {len(ids)=}"
     )
-    assert torch.all(
-        obj[..., 2, :] == expected_last_row
-    ), "Camera intrinsics must have [0, 0, 1] in the last row."
-    return obj
-
-
-def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
-    if isinstance(obj, np.ndarray):
-        return _validate_camera_extrinsics_numpy(obj)
-    if isinstance(obj, torch.Tensor):
-        return _validate_camera_extrinsics_torch(obj)
-    raise TypeError(
-        f"Camera extrinsics must be a numpy array or a torch tensor, got {type(obj)}"
-    )
-
-
-def _validate_camera_extrinsics_numpy(obj: Any) -> np.ndarray:
-    # Input validations
-    assert isinstance(obj, np.ndarray), f"{type(obj)=}"
-    assert obj.ndim >= 2, f"{obj.ndim=}"
-    assert obj.shape[-2:] == (4, 4), f"{obj.shape=}"
-    assert obj.dtype in (np.float32, np.float64), f"{obj.dtype=}"
-
-    expected_last_row = np.array([0, 0, 0, 1], dtype=obj.dtype)
-    assert np.allclose(
-        obj[..., 3, :],
-        expected_last_row,
-        atol=0.0,
-        rtol=0.0,
-    ), "Camera extrinsics must have [0, 0, 0, 1] in the last row."
-    rotation = obj[..., :3, :3]
-    _validate_rotation_matrix_numpy(rotation)
-    return obj
-
-
-def _validate_camera_extrinsics_torch(obj: Any) -> torch.Tensor:
-    # Input validations
-    assert isinstance(obj, torch.Tensor), f"{type(obj)=}"
-    assert obj.ndim >= 2, f"{obj.ndim=}"
-    assert obj.shape[-2:] == (4, 4), f"{obj.shape=}"
-    assert obj.dtype in (torch.float32, torch.float64), f"{obj.dtype=}"
-
-    expected_last_row = torch.tensor(
-        [0, 0, 0, 1],
-        dtype=obj.dtype,
-        device=obj.device,
-    )
-    assert torch.allclose(
-        obj[..., 3, :],
-        expected_last_row,
-        atol=0.0,
-        rtol=0.0,
-    ), "Camera extrinsics must have [0, 0, 0, 1] in the last row."
-    rotation = obj[..., :3, :3]
-    _validate_rotation_matrix_torch(rotation)
-    return obj
-
-
-def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor]:
-    if isinstance(obj, np.ndarray):
-        return _validate_rotation_matrix_numpy(obj)
-    if isinstance(obj, torch.Tensor):
-        return _validate_rotation_matrix_torch(obj)
-    raise TypeError(
-        f"Rotation matrix must be a numpy array or a torch tensor, got {type(obj)}"
-    )
-
-
-def _validate_rotation_matrix_numpy(obj: Any) -> np.ndarray:
-    # Input validations
-    assert isinstance(obj, np.ndarray), f"{type(obj)=}"
-    assert obj.ndim >= 2, f"{obj.ndim=}"
-    assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype in (np.float32, np.float64), f"{obj.dtype=}"
-
-    atol_float32 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(
-        np.finfo(np.float32).eps
-    )
-    atol_float64 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(
-        np.finfo(np.float64).eps
-    )
-    if obj.dtype == np.float32:
-        return _validate_rotation_matrix_numpy_against_threshold(
-            obj, threshold=atol_float32
+    for intrinsic, extrinsic, name, id in zip(intrinsics, extrinsics, names, ids):
+        validate_camera_attributes(
+            intrinsics=intrinsic,
+            extrinsics=extrinsic,
+            name=name,
+            id=id,
+            device=device,
         )
-    if obj.dtype == np.float64:
-        return _validate_rotation_matrix_numpy_against_threshold(
-            obj, threshold=atol_float64
-        )
-    assert 0, "should not reach here."
-
-
-def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor:
-    # Input validations
-    assert isinstance(obj, torch.Tensor), f"{type(obj)=}"
-    assert obj.ndim >= 2, f"{obj.ndim=}"
-    assert obj.shape[-2:] == (3, 3), f"{obj.shape=}"
-    assert obj.dtype in (torch.float32, torch.float64), f"{obj.dtype=}"
-
-    atol_float32 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(
-        torch.finfo(torch.float32).eps
-    )
-    atol_float64 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(
-        torch.finfo(torch.float64).eps
-    )
-    if obj.dtype == torch.float32:
-        return _validate_rotation_matrix_torch_against_threshold(
-            obj, threshold=atol_float32
-        )
-    if obj.dtype == torch.float64:
-        return _validate_rotation_matrix_torch_against_threshold(
-            obj, threshold=atol_float64
-        )
-    assert 0, "should not reach here."
-
-
-def _validate_rotation_matrix_numpy_against_threshold(
-    obj: np.ndarray, threshold: float
-) -> np.ndarray:
-    identity = np.eye(3, dtype=obj.dtype)
-    should_be_identity = obj @ np.swapaxes(obj, -1, -2)
-    max_diff = float(np.max(np.abs(should_be_identity - identity)))
-    assert np.allclose(
-        should_be_identity,
-        identity,
-        atol=threshold,
-        rtol=0.0,
-    ), "Rotation matrix must be orthogonal. Max diff between RR^T and I: {:.6g} (threshold={:.6g})".format(
-        max_diff, threshold
+    assert isinstance(device, (str, torch.device)), (
+        "Expected Cameras device to be a string or torch.device. " f"{type(device)=}"
     )
 
-    det = np.linalg.det(obj)
-    assert np.allclose(
-        det,
-        1.0,
-        atol=threshold,
-        rtol=0.0,
-    ), f"Rotation matrix must have determinant +1. det(R) = {det} (threshold={threshold})"
 
-    return obj
+def validate_camera_attributes(
+    intrinsics: "CameraIntrinsics",
+    extrinsics: "CameraExtrinsics",
+    name: Optional[str],
+    id: Optional[int],
+    device: Union[str, torch.device],
+) -> None:
+    """Validate the parts and the name / id / device for a Camera.
 
+    Single-entry validation for ``Camera.__init__``; asserts the parts are a
+    CameraIntrinsics / CameraExtrinsics and validates the name / id / device,
+    relying on each part's own validation for its internals.
 
-def _validate_rotation_matrix_torch_against_threshold(
-    obj: torch.Tensor, threshold: float
-) -> torch.Tensor:
-    # Input normalizations
-    obj = materialize_tensor(obj)
+    Args:
+        intrinsics: Candidate CameraIntrinsics.
+        extrinsics: Candidate CameraExtrinsics.
+        name: Candidate camera name, None or a string.
+        id: Candidate camera id, None or an integer.
+        device: Device the camera lives on, a string or torch.device.
 
-    identity = torch.eye(3, dtype=obj.dtype, device=obj.device)
-    should_be_identity = obj @ obj.transpose(-1, -2)
-    max_diff = torch.max(torch.abs(should_be_identity - identity))
-    assert torch.allclose(
-        should_be_identity,
-        identity,
-        atol=threshold,
-        rtol=0.0,
-    ), (
-        "Rotation matrix must be orthogonal. Max diff between RR^T and I: "
-        f"{float(max_diff)} (threshold={threshold})"
+    Returns:
+        None.
+    """
+    from data.structures.three_d.camera.extrinsics.camera_extrinsics import (
+        CameraExtrinsics,
+    )
+    from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+        CameraIntrinsics,
     )
 
-    det = torch.linalg.det(obj)
-    ones = torch.ones_like(det)
-    assert torch.allclose(
-        det,
-        ones,
-        atol=threshold,
-        rtol=0.0,
-    ), f"Rotation matrix must have determinant +1. det(R) = {det} (threshold={threshold})"
-
-    return obj
+    assert isinstance(intrinsics, CameraIntrinsics), (
+        "Expected Camera intrinsics to be a CameraIntrinsics. " f"{type(intrinsics)=}"
+    )
+    assert isinstance(extrinsics, CameraExtrinsics), (
+        "Expected Camera extrinsics to be a CameraExtrinsics. " f"{type(extrinsics)=}"
+    )
+    assert name is None or isinstance(name, str), (
+        "Expected Camera name to be None or a string. " f"{type(name)=}"
+    )
+    assert id is None or isinstance(id, int), (
+        "Expected Camera id to be None or an integer. " f"{type(id)=}"
+    )
+    assert isinstance(device, (str, torch.device)), (
+        "Expected Camera device to be a string or torch.device. " f"{type(device)=}"
+    )

@@ -195,13 +195,23 @@ def compute_f_visibility_mask(
             )
             > 0.0
         )
+        intrinsics = camera[0].intrinsics
+        intrinsics_matrix = torch.tensor(
+            [
+                [intrinsics.fx, 0.0, intrinsics.cx],
+                [0.0, intrinsics.fy, intrinsics.cy],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=torch.float32,
+            device=intrinsics.device,
+        )
         (
             uv_polygon_verts,
             uv_polygon_vertex_counts,
         ) = _compute_visible_uv_polygon_regions_from_camera_pixels(
             verts_camera=verts_camera,
             faces=faces,
-            intrinsics=camera[0].intrinsics,
+            intrinsics=intrinsics_matrix,
             image_height=image_height,
             image_width=image_width,
             face_front_facing_mask=face_front_facing_mask,
@@ -780,9 +790,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
         assert clipped_polygon_verts.ndim == 3, f"{clipped_polygon_verts.shape=}"
-        assert (
-            clipped_polygon_verts.shape[2] == 2
-        ), f"{clipped_polygon_verts.shape=}"
+        assert clipped_polygon_verts.shape[2] == 2, f"{clipped_polygon_verts.shape=}"
         assert clipped_polygon_vertex_counts.shape == (
             clipped_polygon_verts.shape[0],
         ), f"{clipped_polygon_vertex_counts.shape=} {clipped_polygon_verts.shape=}"
@@ -880,7 +888,9 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
             ),
         )
 
-    face_inverse_depth_coefficients = _compute_projected_face_inverse_depth_coefficients()
+    face_inverse_depth_coefficients = (
+        _compute_projected_face_inverse_depth_coefficients()
+    )
     (
         visible_polygon_verts,
         visible_polygon_vertex_counts,
@@ -1074,9 +1084,7 @@ def _compute_visible_uv_texels_from_uv_polygon_regions(
             None.
         """
         # Input validations
-        assert isinstance(
-            uv_polygon_verts, torch.Tensor
-        ), f"{type(uv_polygon_verts)=}"
+        assert isinstance(uv_polygon_verts, torch.Tensor), f"{type(uv_polygon_verts)=}"
         assert isinstance(
             uv_polygon_vertex_counts, torch.Tensor
         ), f"{type(uv_polygon_vertex_counts)=}"
@@ -1151,9 +1159,7 @@ def _compute_uv_polygon_texel_contributions_v1(
             None.
         """
         # Input validations
-        assert isinstance(
-            uv_polygon_verts, torch.Tensor
-        ), f"{type(uv_polygon_verts)=}"
+        assert isinstance(uv_polygon_verts, torch.Tensor), f"{type(uv_polygon_verts)=}"
         assert isinstance(
             uv_polygon_vertex_counts, torch.Tensor
         ), f"{type(uv_polygon_vertex_counts)=}"

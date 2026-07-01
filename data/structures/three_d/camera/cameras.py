@@ -1,127 +1,88 @@
-from typing import Iterator, List, Sequence
+from typing import Iterator, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
 
-from data.structures.three_d.camera.camera import Camera, _stabilize_rotation_matrix
-from data.structures.three_d.camera.validation import (
-    validate_camera_convention,
-    validate_camera_extrinsics,
-    validate_camera_intrinsics,
-    validate_rotation_matrix,
-)
+from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
+from data.structures.three_d.camera.validation import validate_cameras_attributes
 
 
 class Cameras:
+    """An ordered collection / trajectory of cameras over a batch.
+
+    Mirrors the two-object structure with parallel per-camera lists of
+    CameraIntrinsics and CameraExtrinsics plus per-camera names / ids.
+    """
 
     def __init__(
         self,
-        intrinsics: torch.Tensor | List[torch.Tensor | None] | None,
-        extrinsics: torch.Tensor | List[torch.Tensor],
-        conventions: List[str],
-        names: List[str | None] | None = None,
-        ids: List[int | None] | None = None,
-        device: str | torch.device = torch.device("cuda"),
+        intrinsics: List[CameraIntrinsics],
+        extrinsics: List[CameraExtrinsics],
+        names: Optional[List[Optional[str]]] = None,
+        ids: Optional[List[Optional[int]]] = None,
+        device: Union[str, torch.device] = torch.device("cuda"),
     ) -> None:
-        # Input validations
-        assert (
-            intrinsics is None
-            or isinstance(intrinsics, torch.Tensor)
-            or (
-                isinstance(intrinsics, list)
-                and all(
-                    _intr is None or isinstance(_intr, torch.Tensor)
-                    for _intr in intrinsics
-                )
-            )
-        ), f"{type(intrinsics)=}"
-        assert isinstance(extrinsics, torch.Tensor) or (
-            isinstance(extrinsics, list)
-            and all(isinstance(_extr, torch.Tensor) for _extr in extrinsics)
-        ), f"{type(extrinsics)=}"
-        assert isinstance(conventions, list), f"{type(conventions)=}"
-        for convention in conventions:
-            validate_camera_convention(convention)
-        assert isinstance(device, (str, torch.device)), f"{type(device)=}"
-        assert names is None or (
-            isinstance(names, list)
-            and all(_n is None or isinstance(_n, str) for _n in names)
-        ), f""
-        assert ids is None or (
-            isinstance(ids, list)
-            and all(_i is None or isinstance(_i, int) for _i in ids)
-        ), f""
+        """Construct a Cameras from parallel lists of CameraIntrinsics / CameraExtrinsics.
 
-        # Input normalization
+        Args:
+            intrinsics: Per-camera list of CameraIntrinsics.
+            extrinsics: Per-camera list of CameraExtrinsics.
+            names: Optional per-camera list of optional names.
+            ids: Optional per-camera list of optional ids.
+            device: Device the cameras live on, a string or torch.device.
 
-        batch_size = len(extrinsics)
-        if isinstance(intrinsics, torch.Tensor):
-            batched_intrinsics = intrinsics.to(device=device)
-        elif intrinsics is None:
-            batched_intrinsics = (
-                torch.eye(3, dtype=torch.float32, device=device)
-                .unsqueeze(0)
-                .repeat(batch_size, 1, 1)
-            )
-        elif isinstance(intrinsics, list):
-            assert intrinsics, "intrinsics list must be non-empty"
-            intr_stack = []
-            for item in intrinsics:
-                assert item is None or isinstance(item, torch.Tensor), f"{type(item)=}"
-                if item is None:
-                    intr_stack.append(torch.eye(3, dtype=torch.float32, device=device))
-                else:
-                    intr_stack.append(item.to(device=device))
-            batched_intrinsics = torch.stack(intr_stack, dim=0)
-        else:
-            assert False, f"Unsupported intrinsics type: {type(intrinsics)}"
-        assert batched_intrinsics.ndim == 3, f"{batched_intrinsics.shape=}"
-        validate_camera_intrinsics(batched_intrinsics)
+        Returns:
+            None.
+        """
+        # Input normalizations
+        names = names if names is not None else [None] * len(intrinsics)
+        ids = ids if ids is not None else [None] * len(intrinsics)
 
-        if isinstance(extrinsics, torch.Tensor):
-            batched_extrinsics = extrinsics.to(device=device)
-        elif isinstance(extrinsics, list):
-            assert extrinsics, "extrinsics list must be non-empty"
-            batched_extrinsics = torch.stack(
-                [item.to(device=device) for item in extrinsics], dim=0
-            )
-        else:
-            assert 0, f""
-        assert batched_extrinsics.ndim == 3, f""
-        validate_camera_extrinsics(batched_extrinsics)
+        validate_cameras_attributes(
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
+            names=names,
+            ids=ids,
+            device=device,
+        )
 
-        if names is None:
-            names = [None] * len(conventions)
-        assert isinstance(names, list)
-
-        if ids is None:
-            ids = [None] * len(conventions)
-        assert isinstance(ids, list)
-
-        target_device = torch.device(device)
-
-        # Compatibility checks
-        assert (
-            batched_intrinsics.shape[0] == batch_size
-        ), f"Batch mismatch: {batched_intrinsics.shape[0]=}, {batch_size=}"
-        assert (
-            len(conventions) == batch_size
-        ), f"{len(conventions)=}, expected {batch_size}"
-        assert len(names) == batch_size, f"{len(names)=}, {batch_size=}"
-        assert len(ids) == batch_size, f"{len(ids)=}, {batch_size=}"
-
-        self._intrinsics = batched_intrinsics
-        self._extrinsics = batched_extrinsics
-        self._conventions = conventions
-        self._names = names
-        self._ids = ids
-        self._device = target_device
-        self._name_to_index = {name: idx for idx, name in enumerate(self._names)}
+        self._device: torch.device = torch.device(device)
+        self._intrinsics: List[CameraIntrinsics] = [
+            intrinsic.to(device=self._device) for intrinsic in intrinsics
+        ]
+        self._extrinsics: List[CameraExtrinsics] = [
+            extrinsic.to(device=self._device) for extrinsic in extrinsics
+        ]
+        self._names: List[Optional[str]] = names
+        self._ids: List[Optional[int]] = ids
+        self._name_to_index = {name: index for index, name in enumerate(self._names)}
 
     def __len__(self) -> int:
-        return self._intrinsics.shape[0]
+        """The number of cameras in the collection.
 
-    def __getitem__(self, index: int | slice | list[int] | str) -> "Camera | Cameras":
+        Args:
+            None.
+
+        Returns:
+            The number of cameras.
+        """
+        return len(self._intrinsics)
+
+    def __getitem__(
+        self, index: Union[int, slice, List[int], str]
+    ) -> Union["Camera", "Cameras"]:
+        """Index the collection.
+
+        A name / int yields one Camera, a slice / int-list yields a sub-Cameras.
+
+        Args:
+            index: A name string, an int, a slice, or a list of ints.
+
+        Returns:
+            A single Camera or a sub-Cameras collection.
+        """
         if isinstance(index, str):
             assert index in self._name_to_index, f"Camera name '{index}' not found"
             return self[self._name_to_index[index]]
@@ -129,7 +90,6 @@ class Cameras:
             return Cameras(
                 intrinsics=self._intrinsics[index],
                 extrinsics=self._extrinsics[index],
-                conventions=self._conventions[index],
                 names=self._names[index],
                 ids=self._ids[index],
                 device=self._device,
@@ -137,92 +97,83 @@ class Cameras:
         if isinstance(index, list):
             assert index, "Index list must be non-empty"
             assert all(isinstance(item, int) for item in index), f"{index=}"
-            intrinsics = self._intrinsics[index]
-            extrinsics = self._extrinsics[index]
-            conventions = [self._conventions[item] for item in index]
-            names = [self._names[item] for item in index]
-            ids = [self._ids[item] for item in index]
             return Cameras(
-                intrinsics=intrinsics,
-                extrinsics=extrinsics,
-                conventions=conventions,
-                names=names,
-                ids=ids,
+                intrinsics=[self._intrinsics[item] for item in index],
+                extrinsics=[self._extrinsics[item] for item in index],
+                names=[self._names[item] for item in index],
+                ids=[self._ids[item] for item in index],
                 device=self._device,
             )
         assert isinstance(index, int), f"{type(index)=}"
         return Camera(
             intrinsics=self._intrinsics[index],
             extrinsics=self._extrinsics[index],
-            convention=self._conventions[index],
             name=self._names[index],
             id=self._ids[index],
             device=self._device,
         )
 
-    def __iter__(self) -> Iterator[Camera]:
-        for idx in range(len(self)):
-            yield self[idx]
+    def __iter__(self) -> Iterator["Camera"]:
+        """Iterate the collection one Camera at a time.
+
+        Args:
+            None.
+
+        Returns:
+            An iterator over the per-index Camera objects.
+        """
+        for index in range(len(self)):
+            yield self[index]
 
     def to(
         self,
-        device: str | torch.device | None = None,
-        convention: str | None = None,
+        device: Optional[Union[str, torch.device]] = None,
+        convention: Optional[str] = None,
     ) -> "Cameras":
+        """Return this Cameras on a target device / convention.
+
+        Args:
+            device: Target device; ``None`` keeps the current device.
+            convention: Target convention; ``None`` keeps each camera's convention.
+
+        Returns:
+            This Cameras when unchanged, else a new one.
+        """
         # Input validations
-        assert device is None or isinstance(
-            device, (str, torch.device)
-        ), f"{type(device)=}"
-        assert convention is None or isinstance(convention, str), f"{type(convention)=}"
+        assert device is None or isinstance(device, (str, torch.device)), (
+            "Expected target device to be None, a string, or torch.device. "
+            f"{device=}"
+        )
+        assert convention is None or isinstance(convention, str), (
+            "Expected target convention to be None or a string. " f"{convention=}"
+        )
 
         # Input normalizations
-        target_device = self._device if device is None else torch.device(device)
-        target_convention = convention
-        if target_convention is not None:
-            validate_camera_convention(target_convention)
-
-        if target_convention is None and target_device == self._device:
+        target_device = torch.device(device) if device is not None else self._device
+        if target_device == self._device and convention is None:
             return self
-
         if (
-            target_convention is not None
-            and target_device == self._device
+            target_device == self._device
+            and convention is not None
             and all(
-                source_convention == target_convention
-                for source_convention in self._conventions
+                extrinsic.convention == convention for extrinsic in self._extrinsics
             )
         ):
             return self
 
-        if target_convention is None:
-            return Cameras(
-                intrinsics=self._intrinsics.to(device=target_device),
-                extrinsics=self._extrinsics.to(device=target_device),
-                conventions=list(self._conventions),
-                names=list(self._names),
-                ids=list(self._ids),
-                device=target_device,
-            )
-
-        intrinsics_list: List[torch.Tensor] = []
-        extrinsics_list: List[torch.Tensor] = []
-        conventions: List[str] = []
-        names: List[str | None] = []
-        ids: List[int | None] = []
-        for idx in range(len(self)):
-            camera = self[idx].to(
-                device=target_device,
-                convention=target_convention,
-            )
-            intrinsics_list.append(camera.intrinsics)
-            extrinsics_list.append(camera.extrinsics)
-            conventions.append(camera.convention)
-            names.append(camera.name)
-            ids.append(camera.id)
+        intrinsics: List[CameraIntrinsics] = []
+        extrinsics: List[CameraExtrinsics] = []
+        names: List[Optional[str]] = []
+        ids: List[Optional[int]] = []
+        for camera in self:
+            moved = camera.to(device=target_device, convention=convention)
+            intrinsics.append(moved.intrinsics)
+            extrinsics.append(moved.extrinsics)
+            names.append(moved.name)
+            ids.append(moved.id)
         return Cameras(
-            intrinsics=intrinsics_list,
-            extrinsics=extrinsics_list,
-            conventions=conventions,
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
             names=names,
             ids=ids,
             device=target_device,
@@ -234,162 +185,164 @@ class Cameras:
         rotation: np.ndarray,
         translation: np.ndarray,
     ) -> "Cameras":
-        # Input validations
-        assert isinstance(scale, (int, float)), f"{type(scale)=}"
-        assert isinstance(rotation, np.ndarray), f"{type(rotation)=}"
-        assert rotation.shape == (3, 3), f"{rotation.shape=}"
-        assert rotation.dtype == np.float32, f"{rotation.dtype=}"
-        assert isinstance(translation, np.ndarray), f"{type(translation)=}"
-        assert translation.shape == (3,), f"{translation.shape=}"
-        assert translation.dtype == np.float32, f"{translation.dtype=}"
-        validate_rotation_matrix(rotation)
+        """Return this Cameras under a similarity transform of each camera's pose.
 
-        # Input normalizations
-        rotation_tensor = torch.from_numpy(rotation).to(
-            device=self._device,
-            dtype=self._extrinsics.dtype,
-        )
-        translation_tensor = torch.from_numpy(translation).to(
-            device=self._device,
-            dtype=self._extrinsics.dtype,
-        )
+        Args:
+            scale: Similarity scale factor.
+            rotation: 3x3 rotation matrix as a float32 numpy array.
+            translation: Length-3 translation as a float32 numpy array.
 
-        extrinsics = self._extrinsics
-        rotation_c2w = extrinsics[:, :3, :3]
-        translation_c2w = extrinsics[:, :3, 3]
-        rotation_c2w_new = rotation_tensor @ rotation_c2w
-        translation_c2w_new = scale * (translation_c2w @ rotation_tensor.T) + (
-            translation_tensor
-        )
-
-        batch_size = extrinsics.shape[0]
-        updated_extrinsics = (
-            torch.eye(
-                4,
-                dtype=extrinsics.dtype,
-                device=extrinsics.device,
+        Returns:
+            A new Cameras with each camera's CameraExtrinsics pose transformed.
+        """
+        intrinsics: List[CameraIntrinsics] = []
+        extrinsics: List[CameraExtrinsics] = []
+        names: List[Optional[str]] = []
+        ids: List[Optional[int]] = []
+        for camera in self:
+            transformed = camera.transform(
+                scale=scale,
+                rotation=rotation,
+                translation=translation,
             )
-            .unsqueeze(0)
-            .repeat(batch_size, 1, 1)
-        )
-        updated_extrinsics[:, :3, :3] = rotation_c2w_new
-        updated_extrinsics[:, :3, 3] = translation_c2w_new
-
-        for idx in range(batch_size):
-            updated_extrinsics[idx, :3, :3] = _stabilize_rotation_matrix(
-                updated_extrinsics[idx, :3, :3]
-            )
-
+            intrinsics.append(transformed.intrinsics)
+            extrinsics.append(transformed.extrinsics)
+            names.append(transformed.name)
+            ids.append(transformed.id)
         return Cameras(
-            intrinsics=self._intrinsics,
-            extrinsics=updated_extrinsics,
-            conventions=list(self._conventions),
-            names=list(self._names),
-            ids=list(self._ids),
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
+            names=names,
+            ids=ids,
             device=self._device,
         )
 
     @property
-    def intrinsics(self) -> torch.Tensor:
+    def intrinsics(self) -> Sequence[CameraIntrinsics]:
+        """The per-camera CameraIntrinsics.
+
+        Args:
+            None.
+
+        Returns:
+            The per-camera list of CameraIntrinsics.
+        """
         return self._intrinsics
 
     @property
-    def extrinsics(self) -> torch.Tensor:
+    def extrinsics(self) -> Sequence[CameraExtrinsics]:
+        """The per-camera CameraExtrinsics.
+
+        Args:
+            None.
+
+        Returns:
+            The per-camera list of CameraExtrinsics.
+        """
         return self._extrinsics
 
     @property
     def conventions(self) -> Sequence[str]:
-        return self._conventions
+        """The per-camera coordinate-frame conventions, one per CameraExtrinsics.
+
+        Args:
+            None.
+
+        Returns:
+            The per-camera list of convention strings.
+        """
+        return [extrinsic.convention for extrinsic in self._extrinsics]
 
     @property
-    def names(self) -> Sequence[str | None]:
+    def names(self) -> Sequence[Optional[str]]:
+        """The per-camera names.
+
+        Args:
+            None.
+
+        Returns:
+            The per-camera list of optional names.
+        """
         return self._names
 
     @property
-    def ids(self) -> Sequence[int | None]:
+    def ids(self) -> Sequence[Optional[int]]:
+        """The per-camera ids.
+
+        Args:
+            None.
+
+        Returns:
+            The per-camera list of optional ids.
+        """
         return self._ids
 
     @property
     def device(self) -> torch.device:
+        """The device the cameras live on.
+
+        Args:
+            None.
+
+        Returns:
+            The device.
+        """
         return self._device
 
     @property
     def center(self) -> torch.Tensor:
-        centers = self._extrinsics[:, :3, 3]
+        """The [N, 3] stack of per-camera centers.
+
+        Args:
+            None.
+
+        Returns:
+            The ``[N, 3]`` per-camera centers torch.Tensor.
+        """
+        centers = torch.stack(
+            [extrinsic.center for extrinsic in self._extrinsics], dim=0
+        )
         assert centers.shape == (len(self), 3), f"{centers.shape=}"
         return centers
 
     @property
     def right(self) -> torch.Tensor:
-        vecs = torch.empty_like(self._extrinsics[:, :3, 0])
-        for idx, convention in enumerate(self._conventions):
-            if convention == "standard":
-                vecs[idx] = self._extrinsics[idx, :3, 0]
-            elif convention == "opengl":
-                vecs[idx] = self._extrinsics[idx, :3, 0]
-            elif convention == "opencv":
-                vecs[idx] = self._extrinsics[idx, :3, 0]
-            elif convention == "pytorch3d":
-                vecs[idx] = -self._extrinsics[idx, :3, 0]
-            elif convention == "arkit":
-                vecs[idx] = -self._extrinsics[idx, :3, 1]
-            else:
-                assert False, f"Unsupported convention: {convention}"
-        norms = torch.linalg.norm(vecs, dim=1)
-        assert torch.allclose(
-            norms,
-            torch.ones_like(norms),
-            atol=1.0e-05,
-            rtol=0.0,
-        ), f"Right vectors must be unit, norms {norms}"
+        """The [N, 3] stack of per-camera physical right axes.
+
+        Args:
+            None.
+
+        Returns:
+            The ``[N, 3]`` per-camera right axes torch.Tensor.
+        """
+        vecs = torch.stack([extrinsic.right for extrinsic in self._extrinsics], dim=0)
+        assert vecs.shape == (len(self), 3), f"{vecs.shape=}"
         return vecs
 
     @property
     def forward(self) -> torch.Tensor:
-        vecs = torch.empty_like(self._extrinsics[:, :3, 0])
-        for idx, convention in enumerate(self._conventions):
-            if convention == "standard":
-                vecs[idx] = self._extrinsics[idx, :3, 1]
-            elif convention == "opengl":
-                vecs[idx] = -self._extrinsics[idx, :3, 2]
-            elif convention == "opencv":
-                vecs[idx] = self._extrinsics[idx, :3, 2]
-            elif convention == "pytorch3d":
-                vecs[idx] = self._extrinsics[idx, :3, 2]
-            elif convention == "arkit":
-                vecs[idx] = self._extrinsics[idx, :3, 2]
-            else:
-                assert False, f"Unsupported convention: {convention}"
-        norms = torch.linalg.norm(vecs, dim=1)
-        assert torch.allclose(
-            norms,
-            torch.ones_like(norms),
-            atol=1.0e-05,
-            rtol=0.0,
-        ), f"Forward vectors must be unit, norms {norms}"
+        """The [N, 3] stack of per-camera physical forward axes.
+
+        Args:
+            None.
+
+        Returns:
+            The ``[N, 3]`` per-camera forward axes torch.Tensor.
+        """
+        vecs = torch.stack([extrinsic.forward for extrinsic in self._extrinsics], dim=0)
+        assert vecs.shape == (len(self), 3), f"{vecs.shape=}"
         return vecs
 
     @property
     def up(self) -> torch.Tensor:
-        vecs = torch.empty_like(self._extrinsics[:, :3, 0])
-        for idx, convention in enumerate(self._conventions):
-            if convention == "standard":
-                vecs[idx] = self._extrinsics[idx, :3, 2]
-            elif convention == "opengl":
-                vecs[idx] = self._extrinsics[idx, :3, 1]
-            elif convention == "opencv":
-                vecs[idx] = -self._extrinsics[idx, :3, 1]
-            elif convention == "pytorch3d":
-                vecs[idx] = self._extrinsics[idx, :3, 1]
-            elif convention == "arkit":
-                vecs[idx] = -self._extrinsics[idx, :3, 0]
-            else:
-                assert False, f"Unsupported convention: {convention}"
-        norms = torch.linalg.norm(vecs, dim=1)
-        assert torch.allclose(
-            norms,
-            torch.ones_like(norms),
-            atol=1.0e-05,
-            rtol=0.0,
-        ), f"Up vectors must be unit, norms {norms}"
+        """The [N, 3] stack of per-camera physical up axes.
+
+        Args:
+            None.
+
+        Returns:
+            The ``[N, 3]`` per-camera up axes torch.Tensor.
+        """
+        vecs = torch.stack([extrinsic.up for extrinsic in self._extrinsics], dim=0)
+        assert vecs.shape == (len(self), 3), f"{vecs.shape=}"
         return vecs

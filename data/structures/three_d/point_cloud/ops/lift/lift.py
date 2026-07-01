@@ -46,8 +46,8 @@ def multi_view_fusion(
     )
     assert all(
         [
-            m.shape[-2] == int(camera.intrinsics[1, 2] * 2)
-            and m.shape[-1] == int(camera.intrinsics[0, 2] * 2)
+            m.shape[-2] == int(camera.intrinsics.cy * 2)
+            and m.shape[-1] == int(camera.intrinsics.cx * 2)
             for m, camera in zip(maps, cameras, strict=True)
         ]
     ), "Incompatible map and camera intrinsic dimensions."
@@ -200,7 +200,7 @@ def _transform_to_camera(
     """
     # Transform extrinsics to OpenCV convention for consistent processing
     camera = camera.to(convention="opencv")
-    world_to_camera = camera.w2c
+    world_to_camera = camera.extrinsics.w2c
 
     N = points.shape[0]  # Number of points
     device = points.device
@@ -245,8 +245,18 @@ def _project_to_image(
 
     # Apply camera intrinsics
     # K @ [x/z, y/z, 1]^T gives [u, v, 1]^T in pixel coordinates
+    intrinsics = camera.intrinsics
+    intrinsics_matrix = torch.tensor(
+        [
+            [intrinsics.fx, 0.0, intrinsics.cx],
+            [0.0, intrinsics.fy, intrinsics.cy],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=intrinsics.device,
+    )
     points_2d_homo = (
-        camera.intrinsics @ points_normalized.T
+        intrinsics_matrix @ points_normalized.T
     ).T  # [3, 3] @ [3, N] -> [3, N] -> [N, 3]
 
     # Extract pixel coordinates
