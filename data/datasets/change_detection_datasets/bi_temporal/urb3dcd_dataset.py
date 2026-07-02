@@ -5,7 +5,7 @@ import random
 import numpy as np
 import torch
 from sklearn.neighbors import KDTree
-from data.structures.three_d.point_cloud.ops.sampling import (
+from models.three_d.point_cloud.ops.sampling import (
     GridSampling3D,
     CylinderSampling,
 )

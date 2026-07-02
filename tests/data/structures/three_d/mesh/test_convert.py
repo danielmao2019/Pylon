@@ -220,10 +220,7 @@ def test_vertex_count_is_loader_independent(tmp_path: Path) -> None:
 
     assert int(pytorch3d_loaded_mesh.verts.shape[0]) == int(
         trimesh_loaded_mesh.verts.shape[0]
-    ), (
-        f"{pytorch3d_loaded_mesh.verts.shape=} "
-        f"{trimesh_loaded_mesh.verts.shape=}"
-    )
+    ), (f"{pytorch3d_loaded_mesh.verts.shape=} " f"{trimesh_loaded_mesh.verts.shape=}")
     assert (
         int(pytorch3d_loaded_mesh.verts.shape[0]) == 4
     ), f"{pytorch3d_loaded_mesh.verts.shape=}"
@@ -259,8 +256,7 @@ def test_trimesh_uv_round_trip_preserves_geometry() -> None:
     ]
     sorted_round_trip = round_tripped_mesh.verts[
         torch.argsort(
-            round_tripped_mesh.verts[:, 0] * 1.0e06
-            + round_tripped_mesh.verts[:, 1]
+            round_tripped_mesh.verts[:, 0] * 1.0e06 + round_tripped_mesh.verts[:, 1]
         )
     ]
     assert_close(sorted_round_trip, sorted_original)

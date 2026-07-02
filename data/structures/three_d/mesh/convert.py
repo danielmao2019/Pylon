@@ -101,9 +101,7 @@ def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh:
     _validate_inputs()
 
     open3d_mesh = o3d.geometry.TriangleMesh()
-    open3d_mesh.vertices = o3d.utility.Vector3dVector(
-        mesh.verts.detach().cpu().numpy()
-    )
+    open3d_mesh.vertices = o3d.utility.Vector3dVector(mesh.verts.detach().cpu().numpy())
     open3d_mesh.triangles = o3d.utility.Vector3iVector(
         mesh.faces.detach().cpu().numpy()
     )
@@ -117,13 +115,16 @@ def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh:
     return open3d_mesh
 
 
-def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
+def mesh_from_pytorch3d(
+    mesh: Meshes,
+    convention: str = "obj",
+) -> Mesh:
     """Convert one single-mesh PyTorch3D Meshes into one Mesh.
 
     Args:
         mesh: Single-mesh PyTorch3D `Meshes` container.
-        convention: UV-origin convention to assign when UV textures are
-            present.
+        convention: UV-origin convention to assign when UV textures
+            are present.
 
     Returns:
         Repo `Mesh` carrying the same geometry and supported textures.
@@ -147,7 +148,11 @@ def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh:
     faces = mesh.faces_list()[0].to(dtype=torch.int64).contiguous()
     textures = mesh.textures
     if textures is None:
-        return Mesh(verts=verts, faces=faces, texture=None)
+        return Mesh(
+            verts=verts,
+            faces=faces,
+            texture=None,
+        )
 
     if isinstance(textures, TexturesVertex):
         vertex_color = textures.verts_features_list()[0].to(dtype=torch.float32)
@@ -245,7 +250,10 @@ def mesh_to_pytorch3d(
     return Meshes(verts=[verts], faces=[faces], textures=textures)
 
 
-def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -> Mesh:
+def mesh_from_trimesh(
+    mesh: trimesh.Trimesh,
+    convention: Optional[str] = None,
+) -> Mesh:
     """Convert one trimesh.Trimesh into one Mesh.
 
     When the trimesh carries UV data it is welded from trimesh's per-corner
@@ -253,8 +261,8 @@ def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -
 
     Args:
         mesh: Source `trimesh.Trimesh` instance.
-        convention: Required UV-origin convention when the trimesh carries UV
-            data; `None` is accepted only for non-UV trimeshes.
+        convention: Required UV-origin convention when the trimesh
+            carries UV data; `None` is accepted only for non-UV trimeshes.
 
     Returns:
         Repo `Mesh` with geometry and supported texture attributes.
@@ -283,9 +291,11 @@ def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -
             faces=np.asarray(mesh.faces),
             verts_uvs=np.asarray(mesh.visual.uv),
         )
-        canonical_verts_uvs, canonical_faces_uvs = shift_seam_crossing_faces_to_seam_safe(
-            verts_uvs=verts_uvs,
-            faces_uvs=faces_uvs,
+        canonical_verts_uvs, canonical_faces_uvs = (
+            shift_seam_crossing_faces_to_seam_safe(
+                verts_uvs=verts_uvs,
+                faces_uvs=faces_uvs,
+            )
         )
         texture_image = _texture_image_from_trimesh(image=mesh.visual.material.image)
         return Mesh(
@@ -345,9 +355,7 @@ def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
             "Expected the OBJ-convention mesh to keep a UV-texture-map texture. "
             f"{type(obj_mesh.texture)=}"
         )
-        expanded_verts, expanded_faces, expanded_uv = _uv_mesh_to_trimesh(
-            mesh=obj_mesh
-        )
+        expanded_verts, expanded_faces, expanded_uv = _uv_mesh_to_trimesh(mesh=obj_mesh)
         texture_image = _texture_image_to_trimesh(
             uv_texture_map=obj_mesh.texture.uv_texture_map
         )
@@ -575,9 +583,7 @@ def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
     )
     expanded_verts = mesh.verts.detach().cpu()[face_verts.reshape(-1)].numpy()
     expanded_uv = obj_verts_uvs[obj_faces_uvs.reshape(-1)].numpy()
-    expanded_faces = np.arange(expanded_verts.shape[0], dtype=np.int64).reshape(
-        -1, 3
-    )
+    expanded_faces = np.arange(expanded_verts.shape[0], dtype=np.int64).reshape(-1, 3)
     return expanded_verts, expanded_faces, expanded_uv
 
 

@@ -50,6 +50,8 @@ DATASET_GROUPS = {
         'city_scapes_f',
         'pascal_context',
         'ade_20k',
+        'hifi3dface',
+        'sthetic_face',
     ],
     'ivision': ['ivision_image'],
     'general': ['BaseRandomDataset'],  # General-purpose datasets for testing

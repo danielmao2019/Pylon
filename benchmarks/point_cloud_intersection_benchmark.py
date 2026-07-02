@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-from data.structures.three_d.point_cloud.ops.set_ops.intersection import (
+from models.three_d.point_cloud.ops.set_ops.intersection import (
     _kdtree_intersection,
     _tensor_intersection,
     _tensor_intersection_recursive,

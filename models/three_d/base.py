@@ -13,7 +13,6 @@ from data.cache import CombinedDatasetCache
 from data.structures.three_d.camera.camera import Camera
 from models.three_d import styles as three_d_styles
 from utils.ops import apply_tensor_op
-from data.structures.three_d.camera.render_camera import render_camera
 
 
 class BaseSceneModel(ABC):
@@ -315,6 +314,7 @@ class BaseSceneModel(ABC):
         Returns:
             Image with camera overlays applied
         """
+        from data.structures.three_d.camera.render_camera import render_camera
         if display_cameras is None:
             return image
 

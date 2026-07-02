@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 
 from data.structures.three_d.camera.camera import Camera
-from data.structures.three_d.point_cloud.ops.rendering.render_rgb import (
+from models.three_d.point_cloud.render.render_rgb import (
     render_rgb_from_point_cloud,
 )
 from models.three_d.base import BaseSceneModel

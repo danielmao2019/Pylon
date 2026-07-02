@@ -89,7 +89,8 @@ class MeshTextureVertexColor(MeshTexture):
 
         Args:
             device: Optional target device.
-            convention: Must be `None`; vertex color carries no UV convention.
+            convention: Must be `None`; vertex color carries no UV
+                convention.
 
         Returns:
             This texture when the device already matches, otherwise a new
@@ -102,8 +103,8 @@ class MeshTextureVertexColor(MeshTexture):
                 f"{type(device)=}"
             )
             assert convention is None, (
-                "Expected `convention` to be `None` for a vertex-color texture; "
-                "vertex color carries no UV-origin convention. "
+                "Expected `convention` to be `None` for a vertex-color "
+                "texture; vertex color carries no UV-origin convention. "
                 f"{convention=}"
             )
 

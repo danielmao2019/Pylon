@@ -7,7 +7,7 @@
 ```text
 camera_geometry.py
 ├── from data.structures.three_d.camera.cameras import Cameras
-├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
+├── from data.structures.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── def render_camera_face_index_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Render a one-view camera-space face-index buffer.
 │   └── calls _camera_verts_to_clip(verts_camera=verts_camera, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
@@ -21,7 +21,7 @@ camera_geometry.py
 │   └── # Convert camera-space verts to clip-space for rasterization.
 └── def _verts_world_to_camera(verts: torch.Tensor, camera: Cameras) -> torch.Tensor
     ├── # Transform one-view world-space verts to camera-space verts.
-    └── calls world_to_camera_transform(points=verts, extrinsics=camera_single.extrinsics, inplace=False)
+    └── calls world_to_camera_transform(points=verts, extrinsics=camera_single.extrinsics.extrinsics, inplace=False)
 ```
 
 `models/three_d/meshes/texture/extract/extract.py`
@@ -39,11 +39,14 @@ extract.py
 ├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights, compute_v_normals_weights
 ├── from models.three_d.meshes.texture.extract.weights.weights_cfg import normalize_weights_cfg, validate_weights_cfg
 ├── def extract_texture_from_images(mesh: Union[Mesh, List[Mesh]], images: Union[torch.Tensor, List[torch.Tensor]], cameras: Cameras, weights_cfg: Dict[str, Any]={}, texture_size: int=1024, default_color: float=0.7, return_valid_mask: bool=False, texel_visibility_method: str='v1', polygon_rast_method: str='v2') -> Union[torch.Tensor, Dict[str, torch.Tensor]]
-│   ├── # Extract texture from multi-view RGB images.
+│   ├── # Extract texture from multi-view RGB images and any-convention cameras, normalizing the camera and UV conventions on entry.
 │   ├── calls validate_weights_cfg(weights_cfg=weights_cfg)
 │   ├── calls normalize_weights_cfg(weights_cfg=weights_cfg)
+│   ├── calls cameras.to(convention='opencv')                     # normalize the input cameras to the opencv camera-to-world convention
 │   ├── if not extract_uv_texture_map
 │   │   └── calls _extract_vertex_color_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, default_color=default_color)
+│   ├── for each view_mesh in meshes
+│   │   └── calls view_mesh.to(convention='obj')        # normalize the input UV origin to convention='obj' (v=0 at bottom), the projector's expected UV convention
 │   └── calls _extract_uv_texture_map_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, texture_size=texture_size, default_color=default_color, texel_visibility_method=texel_visibility_method, polygon_rast_method=polygon_rast_method)
 ├── def _extract_vertex_color_from_images(meshes: List[Mesh], images_nchw: torch.Tensor, cameras: Cameras, weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse per-view projected vertex colors into one vertex-color tensor.
@@ -84,7 +87,7 @@ extract.py
 │   ├── calls _validate_rgb_image(obj=uv_texture_map)
 │   └── calls _validate_rgb_image(obj=uv_texture_map)
 ├── def _extract_uv_texture_map_from_single_image(mesh: Mesh, image: torch.Tensor, camera: Cameras, weights_cfg: Dict[str, Any], texel_face_map: Dict[str, torch.Tensor], texel_visibility_method: str='v1', polygon_rast_method: str='v2') -> Dict[str, torch.Tensor]
-│   ├── # Extract one-view UV texture observation and UV weight map.
+│   ├── # Extract one-view UV texture observation and UV weight map, both keyed by the mesh's convention='obj' UV layout.
 │   ├── if texel_visibility_method == 'v1'
 │   │   └── calls compute_f_visibility_mask(verts=mesh.verts, faces=mesh.faces, face_verts_uvs=mesh.texture.verts_uvs[mesh.texture.faces_uvs], camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]), texel_face_map=texel_face_map, polygon_rast_method=polygon_rast_method)
 │   ├── else
@@ -122,7 +125,7 @@ normal_weights.py
 ├── def compute_v_normals_weights(mesh: Mesh, camera: Cameras, weights_cfg: Dict[str, Any]) -> torch.Tensor
 │   ├── # Compute one-view per-vertex normal-alignment weights.
 │   ├── calls _verts_world_to_camera(verts=mesh.verts, camera=camera)
-│   └── calls compute_vertex_normals(base_verts=verts_camera, faces=mesh.faces)
+│   └── calls compute_vertex_normals(verts=verts_camera, faces=mesh.faces, weights="area")
 └── def compute_f_normals_weights(mesh: Mesh, camera: Cameras, weights_cfg: Dict[str, Any]) -> torch.Tensor
     ├── # Compute one-view per-face normal-alignment weights.
     └── calls _verts_world_to_camera(verts=mesh.verts, camera=camera)
@@ -346,8 +349,7 @@ texel_visibility_geometry.py
 ```text
 texel_visibility_v2.py
 ├── from data.structures.three_d.camera.cameras import Cameras
-├── from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
-├── from data.structures.three_d.point_cloud.camera.transform import world_to_camera_transform
+├── from data.structures.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights
 ├── FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER
 ├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
@@ -371,8 +373,8 @@ texel_visibility_v2.py
 │   └── # Map barycentric texel coordinates to world-space mesh points.
 ├── def _compute_texel_visibility_mask_from_world_coords(world_coords: torch.Tensor, valid_texel_indices: torch.Tensor, valid_texel_mask: torch.Tensor, mesh_diagonal: float, camera: Cameras, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Compute texel visibility by keeping the front depth-prefix per pixel.
-│   ├── calls world_to_camera_transform(points=world_coords, extrinsics=camera_single.extrinsics, inplace=False)
-│   ├── calls project_3d_to_2d(points=texel_camera_coords, intrinsics=camera_single.intrinsics, inplace=False)
+│   ├── calls world_to_camera_transform(points=world_coords, extrinsics=camera_single.extrinsics.extrinsics, inplace=False)
+│   ├── calls camera_single.intrinsics.project
 │   └── calls _select_visible_depth_clusters_per_camera_pixel(linear_pixel_indices=visible_linear_pixel_indices, depth=visible_projected_depth, mesh_diagonal=mesh_diagonal)
 ├── def _wrap_continuous_uv_coords_for_faces(continuous_uv_coords: torch.Tensor, face_verts_uvs: torch.Tensor) -> torch.Tensor
 │   └── # Wrap texel-center UV coordinates into the seam-safe face-local chart.

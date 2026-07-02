@@ -6,8 +6,7 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
-from data.structures.three_d.point_cloud.camera.project import project_3d_to_2d
-from data.structures.three_d.point_cloud.camera.transform import (
+from models.three_d.point_cloud.ops.world_to_camera_transform import (
     world_to_camera_transform,
 )
 from models.three_d.meshes.texture.extract.weights.normal_weights import (
@@ -647,19 +646,8 @@ def _compute_texel_visibility_mask_from_world_coords(
         inplace=False,
     )
     assert texel_camera_coords.dtype == torch.float32, f"{texel_camera_coords.dtype=}"
-    intrinsics = camera_single.intrinsics
-    intrinsics_matrix = torch.tensor(
-        [
-            [intrinsics.fx, 0.0, intrinsics.cx],
-            [0.0, intrinsics.fy, intrinsics.cy],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-        device=intrinsics.device,
-    )
-    projected_texel_points = project_3d_to_2d(
-        points=texel_camera_coords,
-        intrinsics=intrinsics_matrix,
+    projected_texel_points = camera_single.intrinsics.project(
+        points_camera=texel_camera_coords,
         inplace=False,
     )
     assert (

@@ -19,7 +19,8 @@ def validate_uv_texture_map(
             `MeshTextureUVTextureMap`.
         faces_uvs: Face-to-UV index tensor [F, 3], integer, non-empty,
             non-negative indices.
-        convention: UV-origin convention string (`"obj"` or `"top_left"`).
+        convention: UV-origin convention string (`"obj"` or
+            `"top_left"`).
 
     Returns:
         None.
@@ -28,7 +29,7 @@ def validate_uv_texture_map(
     validate_uv_texture_map_image(obj=uv_texture_map)
     validate_verts_uvs(obj=verts_uvs)
     validate_faces_uvs(obj=faces_uvs)
-    validate_mesh_uv_convention(convention=convention)
+    validate_convention(obj=convention)
     _validate_verts_uvs_faces_uvs_cross_field(
         verts_uvs=verts_uvs,
         faces_uvs=faces_uvs,
@@ -153,22 +154,21 @@ def validate_faces_uvs(obj: Any) -> None:
     )
 
 
-def validate_mesh_uv_convention(convention: Any) -> None:
-    """Validate a UV-origin convention string (one of `"obj"`, `"top_left"`).
+def validate_convention(obj: Any) -> str:
+    """Validate and return a UV-origin convention string (one of `"obj"`, `"top_left"`).
 
     Args:
-        convention: Candidate UV-origin convention string.
+        obj: Candidate UV-origin convention string.
 
     Returns:
-        None.
+        The validated UV-origin convention string `obj`.
     """
 
-    assert isinstance(convention, str), (
-        "Expected `convention` to be a string. " f"{type(convention)=}"
+    assert isinstance(obj, str), (
+        "Expected `convention` to be a string. " f"{type(obj)=}"
     )
-    assert convention in ("obj", "top_left"), (
-        "Unsupported mesh UV convention. " f"{convention=}"
-    )
+    assert obj in ("obj", "top_left"), "Unsupported mesh UV convention. " f"{obj=}"
+    return obj
 
 
 def _validate_verts_uvs_faces_uvs_cross_field(

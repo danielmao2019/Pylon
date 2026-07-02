@@ -9,10 +9,10 @@ from PIL import Image
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.point_cloud import load_point_cloud
-from data.structures.three_d.point_cloud.ops.rendering.render_rgb import (
+from models.three_d.point_cloud.render.render_rgb import (
     render_rgb_from_point_cloud,
 )
-from data.structures.three_d.point_cloud.ops.rendering.render_segmentation import (
+from models.three_d.point_cloud.render.render_segmentation import (
     render_segmentation_from_point_cloud,
 )
 

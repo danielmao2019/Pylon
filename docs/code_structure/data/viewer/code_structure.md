@@ -334,7 +334,9 @@ three_scene_helpers.ts
     ├── impls wasConnected = false   # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
     ├── def draw
     │   ├── # The requestAnimationFrame callback: stops and frees the context once the canvas leaves the DOM, otherwise renders one frame and reschedules itself.
-    │   ├── impls connected = renderer.domElement.isConnected; if connected then wasConnected = true
+    │   ├── impls connected = renderer.domElement.isConnected
+    │   ├── if connected
+    │   │   └── impls wasConnected = true
     │   ├── if wasConnected and not connected                                       # canvas detached → the cell was unmounted
     │   │   ├── impls renderer.dispose(); renderer.forceContextLoss()
     │   │   └── return                                                              # stop the loop without rescheduling
@@ -539,7 +541,8 @@ core_points_display.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createPointsObject({ displayResponse, pointSize, pointColor }: { displayResponse: PointDisplayResponse; pointSize?: number; pointColor?: string }): THREE.Object3D
 │   ├── # Part-B: returns a THREE.Group for the point cloud, populated with the THREE.Points once the async geometry load resolves.
-│   ├── impls group = new THREE.Group(); loadPointGeometry({ displayResponse }).then(geometry => group.add(createThreePoints({ geometry, pointSize, pointColor })))
+│   ├── impls group = new THREE.Group()
+│   ├── impls loadPointGeometry({ displayResponse }).then(geometry => group.add(createThreePoints({ geometry, pointSize, pointColor })))
 │   └── return group
 ├── async function loadPointGeometry({ displayResponse }: { displayResponse: PointDisplayResponse }): Promise<THREE.BufferGeometry>
 │   ├── # Async-loads the point-cloud resource from displayResponse.url and returns a BufferGeometry with `position` and (when colors are present) `color` attributes.
@@ -1190,8 +1193,8 @@ scene_graph_display.ts
 │   ├── # Builds the absolutely-positioned HTML overlay container layered above the canvas; labelFontSize / labelColor apply as the overlay's default font-size and color (per-label inline styles still take precedence).
 │   ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
 │   ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-│   ├── impls create the absolutely-positioned overlay HTMLDivElement layered above the canvas, with default font-size = effectiveLabelFontSize px and color = effectiveLabelColor  # impls-node-one-step:skip
-│   ├── impls append the overlay to the container
+│   ├── impls create the absolutely-positioned HTML overlay container layered above the canvas (default font-size = effectiveLabelFontSize px, color = effectiveLabelColor)
+│   ├── impls mount the container inside the display container
 │   └── return  # the overlay container
 ├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
 │   └── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
@@ -1214,7 +1217,8 @@ scene_graph_display.ts
     ├── # Per-frame step: projects each label's world position into overlay-pixel coordinates, updates the HTML node positions and per-label font-size/color, and culls offscreen labels.
     ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
     ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-    ├── impls projects each label's world position to NDC via camera, then converts to overlay-pixel coordinates
+    ├── impls projects each label's world position to NDC via camera
+    ├── impls converts the NDC position to overlay-pixel coordinates
     ├── impls updates each label's HTML node position (left/top), font-size = effectiveLabelFontSize px, color = effectiveLabelColor
     ├── impls culls labels behind the camera or outside the viewport
     └── return
@@ -1294,8 +1298,8 @@ core_mesh_display.py
 │   ├── # Builds the Plotly Mesh3d trace for a per-vertex-colored mesh, resolving the effective color.
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
-│   ├── elif mesh has per-vertex rgb
-│   │   └── impls effective_color = mesh.per_vertex_rgb
+│   ├── elif mesh.texture carries per-vertex color
+│   │   └── impls effective_color = mesh.texture.vertex_color
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
@@ -1303,8 +1307,8 @@ core_mesh_display.py
 │   ├── # Builds the Plotly Mesh3d trace for a UV-texture-mapped mesh, resolving the effective color.
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
-│   ├── elif mesh has uv_texture_map
-│   │   └── impls effective_color = sample(mesh.uv_texture_map, mesh.uv)
+│   ├── elif mesh.texture carries a uv_texture_map
+│   │   └── impls effective_color = sample(mesh.texture.uv_texture_map, mesh.texture.verts_uvs)
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
@@ -1516,7 +1520,8 @@ core_mesh_display.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Object3D
 │   ├── # Part-B: returns a THREE.Group for the mesh, populated with the THREE.Mesh once the async payload load resolves.
-│   ├── impls group = new THREE.Group(); loadMeshPayload({ displayResponse }).then(payload => group.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })))
+│   ├── impls group = new THREE.Group()
+│   ├── impls loadMeshPayload({ displayResponse }).then(payload => group.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })))
 │   └── return group
 ├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>
 │   ├── # Async-loads the mesh payload from displayResponse.url; resolves a sparse-heatmap delta against its referenced geometry, otherwise reads the dense resource as-is.
@@ -1796,7 +1801,8 @@ apis.py
 core_camera_display.py
 └── def create_camera_display_response_core(slot_id: str, title: str, camera_vis_payload: List[Dict[str, Any]], meta_info: Optional[Dict[str, Any]] = None) -> CameraDisplayResponse
     ├── # Creates a camera display response from the already-mapped camera-vis payload, exposing it through a frontend-loadable URL.
-    ├── impls builds the camera-vis data URL from camera_vis_payload (json then base64)
+    ├── impls serializes camera_vis_payload to a json string
+    ├── impls builds the camera-vis data URL by base64-encoding that json string
     ├── impls copies caller-provided meta_info into response metadata (empty object for camera display)
     └── return
 ```
@@ -1834,7 +1840,8 @@ camera_display.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createCameraObject({ displayResponse, frustumOpacity }: { displayResponse: CameraDisplayResponse; frustumOpacity?: number }): THREE.Object3D
 │   ├── # Part-B: returns a THREE.Group for the camera frustums, populated once the async camera-vis payload load resolves.
-│   ├── impls group = new THREE.Group(); loadCamerasPayload({ displayResponse }).then(payload => group.add(createThreeCameras({ payload, frustumOpacity })))
+│   ├── impls group = new THREE.Group()
+│   ├── impls loadCamerasPayload({ displayResponse }).then(payload => group.add(createThreeCameras({ payload, frustumOpacity })))
 │   └── return group
 ├── async function loadCamerasPayload({ displayResponse }: { displayResponse: CameraDisplayResponse }): Promise<CamerasPayload>
 │   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / center_size / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
@@ -2040,7 +2047,7 @@ camera_sync.ts
 │   ├── _listeners             # Array<(camera_sync_state: CameraSyncState) => void>
 │   ├── loadCameraSyncState
 │   │   ├── # Common API: seeds one source's CameraSyncState entry from a caller-provided camera state.
-│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: [], camera_state }
+│   │   ├── impls this._state_by_source_id[source_id] = { target_ids: empty, camera_state: the caller-provided CameraState }
 │   │   ├── impls sets this._targets_by_source_id[source_id] to a fresh empty Map
 │   │   └── return
 │   ├── getCameraSyncState
@@ -2063,7 +2070,7 @@ camera_sync.ts
 │   │   └── return
 │   ├── applyCameraSyncStateToTargets
 │   │   ├── # Additional API: applies a caller-owned CameraState to every target registered under one source.
-│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
+│   │   ├── impls this._state_by_source_id[source_id] = { target_ids: the current target_ids, camera_state: the caller-provided CameraState }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
 │   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
@@ -2072,7 +2079,7 @@ camera_sync.ts
 │   │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
 │   │   ├── if source_id not in this._targets_by_source_id
 │   │   │   └── throw
-│   │   ├── impls this._state_by_source_id[source_id] = { source_id, target_ids: this._state_by_source_id[source_id].target_ids, camera_state }
+│   │   ├── impls this._state_by_source_id[source_id] = { target_ids: the current target_ids, camera_state: the source display CameraState }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   ├── if target_id == source_id
 │   │   │   │   └── continue
@@ -2138,7 +2145,8 @@ selection_path.ts
     ├── # Complete a selector level change into a full root-leaf path, resetting every finer level to its first option.
     ├── impls start the path with the prefix up to the chosen level plus the chosen value
     ├── for each deeper level until the descended node has no children
-    │   └── impls append the descended node's first child's value, then descend into it
+    │   ├── impls append the descended node's first child's value
+    │   └── impls descend into that first child
     └── return            # the completed root-leaf path
 ```
 
@@ -2186,7 +2194,8 @@ selector_cascade.py
 └── def complete_root_leaf_path(node: SelectionNode, path: List[str])
     ├── # Complete a Dash level change into a full root-leaf path: the chosen value, then each deeper level's first child descended to a leaf.
     ├── for each deeper level until the descended node has no children
-    │   └── impls append the descended node's first child's value, then descend into it
+    │   ├── impls append the descended node's first child's value
+    │   └── impls descend into that first child
     └── return            # the completed root-leaf path
 ```
 
@@ -2251,9 +2260,9 @@ apis.ts
 │   ├── # Part-B: builds the inline 3D axis-aligned boxes and optional per-box score labels into a THREE.Group and returns it for the layered container to add.
 │   ├── impls group = new THREE.Group()
 │   ├── impls build the box-edges meshes from displayResponse.aabbs
+│   ├── impls build the score labels from displayResponse.scores
 │   ├── impls add the box-edges meshes to group
-│   ├── impls build the per-box score labels from displayResponse.scores
-│   ├── impls add the per-box score labels to group
+│   ├── impls add the score labels to group
 │   └── return group
 ├── function renderAabb3dScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Drives the 3D-box display render loop with the supplied trackball controls.
@@ -2310,7 +2319,7 @@ apis.ts
 ├── function renderAabb2dDisplay({ displayResponse }: { displayResponse: Aabb2dDisplayResponse }): LeafVNode
 │   ├── # Renders the inline 2D axis-aligned boxes and their optional per-box score labels as a full-bleed raster SVG overlay; the layered container sets its viewBox to the shared frustum on the base image's load.
 │   ├── impls build the full-bleed SVG box overlay (preserveAspectRatio="none") from displayResponse.aabbs
-│   ├── impls build the per-box score labels from displayResponse.scores
+│   ├── impls build the score labels from displayResponse.scores
 │   └── return
 └── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })   # module-load self-registration of the raster aabb-2d layer renderer
 ```
