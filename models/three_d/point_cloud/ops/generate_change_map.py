@@ -5,7 +5,9 @@ based on nearest neighbor matching and segmentation labels.
 """
 
 from typing import Dict, Optional
+
 import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.knn.knn import knn
 
@@ -56,8 +58,12 @@ def generate_change_map(
     assert isinstance(src_pc, PointCloud), f"{type(src_pc)=}"
     assert isinstance(tgt_pc, PointCloud), f"{type(tgt_pc)=}"
 
-    assert hasattr(src_pc, 'classification'), "Source point cloud missing classification field"
-    assert hasattr(tgt_pc, 'classification'), "Target point cloud missing classification field"
+    assert hasattr(
+        src_pc, 'classification'
+    ), "Source point cloud missing classification field"
+    assert hasattr(
+        tgt_pc, 'classification'
+    ), "Target point cloud missing classification field"
     src_pos = src_pc.xyz  # [N_src, 3] - 3D positions
     tgt_pos = tgt_pc.xyz  # [N_tgt, 3] - 3D positions
     src_seg = getattr(src_pc, 'classification')  # [N_src] - segmentation labels

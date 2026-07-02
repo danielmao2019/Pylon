@@ -5,6 +5,7 @@ from typing import Tuple, Union
 import torch
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
@@ -14,7 +15,6 @@ from models.three_d.point_cloud.render.common.validate_rendering_inputs import (
 from models.three_d.point_cloud.render.render_mask import (
     render_mask_from_rendering_points,
 )
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def render_depth_from_rendering_points(

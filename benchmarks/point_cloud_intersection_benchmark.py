@@ -2,6 +2,7 @@
 """
 Benchmark script for comparing different point cloud intersection implementations.
 """
+
 import os
 import sys
 import time

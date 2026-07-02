@@ -1,15 +1,16 @@
-import torch
 import pytest
+import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.set_ops.intersection import (
-    pc_intersection,
-    compute_pc_iou,
-    get_nearest_neighbor_distances,
-    compute_registration_overlap,
     _calculate_chunk_factor,
+    _kdtree_intersection,
     _tensor_intersection,
     _tensor_intersection_recursive,
-    _kdtree_intersection,
+    compute_pc_iou,
+    compute_registration_overlap,
+    get_nearest_neighbor_distances,
+    pc_intersection,
 )
 
 
@@ -161,9 +162,7 @@ def test_compute_pc_iou():
 
     radius = 0.5
 
-    iou = compute_pc_iou(
-        PointCloud(xyz=src_points), PointCloud(xyz=tgt_points), radius
-    )
+    iou = compute_pc_iou(PointCloud(xyz=src_points), PointCloud(xyz=tgt_points), radius)
 
     # 2 overlapping points out of 4 total points = 0.5
     expected_iou = 2.0 / 4.0
