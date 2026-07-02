@@ -541,7 +541,8 @@ core_points_display.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createPointsObject({ displayResponse, pointSize, pointColor }: { displayResponse: PointDisplayResponse; pointSize?: number; pointColor?: string }): THREE.Object3D
 │   ├── # Part-B: returns a THREE.Group for the point cloud, populated with the THREE.Points once the async geometry load resolves.
-│   ├── impls group = new THREE.Group(); loadPointGeometry({ displayResponse }).then(geometry => group.add(createThreePoints({ geometry, pointSize, pointColor })))
+│   ├── impls group = new THREE.Group()
+│   ├── impls loadPointGeometry({ displayResponse }).then(geometry => group.add(createThreePoints({ geometry, pointSize, pointColor })))
 │   └── return group
 ├── async function loadPointGeometry({ displayResponse }: { displayResponse: PointDisplayResponse }): Promise<THREE.BufferGeometry>
 │   ├── # Async-loads the point-cloud resource from displayResponse.url and returns a BufferGeometry with `position` and (when colors are present) `color` attributes.
@@ -1519,7 +1520,8 @@ core_mesh_display.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Object3D
 │   ├── # Part-B: returns a THREE.Group for the mesh, populated with the THREE.Mesh once the async payload load resolves.
-│   ├── impls group = new THREE.Group(); loadMeshPayload({ displayResponse }).then(payload => group.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })))
+│   ├── impls group = new THREE.Group()
+│   ├── impls loadMeshPayload({ displayResponse }).then(payload => group.add(createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide })))
 │   └── return group
 ├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>
 │   ├── # Async-loads the mesh payload from displayResponse.url; resolves a sparse-heatmap delta against its referenced geometry, otherwise reads the dense resource as-is.
@@ -1838,7 +1840,8 @@ camera_display.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createCameraObject({ displayResponse, frustumOpacity }: { displayResponse: CameraDisplayResponse; frustumOpacity?: number }): THREE.Object3D
 │   ├── # Part-B: returns a THREE.Group for the camera frustums, populated once the async camera-vis payload load resolves.
-│   ├── impls group = new THREE.Group(); loadCamerasPayload({ displayResponse }).then(payload => group.add(createThreeCameras({ payload, frustumOpacity })))
+│   ├── impls group = new THREE.Group()
+│   ├── impls loadCamerasPayload({ displayResponse }).then(payload => group.add(createThreeCameras({ payload, frustumOpacity })))
 │   └── return group
 ├── async function loadCamerasPayload({ displayResponse }: { displayResponse: CameraDisplayResponse }): Promise<CamerasPayload>
 │   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / center_size / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
