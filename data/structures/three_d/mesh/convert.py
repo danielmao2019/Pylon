@@ -117,13 +117,13 @@ def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh:
 
 def mesh_from_pytorch3d(
     mesh: Meshes,
-    verts_uvs_convention: str = "obj",
+    convention: str = "obj",
 ) -> Mesh:
     """Convert one single-mesh PyTorch3D Meshes into one Mesh.
 
     Args:
         mesh: Single-mesh PyTorch3D `Meshes` container.
-        verts_uvs_convention: UV-origin convention to assign when UV textures
+        convention: UV-origin convention to assign when UV textures
             are present.
 
     Returns:
@@ -138,9 +138,8 @@ def mesh_from_pytorch3d(
             "Expected `mesh_from_pytorch3d(...)` to receive exactly one mesh. "
             f"{len(mesh)=}"
         )
-        assert isinstance(verts_uvs_convention, str), (
-            "Expected `verts_uvs_convention` to be a string. "
-            f"{type(verts_uvs_convention)=}"
+        assert isinstance(convention, str), (
+            "Expected `convention` to be a string. " f"{type(convention)=}"
         )
 
     _validate_inputs()
@@ -182,7 +181,7 @@ def mesh_from_pytorch3d(
             .contiguous(),
             verts_uvs=canonical_verts_uvs.contiguous(),
             faces_uvs=canonical_faces_uvs.contiguous(),
-            convention=verts_uvs_convention,
+            convention=convention,
         ),
     )
 
@@ -219,7 +218,7 @@ def mesh_to_pytorch3d(
 
     target_device = mesh.device if device is None else torch.device(device)
     target_mesh = (
-        mesh.to(device=target_device, verts_uvs_convention="obj")
+        mesh.to(device=target_device, convention="obj")
         if isinstance(mesh.texture, MeshTextureUVTextureMap)
         else mesh.to(device=target_device)
     )
@@ -253,7 +252,7 @@ def mesh_to_pytorch3d(
 
 def mesh_from_trimesh(
     mesh: trimesh.Trimesh,
-    verts_uvs_convention: Optional[str] = None,
+    convention: Optional[str] = None,
 ) -> Mesh:
     """Convert one trimesh.Trimesh into one Mesh.
 
@@ -262,7 +261,7 @@ def mesh_from_trimesh(
 
     Args:
         mesh: Source `trimesh.Trimesh` instance.
-        verts_uvs_convention: Required UV-origin convention when the trimesh
+        convention: Required UV-origin convention when the trimesh
             carries UV data; `None` is accepted only for non-UV trimeshes.
 
     Returns:
@@ -273,17 +272,16 @@ def mesh_from_trimesh(
         assert isinstance(mesh, trimesh.Trimesh), (
             "Expected `mesh` to be a `trimesh.Trimesh`. " f"{type(mesh)=}"
         )
-        assert verts_uvs_convention is None or isinstance(verts_uvs_convention, str), (
-            "Expected `verts_uvs_convention` to be `None` or a string. "
-            f"{type(verts_uvs_convention)=}"
+        assert convention is None or isinstance(convention, str), (
+            "Expected `convention` to be `None` or a string. " f"{type(convention)=}"
         )
 
     _validate_inputs()
 
     if isinstance(mesh.visual, trimesh.visual.texture.TextureVisuals):
-        assert verts_uvs_convention is not None, (
+        assert convention is not None, (
             "Expected textured trimesh conversion to receive an explicit UV "
-            f"`verts_uvs_convention`. {verts_uvs_convention=}"
+            f"`convention`. {convention=}"
         )
         assert mesh.visual.uv is not None, (
             "Expected a textured trimesh to carry UV coordinates. " f"{mesh.visual.uv=}"
@@ -307,7 +305,7 @@ def mesh_from_trimesh(
                 uv_texture_map=torch.as_tensor(texture_image),
                 verts_uvs=canonical_verts_uvs,
                 faces_uvs=canonical_faces_uvs,
-                convention=verts_uvs_convention,
+                convention=convention,
             ),
         )
 
@@ -352,7 +350,7 @@ def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
     _validate_inputs()
 
     if isinstance(mesh.texture, MeshTextureUVTextureMap):
-        obj_mesh = mesh.to(verts_uvs_convention="obj")
+        obj_mesh = mesh.to(convention="obj")
         assert isinstance(obj_mesh.texture, MeshTextureUVTextureMap), (
             "Expected the OBJ-convention mesh to keep a UV-texture-map texture. "
             f"{type(obj_mesh.texture)=}"

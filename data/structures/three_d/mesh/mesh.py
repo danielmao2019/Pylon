@@ -103,13 +103,13 @@ class Mesh:
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        verts_uvs_convention: Optional[str] = None,
+        convention: Optional[str] = None,
     ) -> "Mesh":
         """Return this mesh on a target device and/or texture UV-origin convention.
 
         Args:
             device: Optional target device.
-            verts_uvs_convention: Optional target texture UV-origin convention,
+            convention: Optional target texture UV-origin convention,
                 forwarded to the texture; valid only for a textured mesh.
 
         Returns:
@@ -122,29 +122,27 @@ class Mesh:
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert verts_uvs_convention is None or isinstance(
-                verts_uvs_convention, str
-            ), (
-                "Expected `verts_uvs_convention` to be `None` or a string. "
-                f"{type(verts_uvs_convention)=}"
+            assert convention is None or isinstance(convention, str), (
+                "Expected `convention` to be `None` or a string. "
+                f"{type(convention)=}"
             )
-            if verts_uvs_convention is not None:
+            if convention is not None:
                 assert self.texture is not None, (
                     "Expected only textured meshes to support explicit "
                     "UV-convention conversion. "
-                    f"{self.texture=} {verts_uvs_convention=}"
+                    f"{self.texture=} {convention=}"
                 )
 
         _validate_inputs()
 
         target_device = self.device if device is None else torch.device(device)
-        if self.device == target_device and verts_uvs_convention is None:
+        if self.device == target_device and convention is None:
             return self
 
         target_texture = None
         if self.texture is not None:
             target_texture = self.texture.to(
-                device=target_device, verts_uvs_convention=verts_uvs_convention
+                device=target_device, convention=convention
             )
 
         return Mesh(

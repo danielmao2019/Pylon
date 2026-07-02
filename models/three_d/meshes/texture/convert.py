@@ -190,7 +190,7 @@ def bake_vertex_colors_to_uv_texture_map(
 
     def _normalize_inputs() -> MeshTextureUVTextureMap:
         device = vertex_colored_mesh.device
-        return uv_layout.to(device=device, verts_uvs_convention="obj")
+        return uv_layout.to(device=device, convention="obj")
 
     uv_layout = _normalize_inputs()
 

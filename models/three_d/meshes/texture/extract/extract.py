@@ -342,9 +342,7 @@ def extract_texture_from_images(
             return extracted_vertex_color["texture"]
         return extracted_vertex_color
 
-    meshes = [
-        view_mesh.to(device=device, verts_uvs_convention="obj") for view_mesh in meshes
-    ]
+    meshes = [view_mesh.to(device=device, convention="obj") for view_mesh in meshes]
     extracted_uv_texture_map = _extract_uv_texture_map_from_images(
         meshes=meshes,
         images_nchw=images_nchw,

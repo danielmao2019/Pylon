@@ -177,7 +177,7 @@ def test_mesh_from_trimesh_welds_seam_to_geometry_domain(tmp_path: Path) -> None
     assert source_mesh.visual.uv is not None, f"{source_mesh.visual.uv=}"
     assert len(source_mesh.vertices) == 6, f"{len(source_mesh.vertices)=}"
 
-    mesh = mesh_from_trimesh(mesh=source_mesh, verts_uvs_convention="obj")
+    mesh = mesh_from_trimesh(mesh=source_mesh, convention="obj")
     assert isinstance(mesh, Mesh), f"{type(mesh)=}"
     assert isinstance(mesh.texture, MeshTextureUVTextureMap), f"{type(mesh.texture)=}"
 
@@ -215,7 +215,7 @@ def test_vertex_count_is_loader_independent(tmp_path: Path) -> None:
     pytorch3d_loaded_mesh = Mesh.load(path=obj_path)
     trimesh_loaded_mesh = mesh_from_trimesh(
         mesh=trimesh.load(str(obj_path), force="mesh", process=False),
-        verts_uvs_convention="obj",
+        convention="obj",
     )
 
     assert int(pytorch3d_loaded_mesh.verts.shape[0]) == int(
@@ -242,9 +242,7 @@ def test_trimesh_uv_round_trip_preserves_geometry() -> None:
     mesh = _build_uv_textured_mesh()
 
     trimesh_mesh = mesh_to_trimesh(mesh=mesh)
-    round_tripped_mesh = mesh_from_trimesh(
-        mesh=trimesh_mesh, verts_uvs_convention="obj"
-    )
+    round_tripped_mesh = mesh_from_trimesh(mesh=trimesh_mesh, convention="obj")
 
     assert isinstance(
         round_tripped_mesh.texture, MeshTextureUVTextureMap
@@ -289,9 +287,7 @@ def test_pytorch3d_round_trip_preserves_texture() -> None:
 
     vertex_color_mesh = _build_vertex_color_mesh()
     pytorch3d_vc = mesh_to_pytorch3d(mesh=vertex_color_mesh, device=torch.device("cpu"))
-    round_tripped_vc = mesh_from_pytorch3d(
-        mesh=pytorch3d_vc, verts_uvs_convention="obj"
-    )
+    round_tripped_vc = mesh_from_pytorch3d(mesh=pytorch3d_vc, convention="obj")
     assert isinstance(
         round_tripped_vc.texture, MeshTextureVertexColor
     ), f"{type(round_tripped_vc.texture)=}"
@@ -306,9 +302,7 @@ def test_pytorch3d_round_trip_preserves_texture() -> None:
 
     uv_mesh = _build_uv_textured_mesh()
     pytorch3d_uv = mesh_to_pytorch3d(mesh=uv_mesh, device=torch.device("cpu"))
-    round_tripped_uv = mesh_from_pytorch3d(
-        mesh=pytorch3d_uv, verts_uvs_convention="obj"
-    )
+    round_tripped_uv = mesh_from_pytorch3d(mesh=pytorch3d_uv, convention="obj")
     assert isinstance(
         round_tripped_uv.texture, MeshTextureUVTextureMap
     ), f"{type(round_tripped_uv.texture)=}"

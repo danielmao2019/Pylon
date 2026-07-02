@@ -83,13 +83,13 @@ class MeshTextureVertexColor(MeshTexture):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        verts_uvs_convention: Optional[str] = None,
+        convention: Optional[str] = None,
     ) -> "MeshTextureVertexColor":
         """Return this texture on a target device.
 
         Args:
             device: Optional target device.
-            verts_uvs_convention: Must be `None`; vertex color carries no UV
+            convention: Must be `None`; vertex color carries no UV
                 convention.
 
         Returns:
@@ -102,10 +102,10 @@ class MeshTextureVertexColor(MeshTexture):
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert verts_uvs_convention is None, (
-                "Expected `verts_uvs_convention` to be `None` for a vertex-color "
+            assert convention is None, (
+                "Expected `convention` to be `None` for a vertex-color "
                 "texture; vertex color carries no UV-origin convention. "
-                f"{verts_uvs_convention=}"
+                f"{convention=}"
             )
 
         _validate_inputs()

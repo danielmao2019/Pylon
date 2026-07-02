@@ -60,7 +60,7 @@ class MeshTextureUVTextureMap(MeshTexture):
                 uv_texture_map=uv_texture_map,
                 verts_uvs=verts_uvs,
                 faces_uvs=faces_uvs,
-                verts_uvs_convention=convention,
+                convention=convention,
             )
 
         _validate_inputs()
@@ -118,13 +118,13 @@ class MeshTextureUVTextureMap(MeshTexture):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        verts_uvs_convention: Optional[str] = None,
+        convention: Optional[str] = None,
     ) -> "MeshTextureUVTextureMap":
         """Return this texture on a target device and/or UV-origin convention.
 
         Args:
             device: Optional target device.
-            verts_uvs_convention: Optional target UV-origin convention.
+            convention: Optional target UV-origin convention.
 
         Returns:
             This texture when both the device and convention already match,
@@ -136,19 +136,15 @@ class MeshTextureUVTextureMap(MeshTexture):
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert verts_uvs_convention is None or isinstance(
-                verts_uvs_convention, str
-            ), (
-                "Expected `verts_uvs_convention` to be `None` or a string. "
-                f"{type(verts_uvs_convention)=}"
+            assert convention is None or isinstance(convention, str), (
+                "Expected `convention` to be `None` or a string. "
+                f"{type(convention)=}"
             )
 
         _validate_inputs()
 
         target_device = self.device if device is None else torch.device(device)
-        target_convention = (
-            self.convention if verts_uvs_convention is None else verts_uvs_convention
-        )
+        target_convention = self.convention if convention is None else convention
         if self.device == target_device and self.convention == target_convention:
             return self
 

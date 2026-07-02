@@ -7,7 +7,7 @@ def validate_uv_texture_map(
     uv_texture_map: torch.Tensor,
     verts_uvs: torch.Tensor,
     faces_uvs: torch.Tensor,
-    verts_uvs_convention: str,
+    convention: str,
 ) -> None:
     """Validate one UV-texture-map representation: single-field validators plus cross-field invariants.
 
@@ -19,7 +19,7 @@ def validate_uv_texture_map(
             `MeshTextureUVTextureMap`.
         faces_uvs: Face-to-UV index tensor [F, 3], integer, non-empty,
             non-negative indices.
-        verts_uvs_convention: UV-origin convention string (`"obj"` or
+        convention: UV-origin convention string (`"obj"` or
             `"top_left"`).
 
     Returns:
@@ -29,7 +29,7 @@ def validate_uv_texture_map(
     validate_uv_texture_map_image(obj=uv_texture_map)
     validate_verts_uvs(obj=verts_uvs)
     validate_faces_uvs(obj=faces_uvs)
-    validate_convention(obj=verts_uvs_convention)
+    validate_convention(obj=convention)
     _validate_verts_uvs_faces_uvs_cross_field(
         verts_uvs=verts_uvs,
         faces_uvs=faces_uvs,
@@ -165,7 +165,7 @@ def validate_convention(obj: Any) -> str:
     """
 
     assert isinstance(obj, str), (
-        "Expected `verts_uvs_convention` to be a string. " f"{type(obj)=}"
+        "Expected `convention` to be a string. " f"{type(obj)=}"
     )
     assert obj in ("obj", "top_left"), "Unsupported mesh UV convention. " f"{obj=}"
     return obj
