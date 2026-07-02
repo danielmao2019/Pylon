@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from data.structures.three_d.point_cloud.ops.sampling.grid_sampling_3d_v2 import (
+from models.three_d.point_cloud.ops.sampling.grid_sampling_3d_v2 import (
     GridSampling3D,
 )
 from data.structures.three_d.point_cloud.point_cloud import PointCloud

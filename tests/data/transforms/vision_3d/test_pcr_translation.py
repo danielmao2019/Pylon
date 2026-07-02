@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from data.structures.three_d.camera.rotation.rodrigues import rodrigues_to_matrix
-from data.structures.three_d.point_cloud.ops import apply_transform
+from models.three_d.point_cloud.ops import apply_transform
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.transforms.vision_3d.pcr_translation import PCRTranslation
 

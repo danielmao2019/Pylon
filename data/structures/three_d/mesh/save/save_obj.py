@@ -10,7 +10,7 @@ from data.structures.three_d.mesh.texture.canonicalize import (
     collapse_seam_shifted_uv_rows,
 )
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_verts_uvs_convention,
+    transform_convention,
 )
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
@@ -156,7 +156,7 @@ def _save_uv_texture_map_obj(mesh: Mesh, obj_path: Path) -> None:
 
     verts_np = mesh.verts.detach().cpu().numpy()
     faces_np = mesh.faces.detach().cpu().numpy()
-    obj_convention_verts_uvs = transform_verts_uvs_convention(
+    obj_convention_verts_uvs = transform_convention(
         verts_uvs=mesh.texture.verts_uvs.detach().cpu(),
         source_convention=mesh.texture.convention,
         target_convention="obj",

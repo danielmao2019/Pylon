@@ -3,7 +3,7 @@ from typing import Optional, Tuple, Union
 import torch
 
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_verts_uvs_convention,
+    transform_convention,
 )
 from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 from data.structures.three_d.mesh.texture.validate_uv_texture_map import (
@@ -23,8 +23,8 @@ class MeshTextureUVTextureMap(MeshTexture):
             uint8 `[0, 255]` or float32 `[0, 1]` values.
         verts_uvs: UV-coordinate table `[U, 2]`.
         faces_uvs: Face-to-UV index tensor `[F, 3]`.
-        convention: UV-origin convention for `verts_uvs`. `obj` means `v=0` is
-            the bottom edge. `top_left` means `v=0` is the top edge.
+        convention: UV-origin convention for `verts_uvs`. `obj` means
+            `v=0` is the bottom edge. `top_left` means `v=0` is the top edge.
 
     Returns:
         None.
@@ -150,7 +150,7 @@ class MeshTextureUVTextureMap(MeshTexture):
 
         target_verts_uvs = self.verts_uvs
         if target_convention != self.convention:
-            target_verts_uvs = transform_verts_uvs_convention(
+            target_verts_uvs = transform_convention(
                 verts_uvs=self.verts_uvs,
                 source_convention=self.convention,
                 target_convention=target_convention,

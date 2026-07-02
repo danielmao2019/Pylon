@@ -27,8 +27,7 @@ def validate_verts(obj: Any) -> None:
         "Expected `verts` to use a floating dtype. " f"{obj.dtype=}"
     )
     assert torch.isfinite(obj).all(), (
-        "Expected `verts` to contain only finite values. "
-        f"{obj.shape=} {obj.dtype=}"
+        "Expected `verts` to contain only finite values. " f"{obj.shape=} {obj.dtype=}"
     )
 
 

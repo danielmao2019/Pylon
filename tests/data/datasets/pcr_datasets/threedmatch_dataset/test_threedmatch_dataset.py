@@ -79,7 +79,7 @@ def validate_labels(labels: Dict[str, Any], src_pc: PointCloud, tgt_pc: PointClo
         "Rotation matrix is not orthogonal"
 
     # Recompute overlap and validate against stored overlap
-    from data.structures.three_d.point_cloud.ops.set_ops.intersection import compute_registration_overlap
+    from models.three_d.point_cloud.ops.set_ops.intersection import compute_registration_overlap
 
     gt_transform = labels['transform']
 

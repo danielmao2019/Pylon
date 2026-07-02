@@ -5,8 +5,8 @@ import torch
 from sklearn.neighbors import KDTree
 from data.datasets.change_detection_datasets.base_2dcd_dataset import Base2DCDDataset
 from data.structures.three_d.point_cloud import PointCloud, load_point_cloud
-from data.structures.three_d.point_cloud.ops.sampling import GridSampling3D
-from data.structures.three_d.point_cloud.ops.normalization import normalize_point_cloud
+from models.three_d.point_cloud.ops.sampling import GridSampling3D
+from models.three_d.point_cloud.ops.normalization import normalize_point_cloud
 
 
 class SLPCCDDataset(Base2DCDDataset):
