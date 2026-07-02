@@ -7,7 +7,7 @@ from data.structures.three_d.mesh.texture.canonicalize import (
     shift_seam_crossing_faces_to_seam_safe,
 )
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_verts_uvs_convention,
+    transform_convention,
 )
 from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
@@ -37,7 +37,7 @@ __all__ = (
     "build_texel_face_map",
     "collapse_seam_shifted_uv_rows",
     "shift_seam_crossing_faces_to_seam_safe",
-    "transform_verts_uvs_convention",
+    "transform_convention",
     "validate_convention",
     "validate_faces_uvs",
     "validate_uv_texture_map",

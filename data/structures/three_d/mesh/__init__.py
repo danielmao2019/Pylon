@@ -18,7 +18,7 @@ from data.structures.three_d.mesh.texture import (
     MeshTexture,
     MeshTextureUVTextureMap,
     MeshTextureVertexColor,
-    transform_verts_uvs_convention,
+    transform_convention,
     validate_uv_texture_map,
     validate_vertex_color,
 )
@@ -36,7 +36,7 @@ __all__ = (
     "MeshTexture",
     "MeshTextureVertexColor",
     "MeshTextureUVTextureMap",
-    "transform_verts_uvs_convention",
+    "transform_convention",
     "mesh_from_open3d",
     "mesh_from_pytorch3d",
     "mesh_from_trimesh",

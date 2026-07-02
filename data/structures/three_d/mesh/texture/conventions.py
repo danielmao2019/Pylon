@@ -1,7 +1,7 @@
 import torch
 
 
-def transform_verts_uvs_convention(
+def transform_convention(
     verts_uvs: torch.Tensor,
     source_convention: str,
     target_convention: str,
