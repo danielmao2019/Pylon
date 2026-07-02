@@ -2,12 +2,12 @@
 MODELS.THREE_D.POINT_CLOUD.RENDER API
 """
 
-from models.three_d.point_cloud.render.display import render_display
 from models.three_d.point_cloud.render.common import (
     apply_point_size_postprocessing,
     prepare_points_for_rendering,
     validate_rendering_inputs,
 )
+from models.three_d.point_cloud.render.display import render_display
 from models.three_d.point_cloud.render.render_depth import (
     render_depth_from_point_cloud,
     render_depth_from_rendering_points,

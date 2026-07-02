@@ -8,10 +8,10 @@ from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraEx
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
     build_camera_intrinsics,
 )
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.render import (
     render_rgb_from_point_cloud,
 )
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
 def _build_camera(focal: float, principal_point: float) -> Camera:
