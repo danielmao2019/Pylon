@@ -5,6 +5,7 @@ from typing import Tuple, Union
 import torch
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import (
     apply_point_size_postprocessing,
 )
@@ -21,7 +22,6 @@ from models.three_d.point_cloud.render.render_depth import (
 from models.three_d.point_cloud.render.render_mask import (
     render_mask_from_rendering_points,
 )
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.conversions.depth_to_normals import depth_to_normals
 
 

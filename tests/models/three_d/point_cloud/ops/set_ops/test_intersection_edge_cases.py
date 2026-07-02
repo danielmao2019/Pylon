@@ -1,13 +1,14 @@
-import torch
 import pytest
+import torch
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops.set_ops.intersection import (
-    pc_intersection,
-    compute_pc_iou,
-    get_nearest_neighbor_distances,
-    compute_registration_overlap,
-    _tensor_intersection,
     _kdtree_intersection,
+    _tensor_intersection,
+    compute_pc_iou,
+    compute_registration_overlap,
+    get_nearest_neighbor_distances,
+    pc_intersection,
 )
 
 

@@ -6,11 +6,11 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
-from models.three_d.point_cloud.ops.world_to_camera_transform import (
-    world_to_camera_transform,
-)
 from models.three_d.meshes.texture.extract.weights.normal_weights import (
     compute_f_normals_weights,
+)
+from models.three_d.point_cloud.ops.world_to_camera_transform import (
+    world_to_camera_transform,
 )
 
 FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER = 3.0

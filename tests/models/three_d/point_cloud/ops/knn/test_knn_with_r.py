@@ -1,7 +1,7 @@
-import torch
 import pytest
-from models.three_d.point_cloud.ops.knn.knn import knn
+import torch
 
+from models.three_d.point_cloud.ops.knn.knn import knn
 
 # Test case 1: Both queries have 2 neighbors within radius
 test_case_1 = {

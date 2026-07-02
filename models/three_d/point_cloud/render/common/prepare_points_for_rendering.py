@@ -6,7 +6,9 @@ import torch
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
+from models.three_d.point_cloud.ops.world_to_camera_transform import (
+    world_to_camera_transform,
+)
 
 
 def _frustum_cull(

@@ -1,8 +1,8 @@
 import pytest
 import torch
 
-from models.three_d.point_cloud.ops.correspondences import get_correspondences
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from models.three_d.point_cloud.ops.correspondences import get_correspondences
 
 
 def test_get_correspondences_invalid_source_type():
@@ -20,7 +20,9 @@ def test_get_correspondences_invalid_source_type():
     radius = 1.0
 
     with pytest.raises(AssertionError):
-        get_correspondences(source=None, target=target_pc, transform=None, radius=radius)
+        get_correspondences(
+            source=None, target=target_pc, transform=None, radius=radius
+        )
 
 
 def test_get_correspondences_invalid_target_type():
@@ -38,7 +40,9 @@ def test_get_correspondences_invalid_target_type():
     radius = 1.0
 
     with pytest.raises(AssertionError):
-        get_correspondences(source=source_pc, target=None, transform=None, radius=radius)
+        get_correspondences(
+            source=source_pc, target=None, transform=None, radius=radius
+        )
 
 
 def test_get_correspondences_mismatched_devices():

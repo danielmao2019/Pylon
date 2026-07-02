@@ -3,11 +3,11 @@ from typing import List, Optional, Tuple
 
 import torch
 
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.structures.three_d.point_cloud.select import Select
 from models.three_d.point_cloud.ops.sampling.grid_sampling_3d_v2 import (
     GridSampling3D,
 )
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.structures.three_d.point_cloud.select import Select
 
 
 def process_cluster(

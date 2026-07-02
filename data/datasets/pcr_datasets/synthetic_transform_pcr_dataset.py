@@ -9,11 +9,11 @@ import torch
 
 from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 from data.structures.three_d.point_cloud import load_point_cloud
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.ops import apply_transform
 from models.three_d.point_cloud.ops.set_ops.intersection import (
     compute_registration_overlap,
 )
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.determinism.hash_utils import deterministic_hash
 from utils.io.json import save_json
 
