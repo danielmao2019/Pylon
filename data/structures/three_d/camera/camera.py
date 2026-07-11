@@ -45,11 +45,14 @@ class Camera:
             id=id,
             device=device,
         )
-        self._device: torch.device = torch.device(device)
-        self._intrinsics: CameraIntrinsics = intrinsics.to(device=self._device)
-        self._extrinsics: CameraExtrinsics = extrinsics.to(device=self._device)
+        device = torch.device(device)
+        intrinsics = intrinsics.to(device=device)
+        extrinsics = extrinsics.to(device=device)
+        self._intrinsics: CameraIntrinsics = intrinsics
+        self._extrinsics: CameraExtrinsics = extrinsics
         self._name: Optional[str] = name
         self._id: Optional[int] = id
+        self._device: torch.device = device
 
     @property
     def intrinsics(self) -> CameraIntrinsics:

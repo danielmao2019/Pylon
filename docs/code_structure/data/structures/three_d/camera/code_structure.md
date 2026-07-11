@@ -161,7 +161,8 @@ camera_intrinsics.py
 │   ├── def __init__(self, params: Dict[str, Union[int, float]], device: Union[str, torch.device] = torch.device("cuda")) -> None
 │   │   ├── # Construct a CameraIntrinsics from its model's named params and a device, validating every attribute.
 │   │   ├── calls validate_camera_intrinsics_attributes                 # model=type(self).MODEL, params, device
-│   │   └── impls stores _params, _device
+│   │   ├── impls self._params = params
+│   │   └── impls self._device = device
 │   ├── def model(self) -> str                                         # @property
 │   │   └── # The camera-model identifier type(self).MODEL.
 │   ├── def params(self) -> Dict[str, Union[int, float]]               # @property
@@ -259,7 +260,9 @@ camera_extrinsics.py
 │   │   ├── # Construct a CameraExtrinsics from a 4x4 cam2world matrix and its coordinate-frame convention, validating both.
 │   │   ├── calls validate_camera_extrinsics_attributes                 # extrinsics, convention, device
 │   │   ├── impls move the extrinsics to device
-│   │   └── impls store _extrinsics, _convention, _device
+│   │   ├── impls self._extrinsics = extrinsics
+│   │   ├── impls self._convention = convention
+│   │   └── impls self._device = device
 │   ├── def extrinsics(self) -> torch.Tensor                           # @property
 │   │   └── # The 4x4 camera-to-world extrinsics matrix.
 │   ├── def convention(self) -> str                                    # @property
@@ -323,7 +326,11 @@ camera.py
     │   ├── # Construct a Camera from a CameraIntrinsics and a CameraExtrinsics, keeping name / id / device.
     │   ├── calls validate_camera_attributes                             # intrinsics, extrinsics, name, id, device
     │   ├── impls move the intrinsics / extrinsics to device
-    │   └── impls store _intrinsics, _extrinsics, _name, _id, _device
+    │   ├── impls self._intrinsics = intrinsics
+    │   ├── impls self._extrinsics = extrinsics
+    │   ├── impls self._name = name
+    │   ├── impls self._id = id
+    │   └── impls self._device = device
     ├── def intrinsics(self) -> CameraIntrinsics                         # @property
     │   └── # The camera's CameraIntrinsics ("what the camera is").
     ├── def extrinsics(self) -> CameraExtrinsics                         # @property
@@ -377,7 +384,12 @@ cameras.py
     │   ├── # Construct a Cameras from parallel lists of CameraIntrinsics and CameraExtrinsics, keeping per-camera names / ids.
     │   ├── calls validate_cameras_attributes                            # intrinsics, extrinsics, names, ids, device
     │   ├── impls move each CameraIntrinsics / CameraExtrinsics to device
-    │   └── impls store _intrinsics, _extrinsics, _names, _ids, _device, _name_to_index
+    │   ├── impls self._intrinsics = intrinsics
+    │   ├── impls self._extrinsics = extrinsics
+    │   ├── impls self._names = names
+    │   ├── impls self._ids = ids
+    │   ├── impls self._device = device
+    │   └── impls self._name_to_index = the name → index map
     ├── def __len__(self) -> int
     │   ├── # The number of cameras in the collection.
     │   └── return

@@ -120,10 +120,10 @@ mesh_texture_uv_texture_map.py
     │   ├── # Validates the UV representation and normalizes the texture map, then stores the attributes.
     │   ├── calls validate_uv_texture_map                  # representation-level validator (all fields + cross-field invariant)
     │   ├── calls MeshTextureUVTextureMap.normalize_uv_texture_map
-    │   ├── impls self.uv_texture_map = normalized uv_texture_map
     │   ├── impls self.verts_uvs = verts_uvs
     │   ├── impls self.faces_uvs = faces_uvs
-    │   └── impls self.convention = convention
+    │   ├── impls self.convention = convention
+    │   └── impls self.uv_texture_map = normalized uv_texture_map
     ├── @staticmethod def normalize_uv_texture_map(uv_texture_map: torch.Tensor) -> torch.Tensor
     │   └── # Normalizes the UV texture map to contiguous float32 HWC in [0,1] (drops a leading batch axis; CHW -> HWC; uint8 -> /255).
     ├── @property def device(self) -> torch.device
