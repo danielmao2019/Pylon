@@ -32,7 +32,6 @@ chunked_matmul.py
 │   │   └── impls i = j  # advance only after the chunk succeeds
 │   └── return  # out, the [N, M] product (large itself when inplace)
 ├── def _validate_inputs(large: torch.Tensor, small: torch.Tensor, inplace: bool, max_divide: int, num_divide: Optional[int]) -> None
-│   ├── # Validates the operands (both 2D, small square, inner dims match, shared dtype and device) and the controls, and when inplace that neither operand requires grad.
 │   ├── assert isinstance(large, torch.Tensor)
 │   ├── assert isinstance(small, torch.Tensor)
 │   ├── assert large.ndim == 2

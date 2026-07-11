@@ -11,18 +11,6 @@ def _validate_inputs(
     max_divide: int,
     num_divide: Optional[int],
 ) -> None:
-    """Validate the operands and controls for chunked matmul.
-
-    Args:
-        large: Left operand. Must be a 2D torch.Tensor of shape [N, K], any floating dtype.
-        small: Right operand. Must be a 2D square torch.Tensor of shape [K, K], same dtype and device as large.
-        inplace: Whether the product overwrites large. Must be a bool; when True, neither operand may require grad (an in-place overwrite of large is illegal under autograd).
-        max_divide: Maximum number of chunk halvings on CUDA OOM. Must be an int >= 0.
-        num_divide: Optional fixed number of halvings. If not None, must be an int >= 0.
-
-    Returns:
-        None.
-    """
     assert isinstance(
         large, torch.Tensor
     ), f"large must be a torch.Tensor, got {type(large)=}"
