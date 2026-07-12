@@ -48,15 +48,14 @@ class Cameras:
             device=device,
         )
 
-        self._device: torch.device = torch.device(device)
-        self._intrinsics: List[CameraIntrinsics] = [
-            intrinsic.to(device=self._device) for intrinsic in intrinsics
-        ]
-        self._extrinsics: List[CameraExtrinsics] = [
-            extrinsic.to(device=self._device) for extrinsic in extrinsics
-        ]
+        device = torch.device(device)
+        intrinsics = [intrinsic.to(device=device) for intrinsic in intrinsics]
+        extrinsics = [extrinsic.to(device=device) for extrinsic in extrinsics]
+        self._intrinsics: List[CameraIntrinsics] = intrinsics
+        self._extrinsics: List[CameraExtrinsics] = extrinsics
         self._names: List[Optional[str]] = names
         self._ids: List[Optional[int]] = ids
+        self._device: torch.device = device
         self._name_to_index = {name: index for index, name in enumerate(self._names)}
 
     def __len__(self) -> int:

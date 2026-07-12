@@ -76,10 +76,10 @@ class MeshTextureUVTextureMap(MeshTexture):
 
         uv_texture_map, verts_uvs, faces_uvs = _normalize_inputs()
 
-        self.uv_texture_map = uv_texture_map
         self.verts_uvs = verts_uvs
         self.faces_uvs = faces_uvs
         self.convention = convention
+        self.uv_texture_map = uv_texture_map
 
     @staticmethod
     def normalize_uv_texture_map(uv_texture_map: torch.Tensor) -> torch.Tensor:

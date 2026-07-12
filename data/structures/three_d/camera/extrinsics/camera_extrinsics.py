@@ -37,9 +37,11 @@ class CameraExtrinsics:
             convention=convention,
             device=device,
         )
-        self._device: torch.device = torch.device(device)
-        self._extrinsics: torch.Tensor = extrinsics.to(device=self._device)
+        device = torch.device(device)
+        extrinsics = extrinsics.to(device=device)
+        self._extrinsics: torch.Tensor = extrinsics
         self._convention: str = convention
+        self._device: torch.device = device
 
     @property
     def extrinsics(self) -> torch.Tensor:
