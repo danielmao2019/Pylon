@@ -169,6 +169,20 @@ export function startThreeSceneRenderLoop({
   controls: ThreeTrackballCameraControls | null;
   onAfterRender?: () => void;
 }): void {
+  const fit = (): void => {
+    renderer.setSize(
+      renderer.domElement.clientWidth,
+      renderer.domElement.clientHeight,
+      false,
+    );
+    camera.aspect =
+      renderer.domElement.clientWidth / renderer.domElement.clientHeight;
+    camera.updateProjectionMatrix();
+    if (controls !== null) {
+      controls.handleResize();
+    }
+  };
+  new ResizeObserver(fit).observe(renderer.domElement);
   let wasConnected = false;
   const draw = (): void => {
     const connected = renderer.domElement.isConnected;
