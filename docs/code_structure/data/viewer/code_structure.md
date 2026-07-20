@@ -194,7 +194,6 @@ layered_display_container.ts
 │   ├── calls createLayerObjects({ layeredDisplayResponse })                                        → layerObjects
 │   ├── impls layerObjects.forEach(object => scene.add(object))
 │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })    → controls   # the one shared camera owns the controls
-│   ├── calls _alignSpatialFrustum({ container, camera, renderer, controls })
 │   ├── calls _syncCameraState({ container, controls })                                             # publish this cell's shared-camera pose now and on every change for cross-cell sync
 │   ├── calls attachThreeScenePickSeam({ container, camera, scenes: [scene] })                      # augment the container with the pickAt seam over the one shared scene
 │   ├── calls renderLayeredSpatialScene({ scene, camera, renderer, controls })
@@ -222,12 +221,6 @@ layered_display_container.ts
 │   ├── impls on the base raster layer's image load (or immediately if already complete), sets each aux overlay's SVG viewBox to _alignRasterFrustum({ baseImage }) (the base image's natural extent)
 │   ├── impls after setting each aux overlay's viewBox, sets that aux cell's visibility = "visible"   # revealed only once aligned to the shared raster frustum
 │   └── return LeafVNode keyed by layeredDisplayResponse.slot_id whose render() returns container
-├── function _alignSpatialFrustum({ container, camera, renderer, controls }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
-│   ├── # Aligns the spatial cell's shared frustum to the cell: sets the renderer size and camera aspect from the container and re-applies on resize via a ResizeObserver.
-│   ├── impls resize = () => { camera.aspect = container width/height; camera.updateProjectionMatrix(); renderer.setSize(container width, height, false); controls.handleResize() }
-│   ├── impls resize()
-│   ├── impls new ResizeObserver(resize).observe(container)
-│   └── impls window.addEventListener("resize", resize)
 ├── function _syncCameraState({ container, controls }: { container: HTMLDivElement; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Publishes this cell's shared-camera pose now and re-publishes on every controls change, so other cells can observe and sync to it.
 │   ├── calls _publishCameraState({ container, controls })                                          # initial pose
@@ -330,7 +323,9 @@ three_scene_helpers.ts
 │   ├── impls (container as PickableThreeContainer).pickAt = pickAt   # additive seam; base HTMLDivElement contract unchanged
 │   └── return
 └── function startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> | null; onAfterRender?: () => void }): void
-    ├── # Shared requestAnimationFrame loop driving one base scene each frame; self-stops and frees its WebGL context once the canvas leaves the DOM, with an optional onAfterRender hook for per-frame caller steps.
+    ├── # Shared runtime every spatial display runs: fits the renderer buffer, camera aspect, and trackball screen to the canvas on each resize, and drives the requestAnimationFrame loop that self-stops once the canvas leaves the DOM.
+    ├── impls fit = () => { renderer.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight, false); camera.aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight; camera.updateProjectionMatrix(); if (controls) controls.handleResize() }
+    ├── impls new ResizeObserver(fit).observe(renderer.domElement)
     ├── impls wasConnected = false   # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
     ├── def draw
     │   ├── # The requestAnimationFrame callback: stops and frees the context once the canvas leaves the DOM, otherwise renders one frame and reschedules itself.

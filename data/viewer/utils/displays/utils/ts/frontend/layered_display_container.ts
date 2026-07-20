@@ -84,7 +84,6 @@ function renderLayeredSpatialDisplay({
         renderer,
         initialCameraState,
       });
-      _alignSpatialFrustum({ container, camera, renderer, controls });
       _syncCameraState({ container, controls });
       attachThreeScenePickSeam({ container, camera, scenes: [scene] });
       renderLayeredSpatialScene({ scene, camera, renderer, controls });
@@ -222,43 +221,6 @@ function renderLayeredRasterDisplay({
     },
   };
   return leaf;
-}
-
-// Aligns the spatial cell's shared frustum to the cell: sets the renderer size and
-// camera aspect from the container and re-applies on resize via a ResizeObserver.
-//
-// Args:
-//   container: the one shared display container the renderer is sized against.
-//   camera: the one shared camera whose aspect tracks the container.
-//   renderer: the one shared renderer resized to the container.
-//   controls: the shared camera's trackball controls, notified of resizes.
-//
-// Returns:
-//   void.
-function _alignSpatialFrustum({
-  container,
-  camera,
-  renderer,
-  controls,
-}: {
-  container: HTMLDivElement;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  controls: ReturnType<typeof createTrackballCameraControls>;
-}): void {
-  const resize = (): void => {
-    const width = Math.max(1, container.clientWidth || 1);
-    const height = Math.max(1, container.clientHeight || 1);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(width, height, false);
-    controls.handleResize();
-  };
-  resize();
-  if (typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(resize).observe(container);
-  }
-  window.addEventListener("resize", resize);
 }
 
 // Publishes this cell's shared-camera pose now and re-publishes on every controls
