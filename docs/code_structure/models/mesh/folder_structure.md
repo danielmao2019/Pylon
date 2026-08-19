@@ -3,20 +3,23 @@
 ## Code folder structure
 
 ```text
-./models/three_d/meshes/texture/extract/
-├── __init__.py             # package API surface (re-exports extract / camera_geometry / visibility / weights functions)
-├── extract.py              # main entry: extract_texture_from_images + per-view UV extraction helpers (consumes data-layer build_texel_face_map)
-├── camera_geometry.py      # camera-space geometry: world->camera, clip-space, depth- and face-index-buffer rendering
-├── visibility/             # texel- and vertex-visibility subpackage
-│   ├── __init__.py                    # visibility API surface
-│   ├── texel_visibility.py            # exact-UV-polygon texel visibility: compute_f_visibility_mask
-│   ├── texel_visibility_v2.py         # texel-center-projection texel visibility: compute_f_visibility_mask_v2
-│   ├── texel_visibility_geometry.py   # low-level texel-visibility geometry kernels
-│   └── vertex_visibility.py           # vertex visibility: compute_v_visibility_mask
-└── weights/                # per-observation weighting subpackage
-    ├── __init__.py                    # weights API surface
-    ├── normal_weights.py              # normal-alignment per-vertex / per-face weighting helpers
-    └── weights_cfg.py                 # weight-config validation / normalization helpers
+./models/three_d/meshes/texture/
+├── __init__.py  # package API surface (re-exports the convert and extract entry points)
+├── convert.py  # texture-representation conversion: bake_vertex_colors_to_uv_texture_map, the vertex-color -> UV-atlas bake the fit model's initialization consumes
+└── extract/
+    ├── __init__.py         # package API surface (re-exports extract / camera_geometry / visibility / weights functions)
+    ├── extract.py          # main entry: extract_texture_from_images + per-view UV extraction helpers (consumes data-layer build_texel_face_map)
+    ├── camera_geometry.py  # camera-space geometry: world->camera, clip-space, depth- and face-index-buffer rendering
+    ├── visibility/         # texel- and vertex-visibility subpackage
+    │   ├── __init__.py                   # visibility API surface
+    │   ├── texel_visibility.py           # exact-UV-polygon texel visibility: compute_f_visibility_mask
+    │   ├── texel_visibility_v2.py        # texel-center-projection texel visibility: compute_f_visibility_mask_v2
+    │   ├── texel_visibility_geometry.py  # low-level texel-visibility geometry kernels
+    │   └── vertex_visibility.py          # vertex visibility: compute_v_visibility_mask
+    └── weights/  # per-observation weighting subpackage
+        ├── __init__.py        # weights API surface
+        ├── normal_weights.py  # normal-alignment per-vertex / per-face weighting helpers
+        └── weights_cfg.py     # weight-config validation / normalization helpers
 ```
 
 ## Tests folder structure

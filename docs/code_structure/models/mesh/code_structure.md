@@ -7,7 +7,7 @@
 ```text
 camera_geometry.py
 ├── from data.structures.three_d.camera.cameras import Cameras
-├── from data.structures.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
+├── from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── def render_camera_face_index_buffer(verts_camera: torch.Tensor, faces: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Render a one-view camera-space face-index buffer.
 │   └── calls _camera_verts_to_clip(verts_camera=verts_camera, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
@@ -18,7 +18,14 @@ camera_geometry.py
 │   ├── # Project world-space verts to image pixels for one view.
 │   └── calls _verts_world_to_camera(verts=verts, camera=camera)
 ├── def _camera_verts_to_clip(verts_camera: torch.Tensor, intrinsics: torch.Tensor, image_height: int, image_width: int) -> torch.Tensor
-│   └── # Convert camera-space verts to clip-space for rasterization.
+│   ├── # Convert camera-space verts to clip-space for rasterization.
+│   ├── impls z_camera = verts_camera's z column, clamped to a positive floor
+│   ├── impls x_pixel = intrinsics' fx times x_camera over z_camera, plus cx
+│   ├── impls y_pixel = intrinsics' fy times y_camera over z_camera, plus cy
+│   ├── impls x_ndc = twice x_pixel over the last column index, less one
+│   ├── impls y_ndc = one less twice y_pixel over the last row index  # the raster's y-down origin onto clip space's y-up
+│   ├── impls z_ndc = z_camera normalized over its own min-to-max range, carried onto [-1, 1]
+│   └── return the (x_ndc, y_ndc, z_ndc, 1) columns each scaled by w = z_camera, under one leading batch axis  # [1, V, 4]
 └── def _verts_world_to_camera(verts: torch.Tensor, camera: Cameras) -> torch.Tensor
     ├── # Transform one-view world-space verts to camera-space verts.
     └── calls world_to_camera_transform(points=verts, extrinsics=camera_single.extrinsics.extrinsics, inplace=False)
@@ -42,11 +49,11 @@ extract.py
 │   ├── # Extract texture from multi-view RGB images and any-convention cameras, normalizing the camera and UV conventions on entry.
 │   ├── calls validate_weights_cfg(weights_cfg=weights_cfg)
 │   ├── calls normalize_weights_cfg(weights_cfg=weights_cfg)
-│   ├── calls cameras.to(convention='opencv')                     # normalize the input cameras to the opencv camera-to-world convention
+│   ├── calls cameras.to(convention='opencv')  # normalize the input cameras to the opencv camera-to-world convention
 │   ├── if not extract_uv_texture_map
 │   │   └── calls _extract_vertex_color_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, default_color=default_color)
 │   ├── for each view_mesh in meshes
-│   │   └── calls view_mesh.to(convention='obj')        # normalize the input UV origin to convention='obj' (v=0 at bottom), the projector's expected UV convention
+│   │   └── calls view_mesh.to(convention='obj')  # normalize the input UV origin to convention='obj' (v=0 at bottom), the projector's expected UV convention
 │   └── calls _extract_uv_texture_map_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, texture_size=texture_size, default_color=default_color, texel_visibility_method=texel_visibility_method, polygon_rast_method=polygon_rast_method)
 ├── def _extract_vertex_color_from_images(meshes: List[Mesh], images_nchw: torch.Tensor, cameras: Cameras, weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse per-view projected vertex colors into one vertex-color tensor.
@@ -100,18 +107,50 @@ extract.py
 │   └── calls _project_f_colors(mesh=mesh, image=image, camera=camera, texel_face_map=texel_face_map)
 ├── def _project_f_colors(mesh: Mesh, image: torch.Tensor, camera: Cameras, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Project one image into UV space using rasterized UV correspondence.
-│   ├── def _interpolate_uv_texel_image_coords(projected_vertex_xy: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor [local]
-│   │   └── # Interpolate image-space coordinates for every occupied UV texel.
-│   ├── def _sample_uv_texel_colors_from_source_image(interpolated_uv_xy: torch.Tensor, image: torch.Tensor) -> torch.Tensor [local]
-│   │   └── # Sample source-image colors at interpolated UV texel image coordinates.
 │   ├── calls project_verts_to_image(verts=mesh.verts, camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]))
+│   ├── def _interpolate_uv_texel_image_coords(projected_vertex_xy: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor [local]
+│   │   ├── # Interpolate image-space coordinates for every occupied UV texel.
+│   │   ├── impls texel_face_index = texel_face_map["texel_face_index"]
+│   │   ├── impls texel_face_barycentric = texel_face_map["texel_face_barycentric"]
+│   │   ├── impls per_corner_xy = projected_vertex_xy at mesh.faces of texel_face_index clamped to zero
+│   │   ├── impls interpolated_xy = per_corner_xy weighted by texel_face_barycentric, summed over the three corners
+│   │   ├── impls zero interpolated_xy wherever texel_face_index is the unoccupied sentinel
+│   │   └── return interpolated_xy under one leading batch axis  # [1, T, T, 2]
 │   ├── calls _interpolate_uv_texel_image_coords(projected_vertex_xy=xy, texel_face_map=texel_face_map)
+│   ├── def _sample_uv_texel_colors_from_source_image(interpolated_uv_xy: torch.Tensor, image: torch.Tensor) -> torch.Tensor [local]
+│   │   ├── # Sample source-image colors at interpolated UV texel image coordinates.
+│   │   ├── impls grid_x = interpolated_uv_xy's x over the image's last column index, carried onto [-1, 1]
+│   │   ├── impls grid_y = interpolated_uv_xy's y over the image's last row index, carried onto [-1, 1]
+│   │   ├── impls sampling_grid = grid_x stacked with grid_y on a trailing axis
+│   │   ├── calls F.grid_sample(input=image under one leading batch axis, grid=sampling_grid, mode="bilinear", padding_mode="zeros", align_corners=True)
+│   │   └── return the sampled image permuted to NHWC  # [1, T, T, 3]
 │   ├── calls _sample_uv_texel_colors_from_source_image(interpolated_uv_xy=interpolated_uv_xy, image=image)
 │   └── calls _validate_rgb_image(obj=uv_texture)
 ├── def _validate_rgb_image(obj: Any) -> None
-│   └── # Validate that an object is an RGB image tensor (CHW/HWC/NCHW/NHWC, uint8 [0,255] or float32 [0,1]).
+│   ├── # Validate that an object is an RGB image tensor (CHW/HWC/NCHW/NHWC, uint8 [0,255] or float32 [0,1]).
+│   ├── impls assert obj is a torch.Tensor
+│   ├── impls assert obj is rank 3 or rank 4
+│   ├── if obj is rank 3
+│   │   ├── impls assert its first or its last axis is the RGB triple  # CHW or HWC
+│   │   └── impls image_height, image_width = its two remaining axes, in that layout's order
+│   ├── else
+│   │   ├── impls assert its batch axis is one
+│   │   ├── impls assert its second or its last axis is the RGB triple  # NCHW or NHWC
+│   │   └── impls image_height, image_width = its two remaining axes, in that layout's order
+│   ├── impls assert the resolution is positive on both axes
+│   ├── if obj's dtype is torch.uint8
+│   │   └── return  # uint8 carries the [0, 255] range in the dtype itself
+│   ├── impls assert obj's dtype is torch.float32
+│   ├── impls assert every obj entry is finite
+│   ├── impls assert obj's smallest entry is at least 0.0
+│   └── impls assert obj's largest entry is at most 1.0
 └── def _rasterize_face_weights_to_uv(face_weight: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
-    └── # Map per-face weights to per-UV-pixel weights for one view.
+    ├── # Map per-face weights to per-UV-pixel weights for one view.
+    ├── impls texel_face_index = texel_face_map["texel_face_index"]
+    ├── impls occupied_mask = texel_face_index at or above zero
+    ├── impls gathered = face_weight indexed by texel_face_index clamped to zero  # the -1 sentinel would index out of range
+    ├── impls uv_weight = gathered where occupied_mask holds, zero elsewhere
+    └── return uv_weight clamped to a zero floor, under one leading batch axis and one trailing channel axis  # [1, T, T, 1]
 ```
 
 `models/three_d/meshes/texture/extract/weights/normal_weights.py`
@@ -137,9 +176,31 @@ normal_weights.py
 weights_cfg.py
 ├── WEIGHTS_CFG_ALLOWED_KEYS
 ├── def validate_weights_cfg(weights_cfg: Dict[str, Any]) -> None
-│   └── # Validate one texture-extraction weights config.
+│   ├── # Validate one texture-extraction weights config.
+│   ├── impls assert weights_cfg is a dict
+│   ├── impls assert weights_cfg's keys stay within WEIGHTS_CFG_ALLOWED_KEYS
+│   ├── impls assert its weights, when present, is "visible" or "normals"
+│   ├── impls assert its normals_weight_power, when present, is a float above 0.0
+│   ├── impls assert its normals_weight_threshold, when present, is a float within [0.0, 1.0]
+│   ├── impls assert its multi_view_robustness, when present, is "none" or "residual_gaussian"
+│   ├── impls assert its robustness_tau, when present, is a float above 0.0
+│   └── impls assert its first_frame_blending_weight_power, when present, is a float above 0.0
 └── def normalize_weights_cfg(weights_cfg: Dict[str, Any], default_weights: str) -> Dict[str, Any]
-    └── # Normalize one texture-extraction weights config.
+    ├── # Normalize one texture-extraction weights config.
+    ├── impls weights_cfg = a copy of weights_cfg
+    ├── if weights_cfg carries no weights
+    │   └── impls weights_cfg["weights"] = default_weights
+    ├── if weights_cfg carries no normals_weight_power
+    │   └── impls weights_cfg["normals_weight_power"] = 1.0
+    ├── if weights_cfg carries no normals_weight_threshold
+    │   └── impls weights_cfg["normals_weight_threshold"] = 0.0
+    ├── if weights_cfg carries no multi_view_robustness
+    │   └── impls weights_cfg["multi_view_robustness"] = "none"
+    ├── if weights_cfg carries no robustness_tau
+    │   └── impls weights_cfg["robustness_tau"] = 0.2
+    ├── if weights_cfg carries no first_frame_blending_weight_power
+    │   └── impls weights_cfg["first_frame_blending_weight_power"] = 2.0
+    └── return weights_cfg
 ```
 
 `models/three_d/meshes/texture/extract/visibility/texel_visibility.py`
@@ -168,43 +229,66 @@ texel_visibility.py
 ├── def _compute_face_pixel_polygon_intersections_without_occlusion(face_screen_verts: torch.Tensor, image_height: int, image_width: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Compute all face-pixel polygon intersections without considering occlusion.
 │   ├── def _compute_projected_face_pixel_bounds() -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int] [local]
-│   │   └── # Compute candidate pixel bounds for each projected face.
+│   │   ├── # Compute candidate pixel bounds for each projected face.
+│   │   ├── impls face_x_min, face_x_max = the per-face min and max over its screen verts' x  # impls-node-one-step:skip
+│   │   ├── impls face_y_min, face_y_max = the per-face min and max over its screen verts' y  # impls-node-one-step:skip
+│   │   ├── impls pixel_x_start = ceil(face_x_min - 0.5), as long                             # the first pixel whose own square the face can reach
+│   │   ├── impls pixel_x_end = floor(face_x_max + 0.5), as long
+│   │   ├── impls pixel_y_start = ceil(face_y_min - 0.5), as long
+│   │   ├── impls pixel_y_end = floor(face_y_max + 0.5), as long
+│   │   ├── impls clamp each start and end into its own image axis  # impls-node-one-step:skip
+│   │   ├── impls pixel_x_count = pixel_x_end - pixel_x_start + 1, floored at zero
+│   │   ├── impls pixel_y_count = pixel_y_end - pixel_y_start + 1, floored at zero
+│   │   ├── impls pair_count_per_face = pixel_x_count * pixel_y_count
+│   │   ├── impls total_pair_count = the sum of pair_count_per_face, as an int
+│   │   └── return pixel_x_start, pixel_y_start, pixel_x_count, pixel_y_count, pixel_x_end, pixel_y_end, pair_count_per_face, total_pair_count
+│   ├── calls _compute_projected_face_pixel_bounds()
 │   ├── def _enumerate_candidate_face_pixel_pairs(pair_count_per_face: torch.Tensor, pixel_x_start: torch.Tensor, pixel_y_start: torch.Tensor, pixel_x_count: torch.Tensor, total_pair_count: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor] [local]
-│   │   └── # Enumerate all candidate face-pixel pairs.
+│   │   ├── # Enumerate all candidate face-pixel pairs.
+│   │   ├── impls repeated_face_indices = each face index repeated pair_count_per_face times
+│   │   ├── impls pair_start_offsets = the exclusive prefix sum of pair_count_per_face
+│   │   ├── impls pair_offsets = each pair's global index less its own face's pair_start_offset
+│   │   ├── impls local_pixel_y_offset = pair_offsets floor-divided by that face's pixel_x_count
+│   │   ├── impls local_pixel_x_offset = pair_offsets modulo that face's pixel_x_count
+│   │   ├── impls pixel_x = that face's pixel_x_start plus local_pixel_x_offset
+│   │   ├── impls pixel_y = that face's pixel_y_start plus local_pixel_y_offset
+│   │   └── return repeated_face_indices, pixel_x, pixel_y  # [total_pair_count] each
+│   ├── calls _enumerate_candidate_face_pixel_pairs(pair_count_per_face=pair_count_per_face, pixel_x_start=pixel_x_start, pixel_y_start=pixel_y_start, pixel_x_count=pixel_x_count, total_pair_count=total_pair_count)
 │   ├── def _clip_face_triangles_to_pixel_squares(repeated_face_indices: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor, total_pair_count: int) -> Tuple[torch.Tensor, torch.Tensor] [local]
 │   │   ├── # Clip projected face triangles to candidate pixel squares.
 │   │   └── calls clip_convex_polygons_to_pixel_squares(polygon_verts=polygon_verts, polygon_vertex_counts=polygon_vertex_counts, pixel_x=pixel_x.to(dtype=torch.float32), pixel_y=pixel_y.to(dtype=torch.float32))
+│   ├── calls _clip_face_triangles_to_pixel_squares(repeated_face_indices=repeated_face_indices, pixel_x=pixel_x, pixel_y=pixel_y, total_pair_count=total_pair_count)
 │   ├── def _pack_valid_face_pixel_polygons(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor, repeated_face_indices: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] [local]
 │   │   ├── # Reject degenerate overlaps and pack the surviving polygons.
 │   │   └── calls _compute_convex_polygon_areas(polygon_verts=clipped_polygon_verts, polygon_vertex_counts=clipped_polygon_vertex_counts)
-│   ├── calls _compute_projected_face_pixel_bounds()
-│   ├── calls _enumerate_candidate_face_pixel_pairs(pair_count_per_face=pair_count_per_face, pixel_x_start=pixel_x_start, pixel_y_start=pixel_y_start, pixel_x_count=pixel_x_count, total_pair_count=total_pair_count)
-│   ├── calls _clip_face_triangles_to_pixel_squares(repeated_face_indices=repeated_face_indices, pixel_x=pixel_x, pixel_y=pixel_y, total_pair_count=total_pair_count)
 │   └── calls _pack_valid_face_pixel_polygons(clipped_polygon_verts=clipped_polygon_verts, clipped_polygon_vertex_counts=clipped_polygon_vertex_counts, pixel_x=pixel_x, pixel_y=pixel_y, repeated_face_indices=repeated_face_indices)
 ├── def _compute_visible_screen_space_polygon_regions_with_occlusion(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, clipped_pixel_indices: torch.Tensor, clipped_face_indices: torch.Tensor, face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor, image_height: int, image_width: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Compute inter-polygon occlusion and remove hidden screen-space regions.
 │   ├── def _compute_projected_face_inverse_depth_coefficients() -> torch.Tensor [local]
 │   │   ├── # Compute affine inverse-depth coefficients for the projected faces.
 │   │   └── calls compute_face_inverse_depth_coefficients(face_screen_verts=face_screen_verts, face_vertex_depth=face_vertex_depth)
+│   ├── calls _compute_projected_face_inverse_depth_coefficients()
 │   ├── def _build_exact_visible_face_pixel_polygons(face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
 │   │   ├── # Resolve exact visible face-pixel polygons from clipped overlaps.
 │   │   └── calls build_visible_face_pixel_polygons(clipped_polygon_verts=clipped_polygon_verts, clipped_polygon_vertex_counts=clipped_polygon_vertex_counts, clipped_pixel_indices=clipped_pixel_indices, clipped_face_indices=clipped_face_indices, face_inverse_depth_coefficients=face_inverse_depth_coefficients)
-│   ├── def _pack_visible_polygon_outputs(visible_polygon_verts: torch.Tensor, visible_polygon_vertex_counts: torch.Tensor, visible_polygon_face_indices: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor] [local]
-│   │   └── # Pack exact visible polygons into the downstream tensor format.
-│   ├── calls _compute_projected_face_inverse_depth_coefficients()
 │   ├── calls _build_exact_visible_face_pixel_polygons(face_inverse_depth_coefficients=face_inverse_depth_coefficients)
+│   ├── def _pack_visible_polygon_outputs(visible_polygon_verts: torch.Tensor, visible_polygon_vertex_counts: torch.Tensor, visible_polygon_face_indices: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor] [local]
+│   │   ├── # Pack exact visible polygons into the downstream tensor format.
+│   │   └── return visible_polygon_verts, visible_polygon_vertex_counts and visible_polygon_face_indices, each contiguous
 │   └── calls _pack_visible_polygon_outputs(visible_polygon_verts=visible_polygon_verts, visible_polygon_vertex_counts=visible_polygon_vertex_counts, visible_polygon_face_indices=visible_polygon_face_indices)
 ├── def _map_visible_screen_space_polygon_regions_to_uv(visible_screen_polygon_verts: torch.Tensor, visible_screen_polygon_vertex_counts: torch.Tensor, visible_screen_polygon_face_indices: torch.Tensor, face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor, face_verts_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Map visible screen-space polygon regions into UV.
 │   ├── def _gather_visible_polygon_face_geometry() -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor] [local]
-│   │   └── # Gather owning-face geometry for each visible polygon.
+│   │   ├── # Gather owning-face geometry for each visible polygon.
+│   │   └── return face_screen_verts, face_vertex_depth and face_verts_uvs, each gathered at visible_screen_polygon_face_indices and contiguous
+│   ├── calls _gather_visible_polygon_face_geometry()
 │   ├── def _project_screen_polygon_verts_to_uv(polygon_face_screen_verts: torch.Tensor, polygon_face_vertex_depth: torch.Tensor, polygon_face_verts_uvs: torch.Tensor) -> torch.Tensor [local]
 │   │   ├── # Project visible screen polygons into UV.
 │   │   └── calls project_screen_polygons_to_face_uv(polygon_verts=visible_screen_polygon_verts, face_screen_verts=polygon_face_screen_verts, face_vertex_depth=polygon_face_vertex_depth, face_verts_uvs=polygon_face_verts_uvs)
-│   ├── def _pack_visible_uv_polygons(uv_polygon_verts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
-│   │   └── # Pack UV polygons with their original vertex counts.
-│   ├── calls _gather_visible_polygon_face_geometry()
 │   ├── calls _project_screen_polygon_verts_to_uv(polygon_face_screen_verts=polygon_face_screen_verts, polygon_face_vertex_depth=polygon_face_vertex_depth, polygon_face_verts_uvs=polygon_face_verts_uvs)
+│   ├── def _pack_visible_uv_polygons(uv_polygon_verts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
+│   │   ├── # Pack UV polygons with their original vertex counts.
+│   │   └── return uv_polygon_verts with visible_screen_polygon_vertex_counts, each contiguous  # the UV projection moves each vertex, never their number
 │   └── calls _pack_visible_uv_polygons(uv_polygon_verts=uv_polygon_verts)
 ├── def _compute_visible_uv_texels_from_uv_polygon_regions(uv_polygon_verts: torch.Tensor, uv_polygon_vertex_counts: torch.Tensor, texture_size: int, polygon_rast_method: str='v2') -> torch.Tensor
 │   ├── # Compute visible UV texels from the UV polygon regions.
@@ -224,10 +308,10 @@ texel_visibility.py
     ├── def _duplicate_wrap_crossing_polygons() -> Tuple[torch.Tensor, torch.Tensor] [local]
     │   ├── # Duplicate wrap-crossing polygons so the cylindrical UV union is preserved.
     │   └── calls duplicate_wrapped_uv_polygons(uv_polygon_verts=uv_polygon_verts, uv_polygon_vertex_counts=uv_polygon_vertex_counts)
+    ├── calls _duplicate_wrap_crossing_polygons()
     ├── def _triangulate_wrapped_uv_polygons(wrapped_uv_polygon_verts: torch.Tensor, wrapped_uv_polygon_vertex_counts: torch.Tensor) -> torch.Tensor [local]
     │   ├── # Triangulate wrapped convex UV polygons into a triangle soup.
     │   └── calls triangulate_convex_uv_polygons(polygon_verts=wrapped_uv_polygon_verts, polygon_vertex_counts=wrapped_uv_polygon_vertex_counts)
-    ├── calls _duplicate_wrap_crossing_polygons()
     ├── calls _triangulate_wrapped_uv_polygons(wrapped_uv_polygon_verts=wrapped_uv_polygon_verts, wrapped_uv_polygon_vertex_counts=wrapped_uv_polygon_vertex_counts)
     └── calls build_uv_triangle_texel_intersections_v2(uv_triangles=wrapped_uv_triangles, texture_size=texture_size)
 ```
@@ -236,7 +320,8 @@ texel_visibility.py
 
 ```text
 texel_visibility_geometry.py
-├── TARGET_MULTI_FACE_PIXEL_SPLIT_LINE_BUDGET
+├── import torch
+├── TARGET_MULTI_FACE_PIXEL_SPLIT_LINE_BUDGET = 2 ** 18  # int — the padded split-line rows one chunk may materialize at once, the memory bound _plan_multi_face_pixel_chunks plans against
 ├── def build_visible_face_pixel_polygons(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, clipped_pixel_indices: torch.Tensor, clipped_face_indices: torch.Tensor, face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Build exact visible face-pixel polygons in batched tensor form.
 │   ├── calls _pack_face_pixel_polygons_by_pixel(clipped_polygon_verts=clipped_polygon_verts, clipped_polygon_vertex_counts=clipped_polygon_vertex_counts, clipped_pixel_indices=clipped_pixel_indices, clipped_face_indices=clipped_face_indices, face_inverse_depth_coefficients=face_inverse_depth_coefficients)
@@ -254,19 +339,68 @@ texel_visibility_geometry.py
 │       ├── calls _build_batched_pixel_cell_polygons(pixel_indices=pixel_indices[chunk_start:chunk_end], pixel_polygon_verts=pixel_polygon_verts[chunk_start:chunk_end], pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[chunk_start:chunk_end], pixel_face_valid_mask=pixel_face_valid_mask[chunk_start:chunk_end], pixel_split_line_coefficients=pixel_split_line_coefficients, pixel_split_line_valid_mask=pixel_split_line_valid_mask)
 │       └── calls _assign_visible_faces_to_cells(cell_polygon_verts=cell_polygon_verts, cell_polygon_vertex_counts=cell_polygon_vertex_counts, cell_pixel_indices=cell_pixel_indices, pixel_polygon_verts=pixel_polygon_verts[chunk_start:chunk_end], pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[chunk_start:chunk_end], pixel_face_indices=pixel_face_indices[chunk_start:chunk_end], pixel_face_valid_mask=pixel_face_valid_mask[chunk_start:chunk_end], pixel_inverse_depth_coefficients=pixel_inverse_depth_coefficients[chunk_start:chunk_end])
 ├── def _plan_multi_face_pixel_chunks(face_count_per_pixel: torch.Tensor, max_verts_per_polygon: int, target_split_line_budget: int) -> List[Tuple[int, int]]
-│   └── # Plan sorted multi-face pixel chunks under a split-line budget.
+│   ├── # Plan sorted multi-face pixel chunks under a split-line budget.
+│   ├── if face_count_per_pixel is empty
+│   │   └── return an empty list
+│   ├── impls chunk_ranges = an empty list
+│   ├── impls chunk_start = 0
+│   ├── while chunk_start is below the pixel count
+│   │   ├── impls chunk_end = chunk_start + 1
+│   │   ├── while chunk_end is below the pixel count
+│   │   │   ├── impls next_max_face_count = face_count_per_pixel at chunk_end
+│   │   │   ├── impls prospective_chunk_size = chunk_end - chunk_start + 1  # the chunk this pixel would join
+│   │   │   ├── impls prospective_split_line_count = next_max_face_count times max_verts_per_polygon, plus one split line per face pair  # impls-node-one-step:skip
+│   │   │   ├── if prospective_chunk_size times prospective_split_line_count passes target_split_line_budget
+│   │   │   │   └── break
+│   │   │   └── impls chunk_end += 1
+│   │   ├── impls append (chunk_start, chunk_end) to chunk_ranges
+│   │   └── impls chunk_start = chunk_end
+│   └── return chunk_ranges
 ├── def _gather_visible_pixel_face_polygons(pixel_polygon_verts: torch.Tensor, pixel_polygon_vertex_counts: torch.Tensor, pixel_face_indices: torch.Tensor, pixel_face_slot_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-│   └── # Gather selected pixel-face polygons into flat visible outputs.
+│   ├── # Gather selected pixel-face polygons into flat visible outputs.
+│   └── return pixel_polygon_verts, pixel_polygon_vertex_counts and pixel_face_indices, each masked by pixel_face_slot_mask and contiguous
 ├── def _compute_multi_face_pixel_second_bucket_mask(pixel_polygon_verts: torch.Tensor, pixel_polygon_vertex_counts: torch.Tensor, pixel_face_valid_mask: torch.Tensor) -> torch.Tensor
 │   ├── # Detect which multi-face pixels require full overlap resolution.
 │   └── calls _compute_pair_positive_area_overlap_mask(first_polygon_verts=first_pair_polygon_verts, first_polygon_vertex_counts=first_pair_polygon_vertex_counts, second_polygon_verts=second_pair_polygon_verts, second_polygon_vertex_counts=second_pair_polygon_vertex_counts)
 ├── def _compute_pair_positive_area_overlap_mask(first_polygon_verts: torch.Tensor, first_polygon_vertex_counts: torch.Tensor, second_polygon_verts: torch.Tensor, second_polygon_vertex_counts: torch.Tensor) -> torch.Tensor
-│   └── # Detect positive-area overlap for convex polygon pairs.
+│   ├── # Detect positive-area overlap for convex polygon pairs.
+│   ├── if the pair count is zero
+│   │   └── return an empty bool tensor
+│   ├── impls first_vertex_valid_mask = the vertex slots below the first polygon's own count
+│   ├── impls second_vertex_valid_mask = the vertex slots below the second polygon's own count
+│   ├── impls first_min_x, first_max_x, first_min_y, first_max_y = the first polygon's valid-vertex bounds, its inactive slots held at ±inf
+│   ├── impls second_min_x, second_max_x, second_min_y, second_max_y = the second polygon's valid-vertex bounds, its inactive slots held at ±inf
+│   ├── impls bbox_overlap_mask = the pairs whose two bounding boxes strictly overlap on both axes
+│   ├── if no pair passes bbox_overlap_mask
+│   │   └── return an all-false mask
+│   ├── impls first_edge_axes = the perpendicular of each valid first-polygon edge
+│   ├── impls second_edge_axes = the perpendicular of each valid second-polygon edge
+│   ├── impls candidate_axes = first_edge_axes concatenated with second_edge_axes  # the separating-axis candidates
+│   ├── impls candidate_axis_valid_mask = the valid edges whose axis carries a non-degenerate norm
+│   ├── impls first_projection_min, first_projection_max = the first polygon's valid verts projected onto each candidate axis
+│   ├── impls second_projection_min, second_projection_max = the second polygon's valid verts projected onto each candidate axis
+│   ├── impls separating_axis_mask = the valid candidate axes whose two projected intervals stay apart within 1.0e-12
+│   └── return the bbox-overlapping pairs carrying no separating axis, contiguous  # one bool per pair
 ├── def _build_padded_pixel_split_line_coefficients(pixel_indices: torch.Tensor, pixel_polygon_verts: torch.Tensor, pixel_polygon_vertex_counts: torch.Tensor, pixel_face_valid_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Build padded polygon-edge split-line tensors for all pixels.
 │   └── calls _deduplicate_padded_pixel_split_lines(pixel_split_line_coefficients=edge_line_coefficients, pixel_split_line_valid_mask=edge_valid_mask)
 ├── def _deduplicate_padded_pixel_split_lines(pixel_split_line_coefficients: torch.Tensor, pixel_split_line_valid_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   └── # Deduplicate canonical split lines independently within each pixel.
+│   ├── # Deduplicate canonical split lines independently within each pixel.
+│   ├── if no split line is valid
+│   │   └── return zeroed coefficients with a zeroed valid mask
+│   ├── impls assert the pixel count stays below float32's exact-integer range  # the pixel index rides as a float column below
+│   ├── impls flat_pixel_indices = each valid line's own pixel row index
+│   ├── impls flat_line_coefficients = the valid lines' coefficients
+│   ├── impls assert every valid line carries a non-degenerate direction norm
+│   ├── impls canonical_line_coefficients = flat_line_coefficients over that norm
+│   ├── impls flip canonical_line_coefficients wherever its leading non-zero component is negative  # one representative per undirected line
+│   ├── impls pixel_scoped_line_rows = flat_pixel_indices prefixed onto canonical_line_coefficients
+│   ├── impls unique_pixel_scoped_line_rows = the distinct pixel_scoped_line_rows  # dedup lands per pixel because the pixel index is part of the row
+│   ├── impls pixel_group_counts = the distinct line count per pixel
+│   ├── impls within_group_indices = each unique line's rank inside its own pixel's group
+│   ├── impls scatter unique_pixel_scoped_line_rows' coefficient columns into a zeroed padded tensor at its own (pixel, within_group_index) slot
+│   ├── impls set the matching padded valid mask entries true
+│   └── return the deduplicated coefficients with that valid mask, each contiguous
 ├── def _build_batched_pixel_cell_polygons(pixel_indices: torch.Tensor, pixel_polygon_verts: torch.Tensor, pixel_polygon_vertex_counts: torch.Tensor, pixel_face_valid_mask: torch.Tensor, pixel_split_line_coefficients: torch.Tensor, pixel_split_line_valid_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Build exact arrangement cells for all pixels in batched tensor form.
 │   ├── for split_line_index in range(pixel_split_line_coefficients.shape[1])
@@ -279,11 +413,31 @@ texel_visibility_geometry.py
 │   ├── # Assign each batched arrangement cell to its frontmost covering face.
 │   └── calls _compute_points_in_convex_polygons(points=cell_centroid.unsqueeze(1).expand(-1, candidate_polygon_verts.shape[1], -1).reshape(-1, 2), polygon_verts=candidate_polygon_verts.reshape(-1, candidate_polygon_verts.shape[2], 2), polygon_vertex_counts=candidate_polygon_vertex_counts.reshape(-1))
 ├── def _pack_face_pixel_polygons_by_pixel(clipped_polygon_verts: torch.Tensor, clipped_polygon_vertex_counts: torch.Tensor, clipped_pixel_indices: torch.Tensor, clipped_face_indices: torch.Tensor, face_inverse_depth_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-│   └── # Pack variable-count face-pixel polygons into pixel-major padded tensors.
+│   ├── # Pack variable-count face-pixel polygons into pixel-major padded tensors.
+│   ├── impls linear_pixel_indices = each clipped pair's (row, col) flattened into one index
+│   ├── impls sorted_pair_indices = the pairs ordered by linear_pixel_indices
+│   ├── impls pixel_group_counts = the run length of each distinct pixel in that order
+│   ├── impls max_faces_per_pixel = the largest pixel_group_counts entry
+│   ├── impls group_start_offsets = the exclusive prefix sum of pixel_group_counts
+│   ├── impls pixel_indices = the (row, col) of each group's first pair
+│   ├── impls group_indices = each sorted pair's own pixel group
+│   ├── impls within_group_indices = each sorted pair's rank inside its own group
+│   ├── impls pixel_polygon_verts = the sorted verts scattered into a zeroed [P, max_faces_per_pixel, V, 2] tensor at (group, rank)
+│   ├── impls pixel_polygon_vertex_counts = the sorted counts scattered the same way
+│   ├── impls pixel_face_indices = the sorted face indices scattered into a -1-filled tensor the same way
+│   ├── impls pixel_face_valid_mask = pixel_face_indices at or above zero
+│   ├── impls pixel_inverse_depth_coefficients = face_inverse_depth_coefficients of the sorted face indices, scattered the same way
+│   └── return  # pixel_indices / pixel_polygon_verts / pixel_polygon_vertex_counts / pixel_face_indices / pixel_face_valid_mask / pixel_inverse_depth_coefficients, each contiguous
 ├── def compute_face_inverse_depth_coefficients(face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor) -> torch.Tensor
-│   └── # Compute affine inverse-depth coefficients over projected face triangles.
+│   ├── # Compute affine inverse-depth coefficients over projected face triangles.
+│   ├── impls solve_matrix = face_screen_verts with a ones column appended  # the affine (x, y, 1) basis per corner
+│   ├── impls assert every solve_matrix determinant is non-degenerate
+│   └── return the solve of solve_matrix against 1 / face_vertex_depth, contiguous  # [F, 3], the affine 1/z map's coefficients
 ├── def camera_verts_to_pixel(verts_camera: torch.Tensor, intrinsics: torch.Tensor) -> torch.Tensor
-│   └── # Project camera-space verts into image pixel coordinates.
+│   ├── # Project camera-space verts into image pixel coordinates.
+│   ├── impls vertex_x_pixel = intrinsics' fx times x_camera over z_camera, plus cx
+│   ├── impls vertex_y_pixel = intrinsics' fy times y_camera over z_camera, plus cy
+│   └── return vertex_x_pixel stacked with vertex_y_pixel, contiguous  # [V, 2]
 ├── def clip_convex_polygons_to_pixel_squares(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Clip convex polygons against their corresponding pixel squares.
 │   ├── if torch.all(polygon_vertex_counts == 3)
@@ -291,7 +445,22 @@ texel_visibility_geometry.py
 │   └── for coefficients in line_coefficients
 │       └── calls _clip_convex_polygons_to_half_plane(polygon_verts=clipped_polygon_verts, polygon_vertex_counts=clipped_polygon_vertex_counts, line_coefficients=coefficients)
 ├── def _clip_convex_polygons_to_half_plane(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor, line_coefficients: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   └── # Clip convex polygons against one half-plane.
+│   ├── # Clip convex polygons against one half-plane.
+│   ├── impls edge_active = the edge slots below each polygon's own vertex count
+│   ├── impls next_indices = each edge's successor slot, wrapping to zero at that polygon's own count
+│   ├── impls current_line_values = line_coefficients evaluated at current_verts
+│   ├── impls next_line_values = line_coefficients evaluated at next_verts
+│   ├── impls current_inside = the active edges whose current_line_values sit at or above zero
+│   ├── impls next_inside = the active edges whose next_line_values sit at or above zero
+│   ├── impls crossing_mask = the active edges whose two endpoints disagree on inside
+│   ├── impls edge_t = current_line_values over current_line_values less next_line_values, on the non-degenerate crossings alone
+│   ├── impls intersection_verts = current_verts advanced by edge_t toward next_verts
+│   ├── impls candidate_verts = intersection_verts interleaved with next_verts
+│   ├── impls candidate_vertex_valid_mask = crossing_mask interleaved with next_inside
+│   ├── impls clipped_polygon_vertex_counts = the per-polygon count of valid candidates
+│   ├── impls assert every clipped count fits the input vertex capacity
+│   ├── impls clipped_polygon_verts = the valid candidates compacted into their own output slots, zero elsewhere
+│   └── return clipped_polygon_verts, clipped_polygon_vertex_counts
 ├── def project_screen_polygons_to_face_uv(polygon_verts: torch.Tensor, face_screen_verts: torch.Tensor, face_vertex_depth: torch.Tensor, face_verts_uvs: torch.Tensor) -> torch.Tensor
 │   ├── # Map image-space polygon verts to UV using exact perspective interpolation.
 │   ├── calls _cross_2d(a=face_screen_v1 - face_screen_v0, b=face_screen_v2 - face_screen_v0)
@@ -313,15 +482,50 @@ texel_visibility_geometry.py
 │   ├── # Test whether each point lies inside its corresponding convex polygon.
 │   └── calls _cross_2d(a=next_verts - current_verts, b=points.reshape(-1, 1, 2) - current_verts)
 ├── def _compute_convex_polygon_bounds(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-│   └── # Compute axis-aligned bounds for convex polygons.
+│   ├── # Compute axis-aligned bounds for convex polygons.
+│   ├── if polygon_verts carries no polygon
+│   │   └── return four empty tensors
+│   ├── impls vertex_active_mask = the vertex slots below each polygon's own vertex count
+│   ├── impls polygon_x_min = the per-polygon amin over x, the inactive slots held at +inf
+│   ├── impls polygon_x_max = the per-polygon amax over x, the inactive slots held at -inf
+│   ├── impls polygon_y_min = the per-polygon amin over y, the inactive slots held at +inf
+│   ├── impls polygon_y_max = the per-polygon amax over y, the inactive slots held at -inf
+│   └── return polygon_x_min, polygon_x_max, polygon_y_min, polygon_y_max, each contiguous
 ├── def _compute_points_near_convex_polygon_boundaries(points: torch.Tensor, polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor, squared_distance_threshold: float) -> torch.Tensor
-│   └── # Test whether each point lies near its corresponding convex polygon boundary.
+│   ├── # Test whether each point lies near its corresponding convex polygon boundary.
+│   ├── if points carries no point
+│   │   └── return an empty bool tensor
+│   ├── impls edge_active_mask = the edge slots below each polygon's own vertex count
+│   ├── impls next_indices = each edge's successor slot, wrapping to zero at that polygon's own count
+│   ├── impls edge_vectors = next_verts less current_verts
+│   ├── impls point_offsets = each point less its polygon's current_verts
+│   ├── impls projection_t = point_offsets projected along edge_vectors over their squared length, zero where that length is degenerate, clamped into [0, 1]
+│   ├── impls closest_points = current_verts plus projection_t along edge_vectors
+│   ├── impls squared_distance = the squared distance from each point to closest_points, held at +inf on the inactive edges
+│   └── return the per-point smallest squared_distance within squared_distance_threshold, contiguous  # one bool per point
 ├── def triangulate_convex_uv_polygons(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> torch.Tensor
-│   └── # Triangulate convex UV polygons into a triangle soup.
+│   ├── # Triangulate convex UV polygons into a triangle soup.
+│   ├── impls uv_triangle_chunks = an empty list
+│   ├── for each fan index from one to the vertex capacity less one
+│   │   ├── impls fan_valid_mask = the polygons whose vertex count passes fan index + 1
+│   │   ├── if no polygon is valid at this fan index
+│   │   │   └── continue
+│   │   └── impls append the valid polygons' (first, fan index, fan index + 1) corner triples to uv_triangle_chunks
+│   ├── if uv_triangle_chunks is empty
+│   │   └── return an empty (0, 3, 2) float32 tensor
+│   └── return uv_triangle_chunks concatenated, as float32, contiguous
 ├── def build_uv_triangle_texel_intersections_v2(uv_triangles: torch.Tensor, texture_size: int) -> torch.Tensor
 │   ├── # Build approximate step-2 `v2` UV-triangle to texel-cell intersections.
 │   ├── def _compute_triangle_edge_function_coefficients(triangle_verts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
-│   │   └── # Compute oriented triangle edge-function coefficients and thresholds.
+│   │   ├── # Compute oriented triangle edge-function coefficients and thresholds.
+│   │   ├── impls next_triangle_verts = each triangle's corners rotated by one
+│   │   ├── impls edge_a = current y less next y
+│   │   ├── impls edge_b = next x less current x
+│   │   ├── impls edge_c = current x times next y less next x times current y
+│   │   ├── impls triangle_orientation = plus one where each triangle's double area is non-negative, minus one elsewhere
+│   │   ├── impls orient edge_a, edge_b and edge_c by triangle_orientation               # impls-node-one-step:skip  # so a point inside scores non-negative on every edge
+│   │   ├── impls edge_thresholds = half the summed absolute oriented edge_a and edge_b  # impls-node-one-step:skip  # the half-texel margin each edge admits
+│   │   └── return the stacked oriented coefficients with edge_thresholds, each contiguous
 │   ├── calls _compute_triangle_edge_function_coefficients(triangle_verts=triangle_texel_verts)
 │   └── if torch.any(boundary_candidate_mask)
 │       └── while boundary_chunk_start < boundary_candidate_indices.shape[0]
@@ -331,7 +535,12 @@ texel_visibility_geometry.py
 │   ├── calls _clip_triangle_polygons_to_pixel_squares(triangle_verts=triangle_verts[bbox_overlap_mask], pixel_x=pixel_x[bbox_overlap_mask], pixel_y=pixel_y[bbox_overlap_mask], output_vertex_capacity=8)
 │   └── calls _compute_convex_polygon_areas(polygon_verts=clipped_polygon_verts, polygon_vertex_counts=clipped_polygon_vertex_counts)
 ├── def _compute_convex_polygon_areas(polygon_verts: torch.Tensor, polygon_vertex_counts: torch.Tensor) -> torch.Tensor
-│   └── # Compute areas of convex polygons.
+│   ├── # Compute areas of convex polygons.
+│   ├── impls edge_active = the edge slots below each polygon's own vertex count
+│   ├── impls next_indices = each edge's successor slot, wrapping to zero at that polygon's own count
+│   ├── impls edge_term = current_verts' x times next_verts' y less current_verts' y times next_verts' x  # the shoelace term
+│   ├── impls double_area = edge_term summed over the active edges alone
+│   └── return half the absolute double_area, contiguous
 ├── def _clip_triangle_polygons_to_pixel_squares(triangle_verts: torch.Tensor, pixel_x: torch.Tensor, pixel_y: torch.Tensor, output_vertex_capacity: int) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Clip triangles against pixel squares with exact candidate-point geometry.
 │   └── calls _compute_points_in_triangles(points=square_corners, triangle_verts=triangle_verts)
@@ -341,7 +550,8 @@ texel_visibility_geometry.py
 │   ├── calls _cross_2d(a=(triangle_v2 - triangle_v1).expand(-1, point_count, -1), b=points - triangle_v1)
 │   └── calls _cross_2d(a=(triangle_v0 - triangle_v2).expand(-1, point_count, -1), b=points - triangle_v2)
 └── def _cross_2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor
-    └── # Compute 2D cross product magnitude.
+    ├── # Compute 2D cross product magnitude.
+    └── return a's x times b's y less a's y times b's x, keeping the trailing axis  # the signed z of the 2D cross product
 ```
 
 `models/three_d/meshes/texture/extract/visibility/texel_visibility_v2.py`
@@ -349,8 +559,8 @@ texel_visibility_geometry.py
 ```text
 texel_visibility_v2.py
 ├── from data.structures.three_d.camera.cameras import Cameras
-├── from data.structures.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── from models.three_d.meshes.texture.extract.weights.normal_weights import compute_f_normals_weights
+├── from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER
 ├── def compute_f_visibility_mask_v2(verts: torch.Tensor, faces: torch.Tensor, face_verts_uvs: torch.Tensor, camera: Cameras, image_height: int, image_width: int, texel_face_map: Dict[str, torch.Tensor]) -> torch.Tensor
 │   ├── # Compute one-view UV-pixel visibility mask from projected texel centers.
@@ -361,7 +571,14 @@ texel_visibility_v2.py
 │   ├── calls _compute_mesh_diagonal(verts=verts)
 │   └── calls _compute_texel_visibility_mask_from_world_coords(world_coords=world_coords, valid_texel_indices=valid_texel_indices, valid_texel_mask=valid_texel_mask, mesh_diagonal=mesh_diagonal, camera=camera, image_height=image_height, image_width=image_width)
 ├── def _map_valid_texels_to_continuous_uv_coords(valid_texel_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-│   └── # Map valid texel centers to continuous UV coordinates.
+│   ├── # Map valid texel centers to continuous UV coordinates.
+│   ├── impls valid_texel_indices = the (row, col) positions where valid_texel_mask passes a half
+│   ├── impls assert valid_texel_indices is rank 2 with two columns
+│   ├── if no texel is valid
+│   │   └── return an empty index tensor with an empty coordinate tensor
+│   ├── impls continuous_u = the texel's column plus a half, over the texture width
+│   ├── impls continuous_v = the texel's row plus a half, over the texture height
+│   └── return valid_texel_indices with continuous_u stacked against continuous_v, each contiguous
 ├── def _map_continuous_uv_coords_to_barycentric_coords(continuous_uv_coords: torch.Tensor, valid_texel_indices: torch.Tensor, face_verts_uvs: torch.Tensor, texel_face_map: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Map continuous UV coordinates to owning-face barycentric coordinates.
 │   ├── calls _wrap_continuous_uv_coords_for_faces(continuous_uv_coords=continuous_uv_coords, face_verts_uvs=face_verts_uvs)
@@ -370,32 +587,80 @@ texel_visibility_v2.py
 │   ├── # Filter texels whose owning mesh face is back-facing in the current view.
 │   └── calls compute_f_normals_weights(mesh=Mesh(verts=verts, faces=faces), camera=camera, weights_cfg={'weights': 'normals'})
 ├── def _map_barycentric_coords_to_3d_world_coords(barycentric_coords: torch.Tensor, texel_face_indices: torch.Tensor, verts: torch.Tensor, faces: torch.Tensor) -> torch.Tensor
-│   └── # Map barycentric texel coordinates to world-space mesh points.
+│   ├── # Map barycentric texel coordinates to world-space mesh points.
+│   ├── if barycentric_coords is empty
+│   │   └── return an empty (0, 3) float32 tensor
+│   ├── impls face_verts = verts at faces of texel_face_indices
+│   ├── impls world_coords = the three face_verts corners each weighted by its own barycentric column
+│   └── return world_coords, contiguous  # [N, 3]
 ├── def _compute_texel_visibility_mask_from_world_coords(world_coords: torch.Tensor, valid_texel_indices: torch.Tensor, valid_texel_mask: torch.Tensor, mesh_diagonal: float, camera: Cameras, image_height: int, image_width: int) -> torch.Tensor
 │   ├── # Compute texel visibility by keeping the front depth-prefix per pixel.
 │   ├── calls world_to_camera_transform(points=world_coords, extrinsics=camera_single.extrinsics.extrinsics, inplace=False)
 │   ├── calls camera_single.intrinsics.project
 │   └── calls _select_visible_depth_clusters_per_camera_pixel(linear_pixel_indices=visible_linear_pixel_indices, depth=visible_projected_depth, mesh_diagonal=mesh_diagonal)
 ├── def _wrap_continuous_uv_coords_for_faces(continuous_uv_coords: torch.Tensor, face_verts_uvs: torch.Tensor) -> torch.Tensor
-│   └── # Wrap texel-center UV coordinates into the seam-safe face-local chart.
+│   ├── # Wrap texel-center UV coordinates into the seam-safe face-local chart.
+│   ├── if continuous_uv_coords is empty
+│   │   └── return continuous_uv_coords
+│   ├── impls seam_face_mask = the faces whose largest UV u passes one  # the seam-safe chart carries them beyond the unit square
+│   ├── if any face is a seam face
+│   │   └── impls add one wrap to those texels' u wherever it sits below a half
+│   └── return the wrapped coordinates, contiguous
 ├── def _compute_barycentric_coords_in_uv_faces(continuous_uv_coords: torch.Tensor, face_verts_uvs: torch.Tensor) -> torch.Tensor
-│   └── # Compute barycentric coordinates of points inside UV triangles.
+│   ├── # Compute barycentric coordinates of points inside UV triangles.
+│   ├── if continuous_uv_coords is empty
+│   │   └── return an empty (0, 3) float32 tensor
+│   ├── impls edge01 = the face's second UV corner less its first
+│   ├── impls edge02 = the face's third UV corner less its first
+│   ├── impls point_offset = continuous_uv_coords less the face's first UV corner
+│   ├── impls determinant = the 2D cross product of edge01 with edge02
+│   ├── impls assert every determinant is non-degenerate  # every owning UV triangle carries area
+│   ├── impls barycentric1 = the cross product of point_offset with edge02, over determinant
+│   ├── impls barycentric2 = the cross product of edge01 with point_offset, over determinant
+│   ├── impls barycentric0 = one less barycentric1 less barycentric2
+│   └── return the three stacked into columns, contiguous  # [N, 3]
 ├── def _compute_mesh_diagonal(verts: torch.Tensor) -> float
-│   └── # Compute the full-mesh diagonal length.
+│   ├── # Compute the full-mesh diagonal length.
+│   ├── impls min_verts = the per-axis minimum over verts
+│   ├── impls max_verts = the per-axis maximum over verts
+│   ├── impls mesh_diagonal = the norm of max_verts less min_verts, as a float
+│   ├── impls assert mesh_diagonal is positive
+│   └── return mesh_diagonal
 ├── def _select_visible_depth_clusters_per_camera_pixel(linear_pixel_indices: torch.Tensor, depth: torch.Tensor, mesh_diagonal: float) -> torch.Tensor
 │   ├── # Keep only the first front depth cluster in each pixel stack.
 │   ├── calls _sort_depth_stacks_per_camera_pixel(linear_pixel_indices=linear_pixel_indices, depth=depth)
 │   └── calls _compute_front_depth_gap_threshold_relative(sorted_depth=sorted_depth, segment_start_mask=segment_start_mask, mesh_diagonal=mesh_diagonal)
 ├── def _sort_depth_stacks_per_camera_pixel(linear_pixel_indices: torch.Tensor, depth: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-│   └── # Sort projected texels into per-pixel depth stacks.
+│   ├── # Sort projected texels into per-pixel depth stacks.
+│   ├── if linear_pixel_indices is empty
+│   │   └── return four empty tensors
+│   ├── impls depth_order = the entries stably ordered by depth
+│   ├── impls pixel_order = the stable ordering of linear_pixel_indices taken in depth_order  # the stable second pass keeps each pixel's stack depth-ascending
+│   ├── impls sorted_indices = depth_order taken through pixel_order
+│   ├── impls sorted_linear_pixel_indices = linear_pixel_indices at sorted_indices
+│   ├── impls sorted_depth = depth at sorted_indices
+│   ├── impls segment_start_mask = the entries whose pixel differs from their predecessor's
+│   └── return sorted_indices, sorted_linear_pixel_indices, sorted_depth, segment_start_mask, each contiguous
 └── def _compute_front_depth_gap_threshold_relative(sorted_depth: torch.Tensor, segment_start_mask: torch.Tensor, mesh_diagonal: float) -> float
-    └── # Derive the front-depth stopping threshold from the gap distribution.
+    ├── # Derive the front-depth stopping threshold from the gap distribution.
+    ├── if sorted_depth carries at most one entry
+    │   └── return 0.0
+    ├── impls relative_depth_gap_from_previous = each entry's depth step from its predecessor, over mesh_diagonal
+    ├── impls positive_relative_depth_gaps = the strictly positive gaps inside a pixel's own stack  # a segment start is a different pixel, not a gap
+    ├── if positive_relative_depth_gaps is empty
+    │   └── return 0.0
+    ├── impls log_positive_relative_depth_gaps = the base-10 logarithm of positive_relative_depth_gaps
+    ├── impls log_gap_median = the median of log_positive_relative_depth_gaps
+    ├── impls log_gap_mad = the median absolute deviation about log_gap_median
+    ├── impls log_gap_threshold = log_gap_median plus FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER times log_gap_mad
+    └── return ten raised to log_gap_threshold, as a float  # a wider relative gap closes the front cluster
 ```
 
 `models/three_d/meshes/texture/extract/visibility/vertex_visibility.py`
 
 ```text
 vertex_visibility.py
+├── import torch
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from models.three_d.meshes.texture.extract.camera_geometry import project_verts_to_image, render_camera_face_index_buffer
@@ -408,5 +673,12 @@ vertex_visibility.py
 │   ├── calls _compute_face_front_facing_mask(verts_camera=verts_camera, faces=faces)
 │   └── calls render_camera_face_index_buffer(verts_camera=verts_camera, faces=front_facing_faces, intrinsics=intrinsics, image_height=image_height, image_width=image_width)
 └── def _compute_face_front_facing_mask(verts_camera: torch.Tensor, faces: torch.Tensor) -> torch.Tensor
-    └── # Compute which camera-space mesh faces are front-facing.
+    ├── # Compute which camera-space mesh faces are front-facing.
+    ├── impls face_normals_camera = the cross product of each face's two edge vectors
+    ├── impls assert every face normal carries a non-zero magnitude
+    ├── impls face_normals_camera = face_normals_camera over its own row norms
+    ├── impls face_centers_camera = the mean of each face's three camera-space corners
+    ├── impls face_view_direction = the normalized direction from each face centre back to the camera origin
+    ├── impls alignment = the dot product of face_normals_camera with face_view_direction
+    └── return the faces whose alignment is strictly positive
 ```
