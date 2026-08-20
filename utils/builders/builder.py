@@ -7,37 +7,6 @@ import torch
 from torch.utils.data import Dataset
 
 
-def semideepcopy(obj: Any) -> Any:
-    """A version of deepcopy that preserves shared runtime objects.
-
-    Args:
-        obj: The object to copy.
-
-    Returns:
-        A deep copy of the object, but with shared runtime objects preserved as
-        references.
-    """
-    if isinstance(
-        obj,
-        (
-            torch.nn.Module,
-            torch.nn.Parameter,
-            Dataset,
-            edict.EasyDict,
-            tempfile.TemporaryDirectory,
-        ),
-    ):
-        return obj
-    elif isinstance(obj, dict):
-        return {key: semideepcopy(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [semideepcopy(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return tuple(semideepcopy(item) for item in obj)
-    else:
-        return deepcopy(obj)
-
-
 def build_from_config(config: Any, **kwargs) -> Any:
     """This function recursively builds objects provided by the config.
 
@@ -72,3 +41,34 @@ def build_from_config(config: Any, **kwargs) -> Any:
         return tuple(build_from_config(item) for item in config)
     else:
         return config
+
+
+def semideepcopy(obj: Any) -> Any:
+    """A version of deepcopy that preserves shared runtime objects.
+
+    Args:
+        obj: The object to copy.
+
+    Returns:
+        A deep copy of the object, but with shared runtime objects preserved as
+        references.
+    """
+    if isinstance(
+        obj,
+        (
+            torch.nn.Module,
+            torch.nn.Parameter,
+            Dataset,
+            edict.EasyDict,
+            tempfile.TemporaryDirectory,
+        ),
+    ):
+        return obj
+    elif isinstance(obj, dict):
+        return {key: semideepcopy(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [semideepcopy(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(semideepcopy(item) for item in obj)
+    else:
+        return deepcopy(obj)
