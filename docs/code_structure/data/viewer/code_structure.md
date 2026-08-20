@@ -5,34 +5,35 @@
 `./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
 ```text
-class DisplayResponse(BaseModel)
-├── class PointDisplayResponse
-│   ├── class ColorPCDisplayResponse
-│   └── class SegmentationPCDisplayResponse
-├── class PixelDisplayResponse
-│   ├── class ColorImageDisplayResponse
-│   ├── class DepthImageDisplayResponse
-│   ├── class EdgeImageDisplayResponse
-│   ├── class NormalImageDisplayResponse
-│   ├── class SegmentationImageDisplayResponse
-│   └── class InstanceSurrogateImageDisplayResponse
-├── class VideoDisplayResponse
-├── class TextDisplayResponse
-├── class TableDisplayResponse
-├── class SceneGraphDisplayResponse
-├── class MeshDisplayResponse
-│   ├── class ColorMeshDisplayResponse
-│   ├── class SegmentationMeshDisplayResponse
-│   ├── class HeatmapMeshDisplayResponse
-│   └── class SparseHeatmapMeshDisplayResponse
-├── class GaussianDisplayResponse
-│   ├── class ColorGSDisplayResponse
-│   └── class SegmentationGSDisplayResponse
-├── class CameraDisplayResponse
-├── class Aabb3dDisplayResponse
-├── class Aabb2dDisplayResponse
-├── class PlaceholderDisplayResponse
-└── class LayeredDisplayResponse
+class BaseModel
+└── class DisplayResponse(BaseModel)  # from here down, its complete set of direct subclasses
+    ├── class PointDisplayResponse
+    │   ├── class ColorPCDisplayResponse
+    │   └── class SegmentationPCDisplayResponse
+    ├── class PixelDisplayResponse
+    │   ├── class ColorImageDisplayResponse
+    │   ├── class DepthImageDisplayResponse
+    │   ├── class EdgeImageDisplayResponse
+    │   ├── class NormalImageDisplayResponse
+    │   ├── class SegmentationImageDisplayResponse
+    │   └── class InstanceSurrogateImageDisplayResponse
+    ├── class VideoDisplayResponse
+    ├── class TextDisplayResponse
+    ├── class TableDisplayResponse
+    ├── class SceneGraphDisplayResponse
+    ├── class MeshDisplayResponse
+    │   ├── class ColorMeshDisplayResponse
+    │   ├── class SegmentationMeshDisplayResponse
+    │   ├── class HeatmapMeshDisplayResponse
+    │   └── class SparseHeatmapMeshDisplayResponse
+    ├── class GaussianDisplayResponse
+    │   ├── class ColorGSDisplayResponse
+    │   └── class SegmentationGSDisplayResponse
+    ├── class CameraDisplayResponse
+    ├── class Aabb3dDisplayResponse
+    ├── class Aabb2dDisplayResponse
+    ├── class PlaceholderDisplayResponse
+    └── class LayeredDisplayResponse
 ```
 
 `./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
