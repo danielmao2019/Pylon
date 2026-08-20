@@ -2644,7 +2644,7 @@ camera_state.py
 
 ```text
 camera_state.py
-├── from data.structures.three_d.camera import Camera
+├── from data.structures.three_d.camera.camera import Camera
 ├── from data.viewer.utils.controls.camera.camera_state.ts.backend.schemas.camera_state import CameraState
 └── def create_camera_state_from_camera
     ├── # preserves Camera intrinsics, extrinsics, convention, name, and id

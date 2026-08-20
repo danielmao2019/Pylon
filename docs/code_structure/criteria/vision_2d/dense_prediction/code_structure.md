@@ -27,7 +27,7 @@ base.py
 ├── from abc import abstractmethod
 ├── import torch
 ├── import torchvision.transforms.functional as F
-├── from criteria.wrappers import SingleTaskCriterion
+├── from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 └── class DensePredictionCriterion(SingleTaskCriterion)
     ├── # Template for every per-pixel loss: it owns the ignore value, the resolution matching, and the batch reduction, leaving _compute_loss's three task hooks to subclasses.
     ├── REDUCTION_OPTIONS  # List[str] — the two batch reductions __init__ accepts, mean and sum
