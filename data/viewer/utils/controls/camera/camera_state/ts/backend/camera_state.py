@@ -1,6 +1,6 @@
 """TypeScript backend camera-state conversion."""
 
-from data.structures.three_d.camera import Camera
+from data.structures.three_d.camera.camera import Camera
 from data.viewer.utils.controls.camera.camera_state.ts.backend.schemas.camera_state import (
     CameraState,
 )
