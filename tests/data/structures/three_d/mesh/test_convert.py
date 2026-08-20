@@ -195,6 +195,20 @@ def test_mesh_from_trimesh_welds_seam_to_geometry_domain(tmp_path: Path) -> None
         mesh.texture.faces_uvs.shape == mesh.faces.shape
     ), f"{mesh.texture.faces_uvs.shape=} {mesh.faces.shape=}"
 
+    seam_corner_pairs = [
+        (corner_a, corner_b)
+        for corner_a in range(3)
+        for corner_b in range(3)
+        if int(mesh.faces[0, corner_a]) == int(mesh.faces[1, corner_b])
+        and int(mesh.texture.faces_uvs[0, corner_a])
+        != int(mesh.texture.faces_uvs[1, corner_b])
+    ]
+    assert len(seam_corner_pairs) > 0, (
+        "Expected two seam corners at one position to index the same verts row "
+        "while indexing different verts_uvs rows. "
+        f"{mesh.faces=} {mesh.texture.faces_uvs=}"
+    )
+
 
 def test_vertex_count_is_loader_independent(tmp_path: Path) -> None:
     """Make len(mesh.verts) identical across PyTorch3D and trimesh loaders.
@@ -261,15 +275,18 @@ def test_trimesh_uv_round_trip_preserves_geometry() -> None:
     ]
     assert_close(sorted_round_trip, sorted_original)
     assert_close(
+        round_tripped_mesh.verts[round_tripped_mesh.faces],
+        mesh.verts[mesh.faces],
+    )
+
+    assert_close(round_tripped_mesh.texture.verts_uvs, mesh.texture.verts_uvs)
+    assert torch.equal(
+        round_tripped_mesh.texture.faces_uvs, mesh.texture.faces_uvs
+    ), f"{round_tripped_mesh.texture.faces_uvs=} {mesh.texture.faces_uvs=}"
+    assert_close(
         round_tripped_mesh.texture.uv_texture_map,
         mesh.texture.uv_texture_map,
     )
-
-    original_uv_by_face = mesh.texture.verts_uvs[mesh.texture.faces_uvs.reshape(-1)]
-    round_trip_uv_by_face = round_tripped_mesh.texture.verts_uvs[
-        round_tripped_mesh.texture.faces_uvs.reshape(-1)
-    ]
-    assert_close(round_trip_uv_by_face, original_uv_by_face)
 
 
 def test_pytorch3d_round_trip_preserves_texture() -> None:
