@@ -146,10 +146,17 @@ def serialize_cameras(
     from data.structures.three_d.camera.camera import Camera
     from data.structures.three_d.camera.cameras import Cameras
 
-    # Input validations
-    assert isinstance(cameras, (Camera, Cameras)), (
-        "Expected object to serialize to be a Camera or a Cameras. " f"{type(cameras)=}"
-    )
+    def _validate_inputs() -> None:
+        assert isinstance(cameras, (Camera, Cameras)), (
+            "Expected object to serialize to be a Camera or a Cameras. "
+            f"{type(cameras)=}"
+        )
+        assert isinstance(format, str) and format != "", (
+            "Expected Cameras serialization format to be a non-empty string. "
+            f"{format=}"
+        )
+
+    _validate_inputs()
 
     # Input normalizations
     format = _normalize_format(format=format)
@@ -201,13 +208,22 @@ def deserialize_cameras(
         A single `Camera` when the payload was in single form, otherwise a
         `Cameras` collection.
     """
-    # Input validations
-    assert isinstance(payload, (dict, list)), (
-        "Expected Cameras payload to be a dictionary or a list. " f"{type(payload)=}"
-    )
-    assert device is None or isinstance(device, (str, torch.device)), (
-        "Expected Cameras device to be None, a string, or a torch device. " f"{device=}"
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(payload, (dict, list)), (
+            "Expected Cameras payload to be a dictionary or a list. "
+            f"{type(payload)=}"
+        )
+        assert device is None or isinstance(device, (str, torch.device)), (
+            "Expected Cameras device to be None, a string, or a torch device. "
+            f"{device=}"
+        )
+        assert isinstance(format, str) and format != "", (
+            "Expected Cameras serialization format to be a non-empty string. "
+            f"{format=}"
+        )
+
+    _validate_inputs()
 
     # Input normalizations
     format = _normalize_format(format=format)
@@ -550,18 +566,10 @@ def _normalize_format(format: str) -> str:
     Returns:
         Normalized serialization format name.
     """
-    # Input validations
-    assert isinstance(format, str), (
-        "Expected Cameras serialization format to be a string. " f"{type(format)=}"
-    )
-    assert format != "", (
-        "Expected Cameras serialization format to be non-empty. " f"{format=}"
-    )
-
     # Input normalizations
     format = format.strip()
     assert format != "", (
-        "Expected Cameras serialization format to be non-empty after stripping. "
+        "Expected the stripped Cameras serialization format to be non-empty. "
         f"{format=}"
     )
     if format.startswith("."):

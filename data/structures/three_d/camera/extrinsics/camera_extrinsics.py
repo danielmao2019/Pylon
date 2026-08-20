@@ -212,16 +212,19 @@ class CameraExtrinsics:
         Returns:
             This CameraExtrinsics when unchanged, else a new one.
         """
-        # Input validations
-        assert device is None or isinstance(device, (str, torch.device)), (
-            "Expected target device to be None, a string, or torch.device. "
-            f"{device=}"
-        )
-        assert convention is None or isinstance(convention, str), (
-            "Expected target convention to be None or a string. " f"{convention=}"
-        )
-        if convention is not None:
-            validate_camera_convention(convention)
+
+        def _validate_inputs() -> None:
+            assert device is None or isinstance(device, (str, torch.device)), (
+                "Expected target device to be None, a string, or torch.device. "
+                f"{device=}"
+            )
+            assert convention is None or isinstance(convention, str), (
+                "Expected target convention to be None or a string. " f"{convention=}"
+            )
+            if convention is not None:
+                validate_camera_convention(convention)
+
+        _validate_inputs()
 
         # Input normalizations
         target_device = torch.device(device) if device is not None else self._device
@@ -230,7 +233,7 @@ class CameraExtrinsics:
         if target_device == self._device and target_convention == self._convention:
             return self
 
-        if target_convention != self._convention:
+        if convention is not None and convention != self._convention:
             extrinsics = transform_convention(
                 camera_extrinsics=self,
                 target_convention=target_convention,

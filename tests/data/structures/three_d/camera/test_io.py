@@ -181,7 +181,7 @@ def test_single_camera_json_round_trip(tmp_path: Path) -> None:
     _assert_camera_fields_equal(loaded=method_deserialized, original=camera)
 
     json_path = tmp_path / "camera.json"
-    save_cameras(cameras=camera, cameras_path=json_path)
+    camera.save(camera_path=json_path)
     on_disk = json.loads(json_path.read_text(encoding="utf-8"))
     assert on_disk == serialized, f"{on_disk=} {serialized=}"
     _assert_camera_fields_equal(
@@ -213,7 +213,7 @@ def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
     _assert_camera_fields_equal(loaded=deserialized, original=camera)
 
     npz_path = tmp_path / "camera.npz"
-    save_cameras(cameras=camera, cameras_path=npz_path)
+    camera.save(camera_path=npz_path)
     with np.load(npz_path, allow_pickle=False) as on_disk:
         assert set(on_disk.files) == _NPZ_KEYS | {"is_single"}, f"{set(on_disk.files)=}"
     _assert_camera_fields_equal(
@@ -285,43 +285,79 @@ def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
     )
 
 
-def test_model_and_params_survive_round_trip() -> None:
+def test_model_and_params_survive_round_trip(tmp_path: Path) -> None:
     """A Camera's intrinsics model and params survive json and npz round trips.
 
     Args:
-        None.
+        tmp_path: Temporary output directory.
 
     Returns:
         None.
     """
-    camera = _make_single_camera()
+    model_params = {
+        "simple_pinhole": {"f": 405.0, "cx": 161.0, "cy": 121.0},
+        "pinhole": {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+        "ortho": {"fx": 402.0, "fy": 412.0, "cx": 162.0, "cy": 122.0},
+    }
     for format in ("json", "npz"):
-        serialized = serialize_cameras(cameras=camera, format=format)
-        loaded = deserialize_cameras(payload=serialized, device="cpu", format=format)
-        assert (
-            loaded.intrinsics.model == camera.intrinsics.model
-        ), f"{format=} {loaded.intrinsics.model=}"
-        assert (
-            loaded.intrinsics.params == camera.intrinsics.params
-        ), f"{format=} {loaded.intrinsics.params=}"
+        for model, params in model_params.items():
+            intrinsics = build_camera_intrinsics(
+                model=model, params=params, device="cpu"
+            )
+            extrinsics = _make_extrinsics(
+                translation=[0.3, -0.2, 1.1], convention="opengl"
+            )
+            camera = Camera(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                name="frame_0",
+                id=7,
+                device="cpu",
+            )
+            camera_path = tmp_path / f"camera_{model}.{format}"
+            camera.save(camera_path=camera_path)
+            loaded = Camera.load(camera_path=camera_path, device="cpu")
+            assert (
+                loaded.intrinsics.model == model
+            ), f"{format=} {loaded.intrinsics.model=} {model=}"
+            assert (
+                loaded.intrinsics.params == params
+            ), f"{format=} {loaded.intrinsics.params=} {params=}"
 
 
-def test_extrinsics_and_convention_survive_round_trip() -> None:
+def test_extrinsics_and_convention_survive_round_trip(tmp_path: Path) -> None:
     """A Camera's extrinsics matrix and convention survive json and npz round trips.
 
     Args:
-        None.
+        tmp_path: Temporary output directory.
 
     Returns:
         None.
     """
-    camera = _make_single_camera()
+    conventions = ["standard", "opengl", "opencv", "pytorch3d", "arkit"]
     for format in ("json", "npz"):
-        serialized = serialize_cameras(cameras=camera, format=format)
-        loaded = deserialize_cameras(payload=serialized, device="cpu", format=format)
-        assert torch.equal(
-            loaded.extrinsics.extrinsics, camera.extrinsics.extrinsics
-        ), f"{format=} {loaded.extrinsics.extrinsics=}"
-        assert (
-            loaded.extrinsics.convention == camera.extrinsics.convention
-        ), f"{format=} {loaded.extrinsics.convention=}"
+        for convention in conventions:
+            intrinsics = build_camera_intrinsics(
+                model="pinhole",
+                params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+                device="cpu",
+            )
+            extrinsics = _make_extrinsics(
+                translation=[0.3, -0.2, 1.1], convention=convention
+            )
+            camera = Camera(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                name="frame_0",
+                id=7,
+                device="cpu",
+            )
+            camera_path = tmp_path / f"camera_{convention}.{format}"
+            camera.save(camera_path=camera_path)
+            loaded = Camera.load(camera_path=camera_path, device="cpu")
+            assert torch.equal(
+                loaded.extrinsics.extrinsics, camera.extrinsics.extrinsics
+            ), f"{format=} {convention=} {loaded.extrinsics.extrinsics=}"
+            assert (
+                loaded.extrinsics.convention == convention
+            ), f"{format=} {loaded.extrinsics.convention=}"

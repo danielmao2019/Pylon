@@ -6,13 +6,13 @@ import pytest
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
-from data.structures.three_d.camera.extrinsics import conventions as conventions_module
+from data.structures.three_d.camera.extrinsics import conventions
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.camera.extrinsics.validation import (
     validate_camera_convention,
 )
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
-    CameraIntrinsicsPinhole,
+    build_camera_intrinsics,
 )
 
 CONVENTIONS: List[str] = [
@@ -44,19 +44,29 @@ def _build_extrinsics_matrix() -> torch.Tensor:
     )
 
 
-def _build_intrinsics() -> CameraIntrinsicsPinhole:
-    """Build a pinhole CameraIntrinsics fixture.
+def _build_extrinsics_matrices() -> List[torch.Tensor]:
+    """Build distinct valid 4x4 cam2world matrices with proper rotations.
 
     Args:
         None.
 
     Returns:
-        A CameraIntrinsicsPinhole on the CPU.
+        A list of 4x4 float32 camera-to-world matrices with distinct proper
+        rotations and centers.
     """
-    return CameraIntrinsicsPinhole(
-        params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
-        device="cpu",
+    rotation_about_z = _build_extrinsics_matrix()
+    identity_rotation = torch.eye(4, dtype=torch.float32)
+    identity_rotation[:3, 3] = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32)
+    rotation_about_x = torch.tensor(
+        [
+            [1.0, 0.0, 0.0, -0.7],
+            [0.0, 0.0, -1.0, 0.4],
+            [0.0, 1.0, 0.0, 2.5],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
     )
+    return [rotation_about_z, identity_rotation, rotation_about_x]
 
 
 def _build_extrinsics(convention: str) -> CameraExtrinsics:
@@ -76,17 +86,31 @@ def _build_extrinsics(convention: str) -> CameraExtrinsics:
 
 
 def _build_cameras(convention: str) -> Cameras:
-    """Build a one-camera Cameras fixture in the given convention.
+    """Build a multi-camera Cameras fixture in the given convention.
 
     Args:
         convention: Coordinate-frame convention string.
 
     Returns:
-        A Cameras with one camera on the CPU in the given convention.
+        A Cameras of three CPU cameras with distinct poses in the given
+        convention.
     """
+    pose_matrices = _build_extrinsics_matrices()
+    intrinsics = [
+        build_camera_intrinsics(
+            model="pinhole",
+            params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            device="cpu",
+        )
+        for _ in pose_matrices
+    ]
+    extrinsics = [
+        CameraExtrinsics(extrinsics=pose_matrix, convention=convention, device="cpu")
+        for pose_matrix in pose_matrices
+    ]
     return Cameras(
-        intrinsics=[_build_intrinsics()],
-        extrinsics=[_build_extrinsics(convention=convention)],
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
         device="cpu",
     )
 
@@ -113,6 +137,13 @@ def test_conventions_module_has_one_main_api_and_eight_helpers() -> None:
     Returns:
         None.
     """
+    defined_names = {
+        name
+        for name, function in inspect.getmembers(conventions, inspect.isfunction)
+        if function.__module__ == conventions.__name__
+    }
+    public_names = {name for name in defined_names if not name.startswith("_")}
+    assert public_names == {"transform_convention"}, f"{public_names=}"
     expected_helpers = {
         "_opengl_to_standard",
         "_standard_to_opengl",
@@ -123,17 +154,7 @@ def test_conventions_module_has_one_main_api_and_eight_helpers() -> None:
         "_arkit_to_standard",
         "_standard_to_arkit",
     }
-    functions = inspect.getmembers(conventions_module, inspect.isfunction)
-    helper_names = {
-        name
-        for name, _ in functions
-        if name.startswith("_")
-        and ("to_standard" in name or name.startswith("_standard_to_"))
-    }
-    assert helper_names == expected_helpers, f"{helper_names=}"
-    assert hasattr(conventions_module, "transform_convention"), f"{functions=}"
-    assert not hasattr(conventions_module, "_opengl_to_opencv"), f"{functions=}"
-    assert not hasattr(conventions_module, "_opencv_to_pytorch3d"), f"{functions=}"
+    assert defined_names - public_names == expected_helpers, f"{defined_names=}"
 
 
 @pytest.mark.parametrize(
@@ -262,15 +283,50 @@ def test_cameras_conversion_preserves_physical_axes_and_center(
     """
     cameras = _build_cameras(convention=source_convention)
     converted = cameras.to(convention=target_convention)
+    assert converted.center.shape == (len(cameras), 3), f"{converted.center.shape=}"
     assert torch.allclose(
-        converted.center[0], cameras.center[0], atol=1.0e-06, rtol=0.0
+        converted.center, cameras.center, atol=1.0e-06, rtol=0.0
     ), f"{converted.center=} {cameras.center=}"
     assert torch.allclose(
-        converted.right[0], cameras.right[0], atol=1.0e-06, rtol=0.0
+        converted.right, cameras.right, atol=1.0e-06, rtol=0.0
     ), f"{converted.right=} {cameras.right=}"
     assert torch.allclose(
-        converted.forward[0], cameras.forward[0], atol=1.0e-06, rtol=0.0
+        converted.forward, cameras.forward, atol=1.0e-06, rtol=0.0
     ), f"{converted.forward=} {cameras.forward=}"
     assert torch.allclose(
-        converted.up[0], cameras.up[0], atol=1.0e-06, rtol=0.0
+        converted.up, cameras.up, atol=1.0e-06, rtol=0.0
     ), f"{converted.up=} {cameras.up=}"
+
+
+@pytest.mark.parametrize("target_convention", CONVENTIONS)
+def test_every_supported_convention_is_right_handed(target_convention: str) -> None:
+    """Each supported convention's (right, forward, up) triple is positively oriented.
+
+    A camera carries no change of handedness, so converting between two supported
+    conventions keeps the rotation determinant at +1.
+
+    Args:
+        target_convention: Target coordinate-frame convention.
+
+    Returns:
+        None.
+    """
+    extrinsics = _build_extrinsics(convention="standard")
+    converted = extrinsics.to(convention=target_convention)
+    triple_product = torch.dot(
+        torch.linalg.cross(converted.right, converted.forward), converted.up
+    )
+    assert float(triple_product) > 0.0, (
+        "Expected the (right, forward, up) triple to be positively oriented. "
+        f"{target_convention=} {float(triple_product)=}"
+    )
+    determinant = torch.linalg.det(converted.extrinsics[:3, :3])
+    assert torch.isclose(
+        determinant,
+        torch.tensor(1.0, dtype=determinant.dtype),
+        atol=1.0e-05,
+        rtol=0.0,
+    ), (
+        "Expected the converted rotation block to keep determinant +1. "
+        f"{target_convention=} {float(determinant)=}"
+    )

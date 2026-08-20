@@ -64,3 +64,34 @@ def test_validator_threshold_is_dtype_aware() -> None:
 
     with pytest.raises(AssertionError):
         validate_rotation_matrix(m)
+
+
+def test_validator_requires_determinant_plus_one() -> None:
+    """A camera's rotation is validated to have determinant +1.
+
+    A reflection is inexpressible as camera extrinsics, so any change of
+    handedness has to be carried by the geometry instead.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    rotation = _random_rotation(torch.float64, 7)
+    validate_rotation_matrix(rotation)
+
+    reflection = rotation.clone()
+    reflection[:, 0] = -reflection[:, 0]
+    assert float(torch.linalg.det(reflection)) < 0.0, (
+        "Expected negating one column of a proper rotation to give an "
+        f"orthonormal matrix of determinant -1. {float(torch.linalg.det(reflection))=}"
+    )
+    with pytest.raises(AssertionError):
+        validate_rotation_matrix(reflection)
+
+    extrinsics = torch.eye(4, dtype=torch.float64)
+    extrinsics[:3, :3] = reflection
+    batch = torch.stack([extrinsics, extrinsics])
+    with pytest.raises(AssertionError):
+        validate_camera_extrinsics(batch)

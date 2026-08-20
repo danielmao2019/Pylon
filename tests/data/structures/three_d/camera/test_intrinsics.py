@@ -1,3 +1,6 @@
+import math
+from typing import Dict, List, Tuple, Union
+
 import pytest
 import torch
 
@@ -69,6 +72,8 @@ def test_validate_intrinsics_params_dispatches_per_model_keys() -> None:
         validate_camera_intrinsics_params(model="simple_pinhole", params=pinhole_params)
     with pytest.raises(AssertionError):
         validate_camera_intrinsics_params(model="pinhole", params=simple_params)
+    with pytest.raises(AssertionError):
+        validate_camera_intrinsics_params(model="ortho", params=simple_params)
 
 
 def test_validate_intrinsics_attributes_checks_model_params_device() -> None:
@@ -83,13 +88,17 @@ def test_validate_intrinsics_attributes_checks_model_params_device() -> None:
     params = {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0}
     validate_camera_intrinsics_attributes(model="pinhole", params=params, device="cpu")
     with pytest.raises(AssertionError):
-        validate_camera_intrinsics_attributes(model="pinhole", params=params, device=0)
+        validate_camera_intrinsics_attributes(
+            model="fisheye", params=params, device="cpu"
+        )
     with pytest.raises(AssertionError):
         validate_camera_intrinsics_attributes(
             model="pinhole",
             params={"f": 400.0, "cx": 160.0, "cy": 120.0},
             device="cpu",
         )
+    with pytest.raises(AssertionError):
+        validate_camera_intrinsics_attributes(model="pinhole", params=params, device=0)
 
 
 def test_build_camera_intrinsics_dispatches_to_model_subclass() -> None:
@@ -119,6 +128,9 @@ def test_build_camera_intrinsics_dispatches_to_model_subclass() -> None:
     assert isinstance(simple, CameraIntrinsicsSimplePinhole), f"{type(simple)=}"
     assert isinstance(pinhole, CameraIntrinsicsPinhole), f"{type(pinhole)=}"
     assert isinstance(ortho, CameraIntrinsicsOrtho), f"{type(ortho)=}"
+    assert simple.model == "simple_pinhole", f"{simple.model=}"
+    assert pinhole.model == "pinhole", f"{pinhole.model=}"
+    assert ortho.model == "ortho", f"{ortho.model=}"
 
 
 def test_simple_pinhole_project_applies_perspective_divide() -> None:
@@ -437,7 +449,20 @@ def test_fov_defined_for_perspective_subclasses_only() -> None:
     assert isinstance(pinhole.fov, tuple) and len(pinhole.fov) == 2, f"{pinhole.fov=}"
     assert all(isinstance(value, float) for value in simple.fov), f"{simple.fov=}"
     assert all(isinstance(value, float) for value in pinhole.fov), f"{pinhole.fov=}"
-    assert not hasattr(ortho, "fov"), "Ortho intrinsics must not expose fov."
+    for intrinsics in (simple, pinhole):
+        expected_horizontal = (
+            2.0 * math.atan(intrinsics.cx / intrinsics.fx) * 180.0 / math.pi
+        )
+        expected_vertical = (
+            2.0 * math.atan(intrinsics.cy / intrinsics.fy) * 180.0 / math.pi
+        )
+        assert math.isclose(
+            intrinsics.fov[0], expected_horizontal, rel_tol=1.0e-09
+        ), f"{intrinsics.fov=} {expected_horizontal=}"
+        assert math.isclose(
+            intrinsics.fov[1], expected_vertical, rel_tol=1.0e-09
+        ), f"{intrinsics.fov=} {expected_vertical=}"
+    assert hasattr(ortho, "fov") is False, "Ortho intrinsics must not expose fov."
 
 
 def test_scale_intrinsics_scales_focal_and_principal_point() -> None:
@@ -449,33 +474,37 @@ def test_scale_intrinsics_scales_focal_and_principal_point() -> None:
     Returns:
         None.
     """
-    intrinsics = CameraIntrinsicsPinhole(
-        params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
-        device="cpu",
-    )
+    model_cases: List[
+        Tuple[str, Dict[str, Union[int, float]], Dict[str, Union[int, float]]]
+    ] = [
+        (
+            "simple_pinhole",
+            {"f": 400.0, "cx": 160.0, "cy": 120.0},
+            {"f": 800.0, "cx": 320.0, "cy": 60.0},
+        ),
+        (
+            "pinhole",
+            {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            {"fx": 800.0, "fy": 205.0, "cx": 320.0, "cy": 60.0},
+        ),
+        (
+            "ortho",
+            {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
+            {"fx": 800.0, "fy": 205.0, "cx": 320.0, "cy": 60.0},
+        ),
+    ]
+    for model, params, expected_params in model_cases:
+        intrinsics = build_camera_intrinsics(model=model, params=params, device="cpu")
 
-    by_factor = intrinsics.scale_intrinsics(scale=2.0)
-    assert by_factor.params == {
-        "fx": 800.0,
-        "fy": 820.0,
-        "cx": 320.0,
-        "cy": 240.0,
-    }, f"{by_factor.params=}"
-    assert isinstance(by_factor, CameraIntrinsicsPinhole), f"{type(by_factor)=}"
+        # Current resolution inferred from the principal point is (W, H) = (320, 240),
+        # so the target (height, width) = (120, 640) gives (sx, sy) = (2.0, 0.5).
+        by_resolution = intrinsics.scale_intrinsics(resolution=(120, 640))
+        assert (
+            by_resolution.params == expected_params
+        ), f"{model=} {by_resolution.params=} {expected_params=}"
+        assert type(by_resolution) is type(intrinsics), f"{type(by_resolution)=}"
 
-    by_axes = intrinsics.scale_intrinsics(scale=(2.0, 0.5))
-    assert by_axes.params == {
-        "fx": 800.0,
-        "fy": 205.0,
-        "cx": 320.0,
-        "cy": 60.0,
-    }, f"{by_axes.params=}"
-
-    # Current resolution inferred from the principal point is (W, H) = (320, 240).
-    by_resolution = intrinsics.scale_intrinsics(resolution=(480, 640))
-    assert by_resolution.params == {
-        "fx": 800.0,
-        "fy": 820.0,
-        "cx": 320.0,
-        "cy": 240.0,
-    }, f"{by_resolution.params=}"
+        by_axes = intrinsics.scale_intrinsics(scale=(2.0, 0.5))
+        assert (
+            by_axes.params == expected_params
+        ), f"{model=} {by_axes.params=} {expected_params=}"
