@@ -5,11 +5,9 @@ import types
 from pathlib import Path
 
 import numpy as np
-import open3d as o3d
 import torch
 import trimesh
 from PIL import Image
-from torch.testing import assert_close
 
 
 def _install_namespace_package(package_name: str, package_path: Path) -> None:
@@ -259,8 +257,8 @@ def test_trimesh_uv_round_trip_preserves_geometry() -> None:
             round_tripped_mesh.verts[:, 0] * 1.0e06 + round_tripped_mesh.verts[:, 1]
         )
     ]
-    assert_close(sorted_round_trip, sorted_original)
-    assert_close(
+    torch.testing.assert_close(sorted_round_trip, sorted_original)
+    torch.testing.assert_close(
         round_tripped_mesh.texture.uv_texture_map,
         mesh.texture.uv_texture_map,
     )
@@ -269,7 +267,7 @@ def test_trimesh_uv_round_trip_preserves_geometry() -> None:
     round_trip_uv_by_face = round_tripped_mesh.texture.verts_uvs[
         round_tripped_mesh.texture.faces_uvs.reshape(-1)
     ]
-    assert_close(round_trip_uv_by_face, original_uv_by_face)
+    torch.testing.assert_close(round_trip_uv_by_face, original_uv_by_face)
 
 
 def test_pytorch3d_round_trip_preserves_texture() -> None:
@@ -291,11 +289,11 @@ def test_pytorch3d_round_trip_preserves_texture() -> None:
     assert isinstance(
         round_tripped_vc.texture, MeshTextureVertexColor
     ), f"{type(round_tripped_vc.texture)=}"
-    assert_close(round_tripped_vc.verts, vertex_color_mesh.verts)
+    torch.testing.assert_close(round_tripped_vc.verts, vertex_color_mesh.verts)
     assert torch.equal(
         round_tripped_vc.faces, vertex_color_mesh.faces
     ), f"{round_tripped_vc.faces=} {vertex_color_mesh.faces=}"
-    assert_close(
+    torch.testing.assert_close(
         round_tripped_vc.texture.vertex_color,
         vertex_color_mesh.texture.vertex_color,
     )
@@ -306,15 +304,17 @@ def test_pytorch3d_round_trip_preserves_texture() -> None:
     assert isinstance(
         round_tripped_uv.texture, MeshTextureUVTextureMap
     ), f"{type(round_tripped_uv.texture)=}"
-    assert_close(round_tripped_uv.verts, uv_mesh.verts)
+    torch.testing.assert_close(round_tripped_uv.verts, uv_mesh.verts)
     assert torch.equal(
         round_tripped_uv.faces, uv_mesh.faces
     ), f"{round_tripped_uv.faces=} {uv_mesh.faces=}"
-    assert_close(
+    torch.testing.assert_close(
         round_tripped_uv.texture.uv_texture_map,
         uv_mesh.texture.uv_texture_map,
     )
-    assert_close(round_tripped_uv.texture.verts_uvs, uv_mesh.texture.verts_uvs)
+    torch.testing.assert_close(
+        round_tripped_uv.texture.verts_uvs, uv_mesh.texture.verts_uvs
+    )
     assert torch.equal(
         round_tripped_uv.texture.faces_uvs, uv_mesh.texture.faces_uvs
     ), f"{round_tripped_uv.texture.faces_uvs=} {uv_mesh.texture.faces_uvs=}"
@@ -341,11 +341,11 @@ def test_open3d_round_trip_preserves_vertex_color() -> None:
     assert isinstance(
         round_tripped_mesh.texture, MeshTextureVertexColor
     ), f"{type(round_tripped_mesh.texture)=}"
-    assert_close(round_tripped_mesh.verts, mesh.verts)
+    torch.testing.assert_close(round_tripped_mesh.verts, mesh.verts)
     assert torch.equal(
         round_tripped_mesh.faces, mesh.faces
     ), f"{round_tripped_mesh.faces=} {mesh.faces=}"
-    assert_close(
+    torch.testing.assert_close(
         round_tripped_mesh.texture.vertex_color,
         mesh.texture.vertex_color,
     )

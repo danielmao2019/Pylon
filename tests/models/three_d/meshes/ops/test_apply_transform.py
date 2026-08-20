@@ -2,7 +2,6 @@
 
 import pytest
 import torch
-from torch.testing import assert_close
 
 from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
@@ -88,7 +87,7 @@ def test_verts_match_reference_matmul() -> None:
 
     transformed = apply_transform(mesh=mesh, transform=transform)
 
-    assert_close(transformed.verts, reference)
+    torch.testing.assert_close(transformed.verts, reference)
 
 
 def test_faces_and_texture_preserved() -> None:
@@ -99,7 +98,7 @@ def test_faces_and_texture_preserved() -> None:
 
     transformed = apply_transform(mesh=mesh, transform=transform)
 
-    assert_close(transformed.faces, mesh.faces)
+    torch.testing.assert_close(transformed.faces, mesh.faces)
     assert transformed.texture is mesh.texture
 
 

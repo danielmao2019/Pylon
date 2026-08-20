@@ -2,7 +2,7 @@ from typing import Optional, Union
 from abc import abstractmethod
 import torch
 import torchvision.transforms.functional as F
-from criteria.wrappers import SingleTaskCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
 class DensePredictionCriterion(SingleTaskCriterion):

@@ -3,7 +3,6 @@
 import numpy as np
 import pytest
 import torch
-from torch.testing import assert_close
 
 from models.three_d.meshes.ops import compute_vertex_normals
 
@@ -54,7 +53,7 @@ def test_output_is_unit_length() -> None:
     normals = compute_vertex_normals(verts=verts, faces=faces, weights="unit")
 
     norms = torch.linalg.norm(normals, dim=-1)
-    assert_close(norms, torch.ones_like(norms))
+    torch.testing.assert_close(norms, torch.ones_like(norms))
 
 
 def test_single_planar_triangle_orientation() -> None:
@@ -91,7 +90,7 @@ def test_single_planar_triangle_orientation() -> None:
         ],
         dtype=torch.float32,
     )
-    assert_close(normals, expected)
+    torch.testing.assert_close(normals, expected)
 
 
 def test_unit_weighting_not_area_weighting() -> None:
@@ -141,13 +140,13 @@ def test_unit_weighting_not_area_weighting() -> None:
 
     expected_unit = torch.tensor(unit_weighted, dtype=torch.float32)
     expected_area = torch.tensor(area_weighted, dtype=torch.float32)
-    assert_close(normals[0], expected_unit)
+    torch.testing.assert_close(normals[0], expected_unit)
     assert not torch.allclose(
         normals[0], expected_area, atol=1e-4, rtol=0.0
     ), f"{normals[0]=}, {expected_area=}"
 
-    assert_close(normals[2], torch.tensor(n0, dtype=torch.float32))
-    assert_close(normals[3], torch.tensor(n1, dtype=torch.float32))
+    torch.testing.assert_close(normals[2], torch.tensor(n0, dtype=torch.float32))
+    torch.testing.assert_close(normals[3], torch.tensor(n1, dtype=torch.float32))
 
 
 def test_batched_matches_unbatched() -> None:
@@ -180,8 +179,8 @@ def test_batched_matches_unbatched() -> None:
     )
 
     assert normals_batched.shape == (2, 4, 3), f"{normals_batched.shape=}"
-    assert_close(normals_batched[0], normals_first)
-    assert_close(normals_batched[1], normals_second)
+    torch.testing.assert_close(normals_batched[0], normals_first)
+    torch.testing.assert_close(normals_batched[1], normals_second)
 
 
 def test_area_output_is_unit_length() -> None:
@@ -208,7 +207,7 @@ def test_area_output_is_unit_length() -> None:
     normals = compute_vertex_normals(verts=verts, faces=faces, weights="area")
 
     norms = torch.linalg.norm(normals, dim=-1)
-    assert_close(norms, torch.ones_like(norms))
+    torch.testing.assert_close(norms, torch.ones_like(norms))
 
 
 def test_area_weighting_not_unit_weighting() -> None:
@@ -259,13 +258,13 @@ def test_area_weighting_not_unit_weighting() -> None:
 
     expected_unit = torch.tensor(unit_weighted, dtype=torch.float32)
     expected_area = torch.tensor(area_weighted, dtype=torch.float32)
-    assert_close(normals[0], expected_area)
+    torch.testing.assert_close(normals[0], expected_area)
     assert not torch.allclose(
         normals[0], expected_unit, atol=1e-4, rtol=0.0
     ), f"{normals[0]=}, {expected_unit=}"
 
-    assert_close(normals[2], torch.tensor(n0, dtype=torch.float32))
-    assert_close(normals[3], torch.tensor(n1, dtype=torch.float32))
+    torch.testing.assert_close(normals[2], torch.tensor(n0, dtype=torch.float32))
+    torch.testing.assert_close(normals[3], torch.tensor(n1, dtype=torch.float32))
 
 
 def test_unrecognized_weights_trips_dispatch_assert() -> None:
