@@ -44,7 +44,7 @@ glb.py
 │   ├── calls _component_count
 │   ├── impls count = accessor's count
 │   ├── if accessor declares a bufferView
-│   │   ├── calls _read_buffer_view_bytes
+│   │   ├── calls _read_buffer_view_bytes(gltf=gltf, binary_blob=binary_blob, buffer_view_index=accessor["bufferView"])
 │   │   ├── impls byte_offset = accessor's byteOffset, defaulting to zero
 │   │   ├── impls element_byte_size = component_dtype's itemsize times component_count
 │   │   ├── impls needed_bytes = byte_offset plus element_byte_size times count
@@ -54,7 +54,7 @@ glb.py
 │   │   └── impls array = zeros of count by component_count in component_dtype
 │   ├── impls sparse = accessor's sparse block
 │   ├── if sparse is a dict whose count is positive
-│   │   └── calls _apply_sparse_overlay
+│   │   └── calls _apply_sparse_overlay(gltf=gltf, binary_blob=binary_blob, sparse=sparse, target_array=array)
 │   ├── if component_count == 1
 │   │   └── return array reshaped to count  # a SCALAR accessor is one-dimensional
 │   └── return array
@@ -62,7 +62,7 @@ glb.py
 │   ├── # Extracts the raw encoded bytes of one glTF image from its buffer view.
 │   ├── impls image_def = gltf's images at image_index
 │   ├── assert image_def declares a bufferView  # only buffer-view embedded images are supported
-│   ├── calls _read_buffer_view_bytes
+│   ├── calls _read_buffer_view_bytes(gltf=gltf, binary_blob=binary_blob, buffer_view_index=image_def["bufferView"])
 │   └── return that buffer view's bytes
 ├── def write_glb(gltf: Dict[str, Any], binary_blob: bytes, path: Union[str, Path]) -> None
 │   ├── # Serializes a glTF JSON document + binary buffer into the GLB chunked container (12-byte header + JSON chunk + BIN chunk) on disk.
@@ -87,7 +87,7 @@ glb.py
 │   ├── impls count = contiguous's first dimension
 │   ├── impls component_count = one for a 1-D array, else contiguous's second dimension
 │   ├── calls _numpy_component_type
-│   ├── calls _accessor_type
+│   ├── calls _accessor_type(num_components=component_count)
 │   ├── impls byte_offset = binary_blob's length once zero-padded to a four-byte boundary
 │   ├── impls extend binary_blob with contiguous's bytes
 │   ├── impls buffer_view = a bufferView over byte_offset for those bytes' length
@@ -107,11 +107,11 @@ glb.py
 ├── def _apply_sparse_overlay(gltf: Dict[str, Any], binary_blob: bytes, sparse: Dict[str, Any], target_array: np.ndarray) -> None
 │   ├── # Overwrites the glTF sparse-accessor index/value pairs onto the densely-read accessor values in place.
 │   ├── impls sparse_count = sparse["count"]
-│   ├── calls _component_dtype         # the sparse indices' componentType
-│   ├── calls _read_buffer_view_bytes  # the sparse indices' buffer view
+│   ├── calls _component_dtype(component_type=int(sparse["indices"]["componentType"]))
+│   ├── calls _read_buffer_view_bytes(gltf=gltf, binary_blob=binary_blob, buffer_view_index=int(sparse["indices"]["bufferView"]))
 │   ├── impls index_array = sparse_count values from the indices' byteOffset, read as index_dtype, as int64
 │   ├── impls value_element_byte_size = target_array's dtype itemsize times its component count
-│   ├── calls _read_buffer_view_bytes  # the sparse values' buffer view
+│   ├── calls _read_buffer_view_bytes(gltf=gltf, binary_blob=binary_blob, buffer_view_index=int(sparse["values"]["bufferView"]))
 │   ├── impls value_array = sparse_count runs of value_element_byte_size from the values' byteOffset, read as target_array's dtype, reshaped to sparse_count by its component count
 │   └── impls target_array[index_array] = value_array  # in place, so the caller sees the overlay
 ├── def _read_buffer_view_bytes(gltf: Dict[str, Any], binary_blob: bytes, buffer_view_index: int) -> bytes

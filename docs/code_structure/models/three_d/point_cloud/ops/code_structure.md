@@ -24,7 +24,7 @@ apply_transform.py
 │   │   └── return  # the transformed numpy points
 │   └── else
 │       ├── impls append a ones homogeneous column to the points
-│       ├── calls chunked_matmul  # homogeneous points by the transform transpose, passing max_divide and num_divide; then drop the homogeneous coordinate
+│       ├── calls chunked_matmul(points_h, transform_normalized.t(), max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows, [:, :3] dropping the homogeneous coordinate
 │       ├── if points_was_batched
 │       │   └── impls add back the batch dimension
 │       ├── if inplace
@@ -74,6 +74,6 @@ world_to_camera_transform.py
 └── def world_to_camera_transform(points: torch.Tensor, extrinsics: torch.Tensor, inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> torch.Tensor
     ├── # High-level API mapping world-frame points into the camera frame: builds the world-to-camera 4x4 matrix from the inverse camera-to-world extrinsic and applies it via apply_transform.
     ├── impls invert the camera-to-world extrinsics into the world-to-camera 4x4 matrix
-    ├── calls apply_transform  # the points by the world-to-camera matrix, forwarding inplace, max_divide, and num_divide
+    ├── calls apply_transform(points=points, transform=world_to_camera, inplace=inplace, max_divide=max_divide, num_divide=num_divide)
     └── return  # the [N, 3] camera-frame points (the same tensor when inplace)
 ```

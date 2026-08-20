@@ -21,7 +21,7 @@ test_convert.py
 ├── from data.structures.three_d.mesh import Mesh, MeshTextureUVTextureMap, MeshTextureVertexColor, mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh
 ├── def test_mesh_from_trimesh_welds_seam_to_geometry_domain(tmp_path: Path) -> None
 │   ├── # A seamed UV mesh that trimesh loads in per-corner-expanded form (V == U) must come through mesh_from_trimesh on the canonical geometry domain (V <= U, distinct positions), with the seam carried only by verts_uvs / faces_uvs.
-│   ├── calls _write_seamed_uv_obj                                 # into tmp_path -> the seamed OBJ path
+│   ├── calls _write_seamed_uv_obj(directory=tmp_path)             # -> the seamed OBJ path
 │   ├── calls trimesh.load(that OBJ, force="mesh", process=False)  # -> the source mesh
 │   ├── assert the source mesh carries a UV visual
 │   ├── assert the source mesh has 6 vertices                             # trimesh's per-corner-expanded form
@@ -38,53 +38,53 @@ test_convert.py
 │   └── assert the welded faces_uvs shape equals the welded faces shape
 ├── def test_vertex_count_is_loader_independent(tmp_path: Path) -> None
 │   ├── # For one OBJ asset, len(mesh.verts) must be identical whether the mesh is loaded via Mesh.load (PyTorch3D) or via mesh_from_trimesh, since both land on the canonical geometry domain.
-│   ├── calls _write_seamed_uv_obj  # into tmp_path -> the seamed OBJ path
-│   ├── calls Mesh.load             # that path -> the PyTorch3D-loaded mesh
+│   ├── calls _write_seamed_uv_obj(directory=tmp_path)  # -> the seamed OBJ path
+│   ├── calls Mesh.load(path=obj_path)                  # -> the PyTorch3D-loaded mesh
 │   ├── calls trimesh.load(the same OBJ, force="mesh", process=False)
 │   ├── calls mesh_from_trimesh(mesh=that trimesh mesh, convention="obj")  # -> the trimesh-loaded mesh
 │   ├── assert both loaded meshes report the same verts row count
 │   └── assert the PyTorch3D-loaded mesh has 4 verts
 ├── def test_trimesh_uv_round_trip_preserves_geometry() -> None
 │   ├── # mesh_to_trimesh then mesh_from_trimesh must preserve geometry, UV, and texture (expand then weld is identity on the geometry domain).
-│   ├── calls _build_uv_textured_mesh  # -> the source mesh
-│   ├── calls mesh_to_trimesh          # that mesh -> the trimesh mesh
+│   ├── calls _build_uv_textured_mesh                                      # -> the source mesh
+│   ├── calls mesh_to_trimesh(mesh=mesh)                                   # -> the trimesh mesh
 │   ├── calls mesh_from_trimesh(mesh=that trimesh mesh, convention="obj")  # -> the round-tripped mesh
 │   ├── assert the round-tripped texture is a MeshTextureUVTextureMap
 │   ├── assert the round-tripped verts row count equals the source's
 │   ├── impls sorted_original — the source verts reordered by argsort over x * 1.0e06 + y
 │   ├── impls sorted_round_trip — the round-tripped verts reordered by the same key
-│   ├── calls torch.testing.assert_close  # sorted_round_trip against sorted_original — the vert ORDER is not preserved, and faces are not compared at all
-│   ├── calls torch.testing.assert_close  # the round-tripped uv_texture_map against the source's
+│   ├── calls torch.testing.assert_close(sorted_round_trip, sorted_original)  # the vert ORDER is not preserved, and faces are not compared at all
+│   ├── calls torch.testing.assert_close(round_tripped_mesh.texture.uv_texture_map, mesh.texture.uv_texture_map)
 │   ├── impls original_uv_by_face — the source verts_uvs gathered at faces_uvs.reshape(-1), one UV per face corner
 │   ├── impls round_trip_uv_by_face — the round-tripped verts_uvs gathered the same way
-│   └── calls torch.testing.assert_close  # round_trip_uv_by_face against original_uv_by_face — UV is compared per face corner, not per verts_uvs row
+│   └── calls torch.testing.assert_close(round_trip_uv_by_face, original_uv_by_face)  # UV is compared per face corner, not per verts_uvs row
 ├── def test_pytorch3d_round_trip_preserves_texture() -> None
 │   ├── # mesh_to_pytorch3d then mesh_from_pytorch3d must preserve geometry and texture for both vertex-colored and UV-textured meshes.
 │   ├── calls _build_vertex_color_mesh  # -> the vertex-colored source mesh
-│   ├── calls mesh_to_pytorch3d         # that mesh, device cpu -> the PyTorch3D mesh
+│   ├── calls mesh_to_pytorch3d(mesh=vertex_color_mesh, device=torch.device("cpu"))          # -> the PyTorch3D mesh
 │   ├── calls mesh_from_pytorch3d(mesh=the vertex-colored PyTorch3D mesh, convention="obj")  # -> the round-tripped mesh
 │   ├── assert its texture is a MeshTextureVertexColor
-│   ├── calls torch.testing.assert_close  # the round-tripped verts against the source's
+│   ├── calls torch.testing.assert_close(round_tripped_vc.verts, vertex_color_mesh.verts)
 │   ├── assert the round-tripped faces equal the source's, elementwise
-│   ├── calls torch.testing.assert_close  # the round-tripped vertex_color against the source's
-│   ├── calls _build_uv_textured_mesh     # -> the UV-textured source mesh
-│   ├── calls mesh_to_pytorch3d           # that mesh, device cpu -> the PyTorch3D mesh
+│   ├── calls torch.testing.assert_close(round_tripped_vc.texture.vertex_color, vertex_color_mesh.texture.vertex_color)
+│   ├── calls _build_uv_textured_mesh                                      # -> the UV-textured source mesh
+│   ├── calls mesh_to_pytorch3d(mesh=uv_mesh, device=torch.device("cpu"))  # -> the PyTorch3D mesh
 │   ├── calls mesh_from_pytorch3d(mesh=the UV-textured PyTorch3D mesh, convention="obj")  # -> the round-tripped mesh
 │   ├── assert its texture is a MeshTextureUVTextureMap
-│   ├── calls torch.testing.assert_close  # the round-tripped verts against the source's
+│   ├── calls torch.testing.assert_close(round_tripped_uv.verts, uv_mesh.verts)
 │   ├── assert the round-tripped faces equal the source's, elementwise
-│   ├── calls torch.testing.assert_close  # the round-tripped uv_texture_map against the source's
-│   ├── calls torch.testing.assert_close  # the round-tripped verts_uvs against the source's
+│   ├── calls torch.testing.assert_close(round_tripped_uv.texture.uv_texture_map, uv_mesh.texture.uv_texture_map)
+│   ├── calls torch.testing.assert_close(round_tripped_uv.texture.verts_uvs, uv_mesh.texture.verts_uvs)
 │   └── assert the round-tripped faces_uvs equal the source's, elementwise
 ├── def test_open3d_round_trip_preserves_vertex_color() -> None
 │   ├── # mesh_to_open3d then mesh_from_open3d must preserve geometry and vertex colors (the Open3D path carries no UV texture).
-│   ├── calls _build_vertex_color_mesh  # -> the source mesh
-│   ├── calls mesh_to_open3d            # that mesh -> the Open3D mesh
-│   ├── calls mesh_from_open3d          # that Open3D mesh -> the round-tripped mesh
+│   ├── calls _build_vertex_color_mesh            # -> the source mesh
+│   ├── calls mesh_to_open3d(mesh=mesh)           # -> the Open3D mesh
+│   ├── calls mesh_from_open3d(mesh=open3d_mesh)  # -> the round-tripped mesh
 │   ├── assert its texture is a MeshTextureVertexColor
-│   ├── calls torch.testing.assert_close  # the round-tripped verts against the source's
+│   ├── calls torch.testing.assert_close(round_tripped_mesh.verts, mesh.verts)
 │   ├── assert the round-tripped faces equal the source's, elementwise
-│   └── calls torch.testing.assert_close  # the round-tripped vertex_color against the source's
+│   └── calls torch.testing.assert_close(round_tripped_mesh.texture.vertex_color, mesh.texture.vertex_color)
 ├── def _install_namespace_package(package_name: str, package_path: Path) -> None
 │   ├── # Installs one namespace package into sys.modules so the data tree imports without repo-level setup.
 │   ├── if package_name is already in sys.modules
@@ -97,7 +97,7 @@ test_convert.py
 │   ├── # Writes one seamed unit-square OBJ — 4 distinct positions, 6 UVs, 2 triangles — with its sibling MTL and texture PNG, so the suite has a real UV seam to load.
 │   ├── impls obj_path, mtl_path and texture_path under directory
 │   ├── calls obj_path.write_text(the seam-crossing OBJ text, encoding="utf-8")  # 4 v, 6 vt, 2 f rows over material0
-│   ├── calls mtl_path.write_text                      # newmtl material0 with map_Kd seam_texture.png
+│   ├── calls mtl_path.write_text("newmtl material0\nmap_Kd seam_texture.png\n", encoding="utf-8")
 │   ├── calls np.full((4, 4, 3), 128, dtype=np.uint8)  # -> the flat mid-grey texture pixels
 │   ├── calls Image.fromarray(that array)              # -> the PIL image
 │   ├── impls save that image to texture_path
@@ -109,7 +109,7 @@ test_convert.py
 │   └── return  # that mesh
 └── def _build_uv_textured_mesh() -> Mesh
     ├── # Offers one CPU-owned UV-textured single-triangle mesh already on the geometry domain, the source the trimesh and PyTorch3D UV round-trips start from.
-    ├── calls MeshTextureUVTextureMap  # a 2x2x3 float32 map, verts_uvs {(0.1, 0.1), (0.4, 0.1), (0.1, 0.4)}, faces_uvs [[0, 1, 2]], convention "obj"
+    ├── calls MeshTextureUVTextureMap(uv_texture_map=a 2x2x3 float32 map, verts_uvs={(0.1, 0.1), (0.4, 0.1), (0.1, 0.4)}, faces_uvs=[[0, 1, 2]], convention="obj")
     ├── calls Mesh(verts=a float32 [3, 3], faces=an int64 [1, 3], texture=a MeshTextureUVTextureMap over a float32 [2, 2, 3] map, a float32 [3, 2] verts_uvs, an int64 [1, 3] faces_uvs, convention "obj")
     └── return  # that mesh
 ```
@@ -164,7 +164,7 @@ test_mesh_texture_vertex_color.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def test_normalizes_uint8_to_float01() -> None
 │   ├── # MeshTextureVertexColor normalizes a uint8 [0,255] vertex_color into contiguous float32 [V,3] in [0,1].
-│   ├── calls MeshTextureVertexColor  # a uint8 [3, 3] vertex_color of {(255, 0, 0), (0, 128, 0), (0, 0, 255)}
+│   ├── calls MeshTextureVertexColor(vertex_color=a uint8 [3, 3] of {(255, 0, 0), (0, 128, 0), (0, 0, 255)})
 │   ├── assert the stored vertex_color dtype is float32
 │   ├── assert its shape is (3, 3)
 │   ├── assert it is contiguous
@@ -220,12 +220,12 @@ test_mesh_texture_uv_texture_map.py
 ├── def test_accepts_seam_safe_verts_uvs_outside_unit_interval() -> None
 │   ├── # MeshTextureUVTextureMap accepts verts_uvs whose u extends beyond 1.0 when each face is non-wrapping (its largest cyclic gap is the wraparound gap), the seam-safe canonical form.
 │   ├── calls _build_uv_texture_map
-│   ├── calls MeshTextureUVTextureMap                # verts_uvs {(0.95, 0.20), (1.05, 0.25), (1.02, 0.80)}, faces_uvs [[0, 1, 2]], convention "obj"
+│   ├── calls MeshTextureUVTextureMap(uv_texture_map=_build_uv_texture_map(), verts_uvs={(0.95, 0.20), (1.05, 0.25), (1.02, 0.80)}, faces_uvs=[[0, 1, 2]], convention="obj")
 │   └── assert the stored verts_uvs max exceeds 1.0  # the only assertion: the beyond-1.0 u survived construction
 ├── def test_accepts_wide_non_wrapping_face() -> None
 │   ├── # MeshTextureUVTextureMap accepts a wide face whose u-span exceeds 0.5 but whose corners are contiguous (largest cyclic gap is the wraparound gap), e.g. corner u's {0.293, 0.735, 0.801} — a wide face is not a wrapping face.
 │   ├── calls _build_uv_texture_map
-│   ├── calls MeshTextureUVTextureMap  # verts_uvs {(0.293, 0.20), (0.735, 0.25), (0.801, 0.80)}, faces_uvs [[0, 1, 2]], convention "obj"
+│   ├── calls MeshTextureUVTextureMap(uv_texture_map=_build_uv_texture_map(), verts_uvs={(0.293, 0.20), (0.735, 0.25), (0.801, 0.80)}, faces_uvs=[[0, 1, 2]], convention="obj")
 │   ├── impls face_u — the stored verts_uvs u column gathered at the int64 faces_uvs
 │   ├── impls span — the largest per-face u max-minus-min
 │   └── assert span > 0.5  # "test fixture must be a wide face", reporting span
@@ -233,7 +233,7 @@ test_mesh_texture_uv_texture_map.py
 │   ├── # MeshTextureUVTextureMap rejects a face whose largest cyclic gap is an interior gap (its corners straddle the cylindrical wrap and were not seam-shifted into contiguous canonical form).
 │   └── with pytest.raises(AssertionError)  # matching "non-wrapping"
 │       ├── calls _build_uv_texture_map
-│       └── calls MeshTextureUVTextureMap  # verts_uvs {(0.95, 0.20), (0.05, 0.25), (0.02, 0.80)}, faces_uvs [[0, 1, 2]], convention "obj"
+│       └── calls MeshTextureUVTextureMap(uv_texture_map=_build_uv_texture_map(), verts_uvs={(0.95, 0.20), (0.05, 0.25), (0.02, 0.80)}, faces_uvs=[[0, 1, 2]], convention="obj")
 ├── def test_to_converts_uv_convention() -> None
 │   ├── # MeshTextureUVTextureMap.to(convention=...) returns a texture whose verts_uvs is converted to the target UV-origin convention.
 │   ├── calls _build_uv_texture_map
@@ -300,7 +300,7 @@ test_texel_face_map.py
 │   └── assert at least one entry of the top texel row is face 0  # existential over row 0, reporting that row — not that every face-0 texel lies in the top rows
 ├── def test_build_texel_face_map_covers_both_sides_of_cylindrical_seam() -> None
 │   ├── # For a seam-safe canonical mesh whose only face spans u in {0.95, 1.05, 1.02}, both the u-near-1 and u-near-0 texel columns get assigned to that face (cylindrical wrap coverage via internal seam-side duplication).
-│   ├── calls MeshTextureUVTextureMap  # a 1x1x3 zero map, verts_uvs {(0.95, 0.20), (1.05, 0.25), (1.02, 0.80)}, faces_uvs [[0, 1, 2]], convention "obj", on _CUDA_DEVICE
+│   ├── calls MeshTextureUVTextureMap(uv_texture_map=a 1x1x3 zero map on _CUDA_DEVICE, verts_uvs={(0.95, 0.20), (1.05, 0.25), (1.02, 0.80)}, faces_uvs=[[0, 1, 2]], convention="obj")
 │   ├── calls Mesh(verts=a float32 [3, 3] on _CUDA_DEVICE, faces=an int64 [1, 3] on _CUDA_DEVICE, texture=a MeshTextureUVTextureMap whose seam-spanning verts_uvs cross u = 1)
 │   ├── calls build_texel_face_map(mesh=that mesh, texture_size=16)  # -> the texel-face map
 │   ├── impls texel_face_index off that map
@@ -312,7 +312,7 @@ test_texel_face_map.py
 │   ├── # barycentric-interpolating the owning face's three corner UVs (verts_uvs[faces_uvs[texel_face_index]] * texel_face_barycentric).sum(...) recovers each occupied texel's own center UV within numerical tolerance, so a corner-permuted barycentric is caught (not merely an in-range convex combination).
 │   ├── calls _build_identity_uv_mesh  # -> the mesh under test
 │   ├── impls texture_size — 64
-│   ├── calls build_texel_face_map  # that mesh, that texture_size -> the texel-face map
+│   ├── calls build_texel_face_map(mesh=mesh, texture_size=texture_size)  # -> the texel-face map
 │   ├── impls texel_face_index off that map
 │   ├── impls texel_face_barycentric off that map
 │   ├── impls occupied_mask — the texels whose texel_face_index is non-negative
@@ -333,7 +333,7 @@ test_texel_face_map.py
 │   └── impls register it in sys.modules under package_name
 └── def _build_identity_uv_mesh() -> Mesh
     ├── # Offers one CUDA single-face mesh whose identity UVs sit entirely inside [0, 1], the non-seam baseline the shape, top-row, and barycentric cases share.
-    ├── calls MeshTextureUVTextureMap  # a 1x1x3 zero map, verts_uvs {(0.0, 0.0), (0.5, 0.0), (0.0, 0.5)}, faces_uvs [[0, 1, 2]], convention "obj", all on _CUDA_DEVICE
+    ├── calls MeshTextureUVTextureMap(uv_texture_map=a 1x1x3 zero map on _CUDA_DEVICE, verts_uvs={(0.0, 0.0), (0.5, 0.0), (0.0, 0.5)}, faces_uvs=[[0, 1, 2]], convention="obj")
     ├── calls Mesh(verts=a float32 [3, 3] on _CUDA_DEVICE, faces=an int64 [1, 3] on _CUDA_DEVICE, texture=a MeshTextureUVTextureMap over a [1, 1, 3] map and a seam-safe verts_uvs)
     └── return  # that mesh
 ```

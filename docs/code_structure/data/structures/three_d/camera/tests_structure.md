@@ -184,13 +184,13 @@ test_conventions.py
 ├── @pytest.mark.parametrize def test_extrinsics_direct_and_via_standard_conversion_match(source_convention: str, target_convention: str) -> None  # over every (source, target) pair from product(CONVENTIONS, CONVENTIONS)
 │   ├── # Converting a CameraExtrinsics directly between two conventions matches converting via the standard convention.
 │   ├── calls _build_extrinsics(convention=source_convention)
-│   ├── calls extrinsics.to(convention=target_convention)  # -> the direct conversion
-│   ├── calls extrinsics.to(convention="standard")         # then on to convention=target_convention -> the routed conversion
-│   └── assert the two 4x4 matrices agree                  # torch.allclose, atol 1e-06, rtol 0
+│   ├── calls extrinsics.to(convention=target_convention)                            # -> the direct conversion
+│   ├── calls extrinsics.to(convention="standard").to(convention=target_convention)  # -> the routed conversion
+│   └── assert the two 4x4 matrices agree  # torch.allclose, atol 1e-06, rtol 0
 ├── @pytest.mark.parametrize def test_extrinsics_round_trip_returns_original_matrix(source_convention: str, target_convention: str) -> None  # over every (source, target) pair from product(CONVENTIONS, CONVENTIONS)
 │   ├── # Converting a CameraExtrinsics to another convention and back returns the original 4x4 matrix.
 │   ├── calls _build_extrinsics(convention=source_convention)
-│   ├── calls extrinsics.to(convention=target_convention)        # then back to convention=source_convention
+│   ├── calls extrinsics.to(convention=target_convention).to(convention=source_convention)
 │   └── assert the round-tripped 4x4 matrix equals the original  # torch.allclose, atol 1e-06, rtol 0
 ├── @pytest.mark.parametrize def test_extrinsics_w2c_is_inverse_of_extrinsics(convention: str) -> None  # over each convention in CONVENTIONS
 │   ├── # CameraExtrinsics.w2c is the inverse of the 4x4 camera-to-world extrinsics matrix.
@@ -257,7 +257,7 @@ test_io.py
 │   ├── calls _assert_camera_fields_equal(loaded=the classmethod result, original=the camera)
 │   ├── impls a camera.json path under tmp_path
 │   ├── calls save_cameras(cameras=that camera, cameras_path=that json path)
-│   ├── calls json.loads  # the file's utf-8 text -> what landed on disk
+│   ├── calls json.loads(json_path.read_text(encoding="utf-8"))  # -> what landed on disk
 │   ├── assert the on-disk payload equals the serialized payload
 │   ├── calls load_cameras(cameras_path=that json path, device="cpu")
 │   ├── calls _assert_camera_fields_equal(loaded=the load_cameras result, original=the camera)
@@ -291,7 +291,7 @@ test_io.py
 │   ├── calls _assert_cameras_fields_equal(loaded=the deserialized result, original=the collection)
 │   ├── impls a cameras.json path under tmp_path
 │   ├── calls save_cameras(cameras=that collection, cameras_path=that json path)
-│   ├── calls json.loads  # the file's utf-8 text -> what landed on disk
+│   ├── calls json.loads(json_path.read_text(encoding="utf-8"))  # -> what landed on disk
 │   ├── assert the on-disk payload equals the serialized payload
 │   ├── calls load_cameras(cameras_path=that json path, device="cpu")
 │   └── calls _assert_cameras_fields_equal(loaded=the load_cameras result, original=the collection)
@@ -382,26 +382,26 @@ test_rotation_stabilize_validate_compat.py
 │   ├── calls _random_rotation(dtype, 1)
 │   ├── calls _random_rotation(dtype, 2)
 │   ├── impls their matrix product, whose orthogonality has drifted with rounding
-│   ├── calls _stabilize_rotation_matrix  # that product -> the stabilized rotation
+│   ├── calls _stabilize_rotation_matrix(r)  # -> the stabilized rotation
 │   ├── assert it keeps the input dtype
-│   └── calls validate_rotation_matrix  # the stabilized rotation
+│   └── calls validate_rotation_matrix(out)
 ├── def test_stabilize_rejects_unsupported_dtype() -> None
 │   ├── # _stabilize_rotation_matrix raises on a dtype outside {float32, float64} (e.g. float16).
 │   ├── impls a 3x3 float16 identity
 │   └── with pytest.raises(AssertionError)
-│       └── calls _stabilize_rotation_matrix  # that float16 matrix
+│       └── calls _stabilize_rotation_matrix(r)
 ├── @pytest.mark.parametrize def test_stabilized_batch_passes_validator(dtype: torch.dtype) -> None  # over the torch.float32 and torch.float64 dtypes
 │   ├── # A batch of stabilized cam2world extrinsics passes the batched validate_camera_extrinsics for both float32 and float64.
 │   ├── for index in range(200)
 │   │   ├── impls a 4x4 identity in that dtype
 │   │   ├── calls _random_rotation(dtype, index)
 │   │   ├── calls _random_rotation(dtype, index + 5000)
-│   │   ├── calls _stabilize_rotation_matrix  # the product of the two -> this pose's rotation
+│   │   ├── calls _stabilize_rotation_matrix(_random_rotation(dtype, index) @ _random_rotation(dtype, index + 5000))  # -> this pose's rotation
 │   │   ├── impls write that rotation into the 4x4's 3x3 block
 │   │   └── impls collect the 4x4
-│   ├── calls torch.stack  # those 4x4s -> the [200, 4, 4] cam2world batch
+│   ├── calls torch.stack(extrinsics_list)  # -> the [200, 4, 4] cam2world batch
 │   ├── assert the batch's shape is (200, 4, 4)
-│   └── calls validate_camera_extrinsics  # that batch
+│   └── calls validate_camera_extrinsics(batch)
 ├── def test_validator_threshold_is_dtype_aware() -> None
 │   ├── # A fixed near-orthogonality deviation between the float64 and float32 tolerances passes validate_rotation_matrix as float32 but is rejected as float64.
 │   ├── impls the float64 and float32 machine epsilons from np.finfo
@@ -411,12 +411,12 @@ test_rotation_stabilize_validate_compat.py
 │   ├── impls a 3x3 float64 identity whose [0, 0] entry carries that deviation
 │   ├── calls validate_rotation_matrix(m.to(torch.float32))
 │   └── with pytest.raises(AssertionError)
-│       └── calls validate_rotation_matrix  # that matrix as float64
+│       └── calls validate_rotation_matrix(m)
 └── def _random_rotation(dtype: torch.dtype, seed: int) -> torch.Tensor
     ├── # Draws a seeded proper rotation, so every case runs on a reproducible non-trivial orientation rather than the identity.
     ├── impls a torch generator seeded with seed
     ├── impls a random 3x3 float64 matrix drawn from that generator
-    ├── calls torch.linalg.qr  # that matrix -> its orthonormal factor q and upper-triangular factor r
+    ├── calls torch.linalg.qr(a)  # -> its orthonormal factor q and upper-triangular factor r
     ├── impls fix q's column signs from the signs of r's diagonal
     ├── if q's determinant is negative
     │   └── impls negate q's first column, making the rotation proper

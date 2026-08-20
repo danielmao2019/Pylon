@@ -33,7 +33,7 @@ base.py
     ├── REDUCTION_OPTIONS  # List[str] — the two batch reductions __init__ accepts, mean and sum
     ├── def __init__(self, ignore_value: Optional[Union[int, float]] = None, reduction: str = 'mean', **kwargs) -> None  [override]
     │   ├── # Fixes the two settings every dense-prediction loss shares: which target value is ignored, and how per-sample losses reduce over the batch.
-    │   ├── calls super().__init__  # **kwargs
+    │   ├── calls super().__init__(**kwargs)
     │   ├── if no ignore value was given
     │   │   └── raise ValueError  # "Child classes must provide a default ignore_value if None is passed"
     │   ├── if the ignore value is not a number
@@ -45,12 +45,12 @@ base.py
     ├── def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor  # -> a scalar loss; SingleTaskCriterion.__call__ reaches it through a hasattr check
     │   ├── # Runs the fixed per-pixel sequence — validate, match resolution, mask, score per sample, reduce — that every subclass plugs its three hooks into.
     │   ├── calls self._task_specific_checks
-    │   ├── calls self._match_resolution                                    # -> the ground truth at the prediction's spatial resolution
-    │   ├── assert prediction and ground truth agree on batch size          # "Batch size mismatch", reporting both batch sizes
-    │   ├── assert prediction and ground truth agree on spatial dimensions  # "Spatial dimensions mismatch", reporting both spatial shapes
-    │   ├── calls self._get_valid_mask                                      # -> the per-pixel valid mask
+    │   ├── calls self._match_resolution(y_pred, y_true)                              # -> the ground truth at the prediction's spatial resolution
+    │   ├── assert prediction and ground truth agree on batch size                    # "Batch size mismatch", reporting both batch sizes
+    │   ├── assert prediction and ground truth agree on spatial dimensions            # "Spatial dimensions mismatch", reporting both spatial shapes
+    │   ├── calls self._get_valid_mask(y_true)                                        # -> the per-pixel valid mask
     │   ├── assert the valid mask carries the ground truth's batch and spatial shape  # "Invalid mask shape", reporting the expected and actual shapes
-    │   ├── calls self._compute_unreduced_loss                                        # -> one loss per sample
+    │   ├── calls self._compute_unreduced_loss(y_pred, y_true, valid_mask)            # -> one loss per sample
     │   ├── assert the unreduced loss holds exactly one entry per sample              # "Unreduced loss should have shape (N,)", reporting the actual shape
     │   ├── if the reduction is 'mean'
     │   │   └── return  # the mean over the per-sample losses

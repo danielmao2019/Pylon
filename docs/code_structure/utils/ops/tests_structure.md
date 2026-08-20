@@ -53,8 +53,8 @@ test_chunked_matmul.py
 │   │   │   ├── impls record this chunk's row count as state's first_rows
 │   │   │   └── raise torch.cuda.OutOfMemoryError  # a simulated OOM on the first chunk
 │   │   └── impls real_chunk(large=large, small=small, out=out, direct=direct)  # real_chunk is the pre-patch _matmul_chunk this local captured
-│   ├── calls monkeypatch.setattr  # installs fake_chunk as chunked_matmul_module._matmul_chunk
-│   ├── calls monkeypatch.setattr  # replaces torch.cuda.empty_cache with a no-op
+│   ├── calls monkeypatch.setattr(chunked_matmul_module, "_matmul_chunk", fake_chunk)
+│   ├── calls monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)
 │   ├── calls chunked_matmul(large=large, small=small, max_divide=2)
 │   ├── assert the recorded first_rows equals 20, so the first attempt used the full batch
 │   ├── assert the chunk writer was entered at least twice, so a retry followed the OOM
@@ -71,8 +71,8 @@ test_chunked_matmul.py
 │   │   ├── if the call counter is 1 or 3
 │   │   │   └── raise torch.cuda.OutOfMemoryError  # a simulated OOM
 │   │   └── impls real_chunk(large=large, small=small, out=out, direct=direct)  # real_chunk is the pre-patch _matmul_chunk this local captured
-│   ├── calls monkeypatch.setattr  # installs fake_chunk as chunked_matmul_module._matmul_chunk
-│   ├── calls monkeypatch.setattr  # replaces torch.cuda.empty_cache with a no-op
+│   ├── calls monkeypatch.setattr(chunked_matmul_module, "_matmul_chunk", fake_chunk)
+│   ├── calls monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)
 │   ├── calls chunked_matmul(large=large, small=small, inplace=True, max_divide=3)
 │   ├── assert the returned object is large itself
 │   └── assert large is all-close to expected
@@ -82,8 +82,8 @@ test_chunked_matmul.py
 │   ├── def always_oom(large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool) -> None [local]
 │   │   ├── # Fails every chunk, so none of the shrinks the op attempts can succeed.
 │   │   └── raise torch.cuda.OutOfMemoryError  # a simulated persistent OOM
-│   ├── calls monkeypatch.setattr  # installs always_oom as chunked_matmul_module._matmul_chunk
-│   ├── calls monkeypatch.setattr  # replaces torch.cuda.empty_cache with a no-op
+│   ├── calls monkeypatch.setattr(chunked_matmul_module, "_matmul_chunk", always_oom)
+│   ├── calls monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)
 │   └── with pytest.raises(torch.cuda.OutOfMemoryError)
 │       └── calls chunked_matmul(large=large, small=small, max_divide=2)
 ├── @pytest.mark.parametrize def test_rejects_non_2d_operands(large: torch.Tensor, small: torch.Tensor) -> None  # over four (large, small) pairs — a 1-D large, a 3-D large, a 1-D small, and a 3-D small
