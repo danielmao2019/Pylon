@@ -10,7 +10,6 @@ test_convert.py
 ├── import types
 ├── from pathlib import Path
 ├── import numpy as np
-├── import open3d as o3d
 ├── import torch
 ├── import trimesh
 ├── from PIL import Image
