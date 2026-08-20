@@ -12,8 +12,8 @@ builder.py
 ├── import easydict as edict
 ├── import torch
 ├── from torch.utils.data import Dataset
-├── def build_from_config(config: Any, **kwargs) -> Any
-│   ├── # Builds the object a {class, args} config dict names, merging kwargs into its args and building the nested configs inside those args bottom-up.
+├── def build_from_config(config: Any, recursive: bool = True, **kwargs) -> Any
+│   ├── # Builds the object a {class, args} config dict names, merging kwargs into its args; recursive builds the nested configs inside the args, while recursive=False instantiates over the args as-is, leaving every nested config dict unbuilt.
 │   ├── if config is an edict.EasyDict
 │   │   └── return config
 │   ├── if config is a dict whose keys are exactly class and args
@@ -21,8 +21,9 @@ builder.py
 │   │   ├── assert kwargs is a dict
 │   │   ├── assert the copy's own keys and the kwargs keys are disjoint
 │   │   ├── impls update the copy's args with kwargs, a kwarg overriding a same-named args entry
-│   │   ├── for each key of the copy's args
-│   │   │   └── calls build_from_config  # a nested config builds bottom-up; an already-built object comes back as itself
+│   │   ├── if recursive
+│   │   │   └── for each key of the copy's args
+│   │   │       └── calls build_from_config  # a nested config builds bottom-up; an already-built object comes back as itself
 │   │   └── return  # the copy's class instantiated over its built args
 │   ├── elif config is a dict
 │   │   ├── for each key-value pair of config
