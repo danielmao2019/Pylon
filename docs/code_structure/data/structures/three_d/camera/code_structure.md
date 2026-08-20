@@ -313,8 +313,10 @@ camera_extrinsics.py
 │   │   └── impls assert the selected axis has unit norm
 │   ├── def to(self, device: Optional[Union[str, torch.device]] = None, convention: Optional[str] = None) -> "CameraExtrinsics"
 │   │   ├── # Return this CameraExtrinsics on a target device / convention (self when unchanged).
-│   │   ├── calls validate_camera_convention(convention)  # when convention is not None
-│   │   ├── calls transform_convention(camera_extrinsics=self, target_convention=target_convention)  # when the convention differs
+│   │   ├── if convention is not None
+│   │   │   └── calls validate_camera_convention(convention)
+│   │   ├── if target_convention != self._convention
+│   │   │   └── calls transform_convention(camera_extrinsics=self, target_convention=target_convention)
 │   │   └── return CameraExtrinsics(...)
 │   └── def transform(self, scale: float, rotation: np.ndarray, translation: np.ndarray) -> "CameraExtrinsics"
 │       ├── # Return this CameraExtrinsics under a similarity transform (scale, rotation, translation) of its cam2world pose.
