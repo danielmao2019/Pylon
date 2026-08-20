@@ -95,7 +95,9 @@ test_convert.py
 │   └── impls register it in sys.modules under package_name
 ├── def _write_seamed_uv_obj(directory: Path) -> Path
 │   ├── # Writes one seamed unit-square OBJ — 4 distinct positions, 6 UVs, 2 triangles — with its sibling MTL and texture PNG, so the suite has a real UV seam to load.
-│   ├── impls obj_path, mtl_path and texture_path under directory
+│   ├── impls obj_path — "seam.obj" under directory
+│   ├── impls mtl_path — "seam.mtl" under directory
+│   ├── impls texture_path — "seam_texture.png" under directory
 │   ├── calls obj_path.write_text(the seam-crossing OBJ text, encoding="utf-8")  # 4 v, 6 vt, 2 f rows over material0
 │   ├── calls mtl_path.write_text("newmtl material0\nmap_Kd seam_texture.png\n", encoding="utf-8")
 │   ├── calls np.full((4, 4, 3), 128, dtype=np.uint8)  # -> the flat mid-grey texture pixels
@@ -320,7 +322,7 @@ test_texel_face_map.py
 │   ├── impls corner_uvs — verts_uvs gathered at faces_uvs[texel_face_index.clamp(min=0)]
 │   ├── impls interpolated_uv — corner_uvs weighted by texel_face_barycentric, summed over the corner axis
 │   ├── impls axis — the per-texel center coordinate, (arange(texture_size) + 0.5) / texture_size
-│   ├── impls expected_uv — that axis broadcast across columns for u and across rows for v, stacked
+│   ├── impls expected_uv — that axis broadcast across columns for u and across rows for v, stacked  # impls-node-one-step:skip
 │   ├── impls max_error — the largest absolute interpolated-vs-expected UV difference over the occupied texels
 │   └── assert max_error < 1.0e-3  # "a corner-permuted barycentric fails this", reporting max_error
 ├── def _install_namespace_package(package_name: str, package_path: Path) -> None

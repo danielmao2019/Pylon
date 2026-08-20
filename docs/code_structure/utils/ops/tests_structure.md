@@ -14,7 +14,8 @@ test_chunked_matmul.py
 ├── chunked_matmul_module  # importlib.import_module("utils.ops.chunked_matmul"), reaching the true module because the package __init__ rebinds the name and shadows the submodule; every _matmul_chunk monkeypatch targets it
 ├── @pytest.mark.parametrize def test_matches_plain_matmul(N: int, K: int, num_divide: Optional[int]) -> None  # over the (1, 3, None), (10, 5, 0), (10, 5, 1), (10, 5, 2), (37, 7, 3) and (100, 9, 4) N / K / num_divide triples
 │   ├── # not-inplace no-grad path (direct out=) equals large @ small across N and num_divide splits (including the unchunked default), returning a new tensor.
-│   ├── impls large and small — float64 [N, K] and [K, K] random tensors
+│   ├── impls large — a float64 [N, K] random tensor
+│   ├── impls small — a float64 [K, K] random tensor
 │   ├── impls expected — large @ small
 │   ├── calls chunked_matmul(large=large, small=small, num_divide=num_divide)
 │   ├── assert the result is not the large object
@@ -22,8 +23,10 @@ test_chunked_matmul.py
 │   └── assert the result is all-close to expected
 ├── @pytest.mark.parametrize def test_supports_autograd(num_divide: Optional[int]) -> None  # over the None, 0 and 2 num_divide values
 │   ├── # not-inplace grad path backpropagates; forward result and both grads match a plain large @ small across num_divide splits.
-│   ├── impls large and small — grad-requiring float64 [10, 5] and [5, 5] random tensors
-│   ├── impls ref_large and ref_small — detached grad-requiring clones of large and small
+│   ├── impls large — a grad-requiring float64 [10, 5] random tensor
+│   ├── impls small — a grad-requiring float64 [5, 5] random tensor
+│   ├── impls ref_large — a detached grad-requiring clone of large
+│   ├── impls ref_small — a detached grad-requiring clone of small
 │   ├── calls chunked_matmul(large=large, small=small, num_divide=num_divide)
 │   ├── impls expected — ref_large @ ref_small
 │   ├── assert the result is all-close to expected
@@ -35,17 +38,19 @@ test_chunked_matmul.py
 │   └── assert small.grad is all-close to ref_small.grad
 ├── @pytest.mark.parametrize def test_inplace_overwrites_large(num_divide: Optional[int]) -> None  # over the None, 0 and 2 num_divide values
 │   ├── # in-place path overwrites large, returns the large object, and matches a plain matmul across num_divide splits.
-│   ├── impls large and small — float64 [10, 5] and [5, 5] random tensors
+│   ├── impls large — a float64 [10, 5] random tensor
+│   ├── impls small — a float64 [5, 5] random tensor
 │   ├── impls expected — a clone of large times small, taken before the call overwrites large
 │   ├── calls chunked_matmul(large=large, small=small, inplace=True, num_divide=num_divide)
 │   ├── assert the returned object is large itself
 │   └── assert large is all-close to expected
 ├── def test_not_inplace_shrinks_and_resumes_on_oom(monkeypatch: pytest.MonkeyPatch) -> None
 │   ├── # a first-chunk CUDA OOM shrinks the chunk and resumes from the failed chunk, completing correctly (not-inplace).
-│   ├── impls large and small — float64 [20, 6] and [6, 6] random tensors
+│   ├── impls large — a float64 [20, 6] random tensor
+│   ├── impls small — a float64 [6, 6] random tensor
 │   ├── impls expected — large @ small
 │   ├── impls real_chunk — the module's own _matmul_chunk, captured before it is patched
-│   ├── impls state — a dict carrying a call counter and the first attempt's row count
+│   ├── impls state — a dict carrying a call counter and the first attempt's row count  # impls-node-one-step:skip
 │   ├── def fake_chunk(large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool) -> None [local]
 │   │   ├── # Fails the very first chunk with a CUDA OOM and records the row count it was handed, so the test can tell how wide that attempt was.
 │   │   ├── impls increment state's call counter
@@ -61,7 +66,8 @@ test_chunked_matmul.py
 │   └── assert the result is all-close to expected
 ├── def test_inplace_shrinks_without_double_transform(monkeypatch: pytest.MonkeyPatch) -> None
 │   ├── # an in-place first-chunk CUDA OOM resumes without re-transforming any already-written chunk, so large equals a single plain matmul.
-│   ├── impls large and small — float64 [20, 6] and [6, 6] random tensors
+│   ├── impls large — a float64 [20, 6] random tensor
+│   ├── impls small — a float64 [6, 6] random tensor
 │   ├── impls expected — a clone of large times small, taken before the call overwrites large
 │   ├── impls real_chunk — the module's own _matmul_chunk, captured before it is patched
 │   ├── impls state — a dict carrying a call counter
@@ -78,7 +84,8 @@ test_chunked_matmul.py
 │   └── assert large is all-close to expected
 ├── def test_raises_after_max_divide_exhausted(monkeypatch: pytest.MonkeyPatch) -> None
 │   ├── # OOM persisting past max_divide raises torch.cuda.OutOfMemoryError.
-│   ├── impls large and small — float64 [20, 6] and [6, 6] random tensors
+│   ├── impls large — a float64 [20, 6] random tensor
+│   ├── impls small — a float64 [6, 6] random tensor
 │   ├── def always_oom(large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool) -> None [local]
 │   │   ├── # Fails every chunk, so none of the shrinks the op attempts can succeed.
 │   │   └── raise torch.cuda.OutOfMemoryError  # a simulated persistent OOM
@@ -92,22 +99,26 @@ test_chunked_matmul.py
 │       └── calls chunked_matmul(large=large, small=small)
 ├── def test_rejects_non_square_small() -> None
 │   ├── # a 2D but non-square small raises an assertion (small must be square).
-│   ├── impls large and small — float64 [5, 4] and [4, 3] random tensors
+│   ├── impls large — a float64 [5, 4] random tensor
+│   ├── impls small — a float64 [4, 3] random tensor
 │   └── with pytest.raises(AssertionError)
 │       └── calls chunked_matmul(large=large, small=small)
 ├── def test_rejects_mismatched_inner_dim() -> None
 │   ├── # large.shape[1] != small.shape[0] raises an assertion (inner dimensions must match).
-│   ├── impls large and small — float64 [5, 4] and [3, 3] random tensors
+│   ├── impls large — a float64 [5, 4] random tensor
+│   ├── impls small — a float64 [3, 3] random tensor
 │   └── with pytest.raises(AssertionError)
 │       └── calls chunked_matmul(large=large, small=small)
 ├── def test_rejects_mismatched_dtype() -> None
 │   ├── # large and small of different dtypes raise an assertion (operands must share dtype).
-│   ├── impls large and small — a float64 [5, 5] and a float32 [5, 5] random tensor
+│   ├── impls large — a float64 [5, 5] random tensor
+│   ├── impls small — a float32 [5, 5] random tensor
 │   └── with pytest.raises(AssertionError)
 │       └── calls chunked_matmul(large=large, small=small)
 └── def test_inplace_rejects_grad() -> None
     ├── # inplace=True with a grad-requiring operand raises an assertion (in-place overwrite is illegal under autograd).
-    ├── impls large and small — a grad-requiring float64 [10, 5] and a plain float64 [5, 5] random tensor
+    ├── impls large — a grad-requiring float64 [10, 5] random tensor
+    ├── impls small — a plain float64 [5, 5] random tensor
     └── with pytest.raises(AssertionError)
         └── calls chunked_matmul(large=large, small=small, inplace=True)
 ```

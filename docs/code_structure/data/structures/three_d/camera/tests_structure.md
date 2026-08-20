@@ -54,22 +54,23 @@ test_intrinsics.py
 │   ├── calls CameraIntrinsicsSimplePinhole(params={"f": 400.0, "cx": 160.0, "cy": 120.0}, device="cpu")
 │   ├── impls one [1, 3] float32 camera-space point
 │   ├── calls intrinsics.project(points_camera=that point)
-│   ├── impls the expected image point — f * x / z + cx and f * y / z + cy
-│   └── assert the projection matches it  # torch.allclose, atol 1e-05
+│   ├── impls the expected image point — f * x / z + cx and f * y / z + cy  # impls-node-one-step:skip
+│   └── assert the projection matches it                                    # torch.allclose, atol 1e-05
 ├── def test_pinhole_project_applies_perspective_divide() -> None
 │   ├── # CameraIntrinsicsPinhole.project applies the perspective divide with independent fx / fy.
 │   ├── calls CameraIntrinsicsPinhole(params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0}, device="cpu")
 │   ├── impls one [1, 3] float32 camera-space point
 │   ├── calls intrinsics.project(points_camera=that point)
-│   ├── impls the expected image point — fx * x / z + cx and fy * y / z + cy
-│   └── assert the projection matches it  # torch.allclose, atol 1e-05
+│   ├── impls the expected image point — fx * x / z + cx and fy * y / z + cy  # impls-node-one-step:skip
+│   └── assert the projection matches it                                      # torch.allclose, atol 1e-05
 ├── def test_ortho_project_skips_perspective_divide() -> None
 │   ├── # CameraIntrinsicsOrtho.project maps points without the perspective divide.
 │   ├── calls CameraIntrinsicsOrtho(params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0}, device="cpu")
-│   ├── impls a near [1, 3] point and a far [1, 3] point sharing the same x and y
+│   ├── impls near — a float32 [1, 3] point at depth 4
+│   ├── impls far — a float32 [1, 3] point at depth 40, at near's x, y
 │   ├── calls intrinsics.project(points_camera=the near point)
 │   ├── calls intrinsics.project(points_camera=the far point)
-│   ├── impls the expected image point — fx * x + cx and fy * y + cy
+│   ├── impls the expected image point — fx * x + cx and fy * y + cy           # impls-node-one-step:skip
 │   ├── assert the near projection matches it                                  # torch.allclose, atol 1e-05
 │   └── assert the far projection is allclose to the near one at atol 1.0e-05  # "Ortho projection must ignore depth (no perspective divide)."
 ├── @pytest.mark.parametrize def test_project_inplace_overwrites_input_and_matches_not_inplace(intrinsics: CameraIntrinsics) -> None  # over the simple_pinhole, pinhole, and ortho intrinsics instances
@@ -166,9 +167,9 @@ test_conventions.py
 │   └── assert it returns that same convention string  # reporting the offending convention
 ├── def test_conventions_module_has_one_main_api_and_eight_helpers() -> None
 │   ├── # The relocated extrinsics/conventions module exposes exactly one main API plus eight helpers.
-│   ├── impls the expected helper names — the to-standard and standard-to converter for each of opengl, opencv, pytorch3d, and arkit
+│   ├── impls the expected helper names — the to-standard and standard-to converter for each of opengl, opencv, pytorch3d, and arkit  # impls-node-one-step:skip
 │   ├── calls inspect.getmembers(conventions_module, inspect.isfunction)  # -> its (name, function) pairs
-│   ├── impls the helper names among them — underscore-prefixed and naming a to-standard or standard-to conversion
+│   ├── impls the helper names among them — underscore-prefixed and naming a to-standard or standard-to conversion  # impls-node-one-step:skip
 │   ├── assert that helper-name set equals the expected eight
 │   ├── assert conventions_module exposes transform_convention
 │   ├── assert conventions_module exposes no _opengl_to_opencv
@@ -195,9 +196,9 @@ test_conventions.py
 ├── @pytest.mark.parametrize def test_extrinsics_w2c_is_inverse_of_extrinsics(convention: str) -> None  # over each convention in CONVENTIONS
 │   ├── # CameraExtrinsics.w2c is the inverse of the 4x4 camera-to-world extrinsics matrix.
 │   ├── calls _build_extrinsics(convention=convention)
-│   ├── impls the matrix product of w2c and the cam2world extrinsics
-│   ├── calls torch.eye(4, dtype=extrinsics.extrinsics.dtype)  # -> the identity to compare against
-│   └── assert that product equals the identity                # torch.allclose, atol 1e-05, rtol 0
+│   ├── impls the matrix product of w2c and the cam2world extrinsics  # impls-node-one-step:skip
+│   ├── calls torch.eye(4, dtype=extrinsics.extrinsics.dtype)         # -> the identity to compare against
+│   └── assert that product equals the identity                       # torch.allclose, atol 1e-05, rtol 0
 ├── @pytest.mark.parametrize def test_cameras_conversion_preserves_physical_axes_and_center(source_convention: str, target_convention: str) -> None  # over every (source, target) pair from product(CONVENTIONS, CONVENTIONS)
 │   ├── # Converting a Cameras collection between conventions preserves each camera's physical axes and center.
 │   ├── calls _build_cameras(convention=source_convention)
@@ -404,7 +405,8 @@ test_rotation_stabilize_validate_compat.py
 │   └── calls validate_camera_extrinsics(batch)
 ├── def test_validator_threshold_is_dtype_aware() -> None
 │   ├── # A fixed near-orthogonality deviation between the float64 and float32 tolerances passes validate_rotation_matrix as float32 but is rejected as float64.
-│   ├── impls the float64 and float32 machine epsilons from np.finfo
+│   ├── impls eps_float64 — the float64 machine epsilon from np.finfo
+│   ├── impls eps_float32 — the float32 machine epsilon from np.finfo
 │   ├── impls the fixed deviation 5e-7
 │   ├── assert it exceeds 32 float64 epsilons
 │   ├── assert it stays under 32 float32 epsilons

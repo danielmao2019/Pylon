@@ -31,7 +31,7 @@ glb.py
 │   │   ├── impls json_chunk_length, json_chunk_type = the next _GLB_CHUNK_HEADER_SIZE bytes unpacked as two little-endian uint32  # impls-node-one-step:skip
 │   │   ├── assert json_chunk_type == _GLB_JSON_CHUNK_TYPE
 │   │   ├── impls json_bytes = the next json_chunk_length bytes read from stream
-│   │   ├── impls gltf = json_bytes utf-8 decoded and parsed as JSON
+│   │   ├── impls gltf = json_bytes utf-8 decoded and parsed as JSON  # impls-node-one-step:skip
 │   │   ├── impls bin_chunk_length, bin_chunk_type = the next _GLB_CHUNK_HEADER_SIZE bytes unpacked as two little-endian uint32  # impls-node-one-step:skip
 │   │   ├── assert bin_chunk_type == _GLB_BIN_CHUNK_TYPE
 │   │   ├── impls binary_blob = the next bin_chunk_length bytes read from stream

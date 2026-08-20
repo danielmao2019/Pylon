@@ -332,7 +332,7 @@ three_scene_helpers.ts
 │   ├── calls _isQuaternionRecord(quaternion)
 │   ├── if it is a quaternion record
 │   │   └── impls camera.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w)
-│   ├── impls camera.fov, camera.aspect, camera.near and camera.far take the intrinsics
+│   ├── impls camera.fov, camera.aspect, camera.near and camera.far take the intrinsics  # impls-node-one-step:skip
 │   └── impls camera.updateProjectionMatrix()
 ├── function _isQuaternionRecord(value: unknown): value is { x: number; y: number; z: number; w: number }
 │   ├── # A quaternion record is a vector record that also carries a numeric w.
@@ -349,7 +349,7 @@ three_scene_helpers.ts
 │   └── return
 ├── function createThreeScene(): THREE.Scene
 │   ├── # Shared empty-scene factory used by every TS atomic spatial display; callers scene.add their own object(s).
-│   ├── impls creates THREE.Scene  # the renderer's clear color is what gets visibly drawn
+│   ├── impls scene = new THREE.Scene()  # the renderer's clear color is what gets visibly drawn
 │   └── return
 ├── function attachThreeScenePickSeam({ container, camera, scenes }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; scenes: readonly THREE.Scene[] }): void
 │   ├── # Installs a base-camera pickAt seam onto any spatial display container so a consumer can hit-test the given scenes via the camera without owning the camera, renderer, or scenes.
@@ -386,7 +386,8 @@ three_scene_helpers.ts
     │   ├── if connected
     │   │   └── impls wasConnected = true
     │   ├── if wasConnected and not connected  # canvas detached → the cell was unmounted
-    │   │   ├── impls renderer.dispose(); renderer.forceContextLoss()
+    │   │   ├── calls renderer.dispose
+    │   │   ├── calls renderer.forceContextLoss
     │   │   └── return  # stop the loop without rescheduling
     │   ├── if controls is not null
     │   │   └── impls controls.update()
@@ -767,7 +768,7 @@ core_points_display.ts
 │   └── return Math.min(Math.max(value / 255, 0), 1)  # 0-255 scaled
 ├── function plyScalarTypeSize({ type }: { type: string }): number
 │   ├── # Gives the byte width of one declared PLY scalar type.
-│   ├── impls scalarTypeSizes = the literal byte-width table over char / uchar / short / ushort / int / uint / float / double and their int8 .. float64 aliases
+│   ├── impls scalarTypeSizes = the literal byte-width table over char / uchar / short / ushort / int / uint / float / double and their int8 .. float64 aliases  # impls-node-one-step:skip
 │   ├── impls size = scalarTypeSizes[type]
 │   ├── if size === undefined
 │   │   └── throw new Error(`unsupported PLY scalar type ${type}`)
@@ -1865,7 +1866,7 @@ apis.py
 │   │   └── impls payload = json.load(fh)
 │   ├── impls assert "geometry_url" in payload
 │   ├── impls geometry_url = payload["geometry_url"]
-│   ├── impls assert isinstance(geometry_url, str) and len(geometry_url) > 0
+│   ├── impls assert isinstance(geometry_url, str) and len(geometry_url) > 0  # impls-node-one-step:skip
 │   └── return geometry_url  # the shared base mesh's resource url
 ├── def _read_sparse_heatmap_arrays(input_path: Path) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Reads the non-default (indices, values) entries the sparse delta carries.
@@ -2103,7 +2104,8 @@ core_mesh_display.ts
 │   │   ├── if the line is a "v " record
 │   │   │   ├── impls its xyz joins vPositions
 │   │   │   ├── if the record carries 7 or more fields
-│   │   │   │   └── impls sawVertexColors is set and its rgb joins vColors
+│   │   │   │   ├── impls sawVertexColors = true
+│   │   │   │   └── impls its rgb joins vColors
 │   │   │   └── else
 │   │   │       └── impls vColors takes NEUTRAL_GRAY three times
 │   │   ├── else if the line is a "vt" record
@@ -2499,7 +2501,7 @@ camera_display.ts
 ├── function createThreeCameras({ payload, frustumOpacity }: { payload: CamerasPayload; frustumOpacity?: number }): THREE.Object3D
 │   ├── # Sync-builds the transparent Three.js centers + line segments from a pre-validated camera-vis payload, reading every baked glyph size + color from the payload.
 │   ├── impls effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY
-│   ├── impls overlay = a THREE.Group carrying cameraCount, lineCount and renderOrder 999
+│   ├── impls overlay = a THREE.Group carrying cameraCount, lineCount and renderOrder 999  # impls-node-one-step:skip
 │   ├── for each cameraVisualization in payload
 │   │   ├── impls cameraGroup = a THREE.Group tagged with its cameraIndex
 │   │   ├── calls createThreeCameraCenter({ cameraVisualization })
@@ -2594,12 +2596,12 @@ camera_display.ts
 ├── function createThreeCameraCenter({ cameraVisualization }: { cameraVisualization: CameraVisualizationPayload }): THREE.Points
 │   ├── # Builds the depth-test-free points object marking one camera's center.
 │   ├── impls geometry carries cameraVisualization.center as a 3-component position attribute
-│   ├── impls material = a THREE.PointsMaterial in center_color at center_size, depth-test and depth-write off, sizeAttenuation on
+│   ├── impls material = a THREE.PointsMaterial in center_color at center_size, depth-test and depth-write off, sizeAttenuation on  # impls-node-one-step:skip
 │   └── return the THREE.Points at renderOrder 999
 ├── function createThreeCameraOverlayLine({ line, frustumOpacity }: { line: CameraVisualizationLinePayload; frustumOpacity: number }): THREE.Line
 │   ├── # Builds one depth-test-free overlay line in the color the backend baked into it.
 │   ├── impls geometry carries line.start followed by line.end as a 3-component position attribute
-│   ├── impls material = a THREE.LineBasicMaterial in line.color at frustumOpacity, transparent, depth-test and depth-write off
+│   ├── impls material = a THREE.LineBasicMaterial in line.color at frustumOpacity, transparent, depth-test and depth-write off  # impls-node-one-step:skip
 │   └── return the THREE.Line at renderOrder 999
 ├── function cameraVisualizationLineLength({ line }: { line: CameraVisualizationLinePayload }): number
 │   ├── # Returns the Euclidean length of one visualization line.
@@ -3184,7 +3186,7 @@ apis.ts
 │   ├── # Returns the bounding-sphere radius of all boxes, falling back to 1.
 │   ├── if boxes is empty
 │   │   └── return 1
-│   ├── impls boundingBox = a THREE.Box3 expanded by every box's min and max corner
+│   ├── impls boundingBox = a THREE.Box3 expanded by every box's min and max corner  # impls-node-one-step:skip
 │   ├── impls sphere = boundingBox.getBoundingSphere(...)
 │   └── return sphere.radius when positive, else 1
 ├── function _createBoxLines({ box }: { box: number[] }): LineSegments2
