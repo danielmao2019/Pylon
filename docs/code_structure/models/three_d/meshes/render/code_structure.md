@@ -8,13 +8,28 @@
 __init__.py
 ├── from models.three_d.meshes.render.core import render_rgb_from_mesh
 ├── from models.three_d.meshes.render.display import render_display
+├── from models.three_d.meshes.render.shading import compute_sh_shading
 └── from models.three_d.meshes.render.uv_texture import render_uv_texture_aligned
+```
+
+`models/three_d/meshes/render/shading.py`
+
+```text
+shading.py
+├── import torch
+└── def compute_sh_shading(normals: torch.Tensor, sh_coefficients: torch.Tensor) -> torch.Tensor
+    ├── # Evaluates spherical-harmonic shading over surface normals, at whatever band count sh_coefficients carries.
+    ├── impls assert sh_coefficients' band count is a perfect square, the spherical-harmonic order it implies
+    ├── impls evaluate the spherical-harmonic basis over the normals up to that order  # impls-node-one-step:skip
+    ├── impls contract the basis against sh_coefficients over the bands
+    └── return  # the per-normal RGB shading the caller multiplies its albedo by
 ```
 
 `models/three_d/meshes/render/core.py`
 
 ```text
 core.py
+├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.mesh.convert import mesh_to_pytorch3d
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -36,9 +51,15 @@ core.py
 │   │   └── impls build an OrthographicCameras from the weak-perspective scale + principal-point intrinsics (no perspective divide)
 │   └── return
 ├── def _build_rasterizer(cameras: CamerasBase, resolution: Tuple[int, int]) -> MeshRasterizer
-│   └── # Builds a single-sample, no-blur MeshRasterizer for the given cameras and resolution.
+│   ├── # Builds a single-sample, no-blur MeshRasterizer for the given cameras and resolution.
+│   ├── impls raster_settings = RasterizationSettings(image_size=resolution, blur_radius=0.0, faces_per_pixel=1, cull_backfaces=False, bin_size=0)
+│   └── return MeshRasterizer(cameras=cameras, raster_settings=raster_settings)
 └── def _build_shader(cameras: CamerasBase, device: torch.device, background_color: Tuple[int, int, int]) -> SoftPhongShader
-    └── # Builds a flat-ambient SoftPhongShader with the given normalized background color.
+    ├── # Builds a flat-ambient SoftPhongShader with the given normalized background color.
+    ├── impls background = each background_color channel over 255
+    ├── impls lights = PointLights at the origin, with ambient_color one and both diffuse_color and specular_color zero  # impls-node-one-step:skip
+    ├── impls blend_params = BlendParams(background_color=background)
+    └── return SoftPhongShader(device=device, cameras=cameras, lights=lights, blend_params=blend_params)
 ```
 
 `models/three_d/meshes/render/core_blender.py`
@@ -91,13 +112,24 @@ core_blender.py
 │   └── if array.shape != (4, 4)
 │       └── raise ValueError
 ├── def _configure_render_settings_blender(scene: 'bpy.types.Scene', resolution: Tuple[int, int]) -> Dict[str, Union[int, float, str]]
-│   └── # Saves and overrides the scene render resolution/aspect/color-mode settings, returning the previous values.
+│   ├── # Saves and overrides the scene render resolution/aspect/color-mode settings, returning the previous values.
+│   ├── impls previous = the scene render's resolution_x and resolution_y, its resolution_percentage under "percentage", its pixel_aspect_x and pixel_aspect_y under "aspect_x" and "aspect_y", and its image color_mode  # impls-node-one-step:skip
+│   ├── impls render_settings.resolution_x = resolution[1]  # resolution arrives as (height, width)
+│   ├── impls render_settings.resolution_y = resolution[0]
+│   ├── impls render_settings.resolution_percentage = 100
+│   ├── impls render_settings.pixel_aspect_x = 1.0
+│   ├── impls render_settings.pixel_aspect_y = 1.0
+│   ├── impls render_settings.image_settings.color_mode = "RGBA"
+│   └── return previous  # exactly the keys _restore_render_settings_blender puts back
 ├── def _configure_world_background_blender(scene: 'bpy.types.Scene', background: Tuple[int, int, int]) -> Dict[str, object]
 │   ├── # Saves and overrides the scene world's flat background color, creating a world if none exists.
 │   └── if prev_world is None
 │       └── impls scene.world = bpy.data.worlds.new('mesh_world_blender'); created_world = True
 ├── def _configure_layer_mask_blender(view_layer: 'bpy.types.ViewLayer', enable_mask: bool) -> bool
-│   └── # Saves and sets the view layer's object-index pass flag, returning the previous value.
+│   ├── # Saves and sets the view layer's object-index pass flag, returning the previous value.
+│   ├── impls previous = view_layer.use_pass_object_index
+│   ├── impls view_layer.use_pass_object_index = enable_mask  # the pass _extract_object_index_pass_blender reads the mask out of
+│   └── return previous
 ├── def _configure_render_engine_blender(scene: 'bpy.types.Scene', engine: str, device: str) -> Tuple[str, str, str]
 │   ├── # Saves and sets the render engine plus Cycles device/compute-type, returning the previous engine/device/compute.
 │   ├── if engine_normalized == 'EEVEE'
@@ -143,7 +175,13 @@ core_blender.py
 │       └── if cycles_addon and previous_compute
 │           └── impls cycles_addon.preferences.compute_device_type = previous_compute
 ├── def _restore_render_settings_blender(scene: 'bpy.types.Scene', previous: Dict[str, Union[int, float, str]]) -> None
-│   └── # Restores the previously saved scene render resolution/aspect/color-mode settings.
+│   ├── # Restores the previously saved scene render resolution/aspect/color-mode settings.
+│   ├── impls render_settings.resolution_x = previous["resolution_x"], as an int
+│   ├── impls render_settings.resolution_y = previous["resolution_y"], as an int
+│   ├── impls render_settings.resolution_percentage = previous["percentage"], as an int
+│   ├── impls render_settings.pixel_aspect_x = previous["aspect_x"], as a float
+│   ├── impls render_settings.pixel_aspect_y = previous["aspect_y"], as a float
+│   └── impls render_settings.image_settings.color_mode = previous["color_mode"], as a str
 ├── def _restore_world_background_blender(scene: 'bpy.types.Scene', state: Dict[str, object]) -> None
 │   ├── # Restores the world's saved color/use_nodes, removes a temporary world if one was created, and restores the previous world.
 │   ├── if isinstance(world, bpy.types.World)
@@ -156,7 +194,8 @@ core_blender.py
 │   └── if isinstance(previous_world, bpy.types.World) or previous_world is None
 │       └── impls scene.world = previous_world
 └── def _restore_layer_mask_blender(view_layer: 'bpy.types.ViewLayer', previous: bool) -> None
-    └── # Restores the view layer's previous object-index pass flag.
+    ├── # Restores the view layer's previous object-index pass flag.
+    └── impls view_layer.use_pass_object_index = previous
 ```
 
 `models/three_d/meshes/render/display.py`
