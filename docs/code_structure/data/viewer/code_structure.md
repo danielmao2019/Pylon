@@ -316,7 +316,7 @@ three_scene_helpers.ts
 │   │   └── impls sets style.pointerEvents = "none" so the underlying base spatial display remains the interaction source
 │   └── return
 ├── function createThreePerspectiveCamera({ initialCameraState }: { initialCameraState: CameraState | null }): THREE.PerspectiveCamera
-│   ├── # Shared PerspectiveCamera factory for every TS atomic spatial display; the consumer-supplied initialCameraState is the single source of initial framing, with no lib-side fit-to-object.
+│   ├── # Shared PerspectiveCamera factory for every TS atomic spatial display; the consumer-supplied initialCameraState is the single source of initial framing.
 │   ├── impls THREE.PerspectiveCamera(fov=DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV, ...) at default aspect/near/far/position
 │   ├── if initialCameraState is not null
 │   │   └── calls applyCameraStateToThreeCamera({ camera, cameraState: initialCameraState })  # so first paint matches the source display
@@ -349,7 +349,7 @@ three_scene_helpers.ts
 │   └── return
 ├── function createThreeScene(): THREE.Scene
 │   ├── # Shared empty-scene factory used by every TS atomic spatial display; callers scene.add their own object(s).
-│   ├── impls creates THREE.Scene; scene.background stays unset so the renderer's clear color is what gets visibly drawn
+│   ├── impls creates THREE.Scene  # the renderer's clear color is what gets visibly drawn
 │   └── return
 ├── function attachThreeScenePickSeam({ container, camera, scenes }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; scenes: readonly THREE.Scene[] }): void
 │   ├── # Installs a base-camera pickAt seam onto any spatial display container so a consumer can hit-test the given scenes via the camera without owning the camera, renderer, or scenes.
@@ -594,7 +594,7 @@ apis.ts
 │   ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor })
 │   └── return
 ├── function renderSegmentationPCDisplay({ displayResponse, initialCameraState, pointSize }: { displayResponse: SegmentationPCDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number }): LeafVNode
-│   ├── # Renders the backend-colorized segmentation display and legend derived from meta_info; per-point colors are already baked in by the backend's class-id → rgb mapping, so no color override is exposed here.
+│   ├── # Renders the backend-colorized segmentation display and legend derived from meta_info; per-point colors are already baked in by the backend's class-id → rgb mapping.
 │   ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize })
 │   └── return
 └── impls registerSpatialLayerRenderer({ displayKind: "color_pc", layerRenderer: createPointsObject })  # module-load self-registration of the spatial color-pc layer renderer
@@ -658,8 +658,8 @@ core_points_display.ts
 │   │   └── impls useVertexColors = true; effectiveColor = undefined
 │   ├── else
 │   │   └── impls useVertexColors = false; effectiveColor = DEFAULT_POINT_COLOR
-│   ├── impls material = new THREE.PointsMaterial({ vertexColors: useVertexColors, size: effectiveSize, ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })  # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
-│   └── return new THREE.Points(geometry, material)  # no post-construction mutation of points
+│   ├── impls material = new THREE.PointsMaterial({ vertexColors: useVertexColors, size: effectiveSize, ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })  # constructor literal is exactly these keys, and the material is used as constructed
+│   └── return new THREE.Points(geometry, material)  # returned as constructed
 ├── function renderPointsScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
 │   ├── # Drives the point-cloud render loop with the supplied trackball controls.
 │   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
@@ -1631,13 +1631,13 @@ apis.py
 │   ├── # Builds a Dash color mesh display from a mesh path, with opt-in mesh_color, mesh_opacity, and mesh_side overrides.
 │   └── calls create_dash_mesh_display(mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
 ├── def create_segmentation_mesh_display(segmentation_mesh_path: str, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
-│   ├── # renders backend-colorized segmentation mesh display; per-element colors are already baked in by the backend's class-id → rgb mapping, so no mesh_color override is exposed here.
+│   ├── # renders backend-colorized segmentation mesh display; per-element colors are already baked in by the backend's class-id → rgb mapping.
 │   ├── impls reads segmentation mesh class ids from segmentation_mesh_path
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_mesh_class_ids))
 │   ├── calls _map_segmentation_mesh_to_rgb(segmentation_mesh_path=segmentation_mesh_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_mesh_display(mesh_opacity=mesh_opacity, mesh_side=mesh_side)
 ├── def create_heatmap_mesh_display(heatmap_mesh_path: str, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
-│   ├── # renders backend-colorized heatmap mesh display; per-element colors are already baked in by the backend's scalar → rgb mapping, so no mesh_color override is exposed here.
+│   ├── # renders backend-colorized heatmap mesh display; per-element colors are already baked in by the backend's scalar → rgb mapping.
 │   ├── impls reads heatmap mesh scalar values from heatmap_mesh_path (per-vertex 1-D or per-texel 2-D, non-negative)
 │   ├── calls map_scalars_to_rgb(scalars=heatmap_mesh_scalars)
 │   ├── calls _map_heatmap_mesh_to_rgb(heatmap_mesh_path=heatmap_mesh_path, scalar_rgb=scalar_rgb)
@@ -2050,7 +2050,7 @@ core_mesh_display.ts
 │   ├── else
 │   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = DEFAULT_MESH_COLOR
 │   ├── impls material = MeshBasicMaterial { vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent when opacity<1 or RGBA vertex colors, map: payload.texture.uvTextureMap when useTexture, color: effectiveColor when set }  # RGBA alpha-0 corners render transparent
-│   └── return new THREE.Mesh(geometry, material)  # no post-construction mutation of mesh
+│   └── return new THREE.Mesh(geometry, material)  # returned as constructed
 ├── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
 │   ├── # Drives the mesh render loop with the supplied trackball controls.
 │   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
@@ -2189,15 +2189,15 @@ apis.ts
 │   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide })
 │   └── return
 ├── function renderSegmentationMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SegmentationMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
-│   ├── # renders backend-colorized mesh display and legend derived from meta_info; per-element colors are already baked in by the backend's class-id → rgb mapping, so no meshColor override is exposed here.
+│   ├── # renders backend-colorized mesh display and legend derived from meta_info; per-element colors are already baked in by the backend's class-id → rgb mapping.
 │   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
 │   └── return
 ├── function renderHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: HeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
-│   ├── # renders backend-colorized mesh display and continuous-palette legend derived from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping, so no meshColor override is exposed here.
+│   ├── # renders backend-colorized mesh display and continuous-palette legend derived from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping.
 │   ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
 │   └── return
 └── function renderSparseHeatmapMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide }: { displayResponse: SparseHeatmapMeshDisplayResponse; initialCameraState?: CameraState | null; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
-    ├── # renders the sparse heatmap mesh display and continuous-palette legend from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping, so no meshColor override is exposed here.
+    ├── # renders the sparse heatmap mesh display and continuous-palette legend from meta_info (scalar min/max); per-element colors are already baked in by the backend's scalar → rgb mapping.
     ├── calls renderMeshDisplay({ displayResponse, initialCameraState, meshOpacity, meshSide })
     └── return
 ```
@@ -2464,7 +2464,7 @@ camera_display.ts
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { CameraDisplayResponse } from "./types/display_response";
 ├── import { applyCameraStateToThreeCamera, createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-├── const DEFAULT_FRUSTUM_OPACITY = 0.5  # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
+├── const DEFAULT_FRUSTUM_OPACITY = 0.5  # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), while glyph size + color are baked by camera_vis
 ├── function renderCameraDisplay({ displayResponse, initialCameraState = null, frustumOpacity, onFrameOpacityControl }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number; onFrameOpacityControl?: (control: CameraFrameOpacityControl) => void }): LeafVNode
 │   ├── # Builds a non-interactive transparent layer from the camera-vis JSON payload (glyph sizes + colors baked by camera_vis), initialized at initialCameraState.
 │   ├── throw if CameraDisplayResponse.meta_info is not an empty object

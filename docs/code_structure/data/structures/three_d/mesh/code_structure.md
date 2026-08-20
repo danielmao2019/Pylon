@@ -23,12 +23,12 @@ mesh.py
     │   └── impls self.device = self.verts.device
     ├── @classmethod def load(cls, path: Union[str, Path]) -> "Mesh"
     │   ├── # Loads one mesh from a GLB file or an OBJ source (a single OBJ file or a mesh-root directory of OBJs).
-    │   ├── from data.structures.three_d.mesh.load import load_mesh  # deferred: load.py imports mesh.py, so mesh.py must not import load.py at module level
+    │   ├── from data.structures.three_d.mesh.load import load_mesh  # deferred: load.py imports mesh.py, so this import is function-local
     │   ├── calls load_mesh
     │   └── return  # the Mesh returned by load_mesh
     ├── def save(self, path: Union[str, Path]) -> None
     │   ├── # Saves this mesh to an OBJ/PLY file or a directory.
-    │   ├── from data.structures.three_d.mesh.save import save_mesh  # deferred: save.py imports mesh.py, so mesh.py must not import save.py at module level
+    │   ├── from data.structures.three_d.mesh.save import save_mesh  # deferred: save.py imports mesh.py, so this import is function-local
     │   └── calls save_mesh
     └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "Mesh"
         ├── # Returns this mesh on a target device and/or texture UV-origin convention (self when both already match).
