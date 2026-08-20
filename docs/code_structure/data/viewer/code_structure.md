@@ -432,8 +432,8 @@ core_points_display.py
 ├── DEFAULT_POINT_SIZE_RATIO = 0.002  # fraction of point-cloud bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── DEFAULT_POINT_COLOR = "#cccccc"   # uniform fallback color used when the point cloud has no per-point colors AND the caller does not supply point_color; lib-owned default, overridable
 ├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> dcc.Graph
-│   ├── # Renders a Dash point-cloud display element; point_size and point_color overrides are opt-in. point_color when supplied replaces per-point colors with a uniform color so the consumer can override the rendered look without rebuilding the data.
-│   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)
+│   ├── # Renders a Dash point-cloud display element; point_size and point_color overrides are opt-in.
+│   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)  # point_color when supplied replaces per-point colors with a uniform color, so a consumer can override the rendered look without rebuilding the data
 │   ├── calls create_dash_trackball_camera_controls
 │   ├── calls create_dash_points_component
 │   └── return
