@@ -9,6 +9,7 @@ reconcile.ts
 ├── # VNode constructor plus identity-preserving DOM patch driver, consumed by any TS SPA's route render step.
 ├── type VNode = ElementVNode | LeafVNode
 ├── interface ElementVNode
+│   ├── # Declares a plain DOM element by its tag, stable key, prop bag and child VNodes, the shape the reconciler patches into place.
 │   ├── kind: "element"
 │   ├── tag: string
 │   ├── key: string | null

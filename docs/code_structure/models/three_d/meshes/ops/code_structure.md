@@ -29,7 +29,7 @@ apply_transform.py
     ├── calls chunked_matmul  # homogeneous verts by transform.T, passing max_divide and num_divide, chunked over the V rows
     ├── impls drop the homogeneous coordinate to get the [V, 3] transformed verts
     ├── calls Mesh  # rebuild with the transformed verts, original faces, original texture
-    └── return  # the transformed Mesh
+    └── return      # the transformed Mesh
 ```
 
 `models/three_d/meshes/ops/arap.py`
@@ -57,13 +57,39 @@ arap.py
 │               └── if stale_iters >= early_stop_patience
 │                   └── break
 ├── def estimate_rotations(verts: torch.Tensor, edge_vertex_indices: torch.Tensor, weights: torch.Tensor, reference_edge_vectors: torch.Tensor) -> torch.Tensor
-│   └── # Solves the per-vertex best-fit rotation (local step) via weighted edge-covariance SVD with a reflection fix.
+│   ├── # Solves the per-vertex best-fit rotation (local step) via weighted edge-covariance SVD with a reflection fix.
+│   ├── impls edge_vec = verts at each edge's first endpoint less verts at its second
+│   ├── impls outer = the outer product of edge_vec with reference_edge_vectors
+│   ├── impls weighted_outer = weights times outer
+│   ├── impls cov = a zeroed [V, 3, 3] tensor
+│   ├── impls index-add weighted_outer into cov at each edge's first endpoint
+│   ├── impls index-add weighted_outer into cov at each edge's second endpoint  # the same term at both ends, the edge being undirected
+│   ├── impls u, _, v = the batched SVD of cov
+│   ├── impls signs = ones per vertex, its last entry set to the sign of det(u @ v)  # the reflection fix
+│   ├── impls rotations = u @ diag_embed(signs) @ v
+│   └── return rotations  # [V, 3, 3], one proper rotation per vertex
 ├── def build_arap_rhs(rotations: torch.Tensor, reference_edge_vectors: torch.Tensor, edge_vertex_indices: torch.Tensor, weights: torch.Tensor, constraint_mask: torch.Tensor, targets: torch.Tensor, lambda_c: float) -> torch.Tensor
-│   └── # Assembles the global-step right-hand side from averaged per-edge rotations plus the soft-constraint target term.
+│   ├── # Assembles the global-step right-hand side from averaged per-edge rotations plus the soft-constraint target term.
+│   ├── impls edge_rotations = the mean of each edge's two endpoint rotations
+│   ├── impls edge_terms = weights * edge_rotations applied to reference_edge_vectors
+│   ├── impls rhs = each vertex's accumulation of edge_terms over its incident edges, signed by edge direction
+│   ├── impls add lambda_c * targets into rhs at the vertices constraint_mask selects
+│   └── return rhs  # [V, 3], the global step's right-hand side
 ├── def apply_arap_operator(verts: torch.Tensor, edge_vertex_indices: torch.Tensor, weights: torch.Tensor, constraint_mask: torch.Tensor, lambda_c: float) -> torch.Tensor
-│   └── # Applies the weighted-Laplacian-plus-constraint operator to verts without forming the sparse matrix.
+│   ├── # Applies the weighted-Laplacian-plus-constraint operator to verts without forming the sparse matrix.
+│   ├── impls weighted = weights times verts at each edge's first endpoint less verts at its second
+│   ├── impls result = a zeroed tensor of verts' shape
+│   ├── impls index-add weighted into result at each edge's first endpoint
+│   ├── impls index-add its negation into result at each edge's second endpoint
+│   ├── impls result = result plus lambda_c times constraint_mask times verts
+│   └── return result  # [V, 3]
 └── def compute_arap_energy(verts: torch.Tensor, edge_vertex_indices: torch.Tensor, weights: torch.Tensor, reference_edge_vectors: torch.Tensor, rotations: torch.Tensor, constraint_mask: torch.Tensor, targets: torch.Tensor, lambda_c: float) -> torch.Tensor
-    └── # Computes total ARAP energy as the sum of the weighted edge-residual term and the constraint term.
+    ├── # Computes total ARAP energy as the sum of the weighted edge-residual term and the constraint term.
+    ├── impls current_edge_vectors = verts differenced across edge_vertex_indices
+    ├── impls rotated_reference = each edge's mean endpoint rotation applied to reference_edge_vectors
+    ├── impls edge_residual = the weighted squared norm of current_edge_vectors - rotated_reference, summed over edges
+    ├── impls constraint_residual = lambda_c * the summed squared norm of verts - targets at the vertices constraint_mask selects
+    └── return edge_residual + constraint_residual  # the scalar total ARAP energy
 ```
 
 `models/three_d/meshes/ops/laplacian.py`
@@ -81,11 +107,34 @@ laplacian.py
 │   ├── calls cotangent(v0, v2, v1)
 │   └── calls cotangent(v0, v1, v2)
 ├── def cotangent(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor) -> torch.Tensor
-│   └── # Returns the cotangent of the angle at vertex a of triangle (a, b, c).
+│   ├── # Returns the cotangent of the angle at vertex a of triangle (a, b, c).
+│   ├── impls u = b - a
+│   ├── impls v = c - a
+│   ├── impls sine_term = the norm of the cross product of u with v
+│   └── return the dot product of u with v over sine_term  # cos over sin at a
 ├── def laplacian_apply(verts: torch.Tensor, edges: torch.Tensor, weights: torch.Tensor) -> torch.Tensor
-│   └── # Applies the weighted graph Laplacian to verts as the per-vertex sum of weighted incident edge differences.
+│   ├── # Applies the weighted graph Laplacian to verts as the per-vertex sum of weighted incident edge differences.
+│   ├── impls edge_differences = verts at each edge's first endpoint minus verts at its second
+│   ├── impls contributions = weights broadcast over edge_differences
+│   ├── impls result = a zeros tensor of verts' shape
+│   ├── impls scatter-add contributions into result at each edge's first endpoint
+│   ├── impls scatter-subtract contributions from result at each edge's second endpoint
+│   └── return result  # [V, 3]
 ├── def build_neighbor_data(edges: torch.Tensor, weights: torch.Tensor, base_verts: torch.Tensor, num_verts: int) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]
-│   └── # Groups undirected edges into per-vertex neighbor index, weight, and reference-edge-vector lists.
+│   ├── # Groups undirected edges into per-vertex neighbor index, weight, and reference-edge-vector lists.
+│   ├── impls directed_sources = each edge's two endpoints, each taken in turn as the source
+│   ├── impls directed_targets = the matching other endpoint of each directed edge
+│   ├── impls directed_weights = each edge's weight, repeated for both directions
+│   ├── impls sort the three directed arrays by directed_sources, stably
+│   ├── impls neighbor_counts = the directed-edge count per vertex
+│   ├── impls assert neighbor_counts sums to the directed-edge count
+│   ├── impls split_indices = the cumulative neighbor_counts, without its last entry
+│   ├── impls neighbors = directed_targets split at split_indices
+│   ├── impls neighbor_weights = directed_weights split at split_indices
+│   ├── impls directed_reference_edge_vectors = base_verts at directed_sources less base_verts at directed_targets
+│   ├── impls neighbor_reference_edge_vectors = directed_reference_edge_vectors split at split_indices
+│   ├── impls assert each of the three lists carries one tensor per vertex
+│   └── return neighbors, neighbor_weights, neighbor_reference_edge_vectors  # one tensor per vertex in each list
 ├── def geodesic_distances(num_verts: int, edges: torch.Tensor, lengths: torch.Tensor, source: int) -> torch.Tensor
 │   ├── # Computes single-source shortest-path (Dijkstra) distances over the weighted edge graph from source.
 │   ├── calls build_adjacency(num_verts, edges, lengths)
@@ -114,13 +163,26 @@ linear_system.py
 │   ├── calls build_constraint_diagonal_sparse_matrix(constraint_mask=constraint_mask, lambda_c=lambda_c)
 │   └── calls factorize_sparse_system_matrix(system_matrix=system_matrix)
 ├── def build_weighted_laplacian_sparse_matrix(num_verts: int, edge_vertex_indices: torch.Tensor, weights: torch.Tensor) -> sparse.csc_matrix
-│   └── # Builds the symmetric weighted graph-Laplacian as a scipy CSC matrix from edges and edge weights.
+│   ├── # Builds the symmetric weighted graph-Laplacian as a scipy CSC matrix from edges and edge weights.
+│   ├── impls off_diagonal_entries = -weights at each edge's endpoint pair, in both directions  # the symmetric off-diagonal
+│   ├── impls diagonal_entries = each vertex's summed incident weights, on the diagonal
+│   ├── impls matrix = a scipy COO matrix of num_verts square over both entry sets
+│   └── return matrix converted to CSC  # [num_verts, num_verts]
 ├── def build_constraint_diagonal_sparse_matrix(constraint_mask: torch.Tensor, lambda_c: float) -> sparse.csc_matrix
-│   └── # Builds the lambda_c-scaled diagonal soft-constraint matrix as a scipy CSC matrix.
+│   ├── # Builds the lambda_c-scaled diagonal soft-constraint matrix as a scipy CSC matrix.
+│   ├── impls diagonal = constraint_mask as a float vector scaled by lambda_c
+│   └── return a scipy CSC diagonal matrix over diagonal  # [V, V]
 ├── def factorize_sparse_system_matrix(system_matrix: sparse.csc_matrix) -> Any
-│   └── # LU-factorizes a square sparse system matrix via scipy splu.
+│   ├── # LU-factorizes a square sparse system matrix via scipy splu.
+│   └── return the scipy splu factorization of system_matrix
 └── def solve_factorized_sparse_system(factorized_system: Any, rhs: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor
-    └── # Solves the factorized system column-by-column for a multi-column torch rhs and returns a torch tensor.
+    ├── # Solves the factorized system column-by-column for a multi-column torch rhs and returns a torch tensor.
+    ├── impls rhs_array = rhs detached onto the cpu as a float64 array
+    ├── impls columns = an empty list
+    ├── for each column of rhs_array
+    │   └── impls append the factorized system's solve of that column to columns
+    ├── impls solution = columns stacked back into rhs's column layout
+    └── return solution as a tensor of dtype on device  # rhs's own shape
 ```
 
 `models/three_d/meshes/ops/normals.py`
@@ -137,7 +199,11 @@ normals.py
 │   │   └── return
 │   └── assert False  # unreachable: weights is "area" or "unit"
 ├── def _compute_vertex_normals_area_weighted(verts: torch.Tensor, faces: torch.Tensor) -> torch.Tensor
-│   └── # Single-mesh per-vertex normals as the L2-normalized sum of UN-normalized (area-weighted) incident face normals.
+│   ├── # Single-mesh per-vertex normals as the L2-normalized sum of UN-normalized (area-weighted) incident face normals.
+│   ├── impls face_normals = the cross product of each face's two edge vectors, left un-normalized  # its magnitude is twice the face area, which is the weighting
+│   ├── impls normals = a zeros tensor of verts' shape
+│   ├── impls index-add face_normals into normals at each of the face's three corners
+│   └── return normals L2-normalized per row  # [V, 3]
 └── def _compute_vertex_normals_unit_weighted(verts: torch.Tensor, faces: torch.Tensor) -> torch.Tensor
     ├── # Per-vertex normals from UNIT-weighted (face-uniform) face normals, batched or single, value-identical to Deep3DFaceRecon compute_norm.
     ├── if not is_batched
@@ -153,7 +219,10 @@ normals.py
 ```text
 topology.py
 └── def build_topology_edges_from_faces(faces: torch.Tensor) -> torch.Tensor
-    └── # Extracts the sorted, unique set of undirected edges from triangle faces.
+    ├── # Extracts the sorted, unique set of undirected edges from triangle faces.
+    ├── impls edges = each face's three corner pairs, stacked into one [3F, 2] index tensor
+    ├── impls sort each row so the smaller vertex index comes first  # one canonical direction per undirected edge
+    └── return the unique rows of edges, in sorted order             # [E, 2]
 ```
 
 `models/three_d/meshes/ops/world_to_camera_transform.py`
