@@ -15,4 +15,5 @@ render/
 
 ```text
 tests/models/three_d/meshes/render/
+└── test_core.py      # soft-silhouette render behavior tests
 ```

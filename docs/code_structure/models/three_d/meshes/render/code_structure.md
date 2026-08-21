@@ -6,7 +6,7 @@
 
 ```text
 __init__.py
-├── from models.three_d.meshes.render.core import render_rgb_from_mesh
+├── from models.three_d.meshes.render.core import render_rgb_from_mesh, render_soft_silhouette_from_mesh
 ├── from models.three_d.meshes.render.display import render_display
 └── from models.three_d.meshes.render.uv_texture import render_uv_texture_aligned
 ```
@@ -28,6 +28,13 @@ core.py
 │   └── if return_mask
 │       ├── impls fragments = rasterizer(meshes); valid_mask = fragments.pix_to_face[0, :, :, 0] >= 0
 │       └── return rgb, valid_mask
+├── def render_soft_silhouette_from_mesh(mesh: Mesh, camera: Camera, resolution: Tuple[int, int], blur_sigma: float, faces_per_pixel: int = 50) -> torch.Tensor
+│   ├── # Differentiably renders a SoftRas-style probabilistic silhouette of a triangle Mesh, with blur_sigma setting the softness of the SoftRas coverage aggregation.
+│   ├── calls mesh_to_pytorch3d(mesh=mesh, device=device, dtype=torch.float32)
+│   ├── calls _prepare_cameras(camera=camera, resolution=resolution, device=device)
+│   ├── calls _build_soft_rasterizer(cameras=cameras, resolution=resolution, blur_sigma=blur_sigma, faces_per_pixel=faces_per_pixel)
+│   ├── calls _build_silhouette_shader(blur_sigma=blur_sigma)
+│   └── return  # [H, W] float soft silhouette in [0, 1], differentiable w.r.t. the mesh vertices
 ├── def _prepare_cameras(camera: Camera, resolution: Tuple[int, int], device: torch.device) -> CamerasBase
 │   ├── # Builds a PyTorch3D camera from a repo Camera, converting to PyTorch3D's right-handed convention and lifting zfar to float32 max, dispatched on the repo Camera's intrinsics model.
 │   ├── if camera.intrinsics.model in {"simple_pinhole", "pinhole"}
@@ -37,8 +44,12 @@ core.py
 │   └── return
 ├── def _build_rasterizer(cameras: CamerasBase, resolution: Tuple[int, int]) -> MeshRasterizer
 │   └── # Builds a single-sample, no-blur MeshRasterizer for the given cameras and resolution.
-└── def _build_shader(cameras: CamerasBase, device: torch.device, background_color: Tuple[int, int, int]) -> SoftPhongShader
-    └── # Builds a flat-ambient SoftPhongShader with the given normalized background color.
+├── def _build_shader(cameras: CamerasBase, device: torch.device, background_color: Tuple[int, int, int]) -> SoftPhongShader
+│   └── # Builds a flat-ambient SoftPhongShader with the given normalized background color.
+├── def _build_soft_rasterizer(cameras: CamerasBase, resolution: Tuple[int, int], blur_sigma: float, faces_per_pixel: int) -> MeshRasterizer
+│   └── # Builds a blurred multi-sample MeshRasterizer whose blur radius and faces-per-pixel realize the SoftRas probabilistic coverage.
+└── def _build_silhouette_shader(blur_sigma: float) -> SoftSilhouetteShader
+    └── # Builds the PyTorch3D SoftSilhouetteShader that aggregates per-face coverage probabilities under blur_sigma.
 ```
 
 `models/three_d/meshes/render/core_blender.py`
