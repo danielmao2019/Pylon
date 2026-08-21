@@ -27,20 +27,12 @@ reconcile.ts
 │   ├── impls keep the remainder as the prop bag
 │   ├── impls normalizes children: a bare string becomes a text leaf VNode, an existing VNode passes through
 │   └── return ElementVNode { kind: "element", tag, key, props, children: normalized }
-└── function reconcileInto({ root, virtualTree }: { root: HTMLElement; virtualTree: VNode }): void
-    ├── # Bring root's subtree into agreement with virtualTree, preserving DOM-node identity wherever VNode identity is unchanged.
-    ├── impls reads previously reconciled VNode tree associated with root
-    ├── for each VNode position in virtualTree paired against the previous tree
-    │   ├── if the previous and current VNode identities match
-    │   │   ├── impls patches differing props on the existing DOM node
-    │   │   └── impls descends into children
-    │   ├── else if no previous VNode exists at this position
-    │   │   └── impls mounts a new DOM node from the current VNode
-    │   └── else
-    │       ├── impls unmounts the previous DOM node
-    │       └── impls mounts a replacement DOM node from the current VNode
-    ├── impls records virtualTree as the previous tree associated with root
-    └── return
+├── function reconcileInto({ root, virtualTree }: { root: HTMLElement; virtualTree: VNode }): void
+│   ├── # Brings root's subtree into agreement with virtualTree, preserving DOM-node identity wherever VNode identity is unchanged.
+│   ├── calls _getOrCreateState({ root })  # state
+│   ├── impls previousTree = state.previousTree
+│   ├── calls _reconcileAtRoot({ parent: root, previousVNode: previousTree, currentVNode: virtualTree, state })
+│   └── impls state.previousTree = virtualTree
 ├── function _getOrCreateState({ root }: { root: HTMLElement }): ReconcilerState
 │   ├── # Returns the root's reconciler state, creating and registering it on first use.
 │   ├── if _rootStates already holds an entry for root

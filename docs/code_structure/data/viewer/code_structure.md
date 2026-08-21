@@ -319,7 +319,7 @@ three_scene_helpers.ts
 │   ├── # Shared PerspectiveCamera factory for every TS atomic spatial display; the consumer-supplied initialCameraState is the single source of initial framing, with no lib-side fit-to-object.
 │   ├── impls THREE.PerspectiveCamera(fov=DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV, ...) at default aspect/near/far/position
 │   ├── if initialCameraState is not null
-│   │   └── impls overlays initialCameraState (every field — both intrinsics and extrinsics) onto the camera so first paint matches the source display  # impls-node-one-step:skip
+│   │   └── calls applyCameraStateToThreeCamera({ camera, cameraState: initialCameraState })  # so first paint matches the source display
 │   └── return
 ├── function applyCameraStateToThreeCamera({ camera, cameraState }: { camera: THREE.PerspectiveCamera; cameraState: CameraState }): void
 │   ├── # Overlays a CameraState's intrinsics and extrinsics onto a PerspectiveCamera, ignoring a malformed state.
@@ -354,12 +354,30 @@ three_scene_helpers.ts
 ├── function attachThreeScenePickSeam({ container, camera, scenes }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; scenes: readonly THREE.Scene[] }): void
 │   ├── # Installs a base-camera pickAt seam onto any spatial display container so a consumer can hit-test the given scenes via the camera without owning the camera, renderer, or scenes.
 │   ├── impls raycaster = new THREE.Raycaster()
-│   ├── impls pickAt = (clientX, clientY) => NDC from the container rect (null if empty), camera raycast over each scene, return first hit object else null
+│   ├── function pickAt(clientX: number, clientY: number): THREE.Object3D | null [local]
+│   │   ├── # The installed hit-test seam: maps a client point into the container's NDC and returns the first object the camera ray hits.
+│   │   ├── impls rect = the container's bounding client rect
+│   │   ├── if the rect is empty
+│   │   │   └── return  # null: there is nothing to hit-test against
+│   │   ├── impls ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1)  # client space is y-down, NDC is y-up
+│   │   ├── calls raycaster.setFromCamera(ndc, camera)
+│   │   ├── for each scene of scenes
+│   │   │   ├── impls intersections = raycaster.intersectObjects(scene.children, true)
+│   │   │   └── if intersections is non-empty
+│   │   │       └── return  # that first hit's object
+│   │   └── return  # null: no scene was hit
 │   ├── impls (container as PickableThreeContainer).pickAt = pickAt  # additive seam; base HTMLDivElement contract unchanged
 │   └── return
 └── function startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> | null; onAfterRender?: () => void }): void
     ├── # Shared runtime every spatial display runs: fits the renderer buffer, camera aspect, and trackball screen to the canvas on each resize, and drives the requestAnimationFrame loop that self-stops once the canvas leaves the DOM.
-    ├── impls fit = () => { renderer.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight, false); camera.aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight; camera.updateProjectionMatrix(); if (controls) controls.handleResize() }
+    ├── function fit(): void [local]
+    │   ├── # The callback the ResizeObserver drives on every canvas resize.
+    │   ├── calls renderer.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight, false)
+    │   ├── impls camera.aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight
+    │   ├── calls camera.updateProjectionMatrix
+    │   ├── if controls is not null
+    │   │   └── calls controls.handleResize
+    │   └── return
     ├── impls new ResizeObserver(fit).observe(renderer.domElement)
     ├── impls wasConnected = false  # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
     ├── def draw
@@ -503,10 +521,10 @@ apis.py
 │   ├── calls _colorized_segmentation_pc_path(segmentation_pc_path=segmentation_pc_path)  # output_path
 │   ├── calls save_point_cloud(pc=colorized_pc, output_filepath=str(output_path))
 │   └── return str(output_path)  # the colorized point-cloud path the response serves
-└── def _build_segmentation_pc_meta_info(class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> Dict[str, Any]
-    ├── # Builds factual class/color metadata from the class-to-RGB mapping.
-    ├── impls stores `class_id_to_rgb`
-    └── return
+├── def _build_segmentation_pc_meta_info(class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> Dict[str, Any]
+│   ├── # Builds factual class/color metadata from the class-to-RGB mapping.
+│   ├── impls stores `class_id_to_rgb`
+│   └── return
 ├── def _colorized_segmentation_pc_path(segmentation_pc_path: str) -> Path
 │   ├── # Builds the deterministic colorized display path beside the class-labeled input resource.
 │   ├── impls assert isinstance(segmentation_pc_path, str)
@@ -615,7 +633,6 @@ core_points_display.ts
 │   ├── calls parsePlyBuffer({ buffer })                                                          → geometry
 │   └── return geometry
 ├── function parsePlyBuffer({ buffer }: { buffer: ArrayBuffer }): THREE.BufferGeometry
-│   └── # Parses a PLY buffer (ASCII or binary little-endian) into a BufferGeometry with `position` and optional `color` attributes; internal PLY scalar/property parsing is private to this function.
 │   ├── # Parses a PLY buffer into a BufferGeometry, dispatching on the header's declared ASCII or binary-little-endian format.
 │   ├── impls headerText = the buffer's leading 1048576 bytes decoded as utf-8
 │   ├── impls endIndex = headerText.indexOf("end_header")
@@ -643,10 +660,10 @@ core_points_display.ts
 │   │   └── impls useVertexColors = false; effectiveColor = DEFAULT_POINT_COLOR
 │   ├── impls material = new THREE.PointsMaterial({ vertexColors: useVertexColors, size: effectiveSize, ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })  # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
 │   └── return new THREE.Points(geometry, material)  # no post-construction mutation of points
-└── function renderPointsScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
-    ├── # Drives the point-cloud render loop with the supplied trackball controls.
-    ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
-    └── return
+├── function renderPointsScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
+│   ├── # Drives the point-cloud render loop with the supplied trackball controls.
+│   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
+│   └── return
 ├── function readPlyHeader({ headerText }: { headerText: string }): PlyHeader
 │   ├── # Reads the vertex element's declared format, count, and scalar properties from the pre-`end_header` text.
 │   ├── impls initialize the format / vertexCount / inVertex / properties accumulators the loop fills
@@ -863,7 +880,6 @@ apis.py
 │   │   └── impls rgb_image[segmentation_image == class_id] = color  # a class id with no mapping entry stays black
 │   └── return rgb_image  # an HWC uint8 RGB image
 └── def _map_instance_surrogate_image_to_rgb
-    ├── # Maps the instance-surrogate class-id image to RGB via the class-to-RGB mapping for Dash display.
     ├── # Maps the instance-surrogate offset image to RGB via the class-to-RGB mapping for Dash display.
     ├── impls assert isinstance(image_path, str)
     ├── impls assert isinstance(class_id_to_rgb, dict)
@@ -1205,10 +1221,10 @@ display_response.ts
 placeholder_display.ts
 ├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { PlaceholderDisplayResponse } from "./types/display_response";
-└── function renderPlaceholderDisplay({ displayResponse }: { displayResponse: PlaceholderDisplayResponse }): LeafVNode
-    ├── # Renders the missing-result placeholder UI from the response's message.
-    ├── impls complete missing-result placeholder UI from PlaceholderDisplayResponse.message
-    └── return LeafVNode keyed by displayResponse.url
+├── function renderPlaceholderDisplay({ displayResponse }: { displayResponse: PlaceholderDisplayResponse }): LeafVNode
+│   ├── # Renders the missing-result placeholder UI from the response's message.
+│   ├── calls _renderPlaceholderElement({ displayResponse })  # the leaf's render()
+│   └── return LeafVNode keyed by displayResponse.url
 └── function _renderPlaceholderElement({ displayResponse }: { displayResponse: PlaceholderDisplayResponse }): HTMLElement
     ├── # Builds the centered, italic placeholder surface carrying the response's message.
     ├── impls placeholder = a "placeholder-surface" div, flex-centered at 100% by 100%, padded 1rem,  # 888 italic
@@ -1402,10 +1418,16 @@ display_response.ts
 table_display.ts
 ├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { TableDisplayResponse } from "./types/display_response";
-└── function renderTableDisplay({ displayResponse }: { displayResponse: TableDisplayResponse }): LeafVNode
-    ├── # Renders the complete table-display UI from the table resource URL.
-    ├── impls complete table-display UI from DisplayResponse url
-    └── return LeafVNode keyed by displayResponse.url
+├── function renderTableDisplay({ displayResponse }: { displayResponse: TableDisplayResponse }): LeafVNode
+│   ├── # Renders the complete table-display UI from the table resource URL.
+│   ├── function render() [local]
+│   │   ├── # The leaf's render(): the placeholder when unmaterialized, else a wrap the loader fills in.
+│   │   ├── if displayResponse.url is null
+│   │   │   └── return a "placeholder-surface" div reading "Placeholder for a benchmark result that is not materialized yet."
+│   │   ├── impls tableWrap = a "table-wrap" div reading "Loading table"
+│   │   ├── calls loadTableDisplay({ tableWrap, displayResponse })  # not awaited
+│   │   └── return tableWrap
+│   └── return  # { kind: "leaf", key: displayResponse.url ?? `table:${displayResponse.slot_id}`, props: {}, render }
 ├── async function loadTableDisplay({ tableWrap, displayResponse }: { tableWrap: HTMLDivElement; displayResponse: TableDisplayResponse }): Promise<void>
 │   ├── # Fetches the table resource and renders its rows into tableWrap.
 │   ├── if displayResponse.url is null
@@ -1672,7 +1694,10 @@ core_mesh_display.py
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
 │   ├── elif mesh.texture carries per-vertex color
-│   │   └── impls effective_color = mesh.texture.vertex_color
+│   │   ├── calls _normalize_rgb_tensor_to_uint8(rgb_values=mesh.texture.vertex_color)  # vertex_colors
+│   │   ├── for each vertex_rgb row of vertex_colors
+│   │   │   └── calls _rgb_to_css_color(rgb_values=vertex_rgb)
+│   │   └── impls effective_color = those CSS color strings
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
@@ -1681,7 +1706,11 @@ core_mesh_display.py
 │   ├── if mesh_color is not None
 │   │   └── impls effective_color = mesh_color
 │   ├── elif mesh.texture carries a uv_texture_map
-│   │   └── impls effective_color = sample(mesh.texture.uv_texture_map, mesh.texture.verts_uvs)
+│   │   ├── calls _normalize_texture_map_to_uint8(texture_map=mesh.texture.uv_texture_map)  # texture_map
+│   │   ├── impls sampled_rgb = texture_map sampled at mesh.texture.verts_uvs
+│   │   ├── for each vertex_rgb row of sampled_rgb
+│   │   │   └── calls _rgb_to_css_color(rgb_values=vertex_rgb)
+│   │   └── impls effective_color = those CSS color strings
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
@@ -1771,7 +1800,7 @@ apis.py
 │   └── return
 ├── def create_segmentation_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> SegmentationMeshDisplayResponse
 │   ├── # Creates a segmentation mesh response from a class-labeled mesh resource read from input_path; processed mesh is written to output_path.
-│   ├── impls reads segmentation mesh class ids from input_path
+│   ├── calls _read_segmentation_mesh_class_ids(input_path=input_path)  # segmentation_mesh_class_ids
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(segmentation_mesh_class_ids))
 │   ├── calls _map_segmentation_mesh_to_rgb(input_path=input_path, output_path=output_path, class_id_to_rgb=class_id_to_rgb)
 │   ├── calls _build_segmentation_mesh_meta_info(class_id_to_rgb=class_id_to_rgb)
@@ -1779,7 +1808,7 @@ apis.py
 │   └── return
 ├── def create_heatmap_mesh_display_response(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> HeatmapMeshDisplayResponse
 │   ├── # Creates a heatmap mesh response from a non-negative-scalar-labeled mesh resource read from input_path; processed mesh is written to output_path.
-│   ├── impls reads heatmap mesh scalar values from input_path (per-vertex 1-D or per-texel 2-D, non-negative)
+│   ├── calls _read_heatmap_mesh_scalars(input_path=input_path)  # heatmap_mesh_scalars
 │   ├── calls map_scalars_to_rgb(scalars=heatmap_mesh_scalars)
 │   ├── calls _map_heatmap_mesh_to_rgb(input_path=input_path, output_path=output_path, scalar_rgb=scalar_rgb)
 │   ├── calls _build_heatmap_mesh_meta_info(scalars=heatmap_mesh_scalars)
@@ -1794,8 +1823,10 @@ apis.py
 ├── def _map_segmentation_mesh_to_rgb(input_path: Path, output_path: Path, class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> None
 │   ├── # Reads segmentation mesh from input_path, applies class_id_to_rgb, writes the resulting color mesh to output_path.
 │   ├── if class-id storage is per-vertex
+│   │   ├── calls _segmentation_mesh_per_vertex_class_ids(mesh=mesh)  # class_ids
 │   │   └── impls assigns class_id_to_rgb[c] as the per-vertex RGB for class id c
 │   ├── elif class-id storage is per-texel
+│   │   ├── calls _segmentation_mesh_per_texel_class_ids(mesh=mesh)  # class_ids
 │   │   └── impls assigns class_id_to_rgb[c] as the per-texel RGB on the UV texture map
 │   └── return
 ├── def _map_heatmap_mesh_to_rgb(input_path: Path, output_path: Path, scalar_rgb: torch.Tensor) -> None
@@ -1806,7 +1837,6 @@ apis.py
 │   │   └── impls assigns scalar_rgb as the per-texel RGB on the UV texture map
 │   └── return
 ├── def _write_sparse_heatmap_resource(input_path: Path, output_path: Path) -> None
-│   ├── # Writes the (indices, values) delta + geometry reference from input_path to output_path as the wire resource.
 │   ├── # Writes the (indices, values) delta + geometry_url from input_path to output_path as the wire resource.
 │   ├── impls assert isinstance(input_path, Path)
 │   ├── impls assert isinstance(output_path, Path)
@@ -1824,10 +1854,10 @@ apis.py
 │   ├── # Builds scalar-range metadata from the input scalars.
 │   ├── impls stores scalar min/max
 │   └── return
-└── def _build_sparse_heatmap_mesh_meta_info
-    ├── # Builds scalar-range + non-zero-count metadata from the input sparse arrays.
-    ├── impls stores values min/max and number of non-zero entries  # impls-node-one-step:skip
-    └── return
+├── def _build_sparse_heatmap_mesh_meta_info
+│   ├── # Builds scalar-range + non-zero-count metadata from the input sparse arrays.
+│   ├── impls stores values min/max and number of non-zero entries  # impls-node-one-step:skip
+│   └── return
 ├── def _read_sparse_heatmap_geometry_url(input_path: Path) -> str
 │   ├── # Reads the url of the mesh resource whose vertex domain the sparse delta indexes into.
 │   ├── impls assert isinstance(input_path, Path)
@@ -1897,8 +1927,6 @@ core_mesh_display.py
 │   │   └── raise unsupported mesh texture representation
 │   ├── impls writes the processed mesh resource bytes to output_path
 │   └── return MeshDisplayResponse with slot_id, title, url, meta_info from caller-provided args
-│   └── # Builds the mesh display response for a per-vertex-colored mesh.
-    └── # Builds the mesh display response for a UV-texture-mapped mesh.
 ├── def _create_vertex_color_mesh_display_response(mesh: Mesh, output_path: Path) -> None
 │   ├── # Writes the per-vertex-colored mesh resource to output_path.
 │   ├── impls assert isinstance(mesh, Mesh)
@@ -1998,11 +2026,15 @@ core_mesh_display.ts
 │   └── return group
 ├── async function loadMeshPayload({ displayResponse }: { displayResponse: MeshDisplayResponse }): Promise<MeshPayload>
 │   ├── # Async-loads the mesh payload from displayResponse.url; resolves a sparse-heatmap delta against its referenced geometry, otherwise reads the dense resource as-is.
-│   ├── if the url resource is a sparse heatmap resource
-│   │   └── impls resolves the (indices, values) delta into a MeshPayload whose texture is a MeshTextureVertexColor — `indices` vertices at alpha 1 with their scalar→rgb color, every other vertex at alpha 0 (a base-revealing overlay)
-│   ├── else
-│   │   └── impls reads the dense mesh resource from displayResponse.url into a MeshPayload — verts + faces, plus its parsed MeshTexture (a MeshTextureUVTextureMap when the OBJ carries a material/UVs, else a MeshTextureVertexColor, else null)
-│   └── return payload
+│   ├── if displayResponse.url is null
+│   │   └── impls throw new Error("mesh display response url is null")
+│   ├── if displayResponse.display_kind is "sparse_heatmap_mesh"
+│   │   ├── calls _fetchSparseHeatmapResource(displayResponse.url)  # sparse
+│   │   ├── calls _fetchObj(sparse.geometryUrl)                     # parsed
+│   │   └── return _resolveSparseHeatmapPayload({ parsed, sparse })
+│   ├── calls _fetchObj(displayResponse.url)                                    # parsed
+│   ├── calls _resolveMeshTexture({ parsed, primaryUrl: displayResponse.url })  # texture
+│   └── return  # { verts, faces, texture }
 ├── function createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide }: { payload: MeshPayload; displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Mesh
 │   ├── # Sync-builds THREE.BufferGeometry + THREE.MeshBasicMaterial + THREE.Mesh from a pre-loaded payload.
 │   ├── impls geometry = non-indexed THREE.BufferGeometry whose position attribute gathers payload.verts by payload.faces (each of the F faces contributes its 3 corner positions), so render corner c maps to logical vertex payload.faces[c]
@@ -2019,10 +2051,10 @@ core_mesh_display.ts
 │   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = DEFAULT_MESH_COLOR
 │   ├── impls material = MeshBasicMaterial { vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent when opacity<1 or RGBA vertex colors, map: payload.texture.uvTextureMap when useTexture, color: effectiveColor when set }  # RGBA alpha-0 corners render transparent
 │   └── return new THREE.Mesh(geometry, material)  # no post-construction mutation of mesh
-└── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
-    ├── # Drives the mesh render loop with the supplied trackball controls.
-    ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
-    └── return
+├── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
+│   ├── # Drives the mesh render loop with the supplied trackball controls.
+│   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
+│   └── return
 ├── async function _fetchSparseHeatmapResource(url: string): Promise<SparseHeatmapResource>
 │   ├── # Fetches and validates a sparse-heatmap JSON resource into typed arrays.
 │   ├── impls response = await fetch(url)
@@ -2433,19 +2465,12 @@ camera_display.ts
 ├── import type { CameraDisplayResponse } from "./types/display_response";
 ├── import { applyCameraStateToThreeCamera, createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── const DEFAULT_FRUSTUM_OPACITY = 0.5  # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
-├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number }): LeafVNode
+├── function renderCameraDisplay({ displayResponse, initialCameraState = null, frustumOpacity, onFrameOpacityControl }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number; onFrameOpacityControl?: (control: CameraFrameOpacityControl) => void }): LeafVNode
 │   ├── # Builds a non-interactive transparent layer from the camera-vis JSON payload (glyph sizes + colors baked by camera_vis), initialized at initialCameraState.
 │   ├── throw if CameraDisplayResponse.meta_info is not an empty object
-│   ├── calls createSpatialDisplayScene({ initialCameraState, pointerEventsSuppressed: true })
-│   ├── calls createCameraObject({ displayResponse, frustumOpacity })   → object
-│   ├── impls scene.add(object)
+│   ├── calls createCamerasScene({ displayResponse, initialCameraState, frustumOpacity, onFrameOpacityControl })  # container, scene, camera, renderer
 │   ├── calls renderCamerasScene({ scene, camera, renderer })
 │   └── return LeafVNode keyed by displayResponse.url
-├── function createCameraObject({ displayResponse, frustumOpacity }: { displayResponse: CameraDisplayResponse; frustumOpacity?: number }): THREE.Object3D
-│   ├── # Part-B: returns a THREE.Group for the camera frustums, populated once the async camera-vis payload load resolves.
-│   ├── impls group = new THREE.Group()
-│   ├── impls loadCamerasPayload({ displayResponse }).then(payload => group.add(createThreeCameras({ payload, frustumOpacity })))
-│   └── return group
 ├── function createCamerasScene({ displayResponse, initialCameraState, frustumOpacity, onFrameOpacityControl }: { displayResponse: CameraDisplayResponse; initialCameraState: CameraState | null; frustumOpacity?: number; onFrameOpacityControl?: (control: CameraFrameOpacityControl) => void }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Builds the cameras overlay scene, following the synced pose and exposing a frame-opacity control.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: true })
@@ -2464,7 +2489,6 @@ camera_display.ts
 │   ├── impls that promise's .catch(error => container.replaceChildren(_renderCamerasStatus(`Failed to load camera visualization: ${message}`)))
 │   └── return  # { container, scene, camera, renderer }
 ├── async function loadCamerasPayload({ displayResponse }: { displayResponse: CameraDisplayResponse }): Promise<CamerasPayload>
-│   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / center_size / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
 │   ├── # Async-fetches the camera-vis JSON payload from displayResponse.url and hands the decoded body to the payload validator.
 │   ├── if displayResponse.url === null
 │   │   └── throw new Error("camera display response url is null")
@@ -2475,15 +2499,24 @@ camera_display.ts
 ├── function createThreeCameras({ payload, frustumOpacity }: { payload: CamerasPayload; frustumOpacity?: number }): THREE.Object3D
 │   ├── # Sync-builds the transparent Three.js centers + line segments from a pre-validated camera-vis payload, reading every baked glyph size + color from the payload.
 │   ├── impls effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY
-│   ├── for each entry in payload
-│   │   ├── impls renders the center point at entry.center_size colored by entry.center_color
-│   │   └── impls renders the axes + frustum lines each at its baked per-line color
+│   ├── impls overlay = a THREE.Group carrying cameraCount, lineCount and renderOrder 999
+│   ├── for each cameraVisualization in payload
+│   │   ├── impls cameraGroup = a THREE.Group tagged with its cameraIndex
+│   │   ├── calls createThreeCameraCenter({ cameraVisualization })
+│   │   ├── for each line of cameraVisualization.axes
+│   │   │   └── calls createThreeCameraOverlayLine({ line, frustumOpacity: effectiveFrustumOpacity })
+│   │   ├── for each line of cameraVisualization.frustum_lines
+│   │   │   └── calls createThreeCameraOverlayLine({ line, frustumOpacity: effectiveFrustumOpacity })
+│   │   └── impls overlay.add(cameraGroup), lineCount rising with each added line
+│   ├── if payload is non-empty
+│   │   ├── calls cameraVisualizationLineLength({ line: payload[0].axes[0] })           # firstAxisLength
+│   │   └── calls cameraVisualizationLineLength({ line: payload[0].frustum_lines[0] })  # firstFrustumLength
+│   └── return overlay
+├── function renderCamerasScene({ scene, camera, renderer }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }): void
+│   ├── # Drives the render loop; the cameras-overlay has no trackball controls — its camera is externally synced through the camera-sync registry observing the display element's data-camera-state attribute.
+│   ├── impls exposes the display element under displayResponse.slot_id so the caller can register it as a camera-sync target
+│   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls: null })
 │   └── return
-└── function renderCamerasScene({ scene, camera, renderer }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }): void
-    ├── # Drives the render loop; the cameras-overlay has no trackball controls — its camera is externally synced through the camera-sync registry observing the display element's data-camera-state attribute.
-    ├── impls exposes the display element under displayResponse.slot_id so the caller can register it as a camera-sync target
-    ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls: null })
-    └── return
 ├── function validateCameraVisualizationPayloads({ value }: { value: unknown }): CamerasPayload
 │   ├── # Validates the decoded camera-vis JSON body into the typed per-camera payload array.
 │   ├── if !Array.isArray(value)
@@ -2683,16 +2716,46 @@ trackball_camera_controls.ts
 │   └── subscribeCameraStateChange
 ├── function createTrackballCameraControls
 │   ├── # Builds, validates, and returns the trackball controls, seeding them from initialCameraState and observing the container's data-camera-state attribute for external sync.
-│   ├── calls createRendererTrackballCameraControls
-│   ├── calls assertTrackballCameraControls
-│   ├── if initialCameraState is not null
-│   │   └── calls controls.applyCameraState(initialCameraState)
-│   ├── impls MutationObserver on container's `data-camera-state` attribute → controls.applyCameraState(parsed state)
-│   └── return
+│   ├── if "camera" in args
+│   │   └── return createThreeTrackballCameraControls(args)
+│   ├── calls createRendererTrackballCameraControls({ targetElement, initialCameraState })
+│   ├── calls assertTrackballCameraControls(controls)
+│   └── return controls
 ├── function createRendererTrackballCameraControls
 │   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
-│   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
-│   └── return
+│   ├── impls the control latches currentCameraState, internallyWrittenCameraStateToken, a listeners array
+│   ├── function setInternallyWrittenCameraStateToken(token) [local]
+│   │   └── impls internallyWrittenCameraStateToken = token
+│   ├── function applyCameraState(cameraState) [local]
+│   │   ├── impls currentCameraState = cameraState
+│   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken })
+│   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState })
+│   ├── function emitCameraStateChange(cameraState) [local]
+│   │   ├── impls currentCameraState = cameraState
+│   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken })
+│   │   ├── impls every registered listener receives that state
+│   │   └── impls targetElement dispatches a bubbling "camera-pose-change" CustomEvent carrying it
+│   ├── impls the mutationObserver callback = () => applyExternalCameraState(readCameraStateFromTargetElement(targetElement)), returning early when readCameraStateTokenFromTargetElement(targetElement) echoes this control's own write, with internallyWrittenCameraStateToken cleared either way
+│   ├── impls mutationObserver observes targetElement for `data-camera-state` attribute changes
+│   ├── impls window.addEventListener("message", event => emitCameraStateChange(message.cameraState)) — skipped unless isEmbeddedRendererMessageSource({ targetElement, source: event.source }), event.origin is this window's, isTrackballCameraStateChangeMessage(event.data)
+│   ├── if targetElement is an HTMLIFrameElement
+│   │   └── impls its "load" event re-posts currentCameraState to the embedded renderer
+│   ├── impls targetElement.dataset takes cameraControlMode "trackball", trackballMouseMapping, contextMenuBehavior "suppressed-for-trackball-pan"
+│   ├── if currentCameraState is not null
+│   │   └── calls applyCameraState(currentCameraState)
+│   ├── function applyExternalCameraState(cameraState) [local]
+│   │   ├── impls currentCameraState = cameraState
+│   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState })
+│   ├── function getCameraState() [local]
+│   │   ├── # The returned object's getCameraState: the last state this control saw.
+│   │   └── return currentCameraState
+│   ├── function subscribeCameraStateChange(listener) [local]
+│   │   ├── # The returned object's subscribeCameraStateChange: registers a listener, handing back its unsubscribe.
+│   │   ├── if listener is not a function
+│   │   │   └── throw new Error("camera state listener must be a function")
+│   │   ├── impls listeners.push(listener)
+│   │   └── return  # an unsubscribe splicing it out of listeners
+│   └── return  # { targetElement, getCameraState, applyCameraState, subscribeCameraStateChange }
 ├── function assertTrackballCameraControls
 │   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
 │   ├── calls assertTrackballMouseMapping
@@ -2711,11 +2774,11 @@ trackball_camera_controls.ts
 │   ├── if controls use orbit-style target-locked camera semantics
 │   │   └── throw orbit-style camera controls are forbidden
 │   └── return
-└── function assertNoCameraPoseClamps
-    ├── # Asserts the controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
-    ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
-    │   └── throw restricted camera pose controls
-    └── return
+├── function assertNoCameraPoseClamps
+│   ├── # Asserts the controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
+│   ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
+│   │   └── throw restricted camera pose controls
+│   └── return
 ├── function createThreeTrackballCameraControls(args: { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; container: HTMLElement; initialCameraState?: CameraState | null }): ThreeTrackballCameraControls
 │   ├── # Wraps THREE's trackball controls, publishing a CameraState to its listeners on every change.
 │   ├── impls threeControls = a ThreeTrackballControlsImpl over the renderer's canvas
@@ -3103,11 +3166,15 @@ apis.ts
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createAabb3dObject({ displayResponse }: { displayResponse: Aabb3dDisplayResponse }): THREE.Object3D
 │   ├── # Part-B: builds the inline 3D axis-aligned boxes and optional per-box score labels into a THREE.Group and returns it for the layered container to add.
+│   ├── calls _boxesBoundingRadius({ boxes })  # boundingRadius
 │   ├── impls group = new THREE.Group()
-│   ├── impls build the box-edges meshes from displayResponse.aabbs
-│   ├── impls build the score labels from displayResponse.scores
-│   ├── impls add the box-edges meshes to group
-│   ├── impls add the score labels to group
+│   ├── for each box in displayResponse.aabbs
+│   │   ├── impls boxGroup = new THREE.Group()
+│   │   ├── calls _createBoxLines({ box })
+│   │   ├── if displayResponse.scores is not null
+│   │   │   ├── calls _createScoreLabelSprite({ score: scores[boxIndex] })
+│   │   │   └── impls the sprite sits at the box's top-face center, scaled by boundingRadius * AABB_3D_LABEL_HEIGHT_RATIO, renderOrder 1001
+│   │   └── impls group.add(boxGroup)
 │   └── return group
 ├── function renderAabb3dScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Drives the 3D-box display render loop with the supplied trackball controls.
@@ -3186,9 +3253,8 @@ apis.ts
 ├── import { registerRasterLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
 ├── function renderAabb2dDisplay({ displayResponse }: { displayResponse: Aabb2dDisplayResponse }): LeafVNode
 │   ├── # Renders the inline 2D axis-aligned boxes and their optional per-box score labels as a full-bleed raster SVG overlay; the layered container sets its viewBox to the shared frustum on the base image's load.
-│   ├── impls build the full-bleed SVG box overlay (preserveAspectRatio="none") from displayResponse.aabbs
-│   ├── impls build the score labels from displayResponse.scores
-│   └── return
+│   ├── calls _buildBoxesOverlay({ displayResponse })  # the leaf's render()
+│   └── return LeafVNode keyed by displayResponse.url
 ├── function _buildBoxesOverlay({ displayResponse }: { displayResponse: Aabb2dDisplayResponse }): HTMLElement
 │   ├── # Builds the full-bleed SVG box overlay and its optional per-box score labels.
 │   ├── impls overlay = an absolutely-positioned, inset-0, pointer-events-none div

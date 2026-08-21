@@ -39,13 +39,31 @@ glb.py
 │   └── return gltf, binary_blob
 ├── def read_accessor(gltf: Dict[str, Any], binary_blob: bytes, accessor_index: int) -> np.ndarray
 │   ├── # Decodes one glTF accessor (dense values plus any sparse overlay) into a numpy array.
-│   ├── calls _read_buffer_view_bytes
+│   ├── impls accessor = gltf's accessors at accessor_index
 │   ├── calls _component_dtype
 │   ├── calls _component_count
-│   └── calls _apply_sparse_overlay
+│   ├── impls count = accessor's count
+│   ├── if accessor declares a bufferView
+│   │   ├── calls _read_buffer_view_bytes
+│   │   ├── impls byte_offset = accessor's byteOffset, defaulting to zero
+│   │   ├── impls element_byte_size = component_dtype's itemsize times component_count
+│   │   ├── impls needed_bytes = byte_offset plus element_byte_size times count
+│   │   ├── assert needed_bytes <= len(buffer_view_bytes)
+│   │   └── impls array = buffer_view_bytes from byte_offset read as component_dtype, reshaped to count by component_count  # impls-node-one-step:skip
+│   ├── else
+│   │   └── impls array = zeros of count by component_count in component_dtype
+│   ├── impls sparse = accessor's sparse block
+│   ├── if sparse is a dict whose count is positive
+│   │   └── calls _apply_sparse_overlay
+│   ├── if component_count == 1
+│   │   └── return array reshaped to count  # a SCALAR accessor is one-dimensional
+│   └── return array
 ├── def read_image_bytes(gltf: Dict[str, Any], binary_blob: bytes, image_index: int) -> bytes
 │   ├── # Extracts the raw encoded bytes of one glTF image from its buffer view.
-│   └── calls _read_buffer_view_bytes
+│   ├── impls image_def = gltf's images at image_index
+│   ├── assert image_def declares a bufferView  # only buffer-view embedded images are supported
+│   ├── calls _read_buffer_view_bytes
+│   └── return that buffer view's bytes
 ├── def write_glb(gltf: Dict[str, Any], binary_blob: bytes, path: Union[str, Path]) -> None
 │   ├── # Serializes a glTF JSON document + binary buffer into the GLB chunked container (12-byte header + JSON chunk + BIN chunk) on disk.
 │   ├── impls bin_payload = binary_blob as bytes
@@ -64,8 +82,20 @@ glb.py
 │       └── impls write bin_chunk
 ├── def append_accessor(gltf: Dict[str, Any], binary_blob: bytearray, array: np.ndarray, target: Optional[int]) -> int
 │   ├── # Appends an array to the buffer as a new bufferView + accessor (componentType/type inferred from the array dtype/shape), returning the new accessor index.
+│   ├── assert array.ndim in (1, 2)
+│   ├── impls contiguous = array made C-contiguous
+│   ├── impls count = contiguous's first dimension
+│   ├── impls component_count = one for a 1-D array, else contiguous's second dimension
 │   ├── calls _numpy_component_type
-│   └── calls _accessor_type
+│   ├── calls _accessor_type
+│   ├── impls byte_offset = binary_blob's length once zero-padded to a four-byte boundary
+│   ├── impls extend binary_blob with contiguous's bytes
+│   ├── impls buffer_view = a bufferView over byte_offset for those bytes' length
+│   ├── if target is not None
+│   │   └── impls buffer_view["target"] = target
+│   ├── impls append buffer_view to gltf's bufferViews
+│   ├── impls append an accessor naming that bufferView, the componentType, count, the accessor type, and the per-component min and max  # impls-node-one-step:skip
+│   └── return the new accessor's index into gltf's accessors
 ├── def append_image(gltf: Dict[str, Any], binary_blob: bytearray, image_bytes: bytes, mime_type: str) -> int
 │   ├── # Appends encoded image bytes to the buffer as a new bufferView + image, returning the new image index.
 │   ├── impls binary_blob is padded to a four-byte boundary
@@ -108,7 +138,6 @@ glb.py
     ├── assert num_components in _ACCESSOR_TYPES
     └── return the accessor type string _ACCESSOR_TYPES pairs with num_components  # _ACCESSOR_TYPES inverts the SCALAR..VEC4 half of _COMPONENT_COUNTS
 ```
-## Image: in-memory bytes codec
 
 ## Image: file I/O and in-memory bytes codec
 

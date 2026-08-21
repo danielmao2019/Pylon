@@ -50,7 +50,6 @@ apply_transform.py
 │   └── return  # the squeezed [4, 4] transform
 ├── def _normalize_transform_numpy(transform: Union[list, np.ndarray, torch.Tensor], target_dtype: np.dtype) -> np.ndarray
 │   ├── # Converts a list or tensor transform into a numpy array of the target dtype.
-│   └── return  # the numpy transform
 │   ├── if transform is a list
 │   │   └── impls transform = an array of transform, of target_dtype
 │   ├── if transform is a torch.Tensor
@@ -58,7 +57,6 @@ apply_transform.py
 │   └── return transform cast to target_dtype  # the numpy transform
 └── def _normalize_transform_torch(transform: Union[list, np.ndarray, torch.Tensor], target_dtype: torch.dtype, target_device: torch.device) -> torch.Tensor
     ├── # Converts a list or ndarray transform into a torch tensor on the target dtype and device.
-    └── return  # the torch transform
     ├── if transform is a list
     │   └── impls transform = a tensor of transform, of target_dtype on target_device
     ├── if transform is an np.ndarray

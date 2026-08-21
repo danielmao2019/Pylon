@@ -52,7 +52,17 @@ validate.py
 │   ├── calls validate_verts
 │   ├── calls validate_faces
 │   ├── calls _validate_device_compatible
-│   └── # linkage: faces index verts; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.faces_uvs rows == F
+│   ├── impls assert the largest faces index is below verts.shape[0]
+│   ├── if texture is None
+│   │   └── return
+│   ├── impls assert texture is a MeshTexture
+│   ├── if isinstance(texture, MeshTextureVertexColor)
+│   │   ├── impls assert texture.vertex_color.shape[0] equals verts.shape[0]
+│   │   └── return
+│   ├── if isinstance(texture, MeshTextureUVTextureMap)
+│   │   ├── impls assert texture.faces_uvs.shape equals faces.shape
+│   │   └── return
+│   └── raise AssertionError  # texture is neither a MeshTextureVertexColor nor a MeshTextureUVTextureMap
 ├── def validate_verts(obj: Any) -> None
 │   ├── # Validates a mesh vertex tensor (float [V,3], finite, non-empty).
 │   ├── impls assert obj is a torch.Tensor

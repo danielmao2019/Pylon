@@ -191,7 +191,6 @@ camera_intrinsics.py
 │   │   └── return  # type(self)(scaled_params, self._device)
 │   └── def to(self, device: Optional[Union[str, torch.device]] = None) -> "CameraIntrinsics"
 │       ├── # Return this CameraIntrinsics on a target device (self when the device is unchanged).
-│       └── return  # self when unchanged, else type(self)(self._params, device)
 │       ├── impls asserts device is None or a valid torch device spec (str or torch.device)
 │       ├── if device is None
 │       │   └── return self
