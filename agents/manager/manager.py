@@ -13,8 +13,6 @@ from agents.monitor.cpu_status import CPUStatus
 from agents.monitor.gpu_status import GPUStatus
 from agents.monitor.process_info import ProcessInfo
 from agents.monitor.system_monitor import SystemMonitor
-from runners.evaluators.base_evaluator import BaseEvaluator
-from runners.trainers.base_trainer import BaseTrainer
 from utils.io.config import load_config
 
 _JOB_CLASS_REGISTRY: Dict[RunnerKind, Type[BaseJob]] = {
@@ -227,6 +225,13 @@ class Manager:
             config = load_config(config_filepath)
         except Exception:
             return None
+
+        # Lazy import to break the agents<->runners circular import: `runners/__init__`
+        # imports `base_evaluator`, which imports `agents.monitor.system_monitor`, which
+        # triggers `agents/__init__` -> `manager`; importing these runner bases at call
+        # time instead of at module load keeps that cycle from deadlocking.
+        from runners.evaluators.base_evaluator import BaseEvaluator
+        from runners.trainers.base_trainer import BaseTrainer
 
         runner = config.get('runner')
         assert isinstance(runner, type)
