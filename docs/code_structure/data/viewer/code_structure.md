@@ -1885,8 +1885,9 @@ camera_state.py
 ├── from data.structures.three_d.camera import Camera
 ├── from data.viewer.utils.controls.camera.camera_state.ts.backend.schemas.camera_state import CameraState
 └── def create_camera_state_from_camera
-    ├── # preserves Camera intrinsics, extrinsics, convention, name, and id
-    ├── impls converts Camera to TS backend CameraState schema
+    ├── # converts a pinhole Camera to the three.js-native CameraState its spatial-display appliers consume: position/quaternion/up + vertical fov in the three convention
+    ├── impls reads the camera's world center, physical right/up/forward axes, and vertical fov   # impls-node-one-step:skip
+    ├── impls builds the three.js camera-to-world quaternion from the right/up/-forward basis
     └── return
 ```
 
