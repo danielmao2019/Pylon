@@ -2483,6 +2483,7 @@ camera_display.ts
 │   ├── calls followSyncedCameraPose({ container, camera })
 │   ├── impls overlay, latestPredicate start null  # the payload loads async, so the predicate is latched
 │   ├── function setContributingFrames(isContributing) [local]
+│   │   ├── # Latches the contributing-frame predicate and applies it as soon as the overlay exists.
 │   │   ├── impls latestPredicate = isContributing
 │   │   └── if overlay is not null
 │   │       └── calls _applyFrameOpacity({ overlay, isContributing })
@@ -2728,12 +2729,15 @@ trackball_camera_controls.ts
 │   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 │   ├── impls the control latches currentCameraState, internallyWrittenCameraStateToken, a listeners array
 │   ├── function setInternallyWrittenCameraStateToken(token) [local]
+│   │   ├── # Latches the token of the camera state this control itself wrote, so the observer can tell that write from an external one.
 │   │   └── impls internallyWrittenCameraStateToken = token
 │   ├── function applyCameraState(cameraState) [local]
+│   │   ├── # Adopts a camera state as current, writing it to the target element and posting it to the embedded renderer.
 │   │   ├── impls currentCameraState = cameraState
 │   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken })
 │   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState })
 │   ├── function emitCameraStateChange(cameraState) [local]
+│   │   ├── # Adopts a camera state as current, writes it to the target element, and announces it to the listeners and the DOM.
 │   │   ├── impls currentCameraState = cameraState
 │   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken })
 │   │   ├── impls every registered listener receives that state
@@ -2747,6 +2751,7 @@ trackball_camera_controls.ts
 │   ├── if currentCameraState is not null
 │   │   └── calls applyCameraState(currentCameraState)
 │   ├── function applyExternalCameraState(cameraState) [local]
+│   │   ├── # Adopts a camera state authored outside this control as current and posts it to the embedded renderer.
 │   │   ├── impls currentCameraState = cameraState
 │   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState })
 │   ├── function getCameraState() [local]
