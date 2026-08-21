@@ -52,3 +52,15 @@ chunked_matmul.py
     └── else
         └── impls out[:] = large @ small
 ```
+
+`utils/ops/dict_ops.py`
+
+```text
+dict_ops.py
+├── from copy import deepcopy
+├── from typing import Any, Dict
+└── def merge_missing_dict_values(input_dict: Dict[str, Any], default_dict: Dict[str, Any]) -> Dict[str, Any]
+    ├── # Fills missing nested dictionary values from the defaults without overwriting provided values.
+    ├── impls recursively merge each default entry absent from input_dict, copying it in via deepcopy
+    └── return  # the merged dict
+```
