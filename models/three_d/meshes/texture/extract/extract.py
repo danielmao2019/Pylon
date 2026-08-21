@@ -1370,7 +1370,10 @@ def _project_f_colors(
             padding_mode="zeros",
             align_corners=True,
         )
-        return sampled_image.permute(0, 2, 3, 1).contiguous()
+        # Clamp to the `[0, 1]` gamut: bilinear `grid_sample`'s weighted sum has
+        # float32 rounding error that can push an in-`[0, 1]` input a sub-ULP past
+        # either bound (e.g. 1.0 -> 1.0000001), which is a pure rounding artifact.
+        return sampled_image.permute(0, 2, 3, 1).clamp(0.0, 1.0).contiguous()
 
     xy, _depth, _verts_camera, _valid = project_verts_to_image(
         verts=mesh.verts,
