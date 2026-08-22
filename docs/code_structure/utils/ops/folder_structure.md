@@ -16,5 +16,6 @@ utils/ops/
 
 ```text
 tests/utils/ops/
-└── test_chunked_matmul.py  # chunked-matmul equality vs a plain matmul, the in-place + grad paths, and the OOM shrink-retry behavior
+├── test_chunked_matmul.py  # chunked-matmul equality vs a plain matmul, the in-place + grad paths, and the OOM shrink-retry behavior
+└── test_dict_as_tensor.py  # buffer ops over a list of dicts: allclose, transpose, permute, and the elementwise add / sub / mul / div / mean
 ```

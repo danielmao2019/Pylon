@@ -76,8 +76,19 @@ interface DisplayResponse
 class_colors.py
 ├── from typing import Dict, Tuple
 ├── import torch
+├── def get_class_color(class_id: int) -> Tuple[int, int, int]
+│   ├── # Maps one class identifier onto a stable palette color, wrapping the palette for ids past its end.
+│   ├── impls assert isinstance(class_id, int)
+│   ├── impls assert class_id >= 0
+│   ├── impls palette = [(37, 99, 235), (220, 38, 38), (22, 163, 74), (202, 138, 4), (147, 51, 234), (8, 145, 178), (234, 88, 12), (79, 70, 229)]
+│   └── return palette[class_id % len(palette)]
 └── def map_class_ids_to_rgb(class_ids: torch.Tensor) -> Dict[int, Tuple[int, int, int]]
-    └── # Maps each distinct class id to a deterministic RGB color from a fixed class-color palette.
+    ├── # Maps each distinct class id to a deterministic RGB color from a fixed class-color palette.
+    ├── impls assert isinstance(class_ids, torch.Tensor)
+    ├── impls assert class_ids.numel() > 0
+    ├── impls flattened_class_ids = class_ids.detach().cpu().reshape(-1).to(torch.int64)
+    ├── impls unique_class_ids = torch.unique(flattened_class_ids, sorted=True)
+    └── return each unique class id cast to int, paired with get_class_color(class_id=that int)
 ```
 
 `./data/viewer/utils/displays/utils/heatmap_colors.py`
@@ -97,6 +108,7 @@ heatmap_colors.py
 display_response.py
 ├── from pydantic import BaseModel
 └── class DisplayResponse(BaseModel)
+    ├── # Base of the display wire contract: the slot, title, kind, resource url and meta_info every display response carries.
     ├── slot_id       # common field
     ├── title         # common field
     ├── display_kind  # common field
@@ -109,6 +121,7 @@ display_response.py
 ```text
 display_response.ts
 └── interface DisplayResponse
+    ├── # Base of the display wire contract: the slot, title, kind, resource url and meta_info every display response carries.
     ├── slot_id       # common field
     ├── title         # common field
     ├── display_kind  # common field
@@ -125,6 +138,7 @@ layered_display_response.py
 ├── RASTER_DISPLAY_KINDS   # frozenset[str]: color_image, depth_image, edge_image, normal_image, segmentation_image, instance_surrogate_image, video, aabb_2d — the single source of the raster/spatial taxonomy
 ├── SPATIAL_DISPLAY_KINDS  # frozenset[str]: color_pc, segmentation_pc, color_gs, segmentation_gs, scene_graph, camera, aabb_3d
 └── class LayeredDisplayResponse(DisplayResponse)
+    ├── # Composite response stacking ordered auxiliary layers over one base layer, all resolving to a single composable class.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "layered"  # common field
@@ -159,6 +173,7 @@ layered_display_response.py
 layered_display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface LayeredDisplayResponse extends DisplayResponse
+    ├── # Composite response stacking ordered auxiliary layers over one base layer, all resolving to a single composable class.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind: "layered"  # common field
@@ -235,7 +250,7 @@ layered_display_container.ts
 │   └── impls container.dispatchEvent(new CustomEvent("camera-pose-change", { bubbles: true, detail: cameraState }))
 └── function _alignRasterFrustum({ baseImage }: { baseImage: HTMLImageElement }): { width: number; height: number }
     ├── # Resolves the raster cell's shared frustum from the base image's intrinsic natural pixel extent { width: baseImage.naturalWidth, height: baseImage.naturalHeight } — the one coordinate grid every aux overlay maps onto.
-    └── return
+    └── return { width: baseImage.naturalWidth, height: baseImage.naturalHeight }  # the cell's shared frustum
 ```
 
 `./data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry.ts`
@@ -306,6 +321,26 @@ three_scene_helpers.ts
 │   ├── if initialCameraState is not null
 │   │   └── impls overlays initialCameraState (every field — both intrinsics and extrinsics) onto the camera so first paint matches the source display  # impls-node-one-step:skip
 │   └── return
+├── function applyCameraStateToThreeCamera({ camera, cameraState }: { camera: THREE.PerspectiveCamera; cameraState: CameraState }): void
+│   ├── # Overlays a CameraState's intrinsics and extrinsics onto a PerspectiveCamera, ignoring a malformed state.
+│   ├── calls _isVectorRecord(position)
+│   ├── calls _isVectorRecord(up)
+│   ├── if either is not a vector record, or fov, aspect, near or far is not a number
+│   │   └── return
+│   ├── impls camera.position.set(position.x, position.y, position.z)
+│   ├── impls camera.up.set(up.x, up.y, up.z)
+│   ├── calls _isQuaternionRecord(quaternion)
+│   ├── if it is a quaternion record
+│   │   └── impls camera.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w)
+│   ├── impls camera.fov, camera.aspect, camera.near and camera.far take the intrinsics
+│   └── impls camera.updateProjectionMatrix()
+├── function _isQuaternionRecord(value: unknown): value is { x: number; y: number; z: number; w: number }
+│   ├── # A quaternion record is a vector record that also carries a numeric w.
+│   ├── calls _isVectorRecord(value)
+│   └── return that, and whether w is a number
+├── function _isVectorRecord(value: unknown): value is { x: number; y: number; z: number }
+│   ├── # A vector record is a non-null object whose x, y and z are all numbers.
+│   └── return that predicate
 ├── function createThreeWebGLRenderer({ container }: { container: HTMLDivElement }): THREE.WebGLRenderer
 │   ├── # Shared WebGL renderer factory for every TS atomic spatial display.
 │   ├── impls renderer = new THREE.WebGLRenderer({ alpha: true })
@@ -397,7 +432,8 @@ core_points_display.py
 │   └── return trace
 └── def create_dash_points_component
     ├── # Assembles the Dash component that hosts the point-cloud scene and its trackball camera controls.
-    └── return
+    ├── impls assert isinstance(scene, go.Scatter3d)
+    └── return dcc.Graph(figure=go.Figure(data=[scene]))  # the point-cloud display element
 ```
 
 `./data/viewer/utils/displays/points/ts/backend/schemas/display_response.py`
@@ -406,18 +442,21 @@ core_points_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class PointDisplayResponse(DisplayResponse)
+│   ├── # Base of the point-cloud display family: a response whose served resource is a point cloud.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── class ColorPCDisplayResponse(PointDisplayResponse)
+│   ├── # Point-cloud display carrying per-point RGB color.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_pc"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 └── class SegmentationPCDisplayResponse(PointDisplayResponse)
+    ├── # Point-cloud display carrying per-point class ids the backend colorizes before serving.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "segmentation_pc"  # common field
@@ -429,9 +468,12 @@ display_response.py
 
 ```text
 apis.py
+├── from pathlib import Path
 ├── from typing import Any, Dict, Optional, Tuple
 ├── import torch
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
+├── from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from data.viewer.utils.displays.points.ts.backend.core_points_display import create_points_display_response_core
 ├── from data.viewer.utils.displays.points.ts.backend.schemas.display_response import SegmentationPCDisplayResponse
 ├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
@@ -450,11 +492,35 @@ apis.py
 │   └── return
 ├── def _map_segmentation_pc_to_rgb(segmentation_pc_path: str, class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> str
 │   ├── # Writes a backend-colorized point-cloud resource using the class-to-RGB mapping.
-│   └── return
+│   ├── impls assert isinstance(segmentation_pc_path, str)
+│   ├── impls assert isinstance(class_id_to_rgb, dict)
+│   ├── calls load_point_cloud(filepath=segmentation_pc_path, device="cpu")
+│   ├── calls _segmentation_pc_class_ids(segmentation_pc)  # label = the returned class ids, cast to torch.int64
+│   ├── impls rgb = a float32 zeros tensor of shape (segmentation_pc.num_points, 3) on the cloud's device
+│   ├── for each class_id, color in class_id_to_rgb.items()
+│   │   └── impls rgb[label == int(class_id)] = color  # a label with no mapping entry keeps rgb 0
+│   ├── impls colorized_pc = PointCloud(xyz=segmentation_pc.xyz, data=the cloud's fields other than xyz / rgb / colors, plus rgb under the "rgb" key)
+│   ├── calls _colorized_segmentation_pc_path(segmentation_pc_path=segmentation_pc_path)  # output_path
+│   ├── calls save_point_cloud(pc=colorized_pc, output_filepath=str(output_path))
+│   └── return str(output_path)  # the colorized point-cloud path the response serves
 └── def _build_segmentation_pc_meta_info(class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> Dict[str, Any]
     ├── # Builds factual class/color metadata from the class-to-RGB mapping.
     ├── impls stores `class_id_to_rgb`
     └── return
+├── def _colorized_segmentation_pc_path(segmentation_pc_path: str) -> Path
+│   ├── # Builds the deterministic colorized display path beside the class-labeled input resource.
+│   ├── impls assert isinstance(segmentation_pc_path, str)
+│   ├── impls path = Path(segmentation_pc_path)
+│   └── return path.with_name("%s.viewer_colorized%s" % (path.stem, path.suffix))  # the colorized output path
+└── def _segmentation_pc_class_ids(segmentation_pc: PointCloud) -> Optional[torch.Tensor]
+    ├── # Returns a loaded segmentation cloud's per-point class ids from whichever field carries them.
+    ├── impls assert isinstance(segmentation_pc, PointCloud)
+    ├── impls field_names = segmentation_pc.field_names()
+    ├── if "label" in field_names
+    │   └── return segmentation_pc.label
+    ├── if "feat" in field_names
+    │   └── return segmentation_pc.feat
+    └── return None  # the point cloud is already colorized
 ```
 
 `./data/viewer/utils/displays/points/ts/backend/core_points_display.py`
@@ -474,18 +540,21 @@ core_points_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface PointDisplayResponse extends DisplayResponse
+│   ├── # Base of the point-cloud display family: a response whose served resource is a point cloud.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── interface ColorPCDisplayResponse extends PointDisplayResponse
+│   ├── # Point-cloud display carrying per-point RGB color.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_pc"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 └── interface SegmentationPCDisplayResponse extends PointDisplayResponse
+    ├── # Point-cloud display carrying per-point class ids the backend colorizes before serving.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "segmentation_pc"  # common field
@@ -547,6 +616,21 @@ core_points_display.ts
 │   └── return geometry
 ├── function parsePlyBuffer({ buffer }: { buffer: ArrayBuffer }): THREE.BufferGeometry
 │   └── # Parses a PLY buffer (ASCII or binary little-endian) into a BufferGeometry with `position` and optional `color` attributes; internal PLY scalar/property parsing is private to this function.
+│   ├── # Parses a PLY buffer into a BufferGeometry, dispatching on the header's declared ASCII or binary-little-endian format.
+│   ├── impls headerText = the buffer's leading 1048576 bytes decoded as utf-8
+│   ├── impls endIndex = headerText.indexOf("end_header")
+│   ├── if endIndex < 0
+│   │   └── throw new Error("PLY header is missing end_header")
+│   ├── impls headerPrefix = headerText.slice(0, endIndex)
+│   ├── impls dataOffset = the encoded byte length of headerText through the end of "end_header"
+│   ├── while dataOffset is in range on a newline byte, 10 or 13
+│   │   └── impls dataOffset += 1
+│   ├── calls readPlyHeader({ headerText: headerPrefix })  → header
+│   ├── if header.format === "ascii"
+│   │   └── return parseAsciiPlyGeometry({ buffer, dataOffset, header })
+│   ├── if header.format === "binary_little_endian"
+│   │   └── return parseBinaryLittleEndianPlyGeometry({ buffer, dataOffset, header })
+│   └── throw new Error(`unsupported PLY format ${header.format}`)
 ├── function createThreePoints({ geometry, pointSize, pointColor }: { geometry: THREE.BufferGeometry; pointSize?: number; pointColor?: string }): THREE.Points
 │   ├── # Sync-builds THREE.PointsMaterial + THREE.Points from the loaded geometry.
 │   ├── impls geometry.computeBoundingSphere(); boundingRadius = geometry.boundingSphere.radius
@@ -563,6 +647,133 @@ core_points_display.ts
     ├── # Drives the point-cloud render loop with the supplied trackball controls.
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
     └── return
+├── function readPlyHeader({ headerText }: { headerText: string }): PlyHeader
+│   ├── # Reads the vertex element's declared format, count, and scalar properties from the pre-`end_header` text.
+│   ├── impls initialize the format / vertexCount / inVertex / properties accumulators the loop fills
+│   ├── for each line of headerText.split(/\r?\n/)
+│   │   ├── impls parts = line.trim().split(/\s+/)
+│   │   ├── if parts.length === 0 || parts[0] === ""
+│   │   │   └── continue
+│   │   ├── if parts[0] === "format"
+│   │   │   ├── impls format = parts[1]
+│   │   │   └── continue
+│   │   ├── if parts[0] === "element"
+│   │   │   ├── impls inVertex = parts[1] === "vertex"
+│   │   │   ├── if inVertex
+│   │   │   │   └── impls vertexCount = Number(parts[2])
+│   │   │   └── continue
+│   │   └── if parts[0] === "property" && inVertex
+│   │       ├── if parts[1] === "list"
+│   │       │   └── throw new Error("vertex list properties are not supported")
+│   │       └── impls properties.push({ type: parts[1], name: parts[2] })
+│   ├── if !format
+│   │   └── throw new Error("PLY format is missing")
+│   ├── if !Number.isFinite(vertexCount) || vertexCount < 1
+│   │   └── throw new Error(`PLY vertex count is invalid: ${vertexCount}`)
+│   └── return { format, vertexCount, properties }
+├── function parseAsciiPlyGeometry({ buffer, dataOffset, header }: { buffer: ArrayBuffer; dataOffset: number; header: PlyHeader }): THREE.BufferGeometry
+│   ├── # Builds the geometry from the post-header rows, each row's scalars split on whitespace.
+│   ├── impls lines = the post-dataOffset bytes decoded as utf-8, trimmed, split on /\r?\n/
+│   ├── calls plyPropertyIndices({ properties: header.properties })  → indices
+│   ├── impls positions, colors = Float32Array buffers of length header.vertexCount * 3
+│   ├── for each index below header.vertexCount
+│   │   ├── impls parts = lines[index]?.trim().split(/\s+/)
+│   │   ├── if parts === undefined || parts.length < header.properties.length
+│   │   │   └── throw new Error(`ASCII PLY row is missing vertex data: ${index}`)
+│   │   ├── calls readAsciiColorComponent({ parts, index: indices.red })    → red
+│   │   ├── calls readAsciiColorComponent({ parts, index: indices.green })  → green
+│   │   ├── calls readAsciiColorComponent({ parts, index: indices.blue })   → blue
+│   │   └── calls writeGeometryVertex({ positions, colors, index, x, y, z, red, green, blue })  # x, y, z are Number(parts[indices.x / .y / .z])
+│   └── return createPointBufferGeometry({ positions, colors })
+├── function parseBinaryLittleEndianPlyGeometry({ buffer, dataOffset, header }: { buffer: ArrayBuffer; dataOffset: number; header: PlyHeader }): THREE.BufferGeometry
+│   ├── # Builds the geometry from the post-header bytes, read little-endian at each property's own offset and type.
+│   ├── impls view = new DataView(buffer)
+│   ├── calls plyPropertyOffsets({ properties: header.properties })  → offsets
+│   ├── impls positions, colors = Float32Array buffers of length header.vertexCount * 3
+│   ├── for each index below header.vertexCount
+│   │   ├── impls base = dataOffset + index * offsets.stride
+│   │   ├── calls readBinaryScalar({ view, offset: base + offsets.x.offset, type: offsets.x.type })  → x
+│   │   ├── calls readBinaryScalar({ view, offset: base + offsets.y.offset, type: offsets.y.type })  → y
+│   │   ├── calls readBinaryScalar({ view, offset: base + offsets.z.offset, type: offsets.z.type })  → z
+│   │   ├── calls readBinaryColorComponent({ view, base, offset: offsets.red })                      → red
+│   │   ├── calls readBinaryColorComponent({ view, base, offset: offsets.green })                    → green
+│   │   ├── calls readBinaryColorComponent({ view, base, offset: offsets.blue })                     → blue
+│   │   └── calls writeGeometryVertex({ positions, colors, index, x, y, z, red, green, blue })
+│   └── return createPointBufferGeometry({ positions, colors })
+├── function plyPropertyIndices({ properties }: { properties: PlyProperty[] }): PlyPropertyIndices
+│   ├── # Locates each x / y / z / red / green / blue channel's column within an ASCII vertex row.
+│   ├── impls names = properties.map(property => property.name)
+│   ├── impls x, y, z = names.indexOf("x"), names.indexOf("y"), names.indexOf("z")
+│   ├── if x < 0 || y < 0 || z < 0
+│   │   └── throw new Error("PLY vertex coordinates are missing")
+│   └── return { x, y, z, red: names.indexOf("red"), green: names.indexOf("green"), blue: names.indexOf("blue") }  # a channel the header omits indexes -1
+├── function plyPropertyOffsets({ properties }: { properties: PlyProperty[] }): PlyPropertyOffsets
+│   ├── # Locates each x / y / z / red / green / blue channel's byte offset and scalar type within one binary vertex record.
+│   ├── impls offsets = {}, offset = 0
+│   ├── for each property of properties
+│   │   ├── impls offsets[property.name] = { offset, type: property.type }
+│   │   └── calls plyScalarTypeSize({ type: property.type })  → the byte width advancing offset
+│   ├── if offsets.x === undefined || offsets.y === undefined || offsets.z === undefined
+│   │   └── throw new Error("PLY vertex coordinates are missing")
+│   └── return { stride: offset, x: offsets.x, y: offsets.y, z: offsets.z, red: offsets.red, green: offsets.green, blue: offsets.blue }  # a channel the header omits stays undefined
+├── function writeGeometryVertex({ positions, colors, index, x, y, z, red, green, blue }: { positions: Float32Array; colors: Float32Array; index: number; x: number; y: number; z: number; red: number; green: number; blue: number }): void
+│   ├── # Writes one vertex's coordinates and normalized color into the two flat geometry buffers.
+│   ├── impls positionOffset = index * 3
+│   ├── impls positions[positionOffset], [+ 1], [+ 2] = x, y, z
+│   ├── calls normalizeColorComponent({ value: red })    → colors[positionOffset]
+│   ├── calls normalizeColorComponent({ value: green })  → colors[positionOffset + 1]
+│   └── calls normalizeColorComponent({ value: blue })   → colors[positionOffset + 2]
+├── function createPointBufferGeometry({ positions, colors }: { positions: Float32Array; colors: Float32Array }): THREE.BufferGeometry
+│   ├── # Wraps the two filled buffers as a BufferGeometry with its bounding volumes computed.
+│   ├── impls geometry = new THREE.BufferGeometry()
+│   ├── impls geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3))  # position and color are both always set
+│   ├── impls geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3))
+│   ├── impls geometry.computeBoundingSphere()
+│   ├── impls geometry.computeBoundingBox()
+│   └── return geometry
+├── function readAsciiColorComponent({ parts, index }: { parts: string[]; index: number }): number
+│   ├── # Reads one color channel out of an ASCII vertex row.
+│   ├── if index < 0
+│   │   └── return 180  # a channel the header omits reads 180
+│   └── return Number(parts[index])
+├── function readBinaryColorComponent({ view, base, offset }: { view: DataView; base: number; offset: PlyPropertyOffset | undefined }): number
+│   ├── # Reads one color channel out of a binary vertex record.
+│   ├── if offset === undefined
+│   │   └── return 180  # a channel the header omits reads 180
+│   └── return readBinaryScalar({ view, offset: base + offset.offset, type: offset.type })
+├── function normalizeColorComponent({ value }: { value: number }): number
+│   ├── # Brings one raw color channel into the 0-1 range THREE vertex colors expect.
+│   ├── if !Number.isFinite(value)
+│   │   └── return 0.7
+│   ├── if value <= 1
+│   │   └── return Math.min(Math.max(value, 0), 1)  # already 0-1 scaled
+│   └── return Math.min(Math.max(value / 255, 0), 1)  # 0-255 scaled
+├── function plyScalarTypeSize({ type }: { type: string }): number
+│   ├── # Gives the byte width of one declared PLY scalar type.
+│   ├── impls scalarTypeSizes = the literal byte-width table over char / uchar / short / ushort / int / uint / float / double and their int8 .. float64 aliases
+│   ├── impls size = scalarTypeSizes[type]
+│   ├── if size === undefined
+│   │   └── throw new Error(`unsupported PLY scalar type ${type}`)
+│   └── return size
+└── function readBinaryScalar({ view, offset, type }: { view: DataView; offset: number; type: string }): number
+    ├── # Reads one scalar of the declared PLY type little-endian out of the vertex-record DataView.
+    ├── if type === "char" || type === "int8"
+    │   └── return view.getInt8(offset)
+    ├── if type === "uchar" || type === "uint8"
+    │   └── return view.getUint8(offset)
+    ├── if type === "short" || type === "int16"
+    │   └── return view.getInt16(offset, true)
+    ├── if type === "ushort" || type === "uint16"
+    │   └── return view.getUint16(offset, true)
+    ├── if type === "int" || type === "int32"
+    │   └── return view.getInt32(offset, true)
+    ├── if type === "uint" || type === "uint32"
+    │   └── return view.getUint32(offset, true)
+    ├── if type === "float" || type === "float32"
+    │   └── return view.getFloat32(offset, true)
+    ├── if type === "double" || type === "float64"
+    │   └── return view.getFloat64(offset, true)
+    └── throw new Error(`unsupported PLY scalar type ${type}`)
 ```
 
 `./data/viewer/utils/displays/pixels/dash/apis.py`
@@ -573,6 +784,8 @@ apis.py
 ├── from dash import dcc
 ├── from data.viewer.utils.displays.pixels.dash.core_pixels_display import create_dash_pixels_display
 ├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.utils.heatmap_colors import map_scalars_to_rgb
+├── from utils.io.image import load_image
 ├── DEFAULT_COLOR_IMAGE_INTERPOLATION = "linear"                # color images: linear interpolation smooths between RGB samples, appropriate for natural-image content
 ├── DEFAULT_DEPTH_IMAGE_INTERPOLATION = "nearest"               # depth images: nearest preserves exact metric depth samples; linear would invent midpoint depths that don't exist in the data
 ├── DEFAULT_EDGE_IMAGE_INTERPOLATION = "nearest"                # edge images: nearest preserves edge crispness; linear would smooth edges and defeat their purpose
@@ -607,16 +820,71 @@ apis.py
 │   ├── calls _map_instance_surrogate_image_to_rgb(image_path=image_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
 ├── def _map_depth_image_to_rgb
-│   └── # Maps the depth image to RGB through the continuous heatmap palette for Dash display.
+│   ├── # Maps the depth image to RGB through the continuous heatmap palette for Dash display.
+│   ├── impls assert isinstance(depth_image_path, str)
+│   ├── calls load_image(filepath=depth_image_path, normalization=None)
+│   ├── if depth_image.ndim == 3
+│   │   └── impls depth_image = depth_image[0]
+│   ├── impls depth_scalars = depth_image.to(torch.float64)
+│   ├── impls depth_scalars = depth_scalars - float(depth_scalars.min().item())
+│   └── return map_scalars_to_rgb(scalars=depth_scalars)  # an HWC uint8 RGB image
 ├── def _map_edge_image_to_rgb
-│   └── # Maps the edge image to RGB for Dash display.
+│   ├── # Maps the edge image to RGB for Dash display.
+│   ├── impls assert isinstance(edge_image_path, str)
+│   ├── calls load_image(filepath=edge_image_path, normalization=None)
+│   ├── if edge_image.ndim == 3
+│   │   └── impls edge_image = edge_image[0]
+│   ├── impls edge_float = edge_image.to(torch.float64)
+│   ├── impls edge_min = float(edge_float.min().item())
+│   ├── impls edge_max = float(edge_float.max().item())
+│   ├── impls normalized = (edge_float - edge_min) / max(edge_max - edge_min, 1e-12)
+│   ├── impls gray = (normalized * 255.0).round().clamp(min=0.0, max=255.0).to(torch.uint8)
+│   └── return gray.unsqueeze(-1).repeat(1, 1, 3)  # an HWC uint8 grayscale-as-RGB image
 ├── def _map_normal_image_to_rgb
-│   └── # Maps the normal vectors to RGB for Dash display.
+│   ├── # Maps the normal vectors to RGB for Dash display.
+│   ├── impls assert isinstance(normal_image_path, str)
+│   ├── calls load_image(filepath=normal_image_path, normalization=None)
+│   ├── impls normal_float = normal_image.to(torch.float64)
+│   ├── impls normal_float = normal_float / 127.5 - 1.0  # decodes the stored bytes back to normal components in [-1, 1]
+│   ├── impls normals_normalized = (normal_float + 1.0) / 2.0
+│   ├── impls normals_normalized = normals_normalized.clamp(min=0.0, max=1.0)
+│   ├── impls rgb = (normals_normalized * 255.0).round().clamp(min=0.0, max=255.0).to(torch.uint8)
+│   └── return rgb.permute(1, 2, 0)  # the CHW result laid out as an HWC uint8 RGB image
 ├── def _map_segmentation_image_to_rgb
-│   └── # Maps the segmentation image's per-pixel class ids to RGB via the class-to-RGB mapping for Dash display.
+│   ├── # Maps the segmentation image's per-pixel class ids to RGB via the class-to-RGB mapping for Dash display.
+│   ├── impls assert isinstance(segmentation_image_path, str)
+│   ├── impls assert isinstance(class_id_to_rgb, dict)
+│   ├── calls load_image(filepath=segmentation_image_path, normalization=None)
+│   ├── impls segmentation_image = that loaded image cast to torch.int64
+│   ├── impls assert segmentation_image.ndim == 2
+│   ├── impls height, width = segmentation_image.shape
+│   ├── impls rgb_image = a uint8 zeros tensor of shape (height, width, 3)
+│   ├── for each class_id, color in class_id_to_rgb.items()
+│   │   └── impls rgb_image[segmentation_image == class_id] = color  # a class id with no mapping entry stays black
+│   └── return rgb_image  # an HWC uint8 RGB image
 └── def _map_instance_surrogate_image_to_rgb
     ├── # Maps the instance-surrogate class-id image to RGB via the class-to-RGB mapping for Dash display.
-    └── return
+    ├── # Maps the instance-surrogate offset image to RGB via the class-to-RGB mapping for Dash display.
+    ├── impls assert isinstance(image_path, str)
+    ├── impls assert isinstance(class_id_to_rgb, dict)
+    ├── calls load_image(filepath=image_path, normalization=None)
+    ├── impls assert instance_surrogate is a 3-D tensor whose first dimension is at least 2
+    ├── impls y_offset = instance_surrogate[0].to(torch.float64)
+    ├── impls x_offset = instance_surrogate[1].to(torch.float64)
+    ├── impls magnitude = torch.sqrt(y_offset**2 + x_offset**2)
+    ├── impls class_id_image = torch.zeros_like(magnitude, dtype=torch.int64)
+    ├── impls percentiles = torch.quantile(magnitude.reshape(-1), torch.linspace(0, 1, 20, dtype=torch.float64))
+    ├── for bin_index in range(len(percentiles) - 1)
+    │   ├── if bin_index == len(percentiles) - 2
+    │   │   └── impls mask = magnitude >= percentiles[bin_index]
+    │   ├── else
+    │   │   └── impls mask = (magnitude >= percentiles[bin_index]) & (magnitude < percentiles[bin_index + 1])
+    │   └── impls class_id_image[mask] = bin_index + 1
+    ├── impls height, width = class_id_image.shape
+    ├── impls rgb_image = a uint8 zeros tensor of shape (height, width, 3)
+    ├── for each class_id, color in class_id_to_rgb.items()
+    │   └── impls rgb_image[class_id_image == class_id] = color  # a class id with no mapping entry stays black
+    └── return rgb_image  # an HWC uint8 RGB image
 ```
 
 `./data/viewer/utils/displays/pixels/dash/core_pixels_display.py`
@@ -624,10 +892,23 @@ apis.py
 ```text
 core_pixels_display.py
 ├── from typing import Any
+├── import numpy as np
+├── import plotly.graph_objects as go
+├── import torch
 ├── from dash import dcc
 └── def create_dash_pixels_display(image: Any, image_interpolation: str) -> dcc.Graph
     ├── # Renders a Dash pixel-image display element from the resolved interpolation choice; modality-agnostic.
-    └── return
+    ├── impls assert isinstance(image, (np.ndarray, torch.Tensor))
+    ├── impls assert isinstance(image_interpolation, str)
+    ├── if isinstance(image, torch.Tensor)
+    │   └── impls image_array = image.detach().cpu().numpy()
+    ├── else
+    │   └── impls image_array = image
+    ├── impls assert image_array has shape [H, W, 3]
+    ├── impls zsmooth = False when image_interpolation is "nearest", "fast" otherwise  # the caller's per-modality interpolation choice
+    ├── impls figure = a go.Figure over a go.Image trace of image_array carrying that zsmooth
+    ├── impls hide figure's axes, letting the image fill the cell at its own aspect ratio
+    └── return dcc.Graph(figure=figure)  # the pixel display element
 ```
 
 `./data/viewer/utils/displays/pixels/ts/backend/schemas/display_response.py`
@@ -636,42 +917,49 @@ core_pixels_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class PixelDisplayResponse(DisplayResponse)
+│   ├── # Base of the raster display family: a response whose served resource is a pixel image.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── class ColorImageDisplayResponse(PixelDisplayResponse)
+│   ├── # Raster display of an RGB color image.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── class DepthImageDisplayResponse(PixelDisplayResponse)
+│   ├── # Raster display of a depth map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "depth_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── class EdgeImageDisplayResponse(PixelDisplayResponse)
+│   ├── # Raster display of an edge map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "edge_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── class NormalImageDisplayResponse(PixelDisplayResponse)
+│   ├── # Raster display of a surface-normal map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "normal_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── class SegmentationImageDisplayResponse(PixelDisplayResponse)
+│   ├── # Raster display of a per-pixel class-id map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "segmentation_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 └── class InstanceSurrogateImageDisplayResponse(PixelDisplayResponse)
+    ├── # Raster display of a per-pixel instance-surrogate map.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "instance_surrogate_image"  # common field
@@ -758,42 +1046,49 @@ core_pixels_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface PixelDisplayResponse extends DisplayResponse
+│   ├── # Base of the raster display family: a response whose served resource is a pixel image.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── interface ColorImageDisplayResponse extends PixelDisplayResponse
+│   ├── # Raster display of an RGB color image.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── interface DepthImageDisplayResponse extends PixelDisplayResponse
+│   ├── # Raster display of a depth map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "depth_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── interface EdgeImageDisplayResponse extends PixelDisplayResponse
+│   ├── # Raster display of an edge map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "edge_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── interface NormalImageDisplayResponse extends PixelDisplayResponse
+│   ├── # Raster display of a surface-normal map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "normal_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── interface SegmentationImageDisplayResponse extends PixelDisplayResponse
+│   ├── # Raster display of a per-pixel class-id map.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "segmentation_image"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 └── interface InstanceSurrogateImageDisplayResponse extends PixelDisplayResponse
+    ├── # Raster display of a per-pixel instance-surrogate map.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "instance_surrogate_image"  # common field
@@ -857,8 +1152,11 @@ core_pixels_display.ts
 
 ```text
 placeholder_display.py
+├── from dash import html
 └── def create_placeholder_display
-    └── # Builds the Dash missing-result placeholder display from a message.
+    ├── # Builds the Dash missing-result placeholder display from a message.
+    ├── impls assert isinstance(message, str)
+    └── return html.Div(message, className="placeholder-surface")  # the slot's stand-in element
 ```
 
 `./data/viewer/utils/displays/placeholders/ts/backend/schemas/display_response.py`
@@ -867,6 +1165,7 @@ placeholder_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class PlaceholderDisplayResponse(DisplayResponse)
+    ├── # Stand-in response for a slot whose artifact this selection does not have.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "placeholder"  # common field
@@ -891,6 +1190,7 @@ placeholder_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface PlaceholderDisplayResponse extends DisplayResponse
+    ├── # Stand-in response for a slot whose artifact this selection does not have.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "placeholder"  # common field
@@ -909,14 +1209,25 @@ placeholder_display.ts
     ├── # Renders the missing-result placeholder UI from the response's message.
     ├── impls complete missing-result placeholder UI from PlaceholderDisplayResponse.message
     └── return LeafVNode keyed by displayResponse.url
+└── function _renderPlaceholderElement({ displayResponse }: { displayResponse: PlaceholderDisplayResponse }): HTMLElement
+    ├── # Builds the centered, italic placeholder surface carrying the response's message.
+    ├── impls placeholder = a "placeholder-surface" div, flex-centered at 100% by 100%, padded 1rem,  # 888 italic
+    ├── impls placeholder.textContent = displayResponse.message
+    └── return placeholder
 ```
 
 `./data/viewer/utils/displays/videos/dash/video_display.py`
 
 ```text
 video_display.py
+├── from dash import html
 └── def create_video_display
-    └── # Builds the Dash video display from a video path.
+    ├── # Builds the Dash video display from a video path.
+    ├── impls assert src is None or isinstance(src, str)
+    ├── impls assert isinstance(title, str)
+    ├── if src is None
+    │   └── return html.Div("Placeholder for missing video.", className="placeholder-surface")
+    └── return html.Div(html.Video(src=src, controls=True, title=title))  # the slot's video element
 ```
 
 `./data/viewer/utils/displays/videos/ts/backend/schemas/display_response.py`
@@ -925,6 +1236,7 @@ video_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class VideoDisplayResponse(DisplayResponse)
+    ├── # Display of a video resource the viewer plays in the slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "video"  # common field
@@ -949,6 +1261,7 @@ video_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface VideoDisplayResponse extends DisplayResponse
+    ├── # Display of a video resource the viewer plays in the slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "video"  # common field
@@ -972,8 +1285,11 @@ video_display.ts
 
 ```text
 text_display.py
+├── from dash import html
 └── def create_text_display
-    └── # Builds the Dash text display from a text string.
+    ├── # Builds the Dash text display from a text string.
+    ├── impls assert isinstance(text, str)
+    └── return html.Pre(text, className="text-display")  # the slot's text element, whitespace preserved
 ```
 
 `./data/viewer/utils/displays/texts/ts/backend/schemas/display_response.py`
@@ -982,6 +1298,7 @@ text_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class TextDisplayResponse(DisplayResponse)
+    ├── # Display of a text resource the viewer renders in the slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "text"  # common field
@@ -1007,6 +1324,7 @@ text_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface TextDisplayResponse extends DisplayResponse
+    ├── # Display of a text resource the viewer renders in the slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "text"  # common field
@@ -1031,8 +1349,12 @@ text_display.ts
 
 ```text
 table_display.py
+├── from dash import dash_table
 └── def create_table_display
-    └── # Builds the Dash table display from tabular data.
+    ├── # Builds the Dash table display from tabular data.
+    ├── impls assert isinstance(rows, list)
+    ├── impls columns = the sorted set of field names the rows carry                    # sorting the name set is what fixes column order
+    └── return dash_table.DataTable(data=rows, columns=one {name, id} spec per column)  # the slot's table element
 ```
 
 `./data/viewer/utils/displays/tables/ts/backend/schemas/display_response.py`
@@ -1041,6 +1363,7 @@ table_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class TableDisplayResponse(DisplayResponse)
+    ├── # Display of a tabular resource the viewer renders as a table.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "table"  # common field
@@ -1065,6 +1388,7 @@ table_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface TableDisplayResponse extends DisplayResponse
+    ├── # Display of a tabular resource the viewer renders as a table.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "table"  # common field
@@ -1082,14 +1406,58 @@ table_display.ts
     ├── # Renders the complete table-display UI from the table resource URL.
     ├── impls complete table-display UI from DisplayResponse url
     └── return LeafVNode keyed by displayResponse.url
+├── async function loadTableDisplay({ tableWrap, displayResponse }: { tableWrap: HTMLDivElement; displayResponse: TableDisplayResponse }): Promise<void>
+│   ├── # Fetches the table resource and renders its rows into tableWrap.
+│   ├── if displayResponse.url is null
+│   │   └── impls throw new Error("table display response url is null")
+│   ├── impls response = await fetch(displayResponse.url)
+│   ├── if the response is not ok
+│   │   ├── impls tableWrap.textContent reports the HTTP status
+│   │   └── return
+│   ├── impls text = await response.text()
+│   ├── calls readRowsFromArtifact({ text, url: displayResponse.url })  # rows
+│   ├── calls renderRows({ rows })
+│   └── impls tableWrap.replaceChildren(that rendered table)
+├── function readRowsFromArtifact({ text, url }: { text: string; url: string }): Record<string, string>[]
+│   ├── # Parses the artifact text as JSONL when the url names one, else as JSON.
+│   ├── if url includes ".jsonl"
+│   │   ├── impls each non-blank line is JSON.parse-d
+│   │   ├── calls normalizeRow(that parsed line)
+│   │   └── return those normalized rows
+│   ├── impls parsed = JSON.parse(text)
+│   ├── if parsed is an array
+│   │   └── return parsed.map(normalizeRow)
+│   ├── calls isRecord(parsed)
+│   ├── if it is a record
+│   │   └── return a single-element array of normalizeRow(parsed)
+│   └── return []
+├── function renderRows({ rows }: { rows: Record<string, string>[] }): HTMLElement
+│   ├── # Builds the table element, ordering the preferred columns ahead of the discovered rest.
+│   ├── impls discoveredColumns = the union of every row's keys
+│   ├── impls preferredColumns = ["Question", "GT Answer", "Pred Answer", "Judgement"]
+│   ├── impls columns = the preferred ones present, followed by the remaining discovered ones
+│   ├── impls thead carries one th per column, each with dataset.column set
+│   ├── for each row in rows
+│   │   └── impls tbody gains a tr whose td per column carries row[column] ?? "" with dataset.column set, the Judgement column also given a judgement-cell class by its lowercased value  # impls-node-one-step:skip
+│   └── return the table built from thead and tbody
+├── function normalizeRow(value: unknown): Record<string, string>
+│   ├── # Coerces one parsed entry into a flat string-valued record.
+│   ├── calls isRecord(value)
+│   └── return each of the record's entries stringified, or an empty record when value is not a record
+└── function isRecord(value: unknown): value is Record<string, unknown>
+    ├── # Narrows an unknown to a plain object record.
+    └── return whether value is an object that is neither null nor an array
 ```
 
 `./data/viewer/utils/displays/scene_graphs/dash/scene_graph_display.py`
 
 ```text
 scene_graph_display.py
+├── from dash import html
 └── def create_scene_graph_display
-    └── # Builds the Dash scene-graph display from a method-agnostic graph payload.
+    ├── # Builds the Dash scene-graph display from a method-agnostic graph payload.
+    ├── impls assert isinstance(rows, list)
+    └── return html.Pre(str(rows), className="json-preview")  # the slot's scene-graph element
 ```
 
 `./data/viewer/utils/displays/scene_graphs/ts/backend/schemas/display_response.py`
@@ -1098,6 +1466,7 @@ scene_graph_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class SceneGraphDisplayResponse(DisplayResponse)
+    ├── # Spatial display of a scene graph, whose nodes and edges the viewer draws in the 3D slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "scene_graph"  # common field
@@ -1148,6 +1517,7 @@ scene_graph_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface SceneGraphDisplayResponse extends DisplayResponse
+    ├── # Spatial display of a scene graph, whose nodes and edges the viewer draws in the 3D slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "scene_graph"  # common field
@@ -1192,7 +1562,13 @@ scene_graph_display.ts
 │   ├── impls mount the container inside the display container
 │   └── return  # the overlay container
 ├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
-│   └── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
+│   ├── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
+│   ├── if displayResponse.url === null
+│   │   └── throw new Error("scene graph display response url is null")
+│   ├── impls response = await fetch(displayResponse.url)
+│   ├── if !response.ok
+│   │   └── throw new Error(`unable to load scene graph: HTTP ${response.status}`)
+│   └── return (await response.json()) as SceneGraphPayload  # cast unchecked
 ├── function createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }: { payload: SceneGraphPayload; nodeSize?: number; edgeColor?: string; edgeWidth?: number }): { points: THREE.Points; labels: object[] }
 │   ├── # Sync-builds THREE.Points + per-frame label data from a pre-loaded payload.
 │   ├── impls effectiveNodeSize = nodeSize ?? DEFAULT_NODE_SIZE
@@ -1265,7 +1641,9 @@ apis.py
 ```text
 core_mesh_display.py
 ├── from typing import Any, Optional
+├── import numpy as np
 ├── import plotly.graph_objects as go
+├── import torch
 ├── from dash import dcc
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── DEFAULT_MESH_COLOR = "#cccccc"  # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
@@ -1307,9 +1685,28 @@ core_mesh_display.py
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
-└── def create_dash_mesh_component
-    ├── # Assembles the Dash component that hosts the Mesh3d scene and its trackball camera controls.
-    └── return
+├── def create_dash_mesh_component
+│   ├── # Assembles the Dash component that hosts the Mesh3d scene and its trackball camera controls.
+│   ├── impls assert isinstance(scene, go.Mesh3d)
+│   └── return dcc.Graph(figure=go.Figure(data=[scene]))  # the mesh display element
+├── def _normalize_rgb_tensor_to_uint8(rgb_values: torch.Tensor) -> np.ndarray
+│   ├── # Normalizes one RGB tensor to uint8 numpy layout.
+│   ├── if rgb_values.dtype is torch.uint8
+│   │   └── return its own numpy array
+│   ├── impls rgb_values.dtype is torch.float32 here
+│   ├── impls the [0, 1] values scale by 255 into uint8
+│   └── return  # (N, 3) uint8 numpy array
+├── def _normalize_texture_map_to_uint8(texture_map: torch.Tensor) -> np.ndarray
+│   ├── # Normalizes one UV texture map to uint8 numpy layout.
+│   ├── if texture_map.dtype is torch.uint8
+│   │   └── return its own numpy array
+│   ├── impls texture_map.dtype is torch.float32 here
+│   ├── impls the [0, 1] values scale by 255 into uint8
+│   └── return  # (H, W, 3) uint8 numpy array
+└── def _rgb_to_css_color(rgb_values: np.ndarray) -> str
+    ├── # Converts one RGB triplet to a CSS color string.
+    ├── impls rgb_uint8 = rgb_values clipped to [0, 255], as uint8
+    └── return f"rgb({int(rgb_uint8[0])},{int(rgb_uint8[1])},{int(rgb_uint8[2])})"
 ```
 
 `./data/viewer/utils/displays/mesh/ts/backend/schemas/display_response.py`
@@ -1318,30 +1715,35 @@ core_mesh_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class MeshDisplayResponse(DisplayResponse)
+│   ├── # Base of the mesh display family: a response whose served resource is a triangle mesh.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── class ColorMeshDisplayResponse(MeshDisplayResponse)
+│   ├── # Mesh display carrying per-element RGB color.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_mesh"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── class SegmentationMeshDisplayResponse(MeshDisplayResponse)
+│   ├── # Mesh display carrying per-element class ids the backend colorizes before serving.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "segmentation_mesh"  # common field
 │   ├── url        # common field — the class-colorized mesh resource
 │   └── meta_info  # common field
 ├── class HeatmapMeshDisplayResponse(MeshDisplayResponse)
+│   ├── # Mesh display carrying per-element scalars the backend colorizes into a heatmap before serving.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "heatmap_mesh"  # common field
 │   ├── url        # common field — the heatmap-colorized mesh resource
 │   └── meta_info  # common field
 └── class SparseHeatmapMeshDisplayResponse(MeshDisplayResponse)
+    ├── # Mesh display carrying a sparse (indices, values) heatmap delta against a referenced geometry.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "sparse_heatmap_mesh"  # common field
@@ -1353,9 +1755,12 @@ display_response.py
 
 ```text
 apis.py
+├── import json
 ├── from pathlib import Path
 ├── from typing import Any, Dict, Tuple
 ├── import torch
+├── from data.structures.three_d.mesh.load import load_mesh
+├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.viewer.utils.displays.mesh.ts.backend.core_mesh_display import create_mesh_display_response_core
 ├── from data.viewer.utils.displays.mesh.ts.backend.schemas.display_response import ColorMeshDisplayResponse, HeatmapMeshDisplayResponse, SegmentationMeshDisplayResponse, SparseHeatmapMeshDisplayResponse
 ├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
@@ -1402,7 +1807,15 @@ apis.py
 │   └── return
 ├── def _write_sparse_heatmap_resource(input_path: Path, output_path: Path) -> None
 │   ├── # Writes the (indices, values) delta + geometry reference from input_path to output_path as the wire resource.
-│   └── return
+│   ├── # Writes the (indices, values) delta + geometry_url from input_path to output_path as the wire resource.
+│   ├── impls assert isinstance(input_path, Path)
+│   ├── impls assert isinstance(output_path, Path)
+│   ├── calls _read_sparse_heatmap_geometry_url(input_path=input_path)  # geometry_url
+│   ├── calls _read_sparse_heatmap_arrays(input_path=input_path)        # indices, values
+│   ├── impls payload = {"geometry_url": geometry_url, "indices": indices.tolist(), "values": values.tolist()}
+│   ├── impls output_path.parent.mkdir(parents=True, exist_ok=True)
+│   └── with output_path.open("w") as fh
+│       └── impls json.dump(payload, fh)
 ├── def _build_segmentation_mesh_meta_info
 │   ├── # Builds class/color metadata from the class-to-RGB mapping.
 │   ├── impls stores `class_id_to_rgb`
@@ -1415,6 +1828,52 @@ apis.py
     ├── # Builds scalar-range + non-zero-count metadata from the input sparse arrays.
     ├── impls stores values min/max and number of non-zero entries  # impls-node-one-step:skip
     └── return
+├── def _read_sparse_heatmap_geometry_url(input_path: Path) -> str
+│   ├── # Reads the url of the mesh resource whose vertex domain the sparse delta indexes into.
+│   ├── impls assert isinstance(input_path, Path)
+│   ├── with input_path.open("r") as fh
+│   │   └── impls payload = json.load(fh)
+│   ├── impls assert "geometry_url" in payload
+│   ├── impls geometry_url = payload["geometry_url"]
+│   ├── impls assert isinstance(geometry_url, str) and len(geometry_url) > 0
+│   └── return geometry_url  # the shared base mesh's resource url
+├── def _read_sparse_heatmap_arrays(input_path: Path) -> Tuple[torch.Tensor, torch.Tensor]
+│   ├── # Reads the non-default (indices, values) entries the sparse delta carries.
+│   ├── impls assert isinstance(input_path, Path)
+│   ├── with input_path.open("r") as fh
+│   │   └── impls payload = json.load(fh)
+│   ├── impls indices = torch.tensor(payload["indices"], dtype=torch.int64)
+│   ├── impls values = torch.tensor(payload["values"], dtype=torch.float32)
+│   ├── impls assert indices.ndim == 1
+│   ├── impls assert values.ndim == 1
+│   ├── impls assert indices.shape[0] == values.shape[0]
+│   ├── impls assert bool((indices >= 0).all())
+│   ├── impls assert bool((values >= 0).all())
+│   └── return indices, values  # 1-D int64 vertex ids and their 1-D float32 non-negative scalars
+├── def _read_segmentation_mesh_class_ids(input_path: Path) -> torch.Tensor
+│   ├── # Reads per-vertex or per-texel class ids from a segmentation mesh.
+│   ├── calls load_mesh(path=input_path)  # the mesh fields Mesh is built from
+│   ├── if mesh.texture_mode == "vertex_color"
+│   │   ├── calls _segmentation_mesh_per_vertex_class_ids(mesh=mesh)
+│   │   └── return  # int64 [V] per-vertex class ids
+│   ├── if mesh.texture_mode == "uv_texture_map"
+│   │   ├── calls _segmentation_mesh_per_texel_class_ids(mesh=mesh)
+│   │   └── return  # int64 [H, W] per-texel class ids
+│   └── raise ValueError  # unsupported segmentation mesh texture_mode
+├── def _read_heatmap_mesh_scalars(input_path: Path) -> torch.Tensor
+│   ├── # Reads per-vertex or per-texel non-negative scalars from a heatmap mesh.
+│   ├── calls load_mesh(path=input_path)  # the mesh fields Mesh is built from
+│   ├── if mesh.texture_mode == "vertex_color"
+│   │   └── return mesh.vertex_color[:, 0]  # non-negative [V]
+│   ├── if mesh.texture_mode == "uv_texture_map"
+│   │   └── return mesh.uv_texture_map[..., 0]  # non-negative [H, W]
+│   └── raise ValueError  # unsupported heatmap mesh texture_mode
+├── def _segmentation_mesh_per_vertex_class_ids(mesh: Mesh) -> torch.Tensor
+│   ├── # Extracts per-vertex class ids from a vertex-colored segmentation mesh.
+│   └── return mesh.vertex_color[:, 0].to(dtype=torch.int64)  # int64 [V]
+└── def _segmentation_mesh_per_texel_class_ids(mesh: Mesh) -> torch.Tensor
+    ├── # Extracts per-texel class ids from a UV-textured segmentation mesh.
+    └── return mesh.uv_texture_map[..., 0].to(dtype=torch.int64)  # int64 [H, W]
 ```
 
 `./data/viewer/utils/displays/mesh/ts/backend/core_mesh_display.py`
@@ -1423,6 +1882,10 @@ apis.py
 core_mesh_display.py
 ├── from pathlib import Path
 ├── from typing import Any, Dict
+├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.save import save_mesh
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── from data.viewer.utils.displays.mesh.ts.backend.schemas.display_response import MeshDisplayResponse
 ├── def create_mesh_display_response_core(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> MeshDisplayResponse
 │   ├── # Writes the processed mesh resource to output_path and returns the mesh display response, dispatching on the mesh texture representation.
@@ -1434,10 +1897,20 @@ core_mesh_display.py
 │   │   └── raise unsupported mesh texture representation
 │   ├── impls writes the processed mesh resource bytes to output_path
 │   └── return MeshDisplayResponse with slot_id, title, url, meta_info from caller-provided args
-├── def _create_vertex_color_mesh_display_response
 │   └── # Builds the mesh display response for a per-vertex-colored mesh.
-└── def _create_uv_texture_map_mesh_display_response
     └── # Builds the mesh display response for a UV-texture-mapped mesh.
+├── def _create_vertex_color_mesh_display_response(mesh: Mesh, output_path: Path) -> None
+│   ├── # Writes the per-vertex-colored mesh resource to output_path.
+│   ├── impls assert isinstance(mesh, Mesh)
+│   ├── impls assert isinstance(output_path, Path)
+│   ├── impls assert isinstance(mesh.texture, MeshTextureVertexColor)
+│   └── calls save_mesh(mesh=mesh, output_path=output_path)
+└── def _create_uv_texture_map_mesh_display_response(mesh: Mesh, output_path: Path) -> None
+    ├── # Writes the UV-texture-mapped mesh resource to output_path.
+    ├── impls assert isinstance(mesh, Mesh)
+    ├── impls assert isinstance(output_path, Path)
+    ├── impls assert isinstance(mesh.texture, MeshTextureUVTextureMap)
+    └── calls save_mesh(mesh=mesh, output_path=output_path)
 ```
 
 `./data/viewer/utils/displays/mesh/ts/frontend/types/display_response.ts`
@@ -1446,30 +1919,35 @@ core_mesh_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface MeshDisplayResponse extends DisplayResponse
+│   ├── # Base of the mesh display family: a response whose served resource is a triangle mesh.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── interface ColorMeshDisplayResponse extends MeshDisplayResponse
+│   ├── # Mesh display carrying per-element RGB color.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_mesh"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 ├── interface SegmentationMeshDisplayResponse extends MeshDisplayResponse
+│   ├── # Mesh display carrying per-element class ids the backend colorizes before serving.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "segmentation_mesh"  # common field
 │   ├── url        # common field — the class-colorized mesh resource
 │   └── meta_info  # common field
 ├── interface HeatmapMeshDisplayResponse extends MeshDisplayResponse
+│   ├── # Mesh display carrying per-element scalars the backend colorizes into a heatmap before serving.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "heatmap_mesh"  # common field
 │   ├── url        # common field — the heatmap-colorized mesh resource
 │   └── meta_info  # common field
 └── interface SparseHeatmapMeshDisplayResponse extends MeshDisplayResponse
+    ├── # Mesh display carrying a sparse (indices, values) heatmap delta against a referenced geometry.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "sparse_heatmap_mesh"  # common field
@@ -1545,6 +2023,124 @@ core_mesh_display.ts
     ├── # Drives the mesh render loop with the supplied trackball controls.
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
     └── return
+├── async function _fetchSparseHeatmapResource(url: string): Promise<SparseHeatmapResource>
+│   ├── # Fetches and validates a sparse-heatmap JSON resource into typed arrays.
+│   ├── impls response = await fetch(url)
+│   ├── if the response is not ok
+│   │   └── impls throw new Error(`GET ${url} failed: ${response.status}`)
+│   ├── if geometry_url is not a non-empty string
+│   │   └── impls throw new Error reporting the missing geometry_url
+│   ├── if indices or values is not an array
+│   │   └── impls throw new Error reporting the missing indices/values arrays
+│   └── return  # { geometryUrl, indices as Int32Array, values as Float32Array }
+├── function _resolveSparseHeatmapPayload({ parsed, sparse }: { parsed: ParsedObj; sparse: SparseHeatmapResource }): MeshPayload
+│   ├── # Paints the sparse scalars onto a per-vertex RGBA buffer, leaving unlisted vertices transparent.
+│   ├── impls vertexColor = a Float32Array of 4 channels per parsed vertex
+│   ├── calls _mapScalarsToRgb(sparse.values)  # rgb
+│   ├── for each sparse index and its position i
+│   │   ├── if the vertex index falls outside the parsed vertex range
+│   │   │   └── impls throw new Error reporting the out-of-range vertex index
+│   │   └── impls that vertex takes rgb[i] scaled to [0, 1] at alpha 1, every other vertex staying at alpha 0 (a base-revealing overlay)
+│   └── return  # { verts, faces, texture: { kind: "vertex_color", vertexColor } }
+├── function _mapScalarsToRgb(values: Float32Array): Uint8Array
+│   ├── # Maps non-negative scalars through the heatmap palette, normalized by the largest value.
+│   ├── impls maxValue = 0.0
+│   ├── for each value
+│   │   └── if it exceeds maxValue
+│   │       └── impls maxValue = that value
+│   ├── impls denom = Math.max(maxValue, 1e-12)
+│   ├── impls rgb = a Uint8Array of three bytes per value
+│   ├── for each value
+│   │   ├── impls normalized = the value over denom, clamped to [0, 1]
+│   │   ├── impls segment advances while normalized reaches past the next palette stop
+│   │   ├── impls fraction = normalized's position within that stop pair, clamped to [0, 1]
+│   │   └── impls its three rgb bytes take the rounded interpolation between the pair's colors
+│   └── return rgb
+├── function _fetchObj(url: string): Promise<ParsedObj>
+│   ├── # Fetches and parses an OBJ, memoizing the in-flight promise per url.
+│   ├── if _objCache already holds url
+│   │   └── return that cached promise
+│   ├── impls promise = fetch(url).then(async response => { if (!response.ok) throw new Error(`GET ${url} failed: ${response.status}`); return _parseObj(await response.text()) })
+│   ├── impls _objCache.set(url, promise)
+│   └── return promise
+├── function _parseObj(text: string): ParsedObj
+│   ├── # Parses OBJ v / vt / f / mtllib records into flat vertex, uv and face buffers.
+│   ├── for each line of text
+│   │   ├── if the line is empty
+│   │   │   └── impls continue
+│   │   ├── if the line is a "v " record
+│   │   │   ├── impls its xyz joins vPositions
+│   │   │   ├── if the record carries 7 or more fields
+│   │   │   │   └── impls sawVertexColors is set and its rgb joins vColors
+│   │   │   └── else
+│   │   │       └── impls vColors takes NEUTRAL_GRAY three times
+│   │   ├── else if the line is a "vt" record
+│   │   │   └── impls its uv pair joins vtCoords
+│   │   ├── else if the line is an "f " record
+│   │   │   ├── calls _parseFaceCorner(each corner token)  # corners
+│   │   │   └── for each triangle of the corner fan (corners[0], corners[j], corners[j + 1])
+│   │   │       ├── impls its three vertex indices push onto faceVertexTokens
+│   │   │       ├── impls its three uv indices push onto faceUvTokens
+│   │   │       └── if a corner carries a uv index
+│   │   │           └── impls sawAnyUv = true
+│   │   └── else if the line is an "mtllib" record
+│   │       └── if it splits into 2 or more fields
+│   │           └── impls mtllibName takes the rest of that line
+│   ├── impls geometryVertexCount = vPositions.length / 3, cornerCount = faceVertexTokens.length
+│   ├── impls useUvs = sawAnyUv over a non-empty vtCoords
+│   ├── impls verts = a Float32Array over vPositions, faces = a Uint32Array of cornerCount
+│   ├── impls vertexColor = a Float32Array over vColors when the OBJ carried colors, else null
+│   ├── impls facesUvs, vertsUvs = a Uint32Array of cornerCount, a Float32Array over vtCoords when useUvs, else null
+│   ├── for each face corner
+│   │   ├── if its vertex index falls outside the geometry vertex range
+│   │   │   └── impls throw new Error reporting the out-of-range vertex index
+│   │   ├── impls faces[corner] = that vertex index
+│   │   └── if facesUvs is not null
+│   │       ├── if its uv index falls outside vtCoords
+│   │       │   └── impls throw new Error reporting the missing UV index
+│   │       └── impls facesUvs[corner] = that uv index
+│   └── return  # verts, faces, vertexColor when the OBJ carried colors, vertsUvs/facesUvs when it carried uvs, and mtllibName
+├── function _parseFaceCorner(token: string): { v: number; vt: number }
+│   ├── # Splits one "v/vt" face corner into zero-based vertex and uv indices.
+│   ├── impls v = the first field, converted from OBJ's 1-based index
+│   └── return  # { v, vt }, with vt at -1 when the corner carries none
+├── async function _resolveMeshTexture({ parsed, primaryUrl }: { parsed: ParsedObj; primaryUrl: string }): Promise<MeshTextureVertexColor | MeshTextureUVTextureMap | null>
+│   ├── # Resolves the OBJ's texture: a UV map via its MTL when it has one, else per-vertex color, else none.
+│   ├── if parsed carries vertsUvs, facesUvs and an mtllibName
+│   │   ├── calls _siblingUrl(primaryUrl, parsed.mtllibName)
+│   │   ├── calls _fetchMtlTextureName(that mtl url)  # textureName
+│   │   ├── if textureName is null
+│   │   │   └── impls throw new Error reporting UVs declared with no map_Kd
+│   │   ├── calls _fetchTexture(_siblingUrl(primaryUrl, textureName))  # uvTextureMap
+│   │   └── return  # { kind: "uv_texture_map", uvTextureMap, vertsUvs, facesUvs }
+│   ├── if parsed.vertexColor is not null
+│   │   └── return  # { kind: "vertex_color", vertexColor }
+│   └── return null
+├── async function _fetchMtlTextureName(mtlUrl: string): Promise<string | null>
+│   ├── # Reads the MTL's map_Kd texture name, or null when it declares none.
+│   ├── impls response = await fetch(mtlUrl)
+│   ├── if the response is not ok
+│   │   └── impls throw new Error(`GET ${mtlUrl} failed: ${response.status}`)
+│   ├── for each line of the MTL text
+│   │   └── if it starts with "map_Kd"
+│   │       └── if it splits into 2 or more fields
+│   │           └── return the rest of that line as the texture name
+│   └── return null
+├── function _siblingUrl(primaryUrl: string, siblingName: string): string
+│   ├── # Resolves a sibling file name against the primary url's directory.
+│   ├── if primaryUrl has no "/"
+│   │   └── return siblingName
+│   └── return primaryUrl up to its last "/" joined with siblingName
+└── function _fetchTexture(textureUrl: string): Promise<THREE.Texture>
+    ├── # Loads a THREE texture, memoizing the in-flight promise per url.
+    ├── if _textureCache already holds textureUrl
+    │   └── return that cached promise
+    ├── impls loader = a new THREE.TextureLoader()
+    ├── impls promise = a new Promise around loader.load(textureUrl)
+    ├── impls its onLoad = texture => { texture.colorSpace = THREE.SRGBColorSpace; texture.flipY = true; texture.needsUpdate = true; resolve(texture) }
+    ├── impls the onError callback rejects with `unable to load texture image: ${textureUrl}`
+    ├── impls _textureCache.set(textureUrl, promise)
+    └── return promise
 ```
 
 `./data/viewer/utils/displays/mesh/ts/frontend/apis.ts`
@@ -1591,7 +2187,10 @@ apis.py
 │   ├── calls _map_segmentation_gs_to_rgb(segmentation_gs_path=segmentation_gs_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_gaussians_display
 └── def _map_segmentation_gs_to_rgb
-    └── # Recolors the segmentation Gaussian's per-Gaussian class ids to RGB via the class-to-RGB mapping.
+    ├── # Recolors the segmentation Gaussian's per-Gaussian class ids to RGB via the class-to-RGB mapping.
+    ├── impls assert isinstance(segmentation_gs_path, str)
+    ├── impls assert isinstance(class_id_to_rgb, dict)
+    └── raise NotImplementedError("Dash segmentation-to-color Gaussian mapping is declared by the skeleton but not exercised by any caller in this branch.")
 ```
 
 `./data/viewer/utils/displays/gaussians/dash/core_gaussians_display.py`
@@ -1611,7 +2210,8 @@ core_gaussians_display.py
 │   └── return
 └── def create_dash_gaussians_component
     ├── # Assembles the Dash component that hosts the Gaussian-splat scene and its trackball camera controls.
-    └── return
+    ├── impls assert isinstance(title, str)
+    └── raise NotImplementedError("Dash Gaussian component assembly is declared by the skeleton but not exercised by any caller in this branch.")
 ```
 
 `./data/viewer/utils/displays/gaussians/ts/backend/schemas/display_response.py`
@@ -1620,18 +2220,21 @@ core_gaussians_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class GaussianDisplayResponse(DisplayResponse)
+│   ├── # Base of the Gaussian-splat display family: a response whose served resource is a splat set.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── class ColorGSDisplayResponse(GaussianDisplayResponse)
+│   ├── # Gaussian-splat display carrying per-splat RGB color.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_gs"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 └── class SegmentationGSDisplayResponse(GaussianDisplayResponse)
+    ├── # Gaussian-splat display carrying per-splat class ids.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "segmentation_gs"  # common field
@@ -1683,18 +2286,21 @@ core_gaussians_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface GaussianDisplayResponse extends DisplayResponse
+│   ├── # Base of the Gaussian-splat display family: a response whose served resource is a splat set.
 │   ├── slot_id       # common field
 │   ├── title         # common field
 │   ├── display_kind  # common field
 │   ├── url           # common field
 │   └── meta_info     # common field
 ├── interface ColorGSDisplayResponse extends GaussianDisplayResponse
+│   ├── # Gaussian-splat display carrying per-splat RGB color.
 │   ├── slot_id  # common field
 │   ├── title    # common field
 │   ├── display_kind = "color_gs"  # common field
 │   ├── url        # common field
 │   └── meta_info  # common field
 └── interface SegmentationGSDisplayResponse extends GaussianDisplayResponse
+    ├── # Gaussian-splat display carrying per-splat class ids.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "segmentation_gs"  # common field
@@ -1749,6 +2355,7 @@ camera_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class CameraDisplayResponse(DisplayResponse)
+    ├── # Spatial display of camera geometry, whose centers, axes and frustums the viewer draws in the 3D slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "camera"  # common field
@@ -1808,6 +2415,7 @@ core_camera_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface CameraDisplayResponse extends DisplayResponse
+    ├── # Spatial display of camera geometry, whose centers, axes and frustums the viewer draws in the 3D slot.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "camera"  # common field
@@ -1823,7 +2431,7 @@ camera_display.ts
 ├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { CameraDisplayResponse } from "./types/display_response";
-├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
+├── import { applyCameraStateToThreeCamera, createThreeDisplayContainer, createThreePerspectiveCamera, createThreeScene, createThreeWebGLRenderer, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── const DEFAULT_FRUSTUM_OPACITY = 0.5  # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
 ├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number }): LeafVNode
 │   ├── # Builds a non-interactive transparent layer from the camera-vis JSON payload (glyph sizes + colors baked by camera_vis), initialized at initialCameraState.
@@ -1838,8 +2446,32 @@ camera_display.ts
 │   ├── impls group = new THREE.Group()
 │   ├── impls loadCamerasPayload({ displayResponse }).then(payload => group.add(createThreeCameras({ payload, frustumOpacity })))
 │   └── return group
+├── function createCamerasScene({ displayResponse, initialCameraState, frustumOpacity, onFrameOpacityControl }: { displayResponse: CameraDisplayResponse; initialCameraState: CameraState | null; frustumOpacity?: number; onFrameOpacityControl?: (control: CameraFrameOpacityControl) => void }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
+│   ├── # Builds the cameras overlay scene, following the synced pose and exposing a frame-opacity control.
+│   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed: true })
+│   ├── calls createThreeScene()
+│   ├── calls createThreePerspectiveCamera({ initialCameraState })
+│   ├── calls createThreeWebGLRenderer({ container })
+│   ├── calls followSyncedCameraPose({ container, camera })
+│   ├── impls overlay, latestPredicate start null  # the payload loads async, so the predicate is latched
+│   ├── function setContributingFrames(isContributing) [local]
+│   │   ├── impls latestPredicate = isContributing
+│   │   └── if overlay is not null
+│   │       └── calls _applyFrameOpacity({ overlay, isContributing })
+│   ├── if onFrameOpacityControl is defined
+│   │   └── impls onFrameOpacityControl({ container, setContributingFrames })
+│   ├── impls loadCamerasPayload({ displayResponse }).then(payload => { overlay = createThreeCameras({ payload, frustumOpacity }); scene.add(overlay); if (latestPredicate !== null) _applyFrameOpacity({ overlay, isContributing: latestPredicate }) })
+│   ├── impls that promise's .catch(error => container.replaceChildren(_renderCamerasStatus(`Failed to load camera visualization: ${message}`)))
+│   └── return  # { container, scene, camera, renderer }
 ├── async function loadCamerasPayload({ displayResponse }: { displayResponse: CameraDisplayResponse }): Promise<CamerasPayload>
 │   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / center_size / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
+│   ├── # Async-fetches the camera-vis JSON payload from displayResponse.url and hands the decoded body to the payload validator.
+│   ├── if displayResponse.url === null
+│   │   └── throw new Error("camera display response url is null")
+│   ├── impls response = await fetch(displayResponse.url)
+│   ├── if !response.ok
+│   │   └── throw new Error(`unable to load camera visualization: HTTP ${response.status}`)
+│   └── return validateCameraVisualizationPayloads({ value: await response.json() })
 ├── function createThreeCameras({ payload, frustumOpacity }: { payload: CamerasPayload; frustumOpacity?: number }): THREE.Object3D
 │   ├── # Sync-builds the transparent Three.js centers + line segments from a pre-validated camera-vis payload, reading every baked glyph size + color from the payload.
 │   ├── impls effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY
@@ -1852,6 +2484,98 @@ camera_display.ts
     ├── impls exposes the display element under displayResponse.slot_id so the caller can register it as a camera-sync target
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls: null })
     └── return
+├── function validateCameraVisualizationPayloads({ value }: { value: unknown }): CamerasPayload
+│   ├── # Validates the decoded camera-vis JSON body into the typed per-camera payload array.
+│   ├── if !Array.isArray(value)
+│   │   └── throw new Error("camera visualization payload must be an array")
+│   ├── for each cameraVisualization, cameraIndex of value
+│   │   └── calls validateCameraVisualizationPayload({ value: cameraVisualization, cameraIndex })
+│   ├── calls assertCameraVisualizationPayloadShape({ cameraVisualizations })
+│   └── return cameraVisualizations
+├── function validateCameraVisualizationPayload({ value, cameraIndex }: { value: unknown; cameraIndex: number }): CameraVisualizationPayload
+│   ├── # Validates one camera entry into its center / center_color / center_size / axes / frustum_lines fields.
+│   ├── if !isRecord(value)
+│   │   └── throw new Error(`camera visualization entry must be an object: ${cameraIndex}`)
+│   ├── calls validateCameraVisualizationVector({ value: value.center, label: `camera ${cameraIndex} center` })               → center
+│   ├── calls validateCameraVisualizationVector({ value: value.center_color, label: `camera ${cameraIndex} center_color` })   → center_color
+│   ├── calls validateCameraVisualizationScalar({ value: value.center_size, label: `camera ${cameraIndex} center_size` })     → center_size
+│   ├── calls validateCameraVisualizationLines({ value: value.axes, label: `camera ${cameraIndex} axes` })                    → axes
+│   ├── calls validateCameraVisualizationLines({ value: value.frustum_lines, label: `camera ${cameraIndex} frustum_lines` })  → frustum_lines
+│   └── return { center, center_color, center_size, axes, frustum_lines }
+├── function validateCameraVisualizationLines({ value, label }: { value: unknown; label: string }): CameraVisualizationLinePayload[]
+│   ├── # Validates one axes or frustum_lines array line by line.
+│   ├── if !Array.isArray(value)
+│   │   └── throw new Error(`${label} must be an array`)
+│   ├── for each lineValue, lineIndex of value
+│   │   └── calls validateCameraVisualizationLine({ value: lineValue, label: `${label} line ${lineIndex}` })
+│   └── return the validated line array
+├── function validateCameraVisualizationLine({ value, label }: { value: unknown; label: string }): CameraVisualizationLinePayload
+│   ├── # Validates one axes or frustum line into its start / end / color fields.
+│   ├── if !isRecord(value)
+│   │   └── throw new Error(`${label} must be an object`)
+│   ├── calls validateCameraVisualizationVector({ value: value.start, label: `${label} start` })  → start
+│   ├── calls validateCameraVisualizationVector({ value: value.end, label: `${label} end` })      → end
+│   ├── calls validateCameraVisualizationVector({ value: value.color, label: `${label} color` })  → color
+│   └── return { start, end, color }
+├── function validateCameraVisualizationVector({ value, label }: { value: unknown; label: string }): CameraVisualizationVectorPayload
+│   ├── # Validates one payload field as a finite 3-vector.
+│   ├── if !Array.isArray(value) || value.length !== 3 || value.some(entry => typeof entry !== "number" || !Number.isFinite(entry))
+│   │   └── throw new Error(`${label} must be a finite 3-vector`)
+│   └── return [value[0], value[1], value[2]]
+├── function validateCameraVisualizationScalar({ value, label }: { value: unknown; label: string }): number
+│   ├── # Validates one payload field as a finite number.
+│   ├── if typeof value !== "number" || !Number.isFinite(value)
+│   │   └── throw new Error(`${label} must be a finite number`)
+│   └── return value
+├── function assertCameraVisualizationPayloadShape({ cameraVisualizations }: { cameraVisualizations: CamerasPayload }): void
+│   ├── # Holds every validated camera to exactly three axes and eight frustum lines.
+│   ├── for each cameraVisualization, index of cameraVisualizations
+│   │   ├── if cameraVisualization.axes.length !== 3
+│   │   │   └── throw new Error(`camera ${index} must contain three axes`)
+│   │   └── if cameraVisualization.frustum_lines.length !== 8
+│   │       └── throw new Error(`camera ${index} must contain eight frustum lines`)
+│   └── return
+├── function isRecord(value: unknown): value is Record<string, unknown>
+│   ├── # Narrows an unknown decoded JSON value to a keyed object.
+│   └── return typeof value === "object" && value !== null
+├── function followSyncedCameraPose({ container, camera }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera }): void
+│   ├── # Mirrors the container's data-camera-state onto the camera, now and on every later mutation.
+│   ├── function applyDatasetCameraState() [local]
+│   │   ├── # Applies the container's data-camera-state, ignoring an unset or malformed value.
+│   │   ├── impls raw = container.dataset.cameraState
+│   │   ├── if raw is undefined
+│   │   │   └── return
+│   │   ├── try
+│   │   │   └── calls applyCameraStateToThreeCamera({ camera, cameraState: JSON.parse(raw) as CameraState })
+│   │   └── catch
+│   │       └── impls unparseable dataset values are ignored
+│   ├── calls applyDatasetCameraState()  # the initial pose
+│   └── impls a MutationObserver on the data-camera-state attribute calls it again on every change
+├── function _applyFrameOpacity({ overlay, isContributing }: { overlay: THREE.Object3D; isContributing: (cameraIndex: number) => boolean }): void
+│   ├── # Dims every non-contributing camera group to a fixed ratio of its own base opacity.
+│   └── for each child of overlay
+│       ├── if its userData.cameraIndex is not a number
+│       │   └── impls continue
+│       ├── impls contributing = isContributing(cameraIndex)
+│       └── impls child.traverse(object => { skip absent or array materials; capture userData.baseOpacity once; transparent = true; opacity = contributing ? baseOpacity : baseOpacity * NON_CONTRIBUTING_FRAME_OPACITY_RATIO; needsUpdate = true })
+├── function createThreeCameraCenter({ cameraVisualization }: { cameraVisualization: CameraVisualizationPayload }): THREE.Points
+│   ├── # Builds the depth-test-free points object marking one camera's center.
+│   ├── impls geometry carries cameraVisualization.center as a 3-component position attribute
+│   ├── impls material = a THREE.PointsMaterial in center_color at center_size, depth-test and depth-write off, sizeAttenuation on
+│   └── return the THREE.Points at renderOrder 999
+├── function createThreeCameraOverlayLine({ line, frustumOpacity }: { line: CameraVisualizationLinePayload; frustumOpacity: number }): THREE.Line
+│   ├── # Builds one depth-test-free overlay line in the color the backend baked into it.
+│   ├── impls geometry carries line.start followed by line.end as a 3-component position attribute
+│   ├── impls material = a THREE.LineBasicMaterial in line.color at frustumOpacity, transparent, depth-test and depth-write off
+│   └── return the THREE.Line at renderOrder 999
+├── function cameraVisualizationLineLength({ line }: { line: CameraVisualizationLinePayload }): number
+│   ├── # Returns the Euclidean length of one visualization line.
+│   └── return the square root of the summed squared start-to-end deltas
+└── function _renderCamerasStatus(message: string): HTMLElement
+    ├── # Builds the centered, italic status surface shown when the payload fails to load.
+    ├── impls status = a "camera-display-scene__status" div, flex-centered at 100% by 100%, padded 1rem,  # 888 italic
+    ├── impls status.textContent = message
+    └── return status
 ```
 
 `./data/viewer/utils/controls/camera/camera_state/dash/camera_state.py`
@@ -1870,7 +2594,9 @@ camera_state.py
 
 ```text
 camera_state.py
-└── class CameraState
+├── from pydantic import BaseModel
+└── class CameraState(BaseModel)
+    ├── # One camera's viewer-side state: its intrinsics, extrinsics and convention, plus the name and id identifying it.
     ├── intrinsics
     ├── extrinsics
     ├── convention
@@ -1895,6 +2621,7 @@ camera_state.py
 ```text
 types.ts
 └── interface CameraState
+    ├── # One camera's viewer-side state: its intrinsics, extrinsics and convention, plus the name and id identifying it.
     ├── intrinsics
     ├── extrinsics
     ├── convention
@@ -1948,6 +2675,7 @@ trackball_camera_controls.ts
 ├── export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45
 │   └── # Shared vertical-FOV (degrees) every TS spatial display must construct its THREE.PerspectiveCamera with — 45° is the standard 50mm-equivalent lens FOV, trading perspective realism against off-center foreshortening for the orbit-around-near-scene-content use case this lib targets.
 ├── interface TrackballCameraControls
+│   ├── # The trackball camera-control contract: serializing the full camera state, applying one, and subscribing to its changes.
 │   ├── getCameraState
 │   │   └── # serializes the entire camera state (every CameraState field — both intrinsics and extrinsics) into a CameraState
 │   ├── applyCameraState
@@ -1988,6 +2716,117 @@ trackball_camera_controls.ts
     ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
     │   └── throw restricted camera pose controls
     └── return
+├── function createThreeTrackballCameraControls(args: { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; container: HTMLElement; initialCameraState?: CameraState | null }): ThreeTrackballCameraControls
+│   ├── # Wraps THREE's trackball controls, publishing a CameraState to its listeners on every change.
+│   ├── impls threeControls = a ThreeTrackballControlsImpl over the renderer's canvas
+│   ├── impls rotateSpeed 3, zoomSpeed 1.5, panSpeed 0.8, staticMoving on
+│   ├── impls the canvas contextmenu event is prevented
+│   ├── impls listeners = a Set of CameraStateListener
+│   ├── impls threeControls.addEventListener("change", () => every registered listener receives buildThreeTrackballCameraState({ camera, controls: threeControls }))
+│   ├── function getCameraState() [local]
+│   │   ├── # result.getCameraState: the pose read fresh from the camera with its controls.
+│   │   └── calls buildThreeTrackballCameraState({ camera, controls: threeControls })
+│   ├── function applyCameraState(cameraState) [local]
+│   │   ├── # result.applyCameraState: writes one pose onto the camera with its controls.
+│   │   └── calls applyThreeTrackballCameraState({ camera, controls: threeControls, cameraState })
+│   ├── function subscribeCameraStateChange(listener) [local]
+│   │   ├── # result.subscribeCameraStateChange: registers a listener, handing back its unsubscribe.
+│   │   ├── if listener is not a function
+│   │   │   └── throw new Error("camera state listener must be a function")
+│   │   ├── impls listeners.add(listener)
+│   │   └── return  # an unsubscribe deleting it from listeners
+│   ├── impls result = Object.assign(threeControls, { getCameraState, applyCameraState, subscribeCameraStateChange })
+│   ├── if initialCameraState is not null
+│   │   └── calls result.applyCameraState(initialCameraState)
+│   ├── impls the observer callback = () => result.applyCameraState(JSON.parse(container.dataset.cameraState) as CameraState), ignoring an undefined or unparseable value
+│   ├── impls observer observes container for `data-camera-state` attribute changes
+│   └── return result
+├── function buildThreeTrackballCameraState({ camera, controls }: { camera: THREE.PerspectiveCamera; controls: ThreeTrackballControlsImpl }): CameraState
+│   ├── # Reads the camera and its controls into a "three_trackball" CameraState.
+│   ├── calls vectorToRecord(camera.position)
+│   ├── calls quaternionToRecord(camera.quaternion)
+│   ├── calls vectorToRecord(controls.target)
+│   ├── calls vectorToRecord(camera.up)
+│   └── return  # intrinsics aspect/far/fov/near at projection "perspective-three", those extrinsics, convention "three_trackball", name and id null
+├── function applyThreeTrackballCameraState({ camera, controls, cameraState }: { camera: THREE.PerspectiveCamera; controls: ThreeTrackballControlsImpl; cameraState: CameraState | null }): void
+│   ├── # Overlays a "three_trackball" CameraState onto the camera and its controls, ignoring any other convention.
+│   ├── if cameraState is null or its convention is not "three_trackball"
+│   │   └── return
+│   ├── calls isVectorRecord(position)
+│   ├── calls isQuaternionRecord(quaternion)
+│   ├── calls isVectorRecord(target)
+│   ├── calls isVectorRecord(up)
+│   ├── if any of those fails, or aspect, far, fov or near is not a number
+│   │   └── return
+│   ├── impls the camera's position, quaternion, up and intrinsics, and the controls' target, take those values  # impls-node-one-step:skip
+│   ├── impls camera.updateProjectionMatrix()
+│   └── impls controls.update()
+├── function readCameraStateFromTargetElement(targetElement: HTMLElement): CameraState | null
+│   ├── # Parses the target element's data-camera-state, rejecting a payload that is not a CameraState.
+│   ├── if data-camera-state is unset
+│   │   └── return null
+│   ├── calls isCameraState(the parsed value)
+│   ├── if it is not a CameraState
+│   │   └── impls throw new Error("target camera state does not match CameraState")
+│   └── return that parsed state
+├── function writeInternalCameraStateToTargetElement(args: { targetElement: HTMLElement; cameraState: CameraState | null; setInternallyWrittenCameraStateToken: (token: string | null) => void }): void
+│   ├── # Writes a state to the element and records its token, so the write is not mistaken for an external one.
+│   ├── calls serializeCameraState(cameraState)
+│   ├── calls writeCameraStateToTargetElement({ targetElement, cameraState, serializedCameraState })
+│   └── if that write happened
+│       └── impls setInternallyWrittenCameraStateToken(serializedCameraState)
+├── function writeCameraStateToTargetElement(args: { targetElement: HTMLElement; cameraState: CameraState | null; serializedCameraState: string | null }): boolean
+│   ├── # Writes the serialized state onto the element, reporting whether anything changed.
+│   ├── calls readCameraStateTokenFromTargetElement(targetElement)
+│   ├── if that token already equals serializedCameraState
+│   │   └── return false
+│   ├── if cameraState is null
+│   │   ├── impls delete targetElement.dataset.cameraState
+│   │   └── return true
+│   ├── if serializedCameraState is null
+│   │   └── impls throw new Error("serialized camera state is unexpectedly null")
+│   └── return true, having written serializedCameraState onto the element
+├── function postCameraStateToEmbeddedRenderer(args: { targetElement: HTMLElement; cameraState: CameraState | null }): void
+│   ├── # Forwards a state to an embedded renderer iframe, same-origin only.
+│   ├── if targetElement is not an HTMLIFrameElement, or has no contentWindow
+│   │   └── return
+│   └── impls targetWindow.postMessage({ cameraState, type: "trackball-camera-state" }, window.location.origin)
+├── function isEmbeddedRendererMessageSource(args: { targetElement: HTMLElement; source: MessageEventSource | null }): boolean
+│   ├── # A message is the embedded renderer's when its source is that iframe's own contentWindow.
+│   └── return that predicate
+├── function isTrackballCameraStateChangeMessage(value: unknown): value is { type: "trackball-camera-state-change"; cameraState: CameraState }
+│   ├── # Narrows a posted message to the trackball camera-state-change shape.
+│   ├── calls isRecord(value)
+│   ├── calls isCameraState(value.cameraState)
+│   └── return that, and whether type is "trackball-camera-state-change"
+├── function isCameraState(value: unknown): value is CameraState
+│   ├── # A CameraState carries record intrinsics and extrinsics, a string convention, and nullable name and id.
+│   ├── calls isRecord(value)
+│   └── return that predicate
+├── function serializeCameraState(cameraState: CameraState | null): string | null
+│   ├── # Serializes a state to JSON, passing null through.
+│   ├── if cameraState is null
+│   │   └── return null
+│   └── return JSON.stringify(cameraState)
+├── function readCameraStateTokenFromTargetElement(targetElement: HTMLElement): string | null
+│   ├── # Returns the element's raw data-camera-state token, or null when unset.
+│   └── return targetElement.dataset.cameraState ?? null
+├── function vectorToRecord(vector: THREE.Vector3): Record<string, number>
+│   ├── # Flattens a Vector3 into an x/y/z record.
+│   └── return { x: vector.x, y: vector.y, z: vector.z }
+├── function quaternionToRecord(quaternion: THREE.Quaternion): Record<string, number>
+│   ├── # Flattens a Quaternion into an x/y/z/w record.
+│   └── return { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w }
+├── function isQuaternionRecord(value: unknown): value is { x: number; y: number; z: number; w: number }
+│   ├── # A quaternion record is a vector record that also carries a numeric w.
+│   ├── calls isVectorRecord(value)
+│   └── return that, and whether w is a number
+├── function isVectorRecord(value: unknown): value is { x: number; y: number; z: number }
+│   ├── # A vector record is a non-null object whose x, y and z are all numbers.
+│   └── return that predicate
+└── function isRecord(value: unknown): value is Record<string, unknown>
+    ├── # A record is any non-null object.
+    └── return whether value is non-null and of type object
 ```
 
 `./data/viewer/utils/controls/camera/camera_sync/dash/camera_sync.py`
@@ -2012,7 +2851,16 @@ camera_sync.py
 │   └── return
 ├── def _set_camera_state_from_source_camera
 │   ├── # Commits the firing source display's current camera state into that source's CameraSyncState entry in the store.
-│   └── return
+│   ├── impls assert source_camera is None or isinstance(source_camera, dict)
+│   ├── impls assert camera_sync_state is None or isinstance(camera_sync_state, dict)
+│   ├── impls assert isinstance(source_id, (str, dict))
+│   ├── if camera_sync_state is None
+│   │   └── impls updated_camera_sync_state = {"camera_state": None, "source_id": None, "target_ids": []}
+│   ├── else
+│   │   └── impls updated_camera_sync_state = dict(camera_sync_state)
+│   ├── impls updated_camera_sync_state["camera_state"] = source_camera  # committed even when None
+│   ├── impls updated_camera_sync_state["source_id"] = source_id
+│   └── return updated_camera_sync_state  # the updated camera-sync store data
 └── def apply_camera_state_to_target
     ├── # Applies one source's current camera state to a single registered Dash spatial-display target.
     ├── impls applies the source's CameraSyncState.camera_state to a Dash spatial-display target registered under that source
@@ -2024,6 +2872,7 @@ camera_sync.py
 ```text
 types.ts
 └── interface CameraSyncState
+    ├── # One source's camera-sync entry: the source id, the targets registered under it, and that source's current camera state.
     ├── source_id     # the source this entry belongs to; one CameraSyncState exists per source
     ├── target_ids    # targets registered under this source
     └── camera_state  # this source's current camera state
@@ -2225,6 +3074,7 @@ apis.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface Aabb3dDisplayResponse extends DisplayResponse
+    ├── # Spatial overlay response: inline axis-aligned 3D boxes (each a 6-float box) with optional per-box scores, composed as an aux layer over a point cloud.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "aabb_3d"  # common field
@@ -2263,6 +3113,28 @@ apis.ts
 │   ├── # Drives the 3D-box display render loop with the supplied trackball controls.
 │   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
 │   └── return
+├── function _boxesBoundingRadius({ boxes }: { boxes: number[][] }): number
+│   ├── # Returns the bounding-sphere radius of all boxes, falling back to 1.
+│   ├── if boxes is empty
+│   │   └── return 1
+│   ├── impls boundingBox = a THREE.Box3 expanded by every box's min and max corner
+│   ├── impls sphere = boundingBox.getBoundingSphere(...)
+│   └── return sphere.radius when positive, else 1
+├── function _createBoxLines({ box }: { box: number[] }): LineSegments2
+│   ├── # Builds the twelve-edge wireframe of one axis-aligned box.
+│   ├── impls corners = the box's eight (min/max) corner triples
+│   ├── impls edges = the twelve corner-index pairs spanning the box
+│   ├── impls positions = the edge endpoints flattened onto a LineSegmentsGeometry
+│   ├── impls material = a LineMaterial in AABB_3D_BOX_COLOR at AABB_3D_BOX_LINEWIDTH, transparent, depth-test off, resolution from the window  # WebGL ignores LineBasicMaterial.linewidth
+│   └── return the LineSegments2 built from them, at renderOrder 1000
+├── function _createScoreLabelSprite({ score }: { score: number }): THREE.Sprite
+│   ├── # Draws one score onto a 256x64 canvas and wraps it as a depth-test-free sprite.
+│   ├── impls canvas = a 256 by 64 canvas
+│   ├── if the canvas 2d context is null
+│   │   └── impls throw new Error("aabb 3d score label canvas 2d context is unavailable")
+│   ├── impls score.toFixed(2) is written in bold 36px monospace  # ffffff over an rgba(77,166,255,0.85) fill
+│   ├── impls spriteMaterial = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true })
+│   └── return new THREE.Sprite(spriteMaterial)
 └── impls registerSpatialLayerRenderer({ displayKind: "aabb_3d", layerRenderer: createAabb3dObject })  # module-load self-registration of the spatial aabb-3d layer renderer
 ```
 
@@ -2297,6 +3169,7 @@ apis.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface Aabb2dDisplayResponse extends DisplayResponse
+    ├── # Raster overlay response: inline axis-aligned 2D boxes (each a 4-float box) with optional per-box scores, composed as an aux layer over an image.
     ├── slot_id  # common field
     ├── title    # common field
     ├── display_kind = "aabb_2d"  # common field
@@ -2316,5 +3189,14 @@ apis.ts
 │   ├── impls build the full-bleed SVG box overlay (preserveAspectRatio="none") from displayResponse.aabbs
 │   ├── impls build the score labels from displayResponse.scores
 │   └── return
+├── function _buildBoxesOverlay({ displayResponse }: { displayResponse: Aabb2dDisplayResponse }): HTMLElement
+│   ├── # Builds the full-bleed SVG box overlay and its optional per-box score labels.
+│   ├── impls overlay = an absolutely-positioned, inset-0, pointer-events-none div
+│   ├── impls svg = an SVG element with preserveAspectRatio="none", sized 100% by 100%
+│   ├── impls overlay.append(svg)
+│   ├── for each box in displayResponse.aabbs
+│   │   ├── impls rect = an SVG rect at (x1, y1) sized (x2 - x1) by (y2 - y1), stroked AABB_2D_BOX_STROKE with no fill
+│   │   └── impls the box's score, when scores is not null, becomes a text label beside the rect
+│   └── return overlay
 └── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })  # module-load self-registration of the raster aabb-2d layer renderer
 ```
