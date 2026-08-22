@@ -23,8 +23,6 @@ __init__.py
 
 ```text
 base.py
-├── from typing import Optional, Union
-├── from abc import abstractmethod
 ├── import torch
 ├── from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
 └── class DenseRegressionCriterion(DensePredictionCriterion)  # its docstring is wrong, documenting a normalize_inputs attribute and __init__ arg on top of the two the signature takes

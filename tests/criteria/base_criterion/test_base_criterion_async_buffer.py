@@ -2,7 +2,7 @@ import pytest
 import torch
 import time
 import threading
-from typing import Dict, Any, Optional
+from typing import Optional
 from criteria.base_criterion import BaseCriterion
 
 

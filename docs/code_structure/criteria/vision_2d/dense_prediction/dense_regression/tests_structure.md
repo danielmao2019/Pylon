@@ -8,7 +8,6 @@
 test_depth_estimation_criterion.py
 ├── import pytest
 ├── import torch
-├── import numpy as np
 ├── from criteria.vision_2d.dense_prediction.dense_regression.depth_estimation import DepthEstimationCriterion
 ├── def test_depth_estimation_basic()
 │   ├── # Random positive depths score to a non-negative scalar, the shape every training step consumes.
@@ -66,7 +65,6 @@ test_depth_estimation_criterion.py
 test_instance_segmentation_criterion.py
 ├── import pytest
 ├── import torch
-├── import numpy as np
 ├── from criteria.vision_2d.dense_prediction.dense_regression.instance_segmentation import InstanceSegmentationCriterion
 ├── def test_instance_segmentation_init()
 │   ├── # The caller's own ignore id is the one this criterion masks by, whichever value it is.

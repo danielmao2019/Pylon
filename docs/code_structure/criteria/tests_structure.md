@@ -10,7 +10,7 @@ test_base_criterion_async_buffer.py
 ├── import torch
 ├── import time
 ├── import threading
-├── from typing import Dict, Any, Optional
+├── from typing import Optional
 ├── from criteria.base_criterion import BaseCriterion
 ├── @pytest.fixture def sample_tensor()
 │   ├── # Offers one scalar loss value for a test to buffer.

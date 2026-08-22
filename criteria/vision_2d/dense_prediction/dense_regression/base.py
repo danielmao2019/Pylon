@@ -1,5 +1,3 @@
-from typing import Optional, Union
-from abc import abstractmethod
 import torch
 from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
 
