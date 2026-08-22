@@ -5,7 +5,7 @@
 ```text
 ./web/
 └── reconcile/
-    └── reconcile.ts          # VNode types + reconcileInto: identity-preserving DOM patch driver
+    └── reconcile.ts  # VNode types + reconcileInto: identity-preserving DOM patch driver
 ```
 
 ## Tests folder structure

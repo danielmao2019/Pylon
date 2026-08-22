@@ -29,7 +29,7 @@ apply_transform.py
     ├── calls chunked_matmul  # homogeneous verts by transform.T, passing max_divide and num_divide, chunked over the V rows
     ├── impls drop the homogeneous coordinate to get the [V, 3] transformed verts
     ├── calls Mesh  # rebuild with the transformed verts, original faces, original texture
-    └── return  # the transformed Mesh
+    └── return      # the transformed Mesh
 ```
 
 `models/three_d/meshes/ops/arap.py`

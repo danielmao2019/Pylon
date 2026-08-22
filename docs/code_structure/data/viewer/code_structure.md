@@ -97,11 +97,11 @@ heatmap_colors.py
 display_response.py
 ├── from pydantic import BaseModel
 └── class DisplayResponse(BaseModel)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind                                 # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id       # common field
+    ├── title         # common field
+    ├── display_kind  # common field
+    ├── url           # common field
+    └── meta_info     # common field
 ```
 
 `./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
@@ -109,11 +109,11 @@ display_response.py
 ```text
 display_response.ts
 └── interface DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind                                 # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id       # common field
+    ├── title         # common field
+    ├── display_kind  # common field
+    ├── url           # common field
+    └── meta_info     # common field
 ```
 
 `./data/viewer/utils/displays/utils/ts/backend/schemas/layered_display_response.py`
@@ -122,17 +122,17 @@ display_response.ts
 layered_display_response.py
 ├── from typing import List, Literal
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
-├── RASTER_DISPLAY_KINDS     # frozenset[str]: color_image, depth_image, edge_image, normal_image, segmentation_image, instance_surrogate_image, video, aabb_2d — the single source of the raster/spatial taxonomy
-├── SPATIAL_DISPLAY_KINDS    # frozenset[str]: color_pc, segmentation_pc, color_gs, segmentation_gs, scene_graph, camera, aabb_3d
+├── RASTER_DISPLAY_KINDS   # frozenset[str]: color_image, depth_image, edge_image, normal_image, segmentation_image, instance_surrogate_image, video, aabb_2d — the single source of the raster/spatial taxonomy
+├── SPATIAL_DISPLAY_KINDS  # frozenset[str]: color_pc, segmentation_pc, color_gs, segmentation_gs, scene_graph, camera, aabb_3d
 └── class LayeredDisplayResponse(DisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "layered"                     # common field
-    ├── url                                          # common field
-    ├── meta_info                                    # common field
-    ├── base_display_response: DisplayResponse                # the single base layer
-    ├── aux_display_responses: List[DisplayResponse]          # ordered auxiliary layers stacked on top of the base; each consumer assigns its own per-layer semantics and owns its own visibility state
-    ├── layer_class: Literal["raster", "spatial"]            # the single composable class shared by all non-placeholder layers; assigned in model_post_init and serialized so the frontend reads it instead of re-deriving the taxonomy
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "layered"  # common field
+    ├── url        # common field
+    ├── meta_info  # common field
+    ├── base_display_response: DisplayResponse        # the single base layer
+    ├── aux_display_responses: List[DisplayResponse]  # ordered auxiliary layers stacked on top of the base; each consumer assigns its own per-layer semantics and owns its own visibility state
+    ├── layer_class: Literal["raster", "spatial"]     # the single composable class shared by all non-placeholder layers; assigned in model_post_init and serialized so the frontend reads it instead of re-deriving the taxonomy
     ├── def model_post_init [override]
     │   ├── # Pydantic post-construction hook: rejects a layered response whose non-placeholder layers do not all resolve to a single composable class, and records that class as layer_class.
     │   ├── for each layer in base_display_response and aux_display_responses
@@ -159,14 +159,14 @@ layered_display_response.py
 layered_display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface LayeredDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind: "layered"                      # common field
-    ├── url                                          # common field
-    ├── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind: "layered"  # common field
+    ├── url        # common field
+    ├── meta_info  # common field
     ├── base_display_response: DisplayResponse
     ├── aux_display_responses: DisplayResponse[]
-    └── layer_class: "raster" | "spatial"            # backend-stamped (layered_display_response.layer_class); the frontend reads it instead of re-deriving the raster/spatial taxonomy
+    └── layer_class: "raster" | "spatial"  # backend-stamped (layered_display_response.layer_class); the frontend reads it instead of re-deriving the raster/spatial taxonomy
 ```
 
 `./data/viewer/utils/displays/utils/ts/frontend/layered_display_container.ts`
@@ -179,7 +179,7 @@ layered_display_container.ts
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { LayeredDisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/layered_display_response";
 ├── import { getSpatialLayerRenderer, getRasterLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
-├── import "data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers";   # side-effect: eager-glob-loads every modality so its self-registration populates the registry before any render
+├── import "data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers";  # side-effect: eager-glob-loads every modality so its self-registration populates the registry before any render
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop, attachThreeScenePickSeam } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): LeafVNode
@@ -193,9 +193,9 @@ layered_display_container.ts
 │   ├── calls createSpatialDisplayScene({ initialCameraState })                                     → { container, scene, camera, renderer }
 │   ├── calls createLayerObjects({ layeredDisplayResponse })                                        → layerObjects
 │   ├── impls layerObjects.forEach(object => scene.add(object))
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })    → controls   # the one shared camera owns the controls
-│   ├── calls _syncCameraState({ container, controls })                                             # publish this cell's shared-camera pose now and on every change for cross-cell sync
-│   ├── calls attachThreeScenePickSeam({ container, camera, scenes: [scene] })                      # augment the container with the pickAt seam over the one shared scene
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })    → controls  # the one shared camera owns the controls
+│   ├── calls _syncCameraState({ container, controls })                         # publish this cell's shared-camera pose now and on every change for cross-cell sync
+│   ├── calls attachThreeScenePickSeam({ container, camera, scenes: [scene] })  # augment the container with the pickAt seam over the one shared scene
 │   ├── calls renderLayeredSpatialScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by layeredDisplayResponse.slot_id
 ├── function createLayerObjects({ layeredDisplayResponse }: { layeredDisplayResponse: LayeredDisplayResponse }): THREE.Object3D[]
@@ -215,16 +215,16 @@ layered_display_container.ts
 │   ├── for each layer in [base_display_response, ...aux_display_responses]
 │   │   ├── calls getRasterLayerRenderer({ displayKind: layer.display_kind })   → layerRenderer
 │   │   ├── impls cell = div { style { position: absolute, inset: 0, full-bleed } }; container.append(cell)
-│   │   ├── calls reconcileInto({ root: cell, virtualTree: layerRenderer({ displayResponse: layer }) })   # mount the layer's LeafVNode into its cell
+│   │   ├── calls reconcileInto({ root: cell, virtualTree: layerRenderer({ displayResponse: layer }) })  # mount the layer's LeafVNode into its cell
 │   │   └── if layer is an aux overlay (not the base layer)
-│   │       └── impls cell.style.visibility = "hidden"   # hidden until its viewBox aligns to the shared raster frustum
+│   │       └── impls cell.style.visibility = "hidden"  # hidden until its viewBox aligns to the shared raster frustum
 │   ├── impls on the base raster layer's image load (or immediately if already complete), sets each aux overlay's SVG viewBox to _alignRasterFrustum({ baseImage }) (the base image's natural extent)
-│   ├── impls after setting each aux overlay's viewBox, sets that aux cell's visibility = "visible"   # revealed only once aligned to the shared raster frustum
+│   ├── impls after setting each aux overlay's viewBox, sets that aux cell's visibility = "visible"  # revealed only once aligned to the shared raster frustum
 │   └── return LeafVNode keyed by layeredDisplayResponse.slot_id whose render() returns container
 ├── function _syncCameraState({ container, controls }: { container: HTMLDivElement; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Publishes this cell's shared-camera pose now and re-publishes on every controls change, so other cells can observe and sync to it.
-│   ├── calls _publishCameraState({ container, controls })                                          # initial pose
-│   ├── impls controls.addEventListener("change", () => _publishCameraState({ container, controls }))   # re-publish on change
+│   ├── calls _publishCameraState({ container, controls })  # initial pose
+│   ├── impls controls.addEventListener("change", () => _publishCameraState({ container, controls }))  # re-publish on change
 │   └── return
 ├── function _publishCameraState({ container, controls }: { container: HTMLDivElement; controls: ReturnType<typeof createTrackballCameraControls> }): void
 │   ├── # Publishes the controls' shared-camera state onto the container (dataset.cameraState plus a bubbling camera-pose-change event) so the consumer can persist this cell's camera pose — the layered container's copy of the per-display publish helper.
@@ -245,10 +245,10 @@ layer_renderer_registry.ts
 ├── import * as THREE from "three";
 ├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
-├── export type SpatialLayerRenderer = ({ displayResponse }: { displayResponse: DisplayResponse }) => THREE.Object3D   # one spatial display response's part-B: build and return the THREE object the layered container adds to its shared scene
-├── export type RasterLayerRenderer = ({ displayResponse }: { displayResponse: DisplayResponse }) => LeafVNode   # one raster display response's part-B: build and return the full-bleed node the layered container stacks; the container aligns the aux overlays to the shared raster frustum on the base image's load
-├── const _spatialLayerRenderers = new Map<string, SpatialLayerRenderer>()   # display_kind -> spatial part-B; the module's single owner of the spatial registry, mutated only through the functions below
-├── const _rasterLayerRenderers = new Map<string, RasterLayerRenderer>()     # display_kind -> raster part-B; the module's single owner of the raster registry, mutated only through the functions below
+├── export type SpatialLayerRenderer = ({ displayResponse }: { displayResponse: DisplayResponse }) => THREE.Object3D  # one spatial display response's part-B: build and return the THREE object the layered container adds to its shared scene
+├── export type RasterLayerRenderer = ({ displayResponse }: { displayResponse: DisplayResponse }) => LeafVNode        # one raster display response's part-B: build and return the full-bleed node the layered container stacks; the container aligns the aux overlays to the shared raster frustum on the base image's load
+├── const _spatialLayerRenderers = new Map<string, SpatialLayerRenderer>()  # display_kind -> spatial part-B; the module's single owner of the spatial registry, mutated only through the functions below
+├── const _rasterLayerRenderers = new Map<string, RasterLayerRenderer>()    # display_kind -> raster part-B; the module's single owner of the raster registry, mutated only through the functions below
 ├── function registerSpatialLayerRenderer({ displayKind, layerRenderer }: { displayKind: string; layerRenderer: SpatialLayerRenderer }): void
 │   ├── # Register a spatial display kind's part-B so the layered container can build that kind's THREE object by display_kind lookup.
 │   ├── impls _spatialLayerRenderers.set(displayKind, layerRenderer)
@@ -286,7 +286,7 @@ three_scene_helpers.ts
 ├── import * as THREE from "three";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import { createTrackballCameraControls, DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
-├── export type PickableThreeContainer = HTMLDivElement & { pickAt: (clientX: number, clientY: number) => THREE.Object3D | null }   # any spatial display container augmented with an additive base-camera pick seam: a consumer raycasts a pointer position against the container's scenes via the camera without owning the camera/renderer/scenes; the base HTMLDivElement contract is unchanged
+├── export type PickableThreeContainer = HTMLDivElement & { pickAt: (clientX: number, clientY: number) => THREE.Object3D | null }  # any spatial display container augmented with an additive base-camera pick seam: a consumer raycasts a pointer position against the container's scenes via the camera without owning the camera/renderer/scenes; the base HTMLDivElement contract is unchanged
 ├── function createSpatialDisplayScene({ initialCameraState, pointerEventsSuppressed = false }: { initialCameraState: CameraState | null; pointerEventsSuppressed?: boolean }): { container: HTMLDivElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer }
 │   ├── # Shared part-A "create scene" step for every spatial display (standalone renderers and the layered container alike): composes the one container/scene/camera/renderer and nothing else; callers create and add their own object(s) separately.
 │   ├── calls createThreeDisplayContainer({ pointerEventsSuppressed })   → container
@@ -309,7 +309,7 @@ three_scene_helpers.ts
 ├── function createThreeWebGLRenderer({ container }: { container: HTMLDivElement }): THREE.WebGLRenderer
 │   ├── # Shared WebGL renderer factory for every TS atomic spatial display.
 │   ├── impls renderer = new THREE.WebGLRenderer({ alpha: true })
-│   ├── impls renderer.setClearColor(0x000000, 0)   # transparent canvas by default; an opaque backdrop is the consumer's CSS background-color on the marker
+│   ├── impls renderer.setClearColor(0x000000, 0)  # transparent canvas by default; an opaque backdrop is the consumer's CSS background-color on the marker
 │   ├── impls canvas mounted inside the provided container
 │   └── return
 ├── function createThreeScene(): THREE.Scene
@@ -320,21 +320,21 @@ three_scene_helpers.ts
 │   ├── # Installs a base-camera pickAt seam onto any spatial display container so a consumer can hit-test the given scenes via the camera without owning the camera, renderer, or scenes.
 │   ├── impls raycaster = new THREE.Raycaster()
 │   ├── impls pickAt = (clientX, clientY) => NDC from the container rect (null if empty), camera raycast over each scene, return first hit object else null
-│   ├── impls (container as PickableThreeContainer).pickAt = pickAt   # additive seam; base HTMLDivElement contract unchanged
+│   ├── impls (container as PickableThreeContainer).pickAt = pickAt  # additive seam; base HTMLDivElement contract unchanged
 │   └── return
 └── function startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> | null; onAfterRender?: () => void }): void
     ├── # Shared runtime every spatial display runs: fits the renderer buffer, camera aspect, and trackball screen to the canvas on each resize, and drives the requestAnimationFrame loop that self-stops once the canvas leaves the DOM.
     ├── impls fit = () => { renderer.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight, false); camera.aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight; camera.updateProjectionMatrix(); if (controls) controls.handleResize() }
     ├── impls new ResizeObserver(fit).observe(renderer.domElement)
-    ├── impls wasConnected = false   # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
+    ├── impls wasConnected = false  # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
     ├── def draw
     │   ├── # The requestAnimationFrame callback: stops and frees the context once the canvas leaves the DOM, otherwise renders one frame and reschedules itself.
     │   ├── impls connected = renderer.domElement.isConnected
     │   ├── if connected
     │   │   └── impls wasConnected = true
-    │   ├── if wasConnected and not connected                                       # canvas detached → the cell was unmounted
+    │   ├── if wasConnected and not connected  # canvas detached → the cell was unmounted
     │   │   ├── impls renderer.dispose(); renderer.forceContextLoss()
-    │   │   └── return                                                              # stop the loop without rescheduling
+    │   │   └── return  # stop the loop without rescheduling
     │   ├── if controls is not null
     │   │   └── impls controls.update()
     │   ├── impls renderer.render(scene, camera)
@@ -374,9 +374,9 @@ core_points_display.py
 ├── from dash import dcc
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
-├── DEFAULT_POINT_SIZE_FLOOR = 0.005                            # absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when point_size is not supplied
-├── DEFAULT_POINT_SIZE_RATIO = 0.002                            # fraction of point-cloud bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
-├── DEFAULT_POINT_COLOR = "#cccccc"                             # uniform fallback color used when the point cloud has no per-point colors AND the caller does not supply point_color; lib-owned default, overridable
+├── DEFAULT_POINT_SIZE_FLOOR = 0.005  # absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when point_size is not supplied
+├── DEFAULT_POINT_SIZE_RATIO = 0.002  # fraction of point-cloud bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
+├── DEFAULT_POINT_COLOR = "#cccccc"   # uniform fallback color used when the point cloud has no per-point colors AND the caller does not supply point_color; lib-owned default, overridable
 ├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> dcc.Graph
 │   ├── # Renders a Dash point-cloud display element; point_size and point_color overrides are opt-in. point_color when supplied replaces per-point colors with a uniform color so the consumer can override the rendered look without rebuilding the data.
 │   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)
@@ -406,23 +406,23 @@ core_points_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class PointDisplayResponse(DisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── class ColorPCDisplayResponse(PointDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_pc"                    # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_pc"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 └── class SegmentationPCDisplayResponse(PointDisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "segmentation_pc"             # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "segmentation_pc"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/points/ts/backend/apis.py`
@@ -474,23 +474,23 @@ core_points_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface PointDisplayResponse extends DisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── interface ColorPCDisplayResponse extends PointDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_pc"                    # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_pc"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 └── interface SegmentationPCDisplayResponse extends PointDisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "segmentation_pc"             # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "segmentation_pc"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/points/ts/frontend/apis.ts`
@@ -510,7 +510,7 @@ apis.ts
 │   ├── # Renders the backend-colorized segmentation display and legend derived from meta_info; per-point colors are already baked in by the backend's class-id → rgb mapping, so no color override is exposed here.
 │   ├── calls renderPointsDisplay({ displayResponse, initialCameraState, pointSize })
 │   └── return
-└── impls registerSpatialLayerRenderer({ displayKind: "color_pc", layerRenderer: createPointsObject })   # module-load self-registration of the spatial color-pc layer renderer
+└── impls registerSpatialLayerRenderer({ displayKind: "color_pc", layerRenderer: createPointsObject })  # module-load self-registration of the spatial color-pc layer renderer
 ```
 
 `./data/viewer/utils/displays/points/ts/frontend/core_points_display.ts`
@@ -523,9 +523,9 @@ core_points_display.ts
 ├── import type { PointDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-├── const DEFAULT_POINT_SIZE_FLOOR = 0.005   # number — absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when pointSize is not supplied
-├── const DEFAULT_POINT_SIZE_RATIO = 0.002   # number — fraction of geometry bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
-├── const DEFAULT_POINT_COLOR = "#cccccc"    # hex color — uniform fallback used when geometry has no per-point colors AND the caller does not supply pointColor; lib-owned default, overridable
+├── const DEFAULT_POINT_SIZE_FLOOR = 0.005  # number — absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when pointSize is not supplied
+├── const DEFAULT_POINT_SIZE_RATIO = 0.002  # number — fraction of geometry bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
+├── const DEFAULT_POINT_COLOR = "#cccccc"   # hex color — uniform fallback used when geometry has no per-point colors AND the caller does not supply pointColor; lib-owned default, overridable
 ├── function renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): LeafVNode
 │   ├── # Renders a self-contained point-cloud display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
@@ -557,8 +557,8 @@ core_points_display.ts
 │   │   └── impls useVertexColors = true; effectiveColor = undefined
 │   ├── else
 │   │   └── impls useVertexColors = false; effectiveColor = DEFAULT_POINT_COLOR
-│   ├── impls material = new THREE.PointsMaterial({ vertexColors: useVertexColors, size: effectiveSize, ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })   # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
-│   └── return new THREE.Points(geometry, material)                                                # no post-construction mutation of points
+│   ├── impls material = new THREE.PointsMaterial({ vertexColors: useVertexColors, size: effectiveSize, ...(effectiveColor !== undefined ? { color: effectiveColor } : {}) })  # constructor literal is exactly these keys; no other constructor key; no post-construction mutation of material
+│   └── return new THREE.Points(geometry, material)  # no post-construction mutation of points
 └── function renderPointsScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
     ├── # Drives the point-cloud render loop with the supplied trackball controls.
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
@@ -636,47 +636,47 @@ core_pixels_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class PixelDisplayResponse(DisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── class ColorImageDisplayResponse(PixelDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_image"                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── class DepthImageDisplayResponse(PixelDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "depth_image"                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "depth_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── class EdgeImageDisplayResponse(PixelDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "edge_image"                  # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "edge_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── class NormalImageDisplayResponse(PixelDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "normal_image"                # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "normal_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── class SegmentationImageDisplayResponse(PixelDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "segmentation_image"          # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "segmentation_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 └── class InstanceSurrogateImageDisplayResponse(PixelDisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "instance_surrogate_image"    # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "instance_surrogate_image"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/pixels/ts/backend/apis.py`
@@ -758,47 +758,47 @@ core_pixels_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface PixelDisplayResponse extends DisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── interface ColorImageDisplayResponse extends PixelDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_image"                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── interface DepthImageDisplayResponse extends PixelDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "depth_image"                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "depth_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── interface EdgeImageDisplayResponse extends PixelDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "edge_image"                  # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "edge_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── interface NormalImageDisplayResponse extends PixelDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "normal_image"                # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "normal_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── interface SegmentationImageDisplayResponse extends PixelDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "segmentation_image"          # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "segmentation_image"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 └── interface InstanceSurrogateImageDisplayResponse extends PixelDisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "instance_surrogate_image"    # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "instance_surrogate_image"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/pixels/ts/frontend/apis.ts`
@@ -839,7 +839,7 @@ apis.ts
 │   ├── # Renders the backend-colorized image display and legend derived from meta_info.
 │   ├── calls renderPixelsDisplay({ displayResponse, imageInterpolation })
 │   └── return
-└── impls registerRasterLayerRenderer({ displayKind: "color_image", layerRenderer: renderColorImageDisplay })   # module-load self-registration of the raster color-image layer renderer
+└── impls registerRasterLayerRenderer({ displayKind: "color_image", layerRenderer: renderColorImageDisplay })  # module-load self-registration of the raster color-image layer renderer
 ```
 
 `./data/viewer/utils/displays/pixels/ts/frontend/core_pixels_display.ts`
@@ -867,12 +867,12 @@ placeholder_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class PlaceholderDisplayResponse(DisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "placeholder"                 # common field
-    ├── url                                          # common field
-    ├── meta_info                                    # common field
-    └── message                                      # additional field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "placeholder"  # common field
+    ├── url        # common field
+    ├── meta_info  # common field
+    └── message    # additional field
 ```
 
 `./data/viewer/utils/displays/placeholders/ts/backend/placeholder_display.py`
@@ -891,12 +891,12 @@ placeholder_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface PlaceholderDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "placeholder"                 # common field
-    ├── url                                          # common field
-    ├── meta_info                                    # common field
-    └── message                                      # additional field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "placeholder"  # common field
+    ├── url        # common field
+    ├── meta_info  # common field
+    └── message    # additional field
 ```
 
 `./data/viewer/utils/displays/placeholders/ts/frontend/placeholder_display.ts`
@@ -925,11 +925,11 @@ video_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class VideoDisplayResponse(DisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "video"                       # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "video"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/videos/ts/backend/video_display.py`
@@ -949,11 +949,11 @@ video_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface VideoDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "video"                       # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "video"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/videos/ts/frontend/video_display.ts`
@@ -982,12 +982,12 @@ text_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class TextDisplayResponse(DisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "text"                        # common field
-    ├── url                                          # common field
-    ├── meta_info                                    # common field
-    └── text                                         # additional field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "text"  # common field
+    ├── url        # common field
+    ├── meta_info  # common field
+    └── text       # additional field
 ```
 
 `./data/viewer/utils/displays/texts/ts/backend/text_display.py`
@@ -1007,12 +1007,12 @@ text_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface TextDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "text"                        # common field
-    ├── url                                          # common field
-    ├── meta_info                                    # common field
-    └── text                                         # additional field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "text"  # common field
+    ├── url        # common field
+    ├── meta_info  # common field
+    └── text       # additional field
 ```
 
 `./data/viewer/utils/displays/texts/ts/frontend/text_display.ts`
@@ -1041,11 +1041,11 @@ table_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class TableDisplayResponse(DisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "table"                       # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "table"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/tables/ts/backend/table_display.py`
@@ -1065,11 +1065,11 @@ table_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface TableDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "table"                       # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "table"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/tables/ts/frontend/table_display.ts`
@@ -1098,11 +1098,11 @@ scene_graph_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class SceneGraphDisplayResponse(DisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "scene_graph"                 # common field
-    ├── url                                          # common field; serves the scene-graph payload (no leaked encoding)
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "scene_graph"  # common field
+    ├── url        # common field; serves the scene-graph payload (no leaked encoding)
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/scene_graphs/ts/backend/scene_graph_display.py`
@@ -1148,11 +1148,11 @@ scene_graph_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface SceneGraphDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "scene_graph"                 # common field
-    ├── url                                          # common field; serves the scene-graph payload (no leaked encoding)
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "scene_graph"  # common field
+    ├── url        # common field; serves the scene-graph payload (no leaked encoding)
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/scene_graphs/ts/frontend/scene_graph_display.ts`
@@ -1165,11 +1165,11 @@ scene_graph_display.ts
 ├── import type { SceneGraphDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-├── const DEFAULT_NODE_SIZE = 0.02            # number — heuristic default size for node markers when the caller does not supply nodeSize; lib-owned default, overridable
-├── const DEFAULT_EDGE_COLOR = "#888888"      # hex color — neutral gray fallback for edge lines when the payload does not carry an edge color AND the caller does not supply edgeColor; lib-owned default, overridable
-├── const DEFAULT_EDGE_WIDTH = 1.0            # number — line width fallback for edges when the caller does not supply edgeWidth; lib-owned default, overridable
-├── const DEFAULT_LABEL_FONT_SIZE = 12        # px — font size fallback for overlay labels when the caller does not supply labelFontSize; lib-owned default, overridable
-├── const DEFAULT_LABEL_COLOR = "#000000"     # hex color — text color fallback for overlay labels when the caller does not supply labelColor; lib-owned default, overridable
+├── const DEFAULT_NODE_SIZE = 0.02         # number — heuristic default size for node markers when the caller does not supply nodeSize; lib-owned default, overridable
+├── const DEFAULT_EDGE_COLOR = "#888888"   # hex color — neutral gray fallback for edge lines when the payload does not carry an edge color AND the caller does not supply edgeColor; lib-owned default, overridable
+├── const DEFAULT_EDGE_WIDTH = 1.0         # number — line width fallback for edges when the caller does not supply edgeWidth; lib-owned default, overridable
+├── const DEFAULT_LABEL_FONT_SIZE = 12     # px — font size fallback for overlay labels when the caller does not supply labelFontSize; lib-owned default, overridable
+├── const DEFAULT_LABEL_COLOR = "#000000"  # hex color — text color fallback for overlay labels when the caller does not supply labelColor; lib-owned default, overridable
 ├── function renderSceneGraphDisplay({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): LeafVNode
 │   ├── # Renders a self-contained scene-graph display: baked node/edge geometry plus HTML label overlay projected per frame.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
@@ -1268,9 +1268,9 @@ core_mesh_display.py
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
-├── DEFAULT_MESH_COLOR = "#cccccc"                             # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
-├── DEFAULT_MESH_OPACITY = 1.0                                 # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
-├── DEFAULT_MESH_SIDE = "double"                               # fallback side mode for visibility under arbitrary camera framings when the caller does not supply mesh_side; lib-owned default, overridable
+├── DEFAULT_MESH_COLOR = "#cccccc"  # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
+├── DEFAULT_MESH_OPACITY = 1.0      # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
+├── DEFAULT_MESH_SIDE = "double"    # fallback side mode for visibility under arbitrary camera framings when the caller does not supply mesh_side; lib-owned default, overridable
 ├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
 │   ├── # Renders a Dash mesh display element with trackball camera controls; mesh_color, mesh_opacity, and mesh_side overrides are opt-in.
 │   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
@@ -1318,35 +1318,35 @@ core_mesh_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class MeshDisplayResponse(DisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── class ColorMeshDisplayResponse(MeshDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_mesh"                  # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_mesh"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── class SegmentationMeshDisplayResponse(MeshDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "segmentation_mesh"           # common field
-│   ├── url                                          # common field — the class-colorized mesh resource
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "segmentation_mesh"  # common field
+│   ├── url        # common field — the class-colorized mesh resource
+│   └── meta_info  # common field
 ├── class HeatmapMeshDisplayResponse(MeshDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "heatmap_mesh"                # common field
-│   ├── url                                          # common field — the heatmap-colorized mesh resource
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "heatmap_mesh"  # common field
+│   ├── url        # common field — the heatmap-colorized mesh resource
+│   └── meta_info  # common field
 └── class SparseHeatmapMeshDisplayResponse(MeshDisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "sparse_heatmap_mesh"         # common field
-    ├── url                                          # common field — the sparse heatmap wire resource: a shared-geometry reference plus the sparse (indices, values) delta
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "sparse_heatmap_mesh"  # common field
+    ├── url        # common field — the sparse heatmap wire resource: a shared-geometry reference plus the sparse (indices, values) delta
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/mesh/ts/backend/apis.py`
@@ -1446,35 +1446,35 @@ core_mesh_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface MeshDisplayResponse extends DisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── interface ColorMeshDisplayResponse extends MeshDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_mesh"                  # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_mesh"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 ├── interface SegmentationMeshDisplayResponse extends MeshDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "segmentation_mesh"           # common field
-│   ├── url                                          # common field — the class-colorized mesh resource
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "segmentation_mesh"  # common field
+│   ├── url        # common field — the class-colorized mesh resource
+│   └── meta_info  # common field
 ├── interface HeatmapMeshDisplayResponse extends MeshDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "heatmap_mesh"                # common field
-│   ├── url                                          # common field — the heatmap-colorized mesh resource
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "heatmap_mesh"  # common field
+│   ├── url        # common field — the heatmap-colorized mesh resource
+│   └── meta_info  # common field
 └── interface SparseHeatmapMeshDisplayResponse extends MeshDisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "sparse_heatmap_mesh"         # common field
-    ├── url                                          # common field — the sparse heatmap wire resource: a shared-geometry reference plus the sparse (indices, values) delta
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "sparse_heatmap_mesh"  # common field
+    ├── url        # common field — the sparse heatmap wire resource: a shared-geometry reference plus the sparse (indices, values) delta
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/mesh/ts/frontend/core_mesh_display.ts`
@@ -1487,24 +1487,24 @@ core_mesh_display.ts
 ├── import type { MeshDisplayResponse } from "./types/display_response";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-├── const DEFAULT_MESH_COLOR = "#cccccc"          # hex color — uniform fallback used when geometry has no texture AND has no vertex colors AND the caller does not supply meshColor; lib-owned default, overridable
-├── const DEFAULT_MESH_OPACITY = 1.0              # number — opaque default applied when the caller does not supply meshOpacity; material's `transparent` flag flips true automatically when opacity is less than 1; lib-owned default, overridable
-├── const DEFAULT_MESH_SIDE = THREE.DoubleSide    # THREE.Side — fallback side mode for visibility under arbitrary camera framings when the caller does not supply meshSide; lib-owned default, overridable
+├── const DEFAULT_MESH_COLOR = "#cccccc"        # hex color — uniform fallback used when geometry has no texture AND has no vertex colors AND the caller does not supply meshColor; lib-owned default, overridable
+├── const DEFAULT_MESH_OPACITY = 1.0            # number — opaque default applied when the caller does not supply meshOpacity; material's `transparent` flag flips true automatically when opacity is less than 1; lib-owned default, overridable
+├── const DEFAULT_MESH_SIDE = THREE.DoubleSide  # THREE.Side — fallback side mode for visibility under arbitrary camera framings when the caller does not supply meshSide; lib-owned default, overridable
 ├── interface MeshPayload
 │   ├── # The render-side mirror of the Mesh data structure: geometry (verts, faces) plus an optional MeshTexture.
-│   ├── verts: Float32Array                                                # [V, 3] flattened — mirrors Mesh.verts
-│   ├── faces: Uint32Array                                                 # [F, 3] flattened — mirrors Mesh.faces
-│   └── texture: MeshTextureVertexColor | MeshTextureUVTextureMap | null   # mirrors Mesh.texture (Optional[MeshTexture])
+│   ├── verts: Float32Array  # [V, 3] flattened — mirrors Mesh.verts
+│   ├── faces: Uint32Array   # [F, 3] flattened — mirrors Mesh.faces
+│   └── texture: MeshTextureVertexColor | MeshTextureUVTextureMap | null  # mirrors Mesh.texture (Optional[MeshTexture])
 ├── interface MeshTextureVertexColor
 │   ├── # Render mirror of the data structure's MeshTextureVertexColor: per-vertex colors aligned 1:1 with verts.
 │   ├── kind: "vertex_color"
-│   └── vertexColor: Float32Array                                          # [V, C] per-vertex colors, C in {3, 4}
+│   └── vertexColor: Float32Array  # [V, C] per-vertex colors, C in {3, 4}
 ├── interface MeshTextureUVTextureMap
 │   ├── # Render mirror of the data structure's MeshTextureUVTextureMap: a per-face-indexed UV texture map.
 │   ├── kind: "uv_texture_map"
-│   ├── uvTextureMap: THREE.Texture                                        # the texture image
-│   ├── vertsUvs: Float32Array                                             # [VT, 2] UV coordinates
-│   └── facesUvs: Uint32Array                                              # [F, 3] flattened — per-face UV-vertex indices
+│   ├── uvTextureMap: THREE.Texture  # the texture image
+│   ├── vertsUvs: Float32Array       # [VT, 2] UV coordinates
+│   └── facesUvs: Uint32Array        # [F, 3] flattened — per-face UV-vertex indices
 ├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
 │   ├── # Renders a self-contained mesh display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
@@ -1528,7 +1528,7 @@ core_mesh_display.ts
 ├── function createThreeMesh({ payload, displayResponse, meshColor, meshOpacity, meshSide }: { payload: MeshPayload; displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Mesh
 │   ├── # Sync-builds THREE.BufferGeometry + THREE.MeshBasicMaterial + THREE.Mesh from a pre-loaded payload.
 │   ├── impls geometry = non-indexed THREE.BufferGeometry whose position attribute gathers payload.verts by payload.faces (each of the F faces contributes its 3 corner positions), so render corner c maps to logical vertex payload.faces[c]
-│   ├── impls set geometry.userData.cornerVertexIndices = payload.faces   # payload.faces flattened IS this non-indexed geometry's corner→vertex map, so a downstream consumer can gather a per-logical-vertex field into the corner render domain
+│   ├── impls set geometry.userData.cornerVertexIndices = payload.faces  # payload.faces flattened IS this non-indexed geometry's corner→vertex map, so a downstream consumer can gather a per-logical-vertex field into the corner render domain
 │   ├── impls effectiveOpacity = meshOpacity ?? DEFAULT_MESH_OPACITY
 │   ├── impls effectiveSide = meshSide ?? DEFAULT_MESH_SIDE
 │   ├── if meshColor !== undefined
@@ -1539,8 +1539,8 @@ core_mesh_display.ts
 │   │   └── impls add a color attribute to geometry gathering payload.texture.vertexColor by payload.faces; useTexture = false; useVertexColors = true; effectiveColor = undefined
 │   ├── else
 │   │   └── impls useTexture = false; useVertexColors = false; effectiveColor = DEFAULT_MESH_COLOR
-│   ├── impls material = MeshBasicMaterial { vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent when opacity<1 or RGBA vertex colors, map: payload.texture.uvTextureMap when useTexture, color: effectiveColor when set }   # RGBA alpha-0 corners render transparent
-│   └── return new THREE.Mesh(geometry, material)                                                # no post-construction mutation of mesh
+│   ├── impls material = MeshBasicMaterial { vertexColors: useVertexColors, side: effectiveSide, opacity: effectiveOpacity, transparent when opacity<1 or RGBA vertex colors, map: payload.texture.uvTextureMap when useTexture, color: effectiveColor when set }  # RGBA alpha-0 corners render transparent
+│   └── return new THREE.Mesh(geometry, material)  # no post-construction mutation of mesh
 └── function renderMeshScene({ scene, camera, renderer, controls }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; }): void
     ├── # Drives the mesh render loop with the supplied trackball controls.
     ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
@@ -1620,23 +1620,23 @@ core_gaussians_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 ├── class GaussianDisplayResponse(DisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── class ColorGSDisplayResponse(GaussianDisplayResponse)
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_gs"                    # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_gs"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 └── class SegmentationGSDisplayResponse(GaussianDisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "segmentation_gs"             # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "segmentation_gs"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/gaussians/ts/backend/apis.py`
@@ -1683,23 +1683,23 @@ core_gaussians_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 ├── interface GaussianDisplayResponse extends DisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind                                 # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id       # common field
+│   ├── title         # common field
+│   ├── display_kind  # common field
+│   ├── url           # common field
+│   └── meta_info     # common field
 ├── interface ColorGSDisplayResponse extends GaussianDisplayResponse
-│   ├── slot_id                                      # common field
-│   ├── title                                        # common field
-│   ├── display_kind = "color_gs"                    # common field
-│   ├── url                                          # common field
-│   └── meta_info                                    # common field
+│   ├── slot_id  # common field
+│   ├── title    # common field
+│   ├── display_kind = "color_gs"  # common field
+│   ├── url        # common field
+│   └── meta_info  # common field
 └── interface SegmentationGSDisplayResponse extends GaussianDisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "segmentation_gs"             # common field
-    ├── url                                          # common field
-    └── meta_info                                    # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "segmentation_gs"  # common field
+    ├── url        # common field
+    └── meta_info  # common field
 ```
 
 `./data/viewer/utils/displays/gaussians/ts/frontend/apis.ts`
@@ -1749,11 +1749,11 @@ camera_display.py
 display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class CameraDisplayResponse(DisplayResponse)
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "camera"                      # common field
-    ├── url                                          # common field; camera-vis JSON payload URL
-    └── meta_info                                    # common field; empty object for camera display
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "camera"  # common field
+    ├── url        # common field; camera-vis JSON payload URL
+    └── meta_info  # common field; empty object for camera display
 ```
 
 `./data/viewer/utils/displays/cameras/ts/backend/apis.py`
@@ -1772,7 +1772,7 @@ apis.py
 │   └── return
 ├── def _map_camera_params_to_vis(cameras, frustum_size: Optional[float], frustum_color: Optional[Tuple[int, int, int]], point_size: Optional[float], point_color: Optional[Tuple[int, int, int]]) -> List[Dict[str, Any]]
 │   ├── # Maps a Cameras collection to the JSON-able camera-vis payload (the camera sibling of _map_segmentation_pc_to_rgb), applying the caller's baked styles or their cameras_vis defaults.
-│   ├── calls cameras_vis                          # forwards frustum_size/frustum_color/point_size/point_color untouched; cameras_vis resolves each None to its module-global style default
+│   ├── calls cameras_vis  # forwards frustum_size/frustum_color/point_size/point_color untouched; cameras_vis resolves each None to its module-global style default
 │   ├── for each camera-vis entry
 │   │   └── calls _serialize_camera_vis_entry
 │   └── return
@@ -1808,11 +1808,11 @@ core_camera_display.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface CameraDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "camera"                      # common field
-    ├── url                                          # common field; camera-vis JSON payload URL
-    └── meta_info                                    # common field; empty object for camera display
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "camera"  # common field
+    ├── url        # common field; camera-vis JSON payload URL
+    └── meta_info  # common field; empty object for camera display
 ```
 
 `./data/viewer/utils/displays/cameras/ts/frontend/camera_display.ts`
@@ -1824,7 +1824,7 @@ camera_display.ts
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── import type { CameraDisplayResponse } from "./types/display_response";
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-├── const DEFAULT_FRUSTUM_OPACITY = 0.5            # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
+├── const DEFAULT_FRUSTUM_OPACITY = 0.5  # number — overlay render opacity applied when the caller does not supply frustumOpacity; a dynamic render property (the per-frame hover dimming multiplies it), not a baked glyph style — glyph size + color are baked by camera_vis
 ├── function renderCameraDisplay({ displayResponse, initialCameraState, frustumOpacity }: { displayResponse: CameraDisplayResponse; initialCameraState?: CameraState | null; frustumOpacity?: number }): LeafVNode
 │   ├── # Builds a non-interactive transparent layer from the camera-vis JSON payload (glyph sizes + colors baked by camera_vis), initialized at initialCameraState.
 │   ├── throw if CameraDisplayResponse.meta_info is not an empty object
@@ -2024,9 +2024,9 @@ camera_sync.py
 ```text
 types.ts
 └── interface CameraSyncState
-    ├── source_id    # the source this entry belongs to; one CameraSyncState exists per source
-    ├── target_ids   # targets registered under this source
-    └── camera_state # this source's current camera state
+    ├── source_id     # the source this entry belongs to; one CameraSyncState exists per source
+    ├── target_ids    # targets registered under this source
+    └── camera_state  # this source's current camera state
 ```
 
 `./data/viewer/utils/controls/camera/camera_sync/ts/frontend/camera_sync.ts`
@@ -2068,7 +2068,7 @@ camera_sync.ts
 │   │   ├── impls this._state_by_source_id[source_id] = { target_ids: the current target_ids, camera_state: the caller-provided CameraState }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
-│   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
+│   │   ├── calls this._emit_camera_sync_state  # this._state_by_source_id[source_id]
 │   │   └── return
 │   ├── applySourceCameraStateToTargets
 │   │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
@@ -2079,7 +2079,7 @@ camera_sync.ts
 │   │   │   ├── if target_id == source_id
 │   │   │   │   └── continue
 │   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
-│   │   ├── calls this._emit_camera_sync_state             # this._state_by_source_id[source_id]
+│   │   ├── calls this._emit_camera_sync_state  # this._state_by_source_id[source_id]
 │   │   └── return
 │   ├── _apply_camera_state_to_element
 │   │   ├── # Writes a CameraState onto an element's `data-camera-state` attribute; mesh / point-cloud display containers observe this attribute and re-apply to their trackball controls.
@@ -2088,7 +2088,7 @@ camera_sync.ts
 │       ├── # Notifies every subscriber with the just-updated source's CameraSyncState.
 │       └── for each listener in this._listeners
 │           └── impls listener(camera_sync_state)
-└── const cameraSyncRegistry = new CameraSyncRegistry()    # the single document-global registry instance shared by every spatial display in the document; consumers import this instance and call its methods
+└── const cameraSyncRegistry = new CameraSyncRegistry()  # the single document-global registry instance shared by every spatial display in the document; consumers import this instance and call its methods
 ```
 
 `./data/viewer/utils/controls/selectors/ts/backend/schemas/selector_response.py`
@@ -2099,14 +2099,14 @@ selector_response.py
 ├── from pydantic import BaseModel
 ├── def build_selector_response
 │   ├── # Build a SelectorResponse from an app's nested (value, label, children) option tuple — the app owns the tree shape, the lib owns the schema.
-│   ├── calls _to_selection_node       # convert the imaginary-root tuple
-│   └── return            # SelectorResponse(root=converted imaginary root)
+│   ├── calls _to_selection_node  # convert the imaginary-root tuple
+│   └── return  # SelectorResponse(root=converted imaginary root)
 ├── def _to_selection_node
 │   ├── # Recursion helper: convert one (value, label, children) tuple into a SelectionNode, recursing into each child tuple.
 │   ├── for each child tuple
 │   │   └── calls _to_selection_node
 │   ├── calls SelectionNode
-│   └── return            # a SelectionNode holding its converted children
+│   └── return  # a SelectionNode holding its converted children
 ├── class SelectorResponse(BaseModel)
 │   ├── # One selector axis: the imaginary root of its option tree, descended recursively along the selection path to render the cascade.
 │   └── root: SelectionNode
@@ -2142,7 +2142,7 @@ selection_path.ts
     ├── for each deeper level until the descended node has no children
     │   ├── impls append the descended node's first child's value
     │   └── impls descend into that first child
-    └── return            # the completed root-leaf path
+    └── return  # the completed root-leaf path
 ```
 
 `./data/viewer/utils/controls/selectors/ts/frontend/selector_cascade.ts`
@@ -2154,21 +2154,21 @@ selector_cascade.ts
 ├── import { completeRootLeafPath } from "data/viewer/utils/controls/selectors/ts/frontend/selection_path";
 ├── function renderSelectorCascade({ axisKey, response, path, onPathChange }: { axisKey: string; response: SelectorResponse; path: string[]; onPathChange: (next: string[]) => void }): ElementVNode
 │   ├── # Render one selector axis as a cascade of native <select> dropdowns, one per level descended from the response's imaginary root down to a leaf.
-│   ├── calls _renderSelectorLevel        # collect the per-level <select> leaves from the imaginary root down
-│   └── return            # a container ElementVNode wrapping the collected <select> leaves
+│   ├── calls _renderSelectorLevel  # collect the per-level <select> leaves from the imaginary root down
+│   └── return  # a container ElementVNode wrapping the collected <select> leaves
 └── function _renderSelectorLevel({ node, level, axisKey, path, onPathChange }: { node: SelectionNode; level: number; axisKey: string; path: string[]; onPathChange: (next: string[]) => void }): LeafVNode[]
     ├── # Recursion helper: collect the <select> leaves from this level down; the base case (a node with no children) contributes none.
     ├── if node has no children
-    │   └── return            # [] — base case: a leaf level adds no dropdown
+    │   └── return  # [] — base case: a leaf level adds no dropdown
     ├── impls the <select> is a reconciler leaf keyed `${axisKey}-select-${level}-${path[level-1] ?? "root"}` (its option-set identity) so a coarser-level change re-mounts it with this parent's children
     ├── impls build a native <select> over node's children
     ├── function _onLevelChange [local]
     │   ├── # The <select> change handler: report the completed root-leaf path to onPathChange.
     │   ├── calls completeRootLeafPath
     │   └── calls onPathChange
-    ├── calls _onLevelChange           # bound as the <select>'s change listener
-    ├── calls _renderSelectorLevel     # recurse into the path-selected child to collect the deeper levels' leaves
-    └── return            # [this level's <select> leaf, ...the deeper levels' leaves]
+    ├── calls _onLevelChange        # bound as the <select>'s change listener
+    ├── calls _renderSelectorLevel  # recurse into the path-selected child to collect the deeper levels' leaves
+    └── return  # [this level's <select> leaf, ...the deeper levels' leaves]
 ```
 
 `./data/viewer/utils/controls/selectors/dash/selector_cascade.py`
@@ -2180,7 +2180,7 @@ selector_cascade.py
 ├── def render_selector_cascade(response: SelectorResponse, path: List[str])
 │   ├── # Render one selector axis as a Dash cascade of dropdowns from a SelectorResponse and the current path: one dropdown per level, descending the imaginary root along the path to a leaf, re-rendered per parent change.
 │   ├── calls _render_selector_level
-│   └── return            # the dropdown-stack Dash component
+│   └── return  # the dropdown-stack Dash component
 ├── def _render_selector_level(node: SelectionNode, level: int, path: List[str])
 │   ├── # Recursion helper: a Dash dropdown over this node's children, then recurse into the child the path selects, stopping at a leaf.
 │   ├── if this node has children
@@ -2191,7 +2191,7 @@ selector_cascade.py
     ├── for each deeper level until the descended node has no children
     │   ├── impls append the descended node's first child's value
     │   └── impls descend into that first child
-    └── return            # the completed root-leaf path
+    └── return  # the completed root-leaf path
 ```
 
 `./data/viewer/utils/displays/aabbs/threed/ts/backend/schemas/display_response.py`
@@ -2202,7 +2202,7 @@ display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class Aabb3dDisplayResponse(DisplayResponse)
     ├── # Spatial overlay response: inline axis-aligned 3D boxes (each a 6-float box) with optional per-box scores, composed as an aux layer over a point cloud.
-    ├── display_kind = "aabb_3d"                     # common field
+    ├── display_kind = "aabb_3d"  # common field
     ├── aabbs: List[List[float]]
     └── scores: Optional[List[float]]
 ```
@@ -2225,9 +2225,9 @@ apis.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface Aabb3dDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "aabb_3d"                     # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "aabb_3d"  # common field
     ├── aabbs
     └── scores
 ```
@@ -2263,7 +2263,7 @@ apis.ts
 │   ├── # Drives the 3D-box display render loop with the supplied trackball controls.
 │   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls })
 │   └── return
-└── impls registerSpatialLayerRenderer({ displayKind: "aabb_3d", layerRenderer: createAabb3dObject })   # module-load self-registration of the spatial aabb-3d layer renderer
+└── impls registerSpatialLayerRenderer({ displayKind: "aabb_3d", layerRenderer: createAabb3dObject })  # module-load self-registration of the spatial aabb-3d layer renderer
 ```
 
 `./data/viewer/utils/displays/aabbs/twod/ts/backend/schemas/display_response.py`
@@ -2274,7 +2274,7 @@ display_response.py
 ├── from data.viewer.utils.displays.utils.ts.backend.schemas.display_response import DisplayResponse
 └── class Aabb2dDisplayResponse(DisplayResponse)
     ├── # Raster overlay response: inline axis-aligned 2D boxes (each a 4-float box) with optional per-box scores, composed as an aux layer over an image.
-    ├── display_kind = "aabb_2d"                     # common field
+    ├── display_kind = "aabb_2d"  # common field
     ├── aabbs: List[List[float]]
     └── scores: Optional[List[float]]
 ```
@@ -2297,9 +2297,9 @@ apis.py
 display_response.ts
 ├── import type { DisplayResponse } from "data/viewer/utils/displays/utils/ts/frontend/types/display_response";
 └── interface Aabb2dDisplayResponse extends DisplayResponse
-    ├── slot_id                                      # common field
-    ├── title                                        # common field
-    ├── display_kind = "aabb_2d"                     # common field
+    ├── slot_id  # common field
+    ├── title    # common field
+    ├── display_kind = "aabb_2d"  # common field
     ├── aabbs
     └── scores
 ```
@@ -2316,5 +2316,5 @@ apis.ts
 │   ├── impls build the full-bleed SVG box overlay (preserveAspectRatio="none") from displayResponse.aabbs
 │   ├── impls build the score labels from displayResponse.scores
 │   └── return
-└── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })   # module-load self-registration of the raster aabb-2d layer renderer
+└── impls registerRasterLayerRenderer({ displayKind: "aabb_2d", layerRenderer: renderAabb2dDisplay })  # module-load self-registration of the raster aabb-2d layer renderer
 ```

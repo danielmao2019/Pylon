@@ -31,7 +31,7 @@ prepare_points_for_rendering.py
 │   └── raise  # torch.cuda.OutOfMemoryError once max_divide halvings are exhausted
 ├── def _prepare_points_for_rendering_batched(points: torch.Tensor, camera: Camera, resolution: Tuple[int, int], batch_size: int = 2048, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Runs _prepare_points_for_rendering over fixed-size point batches, then concatenates and globally back-to-front depth-sorts the survivors.
-│   ├── impls render_intrinsics = camera.intrinsics  # the CameraIntrinsics carries the camera-to-image projection
+│   ├── impls render_intrinsics = camera.intrinsics      # the CameraIntrinsics carries the camera-to-image projection
 │   ├── impls extrinsics = camera.extrinsics.extrinsics  # the [4, 4] cam2world tensor
 │   ├── for each batch [i:j] of points
 │   │   └── calls _prepare_points_for_rendering  # render_intrinsics=render_intrinsics, extrinsics=extrinsics, cull_func=cull_func
@@ -46,7 +46,7 @@ prepare_points_for_rendering.py
 │   ├── if nothing survives the depth filter
 │   │   └── return  # empty points/indices for this batch
 │   ├── calls render_intrinsics.project  # points_camera=current_points, inplace=True -> image (x, y) into columns 0, 1 (camera-to-image step)
-│   ├── calls cull_func  # frustum cull against render_height / render_width, writing bounds_mask
+│   ├── calls cull_func                  # frustum cull against render_height / render_width, writing bounds_mask
 │   ├── if nothing survives the bounds cull
 │   │   └── return  # empty points/indices for this batch
 │   └── return  # (points_2d [M, 3] as (x, y, depth), indices [M])

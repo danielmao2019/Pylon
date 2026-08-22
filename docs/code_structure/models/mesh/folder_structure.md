@@ -5,7 +5,7 @@
 ```text
 ./models/three_d/meshes/texture/
 ├── __init__.py  # package API surface (re-exports the convert and extract entry points)
-├── convert.py  # texture-representation conversion: bake_vertex_colors_to_uv_texture_map, the vertex-color -> UV-atlas bake the fit model's initialization consumes
+├── convert.py   # texture-representation conversion: bake_vertex_colors_to_uv_texture_map, the vertex-color -> UV-atlas bake the fit model's initialization consumes
 └── extract/
     ├── __init__.py         # package API surface (re-exports extract / camera_geometry / visibility / weights functions)
     ├── extract.py          # main entry: extract_texture_from_images + per-view UV extraction helpers (consumes data-layer build_texel_face_map)
