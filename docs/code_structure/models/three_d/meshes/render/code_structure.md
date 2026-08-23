@@ -29,11 +29,13 @@ core.py
 │       ├── impls fragments = rasterizer(meshes); valid_mask = fragments.pix_to_face[0, :, :, 0] >= 0
 │       └── return rgb, valid_mask
 ├── def _prepare_cameras(camera: Camera, resolution: Tuple[int, int], device: torch.device) -> CamerasBase
-│   ├── # Builds a PyTorch3D camera from a repo Camera, converting to PyTorch3D's right-handed convention and lifting zfar to float32 max, dispatched on the repo Camera's intrinsics model.
+│   ├── # Builds the PyTorch3D camera a rasterizer carries world-space vertices through.
+│   ├── calls camera.to(device=device, convention="pytorch3d").scale_intrinsics(resolution=resolution)  # -> camera_prepared: the placement restated in the convention PyTorch3D reads a camera in, at the rendered resolution
 │   ├── if camera.intrinsics.model in {"simple_pinhole", "pinhole"}
 │   │   └── impls build a PerspectiveCameras from camera.intrinsics.matrix
 │   ├── else
 │   │   └── impls build an OrthographicCameras from the weak-perspective scale + principal-point intrinsics (no perspective divide)
+│   ├── impls lift the built cameras' zfar to the float32 maximum  # so no vertex is cut by a clip distance this render never chose
 │   └── return
 ├── def _build_rasterizer(cameras: CamerasBase, resolution: Tuple[int, int]) -> MeshRasterizer
 │   └── # Builds a single-sample, no-blur MeshRasterizer for the given cameras and resolution.

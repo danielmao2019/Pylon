@@ -35,7 +35,7 @@ mesh.py
         ├── if device is not None
         │   └── impls move verts + faces to the target device
         ├── if self.texture is not None
-        │   └── calls MeshTexture.to  # forwards device + convention to the texture (device move and/or UV-origin conversion)
+        │   └── calls MeshTexture.to(device, convention)  # a device move and/or a UV-origin conversion
         └── return Mesh  # new Mesh: geometry + texture on the target device and convention
 ```
 
@@ -52,7 +52,12 @@ validate.py
 │   ├── calls validate_verts
 │   ├── calls validate_faces
 │   ├── calls _validate_device_compatible
-│   └── # linkage: faces index verts; MeshTextureVertexColor.vertex_color rows == V; MeshTextureUVTextureMap.faces_uvs rows == F
+│   ├── impls assert the largest faces index is below verts.shape[0]
+│   ├── impls assert texture is a MeshTexture
+│   ├── if isinstance(texture, MeshTextureVertexColor)
+│   │   └── impls assert texture.vertex_color.shape[0] equals verts.shape[0]
+│   └── if isinstance(texture, MeshTextureUVTextureMap)
+│       └── impls assert texture.faces_uvs.shape equals faces.shape
 ├── def validate_verts(obj: Any) -> None
 │   └── # Validates a mesh vertex tensor (float [V,3], finite, non-empty).
 ├── def validate_faces(obj: Any) -> None
@@ -130,7 +135,8 @@ mesh_texture_uv_texture_map.py
     │   └── # The device the UV-texture tensors live on.
     └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "MeshTextureUVTextureMap"
         ├── # Returns this texture on a target device and/or UV-origin convention.
-        ├── calls transform_convention  # when the convention changes
+        ├── if convention is not None and convention != self.convention
+        │   └── calls transform_convention
         └── return MeshTextureUVTextureMap
 ```
 
@@ -201,11 +207,11 @@ validate_vertex_color.py
 validate_uv_texture_map.py
 ├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
 │   ├── # Validates the whole uv-texture-map representation: every single-field validator plus the cross-field invariants.
-│   ├── calls validate_uv_texture_map_image              # single-field: uv_texture_map
-│   ├── calls validate_verts_uvs                         # single-field: verts_uvs
-│   ├── calls validate_faces_uvs                         # single-field: faces_uvs
-│   ├── calls validate_convention                        # single-field: convention
-│   └── calls _validate_verts_uvs_faces_uvs_cross_field  # cross-field: (verts_uvs, faces_uvs)
+│   ├── calls validate_uv_texture_map_image(uv_texture_map)                    # single-field
+│   ├── calls validate_verts_uvs(verts_uvs)                                    # single-field
+│   ├── calls validate_faces_uvs(faces_uvs)                                    # single-field
+│   ├── calls validate_convention(convention)                                  # single-field
+│   └── calls _validate_verts_uvs_faces_uvs_cross_field(verts_uvs, faces_uvs)  # cross-field
 ├── def validate_uv_texture_map_image(obj: Any) -> None
 │   ├── # Validates a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
 │   ├── if obj.dtype == torch.uint8
@@ -328,7 +334,8 @@ load_obj.py
 ├── def load_obj_mesh(path: Union[str, Path]) -> Mesh
 │   ├── # Loads one OBJ file, or every OBJ under a mesh-root directory, into one merged Mesh (single or multiple blocks).
 │   ├── calls _resolve_input_paths
-│   ├── calls _load_mesh_block_from_obj_path  # per OBJ block
+│   ├── for each resolved OBJ path
+│   │   └── calls _load_mesh_block_from_obj_path
 │   └── calls merge_meshes
 ├── def _load_mesh_block_from_obj_path(obj_path: Path) -> Mesh
 │   ├── # Loads one OBJ as a single mesh block, dispatched to the texture-representation-specific loader.
@@ -394,19 +401,25 @@ load_glb.py
 │   └── assert 0, "should not reach here"
 ├── def _load_glb_geometry_only(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a geometry-only Mesh from a GLB primitive (POSITION -> verts; indices -> faces; texture None).
-│   ├── calls read_accessor  # POSITION -> verts, indices -> faces
-│   └── return Mesh          # texture None
+│   ├── calls read_accessor(POSITION)  # -> verts
+│   ├── calls read_accessor(indices)   # -> faces
+│   └── return Mesh                    # texture None
 ├── def _load_glb_vertex_color(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a vertex-colored Mesh from a GLB primitive (POSITION -> verts; indices -> faces; COLOR_0 -> vertex_color).
-│   ├── calls read_accessor  # POSITION -> verts, indices -> faces, COLOR_0 -> vertex_color
-│   └── return Mesh          # MeshTextureVertexColor
+│   ├── calls read_accessor(POSITION)  # -> verts
+│   ├── calls read_accessor(indices)   # -> faces
+│   ├── calls read_accessor(COLOR_0)   # -> vertex_color
+│   └── return Mesh                    # MeshTextureVertexColor
 ├── def _load_glb_uv_texture_map(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a UV-textured Mesh from a GLB primitive (POSITION -> verts; the shared index buffer -> faces and the raw faces_uvs; TEXCOORD_0 -> verts_uvs; base-color image -> uv_texture_map) on convention "top_left".
-│   ├── calls read_accessor  # POSITION -> verts, indices -> faces, TEXCOORD_0 -> verts_uvs
+│   ├── calls read_accessor(POSITION)    # -> verts
+│   ├── calls read_accessor(indices)     # -> faces
+│   ├── calls read_accessor(TEXCOORD_0)  # -> verts_uvs
+│   ├── impls take the raw faces_uvs as the same index buffer already read for faces
 │   ├── calls _resolve_base_color_texture_image_index
 │   ├── calls read_image_bytes
 │   ├── calls decode_image_bytes
-│   ├── calls shift_seam_crossing_faces_to_seam_safe  # raw glTF verts_uvs (faces_uvs = the shared index buffer) -> seam-safe canonical
+│   ├── calls shift_seam_crossing_faces_to_seam_safe  # raw glTF verts_uvs -> seam-safe canonical
 │   └── return Mesh  # MeshTextureUVTextureMap(convention="top_left")
 ├── def _select_mesh_primitive(gltf: Dict[str, Any]) -> Tuple[int, int]
 │   └── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many untextured marker meshes plus one textured face, this uniquely picks the face).
@@ -517,7 +530,7 @@ save_obj.py
 ├── def _save_uv_texture_map_obj(mesh: Mesh, obj_path: Path) -> None
 │   ├── # Writes the OBJ plus a sibling MTL and texture PNG.
 │   ├── calls _normalize_uv_texture_map_for_png
-│   ├── calls transform_convention           # texture convention -> "obj" for the written vt lines
+│   ├── calls transform_convention(mesh.texture.verts_uvs, mesh.texture.convention, "obj")  # the convention the vt lines are written in
 │   └── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
 │   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
@@ -623,31 +636,31 @@ convert.py
 ├── def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh
 │   ├── # Converts a PyTorch3D Meshes into a Mesh.
 │   ├── if mesh.textures is None
-│   │   └── # builds a geometry-only Mesh
+│   │   └── return Mesh  # texture None
 │   ├── elif isinstance(mesh.textures, TexturesVertex)
-│   │   └── # builds Mesh with a MeshTextureVertexColor
+│   │   └── return Mesh  # MeshTextureVertexColor
 │   └── else  # TexturesUV
 │       ├── calls shift_seam_crossing_faces_to_seam_safe  # raw TexturesUV verts_uvs -> seam-safe canonical
-│       └── # builds Mesh with a MeshTextureUVTextureMap
+│       └── return Mesh  # MeshTextureUVTextureMap
 ├── def mesh_to_pytorch3d(mesh: Mesh, device: Union[str, torch.device, None] = None, dtype: torch.dtype = torch.float32) -> Meshes
 │   ├── # Converts a Mesh into a PyTorch3D Meshes.
 │   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
-│   │   └── # builds Meshes with a TexturesVertex
+│   │   └── return Meshes  # TexturesVertex
 │   ├── elif isinstance(mesh.texture, MeshTextureUVTextureMap)
 │   │   ├── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure for TexturesUV
-│   │   └── # builds Meshes with a TexturesUV (convention forced to "obj")
+│   │   └── return Meshes                        # TexturesUV, convention forced to "obj"
 │   └── else
-│       └── # builds a geometry-only Meshes
+│       └── return Meshes  # textures None
 ├── def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -> Mesh
 │   ├── # Converts a trimesh.Trimesh into a Mesh.
 │   ├── if mesh.visual carries uv
 │   │   ├── calls _uv_mesh_from_trimesh                   # welds per-corner duplicate verts into the geometry domain
 │   │   ├── calls shift_seam_crossing_faces_to_seam_safe  # raw trimesh verts_uvs -> seam-safe canonical
 │   │   ├── calls _texture_image_from_trimesh
-│   │   └── # builds Mesh with a MeshTextureUVTextureMap
+│   │   └── return Mesh  # MeshTextureUVTextureMap
 │   └── else
 │       ├── calls _vertex_color_from_trimesh
-│       └── # builds Mesh with a MeshTextureVertexColor
+│       └── return Mesh  # MeshTextureVertexColor
 ├── def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh
 │   ├── # Converts a Mesh into a trimesh.Trimesh.
 │   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
@@ -656,7 +669,7 @@ convert.py
 │   ├── elif isinstance(mesh.texture, MeshTextureVertexColor)
 │   │   └── calls _vertex_color_to_trimesh
 │   └── else
-│       └── # geometry-only Trimesh
+│       └── return  # a geometry-only Trimesh
 ├── def _uv_mesh_from_trimesh(verts: np.ndarray, faces: np.ndarray, verts_uvs: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
 │   └── # Welds trimesh's per-corner duplicate verts (exact-position equality) into the geometry domain, returning (verts, faces, verts_uvs, faces_uvs).
 ├── def _texture_image_from_trimesh(image: object) -> np.ndarray

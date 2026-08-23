@@ -2056,7 +2056,7 @@ camera_sync.ts
 │   │   ├── # Additional API: registers one display panel as a camera-sync target under a specific source; each source owns its own target pool.
 │   │   ├── impls idempotently sets this._targets_by_source_id[source_id].set(target_id, target_element)
 │   │   ├── impls updates this._state_by_source_id[source_id].target_ids from this._targets_by_source_id[source_id].keys()
-│   │   ├── calls this._apply_camera_state_to_element  # target_element, this._state_by_source_id[source_id].camera_state
+│   │   ├── calls this._apply_camera_state_to_element(target_element, this._state_by_source_id[source_id].camera_state)
 │   │   └── return
 │   ├── unregisterCameraSyncTarget
 │   │   ├── # Additional API: unregisters one display panel from a source's target set.
@@ -2067,8 +2067,8 @@ camera_sync.ts
 │   │   ├── # Additional API: applies a caller-owned CameraState to every target registered under one source.
 │   │   ├── impls this._state_by_source_id[source_id] = { target_ids: the current target_ids, camera_state: the caller-provided CameraState }
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
-│   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
-│   │   ├── calls this._emit_camera_sync_state  # this._state_by_source_id[source_id]
+│   │   │   └── calls this._apply_camera_state_to_element(target_element, camera_state)
+│   │   ├── calls this._emit_camera_sync_state(this._state_by_source_id[source_id])
 │   │   └── return
 │   ├── applySourceCameraStateToTargets
 │   │   ├── # Additional API: ingests camera movement from a source display and propagates it to that source's other registered targets.
@@ -2078,8 +2078,8 @@ camera_sync.ts
 │   │   ├── for each (target_id, target_element) in this._targets_by_source_id[source_id]
 │   │   │   ├── if target_id == source_id
 │   │   │   │   └── continue
-│   │   │   └── calls this._apply_camera_state_to_element  # target_element, camera_state
-│   │   ├── calls this._emit_camera_sync_state  # this._state_by_source_id[source_id]
+│   │   │   └── calls this._apply_camera_state_to_element(target_element, camera_state)
+│   │   ├── calls this._emit_camera_sync_state(this._state_by_source_id[source_id])
 │   │   └── return
 │   ├── _apply_camera_state_to_element
 │   │   ├── # Writes a CameraState onto an element's `data-camera-state` attribute; mesh / point-cloud display containers observe this attribute and re-apply to their trackball controls.
