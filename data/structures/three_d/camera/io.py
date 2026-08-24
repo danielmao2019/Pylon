@@ -53,14 +53,16 @@ def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> Non
     Returns:
         None.
     """
-    # Input validations
-    assert isinstance(cameras_path, Path), (
-        "Expected Cameras output path to be a pathlib Path. " f"{type(cameras_path)=}"
-    )
 
-    # Input normalizations
+    def _validate_inputs() -> None:
+        assert isinstance(cameras_path, Path), (
+            "Expected Cameras output path to be a pathlib Path. "
+            f"{type(cameras_path)=}"
+        )
+
+    _validate_inputs()
+
     format = _resolve_format_from_path(cameras_path=cameras_path)
-
     payload = serialize_cameras(cameras=cameras, format=format)
     cameras_path.parent.mkdir(parents=True, exist_ok=True)
     if format == "json":
@@ -91,33 +93,46 @@ def load_cameras(
         A single `Camera` when the file holds a single form, otherwise a `Cameras`
         collection.
     """
-    # Input validations
-    assert isinstance(cameras_path, Path), (
-        "Expected Cameras input path to be a pathlib Path. " f"{type(cameras_path)=}"
-    )
-    assert cameras_path.exists(), (
-        "Expected Cameras input path to exist. " f"{cameras_path=}"
-    )
-    assert cameras_path.is_file(), (
-        "Expected Cameras input path to be a file. " f"{cameras_path=}"
-    )
-    assert device is None or isinstance(device, (str, torch.device)), (
-        "Expected Cameras device to be None, a string, or a torch device. " f"{device=}"
-    )
 
-    # Input normalizations
+    def _validate_inputs() -> None:
+        assert isinstance(cameras_path, Path), (
+            "Expected Cameras input path to be a pathlib Path. "
+            f"{type(cameras_path)=}"
+        )
+        assert cameras_path.exists(), (
+            "Expected Cameras input path to exist. " f"{cameras_path=}"
+        )
+        assert cameras_path.is_file(), (
+            "Expected Cameras input path to be a file. " f"{cameras_path=}"
+        )
+        assert device is None or isinstance(device, (str, torch.device)), (
+            "Expected Cameras device to be None, a string, or a torch device. "
+            f"{device=}"
+        )
+
+    _validate_inputs()
+
     format = _resolve_format_from_path(cameras_path=cameras_path)
 
-    if format == "json":
-        payload = json.loads(cameras_path.read_text(encoding="utf-8"))
-        return deserialize_cameras(payload=payload, device=device, format=format)
+    def _read_payload() -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """Read the file in the form its own format spells it.
 
-    if format == "npz":
-        with np.load(cameras_path, allow_pickle=False) as payload_file:
-            payload = {key: payload_file[key] for key in payload_file.files}
-        return deserialize_cameras(payload=payload, device=device, format=format)
+        Args:
+            None; reads the resolved `format` and the `cameras_path` of the call.
 
-    assert False, "Expected Cameras load format to be handled. " f"{format=}"
+        Returns:
+            The payload the file holds, plural or single.
+        """
+        if format == "json":
+            return json.loads(cameras_path.read_text(encoding="utf-8"))
+        if format == "npz":
+            with np.load(cameras_path, allow_pickle=False) as payload_file:
+                return {key: payload_file[key] for key in payload_file.files}
+        assert False, "Expected Cameras load format to be handled. " f"{format=}"
+
+    payload = _read_payload()
+
+    return deserialize_cameras(payload=payload, device=device, format=format)
 
 
 def serialize_cameras(
@@ -350,52 +365,56 @@ def _deserialize_cameras_json(
     # import would cycle.
     from data.structures.three_d.camera.cameras import Cameras
 
-    # Input validations
-    assert isinstance(per_camera_dicts, list), (
-        "Expected json per-camera payload to be a list. " f"{type(per_camera_dicts)=}"
-    )
-    assert len(per_camera_dicts) > 0, (
-        "Expected json per-camera payload to be non-empty. " f"{len(per_camera_dicts)=}"
-    )
+    def _validate_inputs() -> None:
+        assert isinstance(per_camera_dicts, list), (
+            "Expected json per-camera payload to be a list. "
+            f"{type(per_camera_dicts)=}"
+        )
+        assert len(per_camera_dicts) > 0, (
+            "Expected json per-camera payload to be non-empty. "
+            f"{len(per_camera_dicts)=}"
+        )
+        for per_camera_dict in per_camera_dicts:
+            assert isinstance(per_camera_dict, dict), (
+                "Expected each json camera payload to be a dictionary. "
+                f"{type(per_camera_dict)=}"
+            )
+            assert set(per_camera_dict.keys()) == _CAMERA_JSON_KEYS, (
+                "Expected each json camera payload to contain exactly the Camera "
+                f"JSON fields. {set(per_camera_dict.keys())=} {_CAMERA_JSON_KEYS=}"
+            )
+            assert isinstance(per_camera_dict["model"], str), (
+                "Expected json camera model to be a string. "
+                f"{type(per_camera_dict['model'])=}"
+            )
+            assert isinstance(per_camera_dict["params"], dict), (
+                "Expected json camera params to be a dictionary. "
+                f"{type(per_camera_dict['params'])=}"
+            )
+            assert isinstance(per_camera_dict["convention"], str), (
+                "Expected json camera convention to be a string. "
+                f"{type(per_camera_dict['convention'])=}"
+            )
+            assert per_camera_dict["name"] is None or isinstance(
+                per_camera_dict["name"], str
+            ), (
+                "Expected json camera name to be None or a string. "
+                f"{type(per_camera_dict['name'])=}"
+            )
+            assert per_camera_dict["id"] is None or isinstance(
+                per_camera_dict["id"], int
+            ), (
+                "Expected json camera id to be None or an integer. "
+                f"{type(per_camera_dict['id'])=}"
+            )
+
+    _validate_inputs()
 
     intrinsics_list: List[Any] = []
     extrinsics_list: List[CameraExtrinsics] = []
     names: List[Optional[str]] = []
     ids: List[Optional[int]] = []
     for per_camera_dict in per_camera_dicts:
-        assert isinstance(per_camera_dict, dict), (
-            "Expected each json camera payload to be a dictionary. "
-            f"{type(per_camera_dict)=}"
-        )
-        assert set(per_camera_dict.keys()) == _CAMERA_JSON_KEYS, (
-            "Expected each json camera payload to contain exactly the Camera JSON "
-            f"fields. {set(per_camera_dict.keys())=} {_CAMERA_JSON_KEYS=}"
-        )
-        assert isinstance(per_camera_dict["model"], str), (
-            "Expected json camera model to be a string. "
-            f"{type(per_camera_dict['model'])=}"
-        )
-        assert isinstance(per_camera_dict["params"], dict), (
-            "Expected json camera params to be a dictionary. "
-            f"{type(per_camera_dict['params'])=}"
-        )
-        assert isinstance(per_camera_dict["convention"], str), (
-            "Expected json camera convention to be a string. "
-            f"{type(per_camera_dict['convention'])=}"
-        )
-        assert per_camera_dict["name"] is None or isinstance(
-            per_camera_dict["name"], str
-        ), (
-            "Expected json camera name to be None or a string. "
-            f"{type(per_camera_dict['name'])=}"
-        )
-        assert per_camera_dict["id"] is None or isinstance(
-            per_camera_dict["id"], int
-        ), (
-            "Expected json camera id to be None or an integer. "
-            f"{type(per_camera_dict['id'])=}"
-        )
-
         extrinsics = torch.as_tensor(
             per_camera_dict["extrinsics"],
             dtype=torch.float32,
@@ -493,29 +512,50 @@ def _deserialize_cameras_npz(
     # import would cycle.
     from data.structures.three_d.camera.cameras import Cameras
 
-    # Input validations
-    assert isinstance(payload, dict), (
-        "Expected Cameras NPZ payload to be a dictionary. " f"{type(payload)=}"
-    )
-    payload_keys = set(payload.keys())
-    assert payload_keys == _CAMERA_NPZ_KEYS, (
-        "Expected Cameras NPZ payload to match a supported schema. "
-        f"{payload_keys=} {_CAMERA_NPZ_KEYS=}"
-    )
+    def _validate_inputs() -> None:
+        assert isinstance(payload, dict), (
+            "Expected Cameras NPZ payload to be a dictionary. " f"{type(payload)=}"
+        )
+        payload_keys = set(payload.keys())
+        assert payload_keys == _CAMERA_NPZ_KEYS, (
+            "Expected Cameras NPZ payload to match a supported schema. "
+            f"{payload_keys=} {_CAMERA_NPZ_KEYS=}"
+        )
+        extrinsics = payload["extrinsics"]
+        assert isinstance(extrinsics, np.ndarray), (
+            "Expected Cameras NPZ extrinsics to be a numpy array. "
+            f"{type(extrinsics)=}"
+        )
+        assert extrinsics.dtype == np.float32, (
+            "Expected Cameras NPZ extrinsics to use float32. " f"{extrinsics.dtype=}"
+        )
+        assert extrinsics.ndim == 3, (
+            "Expected Cameras NPZ extrinsics to be batched as [N, 4, 4]. "
+            f"{extrinsics.shape=}"
+        )
+        validate_camera_extrinsics(extrinsics)
+        batch_size = extrinsics.shape[0]
+        for key in (
+            "model",
+            "params",
+            "convention",
+            "name",
+            "has_name",
+            "id",
+            "has_id",
+        ):
+            array = payload[key]
+            assert isinstance(array, np.ndarray), (
+                f"Expected Cameras NPZ {key} to be a numpy array. " f"{type(array)=}"
+            )
+            assert array.shape == (batch_size,), (
+                f"Expected Cameras NPZ {key} array length to match the batch size. "
+                f"{array.shape=} {batch_size=}"
+            )
+
+    _validate_inputs()
 
     extrinsics = payload["extrinsics"]
-    assert isinstance(extrinsics, np.ndarray), (
-        "Expected Cameras NPZ extrinsics to be a numpy array. " f"{type(extrinsics)=}"
-    )
-    assert extrinsics.dtype == np.float32, (
-        "Expected Cameras NPZ extrinsics to use float32. " f"{extrinsics.dtype=}"
-    )
-    assert extrinsics.ndim == 3, (
-        "Expected Cameras NPZ extrinsics to be batched as [N, 4, 4]. "
-        f"{extrinsics.shape=}"
-    )
-    validate_camera_extrinsics(extrinsics)
-
     batch_size = extrinsics.shape[0]
     model_array = payload["model"]
     params_array = payload["params"]
@@ -524,22 +564,6 @@ def _deserialize_cameras_npz(
     has_name_array = payload["has_name"]
     id_array = payload["id"]
     has_id_array = payload["has_id"]
-    for key, array in (
-        ("model", model_array),
-        ("params", params_array),
-        ("convention", convention_array),
-        ("name", name_array),
-        ("has_name", has_name_array),
-        ("id", id_array),
-        ("has_id", has_id_array),
-    ):
-        assert isinstance(array, np.ndarray), (
-            f"Expected Cameras NPZ {key} to be a numpy array. " f"{type(array)=}"
-        )
-        assert array.shape == (batch_size,), (
-            f"Expected Cameras NPZ {key} array length to match the batch size. "
-            f"{array.shape=} {batch_size=}"
-        )
 
     intrinsics_list: List[Any] = []
     extrinsics_list: List[CameraExtrinsics] = []
@@ -650,13 +674,16 @@ def _resolve_format_from_path(cameras_path: Path) -> str:
     Returns:
         Normalized serialization format name.
     """
-    # Input validations
-    assert isinstance(cameras_path, Path), (
-        "Expected Cameras file path to be a pathlib Path. " f"{type(cameras_path)=}"
-    )
-    assert cameras_path.suffix != "", (
-        "Expected Cameras file path to include a suffix. " f"{cameras_path=}"
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(cameras_path, Path), (
+            "Expected Cameras file path to be a pathlib Path. " f"{type(cameras_path)=}"
+        )
+        assert cameras_path.suffix != "", (
+            "Expected Cameras file path to include a suffix. " f"{cameras_path=}"
+        )
+
+    _validate_inputs()
 
     return _normalize_format(format=cameras_path.suffix)
 
