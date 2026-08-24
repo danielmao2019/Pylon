@@ -8,11 +8,11 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.extrinsics.rotation.quaternion import qvec2rotmat
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
     CameraIntrinsics,
     build_camera_intrinsics,
 )
-from data.structures.three_d.camera.rotation.quaternion import qvec2rotmat
 from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 

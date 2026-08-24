@@ -15,7 +15,7 @@ import torch
 from gsplat.cuda._torch_impl import _eval_sh_bases_fast
 from nerfstudio.pipelines.base_pipeline import Pipeline
 
-from data.structures.three_d.camera.rotation.quaternion import rotmat_to_quat
+from data.structures.three_d.camera.extrinsics.rotation.quaternion import rotmat_to_quat
 
 NUM_REST_COEFFICIENTS_TO_SH_DEGREE = {
     0: 0,

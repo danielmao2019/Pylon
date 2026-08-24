@@ -2,7 +2,7 @@ import math
 
 import torch
 
-from data.structures.three_d.camera.rotation.rodrigues import (
+from data.structures.three_d.camera.extrinsics.rotation.rodrigues import (
     matrix_to_rodrigues,
     rodrigues_canonical,
     rodrigues_to_matrix,

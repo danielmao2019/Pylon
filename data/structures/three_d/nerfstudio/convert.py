@@ -6,7 +6,7 @@ from typing import Dict
 import numpy as np
 import torch
 
-from data.structures.three_d.camera.rotation.quaternion import rotmat2qvec
+from data.structures.three_d.camera.extrinsics.rotation.quaternion import rotmat2qvec
 from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 from data.structures.three_d.colmap.load import (
     ColmapCamera,

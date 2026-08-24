@@ -2,7 +2,7 @@ import math
 
 import torch
 
-from data.structures.three_d.camera.rotation.euler import (
+from data.structures.three_d.camera.extrinsics.rotation.euler import (
     euler_canonical,
     euler_to_matrix,
     matrix_to_euler,
