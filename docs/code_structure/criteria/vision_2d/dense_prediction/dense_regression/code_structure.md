@@ -46,10 +46,10 @@ depth_estimation.py
     ├── # Scores an (N, 1, H, W) predicted depth map against its (N, H, W) target, as a masked L1 over the positive-depth pixels.
     ├── def __init__(self, reduction: str = 'mean', **kwargs) -> None  [override]
     │   ├── # Fixes zero as the ignored depth, since a zero depth is how this task encodes an invalid pixel.
-    │   └── calls super().__init__  # that zero ignore value, plus reduction and **kwargs
+    │   └── calls super().__init__(ignore_value=0, reduction=reduction, **kwargs)
     ├── def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None  [override]
     │   ├── # Adds the one depth value check the shared contract leaves open: no predicted depth may be negative.
-    │   ├── calls check_depth_estimation  # the shared depth contract: shapes, dtypes, and an already non-negative target
+    │   ├── calls check_depth_estimation(y_pred=y_pred, y_true=y_true)  # the shared depth contract: shapes, dtypes, and an already non-negative target
     │   ├── if any predicted depth is negative
     │   │   └── raise ValueError  # "Predicted depth values must be non-negative"
     │   └── if any ground-truth depth is negative
@@ -80,10 +80,10 @@ instance_segmentation.py
     ├── # Scores an (N, H, W) predicted instance-id map against its (N, H, W) target, as a masked L1 over the non-ignored pixels.
     ├── def __init__(self, ignore_value: int, reduction: str = 'mean', **kwargs) -> None  [override]
     │   ├── # Takes the ignore id from the caller, since which id stands for background or unlabeled is the dataset's choice.
-    │   └── calls super().__init__  # the caller's own background / unlabeled ignore value, plus reduction and **kwargs
+    │   └── calls super().__init__(ignore_value=ignore_value, reduction=reduction, **kwargs)
     ├── def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None  [override]
     │   ├── # Defers entirely to the shared instance-segmentation contract.
-    │   └── calls check_instance_segmentation  # the prediction and the ground truth
+    │   └── calls check_instance_segmentation(y_pred=y_pred, y_true=y_true)
     ├── def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor  [override]
     │   ├── # Treats every target pixel other than the ignore id as supervised, and rejects negative ids among them.
     │   ├── impls mark the ground-truth pixels that differ from the ignore value as the valid ones
@@ -111,10 +111,10 @@ normal_estimation.py
     ├── # Scores an (N, 3, H, W) predicted normal map against its (N, 3, H, W) target, as one minus their mean per-pixel dot product over the non-degenerate pixels.
     ├── def __init__(self, reduction: str = 'mean', **kwargs) -> None  [override]
     │   ├── # Fixes zero as the ignored normal, since a zero vector is how this task encodes an invalid pixel.
-    │   └── calls super().__init__  # that zero ignore value, plus reduction and **kwargs
+    │   └── calls super().__init__(ignore_value=0, reduction=reduction, **kwargs)
     ├── def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None  [override]
     │   ├── # Defers entirely to the shared normal-estimation contract.
-    │   └── calls check_normal_estimation  # the prediction and the ground truth
+    │   └── calls check_normal_estimation(y_pred=y_pred, y_true=y_true)
     ├── def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor  [override]
     │   ├── # Treats only target normals of non-zero length as supervised, since a zero vector is what encodes an invalid normal.
     │   ├── impls take each ground-truth normal's length along the channel dimension

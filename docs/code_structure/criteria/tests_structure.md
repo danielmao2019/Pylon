@@ -81,7 +81,7 @@ test_base_criterion_async_buffer.py
 │   └── assert the worker thread is a daemon
 ├── def test_worker_thread_error_propagation_detach()
 │   ├── # A worker raising at the detach stage is left unhandled; the suite only checks the thread attribute survives, since observing the crash itself would need process isolation.
-│   ├── calls FailingCriterion  # failing at the detach stage -> the criterion under test
+│   ├── calls FailingCriterion(fail_mode="detach")  # -> the criterion under test
 │   ├── impls one scalar tensor the worker will fail on
 │   ├── calls failing_criterion.add_to_buffer
 │   ├── calls time.sleep(0.1)
@@ -107,7 +107,7 @@ test_base_criterion_async_buffer.py
 │   ├── assert no buffer attribute was created
 │   ├── assert no worker thread attribute was created
 │   ├── impls one scalar tensor
-│   ├── calls criterion.add_to_buffer  # accepted silently rather than raising
+│   ├── calls criterion.add_to_buffer(tensor)  # accepted silently rather than raising
 │   ├── assert still no buffer attribute was created
 │   └── with pytest.raises(RuntimeError)  # matching the "Buffer is not enabled" message
 │       └── calls criterion.get_buffer
@@ -185,13 +185,13 @@ test_base_criterion_async_buffer.py
 │   ├── calls DummyCriterion(use_buffer=True)
 │   ├── impls one multi-dimensional tensor
 │   ├── with pytest.raises(AssertionError)  # matching the offending-shape message
-│   │   └── calls criterion.add_to_buffer  # the multi-dimensional tensor
+│   │   └── calls criterion.add_to_buffer(multi_dim_tensor)
 │   ├── impls one multi-element tensor
 │   ├── with pytest.raises(AssertionError)  # matching the offending-shape message
-│   │   └── calls criterion.add_to_buffer  # the multi-element tensor
+│   │   └── calls criterion.add_to_buffer(multi_element_tensor)
 │   ├── impls one empty tensor
 │   ├── with pytest.raises(AssertionError)  # matching the offending-shape message
-│   │   └── calls criterion.add_to_buffer  # the empty tensor
+│   │   └── calls criterion.add_to_buffer(empty_tensor)
 │   ├── impls one scalar tensor
 │   ├── calls criterion.add_to_buffer(valid_tensor)
 │   ├── calls criterion._buffer_queue.join
@@ -201,11 +201,11 @@ test_base_criterion_async_buffer.py
 │   ├── # Only a torch.Tensor is buffered, so a Python scalar or None cannot enter the trajectory a summary later stacks.
 │   ├── calls DummyCriterion(use_buffer=True)
 │   ├── with pytest.raises(AssertionError)  # matching the offending-type message
-│   │   └── calls criterion.add_to_buffer  # a plain float
+│   │   └── calls criterion.add_to_buffer(1.0)
 │   ├── with pytest.raises(AssertionError)  # matching the offending-type message
-│   │   └── calls criterion.add_to_buffer  # a list
+│   │   └── calls criterion.add_to_buffer([1.0])
 │   ├── with pytest.raises(AssertionError)  # matching the offending-type message
-│   │   └── calls criterion.add_to_buffer  # a string
+│   │   └── calls criterion.add_to_buffer("tensor")
 │   └── with pytest.raises(AssertionError)  # matching the offending-type message
 │       └── calls criterion.add_to_buffer(None)
 ├── def test_empty_buffer_edge_cases()
@@ -235,7 +235,7 @@ test_base_criterion_async_buffer.py
 │   ├── # Same loss as DummyCriterion, with a worker loop that raises at whichever stage fail_mode names.
 │   ├── def __init__(self, fail_mode: str = "detach")  [override]
 │   │   ├── # Turns buffering on and records which stage of the worker loop the injected failure fires at.
-│   │   ├── calls super().__init__  # with buffering on
+│   │   ├── calls super().__init__(use_buffer=True)
 │   │   └── impls remember the failure mode
 │   ├── def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor  [override]
 │   │   ├── # Scores the same mean absolute error as DummyCriterion, so the failure under test is the worker's alone.

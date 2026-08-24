@@ -17,17 +17,17 @@ builder.py
 │   ├── if config is an edict.EasyDict
 │   │   └── return config
 │   ├── if config is a dict whose keys are exactly class and args
-│   │   ├── calls semideepcopy  # copies the config so the merge below leaves the caller's own dict intact, preserving shared runtime objects
+│   │   ├── calls semideepcopy(config)  # so the merge below leaves the caller's own dict intact, preserving shared runtime objects
 │   │   ├── assert kwargs is a dict
 │   │   ├── assert the copy's own keys and the kwargs keys are disjoint
 │   │   ├── impls update the copy's args with kwargs, a kwarg overriding a same-named args entry
 │   │   ├── if recursive
 │   │   │   └── for each key of the copy's args
-│   │   │       └── calls build_from_config  # a nested config builds bottom-up; an already-built object comes back as itself
+│   │   │       └── calls build_from_config(config_copy['args'][key])  # a nested config builds bottom-up; an already-built object comes back as itself
 │   │   └── return  # the copy's class instantiated over its built args
 │   ├── elif config is a dict
 │   │   ├── for each key-value pair of config
-│   │   │   └── calls build_from_config  # on the value; the key is carried over as-is
+│   │   │   └── calls build_from_config(val)  # the key is carried over as-is
 │   │   └── return  # a dict comprehension over the built values
 │   ├── elif config is a list
 │   │   ├── for each item of config
@@ -45,7 +45,7 @@ builder.py
     │   └── return obj
     ├── elif obj is a dict
     │   ├── for each key-value pair of obj
-    │   │   └── calls semideepcopy  # on the value; the key is carried over as-is
+    │   │   └── calls semideepcopy(value)  # the key is carried over as-is
     │   └── return  # a dict comprehension over the copied values
     ├── elif obj is a list
     │   ├── for each item of obj

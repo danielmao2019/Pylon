@@ -21,7 +21,7 @@ chunked_matmul.py
 │   ├── while i < N
 │   │   ├── impls j = min(N, i + bs)
 │   │   ├── try
-│   │   │   └── calls _matmul_chunk  # write the [i:j] chunk into out
+│   │   │   └── calls _matmul_chunk(large=large[i:j], small=small, out=out[i:j], direct=direct)
 │   │   ├── except torch.cuda.OutOfMemoryError
 │   │   │   ├── if num_divide is not None or divides >= max_divide or bs <= 1
 │   │   │   │   └── raise

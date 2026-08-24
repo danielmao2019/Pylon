@@ -14,7 +14,7 @@ test_depth_estimation_criterion.py
 │   ├── calls DepthEstimationCriterion  # -> the criterion under test
 │   ├── impls a (2, 1, 4, 4) batch of random predicted depths scaled to [0, 10)
 │   ├── impls a matching batch of random positive ground-truth depths
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   ├── assert the loss is a torch.Tensor
 │   ├── assert the loss is zero-dimensional
 │   └── assert the loss is non-negative
@@ -23,7 +23,7 @@ test_depth_estimation_criterion.py
 │   ├── calls DepthEstimationCriterion  # -> the criterion under test
 │   ├── impls a (2, 4, 4) batch of random ground-truth depths scaled to [0, 10)
 │   ├── impls the prediction as that ground truth carrying a channel dimension
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   └── assert the loss is below 1e-6
 ├── def test_depth_estimation_with_invalid_depths()
 │   ├── # Zero-depth pixels are masked out rather than scored, so a target carrying some still yields a finite loss.
@@ -31,7 +31,7 @@ test_depth_estimation_criterion.py
 │   ├── impls a (2, 4, 4) batch of random ground-truth depths scaled to [0, 10)
 │   ├── impls zero one of those depths, making it invalid
 │   ├── impls a matching batch of random positive predicted depths, one channel
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   ├── assert the loss is a torch.Tensor
 │   ├── assert the loss is zero-dimensional
 │   └── assert the loss is non-negative
@@ -41,22 +41,22 @@ test_depth_estimation_criterion.py
 │   ├── impls an all-zero batch of ground-truth depths
 │   ├── impls a matching batch of random predicted depths, one channel
 │   └── with pytest.raises(AssertionError)
-│       └── calls criterion.__call__  # prediction and ground truth
+│       └── calls criterion.__call__(y_pred, y_true)
 └── def test_depth_estimation_input_validation()
     ├── # The depth contract is enforced before any loss is computed: one prediction channel, matching spatial dimensions, and non-negative depths.
     ├── calls DepthEstimationCriterion  # -> the criterion under test
     ├── with pytest.raises(AssertionError)
     │   ├── impls a prediction carrying two channels instead of one
     │   ├── impls a matching ground truth
-    │   └── calls criterion.__call__  # prediction and ground truth
+    │   └── calls criterion.__call__(y_pred, y_true)
     ├── with pytest.raises(AssertionError)
     │   ├── impls a well-shaped prediction
     │   ├── impls a ground truth of a different width
-    │   └── calls criterion.__call__  # prediction and ground truth
+    │   └── calls criterion.__call__(y_pred, y_true)
     └── with pytest.raises(AssertionError)
         ├── impls a positive prediction
         ├── impls a ground truth of negative depths
-        └── calls criterion.__call__  # prediction and ground truth
+        └── calls criterion.__call__(y_pred, y_true)
 ```
 
 `tests/criteria/vision_2d/dense_prediction/dense_regression/test_instance_segmentation_criterion.py`
@@ -74,53 +74,53 @@ test_instance_segmentation_criterion.py
 │   └── assert the criterion kept that ignore id
 ├── def test_instance_segmentation_basic()
 │   ├── # A uniform random prediction against random instance ids scores to a non-negative scalar.
-│   ├── calls InstanceSegmentationCriterion  # -> the criterion under test
+│   ├── calls InstanceSegmentationCriterion(ignore_value=-1)  # -> the criterion under test
 │   ├── impls a (2, 4, 4) batch of uniform random predictions
 │   ├── impls a matching batch of random ground-truth instance ids
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   ├── assert the loss is a torch.Tensor
 │   ├── assert the loss is zero-dimensional
 │   └── assert the loss is non-negative
 ├── def test_instance_segmentation_perfect_predictions()
 │   ├── # A prediction equal to the ground truth ids costs nothing, pinning the L1 residual's zero.
-│   ├── calls InstanceSegmentationCriterion  # -> the criterion under test
+│   ├── calls InstanceSegmentationCriterion(ignore_value=-1)  # -> the criterion under test
 │   ├── impls a (2, 4, 4) batch of random ground-truth instance ids in [0, 10)
 │   ├── impls the prediction as that ground truth in floating point
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   └── assert the loss is below 1e-6
 ├── def test_instance_segmentation_with_ignored_regions()
 │   ├── # Pixels carrying the ignore id are masked out rather than scored, so a target carrying some still yields a finite loss.
-│   ├── calls InstanceSegmentationCriterion  # -> the criterion under test
+│   ├── calls InstanceSegmentationCriterion(ignore_value=-1)  # -> the criterion under test
 │   ├── impls a (2, 4, 4) batch of random ground-truth instance ids in [0, 10)
 │   ├── impls set one pixel of the first sample to the ignore id
 │   ├── impls set one pixel of the second sample to the ignore id
 │   ├── impls a matching batch of uniform random predictions
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   ├── assert the loss is a torch.Tensor
 │   ├── assert the loss is zero-dimensional
 │   └── assert the loss is non-negative
 ├── def test_instance_segmentation_all_ignored()
 │   ├── # A target that is entirely the ignore id leaves nothing to supervise, so the criterion refuses it instead of averaging over an empty mask.
-│   ├── calls InstanceSegmentationCriterion  # -> the criterion under test
+│   ├── calls InstanceSegmentationCriterion(ignore_value=-1)  # -> the criterion under test
 │   ├── impls a ground truth filled entirely with the ignore id
 │   ├── impls a matching batch of uniform random predictions
 │   └── with pytest.raises(AssertionError)
-│       └── calls criterion.__call__  # prediction and ground truth
+│       └── calls criterion.__call__(y_pred, y_true)
 └── def test_instance_segmentation_input_validation()
     ├── # The instance-id contract is enforced before any loss is computed: matching spatial dimensions, matching batch size, and three-dimensional predictions.
-    ├── calls InstanceSegmentationCriterion  # -> the criterion under test
+    ├── calls InstanceSegmentationCriterion(ignore_value=-1)  # -> the criterion under test
     ├── with pytest.raises(AssertionError)
     │   ├── impls a well-shaped prediction
     │   ├── impls a ground truth of a different width
-    │   └── calls criterion.__call__  # prediction and ground truth
+    │   └── calls criterion.__call__(y_pred, y_true)
     ├── with pytest.raises(AssertionError)
     │   ├── impls a well-shaped prediction
     │   ├── impls a ground truth of a different batch size
-    │   └── calls criterion.__call__  # prediction and ground truth
+    │   └── calls criterion.__call__(y_pred, y_true)
     └── with pytest.raises(AssertionError)
         ├── impls a prediction carrying a channel dimension it should not have
         ├── impls a well-shaped ground truth
-        └── calls criterion.__call__  # prediction and ground truth
+        └── calls criterion.__call__(y_pred, y_true)
 ```
 
 `tests/criteria/vision_2d/dense_prediction/dense_regression/test_normal_estimation_criterion.py`
@@ -136,7 +136,7 @@ test_normal_estimation_criterion.py
 │   ├── impls a (2, 3, 4, 4) batch of random predicted normals
 │   ├── impls a matching batch of random three-channel ground-truth normals
 │   ├── impls rescale those ground-truth normals to unit length
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   ├── assert the loss is a torch.Tensor
 │   ├── assert the loss is zero-dimensional
 │   └── assert the loss lies in [0, 2]
@@ -146,7 +146,7 @@ test_normal_estimation_criterion.py
 │   ├── impls a (2, 3, 4, 4) batch of random ground-truth normals
 │   ├── impls rescale those normals to unit length
 │   ├── impls the prediction as a copy of that ground truth
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   └── assert the loss is within 1e-5 of zero
 ├── def test_normal_estimation_opposite_predictions()
 │   ├── # Predicting the negated normals gives cosine similarity minus one, pinning the loss's other end at two.
@@ -154,7 +154,7 @@ test_normal_estimation_criterion.py
 │   ├── impls a (2, 3, 4, 4) batch of random ground-truth normals
 │   ├── impls rescale those normals to unit length
 │   ├── impls the prediction as the negation of that ground truth
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   └── assert the loss is within 1e-5 of two
 ├── def test_normal_estimation_with_invalid_normals()
 │   ├── # Zero-vector pixels are masked out rather than scored; with only the ground truth rescaled, the [0, 2] bound is again empirical.
@@ -164,7 +164,7 @@ test_normal_estimation_criterion.py
 │   ├── impls take every ground-truth normal's length, the zeroed ones included
 │   ├── impls rescale only the non-degenerate normals to unit length
 │   ├── impls a matching batch of random three-channel predicted normals
-│   ├── calls criterion.__call__  # prediction and ground truth -> the loss
+│   ├── calls criterion.__call__(y_pred, y_true)  # -> the loss
 │   ├── assert the loss is a torch.Tensor
 │   ├── assert the loss is zero-dimensional
 │   └── assert the loss lies in [0, 2]
@@ -174,13 +174,13 @@ test_normal_estimation_criterion.py
     ├── with pytest.raises(AssertionError)
     │   ├── impls a prediction carrying four channels instead of three
     │   ├── impls a well-shaped ground truth
-    │   └── calls criterion.__call__  # prediction and ground truth
+    │   └── calls criterion.__call__(y_pred, y_true)
     ├── with pytest.raises(AssertionError)
     │   ├── impls a well-shaped prediction
     │   ├── impls a ground truth of a different width
-    │   └── calls criterion.__call__  # prediction and ground truth
+    │   └── calls criterion.__call__(y_pred, y_true)
     └── with pytest.raises(AssertionError)
         ├── impls a prediction missing its batch or spatial dimension
         ├── impls a well-shaped ground truth
-        └── calls criterion.__call__  # prediction and ground truth
+        └── calls criterion.__call__(y_pred, y_true)
 ```

@@ -1772,7 +1772,7 @@ apis.py
 │   └── return
 ├── def _map_camera_params_to_vis(cameras, frustum_size: Optional[float], frustum_color: Optional[Tuple[int, int, int]], point_size: Optional[float], point_color: Optional[Tuple[int, int, int]]) -> List[Dict[str, Any]]
 │   ├── # Maps a Cameras collection to the JSON-able camera-vis payload (the camera sibling of _map_segmentation_pc_to_rgb), applying the caller's baked styles or their cameras_vis defaults.
-│   ├── calls cameras_vis  # forwards frustum_size/frustum_color/point_size/point_color untouched; cameras_vis resolves each None to its module-global style default
+│   ├── calls cameras_vis(cameras=cameras, frustum_size=frustum_size, frustum_color=frustum_color, point_size=point_size, point_color=point_color)  # cameras_vis resolves each None to its module-global style default
 │   ├── for each camera-vis entry
 │   │   └── calls _serialize_camera_vis_entry
 │   └── return
@@ -2099,7 +2099,7 @@ selector_response.py
 ├── from pydantic import BaseModel
 ├── def build_selector_response
 │   ├── # Build a SelectorResponse from an app's nested (value, label, children) option tuple — the app owns the tree shape, the lib owns the schema.
-│   ├── calls _to_selection_node  # convert the imaginary-root tuple
+│   ├── calls _to_selection_node(option_tree)
 │   └── return  # SelectorResponse(root=converted imaginary root)
 ├── def _to_selection_node
 │   ├── # Recursion helper: convert one (value, label, children) tuple into a SelectionNode, recursing into each child tuple.
@@ -2154,7 +2154,7 @@ selector_cascade.ts
 ├── import { completeRootLeafPath } from "data/viewer/utils/controls/selectors/ts/frontend/selection_path";
 ├── function renderSelectorCascade({ axisKey, response, path, onPathChange }: { axisKey: string; response: SelectorResponse; path: string[]; onPathChange: (next: string[]) => void }): ElementVNode
 │   ├── # Render one selector axis as a cascade of native <select> dropdowns, one per level descended from the response's imaginary root down to a leaf.
-│   ├── calls _renderSelectorLevel  # collect the per-level <select> leaves from the imaginary root down
+│   ├── calls _renderSelectorLevel({ node: response.root, level: 0, axisKey, path, onPathChange })  # collect the per-level <select> leaves from the imaginary root down
 │   └── return  # a container ElementVNode wrapping the collected <select> leaves
 └── function _renderSelectorLevel({ node, level, axisKey, path, onPathChange }: { node: SelectionNode; level: number; axisKey: string; path: string[]; onPathChange: (next: string[]) => void }): LeafVNode[]
     ├── # Recursion helper: collect the <select> leaves from this level down; the base case (a node with no children) contributes none.
@@ -2166,8 +2166,8 @@ selector_cascade.ts
     │   ├── # The <select> change handler: report the completed root-leaf path to onPathChange.
     │   ├── calls completeRootLeafPath
     │   └── calls onPathChange
-    ├── calls _onLevelChange        # bound as the <select>'s change listener
-    ├── calls _renderSelectorLevel  # recurse into the path-selected child to collect the deeper levels' leaves
+    ├── calls _onLevelChange  # bound as the <select>'s change listener
+    ├── calls _renderSelectorLevel({ node: selectedChild, level: level + 1, axisKey, path, onPathChange })  # recurse into the path-selected child to collect the deeper levels' leaves
     └── return  # [this level's <select> leaf, ...the deeper levels' leaves]
 ```
 
